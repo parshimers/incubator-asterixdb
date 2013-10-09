@@ -126,7 +126,7 @@ public class UnnestToDataScanRule implements IAlgebraicRewriteRule {
                 return true;
             }
 
-            if (fid.equals(AsterixBuiltinFunctions.FEED_INGEST)) {
+            if (fid.equals(AsterixBuiltinFunctions.FEED_COLLECT)) {
                 if (unnest.getPositionalVariable() != null) {
                     throw new AlgebricksException("No positional variables are allowed over datasets.");
                 }

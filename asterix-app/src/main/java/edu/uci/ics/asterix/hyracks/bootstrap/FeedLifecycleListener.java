@@ -63,7 +63,7 @@ import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityDetails;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityType;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
 import edu.uci.ics.asterix.metadata.feeds.BuiltinFeedPolicies;
-import edu.uci.ics.asterix.metadata.feeds.FeedIntakeOperatorDescriptor;
+import edu.uci.ics.asterix.metadata.feeds.FeedCollectOperatorDescriptor;
 import edu.uci.ics.asterix.metadata.feeds.FeedManagerElectMessage;
 import edu.uci.ics.asterix.metadata.feeds.FeedMetaOperatorDescriptor;
 import edu.uci.ics.asterix.metadata.feeds.FeedPolicyAccessor;
@@ -168,11 +168,11 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
         FeedConnectionId feedId = null;
         Map<String, String> feedPolicy = null;
         for (IOperatorDescriptor opDesc : spec.getOperatorMap().values()) {
-            if (!(opDesc instanceof FeedIntakeOperatorDescriptor)) {
+            if (!(opDesc instanceof FeedCollectOperatorDescriptor)) {
                 continue;
             }
-            feedId = ((FeedIntakeOperatorDescriptor) opDesc).getFeedId();
-            feedPolicy = ((FeedIntakeOperatorDescriptor) opDesc).getFeedPolicy();
+            feedId = ((FeedCollectOperatorDescriptor) opDesc).getFeedConnectionId();
+            feedPolicy = ((FeedCollectOperatorDescriptor) opDesc).getFeedPolicy();
             feedIngestionJob = true;
             break;
         }
@@ -341,7 +341,7 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
                     }
                 } else if (actualOp instanceof LSMTreeIndexInsertUpdateDeleteOperatorDescriptor) {
                     storageOperatorIds.add(entry.getKey());
-                } else if (actualOp instanceof FeedIntakeOperatorDescriptor) {
+                } else if (actualOp instanceof FeedCollectOperatorDescriptor) {
                     ingestOperatorIds.add(entry.getKey());
                 }
             }
@@ -1038,7 +1038,7 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
                 Thread.sleep(4000);
                 MetadataManager.INSTANCE.init();
                 ctx = MetadataManager.INSTANCE.beginTransaction();
-                List<FeedActivity> activeFeeds = MetadataManager.INSTANCE.getActiveFeeds(ctx, null, null);
+                List<FeedActivity> activeFeeds = MetadataManager.INSTANCE.getActiveFeedsServingADataset(ctx, null, null);
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Attempt to resume feeds that were active prior to instance shutdown!");
                     LOGGER.info("Number of feeds affected:" + activeFeeds.size());

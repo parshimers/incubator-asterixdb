@@ -737,11 +737,23 @@ public class MetadataManager implements IMetadataManager {
     }
 
     @Override
-    public List<FeedActivity> getActiveFeeds(MetadataTransactionContext ctx, String dataverse, String dataset)
+    public List<FeedActivity> getActiveFeedsServingADataset(MetadataTransactionContext ctx, String dataverse, String dataset)
             throws MetadataException {
         List<FeedActivity> feedActivities = null;
         try {
-            feedActivities = metadataNode.getActiveFeeds(ctx.getJobId(), dataverse, dataset);
+            feedActivities = metadataNode.getActiveFeedsServingADataset(ctx.getJobId(), dataverse, dataset);
+        } catch (RemoteException e) {
+            throw new MetadataException(e);
+        }
+        return feedActivities;
+    }
+    
+    @Override
+    public List<FeedActivity> getActiveFeedConnections(MetadataTransactionContext ctx, String dataverse, String feedName)
+            throws MetadataException {
+        List<FeedActivity> feedActivities = null;
+        try {
+            feedActivities = metadataNode.getActiveFeedsServingADataset(ctx.getJobId(), dataverse, feedName);
         } catch (RemoteException e) {
             throw new MetadataException(e);
         }
@@ -761,12 +773,14 @@ public class MetadataManager implements IMetadataManager {
 
     @Override
     public void dropFeed(MetadataTransactionContext ctx, String dataverse, String feedName) throws MetadataException {
+        Feed feed = null;
         try {
+            feed = metadataNode.getFeed(ctx.getJobId(), dataverse, feedName);
             metadataNode.dropFeed(ctx.getJobId(), dataverse, feedName);
         } catch (RemoteException e) {
             throw new MetadataException(e);
         }
-        ctx.dropFeed(dataverse, feedName);
+        ctx.dropFeed(feed);
     }
 
     @Override

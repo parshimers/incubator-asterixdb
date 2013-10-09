@@ -73,4 +73,30 @@ public class FeedOperations {
         return spec;
 
     }
+
+    public static JobSpecification buildFeedIntakeJobSpec(String dataverseName, String feedName,
+            AqlMetadataProvider metadataProvider) throws AsterixException, AlgebricksException {
+
+        JobSpecification spec = JobSpecificationUtils.createJobSpecification();
+        IOperatorDescriptor feedMessenger;
+        AlgebricksPartitionConstraint messengerPc;
+
+        try {
+            Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p = metadataProvider.buildFeedIntakeRuntime(spec,
+                    dataverseName, feedName);
+            feedMessenger = p.first;
+            messengerPc = p.second;
+        } catch (AlgebricksException e) {
+            throw new AsterixException(e);
+        }
+
+        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, feedMessenger);
+
+        NullSinkOperatorDescriptor nullSink = new NullSinkOperatorDescriptor(spec);
+        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, nullSink, messengerPc);
+        spec.connect(new OneToOneConnectorDescriptor(spec), feedMessenger, 0, nullSink, 0);
+        spec.addRoot(nullSink);
+        return spec;
+
+    }
 }

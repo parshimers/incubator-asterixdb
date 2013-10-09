@@ -25,8 +25,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FeedMessageService;
 import edu.uci.ics.asterix.common.feeds.FeedRuntime.FeedRuntimeType;
+import edu.uci.ics.asterix.common.feeds.IFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.SuperFeedManager;
 import edu.uci.ics.asterix.common.feeds.SuperFeedManager.FeedReportMessageType;
@@ -42,12 +44,15 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
  * and reports them to the Super Feed Manager chosen for the feed. In addition any
  * congestion experienced by the operator is also reported.
  */
-public class FeedFrameWriter implements IFrameWriter {
+public class FeedFrameWriter implements IFeedFrameWriter {
 
     private static final Logger LOGGER = Logger.getLogger(FeedFrameWriter.class.getName());
 
     /** The threshold for the time required in pushing a frame to the network. **/
     public static final long FLUSH_THRESHOLD_TIME = 5000; // 5 seconds
+
+    /** A unique identifier for the feed connection. **/
+    private final FeedConnectionId feedConnectionId;
 
     /** Actual frame writer provided to an operator. **/
     private IFrameWriter writer;
@@ -103,25 +108,27 @@ public class FeedFrameWriter implements IFrameWriter {
         STORE
     }
 
-    public FeedFrameWriter(IFrameWriter writer, IOperatorNodePushable nodePushable, FeedConnectionId feedId,
+    public FeedFrameWriter(IFrameWriter writer, IOperatorNodePushable nodePushable, FeedConnectionId feedConnectionId,
             FeedPolicyEnforcer policyEnforcer, String nodeId, FeedRuntimeType feedRuntimeType, int partition,
             FrameTupleAccessor fta, IFeedManager feedManager) {
+        this.feedConnectionId = feedConnectionId;
         this.writer = writer;
         this.mode = Mode.FORWARD;
         this.nodePushable = nodePushable;
         this.reportHealth = policyEnforcer.getFeedPolicyAccessor().collectStatistics();
         if (reportHealth) {
             timer = new Timer();
-            healthMonitor = new HealthMonitor(feedId, nodeId, feedRuntimeType, partition, timer, fta, feedManager);
+            healthMonitor = new HealthMonitor(feedConnectionId, nodeId, feedRuntimeType, partition, timer, fta,
+                    feedManager);
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Statistics collection enabled for the feed " + feedId + " " + feedRuntimeType + " ["
-                        + partition + "]");
+                LOGGER.info("Statistics collection enabled for the feed " + feedConnectionId + " " + feedRuntimeType
+                        + " [" + partition + "]");
             }
             timer.scheduleAtFixedRate(healthMonitor, 0, FLUSH_THRESHOLD_TIME);
         } else {
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Statistics collection *not* enabled for the feed " + feedId + " " + feedRuntimeType + " ["
-                        + partition + "]");
+                LOGGER.info("Statistics collection *not* enabled for the feed " + feedConnectionId + " "
+                        + feedRuntimeType + " [" + partition + "]");
             }
         }
         this.fta = fta;
@@ -204,7 +211,7 @@ public class FeedFrameWriter implements IFrameWriter {
         private boolean collectThroughput;
         private FeedMessageService mesgService;
 
-        private final FeedConnectionId feedId;
+        private final FeedConnectionId feedConnectionId;
         private final String nodeId;
         private final FeedRuntimeType feedRuntimeType;
         private final int partition;
@@ -215,12 +222,12 @@ public class FeedFrameWriter implements IFrameWriter {
         public HealthMonitor(FeedConnectionId feedId, String nodeId, FeedRuntimeType feedRuntimeType, int partition,
                 Timer timer, FrameTupleAccessor fta, IFeedManager feedManager) {
             this.state = FramePushState.INTIALIZED;
-            this.feedId = feedId;
+            this.feedConnectionId = feedId;
             this.nodeId = nodeId;
             this.feedRuntimeType = feedRuntimeType;
             this.partition = partition;
             this.period = FLUSH_THRESHOLD_TIME;
-            this.collectThroughput = feedRuntimeType.equals(FeedRuntimeType.INGESTION);
+            this.collectThroughput = feedRuntimeType.equals(FeedRuntimeType.COLLECT);
             this.fta = fta;
             this.feedManager = feedManager;
         }
@@ -236,7 +243,7 @@ public class FeedFrameWriter implements IFrameWriter {
          */
         public void reset() {
             mesgService = null;
-            collectThroughput = feedRuntimeType.equals(FeedRuntimeType.INGESTION);
+            collectThroughput = feedRuntimeType.equals(FeedRuntimeType.COLLECT);
         }
 
         public void notifyFinishFrameFlushActivity() {
@@ -268,7 +275,8 @@ public class FeedFrameWriter implements IFrameWriter {
             if (mesgService == null) {
                 waitTillMessageServiceIsUp();
             }
-            String feedRep = feedId.getDataverse() + ":" + feedId.getFeedName() + ":" + feedId.getDatasetName();
+            String feedRep = feedConnectionId.getFeedId().getDataverse() + ":"
+                    + feedConnectionId.getFeedId().getFeedName() + ":" + feedConnectionId.getDatasetName();
             String message = mesgType.name().toLowerCase() + FeedMessageService.MessageSeparator + feedRep
                     + FeedMessageService.MessageSeparator + feedRuntimeType + FeedMessageService.MessageSeparator
                     + partition + FeedMessageService.MessageSeparator + value + FeedMessageService.MessageSeparator
@@ -278,15 +286,15 @@ public class FeedFrameWriter implements IFrameWriter {
                 mesgService.sendMessage(message);
             } catch (IOException ioe) {
                 if (LOGGER.isLoggable(Level.WARNING)) {
-                    LOGGER.warning("Unable to send feed report to Super Feed Manager for feed " + feedId + " "
-                            + feedRuntimeType + "[" + partition + "]");
+                    LOGGER.warning("Unable to send feed report to Super Feed Manager for feed " + feedConnectionId
+                            + " " + feedRuntimeType + "[" + partition + "]");
                 }
             }
         }
 
         private void waitTillMessageServiceIsUp() {
             while (mesgService == null) {
-                mesgService = feedManager.getFeedMessageService(feedId);
+                mesgService = feedManager.getFeedConnectionManager().getFeedMessageService(feedConnectionId);
                 if (mesgService == null) {
                     try {
                         /**
@@ -330,7 +338,7 @@ public class FeedFrameWriter implements IFrameWriter {
     @Override
     public void fail() throws HyracksDataException {
         writer.fail();
-        if (healthMonitor != null && !healthMonitor.feedRuntimeType.equals(FeedRuntimeType.INGESTION)) {
+        if (healthMonitor != null && !healthMonitor.feedRuntimeType.equals(FeedRuntimeType.COLLECT)) {
             healthMonitor.deactivate();
         } else {
             healthMonitor.reset();
@@ -376,6 +384,11 @@ public class FeedFrameWriter implements IFrameWriter {
 
     public void reset() {
         healthMonitor.reset();
+    }
+
+    @Override
+    public FeedId getFeedId() {
+        return feedConnectionId.getFeedId();
     }
 
 }

@@ -12,11 +12,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.asterix.metadata.feeds;
+package edu.uci.ics.asterix.common.feeds;
 
-import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
-
-public interface IAdapterExecutor {
+public interface IAdapterRuntimeManager {
 
     /**
      * @throws Exception
@@ -31,6 +29,11 @@ public interface IAdapterExecutor {
     /**
      * @return
      */
-    public FeedConnectionId getFeedId();
+    public FeedId getFeedId();
+
+    /**
+     * @return
+     */
+    public IFeedAdapter getFeedAdapter();
 
 }

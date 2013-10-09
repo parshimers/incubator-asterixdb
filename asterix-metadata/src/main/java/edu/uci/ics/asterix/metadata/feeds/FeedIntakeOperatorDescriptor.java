@@ -14,109 +14,55 @@
  */
 package edu.uci.ics.asterix.metadata.feeds;
 
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
-import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
-import edu.uci.ics.asterix.common.feeds.FeedRuntime.FeedRuntimeId;
-import edu.uci.ics.asterix.common.feeds.FeedRuntime.FeedRuntimeType;
-import edu.uci.ics.asterix.common.feeds.IFeedManager;
-import edu.uci.ics.asterix.om.types.ARecordType;
-import edu.uci.ics.asterix.om.types.IAType;
+import edu.uci.ics.asterix.common.feeds.FeedId;
+import edu.uci.ics.asterix.common.feeds.FeedIngestionId;
+import edu.uci.ics.asterix.common.feeds.IDatasourceAdapter;
+import edu.uci.ics.asterix.common.feeds.IFeedAdapter;
+import edu.uci.ics.asterix.common.feeds.IFeedIngestionManager;
+import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorNodePushable;
 import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
-import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 
 /**
- * FeedIntakeOperatorDescriptor is responsible for ingesting data from an external source. This
- * operator uses a user specified for a built-in adaptor for retrieving data from the external
- * data source.
+ * Sends a control message to the registered message queue for feed specified by its feedId.
  */
 public class FeedIntakeOperatorDescriptor extends AbstractSingleActivityOperatorDescriptor {
 
     private static final long serialVersionUID = 1L;
-    private static final Logger LOGGER = Logger.getLogger(FeedIntakeOperatorDescriptor.class.getName());
 
-    /** The type associated with the ADM data output from the feed adaptor */
-    private final IAType outptuType;
+    private final FeedId feedId;
 
-    /** unique identifier for a feed instance. */
-    private final FeedConnectionId feedId;
+    private final IAdapterFactory adapterFactory;
 
-    /** Map representation of policy parameters */
-    private final Map<String, String> feedPolicy;
-
-    /** The adaptor factory that is used to create an instance of the feed adaptor **/
-    private IAdapterFactory adapterFactory;
-
-    /** The (singleton) instance of IFeedManager **/
-    private IFeedManager feedManager;
-
-    public FeedIntakeOperatorDescriptor(JobSpecification spec, FeedConnectionId feedId, IAdapterFactory adapterFactory,
-            ARecordType atype, RecordDescriptor rDesc, Map<String, String> feedPolicy) {
+    public FeedIntakeOperatorDescriptor(JobSpecification spec, String dataverse, String feedName,
+            IAdapterFactory adapterFactory) {
         super(spec, 0, 1);
-        recordDescriptors[0] = rDesc;
+        this.feedId = new FeedId(dataverse, feedName);
         this.adapterFactory = adapterFactory;
-        this.outptuType = atype;
-        this.feedId = feedId;
-        this.feedPolicy = feedPolicy;
     }
 
+    @Override
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
-            IRecordDescriptorProvider recordDescProvider, final int partition, int nPartitions)
-            throws HyracksDataException {
-        IFeedAdapter adapter = null;
-        FeedRuntimeId feedRuntimeId = new FeedRuntimeId(FeedRuntimeType.INGESTION, feedId, partition);
+            IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
+        IDatasourceAdapter adapter;
+        try {
+            adapter = adapterFactory.createAdapter(ctx, partition);
+        } catch (Exception e) {
+            throw new HyracksDataException(e);
+        }
         IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject();
-        this.feedManager = runtimeCtx.getFeedManager();
-        IngestionRuntime ingestionRuntime = (IngestionRuntime) feedManager.getFeedRuntime(feedRuntimeId);
-        try {
-            if (ingestionRuntime == null) {
-                // create an instance of a feed adaptor to ingest data.
-                adapter = (IFeedAdapter) adapterFactory.createAdapter(ctx, partition);
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Beginning new feed:" + feedId);
-                }
-            } else {
-                // retrieve the instance of the feed adaptor used in previous failed execution.
-                adapter = ((IngestionRuntime) ingestionRuntime).getAdapterRuntimeManager().getFeedAdapter();
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Resuming old feed:" + feedId);
-                }
-            }
-        } catch (Exception exception) {
-            if (LOGGER.isLoggable(Level.SEVERE)) {
-                LOGGER.severe("Initialization of the feed adaptor failed with exception " + exception);
-            }
-            throw new HyracksDataException("Initialization of the feed adapter failed", exception);
-        }
-        return new FeedIntakeOperatorNodePushable(ctx, feedId, adapter, feedPolicy, partition, ingestionRuntime);
+        IFeedIngestionManager feedIngestionManager = runtimeCtx.getFeedManager().getFeedIngestionManager();
+        FeedIngestionId feedIngestionId = new FeedIngestionId(feedId, partition);
+
+        IngestionRuntime ingestionRuntime = (IngestionRuntime) feedIngestionManager
+                .getIngestionRuntime(feedIngestionId);
+        return new FeedIntakeOperatorNodePushable(ctx, feedId, (IFeedAdapter) adapter, partition, ingestionRuntime);
     }
 
-    public FeedConnectionId getFeedId() {
-        return feedId;
-    }
-
-    public Map<String, String> getFeedPolicy() {
-        return feedPolicy;
-    }
-
-    public IAdapterFactory getAdapterFactory() {
-        return adapterFactory;
-    }
-
-    public IAType getOutputType() {
-        return outptuType;
-    }
-
-    public RecordDescriptor getRecordDescriptor() {
-        return recordDescriptors[0];
-    }
 }

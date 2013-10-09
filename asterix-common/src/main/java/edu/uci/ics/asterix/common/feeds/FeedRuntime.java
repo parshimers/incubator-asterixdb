@@ -21,7 +21,7 @@ import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 public class FeedRuntime {
 
     public enum FeedRuntimeType {
-        INGESTION,
+        COLLECT,
         COMPUTE,
         STORAGE,
         COMMIT
@@ -33,14 +33,8 @@ public class FeedRuntime {
     /** The runtime state: @see FeedRuntimeState */
     protected FeedRuntimeState runtimeState;
 
-    public FeedRuntime(FeedConnectionId feedId, int partition, FeedRuntimeType feedRuntimeType) {
-        this.feedRuntimeId = new FeedRuntimeId(feedRuntimeType, feedId, partition);
-    }
-
-    public FeedRuntime(FeedConnectionId feedId, int partition, FeedRuntimeType feedRuntimeType,
-            FeedRuntimeState runtimeState) {
-        this.feedRuntimeId = new FeedRuntimeId(feedRuntimeType, feedId, partition);
-        this.runtimeState = runtimeState;
+    public FeedRuntime(FeedConnectionId feedConnectionId, int partition, FeedRuntimeType feedRuntimeType) {
+        this.feedRuntimeId = new FeedRuntimeId(feedRuntimeType, feedConnectionId, partition);
     }
 
     @Override
@@ -89,20 +83,20 @@ public class FeedRuntime {
     public static class FeedRuntimeId {
 
         private final FeedRuntimeType feedRuntimeType;
-        private final FeedConnectionId feedId;
+        private final FeedConnectionId feedConnectionId;
         private final int partition;
         private final int hashCode;
 
         public FeedRuntimeId(FeedRuntimeType runtimeType, FeedConnectionId feedId, int partition) {
             this.feedRuntimeType = runtimeType;
-            this.feedId = feedId;
+            this.feedConnectionId = feedId;
             this.partition = partition;
             this.hashCode = (feedId + "[" + partition + "]" + feedRuntimeType).hashCode();
         }
 
         @Override
         public String toString() {
-            return feedId + "[" + partition + "]" + " " + feedRuntimeType;
+            return feedConnectionId + "[" + partition + "]" + " " + feedRuntimeType;
         }
 
         @Override
@@ -114,8 +108,8 @@ public class FeedRuntime {
         public boolean equals(Object o) {
             if (o instanceof FeedRuntimeId) {
                 FeedRuntimeId oid = ((FeedRuntimeId) o);
-                return oid.getFeedId().equals(feedId) && oid.getFeedRuntimeType().equals(feedRuntimeType)
-                        && oid.getPartition() == partition;
+                return oid.getFeedConnectionId().equals(feedConnectionId)
+                        && oid.getFeedRuntimeType().equals(feedRuntimeType) && oid.getPartition() == partition;
             }
             return false;
         }
@@ -124,8 +118,8 @@ public class FeedRuntime {
             return feedRuntimeType;
         }
 
-        public FeedConnectionId getFeedId() {
-            return feedId;
+        public FeedConnectionId getFeedConnectionId() {
+            return feedConnectionId;
         }
 
         public int getPartition() {

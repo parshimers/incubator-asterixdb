@@ -23,9 +23,9 @@ public class FeedMessageService {
     private final FeedConnectionId feedId;
     private final LinkedBlockingQueue<String> inbox;
     private final FeedMessageHandler mesgHandler;
-    private final IFeedManager feedManager;
+    private final IFeedConnectionManager feedManager;
 
-    public FeedMessageService(FeedConnectionId feedId, IFeedManager feedManager) {
+    public FeedMessageService(FeedConnectionId feedId, IFeedConnectionManager feedManager) {
         this.feedId = feedId;
         inbox = new LinkedBlockingQueue<String>();
         mesgHandler = new FeedMessageHandler(inbox, feedId, feedManager);
@@ -50,9 +50,10 @@ public class FeedMessageService {
         private final FeedConnectionId feedId;
         private Socket sfmSocket;
         private boolean process = true;
-        private final IFeedManager feedManager;
+        private final IFeedConnectionManager feedManager;
 
-        public FeedMessageHandler(LinkedBlockingQueue<String> inbox, FeedConnectionId feedId, IFeedManager feedManager) {
+        public FeedMessageHandler(LinkedBlockingQueue<String> inbox, FeedConnectionId feedId,
+                IFeedConnectionManager feedManager) {
             this.inbox = inbox;
             this.feedId = feedId;
             this.feedManager = feedManager;
@@ -105,7 +106,7 @@ public class FeedMessageService {
             try {
                 FeedRuntimeManager runtimeManager = feedManager.getFeedRuntimeManager(feedId);
                 sfmDirServiceSocket = runtimeManager.createClientSocket(sfm.getHost(), sfm.getPort(),
-                        IFeedManager.SOCKET_CONNECT_TIMEOUT);
+                        IFeedConnectionManager.SOCKET_CONNECT_TIMEOUT);
                 if (sfmDirServiceSocket == null) {
                     if (LOGGER.isLoggable(Level.WARNING)) {
                         LOGGER.warning("Unable to connect to " + sfm.getHost() + "[" + sfm.getPort() + "]");
@@ -132,7 +133,7 @@ public class FeedMessageService {
                                 + sfm.getHost() + " " + port);
                     }
                     sfmSocket = runtimeManager.createClientSocket(sfm.getHost(), port,
-                            IFeedManager.SOCKET_CONNECT_TIMEOUT);
+                            IFeedConnectionManager.SOCKET_CONNECT_TIMEOUT);
                 }
             } catch (Exception e) {
                 e.printStackTrace();

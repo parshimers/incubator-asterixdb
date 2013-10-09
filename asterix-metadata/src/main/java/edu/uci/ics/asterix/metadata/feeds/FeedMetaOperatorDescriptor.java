@@ -151,10 +151,10 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
         public void open() throws HyracksDataException {
             FeedRuntimeId runtimeId = new FeedRuntimeId(runtimeType, feedId, partition);
             try {
-                feedRuntime = feedManager.getFeedRuntime(runtimeId);
+                feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
                 if (feedRuntime == null) {
                     feedRuntime = new FeedRuntime(feedId, partition, runtimeType);
-                    feedManager.registerFeedRuntime(feedRuntime);
+                    feedManager.getFeedConnectionManager().registerFeedRuntime(feedRuntime);
                     if (LOGGER.isLoggable(Level.WARNING)) {
                         LOGGER.warning("Did not find a saved state from a previous zombie, starting a new instance for "
                                 + runtimeType + " node.");
@@ -229,7 +229,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                         LOGGER.warning("Saved feed compute runtime for revivals" + feedRuntime.getFeedRuntimeId());
                     }
                 } else {
-                    feedManager.deRegisterFeedRuntime(feedRuntime.getFeedRuntimeId());
+                    feedManager.getFeedConnectionManager().deRegisterFeedRuntime(feedRuntime.getFeedRuntimeId());
                     if (LOGGER.isLoggable(Level.WARNING)) {
                         LOGGER.warning("No state to save, de-registered feed runtime " + feedRuntime.getFeedRuntimeId());
                     }
@@ -241,7 +241,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
         @Override
         public void close() throws HyracksDataException {
             coreOperatorNodePushable.close();
-            feedManager.deRegisterFeedRuntime(feedRuntime.getFeedRuntimeId());
+            feedManager.getFeedConnectionManager().deRegisterFeedRuntime(feedRuntime.getFeedRuntimeId());
         }
 
     }

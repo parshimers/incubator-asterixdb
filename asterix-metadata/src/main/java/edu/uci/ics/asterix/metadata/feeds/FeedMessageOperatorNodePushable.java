@@ -18,10 +18,12 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
+import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedRuntime;
 import edu.uci.ics.asterix.common.feeds.FeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.FeedRuntime.FeedRuntimeType;
+import edu.uci.ics.asterix.common.feeds.IFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.SuperFeedManager;
 import edu.uci.ics.hyracks.api.application.INCApplicationContext;
@@ -36,15 +38,15 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
 
     private static final Logger LOGGER = Logger.getLogger(FeedMessageOperatorNodePushable.class.getName());
 
-    private final FeedConnectionId feedId;
+    private final FeedConnectionId feedConnectionId;
     private final IFeedMessage feedMessage;
     private final int partition;
     private final IHyracksTaskContext ctx;
     private final IFeedManager feedManager;
 
-    public FeedMessageOperatorNodePushable(IHyracksTaskContext ctx, FeedConnectionId feedId, IFeedMessage feedMessage,
+    public FeedMessageOperatorNodePushable(IHyracksTaskContext ctx, FeedConnectionId feedConnectionId, IFeedMessage feedMessage,
             int partition, int nPartitions) {
-        this.feedId = feedId;
+        this.feedConnectionId = feedConnectionId;
         this.feedMessage = feedMessage;
         this.partition = partition;
         this.ctx = ctx;
@@ -57,29 +59,30 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
     public void initialize() throws HyracksDataException {
         try {
             writer.open();
-            FeedRuntimeId runtimeId = new FeedRuntimeId(FeedRuntimeType.INGESTION, feedId, partition);
-            FeedRuntime feedRuntime = feedManager.getFeedRuntime(runtimeId);
-            boolean ingestionLocation = feedRuntime != null;
+            FeedRuntimeId runtimeId = new FeedRuntimeId(FeedRuntimeType.COLLECT, feedConnectionId, partition);
+            FeedRuntime feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
+            boolean collectionLocation = feedRuntime != null;
 
             switch (feedMessage.getMessageType()) {
                 case END:
                     if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("Ending feed:" + feedId);
+                        LOGGER.info("Ending feed:" + feedConnectionId);
                     }
 
-                    if (ingestionLocation) {
-                        AdapterRuntimeManager adapterRuntimeMgr = ((IngestionRuntime) feedRuntime)
-                                .getAdapterRuntimeManager();
-                        adapterRuntimeMgr.stop();
+                    if (collectionLocation) {
+                        DistributeFeedFrameWriter frameWriter = ((CollectionRuntime) feedRuntime).getIngestionRuntime()
+                                .getFeedWriter();
+                        IFeedFrameWriter recipientFrameWriter = ((CollectionRuntime) feedRuntime).getFrameWriter();
+                        frameWriter.unsubscribeFeed(recipientFrameWriter);
                         if (LOGGER.isLoggable(Level.INFO)) {
-                            LOGGER.info("Terminating ingestion for :" + feedId);
+                            LOGGER.info("Unsubscribed from feed :" + feedConnectionId);
                         }
                     }
                     break;
 
                 case SUPER_FEED_MANAGER_ELECT:
                     if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("Registering Supers Feed Manager for :" + feedId);
+                        LOGGER.info("Registering Supers Feed Manager for :" + feedConnectionId);
                     }
                     FeedManagerElectMessage mesg = ((FeedManagerElectMessage) feedMessage);
                     SuperFeedManager sfm = new SuperFeedManager(mesg.getFeedId(), mesg.getHost(), mesg.getNodeId(),
@@ -92,9 +95,9 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                         } else {
                             Thread.sleep(5000);
                         }
-                        feedManager.registerSuperFeedManager(feedId, sfm);
+                        feedManager.getFeedConnectionManager().registerSuperFeedManager(feedConnectionId, sfm);
                         if (LOGGER.isLoggable(Level.INFO)) {
-                            LOGGER.info("Registered super feed mgr " + sfm + " for feed " + feedId);
+                            LOGGER.info("Registered super feed mgr " + sfm + " for feed " + feedConnectionId);
                         }
                     }
                     break;

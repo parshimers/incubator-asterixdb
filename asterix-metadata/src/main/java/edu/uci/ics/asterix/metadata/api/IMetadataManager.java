@@ -531,8 +531,8 @@ public interface IMetadataManager {
      * @return
      * @throws MetadataException
      */
-    public List<FeedActivity> getActiveFeeds(MetadataTransactionContext ctx, String dataverse, String dataset)
-            throws MetadataException;
+    public List<FeedActivity> getActiveFeedsServingADataset(MetadataTransactionContext ctx, String dataverse,
+            String dataset) throws MetadataException;
 
     public List<FeedActivity> getConnectFeedActivitiesForFeed(MetadataTransactionContext ctx, String dataverse,
             String dataset) throws MetadataException;
@@ -605,6 +605,19 @@ public interface IMetadataManager {
      * @throws RemoteException
      */
     public List<Library> getDataverseLibraries(MetadataTransactionContext ctx, String dataverseName)
+            throws MetadataException;
+
+    /**
+     * @param ctx
+     *            MetadataTransactionContext of an active metadata transaction.
+     * @param dataverse
+     *            Dataverse asociated with the feed
+     * @param feedName
+     *            Name of the feed
+     * @return
+     * @throws MetadataException
+     */
+    List<FeedActivity> getActiveFeedConnections(MetadataTransactionContext ctx, String dataverse, String feedName)
             throws MetadataException;
 
 }

@@ -91,7 +91,7 @@ public class ConnectFeedStatement implements Statement {
 
         org.apache.commons.lang3.tuple.Pair<IAdapterFactory, ARecordType> factoryOutput = null;
         try {
-            factoryOutput = FeedUtil.getFeedFactoryAndOutput(sourceFeed, mdTxnCtx);
+            factoryOutput = FeedUtil.getPrimaryFeedFactoryAndOutput(sourceFeed, mdTxnCtx);
             adapterOutputType = factoryOutput.getRight().getTypeName();
         } catch (AlgebricksException ae) {
             throw new MetadataException(ae);

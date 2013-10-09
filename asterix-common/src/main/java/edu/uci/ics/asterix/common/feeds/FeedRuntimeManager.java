@@ -37,7 +37,7 @@ public class FeedRuntimeManager {
     private static Logger LOGGER = Logger.getLogger(FeedRuntimeManager.class.getName());
 
     private final FeedConnectionId feedId;
-    private final IFeedManager feedManager;
+    private final IFeedConnectionManager feedConnectionManager;
     private SuperFeedManager superFeedManager;
     private final Map<FeedRuntimeId, FeedRuntime> feedRuntimes;
     private final ExecutorService executorService;
@@ -45,12 +45,12 @@ public class FeedRuntimeManager {
     private SocketFactory socketFactory = new SocketFactory();
     private final LinkedBlockingQueue<String> feedReportQueue;
 
-    public FeedRuntimeManager(FeedConnectionId feedId, IFeedManager feedManager) {
+    public FeedRuntimeManager(FeedConnectionId feedId, IFeedConnectionManager feedConnectionManager) {
         this.feedId = feedId;
         feedRuntimes = new ConcurrentHashMap<FeedRuntimeId, FeedRuntime>();
         executorService = Executors.newCachedThreadPool();
         feedReportQueue = new LinkedBlockingQueue<String>();
-        this.feedManager = feedManager;
+        this.feedConnectionManager = feedConnectionManager;
     }
 
     public void close(boolean closeAll) throws IOException {
@@ -88,7 +88,7 @@ public class FeedRuntimeManager {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Started Super Feed Manager for feed :" + feedId);
         }
-        this.messageService = new FeedMessageService(feedId, feedManager);
+        this.messageService = new FeedMessageService(feedId, feedConnectionManager);
         messageService.start();
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Started Feed Message Service for feed :" + feedId);
@@ -107,7 +107,7 @@ public class FeedRuntimeManager {
         feedRuntimes.put(runtimeId, feedRuntime);
     }
 
-    public void deregisterFeedRuntime(FeedRuntimeId runtimeId)  {
+    public void deregisterFeedRuntime(FeedRuntimeId runtimeId) {
         feedRuntimes.remove(runtimeId);
         if (feedRuntimes.isEmpty()) {
             synchronized (this) {
@@ -115,7 +115,7 @@ public class FeedRuntimeManager {
                     if (LOGGER.isLoggable(Level.INFO)) {
                         LOGGER.info("De-registering feed");
                     }
-                    feedManager.deregisterFeed(runtimeId.getFeedId());
+                    feedConnectionManager.deregisterFeed(runtimeId.getFeedConnectionId());
                 }
             }
         }

@@ -1411,7 +1411,7 @@ public class MetadataNode implements IMetadataNode {
     }
 
     @Override
-    public List<FeedActivity> getActiveFeeds(JobId jobId, String dataverse, String dataset) throws MetadataException,
+    public List<FeedActivity> getActiveFeedsServingADataset(JobId jobId, String dataverse, String dataset) throws MetadataException,
             RemoteException {
         List<FeedActivity> activeFeeds = new ArrayList<FeedActivity>();
         Map<FeedConnectionId, FeedActivity> aFeeds = new HashMap<FeedConnectionId, FeedActivity>();

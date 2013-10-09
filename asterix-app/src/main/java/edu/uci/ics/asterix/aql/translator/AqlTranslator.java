@@ -43,6 +43,8 @@ import edu.uci.ics.asterix.aql.expression.CreateDataverseStatement;
 import edu.uci.ics.asterix.aql.expression.CreateFeedStatement;
 import edu.uci.ics.asterix.aql.expression.CreateFunctionStatement;
 import edu.uci.ics.asterix.aql.expression.CreateIndexStatement;
+import edu.uci.ics.asterix.aql.expression.CreatePrimaryFeedStatement;
+import edu.uci.ics.asterix.aql.expression.CreateSecondaryFeedStatement;
 import edu.uci.ics.asterix.aql.expression.DatasetDecl;
 import edu.uci.ics.asterix.aql.expression.DataverseDecl;
 import edu.uci.ics.asterix.aql.expression.DataverseDropStatement;
@@ -98,6 +100,8 @@ import edu.uci.ics.asterix.metadata.entities.Function;
 import edu.uci.ics.asterix.metadata.entities.Index;
 import edu.uci.ics.asterix.metadata.entities.InternalDatasetDetails;
 import edu.uci.ics.asterix.metadata.entities.NodeGroup;
+import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
+import edu.uci.ics.asterix.metadata.entities.SecondaryFeed;
 import edu.uci.ics.asterix.metadata.feeds.BuiltinFeedPolicies;
 import edu.uci.ics.asterix.metadata.feeds.FeedUtil;
 import edu.uci.ics.asterix.om.types.ARecordType;
@@ -276,10 +280,10 @@ public class AqlTranslator extends AbstractAqlTranslator {
                     break;
                 }
 
-                case CREATE_FEED: {
+                case CREATE_PRIMARY_FEED:
+                case CREATE_SECONDARY_FEED:
                     handleCreateFeedStatement(metadataProvider, stmt, hcc);
                     break;
-                }
 
                 case DROP_FEED: {
                     handleDropFeedStatement(metadataProvider, stmt, hcc);
@@ -667,8 +671,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 }
             }
 
-            List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getActiveFeeds(mdTxnCtx, dataverseName,
-                    datasetName);
+            List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getActiveFeedsServingADataset(mdTxnCtx,
+                    dataverseName, datasetName);
             if (feedActivities != null && !feedActivities.isEmpty()) {
                 StringBuilder builder = new StringBuilder();
 
@@ -837,7 +841,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
             }
 
             //# disconnect all feeds from any datasets in the dataverse.
-            List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getActiveFeeds(mdTxnCtx, dataverseName, null);
+            List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getActiveFeedsServingADataset(mdTxnCtx,
+                    dataverseName, null);
             DisconnectFeedStatement disStmt = null;
             Identifier dvId = new Identifier(dataverseName);
             for (FeedActivity fa : feedActivities) {
@@ -976,8 +981,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
             if (ds.getDatasetType() == DatasetType.INTERNAL) {
                 // prepare job spec(s) that would disconnect any active feeds involving the dataset.
-                List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getActiveFeeds(mdTxnCtx, dataverseName,
-                        datasetName);
+                List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getActiveFeedsServingADataset(mdTxnCtx,
+                        dataverseName, datasetName);
                 List<JobSpecification> disconnectFeedJobSpecs = new ArrayList<JobSpecification>();
                 if (feedActivities != null && !feedActivities.isEmpty()) {
                     for (FeedActivity fa : feedActivities) {
@@ -990,7 +995,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                         }
                     }
                 }
-                
+
                 //#. prepare jobs to drop the datatset and the indexes in NC
                 List<Index> indexes = MetadataManager.INSTANCE.getDatasetIndexes(mdTxnCtx, dataverseName, datasetName);
                 for (int j = 0; j < indexes.size(); j++) {
@@ -1102,8 +1107,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
                         + dataverseName);
             }
 
-            List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getActiveFeeds(mdTxnCtx, dataverseName,
-                    datasetName);
+            List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getActiveFeedsServingADataset(mdTxnCtx,
+                    dataverseName, datasetName);
             if (feedActivities != null && !feedActivities.isEmpty()) {
                 StringBuilder builder = new StringBuilder();
 
@@ -1440,13 +1445,11 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
         String dataverseName = null;
         String feedName = null;
-        String adaptorName = null;
         Feed feed = null;
         try {
             CreateFeedStatement cfs = (CreateFeedStatement) stmt;
             dataverseName = getActiveDataverseName(cfs.getDataverseName());
             feedName = cfs.getFeedName().getValue();
-            adaptorName = cfs.getAdaptorName();
 
             feed = MetadataManager.INSTANCE.getFeed(metadataProvider.getMetadataTxnContext(), dataverseName, feedName);
             if (feed != null) {
@@ -1454,12 +1457,24 @@ public class AqlTranslator extends AbstractAqlTranslator {
                     MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
                     return;
                 } else {
-                    throw new AlgebricksException("A feed with this name " + adaptorName + " already exists.");
+                    throw new AlgebricksException("A feed with this name " + feedName + " already exists.");
                 }
             }
 
-            feed = new Feed(dataverseName, feedName, adaptorName, cfs.getAdaptorConfiguration(),
-                    cfs.getAppliedFunction());
+            switch (stmt.getKind()) {
+                case CREATE_PRIMARY_FEED:
+                    CreatePrimaryFeedStatement cpfs = (CreatePrimaryFeedStatement) stmt;
+                    String adaptorName = cpfs.getAdaptorName();
+                    feed = new PrimaryFeed(dataverseName, feedName, adaptorName, cpfs.getAdaptorConfiguration(),
+                            cfs.getAppliedFunction());
+                    break;
+                case CREATE_SECONDARY_FEED:
+                    CreateSecondaryFeedStatement csfs = (CreateSecondaryFeedStatement) stmt;
+                    feed = new SecondaryFeed(dataverseName, feedName, csfs.getSourceFeedDataverse(),
+                            csfs.getSourceFeedName(), csfs.getAppliedFunction());
+                    break;
+            }
+
             MetadataManager.INSTANCE.addFeed(metadataProvider.getMetadataTxnContext(), feed);
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
         } catch (Exception e) {
@@ -1556,7 +1571,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                     feedConnId, null);
             boolean isFeedActive = FeedUtil.isFeedActive(recentActivity);
             if (isFeedActive && !cfs.forceConnect()) {
-                throw new AsterixException("Feed " + cfs.getDatasetName().getValue()
+                throw new AsterixException("Feed " + cfs.getFeedName()
                         + " is currently ACTIVE. Operation not supported");
             }
 
@@ -1568,6 +1583,20 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 if (feedPolicy == null) {
                     throw new AsterixException("Unknown feed policy" + cbfs.getPolicyName());
                 }
+            }
+
+            List<FeedActivity> activeFeedConnections = MetadataManager.INSTANCE.getActiveFeedConnections(mdTxnCtx,
+                    dataverseName, cfs.getFeedName());
+
+            boolean createFeedIntakeJob = activeFeedConnections != null && activeFeedConnections.size() > 0;
+            JobSpecification feedIntakeJobSpec = null;
+            if (createFeedIntakeJob) {
+                feedIntakeJobSpec = FeedOperations.buildFeedIntakeJobSpec(dataverseName, feed.getFeedName(),
+                        metadataProvider);
+            }
+            switch (feed.getFeedType()) {
+                case PRIMARY:
+                case SECONDARY:
             }
 
             cfs.initialize(metadataProvider.getMetadataTxnContext(), dataset, feed);

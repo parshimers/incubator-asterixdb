@@ -85,7 +85,7 @@ public class FeedDataProviderServlet extends HttpServlet {
         try {
             MetadataTransactionContext ctx = MetadataManager.INSTANCE.beginTransaction();
             List<FeedActivity> feedActivities = MetadataManager.INSTANCE
-                    .getActiveFeeds(ctx, dataverseName, datasetName);
+                    .getActiveFeedsServingADataset(ctx, dataverseName, datasetName);
             FeedConnectionId feedId = new FeedConnectionId(dataverseName, feedName, datasetName);
             FeedActivity activity = MetadataManager.INSTANCE.getRecentActivityOnFeedConnection(ctx, feedId, null);
             switch(activity.getActivityType()){

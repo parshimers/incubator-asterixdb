@@ -61,9 +61,11 @@ import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityDetails;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
 import edu.uci.ics.asterix.metadata.entities.Index;
 import edu.uci.ics.asterix.metadata.entities.InternalDatasetDetails;
+import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
 import edu.uci.ics.asterix.metadata.feeds.BuiltinFeedPolicies;
 import edu.uci.ics.asterix.metadata.feeds.EndFeedMessage;
 import edu.uci.ics.asterix.metadata.feeds.ExternalDataScanOperatorDescriptor;
+import edu.uci.ics.asterix.metadata.feeds.FeedCollectOperatorDescriptor;
 import edu.uci.ics.asterix.metadata.feeds.FeedIntakeOperatorDescriptor;
 import edu.uci.ics.asterix.metadata.feeds.FeedMessageOperatorDescriptor;
 import edu.uci.ics.asterix.metadata.feeds.FeedUtil;
@@ -281,7 +283,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
         try {
             switch (((AqlDataSource) dataSource).getDatasourceType()) {
                 case FEED:
-                    return buildFeedIntakeRuntime(jobSpec, dataSource);
+                    return buildFeedCollectRuntime(jobSpec, dataSource);
                 case INTERNAL_DATASET:
                     return buildInternalDatasetScan(jobSpec, scanVariables, opSchema, typeEnv, dataSource, context,
                             implConfig);
@@ -409,16 +411,16 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
     }
 
     @SuppressWarnings("rawtypes")
-    public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildFeedIntakeRuntime(JobSpecification jobSpec,
+    public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildFeedCollectRuntime(JobSpecification jobSpec,
             IDataSource<AqlSourceId> dataSource) throws AlgebricksException {
 
         FeedDataSource feedDataSource = (FeedDataSource) dataSource;
-        FeedIntakeOperatorDescriptor feedIngestor = null;
+        FeedCollectOperatorDescriptor feedIngestor = null;
         org.apache.commons.lang3.tuple.Pair<IAdapterFactory, ARecordType> factoryOutput = null;
         AlgebricksPartitionConstraint constraint = null;
 
         try {
-            factoryOutput = FeedUtil.getFeedFactoryAndOutput(feedDataSource.getFeed(), mdTxnCtx);
+            factoryOutput = FeedUtil.getPrimaryFeedFactoryAndOutput((PrimaryFeed) feedDataSource.getFeed(), mdTxnCtx);
             IAdapterFactory adapterFactory = factoryOutput.getLeft();
             ARecordType adapterOutputType = factoryOutput.getRight();
 
@@ -432,16 +434,31 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                 throw new AlgebricksException("Feed not configured with a policy");
             }
             feedPolicy.getProperties().put(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY, feedPolicy.getPolicyName());
-            feedIngestor = new FeedIntakeOperatorDescriptor(jobSpec, new FeedConnectionId(
-                    feedDataSource.getDatasourceDataverse(), feedDataSource.getDatasourceName(), feedDataSource
-                            .getFeedConnectionId().getDatasetName()), adapterFactory, (ARecordType) adapterOutputType,
-                    feedDesc, feedPolicy.getProperties());
+            feedIngestor = new FeedCollectOperatorDescriptor(jobSpec, feedDataSource.getFeedConnectionId(),
+                    feedDataSource.getFeedConnectionId().getFeedId(), (ARecordType) adapterOutputType, feedDesc,
+                    feedPolicy.getProperties());
 
             constraint = factoryOutput.getLeft().getPartitionConstraint();
         } catch (Exception e) {
             throw new AlgebricksException(e);
         }
         return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(feedIngestor, constraint);
+    }
+
+    @SuppressWarnings("rawtypes")
+    public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildFeedIntakeRuntime(JobSpecification jobSpec,
+            PrimaryFeed primaryFeed) throws AlgebricksException {
+        org.apache.commons.lang3.tuple.Pair<IAdapterFactory, ARecordType> factoryOutput = null;
+        AlgebricksPartitionConstraint constraint = null;
+        factoryOutput = FeedUtil.getPrimaryFeedFactoryAndOutput(primaryFeed, mdTxnCtx);
+        IAdapterFactory adapterFactory = factoryOutput.getLeft();
+        ARecordType adapterOutputType = factoryOutput.getRight();
+
+        AlgebricksPartitionConstraint partitionConstraint = adapterFactory.getPartitionConstraint();
+        FeedIntakeOperatorDescriptor feedIngestor = new FeedIntakeOperatorDescriptor(jobSpec, primaryFeed.getDataverseName(), feedName,
+                primaryFeed.getFeedName(), );
+        return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(feedIngestor, partitionConstraint);
+
     }
 
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildSendFeedMessageRuntime(

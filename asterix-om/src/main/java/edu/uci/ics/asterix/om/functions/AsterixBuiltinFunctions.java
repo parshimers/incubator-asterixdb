@@ -240,10 +240,8 @@ public class AsterixBuiltinFunctions {
             "string-join", 2);
 
     public final static FunctionIdentifier DATASET = new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "dataset", 1);
-    public final static FunctionIdentifier FEED_INGEST = new FunctionIdentifier(FunctionConstants.ASTERIX_NS,
-            "feed-ingest", 3);
-    public final static FunctionIdentifier FEED_INTERCEPT = new FunctionIdentifier(FunctionConstants.ASTERIX_NS,
-            "feed-intercept", 1);
+    public final static FunctionIdentifier FEED_COLLECT = new FunctionIdentifier(FunctionConstants.ASTERIX_NS,
+            "feed-collect", 3);
 
     public final static FunctionIdentifier INDEX_SEARCH = new FunctionIdentifier(FunctionConstants.ASTERIX_NS,
             "index-search", FunctionIdentifier.VARARGS);
@@ -965,15 +963,13 @@ public class AsterixBuiltinFunctions {
 
     static {
         datasetFunctions.add(getAsterixFunctionInfo(DATASET));
-        datasetFunctions.add(getAsterixFunctionInfo(FEED_INGEST));
-        datasetFunctions.add(getAsterixFunctionInfo(FEED_INTERCEPT));
+        datasetFunctions.add(getAsterixFunctionInfo(FEED_COLLECT));
         datasetFunctions.add(getAsterixFunctionInfo(INDEX_SEARCH));
     }
 
     static {
         addUnnestFun(DATASET, false);
-        addUnnestFun(FEED_INGEST, false);
-        addUnnestFun(FEED_INTERCEPT, false);
+        addUnnestFun(FEED_COLLECT, false);
         addUnnestFun(RANGE, true);
         addUnnestFun(SCAN_COLLECTION, false);
         addUnnestFun(SUBSET_COLLECTION, false);
@@ -1135,7 +1131,7 @@ public class AsterixBuiltinFunctions {
     public static boolean isSpatialFilterFunction(FunctionIdentifier fi) {
         return spatialFilterFunctions.get(getAsterixFunctionInfo(fi)) != null;
     }
-    
+
     static {
         similarityFunctions.add(getAsterixFunctionInfo(SIMILARITY_JACCARD));
         similarityFunctions.add(getAsterixFunctionInfo(SIMILARITY_JACCARD_CHECK));

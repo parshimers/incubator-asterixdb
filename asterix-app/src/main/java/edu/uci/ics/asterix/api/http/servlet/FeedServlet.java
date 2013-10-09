@@ -87,7 +87,7 @@ public class FeedServlet extends HttpServlet {
             } else {
                 MetadataManager.INSTANCE.init();
                 MetadataTransactionContext ctx = MetadataManager.INSTANCE.beginTransaction();
-                List<FeedActivity> lfa = MetadataManager.INSTANCE.getActiveFeeds(ctx, null, null);
+                List<FeedActivity> lfa = MetadataManager.INSTANCE.getActiveFeedsServingADataset(ctx, null, null);
                 StringBuilder ldStr = new StringBuilder();
                 ldStr.append("<br />");
                 ldStr.append("<br />");

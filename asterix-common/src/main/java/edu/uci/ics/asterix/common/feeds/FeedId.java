@@ -17,40 +17,34 @@ package edu.uci.ics.asterix.common.feeds;
 import java.io.Serializable;
 
 /**
- * A unique identifier for a data feed flowing into a dataset.
+ * A unique identifier for a data feed.
  */
-public class FeedConnectionId implements Serializable {
+public class FeedId implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private final FeedId feedId;
-    private final String datasetName;
+    private final String dataverse;
+    private final String feedName;
 
-    public FeedConnectionId(FeedId feedId, String datasetName) {
-        this.feedId = feedId;
-        this.datasetName = datasetName;
+    public FeedId(String dataverse, String feedName) {
+        this.dataverse = dataverse;
+        this.feedName = feedName;
     }
 
-    public FeedConnectionId(String dataverse, String feedName, String datasetName) {
-        this.feedId = new FeedId(dataverse, feedName);
-        this.datasetName = datasetName;
+    public String getDataverse() {
+        return dataverse;
     }
 
-    public FeedId getFeedId() {
-        return feedId;
-    }
-
-    public String getDatasetName() {
-        return datasetName;
+    public String getFeedName() {
+        return feedName;
     }
 
     @Override
     public boolean equals(Object o) {
-        if (o == null || !(o instanceof FeedConnectionId)) {
+        if (o == null || !(o instanceof FeedId)) {
             return false;
         }
-        if (((FeedConnectionId) o).getFeedId().equals(feedId)
-                && ((FeedConnectionId) o).getDatasetName().equals(datasetName)) {
+        if (((FeedId) o).getFeedName().equals(feedName) && ((FeedId) o).getDataverse().equals(dataverse)) {
             return true;
         }
         return false;
@@ -63,6 +57,6 @@ public class FeedConnectionId implements Serializable {
 
     @Override
     public String toString() {
-        return feedId.toString() + "-->" + datasetName;
+        return dataverse + "." + feedName;
     }
 }

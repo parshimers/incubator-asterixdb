@@ -15,8 +15,6 @@
 
 package edu.uci.ics.asterix.metadata.entities;
 
-import java.util.Map;
-
 import edu.uci.ics.asterix.common.functions.FunctionSignature;
 import edu.uci.ics.asterix.metadata.MetadataCache;
 import edu.uci.ics.asterix.metadata.api.IMetadataEntity;
@@ -24,23 +22,32 @@ import edu.uci.ics.asterix.metadata.api.IMetadataEntity;
 /**
  * Metadata describing a feed.
  */
-public class Feed implements IMetadataEntity {
+public abstract class Feed implements IMetadataEntity {
 
     private static final long serialVersionUID = 1L;
 
     private final String dataverseName;
     private final String feedName;
-    private final String adaptorName;
-    private final Map<String, String> adaptorConfiguration;
     private final FunctionSignature appliedFunction;
+    private final FeedType feedType;
 
-    public Feed(String dataverseName, String datasetName, String adaptorName, Map<String, String> adaptorConfiguration,
-            FunctionSignature appliedFunction) {
+    public enum FeedType {
+        /**
+         * A feed that derives its data from an external source.
+         */
+        PRIMARY,
+
+        /**
+         * A feed that derives its data from another primary or secondary feed.
+         */
+        SECONDARY
+    }
+
+    public Feed(String dataverseName, String datasetName, FunctionSignature appliedFunction, FeedType feedType) {
         this.dataverseName = dataverseName;
         this.feedName = datasetName;
-        this.adaptorName = adaptorName;
-        this.adaptorConfiguration = adaptorConfiguration;
         this.appliedFunction = appliedFunction;
+        this.feedType = feedType;
     }
 
     public String getDataverseName() {
@@ -51,16 +58,12 @@ public class Feed implements IMetadataEntity {
         return feedName;
     }
 
-    public String getAdaptorName() {
-        return adaptorName;
-    }
-
-    public Map<String, String> getAdaptorConfiguration() {
-        return adaptorConfiguration;
-    }
-
     public FunctionSignature getAppliedFunction() {
         return appliedFunction;
+    }
+
+    public FeedType getFeedType() {
+        return feedType;
     }
 
     @Override

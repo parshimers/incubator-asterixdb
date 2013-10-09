@@ -108,7 +108,7 @@ public class FeedReport implements Comparable {
 
     private static Map<FeedRuntimeType, Integer> populateRanking() {
         Map<FeedRuntimeType, Integer> ranking = new HashMap<FeedRuntimeType, Integer>();
-        ranking.put(FeedRuntimeType.INGESTION, 1);
+        ranking.put(FeedRuntimeType.COLLECT, 1);
         ranking.put(FeedRuntimeType.COMPUTE, 2);
         ranking.put(FeedRuntimeType.STORAGE, 3);
         ranking.put(FeedRuntimeType.COMMIT, 4);

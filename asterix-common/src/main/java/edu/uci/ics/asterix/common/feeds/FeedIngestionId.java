@@ -12,23 +12,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.asterix.metadata.feeds;
+package edu.uci.ics.asterix.common.feeds;
 
-import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
-import edu.uci.ics.asterix.common.feeds.FeedRuntime;
+public class FeedIngestionId {
 
-public class IngestionRuntime extends FeedRuntime {
+    private final FeedId feedId;
 
-    private AdapterRuntimeManager adapterRuntimeManager;
+    private final int partition;
 
-    public IngestionRuntime(FeedConnectionId feedId, int partition, FeedRuntimeType feedRuntimeType,
-            AdapterRuntimeManager adaptorRuntimeManager) {
-        super(feedId, partition, feedRuntimeType);
-        this.adapterRuntimeManager = adaptorRuntimeManager;
+    public FeedIngestionId(FeedId feedId, int partition) {
+        this.feedId = feedId;
+        this.partition = partition;
     }
 
-    public AdapterRuntimeManager getAdapterRuntimeManager() {
-        return adapterRuntimeManager;
+    public FeedId getFeedId() {
+        return feedId;
+    }
+
+    public int getPartition() {
+        return partition;
     }
 
 }

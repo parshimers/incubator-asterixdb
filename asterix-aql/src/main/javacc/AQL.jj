@@ -490,18 +490,27 @@ CreateFeedStatement FeedSpecification() throws ParseException:
   Map<String,String> properties = null;
   FunctionSignature appliedFunction = null;
   CreateFeedStatement cfs = null;
+  Pair<Identifier,Identifier> sourceNameComponents = null;
+  
 }
 {
   (
     "feed"  nameComponents = QualifiedName()
     ifNotExists = IfNotExists()
-    "using" adaptorName = AdapterName() properties = Configuration()
-    (appliedFunction = ApplyFunction())?
+    ( ("using" adaptorName = AdapterName() properties = Configuration() ) 
+      (appliedFunction = ApplyFunction())?  {
+        cfs = new CreatePrimaryFeedStatement(nameComponents,
+                                    adaptorName, properties, appliedFunction, ifNotExists);
+      }
+    ) 
+    |
+    ("from" "feed" sourceNameComponents = QualifiedName() 
+     (appliedFunction = ApplyFunction())?
       {
-        cfs = new CreateFeedStatement(nameComponents.first,
-                                   nameComponents.second, adaptorName, properties, appliedFunction, ifNotExists);
+        cfs = new CreateSecondaryFeedStatement(nameComponents,
+                                   sourceNameComponents, appliedFunction, ifNotExists);
       } 
-      
+    )    
   )
     {
       return cfs;

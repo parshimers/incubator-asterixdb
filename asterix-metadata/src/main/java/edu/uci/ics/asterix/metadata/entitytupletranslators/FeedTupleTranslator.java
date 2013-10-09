@@ -25,8 +25,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import edu.uci.ics.asterix.builders.IARecordBuilder;
+import edu.uci.ics.asterix.builders.OrderedListBuilder;
 import edu.uci.ics.asterix.builders.RecordBuilder;
-import edu.uci.ics.asterix.builders.UnorderedListBuilder;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.functions.FunctionSignature;
 import edu.uci.ics.asterix.formats.nontagged.AqlSerializerDeserializerProvider;
@@ -34,6 +34,9 @@ import edu.uci.ics.asterix.metadata.MetadataException;
 import edu.uci.ics.asterix.metadata.bootstrap.MetadataPrimaryIndexes;
 import edu.uci.ics.asterix.metadata.bootstrap.MetadataRecordTypes;
 import edu.uci.ics.asterix.metadata.entities.Feed;
+import edu.uci.ics.asterix.metadata.entities.Feed.FeedType;
+import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
+import edu.uci.ics.asterix.metadata.entities.SecondaryFeed;
 import edu.uci.ics.asterix.om.base.AInt32;
 import edu.uci.ics.asterix.om.base.AMutableInt32;
 import edu.uci.ics.asterix.om.base.AMutableString;
@@ -92,20 +95,6 @@ public class FeedTupleTranslator extends AbstractTupleTranslator<Feed> {
                 .getValueByPos(MetadataRecordTypes.FEED_ARECORD_DATAVERSE_NAME_FIELD_INDEX)).getStringValue();
         String feedName = ((AString) feedRecord.getValueByPos(MetadataRecordTypes.FEED_ARECORD_FEED_NAME_FIELD_INDEX))
                 .getStringValue();
-        String adaptorName = ((AString) feedRecord
-                .getValueByPos(MetadataRecordTypes.FEED_ARECORD_ADAPTOR_NAME_FIELD_INDEX)).getStringValue();
-
-        IACursor cursor = ((AUnorderedList) feedRecord
-                .getValueByPos(MetadataRecordTypes.FEED_ARECORD_ADAPTOR_CONFIGURATION_FIELD_INDEX)).getCursor();
-        String key;
-        String value;
-        Map<String, String> adaptorConfiguration = new HashMap<String, String>();
-        while (cursor.next()) {
-            ARecord field = (ARecord) cursor.get();
-            key = ((AString) field.getValueByPos(MetadataRecordTypes.PROPERTIES_NAME_FIELD_INDEX)).getStringValue();
-            value = ((AString) field.getValueByPos(MetadataRecordTypes.PROPERTIES_VALUE_FIELD_INDEX)).getStringValue();
-            adaptorConfiguration.put(key, value);
-        }
 
         Object o = feedRecord.getValueByPos(MetadataRecordTypes.FEED_ARECORD_FUNCTION_FIELD_INDEX);
         FunctionSignature signature = null;
@@ -122,17 +111,63 @@ public class FeedTupleTranslator extends AbstractTupleTranslator<Feed> {
                 functionName = qnameComponents[0];
             }
 
-            String[] nameComponents = functionName.split("@");
-            signature = new FunctionSignature(functionDataverse, nameComponents[0], Integer.parseInt(nameComponents[1]));
+            signature = new FunctionSignature(functionDataverse, functionName, 1);
         }
 
-        feed = new Feed(dataverseName, feedName, adaptorName, adaptorConfiguration, signature);
+        String feedType = ((AString) feedRecord.getValueByPos(MetadataRecordTypes.FEED_ARECORD_FEED_TYPE_FIELD_INDEX))
+                .getStringValue();
+
+        FeedType feedTypeEnum = FeedType.valueOf(feedType.toUpperCase());
+        switch (feedTypeEnum) {
+            case PRIMARY: {
+                ARecord feedTypeDetailsRecord = (ARecord) feedRecord
+                        .getValueByPos(MetadataRecordTypes.FEED_ARECORD_PRIMARY_TYPE_DETAILS_FIELD_INDEX);
+                String adapterName = ((AString) feedTypeDetailsRecord
+                        .getValueByPos(MetadataRecordTypes.FEED_ARECORD_PRIMARY_FIELD_DETAILS_ADAPTOR_NAME_FIELD_INDEX))
+                        .getStringValue();
+
+                IACursor cursor = ((AUnorderedList) feedRecord
+                        .getValueByPos(MetadataRecordTypes.FEED_ARECORD_PRIMARY_FIELD_DETAILS_ADAPTOR_CONFIGURATION_FIELD_INDEX))
+                        .getCursor();
+                String key;
+                String value;
+                Map<String, String> adaptorConfiguration = new HashMap<String, String>();
+                while (cursor.next()) {
+                    ARecord field = (ARecord) cursor.get();
+                    key = ((AString) field.getValueByPos(MetadataRecordTypes.PROPERTIES_NAME_FIELD_INDEX))
+                            .getStringValue();
+                    value = ((AString) field.getValueByPos(MetadataRecordTypes.PROPERTIES_VALUE_FIELD_INDEX))
+                            .getStringValue();
+                    adaptorConfiguration.put(key, value);
+                }
+                feed = new PrimaryFeed(dataverseName, feedName, adapterName, adaptorConfiguration, signature);
+
+            }
+                break;
+            case SECONDARY: {
+                ARecord feedTypeDetailsRecord = (ARecord) feedRecord
+                        .getValueByPos(MetadataRecordTypes.FEED_ARECORD_SECONDARY_TYPE_DETAILS_FIELD_INDEX);
+
+                String sourceFeedName = ((AString) feedTypeDetailsRecord
+                        .getValueByPos(MetadataRecordTypes.FEED_TYPE_SECONDARY_ARECORD_SOURCE_DATAVERSE_FIELD_INDEX))
+                        .getStringValue();
+
+                String sourceFeedDataverse = ((AString) feedTypeDetailsRecord
+                        .getValueByPos(MetadataRecordTypes.FEED_TYPE_SECONDARY_ARECORD_SOURCE_FEED_NAME_FIELD_INDEX))
+                        .getStringValue();
+
+                feed = new SecondaryFeed(dataverseName, feedName, sourceFeedDataverse, sourceFeedName, signature);
+
+            }
+                break;
+        }
+
         return feed;
     }
 
     @Override
     public ITupleReference getTupleFromMetadataEntity(Feed feed) throws IOException, MetadataException {
-        // write the key in the first three fields of the tuple
+        // write the key in the first two fields of the tuple
         ArrayBackedValueStorage itemValue = new ArrayBackedValueStorage();
 
         tupleBuilder.reset();
@@ -160,35 +195,23 @@ public class FeedTupleTranslator extends AbstractTupleTranslator<Feed> {
 
         // write field 2
         fieldValue.reset();
-        aString.setValue(feed.getAdaptorName());
-        stringSerde.serialize(aString, fieldValue.getDataOutput());
-        recordBuilder.addField(MetadataRecordTypes.FEED_ARECORD_ADAPTOR_NAME_FIELD_INDEX, fieldValue);
-
-        // write field 3 (adaptorConfiguration)
-        Map<String, String> adaptorConfiguration = feed.getAdaptorConfiguration();
-        UnorderedListBuilder listBuilder = new UnorderedListBuilder();
-        listBuilder
-                .reset((AUnorderedListType) MetadataRecordTypes.FEED_RECORDTYPE.getFieldTypes()[MetadataRecordTypes.FEED_ARECORD_ADAPTOR_CONFIGURATION_FIELD_INDEX]);
-        for (Map.Entry<String, String> property : adaptorConfiguration.entrySet()) {
-            String name = property.getKey();
-            String value = property.getValue();
-            itemValue.reset();
-            writePropertyTypeRecord(name, value, itemValue.getDataOutput());
-            listBuilder.addItem(itemValue);
-        }
-        fieldValue.reset();
-        listBuilder.write(fieldValue.getDataOutput(), true);
-        recordBuilder.addField(MetadataRecordTypes.FEED_ARECORD_ADAPTOR_CONFIGURATION_FIELD_INDEX, fieldValue);
-
-        // write field 4
-        fieldValue.reset();
         if (feed.getAppliedFunction() != null) {
             aString.setValue(feed.getAppliedFunction().toString());
             stringSerde.serialize(aString, fieldValue.getDataOutput());
             recordBuilder.addField(MetadataRecordTypes.FEED_ARECORD_FUNCTION_FIELD_INDEX, fieldValue);
         }
 
-        // write field 5
+        // write field 3
+        fieldValue.reset();
+        aString.setValue(feed.getFeedType().name().toUpperCase());
+        stringSerde.serialize(aString, fieldValue.getDataOutput());
+        recordBuilder.addField(MetadataRecordTypes.FEED_ARECORD_FEED_TYPE_FIELD_INDEX, fieldValue);
+
+        // write field 4/5
+        fieldValue.reset();
+        writeFeedTypeDetailsRecordType(recordBuilder, feed, fieldValue);
+
+        // write field 6
         fieldValue.reset();
         aString.setValue(Calendar.getInstance().getTime().toString());
         stringSerde.serialize(aString, fieldValue.getDataOutput());
@@ -204,6 +227,90 @@ public class FeedTupleTranslator extends AbstractTupleTranslator<Feed> {
 
         tuple.reset(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray());
         return tuple;
+    }
+
+    private void writeFeedTypeDetailsRecordType(IARecordBuilder recordBuilder, Feed feed, ArrayBackedValueStorage fieldValue)
+            throws HyracksDataException {
+
+        switch (feed.getFeedType()) {
+            case PRIMARY: {
+                PrimaryFeed primaryFeed = (PrimaryFeed) feed;
+
+                IARecordBuilder primaryDetailsRecordBuilder = new RecordBuilder();
+                OrderedListBuilder listBuilder = new OrderedListBuilder();
+                ArrayBackedValueStorage primaryRecordfieldValue = new ArrayBackedValueStorage();
+                ArrayBackedValueStorage primaryRecordItemValue = new ArrayBackedValueStorage();
+                primaryDetailsRecordBuilder.reset(MetadataRecordTypes.PRIMARY_FEED_DETAILS_RECORDTYPE);
+
+                AMutableString aString = new AMutableString("");
+                ISerializerDeserializer<AString> stringSerde = AqlSerializerDeserializerProvider.INSTANCE
+                        .getSerializerDeserializer(BuiltinType.ASTRING);
+
+                // write field 0
+                fieldValue.reset();
+                aString.setValue(primaryFeed.getAdaptorName());
+                stringSerde.serialize(aString, primaryRecordfieldValue.getDataOutput());
+                primaryDetailsRecordBuilder.addField(
+                        MetadataRecordTypes.FEED_ARECORD_PRIMARY_FIELD_DETAILS_ADAPTOR_NAME_FIELD_INDEX, primaryRecordfieldValue);
+
+                // write field 1
+                listBuilder
+                        .reset((AUnorderedListType) MetadataRecordTypes.PRIMARY_FEED_DETAILS_RECORDTYPE.getFieldTypes()[MetadataRecordTypes.FEED_ARECORD_PRIMARY_FIELD_DETAILS_ADAPTOR_CONFIGURATION_FIELD_INDEX]);
+                for (Map.Entry<String, String> property : primaryFeed.getAdaptorConfiguration().entrySet()) {
+                    String name = property.getKey();
+                    String value = property.getValue();
+                    primaryRecordItemValue.reset();
+                    writePropertyTypeRecord(name, value, primaryRecordItemValue.getDataOutput());
+                    listBuilder.addItem(primaryRecordItemValue);
+                }
+                primaryRecordfieldValue.reset();
+                listBuilder.write(primaryRecordfieldValue.getDataOutput(), true);
+                primaryDetailsRecordBuilder.addField(
+                        MetadataRecordTypes.FEED_ARECORD_PRIMARY_FIELD_DETAILS_ADAPTOR_CONFIGURATION_FIELD_INDEX,
+                        primaryRecordfieldValue);
+
+                try {
+                    primaryDetailsRecordBuilder.write(fieldValue.getDataOutput(), true);
+                } catch (IOException | AsterixException e) {
+                    throw new HyracksDataException(e);
+                }
+
+                recordBuilder.addField(MetadataRecordTypes.FEED_ARECORD_PRIMARY_TYPE_DETAILS_FIELD_INDEX, fieldValue);
+            }
+                break;
+
+            case SECONDARY:
+                SecondaryFeed secondaryFeed = (SecondaryFeed) feed;
+
+                IARecordBuilder secondaryDetailsRecordBuilder = new RecordBuilder();
+                ArrayBackedValueStorage secondaryFieldValue = new ArrayBackedValueStorage();
+                secondaryDetailsRecordBuilder.reset(MetadataRecordTypes.SECONDARY_FEED_DETAILS_RECORDTYPE);
+
+                // write field 0
+                fieldValue.reset();
+                aString.setValue(secondaryFeed.getSourceFeedDataverseName());
+                stringSerde.serialize(aString, secondaryFieldValue.getDataOutput());
+                secondaryDetailsRecordBuilder.addField(
+                        MetadataRecordTypes.FEED_ARECORD_SECONDARY_FIELD_DETAILS_SOURCE_FEED_DATAVERSE_FIELD_INDEX,
+                        secondaryFieldValue);
+
+                // write field 1
+                fieldValue.reset();
+                aString.setValue(secondaryFeed.getSourceFeedName());
+                stringSerde.serialize(aString, secondaryFieldValue.getDataOutput());
+                secondaryDetailsRecordBuilder.addField(
+                        MetadataRecordTypes.FEED_ARECORD_SECONDARY_FIELD_DETAILS_SOURCE_FEED_NAME_FIELD_INDEX,
+                        secondaryFieldValue);
+
+                try {
+                    secondaryDetailsRecordBuilder.write(fieldValue.getDataOutput(), true);
+                } catch (IOException | AsterixException e) {
+                    throw new HyracksDataException(e);
+                }
+                recordBuilder.addField(MetadataRecordTypes.FEED_ARECORD_SECONDARY_TYPE_DETAILS_FIELD_INDEX, fieldValue);
+                break;
+        }
+
     }
 
     public void writePropertyTypeRecord(String name, String value, DataOutput out) throws HyracksDataException {

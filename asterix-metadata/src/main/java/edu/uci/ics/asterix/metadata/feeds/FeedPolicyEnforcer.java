@@ -27,15 +27,15 @@ import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityType;
 
 public class FeedPolicyEnforcer {
 
-    private final FeedConnectionId feedId;
+    private final FeedConnectionId feedConnectionId;
     private final FeedPolicyAccessor feedPolicyAccessor;
     private final FeedActivity feedActivity;
 
-    public FeedPolicyEnforcer(FeedConnectionId feedId, Map<String, String> feedPolicy) {
-        this.feedId = feedId;
+    public FeedPolicyEnforcer(FeedConnectionId feedConnectionId, Map<String, String> feedPolicy) {
+        this.feedConnectionId = feedConnectionId;
         this.feedPolicyAccessor = new FeedPolicyAccessor(feedPolicy);
-        this.feedActivity = new FeedActivity(feedId.getDataverse(), feedId.getFeedName(), feedId.getDatasetName(),
-                null, new HashMap<String, String>());
+        this.feedActivity = new FeedActivity(feedConnectionId.getFeedId().getDataverse(), feedConnectionId.getFeedId()
+                .getFeedName(), feedConnectionId.getDatasetName(), null, new HashMap<String, String>());
     }
 
     public boolean continueIngestionPostSoftwareFailure(Exception e) throws RemoteException, ACIDException {
@@ -54,7 +54,7 @@ public class FeedPolicyEnforcer {
             feedActivity.setActivityType(FeedActivityType.FEED_FAILURE);
             feedActivity.getFeedActivityDetails().put(FeedActivity.FeedActivityDetails.EXCEPTION_MESSAGE,
                     e.getMessage());
-            MetadataManager.INSTANCE.registerFeedActivity(ctx, feedId, feedActivity);
+            MetadataManager.INSTANCE.registerFeedActivity(ctx, feedConnectionId, feedActivity);
             MetadataManager.INSTANCE.commitTransaction(ctx);
         } catch (Exception e2) {
             MetadataManager.INSTANCE.abortTransaction(ctx);
@@ -68,7 +68,7 @@ public class FeedPolicyEnforcer {
     }
 
     public FeedConnectionId getFeedId() {
-        return feedId;
+        return feedConnectionId;
     }
 
 }

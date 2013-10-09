@@ -38,10 +38,8 @@ public class MetadataBuiltinFunctions {
         addMetadataBuiltinFunctions();
         AsterixBuiltinFunctions.addUnnestFun(AsterixBuiltinFunctions.DATASET, false);
         AsterixBuiltinFunctions.addDatasetFunction(AsterixBuiltinFunctions.DATASET);
-        AsterixBuiltinFunctions.addUnnestFun(AsterixBuiltinFunctions.FEED_INGEST, false);
-        AsterixBuiltinFunctions.addDatasetFunction(AsterixBuiltinFunctions.FEED_INGEST);
-        AsterixBuiltinFunctions.addUnnestFun(AsterixBuiltinFunctions.FEED_INTERCEPT, false);
-        AsterixBuiltinFunctions.addDatasetFunction(AsterixBuiltinFunctions.FEED_INTERCEPT);
+        AsterixBuiltinFunctions.addUnnestFun(AsterixBuiltinFunctions.FEED_COLLECT, false);
+        AsterixBuiltinFunctions.addDatasetFunction(AsterixBuiltinFunctions.FEED_COLLECT);
     }
 
     public static void addMetadataBuiltinFunctions() {
@@ -89,7 +87,7 @@ public class MetadataBuiltinFunctions {
             }
         });
 
-        AsterixBuiltinFunctions.addPrivateFunction(AsterixBuiltinFunctions.FEED_INGEST, new IResultTypeComputer() {
+        AsterixBuiltinFunctions.addPrivateFunction(AsterixBuiltinFunctions.FEED_COLLECT, new IResultTypeComputer() {
 
             @Override
             public IAType computeType(ILogicalExpression expression, IVariableTypeEnvironment env,
@@ -127,48 +125,6 @@ public class MetadataBuiltinFunctions {
             }
         });
 
-        AsterixBuiltinFunctions.addFunction(AsterixBuiltinFunctions.FEED_INTERCEPT, new IResultTypeComputer() {
-
-            @Override
-            public IAType computeType(ILogicalExpression expression, IVariableTypeEnvironment env,
-                    IMetadataProvider<?, ?> mp) throws AlgebricksException {
-                AbstractFunctionCallExpression f = (AbstractFunctionCallExpression) expression;
-                if (f.getArguments().size() != 1) {
-                    throw new AlgebricksException("dataset arity is 1, not " + f.getArguments().size());
-                }
-                ILogicalExpression a1 = f.getArguments().get(0).getValue();
-                IAType t1 = (IAType) env.getType(a1);
-                if (t1.getTypeTag() == ATypeTag.ANY) {
-                    return BuiltinType.ANY;
-                }
-                if (t1.getTypeTag() != ATypeTag.STRING) {
-                    throw new AlgebricksException("Illegal type " + t1 + " for dataset() argument.");
-                }
-                if (a1.getExpressionTag() != LogicalExpressionTag.CONSTANT) {
-                    return BuiltinType.ANY;
-                }
-                AsterixConstantValue acv = (AsterixConstantValue) ((ConstantExpression) a1).getValue();
-                String datasetArg = ((AString) acv.getObject()).getStringValue();
-                AqlMetadataProvider metadata = ((AqlMetadataProvider) mp);
-                Pair<String, String> datasetInfo = getDatasetInfo(metadata, datasetArg);
-                String dataverseName = datasetInfo.first;
-                String datasetName = datasetInfo.second;
-                if (dataverseName == null) {
-                    throw new AlgebricksException("Unspecified dataverse!");
-                }
-                Dataset dataset = metadata.findDataset(dataverseName, datasetName);
-                if (dataset == null) {
-                    throw new AlgebricksException("Could not find dataset " + datasetName + " in dataverse "
-                            + dataverseName);
-                }
-                String tn = dataset.getItemTypeName();
-                IAType t2 = metadata.findType(dataverseName, tn);
-                if (t2 == null) {
-                    throw new AlgebricksException("No type for dataset " + datasetName);
-                }
-                return t2;
-            }
-        });
     }
 
     private static Pair<String, String> getDatasetInfo(AqlMetadataProvider metadata, String datasetArg) {

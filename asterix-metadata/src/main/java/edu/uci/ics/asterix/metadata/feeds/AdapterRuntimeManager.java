@@ -14,23 +14,23 @@
  */
 package edu.uci.ics.asterix.metadata.feeds;
 
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
-import edu.uci.ics.asterix.common.feeds.FeedRuntime.FeedRuntimeType;
-import edu.uci.ics.asterix.common.feeds.IFeedManager;
-import edu.uci.ics.asterix.metadata.feeds.FeedFrameWriter.Mode;
+import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
+import edu.uci.ics.asterix.common.feeds.FeedId;
+import edu.uci.ics.asterix.common.feeds.IAdapterRuntimeManager;
+import edu.uci.ics.asterix.common.feeds.IFeedAdapter;
+import edu.uci.ics.asterix.common.feeds.IFeedIngestionManager;
+import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
-import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
-public class AdapterRuntimeManager implements IAdapterExecutor {
+public class AdapterRuntimeManager implements IAdapterRuntimeManager {
 
     private static final Logger LOGGER = Logger.getLogger(AdapterRuntimeManager.class.getName());
 
-    private final FeedConnectionId feedId;
+    private final FeedId feedId;
 
     private IFeedAdapter feedAdapter;
 
@@ -42,7 +42,7 @@ public class AdapterRuntimeManager implements IAdapterExecutor {
 
     private IngestionRuntime ingestionRuntime;
 
-    private final IFeedManager feedManager;
+    private final IFeedIngestionManager feedIngestionManager;
 
     public enum State {
         /*
@@ -59,25 +59,22 @@ public class AdapterRuntimeManager implements IAdapterExecutor {
         FINISHED_INGESTION
     }
 
-    public AdapterRuntimeManager(FeedConnectionId feedId, IFeedAdapter feedAdapter, FeedFrameWriter writer,
-            int partition, LinkedBlockingQueue<IFeedMessage> inbox, IFeedManager feedManager) {
+    public AdapterRuntimeManager(FeedId feedId, IFeedAdapter feedAdapter, DistributeFeedFrameWriter writer,
+            int partition, LinkedBlockingQueue<IFeedMessage> inbox, IFeedIngestionManager feedIngestionManager) {
         this.feedId = feedId;
         this.feedAdapter = feedAdapter;
         this.partition = partition;
-        this.feedManager = feedManager;
+        this.feedIngestionManager = feedIngestionManager;
         this.adapterExecutor = new AdapterExecutor(partition, writer, feedAdapter, this);
     }
 
     @Override
     public void start() throws Exception {
         state = State.ACTIVE_INGESTION;
-        ingestionRuntime = new IngestionRuntime(feedId, partition, FeedRuntimeType.INGESTION, this);
-        feedManager.registerFeedRuntime(ingestionRuntime);
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Registered feed runtime manager for " + this.getFeedId());
         }
-        ExecutorService executorService = feedManager.getFeedExecutorService(feedId);
-        executorService.execute(adapterExecutor);
+        (new Thread(adapterExecutor)).start();
     }
 
     @Override
@@ -96,7 +93,7 @@ public class AdapterRuntimeManager implements IAdapterExecutor {
     }
 
     @Override
-    public FeedConnectionId getFeedId() {
+    public FeedId getFeedId() {
         return feedId;
     }
 
@@ -115,13 +112,13 @@ public class AdapterRuntimeManager implements IAdapterExecutor {
 
     public static class AdapterExecutor implements Runnable {
 
-        private FeedFrameWriter writer;
+        private DistributeFeedFrameWriter writer;
 
         private IFeedAdapter adapter;
 
         private AdapterRuntimeManager runtimeManager;
 
-        public AdapterExecutor(int partition, FeedFrameWriter writer, IFeedAdapter adapter,
+        public AdapterExecutor(int partition, DistributeFeedFrameWriter writer, IFeedAdapter adapter,
                 AdapterRuntimeManager adapterRuntimeMgr) {
             this.writer = writer;
             this.adapter = adapter;
@@ -136,7 +133,6 @@ public class AdapterRuntimeManager implements IAdapterExecutor {
                     LOGGER.info("Starting ingestion for partition:" + partition);
                 }
                 adapter.start(partition, writer);
-                runtimeManager.setState(State.FINISHED_INGESTION);
             } catch (Exception e) {
                 if (LOGGER.isLoggable(Level.SEVERE)) {
                     LOGGER.severe("Exception during feed ingestion " + e.getMessage());
@@ -148,7 +144,7 @@ public class AdapterRuntimeManager implements IAdapterExecutor {
             }
         }
 
-        public FeedFrameWriter getWriter() {
+        public DistributeFeedFrameWriter getWriter() {
             return writer;
         }
 
@@ -157,7 +153,6 @@ public class AdapterRuntimeManager implements IAdapterExecutor {
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Switching writer to:" + writer + " from " + this.writer);
                 }
-                this.writer.setWriter(writer);
             }
         }
 
@@ -165,28 +160,6 @@ public class AdapterRuntimeManager implements IAdapterExecutor {
 
     public synchronized State getState() {
         return state;
-    }
-
-    @SuppressWarnings("incomplete-switch")
-    public synchronized void setState(State state) throws HyracksDataException {
-        if (this.state.equals(state)) {
-            return;
-        }
-        switch (state) {
-            case INACTIVE_INGESTION:
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Set " + Mode.STORE + " mode");
-                }
-                adapterExecutor.getWriter().setMode(Mode.STORE);
-                break;
-            case ACTIVE_INGESTION:
-                adapterExecutor.getWriter().setMode(Mode.FORWARD);
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Set " + Mode.FORWARD + " mode");
-                }
-                break;
-        }
-        this.state = state;
     }
 
     public AdapterExecutor getAdapterExecutor() {

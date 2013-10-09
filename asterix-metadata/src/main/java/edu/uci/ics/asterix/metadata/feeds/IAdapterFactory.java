@@ -16,6 +16,7 @@ package edu.uci.ics.asterix.metadata.feeds;
 
 import java.io.Serializable;
 
+import edu.uci.ics.asterix.common.feeds.IDatasourceAdapter;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 
