@@ -72,7 +72,6 @@ public final class MetadataRecordTypes {
             COMPACTION_POLICY_PROPERTIES_RECORDTYPE = createPropertiesRecordType();
             INTERNAL_DETAILS_RECORDTYPE = createInternalDetailsRecordType();
             EXTERNAL_DETAILS_RECORDTYPE = createExternalDetailsRecordType();
-            FEED_DETAILS_RECORDTYPE = createFeedDetailsRecordType();
             DATASET_HINTS_RECORDTYPE = createPropertiesRecordType();
             DATASET_RECORDTYPE = createDatasetRecordType();
 
@@ -90,10 +89,10 @@ public final class MetadataRecordTypes {
             FUNCTION_RECORDTYPE = createFunctionRecordType();
             DATASOURCE_ADAPTER_RECORDTYPE = createDatasourceAdapterRecordType();
 
-            FEED_RECORDTYPE = createFeedRecordType();
+            FEED_ADAPTOR_CONFIGURATION_RECORDTYPE = createPropertiesRecordType();
             PRIMARY_FEED_DETAILS_RECORDTYPE = createPrimaryFeedDetailsRecordType();
             SECONDARY_FEED_DETAILS_RECORDTYPE = createSecondaryFeedDetailsRecordType();
-            FEED_ADAPTOR_CONFIGURATION_RECORDTYPE = createPropertiesRecordType();
+            FEED_RECORDTYPE = createFeedRecordType();
             FEED_ACTIVITY_DETAILS_RECORDTYPE = createPropertiesRecordType();
             FEED_ACTIVITY_RECORDTYPE = createFeedActivityRecordType();
             FEED_POLICY_RECORDTYPE = createFeedPolicyRecordType();

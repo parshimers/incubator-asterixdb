@@ -22,7 +22,8 @@ import edu.uci.ics.asterix.common.functions.FunctionSignature;
 import edu.uci.ics.asterix.metadata.api.IMetadataEntity;
 
 /**
- * Metadata describing a feed.
+ * A primary feed is one that derives its data from an external source via an adaptor.
+ * This class is a holder object for the metadata associated with a primary feed.
  */
 public class PrimaryFeed extends Feed implements IMetadataEntity {
 
@@ -65,7 +66,11 @@ public class PrimaryFeed extends Feed implements IMetadataEntity {
                 return false;
             }
         }
-
         return true;
+    }
+
+    @Override
+    public String toString() {
+        return "PrimaryFeed (" + adaptorName + ")";
     }
 }

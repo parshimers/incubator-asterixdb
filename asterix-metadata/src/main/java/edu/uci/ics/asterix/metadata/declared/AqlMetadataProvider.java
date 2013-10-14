@@ -445,18 +445,14 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
         return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(feedIngestor, constraint);
     }
 
-    @SuppressWarnings("rawtypes")
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildFeedIntakeRuntime(JobSpecification jobSpec,
-            PrimaryFeed primaryFeed) throws AlgebricksException {
+            PrimaryFeed primaryFeed) throws Exception {
         org.apache.commons.lang3.tuple.Pair<IAdapterFactory, ARecordType> factoryOutput = null;
-        AlgebricksPartitionConstraint constraint = null;
         factoryOutput = FeedUtil.getPrimaryFeedFactoryAndOutput(primaryFeed, mdTxnCtx);
         IAdapterFactory adapterFactory = factoryOutput.getLeft();
-        ARecordType adapterOutputType = factoryOutput.getRight();
-
         AlgebricksPartitionConstraint partitionConstraint = adapterFactory.getPartitionConstraint();
-        FeedIntakeOperatorDescriptor feedIngestor = new FeedIntakeOperatorDescriptor(jobSpec, primaryFeed.getDataverseName(), feedName,
-                primaryFeed.getFeedName(), );
+        FeedIntakeOperatorDescriptor feedIngestor = new FeedIntakeOperatorDescriptor(jobSpec, primaryFeed,
+                adapterFactory);
         return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(feedIngestor, partitionConstraint);
 
     }
@@ -474,7 +470,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             JobSpecification jobSpec, String dataverse, String feedName, String dataset, FeedActivity feedActivity)
             throws AlgebricksException {
         List<String> feedLocations = new ArrayList<String>();
-        String[] ingestLocs = feedActivity.getFeedActivityDetails().get(FeedActivityDetails.INGEST_LOCATIONS)
+        String[] ingestLocs = feedActivity.getFeedActivityDetails().get(FeedActivityDetails.COLLECT_LOCATIONS)
                 .split(",");
         for (String loc : ingestLocs) {
             feedLocations.add(loc);

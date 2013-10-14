@@ -52,11 +52,17 @@ public class MessageListener {
 
     }
 
-    public void start() throws IOException {
-        listenerServer = new MessageListenerServer(port, outbox);
-        executorService.execute(listenerServer);
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Starting message service at " + port);
+    public void start() {
+        try {
+            listenerServer = new MessageListenerServer(port, outbox);
+            executorService.execute(listenerServer);
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Starting message service at " + port);
+            }
+        } catch (Exception e) {
+            if (LOGGER.isLoggable(Level.WARNING)) {
+                LOGGER.warning("Unable to start message listener server");
+            }
         }
     }
 

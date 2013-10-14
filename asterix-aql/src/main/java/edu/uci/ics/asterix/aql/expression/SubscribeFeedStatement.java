@@ -24,60 +24,39 @@ import edu.uci.ics.asterix.aql.parser.AQLParser;
 import edu.uci.ics.asterix.aql.parser.ParseException;
 import edu.uci.ics.asterix.aql.util.FunctionUtils;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
+import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.functions.FunctionSignature;
 import edu.uci.ics.asterix.metadata.MetadataException;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
-import edu.uci.ics.asterix.metadata.entities.Dataset;
 import edu.uci.ics.asterix.metadata.entities.Feed;
 import edu.uci.ics.asterix.metadata.entities.Function;
-import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
-import edu.uci.ics.asterix.metadata.feeds.BuiltinFeedPolicies;
-import edu.uci.ics.asterix.metadata.feeds.FeedUtil;
-import edu.uci.ics.asterix.metadata.feeds.IAdapterFactory;
-import edu.uci.ics.asterix.om.types.ARecordType;
-import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
-import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
+import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionRequest;
 
-public class ConnectFeedStatement implements Statement {
+public class SubscribeFeedStatement implements Statement {
 
-    private final Identifier dataverseName;
-    private final Identifier datasetName;
-    private final String feedName;
-    private final String policy;
+    private final FeedSubscriptionRequest subscriptionRequest;
     private Query query;
     private int varCounter;
     private boolean forceConnect = false;
 
     public static final String WAIT_FOR_COMPLETION = "wait-for-completion-feed";
 
-    public ConnectFeedStatement(Pair<Identifier, Identifier> feedNameCmp, Pair<Identifier, Identifier> datasetNameCmp,
-            String policy, int varCounter) {
-        if (feedNameCmp.first != null && datasetNameCmp.first != null
-                && !feedNameCmp.first.getValue().equals(datasetNameCmp.first.getValue())) {
-            throw new IllegalArgumentException("Dataverse for source feed and target dataset do not match");
-        }
-        this.dataverseName = feedNameCmp.first != null ? feedNameCmp.first
-                : datasetNameCmp.first != null ? datasetNameCmp.first : null;
-        this.datasetName = datasetNameCmp.second;
-        this.feedName = feedNameCmp.second.getValue();
-        this.policy = policy != null ? policy : BuiltinFeedPolicies.DEFAULT_POLICY.getPolicyName();
-        this.varCounter = varCounter;
+    public SubscribeFeedStatement(FeedSubscriptionRequest subscriptionRequest) {
+        this.subscriptionRequest = subscriptionRequest;
+        this.varCounter = 0;
     }
 
-    public ConnectFeedStatement(Identifier dataverseName, Identifier feedName, Identifier datasetName, String policy,
-            int varCounter) {
-        this.dataverseName = dataverseName;
-        this.datasetName = datasetName;
-        this.feedName = feedName.getValue();
-        this.policy = policy != null ? policy : BuiltinFeedPolicies.DEFAULT_POLICY.getPolicyName();
-        this.varCounter = varCounter;
-    }
-
-    public void initialize(MetadataTransactionContext mdTxnCtx, Dataset targetDataset, Feed sourceFeed)
-            throws MetadataException {
+    public void initialize(MetadataTransactionContext mdTxnCtx) throws MetadataException {
         query = new Query();
-        FunctionSignature appliedFunction = sourceFeed.getAppliedFunction();
+        FeedId sourceFeedId = subscriptionRequest.getSourceFeed().getFeedId();
+        Feed subscriberFeed = MetadataManager.INSTANCE.getFeed(mdTxnCtx, subscriptionRequest.getFeed()
+                .getDataverseName(), subscriptionRequest.getFeed().getFeedName());
+        if (subscriberFeed == null) {
+            throw new IllegalStateException(" Subsciber feed " + subscriberFeed + " not found.");
+        }
+
+        FunctionSignature appliedFunction = subscriberFeed.getAppliedFunction();
         Function function = null;
         String adapterOutputType = null;
         if (appliedFunction != null) {
@@ -90,33 +69,44 @@ public class ConnectFeedStatement implements Statement {
             }
         }
 
+        /*
         org.apache.commons.lang3.tuple.Pair<IAdapterFactory, ARecordType> factoryOutput = null;
         try {
             factoryOutput = FeedUtil.getPrimaryFeedFactoryAndOutput((PrimaryFeed) sourceFeed, mdTxnCtx);
             adapterOutputType = factoryOutput.getRight().getTypeName();
         } catch (AlgebricksException ae) {
             throw new MetadataException(ae);
-        }
+        }*/
 
         StringBuilder builder = new StringBuilder();
         builder.append("set" + " " + FunctionUtils.IMPORT_PRIVATE_FUNCTIONS + " " + "'" + Boolean.TRUE + "'" + ";\n");
-        builder.append("insert into dataset " + datasetName + " ");
+        builder.append("insert into dataset " + subscriptionRequest.getTargetDataset() + " ");
 
         if (appliedFunction == null) {
-            builder.append(" (" + " for $x in feed-ingest ('" + feedName + "'" + "," + "'" + adapterOutputType + "'"
-                    + "," + "'" + targetDataset.getDatasetName() + "'" + ")");
+            builder.append(" (" + " for $x in feed-collect ('" + sourceFeedId.getDataverse() + "'" + "," + "'"
+                    + sourceFeedId.getFeedName() + "'" + "," + "'" + subscriptionRequest.getFeed().getDataverseName()
+                    + "'" + "," + "'" + subscriptionRequest.getFeed().getFeedName() + "'" + "," + "'"
+                    + subscriptionRequest.getTargetDataset() + "'" + ")");
+
             builder.append(" return $x");
         } else {
             if (function.getLanguage().equalsIgnoreCase(Function.LANGUAGE_AQL)) {
                 String param = function.getParams().get(0);
-                builder.append(" (" + " for" + " " + param + " in feed-ingest ('" + feedName + "'" + "," + "'"
-                        + adapterOutputType + "'" + "," + "'" + targetDataset.getDatasetName() + "'" + ")");
+                builder.append(" (" + " for $x in feed-collect ('" + sourceFeedId.getDataverse() + "'" + "," + "'"
+                        + sourceFeedId.getFeedName() + "'" + "," + "'"
+                        + subscriptionRequest.getFeed().getDataverseName() + "'" + "," + "'"
+                        + subscriptionRequest.getFeed().getFeedName() + "'" + "," + "'"
+                        + subscriptionRequest.getTargetDataset() + "'" + ")");
                 builder.append(" let $y:=(" + function.getFunctionBody() + ")" + " return $y");
             } else {
-                builder.append(" (" + " for $x in feed-ingest ('" + feedName + "'" + "," + "'" + adapterOutputType
-                        + "'" + "," + "'" + targetDataset.getDatasetName() + "'" + ")");
-                builder.append(" let $y:=" + sourceFeed.getDataverseName() + "." + function.getName() + "(" + "$x"
-                        + ")");
+                builder.append(" (" + " for $x in feed-collect ('" + sourceFeedId.getDataverse() + "'" + "," + "'"
+                        + sourceFeedId.getFeedName() + "'" + "," + "'"
+                        + subscriptionRequest.getFeed().getDataverseName() + "'" + "," + "'"
+                        + subscriptionRequest.getFeed().getFeedName() + "'" + "," + "'"
+                        + subscriptionRequest.getTargetDataset() + "'" + ")");
+
+                builder.append(" let $y:=" + subscriptionRequest.getFeed().getDataverseName() + "."
+                        + function.getName() + "(" + "$x" + ")");
                 builder.append(" return $y");
             }
 
@@ -135,14 +125,6 @@ public class ConnectFeedStatement implements Statement {
 
     }
 
-    public Identifier getDataverseName() {
-        return dataverseName;
-    }
-
-    public Identifier getDatasetName() {
-        return datasetName;
-    }
-
     public Query getQuery() {
         return query;
     }
@@ -153,21 +135,24 @@ public class ConnectFeedStatement implements Statement {
 
     @Override
     public Kind getKind() {
-        return Kind.CONNECT_FEED;
+        return Kind.SUBSCRIBE_FEED;
     }
 
     public String getPolicy() {
-        return policy;
+        return subscriptionRequest.getPolicy();
+    }
+
+    public FeedSubscriptionRequest getSubscriptionRequest() {
+        return subscriptionRequest;
     }
 
     @Override
     public <R, T> R accept(IAqlExpressionVisitor<R, T> visitor, T arg) throws AsterixException {
-        return visitor.visitConnectFeedStatement(this, arg);
+        return null;
     }
 
     @Override
     public <T> void accept(IAqlVisitorWithVoidReturn<T> visitor, T arg) throws AsterixException {
-        visitor.visit(this, arg);
     }
 
     public boolean forceConnect() {
@@ -176,10 +161,6 @@ public class ConnectFeedStatement implements Statement {
 
     public void setForceConnect(boolean forceConnect) {
         this.forceConnect = forceConnect;
-    }
-
-    public String getFeedName() {
-        return feedName;
     }
 
 }

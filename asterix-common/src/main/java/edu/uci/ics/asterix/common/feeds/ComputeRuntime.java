@@ -16,61 +16,28 @@ package edu.uci.ics.asterix.common.feeds;
 
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FrameReader;
 
-public class IngestionRuntime implements ISubscribableRuntime {
+/**
+ * Represents the runtime associated with computation of function associated with a feed.
+ */
+public class ComputeRuntime extends FeedRuntime implements ISubscribableRuntime {
 
-    private final FeedIngestionId ingestionId;
-    private IAdapterRuntimeManager adapterRuntimeManager;
     private final DistributeFeedFrameWriter feedWriter;
 
-    public IngestionRuntime(FeedId feedId, int partition, IAdapterRuntimeManager adaptorRuntimeManager,
+    public ComputeRuntime(FeedConnectionId feedConnectionId, int partition, FeedRuntimeType feedRuntimeType,
             DistributeFeedFrameWriter feedWriter) {
-        this.ingestionId = new FeedIngestionId(feedId, partition);
-        this.adapterRuntimeManager = adaptorRuntimeManager;
+        super(feedConnectionId, partition, feedRuntimeType);
         this.feedWriter = feedWriter;
     }
 
+    @Override
     public void subscribeFeed(CollectionRuntime collectionRuntime) throws Exception {
         FrameReader reader = feedWriter.subscribeFeed(collectionRuntime.getFrameWriter());
         collectionRuntime.setFrameReader(reader);
-        if (feedWriter.getDistributionMode().equals(DistributeFeedFrameWriter.DistributionMode.SINGLE)) {
-            adapterRuntimeManager.start();
-        }
-    }
-
-    public void unsubscribeFeed(CollectionRuntime collectionRuntime) throws Exception {
-        feedWriter.unsubscribeFeed(collectionRuntime.getFrameWriter());
-        if (feedWriter.getDistributionMode().equals(DistributeFeedFrameWriter.DistributionMode.INACTIVE)) {
-            adapterRuntimeManager.stop();
-        }
-    }
-
-    public void endOfFeed() {
-        feedWriter.notifyEndOfFeed();
-    }
-
-    public IAdapterRuntimeManager getAdapterRuntimeManager() {
-        return adapterRuntimeManager;
-    }
-
-    public FeedIngestionId getFeedIngestionId() {
-        return ingestionId;
-    }
-
-    public void setAdapterRuntimeManager(IAdapterRuntimeManager adapterRuntimeManager) {
-        this.adapterRuntimeManager = adapterRuntimeManager;
-    }
-
-    public FeedIngestionId getIngestionId() {
-        return ingestionId;
-    }
-
-    public DistributeFeedFrameWriter getFeedWriter() {
-        return feedWriter;
     }
 
     @Override
-    public FeedId getFeedId() {
-        return ingestionId.getFeedId();
+    public void unsubscribeFeed(CollectionRuntime collectionRuntime) throws Exception {
+        feedWriter.unsubscribeFeed(collectionRuntime.getFrameWriter());
     }
 
     @Override

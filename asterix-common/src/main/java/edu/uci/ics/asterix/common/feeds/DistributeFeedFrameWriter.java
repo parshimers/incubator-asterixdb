@@ -1,3 +1,17 @@
+/*
+ * Copyright 2009-2013 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package edu.uci.ics.asterix.common.feeds;
 
 import java.nio.ByteBuffer;
@@ -10,35 +24,45 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.FeedId;
-import edu.uci.ics.asterix.common.feeds.IAdapterRuntimeManager;
-import edu.uci.ics.asterix.common.feeds.IFeedFrameWriter;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
+/**
+ * Provides mechanism for distributing the frames, as received from an operator to a
+ * set of registered readers. Each reader typically operates at a different pace. Readers
+ * are isolated from each other to ensure that a slow reader does not impact the progress of
+ * others.
+ **/
 public class DistributeFeedFrameWriter implements IFeedFrameWriter {
 
     private static final Logger LOGGER = Logger.getLogger(DistributeFeedFrameWriter.class.getName());
 
+    /** A unique identifier for the feed that is operational. **/
     private final FeedId feedId;
 
+    /** Provides mechanism for distributing a frame to multiple readers, each operating in isolation. **/
     private final FrameDistributor frameDistributor;
 
-    private IAdapterRuntimeManager adapterRuntimeManager;
-
+    /** A map storing the registered frame readers ({@code FrameReader}. **/
     private final Map<IFeedFrameWriter, FrameReader> registeredReaders;
 
+    /** The original frame writer instantiated as part of job creation. **/
     private IFrameWriter writer;
+
+    private DistributionMode distributionMode;
+
+    public enum DistributionMode {
+        SINGLE,
+        SHARED,
+        INACTIVE
+    }
 
     public DistributeFeedFrameWriter(FeedId feedId, IFrameWriter writer) {
         this.feedId = feedId;
         this.frameDistributor = new FrameDistributor();
         this.registeredReaders = new HashMap<IFeedFrameWriter, FrameReader>();
         this.writer = writer;
-    }
-
-    public void setAdapterRuntimeManager(IAdapterRuntimeManager adapterRuntimeManager) {
-        this.adapterRuntimeManager = adapterRuntimeManager;
+        this.distributionMode = DistributionMode.INACTIVE;
     }
 
     public synchronized FrameReader subscribeFeed(IFeedFrameWriter recipientFeedFrameWriter) throws Exception {
@@ -53,8 +77,8 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
             reader = new FrameReader(outputQueue, recipientFeedFrameWriter);
             registeredReaders.put(recipientFeedFrameWriter, reader);
             frameDistributor.registerFrameReader(reader);
-            if (frameDistributor.getMode().equals(FrameDistributor.DistributionMode.SINGLE)) {
-                beginIngestion();
+            if (frameDistributor.getMode().equals(DistributionMode.SINGLE)) {
+                setUpDistribution();
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Started feed ingestion on registering subscriber ");
                 }
@@ -66,26 +90,20 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
     public synchronized void unsubscribeFeed(IFeedFrameWriter recipientFeedFrameWriter) throws Exception {
         if (registeredReaders.keySet().contains(recipientFeedFrameWriter)) {
             frameDistributor.deregisterFrameReader(registeredReaders.get(recipientFeedFrameWriter));
-            if (frameDistributor.getMode().equals(FrameDistributor.DistributionMode.INACTIVE)) {
-                endIngestion();
-            }
+            FrameReader reader = registeredReaders.get(recipientFeedFrameWriter);
+            reader.setContinueReading(false);
         } else {
             if (LOGGER.isLoggable(Level.WARNING)) {
-                LOGGER.warning("Feed frame writer " + recipientFeedFrameWriter + " is not registerd");
+                LOGGER.warning("Feed frame writer " + recipientFeedFrameWriter + " is not registered");
             }
         }
     }
 
-    private void beginIngestion() throws Exception {
+    private void setUpDistribution() throws Exception {
         (new Thread(frameDistributor)).start();
-        adapterRuntimeManager.start();
     }
 
-    private void endIngestion() throws Exception {
-        adapterRuntimeManager.stop();
-    }
-
-    private void notifyEndOfFeed() {
+    public void notifyEndOfFeed() {
         frameDistributor.notifyEndOfFeed();
     }
 
@@ -112,6 +130,10 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
     @Override
     public FeedId getFeedId() {
         return feedId;
+    }
+
+    public DistributionMode getDistributionMode() {
+        return distributionMode;
     }
 
     public static class DataBucketPool {
@@ -214,14 +236,7 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
         private final List<FrameReader> pendingDeletions;
         private final List<FrameReader> registeredReaders;
         private final DataBucketPool pool;
-
         private DistributionMode mode;
-
-        public enum DistributionMode {
-            SINGLE,
-            SHARED,
-            INACTIVE
-        }
 
         public FrameDistributor() {
             this.pool = new DataBucketPool(25);
@@ -315,6 +330,7 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
         private final LinkedBlockingQueue<DataBucket> inputQueue;
         private final IFeedFrameWriter frameWriter;
         private State state;
+        private boolean continueReading;
 
         public enum State {
             ACTIVE,
@@ -325,10 +341,11 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
             this.inputQueue = inputQueue;
             this.frameWriter = frameWriter;
             this.state = State.ACTIVE;
+            this.continueReading = true;
         }
 
         public void run() {
-            while (true) {
+            while (continueReading) {
                 DataBucket data = null;
                 try {
                     data = inputQueue.take();
@@ -338,10 +355,7 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
                             data.doneReading();
                             break;
                         case EOD:
-                            state = State.FINISHED;
-                            synchronized (this) {
-                                notifyAll();
-                            }
+                            continueReading = false;
                             break;
                     }
 
@@ -353,6 +367,17 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
                     data.doneReading();
                 }
             }
+            disconnect();
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Disconnected frame reader for " + frameWriter.getFeedId());
+            }
+        }
+
+        public void disconnect() {
+            state = State.FINISHED;
+            synchronized (this) {
+                notifyAll();
+            }
         }
 
         public IFeedFrameWriter getFrameWriter() {
@@ -362,6 +387,11 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
         public State getState() {
             return state;
         }
+
+        public void setContinueReading(boolean continueReading) {
+            this.continueReading = continueReading;
+        }
+
     }
 
 }

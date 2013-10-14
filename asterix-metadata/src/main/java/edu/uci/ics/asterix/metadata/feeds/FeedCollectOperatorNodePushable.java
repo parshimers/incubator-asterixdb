@@ -20,12 +20,13 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
-import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FrameReader;
+import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FeedRuntime.FeedRuntimeId;
-import edu.uci.ics.asterix.common.feeds.FeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
+import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
+import edu.uci.ics.asterix.common.feeds.ISubscribableRuntime;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -47,18 +48,17 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
     private final String nodeId;
     private final FrameTupleAccessor fta;
     private final IFeedManager feedManager;
-    private final IngestionRuntime ingestionRuntime;
+    private final ISubscribableRuntime sourceRuntime;
 
     private CollectionRuntime collectRuntime;
     private FeedFrameWriter feedFrameWriter;
-    private FrameReader reader;
 
     public FeedCollectOperatorNodePushable(IHyracksTaskContext ctx, FeedId sourceFeedId,
             FeedConnectionId feedConnectionId, Map<String, String> feedPolicy, int partition,
-            IngestionRuntime ingestionRuntime) {
+            ISubscribableRuntime sourceRuntime) {
         this.partition = partition;
         this.feedConnectionId = feedConnectionId;
-        this.ingestionRuntime = ingestionRuntime;
+        this.sourceRuntime = sourceRuntime;
         inbox = new LinkedBlockingQueue<IFeedMessage>();
         this.feedPolicy = feedPolicy;
         policyEnforcer = new FeedPolicyEnforcer(feedConnectionId, feedPolicy);
@@ -82,10 +82,9 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Beginning new feed:" + feedConnectionId);
                 }
-                collectRuntime = new CollectionRuntime(feedConnectionId, partition, feedFrameWriter, ingestionRuntime);
+                collectRuntime = new CollectionRuntime(feedConnectionId, partition, feedFrameWriter, sourceRuntime);
                 feedManager.getFeedConnectionManager().registerFeedRuntime(collectRuntime);
-                reader = ingestionRuntime.getFeedWriter().subscribeFeed(feedFrameWriter);
-                collectRuntime.setFrameReader(reader);
+                sourceRuntime.subscribeFeed(collectRuntime);
             } else {
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Resuming old feed:" + feedConnectionId);
@@ -94,15 +93,9 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
                 FeedFrameWriter frameWriter = (FeedFrameWriter) collectRuntime.getFrameWriter();
                 frameWriter.setWriter(frameWriter);
                 ((FeedFrameWriter) frameWriter.getWriter()).reset();
-                reader = collectRuntime.getReader();
             }
 
-            synchronized (reader) {
-                while (!reader.getState().equals(FrameReader.State.FINISHED)) {
-                    reader.wait();
-                }
-            }
-
+            collectRuntime.waitTillCollectionOver();
             feedManager.getFeedConnectionManager().deRegisterFeedRuntime(collectRuntime.getFeedRuntimeId());
             feedFrameWriter.close();
         } catch (InterruptedException ie) {
@@ -121,7 +114,6 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
                 throw new HyracksDataException(ie);
             }
         } catch (Exception e) {
-            e.printStackTrace();
             throw new HyracksDataException(e);
         }
     }
@@ -129,5 +121,5 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
     public Map<String, String> getFeedPolicy() {
         return feedPolicy;
     }
-    
+
 }

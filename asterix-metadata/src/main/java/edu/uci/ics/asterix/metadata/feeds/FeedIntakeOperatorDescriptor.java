@@ -21,6 +21,7 @@ import edu.uci.ics.asterix.common.feeds.IDatasourceAdapter;
 import edu.uci.ics.asterix.common.feeds.IFeedAdapter;
 import edu.uci.ics.asterix.common.feeds.IFeedIngestionManager;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
+import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorNodePushable;
 import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
@@ -39,10 +40,9 @@ public class FeedIntakeOperatorDescriptor extends AbstractSingleActivityOperator
 
     private final IAdapterFactory adapterFactory;
 
-    public FeedIntakeOperatorDescriptor(JobSpecification spec, String dataverse, String feedName,
-            IAdapterFactory adapterFactory) {
+    public FeedIntakeOperatorDescriptor(JobSpecification spec, PrimaryFeed primaryFeed, IAdapterFactory adapterFactory) {
         super(spec, 0, 1);
-        this.feedId = new FeedId(dataverse, feedName);
+        this.feedId = new FeedId(primaryFeed.getDataverseName(), primaryFeed.getFeedName());
         this.adapterFactory = adapterFactory;
     }
 
@@ -63,6 +63,10 @@ public class FeedIntakeOperatorDescriptor extends AbstractSingleActivityOperator
         IngestionRuntime ingestionRuntime = (IngestionRuntime) feedIngestionManager
                 .getIngestionRuntime(feedIngestionId);
         return new FeedIntakeOperatorNodePushable(ctx, feedId, (IFeedAdapter) adapter, partition, ingestionRuntime);
+    }
+
+    public FeedId getFeedId() {
+        return feedId;
     }
 
 }

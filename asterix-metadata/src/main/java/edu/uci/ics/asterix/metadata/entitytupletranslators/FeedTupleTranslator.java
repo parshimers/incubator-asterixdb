@@ -126,7 +126,7 @@ public class FeedTupleTranslator extends AbstractTupleTranslator<Feed> {
                         .getValueByPos(MetadataRecordTypes.FEED_ARECORD_PRIMARY_FIELD_DETAILS_ADAPTOR_NAME_FIELD_INDEX))
                         .getStringValue();
 
-                IACursor cursor = ((AUnorderedList) feedRecord
+                IACursor cursor = ((AUnorderedList) feedTypeDetailsRecord
                         .getValueByPos(MetadataRecordTypes.FEED_ARECORD_PRIMARY_FIELD_DETAILS_ADAPTOR_CONFIGURATION_FIELD_INDEX))
                         .getCursor();
                 String key;
@@ -148,11 +148,11 @@ public class FeedTupleTranslator extends AbstractTupleTranslator<Feed> {
                 ARecord feedTypeDetailsRecord = (ARecord) feedRecord
                         .getValueByPos(MetadataRecordTypes.FEED_ARECORD_SECONDARY_TYPE_DETAILS_FIELD_INDEX);
 
-                String sourceFeedName = ((AString) feedTypeDetailsRecord
+                String sourceFeedDataverse = ((AString) feedTypeDetailsRecord
                         .getValueByPos(MetadataRecordTypes.FEED_TYPE_SECONDARY_ARECORD_SOURCE_DATAVERSE_FIELD_INDEX))
                         .getStringValue();
 
-                String sourceFeedDataverse = ((AString) feedTypeDetailsRecord
+                String sourceFeedName = ((AString) feedTypeDetailsRecord
                         .getValueByPos(MetadataRecordTypes.FEED_TYPE_SECONDARY_ARECORD_SOURCE_FEED_NAME_FIELD_INDEX))
                         .getStringValue();
 
@@ -229,8 +229,8 @@ public class FeedTupleTranslator extends AbstractTupleTranslator<Feed> {
         return tuple;
     }
 
-    private void writeFeedTypeDetailsRecordType(IARecordBuilder recordBuilder, Feed feed, ArrayBackedValueStorage fieldValue)
-            throws HyracksDataException {
+    private void writeFeedTypeDetailsRecordType(IARecordBuilder recordBuilder, Feed feed,
+            ArrayBackedValueStorage fieldValue) throws HyracksDataException {
 
         switch (feed.getFeedType()) {
             case PRIMARY: {
@@ -251,7 +251,8 @@ public class FeedTupleTranslator extends AbstractTupleTranslator<Feed> {
                 aString.setValue(primaryFeed.getAdaptorName());
                 stringSerde.serialize(aString, primaryRecordfieldValue.getDataOutput());
                 primaryDetailsRecordBuilder.addField(
-                        MetadataRecordTypes.FEED_ARECORD_PRIMARY_FIELD_DETAILS_ADAPTOR_NAME_FIELD_INDEX, primaryRecordfieldValue);
+                        MetadataRecordTypes.FEED_ARECORD_PRIMARY_FIELD_DETAILS_ADAPTOR_NAME_FIELD_INDEX,
+                        primaryRecordfieldValue);
 
                 // write field 1
                 listBuilder
@@ -288,11 +289,13 @@ public class FeedTupleTranslator extends AbstractTupleTranslator<Feed> {
 
                 // write field 0
                 fieldValue.reset();
-                aString.setValue(secondaryFeed.getSourceFeedDataverseName());
-                stringSerde.serialize(aString, secondaryFieldValue.getDataOutput());
-                secondaryDetailsRecordBuilder.addField(
-                        MetadataRecordTypes.FEED_ARECORD_SECONDARY_FIELD_DETAILS_SOURCE_FEED_DATAVERSE_FIELD_INDEX,
-                        secondaryFieldValue);
+                if (secondaryFeed.getSourceFeedDataverseName() != null) {
+                    aString.setValue(secondaryFeed.getSourceFeedDataverseName());
+                    stringSerde.serialize(aString, secondaryFieldValue.getDataOutput());
+                    secondaryDetailsRecordBuilder.addField(
+                            MetadataRecordTypes.FEED_ARECORD_SECONDARY_FIELD_DETAILS_SOURCE_FEED_DATAVERSE_FIELD_INDEX,
+                            secondaryFieldValue);
+                }
 
                 // write field 1
                 fieldValue.reset();

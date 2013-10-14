@@ -14,11 +14,10 @@
  */
 package edu.uci.ics.asterix.metadata.feeds;
 
-import java.util.logging.Logger;
-
 import edu.uci.ics.asterix.common.feeds.IFeedConnectionManager;
 import edu.uci.ics.asterix.common.feeds.IFeedIngestionManager;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
+import edu.uci.ics.asterix.common.feeds.IFeedWorkManager;
 
 /**
  * An implementation of the IFeedManager interface.
@@ -27,11 +26,9 @@ import edu.uci.ics.asterix.common.feeds.IFeedManager;
  */
 public class FeedManager implements IFeedManager {
 
-    private static final Logger LOGGER = Logger.getLogger(FeedManager.class.getName());
+    private final IFeedIngestionManager feedIngestionManager;
 
-    private IFeedIngestionManager feedIngestionManager;
-
-    private IFeedConnectionManager feedConnectionManager;
+    private final IFeedConnectionManager feedConnectionManager;
 
     private final String nodeId;
 

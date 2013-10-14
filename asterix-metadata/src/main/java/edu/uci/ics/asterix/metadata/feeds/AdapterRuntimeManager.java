@@ -42,8 +42,6 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
 
     private IngestionRuntime ingestionRuntime;
 
-    private final IFeedIngestionManager feedIngestionManager;
-
     public enum State {
         /*
          * Indicates that data from external source will be pushed downstream for storage 
@@ -60,12 +58,12 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
     }
 
     public AdapterRuntimeManager(FeedId feedId, IFeedAdapter feedAdapter, DistributeFeedFrameWriter writer,
-            int partition, LinkedBlockingQueue<IFeedMessage> inbox, IFeedIngestionManager feedIngestionManager) {
+            int partition, LinkedBlockingQueue<IFeedMessage> inbox) {
         this.feedId = feedId;
         this.feedAdapter = feedAdapter;
         this.partition = partition;
-        this.feedIngestionManager = feedIngestionManager;
         this.adapterExecutor = new AdapterExecutor(partition, writer, feedAdapter, this);
+        this.state = State.INACTIVE_INGESTION;
     }
 
     @Override
@@ -82,9 +80,7 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
         try {
             feedAdapter.stop();
             state = State.FINISHED_INGESTION;
-            synchronized (this) {
-                notifyAll();
-            }
+            ingestionRuntime.endOfFeed();
         } catch (Exception exception) {
             if (LOGGER.isLoggable(Level.SEVERE)) {
                 LOGGER.severe("Unable to stop adapter " + feedAdapter + ", encountered exception " + exception);

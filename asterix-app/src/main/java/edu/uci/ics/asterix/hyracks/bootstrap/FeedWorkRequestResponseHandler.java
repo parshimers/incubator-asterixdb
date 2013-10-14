@@ -25,9 +25,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import edu.uci.ics.asterix.hyracks.bootstrap.FeedLifecycleListener.FeedCollectInfo;
 import edu.uci.ics.asterix.hyracks.bootstrap.FeedLifecycleListener.FeedFailure;
 import edu.uci.ics.asterix.hyracks.bootstrap.FeedLifecycleListener.FeedFailureReport;
-import edu.uci.ics.asterix.hyracks.bootstrap.FeedLifecycleListener.FeedInfo;
 import edu.uci.ics.asterix.hyracks.bootstrap.FeedLifecycleListener.FeedsDeActivator;
 import edu.uci.ics.asterix.metadata.api.IClusterManagementWork;
 import edu.uci.ics.asterix.metadata.cluster.AddNodeWork;
@@ -89,8 +89,8 @@ public class FeedWorkRequestResponseHandler implements Runnable {
 
                     AddNodeWork work = (AddNodeWork) submittedWork;
                     FeedFailureReport failureReport = feedsWaitingForResponse.remove(work.getWorkId());
-                    Set<FeedInfo> affectedFeeds = failureReport.failures.keySet();
-                    for (FeedInfo feedInfo : affectedFeeds) {
+                    Set<FeedCollectInfo> affectedFeeds = failureReport.failures.keySet();
+                    for (FeedCollectInfo feedInfo : affectedFeeds) {
                         try {
                             recoverFeed(feedInfo, work, resp, failureReport.failures.get(feedInfo));
                             if (LOGGER.isLoggable(Level.INFO)) {
@@ -109,7 +109,7 @@ public class FeedWorkRequestResponseHandler implements Runnable {
         }
     }
 
-    private void recoverFeed(FeedInfo feedInfo, AddNodeWork work, AddNodeWorkResponse resp,
+    private void recoverFeed(FeedCollectInfo feedInfo, AddNodeWork work, AddNodeWorkResponse resp,
             List<FeedFailure> feedFailures) throws Exception {
         List<String> failedNodeIds = new ArrayList<String>();
         for (FeedFailure feedFailure : feedFailures) {
@@ -174,8 +174,8 @@ public class FeedWorkRequestResponseHandler implements Runnable {
         AsterixAppContextInfo.getInstance().getHcc().startJob(feedInfo.jobSpec);
     }
 
-    private String getInternalReplacement(FeedInfo feedInfo, FeedFailure feedFailure, List<String> failedNodeIds,
-            List<String> chosenReplacements) {
+    private String getInternalReplacement(FeedCollectInfo feedCollectInfo, FeedFailure feedFailure,
+            List<String> failedNodeIds, List<String> chosenReplacements) {
         String failedNodeId = feedFailure.nodeId;
         String replacement = null;;
         // TODO 1st preference is given to any other participant node that is not involved in the feed.
@@ -185,9 +185,9 @@ public class FeedWorkRequestResponseHandler implements Runnable {
         if (participantNodes != null && !participantNodes.isEmpty()) {
             List<String> pNodesClone = new ArrayList<String>();
             pNodesClone.addAll(participantNodes);
-            pNodesClone.removeAll(feedInfo.storageLocations);
-            pNodesClone.removeAll(feedInfo.computeLocations);
-            pNodesClone.removeAll(feedInfo.ingestLocations);
+            pNodesClone.removeAll(feedCollectInfo.storageLocations);
+            pNodesClone.removeAll(feedCollectInfo.computeLocations);
+            pNodesClone.removeAll(feedCollectInfo.collectLocations);
             pNodesClone.removeAll(chosenReplacements);
 
             if (LOGGER.isLoggable(Level.INFO)) {
@@ -206,15 +206,15 @@ public class FeedWorkRequestResponseHandler implements Runnable {
         }
 
         if (replacement == null) {
-            feedInfo.computeLocations.removeAll(failedNodeIds);
-            boolean computeNodeSubstitute = (feedInfo.computeLocations.size() > 1);
+            feedCollectInfo.computeLocations.removeAll(failedNodeIds);
+            boolean computeNodeSubstitute = (feedCollectInfo.computeLocations.size() > 1);
             if (computeNodeSubstitute) {
-                replacement = feedInfo.computeLocations.get(0);
+                replacement = feedCollectInfo.computeLocations.get(0);
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Compute node:" + replacement + " chosen to replace " + failedNodeId);
                 }
             } else {
-                replacement = feedInfo.storageLocations.get(0);
+                replacement = feedCollectInfo.storageLocations.get(0);
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Storage node:" + replacement + " chosen to replace " + failedNodeId);
                 }
@@ -223,13 +223,14 @@ public class FeedWorkRequestResponseHandler implements Runnable {
         return replacement;
     }
 
-    private void alterFeedJobSpec(FeedInfo feedInfo, AddNodeWorkResponse resp, String failedNodeId, String replacement) {
+    private void alterFeedJobSpec(FeedCollectInfo feedInfo, AddNodeWorkResponse resp, String failedNodeId,
+            String replacement) {
         if (replacement == null) {
             if (LOGGER.isLoggable(Level.SEVERE)) {
                 LOGGER.severe("Unable to find replacement for failed node :" + failedNodeId);
                 LOGGER.severe("Feed: " + feedInfo.feedConnectionId + " will be terminated");
             }
-            List<FeedInfo> feedsToTerminate = new ArrayList<FeedInfo>();
+            List<FeedCollectInfo> feedsToTerminate = new ArrayList<FeedCollectInfo>();
             feedsToTerminate.add(feedInfo);
             Thread t = new Thread(new FeedsDeActivator(feedsToTerminate));
             t.start();

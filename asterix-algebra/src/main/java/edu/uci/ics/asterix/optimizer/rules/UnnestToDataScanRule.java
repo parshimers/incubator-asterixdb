@@ -184,15 +184,15 @@ public class UnnestToDataScanRule implements IAlgebraicRewriteRule {
         context.addPrimaryKey(pk);
     }
 
-    private AqlDataSource createFeedDataSource(AqlSourceId aqlId, FeedConnectionId feedId,
+    private AqlDataSource createFeedDataSource(AqlSourceId aqlId, FeedConnectionId feedConnectionId,
             AqlMetadataProvider metadataProvider, FeedPolicy feedPolicy, String outputType) throws AlgebricksException {
         if (!aqlId.getDataverseName().equals(
                 metadataProvider.getDefaultDataverse() == null ? null : metadataProvider.getDefaultDataverse()
                         .getDataverseName())) {
             return null;
         }
-        IAType feedOutputType = metadataProvider.findType(feedId.getDataverse(), outputType);
-        FeedDataSource feedDataSource = new FeedDataSource(aqlId, feedId, feedOutputType,
+        IAType feedOutputType = metadataProvider.findType(feedConnectionId.getFeedId().getDataverse(), outputType);
+        FeedDataSource feedDataSource = new FeedDataSource(aqlId, feedConnectionId, feedOutputType,
                 AqlDataSource.AqlDataSourceType.FEED);
         feedDataSource.getProperties().put(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY, feedPolicy);
         return feedDataSource;

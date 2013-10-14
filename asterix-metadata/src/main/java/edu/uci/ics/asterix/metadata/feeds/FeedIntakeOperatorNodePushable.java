@@ -27,7 +27,6 @@ import edu.uci.ics.asterix.common.feeds.IFeedIngestionManager;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
 
 /**
@@ -40,8 +39,6 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
     private final int partition;
     private final FeedId feedId;
     private final LinkedBlockingQueue<IFeedMessage> inbox;
-    private final String nodeId;
-    private final FrameTupleAccessor fta;
     private final IFeedIngestionManager feedIngestionManager;
 
     private IngestionRuntime ingestionRuntime;
@@ -55,8 +52,6 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
         this.feedId = feedId;
         this.ingestionRuntime = ingestionRuntime;
         inbox = new LinkedBlockingQueue<IFeedMessage>();
-        nodeId = ctx.getJobletContext().getApplicationContext().getNodeId();
-        fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
         IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject();
         this.feedIngestionManager = runtimeCtx.getFeedManager().getFeedIngestionManager();
@@ -70,9 +65,7 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
         try {
             if (ingestionRuntime == null) {
                 feedFrameWriter = new DistributeFeedFrameWriter(feedId, writer);
-                adapterExecutor = new AdapterRuntimeManager(feedId, adapter, feedFrameWriter, partition, inbox,
-                        feedIngestionManager);
-                feedFrameWriter.setAdapterRuntimeManager(adapterExecutor);
+                adapterExecutor = new AdapterRuntimeManager(feedId, adapter, feedFrameWriter, partition, inbox);
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Set up feed ingestion activity, would wait for subscribers: " + feedId);
                 }
@@ -102,7 +95,6 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                 throw new HyracksDataException(ie);
             }
         } catch (Exception e) {
-            e.printStackTrace();
             throw new HyracksDataException(e);
         } finally {
             feedFrameWriter.close();

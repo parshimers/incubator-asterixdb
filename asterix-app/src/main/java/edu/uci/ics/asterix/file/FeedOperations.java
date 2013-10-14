@@ -14,11 +14,10 @@
  */
 package edu.uci.ics.asterix.file;
 
-import java.util.logging.Logger;
-
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity;
+import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraintHelper;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
@@ -32,8 +31,6 @@ import edu.uci.ics.hyracks.dataflow.std.misc.NullSinkOperatorDescriptor;
  * Provides helper method(s) for creating JobSpec for operations on a feed.
  */
 public class FeedOperations {
-
-    private static final Logger LOGGER = Logger.getLogger(IndexOperations.class.getName());
 
     /**
      * @param controlFeedStatement
@@ -74,27 +71,27 @@ public class FeedOperations {
 
     }
 
-    public static JobSpecification buildFeedIntakeJobSpec(String dataverseName, String feedName,
-            AqlMetadataProvider metadataProvider) throws AsterixException, AlgebricksException {
+    public static JobSpecification buildFeedIntakeJobSpec(PrimaryFeed primaryFeed, AqlMetadataProvider metadataProvider)
+            throws Exception {
 
         JobSpecification spec = JobSpecificationUtils.createJobSpecification();
-        IOperatorDescriptor feedMessenger;
-        AlgebricksPartitionConstraint messengerPc;
+        IOperatorDescriptor feedIngestor;
+        AlgebricksPartitionConstraint ingesterPc;
 
         try {
             Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p = metadataProvider.buildFeedIntakeRuntime(spec,
-                    dataverseName, feedName);
-            feedMessenger = p.first;
-            messengerPc = p.second;
+                    primaryFeed);
+            feedIngestor = p.first;
+            ingesterPc = p.second;
         } catch (AlgebricksException e) {
             throw new AsterixException(e);
         }
 
-        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, feedMessenger);
+        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, feedIngestor, ingesterPc);
 
         NullSinkOperatorDescriptor nullSink = new NullSinkOperatorDescriptor(spec);
-        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, nullSink, messengerPc);
-        spec.connect(new OneToOneConnectorDescriptor(spec), feedMessenger, 0, nullSink, 0);
+        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, nullSink, ingesterPc);
+        spec.connect(new OneToOneConnectorDescriptor(spec), feedIngestor, 0, nullSink, 0);
         spec.addRoot(nullSink);
         return spec;
 

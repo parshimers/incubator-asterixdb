@@ -15,6 +15,7 @@
 
 package edu.uci.ics.asterix.metadata.entities;
 
+import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.functions.FunctionSignature;
 import edu.uci.ics.asterix.metadata.MetadataCache;
 import edu.uci.ics.asterix.metadata.api.IMetadataEntity;
@@ -26,10 +27,17 @@ public abstract class Feed implements IMetadataEntity {
 
     private static final long serialVersionUID = 1L;
 
-    private final String dataverseName;
-    private final String feedName;
-    private final FunctionSignature appliedFunction;
-    private final FeedType feedType;
+    /** A unique identifier for the feed */
+    protected final FeedId feedId;
+
+    /** The function that is to be applied on each incoming feed tuple **/
+    protected final FunctionSignature appliedFunction;
+
+    /** The type {@code FeedType} associated with the feed. **/
+    protected final FeedType feedType;
+
+    /** A string representation of the instance **/
+    protected final String displayName;
 
     public enum FeedType {
         /**
@@ -44,18 +52,22 @@ public abstract class Feed implements IMetadataEntity {
     }
 
     public Feed(String dataverseName, String datasetName, FunctionSignature appliedFunction, FeedType feedType) {
-        this.dataverseName = dataverseName;
-        this.feedName = datasetName;
+        this.feedId = new FeedId(dataverseName, datasetName);
         this.appliedFunction = appliedFunction;
         this.feedType = feedType;
+        this.displayName = feedType + "(" + feedId + ")";
+    }
+
+    public FeedId getFeedId() {
+        return feedId;
     }
 
     public String getDataverseName() {
-        return dataverseName;
+        return feedId.getDataverse();
     }
 
     public String getFeedName() {
-        return feedName;
+        return feedId.getFeedName();
     }
 
     public FunctionSignature getAppliedFunction() {
@@ -84,13 +96,17 @@ public abstract class Feed implements IMetadataEntity {
         if (!(other instanceof Feed)) {
             return false;
         }
-        Feed otherDataset = (Feed) other;
-        if (!otherDataset.dataverseName.equals(dataverseName)) {
-            return false;
-        }
-        if (!otherDataset.feedName.equals(feedName)) {
-            return false;
-        }
-        return true;
+        Feed otherFeed = (Feed) other;
+        return otherFeed.getFeedId().equals(feedId);
+    }
+
+    @Override
+    public int hashCode() {
+        return displayName.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return feedType + "(" + feedId + ")";
     }
 }

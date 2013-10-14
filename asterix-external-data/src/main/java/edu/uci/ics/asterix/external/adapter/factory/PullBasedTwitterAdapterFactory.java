@@ -16,8 +16,8 @@ package edu.uci.ics.asterix.external.adapter.factory;
 
 import java.util.Map;
 
+import edu.uci.ics.asterix.common.feeds.IDatasourceAdapter;
 import edu.uci.ics.asterix.external.dataset.adapter.PullBasedTwitterAdapter;
-import edu.uci.ics.asterix.metadata.feeds.IDatasourceAdapter;
 import edu.uci.ics.asterix.metadata.feeds.ITypedAdapterFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.BuiltinType;

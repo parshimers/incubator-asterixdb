@@ -14,25 +14,30 @@
  */
 package edu.uci.ics.asterix.aql.expression;
 
-import java.util.Map;
-
 import edu.uci.ics.asterix.aql.base.Statement;
 import edu.uci.ics.asterix.aql.expression.visitor.IAqlExpressionVisitor;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.functions.FunctionSignature;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 
+/**
+ * Represents the AQL statement for creating a secondary feed.
+ * A secondary feed is one that derives its data from another (primary/secondary) feed.
+ */
 public class CreateSecondaryFeedStatement extends CreateFeedStatement implements Statement {
 
+    /** The source feed that provides data for this secondary feed. */
     private final Pair<Identifier, Identifier> sourceQName;
 
-    public CreateSecondaryFeedStatement(Pair<Identifier, Identifier> qName,  FunctionSignature appliedFunction, boolean ifNotExists) {
+    public CreateSecondaryFeedStatement(Pair<Identifier, Identifier> qName, Pair<Identifier, Identifier> sourceQName,
+            FunctionSignature appliedFunction, boolean ifNotExists) {
         super(qName, appliedFunction, ifNotExists);
-        this.sourceQName = null;
+        this.sourceQName = sourceQName;
     }
 
     public String getSourceFeedDataverse() {
-        return sourceQName.first != null ? sourceQName.first.toString() : null;
+        return sourceQName.first != null ? sourceQName.first.toString()
+                : getDataverseName() != null ? getDataverseName().getValue() : null;
     }
 
     public String getSourceFeedName() {

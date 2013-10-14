@@ -3,7 +3,7 @@ package edu.uci.ics.asterix.common.feeds;
 import java.util.HashMap;
 import java.util.Map;
 
-import edu.uci.ics.asterix.common.feeds.FeedRuntime.FeedRuntimeType;
+import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.SuperFeedManager.FeedReportMessageType;
 
 public class FeedReport implements Comparable {
@@ -107,9 +107,10 @@ public class FeedReport implements Comparable {
 
     private static Map<FeedRuntimeType, Integer> populateRanking() {
         Map<FeedRuntimeType, Integer> ranking = new HashMap<FeedRuntimeType, Integer>();
+        ranking.put(FeedRuntimeType.INGEST, 0);
         ranking.put(FeedRuntimeType.COLLECT, 1);
         ranking.put(FeedRuntimeType.COMPUTE, 2);
-        ranking.put(FeedRuntimeType.STORAGE, 3);
+        ranking.put(FeedRuntimeType.STORE, 3);
         ranking.put(FeedRuntimeType.COMMIT, 4);
         return ranking;
     }

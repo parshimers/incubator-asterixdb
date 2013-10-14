@@ -18,14 +18,7 @@ import java.nio.ByteBuffer;
 
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 
-public class FeedRuntime {
-
-    public enum FeedRuntimeType {
-        COLLECT,
-        COMPUTE,
-        STORAGE,
-        COMMIT
-    }
+public class FeedRuntime implements IFeedRuntime {
 
     /** A unique identifier */
     protected final FeedRuntimeId feedRuntimeId;
@@ -138,6 +131,11 @@ public class FeedRuntime {
 
     public FeedRuntimeId getFeedRuntimeId() {
         return feedRuntimeId;
+    }
+
+    @Override
+    public FeedId getFeedId() {
+        return this.feedRuntimeId.getFeedConnectionId().getFeedId();
     }
 
 }

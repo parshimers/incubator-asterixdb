@@ -19,7 +19,8 @@ import edu.uci.ics.asterix.common.functions.FunctionSignature;
 import edu.uci.ics.asterix.metadata.api.IMetadataEntity;
 
 /**
- * Metadata describing a feed.
+ * A secondary feed is one that derives its data from another (primary/secondary) feed.
+ * This class is a holder object for the metadata associated with a secondary feed.
  */
 public class SecondaryFeed extends Feed implements IMetadataEntity {
 
@@ -32,7 +33,7 @@ public class SecondaryFeed extends Feed implements IMetadataEntity {
             FunctionSignature appliedFunction) {
         super(dataverseName, feedName, appliedFunction, FeedType.SECONDARY);
         this.sourceFeedDataverseName = sourceFeedDataverse;
-        this.sourceFeedName = feedName;
+        this.sourceFeedName = sourceFeedName;
     }
 
     public String getSourceFeedDataverseName() {
@@ -61,5 +62,10 @@ public class SecondaryFeed extends Feed implements IMetadataEntity {
             return false;
         }
         return true;
+    }
+
+    @Override
+    public String toString() {
+        return "SecondaryFeed (" + feedId + ")" + "<--" + "(" + sourceFeedDataverseName + "," + sourceFeedName + ")";
     }
 }

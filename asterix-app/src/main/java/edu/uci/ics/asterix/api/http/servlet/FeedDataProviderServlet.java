@@ -91,7 +91,7 @@ public class FeedDataProviderServlet extends HttpServlet {
             switch(activity.getActivityType()){
                 case FEED_BEGIN:
                     Map<String, String> activityDetails = activity.getFeedActivityDetails();
-                    String ingestLocations = activityDetails.get(FeedActivityDetails.INGEST_LOCATIONS);
+                    String ingestLocations = activityDetails.get(FeedActivityDetails.COLLECT_LOCATIONS);
                     String computeLocations = activityDetails.get(FeedActivityDetails.COMPUTE_LOCATIONS);
                     String storageLocations = activityDetails.get(FeedActivityDetails.STORAGE_LOCATIONS);
                     obj.put("status", "active");

@@ -28,6 +28,8 @@ import edu.uci.ics.asterix.aql.base.Expression;
 import edu.uci.ics.asterix.aql.base.Expression.Kind;
 import edu.uci.ics.asterix.aql.expression.CallExpr;
 import edu.uci.ics.asterix.aql.expression.ConnectFeedStatement;
+import edu.uci.ics.asterix.aql.expression.CreatePrimaryFeedStatement;
+import edu.uci.ics.asterix.aql.expression.CreateSecondaryFeedStatement;
 import edu.uci.ics.asterix.aql.expression.DisconnectFeedStatement;
 import edu.uci.ics.asterix.aql.expression.CompactStatement;
 import edu.uci.ics.asterix.aql.expression.CreateDataverseStatement;
@@ -1446,13 +1448,6 @@ public class AqlPlusExpressionToPlanTranslator extends AbstractAqlTranslator imp
     }
 
     @Override
-    public Pair<ILogicalOperator, LogicalVariable> visitCreateFeedStatement(CreateFeedStatement del,
-            Mutable<ILogicalOperator> arg) throws AsterixException {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
     public Pair<ILogicalOperator, LogicalVariable> visitConnectFeedStatement(ConnectFeedStatement del,
             Mutable<ILogicalOperator> arg) throws AsterixException {
         // TODO Auto-generated method stub
@@ -1468,6 +1463,20 @@ public class AqlPlusExpressionToPlanTranslator extends AbstractAqlTranslator imp
 
     @Override
     public Pair<ILogicalOperator, LogicalVariable> visitCompactStatement(CompactStatement del,
+            Mutable<ILogicalOperator> arg) throws AsterixException {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public Pair<ILogicalOperator, LogicalVariable> visitCreatePrimaryFeedStatement(CreatePrimaryFeedStatement del,
+            Mutable<ILogicalOperator> arg) throws AsterixException {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public Pair<ILogicalOperator, LogicalVariable> visitCreateSecondaryFeedStatement(CreateSecondaryFeedStatement del,
             Mutable<ILogicalOperator> arg) throws AsterixException {
         // TODO Auto-generated method stub
         return null;

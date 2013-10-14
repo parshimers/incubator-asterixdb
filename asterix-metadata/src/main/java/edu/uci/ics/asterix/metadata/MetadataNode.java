@@ -1322,11 +1322,11 @@ public class MetadataNode implements IMetadataNode {
     }
 
     @Override
-    public FeedActivity getRecentFeedActivity(JobId jobId, FeedConnectionId feedId, FeedActivityType... activityType)
+    public FeedActivity getRecentFeedActivity(JobId jobId, FeedConnectionId feedConnectionId, FeedActivityType... activityType)
             throws MetadataException, RemoteException {
         try {
-            ITupleReference searchKey = createTuple(feedId.getDataverse(), feedId.getFeedName(),
-                    feedId.getDatasetName());
+            ITupleReference searchKey = createTuple(feedConnectionId.getFeedId().getDataverse(),
+                    feedConnectionId.getFeedId().getFeedName(), feedConnectionId.getDatasetName());
             FeedActivityTupleTranslator tupleReaderWriter = new FeedActivityTupleTranslator(false);
             List<FeedActivity> results = new ArrayList<FeedActivity>();
             IValueExtractor<FeedActivity> valueExtractor = new MetadataEntityValueExtractor<FeedActivity>(
@@ -1411,8 +1411,8 @@ public class MetadataNode implements IMetadataNode {
     }
 
     @Override
-    public List<FeedActivity> getActiveFeedsServingADataset(JobId jobId, String dataverse, String dataset) throws MetadataException,
-            RemoteException {
+    public List<FeedActivity> getActiveFeedsServingADataset(JobId jobId, String dataverse, String dataset)
+            throws MetadataException, RemoteException {
         List<FeedActivity> activeFeeds = new ArrayList<FeedActivity>();
         Map<FeedConnectionId, FeedActivity> aFeeds = new HashMap<FeedConnectionId, FeedActivity>();
         boolean invalidArgs = (dataverse == null && dataset != null);

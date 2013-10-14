@@ -112,7 +112,7 @@ public class FeedDashboardServlet extends HttpServlet {
                     LOGGER.info(" Super Feed Maanger address :" + host + "[" + port + "]");
                 }
 
-                String ingestLocations = activityDetails.get(FeedActivityDetails.INGEST_LOCATIONS);
+                String ingestLocations = activityDetails.get(FeedActivityDetails.COLLECT_LOCATIONS);
                 String computeLocations = activityDetails.get(FeedActivityDetails.COMPUTE_LOCATIONS);
                 String storageLocations = activityDetails.get(FeedActivityDetails.STORAGE_LOCATIONS);
                 String ingestionPolicy = activityDetails.get(FeedActivityDetails.FEED_POLICY_NAME);

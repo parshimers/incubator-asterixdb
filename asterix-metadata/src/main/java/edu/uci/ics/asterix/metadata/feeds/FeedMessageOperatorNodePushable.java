@@ -18,13 +18,14 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
+import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedRuntime;
 import edu.uci.ics.asterix.common.feeds.FeedRuntime.FeedRuntimeId;
-import edu.uci.ics.asterix.common.feeds.FeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.IFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
+import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.SuperFeedManager;
 import edu.uci.ics.hyracks.api.application.INCApplicationContext;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
@@ -44,8 +45,8 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
     private final IHyracksTaskContext ctx;
     private final IFeedManager feedManager;
 
-    public FeedMessageOperatorNodePushable(IHyracksTaskContext ctx, FeedConnectionId feedConnectionId, IFeedMessage feedMessage,
-            int partition, int nPartitions) {
+    public FeedMessageOperatorNodePushable(IHyracksTaskContext ctx, FeedConnectionId feedConnectionId,
+            IFeedMessage feedMessage, int partition, int nPartitions) {
         this.feedConnectionId = feedConnectionId;
         this.feedMessage = feedMessage;
         this.partition = partition;
@@ -68,10 +69,9 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                     if (LOGGER.isLoggable(Level.INFO)) {
                         LOGGER.info("Ending feed:" + feedConnectionId);
                     }
-
                     if (collectionLocation) {
-                        DistributeFeedFrameWriter frameWriter = ((CollectionRuntime) feedRuntime).getIngestionRuntime()
-                                .getFeedWriter();
+                        DistributeFeedFrameWriter frameWriter = (DistributeFeedFrameWriter) ((CollectionRuntime) feedRuntime)
+                                .getSubscribableRuntime().getFeedFrameWriter();
                         IFeedFrameWriter recipientFrameWriter = ((CollectionRuntime) feedRuntime).getFrameWriter();
                         frameWriter.unsubscribeFeed(recipientFrameWriter);
                         if (LOGGER.isLoggable(Level.INFO)) {

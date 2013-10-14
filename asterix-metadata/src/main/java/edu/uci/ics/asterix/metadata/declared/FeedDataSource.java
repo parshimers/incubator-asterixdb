@@ -27,16 +27,18 @@ public class FeedDataSource extends AqlDataSource {
     private Feed feed;
     private final FeedConnectionId feedConnectionId;
 
-    public FeedDataSource(AqlSourceId id, FeedConnectionId feedConnectionId, IAType itemType, AqlDataSourceType dataSourceType)
-            throws AlgebricksException {
-        super(id, feedConnectionId.getDataverse(), feedConnectionId.getFeedName(), itemType, dataSourceType);
+    public FeedDataSource(AqlSourceId id, FeedConnectionId feedConnectionId, IAType itemType,
+            AqlDataSourceType dataSourceType) throws AlgebricksException {
+        super(id, feedConnectionId.getFeedId().getDataverse(), feedConnectionId.getFeedId().getFeedName(), itemType,
+                dataSourceType);
         this.feedConnectionId = feedConnectionId;
         feed = null;
         MetadataTransactionContext ctx = null;
         try {
             MetadataManager.INSTANCE.acquireReadLatch();
             ctx = MetadataManager.INSTANCE.beginTransaction();
-            feed = MetadataManager.INSTANCE.getFeed(ctx, feedConnectionId.getDataverse(), feedConnectionId.getFeedName());
+            feed = MetadataManager.INSTANCE.getFeed(ctx, feedConnectionId.getFeedId().getDataverse(), feedConnectionId
+                    .getFeedId().getFeedName());
             if (feed == null) {
                 throw new AlgebricksException("Unknown feed " + feedConnectionId);
             }

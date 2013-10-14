@@ -254,7 +254,7 @@ public class MetadataCache {
                                                 }
                                                 List<FeedConnectionId> feedActivitiesMarkedForRemoval = new ArrayList<FeedConnectionId>();
                                                 for (FeedConnectionId fid : feedActivity.keySet()) {
-                                                    if (fid.getDataverse().equals(dataverse.getDataverseName())) {
+                                                    if (fid.getFeedId().getDataverse().equals(dataverse.getDataverseName())) {
                                                         feedActivitiesMarkedForRemoval.add(fid);
                                                     }
                                                 }

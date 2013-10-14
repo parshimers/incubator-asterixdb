@@ -12,33 +12,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.asterix.metadata.feeds;
+package edu.uci.ics.asterix.common.feeds;
 
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FrameReader;
-import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
-import edu.uci.ics.asterix.common.feeds.FeedRuntime;
-import edu.uci.ics.asterix.common.feeds.IFeedFrameWriter;
-import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 
+/**
+ * Represents the feed runtime that collects feed tuples from another feed.
+ * In case of a primary feed, the collect runtime collects tuples from the feed
+ * ingestion job. For a secondary feed, tuples are collected from the ingestion/compute
+ * runtime associated with the source feed.
+ */
 public class CollectionRuntime extends FeedRuntime {
 
-    private IngestionRuntime ingestionRuntime;
+    private ISubscribableRuntime sourceRuntime;
     private FrameReader reader;
     private IFeedFrameWriter feedFrameWriter;
 
     public CollectionRuntime(FeedConnectionId feedId, int partition, IFeedFrameWriter feedFrameWriter,
-            IngestionRuntime ingestionRuntime) {
+            ISubscribableRuntime sourceRuntime) {
         super(feedId, partition, FeedRuntimeType.COLLECT);
-        this.ingestionRuntime = ingestionRuntime;
+        this.sourceRuntime = sourceRuntime;
         this.feedFrameWriter = feedFrameWriter;
     }
 
-    public IngestionRuntime getIngestionRuntime() {
-        return ingestionRuntime;
+    public ISubscribableRuntime getSubscribableRuntime() {
+        return sourceRuntime;
     }
 
-    public void setIngestionRuntime(IngestionRuntime ingestionRuntime) {
-        this.ingestionRuntime = ingestionRuntime;
+    public void setIngestionRuntime(ISubscribableRuntime sourceRuntime) {
+        this.sourceRuntime = sourceRuntime;
     }
 
     public void setFrameReader(FrameReader reader) {
@@ -55,6 +57,14 @@ public class CollectionRuntime extends FeedRuntime {
 
     public void setFrameWriter(IFeedFrameWriter frameWriter) {
         this.feedFrameWriter = frameWriter;
+    }
+
+    public void waitTillCollectionOver() throws InterruptedException {
+        synchronized (reader) {
+            while (!reader.getState().equals(FrameReader.State.FINISHED)) {
+                reader.wait();
+            }
+        }
     }
 
 }
