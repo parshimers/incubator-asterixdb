@@ -33,14 +33,49 @@ import edu.uci.ics.hyracks.dataflow.std.misc.NullSinkOperatorDescriptor;
 public class FeedOperations {
 
     /**
-     * @param controlFeedStatement
-     *            The statement representing the action that describes the
-     *            action that needs to be taken on the feed. E.g. of actions are
-     *            stop feed or alter feed.
+     * Builds the job spec for ingesting a (primary) feed from its external source via the feed adaptor.
+     * 
+     * @param primaryFeed
      * @param metadataProvider
-     *            An instance of the MetadataProvider
-     * @return An instance of JobSpec for the job that would send an appropriate
-     *         control message to the running feed.
+     * @return
+     * @throws Exception
+     */
+    public static JobSpecification buildFeedIntakeJobSpec(PrimaryFeed primaryFeed, AqlMetadataProvider metadataProvider)
+            throws Exception {
+
+        JobSpecification spec = JobSpecificationUtils.createJobSpecification();
+        IOperatorDescriptor feedIngestor;
+        AlgebricksPartitionConstraint ingesterPc;
+
+        try {
+            Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p = metadataProvider.buildFeedIntakeRuntime(spec,
+                    primaryFeed);
+            feedIngestor = p.first;
+            ingesterPc = p.second;
+        } catch (AlgebricksException e) {
+            throw new AsterixException(e);
+        }
+
+        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, feedIngestor, ingesterPc);
+
+        NullSinkOperatorDescriptor nullSink = new NullSinkOperatorDescriptor(spec);
+        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, nullSink, ingesterPc);
+        spec.connect(new OneToOneConnectorDescriptor(spec), feedIngestor, 0, nullSink, 0);
+        spec.addRoot(nullSink);
+        return spec;
+
+    }
+
+    /**
+     * Builds the job spec for sending message to an active feed to disconnect it from the
+     * its source.
+     * 
+     * @param dataverseName
+     * @param feedName
+     * @param datasetName
+     * @param metadataProvider
+     * @param feedActivity
+     * @return
      * @throws AsterixException
      * @throws AlgebricksException
      */
@@ -71,29 +106,4 @@ public class FeedOperations {
 
     }
 
-    public static JobSpecification buildFeedIntakeJobSpec(PrimaryFeed primaryFeed, AqlMetadataProvider metadataProvider)
-            throws Exception {
-
-        JobSpecification spec = JobSpecificationUtils.createJobSpecification();
-        IOperatorDescriptor feedIngestor;
-        AlgebricksPartitionConstraint ingesterPc;
-
-        try {
-            Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p = metadataProvider.buildFeedIntakeRuntime(spec,
-                    primaryFeed);
-            feedIngestor = p.first;
-            ingesterPc = p.second;
-        } catch (AlgebricksException e) {
-            throw new AsterixException(e);
-        }
-
-        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, feedIngestor, ingesterPc);
-
-        NullSinkOperatorDescriptor nullSink = new NullSinkOperatorDescriptor(spec);
-        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, nullSink, ingesterPc);
-        spec.connect(new OneToOneConnectorDescriptor(spec), feedIngestor, 0, nullSink, 0);
-        spec.addRoot(nullSink);
-        return spec;
-
-    }
 }

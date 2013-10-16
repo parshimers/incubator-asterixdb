@@ -63,7 +63,8 @@ public class FeedSubscriptionRequest {
     public enum SubscriptionStatus {
         INITIALIZED, // initial state upon creating a subscription request
         ACTIVE, // subscribing feed receives data 
-        INACTIVE // subscribing feed does not receive data 
+        INACTIVE, // subscribing feed does not receive data 
+        FAILED // subscription failed
     }
 
     public SubscriptionStatus getSubscriptionStatus() {
@@ -100,7 +101,7 @@ public class FeedSubscriptionRequest {
 
     @Override
     public String toString() {
-        return sourceFeed.getFeedId() + " --> " + feed.getFeedId();
+        return "Feed Subscription Request " + sourceFeed.getFeedId() + " --> " + feed.getFeedId();
     }
 
 }

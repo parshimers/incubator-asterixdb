@@ -30,7 +30,9 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
 
 /**
- * The runtime for @see{FeedIntakeOperationDescriptor}
+ * The runtime for @see{FeedIntakeOperationDescriptor}.
+ * The core functionality provided by this pushable is to set up the artifacts for ingestion of a feed.
+ * The artifacts are lazily activated when a feed receives a subscription request.
  */
 public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOperatorNodePushable {
 
@@ -40,7 +42,6 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
     private final FeedId feedId;
     private final LinkedBlockingQueue<IFeedMessage> inbox;
     private final IFeedIngestionManager feedIngestionManager;
-
     private IngestionRuntime ingestionRuntime;
     private IFeedAdapter adapter;
     private DistributeFeedFrameWriter feedFrameWriter;
@@ -73,12 +74,25 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                 feedIngestionManager.registerFeedIngestionRuntime(ingestionRuntime);
                 feedFrameWriter.open();
                 synchronized (adapterExecutor) {
+                    if (LOGGER.isLoggable(Level.INFO)) {
+                        LOGGER.info("Waiting for adaptor [" + partition + "]" + "to be done with ingestion of feed "
+                                + feedId);
+                    }
                     while (!((AdapterRuntimeManager) adapterExecutor).getState().equals(
                             AdapterRuntimeManager.State.FINISHED_INGESTION)) {
-                        wait();
+                        adapterExecutor.wait();
                     }
                 }
+            } else {
+                String message = "Feed Ingestion Runtime for feed " + feedId + " is registered.";
+                LOGGER.severe(message);
+                throw new IllegalStateException(message);
             }
+
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info(" Adaptor [" + partition + " ]" + " done with ingestion of feed " + feedId);
+            }
+
         } catch (InterruptedException ie) {
             if (policyEnforcer.getFeedPolicyAccessor().continueOnHardwareFailure()) {
                 if (LOGGER.isLoggable(Level.INFO)) {

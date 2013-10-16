@@ -37,9 +37,9 @@ public class FeedWorkManager implements IFeedWorkManager {
         Runnable runnable = work.getRunnable();
         try {
             executorService.execute(runnable);
-            listener.workCompleted();
+            listener.workCompleted(work);
         } catch (Exception e) {
-            listener.workFailed(e);
+            listener.workFailed(work, e);
         }
     }
 

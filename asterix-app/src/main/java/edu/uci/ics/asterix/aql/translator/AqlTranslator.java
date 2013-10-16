@@ -64,6 +64,7 @@ import edu.uci.ics.asterix.aql.expression.NodeGroupDropStatement;
 import edu.uci.ics.asterix.aql.expression.NodegroupDecl;
 import edu.uci.ics.asterix.aql.expression.Query;
 import edu.uci.ics.asterix.aql.expression.SetStatement;
+import edu.uci.ics.asterix.aql.expression.SubscribeFeedStatement;
 import edu.uci.ics.asterix.aql.expression.TypeDecl;
 import edu.uci.ics.asterix.aql.expression.TypeDropStatement;
 import edu.uci.ics.asterix.aql.expression.WriteStatement;
@@ -107,7 +108,6 @@ import edu.uci.ics.asterix.metadata.entities.SecondaryFeed;
 import edu.uci.ics.asterix.metadata.feeds.BuiltinFeedPolicies;
 import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionRequest;
 import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionRequest.SubscriptionLocation;
-import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionRequest.SubscriptionStatus;
 import edu.uci.ics.asterix.metadata.feeds.FeedUtil;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
@@ -126,6 +126,7 @@ import edu.uci.ics.asterix.translator.CompiledStatements.CompiledIndexCompactSta
 import edu.uci.ics.asterix.translator.CompiledStatements.CompiledIndexDropStatement;
 import edu.uci.ics.asterix.translator.CompiledStatements.CompiledInsertStatement;
 import edu.uci.ics.asterix.translator.CompiledStatements.CompiledLoadFromFileStatement;
+import edu.uci.ics.asterix.translator.CompiledStatements.CompiledSubscribeFeedStatement;
 import edu.uci.ics.asterix.translator.CompiledStatements.ICompiledDmlStatement;
 import edu.uci.ics.asterix.translator.TypeTranslator;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
@@ -1603,8 +1604,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
                     feedPolicy, mdTxnCtx);
             boolean createFeedIntakeJob = false;
             if (subscriptionRequest.getSourceFeed().getFeedType().equals(FeedType.PRIMARY)) {
-                List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getActiveFeedConnections(mdTxnCtx, cfs
-                        .getDataverseName().getValue(), cfs.getFeedName());
+                List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getActiveFeedConnections(mdTxnCtx,
+                        dataverseName, cfs.getFeedName());
                 if (feedActivities == null || feedActivities.isEmpty()) {
                     createFeedIntakeJob = true;
                 }
@@ -1659,7 +1660,16 @@ public class AqlTranslator extends AbstractAqlTranslator {
         return request;
     }
 
-    /** Returns the first feed in the ancestory of a given feed that is active. **/
+    /**
+     * Provides the source feed in the ancestory of a given feed that would provide tuples for the feed.
+     * In addition, the location for subscription {@code SubscriptionLocation} is also returned.
+     * 
+     * @param feed
+     * @param appliedFunctions
+     * @param ctx
+     * @return
+     * @throws MetadataException
+     */
     private Pair<Feed, FeedSubscriptionRequest.SubscriptionLocation> getSourceFeed(Feed feed,
             List<String> appliedFunctions, MetadataTransactionContext ctx) throws MetadataException {
         Pair<Feed, FeedSubscriptionRequest.SubscriptionLocation> retValue = new Pair<Feed, FeedSubscriptionRequest.SubscriptionLocation>(
@@ -1667,11 +1677,11 @@ public class AqlTranslator extends AbstractAqlTranslator {
         switch (feed.getFeedType()) {
             case PRIMARY: {
                 retValue.first = feed;
-                appliedFunctions.add(feed.getAppliedFunction().getName());
-                if (feed.getAppliedFunction() == null) {
-                    retValue.second = SubscriptionLocation.SOURCE_FEED_INTAKE;
-                } else {
+                if (feed.getAppliedFunction() != null) {
+                    appliedFunctions.add(feed.getAppliedFunction().getName());
                     retValue.second = SubscriptionLocation.SOURCE_FEED_COMPUTE;
+                } else {
+                    retValue.second = SubscriptionLocation.SOURCE_FEED_INTAKE;
                 }
                 break;
             }
@@ -1760,6 +1770,36 @@ public class AqlTranslator extends AbstractAqlTranslator {
             LOGGER.info("Subscriber Feed Statement :" + stmt);
         }
 
+        MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+        boolean bActiveTxn = true;
+        metadataProvider.setMetadataTxnContext(mdTxnCtx);
+        acquireReadLatch();
+
+        try {
+            metadataProvider.setWriteTransaction(true);
+            SubscribeFeedStatement bfs = (SubscribeFeedStatement) stmt;
+            bfs.initialize(metadataProvider.getMetadataTxnContext());
+            metadataProvider.getConfig().put(FunctionUtils.IMPORT_PRIVATE_FUNCTIONS, "" + Boolean.TRUE);
+
+            CompiledSubscribeFeedStatement csfs = new CompiledSubscribeFeedStatement(bfs.getSubscriptionRequest(),
+                    bfs.getQuery(), 0);
+            JobSpecification compiled = rewriteCompileQuery(metadataProvider, bfs.getQuery(), csfs);
+
+            MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+            bActiveTxn = false;
+
+            if (compiled != null) {
+                runJob(hcc, compiled, false);
+            }
+
+        } catch (Exception e) {
+            if (bActiveTxn) {
+                abort(e, e, mdTxnCtx);
+            }
+            throw e;
+        } finally {
+            releaseReadLatch();
+        }
     }
 
     private void handleCompactStatement(AqlMetadataProvider metadataProvider, Statement stmt,

@@ -38,6 +38,7 @@ import edu.uci.ics.asterix.common.functions.FunctionConstants;
 import edu.uci.ics.asterix.common.functions.FunctionSignature;
 import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
 import edu.uci.ics.asterix.metadata.entities.Dataset;
+import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionRequest;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
@@ -372,6 +373,47 @@ public class CompiledStatements {
         public String getPolicyName() {
             return policyName;
         }
+    }
+
+    public static class CompiledSubscribeFeedStatement implements ICompiledDmlStatement {
+
+        private final FeedSubscriptionRequest request;
+        private Query query;
+        private final int varCounter;
+
+        public CompiledSubscribeFeedStatement(FeedSubscriptionRequest request, Query query, int varCounter) {
+            this.request = request;
+            this.query = query;
+            this.varCounter = varCounter;
+        }
+
+        @Override
+        public String getDataverseName() {
+            return request.getSourceFeed().getDataverseName();
+        }
+
+        @Override
+        public String getDatasetName() {
+            return request.getTargetDataset();
+        }
+
+        public int getVarCounter() {
+            return varCounter;
+        }
+
+        public Query getQuery() {
+            return query;
+        }
+
+        public void setQuery(Query query) {
+            this.query = query;
+        }
+
+        @Override
+        public Kind getKind() {
+            return Kind.SUBSCRIBE_FEED;
+        }
+
     }
 
     public static class CompiledDisconnectFeedStatement implements ICompiledDmlStatement {

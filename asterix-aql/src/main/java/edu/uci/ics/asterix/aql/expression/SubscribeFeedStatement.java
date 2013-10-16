@@ -33,6 +33,10 @@ import edu.uci.ics.asterix.metadata.entities.Feed;
 import edu.uci.ics.asterix.metadata.entities.Function;
 import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionRequest;
 
+/**
+ * Represents the AQL statement for subscribing to a feed.
+ * This AQL statement is private and may not be used by the end-user.
+ */
 public class SubscribeFeedStatement implements Statement {
 
     private final FeedSubscriptionRequest subscriptionRequest;
@@ -69,47 +73,30 @@ public class SubscribeFeedStatement implements Statement {
             }
         }
 
-        /*
-        org.apache.commons.lang3.tuple.Pair<IAdapterFactory, ARecordType> factoryOutput = null;
-        try {
-            factoryOutput = FeedUtil.getPrimaryFeedFactoryAndOutput((PrimaryFeed) sourceFeed, mdTxnCtx);
-            adapterOutputType = factoryOutput.getRight().getTypeName();
-        } catch (AlgebricksException ae) {
-            throw new MetadataException(ae);
-        }*/
-
         StringBuilder builder = new StringBuilder();
         builder.append("set" + " " + FunctionUtils.IMPORT_PRIVATE_FUNCTIONS + " " + "'" + Boolean.TRUE + "'" + ";\n");
         builder.append("insert into dataset " + subscriptionRequest.getTargetDataset() + " ");
 
         if (appliedFunction == null) {
             builder.append(" (" + " for $x in feed-collect ('" + sourceFeedId.getDataverse() + "'" + "," + "'"
-                    + sourceFeedId.getFeedName() + "'" + "," + "'" + subscriptionRequest.getFeed().getDataverseName()
-                    + "'" + "," + "'" + subscriptionRequest.getFeed().getFeedName() + "'" + "," + "'"
-                    + subscriptionRequest.getTargetDataset() + "'" + ")");
-
+                    + sourceFeedId.getFeedName() + "'" + "," + "'" + subscriptionRequest.getFeed().getFeedName() + "'"
+                    + "," + "'" + subscriptionRequest.getTargetDataset() + "'" + ")");
             builder.append(" return $x");
         } else {
             if (function.getLanguage().equalsIgnoreCase(Function.LANGUAGE_AQL)) {
                 String param = function.getParams().get(0);
                 builder.append(" (" + " for $x in feed-collect ('" + sourceFeedId.getDataverse() + "'" + "," + "'"
-                        + sourceFeedId.getFeedName() + "'" + "," + "'"
-                        + subscriptionRequest.getFeed().getDataverseName() + "'" + "," + "'"
-                        + subscriptionRequest.getFeed().getFeedName() + "'" + "," + "'"
-                        + subscriptionRequest.getTargetDataset() + "'" + ")");
+                        + sourceFeedId.getFeedName() + "'" + "," + "'" + subscriptionRequest.getFeed().getFeedName()
+                        + "'" + "," + "'" + subscriptionRequest.getTargetDataset() + "'" + ")");
                 builder.append(" let $y:=(" + function.getFunctionBody() + ")" + " return $y");
             } else {
                 builder.append(" (" + " for $x in feed-collect ('" + sourceFeedId.getDataverse() + "'" + "," + "'"
-                        + sourceFeedId.getFeedName() + "'" + "," + "'"
-                        + subscriptionRequest.getFeed().getDataverseName() + "'" + "," + "'"
-                        + subscriptionRequest.getFeed().getFeedName() + "'" + "," + "'"
-                        + subscriptionRequest.getTargetDataset() + "'" + ")");
+                        + sourceFeedId.getFeedName() + "'" + "," + "'" + subscriptionRequest.getFeed().getFeedName()
+                        + "'" + "," + "'" + subscriptionRequest.getTargetDataset() + "'" + ")");
 
-                builder.append(" let $y:=" + subscriptionRequest.getFeed().getDataverseName() + "."
-                        + function.getName() + "(" + "$x" + ")");
+                builder.append(" let $y:=" + function.getName() + "(" + "$x" + ")");
                 builder.append(" return $y");
             }
-
         }
         builder.append(")");
         builder.append(";");
@@ -155,12 +142,8 @@ public class SubscribeFeedStatement implements Statement {
     public <T> void accept(IAqlVisitorWithVoidReturn<T> visitor, T arg) throws AsterixException {
     }
 
-    public boolean forceConnect() {
-        return forceConnect;
-    }
-
-    public void setForceConnect(boolean forceConnect) {
-        this.forceConnect = forceConnect;
+    public String getDataverseName() {
+        return subscriptionRequest.getSourceFeed().getDataverseName();
     }
 
 }

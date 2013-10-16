@@ -28,8 +28,8 @@ import edu.uci.ics.asterix.aql.expression.Identifier;
 import edu.uci.ics.asterix.aql.expression.SubscribeFeedStatement;
 import edu.uci.ics.asterix.aql.translator.AqlTranslator;
 import edu.uci.ics.asterix.common.feeds.IFeedWork;
+import edu.uci.ics.asterix.common.feeds.IFeedWorkEventListener;
 import edu.uci.ics.asterix.hyracks.bootstrap.FeedLifecycleListener.FeedCollectInfo;
-import edu.uci.ics.asterix.hyracks.bootstrap.FeedLifecycleListener.FeedIntakeInfo;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
 import edu.uci.ics.asterix.metadata.bootstrap.MetadataConstants;
@@ -38,16 +38,25 @@ import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityDetails;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
 import edu.uci.ics.asterix.metadata.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionRequest;
+import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionRequest.SubscriptionStatus;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
 import edu.uci.ics.hyracks.api.job.JobId;
 
+/**
+ * A collection of feed management related task, each represented as an implementation of {@code IFeedWork}.
+ */
 public class FeedWorkCollection {
 
     private static Logger LOGGER = Logger.getLogger(FeedWorkCollection.class.getName());
 
+    /**
+     * The task of subscribing to a feed to obtain data.
+     */
     public static class SubscribeFeedWork implements IFeedWork {
 
         private final Runnable runnable;
+
+        private final FeedSubscriptionRequest request;
 
         @Override
         public Runnable getRunnable() {
@@ -56,6 +65,7 @@ public class FeedWorkCollection {
 
         public SubscribeFeedWork(FeedSubscriptionRequest request) {
             this.runnable = new SubscribeFeedWorkRunnable(request);
+            this.request = request;
         }
 
         private static class SubscribeFeedWorkRunnable implements Runnable {
@@ -68,23 +78,63 @@ public class FeedWorkCollection {
 
             @Override
             public void run() {
-
                 try {
+                    PrintWriter writer = new PrintWriter(System.out, true);
+                    SessionConfig pc = new SessionConfig(true, false, false, false, false, false, true, true, false);
                     DataverseDecl dataverseDecl = new DataverseDecl(new Identifier(request.getSourceFeed()
                             .getDataverseName()));
                     SubscribeFeedStatement subscribeStmt = new SubscribeFeedStatement(request);
-                    subscribeStmt.setForceConnect(true);
                     List<Statement> statements = new ArrayList<Statement>();
                     statements.add(dataverseDecl);
                     statements.add(subscribeStmt);
-
+                    AqlTranslator translator = new AqlTranslator(statements, writer, pc, DisplayFormat.TEXT);
+                    translator.compileAndExecute(AsterixAppContextInfo.getInstance().getHcc(), null, false);
+                    if (LOGGER.isLoggable(Level.INFO)) {
+                        LOGGER.info("Submitted subscribed feed stmt for execution: " + request);
+                    }
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    if (LOGGER.isLoggable(Level.SEVERE)) {
+                        LOGGER.severe("Exception in executing " + request);
+                    }
+                    throw new RuntimeException(e);
                 }
             }
         }
+
+        public static class FeedSubscribeWorkEventListener implements IFeedWorkEventListener {
+
+            @Override
+            public void workFailed(IFeedWork work, Exception e) {
+                if (LOGGER.isLoggable(Level.WARNING)) {
+                    LOGGER.warning(" Feed subscription request " + ((SubscribeFeedWork) work).request
+                            + " failed with exception " + e);
+                }
+            }
+
+            @Override
+            public void workCompleted(IFeedWork work) {
+                ((SubscribeFeedWork) work).request.setSubscriptionStatus(SubscriptionStatus.ACTIVE);
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.warning(" Feed subscription request " + ((SubscribeFeedWork) work).request + " completed ");
+                }
+            }
+
+        }
+
+        public FeedSubscriptionRequest getRequest() {
+            return request;
+        }
+
+        @Override
+        public String toString() {
+            return "SubscribeFeedWork for [" + request + "]";
+        }
+
     }
 
+    /**
+     * The task of activating a set of feeds.
+     */
     public static class ActivateFeedWork implements IFeedWork {
 
         private final Runnable runnable;

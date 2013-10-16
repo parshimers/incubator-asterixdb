@@ -24,7 +24,7 @@ public interface IFeedWorkEventListener {
      * A call back that is invoked after successful completion of a feed
      * management task.
      */
-    public void workCompleted();
+    public void workCompleted(IFeedWork work);
 
     /**
      * A call back that is invokved after a failed execution of a feed
@@ -33,5 +33,5 @@ public interface IFeedWorkEventListener {
      * @param e
      *            exception encountered during execution of the task.
      */
-    public void workFailed(Exception e);
+    public void workFailed(IFeedWork work, Exception e);
 }
