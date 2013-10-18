@@ -1782,7 +1782,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
             metadataProvider.getConfig().put(FunctionUtils.IMPORT_PRIVATE_FUNCTIONS, "" + Boolean.TRUE);
 
             CompiledSubscribeFeedStatement csfs = new CompiledSubscribeFeedStatement(bfs.getSubscriptionRequest(),
-                    bfs.getQuery(), 0);
+                    bfs.getQuery(), bfs.getVarCounter());
             JobSpecification compiled = rewriteCompileQuery(metadataProvider, bfs.getQuery(), csfs);
 
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
@@ -1793,6 +1793,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
             }
 
         } catch (Exception e) {
+            e.printStackTrace();
             if (bActiveTxn) {
                 abort(e, e, mdTxnCtx);
             }

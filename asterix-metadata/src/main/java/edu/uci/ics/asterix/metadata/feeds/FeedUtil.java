@@ -34,6 +34,7 @@ import edu.uci.ics.asterix.metadata.entities.FeedActivity;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityType;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
 import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
+import edu.uci.ics.asterix.metadata.entities.SecondaryFeed;
 import edu.uci.ics.asterix.metadata.functions.ExternalLibraryManager;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
@@ -258,5 +259,10 @@ public class FeedUtil {
             throw new AlgebricksException("unable to create adapter  " + e);
         }
         return feedProps;
+    }
+
+    public static String getSecondaryFeedOutput(SecondaryFeed feed, MetadataTransactionContext mdTxnCtx)
+            throws AlgebricksException {
+        return null;
     }
 }

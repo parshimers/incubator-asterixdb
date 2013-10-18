@@ -58,6 +58,7 @@ import edu.uci.ics.asterix.metadata.entities.ExternalDatasetDetails;
 import edu.uci.ics.asterix.metadata.entities.Feed;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityDetails;
+import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityType;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
 import edu.uci.ics.asterix.metadata.entities.Index;
 import edu.uci.ics.asterix.metadata.entities.InternalDatasetDetails;
@@ -97,6 +98,7 @@ import edu.uci.ics.asterix.transaction.management.service.transaction.AsterixRun
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
+import edu.uci.ics.hyracks.algebricks.common.exceptions.NotImplementedException;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
@@ -306,7 +308,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             MetadataException {
         AqlSourceId asid = dataSource.getId();
         String dataverseName = asid.getDataverseName();
-        String datasetName = asid.getDatasetName();
+        String datasetName = asid.getDatasourceName();
         Index primaryIndex = MetadataManager.INSTANCE.getIndex(mdTxnCtx, dataverseName, datasetName, datasetName);
         return buildBtreeRuntime(jobSpec, outputVars, opSchema, typeEnv, context, false,
                 ((DatasetDataSource) dataSource).getDataset(), primaryIndex.getIndexName(), null, null, true, true,
@@ -415,17 +417,12 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             IDataSource<AqlSourceId> dataSource) throws AlgebricksException {
 
         FeedDataSource feedDataSource = (FeedDataSource) dataSource;
-        FeedCollectOperatorDescriptor feedIngestor = null;
-        org.apache.commons.lang3.tuple.Pair<IAdapterFactory, ARecordType> factoryOutput = null;
-        AlgebricksPartitionConstraint constraint = null;
+        FeedCollectOperatorDescriptor feedCollector = null;
 
         try {
-            factoryOutput = FeedUtil.getPrimaryFeedFactoryAndOutput((PrimaryFeed) feedDataSource.getFeed(), mdTxnCtx);
-            IAdapterFactory adapterFactory = factoryOutput.getLeft();
-            ARecordType adapterOutputType = factoryOutput.getRight();
-
+            ARecordType feedOutputType = (ARecordType) feedDataSource.getItemType();
             ISerializerDeserializer payloadSerde = NonTaggedDataFormat.INSTANCE.getSerdeProvider()
-                    .getSerializerDeserializer(adapterOutputType);
+                    .getSerializerDeserializer(feedOutputType);
             RecordDescriptor feedDesc = new RecordDescriptor(new ISerializerDeserializer[] { payloadSerde });
 
             FeedPolicy feedPolicy = (FeedPolicy) ((AqlDataSource) dataSource).getProperties().get(
@@ -434,15 +431,40 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                 throw new AlgebricksException("Feed not configured with a policy");
             }
             feedPolicy.getProperties().put(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY, feedPolicy.getPolicyName());
-            feedIngestor = new FeedCollectOperatorDescriptor(jobSpec, feedDataSource.getFeedConnectionId(),
-                    feedDataSource.getFeedConnectionId().getFeedId(), (ARecordType) adapterOutputType, feedDesc,
-                    feedPolicy.getProperties());
+            FeedConnectionId feedConnectionId = new FeedConnectionId(feedDataSource.getId().getDataverseName(),
+                    feedDataSource.getId().getDatasourceName(), feedDataSource.getTargetDataset());
+            feedCollector = new FeedCollectOperatorDescriptor(jobSpec, feedConnectionId, feedDataSource.getSourceFeed()
+                    .getFeedId(), (ARecordType) feedOutputType, feedDesc, feedPolicy.getProperties());
 
-            constraint = factoryOutput.getLeft().getPartitionConstraint();
+            String locations = null;
+            switch (feedDataSource.getSourceFeed().getFeedType()) {
+                case PRIMARY:
+                    List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getActiveFeedConnections(mdTxnCtx,
+                            feedDataSource.getSourceFeed().getDataverseName(), feedDataSource.getSourceFeed()
+                                    .getFeedName());
+                    switch (feedDataSource.getLocation()) {
+                        case SOURCE_FEED_COMPUTE:
+                            locations = feedActivities.get(0).getFeedActivityDetails()
+                                    .get(FeedActivityDetails.COMPUTE_LOCATIONS);
+                            break;
+                        case SOURCE_FEED_INTAKE:
+                            locations = feedActivities.get(0).getFeedActivityDetails()
+                                    .get(FeedActivityDetails.INTAKE_LOCATIONS);
+                            break;
+                    }
+                    break;
+                case SECONDARY:
+                    throw new NotImplementedException("Using a secondary feed as a source is not supported yet");
+            }
+
+            String[] locationArray = locations.split(",");
+            AlgebricksAbsolutePartitionConstraint locationConstraint = new AlgebricksAbsolutePartitionConstraint(
+                    locationArray);
+            return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(feedCollector, locationConstraint);
+
         } catch (Exception e) {
             throw new AlgebricksException(e);
         }
-        return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(feedIngestor, constraint);
     }
 
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildFeedIntakeRuntime(JobSpecification jobSpec,
@@ -707,7 +729,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
     }
 
     public AqlDataSource lookupSourceInMetadata(AqlSourceId aqlId) throws AlgebricksException, MetadataException {
-        Dataset dataset = findDataset(aqlId.getDataverseName(), aqlId.getDatasetName());
+        Dataset dataset = findDataset(aqlId.getDataverseName(), aqlId.getDatasourceName());
         if (dataset == null) {
             throw new AlgebricksException("Datasource with id " + aqlId + " was not found.");
         }
@@ -715,7 +737,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
         IAType itemType = MetadataManager.INSTANCE.getDatatype(mdTxnCtx, aqlId.getDataverseName(), tName).getDatatype();
         AqlDataSourceType datasourceType = dataset.getDatasetType().equals(DatasetType.EXTERNAL) ? AqlDataSourceType.EXTERNAL_DATASET
                 : AqlDataSourceType.INTERNAL_DATASET;
-        return new DatasetDataSource(aqlId, aqlId.getDataverseName(), aqlId.getDatasetName(), itemType, datasourceType);
+        return new DatasetDataSource(aqlId, aqlId.getDataverseName(), aqlId.getDatasourceName(), itemType,
+                datasourceType);
     }
 
     @Override
@@ -738,7 +761,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             IDataSource<AqlSourceId> dataSource, IOperatorSchema propagatedSchema, List<LogicalVariable> keys,
             LogicalVariable payload, JobGenContext context, JobSpecification spec) throws AlgebricksException {
         String dataverseName = dataSource.getId().getDataverseName();
-        String datasetName = dataSource.getId().getDatasetName();
+        String datasetName = dataSource.getId().getDatasourceName();
         int numKeys = keys.size();
         // move key fields to front
         int[] fieldPermutation = new int[numKeys + 1];
@@ -803,7 +826,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             IDataSource<AqlSourceId> dataSource, IOperatorSchema propagatedSchema, IVariableTypeEnvironment typeEnv,
             List<LogicalVariable> keys, LogicalVariable payload, RecordDescriptor recordDesc, JobGenContext context,
             JobSpecification spec) throws AlgebricksException {
-        String datasetName = dataSource.getId().getDatasetName();
+        String datasetName = dataSource.getId().getDatasourceName();
         int numKeys = keys.size();
         // Move key fields to front.
         int[] fieldPermutation = new int[numKeys + 1];
@@ -895,7 +918,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             RecordDescriptor recordDesc, JobGenContext context, JobSpecification spec) throws AlgebricksException {
         String indexName = dataSourceIndex.getId();
         String dataverseName = dataSourceIndex.getDataSource().getId().getDataverseName();
-        String datasetName = dataSourceIndex.getDataSource().getId().getDatasetName();
+        String datasetName = dataSourceIndex.getDataSource().getId().getDatasourceName();
 
         Dataset dataset = findDataset(dataverseName, datasetName);
         if (dataset == null) {

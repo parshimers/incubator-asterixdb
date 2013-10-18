@@ -25,11 +25,13 @@ import edu.uci.ics.asterix.metadata.declared.AqlDataSource;
 import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
 import edu.uci.ics.asterix.metadata.declared.AqlSourceId;
 import edu.uci.ics.asterix.metadata.declared.FeedDataSource;
+import edu.uci.ics.asterix.metadata.declared.AqlDataSource.AqlDataSourceType;
 import edu.uci.ics.asterix.metadata.entities.Dataset;
 import edu.uci.ics.asterix.metadata.entities.Dataverse;
 import edu.uci.ics.asterix.metadata.entities.Feed;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
 import edu.uci.ics.asterix.metadata.feeds.BuiltinFeedPolicies;
+import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionRequest.SubscriptionLocation;
 import edu.uci.ics.asterix.metadata.utils.DatasetUtils;
 import edu.uci.ics.asterix.om.base.AString;
 import edu.uci.ics.asterix.om.constants.AsterixConstantValue;
@@ -131,22 +133,18 @@ public class UnnestToDataScanRule implements IAlgebraicRewriteRule {
                     throw new AlgebricksException("No positional variables are allowed over datasets.");
                 }
 
-                String feedArg = getStringArgument(f, 0);
-                String outputType = getStringArgument(f, 1);
-                String targetDataset = getStringArgument(f, 2);
+                String dataverse = getStringArgument(f, 0);
+                String sourceFeedName = getStringArgument(f, 1);
+                String getTargetFeed = getStringArgument(f, 2);
+                String subscriptionLocation = getStringArgument(f, 3);
+                String targetDataset = getStringArgument(f, 4);
+                String outputType = getStringArgument(f, 5);
 
                 AqlMetadataProvider metadataProvider = (AqlMetadataProvider) context.getMetadataProvider();
-                Pair<String, String> feedReference = parseDatasetReference(metadataProvider, feedArg);
-                String dataverseName = feedReference.first;
-                String feedName = feedReference.second;
-                Feed feed = metadataProvider.findFeed(dataverseName, feedName);
-                if (feed == null) {
-                    throw new AlgebricksException("Could not find feed " + feedName);
-                }
 
-                AqlSourceId asid = new AqlSourceId(dataverseName, feedName);
+                AqlSourceId asid = new AqlSourceId(dataverse, getTargetFeed);
                 String policyName = metadataProvider.getConfig().get(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY);
-                FeedPolicy policy = metadataProvider.findFeedPolicy(dataverseName, policyName);
+                FeedPolicy policy = metadataProvider.findFeedPolicy(dataverse, policyName);
                 if (policy == null) {
                     policy = BuiltinFeedPolicies.getFeedPolicy(policyName);
                     if (policy == null) {
@@ -157,9 +155,8 @@ public class UnnestToDataScanRule implements IAlgebraicRewriteRule {
                 ArrayList<LogicalVariable> v = new ArrayList<LogicalVariable>();
                 v.add(unnest.getVariable());
 
-                DataSourceScanOperator scan = new DataSourceScanOperator(v, createFeedDataSource(asid,
-                        new FeedConnectionId(dataverseName, feedName, targetDataset), metadataProvider, policy,
-                        outputType));
+                DataSourceScanOperator scan = new DataSourceScanOperator(v, createFeedDataSource(asid, targetDataset,
+                        sourceFeedName, subscriptionLocation, metadataProvider, policy, outputType));
 
                 List<Mutable<ILogicalOperator>> scanInpList = scan.getInputs();
                 scanInpList.addAll(unnest.getInputs());
@@ -184,16 +181,18 @@ public class UnnestToDataScanRule implements IAlgebraicRewriteRule {
         context.addPrimaryKey(pk);
     }
 
-    private AqlDataSource createFeedDataSource(AqlSourceId aqlId, FeedConnectionId feedConnectionId,
-            AqlMetadataProvider metadataProvider, FeedPolicy feedPolicy, String outputType) throws AlgebricksException {
+    private AqlDataSource createFeedDataSource(AqlSourceId aqlId, String targetDataset, String sourceFeedName,
+            String subscriptionLocation, AqlMetadataProvider metadataProvider, FeedPolicy feedPolicy, String outputType)
+            throws AlgebricksException {
         if (!aqlId.getDataverseName().equals(
                 metadataProvider.getDefaultDataverse() == null ? null : metadataProvider.getDefaultDataverse()
                         .getDataverseName())) {
             return null;
         }
-        IAType feedOutputType = metadataProvider.findType(feedConnectionId.getFeedId().getDataverse(), outputType);
-        FeedDataSource feedDataSource = new FeedDataSource(aqlId, feedConnectionId, feedOutputType,
-                AqlDataSource.AqlDataSourceType.FEED);
+        IAType feedOutputType = metadataProvider.findType(aqlId.getDataverseName(), outputType);
+        Feed sourceFeed = metadataProvider.findFeed(aqlId.getDataverseName(), sourceFeedName);
+        FeedDataSource feedDataSource = new FeedDataSource(aqlId, targetDataset, feedOutputType,
+                AqlDataSource.AqlDataSourceType.FEED, sourceFeed, SubscriptionLocation.valueOf(subscriptionLocation));
         feedDataSource.getProperties().put(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY, feedPolicy);
         return feedDataSource;
     }

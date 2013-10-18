@@ -42,10 +42,9 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.properties.UnorderedPartition
 
 public abstract class AqlDataSource implements IDataSource<AqlSourceId> {
 
-    private AqlSourceId id;
-    private String datasourceDataverse;
-    private String datasourceName;
-    private AqlDataSourceType datasourceType;
+    private final AqlSourceId id;
+    private final AqlDataSourceType datasourceType;
+    private final IAType itemType;
     protected IAType[] schemaTypes;
     protected INodeDomain domain;
     private Map<String, Serializable> properties = new HashMap<String, Serializable>();
@@ -59,17 +58,16 @@ public abstract class AqlDataSource implements IDataSource<AqlSourceId> {
     public AqlDataSource(AqlSourceId id, String datasourceDataverse, String datasourceName, IAType itemType,
             AqlDataSourceType datasourceType) throws AlgebricksException {
         this.id = id;
-        this.datasourceDataverse = datasourceDataverse;
-        this.datasourceName = datasourceName;
+        this.itemType = itemType;
         this.datasourceType = datasourceType;
     }
 
     public String getDatasourceDataverse() {
-        return datasourceDataverse;
+        return id.getDataverseName();
     }
 
     public String getDatasourceName() {
-        return datasourceName;
+        return id.getDataverseName();
     }
 
     public abstract IAType[] getSchemaTypes();
@@ -187,6 +185,10 @@ public abstract class AqlDataSource implements IDataSource<AqlSourceId> {
 
     public Map<String, Serializable> getProperties() {
         return properties;
+    }
+
+    public IAType getItemType() {
+        return itemType;
     }
 
     public void setProperties(Map<String, Serializable> properties) {

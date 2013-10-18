@@ -14,10 +14,10 @@
  */
 package edu.uci.ics.asterix.metadata.declared;
 
-import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
 import edu.uci.ics.asterix.metadata.entities.Feed;
+import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionRequest.SubscriptionLocation;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.INodeDomain;
@@ -25,23 +25,23 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.properties.INodeDomain;
 public class FeedDataSource extends AqlDataSource {
 
     private Feed feed;
-    private final FeedConnectionId feedConnectionId;
+    private Feed sourceFeed;
+    private final SubscriptionLocation location;
+    private final String targetDataset;
 
-    public FeedDataSource(AqlSourceId id, FeedConnectionId feedConnectionId, IAType itemType,
-            AqlDataSourceType dataSourceType) throws AlgebricksException {
-        super(id, feedConnectionId.getFeedId().getDataverse(), feedConnectionId.getFeedId().getFeedName(), itemType,
-                dataSourceType);
-        this.feedConnectionId = feedConnectionId;
-        feed = null;
+    public FeedDataSource(AqlSourceId id, String targetDataset, IAType itemType, AqlDataSourceType dataSourceType,
+            Feed sourceFeed, SubscriptionLocation location) throws AlgebricksException {
+        super(id, id.getDataverseName(), id.getDatasourceName(), itemType, dataSourceType);
+        this.targetDataset = targetDataset;
+        this.sourceFeed = sourceFeed;
+        this.location = location;
         MetadataTransactionContext ctx = null;
         try {
             MetadataManager.INSTANCE.acquireReadLatch();
             ctx = MetadataManager.INSTANCE.beginTransaction();
-            feed = MetadataManager.INSTANCE.getFeed(ctx, feedConnectionId.getFeedId().getDataverse(), feedConnectionId
-                    .getFeedId().getFeedName());
-            if (feed == null) {
-                throw new AlgebricksException("Unknown feed " + feedConnectionId);
-            }
+            this.feed = MetadataManager.INSTANCE.getFeed(ctx, id.getDataverseName(), id.getDatasourceName());
+            this.sourceFeed = MetadataManager.INSTANCE.getFeed(ctx, sourceFeed.getDataverseName(),
+                    sourceFeed.getFeedName());
             MetadataManager.INSTANCE.commitTransaction(ctx);
             initFeedDataSource(itemType);
         } catch (Exception e) {
@@ -73,8 +73,16 @@ public class FeedDataSource extends AqlDataSource {
         return domain;
     }
 
-    public FeedConnectionId getFeedConnectionId() {
-        return feedConnectionId;
+    public String getTargetDataset() {
+        return targetDataset;
+    }
+
+    public Feed getSourceFeed() {
+        return sourceFeed;
+    }
+
+    public SubscriptionLocation getLocation() {
+        return location;
     }
 
     private void initFeedDataSource(IAType itemType) {
