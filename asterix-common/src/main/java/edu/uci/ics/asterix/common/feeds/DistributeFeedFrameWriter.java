@@ -49,8 +49,6 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
     /** The original frame writer instantiated as part of job creation. **/
     private IFrameWriter writer;
 
-    private DistributionMode distributionMode;
-
     public enum DistributionMode {
         SINGLE,
         SHARED,
@@ -62,7 +60,6 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
         this.frameDistributor = new FrameDistributor();
         this.registeredReaders = new HashMap<IFeedFrameWriter, FrameReader>();
         this.writer = writer;
-        this.distributionMode = DistributionMode.INACTIVE;
     }
 
     public synchronized FrameReader subscribeFeed(IFeedFrameWriter recipientFeedFrameWriter) throws Exception {
@@ -110,6 +107,16 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
     @Override
     public void close() throws HyracksDataException {
         writer.close();
+        switch (frameDistributor.mode) {
+            case INACTIVE:
+                break;
+            case SINGLE:
+                registeredReaders.values().iterator().next().disconnect();
+                break;
+            case SHARED:
+                notifyEndOfFeed();
+                break;
+        }
     }
 
     @Override
@@ -133,7 +140,7 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
     }
 
     public DistributionMode getDistributionMode() {
-        return distributionMode;
+        return frameDistributor.getMode();
     }
 
     public static class DataBucketPool {
@@ -283,7 +290,7 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
                 case INACTIVE:
                     break;
                 case SINGLE:
-                    registeredReaders.get(0).getFrameWriter().nextFrame(frame);
+                    registeredReaders.get(0).nextFrame(frame);
                     break;
                 case SHARED:
                     DataBucket bucket = pool.getDataBucket();
@@ -373,25 +380,31 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
             }
         }
 
-        public void disconnect() {
+        public synchronized void disconnect() {
             state = State.FINISHED;
-            synchronized (this) {
-                notifyAll();
-            }
+            notifyAll();
         }
 
-        public IFeedFrameWriter getFrameWriter() {
-            return frameWriter;
+        public synchronized void nextFrame(ByteBuffer frame) throws HyracksDataException {
+            if (continueReading) {
+                frameWriter.nextFrame(frame);
+            } else {
+                if (state.equals(State.ACTIVE)) {
+                    disconnect();
+                }
+            }
         }
 
         public State getState() {
             return state;
         }
 
-        public void setContinueReading(boolean continueReading) {
+        public synchronized void setContinueReading(boolean continueReading) {
             this.continueReading = continueReading;
+            if (!continueReading && state.equals(State.ACTIVE)) {
+                disconnect();
+            }
         }
-
     }
 
 }

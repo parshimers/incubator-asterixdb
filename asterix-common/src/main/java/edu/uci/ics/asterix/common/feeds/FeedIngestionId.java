@@ -25,6 +25,21 @@ public class FeedIngestionId {
         this.partition = partition;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || !(o instanceof FeedIngestionId)) {
+            return true;
+        }
+
+        FeedIngestionId otherId = (FeedIngestionId) o;
+        return feedId.equals(otherId.feedId) && partition == otherId.partition;
+    }
+
+    @Override
+    public int hashCode() {
+        return (feedId.toString() + "[" + partition + "]").hashCode();
+    }
+
     public FeedId getFeedId() {
         return feedId;
     }

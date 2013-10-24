@@ -73,7 +73,9 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                         DistributeFeedFrameWriter frameWriter = (DistributeFeedFrameWriter) ((CollectionRuntime) feedRuntime)
                                 .getSubscribableRuntime().getFeedFrameWriter();
                         IFeedFrameWriter recipientFrameWriter = ((CollectionRuntime) feedRuntime).getFrameWriter();
-                        frameWriter.unsubscribeFeed(recipientFrameWriter);
+                        ((CollectionRuntime) feedRuntime).getSubscribableRuntime().unsubscribeFeed(
+                                (CollectionRuntime) feedRuntime);
+                        //frameWriter.unsubscribeFeed(recipientFrameWriter);
                         if (LOGGER.isLoggable(Level.INFO)) {
                             LOGGER.info("Unsubscribed from feed :" + feedConnectionId);
                         }

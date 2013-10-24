@@ -58,22 +58,27 @@ public class FeedWorkCollection {
 
         private final FeedSubscriptionRequest request;
 
+        private final List<String> locations;
+
         @Override
         public Runnable getRunnable() {
             return runnable;
         }
 
-        public SubscribeFeedWork(FeedSubscriptionRequest request) {
-            this.runnable = new SubscribeFeedWorkRunnable(request);
+        public SubscribeFeedWork(List<String> locations, FeedSubscriptionRequest request) {
+            this.runnable = new SubscribeFeedWorkRunnable(locations, request);
             this.request = request;
+            this.locations = locations;
         }
 
         private static class SubscribeFeedWorkRunnable implements Runnable {
 
             private final FeedSubscriptionRequest request;
+            private final List<String> locations;
 
-            public SubscribeFeedWorkRunnable(FeedSubscriptionRequest request) {
+            public SubscribeFeedWorkRunnable(List<String> locations, FeedSubscriptionRequest request) {
                 this.request = request;
+                this.locations = locations;
             }
 
             @Override
@@ -83,7 +88,7 @@ public class FeedWorkCollection {
                     SessionConfig pc = new SessionConfig(true, false, false, false, false, false, true, true, false);
                     DataverseDecl dataverseDecl = new DataverseDecl(new Identifier(request.getSourceFeed()
                             .getDataverseName()));
-                    SubscribeFeedStatement subscribeStmt = new SubscribeFeedStatement(request);
+                    SubscribeFeedStatement subscribeStmt = new SubscribeFeedStatement(locations, request);
                     List<Statement> statements = new ArrayList<Statement>();
                     statements.add(dataverseDecl);
                     statements.add(subscribeStmt);

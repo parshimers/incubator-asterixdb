@@ -436,20 +436,21 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             feedCollector = new FeedCollectOperatorDescriptor(jobSpec, feedConnectionId, feedDataSource.getSourceFeed()
                     .getFeedId(), (ARecordType) feedOutputType, feedDesc, feedPolicy.getProperties());
 
-            String locations = null;
+            String[] locationArray = null;
+            String locations;
             switch (feedDataSource.getSourceFeed().getFeedType()) {
                 case PRIMARY:
-                    List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getActiveFeedConnections(mdTxnCtx,
-                            feedDataSource.getSourceFeed().getDataverseName(), feedDataSource.getSourceFeed()
-                                    .getFeedName());
                     switch (feedDataSource.getLocation()) {
                         case SOURCE_FEED_COMPUTE:
+                            List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getActiveFeedConnections(
+                                    mdTxnCtx, feedDataSource.getSourceFeed().getDataverseName(), feedDataSource
+                                            .getSourceFeed().getFeedName());
                             locations = feedActivities.get(0).getFeedActivityDetails()
                                     .get(FeedActivityDetails.COMPUTE_LOCATIONS);
+                            locationArray = locations.split(",");
                             break;
                         case SOURCE_FEED_INTAKE:
-                            locations = feedActivities.get(0).getFeedActivityDetails()
-                                    .get(FeedActivityDetails.INTAKE_LOCATIONS);
+                            locationArray = feedDataSource.getLocations();
                             break;
                     }
                     break;
@@ -457,7 +458,6 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                     throw new NotImplementedException("Using a secondary feed as a source is not supported yet");
             }
 
-            String[] locationArray = locations.split(",");
             AlgebricksAbsolutePartitionConstraint locationConstraint = new AlgebricksAbsolutePartitionConstraint(
                     locationArray);
             return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(feedCollector, locationConstraint);

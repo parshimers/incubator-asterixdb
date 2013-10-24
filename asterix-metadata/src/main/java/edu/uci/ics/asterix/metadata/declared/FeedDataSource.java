@@ -28,13 +28,15 @@ public class FeedDataSource extends AqlDataSource {
     private Feed sourceFeed;
     private final SubscriptionLocation location;
     private final String targetDataset;
+    private final String[] locations;
 
     public FeedDataSource(AqlSourceId id, String targetDataset, IAType itemType, AqlDataSourceType dataSourceType,
-            Feed sourceFeed, SubscriptionLocation location) throws AlgebricksException {
+            Feed sourceFeed, SubscriptionLocation location, String[] locations) throws AlgebricksException {
         super(id, id.getDataverseName(), id.getDatasourceName(), itemType, dataSourceType);
         this.targetDataset = targetDataset;
         this.sourceFeed = sourceFeed;
         this.location = location;
+        this.locations = locations;
         MetadataTransactionContext ctx = null;
         try {
             MetadataManager.INSTANCE.acquireReadLatch();
@@ -83,6 +85,10 @@ public class FeedDataSource extends AqlDataSource {
 
     public SubscriptionLocation getLocation() {
         return location;
+    }
+
+    public String[] getLocations() {
+        return locations;
     }
 
     private void initFeedDataSource(IAType itemType) {

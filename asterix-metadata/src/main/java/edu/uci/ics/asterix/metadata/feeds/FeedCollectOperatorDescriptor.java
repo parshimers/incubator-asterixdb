@@ -54,9 +54,6 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
     /** Map representation of policy parameters */
     private final Map<String, String> feedPolicy;
 
-    /** The (singleton) instance of IFeedManager **/
-    private IFeedConnectionManager feedConnectionManager;
-
     /** The (singleton) instance of {@code IFeedIngestionManager} **/
     private IFeedIngestionManager feedIngestionManager;
 
@@ -78,12 +75,11 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
             throws HyracksDataException {
         IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject();
-        this.feedConnectionManager = runtimeCtx.getFeedManager().getFeedConnectionManager();
         this.feedIngestionManager = runtimeCtx.getFeedManager().getFeedIngestionManager();
         IngestionRuntime ingestionRuntime = null;
         try {
             FeedIngestionId feedIngestionId = new FeedIngestionId(sourceFeedId, partition);
-            ingestionRuntime = feedIngestionManager.getIngestionRuntime(feedIngestionId);
+            ingestionRuntime = getIngestionRuntime(feedIngestionId);
             if (ingestionRuntime == null) {
                 throw new HyracksDataException("Source ingestion task not found for source feed id " + sourceFeedId);
             }
@@ -116,5 +112,21 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
 
     public FeedId getSourceFeedId() {
         return sourceFeedId;
+    }
+
+    private IngestionRuntime getIngestionRuntime(FeedIngestionId feedIngestionId) {
+        int waitCycleCount = 0;
+        IngestionRuntime ingestionRuntime = feedIngestionManager.getIngestionRuntime(feedIngestionId);
+        while (ingestionRuntime == null && waitCycleCount < 5) {
+            try {
+                Thread.sleep(2000);
+                waitCycleCount++;
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                break;
+            }
+            ingestionRuntime = feedIngestionManager.getIngestionRuntime(feedIngestionId);
+        }
+        return ingestionRuntime;
     }
 }

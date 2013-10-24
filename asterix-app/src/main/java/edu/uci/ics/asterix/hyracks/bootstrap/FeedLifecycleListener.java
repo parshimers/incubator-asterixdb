@@ -44,7 +44,6 @@ import edu.uci.ics.asterix.aql.translator.AqlTranslator;
 import edu.uci.ics.asterix.common.exceptions.ACIDException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
-import edu.uci.ics.asterix.common.feeds.FeedNode;
 import edu.uci.ics.asterix.common.feeds.SuperFeedManager;
 import edu.uci.ics.asterix.event.schema.cluster.Cluster;
 import edu.uci.ics.asterix.event.schema.cluster.Node;
@@ -127,8 +126,6 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
     private ExecutorService executorService = Executors.newCachedThreadPool();
     private Map<FeedConnectionId, LinkedBlockingQueue<String>> feedReportQueue = new HashMap<FeedConnectionId, LinkedBlockingQueue<String>>();
     private State state;
-    private List<FeedNode> feedGraphs;
-    private Map<FeedId, FeedNode> feedNodes = new HashMap<FeedId, FeedNode>();
     private final FeedJobNotificationHandler feedJobNotificationHandler;
     private final FeedWorkRequestResponseHandler feedWorkRequestResponseHandler;
 
@@ -144,7 +141,10 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
         this.executorService.execute(feedWorkRequestResponseHandler);
         ClusterManager.INSTANCE.registerSubscriber(this);
         state = AsterixClusterProperties.INSTANCE.getState();
-        feedGraphs = new ArrayList<FeedNode>();
+    }
+
+    public FeedIntakeInfo getFeedIntakeInfo(FeedId feedId) {
+        return feedJobNotificationHandler.getFeedIntakeInfo(feedId);
     }
 
     @Override
@@ -168,11 +168,13 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
         boolean feedCollectionJob = false;
         FeedConnectionId feedConnectionId = null;
         FeedId feedId = null;
+        FeedId sourceFeedId = null;
         Map<String, String> feedPolicy = null;
         for (IOperatorDescriptor opDesc : spec.getOperatorMap().values()) {
             if (opDesc instanceof FeedCollectOperatorDescriptor) {
                 feedConnectionId = ((FeedCollectOperatorDescriptor) opDesc).getFeedConnectionId();
                 feedPolicy = ((FeedCollectOperatorDescriptor) opDesc).getFeedPolicy();
+                sourceFeedId = ((FeedCollectOperatorDescriptor) opDesc).getSourceFeedId();
                 feedCollectionJob = true;
                 break;
             } else if (opDesc instanceof FeedIntakeOperatorDescriptor) {
@@ -182,7 +184,8 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
             }
         }
         if (feedCollectionJob) {
-            feedJobNotificationHandler.registerFeedConnectionJob(feedConnectionId, jobId, spec, feedPolicy);
+            feedJobNotificationHandler.registerFeedConnectionJob(sourceFeedId, feedConnectionId, jobId, spec,
+                    feedPolicy);
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Registered feed connection: " + feedConnectionId + " ingestion policy "
                         + feedPolicy.get(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY));
@@ -277,16 +280,27 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
             return registeredFeedConnections.containsKey(jobId) || registeredFeedIntakeJobs.containsKey(jobId);
         }
 
-        public void registerFeedConnectionJob(FeedConnectionId feedConnectionId, JobId jobId, JobSpecification jobSpec,
-                Map<String, String> feedPolicy) {
+        public void registerFeedConnectionJob(FeedId sourceFeedId, FeedConnectionId feedConnectionId, JobId jobId,
+                JobSpecification jobSpec, Map<String, String> feedPolicy) {
             if (registeredFeedConnections.containsKey(jobId)) {
                 throw new IllegalStateException(" Feed already registered ");
             }
-            FeedCollectInfo info = new FeedCollectInfo(feedConnectionId, jobSpec, jobId, feedPolicy);
+            FeedCollectInfo info = new FeedCollectInfo(sourceFeedId, feedConnectionId, jobSpec, jobId, feedPolicy);
             registeredFeedConnections.put(jobId, info);
             feedCollectInfos.put(feedConnectionId, info);
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Registered feed connection [" + jobId + "]" + " for feed ");
+            }
+        }
+
+        public void deregisterFeedIntakeJob(FeedId feedId, JobId jobId) {
+            if (!registeredFeedIntakeJobs.containsKey(jobId)) {
+                throw new IllegalStateException(" Feed Intake already registered ");
+            }
+            registeredFeedIntakeJobs.remove(jobId);
+            feedIntakeInfos.remove(feedId);
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Deregistered feed intake job " + jobId + " for feed " + feedId);
             }
         }
 
@@ -320,22 +334,35 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
             return feedIntakeInfos.get(feedId);
         }
 
-        public FeedCollectInfo getFeedCollectInfo(FeedId feedId) {
-            return feedCollectInfos.get(feedId);
-        }
-
         public synchronized void addSubscriptionRequest(FeedSubscriptionRequest request) {
             List<FeedSubscriptionRequest> subscriptionRequests = subscriptions.get(request.getSourceFeed().getFeedId());
             if (subscriptionRequests == null) {
                 subscriptionRequests = new ArrayList<FeedSubscriptionRequest>();
+                subscriptions.put(request.getSourceFeed().getFeedId(), subscriptionRequests);
             }
             subscriptionRequests.add(request);
         }
 
-        public void removeSubscriptionRequest(FeedSubscriptionRequest request) {
-            List<FeedSubscriptionRequest> subscriptionRequests = subscriptions.get(request.getSourceFeed().getFeedId());
-            if (subscriptionRequests != null) {
-                subscriptionRequests.remove(request);
+        public synchronized void removeSubscriptionRequest(FeedId sourceFeedId, FeedId subsciberFeedId) {
+            List<FeedSubscriptionRequest> subscriptionRequests = subscriptions.get(sourceFeedId);
+            if (subscriptionRequests == null) {
+                throw new IllegalArgumentException("Invalid attempt to remove non-existing subscription. Source feed "
+                        + sourceFeedId + " subscribing feed " + subsciberFeedId);
+            }
+            FeedSubscriptionRequest requestToBeRemoved = null;
+            for (FeedSubscriptionRequest request : subscriptionRequests) {
+                if (request.getFeed().getFeedId().equals(subsciberFeedId)) {
+                    requestToBeRemoved = request;
+                }
+            }
+            if (requestToBeRemoved != null) {
+                subscriptionRequests.remove(requestToBeRemoved);
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("Cancelled subscription of " + sourceFeedId + " by " + subsciberFeedId);
+                }
+            } else {
+                throw new IllegalArgumentException("Invalid attempt to remove non-existing subscription. Source feed "
+                        + sourceFeedId + " subscribing feed " + subsciberFeedId);
             }
         }
 
@@ -368,14 +395,14 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
                             deregisterFeed(mesg.jobId);
                             break;
                     }
-                } catch (InterruptedException e) {
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
 
             }
         }
 
-        private void handleFeedJobStartMessage(FeedInfo feedInfo, Message message) {
+        private void handleFeedJobStartMessage(FeedInfo feedInfo, Message message) throws Exception {
             switch (feedInfo.infoType) {
                 case COLLECT:
                     handleFeedCollectJobStartMessage((FeedCollectInfo) feedInfo, message);
@@ -386,19 +413,36 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
             }
         }
 
-        private void handleFeedIntakeJobStartMessage(FeedIntakeInfo feedIntakeInfo, Message message) {
+        private void handleFeedIntakeJobStartMessage(FeedIntakeInfo feedIntakeInfo, Message message) throws Exception {
+            // update intake locations
+            List<OperatorDescriptorId> intakeOperatorIds = new ArrayList<OperatorDescriptorId>();
+
+            Map<OperatorDescriptorId, IOperatorDescriptor> operators = feedIntakeInfo.jobSpec.getOperatorMap();
+            for (Entry<OperatorDescriptorId, IOperatorDescriptor> entry : operators.entrySet()) {
+                IOperatorDescriptor opDesc = entry.getValue();
+                if (opDesc instanceof FeedIntakeOperatorDescriptor) {
+                    intakeOperatorIds.add(opDesc.getOperatorId());
+                }
+            }
+
+            IHyracksClientConnection hcc = AsterixAppContextInfo.getInstance().getHcc();
+            JobInfo info = hcc.getJobInfo(message.jobId);
+            feedIntakeInfo.jobInfo = info;
+            for (OperatorDescriptorId intakeOperatorId : intakeOperatorIds) {
+                feedIntakeInfo.intakeLocations.addAll(info.getOperatorLocations().get(intakeOperatorId));
+            }
+
             feedIntakeInfo.state = FeedInfo.State.ACTIVE;
             List<FeedSubscriptionRequest> subscriptionRequests = getSubscriptionRequest(feedIntakeInfo.feedId);
             if (subscriptionRequests != null && !subscriptionRequests.isEmpty()) {
                 for (FeedSubscriptionRequest request : subscriptionRequests) {
-                    submitFeedSubscriptionRequest(request);
+                    submitFeedSubscriptionRequest(feedIntakeInfo, request);
                 }
             }
         }
 
-        private void submitFeedSubscriptionRequest(final FeedSubscriptionRequest request) {
-            addSubscriptionRequest(request);
-            SubscribeFeedWork work = new SubscribeFeedWork(request);
+        private void submitFeedSubscriptionRequest(FeedIntakeInfo feedIntakeInfo, final FeedSubscriptionRequest request) {
+            SubscribeFeedWork work = new SubscribeFeedWork(feedIntakeInfo.intakeLocations, request);
             FeedWorkManager.INSTANCE.submitWork(work, new SubscribeFeedWork.FeedSubscribeWorkEventListener());
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Submitted " + work);
@@ -555,7 +599,7 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
         }
 
         private void handleFeedIntakeJobFinishMessage(FeedIntakeInfo feedInfo, Message message) {
-
+            deregisterFeedIntakeJob(feedInfo.feedId, feedInfo.jobId);
         }
 
         private void handleFeedCollectJobFinishMessage(FeedCollectInfo feedInfo, Message message) {
@@ -563,6 +607,7 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
             MetadataTransactionContext mdTxnCtx = null;
             boolean feedFailedDueToPostSubmissionNodeLoss = verifyReasonForFailure(feedInfo);
             if (!feedFailedDueToPostSubmissionNodeLoss) {
+                removeSubscriptionRequest(feedInfo.sourceFeedId, feedInfo.feedConnectionId.getFeedId());
                 try {
                     IHyracksClientConnection hcc = AsterixAppContextInfo.getInstance().getHcc();
                     JobInfo info = hcc.getJobInfo(message.jobId);
@@ -742,15 +787,17 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
     }
 
     public static class FeedCollectInfo extends FeedInfo {
+        public FeedId sourceFeedId;
         public FeedConnectionId feedConnectionId;
         public List<String> collectLocations = new ArrayList<String>();
         public List<String> computeLocations = new ArrayList<String>();
         public List<String> storageLocations = new ArrayList<String>();
         public Map<String, String> feedPolicy;
 
-        public FeedCollectInfo(FeedConnectionId feedConnectionId, JobSpecification jobSpec, JobId jobId,
-                Map<String, String> feedPolicy) {
+        public FeedCollectInfo(FeedId sourceFeedId, FeedConnectionId feedConnectionId, JobSpecification jobSpec,
+                JobId jobId, Map<String, String> feedPolicy) {
             super(jobSpec, jobId, FeedInfoType.COLLECT);
+            this.sourceFeedId = sourceFeedId;
             this.feedConnectionId = feedConnectionId;
             this.feedPolicy = feedPolicy;
         }
@@ -1314,6 +1361,14 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
     }
 
     public void submitFeedSubscriptionRequest(FeedSubscriptionRequest subscriptionRequest) {
-        feedJobNotificationHandler.submitFeedSubscriptionRequest(subscriptionRequest);
+        FeedIntakeInfo intakeInfo = feedJobNotificationHandler.getFeedIntakeInfo(subscriptionRequest.getSourceFeed()
+                .getFeedId());
+        if (intakeInfo != null) {
+            if (intakeInfo.state.equals(FeedInfo.State.ACTIVE)) {
+                feedJobNotificationHandler.submitFeedSubscriptionRequest(intakeInfo, subscriptionRequest);
+            } else {
+                feedJobNotificationHandler.addSubscriptionRequest(subscriptionRequest);
+            }
+        }
     }
 }

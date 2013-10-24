@@ -129,6 +129,7 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
                     LOGGER.info("Starting ingestion for partition:" + partition);
                 }
                 adapter.start(partition, writer);
+                runtimeManager.setState(State.FINISHED_INGESTION);
             } catch (Exception e) {
                 if (LOGGER.isLoggable(Level.SEVERE)) {
                     LOGGER.severe("Exception during feed ingestion " + e.getMessage());
@@ -156,6 +157,10 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
 
     public synchronized State getState() {
         return state;
+    }
+
+    public synchronized void setState(State state) {
+        this.state = state;
     }
 
     public AdapterExecutor getAdapterExecutor() {

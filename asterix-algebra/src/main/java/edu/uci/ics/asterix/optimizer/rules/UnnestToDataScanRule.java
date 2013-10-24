@@ -27,6 +27,7 @@ import edu.uci.ics.asterix.metadata.declared.FeedDataSource;
 import edu.uci.ics.asterix.metadata.entities.Dataset;
 import edu.uci.ics.asterix.metadata.entities.Dataverse;
 import edu.uci.ics.asterix.metadata.entities.Feed;
+import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityDetails;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
 import edu.uci.ics.asterix.metadata.feeds.BuiltinFeedPolicies;
 import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionRequest.SubscriptionLocation;
@@ -141,7 +142,7 @@ public class UnnestToDataScanRule implements IAlgebraicRewriteRule {
                 AqlMetadataProvider metadataProvider = (AqlMetadataProvider) context.getMetadataProvider();
 
                 AqlSourceId asid = new AqlSourceId(dataverse, getTargetFeed);
-                String policyName = metadataProvider.getConfig().get(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY);
+                String policyName = metadataProvider.getConfig().get(FeedActivityDetails.FEED_POLICY_NAME);
                 FeedPolicy policy = metadataProvider.findFeedPolicy(dataverse, policyName);
                 if (policy == null) {
                     policy = BuiltinFeedPolicies.getFeedPolicy(policyName);
@@ -153,8 +154,9 @@ public class UnnestToDataScanRule implements IAlgebraicRewriteRule {
                 ArrayList<LogicalVariable> v = new ArrayList<LogicalVariable>();
                 v.add(unnest.getVariable());
 
+                String csLocations = metadataProvider.getConfig().get(FeedActivityDetails.COLLECT_LOCATIONS);
                 DataSourceScanOperator scan = new DataSourceScanOperator(v, createFeedDataSource(asid, targetDataset,
-                        sourceFeedName, subscriptionLocation, metadataProvider, policy, outputType));
+                        sourceFeedName, subscriptionLocation, metadataProvider, policy, outputType, csLocations));
 
                 List<Mutable<ILogicalOperator>> scanInpList = scan.getInputs();
                 scanInpList.addAll(unnest.getInputs());
@@ -180,8 +182,8 @@ public class UnnestToDataScanRule implements IAlgebraicRewriteRule {
     }
 
     private AqlDataSource createFeedDataSource(AqlSourceId aqlId, String targetDataset, String sourceFeedName,
-            String subscriptionLocation, AqlMetadataProvider metadataProvider, FeedPolicy feedPolicy, String outputType)
-            throws AlgebricksException {
+            String subscriptionLocation, AqlMetadataProvider metadataProvider, FeedPolicy feedPolicy,
+            String outputType, String locations) throws AlgebricksException {
         if (!aqlId.getDataverseName().equals(
                 metadataProvider.getDefaultDataverse() == null ? null : metadataProvider.getDefaultDataverse()
                         .getDataverseName())) {
@@ -190,7 +192,8 @@ public class UnnestToDataScanRule implements IAlgebraicRewriteRule {
         IAType feedOutputType = metadataProvider.findType(aqlId.getDataverseName(), outputType);
         Feed sourceFeed = metadataProvider.findFeed(aqlId.getDataverseName(), sourceFeedName);
         FeedDataSource feedDataSource = new FeedDataSource(aqlId, targetDataset, feedOutputType,
-                AqlDataSource.AqlDataSourceType.FEED, sourceFeed, SubscriptionLocation.valueOf(subscriptionLocation));
+                AqlDataSource.AqlDataSourceType.FEED, sourceFeed, SubscriptionLocation.valueOf(subscriptionLocation),
+                locations.split(","));
         feedDataSource.getProperties().put(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY, feedPolicy);
         return feedDataSource;
     }

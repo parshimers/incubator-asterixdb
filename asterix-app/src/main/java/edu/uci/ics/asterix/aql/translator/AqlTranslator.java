@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.commons.lang3.StringUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -1611,9 +1612,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
                     createFeedIntakeJob = true;
                 }
             }
-            JobSpecification feedIntakeJobSpec = null;
             if (createFeedIntakeJob) {
-                feedIntakeJobSpec = FeedOperations.buildFeedIntakeJobSpec(
+                JobSpecification feedIntakeJobSpec = FeedOperations.buildFeedIntakeJobSpec(
                         (PrimaryFeed) subscriptionRequest.getSourceFeed(), metadataProvider);
                 runJob(hcc, feedIntakeJobSpec, false);
                 FeedLifecycleListener.INSTANCE.submitFeedSubscriptionRequest(subscriptionRequest);
@@ -1783,6 +1783,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
             metadataProvider.getConfig().put(FunctionUtils.IMPORT_PRIVATE_FUNCTIONS, "" + Boolean.TRUE);
             metadataProvider.getConfig().put(FeedActivityDetails.FEED_POLICY_NAME, "" + bfs.getPolicy());
+            metadataProvider.getConfig().put(FeedActivityDetails.COLLECT_LOCATIONS, StringUtils.join(bfs.getLocations(), ','));
 
             CompiledSubscribeFeedStatement csfs = new CompiledSubscribeFeedStatement(bfs.getSubscriptionRequest(),
                     bfs.getQuery(), bfs.getVarCounter());

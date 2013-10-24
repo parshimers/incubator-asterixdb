@@ -60,7 +60,6 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
 
     @Override
     public void initialize() throws HyracksDataException {
-
         IAdapterRuntimeManager adapterExecutor = null;
         FeedPolicyEnforcer policyEnforcer = null;
         try {
@@ -83,8 +82,9 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                         adapterExecutor.wait();
                     }
                 }
+                feedIngestionManager.deregisterFeedIngestionRuntime(ingestionRuntime.getFeedIngestionId());
             } else {
-                String message = "Feed Ingestion Runtime for feed " + feedId + " is registered.";
+                String message = "Feed Ingestion Runtime for feed " + feedId + " is already registered.";
                 LOGGER.severe(message);
                 throw new IllegalStateException(message);
             }

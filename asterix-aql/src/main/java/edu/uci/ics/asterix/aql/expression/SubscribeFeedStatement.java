@@ -49,12 +49,14 @@ public class SubscribeFeedStatement implements Statement {
     private final FeedSubscriptionRequest subscriptionRequest;
     private Query query;
     private int varCounter;
+    private final List<String> locations;
 
     public static final String WAIT_FOR_COMPLETION = "wait-for-completion-feed";
 
-    public SubscribeFeedStatement(FeedSubscriptionRequest subscriptionRequest) {
+    public SubscribeFeedStatement(List<String> locations, FeedSubscriptionRequest subscriptionRequest) {
         this.subscriptionRequest = subscriptionRequest;
         this.varCounter = 0;
+        this.locations = locations;
     }
 
     public void initialize(MetadataTransactionContext mdTxnCtx) throws MetadataException {
@@ -116,7 +118,7 @@ public class SubscribeFeedStatement implements Statement {
         List<Statement> statements;
         try {
             statements = parser.Statement();
-            query = ((InsertStatement) statements.get(1)).getQuery();
+            query = ((InsertStatement) statements.get(2)).getQuery();
         } catch (ParseException pe) {
             throw new MetadataException(pe);
         }
@@ -176,5 +178,9 @@ public class SubscribeFeedStatement implements Statement {
         } catch (AlgebricksException ae) {
             throw new MetadataException(ae);
         }
+    }
+
+    public List<String> getLocations() {
+        return locations;
     }
 }
