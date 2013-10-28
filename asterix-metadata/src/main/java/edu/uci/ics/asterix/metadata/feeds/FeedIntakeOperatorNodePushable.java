@@ -90,7 +90,8 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
             }
 
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info(" Adaptor [" + partition + " ]" + " done with ingestion of feed " + feedId);
+                LOGGER.info(" Adaptor " + adapter.getClass().getName() + "[" + partition + "]"
+                        + " done with ingestion of feed " + feedId);
             }
 
         } catch (InterruptedException ie) {
@@ -112,7 +113,9 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
             throw new HyracksDataException(e);
         } finally {
             feedFrameWriter.close();
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Closed Frame Writer " + feedFrameWriter);
+            }
         }
     }
-
 }

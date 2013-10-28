@@ -438,8 +438,7 @@ public final class MetadataRecordTypes {
     public static final int FEED_ARECORD_PRIMARY_FIELD_DETAILS_ADAPTOR_NAME_FIELD_INDEX = 0;
     public static final int FEED_ARECORD_PRIMARY_FIELD_DETAILS_ADAPTOR_CONFIGURATION_FIELD_INDEX = 1;
 
-    public static final int FEED_ARECORD_SECONDARY_FIELD_DETAILS_SOURCE_FEED_DATAVERSE_FIELD_INDEX = 0;
-    public static final int FEED_ARECORD_SECONDARY_FIELD_DETAILS_SOURCE_FEED_NAME_FIELD_INDEX = 1;
+    public static final int FEED_ARECORD_SECONDARY_FIELD_DETAILS_SOURCE_FEED_NAME_FIELD_INDEX = 0;
 
     private static ARecordType createFeedRecordType() throws AsterixException {
 
@@ -478,12 +477,11 @@ public final class MetadataRecordTypes {
         return new ARecordType(null, fieldNames, fieldTypes, true);
     }
 
-    public static final int FEED_TYPE_SECONDARY_ARECORD_SOURCE_DATAVERSE_FIELD_INDEX = 0;
-    public static final int FEED_TYPE_SECONDARY_ARECORD_SOURCE_FEED_NAME_FIELD_INDEX = 1;
+    public static final int FEED_TYPE_SECONDARY_ARECORD_SOURCE_FEED_NAME_FIELD_INDEX = 0;
 
     private static final ARecordType createSecondaryFeedDetailsRecordType() throws AsterixException {
-        String[] fieldNames = { "SourceFeedDataverse", "SourceFeedName" };
-        IAType[] fieldTypes = { BuiltinType.ASTRING, BuiltinType.ASTRING };
+        String[] fieldNames = { "SourceFeedName" };
+        IAType[] fieldTypes = { BuiltinType.ASTRING };
         return new ARecordType(null, fieldNames, fieldTypes, true);
     }
 

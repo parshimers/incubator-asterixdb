@@ -37,8 +37,6 @@ import edu.uci.ics.asterix.metadata.entities.Feed;
 import edu.uci.ics.asterix.metadata.entities.Feed.FeedType;
 import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
 import edu.uci.ics.asterix.metadata.entities.SecondaryFeed;
-import edu.uci.ics.asterix.om.base.AInt32;
-import edu.uci.ics.asterix.om.base.AMutableInt32;
 import edu.uci.ics.asterix.om.base.AMutableString;
 import edu.uci.ics.asterix.om.base.ANull;
 import edu.uci.ics.asterix.om.base.ARecord;
@@ -68,14 +66,10 @@ public class FeedTupleTranslator extends AbstractTupleTranslator<Feed> {
     @SuppressWarnings("unchecked")
     private ISerializerDeserializer<ARecord> recordSerDes = AqlSerializerDeserializerProvider.INSTANCE
             .getSerializerDeserializer(MetadataRecordTypes.FEED_RECORDTYPE);
-    private AMutableInt32 aInt32;
-    protected ISerializerDeserializer<AInt32> aInt32Serde;
 
     @SuppressWarnings("unchecked")
     public FeedTupleTranslator(boolean getTuple) {
         super(getTuple, MetadataPrimaryIndexes.FEED_DATASET.getFieldCount());
-        aInt32 = new AMutableInt32(-1);
-        aInt32Serde = AqlSerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.AINT32);
     }
 
     @Override
@@ -148,15 +142,11 @@ public class FeedTupleTranslator extends AbstractTupleTranslator<Feed> {
                 ARecord feedTypeDetailsRecord = (ARecord) feedRecord
                         .getValueByPos(MetadataRecordTypes.FEED_ARECORD_SECONDARY_TYPE_DETAILS_FIELD_INDEX);
 
-                String sourceFeedDataverse = ((AString) feedTypeDetailsRecord
-                        .getValueByPos(MetadataRecordTypes.FEED_TYPE_SECONDARY_ARECORD_SOURCE_DATAVERSE_FIELD_INDEX))
-                        .getStringValue();
-
                 String sourceFeedName = ((AString) feedTypeDetailsRecord
                         .getValueByPos(MetadataRecordTypes.FEED_TYPE_SECONDARY_ARECORD_SOURCE_FEED_NAME_FIELD_INDEX))
                         .getStringValue();
 
-                feed = new SecondaryFeed(dataverseName, feedName, sourceFeedDataverse, sourceFeedName, signature);
+                feed = new SecondaryFeed(dataverseName, feedName, sourceFeedName, signature);
 
             }
                 break;
@@ -168,8 +158,6 @@ public class FeedTupleTranslator extends AbstractTupleTranslator<Feed> {
     @Override
     public ITupleReference getTupleFromMetadataEntity(Feed feed) throws IOException, MetadataException {
         // write the key in the first two fields of the tuple
-        ArrayBackedValueStorage itemValue = new ArrayBackedValueStorage();
-
         tupleBuilder.reset();
         aString.setValue(feed.getDataverseName());
         stringSerde.serialize(aString, tupleBuilder.getDataOutput());
@@ -288,16 +276,6 @@ public class FeedTupleTranslator extends AbstractTupleTranslator<Feed> {
                 secondaryDetailsRecordBuilder.reset(MetadataRecordTypes.SECONDARY_FEED_DETAILS_RECORDTYPE);
 
                 // write field 0
-                fieldValue.reset();
-                if (secondaryFeed.getSourceFeedDataverseName() != null) {
-                    aString.setValue(secondaryFeed.getSourceFeedDataverseName());
-                    stringSerde.serialize(aString, secondaryFieldValue.getDataOutput());
-                    secondaryDetailsRecordBuilder.addField(
-                            MetadataRecordTypes.FEED_ARECORD_SECONDARY_FIELD_DETAILS_SOURCE_FEED_DATAVERSE_FIELD_INDEX,
-                            secondaryFieldValue);
-                }
-
-                // write field 1
                 fieldValue.reset();
                 aString.setValue(secondaryFeed.getSourceFeedName());
                 stringSerde.serialize(aString, secondaryFieldValue.getDataOutput());

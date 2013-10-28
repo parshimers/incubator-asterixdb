@@ -25,11 +25,14 @@ import org.apache.commons.lang3.tuple.Pair;
 import edu.uci.ics.asterix.common.dataflow.AsterixLSMTreeInsertDeleteOperatorDescriptor;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
+import edu.uci.ics.asterix.common.functions.FunctionSignature;
+import edu.uci.ics.asterix.metadata.MetadataException;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
 import edu.uci.ics.asterix.metadata.bootstrap.MetadataConstants;
 import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
 import edu.uci.ics.asterix.metadata.entities.DatasourceAdapter;
+import edu.uci.ics.asterix.metadata.entities.Feed;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityType;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
@@ -38,6 +41,7 @@ import edu.uci.ics.asterix.metadata.entities.SecondaryFeed;
 import edu.uci.ics.asterix.metadata.functions.ExternalLibraryManager;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
+import edu.uci.ics.hyracks.algebricks.common.exceptions.NotImplementedException;
 import edu.uci.ics.hyracks.algebricks.runtime.base.IPushRuntimeFactory;
 import edu.uci.ics.hyracks.algebricks.runtime.operators.meta.AlgebricksMetaOperatorDescriptor;
 import edu.uci.ics.hyracks.algebricks.runtime.operators.std.AssignRuntimeFactory;
@@ -262,7 +266,19 @@ public class FeedUtil {
     }
 
     public static String getSecondaryFeedOutput(SecondaryFeed feed, MetadataTransactionContext mdTxnCtx)
-            throws AlgebricksException {
-        return null;
+            throws AlgebricksException, MetadataException {
+        String outputType = null;
+        String primaryFeedName = feed.getSourceFeedName();
+        Feed primaryFeed = MetadataManager.INSTANCE.getFeed(mdTxnCtx, feed.getDataverseName(), primaryFeedName);
+        FunctionSignature appliedFunction = primaryFeed.getAppliedFunction();
+        if (appliedFunction == null) {
+            Pair<IAdapterFactory, ARecordType> result = getPrimaryFeedFactoryAndOutput((PrimaryFeed) primaryFeed,
+                    mdTxnCtx);
+            outputType = result.getRight().getTypeName();
+        } else {
+            throw new NotImplementedException(
+                    "Secondary feeds that are derived from primary feeds with an applied function are not supported yet.");
+        }
+        return outputType;
     }
 }

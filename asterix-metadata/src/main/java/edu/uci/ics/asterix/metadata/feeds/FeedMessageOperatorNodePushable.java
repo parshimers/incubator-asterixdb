@@ -70,12 +70,8 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                         LOGGER.info("Ending feed:" + feedConnectionId);
                     }
                     if (collectionLocation) {
-                        DistributeFeedFrameWriter frameWriter = (DistributeFeedFrameWriter) ((CollectionRuntime) feedRuntime)
-                                .getSubscribableRuntime().getFeedFrameWriter();
-                        IFeedFrameWriter recipientFrameWriter = ((CollectionRuntime) feedRuntime).getFrameWriter();
                         ((CollectionRuntime) feedRuntime).getSubscribableRuntime().unsubscribeFeed(
                                 (CollectionRuntime) feedRuntime);
-                        //frameWriter.unsubscribeFeed(recipientFrameWriter);
                         if (LOGGER.isLoggable(Level.INFO)) {
                             LOGGER.info("Unsubscribed from feed :" + feedConnectionId);
                         }

@@ -237,7 +237,7 @@ public class MetadataTransactionContext extends MetadataCache {
                 feed = new PrimaryFeed(dataverseName, feedName, null, null, null);
                 break;
             case SECONDARY:
-                feed = new SecondaryFeed(dataverseName, feedName, null, null, null);
+                feed = new SecondaryFeed(dataverseName, feedName, null, null);
                 break;
         }
         droppedCache.addFeedIfNotExists(feed);

@@ -595,8 +595,8 @@ public interface IMetadataNode extends Remote, Serializable {
      * @throws MetadataException
      * @throws RemoteException
      */
-    public List<FeedActivity> getActiveFeedsServingADataset(JobId jobId, String dataverse, String dataset) throws MetadataException,
-            RemoteException;
+    public List<FeedActivity> getActiveFeedsServingADataset(JobId jobId, String dataverse, String dataset)
+            throws MetadataException, RemoteException;
 
     /**
      * Removes a library , acquiring local locks on behalf of the given
@@ -668,12 +668,12 @@ public interface IMetadataNode extends Remote, Serializable {
     /**
      * @param jobId
      * @param dataverseName
-     * @param deedName
+     * @param feedName
      * @return
      * @throws MetadataException
      * @throws RemoteException
      */
-    public List<FeedActivity> getDatasetsServedByFeed(JobId jobId, String dataverseName, String deedName)
+    public List<FeedActivity> getDatasetsServedByFeed(JobId jobId, String dataverseName, String feedName)
             throws MetadataException, RemoteException;
 
 }

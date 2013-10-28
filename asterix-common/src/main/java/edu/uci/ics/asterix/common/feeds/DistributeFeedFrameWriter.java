@@ -19,6 +19,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -85,10 +87,9 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
     }
 
     public synchronized void unsubscribeFeed(IFeedFrameWriter recipientFeedFrameWriter) throws Exception {
-        if (registeredReaders.keySet().contains(recipientFeedFrameWriter)) {
-            frameDistributor.deregisterFrameReader(registeredReaders.get(recipientFeedFrameWriter));
-            FrameReader reader = registeredReaders.get(recipientFeedFrameWriter);
-            reader.setContinueReading(false);
+        FrameReader reader = registeredReaders.get(recipientFeedFrameWriter);
+        if (reader != null) {
+            frameDistributor.deregisterFrameReader(reader);
         } else {
             if (LOGGER.isLoggable(Level.WARNING)) {
                 LOGGER.warning("Feed frame writer " + recipientFeedFrameWriter + " is not registered");
@@ -189,11 +190,13 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
 
     public static class DataBucket {
 
+        private static AtomicInteger globalBucketId = new AtomicInteger(0);
         private final ByteBuffer buffer;
         private final AtomicInteger readCount;
         private final DataBucketPool pool;
         private int desiredReadCount;
         private ContentType contentType;
+        private AtomicInteger bucketId = new AtomicInteger(0);
 
         public enum ContentType {
             DATA, // data
@@ -205,6 +208,7 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
             readCount = new AtomicInteger(0);
             this.pool = pool;
             this.contentType = ContentType.DATA;
+            bucketId.set(globalBucketId.incrementAndGet());
         }
 
         public void reset(ByteBuffer frame) {
@@ -215,9 +219,12 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
         }
 
         public void doneReading() {
-            int activeCount = readCount.incrementAndGet();
-            if (activeCount == desiredReadCount) {
+            if (readCount.incrementAndGet() == desiredReadCount) {
+                readCount.set(0);
                 pool.returnDataBucket(this);
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("returned data bucket " + this + " back to the pool");
+                }
             }
         }
 
@@ -233,51 +240,83 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
             this.contentType = contentType;
         }
 
+        @Override
+        public String toString() {
+            return "DataBucket [" + bucketId + "]" + " (" + readCount + "," + desiredReadCount + " )";
+        }
+
     }
 
     private static class FrameDistributor implements Runnable {
 
-        private final AtomicInteger nSubscribers;
         private final LinkedBlockingQueue<DataBucket> inputDataQueue;
         private final List<FrameReader> pendingAdditions;
         private final List<FrameReader> pendingDeletions;
         private final List<FrameReader> registeredReaders;
         private final DataBucketPool pool;
         private DistributionMode mode;
+        private final ExecutorService executor;
+        private final int THREAD_POOL_SIZE = 25;
 
         public FrameDistributor() {
-            this.pool = new DataBucketPool(25);
+            this.pool = new DataBucketPool(THREAD_POOL_SIZE);
             inputDataQueue = new LinkedBlockingQueue<DataBucket>();
             pendingAdditions = new ArrayList<FrameReader>();
             pendingDeletions = new ArrayList<FrameReader>();
-            nSubscribers = new AtomicInteger(0);
             this.registeredReaders = new ArrayList<FrameReader>();
             mode = DistributionMode.INACTIVE;
+            this.executor = Executors.newCachedThreadPool();
         }
 
         public void notifyEndOfFeed() {
-            DataBucket bucket = pool.getDataBucket();
+            DataBucket bucket = getDataBucket();
             bucket.setContentType(DataBucket.ContentType.EOD);
             inputDataQueue.add(bucket);
         }
 
         public synchronized void registerFrameReader(FrameReader frameReader) {
-            pendingAdditions.add(frameReader);
-            registeredReaders.add(frameReader);
-            if (registeredReaders.size() == 1) {
-                mode = DistributionMode.SINGLE;
-            } else if (registeredReaders.size() > 1) {
-                mode = DistributionMode.SHARED;
+            DistributionMode currentMode = mode;
+            switch (mode) {
+                case INACTIVE:
+                    registeredReaders.add(frameReader);
+                    mode = DistributionMode.SINGLE;
+                    break;
+                case SINGLE:
+                    registeredReaders.add(frameReader);
+                    mode = DistributionMode.SHARED;
+                    for (FrameReader reader : registeredReaders) {
+                        executor.execute(reader);
+                    }
+                    break;
+                case SHARED:
+                    executor.execute(frameReader);
+                    pendingAdditions.add(frameReader);
+                    break;
+            }
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Switching to " + mode + " mode from " + currentMode + " mode");
             }
         }
 
         public synchronized void deregisterFrameReader(FrameReader frameReader) {
-            pendingDeletions.add(frameReader);
-            registeredReaders.remove(frameReader);
-            if (registeredReaders.size() == 1) {
-                mode = DistributionMode.SINGLE;
-            } else if (registeredReaders.size() == 0) {
-                mode = DistributionMode.INACTIVE;
+            switch (mode) {
+                case INACTIVE:
+                    throw new IllegalStateException("Invalid attempt to deregister frame reader in " + mode + " mode.");
+                case SHARED:
+                    if (LOGGER.isLoggable(Level.INFO)) {
+                        LOGGER.info(frameReader + " marked for removal");
+                    }
+                    pendingDeletions.add(frameReader);
+                    break;
+                case SINGLE:
+                    pendingDeletions.add(frameReader);
+                    mode = DistributionMode.INACTIVE;
+                    break;
+
+            }
+            frameReader.setContinueReading(false);
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Deregistered frame reader" + frameReader);
             }
         }
 
@@ -290,39 +329,86 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
                 case INACTIVE:
                     break;
                 case SINGLE:
-                    registeredReaders.get(0).nextFrame(frame);
+                    switch (registeredReaders.get(0).getState()) {
+                        case ACTIVE:
+                            registeredReaders.get(0).nextFrame(frame);
+                            break;
+                        case TRANSITION:
+                            DataBucket bucket = getDataBucket();
+                            bucket.reset(frame);
+                            registeredReaders.get(0).inputQueue.add(bucket);
+                            break;
+                        case FINISHED:
+                            if (LOGGER.isLoggable(Level.WARNING)) {
+                                LOGGER.warning("Discarding fetched tuples as feed has ended");
+                            }
+                    }
+                    if (LOGGER.isLoggable(Level.INFO)) {
+                        LOGGER.info("Single Frame Reader " + registeredReaders.get(0));
+                    }
                     break;
                 case SHARED:
                     DataBucket bucket = pool.getDataBucket();
+                    bucket.setDesiredReadCount(registeredReaders.size());
                     bucket.reset(frame);
                     inputDataQueue.add(bucket);
                     break;
             }
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Frame  processed " + frame + " processed in mode [" + mode + "]");
+            }
+        }
+
+        private DataBucket getDataBucket() {
+            DataBucket bucket = pool.getDataBucket();
+            bucket.setDesiredReadCount(registeredReaders.size());
+            return bucket;
         }
 
         public void run() {
-            while (true) {
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Starting frame reader " + this + " in distributed mode");
+            }
+            while (!mode.equals(DistributionMode.INACTIVE)) {
                 DataBucket dataBucket;
                 try {
                     dataBucket = inputDataQueue.take();
-                    for (FrameReader reader : registeredReaders) {
-                        reader.inputQueue.put(dataBucket);
-                    }
                     synchronized (this) {
+                        for (FrameReader reader : registeredReaders) {
+                            reader.inputQueue.put(dataBucket);
+                            if (LOGGER.isLoggable(Level.INFO)) {
+                                LOGGER.info(reader + " processedd " + dataBucket);
+                            }
+                        }
                         if (pendingAdditions.size() > 0) {
                             registeredReaders.addAll(pendingAdditions);
-                            nSubscribers.set(nSubscribers.get() + pendingAdditions.size());
                             pendingAdditions.clear();
                         }
                         if (pendingDeletions.size() > 0) {
-                            registeredReaders.removeAll(pendingAdditions);
-                            nSubscribers.set(nSubscribers.get() - pendingDeletions.size());
+                            registeredReaders.removeAll(pendingDeletions);
                             pendingDeletions.clear();
+                            if (registeredReaders.size() == 1) {
+                                FrameReader loneReader = registeredReaders.get(0);
+                                mode = DistributionMode.SINGLE;
+                                loneReader.setState(FrameReader.State.TRANSITION);
+                                DataBucket bucket = getDataBucket();
+                                bucket.setContentType(DataBucket.ContentType.EOD);
+                                loneReader.inputQueue.add(bucket);
+                            } else if (registeredReaders.size() == 0) {
+                                mode = DistributionMode.INACTIVE;
+                                if (LOGGER.isLoggable(Level.INFO)) {
+                                    LOGGER.info("Distribution is " + DistributionMode.INACTIVE);
+                                }
+                                break;
+                            }
                         }
                     }
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
+            }
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Finished frame reader " + this + " in distributed mode");
             }
         }
 
@@ -341,7 +427,8 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
 
         public enum State {
             ACTIVE,
-            FINISHED
+            FINISHED,
+            TRANSITION
         }
 
         public FrameReader(LinkedBlockingQueue<DataBucket> inputQueue, IFeedFrameWriter frameWriter) {
@@ -356,16 +443,7 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
                 DataBucket data = null;
                 try {
                     data = inputQueue.take();
-                    switch (data.getContentType()) {
-                        case DATA:
-                            frameWriter.nextFrame(data.buffer);
-                            data.doneReading();
-                            break;
-                        case EOD:
-                            continueReading = false;
-                            break;
-                    }
-
+                    processDataBucket(data);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 } catch (HyracksDataException e) {
@@ -374,15 +452,45 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
                     data.doneReading();
                 }
             }
-            disconnect();
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Disconnected frame reader for " + frameWriter.getFeedId());
+            if (state.equals(State.TRANSITION)) {
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info(this + " in " + State.TRANSITION + " mode ");
+                }
+                while (!inputQueue.isEmpty()) {
+                    try {
+                        processDataBucket(inputQueue.take());
+                    } catch (HyracksDataException | InterruptedException e) {
+                        e.printStackTrace();
+                        if (LOGGER.isLoggable(Level.WARNING)) {
+                            LOGGER.warning("Exception " + e + " in processing data in " + state);
+                        }
+                        break;
+                    }
+                }
+                setContinueReading(true);
+                setState(State.ACTIVE);
+            } else {
+                disconnect();
+            }
+        }
+
+        private void processDataBucket(DataBucket bucket) throws HyracksDataException {
+            switch (bucket.getContentType()) {
+                case DATA:
+                    frameWriter.nextFrame(bucket.buffer);
+                    break;
+                case EOD:
+                    continueReading = false;
+                    break;
             }
         }
 
         public synchronized void disconnect() {
-            state = State.FINISHED;
+            setState(State.FINISHED);
             notifyAll();
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Disconnected frame reader for " + frameWriter.getFeedId());
+            }
         }
 
         public synchronized void nextFrame(ByteBuffer frame) throws HyracksDataException {
@@ -395,8 +503,12 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
             }
         }
 
-        public State getState() {
+        public synchronized State getState() {
             return state;
+        }
+
+        public synchronized void setState(State state) {
+            this.state = state;
         }
 
         public synchronized void setContinueReading(boolean continueReading) {
@@ -405,6 +517,12 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
                 disconnect();
             }
         }
+
+        @Override
+        public String toString() {
+            return "FrameReader [" + frameWriter.getFeedId() + "," + state + "]";
+        }
+
     }
 
 }

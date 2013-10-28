@@ -44,11 +44,13 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
 
     public enum State {
         /*
-         * Indicates that data from external source will be pushed downstream for storage 
+         * Indicates that data from external source will be pushed downstream
+         * for storage
          */
         ACTIVE_INGESTION,
         /*
-         * Indicates that data from external source would be buffered and not pushed downstream 
+         * Indicates that data from external source would be buffered and not
+         * pushed downstream
          */
         INACTIVE_INGESTION,
         /*
@@ -80,7 +82,7 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
         try {
             feedAdapter.stop();
             state = State.FINISHED_INGESTION;
-            ingestionRuntime.endOfFeed();
+            //   ingestionRuntime.endOfFeed();
         } catch (Exception exception) {
             if (LOGGER.isLoggable(Level.SEVERE)) {
                 LOGGER.severe("Unable to stop adapter " + feedAdapter + ", encountered exception " + exception);
@@ -133,6 +135,7 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
             } catch (Exception e) {
                 if (LOGGER.isLoggable(Level.SEVERE)) {
                     LOGGER.severe("Exception during feed ingestion " + e.getMessage());
+                    e.printStackTrace();
                 }
             } finally {
                 synchronized (runtimeManager) {

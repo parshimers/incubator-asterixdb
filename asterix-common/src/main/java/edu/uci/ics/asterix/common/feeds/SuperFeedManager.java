@@ -217,8 +217,10 @@ public class SuperFeedManager {
                     }
                     os.write((port + EOM).getBytes());
                     os.flush();
-                } catch (IOException e) {
-                    e.printStackTrace();
+                } catch (Exception e) {
+                    if (LOGGER.isLoggable(Level.WARNING)) {
+                        LOGGER.warning("Exception encountered: " + e);
+                    }
                 }
             }
         }

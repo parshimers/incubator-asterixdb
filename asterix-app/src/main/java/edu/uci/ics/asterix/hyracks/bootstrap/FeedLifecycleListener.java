@@ -447,6 +447,7 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Submitted " + work);
             }
+            addSubscriptionRequest(request);
         }
 
         private void handleFeedCollectJobStartMessage(FeedCollectInfo feedCollectInfo, Message message) {
@@ -603,8 +604,8 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
         }
 
         private void handleFeedCollectJobFinishMessage(FeedCollectInfo feedInfo, Message message) {
-            MetadataManager.INSTANCE.acquireWriteLatch();
             MetadataTransactionContext mdTxnCtx = null;
+            boolean latchAcquired = false;
             boolean feedFailedDueToPostSubmissionNodeLoss = verifyReasonForFailure(feedInfo);
             if (!feedFailedDueToPostSubmissionNodeLoss) {
                 removeSubscriptionRequest(feedInfo.sourceFeedId, feedInfo.feedConnectionId.getFeedId());
@@ -622,6 +623,8 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
                         details.put(FeedActivity.FeedActivityDetails.EXCEPTION_MESSAGE, exceptions.get(0).getMessage());
                     }
                     mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+                    MetadataManager.INSTANCE.acquireWriteLatch();
+                    latchAcquired = true;
                     FeedActivity feedActivity = new FeedActivity(feedInfo.feedConnectionId.getFeedId().getDataverse(),
                             feedInfo.feedConnectionId.getFeedId().getFeedName(),
                             feedInfo.feedConnectionId.getDatasetName(), activityType, details);
@@ -629,16 +632,18 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
                             feedInfo.feedConnectionId.getFeedId().getDataverse(), feedInfo.feedConnectionId.getFeedId()
                                     .getFeedName(), feedInfo.feedConnectionId.getDatasetName()), feedActivity);
                     MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
-                } catch (RemoteException | ACIDException | MetadataException e) {
-                    try {
-                        MetadataManager.INSTANCE.abortTransaction(mdTxnCtx);
-                    } catch (RemoteException | ACIDException ae) {
-                        throw new IllegalStateException(" Unable to abort ");
-                    }
                 } catch (Exception e) {
-                    // add exception handling here
+                    if (mdTxnCtx != null) {
+                        try {
+                            MetadataManager.INSTANCE.abortTransaction(mdTxnCtx);
+                        } catch (RemoteException | ACIDException ae) {
+                            throw new IllegalStateException(" Unable to abort ");
+                        }
+                    }
                 } finally {
-                    MetadataManager.INSTANCE.releaseWriteLatch();
+                    if (latchAcquired) {
+                        MetadataManager.INSTANCE.releaseWriteLatch();
+                    }
                 }
             } else {
                 if (LOGGER.isLoggable(Level.WARNING)) {

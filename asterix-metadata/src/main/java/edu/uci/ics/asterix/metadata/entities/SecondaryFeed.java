@@ -26,18 +26,11 @@ public class SecondaryFeed extends Feed implements IMetadataEntity {
 
     private static final long serialVersionUID = 1L;
 
-    private final String sourceFeedDataverseName;
     private final String sourceFeedName;
 
-    public SecondaryFeed(String dataverseName, String feedName, String sourceFeedDataverse, String sourceFeedName,
-            FunctionSignature appliedFunction) {
+    public SecondaryFeed(String dataverseName, String feedName, String sourceFeedName, FunctionSignature appliedFunction) {
         super(dataverseName, feedName, appliedFunction, FeedType.SECONDARY);
-        this.sourceFeedDataverseName = sourceFeedDataverse;
         this.sourceFeedName = sourceFeedName;
-    }
-
-    public String getSourceFeedDataverseName() {
-        return sourceFeedDataverseName;
     }
 
     public String getSourceFeedName() {
@@ -54,10 +47,6 @@ public class SecondaryFeed extends Feed implements IMetadataEntity {
         }
 
         SecondaryFeed otherFeed = (SecondaryFeed) other;
-        if (!(otherFeed.getSourceFeedDataverseName() == null || otherFeed.getSourceFeedDataverseName().equals(
-                sourceFeedDataverseName))) {
-            return false;
-        }
         if (!otherFeed.getSourceFeedName().equals(sourceFeedName)) {
             return false;
         }
@@ -66,6 +55,6 @@ public class SecondaryFeed extends Feed implements IMetadataEntity {
 
     @Override
     public String toString() {
-        return "SecondaryFeed (" + feedId + ")" + "<--" + "(" + sourceFeedDataverseName + "," + sourceFeedName + ")";
+        return "SecondaryFeed (" + feedId + ")" + "<--" + "(" + sourceFeedName + ")";
     }
 }
