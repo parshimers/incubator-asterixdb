@@ -82,6 +82,7 @@ import edu.uci.ics.asterix.file.FeedOperations;
 import edu.uci.ics.asterix.file.IndexOperations;
 import edu.uci.ics.asterix.formats.base.IDataFormat;
 import edu.uci.ics.asterix.hyracks.bootstrap.FeedLifecycleListener;
+import edu.uci.ics.asterix.hyracks.bootstrap.FeedLifecycleListener.FeedIntakeInfo;
 import edu.uci.ics.asterix.metadata.IDatasetDetails;
 import edu.uci.ics.asterix.metadata.MetadataException;
 import edu.uci.ics.asterix.metadata.MetadataManager;
@@ -107,7 +108,6 @@ import edu.uci.ics.asterix.metadata.entities.InternalDatasetDetails;
 import edu.uci.ics.asterix.metadata.entities.NodeGroup;
 import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
 import edu.uci.ics.asterix.metadata.entities.SecondaryFeed;
-import edu.uci.ics.asterix.metadata.feeds.BuiltinFeedPolicies;
 import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionRequest;
 import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionRequest.SubscriptionLocation;
 import edu.uci.ics.asterix.metadata.feeds.FeedUtil;
@@ -207,7 +207,6 @@ public class AqlTranslator extends AbstractAqlTranslator {
         IAWriterFactory writerFactory = PrinterBasedWriterFactory.INSTANCE;
         IResultSerializerFactoryProvider resultSerializerFactoryProvider = ResultSerializerFactoryProvider.INSTANCE;
         Map<String, String> config = new HashMap<String, String>();
-
         for (Statement stmt : aqlStatements) {
             validateOperation(activeDefaultDataverse, stmt);
             AqlMetadataProvider metadataProvider = new AqlMetadataProvider(activeDefaultDataverse);
@@ -1610,6 +1609,11 @@ public class AqlTranslator extends AbstractAqlTranslator {
                         dataverseName, subscriptionRequest.getSourceFeed().getFeedName());
                 if (feedActivities == null || feedActivities.isEmpty()) {
                     createFeedIntakeJob = true;
+                }
+                FeedIntakeInfo intakeInfo = FeedLifecycleListener.INSTANCE.getFeedIntakeInfo(subscriptionRequest
+                        .getSourceFeed().getFeedId());
+                if (intakeInfo != null && intakeInfo.state.equals(FeedIntakeInfo.State.ACTIVE)) {
+                    createFeedIntakeJob = false;
                 }
             }
             if (createFeedIntakeJob) {
