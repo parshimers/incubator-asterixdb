@@ -14,19 +14,24 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FrameReader;
 
 public class IngestionRuntime implements ISubscribableRuntime {
 
     private final FeedIngestionId ingestionId;
-    private IAdapterRuntimeManager adapterRuntimeManager;
+    private final IAdapterRuntimeManager adapterRuntimeManager;
     private final DistributeFeedFrameWriter feedWriter;
+    private final List<ISubscriberRuntime> subscribers;
 
     public IngestionRuntime(FeedId feedId, int partition, IAdapterRuntimeManager adaptorRuntimeManager,
             DistributeFeedFrameWriter feedWriter) {
         this.ingestionId = new FeedIngestionId(feedId, partition);
         this.adapterRuntimeManager = adaptorRuntimeManager;
         this.feedWriter = feedWriter;
+        this.subscribers = new ArrayList<ISubscriberRuntime>();
     }
 
     public void subscribeFeed(CollectionRuntime collectionRuntime) throws Exception {
@@ -35,6 +40,7 @@ public class IngestionRuntime implements ISubscribableRuntime {
         if (feedWriter.getDistributionMode().equals(DistributeFeedFrameWriter.DistributionMode.SINGLE)) {
             adapterRuntimeManager.start();
         }
+        subscribers.add(collectionRuntime);
     }
 
     public void unsubscribeFeed(CollectionRuntime collectionRuntime) throws Exception {
@@ -42,6 +48,7 @@ public class IngestionRuntime implements ISubscribableRuntime {
         if (feedWriter.getDistributionMode().equals(DistributeFeedFrameWriter.DistributionMode.INACTIVE)) {
             adapterRuntimeManager.stop();
         }
+        subscribers.remove(collectionRuntime);
     }
 
     public void endOfFeed() {
@@ -54,10 +61,6 @@ public class IngestionRuntime implements ISubscribableRuntime {
 
     public FeedIngestionId getFeedIngestionId() {
         return ingestionId;
-    }
-
-    public void setAdapterRuntimeManager(IAdapterRuntimeManager adapterRuntimeManager) {
-        this.adapterRuntimeManager = adapterRuntimeManager;
     }
 
     public FeedIngestionId getIngestionId() {
@@ -78,4 +81,15 @@ public class IngestionRuntime implements ISubscribableRuntime {
         return feedWriter;
     }
 
+    @Override
+    public String toString() {
+        return "IngestionRuntime [" + ingestionId + "]";
+    }
+
+    @Override
+    public List<ISubscriberRuntime> getSubscribers() {
+        return subscribers;
+    }
+
+   
 }

@@ -5,10 +5,13 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
+import edu.uci.ics.asterix.common.feeds.ComputeRuntime;
+import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedRuntime;
 import edu.uci.ics.asterix.common.feeds.FeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.FeedRuntime.FeedRuntimeState;
+import edu.uci.ics.asterix.common.feeds.IFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
@@ -107,7 +110,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
          * A unique identifier for the feed instance. A feed instance represents the flow of data
          * from a feed to a dataset.
          **/
-        private FeedConnectionId feedId;
+        private FeedConnectionId feedConnectionId;
 
         /** Denotes the i'th operator instance in a setting where K operator instances are scheduled to run in parallel **/
         private int partition;
@@ -139,21 +142,45 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
             this.policyEnforcer = new FeedPolicyEnforcer(feedConnectionId, feedPolicy.getProperties());
             this.partition = partition;
             this.runtimeType = runtimeType;
-            this.feedId = feedConnectionId;
+            this.feedConnectionId = feedConnectionId;
             this.nodeId = ctx.getJobletContext().getApplicationContext().getNodeId();
-            fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
-            IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
-                    .getApplicationContext().getApplicationObject();
-            this.feedManager = runtimeCtx.getFeedManager();
+            this.fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
+            this.feedManager = ((IAsterixAppRuntimeContext) (IAsterixAppRuntimeContext) ctx.getJobletContext()
+                    .getApplicationContext().getApplicationObject()).getFeedManager();
         }
 
         @Override
         public void open() throws HyracksDataException {
-            FeedRuntimeId runtimeId = new FeedRuntimeId(runtimeType, feedId, partition);
+            FeedRuntimeId runtimeId = new FeedRuntimeId(runtimeType, feedConnectionId, partition);
+            IFeedFrameWriter mWriter = null;
             try {
                 feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
                 if (feedRuntime == null) {
-                    feedRuntime = new FeedRuntime(feedId, partition, runtimeType);
+                    switch (runtimeType) {
+                        case COMPUTE:
+                            IFeedFrameWriter feedFrameWriter = new FeedFrameWriter(writer, this, feedConnectionId,
+                                    policyEnforcer, nodeId, runtimeType, partition, fta, feedManager);
+                            mWriter = new DistributeFeedFrameWriter(feedConnectionId.getFeedId(), this);
+                            ((DistributeFeedFrameWriter) mWriter).subscribeFeed(feedFrameWriter);
+                            feedRuntime = new ComputeRuntime(feedConnectionId, partition, runtimeType,
+                                    (DistributeFeedFrameWriter) mWriter);
+                            if (LOGGER.isLoggable(Level.INFO)) {
+                                LOGGER.info("Set up distrbute feed frame writer for " + FeedRuntimeType.COMPUTE
+                                        + " runtime type ");
+                            }
+                            break;
+                        case COMMIT:
+                        case STORE:
+                            feedRuntime = new FeedRuntime(feedConnectionId, partition, runtimeType);
+                            mWriter = new FeedFrameWriter(writer, this, feedConnectionId, policyEnforcer, nodeId,
+                                    runtimeType, partition, fta, feedManager);
+                            break;
+                        case COLLECT:
+                        case INGEST:
+                            throw new IllegalStateException("Invalid wrapping of " + runtimeType
+                                    + " by meta feed operator");
+                    }
+
                     feedManager.getFeedConnectionManager().registerFeedRuntime(feedRuntime);
                     if (LOGGER.isLoggable(Level.WARNING)) {
                         LOGGER.warning("Did not find a saved state from a previous zombie, starting a new instance for "
@@ -167,8 +194,6 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                     }
                     resumeOldState = true;
                 }
-                FeedFrameWriter mWriter = new FeedFrameWriter(writer, this, feedId, policyEnforcer, nodeId,
-                        runtimeType, partition, fta, feedManager);
                 coreOperatorNodePushable.setOutputFrameWriter(0, mWriter, recordDesc);
                 coreOperatorNodePushable.open();
             } catch (Exception e) {

@@ -14,6 +14,8 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
+import java.util.List;
+
 /**
  * Represent a feed runtime whose output can be subscribed.
  */
@@ -30,6 +32,12 @@ public interface ISubscribableRuntime extends IFeedRuntime {
      * @throws Exception
      */
     public void unsubscribeFeed(CollectionRuntime collectionRuntime) throws Exception;
+
+    /**
+     * @return
+     * @throws Exception
+     */
+    public List<ISubscriberRuntime> getSubscribers();
 
     /**
      * @return

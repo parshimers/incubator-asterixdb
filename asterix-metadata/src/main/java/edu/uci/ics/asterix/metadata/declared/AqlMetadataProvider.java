@@ -434,7 +434,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             FeedConnectionId feedConnectionId = new FeedConnectionId(feedDataSource.getId().getDataverseName(),
                     feedDataSource.getId().getDatasourceName(), feedDataSource.getTargetDataset());
             feedCollector = new FeedCollectOperatorDescriptor(jobSpec, feedConnectionId, feedDataSource.getSourceFeed()
-                    .getFeedId(), (ARecordType) feedOutputType, feedDesc, feedPolicy.getProperties());
+                    .getFeedId(), (ARecordType) feedOutputType, feedDesc, feedPolicy.getProperties(), feedDataSource.getLocation());
 
             String[] locationArray = null;
             String locations;

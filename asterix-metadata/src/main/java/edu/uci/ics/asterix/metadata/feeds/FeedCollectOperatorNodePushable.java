@@ -82,7 +82,7 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Beginning new feed:" + feedConnectionId);
                 }
-                collectRuntime = new CollectionRuntime(feedConnectionId, partition, feedFrameWriter, sourceRuntime);
+                collectRuntime = new CollectionRuntime(feedConnectionId, partition, feedFrameWriter, sourceRuntime, feedPolicy);
                 feedManager.getFeedConnectionManager().registerFeedRuntime(collectRuntime);
                 sourceRuntime.subscribeFeed(collectRuntime);
             } else {

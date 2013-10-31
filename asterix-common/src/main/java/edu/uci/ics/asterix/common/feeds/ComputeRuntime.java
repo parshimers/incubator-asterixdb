@@ -14,6 +14,9 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FrameReader;
 
 /**
@@ -22,27 +25,35 @@ import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FrameReader;
 public class ComputeRuntime extends FeedRuntime implements ISubscribableRuntime {
 
     private final DistributeFeedFrameWriter feedWriter;
+    private final List<ISubscriberRuntime> subscribers;
 
     public ComputeRuntime(FeedConnectionId feedConnectionId, int partition, FeedRuntimeType feedRuntimeType,
             DistributeFeedFrameWriter feedWriter) {
         super(feedConnectionId, partition, feedRuntimeType);
         this.feedWriter = feedWriter;
+        this.subscribers = new ArrayList<ISubscriberRuntime>();
     }
 
     @Override
     public void subscribeFeed(CollectionRuntime collectionRuntime) throws Exception {
         FrameReader reader = feedWriter.subscribeFeed(collectionRuntime.getFrameWriter());
         collectionRuntime.setFrameReader(reader);
+        subscribers.add(collectionRuntime);
     }
 
     @Override
     public void unsubscribeFeed(CollectionRuntime collectionRuntime) throws Exception {
         feedWriter.unsubscribeFeed(collectionRuntime.getFrameWriter());
+        subscribers.remove(collectionRuntime);
     }
 
     @Override
     public IFeedFrameWriter getFeedFrameWriter() {
         return feedWriter;
+    }
+
+    public List<ISubscriberRuntime> getSubscribers() {
+        return subscribers;
     }
 
 }

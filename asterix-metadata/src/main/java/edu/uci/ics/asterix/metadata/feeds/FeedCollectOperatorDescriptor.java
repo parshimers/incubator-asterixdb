@@ -25,6 +25,7 @@ import edu.uci.ics.asterix.common.feeds.FeedIngestionId;
 import edu.uci.ics.asterix.common.feeds.IFeedConnectionManager;
 import edu.uci.ics.asterix.common.feeds.IFeedIngestionManager;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
+import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionRequest.SubscriptionLocation;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
@@ -60,14 +61,19 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
     /** The source feed from which the feed derives its data from. **/
     private final FeedId sourceFeedId;
 
+    /** The subscription location at which the recipient feed receives tuples from the source feed **/
+    private final SubscriptionLocation subscriptionLocation;
+
     public FeedCollectOperatorDescriptor(JobSpecification spec, FeedConnectionId feedConnectionId, FeedId sourceFeedId,
-            ARecordType atype, RecordDescriptor rDesc, Map<String, String> feedPolicy) {
+            ARecordType atype, RecordDescriptor rDesc, Map<String, String> feedPolicy,
+            SubscriptionLocation subscriptionLocation) {
         super(spec, 0, 1);
         recordDescriptors[0] = rDesc;
         this.outptuType = atype;
         this.feedConnectionId = feedConnectionId;
         this.feedPolicy = feedPolicy;
         this.sourceFeedId = sourceFeedId;
+        this.subscriptionLocation = subscriptionLocation;
     }
 
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
@@ -76,19 +82,27 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
         IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject();
         this.feedIngestionManager = runtimeCtx.getFeedManager().getFeedIngestionManager();
-        IngestionRuntime ingestionRuntime = null;
-        try {
-            FeedIngestionId feedIngestionId = new FeedIngestionId(sourceFeedId, partition);
-            ingestionRuntime = getIngestionRuntime(feedIngestionId);
-            if (ingestionRuntime == null) {
-                throw new HyracksDataException("Source ingestion task not found for source feed id " + sourceFeedId);
-            }
+        switch (subscriptionLocation) {
+            case SOURCE_FEED_INTAKE:
+                IngestionRuntime ingestionRuntime = null;
+                try {
+                    FeedIngestionId feedIngestionId = new FeedIngestionId(sourceFeedId, partition);
+                    ingestionRuntime = getIngestionRuntime(feedIngestionId);
+                    if (ingestionRuntime == null) {
+                        throw new HyracksDataException("Source ingestion task not found for source feed id "
+                                + sourceFeedId);
+                    }
 
-        } catch (Exception exception) {
-            if (LOGGER.isLoggable(Level.SEVERE)) {
-                LOGGER.severe("Initialization of the feed adaptor failed with exception " + exception);
-            }
-            throw new HyracksDataException("Initialization of the feed adapter failed", exception);
+                } catch (Exception exception) {
+                    if (LOGGER.isLoggable(Level.SEVERE)) {
+                        LOGGER.severe("Initialization of the feed adaptor failed with exception " + exception);
+                    }
+                    throw new HyracksDataException("Initialization of the feed adapter failed", exception);
+                }
+                break;
+            case SOURCE_FEED_COMPUTE:
+                ingestionRuntime = feedIngestionManager.getIngestionRuntime(feedIngestionId);
+                break;
         }
         return new FeedCollectOperatorNodePushable(ctx, sourceFeedId, feedConnectionId, feedPolicy, partition,
                 ingestionRuntime);

@@ -14,6 +14,7 @@
  */
 package edu.uci.ics.asterix.metadata.feeds;
 
+import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -24,6 +25,7 @@ import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.IAdapterRuntimeManager;
 import edu.uci.ics.asterix.common.feeds.IFeedAdapter;
 import edu.uci.ics.asterix.common.feeds.IFeedIngestionManager;
+import edu.uci.ics.asterix.common.feeds.ISubscriberRuntime;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -95,6 +97,8 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
             }
 
         } catch (InterruptedException ie) {
+            List<ISubscriberRuntime> subscribers = ingestionRuntime.getSubscribers();
+            
             if (policyEnforcer.getFeedPolicyAccessor().continueOnHardwareFailure()) {
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Continuing on failure as per feed policy, switching to INACTIVE INGESTION temporarily");
