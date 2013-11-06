@@ -15,19 +15,17 @@
 package edu.uci.ics.asterix.metadata.feeds;
 
 import java.util.Map;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
+import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
-import edu.uci.ics.asterix.common.feeds.FeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.ISubscribableRuntime;
-import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
@@ -42,7 +40,6 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
 
     private final int partition;
     private final FeedConnectionId feedConnectionId;
-    private final LinkedBlockingQueue<IFeedMessage> inbox;
     private final Map<String, String> feedPolicy;
     private final FeedPolicyEnforcer policyEnforcer;
     private final String nodeId;
@@ -59,7 +56,6 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
         this.partition = partition;
         this.feedConnectionId = feedConnectionId;
         this.sourceRuntime = sourceRuntime;
-        inbox = new LinkedBlockingQueue<IFeedMessage>();
         this.feedPolicy = feedPolicy;
         policyEnforcer = new FeedPolicyEnforcer(feedConnectionId, feedPolicy);
         nodeId = ctx.getJobletContext().getApplicationContext().getNodeId();
@@ -82,7 +78,8 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Beginning new feed:" + feedConnectionId);
                 }
-                collectRuntime = new CollectionRuntime(feedConnectionId, partition, feedFrameWriter, sourceRuntime, feedPolicy);
+                collectRuntime = new CollectionRuntime(feedConnectionId, partition, feedFrameWriter, sourceRuntime,
+                        feedPolicy);
                 feedManager.getFeedConnectionManager().registerFeedRuntime(collectRuntime);
                 sourceRuntime.subscribeFeed(collectRuntime);
             } else {

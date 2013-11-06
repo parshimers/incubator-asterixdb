@@ -21,9 +21,10 @@ import java.util.logging.Logger;
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
-import edu.uci.ics.asterix.common.feeds.FeedIngestionId;
+import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
 import edu.uci.ics.asterix.common.feeds.IFeedConnectionManager;
-import edu.uci.ics.asterix.common.feeds.IFeedIngestionManager;
+import edu.uci.ics.asterix.common.feeds.IFeedSubscriptionManager;
+import edu.uci.ics.asterix.common.feeds.ISubscribableRuntime;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionRequest.SubscriptionLocation;
 import edu.uci.ics.asterix.om.types.ARecordType;
@@ -56,7 +57,10 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
     private final Map<String, String> feedPolicy;
 
     /** The (singleton) instance of {@code IFeedIngestionManager} **/
-    private IFeedIngestionManager feedIngestionManager;
+    private IFeedSubscriptionManager feedSubscriptionManager;
+
+    /** The (singleton) instance of {@code IFeedConnectionManager} **/
+    private IFeedConnectionManager feedConnectionManager;
 
     /** The source feed from which the feed derives its data from. **/
     private final FeedId sourceFeedId;
@@ -81,14 +85,19 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
             throws HyracksDataException {
         IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject();
-        this.feedIngestionManager = runtimeCtx.getFeedManager().getFeedIngestionManager();
+        this.feedSubscriptionManager = runtimeCtx.getFeedManager().getFeedSubscriptionManager();
+        ISubscribableRuntime sourceRuntime = null;
         switch (subscriptionLocation) {
             case SOURCE_FEED_INTAKE:
-                IngestionRuntime ingestionRuntime = null;
                 try {
-                    FeedIngestionId feedIngestionId = new FeedIngestionId(sourceFeedId, partition);
-                    ingestionRuntime = getIngestionRuntime(feedIngestionId);
-                    if (ingestionRuntime == null) {
+                    FeedSubscribableRuntimeId feedSubscribableRuntimeId = new FeedSubscribableRuntimeId(sourceFeedId,
+                            partition);
+                    if (LOGGER.isLoggable(Level.INFO)) {
+                        LOGGER.info("Attempting to obtain source ingestion runtime" + sourceFeedId + " location "
+                                + subscriptionLocation);
+                    }
+                    sourceRuntime = getIngestionRuntime(feedSubscribableRuntimeId);
+                    if (sourceRuntime == null) {
                         throw new HyracksDataException("Source ingestion task not found for source feed id "
                                 + sourceFeedId);
                     }
@@ -101,11 +110,17 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
                 }
                 break;
             case SOURCE_FEED_COMPUTE:
-                ingestionRuntime = feedIngestionManager.getIngestionRuntime(feedIngestionId);
+                FeedSubscribableRuntimeId feedSubscribableRuntimeId = new FeedSubscribableRuntimeId(sourceFeedId,
+                        partition);
+                sourceRuntime = (ISubscribableRuntime) feedSubscriptionManager
+                        .getSubscribableRuntime(feedSubscribableRuntimeId);
+                if (sourceRuntime == null) {
+                    throw new HyracksDataException("Source compute task not found for source feed id " + sourceFeedId);
+                }
                 break;
         }
         return new FeedCollectOperatorNodePushable(ctx, sourceFeedId, feedConnectionId, feedPolicy, partition,
-                ingestionRuntime);
+                sourceRuntime);
     }
 
     public FeedConnectionId getFeedConnectionId() {
@@ -128,19 +143,26 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
         return sourceFeedId;
     }
 
-    private IngestionRuntime getIngestionRuntime(FeedIngestionId feedIngestionId) {
+    private IngestionRuntime getIngestionRuntime(FeedSubscribableRuntimeId subscribableRuntimeId) {
         int waitCycleCount = 0;
-        IngestionRuntime ingestionRuntime = feedIngestionManager.getIngestionRuntime(feedIngestionId);
-        while (ingestionRuntime == null && waitCycleCount < 5) {
+        ISubscribableRuntime ingestionRuntime = feedSubscriptionManager.getSubscribableRuntime(subscribableRuntimeId);
+        while (ingestionRuntime == null && waitCycleCount < 10) {
             try {
                 Thread.sleep(2000);
                 waitCycleCount++;
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("waiting to obtain ingestion runtime for subscription " + subscribableRuntimeId);
+                }
             } catch (InterruptedException e) {
                 e.printStackTrace();
                 break;
             }
-            ingestionRuntime = feedIngestionManager.getIngestionRuntime(feedIngestionId);
+            ingestionRuntime = feedSubscriptionManager.getSubscribableRuntime(subscribableRuntimeId);
         }
-        return ingestionRuntime;
+        return (IngestionRuntime) ingestionRuntime;
+    }
+
+    public SubscriptionLocation getSubscriptionLocation() {
+        return subscriptionLocation;
     }
 }

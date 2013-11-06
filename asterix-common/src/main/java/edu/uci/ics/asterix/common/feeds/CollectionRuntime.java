@@ -24,7 +24,7 @@ import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FrameReader;
  * ingestion job. For a secondary feed, tuples are collected from the ingestion/compute
  * runtime associated with the source feed.
  */
-public class CollectionRuntime extends FeedRuntime implements ISubscriberRuntime {
+public class CollectionRuntime extends BasicFeedRuntime implements ISubscriberRuntime {
 
     private ISubscribableRuntime sourceRuntime;
     private FrameReader reader;

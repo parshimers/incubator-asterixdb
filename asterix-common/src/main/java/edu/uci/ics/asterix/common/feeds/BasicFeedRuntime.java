@@ -18,7 +18,7 @@ import java.nio.ByteBuffer;
 
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 
-public class FeedRuntime implements IFeedRuntime {
+public class BasicFeedRuntime implements IFeedRuntime {
 
     /** A unique identifier */
     protected final FeedRuntimeId feedRuntimeId;
@@ -26,7 +26,7 @@ public class FeedRuntime implements IFeedRuntime {
     /** The runtime state: @see FeedRuntimeState */
     protected FeedRuntimeState runtimeState;
 
-    public FeedRuntime(FeedConnectionId feedConnectionId, int partition, FeedRuntimeType feedRuntimeType) {
+    public BasicFeedRuntime(FeedConnectionId feedConnectionId, int partition, FeedRuntimeType feedRuntimeType) {
         this.feedRuntimeId = new FeedRuntimeId(feedRuntimeType, feedConnectionId, partition);
     }
 
@@ -138,4 +138,8 @@ public class FeedRuntime implements IFeedRuntime {
         return this.feedRuntimeId.getFeedConnectionId().getFeedId();
     }
 
+    @Override
+    public FeedRuntimeType getFeedRuntimeType() {
+        return feedRuntimeId.getFeedRuntimeType();
+    }
 }

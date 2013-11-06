@@ -15,7 +15,6 @@
 package edu.uci.ics.asterix.metadata.feeds;
 
 import java.util.List;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -24,7 +23,7 @@ import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.IAdapterRuntimeManager;
 import edu.uci.ics.asterix.common.feeds.IFeedAdapter;
-import edu.uci.ics.asterix.common.feeds.IFeedIngestionManager;
+import edu.uci.ics.asterix.common.feeds.IFeedSubscriptionManager;
 import edu.uci.ics.asterix.common.feeds.ISubscriberRuntime;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
@@ -42,8 +41,7 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
 
     private final int partition;
     private final FeedId feedId;
-    private final LinkedBlockingQueue<IFeedMessage> inbox;
-    private final IFeedIngestionManager feedIngestionManager;
+    private final IFeedSubscriptionManager feedSubscriptionManager;
     private IngestionRuntime ingestionRuntime;
     private IFeedAdapter adapter;
     private DistributeFeedFrameWriter feedFrameWriter;
@@ -54,10 +52,9 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
         this.partition = partition;
         this.feedId = feedId;
         this.ingestionRuntime = ingestionRuntime;
-        inbox = new LinkedBlockingQueue<IFeedMessage>();
         IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject();
-        this.feedIngestionManager = runtimeCtx.getFeedManager().getFeedIngestionManager();
+        this.feedSubscriptionManager = runtimeCtx.getFeedManager().getFeedSubscriptionManager();
     }
 
     @Override
@@ -67,12 +64,12 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
         try {
             if (ingestionRuntime == null) {
                 feedFrameWriter = new DistributeFeedFrameWriter(feedId, writer);
-                adapterExecutor = new AdapterRuntimeManager(feedId, adapter, feedFrameWriter, partition, inbox);
+                adapterExecutor = new AdapterRuntimeManager(feedId, adapter, feedFrameWriter, partition);
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Set up feed ingestion activity, would wait for subscribers: " + feedId);
                 }
                 ingestionRuntime = new IngestionRuntime(feedId, partition, adapterExecutor, feedFrameWriter);
-                feedIngestionManager.registerFeedIngestionRuntime(ingestionRuntime);
+                feedSubscriptionManager.registerFeedSubscribableRuntime(ingestionRuntime);
                 feedFrameWriter.open();
                 synchronized (adapterExecutor) {
                     if (LOGGER.isLoggable(Level.INFO)) {
@@ -84,7 +81,8 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                         adapterExecutor.wait();
                     }
                 }
-                feedIngestionManager.deregisterFeedIngestionRuntime(ingestionRuntime.getFeedIngestionId());
+                feedSubscriptionManager.deregisterFeedSubscribableRuntime(ingestionRuntime
+                        .getFeedSubscribableRuntimeId());
             } else {
                 String message = "Feed Ingestion Runtime for feed " + feedId + " is already registered.";
                 LOGGER.severe(message);
@@ -98,7 +96,6 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
 
         } catch (InterruptedException ie) {
             List<ISubscriberRuntime> subscribers = ingestionRuntime.getSubscribers();
-            
             if (policyEnforcer.getFeedPolicyAccessor().continueOnHardwareFailure()) {
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Continuing on failure as per feed policy, switching to INACTIVE INGESTION temporarily");
@@ -109,7 +106,8 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                     LOGGER.info("Interrupted Exception, something went wrong");
                 }
 
-                feedIngestionManager.deregisterFeedIngestionRuntime(ingestionRuntime.getFeedIngestionId());
+                feedSubscriptionManager.deregisterFeedSubscribableRuntime(ingestionRuntime
+                        .getFeedSubscribableRuntimeId());
                 feedFrameWriter.close();
                 throw new HyracksDataException(ie);
             }

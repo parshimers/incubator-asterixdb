@@ -15,7 +15,7 @@
 package edu.uci.ics.asterix.metadata.feeds;
 
 import edu.uci.ics.asterix.common.feeds.IFeedConnectionManager;
-import edu.uci.ics.asterix.common.feeds.IFeedIngestionManager;
+import edu.uci.ics.asterix.common.feeds.IFeedSubscriptionManager;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.IFeedWorkManager;
 
@@ -26,7 +26,7 @@ import edu.uci.ics.asterix.common.feeds.IFeedWorkManager;
  */
 public class FeedManager implements IFeedManager {
 
-    private final IFeedIngestionManager feedIngestionManager;
+    private final IFeedSubscriptionManager feedIngestionManager;
 
     private final IFeedConnectionManager feedConnectionManager;
 
@@ -34,11 +34,11 @@ public class FeedManager implements IFeedManager {
 
     public FeedManager(String nodeId) {
         this.nodeId = nodeId;
-        this.feedIngestionManager = new FeedIngestionManager(nodeId);
+        this.feedIngestionManager = new FeedSubscriptionManager(nodeId);
         this.feedConnectionManager = new FeedConnectionManager(nodeId);
     }
 
-    public IFeedIngestionManager getFeedIngestionManager() {
+    public IFeedSubscriptionManager getFeedSubscriptionManager() {
         return feedIngestionManager;
     }
 

@@ -412,10 +412,9 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
             }
         }
 
-        private void handleFeedIntakeJobStartMessage(FeedIntakeInfo feedIntakeInfo, Message message) throws Exception {
-            // update intake locations
+        private synchronized void handleFeedIntakeJobStartMessage(FeedIntakeInfo feedIntakeInfo, Message message)
+                throws Exception {
             List<OperatorDescriptorId> intakeOperatorIds = new ArrayList<OperatorDescriptorId>();
-
             Map<OperatorDescriptorId, IOperatorDescriptor> operators = feedIntakeInfo.jobSpec.getOperatorMap();
             for (Entry<OperatorDescriptorId, IOperatorDescriptor> entry : operators.entrySet()) {
                 IOperatorDescriptor opDesc = entry.getValue();
@@ -428,7 +427,11 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
             JobInfo info = hcc.getJobInfo(message.jobId);
             feedIntakeInfo.jobInfo = info;
             for (OperatorDescriptorId intakeOperatorId : intakeOperatorIds) {
-                feedIntakeInfo.intakeLocations.addAll(info.getOperatorLocations().get(intakeOperatorId));
+                Map<Integer, String> operatorLocations = info.getOperatorLocations().get(intakeOperatorId);
+                int nOperatorInstances = operatorLocations.size();
+                for (int i = 0; i < nOperatorInstances; i++) {
+                    feedIntakeInfo.intakeLocations.add(operatorLocations.get(i));
+                }
             }
 
             feedIntakeInfo.state = FeedInfo.State.ACTIVE;
@@ -437,7 +440,12 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
                 for (FeedSubscriptionRequest request : subscriptionRequests) {
                     submitFeedSubscriptionRequest(feedIntakeInfo, request);
                 }
+            } else {
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("No subscription request yet for " + feedIntakeInfo.feedId);
+                }
             }
+
         }
 
         private void submitFeedSubscriptionRequest(FeedIntakeInfo feedIntakeInfo, final FeedSubscriptionRequest request) {
@@ -446,11 +454,9 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Submitted " + work);
             }
-            addSubscriptionRequest(request);
         }
 
         private void handleFeedCollectJobStartMessage(FeedCollectInfo feedCollectInfo, Message message) {
-
             JobSpecification jobSpec = feedCollectInfo.jobSpec;
 
             List<OperatorDescriptorId> collectOperatorIds = new ArrayList<OperatorDescriptorId>();
@@ -488,21 +494,32 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
                 feedCollectInfo.jobInfo = info;
                 Map<String, String> feedActivityDetails = new HashMap<String, String>();
                 StringBuilder ingestLocs = new StringBuilder();
-                for (OperatorDescriptorId ingestOpId : collectOperatorIds) {
-                    feedCollectInfo.collectLocations.addAll(info.getOperatorLocations().get(ingestOpId));
+                for (OperatorDescriptorId collectOpId : collectOperatorIds) {
+                    Map<Integer, String> operatorLocations = info.getOperatorLocations().get(collectOpId);
+                    int nOperatorInstances = operatorLocations.size();
+                    for (int i = 0; i < nOperatorInstances; i++) {
+                        feedCollectInfo.collectLocations.add(operatorLocations.get(i));
+                    }
                 }
                 StringBuilder computeLocs = new StringBuilder();
                 for (OperatorDescriptorId computeOpId : computeOperatorIds) {
-                    List<String> locations = info.getOperatorLocations().get(computeOpId);
-                    if (locations != null) {
-                        feedCollectInfo.computeLocations.addAll(locations);
+                    Map<Integer, String> operatorLocations = info.getOperatorLocations().get(computeOpId);
+                    if (operatorLocations != null) {
+                        int nOperatorInstances = operatorLocations.size();
+                        for (int i = 0; i < nOperatorInstances; i++) {
+                            feedCollectInfo.computeLocations.add(operatorLocations.get(i));
+                        }
                     } else {
                         feedCollectInfo.computeLocations.addAll(feedCollectInfo.collectLocations);
                     }
                 }
                 StringBuilder storageLocs = new StringBuilder();
                 for (OperatorDescriptorId storageOpId : storageOperatorIds) {
-                    feedCollectInfo.storageLocations.addAll(info.getOperatorLocations().get(storageOpId));
+                    Map<Integer, String> operatorLocations = info.getOperatorLocations().get(storageOpId);
+                    int nOperatorInstances = operatorLocations.size();
+                    for (int i = 0; i < nOperatorInstances; i++) {
+                        feedCollectInfo.storageLocations.add(operatorLocations.get(i));
+                    }
                 }
 
                 for (String ingestLoc : feedCollectInfo.collectLocations) {
@@ -1365,13 +1382,22 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
     }
 
     public void submitFeedSubscriptionRequest(FeedSubscriptionRequest subscriptionRequest) {
-        FeedIntakeInfo intakeInfo = feedJobNotificationHandler.getFeedIntakeInfo(subscriptionRequest.getSourceFeed()
-                .getFeedId());
-        if (intakeInfo != null) {
-            if (intakeInfo.state.equals(FeedInfo.State.ACTIVE)) {
-                feedJobNotificationHandler.submitFeedSubscriptionRequest(intakeInfo, subscriptionRequest);
-            } else {
-                feedJobNotificationHandler.addSubscriptionRequest(subscriptionRequest);
+        synchronized (feedJobNotificationHandler) {
+            FeedIntakeInfo intakeInfo = feedJobNotificationHandler.getFeedIntakeInfo(subscriptionRequest
+                    .getSourceFeed().getFeedId());
+            if (intakeInfo != null) {
+                if (intakeInfo.state.equals(FeedInfo.State.ACTIVE)) {
+                    if (LOGGER.isLoggable(Level.INFO)) {
+                        LOGGER.info("submitting subscription request " + subscriptionRequest);
+                    }
+                    feedJobNotificationHandler.addSubscriptionRequest(subscriptionRequest);
+                    feedJobNotificationHandler.submitFeedSubscriptionRequest(intakeInfo, subscriptionRequest);
+                } else {
+                    if (LOGGER.isLoggable(Level.INFO)) {
+                        LOGGER.info("adding subscription request " + subscriptionRequest);
+                    }
+                    feedJobNotificationHandler.addSubscriptionRequest(subscriptionRequest);
+                }
             }
         }
     }

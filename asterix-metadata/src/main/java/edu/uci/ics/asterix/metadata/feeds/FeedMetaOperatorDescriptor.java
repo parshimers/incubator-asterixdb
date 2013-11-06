@@ -5,15 +5,18 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
-import edu.uci.ics.asterix.common.feeds.ComputeRuntime;
+import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime;
+import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
+import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeState;
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
-import edu.uci.ics.asterix.common.feeds.FeedRuntime;
-import edu.uci.ics.asterix.common.feeds.FeedRuntime.FeedRuntimeId;
-import edu.uci.ics.asterix.common.feeds.FeedRuntime.FeedRuntimeState;
+import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
 import edu.uci.ics.asterix.common.feeds.IFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
+import edu.uci.ics.asterix.common.feeds.IFeedRuntime;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
+import edu.uci.ics.asterix.common.feeds.ISubscribableRuntime;
+import edu.uci.ics.asterix.common.feeds.SubscribableRuntime;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.IActivity;
@@ -65,8 +68,12 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
      */
     private final FeedRuntimeType runtimeType;
 
+    /** true indicates that the runtime can be subscribed for data by other runtime instances. **/
+    private final boolean enableSubscriptionMode;
+
     public FeedMetaOperatorDescriptor(JobSpecification spec, FeedConnectionId feedConnectionId,
-            IOperatorDescriptor coreOperatorDescriptor, FeedPolicy feedPolicy, FeedRuntimeType runtimeType) {
+            IOperatorDescriptor coreOperatorDescriptor, FeedPolicy feedPolicy, FeedRuntimeType runtimeType,
+            boolean enableSubscriptionMode) {
         super(spec, coreOperatorDescriptor.getInputArity(), coreOperatorDescriptor.getOutputArity());
         this.feedConnectionId = feedConnectionId;
         this.feedPolicy = feedPolicy;
@@ -75,13 +82,14 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
         }
         this.coreOperator = coreOperatorDescriptor;
         this.runtimeType = runtimeType;
+        this.enableSubscriptionMode = enableSubscriptionMode;
     }
 
     @Override
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
         return new FeedMetaNodePushable(ctx, recordDescProvider, partition, nPartitions, coreOperator,
-                feedConnectionId, feedPolicy, runtimeType);
+                feedConnectionId, feedPolicy, runtimeType, enableSubscriptionMode);
     }
 
     @Override
@@ -104,7 +112,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
          * The Feed Runtime instance associated with the operator. Feed Runtime captures the state of the operator while
          * the feed is active.
          */
-        private FeedRuntime feedRuntime;
+        private IFeedRuntime feedRuntime;
 
         /**
          * A unique identifier for the feed instance. A feed instance represents the flow of data
@@ -134,9 +142,13 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
         /** The (singleton) instance of IFeedManager **/
         private IFeedManager feedManager;
 
+        /** true indicates that the runtime can be subscribed for data by other runtime instances. **/
+        private final boolean enableSubscriptionMode;
+
         public FeedMetaNodePushable(IHyracksTaskContext ctx, IRecordDescriptorProvider recordDescProvider,
                 int partition, int nPartitions, IOperatorDescriptor coreOperator, FeedConnectionId feedConnectionId,
-                FeedPolicy feedPolicy, FeedRuntimeType runtimeType) throws HyracksDataException {
+                FeedPolicy feedPolicy, FeedRuntimeType runtimeType, boolean enableSubscriptionMode)
+                throws HyracksDataException {
             this.coreOperatorNodePushable = (AbstractUnaryInputUnaryOutputOperatorNodePushable) ((IActivity) coreOperator)
                     .createPushRuntime(ctx, recordDescProvider, partition, nPartitions);
             this.policyEnforcer = new FeedPolicyEnforcer(feedConnectionId, feedPolicy.getProperties());
@@ -147,33 +159,27 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
             this.fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
             this.feedManager = ((IAsterixAppRuntimeContext) (IAsterixAppRuntimeContext) ctx.getJobletContext()
                     .getApplicationContext().getApplicationObject()).getFeedManager();
+            this.enableSubscriptionMode = enableSubscriptionMode;
+
         }
 
         @Override
         public void open() throws HyracksDataException {
             FeedRuntimeId runtimeId = new FeedRuntimeId(runtimeType, feedConnectionId, partition);
-            IFeedFrameWriter mWriter = null;
             try {
                 feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
                 if (feedRuntime == null) {
                     switch (runtimeType) {
                         case COMPUTE:
-                            IFeedFrameWriter feedFrameWriter = new FeedFrameWriter(writer, this, feedConnectionId,
-                                    policyEnforcer, nodeId, runtimeType, partition, fta, feedManager);
-                            mWriter = new DistributeFeedFrameWriter(feedConnectionId.getFeedId(), this);
-                            ((DistributeFeedFrameWriter) mWriter).subscribeFeed(feedFrameWriter);
-                            feedRuntime = new ComputeRuntime(feedConnectionId, partition, runtimeType,
-                                    (DistributeFeedFrameWriter) mWriter);
-                            if (LOGGER.isLoggable(Level.INFO)) {
-                                LOGGER.info("Set up distrbute feed frame writer for " + FeedRuntimeType.COMPUTE
-                                        + " runtime type ");
+                            if (enableSubscriptionMode) {
+                                registerSubscribableRuntime();
+                            } else {
+                                registerBasicFeedRuntime();
                             }
                             break;
                         case COMMIT:
                         case STORE:
-                            feedRuntime = new FeedRuntime(feedConnectionId, partition, runtimeType);
-                            mWriter = new FeedFrameWriter(writer, this, feedConnectionId, policyEnforcer, nodeId,
-                                    runtimeType, partition, fta, feedManager);
+                            registerBasicFeedRuntime();
                             break;
                         case COLLECT:
                         case INGEST:
@@ -181,7 +187,6 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                                     + " by meta feed operator");
                     }
 
-                    feedManager.getFeedConnectionManager().registerFeedRuntime(feedRuntime);
                     if (LOGGER.isLoggable(Level.WARNING)) {
                         LOGGER.warning("Did not find a saved state from a previous zombie, starting a new instance for "
                                 + runtimeType + " node.");
@@ -194,7 +199,6 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                     }
                     resumeOldState = true;
                 }
-                coreOperatorNodePushable.setOutputFrameWriter(0, mWriter, recordDesc);
                 coreOperatorNodePushable.open();
             } catch (Exception e) {
                 if (LOGGER.isLoggable(Level.SEVERE)) {
@@ -204,16 +208,39 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
             }
         }
 
+        private void registerBasicFeedRuntime() throws Exception {
+            feedRuntime = new BasicFeedRuntime(feedConnectionId, partition, runtimeType);
+            IFeedFrameWriter mWriter = new FeedFrameWriter(writer, this, feedConnectionId, policyEnforcer, nodeId,
+                    runtimeType, partition, fta, feedManager);
+            feedManager.getFeedConnectionManager().registerFeedRuntime((BasicFeedRuntime) feedRuntime);
+            coreOperatorNodePushable.setOutputFrameWriter(0, mWriter, recordDesc);
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Registered basic feed runtime " + feedRuntime);
+            }
+        }
+
+        private void registerSubscribableRuntime() throws Exception {
+            IFeedFrameWriter feedFrameWriter = new FeedFrameWriter(writer, this, feedConnectionId, policyEnforcer,
+                    nodeId, runtimeType, partition, fta, feedManager);
+            IFeedFrameWriter mWriter = new DistributeFeedFrameWriter(feedConnectionId.getFeedId(), writer);
+            ((DistributeFeedFrameWriter) mWriter).subscribeFeed(feedFrameWriter);
+            FeedSubscribableRuntimeId sid = new FeedSubscribableRuntimeId(feedConnectionId.getFeedId(), partition);
+            feedRuntime = new SubscribableRuntime(sid, (DistributeFeedFrameWriter) mWriter, runtimeType);
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Set up distrbute feed frame writer for " + FeedRuntimeType.COMPUTE + " runtime type ");
+            }
+            feedManager.getFeedSubscriptionManager()
+                    .registerFeedSubscribableRuntime((ISubscribableRuntime) feedRuntime);
+            coreOperatorNodePushable.setOutputFrameWriter(0, mWriter, recordDesc);
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Registered basic feed runtime " + feedRuntime);
+            }
+        }
+
         @Override
         public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
             try {
                 if (resumeOldState) {
-                    if (LOGGER.isLoggable(Level.WARNING)) {
-                        LOGGER.warning("State from previous zombie instance "
-                                + feedRuntime.getRuntimeState().getFrame());
-                    }
-                    coreOperatorNodePushable.nextFrame(feedRuntime.getRuntimeState().getFrame());
-                    feedRuntime.setRuntimeState(null);
                     resumeOldState = false;
                 }
                 currentBuffer = buffer;
@@ -225,7 +252,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                     if (isExceptionHarmful) {
                         // TODO: log the tuple
                         FeedRuntimeState runtimeState = new FeedRuntimeState(buffer, writer, e);
-                        feedRuntime.setRuntimeState(runtimeState);
+                        // sfeedRuntime.setRuntimeState(runtimeState);
                     } else {
                         // ignore the frame (exception is expected)
                         if (LOGGER.isLoggable(Level.WARNING)) {
@@ -249,14 +276,14 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
             if (policyEnforcer.getFeedPolicyAccessor().continueOnHardwareFailure()) {
                 if (currentBuffer != null) {
                     FeedRuntimeState runtimeState = new FeedRuntimeState(currentBuffer, writer, null);
-                    feedRuntime.setRuntimeState(runtimeState);
+                    //feedRuntime.setRuntimeState(runtimeState);
                     if (LOGGER.isLoggable(Level.WARNING)) {
-                        LOGGER.warning("Saved feed compute runtime for revivals" + feedRuntime.getFeedRuntimeId());
+                        // LOGGER.warning("Saved feed compute runtime for revivals" + feedRuntime.getFeedRuntimeId());
                     }
                 } else {
-                    feedManager.getFeedConnectionManager().deRegisterFeedRuntime(feedRuntime.getFeedRuntimeId());
+                    //feedManager.getFeedConnectionManager().deRegisterFeedRuntime(feedRuntime.getFeedRuntimeId());
                     if (LOGGER.isLoggable(Level.WARNING)) {
-                        LOGGER.warning("No state to save, de-registered feed runtime " + feedRuntime.getFeedRuntimeId());
+                        //     LOGGER.warning("No state to save, de-registered feed runtime " + feedRuntime.getFeedRuntimeId());
                     }
                 }
             }
@@ -266,7 +293,15 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
         @Override
         public void close() throws HyracksDataException {
             coreOperatorNodePushable.close();
-            feedManager.getFeedConnectionManager().deRegisterFeedRuntime(feedRuntime.getFeedRuntimeId());
+            switch (feedRuntime.getFeedRuntimeType()) {
+                case STORE:
+                case COMMIT:
+                case COLLECT:
+                    feedManager.getFeedConnectionManager().deRegisterFeedRuntime(
+                            ((BasicFeedRuntime) feedRuntime).getFeedRuntimeId());
+                    break;
+
+            }
         }
 
     }

@@ -21,7 +21,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.feeds.FeedId;
-import edu.uci.ics.asterix.common.feeds.IFeedIngestionManager;
+import edu.uci.ics.asterix.common.feeds.IFeedSubscriptionManager;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorNodePushable;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -71,10 +71,10 @@ public class FeedIntakeFrameWriter implements IFrameWriter {
         STORE
     }
 
-    private final IFeedIngestionManager feedIngestionManager;
+    private final IFeedSubscriptionManager feedIngestionManager;
 
     public FeedIntakeFrameWriter(IFrameWriter writer, IOperatorNodePushable nodePushable, FeedId feedId, String nodeId,
-            int partition, IFeedIngestionManager feedIngestionManager) {
+            int partition, IFeedSubscriptionManager feedIngestionManager) {
         this.writer = writer;
         this.mode = Mode.FORWARD;
         this.nodePushable = nodePushable;

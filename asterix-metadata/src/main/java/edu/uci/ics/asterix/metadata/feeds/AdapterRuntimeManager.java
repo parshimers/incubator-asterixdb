@@ -22,7 +22,7 @@ import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.IAdapterRuntimeManager;
 import edu.uci.ics.asterix.common.feeds.IFeedAdapter;
-import edu.uci.ics.asterix.common.feeds.IFeedIngestionManager;
+import edu.uci.ics.asterix.common.feeds.IFeedSubscriptionManager;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 
@@ -60,7 +60,7 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
     }
 
     public AdapterRuntimeManager(FeedId feedId, IFeedAdapter feedAdapter, DistributeFeedFrameWriter writer,
-            int partition, LinkedBlockingQueue<IFeedMessage> inbox) {
+            int partition) {
         this.feedId = feedId;
         this.feedAdapter = feedAdapter;
         this.partition = partition;

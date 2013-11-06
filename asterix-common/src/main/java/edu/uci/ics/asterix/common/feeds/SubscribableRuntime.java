@@ -19,19 +19,29 @@ import java.util.List;
 
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FrameReader;
 
-/**
- * Represents the runtime associated with computation of function associated with a feed.
- */
-public class ComputeRuntime extends FeedRuntime implements ISubscribableRuntime {
+public class SubscribableRuntime implements ISubscribableRuntime {
 
-    private final DistributeFeedFrameWriter feedWriter;
-    private final List<ISubscriberRuntime> subscribers;
+    protected final FeedSubscribableRuntimeId subscribableRuntimeId;
+    protected final FeedRuntimeType runtimeType;
+    protected final DistributeFeedFrameWriter feedWriter;
+    protected final List<ISubscriberRuntime> subscribers;
 
-    public ComputeRuntime(FeedConnectionId feedConnectionId, int partition, FeedRuntimeType feedRuntimeType,
-            DistributeFeedFrameWriter feedWriter) {
-        super(feedConnectionId, partition, feedRuntimeType);
+    public SubscribableRuntime(FeedSubscribableRuntimeId runtimeId, DistributeFeedFrameWriter feedWriter,
+            FeedRuntimeType runtimeType) {
+        this.subscribableRuntimeId = runtimeId;
         this.feedWriter = feedWriter;
+        this.runtimeType = runtimeType;
         this.subscribers = new ArrayList<ISubscriberRuntime>();
+    }
+
+    @Override
+    public FeedId getFeedId() {
+        return subscribableRuntimeId.getFeedId();
+    }
+
+    @Override
+    public String toString() {
+        return "SubscribableRuntime" + " [" + subscribableRuntimeId + "]";
     }
 
     @Override
@@ -48,12 +58,23 @@ public class ComputeRuntime extends FeedRuntime implements ISubscribableRuntime 
     }
 
     @Override
+    public List<ISubscriberRuntime> getSubscribers() {
+        return subscribers;
+    }
+
+    @Override
     public IFeedFrameWriter getFeedFrameWriter() {
         return feedWriter;
     }
 
-    public List<ISubscriberRuntime> getSubscribers() {
-        return subscribers;
+    @Override
+    public FeedSubscribableRuntimeId getFeedSubscribableRuntimeId() {
+        return subscribableRuntimeId;
+    }
+
+    @Override
+    public FeedRuntimeType getFeedRuntimeType() {
+        return runtimeType;
     }
 
 }

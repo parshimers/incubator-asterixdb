@@ -16,10 +16,10 @@ package edu.uci.ics.asterix.metadata.feeds;
 
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
 import edu.uci.ics.asterix.common.feeds.FeedId;
-import edu.uci.ics.asterix.common.feeds.FeedIngestionId;
+import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
 import edu.uci.ics.asterix.common.feeds.IDatasourceAdapter;
 import edu.uci.ics.asterix.common.feeds.IFeedAdapter;
-import edu.uci.ics.asterix.common.feeds.IFeedIngestionManager;
+import edu.uci.ics.asterix.common.feeds.IFeedSubscriptionManager;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
@@ -57,11 +57,11 @@ public class FeedIntakeOperatorDescriptor extends AbstractSingleActivityOperator
         }
         IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject();
-        IFeedIngestionManager feedIngestionManager = runtimeCtx.getFeedManager().getFeedIngestionManager();
-        FeedIngestionId feedIngestionId = new FeedIngestionId(feedId, partition);
+        IFeedSubscriptionManager feedSubscriptionManager = runtimeCtx.getFeedManager().getFeedSubscriptionManager();
+        FeedSubscribableRuntimeId feedIngestionId = new FeedSubscribableRuntimeId(feedId, partition);
 
-        IngestionRuntime ingestionRuntime = (IngestionRuntime) feedIngestionManager
-                .getIngestionRuntime(feedIngestionId);
+        IngestionRuntime ingestionRuntime = (IngestionRuntime) feedSubscriptionManager
+                .getSubscribableRuntime(feedIngestionId);
         return new FeedIntakeOperatorNodePushable(ctx, feedId, (IFeedAdapter) adapter, partition, ingestionRuntime);
     }
 

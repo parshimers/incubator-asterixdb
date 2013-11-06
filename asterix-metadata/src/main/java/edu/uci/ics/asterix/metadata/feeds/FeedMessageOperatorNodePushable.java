@@ -21,8 +21,8 @@ import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
 import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
-import edu.uci.ics.asterix.common.feeds.FeedRuntime;
-import edu.uci.ics.asterix.common.feeds.FeedRuntime.FeedRuntimeId;
+import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime;
+import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.IFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
@@ -61,7 +61,7 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
         try {
             writer.open();
             FeedRuntimeId runtimeId = new FeedRuntimeId(FeedRuntimeType.COLLECT, feedConnectionId, partition);
-            FeedRuntime feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
+            BasicFeedRuntime feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
             boolean collectionLocation = feedRuntime != null;
 
             switch (feedMessage.getMessageType()) {

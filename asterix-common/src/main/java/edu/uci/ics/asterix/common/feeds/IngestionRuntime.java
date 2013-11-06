@@ -14,24 +14,16 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FrameReader;
 
-public class IngestionRuntime implements ISubscribableRuntime {
+public class IngestionRuntime extends SubscribableRuntime {
 
-    private final FeedIngestionId ingestionId;
     private final IAdapterRuntimeManager adapterRuntimeManager;
-    private final DistributeFeedFrameWriter feedWriter;
-    private final List<ISubscriberRuntime> subscribers;
 
     public IngestionRuntime(FeedId feedId, int partition, IAdapterRuntimeManager adaptorRuntimeManager,
             DistributeFeedFrameWriter feedWriter) {
-        this.ingestionId = new FeedIngestionId(feedId, partition);
+        super(new FeedSubscribableRuntimeId(feedId, partition), feedWriter, FeedRuntimeType.INGEST);
         this.adapterRuntimeManager = adaptorRuntimeManager;
-        this.feedWriter = feedWriter;
-        this.subscribers = new ArrayList<ISubscriberRuntime>();
     }
 
     public void subscribeFeed(CollectionRuntime collectionRuntime) throws Exception {
@@ -59,37 +51,4 @@ public class IngestionRuntime implements ISubscribableRuntime {
         return adapterRuntimeManager;
     }
 
-    public FeedIngestionId getFeedIngestionId() {
-        return ingestionId;
-    }
-
-    public FeedIngestionId getIngestionId() {
-        return ingestionId;
-    }
-
-    public DistributeFeedFrameWriter getFeedWriter() {
-        return feedWriter;
-    }
-
-    @Override
-    public FeedId getFeedId() {
-        return ingestionId.getFeedId();
-    }
-
-    @Override
-    public IFeedFrameWriter getFeedFrameWriter() {
-        return feedWriter;
-    }
-
-    @Override
-    public String toString() {
-        return "IngestionRuntime [" + ingestionId + "]";
-    }
-
-    @Override
-    public List<ISubscriberRuntime> getSubscribers() {
-        return subscribers;
-    }
-
-   
 }

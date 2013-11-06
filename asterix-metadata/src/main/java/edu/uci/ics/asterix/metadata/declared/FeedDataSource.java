@@ -14,9 +14,11 @@
  */
 package edu.uci.ics.asterix.metadata.declared;
 
+import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
 import edu.uci.ics.asterix.metadata.entities.Feed;
+import edu.uci.ics.asterix.metadata.entities.Feed.FeedType;
 import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionRequest.SubscriptionLocation;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
@@ -25,16 +27,19 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.properties.INodeDomain;
 public class FeedDataSource extends AqlDataSource {
 
     private Feed feed;
-    private Feed sourceFeed;
+    private FeedId sourceFeedId;
+    private final FeedType sourceFeedType;
     private final SubscriptionLocation location;
     private final String targetDataset;
     private final String[] locations;
 
     public FeedDataSource(AqlSourceId id, String targetDataset, IAType itemType, AqlDataSourceType dataSourceType,
-            Feed sourceFeed, SubscriptionLocation location, String[] locations) throws AlgebricksException {
+            FeedId sourceFeedId, FeedType sourceFeedType, SubscriptionLocation location, String[] locations)
+            throws AlgebricksException {
         super(id, id.getDataverseName(), id.getDatasourceName(), itemType, dataSourceType);
         this.targetDataset = targetDataset;
-        this.sourceFeed = sourceFeed;
+        this.sourceFeedId = sourceFeedId;
+        this.sourceFeedType = sourceFeedType;
         this.location = location;
         this.locations = locations;
         MetadataTransactionContext ctx = null;
@@ -42,8 +47,6 @@ public class FeedDataSource extends AqlDataSource {
             MetadataManager.INSTANCE.acquireReadLatch();
             ctx = MetadataManager.INSTANCE.beginTransaction();
             this.feed = MetadataManager.INSTANCE.getFeed(ctx, id.getDataverseName(), id.getDatasourceName());
-            this.sourceFeed = MetadataManager.INSTANCE.getFeed(ctx, sourceFeed.getDataverseName(),
-                    sourceFeed.getFeedName());
             MetadataManager.INSTANCE.commitTransaction(ctx);
             initFeedDataSource(itemType);
         } catch (Exception e) {
@@ -79,8 +82,8 @@ public class FeedDataSource extends AqlDataSource {
         return targetDataset;
     }
 
-    public Feed getSourceFeed() {
-        return sourceFeed;
+    public FeedId getSourceFeedId() {
+        return sourceFeedId;
     }
 
     public SubscriptionLocation getLocation() {
@@ -106,5 +109,9 @@ public class FeedDataSource extends AqlDataSource {
             }
         };
         domain = domainForExternalData;
+    }
+
+    public FeedType getSourceFeedType() {
+        return sourceFeedType;
     }
 }

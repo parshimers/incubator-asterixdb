@@ -17,7 +17,8 @@ package edu.uci.ics.asterix.common.feeds;
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 
-import edu.uci.ics.asterix.common.feeds.FeedRuntime.FeedRuntimeId;
+import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
+import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 
 /**
  * Handle (de)registration of feeds for delivery of control messages.
@@ -26,7 +27,6 @@ public interface IFeedConnectionManager {
 
     public static final long SOCKET_CONNECT_TIMEOUT = 5000;
 
-   
     /**
      * Returns the executor service associated with the feed connection.
      * 
@@ -36,12 +36,25 @@ public interface IFeedConnectionManager {
     public ExecutorService getFeedExecutorService(FeedConnectionId feedConnection);
 
     /**
+     * @param feedSubscribibaleId
+     * @param subscribableRuntime
+     * @param runtimeType
+     */
+    public void registerSubscribableFeedRuntime(FeedSubscribableRuntimeId feedSubscribibaleId,
+            ISubscribableRuntime subscribableRuntime, FeedRuntimeType runtimeType);
+
+    /**
+     * @param feedId
+     */
+    public void deregisterComputeRuntime(FeedId feedId);
+
+    /**
      * Allows registration of a feedRuntime.
      * 
      * @param feedRuntime
      * @throws Exception
      */
-    public void registerFeedRuntime(FeedRuntime feedRuntime) throws Exception;
+    public void registerFeedRuntime(BasicFeedRuntime feedRuntime) throws Exception;
 
     /**
      * Allows de-registration of a feed runtime.
@@ -56,7 +69,7 @@ public interface IFeedConnectionManager {
      * @param feedRuntimeId
      * @return
      */
-    public FeedRuntime getFeedRuntime(FeedRuntimeId feedRuntimeId);
+    public BasicFeedRuntime getFeedRuntime(FeedRuntimeId feedRuntimeId);
 
     /**
      * Register the Super Feed Manager associated witht a feed.

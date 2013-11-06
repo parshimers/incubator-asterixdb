@@ -79,32 +79,55 @@ public class FeedUtil {
 
         // copy operators
         Map<OperatorDescriptorId, OperatorDescriptorId> oldNewOID = new HashMap<OperatorDescriptorId, OperatorDescriptorId>();
+        FeedMetaOperatorDescriptor metaOp = null;
         for (Entry<OperatorDescriptorId, IOperatorDescriptor> entry : operatorMap.entrySet()) {
             IOperatorDescriptor opDesc = entry.getValue();
             if (opDesc instanceof FeedCollectOperatorDescriptor) {
                 FeedCollectOperatorDescriptor orig = (FeedCollectOperatorDescriptor) opDesc;
                 FeedCollectOperatorDescriptor fiop = new FeedCollectOperatorDescriptor(altered,
                         orig.getFeedConnectionId(), orig.getSourceFeedId(), (ARecordType) orig.getOutputType(),
-                        orig.getRecordDescriptor(), orig.getFeedPolicy());
+                        orig.getRecordDescriptor(), orig.getFeedPolicy(), orig.getSubscriptionLocation());
                 oldNewOID.put(opDesc.getOperatorId(), fiop.getOperatorId());
             } else if (opDesc instanceof AsterixLSMTreeInsertDeleteOperatorDescriptor) {
-                FeedMetaOperatorDescriptor metaOp = new FeedMetaOperatorDescriptor(altered, feedConnectionId, opDesc,
-                        feedPolicy, FeedRuntimeType.STORE);
+                metaOp = new FeedMetaOperatorDescriptor(altered, feedConnectionId, opDesc, feedPolicy,
+                        FeedRuntimeType.STORE, false);
                 oldNewOID.put(opDesc.getOperatorId(), metaOp.getOperatorId());
+
             } else {
                 FeedRuntimeType runtimeType = null;
+                boolean enableSubscriptionMode = false;
                 if (opDesc instanceof AlgebricksMetaOperatorDescriptor) {
                     IPushRuntimeFactory runtimeFactory = ((AlgebricksMetaOperatorDescriptor) opDesc).getPipeline()
                             .getRuntimeFactories()[0];
                     if (runtimeFactory instanceof AssignRuntimeFactory) {
                         runtimeType = FeedRuntimeType.COMPUTE;
+                        MetadataTransactionContext ctx = null;
+                        Feed feed = null;
+                        try {
+                            MetadataManager.INSTANCE.acquireReadLatch();
+                            ctx = MetadataManager.INSTANCE.beginTransaction();
+                            feed = MetadataManager.INSTANCE.getFeed(ctx, feedConnectionId.getFeedId().getDataverse(),
+                                    feedConnectionId.getFeedId().getFeedName());
+                            enableSubscriptionMode = feed.getAppliedFunction() != null;
+                        } catch (Exception e) {
+                            if (ctx != null) {
+                                try {
+                                    MetadataManager.INSTANCE.abortTransaction(ctx);
+                                } catch (Exception abortException) {
+                                    e.addSuppressed(abortException);
+                                    throw new IllegalStateException(e);
+                                }
+                            }
+                        } finally {
+                            MetadataManager.INSTANCE.releaseReadLatch();
+                        }
+
                     } else if (runtimeFactory instanceof StreamProjectRuntimeFactory) {
                         runtimeType = FeedRuntimeType.COMMIT;
                     }
                 }
-                FeedMetaOperatorDescriptor metaOp = new FeedMetaOperatorDescriptor(altered, feedConnectionId, opDesc,
-                        feedPolicy, runtimeType);
-
+                metaOp = new FeedMetaOperatorDescriptor(altered, feedConnectionId, opDesc, feedPolicy, runtimeType,
+                        enableSubscriptionMode);
                 oldNewOID.put(opDesc.getOperatorId(), metaOp.getOperatorId());
             }
         }

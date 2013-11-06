@@ -14,30 +14,35 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
-public class FeedIngestionId {
+public class FeedSubscribableRuntimeId {
 
     private final FeedId feedId;
 
     private final int partition;
 
-    public FeedIngestionId(FeedId feedId, int partition) {
+    public FeedSubscribableRuntimeId(FeedId feedId, int partition) {
         this.feedId = feedId;
         this.partition = partition;
     }
 
     @Override
     public boolean equals(Object o) {
-        if (o == null || !(o instanceof FeedIngestionId)) {
+        if (o == null || !(o instanceof FeedSubscribableRuntimeId)) {
             return true;
         }
 
-        FeedIngestionId otherId = (FeedIngestionId) o;
+        FeedSubscribableRuntimeId otherId = (FeedSubscribableRuntimeId) o;
         return feedId.equals(otherId.feedId) && partition == otherId.partition;
     }
 
     @Override
     public int hashCode() {
         return (feedId.toString() + "[" + partition + "]").hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return feedId.toString() + "[" + partition + "]";
     }
 
     public FeedId getFeedId() {

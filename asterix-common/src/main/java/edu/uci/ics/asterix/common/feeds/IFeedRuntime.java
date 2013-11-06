@@ -25,7 +25,12 @@ public interface IFeedRuntime {
     }
 
     /**
-     * @return the feed id for the associated with the feed.
+     * @return the feed id for the feed.
      */
     public FeedId getFeedId();
+
+    /**
+     * @return the type @see {@link FeedRuntimeType} associated with the runtime.
+     */
+    public FeedRuntimeType getFeedRuntimeType();
 }

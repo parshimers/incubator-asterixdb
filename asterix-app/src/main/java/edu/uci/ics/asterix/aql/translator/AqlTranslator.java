@@ -1772,12 +1772,25 @@ public class AqlTranslator extends AbstractAqlTranslator {
             CompiledSubscribeFeedStatement csfs = new CompiledSubscribeFeedStatement(bfs.getSubscriptionRequest(),
                     bfs.getQuery(), bfs.getVarCounter());
             JobSpecification compiled = rewriteCompileQuery(metadataProvider, bfs.getQuery(), csfs);
+            FeedConnectionId feedConnectionId = new FeedConnectionId(
+                    bfs.getSubscriptionRequest().getFeed().getFeedId(), bfs.getSubscriptionRequest().getTargetDataset());
 
+            FeedPolicy feedPolicy = MetadataManager.INSTANCE.getFeedPolicy(mdTxnCtx, bfs.getSubscriptionRequest()
+                    .getFeed().getFeedId().getDataverse(), bfs.getSubscriptionRequest().getPolicy());
+            if (feedPolicy == null) {
+                feedPolicy = MetadataManager.INSTANCE.getFeedPolicy(mdTxnCtx,
+                        MetadataConstants.METADATA_DATAVERSE_NAME, bfs.getSubscriptionRequest().getPolicy());
+                if (feedPolicy == null) {
+                    throw new AsterixException("Unknown feed policy" + bfs.getSubscriptionRequest().getPolicy());
+                }
+            }
+            JobSpecification alteredJobSpec = FeedUtil.alterJobSpecificationForFeed(compiled, feedConnectionId,
+                    feedPolicy);
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             bActiveTxn = false;
 
             if (compiled != null) {
-                runJob(hcc, compiled, false);
+                runJob(hcc, alteredJobSpec, false);
             }
 
         } catch (Exception e) {

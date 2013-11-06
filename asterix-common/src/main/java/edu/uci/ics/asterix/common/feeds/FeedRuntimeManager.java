@@ -30,7 +30,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.FeedRuntime.FeedRuntimeId;
+import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
 
 public class FeedRuntimeManager {
 
@@ -39,7 +39,8 @@ public class FeedRuntimeManager {
     private final FeedConnectionId feedId;
     private final IFeedConnectionManager feedConnectionManager;
     private SuperFeedManager superFeedManager;
-    private final Map<FeedRuntimeId, FeedRuntime> feedRuntimes;
+    private final Map<FeedRuntimeId, BasicFeedRuntime> feedRuntimes;
+
     private final ExecutorService executorService;
     private FeedMessageService messageService;
     private SocketFactory socketFactory = new SocketFactory();
@@ -47,7 +48,7 @@ public class FeedRuntimeManager {
 
     public FeedRuntimeManager(FeedConnectionId feedId, IFeedConnectionManager feedConnectionManager) {
         this.feedId = feedId;
-        feedRuntimes = new ConcurrentHashMap<FeedRuntimeId, FeedRuntime>();
+        feedRuntimes = new ConcurrentHashMap<FeedRuntimeId, BasicFeedRuntime>();
         executorService = Executors.newCachedThreadPool();
         feedReportQueue = new LinkedBlockingQueue<String>();
         this.feedConnectionManager = feedConnectionManager;
@@ -99,11 +100,11 @@ public class FeedRuntimeManager {
         return superFeedManager;
     }
 
-    public FeedRuntime getFeedRuntime(FeedRuntimeId runtimeId) {
+    public BasicFeedRuntime getFeedRuntime(FeedRuntimeId runtimeId) {
         return feedRuntimes.get(runtimeId);
     }
 
-    public void registerFeedRuntime(FeedRuntimeId runtimeId, FeedRuntime feedRuntime) {
+    public void registerFeedRuntime(FeedRuntimeId runtimeId, BasicFeedRuntime feedRuntime) {
         feedRuntimes.put(runtimeId, feedRuntime);
     }
 

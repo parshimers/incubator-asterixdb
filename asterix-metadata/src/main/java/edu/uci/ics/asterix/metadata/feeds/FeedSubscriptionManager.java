@@ -19,43 +19,43 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.FeedIngestionId;
-import edu.uci.ics.asterix.common.feeds.IFeedIngestionManager;
-import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
+import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
+import edu.uci.ics.asterix.common.feeds.IFeedSubscriptionManager;
+import edu.uci.ics.asterix.common.feeds.ISubscribableRuntime;
 
-public class FeedIngestionManager implements IFeedIngestionManager {
+public class FeedSubscriptionManager implements IFeedSubscriptionManager {
 
-    private static Logger LOGGER = Logger.getLogger(FeedIngestionManager.class.getName());
+    private static Logger LOGGER = Logger.getLogger(FeedSubscriptionManager.class.getName());
 
     private final String nodeId;
 
-    private final Map<FeedIngestionId, IngestionRuntime> ingestionRuntimes = new HashMap<FeedIngestionId, IngestionRuntime>();
+    private final Map<FeedSubscribableRuntimeId, ISubscribableRuntime> ingestionRuntimes = new HashMap<FeedSubscribableRuntimeId, ISubscribableRuntime>();
 
-    public FeedIngestionManager(String nodeId) {
+    public FeedSubscriptionManager(String nodeId) {
         this.nodeId = nodeId;
     }
 
     @Override
-    public void registerFeedIngestionRuntime(IngestionRuntime ingestionRuntime) {
-        if (!ingestionRuntimes.containsKey(ingestionRuntime.getFeedIngestionId())) {
-            ingestionRuntimes.put(ingestionRuntime.getFeedIngestionId(), ingestionRuntime);
+    public void registerFeedSubscribableRuntime(ISubscribableRuntime subscribableRuntime) {
+        if (!ingestionRuntimes.containsKey(subscribableRuntime.getFeedSubscribableRuntimeId())) {
+            ingestionRuntimes.put(subscribableRuntime.getFeedSubscribableRuntimeId(), subscribableRuntime);
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Registered feed ingestion runtime " + ingestionRuntime);
+                LOGGER.info("Registered feed subscribable runtime " + subscribableRuntime);
             }
         } else {
             if (LOGGER.isLoggable(Level.WARNING)) {
-                LOGGER.warning("Feed ingestion runtime " + ingestionRuntime + " already registered.");
+                LOGGER.warning("Feed ingestion runtime " + subscribableRuntime + " already registered.");
             }
         }
     }
 
     @Override
-    public IngestionRuntime getIngestionRuntime(FeedIngestionId feedIngestionId) {
+    public ISubscribableRuntime getSubscribableRuntime(FeedSubscribableRuntimeId feedIngestionId) {
         return ingestionRuntimes.get(feedIngestionId);
     }
 
     @Override
-    public void deregisterFeedIngestionRuntime(FeedIngestionId ingestionId) {
+    public void deregisterFeedSubscribableRuntime(FeedSubscribableRuntimeId ingestionId) {
         ingestionRuntimes.remove(ingestionId);
     }
 

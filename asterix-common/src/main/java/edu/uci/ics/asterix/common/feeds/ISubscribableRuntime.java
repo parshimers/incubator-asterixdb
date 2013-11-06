@@ -22,6 +22,11 @@ import java.util.List;
 public interface ISubscribableRuntime extends IFeedRuntime {
 
     /**
+     * @return
+     */
+    public FeedSubscribableRuntimeId getFeedSubscribableRuntimeId();
+
+    /**
      * @param collectionRuntime
      * @throws Exception
      */

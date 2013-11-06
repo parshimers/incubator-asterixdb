@@ -433,18 +433,19 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             feedPolicy.getProperties().put(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY, feedPolicy.getPolicyName());
             FeedConnectionId feedConnectionId = new FeedConnectionId(feedDataSource.getId().getDataverseName(),
                     feedDataSource.getId().getDatasourceName(), feedDataSource.getTargetDataset());
-            feedCollector = new FeedCollectOperatorDescriptor(jobSpec, feedConnectionId, feedDataSource.getSourceFeed()
-                    .getFeedId(), (ARecordType) feedOutputType, feedDesc, feedPolicy.getProperties(), feedDataSource.getLocation());
+            feedCollector = new FeedCollectOperatorDescriptor(jobSpec, feedConnectionId,
+                    feedDataSource.getSourceFeedId(), (ARecordType) feedOutputType, feedDesc,
+                    feedPolicy.getProperties(), feedDataSource.getLocation());
 
             String[] locationArray = null;
             String locations;
-            switch (feedDataSource.getSourceFeed().getFeedType()) {
+            switch (feedDataSource.getSourceFeedType()) {
                 case PRIMARY:
                     switch (feedDataSource.getLocation()) {
                         case SOURCE_FEED_COMPUTE:
                             List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getActiveFeedConnections(
-                                    mdTxnCtx, feedDataSource.getSourceFeed().getDataverseName(), feedDataSource
-                                            .getSourceFeed().getFeedName());
+                                    mdTxnCtx, feedDataSource.getSourceFeedId().getDataverse(), feedDataSource
+                                            .getSourceFeedId().getFeedName());
                             locations = feedActivities.get(0).getFeedActivityDetails()
                                     .get(FeedActivityDetails.COMPUTE_LOCATIONS);
                             locationArray = locations.split(",");
