@@ -58,8 +58,6 @@ public class FeedWorkCollection {
 
         private final FeedSubscriptionRequest request;
 
-        private final List<String> locations;
-
         @Override
         public Runnable getRunnable() {
             return runnable;
@@ -68,7 +66,6 @@ public class FeedWorkCollection {
         public SubscribeFeedWork(List<String> locations, FeedSubscriptionRequest request) {
             this.runnable = new SubscribeFeedWorkRunnable(locations, request);
             this.request = request;
-            this.locations = locations;
         }
 
         private static class SubscribeFeedWorkRunnable implements Runnable {

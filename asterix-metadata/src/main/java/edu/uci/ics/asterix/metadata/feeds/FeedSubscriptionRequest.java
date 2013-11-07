@@ -101,7 +101,8 @@ public class FeedSubscriptionRequest {
 
     @Override
     public String toString() {
-        return "Feed Subscription Request " + sourceFeed.getFeedId() + " --> " + feed.getFeedId();
+        return "Feed Subscription Request " + sourceFeed.getFeedId() + " --> " + feed.getFeedId() + " ["
+                + subscriptionLocation + "]";
     }
 
 }
