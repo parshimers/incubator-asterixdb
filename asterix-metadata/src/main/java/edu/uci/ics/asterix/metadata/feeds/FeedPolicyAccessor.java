@@ -14,6 +14,7 @@
  */
 package edu.uci.ics.asterix.metadata.feeds;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public class FeedPolicyAccessor {
@@ -36,7 +37,14 @@ public class FeedPolicyAccessor {
 
     private Map<String, String> feedPolicy;
 
+    public FeedPolicyAccessor() {
+    }
+
     public FeedPolicyAccessor(Map<String, String> feedPolicy) {
+        this.feedPolicy = feedPolicy;
+    }
+
+    public void reset(Map<String, String> feedPolicy) {
         this.feedPolicy = feedPolicy;
     }
 
@@ -86,9 +94,8 @@ public class FeedPolicyAccessor {
                 factor = 3600;
                 break;
             case DAYS:
-                factor = 216000;
+                factor = 86400;
                 break;
-
         }
         return factor;
     }

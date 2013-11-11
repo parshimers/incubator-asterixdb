@@ -16,14 +16,20 @@ package edu.uci.ics.asterix.common.feeds;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FrameReader;
 
 public class SubscribableRuntime implements ISubscribableRuntime {
 
+    protected static final Logger LOGGER = Logger.getLogger(SubscribableRuntime.class.getName());
+
     protected final FeedSubscribableRuntimeId subscribableRuntimeId;
+
     protected final FeedRuntimeType runtimeType;
+
     protected final DistributeFeedFrameWriter feedWriter;
+
     protected final List<ISubscriberRuntime> subscribers;
 
     public SubscribableRuntime(FeedSubscribableRuntimeId runtimeId, DistributeFeedFrameWriter feedWriter,

@@ -56,6 +56,9 @@ public class FeedSubscriptionManager implements IFeedSubscriptionManager {
 
     @Override
     public void deregisterFeedSubscribableRuntime(FeedSubscribableRuntimeId ingestionId) {
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("De-registered feed subscribable runtime " + ingestionId);
+        }
         ingestionRuntimes.remove(ingestionId);
     }
 

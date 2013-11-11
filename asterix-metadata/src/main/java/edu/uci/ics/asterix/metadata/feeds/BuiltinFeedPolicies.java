@@ -28,14 +28,16 @@ public class BuiltinFeedPolicies {
 
     public static final FeedPolicy BASIC_MONITORED = initializeBasicMonitoredPolicy();
 
-    public static final FeedPolicy FAULT_TOLERANT_BASIC_MONITORED = initializeFaultTolerantBasicMonitoredPolicy();
+    public static final FeedPolicy BASIC_FAULT_TOLERANT = initializeBasicFaultTolerantPolicy();
+
+    public static final FeedPolicy BASIC_FAULT_TOLERANT_MONITORED = initializeFaultTolerantBasicMonitoredPolicy();
 
     public static final FeedPolicy ELASTIC = initializeFaultTolerantBasicMonitoredElasticPolicy();
 
     public static final FeedPolicy[] policies = new FeedPolicy[] { BRITTLE, BASIC, BASIC_MONITORED,
-            FAULT_TOLERANT_BASIC_MONITORED, ELASTIC };
+            BASIC_FAULT_TOLERANT, BASIC_FAULT_TOLERANT_MONITORED, ELASTIC };
 
-    public static final FeedPolicy DEFAULT_POLICY = BASIC;
+    public static final FeedPolicy DEFAULT_POLICY = BASIC_FAULT_TOLERANT;
 
     public static final String CONFIG_FEED_POLICY_KEY = "policy";
 
@@ -61,6 +63,19 @@ public class BuiltinFeedPolicies {
         policyParams.put(FeedPolicyAccessor.ELASTIC, "true");
         String description = "Basic Monitored Fault-Tolerant Elastic";
         return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "BMFE", description, policyParams);
+    }
+
+    private static FeedPolicy initializeBasicFaultTolerantPolicy() {
+        Map<String, String> policyParams = new HashMap<String, String>();
+        policyParams.put(FeedPolicyAccessor.FAILURE_LOG_ERROR, "true");
+        policyParams.put(FeedPolicyAccessor.APPLICATION_FAILURE_CONTINUE, "true");
+        policyParams.put(FeedPolicyAccessor.APPLICATION_FAILURE_LOG_DATA, "true");
+        policyParams.put(FeedPolicyAccessor.HARDWARE_FAILURE_CONTINUE, "true");
+        policyParams.put(FeedPolicyAccessor.CLUSTER_REBOOT_AUTO_RESTART, "true");
+        policyParams.put(FeedPolicyAccessor.COLLECT_STATISTICS, "false");
+        policyParams.put(FeedPolicyAccessor.ELASTIC, "false");
+        String description = "Basic Monitored Fault-Tolerant";
+        return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "BF", description, policyParams);
     }
 
     private static FeedPolicy initializeFaultTolerantBasicMonitoredPolicy() {

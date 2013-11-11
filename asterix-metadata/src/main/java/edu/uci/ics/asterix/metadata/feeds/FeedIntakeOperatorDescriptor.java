@@ -49,20 +49,13 @@ public class FeedIntakeOperatorDescriptor extends AbstractSingleActivityOperator
     @Override
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
-        IDatasourceAdapter adapter;
-        try {
-            adapter = adapterFactory.createAdapter(ctx, partition);
-        } catch (Exception e) {
-            throw new HyracksDataException(e);
-        }
         IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject();
         IFeedSubscriptionManager feedSubscriptionManager = runtimeCtx.getFeedManager().getFeedSubscriptionManager();
         FeedSubscribableRuntimeId feedIngestionId = new FeedSubscribableRuntimeId(feedId, partition);
-
         IngestionRuntime ingestionRuntime = (IngestionRuntime) feedSubscriptionManager
                 .getSubscribableRuntime(feedIngestionId);
-        return new FeedIntakeOperatorNodePushable(ctx, feedId, (IFeedAdapter) adapter, partition, ingestionRuntime);
+        return new FeedIntakeOperatorNodePushable(ctx, feedId, adapterFactory, partition, ingestionRuntime);
     }
 
     public FeedId getFeedId() {

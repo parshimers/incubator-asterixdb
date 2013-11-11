@@ -21,11 +21,13 @@ import java.util.logging.Logger;
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
 import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
+import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FrameReader;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.ISubscribableRuntime;
+import edu.uci.ics.asterix.metadata.feeds.FeedFrameWriter.Mode;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
@@ -87,9 +89,15 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
                     LOGGER.info("Resuming old feed:" + feedConnectionId);
                 }
                 writer.open();
-                FeedFrameWriter frameWriter = (FeedFrameWriter) collectRuntime.getFrameWriter();
-                frameWriter.setWriter(frameWriter);
+                FrameReader frameReader = collectRuntime.getReader();
+                FeedFrameWriter frameWriter = (FeedFrameWriter) frameReader.getFrameWriter();
+                frameWriter.setWriter(writer);
                 ((FeedFrameWriter) frameWriter.getWriter()).reset();
+                frameWriter.setMode(FeedFrameWriter.Mode.FORWARD);
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("Reset the internal frame writer for " + collectRuntime + " to "
+                            + FeedFrameWriter.Mode.FORWARD + " mode ");
+                }
             }
 
             collectRuntime.waitTillCollectionOver();
@@ -98,14 +106,15 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
         } catch (InterruptedException ie) {
             if (policyEnforcer.getFeedPolicyAccessor().continueOnHardwareFailure()) {
                 if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Continuing on failure as per feed policy, switching to INACTIVE INGESTION temporarily");
+                    LOGGER.info("Continuing on failure as per feed policy, switching to " + Mode.STORE
+                            + " until failure is resolved");
                 }
-                feedFrameWriter.fail();
+                feedFrameWriter.setMode(Mode.STORE);
             } else {
                 if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Interrupted Exception, something went wrong");
+                    LOGGER.info("Failure during feed ingestion. Deregistering feed runtime " + collectRuntime
+                            + " as feed is not configured to handle failures");
                 }
-
                 feedManager.getFeedConnectionManager().deRegisterFeedRuntime(collectRuntime.getFeedRuntimeId());
                 feedFrameWriter.close();
                 throw new HyracksDataException(ie);

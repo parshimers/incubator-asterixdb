@@ -14,7 +14,6 @@
  */
 package edu.uci.ics.asterix.metadata.feeds;
 
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -22,7 +21,6 @@ import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.IAdapterRuntimeManager;
 import edu.uci.ics.asterix.common.feeds.IFeedAdapter;
-import edu.uci.ics.asterix.common.feeds.IFeedSubscriptionManager;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 
@@ -41,23 +39,6 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
     private int partition;
 
     private IngestionRuntime ingestionRuntime;
-
-    public enum State {
-        /*
-         * Indicates that data from external source will be pushed downstream
-         * for storage
-         */
-        ACTIVE_INGESTION,
-        /*
-         * Indicates that data from external source would be buffered and not
-         * pushed downstream
-         */
-        INACTIVE_INGESTION,
-        /*
-         * Indicates that feed ingestion activity has finished
-         */
-        FINISHED_INGESTION
-    }
 
     public AdapterRuntimeManager(FeedId feedId, IFeedAdapter feedAdapter, DistributeFeedFrameWriter writer,
             int partition) {

@@ -32,6 +32,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.commons.lang3.StringUtils;
+
 import edu.uci.ics.asterix.api.common.APIFramework.DisplayFormat;
 import edu.uci.ics.asterix.api.common.FeedWorkCollection.SubscribeFeedWork;
 import edu.uci.ics.asterix.api.common.SessionConfig;
@@ -132,7 +134,7 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
         jobEventInbox = new LinkedBlockingQueue<Message>();
         feedJobNotificationHandler = new FeedJobNotificationHandler(jobEventInbox);
         responseInbox = new LinkedBlockingQueue<IClusterManagementWorkResponse>();
-        feedWorkRequestResponseHandler = new FeedWorkRequestResponseHandler(responseInbox);
+        feedWorkRequestResponseHandler = new FeedWorkRequestResponseHandler(responseInbox, feedJobNotificationHandler);
         this.healthDataParser = new FeedHealthDataParser();
         this.feedHealthDataListener = new MessageListener(FEED_HEALTH_PORT, healthDataParser.getMessageQueue());
         this.feedHealthDataListener.start();
@@ -254,7 +256,7 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
 
     }
 
-    private static class FeedJobNotificationHandler implements Runnable, Serializable {
+    public static class FeedJobNotificationHandler implements Runnable, Serializable {
 
         private static final long serialVersionUID = 1L;
 
@@ -522,27 +524,9 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
                     }
                 }
 
-                for (String ingestLoc : feedCollectInfo.collectLocations) {
-                    ingestLocs.append(ingestLoc);
-                    ingestLocs.append(",");
-                }
-                if (ingestLocs.length() > 1) {
-                    ingestLocs.deleteCharAt(ingestLocs.length() - 1);
-                }
-                for (String computeLoc : feedCollectInfo.computeLocations) {
-                    computeLocs.append(computeLoc);
-                    computeLocs.append(",");
-                }
-                if (computeLocs.length() > 1) {
-                    computeLocs.deleteCharAt(computeLocs.length() - 1);
-                }
-                for (String storageLoc : feedCollectInfo.storageLocations) {
-                    storageLocs.append(storageLoc);
-                    storageLocs.append(",");
-                }
-                if (storageLocs.length() > 1) {
-                    storageLocs.deleteCharAt(storageLocs.length() - 1);
-                }
+                ingestLocs.append(StringUtils.join(feedCollectInfo.collectLocations, ","));
+                computeLocs.append(StringUtils.join(feedCollectInfo.computeLocations, ","));
+                storageLocs.append(StringUtils.join(feedCollectInfo.storageLocations, ","));
 
                 feedActivityDetails.put(FeedActivity.FeedActivityDetails.COLLECT_LOCATIONS, ingestLocs.toString());
                 feedActivityDetails.put(FeedActivity.FeedActivityDetails.COMPUTE_LOCATIONS, computeLocs.toString());
@@ -550,42 +534,18 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
                 feedActivityDetails.put(FeedActivity.FeedActivityDetails.FEED_POLICY_NAME,
                         feedCollectInfo.feedPolicy.get(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY));
 
-                int superFeedManagerIndex = new Random().nextInt(feedCollectInfo.collectLocations.size());
-                String superFeedManagerHost = feedCollectInfo.collectLocations.get(superFeedManagerIndex);
-
-                Cluster cluster = AsterixClusterProperties.INSTANCE.getCluster();
-                String instanceName = cluster.getInstanceName();
-                String node = superFeedManagerHost.substring(instanceName.length() + 1);
-                String hostIp = null;
-                for (Node n : cluster.getNode()) {
-                    if (n.getId().equals(node)) {
-                        hostIp = n.getClusterIp();
-                        break;
+                FeedPolicyAccessor policyAccessor = new FeedPolicyAccessor(feedCollectInfo.feedPolicy);
+                if (policyAccessor.collectStatistics() || policyAccessor.isElastic()) {
+                    if (LOGGER.isLoggable(Level.INFO)) {
+                        LOGGER.info("Feed " + feedCollectInfo.feedConnectionId + " requires Super Feed Manager");
                     }
-                }
-                if (hostIp == null) {
-                    throw new IllegalStateException("Unknown node " + superFeedManagerHost);
+                    configureSuperFeedManager(feedCollectInfo, feedActivityDetails);
                 }
 
-                feedActivityDetails.put(FeedActivity.FeedActivityDetails.SUPER_FEED_MANAGER_HOST, hostIp);
-                feedActivityDetails.put(FeedActivity.FeedActivityDetails.SUPER_FEED_MANAGER_PORT, ""
-                        + superFeedManagerPort);
-
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Super Feed Manager for " + feedCollectInfo.feedConnectionId + " is " + hostIp
-                            + " node " + superFeedManagerHost);
-                }
-
-                FeedManagerElectMessage feedMessage = new FeedManagerElectMessage(hostIp, superFeedManagerHost,
-                        superFeedManagerPort, feedCollectInfo.feedConnectionId);
-                superFeedManagerPort += SuperFeedManager.PORT_RANGE_ASSIGNED;
-                messengerOutbox.add(new FeedMessengerMessage(feedMessage, feedCollectInfo));
                 MetadataManager.INSTANCE.acquireWriteLatch();
                 MetadataTransactionContext mdTxnCtx = null;
                 try {
                     mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
-                    FeedActivity fa = MetadataManager.INSTANCE.getRecentActivityOnFeedConnection(mdTxnCtx,
-                            feedCollectInfo.feedConnectionId, null);
                     FeedActivityType nextState = FeedActivityType.FEED_BEGIN;
                     FeedActivity feedActivity = new FeedActivity(feedCollectInfo.feedConnectionId.getFeedId()
                             .getDataverse(), feedCollectInfo.feedConnectionId.getFeedId().getFeedName(),
@@ -604,6 +564,39 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
 
         }
 
+        private void configureSuperFeedManager(FeedCollectInfo feedCollectInfo, Map<String, String> feedActivityDetails) {
+            int superFeedManagerIndex = new Random().nextInt(feedCollectInfo.collectLocations.size());
+            String superFeedManagerHost = feedCollectInfo.collectLocations.get(superFeedManagerIndex);
+
+            Cluster cluster = AsterixClusterProperties.INSTANCE.getCluster();
+            String instanceName = cluster.getInstanceName();
+            String node = superFeedManagerHost.substring(instanceName.length() + 1);
+            String hostIp = null;
+            for (Node n : cluster.getNode()) {
+                if (n.getId().equals(node)) {
+                    hostIp = n.getClusterIp();
+                    break;
+                }
+            }
+            if (hostIp == null) {
+                throw new IllegalStateException("Unknown node " + superFeedManagerHost);
+            }
+
+            feedActivityDetails.put(FeedActivity.FeedActivityDetails.SUPER_FEED_MANAGER_HOST, hostIp);
+            feedActivityDetails
+                    .put(FeedActivity.FeedActivityDetails.SUPER_FEED_MANAGER_PORT, "" + superFeedManagerPort);
+
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Super Feed Manager for " + feedCollectInfo.feedConnectionId + " is " + hostIp + " node "
+                        + superFeedManagerHost);
+            }
+
+            FeedManagerElectMessage feedMessage = new FeedManagerElectMessage(hostIp, superFeedManagerHost,
+                    superFeedManagerPort, feedCollectInfo.feedConnectionId);
+            superFeedManagerPort += SuperFeedManager.PORT_RANGE_ASSIGNED;
+            messengerOutbox.add(new FeedMessengerMessage(feedMessage, feedCollectInfo));
+        }
+
         private void handleFeedJobFinishMessage(FeedInfo feedInfo, Message message) {
             switch (feedInfo.infoType) {
                 case COLLECT:
@@ -616,15 +609,15 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
         }
 
         private void handleFeedIntakeJobFinishMessage(FeedIntakeInfo feedInfo, Message message) {
+            boolean feedFailedDueToPostSubmissionNodeLoss = failedDueToNodeFalilurePostSubmission(feedInfo);
             deregisterFeedIntakeJob(feedInfo.feedId, feedInfo.jobId);
         }
 
         private void handleFeedCollectJobFinishMessage(FeedCollectInfo feedInfo, Message message) {
             MetadataTransactionContext mdTxnCtx = null;
             boolean latchAcquired = false;
-            boolean feedFailedDueToPostSubmissionNodeLoss = verifyReasonForFailure(feedInfo);
+            boolean feedFailedDueToPostSubmissionNodeLoss = failedDueToNodeFalilurePostSubmission(feedInfo);
             if (!feedFailedDueToPostSubmissionNodeLoss) {
-                removeSubscriptionRequest(feedInfo.sourceFeedId, feedInfo.feedConnectionId.getFeedId());
                 try {
                     IHyracksClientConnection hcc = AsterixAppContextInfo.getInstance().getHcc();
                     JobInfo info = hcc.getJobInfo(message.jobId);
@@ -637,6 +630,14 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
                         exceptions = info.getPendingExceptions();
                         activityType = FeedActivityType.FEED_FAILURE;
                         details.put(FeedActivity.FeedActivityDetails.EXCEPTION_MESSAGE, exceptions.get(0).getMessage());
+                        if(LOGGER.isLoggable(Level.INFO)){
+                            LOGGER.info(info + " failed on account of " + details);
+                        }
+                    } else {
+                        removeSubscriptionRequest(feedInfo.sourceFeedId, feedInfo.feedConnectionId.getFeedId());
+                        if(LOGGER.isLoggable(Level.INFO)){
+                            LOGGER.info(info + " completed successfully. Removed subscription");
+                        }
                     }
                     mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
                     MetadataManager.INSTANCE.acquireWriteLatch();
@@ -678,7 +679,7 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
             }
         }
 
-        private boolean verifyReasonForFailure(FeedInfo feedInfo) {
+        private boolean failedDueToNodeFalilurePostSubmission(FeedInfo feedInfo) {
             JobSpecification spec = feedInfo.jobSpec;
             Set<Constraint> userConstraints = spec.getUserConstraints();
             List<String> locations = new ArrayList<String>();
@@ -829,213 +830,82 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
         }
     }
 
-    @Override
-    public Set<IClusterManagementWork> notifyNodeFailure(Set<String> deadNodeIds) {
-        Collection<FeedCollectInfo> feedInfos = feedJobNotificationHandler.registeredFeedConnections.values();
-        FeedFailureReport failureReport = new FeedFailureReport();
-        for (FeedCollectInfo feedInfo : feedInfos) {
-            for (String deadNodeId : deadNodeIds) {
-                if (feedInfo.collectLocations.contains(deadNodeId)) {
-                    List<FeedFailure> failures = failureReport.failures.get(feedInfo);
-                    if (failures == null) {
-                        failures = new ArrayList<FeedFailure>();
-                        failureReport.failures.put(feedInfo, failures);
-                    }
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("Inestion Node Failure! " + deadNodeId);
-                    }
-                    failures.add(new FeedFailure(FeedFailure.FailureType.INGESTION_NODE, deadNodeId));
-                }
-                if (feedInfo.computeLocations.contains(deadNodeId)) {
-                    List<FeedFailure> failures = failureReport.failures.get(feedInfo);
-                    if (failures == null) {
-                        failures = new ArrayList<FeedFailure>();
-                        failureReport.failures.put(feedInfo, failures);
-                    }
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("Compute Node Failure! " + deadNodeId);
-                    }
-                    failures.add(new FeedFailure(FeedFailure.FailureType.COMPUTE_NODE, deadNodeId));
-                }
-                if (feedInfo.storageLocations.contains(deadNodeId)) {
-                    List<FeedFailure> failures = failureReport.failures.get(feedInfo);
-                    if (failures == null) {
-                        failures = new ArrayList<FeedFailure>();
-                        failureReport.failures.put(feedInfo, failures);
-                    }
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("Storage Node Failure! " + deadNodeId);
-                    }
-                    failures.add(new FeedFailure(FeedFailure.FailureType.STORAGE_NODE, deadNodeId));
-                }
-            }
+    private void insertAffectedRecoverableFeed(String deadNodeId, FeedInfo feedInfo,
+            Map<String, Pair<List<FeedIntakeInfo>, List<FeedCollectInfo>>> affectedFeeds) {
+        Pair<List<FeedIntakeInfo>, List<FeedCollectInfo>> pair = affectedFeeds.get(deadNodeId);
+        if (pair == null) {
+            List<FeedIntakeInfo> intakeInfos = new ArrayList<FeedIntakeInfo>();
+            List<FeedCollectInfo> collectInfos = new ArrayList<FeedCollectInfo>();
+            pair = new Pair<List<FeedIntakeInfo>, List<FeedCollectInfo>>(intakeInfos, collectInfos);
+            affectedFeeds.put(deadNodeId, pair);
         }
-        if (failureReport.failures.isEmpty()) {
-            if (LOGGER.isLoggable(Level.INFO)) {
-                StringBuilder builder = new StringBuilder();
-                builder.append("No feed is affected by the failure of node(s): ");
-                for (String deadNodeId : deadNodeIds) {
-                    builder.append(deadNodeId + " ");
-                }
-                LOGGER.info(builder.toString());
-            }
-            return new HashSet<IClusterManagementWork>();
-        } else {
-            if (LOGGER.isLoggable(Level.WARNING)) {
-                StringBuilder builder = new StringBuilder();
-                builder.append("Feed affected by the failure of node(s): ");
-                for (String deadNodeId : deadNodeIds) {
-                    builder.append(deadNodeId + " ");
-                }
-                builder.append("\n");
-                for (FeedCollectInfo fInfo : failureReport.failures.keySet()) {
-                    builder.append(fInfo.feedConnectionId);
-                    feedJobNotificationHandler.deregisterFeed(fInfo);
-                }
-                LOGGER.warning(builder.toString());
-            }
-            return handleFailure(failureReport);
+        switch (feedInfo.infoType) {
+            case INTAKE:
+                pair.first.add((FeedIntakeInfo) feedInfo);
+                break;
+            case COLLECT:
+                pair.second.add((FeedCollectInfo) feedInfo);
+                break;
         }
     }
 
-    private Set<IClusterManagementWork> handleFailure(FeedFailureReport failureReport) {
-        reportFeedFailure(failureReport);
-        Set<IClusterManagementWork> work = new HashSet<IClusterManagementWork>();
-        Map<String, Map<FeedInfo, List<FailureType>>> failureMap = new HashMap<String, Map<FeedInfo, List<FailureType>>>();
-        FeedPolicyAccessor fpa = null;
-        List<FeedCollectInfo> feedsToTerminate = new ArrayList<FeedCollectInfo>();
-        for (Map.Entry<FeedCollectInfo, List<FeedFailure>> entry : failureReport.failures.entrySet()) {
-            FeedCollectInfo feedCollectInfo = entry.getKey();
-            fpa = new FeedPolicyAccessor(feedCollectInfo.feedPolicy);
-            if (!fpa.continueOnHardwareFailure()) {
-                if (LOGGER.isLoggable(Level.WARNING)) {
-                    LOGGER.warning("Feed " + feedCollectInfo.feedConnectionId + " is governed by policy "
-                            + feedCollectInfo.feedPolicy.get(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY));
-                    LOGGER.warning("Feed policy does not require feed to recover from hardware failure. Feed will terminate");
-                }
-                continue;
-            } else {
-                // insert feed recovery mode 
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Feed " + feedCollectInfo.feedConnectionId + " is governed by policy "
-                            + feedCollectInfo.feedPolicy.get(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY));
-                    LOGGER.info("Feed policy requires feed to recover from hardware failure. Attempting to recover feed");
+    @Override
+    public Set<IClusterManagementWork> notifyNodeFailure(Set<String> deadNodeIds) {
+        Set<IClusterManagementWork> workToBeDone = new HashSet<IClusterManagementWork>();
+        Map<String, Pair<List<FeedIntakeInfo>, List<FeedCollectInfo>>> recoverableFeeds = new HashMap<String, Pair<List<FeedIntakeInfo>, List<FeedCollectInfo>>>();
+        Collection<FeedCollectInfo> feedCollectInfos = feedJobNotificationHandler.registeredFeedConnections.values();
+        Collection<FeedIntakeInfo> feedIntakeInfos = feedJobNotificationHandler.registeredFeedIntakeJobs.values();
+
+        List<FeedCollectInfo> irrecoverableFeeds = new ArrayList<FeedCollectInfo>();
+        for (String deadNode : deadNodeIds) {
+            for (FeedIntakeInfo feedIntakeInfo : feedIntakeInfos) {
+                if (feedIntakeInfo.intakeLocations.contains(deadNode)) {
+                    insertAffectedRecoverableFeed(deadNode, feedIntakeInfo, recoverableFeeds);
                 }
             }
 
-            List<FeedFailure> feedFailures = entry.getValue();
-            boolean recoveryPossible = true;
-            for (FeedFailure feedFailure : feedFailures) {
-                switch (feedFailure.failureType) {
-                    case COMPUTE_NODE:
-                    case INGESTION_NODE:
-                        Map<FeedInfo, List<FailureType>> failuresBecauseOfThisNode = failureMap.get(feedFailure.nodeId);
-                        if (failuresBecauseOfThisNode == null) {
-                            failuresBecauseOfThisNode = new HashMap<FeedInfo, List<FailureType>>();
-                            failuresBecauseOfThisNode.put(feedCollectInfo, new ArrayList<FailureType>());
-                            failureMap.put(feedFailure.nodeId, failuresBecauseOfThisNode);
-                        }
-                        List<FailureType> feedF = failuresBecauseOfThisNode.get(feedCollectInfo);
-                        if (feedF == null) {
-                            feedF = new ArrayList<FailureType>();
-                            failuresBecauseOfThisNode.put(feedCollectInfo, feedF);
-                        }
-                        feedF.add(feedFailure.failureType);
-                        break;
-                    case STORAGE_NODE:
-                        recoveryPossible = false;
-                        if (LOGGER.isLoggable(Level.SEVERE)) {
-                            LOGGER.severe("Unrecoverable situation! lost storage node for the feed "
-                                    + feedCollectInfo.feedConnectionId);
-                        }
-                        List<String> requiredNodeIds = dependentFeeds.get(feedCollectInfo);
-                        if (requiredNodeIds == null) {
-                            requiredNodeIds = new ArrayList<String>();
-                            dependentFeeds.put(feedCollectInfo, requiredNodeIds);
-                        }
-                        requiredNodeIds.add(feedFailure.nodeId);
-                        failuresBecauseOfThisNode = failureMap.get(feedFailure.nodeId);
-                        if (failuresBecauseOfThisNode != null) {
-                            failuresBecauseOfThisNode.remove(feedCollectInfo);
-                            if (failuresBecauseOfThisNode.isEmpty()) {
-                                failureMap.remove(feedFailure.nodeId);
-                            }
-                        }
-                        feedsToTerminate.add(feedCollectInfo);
-                        break;
-                }
-            }
-            if (!recoveryPossible) {
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Terminating irrecoverable feed (loss of storage node) ");
+            for (FeedCollectInfo feedCollectInfo : feedCollectInfos) {
+                boolean collectNodeFailure = feedCollectInfo.collectLocations.contains(deadNode);
+                boolean computeNodeFailure = feedCollectInfo.computeLocations.contains(deadNode);
+                boolean storageNodeFailure = feedCollectInfo.storageLocations.contains(deadNode);
+                boolean affectedFeed = collectNodeFailure || computeNodeFailure || storageNodeFailure;
+                if (affectedFeed) {
+                    reportFeedFailure(feedCollectInfo);
+                    boolean recoverableFailure = !storageNodeFailure;
+                    if (recoverableFailure) {
+                        insertAffectedRecoverableFeed(deadNode, feedCollectInfo, recoverableFeeds);
+                    } else {
+                        irrecoverableFeeds.add(feedCollectInfo);
+                    }
                 }
             }
         }
 
-        if (!feedsToTerminate.isEmpty()) {
-            Thread t = new Thread(new FeedsDeActivator(feedsToTerminate));
+        if (irrecoverableFeeds != null && irrecoverableFeeds.size() > 0) {
+            Thread t = new Thread(new FeedsDeActivator(irrecoverableFeeds));
             t.start();
         }
 
-        int numRequiredNodes = 0;
-        for (Entry<String, Map<FeedInfo, List<FeedFailure.FailureType>>> entry : failureMap.entrySet()) {
-            Map<FeedInfo, List<FeedFailure.FailureType>> v = entry.getValue();
-            for (FeedInfo finfo : feedsToTerminate) {
-                v.remove(finfo);
-            }
-            if (v.size() > 0) {
-                numRequiredNodes++;
-            }
+        if (recoverableFeeds.size() > 0) {
+            AddNodeWork addNodeWork = new AddNodeWork(deadNodeIds.size(), this);
+            feedWorkRequestResponseHandler.registerFeedWork(addNodeWork.getWorkId(), recoverableFeeds);
+            workToBeDone.add(addNodeWork);
         }
-
-        if (numRequiredNodes > 0) {
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Number of additional nodes requested " + numRequiredNodes);
-            }
-            AddNodeWork addNodesWork = new AddNodeWork(failureMap.keySet().size(), this);
-            work.add(addNodesWork);
-            if (LOGGER.isLoggable(Level.INFO)) {
-                Map<FeedCollectInfo, List<FeedFailure>> feedFailures = failureReport.failures;
-                for (Entry<FeedCollectInfo, List<FeedFailure>> entry : feedFailures.entrySet()) {
-                    for (FeedFailure f : entry.getValue()) {
-                        LOGGER.info("Feed Failure! " + f.failureType + " " + f.nodeId);
-                    }
-                }
-            }
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Registered work id: " + addNodesWork.getWorkId());
-            }
-            feedWorkRequestResponseHandler.registerFeedWork(addNodesWork.getWorkId(), failureReport);
-        } else {
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Not requesting any new node. Feeds unrecoverable until the lost node(s) rejoin");
-            }
-        }
-        return work;
+        return workToBeDone;
     }
 
-    private void reportFeedFailure(FeedFailureReport failureReport) {
-        MetadataTransactionContext ctx = null;
+    private void reportFeedFailure(FeedCollectInfo failedFeedInfo) {
         FeedActivity fa = null;
         Map<String, String> feedActivityDetails = new HashMap<String, String>();
-        StringBuilder builder = new StringBuilder();
+        MetadataTransactionContext ctx = null;
         MetadataManager.INSTANCE.acquireWriteLatch();
         try {
             ctx = MetadataManager.INSTANCE.beginTransaction();
-            for (Entry<FeedCollectInfo, List<FeedFailure>> entry : failureReport.failures.entrySet()) {
-                FeedCollectInfo feedCollectInfo = entry.getKey();
-                List<FeedFailure> feedFailures = entry.getValue();
-                for (FeedFailure failure : feedFailures) {
-                    builder.append(failure + ",");
-                }
-                builder.deleteCharAt(builder.length() - 1);
-                feedActivityDetails.put(FeedActivityDetails.FEED_NODE_FAILURE, builder.toString());
-                fa = new FeedActivity(feedCollectInfo.feedConnectionId.getFeedId().getDataverse(),
-                        feedCollectInfo.feedConnectionId.getFeedId().getFeedName(),
-                        feedCollectInfo.feedConnectionId.getDatasetName(), FeedActivityType.FEED_FAILURE,
-                        feedActivityDetails);
-                MetadataManager.INSTANCE.registerFeedActivity(ctx, feedCollectInfo.feedConnectionId, fa);
-            }
+            fa = new FeedActivity(failedFeedInfo.feedConnectionId.getFeedId().getDataverse(),
+                    failedFeedInfo.feedConnectionId.getFeedId().getFeedName(),
+                    failedFeedInfo.feedConnectionId.getDatasetName(), FeedActivityType.FEED_FAILURE,
+                    feedActivityDetails);
+            MetadataManager.INSTANCE.registerFeedActivity(ctx, failedFeedInfo.feedConnectionId, fa);
             MetadataManager.INSTANCE.commitTransaction(ctx);
         } catch (Exception e) {
             if (ctx != null) {
@@ -1094,7 +964,7 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
     public static class FeedFailure {
 
         public enum FailureType {
-            INGESTION_NODE,
+            COLLECT_NODE,
             COMPUTE_NODE,
             STORAGE_NODE
         }
@@ -1358,7 +1228,7 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
                 AqlTranslator translator = new AqlTranslator(statements, writer, pc, DisplayFormat.TEXT);
                 translator.compileAndExecute(AsterixAppContextInfo.getInstance().getHcc(), null, false);
                 if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("End urecoverable feed: " + feedInfo.feedConnectionId);
+                    LOGGER.info("End irrecoverable feed: " + feedInfo.feedConnectionId);
                 }
                 MetadataManager.INSTANCE.commitTransaction(ctx);
             } catch (Exception e) {

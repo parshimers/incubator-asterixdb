@@ -90,11 +90,15 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
         FrameReader reader = registeredReaders.get(recipientFeedFrameWriter);
         if (reader != null) {
             frameDistributor.deregisterFrameReader(reader);
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("De-registered frame reader " + reader);
+            }
         } else {
             if (LOGGER.isLoggable(Level.WARNING)) {
                 LOGGER.warning("Feed frame writer " + recipientFeedFrameWriter + " is not registered");
             }
         }
+
     }
 
     private void setUpDistribution() throws Exception {
@@ -110,11 +114,20 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
         writer.close();
         switch (frameDistributor.mode) {
             case INACTIVE:
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("FrameDistributor is already in " + frameDistributor.mode);
+                }
                 break;
             case SINGLE:
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("Will disconnect the lone frame reader in " + frameDistributor.mode + " mode");
+                }
                 registeredReaders.values().iterator().next().disconnect();
                 break;
             case SHARED:
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("Signalling End Of Feed; currently operating in " + frameDistributor.mode + " mode");
+                }
                 notifyEndOfFeed();
                 break;
         }
@@ -421,7 +434,7 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
     public static class FrameReader implements Runnable {
 
         private final LinkedBlockingQueue<DataBucket> inputQueue;
-        private final IFeedFrameWriter frameWriter;
+        private IFeedFrameWriter frameWriter;
         private State state;
         private boolean continueReading;
 
@@ -516,6 +529,14 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
             if (!continueReading && state.equals(State.ACTIVE)) {
                 disconnect();
             }
+        }
+
+        public IFeedFrameWriter getFrameWriter() {
+            return frameWriter;
+        }
+
+        public void setFrameWriter(IFeedFrameWriter frameWriter) {
+            this.frameWriter = frameWriter;
         }
 
         @Override

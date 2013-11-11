@@ -143,7 +143,7 @@ public class FeedFrameWriter implements IFeedFrameWriter {
             return;
         }
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Switching to :" + newMode + " from " + this.mode);
+            LOGGER.info(this + " switching to :" + newMode + " from " + this.mode);
         }
         this.mode = newMode;
     }
@@ -338,10 +338,12 @@ public class FeedFrameWriter implements IFeedFrameWriter {
     @Override
     public void fail() throws HyracksDataException {
         writer.fail();
-        if (healthMonitor != null && !healthMonitor.feedRuntimeType.equals(FeedRuntimeType.COLLECT)) {
-            healthMonitor.deactivate();
-        } else {
-            healthMonitor.reset();
+        if (healthMonitor != null) {
+            if (!healthMonitor.feedRuntimeType.equals(FeedRuntimeType.COLLECT)) {
+                healthMonitor.deactivate();
+            } else {
+                healthMonitor.reset();
+            }
         }
     }
 
@@ -366,7 +368,7 @@ public class FeedFrameWriter implements IFeedFrameWriter {
 
     @Override
     public String toString() {
-        return "MaterializingFrameWriter using " + writer;
+        return "FeedFrameWriter [" + feedConnectionId + "]";
     }
 
     public List<ByteBuffer> getStoredFrames() {
