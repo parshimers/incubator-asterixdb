@@ -28,14 +28,12 @@ public class CollectionRuntime extends BasicFeedRuntime implements ISubscriberRu
 
     private ISubscribableRuntime sourceRuntime;
     private FrameReader reader;
-    private IFeedFrameWriter feedFrameWriter;
     private Map<String, String> feedPolicy;
 
     public CollectionRuntime(FeedConnectionId feedId, int partition, IFeedFrameWriter feedFrameWriter,
             ISubscribableRuntime sourceRuntime, Map<String, String> feedPolicy) {
-        super(feedId, partition, FeedRuntimeType.COLLECT);
+        super(feedId, partition, feedFrameWriter, FeedRuntimeType.COLLECT);
         this.sourceRuntime = sourceRuntime;
-        this.feedFrameWriter = feedFrameWriter;
         this.feedPolicy = feedPolicy;
     }
 
@@ -51,16 +49,8 @@ public class CollectionRuntime extends BasicFeedRuntime implements ISubscriberRu
         this.reader = reader;
     }
 
-    public FrameReader getReader() {
+    public FrameReader getFrameReader() {
         return reader;
-    }
-
-    public IFeedFrameWriter getFrameWriter() {
-        return feedFrameWriter;
-    }
-
-    public void setFrameWriter(IFeedFrameWriter frameWriter) {
-        this.feedFrameWriter = frameWriter;
     }
 
     public void waitTillCollectionOver() throws InterruptedException {

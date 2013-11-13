@@ -20,14 +20,27 @@ import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 
 public class BasicFeedRuntime implements IFeedRuntime {
 
-    /** A unique identifier */
+    /** A unique identifier for the runtime **/
     protected final FeedRuntimeId feedRuntimeId;
 
-    /** The runtime state: @see FeedRuntimeState */
+    /** The runtime state: @see FeedRuntimeState **/
     protected FeedRuntimeState runtimeState;
 
-    public BasicFeedRuntime(FeedConnectionId feedConnectionId, int partition, FeedRuntimeType feedRuntimeType) {
+    /** The frame writer associated with the runtime **/
+    protected IFeedFrameWriter frameWriter;
+
+    public BasicFeedRuntime(FeedConnectionId feedConnectionId, int partition, IFeedFrameWriter frameWriter,
+            FeedRuntimeType feedRuntimeType) {
         this.feedRuntimeId = new FeedRuntimeId(feedRuntimeType, feedConnectionId, partition);
+        this.frameWriter = frameWriter;
+    }
+
+    public IFeedFrameWriter getFrameWriter() {
+        return frameWriter;
+    }
+
+    public void setFrameWriter(IFeedFrameWriter frameWriter) {
+        this.frameWriter = frameWriter;
     }
 
     @Override
@@ -141,5 +154,14 @@ public class BasicFeedRuntime implements IFeedRuntime {
     @Override
     public FeedRuntimeType getFeedRuntimeType() {
         return feedRuntimeId.getFeedRuntimeType();
+    }
+
+    @Override
+    public IFeedFrameWriter getFeedFrameWriter() {
+        return frameWriter;
+    }
+
+    public void setFeedRuntimeState(FeedRuntimeState feedRuntimeState) {
+        this.runtimeState = feedRuntimeState;
     }
 }

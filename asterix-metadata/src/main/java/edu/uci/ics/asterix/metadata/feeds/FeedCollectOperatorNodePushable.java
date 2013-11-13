@@ -89,11 +89,11 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
                     LOGGER.info("Resuming old feed:" + feedConnectionId);
                 }
                 writer.open();
-                FrameReader frameReader = collectRuntime.getReader();
-                FeedFrameWriter frameWriter = (FeedFrameWriter) frameReader.getFrameWriter();
-                frameWriter.setWriter(writer);
-                ((FeedFrameWriter) frameWriter.getWriter()).reset();
-                frameWriter.setMode(FeedFrameWriter.Mode.FORWARD);
+                FrameReader frameReader = collectRuntime.getFrameReader();
+                feedFrameWriter = (FeedFrameWriter) frameReader.getFrameWriter();
+                feedFrameWriter.setWriter(writer);
+                //feedFrameWriter.getWriter()).reset();
+                feedFrameWriter.setMode(FeedFrameWriter.Mode.FORWARD);
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Reset the internal frame writer for " + collectRuntime + " to "
                             + FeedFrameWriter.Mode.FORWARD + " mode ");

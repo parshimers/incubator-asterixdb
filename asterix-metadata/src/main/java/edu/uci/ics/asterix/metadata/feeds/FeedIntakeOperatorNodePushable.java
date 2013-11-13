@@ -71,6 +71,10 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                 try {
                     adapter = (IFeedAdapter) adapterFactory.createAdapter(ctx, partition);
                 } catch (Exception e) {
+                    if (LOGGER.isLoggable(Level.SEVERE)) {
+                        LOGGER.severe("Unable to create adapter : " + adapterFactory.getName() + "[" + partition + "]"
+                                + " Exception " + e);
+                    }
                     throw new HyracksDataException(e);
                 }
                 feedFrameWriter = new DistributeFeedFrameWriter(feedId, writer);
@@ -81,21 +85,13 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                 ingestionRuntime = new IngestionRuntime(feedId, partition, adapterExecutor, feedFrameWriter);
                 feedSubscriptionManager.registerFeedSubscribableRuntime(ingestionRuntime);
                 feedFrameWriter.open();
-                synchronized (adapterExecutor) {
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("Waiting for adaptor [" + partition + "]" + "to be done with ingestion of feed "
-                                + feedId);
-                    }
-                    while (!((AdapterRuntimeManager) adapterExecutor).getState().equals(
-                            AdapterRuntimeManager.State.FINISHED_INGESTION)) {
-                        adapterExecutor.wait();
-                    }
-                }
+                waitTillIngestionIsOver(adapterExecutor);
                 feedSubscriptionManager.deregisterFeedSubscribableRuntime(ingestionRuntime
                         .getFeedSubscribableRuntimeId());
             } else {
                 if (ingestionRuntime.getAdapterRuntimeManager().getState().equals(State.INACTIVE_INGESTION)) {
                     ingestionRuntime.getAdapterRuntimeManager().setState(State.ACTIVE_INGESTION);
+                    adapter = ingestionRuntime.getAdapterRuntimeManager().getFeedAdapter();
                     if (LOGGER.isLoggable(Level.INFO)) {
                         LOGGER.info(" Switching to " + State.ACTIVE_INGESTION + " for ingestion runtime "
                                 + ingestionRuntime);
@@ -103,6 +99,7 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                                 + " connected to backend for feed " + feedId);
                     }
                     feedFrameWriter = (DistributeFeedFrameWriter) ingestionRuntime.getFeedFrameWriter();
+                    waitTillIngestionIsOver(ingestionRuntime.getAdapterRuntimeManager());
                 } else {
                     String message = "Feed Ingestion Runtime for feed " + feedId + " is already registered.";
                     LOGGER.severe(message);
@@ -172,6 +169,17 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                 }
             }
 
+        }
+    }
+
+    private void waitTillIngestionIsOver(IAdapterRuntimeManager adaoterRuntimeManager) throws InterruptedException {
+        synchronized (adaoterRuntimeManager) {
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Waiting for adaptor [" + partition + "]" + "to be done with ingestion of feed " + feedId);
+            }
+            while (!adaoterRuntimeManager.getState().equals(AdapterRuntimeManager.State.FINISHED_INGESTION)) {
+                adaoterRuntimeManager.wait();
+            }
         }
     }
 }

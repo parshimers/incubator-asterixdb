@@ -356,9 +356,6 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
                                 LOGGER.warning("Discarding fetched tuples as feed has ended");
                             }
                     }
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("Single Frame Reader " + registeredReaders.get(0));
-                    }
                     break;
                 case SHARED:
                     DataBucket bucket = pool.getDataBucket();
@@ -366,9 +363,6 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
                     bucket.reset(frame);
                     inputDataQueue.add(bucket);
                     break;
-            }
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Frame  processed " + frame + " processed in mode [" + mode + "]");
             }
         }
 
@@ -509,6 +503,9 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
         public synchronized void nextFrame(ByteBuffer frame) throws HyracksDataException {
             if (continueReading) {
                 frameWriter.nextFrame(frame);
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("Frame processed by " + frameWriter);
+                }
             } else {
                 if (state.equals(State.ACTIVE)) {
                     disconnect();
@@ -544,6 +541,18 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
             return "FrameReader [" + frameWriter.getFeedId() + "," + state + "]";
         }
 
+    }
+
+    public IFrameWriter getWriter() {
+        return writer;
+    }
+
+    public void setWriter(IFrameWriter writer) {
+        this.writer = writer;
+    }
+
+    public Map<IFeedFrameWriter, FrameReader> getRegisteredReaders() {
+        return registeredReaders;
     }
 
 }

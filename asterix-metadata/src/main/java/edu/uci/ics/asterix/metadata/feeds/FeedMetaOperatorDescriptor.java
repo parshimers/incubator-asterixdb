@@ -1,6 +1,8 @@
 package edu.uci.ics.asterix.metadata.feeds;
 
 import java.nio.ByteBuffer;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -9,6 +11,7 @@ import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime;
 import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeState;
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
+import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FrameReader;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
 import edu.uci.ics.asterix.common.feeds.IFeedFrameWriter;
@@ -142,6 +145,9 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
         /** The (singleton) instance of IFeedManager **/
         private IFeedManager feedManager;
 
+        /** The frame reader instance that reads the input frames from the distribute feed writer **/
+        private FrameReader frameReader;
+
         /** true indicates that the runtime can be subscribed for data by other runtime instances. **/
         private final boolean enableSubscriptionMode;
 
@@ -168,18 +174,20 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
             FeedRuntimeId runtimeId = new FeedRuntimeId(runtimeType, feedConnectionId, partition);
             try {
                 feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
+                IFeedFrameWriter mWriter = new FeedFrameWriter(writer, this, feedConnectionId, policyEnforcer, nodeId,
+                        runtimeType, partition, fta, feedManager);
                 if (feedRuntime == null) {
                     switch (runtimeType) {
                         case COMPUTE:
                             if (enableSubscriptionMode) {
-                                registerSubscribableRuntime();
+                                registerSubscribableRuntime(mWriter);
                             } else {
-                                registerBasicFeedRuntime();
+                                registerBasicFeedRuntime(mWriter);
                             }
                             break;
                         case COMMIT:
                         case STORE:
-                            registerBasicFeedRuntime();
+                            registerBasicFeedRuntime(mWriter);
                             break;
                         case COLLECT:
                         case INGEST:
@@ -193,11 +201,25 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                     }
                     resumeOldState = false;
                 } else {
+                    switch (runtimeType) {
+                        case COMPUTE:
+                            if (enableSubscriptionMode) {
+                                retrieveSubscribableFeedRuntime(feedRuntime, mWriter);
+                            } else {
+                                coreOperatorNodePushable.setOutputFrameWriter(0, mWriter, recordDesc);
+                            }
+                            break;
+                        case COMMIT:
+                        case STORE:
+                            coreOperatorNodePushable.setOutputFrameWriter(0, mWriter, recordDesc);
+                            break;
+
+                    }
+                    resumeOldState = true;
                     if (LOGGER.isLoggable(Level.WARNING)) {
                         LOGGER.warning("Retreived state from the zombie instance from previous execution for "
                                 + runtimeType + " node.");
                     }
-                    resumeOldState = true;
                 }
                 coreOperatorNodePushable.open();
             } catch (Exception e) {
@@ -208,10 +230,21 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
             }
         }
 
-        private void registerBasicFeedRuntime() throws Exception {
-            feedRuntime = new BasicFeedRuntime(feedConnectionId, partition, runtimeType);
-            IFeedFrameWriter mWriter = new FeedFrameWriter(writer, this, feedConnectionId, policyEnforcer, nodeId,
-                    runtimeType, partition, fta, feedManager);
+        private void retrieveSubscribableFeedRuntime(IFeedRuntime feedRuntime, IFeedFrameWriter frameWriter) {
+            DistributeFeedFrameWriter dWriter = (DistributeFeedFrameWriter) feedRuntime.getFeedFrameWriter();
+            dWriter.setWriter(writer);
+            Map<IFeedFrameWriter, FrameReader> registeredReaders = dWriter.getRegisteredReaders();
+            for (Entry<IFeedFrameWriter, FrameReader> entry : registeredReaders.entrySet()) {
+                if (entry.getValue().equals(frameReader)) {
+                    frameReader.setFrameWriter(frameWriter);
+                    break;
+                }
+            }
+            coreOperatorNodePushable.setOutputFrameWriter(0, dWriter, recordDesc);
+        }
+
+        private void registerBasicFeedRuntime(IFeedFrameWriter mWriter) throws Exception {
+            feedRuntime = new BasicFeedRuntime(feedConnectionId, partition, mWriter, runtimeType);
             feedManager.getFeedConnectionManager().registerFeedRuntime((BasicFeedRuntime) feedRuntime);
             coreOperatorNodePushable.setOutputFrameWriter(0, mWriter, recordDesc);
             if (LOGGER.isLoggable(Level.INFO)) {
@@ -219,11 +252,9 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
             }
         }
 
-        private void registerSubscribableRuntime() throws Exception {
-            IFeedFrameWriter feedFrameWriter = new FeedFrameWriter(writer, this, feedConnectionId, policyEnforcer,
-                    nodeId, runtimeType, partition, fta, feedManager);
+        private void registerSubscribableRuntime(IFeedFrameWriter feedFrameWriter) throws Exception {
             IFeedFrameWriter mWriter = new DistributeFeedFrameWriter(feedConnectionId.getFeedId(), writer);
-            ((DistributeFeedFrameWriter) mWriter).subscribeFeed(feedFrameWriter);
+            frameReader = ((DistributeFeedFrameWriter) mWriter).subscribeFeed(feedFrameWriter);
             FeedSubscribableRuntimeId sid = new FeedSubscribableRuntimeId(feedConnectionId.getFeedId(), partition);
             feedRuntime = new SubscribableRuntime(sid, (DistributeFeedFrameWriter) mWriter, runtimeType);
             if (LOGGER.isLoggable(Level.INFO)) {
@@ -241,6 +272,9 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
         public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
             try {
                 if (resumeOldState) {
+                    if (LOGGER.isLoggable(Level.WARNING)) {
+                        LOGGER.warning("State from previous zombie instance ");
+                    }
                     resumeOldState = false;
                 }
                 currentBuffer = buffer;
@@ -276,14 +310,14 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
             if (policyEnforcer.getFeedPolicyAccessor().continueOnHardwareFailure()) {
                 if (currentBuffer != null) {
                     FeedRuntimeState runtimeState = new FeedRuntimeState(currentBuffer, writer, null);
-                    //feedRuntime.setRuntimeState(runtimeState);
-                    if (LOGGER.isLoggable(Level.WARNING)) {
-                        // LOGGER.warning("Saved feed compute runtime for revivals" + feedRuntime.getFeedRuntimeId());
+                    //feedRuntime.setFeedRuntimeState(runtimeState);
+                    if (LOGGER.isLoggable(Level.INFO)) {
+                        LOGGER.info("Saved feed compute runtime for revivals" + feedRuntime.getFeedId());
                     }
                 } else {
                     //feedManager.getFeedConnectionManager().deRegisterFeedRuntime(feedRuntime.getFeedRuntimeId());
-                    if (LOGGER.isLoggable(Level.WARNING)) {
-                        //     LOGGER.warning("No state to save, de-registered feed runtime " + feedRuntime.getFeedRuntimeId());
+                    if (LOGGER.isLoggable(Level.INFO)) {
+                        LOGGER.warning("No state to save, de-registered feed runtime " + feedRuntime.getFeedId());
                     }
                 }
             }
@@ -300,6 +334,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                     feedManager.getFeedConnectionManager().deRegisterFeedRuntime(
                             ((BasicFeedRuntime) feedRuntime).getFeedRuntimeId());
                     break;
+                default: // do nothing
 
             }
         }

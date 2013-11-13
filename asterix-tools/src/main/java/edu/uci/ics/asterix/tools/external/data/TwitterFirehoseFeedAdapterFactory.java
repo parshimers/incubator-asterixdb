@@ -41,13 +41,6 @@ public class TwitterFirehoseFeedAdapterFactory extends StreamBasedAdapterFactory
     private static final long serialVersionUID = 1L;
 
     /*
-     * The dataverse and dataset names for the target feed dataset. This informaiton 
-     * is used in configuring partition constraints for the adapter. It is preferred that 
-     * the adapter location does not coincide with a partition location for the feed dataset.
-     */
-    private static final String KEY_DATAVERSE_DATASET = "dataverse-dataset";
-
-    /*
      * Degree of parallelism for feed ingestion activity. Defaults to 1.
      * This builds up the count constraint for the ingestion operator.
      */
@@ -106,7 +99,7 @@ public class TwitterFirehoseFeedAdapterFactory extends StreamBasedAdapterFactory
 
     @Override
     public IDatasourceAdapter createAdapter(IHyracksTaskContext ctx, int partition) throws Exception {
-        return new TwitterFirehoseFeedAdapter(configuration, parserFactory, outputType, ctx, partition);
+        return new TwitterFirehoseFeedAdapter(configuration, parserFactory, outputType, partition, ctx);
     }
 
     @Override
@@ -128,7 +121,7 @@ public class TwitterFirehoseFeedAdapterFactory extends StreamBasedAdapterFactory
                     "message-text" };
 
             AUnorderedListType unorderedListType = new AUnorderedListType(BuiltinType.ASTRING, "referred-topics");
-            IAType[] fieldTypes = new IAType[] { BuiltinType.AINT64, userRecordType, BuiltinType.APOINT,
+            IAType[] fieldTypes = new IAType[] { BuiltinType.ASTRING, userRecordType, BuiltinType.APOINT,
                     BuiltinType.ADATETIME, unorderedListType, BuiltinType.ASTRING };
             outputType = new ARecordType("TweetMessageType", fieldNames, fieldTypes, false);
 

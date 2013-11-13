@@ -48,6 +48,23 @@ public class FeedFrameWriter implements IFeedFrameWriter {
 
     private static final Logger LOGGER = Logger.getLogger(FeedFrameWriter.class.getName());
 
+    public enum Mode {
+        /**
+         * **
+         * Normal mode of operation for an operator when
+         * frames are pushed to the downstream operator.
+         */
+        FORWARD,
+
+        /**
+         * Failure mode of operation for an operator when
+         * input frames are not pushed to the downstream operator but
+         * are buffered for future retrieval. This mode is adopted
+         * during failure recovery.
+         */
+        STORE
+    }
+
     /** The threshold for the time required in pushing a frame to the network. **/
     public static final long FLUSH_THRESHOLD_TIME = 5000; // 5 seconds
 
@@ -74,6 +91,9 @@ public class FeedFrameWriter implements IFeedFrameWriter {
      */
     private Mode mode;
 
+    /** The partition associated with the operator instance using the feed frame writer **/
+    private int partition;
+
     /**
      * Detects if the operator is unable to push a frame downstream
      * within a threshold period of time. In addition, it measure the
@@ -90,23 +110,6 @@ public class FeedFrameWriter implements IFeedFrameWriter {
      * Provides access to the tuples in a frame. Used in collecting statistics
      */
     private FrameTupleAccessor fta;
-
-    public enum Mode {
-        /**
-         * **
-         * Normal mode of operation for an operator when
-         * frames are pushed to the downstream operator.
-         */
-        FORWARD,
-
-        /**
-         * Failure mode of operation for an operator when
-         * input frames are not pushed to the downstream operator but
-         * are buffered for future retrieval. This mode is adopted
-         * during failure recovery.
-         */
-        STORE
-    }
 
     public FeedFrameWriter(IFrameWriter writer, IOperatorNodePushable nodePushable, FeedConnectionId feedConnectionId,
             FeedPolicyEnforcer policyEnforcer, String nodeId, FeedRuntimeType feedRuntimeType, int partition,
@@ -131,6 +134,7 @@ public class FeedFrameWriter implements IFeedFrameWriter {
                         + feedRuntimeType + " [" + partition + "]");
             }
         }
+        this.partition = partition;
         this.fta = fta;
     }
 
@@ -368,7 +372,7 @@ public class FeedFrameWriter implements IFeedFrameWriter {
 
     @Override
     public String toString() {
-        return "FeedFrameWriter [" + feedConnectionId + "]";
+        return "FeedFrameWriter [" + feedConnectionId + ":" + partition + "(" + mode + ")" + "]";
     }
 
     public List<ByteBuffer> getStoredFrames() {
@@ -385,12 +389,18 @@ public class FeedFrameWriter implements IFeedFrameWriter {
     }
 
     public void reset() {
-        healthMonitor.reset();
+        if (healthMonitor != null) {
+            healthMonitor.reset();
+        }
     }
 
     @Override
     public FeedId getFeedId() {
         return feedConnectionId.getFeedId();
+    }
+
+    public int getPartition() {
+        return partition;
     }
 
 }

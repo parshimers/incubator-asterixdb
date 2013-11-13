@@ -14,7 +14,6 @@
  */
 package edu.uci.ics.asterix.metadata.feeds;
 
-import java.util.HashMap;
 import java.util.Map;
 
 public class FeedPolicyAccessor {

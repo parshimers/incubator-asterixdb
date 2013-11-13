@@ -14,6 +14,7 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
+
 public interface IFeedRuntime {
 
     public enum FeedRuntimeType {
@@ -33,4 +34,10 @@ public interface IFeedRuntime {
      * @return the type @see {@link FeedRuntimeType} associated with the runtime.
      */
     public FeedRuntimeType getFeedRuntimeType();
+
+    /**
+     * @return the frame writer associated with the feed runtime.
+     */
+    public IFeedFrameWriter getFeedFrameWriter();
+
 }

@@ -17,8 +17,6 @@ package edu.uci.ics.asterix.metadata.feeds;
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
-import edu.uci.ics.asterix.common.feeds.IDatasourceAdapter;
-import edu.uci.ics.asterix.common.feeds.IFeedAdapter;
 import edu.uci.ics.asterix.common.feeds.IFeedSubscriptionManager;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
