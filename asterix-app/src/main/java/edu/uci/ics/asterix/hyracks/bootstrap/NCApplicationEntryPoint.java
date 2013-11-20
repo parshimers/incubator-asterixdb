@@ -14,7 +14,6 @@
  */
 package edu.uci.ics.asterix.hyracks.bootstrap;
 
-import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.HashMap;
 import java.util.Map;
@@ -60,8 +59,6 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Starting Asterix node controller  TAKE NOTE: " + nodeId);
         }
-        JVMShutdownHook sHook = new JVMShutdownHook(this);
-        Runtime.getRuntime().addShutdownHook(sHook);
 
         runtimeContext = new AsterixAppRuntimeContext(ncApplicationContext);
         AsterixMetadataProperties metadataProperties = ((IAsterixPropertiesProvider) runtimeContext)
@@ -141,19 +138,27 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
 
         isMetadataNode = nodeId.equals(metadataProperties.getMetadataNodeName());
         if (isMetadataNode) {
-            registerRemoteMetadataNode(proxy);
-        }
-        MetadataManager.INSTANCE = new MetadataManager(proxy, metadataProperties);
-        MetadataManager.INSTANCE.init();
-
-        if (isMetadataNode) {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Bootstrapping metadata");
             }
+            MetadataNode.INSTANCE.initialize(runtimeContext);
+
+            // This is a special case, we just give the metadataNode directly.
+            // This way we can delay the registration of the metadataNode until
+            // it is completely initialized.
+            MetadataManager.INSTANCE = new MetadataManager(proxy, MetadataNode.INSTANCE);
 
             MetadataBootstrap.startUniverse(((IAsterixPropertiesProvider) runtimeContext), ncApplicationContext,
                     systemState == SystemState.NEW_UNIVERSE);
             MetadataBootstrap.startDDLRecovery();
+
+            IMetadataNode stub = null;
+            stub = (IMetadataNode) UnicastRemoteObject.exportObject(MetadataNode.INSTANCE, 0);
+            proxy.setMetadataNode(stub);
+
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Metadata node bound");
+            }
         }
 
         ExternalLibraryBootstrap.setUpExternaLibraries(isMetadataNode);
@@ -180,17 +185,6 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
 
         // TODO
         // reclaim storage for orphaned index artifacts in NCs.
-    }
-
-    public void registerRemoteMetadataNode(IAsterixStateProxy proxy) throws RemoteException {
-        IMetadataNode stub = null;
-        MetadataNode.INSTANCE.initialize(runtimeContext);
-        stub = (IMetadataNode) UnicastRemoteObject.exportObject(MetadataNode.INSTANCE, 0);
-        proxy.setMetadataNode(stub);
-
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Metadata node bound");
-        }
     }
 
     private void updateOnNodeJoin() {
@@ -229,31 +223,6 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
                 cluster.getNode().add(self);
             } else {
                 throw new IllegalStateException("Unknown node joining the cluster");
-            }
-        }
-    }
-
-    /**
-     * Shutdown hook that invokes {@link NCApplicationEntryPoint#stop() stop} method.
-     */
-    private static class JVMShutdownHook extends Thread {
-
-        private final NCApplicationEntryPoint ncAppEntryPoint;
-
-        public JVMShutdownHook(NCApplicationEntryPoint ncAppEntryPoint) {
-            this.ncAppEntryPoint = ncAppEntryPoint;
-        }
-
-        public void run() {
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Shutdown hook in progress");
-            }
-            try {
-                ncAppEntryPoint.stop();
-            } catch (Exception e) {
-                if (LOGGER.isLoggable(Level.WARNING)) {
-                    LOGGER.warning("Exception in executing shutdown hook" + e);
-                }
             }
         }
     }
