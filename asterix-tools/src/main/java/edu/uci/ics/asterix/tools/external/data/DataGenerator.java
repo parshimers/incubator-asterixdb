@@ -1,3 +1,17 @@
+/*
+ * Copyright 2009-2013 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package edu.uci.ics.asterix.tools.external.data;
 
 import java.nio.CharBuffer;
@@ -7,8 +21,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
-
-import edu.uci.ics.asterix.tools.external.data.TweetGenerator.DataMode;
 
 public class DataGenerator {
 
@@ -33,20 +45,13 @@ public class DataGenerator {
     public class TweetMessageIterator implements Iterator<TweetMessage> {
 
         private final int duration;
-        private final GULongIDGenerator[] idGens;
+        private final GULongIDGenerator idGen;
         private long startTime = 0;
-        private int uidGenInUse = 0;
-        private TweetMessage dummyMessage;
-        private DataMode dataMode;
 
-        public TweetMessageIterator(int duration, GULongIDGenerator[] idGens, DataMode dataMode) {
+        public TweetMessageIterator(int duration, GULongIDGenerator idGen) {
             this.duration = duration;
-            this.idGens = idGens;
+            this.idGen = idGen;
             this.startTime = System.currentTimeMillis();
-            if (dataMode.equals(DataMode.REUSE_DATA)) {
-                dummyMessage = next();
-            }
-            this.dataMode = dataMode;
         }
 
         @Override
@@ -57,21 +62,12 @@ public class DataGenerator {
         @Override
         public TweetMessage next() {
             TweetMessage msg = null;
-            switch (dataMode) {
-                case NEW_DATA:
-                    getTwitterUser(null);
-                    Message message = randMessageGen.getNextRandomMessage();
-                    Point location = randLocationGen.getRandomPoint();
-                    DateTime sendTime = randDateGen.getNextRandomDatetime();
-                    twMessage.reset(UUID.randomUUID().toString(), twUser, location, sendTime,
-                            message.getReferredTopics(), message);
-                    msg = twMessage;
-                    break;
-                case REUSE_DATA:
-                    dummyMessage.setTweetid(UUID.randomUUID().toString());
-                    msg = dummyMessage;
-                    break;
-            }
+            getTwitterUser(null);
+            Message message = randMessageGen.getNextRandomMessage();
+            Point location = randLocationGen.getRandomPoint();
+            DateTime sendTime = randDateGen.getNextRandomDatetime();
+            twMessage.reset(idGen.getNextULong(), twUser, location, sendTime, message.getReferredTopics(), message);
+            msg = twMessage;
             return msg;
         }
 
@@ -79,10 +75,6 @@ public class DataGenerator {
         public void remove() {
             // TODO Auto-generated method stub
 
-        }
-
-        public void toggleUidKeySpace() {
-            uidGenInUse = (uidGenInUse + 1) % idGens.length;
         }
 
     }
@@ -131,10 +123,10 @@ public class DataGenerator {
         public RandomDateGenerator(Date startDate, Date endDate) {
             this.startDate = startDate;
             this.endDate = endDate;
-            yearDifference = endDate.getYear() - startDate.getYear() + 1;
-            workingDate = new Date();
-            recentDate = new Date();
-            dateTime = new DateTime();
+            this.yearDifference = endDate.getYear() - startDate.getYear() + 1;
+            this.workingDate = new Date();
+            this.recentDate = new Date();
+            this.dateTime = new DateTime();
         }
 
         public Date getStartDate() {
@@ -485,7 +477,7 @@ public class DataGenerator {
 
     public static class TweetMessage {
 
-        private String tweetid;
+        private long tweetid;
         private TwitterUser user;
         private Point senderLocation;
         private DateTime sendTime;
@@ -495,7 +487,7 @@ public class DataGenerator {
         public TweetMessage() {
         }
 
-        public TweetMessage(String tweetid, TwitterUser user, Point senderLocation, DateTime sendTime,
+        public TweetMessage(long tweetid, TwitterUser user, Point senderLocation, DateTime sendTime,
                 List<String> referredTopics, Message messageText) {
             this.tweetid = tweetid;
             this.user = user;
@@ -505,7 +497,7 @@ public class DataGenerator {
             this.messageText = messageText;
         }
 
-        public void reset(String tweetid, TwitterUser user, Point senderLocation, DateTime sendTime,
+        public void reset(long tweetid, TwitterUser user, Point senderLocation, DateTime sendTime,
                 List<String> referredTopics, Message messageText) {
             this.tweetid = tweetid;
             this.user = user;
@@ -519,8 +511,7 @@ public class DataGenerator {
             StringBuilder builder = new StringBuilder();
             builder.append("{");
             builder.append("\"tweetid\":");
-            //builder.append("int64(\"" + tweetid + "\")");
-            builder.append("\"" + tweetid + "\"");
+            builder.append("int64(\"" + tweetid + "\")");
             builder.append(",");
             builder.append("\"user\":");
             builder.append(user);
@@ -552,11 +543,11 @@ public class DataGenerator {
             return new String(builder);
         }
 
-        public String getTweetid() {
+        public long getTweetid() {
             return tweetid;
         }
 
-        public void setTweetid(String tweetid) {
+        public void setTweetid(long tweetid) {
             this.tweetid = tweetid;
         }
 

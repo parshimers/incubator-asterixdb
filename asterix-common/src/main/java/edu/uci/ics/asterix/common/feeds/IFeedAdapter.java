@@ -20,6 +20,16 @@ package edu.uci.ics.asterix.common.feeds;
  */
 public interface IFeedAdapter extends IDatasourceAdapter {
 
+    public enum DataExchangeMode {
+        PULL,
+        PUSH
+    }
+
+    /**
+     * @return
+     */
+    public DataExchangeMode getDataExchangeMode();
+
     /**
      * Discontinue the ingestion of data and end the feed.
      * 

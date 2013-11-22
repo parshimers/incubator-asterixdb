@@ -49,5 +49,4 @@ public abstract class FileSystemBasedAdapter implements IDatasourceAdapter {
         InputStream in = getInputStream(partition);
         tupleParser.parse(in, writer);
     }
-
 }

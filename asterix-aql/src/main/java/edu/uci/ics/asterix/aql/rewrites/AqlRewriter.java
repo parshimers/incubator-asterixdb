@@ -553,14 +553,12 @@ public final class AqlRewriter {
 
         @Override
         public Void visitCreatePrimaryFeedStatement(CreatePrimaryFeedStatement del, Void arg) throws AsterixException {
-            // TODO Auto-generated method stub
             return null;
         }
 
         @Override
         public Void visitCreateSecondaryFeedStatement(CreateSecondaryFeedStatement del, Void arg)
                 throws AsterixException {
-            // TODO Auto-generated method stub
             return null;
         }
 

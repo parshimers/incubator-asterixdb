@@ -133,7 +133,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
         appendPage.append(logRecord, appendLSN);
         appendLSN += logRecord.getLogSize();
     }
-    
+
     private void getAndInitNewPage() {
         appendPage = null;
         while (appendPage == null) {

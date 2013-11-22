@@ -347,7 +347,7 @@ public class FeedFrameWriter implements IFeedFrameWriter {
                 healthMonitor.deactivate();
             } else {
                 healthMonitor.reset();
-            }
+                }
         }
     }
 

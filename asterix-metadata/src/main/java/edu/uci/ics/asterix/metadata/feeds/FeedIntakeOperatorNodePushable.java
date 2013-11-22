@@ -177,7 +177,7 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Waiting for adaptor [" + partition + "]" + "to be done with ingestion of feed " + feedId);
             }
-            while (!adaoterRuntimeManager.getState().equals(AdapterRuntimeManager.State.FINISHED_INGESTION)) {
+            while (!adaoterRuntimeManager.getState().equals(IAdapterRuntimeManager.State.FINISHED_INGESTION)) {
                 adaoterRuntimeManager.wait();
             }
         }

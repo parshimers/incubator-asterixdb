@@ -147,7 +147,6 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
             // This way we can delay the registration of the metadataNode until
             // it is completely initialized.
             MetadataManager.INSTANCE = new MetadataManager(proxy, MetadataNode.INSTANCE);
-
             MetadataBootstrap.startUniverse(((IAsterixPropertiesProvider) runtimeContext), ncApplicationContext,
                     systemState == SystemState.NEW_UNIVERSE);
             MetadataBootstrap.startDDLRecovery();
@@ -226,5 +225,4 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
             }
         }
     }
-
 }

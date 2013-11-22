@@ -114,6 +114,7 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
                 adapter.start(partition, writer);
                 runtimeManager.setState(State.FINISHED_INGESTION);
             } catch (Exception e) {
+                e.printStackTrace();
                 if (LOGGER.isLoggable(Level.SEVERE)) {
                     LOGGER.severe("Exception during feed ingestion " + e.getMessage());
                     e.printStackTrace();

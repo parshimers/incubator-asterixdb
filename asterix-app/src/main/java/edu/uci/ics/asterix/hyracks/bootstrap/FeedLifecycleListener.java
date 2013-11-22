@@ -44,6 +44,7 @@ import edu.uci.ics.asterix.aql.expression.DisconnectFeedStatement;
 import edu.uci.ics.asterix.aql.expression.Identifier;
 import edu.uci.ics.asterix.aql.translator.AqlTranslator;
 import edu.uci.ics.asterix.common.exceptions.ACIDException;
+import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.SuperFeedManager;
@@ -515,6 +516,7 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
                         feedCollectInfo.computeLocations.addAll(feedCollectInfo.collectLocations);
                     }
                 }
+
                 StringBuilder storageLocs = new StringBuilder();
                 for (OperatorDescriptorId storageOpId : storageOperatorIds) {
                     Map<Integer, String> operatorLocations = info.getOperatorLocations().get(storageOpId);
