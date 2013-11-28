@@ -16,7 +16,7 @@ package edu.uci.ics.asterix.common.feeds;
 
 import java.util.logging.Level;
 
-import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FrameReader;
+import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FeedFrameCollector;
 
 public class IngestionRuntime extends SubscribableRuntime {
 
@@ -24,24 +24,25 @@ public class IngestionRuntime extends SubscribableRuntime {
 
     public IngestionRuntime(FeedId feedId, int partition, IAdapterRuntimeManager adaptorRuntimeManager,
             DistributeFeedFrameWriter feedWriter) {
-        super(new FeedSubscribableRuntimeId(feedId, partition), feedWriter, FeedRuntimeType.INGEST);
+        super(new FeedSubscribableRuntimeId(feedId, FeedRuntimeType.INGEST, partition), feedWriter,
+                FeedRuntimeType.INGEST);
         this.adapterRuntimeManager = adaptorRuntimeManager;
     }
 
     public void subscribeFeed(CollectionRuntime collectionRuntime) throws Exception {
-        FrameReader reader = feedWriter.subscribeFeed(collectionRuntime.getFrameWriter());
-        collectionRuntime.setFrameReader(reader);
+        FeedFrameCollector reader = feedWriter.subscribeFeed(collectionRuntime.getFeedFrameWriter());
+        collectionRuntime.setFrameCollector(reader);
         if (feedWriter.getDistributionMode().equals(DistributeFeedFrameWriter.DistributionMode.SINGLE)) {
             adapterRuntimeManager.start();
         }
         subscribers.add(collectionRuntime);
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Unsubscribed feed collection [" + collectionRuntime + "] to " + this);
+            LOGGER.info("Subscribed feed collection [" + collectionRuntime + "] to " + this);
         }
     }
 
     public void unsubscribeFeed(CollectionRuntime collectionRuntime) throws Exception {
-        feedWriter.unsubscribeFeed(collectionRuntime.getFrameWriter());
+        feedWriter.unsubscribeFeed(collectionRuntime.getFeedFrameWriter());
         if (feedWriter.getDistributionMode().equals(DistributeFeedFrameWriter.DistributionMode.INACTIVE)) {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Stopping adapter for " + this);

@@ -18,7 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FrameReader;
+import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FeedFrameCollector;
 
 public class SubscribableRuntime implements ISubscribableRuntime {
 
@@ -52,14 +52,14 @@ public class SubscribableRuntime implements ISubscribableRuntime {
 
     @Override
     public void subscribeFeed(CollectionRuntime collectionRuntime) throws Exception {
-        FrameReader reader = feedWriter.subscribeFeed(collectionRuntime.getFrameWriter());
-        collectionRuntime.setFrameReader(reader);
+        FeedFrameCollector collector = feedWriter.subscribeFeed(collectionRuntime.getFeedFrameWriter());
+        collectionRuntime.setFrameCollector(collector);
         subscribers.add(collectionRuntime);
     }
 
     @Override
     public void unsubscribeFeed(CollectionRuntime collectionRuntime) throws Exception {
-        feedWriter.unsubscribeFeed(collectionRuntime.getFrameWriter());
+        feedWriter.unsubscribeFeed(collectionRuntime.getFeedFrameWriter());
         subscribers.remove(collectionRuntime);
     }
 
@@ -69,7 +69,7 @@ public class SubscribableRuntime implements ISubscribableRuntime {
     }
 
     @Override
-    public IFeedFrameWriter getFeedFrameWriter() {
+    public DistributeFeedFrameWriter getFeedFrameWriter() {
         return feedWriter;
     }
 

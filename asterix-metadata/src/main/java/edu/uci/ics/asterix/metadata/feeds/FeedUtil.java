@@ -36,9 +36,11 @@ import edu.uci.ics.asterix.metadata.entities.Feed;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityType;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
+import edu.uci.ics.asterix.metadata.entities.Function;
 import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
 import edu.uci.ics.asterix.metadata.entities.SecondaryFeed;
 import edu.uci.ics.asterix.metadata.functions.ExternalLibraryManager;
+import edu.uci.ics.asterix.om.functions.IExternalFunctionInfo;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.NotImplementedException;
@@ -304,8 +306,18 @@ public class FeedUtil {
                     mdTxnCtx);
             outputType = result.getRight().getTypeName();
         } else {
-            throw new NotImplementedException(
-                    "Secondary feeds that are derived from primary feeds with an applied function are not supported yet.");
+            Function function = MetadataManager.INSTANCE.getFunction(mdTxnCtx, appliedFunction);
+            if (function != null) {
+                if (function.getLanguage().equals(Function.LANGUAGE_AQL)) {
+                    throw new NotImplementedException(
+                            "Secondary feeds derived from a source feed that has an applied AQL function are not supported yet.");
+                } else {
+                    outputType = function.getReturnType();
+                }
+            } else {
+                throw new IllegalArgumentException("Function " + appliedFunction
+                        + " associated with source feed not found in Metadata.");
+            }
         }
         return outputType;
     }

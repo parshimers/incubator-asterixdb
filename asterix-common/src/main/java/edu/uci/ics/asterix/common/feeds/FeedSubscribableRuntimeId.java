@@ -14,14 +14,19 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
+import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
+
 public class FeedSubscribableRuntimeId {
 
     private final FeedId feedId;
 
     private final int partition;
 
-    public FeedSubscribableRuntimeId(FeedId feedId, int partition) {
+    private final FeedRuntimeType feedRuntimeType;
+
+    public FeedSubscribableRuntimeId(FeedId feedId, FeedRuntimeType feedRuntimeType, int partition) {
         this.feedId = feedId;
+        this.feedRuntimeType = feedRuntimeType;
         this.partition = partition;
     }
 
@@ -32,17 +37,18 @@ public class FeedSubscribableRuntimeId {
         }
 
         FeedSubscribableRuntimeId otherId = (FeedSubscribableRuntimeId) o;
-        return feedId.equals(otherId.feedId) && partition == otherId.partition;
+        return feedId.equals(otherId.feedId) && feedRuntimeType.equals(otherId.feedRuntimeType)
+                && partition == otherId.partition;
     }
 
     @Override
     public int hashCode() {
-        return (feedId.toString() + "[" + partition + "]").hashCode();
+        return (feedId.toString() + ":" + feedRuntimeType + "[" + partition + "]").hashCode();
     }
 
     @Override
     public String toString() {
-        return feedId.toString() + "[" + partition + "]";
+        return feedId.toString() + ":" + feedRuntimeType + "[" + partition + "]";
     }
 
     public FeedId getFeedId() {
@@ -51,6 +57,10 @@ public class FeedSubscribableRuntimeId {
 
     public int getPartition() {
         return partition;
+    }
+
+    public FeedRuntimeType getFeedRuntimeType() {
+        return feedRuntimeType;
     }
 
 }

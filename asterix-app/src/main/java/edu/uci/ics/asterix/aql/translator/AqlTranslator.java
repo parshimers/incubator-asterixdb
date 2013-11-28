@@ -1621,7 +1621,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                         (PrimaryFeed) subscriptionRequest.getSourceFeed(), metadataProvider);
                 runJob(hcc, feedIntakeJobSpec, false);
             }
-            FeedLifecycleListener.INSTANCE.submitFeedSubscriptionRequest(subscriptionRequest);
+            FeedLifecycleListener.INSTANCE.submitFeedSubscriptionRequest(subscriptionRequest, mdTxnCtx);
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
         } catch (Exception e) {
             if (bActiveTxn) {
@@ -1638,7 +1638,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
     private FeedSubscriptionRequest getFeedSubscriptionRequest(String dataverse, Feed feed, Identifier datasetName,
             FeedPolicy feedPolicy, MetadataTransactionContext mdTxnCtx) throws MetadataException {
         List<String> appliedFunctions = new ArrayList<String>();
-        Pair<Feed, SubscriptionLocation> pair = getSourceFeed(dataverse, feed, appliedFunctions, mdTxnCtx);
+        Pair<Feed, SubscriptionLocation> pair = getSourceFeed(dataverse, feed, feed, appliedFunctions, mdTxnCtx);
         FeedSubscriptionRequest request = new FeedSubscriptionRequest(feed, pair.first, pair.second, appliedFunctions,
                 datasetName.getValue(), feedPolicy.getPolicyName());
         return request;
@@ -1655,17 +1655,25 @@ public class AqlTranslator extends AbstractAqlTranslator {
      * @throws MetadataException
      */
     private Pair<Feed, FeedSubscriptionRequest.SubscriptionLocation> getSourceFeed(String dataverse, Feed feed,
-            List<String> appliedFunctions, MetadataTransactionContext ctx) throws MetadataException {
+            Feed originalFeed, List<String> appliedFunctions, MetadataTransactionContext ctx) throws MetadataException {
         Pair<Feed, FeedSubscriptionRequest.SubscriptionLocation> retValue = new Pair<Feed, FeedSubscriptionRequest.SubscriptionLocation>(
                 null, null);
         switch (feed.getFeedType()) {
             case PRIMARY: {
-                retValue.first = feed;
-                if (feed.getAppliedFunction() != null) {
-                    appliedFunctions.add(feed.getAppliedFunction().getName());
-                    retValue.second = SubscriptionLocation.SOURCE_FEED_COMPUTE;
-                } else {
+                if (originalFeed.getFeedId().equals(feed.getFeedId())) {
+                    retValue.first = originalFeed;
                     retValue.second = SubscriptionLocation.SOURCE_FEED_INTAKE;
+                    if (feed.getAppliedFunction() != null) {
+                        appliedFunctions.add(feed.getAppliedFunction().getName());
+                    }
+                } else {
+                    retValue.first = feed;
+                    if (feed.getAppliedFunction() != null) {
+                        appliedFunctions.add(feed.getAppliedFunction().getName());
+                        retValue.second = SubscriptionLocation.SOURCE_FEED_COMPUTE;
+                    } else {
+                        retValue.second = SubscriptionLocation.SOURCE_FEED_INTAKE;
+                    }
                 }
                 break;
             }
@@ -1683,7 +1691,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                         appliedFunctions.add(sourceFeed.getAppliedFunction().getName());
                     }
                     Pair<Feed, FeedSubscriptionRequest.SubscriptionLocation> secondarySource = getSourceFeed(dataverse,
-                            sourceFeed, appliedFunctions, ctx);
+                            sourceFeed, originalFeed, appliedFunctions, ctx);
                     retValue.first = secondarySource.first;
                     retValue.second = secondarySource.second;
                 }

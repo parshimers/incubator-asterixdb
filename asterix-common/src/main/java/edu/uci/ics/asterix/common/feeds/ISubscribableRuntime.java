@@ -47,6 +47,6 @@ public interface ISubscribableRuntime extends IFeedRuntime {
     /**
      * @return
      */
-    public IFeedFrameWriter getFeedFrameWriter();
+    public DistributeFeedFrameWriter getFeedFrameWriter();
 
 }

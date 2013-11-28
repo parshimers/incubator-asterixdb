@@ -66,7 +66,8 @@ public class DataGenerator {
             Message message = randMessageGen.getNextRandomMessage();
             Point location = randLocationGen.getRandomPoint();
             DateTime sendTime = randDateGen.getNextRandomDatetime();
-            twMessage.reset(idGen.getNextULong(), twUser, location, sendTime, message.getReferredTopics(), message);
+            twMessage.reset(/*idGen.getNextULong()*/UUID.randomUUID().toString(), twUser, location, sendTime,
+                    message.getReferredTopics(), message);
             msg = twMessage;
             return msg;
         }
@@ -477,7 +478,7 @@ public class DataGenerator {
 
     public static class TweetMessage {
 
-        private long tweetid;
+        private String tweetid;
         private TwitterUser user;
         private Point senderLocation;
         private DateTime sendTime;
@@ -487,7 +488,7 @@ public class DataGenerator {
         public TweetMessage() {
         }
 
-        public TweetMessage(long tweetid, TwitterUser user, Point senderLocation, DateTime sendTime,
+        public TweetMessage(String tweetid, TwitterUser user, Point senderLocation, DateTime sendTime,
                 List<String> referredTopics, Message messageText) {
             this.tweetid = tweetid;
             this.user = user;
@@ -497,7 +498,7 @@ public class DataGenerator {
             this.messageText = messageText;
         }
 
-        public void reset(long tweetid, TwitterUser user, Point senderLocation, DateTime sendTime,
+        public void reset(String tweetid, TwitterUser user, Point senderLocation, DateTime sendTime,
                 List<String> referredTopics, Message messageText) {
             this.tweetid = tweetid;
             this.user = user;
@@ -511,7 +512,8 @@ public class DataGenerator {
             StringBuilder builder = new StringBuilder();
             builder.append("{");
             builder.append("\"tweetid\":");
-            builder.append("int64(\"" + tweetid + "\")");
+            //   builder.append("int64(\"" + tweetid + "\")");
+            builder.append("\"" + tweetid + "\"");
             builder.append(",");
             builder.append("\"user\":");
             builder.append(user);
@@ -543,11 +545,59 @@ public class DataGenerator {
             return new String(builder);
         }
 
-        public long getTweetid() {
+        public String getAdmEquivalent(String[] fields) {
+            StringBuilder builder = new StringBuilder();
+            builder.append("{");
+            for (String field : fields) {
+                switch (field) {
+                    case "tweetid":
+                        builder.append("\"tweetid\":");
+                        builder.append("\"" + tweetid + "\"");
+                        break;
+                    case "user":
+                        builder.append("\"user\":");
+                        builder.append(user);
+                        break;
+                    case "sender-location":
+                        builder.append("\"sender-location\":");
+                        builder.append(senderLocation);
+                        break;
+                    case "send-time":
+                        builder.append("\"send-time\":");
+                        builder.append(sendTime);
+                        break;
+                    case "referred-topics":
+                        builder.append("\"referred-topics\":");
+                        for (String topic : referredTopics) {
+                            builder.append("\"" + topic + "\"");
+                            builder.append(",");
+                        }
+                        if (referredTopics.size() > 0) {
+                            builder.deleteCharAt(builder.lastIndexOf(","));
+                        }
+                        builder.append("}}");
+                        break;
+                    case "message-text":
+                        builder.append("\"message-text\":");
+                        builder.append("\"");
+                        for (int i = 0; i < messageText.getLength(); i++) {
+                            builder.append(messageText.charAt(i));
+                        }
+                        builder.append("\"");
+                        break;
+                }
+                builder.append(",");
+            }
+            builder.deleteCharAt(builder.length() - 1);
+            builder.append("}");
+            return builder.toString();
+        }
+
+        public String getTweetid() {
             return tweetid;
         }
 
-        public void setTweetid(long tweetid) {
+        public void setTweetid(String tweetid) {
             this.tweetid = tweetid;
         }
 

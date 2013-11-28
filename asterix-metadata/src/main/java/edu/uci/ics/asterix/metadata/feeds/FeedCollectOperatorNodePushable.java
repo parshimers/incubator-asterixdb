@@ -14,6 +14,7 @@
  */
 package edu.uci.ics.asterix.metadata.feeds;
 
+import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -21,16 +22,22 @@ import java.util.logging.Logger;
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
 import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
-import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FrameReader;
+import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FeedFrameCollector;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
+import edu.uci.ics.asterix.common.feeds.IFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.ISubscribableRuntime;
 import edu.uci.ics.asterix.metadata.feeds.FeedFrameWriter.Mode;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
+import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
+import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
+import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
+import edu.uci.ics.hyracks.dataflow.common.data.accessors.FrameTupleReference;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
 
 /**
@@ -45,9 +52,10 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
     private final Map<String, String> feedPolicy;
     private final FeedPolicyEnforcer policyEnforcer;
     private final String nodeId;
-    private final FrameTupleAccessor fta;
     private final IFeedManager feedManager;
     private final ISubscribableRuntime sourceRuntime;
+    private final IHyracksTaskContext ctx;
+    private RecordDescriptor outputRecordDescriptor;
 
     private CollectionRuntime collectRuntime;
     private FeedFrameWriter feedFrameWriter;
@@ -55,13 +63,13 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
     public FeedCollectOperatorNodePushable(IHyracksTaskContext ctx, FeedId sourceFeedId,
             FeedConnectionId feedConnectionId, Map<String, String> feedPolicy, int partition,
             ISubscribableRuntime sourceRuntime) {
+        this.ctx = ctx;
         this.partition = partition;
         this.feedConnectionId = feedConnectionId;
         this.sourceRuntime = sourceRuntime;
         this.feedPolicy = feedPolicy;
         policyEnforcer = new FeedPolicyEnforcer(feedConnectionId, feedPolicy);
         nodeId = ctx.getJobletContext().getApplicationContext().getNodeId();
-        fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
         IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject();
         this.feedManager = runtimeCtx.getFeedManager();
@@ -70,26 +78,35 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
     @Override
     public void initialize() throws HyracksDataException {
         try {
+            outputRecordDescriptor = recordDesc;
             FeedRuntimeId runtimeId = new FeedRuntimeId(FeedRuntimeType.COLLECT, feedConnectionId, partition);
             collectRuntime = (CollectionRuntime) feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
-
             if (collectRuntime == null) {
-                feedFrameWriter = new FeedFrameWriter(writer, this, feedConnectionId, policyEnforcer, nodeId,
-                        FeedRuntimeType.COLLECT, partition, fta, feedManager);
+                feedFrameWriter = new FeedFrameWriter(ctx, writer, this, feedConnectionId, policyEnforcer, nodeId,
+                        FeedRuntimeType.COLLECT, partition, outputRecordDescriptor, feedManager);
                 feedFrameWriter.open();
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Beginning new feed:" + feedConnectionId);
                 }
-                collectRuntime = new CollectionRuntime(feedConnectionId, partition, feedFrameWriter, sourceRuntime,
-                        feedPolicy);
+
+                IFeedFrameWriter wrapper = feedFrameWriter;
+                if (sourceRuntime.getFeedRuntimeType().equals(FeedRuntimeType.COMPUTE)) {
+                    wrapper = new CollectTransformFeedFrameWriter(ctx, feedFrameWriter, sourceRuntime,
+                            outputRecordDescriptor);
+                }
+
+                collectRuntime = new CollectionRuntime(feedConnectionId, partition, wrapper, sourceRuntime, feedPolicy);
                 feedManager.getFeedConnectionManager().registerFeedRuntime(collectRuntime);
+                if (sourceRuntime.getFeedRuntimeType().equals(FeedRuntimeType.COMPUTE)) {
+                    this.recordDesc = sourceRuntime.getFeedFrameWriter().getRecordDescriptor();
+                }
                 sourceRuntime.subscribeFeed(collectRuntime);
             } else {
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Resuming old feed:" + feedConnectionId);
                 }
                 writer.open();
-                FrameReader frameReader = collectRuntime.getFrameReader();
+                FeedFrameCollector frameReader = collectRuntime.getFrameCollector();
                 feedFrameWriter = (FeedFrameWriter) frameReader.getFrameWriter();
                 feedFrameWriter.setWriter(writer);
                 //feedFrameWriter.getWriter()).reset();
@@ -126,6 +143,77 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
 
     public Map<String, String> getFeedPolicy() {
         return feedPolicy;
+    }
+
+    private static class CollectTransformFeedFrameWriter implements IFeedFrameWriter {
+
+        private final IFeedFrameWriter downstreamWriter;
+        private final ISubscribableRuntime sourceRuntime;
+        private final FrameTupleAccessor inputFrameTupleAccessor;
+        private final RecordDescriptor outputRecordDescriptor;
+
+        private final FrameTupleAppender tupleAppender;
+        private final FrameTupleReference tupleRef;
+        private final ByteBuffer frame;
+        private ArrayTupleBuilder tupleBuilder = new ArrayTupleBuilder(1);
+
+        public CollectTransformFeedFrameWriter(IHyracksTaskContext ctx, IFeedFrameWriter downstreamWriter,
+                ISubscribableRuntime sourceRuntime, RecordDescriptor outputRecordDescriptor)
+                throws HyracksDataException {
+            this.downstreamWriter = downstreamWriter;
+            this.sourceRuntime = sourceRuntime;
+            RecordDescriptor inputRecordDescriptor = sourceRuntime.getFeedFrameWriter().getRecordDescriptor();
+            inputFrameTupleAccessor = new FrameTupleAccessor(ctx.getFrameSize(), inputRecordDescriptor);
+            tupleAppender = new FrameTupleAppender(ctx.getFrameSize());
+            frame = ctx.allocateFrame();
+            tupleAppender.reset(frame, true);
+            tupleRef = new FrameTupleReference();
+            this.outputRecordDescriptor = outputRecordDescriptor;
+        }
+
+        @Override
+        public void open() throws HyracksDataException {
+            downstreamWriter.open();
+        }
+
+        @Override
+        public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
+            inputFrameTupleAccessor.reset(buffer);
+            int nTuple = inputFrameTupleAccessor.getTupleCount();
+            for (int t = 0; t < nTuple; t++) {
+                tupleBuilder.addField(inputFrameTupleAccessor, t, 0);
+                appendTupleToFrame();
+                tupleBuilder.reset();
+            }
+        }
+
+        private void appendTupleToFrame() throws HyracksDataException {
+            if (!tupleAppender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(), 0,
+                    tupleBuilder.getSize())) {
+                FrameUtils.flushFrame(frame, downstreamWriter);
+                tupleAppender.reset(frame, true);
+                if (!tupleAppender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(), 0,
+                        tupleBuilder.getSize())) {
+                    throw new IllegalStateException();
+                }
+            }
+        }
+
+        @Override
+        public void fail() throws HyracksDataException {
+            downstreamWriter.fail();
+        }
+
+        @Override
+        public void close() throws HyracksDataException {
+            downstreamWriter.close();
+        }
+
+        @Override
+        public FeedId getFeedId() {
+            return downstreamWriter.getFeedId();
+        }
+
     }
 
 }

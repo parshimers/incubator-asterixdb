@@ -16,7 +16,7 @@ package edu.uci.ics.asterix.common.feeds;
 
 import java.util.Map;
 
-import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FrameReader;
+import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FeedFrameCollector;
 
 /**
  * Represents the feed runtime that collects feed tuples from another feed.
@@ -27,7 +27,7 @@ import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FrameReader;
 public class CollectionRuntime extends BasicFeedRuntime implements ISubscriberRuntime {
 
     private ISubscribableRuntime sourceRuntime;
-    private FrameReader reader;
+    private FeedFrameCollector frameCollector;
     private Map<String, String> feedPolicy;
 
     public CollectionRuntime(FeedConnectionId feedId, int partition, IFeedFrameWriter feedFrameWriter,
@@ -45,18 +45,18 @@ public class CollectionRuntime extends BasicFeedRuntime implements ISubscriberRu
         this.sourceRuntime = sourceRuntime;
     }
 
-    public void setFrameReader(FrameReader reader) {
-        this.reader = reader;
+    public void setFrameCollector(FeedFrameCollector frameCollector) {
+        this.frameCollector = frameCollector;
     }
 
-    public FrameReader getFrameReader() {
-        return reader;
+    public FeedFrameCollector getFrameCollector() {
+        return frameCollector;
     }
 
     public void waitTillCollectionOver() throws InterruptedException {
-        synchronized (reader) {
-            while (!reader.getState().equals(FrameReader.State.FINISHED)) {
-                reader.wait();
+        synchronized (frameCollector) {
+            while (!frameCollector.getState().equals(FeedFrameCollector.State.FINISHED)) {
+                frameCollector.wait();
             }
         }
     }

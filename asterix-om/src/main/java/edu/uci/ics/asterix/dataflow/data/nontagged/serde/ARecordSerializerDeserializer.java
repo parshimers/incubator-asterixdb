@@ -318,6 +318,10 @@ public class ARecordSerializerDeserializer implements ISerializerDeserializer<AR
         return -1; // no field with this name.
     }
 
+    public ARecordType getRecordType() {
+        return recordType;
+    }
+
     @Override
     public String toString() {
         return " ";

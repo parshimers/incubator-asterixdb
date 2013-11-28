@@ -44,14 +44,13 @@ import edu.uci.ics.asterix.aql.expression.DisconnectFeedStatement;
 import edu.uci.ics.asterix.aql.expression.Identifier;
 import edu.uci.ics.asterix.aql.translator.AqlTranslator;
 import edu.uci.ics.asterix.common.exceptions.ACIDException;
-import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.SuperFeedManager;
 import edu.uci.ics.asterix.event.schema.cluster.Cluster;
 import edu.uci.ics.asterix.event.schema.cluster.Node;
 import edu.uci.ics.asterix.file.JobSpecificationUtils;
-import edu.uci.ics.asterix.hyracks.bootstrap.FeedLifecycleListener.FeedFailure.FailureType;
+import edu.uci.ics.asterix.metadata.MetadataException;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
 import edu.uci.ics.asterix.metadata.api.IClusterEventsSubscriber;
@@ -62,6 +61,7 @@ import edu.uci.ics.asterix.metadata.cluster.ClusterManager;
 import edu.uci.ics.asterix.metadata.cluster.IClusterManagementWorkResponse;
 import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
 import edu.uci.ics.asterix.metadata.entities.Dataverse;
+import edu.uci.ics.asterix.metadata.entities.Feed;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityDetails;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityType;
@@ -336,6 +336,10 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
             return feedIntakeInfos.get(feedId);
         }
 
+        public FeedCollectInfo getFeedCollectInfo(FeedConnectionId feedConnectionId) {
+            return feedCollectInfos.get(feedConnectionId);
+        }
+
         public synchronized void addSubscriptionRequest(FeedSubscriptionRequest request) {
             List<FeedSubscriptionRequest> subscriptionRequests = subscriptions.get(request.getSourceFeed().getFeedId());
             if (subscriptionRequests == null) {
@@ -451,8 +455,10 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
 
         }
 
-        private void submitFeedSubscriptionRequest(FeedIntakeInfo feedIntakeInfo, final FeedSubscriptionRequest request) {
-            SubscribeFeedWork work = new SubscribeFeedWork(feedIntakeInfo.intakeLocations, request);
+        private void submitFeedSubscriptionRequest(FeedInfo feedInfo, final FeedSubscriptionRequest request) {
+            List<String> locations = feedInfo.infoType.equals(FeedInfo.FeedInfoType.INTAKE) ? ((FeedIntakeInfo) feedInfo).intakeLocations
+                    : ((FeedCollectInfo) feedInfo).collectLocations;
+            SubscribeFeedWork work = new SubscribeFeedWork(locations, request);
             FeedWorkManager.INSTANCE.submitWork(work, new SubscribeFeedWork.FeedSubscribeWorkEventListener());
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Submitted " + work);
@@ -513,6 +519,7 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
                             feedCollectInfo.computeLocations.add(operatorLocations.get(i));
                         }
                     } else {
+                        feedCollectInfo.computeLocations.clear();
                         feedCollectInfo.computeLocations.addAll(feedCollectInfo.collectLocations);
                     }
                 }
@@ -563,7 +570,7 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
             } catch (Exception e) {
                 // TODO Add Exception handling here
             }
-
+            feedCollectInfo.state = FeedInfo.State.ACTIVE;
         }
 
         private void configureSuperFeedManager(FeedCollectInfo feedCollectInfo, Map<String, String> feedActivityDetails) {
@@ -630,12 +637,12 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
                     Map<String, String> details = new HashMap<String, String>();
                     if (failure) {
                         activityType = FeedActivityType.FEED_FAILURE;
-                        if(LOGGER.isLoggable(Level.INFO)){
+                        if (LOGGER.isLoggable(Level.INFO)) {
                             LOGGER.info(info + " failed on account of " + details);
                         }
                     } else {
                         removeSubscriptionRequest(feedInfo.sourceFeedId, feedInfo.feedConnectionId.getFeedId());
-                        if(LOGGER.isLoggable(Level.INFO)){
+                        if (LOGGER.isLoggable(Level.INFO)) {
                             LOGGER.info(info + " completed successfully. Removed subscription");
                         }
                     }
@@ -1251,23 +1258,85 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
         }
     }
 
-    public void submitFeedSubscriptionRequest(FeedSubscriptionRequest subscriptionRequest) {
+    public void submitFeedSubscriptionRequest(FeedSubscriptionRequest subscriptionRequest,
+            MetadataTransactionContext mdTxnCtx) throws MetadataException {
         synchronized (feedJobNotificationHandler) {
-            FeedIntakeInfo intakeInfo = feedJobNotificationHandler.getFeedIntakeInfo(subscriptionRequest
-                    .getSourceFeed().getFeedId());
-            if (intakeInfo != null) {
-                if (intakeInfo.state.equals(FeedInfo.State.ACTIVE)) {
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("submitting subscription request " + subscriptionRequest);
+            Feed sourceFeed = subscriptionRequest.getSourceFeed();
+            switch (sourceFeed.getFeedType()) {
+                case PRIMARY:
+                    FeedIntakeInfo intakeInfo = feedJobNotificationHandler.getFeedIntakeInfo(subscriptionRequest
+                            .getSourceFeed().getFeedId());
+                    if (intakeInfo != null) {
+                        if (LOGGER.isLoggable(Level.INFO)) {
+                            LOGGER.info("adding subscription request " + subscriptionRequest + " Source Feed type "
+                                    + sourceFeed.getFeedType());
+                        }
+                        feedJobNotificationHandler.addSubscriptionRequest(subscriptionRequest);
+                        if (intakeInfo.state.equals(FeedInfo.State.ACTIVE)) {
+                            if (LOGGER.isLoggable(Level.INFO)) {
+                                LOGGER.info("submitting subscription request " + subscriptionRequest);
+                            }
+                            feedJobNotificationHandler.submitFeedSubscriptionRequest(intakeInfo, subscriptionRequest);
+                        } else {
+                            if (!sourceFeed.getFeedId().equals(subscriptionRequest.getFeed().getFeedId())) {
+                                String message = "Feed intake job for source feed " + sourceFeed.getFeedId()
+                                        + " is not " + FeedInfo.State.ACTIVE;
+                                if (LOGGER.isLoggable(Level.SEVERE)) {
+                                    LOGGER.severe(message);
+                                }
+                                throw new IllegalStateException(message);
+                            }
+                        }
+                    } else {
+                        if (!sourceFeed.getFeedId().equals(subscriptionRequest.getFeed().getFeedId())) {
+                            String message = "Feed intake job for source feed " + sourceFeed.getFeedId() + " not found";
+                            if (LOGGER.isLoggable(Level.SEVERE)) {
+                                LOGGER.severe(message);
+                            }
+                            throw new IllegalStateException(message);
+                        }
                     }
-                    feedJobNotificationHandler.addSubscriptionRequest(subscriptionRequest);
-                    feedJobNotificationHandler.submitFeedSubscriptionRequest(intakeInfo, subscriptionRequest);
-                } else {
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("adding subscription request " + subscriptionRequest);
+                    break;
+                case SECONDARY:
+                    List<FeedActivity> feedActivitiesSrcFeed = MetadataManager.INSTANCE.getActiveFeedConnections(
+                            mdTxnCtx, subscriptionRequest.getSourceFeed().getDataverseName(), subscriptionRequest
+                                    .getSourceFeed().getFeedName());
+                    FeedCollectInfo collectInfo = null;
+                    if (feedActivitiesSrcFeed != null && feedActivitiesSrcFeed.size() > 0) {
+                        FeedActivity fa = feedActivitiesSrcFeed.get(0);
+                        String srcFeedTargetDataset = fa.getDatasetName();
+                        FeedConnectionId srcFeedConnId = new FeedConnectionId(subscriptionRequest.getSourceFeed()
+                                .getFeedId(), srcFeedTargetDataset);
+                        collectInfo = feedJobNotificationHandler.getFeedCollectInfo(srcFeedConnId);
                     }
-                    feedJobNotificationHandler.addSubscriptionRequest(subscriptionRequest);
-                }
+
+                    if (collectInfo != null) {
+                        if (LOGGER.isLoggable(Level.INFO)) {
+                            LOGGER.info("adding subscription request " + subscriptionRequest + " Source Feed type "
+                                    + sourceFeed.getFeedType());
+                        }
+                        feedJobNotificationHandler.addSubscriptionRequest(subscriptionRequest);
+                        if (collectInfo.state.equals(FeedInfo.State.ACTIVE)) {
+                            if (LOGGER.isLoggable(Level.INFO)) {
+                                LOGGER.info("submitting subscription request " + subscriptionRequest);
+                            }
+                            feedJobNotificationHandler.submitFeedSubscriptionRequest(collectInfo, subscriptionRequest);
+                        } else {
+                            String message = "Feed collect job for source feed " + sourceFeed.getFeedId() + " is not "
+                                    + FeedInfo.State.ACTIVE;
+                            if (LOGGER.isLoggable(Level.SEVERE)) {
+                                LOGGER.severe(message);
+                            }
+                            throw new IllegalStateException(message);
+                        }
+                    } else {
+                        String message = "Source feed  " + sourceFeed.getFeedId() + " is not " + FeedInfo.State.ACTIVE;
+                        if (LOGGER.isLoggable(Level.SEVERE)) {
+                            LOGGER.severe(message);
+                        }
+                        throw new IllegalStateException(message);
+                    }
+                    break;
             }
         }
     }

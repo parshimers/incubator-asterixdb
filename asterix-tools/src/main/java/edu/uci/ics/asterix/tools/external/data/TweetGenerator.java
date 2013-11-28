@@ -32,13 +32,8 @@ public class TweetGenerator {
     public static final String NUM_KEY_SPACES = "num-key-spaces";
     public static final String KEY_DURATION = "duration";
     public static final String KEY_TPS = "tps";
-    public static final String KEY_TPUT_DURATION = "tput-duration";
 
     public static final String KEY_GUID_SEED = "guid-seed";
-
-    public static final String OUTPUT_FORMAT = "output-format";
-    public static final String OUTPUT_FORMAT_ARECORD = "arecord";
-    public static final String OUTPUT_FORMAT_ADM_STRING = "adm-string";
 
     private static final int DEFAULT_DURATION = 60;
     private static final int DEFAULT_GUID_SEED = 0;
@@ -52,15 +47,14 @@ public class TweetGenerator {
     private OutputStream os;
     private DataGenerator dataGenerator = null;
     private ByteBuffer outputBuffer = ByteBuffer.allocate(32 * 1024);
-
     private GULongIDGenerator uidGenerator;
+    private String[] fields;
 
     public int getTweetCount() {
         return tweetCount;
     }
 
-    public TweetGenerator(Map<String, String> configuration, int partition, String format, OutputStream os)
-            throws Exception {
+    public TweetGenerator(Map<String, String> configuration, int partition, OutputStream os) throws Exception {
         this.partition = partition;
         String value = configuration.get(KEY_DURATION);
         this.duration = value != null ? Integer.parseInt(value) : DEFAULT_DURATION;
@@ -69,11 +63,14 @@ public class TweetGenerator {
         uidGenerator = new GULongIDGenerator(partition, (byte) (guidSeed));
         dataGenerator = new DataGenerator(new InitializationInfo());
         tweetIterator = dataGenerator.new TweetMessageIterator(duration, uidGenerator);
+        if (configuration.get(TwitterFirehoseFeedAdapterFactory.KEY_FIELDS) != null) {
+            fields = configuration.get(TwitterFirehoseFeedAdapterFactory.KEY_FIELDS).trim().split(",");
+        }
         this.os = os;
     }
 
     private void writeTweetString(TweetMessage tweetMessage) throws IOException {
-        String tweet = tweetMessage.toString() + "\n";
+        String tweet = fields == null ? tweetMessage + "\n" : tweetMessage.getAdmEquivalent(fields) + "\n";
         tweetCount++;
         byte[] b = tweet.getBytes();
         if (outputBuffer.position() + b.length > outputBuffer.limit()) {

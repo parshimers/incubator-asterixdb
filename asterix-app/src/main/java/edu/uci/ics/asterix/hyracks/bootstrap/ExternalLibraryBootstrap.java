@@ -150,6 +150,7 @@ public class ExternalLibraryBootstrap {
         boolean wasUninstalled = uninstalledLibsInDv != null && uninstalledLibsInDv.contains(libraryName);
 
         MetadataTransactionContext mdTxnCtx = null;
+        MetadataManager.INSTANCE.acquireWriteLatch();
         try {
             mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
             edu.uci.ics.asterix.metadata.entities.Library libraryInMetadata = MetadataManager.INSTANCE.getLibrary(
@@ -168,7 +169,7 @@ public class ExternalLibraryBootstrap {
             ExternalLibrary library = getLibrary(new File(libraryDir + File.separator + libraryDescriptors[0]));
 
             if (libraryDescriptors.length == 0) {
-                throw new Exception("No library descriptors defined");
+                throw new Exception("No library descriptor defined");
             } else if (libraryDescriptors.length > 1) {
                 throw new Exception("More than 1 library descriptors defined");
             }
@@ -231,6 +232,8 @@ public class ExternalLibraryBootstrap {
                 LOGGER.info("Exception in installing library " + libraryName);
             }
             MetadataManager.INSTANCE.abortTransaction(mdTxnCtx);
+        } finally {
+            MetadataManager.INSTANCE.releaseWriteLatch();
         }
     }
 

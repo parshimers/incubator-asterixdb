@@ -11,7 +11,7 @@ import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime;
 import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeState;
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
-import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FrameReader;
+import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FeedFrameCollector;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
 import edu.uci.ics.asterix.common.feeds.IFeedFrameWriter;
@@ -139,22 +139,22 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
 
         private String nodeId;
 
-        /** Allows to iterate over the tuples in a frame **/
-        private FrameTupleAccessor fta;
-
         /** The (singleton) instance of IFeedManager **/
         private IFeedManager feedManager;
 
         /** The frame reader instance that reads the input frames from the distribute feed writer **/
-        private FrameReader frameReader;
+        private FeedFrameCollector frameReader;
 
         /** true indicates that the runtime can be subscribed for data by other runtime instances. **/
         private final boolean enableSubscriptionMode;
+
+        private final IHyracksTaskContext ctx;
 
         public FeedMetaNodePushable(IHyracksTaskContext ctx, IRecordDescriptorProvider recordDescProvider,
                 int partition, int nPartitions, IOperatorDescriptor coreOperator, FeedConnectionId feedConnectionId,
                 FeedPolicy feedPolicy, FeedRuntimeType runtimeType, boolean enableSubscriptionMode)
                 throws HyracksDataException {
+            this.ctx = ctx;
             this.coreOperatorNodePushable = (AbstractUnaryInputUnaryOutputOperatorNodePushable) ((IActivity) coreOperator)
                     .createPushRuntime(ctx, recordDescProvider, partition, nPartitions);
             this.policyEnforcer = new FeedPolicyEnforcer(feedConnectionId, feedPolicy.getProperties());
@@ -162,7 +162,6 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
             this.runtimeType = runtimeType;
             this.feedConnectionId = feedConnectionId;
             this.nodeId = ctx.getJobletContext().getApplicationContext().getNodeId();
-            this.fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
             this.feedManager = ((IAsterixAppRuntimeContext) (IAsterixAppRuntimeContext) ctx.getJobletContext()
                     .getApplicationContext().getApplicationObject()).getFeedManager();
             this.enableSubscriptionMode = enableSubscriptionMode;
@@ -174,8 +173,8 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
             FeedRuntimeId runtimeId = new FeedRuntimeId(runtimeType, feedConnectionId, partition);
             try {
                 feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
-                IFeedFrameWriter mWriter = new FeedFrameWriter(writer, this, feedConnectionId, policyEnforcer, nodeId,
-                        runtimeType, partition, fta, feedManager);
+                IFeedFrameWriter mWriter = new FeedFrameWriter(ctx, writer, this, feedConnectionId, policyEnforcer,
+                        nodeId, runtimeType, partition, recordDesc, feedManager);
                 if (feedRuntime == null) {
                     switch (runtimeType) {
                         case COMPUTE:
@@ -233,8 +232,8 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
         private void retrieveSubscribableFeedRuntime(IFeedRuntime feedRuntime, IFeedFrameWriter frameWriter) {
             DistributeFeedFrameWriter dWriter = (DistributeFeedFrameWriter) feedRuntime.getFeedFrameWriter();
             dWriter.setWriter(writer);
-            Map<IFeedFrameWriter, FrameReader> registeredReaders = dWriter.getRegisteredReaders();
-            for (Entry<IFeedFrameWriter, FrameReader> entry : registeredReaders.entrySet()) {
+            Map<IFeedFrameWriter, FeedFrameCollector> registeredReaders = dWriter.getRegisteredReaders();
+            for (Entry<IFeedFrameWriter, FeedFrameCollector> entry : registeredReaders.entrySet()) {
                 if (entry.getValue().equals(frameReader)) {
                     frameReader.setFrameWriter(frameWriter);
                     break;
@@ -253,18 +252,21 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
         }
 
         private void registerSubscribableRuntime(IFeedFrameWriter feedFrameWriter) throws Exception {
-            IFeedFrameWriter mWriter = new DistributeFeedFrameWriter(feedConnectionId.getFeedId(), writer);
+            IFeedFrameWriter mWriter = new DistributeFeedFrameWriter(feedConnectionId.getFeedId(), writer, runtimeType,
+                    recordDesc);
             frameReader = ((DistributeFeedFrameWriter) mWriter).subscribeFeed(feedFrameWriter);
-            FeedSubscribableRuntimeId sid = new FeedSubscribableRuntimeId(feedConnectionId.getFeedId(), partition);
+            FeedSubscribableRuntimeId sid = new FeedSubscribableRuntimeId(feedConnectionId.getFeedId(), runtimeType,
+                    partition);
             feedRuntime = new SubscribableRuntime(sid, (DistributeFeedFrameWriter) mWriter, runtimeType);
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Set up distrbute feed frame writer for " + FeedRuntimeType.COMPUTE + " runtime type ");
+                LOGGER.info("Set up distrbute feed frame writer for subscribable runtime id " + sid + " of type ["
+                        + FeedRuntimeType.COMPUTE + "]");
             }
             feedManager.getFeedSubscriptionManager()
                     .registerFeedSubscribableRuntime((ISubscribableRuntime) feedRuntime);
             coreOperatorNodePushable.setOutputFrameWriter(0, mWriter, recordDesc);
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Registered basic feed runtime " + feedRuntime);
+                LOGGER.info("Registered subscribable feed runtime " + feedRuntime);
             }
         }
 
@@ -281,16 +283,21 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                 coreOperatorNodePushable.nextFrame(buffer);
                 currentBuffer = null;
             } catch (HyracksDataException e) {
+                int checksum = computeChecksum(buffer.array(), buffer.limit());
                 if (policyEnforcer.getFeedPolicyAccessor().continueOnApplicationFailure()) {
                     boolean isExceptionHarmful = e.getCause() instanceof TreeIndexException && !resumeOldState;
                     if (isExceptionHarmful) {
+                        if (LOGGER.isLoggable(Level.WARNING)) {
+                            LOGGER.warning("Ignoring exception " + e + " BY " + feedConnectionId + " BUFER CHECKSUM "
+                                    + checksum);
+                        }
                         // TODO: log the tuple
                         FeedRuntimeState runtimeState = new FeedRuntimeState(buffer, writer, e);
                         // sfeedRuntime.setRuntimeState(runtimeState);
                     } else {
                         // ignore the frame (exception is expected)
                         if (LOGGER.isLoggable(Level.WARNING)) {
-                            LOGGER.warning("Ignoring exception " + e);
+                            LOGGER.warning("Ignoring exception " + e + " BY " + feedConnectionId);
                         }
                     }
                 } else {
@@ -300,6 +307,25 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                     throw e;
                 }
             }
+        }
+
+        private static int computeChecksum(byte[] buf, int len) {
+            int crc = 0xFFFF;
+
+            for (int pos = 0; pos < len; pos++) {
+                crc ^= (int) buf[pos]; // XOR byte into least sig. byte of crc
+
+                for (int i = 8; i != 0; i--) { // Loop over each bit
+                    if ((crc & 0x0001) != 0) { // If the LSB is set
+                        crc >>= 1; // Shift right and XOR 0xA001
+                        crc ^= 0xA001;
+                    } else
+                        // Else LSB is not set
+                        crc >>= 1; // Just shift right
+                }
+            }
+            // Note, this number has low and high bytes swapped, so use it accordingly (or swap bytes)
+            return crc;
         }
 
         @Override

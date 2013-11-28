@@ -35,10 +35,6 @@ public class BasicFeedRuntime implements IFeedRuntime {
         this.frameWriter = frameWriter;
     }
 
-    public IFeedFrameWriter getFrameWriter() {
-        return frameWriter;
-    }
-
     public void setFrameWriter(IFeedFrameWriter frameWriter) {
         this.frameWriter = frameWriter;
     }

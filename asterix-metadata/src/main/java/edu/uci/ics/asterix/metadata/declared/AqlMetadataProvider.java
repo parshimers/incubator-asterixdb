@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.config.AsterixStorageProperties;
@@ -438,17 +439,21 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                     feedPolicy.getProperties(), feedDataSource.getLocation());
 
             String[] locationArray = null;
-            String locations;
+            String locations = null;;
             switch (feedDataSource.getSourceFeedType()) {
                 case PRIMARY:
                     switch (feedDataSource.getLocation()) {
                         case SOURCE_FEED_COMPUTE:
-                            List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getActiveFeedConnections(
-                                    mdTxnCtx, feedDataSource.getSourceFeedId().getDataverse(), feedDataSource
-                                            .getSourceFeedId().getFeedName());
-                            locations = feedActivities.get(0).getFeedActivityDetails()
-                                    .get(FeedActivityDetails.COMPUTE_LOCATIONS);
-                            locationArray = locations.split(",");
+                            if (feedDataSource.getFeed().getFeedId().equals(feedDataSource.getSourceFeedId())) {
+                                locationArray = feedDataSource.getLocations();
+                            } else {
+                                List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getActiveFeedConnections(
+                                        mdTxnCtx, feedDataSource.getSourceFeedId().getDataverse(), feedDataSource
+                                                .getSourceFeedId().getFeedName());
+                                locations = feedActivities.get(0).getFeedActivityDetails()
+                                        .get(FeedActivityDetails.COMPUTE_LOCATIONS);
+                                locationArray = locations.split(",");
+                            }
                             break;
                         case SOURCE_FEED_INTAKE:
                             locationArray = feedDataSource.getLocations();
@@ -456,7 +461,30 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                     }
                     break;
                 case SECONDARY:
-                    throw new NotImplementedException("Using a secondary feed as a source is not supported yet");
+                    List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getActiveFeedConnections(mdTxnCtx,
+                            feedDataSource.getSourceFeedId().getDataverse(), feedDataSource.getSourceFeedId()
+                                    .getFeedName());
+                    switch (feedDataSource.getLocation()) {
+                        case SOURCE_FEED_INTAKE:
+                            locations = feedActivities.get(0).getFeedActivityDetails()
+                                    .get(FeedActivityDetails.COLLECT_LOCATIONS);
+                            break;
+                        case SOURCE_FEED_COMPUTE:
+                            locations = feedActivities.get(0).getFeedActivityDetails()
+                                    .get(FeedActivityDetails.COMPUTE_LOCATIONS);
+                            break;
+                    }
+                    if (locations != null) {
+                        locationArray = locations.split(",");
+                    } else {
+                        String message = "Unable to discover location(s) for source feed data hand-off "
+                                + feedDataSource.getSourceFeedId();
+                        if (LOGGER.isLoggable(Level.SEVERE)) {
+                            LOGGER.severe(message);
+                        }
+                        throw new IllegalStateException(message);
+                    }
+                    break;
             }
 
             AlgebricksAbsolutePartitionConstraint locationConstraint = new AlgebricksAbsolutePartitionConstraint(
@@ -1066,7 +1094,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             int datasetId = dataset.getDatasetId();
             TransactionSubsystemProvider txnSubsystemProvider = new TransactionSubsystemProvider();
             SecondaryIndexModificationOperationCallbackFactory modificationCallbackFactory = new SecondaryIndexModificationOperationCallbackFactory(
-                    jobId, datasetId, modificationCallbackPrimaryKeyFields, txnSubsystemProvider, indexOp, ResourceType.LSM_BTREE);
+                    jobId, datasetId, modificationCallbackPrimaryKeyFields, txnSubsystemProvider, indexOp,
+                    ResourceType.LSM_BTREE);
 
             Pair<ILSMMergePolicyFactory, Map<String, String>> compactionInfo = DatasetUtils.getMergePolicyFactory(
                     dataset, mdTxnCtx);
@@ -1192,7 +1221,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             int datasetId = dataset.getDatasetId();
             TransactionSubsystemProvider txnSubsystemProvider = new TransactionSubsystemProvider();
             SecondaryIndexModificationOperationCallbackFactory modificationCallbackFactory = new SecondaryIndexModificationOperationCallbackFactory(
-                    jobId, datasetId, modificationCallbackPrimaryKeyFields, txnSubsystemProvider, indexOp, ResourceType.LSM_INVERTED_INDEX);
+                    jobId, datasetId, modificationCallbackPrimaryKeyFields, txnSubsystemProvider, indexOp,
+                    ResourceType.LSM_INVERTED_INDEX);
 
             Pair<ILSMMergePolicyFactory, Map<String, String>> compactionInfo = DatasetUtils.getMergePolicyFactory(
                     dataset, mdTxnCtx);
@@ -1283,7 +1313,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             int datasetId = dataset.getDatasetId();
             TransactionSubsystemProvider txnSubsystemProvider = new TransactionSubsystemProvider();
             SecondaryIndexModificationOperationCallbackFactory modificationCallbackFactory = new SecondaryIndexModificationOperationCallbackFactory(
-                    jobId, datasetId, modificationCallbackPrimaryKeyFields, txnSubsystemProvider, indexOp, ResourceType.LSM_RTREE);
+                    jobId, datasetId, modificationCallbackPrimaryKeyFields, txnSubsystemProvider, indexOp,
+                    ResourceType.LSM_RTREE);
 
             Pair<ILSMMergePolicyFactory, Map<String, String>> compactionInfo = DatasetUtils.getMergePolicyFactory(
                     dataset, mdTxnCtx);

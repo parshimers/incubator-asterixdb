@@ -23,6 +23,7 @@ import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
 import edu.uci.ics.asterix.common.feeds.IFeedConnectionManager;
+import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.IFeedSubscriptionManager;
 import edu.uci.ics.asterix.common.feeds.ISubscribableRuntime;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
@@ -87,11 +88,12 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
                 .getApplicationContext().getApplicationObject();
         this.feedSubscriptionManager = runtimeCtx.getFeedManager().getFeedSubscriptionManager();
         ISubscribableRuntime sourceRuntime = null;
+        IOperatorNodePushable nodePushable = null;
         switch (subscriptionLocation) {
             case SOURCE_FEED_INTAKE:
                 try {
                     FeedSubscribableRuntimeId feedSubscribableRuntimeId = new FeedSubscribableRuntimeId(sourceFeedId,
-                            partition);
+                            FeedRuntimeType.INGEST, partition);
                     if (LOGGER.isLoggable(Level.INFO)) {
                         LOGGER.info("Attempting to obtain source ingestion runtime" + sourceFeedId + " location "
                                 + subscriptionLocation);
@@ -101,6 +103,8 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
                         throw new HyracksDataException("Source ingestion task not found for source feed id "
                                 + sourceFeedId);
                     }
+                    nodePushable = new FeedCollectOperatorNodePushable(ctx, sourceFeedId, feedConnectionId, feedPolicy,
+                            partition, sourceRuntime);
 
                 } catch (Exception exception) {
                     if (LOGGER.isLoggable(Level.SEVERE)) {
@@ -111,16 +115,17 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
                 break;
             case SOURCE_FEED_COMPUTE:
                 FeedSubscribableRuntimeId feedSubscribableRuntimeId = new FeedSubscribableRuntimeId(sourceFeedId,
-                        partition);
+                        FeedRuntimeType.COMPUTE, partition);
                 sourceRuntime = (ISubscribableRuntime) feedSubscriptionManager
                         .getSubscribableRuntime(feedSubscribableRuntimeId);
                 if (sourceRuntime == null) {
                     throw new HyracksDataException("Source compute task not found for source feed id " + sourceFeedId);
                 }
+                nodePushable = new FeedCollectOperatorNodePushable(ctx, sourceFeedId, feedConnectionId, feedPolicy,
+                        partition, sourceRuntime);
                 break;
         }
-        return new FeedCollectOperatorNodePushable(ctx, sourceFeedId, feedConnectionId, feedPolicy, partition,
-                sourceRuntime);
+        return nodePushable;
     }
 
     public FeedConnectionId getFeedConnectionId() {

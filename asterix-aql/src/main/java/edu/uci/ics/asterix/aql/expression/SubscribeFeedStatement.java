@@ -82,6 +82,7 @@ public class SubscribeFeedStatement implements Statement {
         }
 
         StringBuilder builder = new StringBuilder();
+        builder.append("use dataverse " + subscriptionRequest.getSourceFeed().getDataverseName() + ";\n");
         builder.append("set" + " " + FunctionUtils.IMPORT_PRIVATE_FUNCTIONS + " " + "'" + Boolean.TRUE + "'" + ";\n");
         builder.append("set" + " " + FeedActivity.FeedActivityDetails.FEED_POLICY_NAME + " " + "'"
                 + subscriptionRequest.getPolicy() + "'" + ";\n");
@@ -118,7 +119,7 @@ public class SubscribeFeedStatement implements Statement {
         List<Statement> statements;
         try {
             statements = parser.Statement();
-            query = ((InsertStatement) statements.get(2)).getQuery();
+            query = ((InsertStatement) statements.get(3)).getQuery();
         } catch (ParseException pe) {
             throw new MetadataException(pe);
         }

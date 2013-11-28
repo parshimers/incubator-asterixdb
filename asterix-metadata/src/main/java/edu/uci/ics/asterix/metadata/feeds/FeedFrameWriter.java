@@ -33,7 +33,9 @@ import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.SuperFeedManager;
 import edu.uci.ics.asterix.common.feeds.SuperFeedManager.FeedReportMessageType;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
+import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorNodePushable;
+import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 
@@ -111,9 +113,10 @@ public class FeedFrameWriter implements IFeedFrameWriter {
      */
     private FrameTupleAccessor fta;
 
-    public FeedFrameWriter(IFrameWriter writer, IOperatorNodePushable nodePushable, FeedConnectionId feedConnectionId,
-            FeedPolicyEnforcer policyEnforcer, String nodeId, FeedRuntimeType feedRuntimeType, int partition,
-            FrameTupleAccessor fta, IFeedManager feedManager) {
+    public FeedFrameWriter(IHyracksTaskContext ctx, IFrameWriter writer, IOperatorNodePushable nodePushable,
+            FeedConnectionId feedConnectionId, FeedPolicyEnforcer policyEnforcer, String nodeId,
+            FeedRuntimeType feedRuntimeType, int partition, RecordDescriptor outputRecordDescriptor,
+            IFeedManager feedManager) {
         this.feedConnectionId = feedConnectionId;
         this.writer = writer;
         this.mode = Mode.FORWARD;
@@ -135,7 +138,7 @@ public class FeedFrameWriter implements IFeedFrameWriter {
             }
         }
         this.partition = partition;
-        this.fta = fta;
+        this.fta = new FrameTupleAccessor(ctx.getFrameSize(), outputRecordDescriptor);
     }
 
     public Mode getMode() {
@@ -347,7 +350,7 @@ public class FeedFrameWriter implements IFeedFrameWriter {
                 healthMonitor.deactivate();
             } else {
                 healthMonitor.reset();
-                }
+            }
         }
     }
 

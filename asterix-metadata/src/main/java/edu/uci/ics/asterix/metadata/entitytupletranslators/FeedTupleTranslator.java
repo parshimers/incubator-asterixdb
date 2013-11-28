@@ -93,19 +93,8 @@ public class FeedTupleTranslator extends AbstractTupleTranslator<Feed> {
         Object o = feedRecord.getValueByPos(MetadataRecordTypes.FEED_ARECORD_FUNCTION_FIELD_INDEX);
         FunctionSignature signature = null;
         if (!(o instanceof ANull)) {
-            String functionIdentifier = ((AString) o).getStringValue();
-            String[] qnameComponents = functionIdentifier.split("\\.");
-            String functionDataverse;
-            String functionName;
-            if (qnameComponents.length == 2) {
-                functionDataverse = qnameComponents[0];
-                functionName = qnameComponents[1];
-            } else {
-                functionDataverse = dataverseName;
-                functionName = qnameComponents[0];
-            }
-
-            signature = new FunctionSignature(functionDataverse, functionName, 1);
+            String functionName = ((AString) o).getStringValue();
+            signature = new FunctionSignature(dataverseName, functionName, 1);
         }
 
         String feedType = ((AString) feedRecord.getValueByPos(MetadataRecordTypes.FEED_ARECORD_FEED_TYPE_FIELD_INDEX))
@@ -184,7 +173,7 @@ public class FeedTupleTranslator extends AbstractTupleTranslator<Feed> {
         // write field 2
         fieldValue.reset();
         if (feed.getAppliedFunction() != null) {
-            aString.setValue(feed.getAppliedFunction().toString());
+            aString.setValue(feed.getAppliedFunction().getName());
             stringSerde.serialize(aString, fieldValue.getDataOutput());
             recordBuilder.addField(MetadataRecordTypes.FEED_ARECORD_FUNCTION_FIELD_INDEX, fieldValue);
         }
