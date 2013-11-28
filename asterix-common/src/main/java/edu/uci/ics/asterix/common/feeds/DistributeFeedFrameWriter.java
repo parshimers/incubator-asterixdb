@@ -559,30 +559,6 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
             }
         }
 
-        public static void prettyPrint(FrameTupleAccessor fta, int nTuples) {
-            ByteBufferInputStream bbis = new ByteBufferInputStream();
-            DataInputStream dis = new DataInputStream(bbis);
-            int tc = fta.getTupleCount();
-            System.err.println("TC: " + tc);
-            for (int i = 0; i < nTuples; ++i) {
-                System.err.print(i + ":(" + fta.getTupleStartOffset(i) + ", " + fta.getTupleEndOffset(i) + ")[");
-                for (int j = 0; j < fta.getFieldCount(); ++j) {
-                    System.err.print(j + ":(" + fta.getFieldStartOffset(i, j) + ", " + fta.getFieldEndOffset(i, j)
-                            + ") ");
-                    System.err.print("{");
-                    bbis.setByteBuffer(fta.getBuffer(),
-                            fta.getTupleStartOffset(i) + fta.getFieldSlotsLength() + fta.getFieldStartOffset(i, j));
-                    try {
-                        System.err.print(fta.getRecordDescriptor().getFields()[j].deserialize(dis));
-                    } catch (HyracksDataException e) {
-                        e.printStackTrace();
-                    }
-                    System.err.print("}");
-                }
-                System.err.println("]");
-            }
-        }
-
         public synchronized void disconnect() {
             setState(State.FINISHED);
             notifyAll();
