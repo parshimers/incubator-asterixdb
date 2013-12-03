@@ -30,7 +30,6 @@ import edu.uci.ics.asterix.metadata.entities.Datatype;
 import edu.uci.ics.asterix.metadata.entities.Dataverse;
 import edu.uci.ics.asterix.metadata.entities.Feed;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity;
-import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityType;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
 import edu.uci.ics.asterix.metadata.entities.Function;
 import edu.uci.ics.asterix.metadata.entities.Index;
@@ -499,16 +498,6 @@ public interface IMetadataManager {
 
     /**
      * @param ctx
-     * @param dataverseName
-     * @param datasetName
-     * @return
-     * @throws MetadataException
-     */
-    public FeedActivity getRecentActivityOnFeedConnection(MetadataTransactionContext ctx, FeedConnectionId feedId,
-            FeedActivityType... activityTypeFilter) throws MetadataException;
-
-    /**
-     * @param ctx
      * @param policy
      * @throws MetadataException
      */
@@ -523,19 +512,6 @@ public interface IMetadataManager {
      */
     public FeedPolicy getFeedPolicy(MetadataTransactionContext ctx, String dataverse, String policyName)
             throws MetadataException;
-
-    /**
-     * @param ctx
-     * @param dataverse
-     * @param dataset
-     * @return
-     * @throws MetadataException
-     */
-    public List<FeedActivity> getActiveFeedsServingADataset(MetadataTransactionContext ctx, String dataverse,
-            String dataset) throws MetadataException;
-
-    public List<FeedActivity> getConnectFeedActivitiesForFeed(MetadataTransactionContext ctx, String dataverse,
-            String dataset) throws MetadataException;
 
     public void initializeDatasetIdFactory(MetadataTransactionContext ctx) throws MetadataException;
 
@@ -605,19 +581,6 @@ public interface IMetadataManager {
      * @throws RemoteException
      */
     public List<Library> getDataverseLibraries(MetadataTransactionContext ctx, String dataverseName)
-            throws MetadataException;
-
-    /**
-     * @param ctx
-     *            MetadataTransactionContext of an active metadata transaction.
-     * @param dataverse
-     *            Dataverse asociated with the feed
-     * @param feedName
-     *            Name of the feed
-     * @return
-     * @throws MetadataException
-     */
-    List<FeedActivity> getActiveFeedConnections(MetadataTransactionContext ctx, String dataverse, String feedName)
             throws MetadataException;
 
 }

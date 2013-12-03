@@ -21,7 +21,7 @@ import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FeedFrameColle
 /**
  * Represents the feed runtime that collects feed tuples from another feed.
  * In case of a primary feed, the collect runtime collects tuples from the feed
- * ingestion job. For a secondary feed, tuples are collected from the ingestion/compute
+ * intake job. For a secondary feed, tuples are collected from the intake/compute
  * runtime associated with the source feed.
  */
 public class CollectionRuntime extends BasicFeedRuntime implements ISubscriberRuntime {
@@ -37,11 +37,11 @@ public class CollectionRuntime extends BasicFeedRuntime implements ISubscriberRu
         this.feedPolicy = feedPolicy;
     }
 
-    public ISubscribableRuntime getSubscribableRuntime() {
+    public ISubscribableRuntime getSourceRuntime() {
         return sourceRuntime;
     }
 
-    public void setIngestionRuntime(ISubscribableRuntime sourceRuntime) {
+    public void setSourceRuntime(ISubscribableRuntime sourceRuntime) {
         this.sourceRuntime = sourceRuntime;
     }
 

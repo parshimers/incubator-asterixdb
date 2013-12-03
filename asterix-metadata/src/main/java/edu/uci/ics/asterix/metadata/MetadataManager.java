@@ -36,7 +36,6 @@ import edu.uci.ics.asterix.metadata.entities.Datatype;
 import edu.uci.ics.asterix.metadata.entities.Dataverse;
 import edu.uci.ics.asterix.metadata.entities.Feed;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity;
-import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityType;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
 import edu.uci.ics.asterix.metadata.entities.Function;
 import edu.uci.ics.asterix.metadata.entities.Index;
@@ -677,19 +676,6 @@ public class MetadataManager implements IMetadataManager {
         }
     }
 
-    @Override
-    public FeedActivity getRecentActivityOnFeedConnection(MetadataTransactionContext ctx, FeedConnectionId feedId,
-            FeedActivityType... feedActivityTypes) throws MetadataException {
-
-        FeedActivity feedActivity = null;
-        try {
-            feedActivity = metadataNode.getRecentFeedActivity(ctx.getJobId(), feedId, feedActivityTypes);
-        } catch (RemoteException e) {
-            throw new MetadataException(e);
-        }
-        return feedActivity;
-    }
-
     public void dropLibrary(MetadataTransactionContext ctx, String dataverseName, String libraryName)
             throws MetadataException {
         try {
@@ -772,30 +758,6 @@ public class MetadataManager implements IMetadataManager {
     }
 
     @Override
-    public List<FeedActivity> getActiveFeedsServingADataset(MetadataTransactionContext ctx, String dataverse,
-            String dataset) throws MetadataException {
-        List<FeedActivity> feedActivities = null;
-        try {
-            feedActivities = metadataNode.getActiveFeedsServingADataset(ctx.getJobId(), dataverse, dataset);
-        } catch (RemoteException e) {
-            throw new MetadataException(e);
-        }
-        return feedActivities;
-    }
-
-    @Override
-    public List<FeedActivity> getActiveFeedConnections(MetadataTransactionContext ctx, String dataverse, String feedName)
-            throws MetadataException {
-        List<FeedActivity> feedActivities = null;
-        try {
-            feedActivities = metadataNode.getDatasetsServedByFeed(ctx.getJobId(), dataverse, feedName);
-        } catch (RemoteException e) {
-            throw new MetadataException(e);
-        }
-        return feedActivities;
-    }
-
-    @Override
     public Feed getFeed(MetadataTransactionContext ctx, String dataverse, String feedName) throws MetadataException {
         Feed feed = null;
         try {
@@ -826,17 +788,6 @@ public class MetadataManager implements IMetadataManager {
             throw new MetadataException(e);
         }
         ctx.addFeed(feed);
-    }
-
-    public List<FeedActivity> getConnectFeedActivitiesForFeed(MetadataTransactionContext ctx, String dataverse,
-            String feedName) throws MetadataException {
-        List<FeedActivity> feedActivities = null;
-        try {
-            feedActivities = metadataNode.getDatasetsServedByFeed(ctx.getJobId(), dataverse, feedName);
-        } catch (RemoteException e) {
-            throw new MetadataException(e);
-        }
-        return feedActivities;
     }
 
     public List<DatasourceAdapter> getDataverseAdapters(MetadataTransactionContext mdTxnCtx, String dataverse)

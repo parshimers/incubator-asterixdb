@@ -18,12 +18,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
-import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
-import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
-import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime;
 import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
-import edu.uci.ics.asterix.common.feeds.IFeedFrameWriter;
+import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
+import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.SuperFeedManager;
@@ -70,7 +68,7 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                         LOGGER.info("Ending feed:" + feedConnectionId);
                     }
                     if (collectionLocation) {
-                        ((CollectionRuntime) feedRuntime).getSubscribableRuntime().unsubscribeFeed(
+                        ((CollectionRuntime) feedRuntime).getSourceRuntime().unsubscribeFeed(
                                 (CollectionRuntime) feedRuntime);
                         if (LOGGER.isLoggable(Level.INFO)) {
                             LOGGER.info("Unsubscribed from feed :" + feedConnectionId);

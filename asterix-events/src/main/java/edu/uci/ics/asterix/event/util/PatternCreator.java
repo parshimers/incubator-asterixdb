@@ -84,14 +84,14 @@ public class PatternCreator {
         List<Pattern> ps = new ArrayList<Pattern>();
 
         Pattern createCC = createCCStartPattern(ccLocationId);
-        addInitialDelay(createCC, 3, "sec");
+        //  addInitialDelay(createCC, 3, "sec");
         ps.add(createCC);
 
         for (Node node : cluster.getNode()) {
             String iodevices = node.getIodevices() == null ? cluster.getIodevices() : node.getIodevices();
             Pattern createNC = createNCStartPattern(cluster.getMasterNode().getClusterIp(), node.getId(),
                     asterixInstanceName + "_" + node.getId(), iodevices);
-            addInitialDelay(createNC, 5, "sec");
+            addInitialDelay(createNC, 3, "sec");
             ps.add(createNC);
         }
 

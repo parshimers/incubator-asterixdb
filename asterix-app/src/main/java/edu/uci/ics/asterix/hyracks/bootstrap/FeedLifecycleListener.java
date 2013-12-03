@@ -32,8 +32,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.commons.lang3.StringUtils;
-
 import edu.uci.ics.asterix.api.common.APIFramework.DisplayFormat;
 import edu.uci.ics.asterix.api.common.FeedWorkCollection.SubscribeFeedWork;
 import edu.uci.ics.asterix.api.common.SessionConfig;
@@ -73,6 +71,7 @@ import edu.uci.ics.asterix.metadata.feeds.FeedManagerElectMessage;
 import edu.uci.ics.asterix.metadata.feeds.FeedMetaOperatorDescriptor;
 import edu.uci.ics.asterix.metadata.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionRequest;
+import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionRequest.SubscriptionLocation;
 import edu.uci.ics.asterix.metadata.feeds.FeedWorkManager;
 import edu.uci.ics.asterix.metadata.feeds.IFeedMessage;
 import edu.uci.ics.asterix.metadata.feeds.MessageListener;
@@ -130,6 +129,7 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
     private State state;
     private final FeedJobNotificationHandler feedJobNotificationHandler;
     private final FeedWorkRequestResponseHandler feedWorkRequestResponseHandler;
+    private final Map<FeedId, Pair<SubscriptionLocation, List<FeedConnectionId>>> dependencyChain = new HashMap<FeedId, Pair<SubscriptionLocation, List<FeedConnectionId>>>();
 
     private FeedLifecycleListener() {
         jobEventInbox = new LinkedBlockingQueue<Message>();
@@ -501,8 +501,6 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
                 IHyracksClientConnection hcc = AsterixAppContextInfo.getInstance().getHcc();
                 JobInfo info = hcc.getJobInfo(message.jobId);
                 feedCollectInfo.jobInfo = info;
-                Map<String, String> feedActivityDetails = new HashMap<String, String>();
-                StringBuilder ingestLocs = new StringBuilder();
                 for (OperatorDescriptorId collectOpId : collectOperatorIds) {
                     Map<Integer, String> operatorLocations = info.getOperatorLocations().get(collectOpId);
                     int nOperatorInstances = operatorLocations.size();
@@ -510,7 +508,6 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
                         feedCollectInfo.collectLocations.add(operatorLocations.get(i));
                     }
                 }
-                StringBuilder computeLocs = new StringBuilder();
                 for (OperatorDescriptorId computeOpId : computeOperatorIds) {
                     Map<Integer, String> operatorLocations = info.getOperatorLocations().get(computeOpId);
                     if (operatorLocations != null) {
@@ -524,7 +521,6 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
                     }
                 }
 
-                StringBuilder storageLocs = new StringBuilder();
                 for (OperatorDescriptorId storageOpId : storageOperatorIds) {
                     Map<Integer, String> operatorLocations = info.getOperatorLocations().get(storageOpId);
                     int nOperatorInstances = operatorLocations.size();
@@ -533,47 +529,21 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
                     }
                 }
 
-                ingestLocs.append(StringUtils.join(feedCollectInfo.collectLocations, ","));
-                computeLocs.append(StringUtils.join(feedCollectInfo.computeLocations, ","));
-                storageLocs.append(StringUtils.join(feedCollectInfo.storageLocations, ","));
-
-                feedActivityDetails.put(FeedActivity.FeedActivityDetails.COLLECT_LOCATIONS, ingestLocs.toString());
-                feedActivityDetails.put(FeedActivity.FeedActivityDetails.COMPUTE_LOCATIONS, computeLocs.toString());
-                feedActivityDetails.put(FeedActivity.FeedActivityDetails.STORAGE_LOCATIONS, storageLocs.toString());
-                feedActivityDetails.put(FeedActivity.FeedActivityDetails.FEED_POLICY_NAME,
-                        feedCollectInfo.feedPolicy.get(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY));
-
                 FeedPolicyAccessor policyAccessor = new FeedPolicyAccessor(feedCollectInfo.feedPolicy);
                 if (policyAccessor.collectStatistics() || policyAccessor.isElastic()) {
                     if (LOGGER.isLoggable(Level.INFO)) {
                         LOGGER.info("Feed " + feedCollectInfo.feedConnectionId + " requires Super Feed Manager");
                     }
-                    configureSuperFeedManager(feedCollectInfo, feedActivityDetails);
+                    configureSuperFeedManager(feedCollectInfo);
                 }
 
-                MetadataManager.INSTANCE.acquireWriteLatch();
-                MetadataTransactionContext mdTxnCtx = null;
-                try {
-                    mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
-                    FeedActivityType nextState = FeedActivityType.FEED_BEGIN;
-                    FeedActivity feedActivity = new FeedActivity(feedCollectInfo.feedConnectionId.getFeedId()
-                            .getDataverse(), feedCollectInfo.feedConnectionId.getFeedId().getFeedName(),
-                            feedCollectInfo.feedConnectionId.getDatasetName(), nextState, feedActivityDetails);
-                    MetadataManager.INSTANCE.registerFeedActivity(mdTxnCtx, feedCollectInfo.feedConnectionId,
-                            feedActivity);
-                    MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
-                } catch (Exception e) {
-                    MetadataManager.INSTANCE.abortTransaction(mdTxnCtx);
-                } finally {
-                    MetadataManager.INSTANCE.releaseWriteLatch();
-                }
             } catch (Exception e) {
                 // TODO Add Exception handling here
             }
             feedCollectInfo.state = FeedInfo.State.ACTIVE;
         }
 
-        private void configureSuperFeedManager(FeedCollectInfo feedCollectInfo, Map<String, String> feedActivityDetails) {
+        private void configureSuperFeedManager(FeedCollectInfo feedCollectInfo) {
             int superFeedManagerIndex = new Random().nextInt(feedCollectInfo.collectLocations.size());
             String superFeedManagerHost = feedCollectInfo.collectLocations.get(superFeedManagerIndex);
 
@@ -591,13 +561,12 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
                 throw new IllegalStateException("Unknown node " + superFeedManagerHost);
             }
 
-            feedActivityDetails.put(FeedActivity.FeedActivityDetails.SUPER_FEED_MANAGER_HOST, hostIp);
-            feedActivityDetails
-                    .put(FeedActivity.FeedActivityDetails.SUPER_FEED_MANAGER_PORT, "" + superFeedManagerPort);
+            feedCollectInfo.superFeedManagerHost = hostIp;
+            feedCollectInfo.superFeedManagerPort = superFeedManagerPort;
 
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Super Feed Manager for " + feedCollectInfo.feedConnectionId + " is " + hostIp + " node "
-                        + superFeedManagerHost);
+                        + superFeedManagerHost + "[" + superFeedManagerPort + "]");
             }
 
             FeedManagerElectMessage feedMessage = new FeedManagerElectMessage(hostIp, superFeedManagerHost,
@@ -622,67 +591,67 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
             deregisterFeedIntakeJob(feedInfo.feedId, feedInfo.jobId);
         }
 
-        private void handleFeedCollectJobFinishMessage(FeedCollectInfo feedInfo, Message message) {
-            MetadataTransactionContext mdTxnCtx = null;
-            boolean latchAcquired = false;
-            boolean feedFailedDueToPostSubmissionNodeLoss = failedDueToNodeFalilurePostSubmission(feedInfo);
+        private void handleFeedCollectJobFinishMessage(FeedCollectInfo feedCollectInfo, Message message)
+                throws Exception {
+            boolean feedFailedDueToPostSubmissionNodeLoss = failedDueToNodeFalilurePostSubmission(feedCollectInfo);
             if (!feedFailedDueToPostSubmissionNodeLoss) {
-                try {
-                    IHyracksClientConnection hcc = AsterixAppContextInfo.getInstance().getHcc();
-                    JobInfo info = hcc.getJobInfo(message.jobId);
-                    JobStatus status = info.getStatus();
-                    List<Exception> exceptions;
-                    boolean failure = status != null && status.equals(JobStatus.FAILURE);
-                    FeedActivityType activityType = FeedActivityType.FEED_END;
-                    Map<String, String> details = new HashMap<String, String>();
-                    if (failure) {
-                        activityType = FeedActivityType.FEED_FAILURE;
-                        if (LOGGER.isLoggable(Level.INFO)) {
-                            LOGGER.info(info + " failed on account of " + details);
-                        }
-                    } else {
-                        removeSubscriptionRequest(feedInfo.sourceFeedId, feedInfo.feedConnectionId.getFeedId());
-                        if (LOGGER.isLoggable(Level.INFO)) {
-                            LOGGER.info(info + " completed successfully. Removed subscription");
-                        }
+                IHyracksClientConnection hcc = AsterixAppContextInfo.getInstance().getHcc();
+                JobInfo info = hcc.getJobInfo(message.jobId);
+                JobStatus status = info.getStatus();
+                List<Exception> exceptions;
+                boolean failure = status != null && status.equals(JobStatus.FAILURE);
+                Map<String, String> details = new HashMap<String, String>();
+                if (failure) {
+                    if (LOGGER.isLoggable(Level.INFO)) {
+                        LOGGER.info(info + " failed on account of " + details);
                     }
-                    mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
-                    MetadataManager.INSTANCE.acquireWriteLatch();
-                    latchAcquired = true;
-                    FeedActivity feedActivity = new FeedActivity(feedInfo.feedConnectionId.getFeedId().getDataverse(),
-                            feedInfo.feedConnectionId.getFeedId().getFeedName(),
-                            feedInfo.feedConnectionId.getDatasetName(), activityType, details);
-                    MetadataManager.INSTANCE.registerFeedActivity(mdTxnCtx, new FeedConnectionId(
-                            feedInfo.feedConnectionId.getFeedId().getDataverse(), feedInfo.feedConnectionId.getFeedId()
-                                    .getFeedName(), feedInfo.feedConnectionId.getDatasetName()), feedActivity);
-                    MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
-                } catch (Exception e) {
-                    if (mdTxnCtx != null) {
-                        try {
-                            MetadataManager.INSTANCE.abortTransaction(mdTxnCtx);
-                        } catch (RemoteException | ACIDException ae) {
-                            throw new IllegalStateException(" Unable to abort ");
-                        }
-                    }
-                } finally {
-                    if (latchAcquired) {
-                        MetadataManager.INSTANCE.releaseWriteLatch();
+                } else {
+                    removeSubscriptionRequest(feedCollectInfo.sourceFeedId,
+                            feedCollectInfo.feedConnectionId.getFeedId());
+                    if (LOGGER.isLoggable(Level.INFO)) {
+                        LOGGER.info(info + " completed successfully. Removed subscription");
                     }
                 }
+                deregisterFeedActivity(feedCollectInfo);
+
             } else {
                 if (LOGGER.isLoggable(Level.WARNING)) {
                     LOGGER.warning("Attempt to revive feed");
                 }
                 FeedsActivator activator = new FeedsActivator();
-                String dataverse = feedInfo.feedConnectionId.getFeedId().getDataverse();
-                String datasetName = feedInfo.feedConnectionId.getDatasetName();
-                String feedName = feedInfo.feedConnectionId.getFeedId().getFeedName();
-                String feedPolicy = feedInfo.feedPolicy.get(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY);
+                String dataverse = feedCollectInfo.feedConnectionId.getFeedId().getDataverse();
+                String datasetName = feedCollectInfo.feedConnectionId.getDatasetName();
+                String feedName = feedCollectInfo.feedConnectionId.getFeedId().getFeedName();
+                String feedPolicy = feedCollectInfo.feedPolicy.get(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY);
                 activator.reviveFeed(dataverse, feedName, datasetName, feedPolicy);
                 if (LOGGER.isLoggable(Level.WARNING)) {
                     LOGGER.warning("Revived Feed");
                 }
 
+            }
+        }
+
+        private void deregisterFeedActivity(FeedCollectInfo feedCollectInfo) {
+            MetadataTransactionContext mdTxnCtx = null;
+            boolean latchAcquired;
+            try {
+                mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+                MetadataManager.INSTANCE.acquireWriteLatch();
+                latchAcquired = true;
+                MetadataManager.INSTANCE.deregisterFeedActivity(mdTxnCtx, feedCollectInfo.feedConnectionId);
+                MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+            } catch (Exception e) {
+                if (mdTxnCtx != null) {
+                    try {
+                        MetadataManager.INSTANCE.abortTransaction(mdTxnCtx);
+                    } catch (RemoteException | ACIDException ae) {
+                        throw new IllegalStateException(" Unable to abort ");
+                    }
+                }
+            } finally {
+                if (latchAcquired) {
+                    MetadataManager.INSTANCE.releaseWriteLatch();
+                }
             }
         }
 
@@ -822,6 +791,8 @@ public class FeedLifecycleListener implements IJobLifecycleListener, IClusterEve
         public List<String> computeLocations = new ArrayList<String>();
         public List<String> storageLocations = new ArrayList<String>();
         public Map<String, String> feedPolicy;
+        public String superFeedManagerHost;
+        public int superFeedManagerPort;
 
         public FeedCollectInfo(FeedId sourceFeedId, FeedConnectionId feedConnectionId, JobSpecification jobSpec,
                 JobId jobId, Map<String, String> feedPolicy) {

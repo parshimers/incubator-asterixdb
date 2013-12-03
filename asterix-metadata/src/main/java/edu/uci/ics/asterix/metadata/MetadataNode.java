@@ -926,6 +926,17 @@ public class MetadataNode implements IMetadataNode {
         return results.get(0);
     }
 
+    private List<ITupleReference> getTuplesToBeDeleted(JobId jobId, IMetadataIndex metadataIndex,
+            ITupleReference searchKey) throws Exception {
+        IValueExtractor<ITupleReference> valueExtractor = new TupleCopyValueExtractor(metadataIndex.getTypeTraits());
+        List<ITupleReference> results = new ArrayList<ITupleReference>();
+        searchIndex(jobId, metadataIndex, searchKey, valueExtractor, results);
+        if (results.isEmpty()) {
+            throw new TreeIndexException("Could not find entry to be deleted.");
+        }
+        return results;
+    }
+
     // Debugging Method
     public String printMetadata() {
 
@@ -1322,11 +1333,11 @@ public class MetadataNode implements IMetadataNode {
     }
 
     @Override
-    public FeedActivity getRecentFeedActivity(JobId jobId, FeedConnectionId feedConnectionId, FeedActivityType... activityType)
-            throws MetadataException, RemoteException {
+    public FeedActivity getRecentFeedActivity(JobId jobId, FeedConnectionId feedConnectionId,
+            FeedActivityType... activityType) throws MetadataException, RemoteException {
         try {
-            ITupleReference searchKey = createTuple(feedConnectionId.getFeedId().getDataverse(),
-                    feedConnectionId.getFeedId().getFeedName(), feedConnectionId.getDatasetName());
+            ITupleReference searchKey = createTuple(feedConnectionId.getFeedId().getDataverse(), feedConnectionId
+                    .getFeedId().getFeedName(), feedConnectionId.getDatasetName());
             FeedActivityTupleTranslator tupleReaderWriter = new FeedActivityTupleTranslator(false);
             List<FeedActivity> results = new ArrayList<FeedActivity>();
             IValueExtractor<FeedActivity> valueExtractor = new MetadataEntityValueExtractor<FeedActivity>(
@@ -1411,58 +1422,6 @@ public class MetadataNode implements IMetadataNode {
     }
 
     @Override
-    public List<FeedActivity> getActiveFeedsServingADataset(JobId jobId, String dataverse, String dataset)
-            throws MetadataException, RemoteException {
-        List<FeedActivity> activeFeeds = new ArrayList<FeedActivity>();
-        Map<FeedConnectionId, FeedActivity> aFeeds = new HashMap<FeedConnectionId, FeedActivity>();
-        boolean invalidArgs = (dataverse == null && dataset != null);
-        if (invalidArgs) {
-            throw new MetadataException("Invalid arguments " + dataverse + " " + dataset);
-        }
-        try {
-            ITupleReference searchKey = createTuple();
-            FeedActivityTupleTranslator tupleReaderWriter = new FeedActivityTupleTranslator(true);
-            List<FeedActivity> results = new ArrayList<FeedActivity>();
-            IValueExtractor<FeedActivity> valueExtractor = new MetadataEntityValueExtractor<FeedActivity>(
-                    tupleReaderWriter);
-            searchIndex(jobId, MetadataPrimaryIndexes.FEED_ACTIVITY_DATASET, searchKey, valueExtractor, results);
-            Collections.sort(results); // recent activity first
-            FeedConnectionId fid = null;
-            Set<FeedConnectionId> terminatedFeeds = new HashSet<FeedConnectionId>();
-            for (FeedActivity fa : results) {
-                if (dataverse != null) {
-                    if (dataset != null
-                            && (!fa.getDataverseName().equals(dataverse) || !dataset.equals(fa.getDatasetName()))) {
-                        continue;
-                    }
-                }
-
-                fid = new FeedConnectionId(fa.getDataverseName(), fa.getFeedName(), fa.getDatasetName());
-                switch (fa.getActivityType()) {
-                    case FEED_BEGIN:
-                        if (!terminatedFeeds.contains(fid)) {
-                            if (aFeeds.get(fid) == null || fa.getActivityId() > aFeeds.get(fid).getActivityId()) {
-                                aFeeds.put(fid, fa);
-                            }
-                        }
-                        break;
-                    case FEED_END:
-                        terminatedFeeds.add(fid);
-                        break;
-                    default: //ignore    
-                }
-            }
-            for (FeedActivity f : aFeeds.values()) {
-                System.out.println("ACTIVE FEEDS " + f.getFeedName());
-                activeFeeds.add(f);
-            }
-            return activeFeeds;
-        } catch (Exception e) {
-            throw new MetadataException(e);
-        }
-    }
-
-    @Override
     public void addFeed(JobId jobId, Feed feed) throws MetadataException, RemoteException {
         try {
             // Insert into the 'Feed' dataset.
@@ -1497,60 +1456,24 @@ public class MetadataNode implements IMetadataNode {
 
     @Override
     public void dropFeed(JobId jobId, String dataverse, String feedName) throws MetadataException, RemoteException {
-
         try {
             ITupleReference searchKey = createTuple(dataverse, feedName);
-            // Searches the index for the tuple to be deleted. Acquires an S
-            // lock on the 'nodegroup' dataset.
             ITupleReference tuple = getTupleToBeDeleted(jobId, MetadataPrimaryIndexes.FEED_DATASET, searchKey);
             deleteTupleFromIndex(jobId, MetadataPrimaryIndexes.FEED_DATASET, tuple);
-            // TODO: Change this to be a BTree specific exception, e.g.,
-            // BTreeKeyDoesNotExistException.
-        } catch (TreeIndexException e) {
-            throw new MetadataException("Cannot drop feed '" + feedName + "' because it doesn't exist", e);
-        } catch (Exception e) {
-            throw new MetadataException(e);
-        }
 
-    }
-
-    public List<FeedActivity> getDatasetsServedByFeed(JobId jobId, String dataverse, String feedName)
-            throws MetadataException, RemoteException {
-        List<FeedActivity> feedActivities = new ArrayList<FeedActivity>();
-        try {
-            ITupleReference searchKey = createTuple(dataverse, feedName);
-            FeedActivityTupleTranslator tupleReaderWriter = new FeedActivityTupleTranslator(false);
-            List<FeedActivity> results = new ArrayList<FeedActivity>();
-            IValueExtractor<FeedActivity> valueExtractor = new MetadataEntityValueExtractor<FeedActivity>(
-                    tupleReaderWriter);
-            searchIndex(jobId, MetadataPrimaryIndexes.FEED_ACTIVITY_DATASET, searchKey, valueExtractor, results);
-
-            if (!results.isEmpty()) {
-                Collections.sort(results); // most recent feed activity
-                Set<String> terminatedDatasets = new HashSet<String>();
-                Set<String> activeDatasets = new HashSet<String>();
-
-                for (FeedActivity result : results) {
-                    switch (result.getFeedActivityType()) {
-                        case FEED_BEGIN:
-                            if (!terminatedDatasets.contains(result.getDatasetName())) {
-                                feedActivities.add(result);
-                                activeDatasets.add(result.getDatasetName());
-                            }
-                            break;
-                        case FEED_END:
-                            if (!activeDatasets.contains(result.getDatasetName())) {
-                                terminatedDatasets.add(result.getDatasetName());
-                            }
-                            break;
-                    }
-
+            List<ITupleReference> tuplesToBeDeleted = getTuplesToBeDeleted(jobId,
+                    MetadataPrimaryIndexes.FEED_ACTIVITY_DATASET, searchKey);
+            if (tuplesToBeDeleted != null && !tuplesToBeDeleted.isEmpty()) {
+                for (ITupleReference t : tuplesToBeDeleted) {
+                    deleteTupleFromIndex(jobId, MetadataPrimaryIndexes.FEED_ACTIVITY_DATASET, t);
                 }
             }
-            return feedActivities;
+        } catch (TreeIndexException e) {
+            throw new MetadataException("Unknown feed " + feedName, e);
         } catch (Exception e) {
             throw new MetadataException(e);
         }
+
     }
 
 }
