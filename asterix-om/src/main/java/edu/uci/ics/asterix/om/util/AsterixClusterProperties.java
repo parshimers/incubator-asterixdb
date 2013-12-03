@@ -28,6 +28,7 @@ import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Unmarshaller;
 
+import edu.uci.ics.asterix.common.api.IClusterManagementWork.ClusterState;
 import edu.uci.ics.asterix.event.schema.cluster.Cluster;
 import edu.uci.ics.asterix.event.schema.cluster.Node;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
@@ -68,12 +69,7 @@ public class AsterixClusterProperties {
         }
     }
 
-    public enum State {
-        ACTIVE,
-        UNUSABLE
-    }
-
-    private State state = State.UNUSABLE;
+    private ClusterState state = ClusterState.UNUSABLE;
 
     public synchronized void removeNCConfiguration(String nodeId) {
         // state = State.UNUSABLE;
@@ -85,7 +81,7 @@ public class AsterixClusterProperties {
         ncConfiguration.put(nodeId, configuration);
         if (ncConfiguration.keySet().size() == AsterixAppContextInfo.getInstance().getMetadataProperties()
                 .getNodeNames().size()) {
-            state = State.ACTIVE;
+            state = ClusterState.ACTIVE;
         }
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info(" Registering configuration parameters for node id" + nodeId);
@@ -134,7 +130,7 @@ public class AsterixClusterProperties {
         return ncConfig.get(IO_DEVICES).split(",");
     }
 
-    public State getState() {
+    public ClusterState getState() {
         return state;
     }
 
@@ -179,64 +175,4 @@ public class AsterixClusterProperties {
         clusterPartitionConstraint = new AlgebricksAbsolutePartitionConstraint(cluster);
     }
 
-    private static class AsterixCluster {
-
-        private final String asterixInstance;
-        private Map<String, AsterixNode> asterixNodes;
-
-        public AsterixCluster(Cluster cluster) {
-            asterixInstance = cluster.getInstanceName();
-            asterixNodes = new HashMap<String, AsterixNode>();
-            for (Node node : cluster.getNode()) {
-                AsterixNode aNode = new AsterixNode(node, AsterixNode.NodeRole.PARTICIPANT,
-                        AsterixNode.NodeState.INACTIVE);
-                asterixNodes.put(asterixInstance + "_" + node.getId(), aNode);
-            }
-
-            for (Node node : cluster.getSubstituteNodes().getNode()) {
-                AsterixNode aNode = new AsterixNode(node, AsterixNode.NodeRole.SUBSTITUTE,
-                        AsterixNode.NodeState.INACTIVE);
-                asterixNodes.put(asterixInstance + "_" + node.getId(), aNode);
-            }
-        }
-
-        private static class AsterixNode {
-
-            private final Node node;
-            private NodeRole role;
-            private NodeState state;
-
-            public enum NodeRole {
-                PARTICIPANT,
-                SUBSTITUTE
-            }
-
-            public enum NodeState {
-                ACTIVE,
-                INACTIVE
-            }
-
-            public AsterixNode(Node node, NodeRole role, NodeState state) {
-                this.node = node;
-                this.role = role;
-                this.state = state;
-            }
-
-            @Override
-            public String toString() {
-                return node.getId() + "_" + role + "_" + state;
-            }
-        }
-
-        public void notifyChangeState(String nodeId, AsterixNode.NodeRole newRole, AsterixNode.NodeState newState) {
-            AsterixNode node = asterixNodes.get(nodeId);
-            if (node != null) {
-                node.role = newRole;
-                node.state = newState;
-            } else {
-                throw new IllegalStateException("Unknown nodeId" + nodeId);
-            }
-
-        }
-    }
 }

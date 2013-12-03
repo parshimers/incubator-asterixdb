@@ -21,6 +21,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -37,7 +38,6 @@ import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityDetails;
-import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityType;
 
 public class FeedDashboardServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
@@ -91,7 +91,7 @@ public class FeedDashboardServlet extends HttpServlet {
             String datasetName = request.getParameter("dataset");
             String dataverseName = request.getParameter("dataverse");
 
-            FeedConnectionId feedId = new FeedConnectionId(dataverseName, feedName, datasetName);
+            FeedConnectionId feedConnectionId = new FeedConnectionId(dataverseName, feedName, datasetName);
 
             String outStr = null;
             if (requestURI.startsWith("/webui/static")) {
@@ -99,11 +99,17 @@ public class FeedDashboardServlet extends HttpServlet {
             } else {
                 MetadataManager.INSTANCE.init();
                 MetadataTransactionContext ctx = MetadataManager.INSTANCE.beginTransaction();
-                FeedActivity activity = MetadataManager.INSTANCE.getRecentActivityOnFeedConnection(ctx, feedId,
-                        FeedActivityType.FEED_BEGIN);
+                List<FeedActivity> activities = MetadataManager.INSTANCE.getFeedActivity(ctx,
+                        feedConnectionId.getFeedId());
+                FeedActivity feedActivity = null;
+                for (FeedActivity fa : activities) {
+                    if (fa.getDatasetName().equals(datasetName)) {
+                        feedActivity = fa;
+                        break;
+                    }
+                }
                 MetadataManager.INSTANCE.commitTransaction(ctx);
-
-                Map<String, String> activityDetails = activity.getFeedActivityDetails();
+                Map<String, String> activityDetails = feedActivity.getFeedActivityDetails();
 
                 String host = activityDetails.get(FeedActivity.FeedActivityDetails.SUPER_FEED_MANAGER_HOST);
                 int port = Integer.parseInt(activityDetails
@@ -116,11 +122,11 @@ public class FeedDashboardServlet extends HttpServlet {
                 String computeLocations = activityDetails.get(FeedActivityDetails.COMPUTE_LOCATIONS);
                 String storageLocations = activityDetails.get(FeedActivityDetails.STORAGE_LOCATIONS);
                 String ingestionPolicy = activityDetails.get(FeedActivityDetails.FEED_POLICY_NAME);
-                String activeSince = activity.getLastUpdatedTimestamp();
+                String activeSince = feedActivity.getLastUpdatedTimestamp();
 
                 outStr = String.format(sb.toString(), dataverseName, datasetName, feedName, ingestLocations,
                         computeLocations, storageLocations, ingestionPolicy, activeSince);
-                FeedServletUtil.initiateSubscription(feedId, host, port);
+                FeedServletUtil.initiateSubscription(feedConnectionId, host, port);
             }
 
             PrintWriter out = response.getWriter();

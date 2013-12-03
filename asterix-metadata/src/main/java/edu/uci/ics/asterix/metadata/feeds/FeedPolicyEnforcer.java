@@ -15,27 +15,19 @@
 package edu.uci.ics.asterix.metadata.feeds;
 
 import java.rmi.RemoteException;
-import java.util.HashMap;
 import java.util.Map;
 
 import edu.uci.ics.asterix.common.exceptions.ACIDException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
-import edu.uci.ics.asterix.metadata.MetadataManager;
-import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
-import edu.uci.ics.asterix.metadata.entities.FeedActivity;
-import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityType;
 
 public class FeedPolicyEnforcer {
 
     private final FeedConnectionId feedConnectionId;
     private final FeedPolicyAccessor feedPolicyAccessor;
-    private final FeedActivity feedActivity;
 
     public FeedPolicyEnforcer(FeedConnectionId feedConnectionId, Map<String, String> feedPolicy) {
         this.feedConnectionId = feedConnectionId;
         this.feedPolicyAccessor = new FeedPolicyAccessor(feedPolicy);
-        this.feedActivity = new FeedActivity(feedConnectionId.getFeedId().getDataverse(), feedConnectionId.getFeedId()
-                .getFeedName(), feedConnectionId.getDatasetName(), null, new HashMap<String, String>());
     }
 
     public boolean continueIngestionPostSoftwareFailure(Exception e) throws RemoteException, ACIDException {
@@ -47,20 +39,7 @@ public class FeedPolicyEnforcer {
     }
 
     private synchronized void persistExceptionDetails(Exception e) throws RemoteException, ACIDException {
-        MetadataManager.INSTANCE.acquireWriteLatch();
-        MetadataTransactionContext ctx = null;
-        try {
-            ctx = MetadataManager.INSTANCE.beginTransaction();
-            feedActivity.setActivityType(FeedActivityType.FEED_FAILURE);
-            feedActivity.getFeedActivityDetails().put(FeedActivity.FeedActivityDetails.EXCEPTION_MESSAGE,
-                    e.getMessage());
-            MetadataManager.INSTANCE.registerFeedActivity(ctx, feedConnectionId, feedActivity);
-            MetadataManager.INSTANCE.commitTransaction(ctx);
-        } catch (Exception e2) {
-            MetadataManager.INSTANCE.abortTransaction(ctx);
-        } finally {
-            MetadataManager.INSTANCE.releaseWriteLatch();
-        }
+        //TODO Put log message in feed shadow dataset
     }
 
     public FeedPolicyAccessor getFeedPolicyAccessor() {

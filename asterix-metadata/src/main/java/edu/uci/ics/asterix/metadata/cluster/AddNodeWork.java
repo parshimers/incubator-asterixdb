@@ -1,6 +1,7 @@
 package edu.uci.ics.asterix.metadata.cluster;
 
-import edu.uci.ics.asterix.metadata.api.IClusterEventsSubscriber;
+import edu.uci.ics.asterix.common.api.IClusterEventsSubscriber;
+import edu.uci.ics.asterix.common.api.IClusterManagementWork.WorkType;
 
 public class AddNodeWork extends AbstractClusterManagementWork {
 

@@ -26,6 +26,7 @@ import edu.uci.ics.asterix.aql.expression.DeleteStatement;
 import edu.uci.ics.asterix.aql.expression.DropStatement;
 import edu.uci.ics.asterix.aql.expression.InsertStatement;
 import edu.uci.ics.asterix.aql.expression.NodeGroupDropStatement;
+import edu.uci.ics.asterix.common.api.IClusterManagementWork;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.metadata.bootstrap.MetadataConstants;
 import edu.uci.ics.asterix.metadata.dataset.hints.DatasetHints;
@@ -48,11 +49,11 @@ public abstract class AbstractAqlTranslator {
 
     public void validateOperation(Dataverse defaultDataverse, Statement stmt) throws AsterixException {
 
-        if (!AsterixClusterProperties.INSTANCE.getState().equals(AsterixClusterProperties.State.ACTIVE)) {
+        if (!AsterixClusterProperties.INSTANCE.getState().equals(IClusterManagementWork.ClusterState.ACTIVE)) {
             int maxWaitCycles = AsterixAppContextInfo.getInstance().getExternalProperties().getMaxWaitClusterActive();
             int waitCycleCount = 0;
             try {
-                while (!AsterixClusterProperties.INSTANCE.getState().equals(AsterixClusterProperties.State.ACTIVE)
+                while (!AsterixClusterProperties.INSTANCE.getState().equals(IClusterManagementWork.ClusterState.ACTIVE)
                         && waitCycleCount < maxWaitCycles) {
                     Thread.sleep(1000);
                     waitCycleCount++;
@@ -60,22 +61,22 @@ public abstract class AbstractAqlTranslator {
             } catch (InterruptedException e) {
                 if (LOGGER.isLoggable(Level.WARNING)) {
                     LOGGER.warning("Thread interrupted while waiting for cluster to be "
-                            + AsterixClusterProperties.State.ACTIVE);
+                            + IClusterManagementWork.ClusterState.ACTIVE);
                 }
             }
-            if (!AsterixClusterProperties.INSTANCE.getState().equals(AsterixClusterProperties.State.ACTIVE)) {
-                throw new AsterixException(" Asterix Cluster is in " + AsterixClusterProperties.State.UNUSABLE
+            if (!AsterixClusterProperties.INSTANCE.getState().equals(IClusterManagementWork.ClusterState.ACTIVE)) {
+                throw new AsterixException(" Asterix Cluster is in " + IClusterManagementWork.ClusterState.UNUSABLE
                         + " state." + "\n One or more Node Controllers have left or haven't joined yet.\n");
             } else {
                 if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Cluster is now " + AsterixClusterProperties.State.ACTIVE);
+                    LOGGER.info("Cluster is now " + IClusterManagementWork.ClusterState.ACTIVE);
                 }
             }
         }
 
 
-        if (AsterixClusterProperties.INSTANCE.getState().equals(AsterixClusterProperties.State.UNUSABLE)) {
-            throw new AsterixException(" Asterix Cluster is in " + AsterixClusterProperties.State.UNUSABLE + " state."
+        if (AsterixClusterProperties.INSTANCE.getState().equals(IClusterManagementWork.ClusterState.UNUSABLE)) {
+            throw new AsterixException(" Asterix Cluster is in " + IClusterManagementWork.ClusterState.UNUSABLE + " state."
                     + "\n One or more Node Controllers have left.\n");
         }
 

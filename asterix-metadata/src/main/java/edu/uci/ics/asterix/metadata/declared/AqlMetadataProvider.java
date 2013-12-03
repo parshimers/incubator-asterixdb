@@ -447,9 +447,9 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                             if (feedDataSource.getFeed().getFeedId().equals(feedDataSource.getSourceFeedId())) {
                                 locationArray = feedDataSource.getLocations();
                             } else {
-                                List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getActiveFeedConnections(
-                                        mdTxnCtx, feedDataSource.getSourceFeedId().getDataverse(), feedDataSource
-                                                .getSourceFeedId().getFeedName());
+
+                                List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getFeedActivity(mdTxnCtx,
+                                        feedDataSource.getSourceFeedId());
                                 locations = feedActivities.get(0).getFeedActivityDetails()
                                         .get(FeedActivityDetails.COMPUTE_LOCATIONS);
                                 locationArray = locations.split(",");
@@ -461,9 +461,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                     }
                     break;
                 case SECONDARY:
-                    List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getActiveFeedConnections(mdTxnCtx,
-                            feedDataSource.getSourceFeedId().getDataverse(), feedDataSource.getSourceFeedId()
-                                    .getFeedName());
+                    List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getFeedActivity(mdTxnCtx,
+                            feedDataSource.getSourceFeedId());
                     switch (feedDataSource.getLocation()) {
                         case SOURCE_FEED_INTAKE:
                             locations = feedActivities.get(0).getFeedActivityDetails()
@@ -518,16 +517,10 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
     }
 
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildDisconnectFeedMessengerRuntime(
-            JobSpecification jobSpec, String dataverse, String feedName, String dataset, FeedActivity feedActivity)
+            JobSpecification jobSpec, String dataverse, String feedName, String dataset, String[] locations)
             throws AlgebricksException {
         List<String> feedLocations = new ArrayList<String>();
-        String[] ingestLocs = feedActivity.getFeedActivityDetails().get(FeedActivityDetails.COLLECT_LOCATIONS)
-                .split(",");
-        for (String loc : ingestLocs) {
-            feedLocations.add(loc);
-        }
         FeedConnectionId feedId = new FeedConnectionId(dataverse, feedName, dataset);
-        String[] locations = feedLocations.toArray(new String[] {});
         IFeedMessage feedMessage = new EndFeedMessage(feedId);
         return buildSendFeedMessageRuntime(jobSpec, dataverse, feedName, dataset, feedMessage, locations);
     }

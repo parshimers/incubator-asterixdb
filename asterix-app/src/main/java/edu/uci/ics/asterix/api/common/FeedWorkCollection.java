@@ -27,9 +27,9 @@ import edu.uci.ics.asterix.aql.expression.DataverseDecl;
 import edu.uci.ics.asterix.aql.expression.Identifier;
 import edu.uci.ics.asterix.aql.expression.SubscribeFeedStatement;
 import edu.uci.ics.asterix.aql.translator.AqlTranslator;
+import edu.uci.ics.asterix.bootstrap.FeedLifecycleListener.FeedCollectInfo;
 import edu.uci.ics.asterix.common.feeds.IFeedWork;
 import edu.uci.ics.asterix.common.feeds.IFeedWorkEventListener;
-import edu.uci.ics.asterix.hyracks.bootstrap.FeedLifecycleListener.FeedCollectInfo;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
 import edu.uci.ics.asterix.metadata.bootstrap.MetadataConstants;
@@ -206,14 +206,11 @@ public class FeedWorkCollection {
 
             private void revivePostClusterReboot() {
                 MetadataTransactionContext ctx = null;
-
                 try {
-
                     Thread.sleep(4000);
                     MetadataManager.INSTANCE.init();
                     ctx = MetadataManager.INSTANCE.beginTransaction();
-                    List<FeedActivity> activeFeeds = MetadataManager.INSTANCE.getActiveFeedsServingADataset(ctx, null,
-                            null);
+                    List<FeedActivity> activeFeeds = MetadataManager.INSTANCE.getFeedActivity(ctx, null);
                     if (LOGGER.isLoggable(Level.INFO)) {
                         LOGGER.info("Attempt to resume feeds that were active prior to instance shutdown!");
                         LOGGER.info("Number of feeds affected:" + activeFeeds.size());

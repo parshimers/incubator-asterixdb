@@ -33,14 +33,11 @@ import edu.uci.ics.asterix.metadata.bootstrap.MetadataConstants;
 import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
 import edu.uci.ics.asterix.metadata.entities.DatasourceAdapter;
 import edu.uci.ics.asterix.metadata.entities.Feed;
-import edu.uci.ics.asterix.metadata.entities.FeedActivity;
-import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityType;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
 import edu.uci.ics.asterix.metadata.entities.Function;
 import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
 import edu.uci.ics.asterix.metadata.entities.SecondaryFeed;
 import edu.uci.ics.asterix.metadata.functions.ExternalLibraryManager;
-import edu.uci.ics.asterix.om.functions.IExternalFunctionInfo;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.NotImplementedException;
@@ -67,11 +64,6 @@ import edu.uci.ics.hyracks.api.job.JobSpecification;
 public class FeedUtil {
 
     private static Logger LOGGER = Logger.getLogger(FeedUtil.class.getName());
-
-    public static boolean isFeedActive(FeedActivity feedActivity) {
-        return (feedActivity != null && !(feedActivity.getActivityType().equals(FeedActivityType.FEED_FAILURE) || feedActivity
-                .getActivityType().equals(FeedActivityType.FEED_END)));
-    }
 
     public static JobSpecification alterJobSpecificationForFeed(JobSpecification spec,
             FeedConnectionId feedConnectionId, FeedPolicy feedPolicy) {

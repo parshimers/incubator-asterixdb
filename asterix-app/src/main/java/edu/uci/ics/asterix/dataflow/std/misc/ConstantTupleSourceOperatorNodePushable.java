@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-package edu.uci.ics.hyracks.dataflow.std.misc;
+package edu.uci.ics.asterix.dataflow.std.misc;
 
 import java.nio.ByteBuffer;
 

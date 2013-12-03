@@ -15,9 +15,8 @@
 package edu.uci.ics.asterix.metadata.feeds;
 
 import edu.uci.ics.asterix.common.feeds.IFeedConnectionManager;
-import edu.uci.ics.asterix.common.feeds.IFeedSubscriptionManager;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
-import edu.uci.ics.asterix.common.feeds.IFeedWorkManager;
+import edu.uci.ics.asterix.common.feeds.IFeedSubscriptionManager;
 
 /**
  * An implementation of the IFeedManager interface.

@@ -12,13 +12,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.asterix.metadata.api;
+package edu.uci.ics.asterix.common.api;
 
 public interface IClusterManagementWork {
 
     public enum WorkType {
         ADD_NODE,
         REMOVE_NODE
+    }
+
+    public enum ClusterState {
+        ACTIVE,
+        UNUSABLE
     }
 
     public WorkType getClusterManagementWorkType();

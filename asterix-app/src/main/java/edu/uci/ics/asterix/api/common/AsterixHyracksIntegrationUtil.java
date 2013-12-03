@@ -17,9 +17,9 @@ package edu.uci.ics.asterix.api.common;
 import java.io.File;
 import java.util.EnumSet;
 
+import edu.uci.ics.asterix.bootstrap.CCApplicationEntryPoint;
+import edu.uci.ics.asterix.bootstrap.NCApplicationEntryPoint;
 import edu.uci.ics.asterix.common.config.GlobalConfig;
-import edu.uci.ics.asterix.hyracks.bootstrap.CCApplicationEntryPoint;
-import edu.uci.ics.asterix.hyracks.bootstrap.NCApplicationEntryPoint;
 import edu.uci.ics.hyracks.api.client.HyracksConnection;
 import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
 import edu.uci.ics.hyracks.api.job.JobFlag;

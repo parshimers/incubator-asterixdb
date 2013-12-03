@@ -1,6 +1,5 @@
-package edu.uci.ics.asterix.metadata.cluster;
+package edu.uci.ics.asterix.common.api;
 
-import edu.uci.ics.asterix.metadata.api.IClusterManagementWork;
 
 public interface IClusterManagementWorkResponse {
 

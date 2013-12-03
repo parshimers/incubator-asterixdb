@@ -14,9 +14,10 @@
  */
 package edu.uci.ics.asterix.file;
 
+import edu.uci.ics.asterix.bootstrap.FeedLifecycleListener;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
+import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
-import edu.uci.ics.asterix.metadata.entities.FeedActivity;
 import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraintHelper;
@@ -80,7 +81,7 @@ public class FeedOperations {
      * @throws AlgebricksException
      */
     public static JobSpecification buildDisconnectFeedJobSpec(String dataverseName, String feedName,
-            String datasetName, AqlMetadataProvider metadataProvider, FeedActivity feedActivity)
+            String datasetName, AqlMetadataProvider metadataProvider, FeedConnectionId feedConnectionId)
             throws AsterixException, AlgebricksException {
 
         JobSpecification spec = JobSpecificationUtils.createJobSpecification();
@@ -88,8 +89,9 @@ public class FeedOperations {
         AlgebricksPartitionConstraint messengerPc;
 
         try {
+            String[] locations = FeedLifecycleListener.INSTANCE.getIntakeLocations(feedConnectionId.getFeedId());
             Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p = metadataProvider
-                    .buildDisconnectFeedMessengerRuntime(spec, dataverseName, feedName, datasetName, feedActivity);
+                    .buildDisconnectFeedMessengerRuntime(spec, dataverseName, feedName, datasetName, locations);
             feedMessenger = p.first;
             messengerPc = p.second;
         } catch (AlgebricksException e) {

@@ -24,6 +24,7 @@ import edu.uci.ics.asterix.common.config.AsterixMetadataProperties;
 import edu.uci.ics.asterix.common.exceptions.ACIDException;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.functions.FunctionSignature;
 import edu.uci.ics.asterix.common.transactions.JobId;
 import edu.uci.ics.asterix.metadata.api.IAsterixStateProxy;
@@ -671,6 +672,25 @@ public class MetadataManager implements IMetadataManager {
             throws MetadataException {
         try {
             metadataNode.registerFeedActivity(ctx.getJobId(), feedId, feedActivity);
+        } catch (RemoteException e) {
+            throw new MetadataException(e);
+        }
+    }
+
+    @Override
+    public void deregisterFeedActivity(MetadataTransactionContext ctx, FeedConnectionId feedConnectionId)
+            throws MetadataException {
+        try {
+            metadataNode.deregisterFeedActivity(ctx.getJobId(), feedConnectionId);
+        } catch (RemoteException e) {
+            throw new MetadataException(e);
+        }
+    }
+
+    @Override
+    public List<FeedActivity> getFeedActivity(MetadataTransactionContext ctx, FeedId feedId) throws MetadataException {
+        try {
+            return metadataNode.getFeedActivity(ctx.getJobId(), feedId);
         } catch (RemoteException e) {
             throw new MetadataException(e);
         }

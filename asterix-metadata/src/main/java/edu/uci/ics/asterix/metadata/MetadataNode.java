@@ -18,11 +18,7 @@ package edu.uci.ics.asterix.metadata;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
 import edu.uci.ics.asterix.common.config.DatasetConfig.DatasetType;
@@ -30,6 +26,7 @@ import edu.uci.ics.asterix.common.config.DatasetConfig.IndexType;
 import edu.uci.ics.asterix.common.exceptions.ACIDException;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.functions.FunctionSignature;
 import edu.uci.ics.asterix.common.transactions.AbstractOperationCallback;
 import edu.uci.ics.asterix.common.transactions.DatasetId;
@@ -1333,34 +1330,30 @@ public class MetadataNode implements IMetadataNode {
     }
 
     @Override
-    public FeedActivity getRecentFeedActivity(JobId jobId, FeedConnectionId feedConnectionId,
-            FeedActivityType... activityType) throws MetadataException, RemoteException {
+    public List<FeedActivity> getFeedActivity(JobId jobId, FeedId feedId) throws MetadataException, RemoteException {
+        List<FeedActivity> results = new ArrayList<FeedActivity>();
         try {
-            ITupleReference searchKey = createTuple(feedConnectionId.getFeedId().getDataverse(), feedConnectionId
-                    .getFeedId().getFeedName(), feedConnectionId.getDatasetName());
+            ITupleReference searchKey = null;
+            if (feedId != null) {
+                searchKey = createTuple(feedId.getDataverse(), feedId.getFeedName());
+            } else {
+                searchKey = new ArrayTupleReference();
+            }
             FeedActivityTupleTranslator tupleReaderWriter = new FeedActivityTupleTranslator(false);
-            List<FeedActivity> results = new ArrayList<FeedActivity>();
             IValueExtractor<FeedActivity> valueExtractor = new MetadataEntityValueExtractor<FeedActivity>(
                     tupleReaderWriter);
             searchIndex(jobId, MetadataPrimaryIndexes.FEED_ACTIVITY_DATASET, searchKey, valueExtractor, results);
-            if (!results.isEmpty()) {
-                Collections.sort(results);
-                if (activityType == null) {
-                    return results.get(0);
-                } else {
-                    for (FeedActivity result : results) {
-                        for (FeedActivityType ft : activityType) {
-                            if (result.getActivityType().equals(ft)) {
-                                return result;
-                            }
-                        }
-                    }
-                }
-            }
-            return null;
+            return results;
         } catch (Exception e) {
             throw new MetadataException(e);
         }
+    }
+
+    @Override
+    public void deregisterFeedActivity(JobId jobId, FeedConnectionId feedConnectionId) throws MetadataException,
+            RemoteException {
+        // TODO Auto-generated method stub
+
     }
 
     @Override

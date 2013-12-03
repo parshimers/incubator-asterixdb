@@ -1,4 +1,4 @@
-package edu.uci.ics.asterix.metadata.api;
+package edu.uci.ics.asterix.common.api;
 
 /*
  * Copyright 2009-2013 by The Regents of the University of California
@@ -16,8 +16,7 @@ package edu.uci.ics.asterix.metadata.api;
  */
 import java.util.Set;
 
-import edu.uci.ics.asterix.metadata.cluster.IClusterManagementWorkResponse;
-import edu.uci.ics.asterix.om.util.AsterixClusterProperties.State;
+import edu.uci.ics.asterix.common.api.IClusterManagementWork.ClusterState;
 
 public interface IClusterEventsSubscriber {
 
@@ -42,6 +41,6 @@ public interface IClusterEventsSubscriber {
      * @param previousState
      * @param newState
      */
-    public void notifyStateChange(State previousState, State newState);
+    public void notifyStateChange(ClusterState previousState, ClusterState newState);
 
 }

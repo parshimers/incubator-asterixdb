@@ -20,6 +20,7 @@ import java.util.List;
 
 import edu.uci.ics.asterix.common.exceptions.ACIDException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.functions.FunctionSignature;
 import edu.uci.ics.asterix.metadata.MetadataException;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
@@ -372,6 +373,8 @@ public interface IMetadataManager {
     public void addNode(MetadataTransactionContext ctx, Node node) throws MetadataException;
 
     /**
+     * Add a user-defined function
+     * 
      * @param mdTxnCtx
      *            MetadataTransactionContext of an active metadata transaction.
      * @param function
@@ -382,6 +385,8 @@ public interface IMetadataManager {
     public void addFunction(MetadataTransactionContext mdTxnCtx, Function function) throws MetadataException;
 
     /**
+     * Retrieve a user-defined function
+     * 
      * @param ctx
      *            MetadataTransactionContext of an active metadata transaction.
      * @param functionSignature
@@ -394,6 +399,8 @@ public interface IMetadataManager {
             throws MetadataException;
 
     /**
+     * Remove a user-defined function
+     * 
      * @param ctx
      *            MetadataTransactionContext of an active metadata transaction.
      * @param functionSignature
@@ -414,6 +421,8 @@ public interface IMetadataManager {
     public void addAdapter(MetadataTransactionContext mdTxnCtx, DatasourceAdapter adapter) throws MetadataException;
 
     /**
+     * Retrieve adapter definition given the dataverse and adapter name
+     * 
      * @param ctx
      *            MetadataTransactionContext of an active metadata transaction.
      * @param dataverseName
@@ -427,6 +436,8 @@ public interface IMetadataManager {
             throws MetadataException;
 
     /**
+     * Remove an adapter from AsterixDBs
+     * 
      * @param ctx
      *            MetadataTransactionContext of an active metadata transaction.
      * @param dataverseName
@@ -455,6 +466,8 @@ public interface IMetadataManager {
             throws MetadataException;
 
     /**
+     * Retrieve all functions defined under a given dataverse
+     * 
      * @param ctx
      * @param dataverseName
      * @return
@@ -464,6 +477,8 @@ public interface IMetadataManager {
             throws MetadataException;
 
     /**
+     * Add a feed definition to AsterixDB
+     * 
      * @param ctx
      * @param feed
      * @throws MetadataException
@@ -471,6 +486,8 @@ public interface IMetadataManager {
     public void addFeed(MetadataTransactionContext ctx, Feed feed) throws MetadataException;
 
     /**
+     * Retrieve feed definition give the dataverse and the feed name.
+     * 
      * @param ctx
      * @param dataverse
      * @param feedName
@@ -480,6 +497,8 @@ public interface IMetadataManager {
     public Feed getFeed(MetadataTransactionContext ctx, String dataverse, String feedName) throws MetadataException;
 
     /**
+     * Remove a feed
+     * 
      * @param ctx
      * @param dataverse
      * @param feedName
@@ -488,15 +507,37 @@ public interface IMetadataManager {
     public void dropFeed(MetadataTransactionContext ctx, String dataverse, String feedName) throws MetadataException;
 
     /**
+     * Register a feed activity. Registered feed activities are resumed post a cluster reboot if the associated policy requires so.
+     * 
      * @param ctx
      * @param feedId
      * @param feedActivity
      * @throws MetadataException
      */
-    public void registerFeedActivity(MetadataTransactionContext ctx, FeedConnectionId feedId, FeedActivity feedActivity)
+    public void registerFeedActivity(MetadataTransactionContext ctx, FeedConnectionId feedConnectionId,
+            FeedActivity feedActivity) throws MetadataException;
+
+    /**
+     * Retrieve feed activity associated with a given feed. If feedId is passed as null, all regsitered
+     * activities are returned.
+     * 
+     * @param ctx
+     * @param feedId
+     * @throws MetadataException
+     */
+    public List<FeedActivity> getFeedActivity(MetadataTransactionContext ctx, FeedId feedId) throws MetadataException;
+
+    /**
+     * @param ctx
+     * @param feedConnectionId
+     * @throws MetadataException
+     */
+    public void deregisterFeedActivity(MetadataTransactionContext ctx, FeedConnectionId feedConnectionId)
             throws MetadataException;
 
     /**
+     * Add a feed ingestion policy to the set of defined policies in AsterixDB
+     * 
      * @param ctx
      * @param policy
      * @throws MetadataException

@@ -16,6 +16,7 @@ package edu.uci.ics.asterix.metadata.feeds;
 
 import java.util.List;
 
+import edu.uci.ics.asterix.common.feeds.IFeedLifecycleListener.SubscriptionLocation;
 import edu.uci.ics.asterix.metadata.entities.Feed;
 
 /**
@@ -43,11 +44,6 @@ public class FeedSubscriptionRequest {
 
     /** Represents the location in the source feed pipeline from where feed tuples are received. **/
     private final SubscriptionLocation subscriptionLocation;
-
-    public enum SubscriptionLocation {
-        SOURCE_FEED_INTAKE,
-        SOURCE_FEED_COMPUTE
-    }
 
     public FeedSubscriptionRequest(Feed feed, Feed sourceFeed, SubscriptionLocation subscriptionLocation,
             List<String> appliedFunctions, String targetDataset, String policy) {

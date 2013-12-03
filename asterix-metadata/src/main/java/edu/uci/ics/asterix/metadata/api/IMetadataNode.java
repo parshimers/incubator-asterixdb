@@ -22,6 +22,7 @@ import java.util.List;
 
 import edu.uci.ics.asterix.common.exceptions.ACIDException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.functions.FunctionSignature;
 import edu.uci.ics.asterix.common.transactions.JobId;
 import edu.uci.ics.asterix.metadata.MetadataException;
@@ -32,7 +33,6 @@ import edu.uci.ics.asterix.metadata.entities.Datatype;
 import edu.uci.ics.asterix.metadata.entities.Dataverse;
 import edu.uci.ics.asterix.metadata.entities.Feed;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity;
-import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityType;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
 import edu.uci.ics.asterix.metadata.entities.Function;
 import edu.uci.ics.asterix.metadata.entities.Index;
@@ -496,9 +496,6 @@ public interface IMetadataNode extends Remote, Serializable {
     public void addCompactionPolicy(JobId jobId, CompactionPolicy compactionPolicy) throws MetadataException,
             RemoteException;
 
-    public FeedActivity getRecentFeedActivity(JobId jobId, FeedConnectionId feedId,
-            FeedActivityType... feedActivityFilter) throws MetadataException, RemoteException;
-
     /**
      * @param jobId
      * @throws MetadataException
@@ -559,6 +556,8 @@ public interface IMetadataNode extends Remote, Serializable {
     public void dropFeed(JobId jobId, String dataverse, String feedName) throws MetadataException, RemoteException;
 
     /**
+     * Register a feed activity
+     * 
      * @param jobId
      *            A globally unique id for an active metadata transaction.
      * @param feedId
@@ -567,6 +566,26 @@ public interface IMetadataNode extends Remote, Serializable {
      */
     public void registerFeedActivity(JobId jobId, FeedConnectionId feedId, FeedActivity feedActivity)
             throws MetadataException, RemoteException;
+
+    /**
+     * @param jobId
+     * @param feedId
+     * @return
+     * @throws MetadataException
+     * @throws RemoteException
+     */
+    public List<FeedActivity> getFeedActivity(JobId jobId, FeedId feedId) throws MetadataException, RemoteException;
+
+    /**
+     * Deregister a feed activity
+     * 
+     * @param jobId
+     * @param feedConnectionId
+     * @throws MetadataException
+     * @throws RemoteException
+     */
+    public void deregisterFeedActivity(JobId jobId, FeedConnectionId feedConnectionId) throws MetadataException,
+            RemoteException;
 
     /**
      * @param jobId

@@ -25,12 +25,12 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import edu.uci.ics.asterix.bootstrap.FeedLifecycleListener;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
-import edu.uci.ics.asterix.hyracks.bootstrap.FeedLifecycleListener;
+import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity;
@@ -51,7 +51,6 @@ public class FeedDataProviderServlet extends HttpServlet {
         long timestamp = System.currentTimeMillis();
         JSONObject obj = null;
         if (report != null) {
-            JSONArray array = new JSONArray();
             try {
                 obj = new JSONObject();
                 obj.put("type", "report");
@@ -84,30 +83,31 @@ public class FeedDataProviderServlet extends HttpServlet {
         JSONObject obj = new JSONObject();
         try {
             MetadataTransactionContext ctx = MetadataManager.INSTANCE.beginTransaction();
-            List<FeedActivity> feedActivities = MetadataManager.INSTANCE
-                    .getActiveFeedsServingADataset(ctx, dataverseName, datasetName);
-            FeedConnectionId feedId = new FeedConnectionId(dataverseName, feedName, datasetName);
-            FeedActivity activity = MetadataManager.INSTANCE.getRecentActivityOnFeedConnection(ctx, feedId, null);
-            switch (activity.getActivityType()) {
-                case FEED_BEGIN:
-                    Map<String, String> activityDetails = activity.getFeedActivityDetails();
-                    String ingestLocations = activityDetails.get(FeedActivityDetails.COLLECT_LOCATIONS);
-                    String computeLocations = activityDetails.get(FeedActivityDetails.COMPUTE_LOCATIONS);
-                    String storageLocations = activityDetails.get(FeedActivityDetails.STORAGE_LOCATIONS);
-                    obj.put("status", "active");
-                    obj.put("type", "reload");
-                    obj.put("ingestLocations", ingestLocations);
-                    obj.put("computeLocations", computeLocations);
-                    obj.put("storageLocations", storageLocations);
-                    System.out.println(" RE LOADING " + " ingestion at " + ingestLocations + " compute at "
-                            + computeLocations + " storage at " + storageLocations);
-                    break;
-                case FEED_FAILURE:
-                    obj.put("status", "failed");
-                    break;
-                case FEED_END:
-                    obj.put("status", "ended");
-                    break;
+            List<FeedActivity> activities = MetadataManager.INSTANCE.getFeedActivity(ctx, new FeedId(dataverseName,
+                    feedName));
+            FeedActivity activity = null;
+            if (activities != null && !activities.isEmpty()) {
+                for (FeedActivity fa : activities) {
+                    if (fa.getDatasetName().equals(datasetName)) {
+                        activity = fa;
+                        break;
+                    }
+                }
+            }
+            if (activity != null) {
+                Map<String, String> activityDetails = activity.getFeedActivityDetails();
+                String ingestLocations = activityDetails.get(FeedActivityDetails.COLLECT_LOCATIONS);
+                String computeLocations = activityDetails.get(FeedActivityDetails.COMPUTE_LOCATIONS);
+                String storageLocations = activityDetails.get(FeedActivityDetails.STORAGE_LOCATIONS);
+                obj.put("status", "active");
+                obj.put("type", "reload");
+                obj.put("ingestLocations", ingestLocations);
+                obj.put("computeLocations", computeLocations);
+                obj.put("storageLocations", storageLocations);
+                System.out.println(" RE LOADING " + " ingestion at " + ingestLocations + " compute at "
+                        + computeLocations + " storage at " + storageLocations);
+            } else {
+                obj.put("status", "ended");
             }
         } catch (Exception e) {
             // ignore
