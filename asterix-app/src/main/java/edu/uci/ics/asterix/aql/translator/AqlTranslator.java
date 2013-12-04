@@ -101,7 +101,6 @@ import edu.uci.ics.asterix.metadata.entities.Dataverse;
 import edu.uci.ics.asterix.metadata.entities.ExternalDatasetDetails;
 import edu.uci.ics.asterix.metadata.entities.Feed;
 import edu.uci.ics.asterix.metadata.entities.Feed.FeedType;
-import edu.uci.ics.asterix.metadata.entities.FeedActivity;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityDetails;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
 import edu.uci.ics.asterix.metadata.entities.Function;
@@ -684,7 +683,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 }
             }
 
-            List<FeedConnectionId> activeFeedConnections = FeedLifecycleListener.INSTANCE.getActiveFeeds();
+            List<FeedConnectionId> activeFeedConnections = FeedLifecycleListener.INSTANCE
+                    .getActiveFeedConnections(null);
             boolean resourceInUse = false;
             if (activeFeedConnections != null && !activeFeedConnections.isEmpty()) {
                 StringBuilder builder = new StringBuilder();
@@ -858,23 +858,26 @@ public class AqlTranslator extends AbstractAqlTranslator {
             }
 
             //# disconnect all feeds from any datasets in the dataverse.
-            List<FeedConnectionId> activeFeedConnections = FeedLifecycleListener.INSTANCE.getActiveFeeds();
+            List<FeedConnectionId> activeFeedConnections = FeedLifecycleListener.INSTANCE
+                    .getActiveFeedConnections(null);
             DisconnectFeedStatement disStmt = null;
             Identifier dvId = new Identifier(dataverseName);
             for (FeedConnectionId connection : activeFeedConnections) {
-                disStmt = new DisconnectFeedStatement(dvId, new Identifier(connection.getFeedId().getFeedName()),
-                        new Identifier(connection.getDatasetName()));
-                try {
-                    handleDisconnectFeedStatement(metadataProvider, disStmt, hcc);
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("Disconnected feed " + connection.getFeedId().getFeedName() + " from dataset "
-                                + connection.getDatasetName());
-                    }
-                } catch (Exception exception) {
-                    if (LOGGER.isLoggable(Level.WARNING)) {
-                        LOGGER.warning("Unable to disconnect feed " + connection.getFeedId().getFeedName()
-                                + " from dataset " + connection.getDatasetName() + ". Encountered exception "
-                                + exception);
+                if (connection.getFeedId().getDataverse().equals(dataverseName)) {
+                    disStmt = new DisconnectFeedStatement(dvId, new Identifier(connection.getFeedId().getFeedName()),
+                            new Identifier(connection.getDatasetName()));
+                    try {
+                        handleDisconnectFeedStatement(metadataProvider, disStmt, hcc);
+                        if (LOGGER.isLoggable(Level.INFO)) {
+                            LOGGER.info("Disconnected feed " + connection.getFeedId().getFeedName() + " from dataset "
+                                    + connection.getDatasetName());
+                        }
+                    } catch (Exception exception) {
+                        if (LOGGER.isLoggable(Level.WARNING)) {
+                            LOGGER.warning("Unable to disconnect feed " + connection.getFeedId().getFeedName()
+                                    + " from dataset " + connection.getDatasetName() + ". Encountered exception "
+                                    + exception);
+                        }
                     }
                 }
             }
@@ -999,12 +1002,12 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
             if (ds.getDatasetType() == DatasetType.INTERNAL) {
                 // prepare job spec(s) that would disconnect any active feeds involving the dataset.
-                List<FeedConnectionId> feedConnections = FeedLifecycleListener.INSTANCE.getActiveFeeds();
+                List<FeedConnectionId> feedConnections = FeedLifecycleListener.INSTANCE.getActiveFeedConnections(null);
                 List<JobSpecification> disconnectFeedJobSpecs = new ArrayList<JobSpecification>();
                 if (feedConnections != null && !feedConnections.isEmpty()) {
                     for (FeedConnectionId connection : feedConnections) {
-                        JobSpecification jobSpec = FeedOperations.buildDisconnectFeedJobSpec(dataverseName, connection
-                                .getFeedId().getFeedName(), datasetName, metadataProvider, connection);
+                        JobSpecification jobSpec = FeedOperations.buildDisconnectFeedJobSpec(metadataProvider,
+                                connection);
                         disconnectFeedJobSpecs.add(jobSpec);
                         if (LOGGER.isLoggable(Level.INFO)) {
                             LOGGER.info("Disconnected feed " + connection.getFeedId().getFeedName() + " from dataset "
@@ -1124,7 +1127,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                         + dataverseName);
             }
 
-            List<FeedConnectionId> feedConnections = FeedLifecycleListener.INSTANCE.getActiveFeeds();
+            List<FeedConnectionId> feedConnections = FeedLifecycleListener.INSTANCE.getActiveFeedConnections(null);
             boolean resourceInUse = false;
             if (feedConnections != null && !feedConnections.isEmpty()) {
                 StringBuilder builder = new StringBuilder();
@@ -1527,14 +1530,15 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 }
             }
 
-            Pair<SubscriptionLocation, List<FeedConnectionId>> subscriptions = FeedLifecycleListener.INSTANCE
-                    .getFeedSubscriptions(new FeedId(dataverseName, feedName));
-            if (subscriptions != null) {
+            FeedId feedId = new FeedId(dataverseName, feedName);
+            List<FeedConnectionId> activeConnections = FeedLifecycleListener.INSTANCE.getActiveFeedConnections(feedId);
+            if (activeConnections != null && !activeConnections.isEmpty()) {
+                Pair<SubscriptionLocation, List<FeedConnectionId>> subscriptions = FeedLifecycleListener.INSTANCE
+                        .getFeedSubscriptions(feedId);
                 List<FeedConnectionId> subscribingConnections = subscriptions.second;
                 List<JobSpecification> jobSpecs = new ArrayList<JobSpecification>();
                 for (FeedConnectionId connId : subscribingConnections) {
-                    JobSpecification jobSpec = FeedOperations.buildDisconnectFeedJobSpec(dataverseName, feedName,
-                            connId.getDatasetName(), metadataProvider, connId);
+                    JobSpecification jobSpec = FeedOperations.buildDisconnectFeedJobSpec(metadataProvider, connId);
                     jobSpecs.add(jobSpec);
                 }
                 for (JobSpecification spec : jobSpecs) {
@@ -1590,8 +1594,9 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
             FeedConnectionId feedConnId = new FeedConnectionId(dataverseName, cfs.getFeedName(), cfs.getDatasetName()
                     .getValue());
-            List<FeedConnectionId> feedConnections = FeedLifecycleListener.INSTANCE.getActiveFeeds();
-            if (feedConnections.contains(feedConnId)) {
+            List<FeedConnectionId> feedConnections = FeedLifecycleListener.INSTANCE.getActiveFeedConnections(feedConnId
+                    .getFeedId());
+            if (feedConnections != null && !feedConnections.isEmpty()) {
                 throw new AsterixException("Feed " + cfs.getFeedName()
                         + " is currently ACTIVE. Operation not supported");
             }
@@ -1612,9 +1617,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
             if (subscriptionRequest.getSourceFeed().getFeedType().equals(FeedType.PRIMARY)) {
                 FeedIntakeInfo intakeInfo = FeedLifecycleListener.INSTANCE.getFeedIntakeInfo(subscriptionRequest
                         .getSourceFeed().getFeedId());
-                if (intakeInfo != null && intakeInfo.state.equals(FeedIntakeInfo.State.ACTIVE)) {
-                    createFeedIntakeJob = false;
-                }
+                createFeedIntakeJob = (intakeInfo == null || !intakeInfo.state.equals(FeedIntakeInfo.State.ACTIVE));
             }
             if (createFeedIntakeJob) {
                 JobSpecification feedIntakeJobSpec = FeedOperations.buildFeedIntakeJobSpec(
@@ -1728,15 +1731,14 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 throw new AsterixException("Unknown source feed :" + cfs.getFeedName());
             }
 
-            boolean isFeedActive = FeedLifecycleListener.INSTANCE.isFeedActive(feed.getFeedId());
-            if (!isFeedActive) {
-                throw new AsterixException("Feed " + cfs.getDatasetName().getValue()
-                        + " is currently INACTIVE. Operation not supported");
+            FeedConnectionId connectionId = new FeedConnectionId(feed.getFeedId(), datasetName);
+            boolean isFeedConnectionActive = FeedLifecycleListener.INSTANCE.isFeedConnectionActive(connectionId);
+            if (!isFeedConnectionActive) {
+                throw new AsterixException("Feed " + feed.getFeedId().getFeedName() + " is currently not connected to "
+                        + cfs.getDatasetName().getValue() + ". Invalid operation!");
             }
 
-            FeedConnectionId feedConnId = new FeedConnectionId(dataverseName, feed.getFeedName(), datasetName);
-            JobSpecification jobSpec = FeedOperations.buildDisconnectFeedJobSpec(dataverseName, cfs.getFeedName()
-                    .getValue(), cfs.getDatasetName().getValue(), metadataProvider, feedConnId);
+            JobSpecification jobSpec = FeedOperations.buildDisconnectFeedJobSpec(metadataProvider, connectionId);
 
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             bActiveTxn = false;

@@ -1337,7 +1337,7 @@ public class MetadataNode implements IMetadataNode {
             if (feedId != null) {
                 searchKey = createTuple(feedId.getDataverse(), feedId.getFeedName());
             } else {
-                searchKey = new ArrayTupleReference();
+                searchKey = createTuple();
             }
             FeedActivityTupleTranslator tupleReaderWriter = new FeedActivityTupleTranslator(false);
             IValueExtractor<FeedActivity> valueExtractor = new MetadataEntityValueExtractor<FeedActivity>(
@@ -1352,8 +1352,14 @@ public class MetadataNode implements IMetadataNode {
     @Override
     public void deregisterFeedActivity(JobId jobId, FeedConnectionId feedConnectionId) throws MetadataException,
             RemoteException {
-        // TODO Auto-generated method stub
-
+        try {
+            ITupleReference searchKey = createTuple(feedConnectionId.getFeedId().getDataverse(), feedConnectionId
+                    .getFeedId().getFeedName());
+            ITupleReference tuple = getTupleToBeDeleted(jobId, MetadataPrimaryIndexes.FEED_ACTIVITY_DATASET, searchKey);
+            deleteTupleFromIndex(jobId, MetadataPrimaryIndexes.FEED_ACTIVITY_DATASET, tuple);
+        } catch (Exception e) {
+            throw new MetadataException(e);
+        }
     }
 
     @Override

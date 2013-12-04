@@ -63,7 +63,7 @@ public class FeedWorkCollection {
             return runnable;
         }
 
-        public SubscribeFeedWork(List<String> locations, FeedSubscriptionRequest request) {
+        public SubscribeFeedWork(String[] locations, FeedSubscriptionRequest request) {
             this.runnable = new SubscribeFeedWorkRunnable(locations, request);
             this.request = request;
         }
@@ -71,9 +71,9 @@ public class FeedWorkCollection {
         private static class SubscribeFeedWorkRunnable implements Runnable {
 
             private final FeedSubscriptionRequest request;
-            private final List<String> locations;
+            private final String[] locations;
 
-            public SubscribeFeedWorkRunnable(List<String> locations, FeedSubscriptionRequest request) {
+            public SubscribeFeedWorkRunnable(String[] locations, FeedSubscriptionRequest request) {
                 this.request = request;
                 this.locations = locations;
             }

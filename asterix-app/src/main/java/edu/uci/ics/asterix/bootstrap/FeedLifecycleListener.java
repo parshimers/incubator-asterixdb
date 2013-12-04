@@ -15,7 +15,6 @@
 package edu.uci.ics.asterix.bootstrap;
 
 import java.io.PrintWriter;
-import java.io.Serializable;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -31,6 +30,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import org.apache.commons.lang3.StringUtils;
 
 import edu.uci.ics.asterix.api.common.APIFramework.DisplayFormat;
 import edu.uci.ics.asterix.api.common.FeedWorkCollection.SubscribeFeedWork;
@@ -52,7 +53,6 @@ import edu.uci.ics.asterix.common.feeds.SuperFeedManager;
 import edu.uci.ics.asterix.event.schema.cluster.Cluster;
 import edu.uci.ics.asterix.event.schema.cluster.Node;
 import edu.uci.ics.asterix.file.JobSpecificationUtils;
-import edu.uci.ics.asterix.runtime.formats.NonTaggedDataFormat;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
 import edu.uci.ics.asterix.metadata.bootstrap.MetadataConstants;
@@ -63,6 +63,7 @@ import edu.uci.ics.asterix.metadata.entities.Dataverse;
 import edu.uci.ics.asterix.metadata.entities.Feed;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityDetails;
+import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityType;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
 import edu.uci.ics.asterix.metadata.feeds.BuiltinFeedPolicies;
 import edu.uci.ics.asterix.metadata.feeds.FeedCollectOperatorDescriptor;
@@ -77,6 +78,7 @@ import edu.uci.ics.asterix.metadata.feeds.MessageListener;
 import edu.uci.ics.asterix.metadata.feeds.MessageListener.IMessageAnalyzer;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
 import edu.uci.ics.asterix.om.util.AsterixClusterProperties;
+import edu.uci.ics.asterix.runtime.formats.NonTaggedDataFormat;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraintHelper;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
@@ -115,33 +117,31 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
 
     public static final int FEED_HEALTH_PORT = 2999;
 
-    private LinkedBlockingQueue<Message> jobEventInbox;
-    private LinkedBlockingQueue<IClusterManagementWorkResponse> responseInbox;
-    private Map<FeedCollectInfo, List<String>> dependentFeeds = new HashMap<FeedCollectInfo, List<String>>();
-    private IMessageAnalyzer healthDataParser;
-    private MessageListener feedHealthDataListener;
-    private ExecutorService executorService = Executors.newCachedThreadPool();
-    private Map<FeedConnectionId, LinkedBlockingQueue<String>> feedReportQueue = new HashMap<FeedConnectionId, LinkedBlockingQueue<String>>();
-    private ClusterState state;
+    private final LinkedBlockingQueue<Message> jobEventInbox;
+    private final LinkedBlockingQueue<IClusterManagementWorkResponse> responseInbox;
+    private final Map<FeedCollectInfo, List<String>> dependentFeeds = new HashMap<FeedCollectInfo, List<String>>();
+    private final IMessageAnalyzer healthDataParser;
+    private final MessageListener healthDataListener;
+    private final Map<FeedConnectionId, LinkedBlockingQueue<String>> feedReportQueue;
     private final FeedJobNotificationHandler feedJobNotificationHandler;
     private final FeedWorkRequestResponseHandler feedWorkRequestResponseHandler;
+    private final ExecutorService executorService;
+    private ClusterState state;
 
     private FeedLifecycleListener() {
         jobEventInbox = new LinkedBlockingQueue<Message>();
         feedJobNotificationHandler = new FeedJobNotificationHandler(jobEventInbox);
         responseInbox = new LinkedBlockingQueue<IClusterManagementWorkResponse>();
         feedWorkRequestResponseHandler = new FeedWorkRequestResponseHandler(responseInbox, feedJobNotificationHandler);
+        feedReportQueue = new HashMap<FeedConnectionId, LinkedBlockingQueue<String>>();
         this.healthDataParser = new FeedHealthDataParser();
-        this.feedHealthDataListener = new MessageListener(FEED_HEALTH_PORT, healthDataParser.getMessageQueue());
-        this.feedHealthDataListener.start();
+        this.healthDataListener = new MessageListener(FEED_HEALTH_PORT, healthDataParser.getMessageQueue());
+        this.healthDataListener.start();
+        this.executorService = Executors.newCachedThreadPool();
         this.executorService.execute(feedJobNotificationHandler);
         this.executorService.execute(feedWorkRequestResponseHandler);
         ClusterManager.INSTANCE.registerSubscriber(this);
         state = AsterixClusterProperties.INSTANCE.getState();
-    }
-
-    public FeedIntakeInfo getFeedIntakeInfo(FeedId feedId) {
-        return feedJobNotificationHandler.getFeedIntakeInfo(feedId);
     }
 
     @Override
@@ -158,6 +158,9 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
         }
     }
 
+    /*
+     * Traverse job specification to categorize job as a feed intake job or a feed collection job 
+     */
     @Override
     public void notifyJobCreation(JobId jobId, IActivityClusterGraphGeneratorFactory acggf) throws HyracksException {
         JobSpecification spec = acggf.getJobSpecification();
@@ -181,10 +184,10 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
             }
         }
         if (feedCollectionJob) {
-            feedJobNotificationHandler.registerFeedConnectionJob(sourceFeedId, feedConnectionId, jobId, spec,
+            feedJobNotificationHandler.registerFeedCollectionJob(sourceFeedId, feedConnectionId, jobId, spec,
                     feedPolicy);
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Registered feed connection: " + feedConnectionId + " ingestion policy "
+                LOGGER.info("Registered feed collection: " + feedConnectionId + " ingestion policy "
                         + feedPolicy.get(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY));
             }
         } else if (feedIntakeJob) {
@@ -193,19 +196,6 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
                 LOGGER.info("Registered feed intake job for feed: " + feedId);
             }
         }
-
-    }
-
-    public void registerFeedReportQueue(FeedConnectionId feedId, LinkedBlockingQueue<String> queue) {
-        feedReportQueue.put(feedId, queue);
-    }
-
-    public void deregisterFeedReportQueue(FeedConnectionId feedId, LinkedBlockingQueue<String> queue) {
-        feedReportQueue.remove(feedId);
-    }
-
-    public LinkedBlockingQueue<String> getFeedReportQueue(FeedConnectionId feedId) {
-        return feedReportQueue.get(feedId);
     }
 
     private static class Message {
@@ -252,9 +242,7 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
 
     }
 
-    public static class FeedJobNotificationHandler implements Runnable, Serializable {
-
-        private static final long serialVersionUID = 1L;
+    public static class FeedJobNotificationHandler implements Runnable {
 
         private LinkedBlockingQueue<Message> inbox;
         private Map<JobId, FeedCollectInfo> registeredFeedConnections = new HashMap<JobId, FeedCollectInfo>();
@@ -264,6 +252,7 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
         private Map<FeedId, String[]> feedComputeLocations = new HashMap<FeedId, String[]>();
         private Map<FeedId, String[]> feedIntakeLocations = new HashMap<FeedId, String[]>();
         private Map<FeedConnectionId, String[]> feedStoreLocations = new HashMap<FeedConnectionId, String[]>();
+
         private FeedMessenger feedMessenger;
         private LinkedBlockingQueue<FeedMessengerMessage> messengerOutbox;
         private int superFeedManagerPort = 3000;
@@ -275,6 +264,10 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
             messengerOutbox = new LinkedBlockingQueue<FeedMessengerMessage>();
             feedMessenger = new FeedMessenger(messengerOutbox);
             (new Thread(feedMessenger)).start();
+        }
+
+        public Map<JobId, FeedCollectInfo> getRegisteredFeedConnections() {
+            return registeredFeedConnections;
         }
 
         public String[] getFeedComputeLocations(FeedId feedId) {
@@ -293,7 +286,7 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
             return registeredFeedConnections.containsKey(jobId) || registeredFeedIntakeJobs.containsKey(jobId);
         }
 
-        public void registerFeedConnectionJob(FeedId sourceFeedId, FeedConnectionId feedConnectionId, JobId jobId,
+        public void registerFeedCollectionJob(FeedId sourceFeedId, FeedConnectionId feedConnectionId, JobId jobId,
                 JobSpecification jobSpec, Map<String, String> feedPolicy) {
             if (registeredFeedConnections.containsKey(jobId)) {
                 throw new IllegalStateException(" Feed already registered ");
@@ -451,6 +444,8 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
                 }
             }
 
+            this.feedIntakeLocations
+                    .put(feedIntakeInfo.feedId, feedIntakeInfo.intakeLocations.toArray(new String[] {}));
             feedIntakeInfo.state = FeedInfo.State.ACTIVE;
             List<FeedSubscriptionRequest> subscriptionRequests = getSubscriptionRequest(feedIntakeInfo.feedId);
             if (subscriptionRequests != null && !subscriptionRequests.isEmpty()) {
@@ -463,34 +458,55 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
                 }
             }
 
-            this.feedIntakeLocations
-                    .put(feedIntakeInfo.feedId, feedIntakeInfo.intakeLocations.toArray(new String[] {}));
         }
 
         private void submitFeedSubscriptionRequest(FeedInfo feedInfo, final FeedSubscriptionRequest request)
                 throws Exception {
-            List<String> locations = feedInfo.infoType.equals(FeedInfo.FeedInfoType.INTAKE) ? ((FeedIntakeInfo) feedInfo).intakeLocations
-                    : ((FeedCollectInfo) feedInfo).collectLocations;
+            String[] locations = null;
+            boolean intake = false;
+            FeedId feedId = null;
+            if (feedInfo.infoType.equals(FeedInfo.FeedInfoType.INTAKE)) {
+                // source feed is a primary feed
+                if (request.getSubscriptionLocation().equals(SubscriptionLocation.SOURCE_FEED_INTAKE)) {
+                    intake = true;
+                }
+                feedId = ((FeedIntakeInfo) feedInfo).feedId;
+            } else {
+                // source feed is a secondary feed
+                feedId = ((FeedCollectInfo) feedInfo).feedConnectionId.getFeedId();
+            }
+
+            switch (request.getSubscriptionLocation()) {
+                case SOURCE_FEED_COMPUTE:
+                    locations = feedComputeLocations.get(feedId);
+                    break;
+                case SOURCE_FEED_INTAKE:
+                    locations = feedIntakeLocations.get(feedId);
+                    break;
+            }
+
             SubscribeFeedWork work = new SubscribeFeedWork(locations, request);
             FeedWorkManager.INSTANCE.submitWork(work, new SubscribeFeedWork.FeedSubscribeWorkEventListener());
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Submitted " + work);
-            }
-            FeedId sourceFeedId = request.getSourceFeed().getFeedId();
-            Pair<SubscriptionLocation, List<FeedConnectionId>> subscriptionsSrcFeed = dependencyChain.get(sourceFeedId);
-            if (subscriptionsSrcFeed != null) {
-                if (!subscriptionsSrcFeed.first.equals(request.getSubscriptionLocation())) {
-                    throw new Exception("Invalid subscription request as source feed " + sourceFeedId
-                            + " is being subscribed at " + subscriptionsSrcFeed.first);
+
+            if (!intake) {
+                FeedId sourceFeedId = request.getSourceFeed().getFeedId();
+                Pair<SubscriptionLocation, List<FeedConnectionId>> subscriptionsSrcFeed = dependencyChain
+                        .get(sourceFeedId);
+                if (subscriptionsSrcFeed != null) {
+                    if (!subscriptionsSrcFeed.first.equals(request.getSubscriptionLocation())) {
+                        throw new Exception("Invalid subscription request as source feed " + sourceFeedId
+                                + " is being subscribed at location " + subscriptionsSrcFeed.first);
+                    }
+                } else {
+                    List<FeedConnectionId> subscribers = new ArrayList<FeedConnectionId>();
+                    FeedConnectionId connId = new FeedConnectionId(request.getFeed().getFeedId(),
+                            request.getTargetDataset());
+                    subscribers.add(connId);
+                    subscriptionsSrcFeed = new Pair(request.getSubscriptionLocation(), subscribers);
+                    dependencyChain.put(sourceFeedId, subscriptionsSrcFeed);
                 }
-            } else {
-                List<FeedConnectionId> subscribers = new ArrayList<FeedConnectionId>();
-                FeedConnectionId connId = new FeedConnectionId(request.getFeed().getFeedId(),
-                        request.getTargetDataset());
-                subscribers.add(connId);
-                subscriptionsSrcFeed = new Pair(request.getSubscriptionLocation(), subscribers);
-                dependencyChain.put(sourceFeedId, subscriptionsSrcFeed);
             }
+
         }
 
         private void handleFeedCollectJobStartMessage(FeedCollectInfo feedCollectInfo, Message message) {
@@ -565,6 +581,33 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
                     configureSuperFeedManager(feedCollectInfo);
                 }
 
+                Map<String, String> feedActivityDetails = new HashMap<String, String>();
+                feedActivityDetails.put(FeedActivity.FeedActivityDetails.INTAKE_LOCATIONS,
+                        StringUtils.join(feedCollectInfo.collectLocations.iterator(), ','));
+                feedActivityDetails.put(FeedActivity.FeedActivityDetails.COMPUTE_LOCATIONS,
+                        StringUtils.join(feedCollectInfo.computeLocations.iterator(), ','));
+                feedActivityDetails.put(FeedActivity.FeedActivityDetails.STORAGE_LOCATIONS,
+                        StringUtils.join(feedCollectInfo.storageLocations.iterator(), ','));
+                String policyName = feedCollectInfo.feedPolicy.get(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY);
+                feedActivityDetails.put(FeedActivity.FeedActivityDetails.FEED_POLICY_NAME, policyName);
+
+                MetadataManager.INSTANCE.acquireWriteLatch();
+                MetadataTransactionContext mdTxnCtx = null;
+                try {
+                    mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+                    FeedActivityType nextState = FeedActivityType.FEED_BEGIN;
+                    FeedActivity feedActivity = new FeedActivity(feedCollectInfo.feedConnectionId.getFeedId()
+                            .getDataverse(), feedCollectInfo.feedConnectionId.getFeedId().getFeedName(),
+                            feedCollectInfo.feedConnectionId.getDatasetName(), nextState, feedActivityDetails);
+                    MetadataManager.INSTANCE.registerFeedActivity(mdTxnCtx, feedCollectInfo.feedConnectionId,
+                            feedActivity);
+                    MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+                } catch (Exception e) {
+                    MetadataManager.INSTANCE.abortTransaction(mdTxnCtx);
+                } finally {
+                    MetadataManager.INSTANCE.releaseWriteLatch();
+                }
+
                 this.feedComputeLocations.put(feedCollectInfo.feedConnectionId.getFeedId(),
                         feedCollectInfo.computeLocations.toArray(new String[] {}));
 
@@ -629,7 +672,6 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
                 IHyracksClientConnection hcc = AsterixAppContextInfo.getInstance().getHcc();
                 JobInfo info = hcc.getJobInfo(message.jobId);
                 JobStatus status = info.getStatus();
-                List<Exception> exceptions;
                 boolean failure = status != null && status.equals(JobStatus.FAILURE);
                 Map<String, String> details = new HashMap<String, String>();
                 if (failure) {
@@ -643,6 +685,16 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
                         LOGGER.info(info + " completed successfully. Removed subscription");
                     }
                 }
+                feedCollectInfos.remove(feedCollectInfo.feedConnectionId);
+                feedStoreLocations.remove(feedCollectInfo.feedConnectionId.getFeedId());
+
+                List<FeedSubscriptionRequest> subscribersToFeed = subscriptions.get(feedCollectInfo.feedConnectionId
+                        .getFeedId());
+                if (subscribersToFeed == null || subscribersToFeed.isEmpty()) {
+                    feedIntakeLocations.remove(feedCollectInfo.feedConnectionId.getFeedId());
+                    feedComputeLocations.remove(feedCollectInfo.feedConnectionId.getFeedId());
+                }
+
                 deregisterFeedActivity(feedCollectInfo);
 
             } else {
@@ -1328,8 +1380,17 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
     }
 
     @Override
-    public List<FeedConnectionId> getActiveFeeds() {
-        return null;
+    public List<FeedConnectionId> getActiveFeedConnections(FeedId feedId) {
+        Collection<FeedCollectInfo> feedCollectInfos = feedJobNotificationHandler.getRegisteredFeedConnections()
+                .values();
+        List<FeedConnectionId> connections = new ArrayList<FeedConnectionId>();
+        boolean filter = feedId != null;
+        for (FeedCollectInfo cInfo : feedCollectInfos) {
+            if (!filter || filter && cInfo.feedConnectionId.getFeedId().equals(feedId)) {
+                connections.add(cInfo.feedConnectionId);
+            }
+        }
+        return connections;
     }
 
     @Override
@@ -1353,4 +1414,24 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
         return computeLocations != null && computeLocations.length > 0;
     }
 
+    @Override
+    public boolean isFeedConnectionActive(FeedConnectionId feedConnectionId) {
+        return feedJobNotificationHandler.getFeedCollectInfo(feedConnectionId) != null;
+    }
+
+    public void registerFeedReportQueue(FeedConnectionId feedId, LinkedBlockingQueue<String> queue) {
+        feedReportQueue.put(feedId, queue);
+    }
+
+    public void deregisterFeedReportQueue(FeedConnectionId feedId, LinkedBlockingQueue<String> queue) {
+        feedReportQueue.remove(feedId);
+    }
+
+    public LinkedBlockingQueue<String> getFeedReportQueue(FeedConnectionId feedId) {
+        return feedReportQueue.get(feedId);
+    }
+
+    public FeedIntakeInfo getFeedIntakeInfo(FeedId feedId) {
+        return feedJobNotificationHandler.getFeedIntakeInfo(feedId);
+    }
 }

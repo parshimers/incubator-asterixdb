@@ -14,9 +14,14 @@
  */
 package edu.uci.ics.asterix.file;
 
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import edu.uci.ics.asterix.bootstrap.FeedLifecycleListener;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.IFeedLifecycleListener.SubscriptionLocation;
 import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
 import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
@@ -32,6 +37,8 @@ import edu.uci.ics.hyracks.dataflow.std.misc.NullSinkOperatorDescriptor;
  * Provides helper method(s) for creating JobSpec for operations on a feed.
  */
 public class FeedOperations {
+
+    private static Logger LOGGER = Logger.getLogger(FeedOperations.class.getName());
 
     /**
      * Builds the job spec for ingesting a (primary) feed from its external source via the feed adaptor.
@@ -80,26 +87,41 @@ public class FeedOperations {
      * @throws AsterixException
      * @throws AlgebricksException
      */
-    public static JobSpecification buildDisconnectFeedJobSpec(String dataverseName, String feedName,
-            String datasetName, AqlMetadataProvider metadataProvider, FeedConnectionId feedConnectionId)
-            throws AsterixException, AlgebricksException {
+    public static JobSpecification buildDisconnectFeedJobSpec(AqlMetadataProvider metadataProvider,
+            FeedConnectionId feedConnectionId) throws AsterixException, AlgebricksException {
 
         JobSpecification spec = JobSpecificationUtils.createJobSpecification();
         IOperatorDescriptor feedMessenger;
         AlgebricksPartitionConstraint messengerPc;
 
         try {
-            String[] locations = FeedLifecycleListener.INSTANCE.getIntakeLocations(feedConnectionId.getFeedId());
-            Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p = metadataProvider
-                    .buildDisconnectFeedMessengerRuntime(spec, dataverseName, feedName, datasetName, locations);
-            feedMessenger = p.first;
-            messengerPc = p.second;
+            Pair<SubscriptionLocation, List<FeedConnectionId>> subscriptions = FeedLifecycleListener.INSTANCE
+                    .getFeedSubscriptions(feedConnectionId.getFeedId());
+            boolean dependentSubscribers = (subscriptions != null && subscriptions.second.size() > 0);
+            if (!dependentSubscribers) {
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("Feed connection " + feedConnectionId
+                            + " can be removed as there are no subscribers to the connection.");
+                }
+                String[] locations = FeedLifecycleListener.INSTANCE.getIntakeLocations(feedConnectionId.getFeedId());
+                Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p = metadataProvider
+                        .buildDisconnectFeedMessengerRuntime(spec, feedConnectionId.getFeedId().getDataverse(),
+                                feedConnectionId.getFeedId().getFeedName(), feedConnectionId.getDatasetName(),
+                                locations);
+                feedMessenger = p.first;
+                messengerPc = p.second;
+            } else {
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("Feed connection " + feedConnectionId + " has dependent subscribers to the connection.");
+                }
+                throw new AsterixException("Disconnecting a feed with subscribers is not supported");
+            }
+
         } catch (AlgebricksException e) {
             throw new AsterixException(e);
         }
 
         AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, feedMessenger, messengerPc);
-
         NullSinkOperatorDescriptor nullSink = new NullSinkOperatorDescriptor(spec);
         AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, nullSink, messengerPc);
         spec.connect(new OneToOneConnectorDescriptor(spec), feedMessenger, 0, nullSink, 0);
@@ -107,5 +129,4 @@ public class FeedOperations {
         return spec;
 
     }
-
 }

@@ -31,7 +31,7 @@ public interface IFeedLifecycleListener extends IJobLifecycleListener, IClusterE
 
     public Pair<SubscriptionLocation, List<FeedConnectionId>> getFeedSubscriptions(FeedId feedId);
 
-    public List<FeedConnectionId> getActiveFeeds();
+    public List<FeedConnectionId> getActiveFeedConnections(FeedId feedId);
 
     public String[] getComputeLocations(FeedId feedId);
 

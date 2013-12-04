@@ -17,6 +17,7 @@ package edu.uci.ics.asterix.common.api;
 import java.util.Set;
 
 import edu.uci.ics.asterix.common.api.IClusterManagementWork.ClusterState;
+import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 
 public interface IClusterEventsSubscriber {
 
@@ -42,5 +43,11 @@ public interface IClusterEventsSubscriber {
      * @param newState
      */
     public void notifyStateChange(ClusterState previousState, ClusterState newState);
+
+    /**
+     * @param feedConnectionId
+     * @return
+     */
+    boolean isFeedConnectionActive(FeedConnectionId feedConnectionId);
 
 }

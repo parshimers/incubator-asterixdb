@@ -49,11 +49,11 @@ public class SubscribeFeedStatement implements Statement {
     private final FeedSubscriptionRequest subscriptionRequest;
     private Query query;
     private int varCounter;
-    private final List<String> locations;
+    private final String[] locations;
 
     public static final String WAIT_FOR_COMPLETION = "wait-for-completion-feed";
 
-    public SubscribeFeedStatement(List<String> locations, FeedSubscriptionRequest subscriptionRequest) {
+    public SubscribeFeedStatement(String[] locations, FeedSubscriptionRequest subscriptionRequest) {
         this.subscriptionRequest = subscriptionRequest;
         this.varCounter = 0;
         this.locations = locations;
@@ -181,7 +181,7 @@ public class SubscribeFeedStatement implements Statement {
         }
     }
 
-    public List<String> getLocations() {
+    public String[] getLocations() {
         return locations;
     }
 }
