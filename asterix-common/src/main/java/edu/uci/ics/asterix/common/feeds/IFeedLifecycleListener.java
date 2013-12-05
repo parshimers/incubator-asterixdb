@@ -40,4 +40,6 @@ public interface IFeedLifecycleListener extends IJobLifecycleListener, IClusterE
     public String[] getStoreLocations(FeedConnectionId feedId);
 
     public boolean isFeedActive(FeedId feedId);
+
+    public Pair<FeedId, SubscriptionLocation> getSourceFeedInfo(FeedConnectionId feedConnectionId);
 }

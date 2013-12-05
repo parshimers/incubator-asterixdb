@@ -282,14 +282,9 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                 coreOperatorNodePushable.nextFrame(buffer);
                 currentBuffer = null;
             } catch (HyracksDataException e) {
-                int checksum = computeChecksum(buffer.array(), buffer.limit());
                 if (policyEnforcer.getFeedPolicyAccessor().continueOnApplicationFailure()) {
                     boolean isExceptionHarmful = e.getCause() instanceof TreeIndexException && !resumeOldState;
                     if (isExceptionHarmful) {
-                        if (LOGGER.isLoggable(Level.WARNING)) {
-                            LOGGER.warning("Ignoring exception " + e + " BY " + feedConnectionId + " BUFER CHECKSUM "
-                                    + checksum);
-                        }
                         // TODO: log the tuple
                         FeedRuntimeState runtimeState = new FeedRuntimeState(buffer, writer, e);
                         // sfeedRuntime.setRuntimeState(runtimeState);
@@ -306,25 +301,6 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                     throw e;
                 }
             }
-        }
-
-        private static int computeChecksum(byte[] buf, int len) {
-            int crc = 0xFFFF;
-
-            for (int pos = 0; pos < len; pos++) {
-                crc ^= (int) buf[pos]; // XOR byte into least sig. byte of crc
-
-                for (int i = 8; i != 0; i--) { // Loop over each bit
-                    if ((crc & 0x0001) != 0) { // If the LSB is set
-                        crc >>= 1; // Shift right and XOR 0xA001
-                        crc ^= 0xA001;
-                    } else
-                        // Else LSB is not set
-                        crc >>= 1; // Just shift right
-                }
-            }
-            // Note, this number has low and high bytes swapped, so use it accordingly (or swap bytes)
-            return crc;
         }
 
         @Override
@@ -359,7 +335,12 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                     feedManager.getFeedConnectionManager().deRegisterFeedRuntime(
                             ((BasicFeedRuntime) feedRuntime).getFeedRuntimeId());
                     break;
-                default: // do nothing
+                case COMPUTE:
+                    FeedSubscribableRuntimeId runtimeId = ((ISubscribableRuntime) feedRuntime)
+                            .getFeedSubscribableRuntimeId();
+                    feedManager.getFeedSubscriptionManager().deregisterFeedSubscribableRuntime(runtimeId);
+                    break;
+            // do nothing
 
             }
         }

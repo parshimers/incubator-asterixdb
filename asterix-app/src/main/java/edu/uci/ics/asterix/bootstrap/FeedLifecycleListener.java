@@ -1434,4 +1434,27 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
     public FeedIntakeInfo getFeedIntakeInfo(FeedId feedId) {
         return feedJobNotificationHandler.getFeedIntakeInfo(feedId);
     }
+
+    @Override
+    public Pair<FeedId, SubscriptionLocation> getSourceFeedInfo(FeedConnectionId feedConnectionId) {
+        FeedId sourceFeedId = null;
+        SubscriptionLocation subscriptionLocation = null;
+        FeedId candidateFeedId = null;
+        for (Entry<FeedId, Pair<SubscriptionLocation, List<FeedConnectionId>>> entry : feedJobNotificationHandler.dependencyChain
+                .entrySet()) {
+            candidateFeedId = entry.getKey();
+            List<FeedConnectionId> value = entry.getValue().second;
+            if (value.contains(feedConnectionId)) {
+                sourceFeedId = candidateFeedId;
+                subscriptionLocation = entry.getValue().first;
+                break;
+            }
+        }
+        if (sourceFeedId != null) {
+            return new Pair<FeedId, SubscriptionLocation>(sourceFeedId, subscriptionLocation);
+        } else {
+            return new Pair<FeedId, SubscriptionLocation>(feedConnectionId.getFeedId(),
+                    SubscriptionLocation.SOURCE_FEED_INTAKE);
+        }
+    }
 }

@@ -51,7 +51,7 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
     private final FrameDistributor frameDistributor;
 
     /** A map storing the registered frame readers ({@code FrameReader}. **/
-    private final Map<IFeedFrameWriter, FeedFrameCollector> registeredReaders;
+    private final Map<IFeedFrameWriter, FeedFrameCollector> registeredCollectors;
 
     /** The original frame writer instantiated as part of job creation. **/
     private IFrameWriter writer;
@@ -59,6 +59,8 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
     private final FeedRuntimeType feedRuntimeType;
 
     private final RecordDescriptor recordDescriptor;
+
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     public enum DistributionMode {
         SINGLE,
@@ -70,28 +72,28 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
             RecordDescriptor recordDescriptor) {
         this.feedId = feedId;
         this.frameDistributor = new FrameDistributor(feedId);
-        this.registeredReaders = new HashMap<IFeedFrameWriter, FeedFrameCollector>();
+        this.registeredCollectors = new HashMap<IFeedFrameWriter, FeedFrameCollector>();
         this.feedRuntimeType = feedRuntimeType;
         this.writer = writer;
         this.recordDescriptor = recordDescriptor;
     }
 
     public synchronized FeedFrameCollector subscribeFeed(IFeedFrameWriter recipientFeedFrameWriter) throws Exception {
-        FeedFrameCollector reader = null;
+        FeedFrameCollector collector = null;
         if (frameDistributor.isRegistered(recipientFeedFrameWriter)) {
             if (LOGGER.isLoggable(Level.WARNING)) {
                 LOGGER.warning("subscriber " + recipientFeedFrameWriter.getFeedId() + " already registered");
             }
-            reader = registeredReaders.get(recipientFeedFrameWriter);
+            collector = registeredCollectors.get(recipientFeedFrameWriter);
         } else {
             LinkedBlockingQueue<DataBucket> inputQueue = new LinkedBlockingQueue<DataBucket>();
-            reader = new FeedFrameCollector(inputQueue, recipientFeedFrameWriter);
-            registeredReaders.put(recipientFeedFrameWriter, reader);
-            frameDistributor.registerFrameCollector(reader);
+            collector = new FeedFrameCollector(inputQueue, recipientFeedFrameWriter);
+            registeredCollectors.put(recipientFeedFrameWriter, collector);
+            frameDistributor.registerFrameCollector(collector);
             if (frameDistributor.getMode().equals(DistributionMode.SINGLE)) {
-                setUpDistribution();
+                executor.execute(frameDistributor);
                 if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Set up feed distribution on registering subscriber");
+                    LOGGER.info("Started Frame distributor for " + feedId + " [" + feedRuntimeType + "]");
                 }
             } else {
                 if (LOGGER.isLoggable(Level.INFO)) {
@@ -99,26 +101,23 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
                 }
             }
         }
-        return reader;
+        return collector;
     }
 
     public synchronized void unsubscribeFeed(IFeedFrameWriter recipientFeedFrameWriter) throws Exception {
-        FeedFrameCollector reader = registeredReaders.get(recipientFeedFrameWriter);
+        FeedFrameCollector reader = registeredCollectors.get(recipientFeedFrameWriter);
         if (reader != null) {
             frameDistributor.deregisterFrameCollector(reader);
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("De-registered frame reader " + reader);
             }
+            registeredCollectors.remove(recipientFeedFrameWriter);
         } else {
             if (LOGGER.isLoggable(Level.WARNING)) {
                 LOGGER.warning("Feed frame writer " + recipientFeedFrameWriter + " is not registered");
             }
         }
 
-    }
-
-    private void setUpDistribution() throws Exception {
-        (new Thread(frameDistributor)).start();
     }
 
     public void notifyEndOfFeed() {
@@ -138,7 +137,7 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Will disconnect the lone frame reader in " + frameDistributor.mode + " mode");
                 }
-                registeredReaders.values().iterator().next().disconnect();
+                registeredCollectors.values().iterator().next().disconnect();
                 break;
             case SHARED:
                 if (LOGGER.isLoggable(Level.INFO)) {
@@ -393,6 +392,9 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
         public synchronized void nextFrame(ByteBuffer frame) throws HyracksDataException {
             switch (mode) {
                 case INACTIVE:
+                    if (registeredCollectors != null && !registeredCollectors.isEmpty()) {
+                        registeredCollectors.clear();
+                    }
                     break;
                 case SINGLE:
                     switch (registeredCollectors.get(0).getState()) {
@@ -408,6 +410,8 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
                             if (LOGGER.isLoggable(Level.WARNING)) {
                                 LOGGER.warning("Discarding fetched tuples as feed has ended");
                             }
+                            registeredCollectors.remove(0);
+                            break;
                     }
                     break;
                 case SHARED:
@@ -616,7 +620,7 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
     }
 
     public Map<IFeedFrameWriter, FeedFrameCollector> getRegisteredReaders() {
-        return registeredReaders;
+        return registeredCollectors;
     }
 
     public FeedRuntimeType getFeedRuntimeType() {

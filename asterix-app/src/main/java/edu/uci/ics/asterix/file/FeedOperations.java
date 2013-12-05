@@ -18,9 +18,12 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.commons.lang3.StringUtils;
+
 import edu.uci.ics.asterix.bootstrap.FeedLifecycleListener;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.IFeedLifecycleListener.SubscriptionLocation;
 import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
 import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
@@ -103,7 +106,21 @@ public class FeedOperations {
                     LOGGER.info("Feed connection " + feedConnectionId
                             + " can be removed as there are no subscribers to the connection.");
                 }
-                String[] locations = FeedLifecycleListener.INSTANCE.getIntakeLocations(feedConnectionId.getFeedId());
+                String[] locations = null;
+                Pair<FeedId, SubscriptionLocation> sourceFeedInfo = FeedLifecycleListener.INSTANCE
+                        .getSourceFeedInfo(feedConnectionId);
+                switch (sourceFeedInfo.second) {
+                    case SOURCE_FEED_INTAKE:
+                        locations = FeedLifecycleListener.INSTANCE.getIntakeLocations(sourceFeedInfo.first);
+                        break;
+                    case SOURCE_FEED_COMPUTE:
+                        locations = FeedLifecycleListener.INSTANCE.getComputeLocations(sourceFeedInfo.first);
+                        break;
+                }
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("Feed disconnect message would be sent to " + StringUtils.join(locations, ','));
+                }
+
                 Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p = metadataProvider
                         .buildDisconnectFeedMessengerRuntime(spec, feedConnectionId.getFeedId().getDataverse(),
                                 feedConnectionId.getFeedId().getFeedName(), feedConnectionId.getDatasetName(),
