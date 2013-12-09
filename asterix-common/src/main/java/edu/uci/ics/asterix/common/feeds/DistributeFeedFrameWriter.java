@@ -14,7 +14,6 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
-import java.io.DataInputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,8 +30,6 @@ import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
-import edu.uci.ics.hyracks.dataflow.common.comm.util.ByteBufferInputStream;
 
 /**
  * Provides mechanism for distributing the frames, as received from an operator to a
@@ -228,8 +225,6 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
         private int desiredReadCount;
         private ContentType contentType;
         private AtomicInteger bucketId = new AtomicInteger(0);
-        private int checksum;
-        private int length;
 
         public enum ContentType {
             DATA, // data
@@ -249,8 +244,6 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
             System.arraycopy(frame.array(), 0, buffer.array(), 0, frame.limit());
             buffer.limit(frame.limit());
             buffer.position(0);
-            checksum = computeChecksum(frame.array(), frame.limit());
-            length = frame.limit();
         }
 
         public synchronized void doneReading() {
@@ -277,27 +270,7 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
 
         @Override
         public String toString() {
-            return "DataBucket [" + bucketId + "]" + " (" + readCount + "," + desiredReadCount + ")" + "[" + checksum
-                    + "]" + "(" + length + ")";
-        }
-
-        private static int computeChecksum(byte[] buf, int len) {
-            int crc = 0xFFFF;
-
-            for (int pos = 0; pos < len; pos++) {
-                crc ^= (int) buf[pos]; // XOR byte into least sig. byte of crc
-
-                for (int i = 8; i != 0; i--) { // Loop over each bit
-                    if ((crc & 0x0001) != 0) { // If the LSB is set
-                        crc >>= 1; // Shift right and XOR 0xA001
-                        crc ^= 0xA001;
-                    } else
-                        // Else LSB is not set
-                        crc >>= 1; // Just shift right
-                }
-            }
-            // Note, this number has low and high bytes swapped, so use it accordingly (or swap bytes)
-            return crc;
+            return "DataBucket [" + bucketId + "]" + " (" + readCount + "," + desiredReadCount + ")";
         }
 
     }
@@ -547,6 +520,10 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
                 }
                 setContinueReading(true);
                 setState(State.ACTIVE);
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info(this + " has transitioned to " + State.ACTIVE + " mode");
+                }
+
             } else {
                 disconnect();
             }
@@ -629,6 +606,11 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
 
     public RecordDescriptor getRecordDescriptor() {
         return recordDescriptor;
+    }
+
+    @Override
+    public Type getType() {
+        return IFeedFrameWriter.Type.DISTRIBUTE_FEED_WRITER;
     }
 
 }

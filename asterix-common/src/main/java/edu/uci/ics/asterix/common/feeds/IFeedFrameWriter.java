@@ -18,6 +18,14 @@ import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 
 public interface IFeedFrameWriter extends IFrameWriter {
 
+    public enum Type {
+        DISTRIBUTE_FEED_WRITER,
+        BASIC_FEED_WRITER,
+        COLLECT_TRANSFORM_FEED_WRITER
+    }
+
     public FeedId getFeedId();
+
+    public Type getType();
 
 }

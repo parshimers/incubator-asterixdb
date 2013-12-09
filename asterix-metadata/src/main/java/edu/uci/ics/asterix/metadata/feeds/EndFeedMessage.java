@@ -15,24 +15,64 @@
 package edu.uci.ics.asterix.metadata.feeds;
 
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedId;
+import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 
 /**
  * A feed control message indicating the need to end the feed. This message is dispatched
- * to all locations that host an operator invovled in the feed pipeline.
+ * to all locations that host an operator involved in the feed pipeline.
  */
 public class EndFeedMessage extends FeedMessage {
 
     private static final long serialVersionUID = 1L;
 
-    private final FeedConnectionId feedId;
+    private final FeedConnectionId feedConnectionId;
 
-    public EndFeedMessage(FeedConnectionId feedId) {
+    private final FeedId sourceFeedId;
+
+    private final FeedRuntimeType sourceRuntimeType;
+
+    private final boolean completeDisconnection;
+
+    private final EndMessageType endMessageType;
+
+    public enum EndMessageType {
+        DISCONNECT_FEED,
+        DISCONTINUE_SOURCE
+    }
+
+    public EndFeedMessage(FeedConnectionId feedId, FeedRuntimeType sourceRuntimeType, FeedId sourceFeedId,
+            boolean completeDisconnection, EndMessageType endMessageType) {
         super(MessageType.END, feedId);
-        this.feedId = feedId;
+        this.feedConnectionId = feedId;
+        this.sourceRuntimeType = sourceRuntimeType;
+        this.sourceFeedId = sourceFeedId;
+        this.completeDisconnection = completeDisconnection;
+        this.endMessageType = endMessageType;
     }
 
     @Override
     public String toString() {
-        return MessageType.END.name() + feedId;
+        return MessageType.END.name() + feedConnectionId + " [" + sourceRuntimeType + "] ";
+    }
+
+    public FeedConnectionId getFeedConnectionId() {
+        return feedConnectionId;
+    }
+
+    public FeedRuntimeType getSourceRuntimeType() {
+        return sourceRuntimeType;
+    }
+
+    public FeedId getSourceFeedId() {
+        return sourceFeedId;
+    }
+
+    public boolean isCompleteDisconnection() {
+        return completeDisconnection;
+    }
+
+    public EndMessageType getEndMessageType() {
+        return endMessageType;
     }
 }

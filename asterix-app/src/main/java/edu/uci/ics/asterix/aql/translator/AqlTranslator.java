@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
 import java.util.logging.Level;
@@ -133,6 +134,7 @@ import edu.uci.ics.asterix.translator.CompiledStatements.ICompiledDmlStatement;
 import edu.uci.ics.asterix.translator.TypeTranslator;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
+import edu.uci.ics.hyracks.algebricks.common.utils.Triple;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression.FunctionKind;
 import edu.uci.ics.hyracks.algebricks.data.IAWriterFactory;
 import edu.uci.ics.hyracks.algebricks.data.IResultSerializerFactoryProvider;
@@ -1000,17 +1002,17 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 }
             }
 
+            Map<FeedConnectionId, Triple<JobSpecification, Boolean, Boolean>> disconnectJobList = new HashMap<FeedConnectionId, Triple<JobSpecification, Boolean, Boolean>>();
             if (ds.getDatasetType() == DatasetType.INTERNAL) {
                 // prepare job spec(s) that would disconnect any active feeds involving the dataset.
                 List<FeedConnectionId> feedConnections = FeedLifecycleListener.INSTANCE.getActiveFeedConnections(null);
-                List<JobSpecification> disconnectFeedJobSpecs = new ArrayList<JobSpecification>();
                 if (feedConnections != null && !feedConnections.isEmpty()) {
                     for (FeedConnectionId connection : feedConnections) {
-                        JobSpecification jobSpec = FeedOperations.buildDisconnectFeedJobSpec(metadataProvider,
-                                connection);
-                        disconnectFeedJobSpecs.add(jobSpec);
+                        Triple<JobSpecification, Boolean, Boolean> p = FeedOperations.buildDisconnectFeedJobSpec(
+                                metadataProvider, connection);
+                        disconnectJobList.put(connection, p);
                         if (LOGGER.isLoggable(Level.INFO)) {
-                            LOGGER.info("Disconnected feed " + connection.getFeedId().getFeedName() + " from dataset "
+                            LOGGER.info("Disconnecting feed " + connection.getFeedId().getFeedName() + " from dataset "
                                     + datasetName + " as dataset is being dropped");
                         }
                     }
@@ -1040,8 +1042,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 progress = ProgressState.ADDED_PENDINGOP_RECORD_TO_METADATA;
 
                 //# disconnect the feeds
-                for (JobSpecification jobSpec : disconnectFeedJobSpecs) {
-                    runJob(hcc, jobSpec, true);
+                for (Triple<JobSpecification, Boolean, Boolean> p : disconnectJobList.values()) {
+                    runJob(hcc, p.first, true);
                 }
 
                 //#. run the jobs
@@ -1051,6 +1053,19 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
                 mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
                 bActiveTxn = true;
+                for (Entry<FeedConnectionId, Triple<JobSpecification, Boolean, Boolean>> entry : disconnectJobList
+                        .entrySet()) {
+                    if (!entry.getValue().second) {
+                        MetadataManager.INSTANCE.deregisterFeedActivity(mdTxnCtx, entry.getKey());
+                    }
+                }
+
+                for (Entry<FeedConnectionId, Triple<JobSpecification, Boolean, Boolean>> entry : disconnectJobList
+                        .entrySet()) {
+                    if (!entry.getValue().second) {
+                        MetadataManager.INSTANCE.deregisterFeedActivity(mdTxnCtx, entry.getKey());
+                    }
+                }
                 metadataProvider.setMetadataTxnContext(mdTxnCtx);
             }
 
@@ -1532,21 +1547,37 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
             FeedId feedId = new FeedId(dataverseName, feedName);
             List<FeedConnectionId> activeConnections = FeedLifecycleListener.INSTANCE.getActiveFeedConnections(feedId);
+            List<FeedConnectionId> completedDisconnections = new ArrayList<FeedConnectionId>();
+            FeedConnectionId discontinuedSource = null;
             if (activeConnections != null && !activeConnections.isEmpty()) {
                 Pair<SubscriptionLocation, List<FeedConnectionId>> subscriptions = FeedLifecycleListener.INSTANCE
                         .getFeedSubscriptions(feedId);
                 List<FeedConnectionId> subscribingConnections = subscriptions.second;
                 List<JobSpecification> jobSpecs = new ArrayList<JobSpecification>();
                 for (FeedConnectionId connId : subscribingConnections) {
-                    JobSpecification jobSpec = FeedOperations.buildDisconnectFeedJobSpec(metadataProvider, connId);
-                    jobSpecs.add(jobSpec);
+                    Triple<JobSpecification, Boolean, Boolean> p = FeedOperations.buildDisconnectFeedJobSpec(
+                            metadataProvider, connId);
+                    jobSpecs.add(p.first);
+                    if (!p.second) {
+                        completedDisconnections.add(connId);
+                    }
+                    if (p.third && discontinuedSource != null) {
+                        discontinuedSource = connId;
+                    }
                 }
                 for (JobSpecification spec : jobSpecs) {
                     runJob(hcc, spec, true);
                 }
-            } else {
-                MetadataManager.INSTANCE.dropFeed(mdTxnCtx, dataverseName, feedName);
+
+                //TODO
+                // ensure ancestor feed intake jobs are discontnued
+
             }
+            MetadataManager.INSTANCE.dropFeed(mdTxnCtx, dataverseName, feedName);
+            for (FeedConnectionId connId : completedDisconnections) {
+                MetadataManager.INSTANCE.deregisterFeedActivity(mdTxnCtx, connId);
+            }
+
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Dropped feed " + feedName);
             }
@@ -1707,7 +1738,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         boolean bActiveTxn = true;
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireReadLatch();
+        acquireWriteLatch();
 
         try {
             DisconnectFeedStatement cfs = (DisconnectFeedStatement) stmt;
@@ -1738,18 +1769,35 @@ public class AqlTranslator extends AbstractAqlTranslator {
                         + cfs.getDatasetName().getValue() + ". Invalid operation!");
             }
 
-            JobSpecification jobSpec = FeedOperations.buildDisconnectFeedJobSpec(metadataProvider, connectionId);
-
+            Triple<JobSpecification, Boolean, Boolean> specDisconnectType = FeedOperations.buildDisconnectFeedJobSpec(
+                    metadataProvider, connectionId);
+            JobSpecification jobSpec = specDisconnectType.first;
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             bActiveTxn = false;
             runJob(hcc, jobSpec, true);
+
+            if (specDisconnectType.third) {
+                String sourceFeedName = ((SecondaryFeed) feed).getSourceFeedName();
+                JobSpecification spec = FeedOperations.buildDiscontinueFeedSourceSpec(metadataProvider, new FeedId(
+                        dataverseName, sourceFeedName));
+                runJob(hcc, spec, true);
+            }
+
+            if (!specDisconnectType.second) {
+                mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+                bActiveTxn = true;
+                MetadataManager.INSTANCE.deregisterFeedActivity(mdTxnCtx, connectionId);
+                MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+                FeedLifecycleListener.INSTANCE.reportPartialDisconnection(connectionId);
+            }
+
         } catch (Exception e) {
             if (bActiveTxn) {
                 abort(e, e, mdTxnCtx);
             }
             throw e;
         } finally {
-            releaseReadLatch();
+            releaseWriteLatch();
         }
     }
 

@@ -35,6 +35,8 @@ import edu.uci.ics.asterix.common.dataflow.AsterixLSMInvertedIndexInsertDeleteOp
 import edu.uci.ics.asterix.common.dataflow.AsterixLSMTreeInsertDeleteOperatorDescriptor;
 import edu.uci.ics.asterix.common.dataflow.IAsterixApplicationContextInfo;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedId;
+import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.ioopcallbacks.LSMBTreeIOOperationCallbackFactory;
 import edu.uci.ics.asterix.common.ioopcallbacks.LSMInvertedIndexIOOperationCallbackFactory;
 import edu.uci.ics.asterix.common.ioopcallbacks.LSMRTreeIOOperationCallbackFactory;
@@ -99,7 +101,6 @@ import edu.uci.ics.asterix.transaction.management.service.transaction.AsterixRun
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
-import edu.uci.ics.hyracks.algebricks.common.exceptions.NotImplementedException;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
@@ -508,21 +509,29 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
     }
 
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildSendFeedMessageRuntime(
-            JobSpecification jobSpec, String dataverse, String feedName, String dataset, IFeedMessage feedMessage,
-            String[] locations) throws AlgebricksException {
+            JobSpecification jobSpec, FeedConnectionId feedConenctionId, IFeedMessage feedMessage, String[] locations)
+            throws AlgebricksException {
         AlgebricksPartitionConstraint partitionConstraint = new AlgebricksAbsolutePartitionConstraint(locations);
-        FeedMessageOperatorDescriptor feedMessenger = new FeedMessageOperatorDescriptor(jobSpec, dataverse, feedName,
-                dataset, feedMessage);
+        FeedMessageOperatorDescriptor feedMessenger = new FeedMessageOperatorDescriptor(jobSpec, feedConenctionId,
+                feedMessage);
         return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(feedMessenger, partitionConstraint);
     }
 
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildDisconnectFeedMessengerRuntime(
-            JobSpecification jobSpec, String dataverse, String feedName, String dataset, String[] locations)
+            JobSpecification jobSpec, FeedConnectionId feedConenctionId, String[] locations,
+            FeedRuntimeType sourceFeedRuntimeType, boolean completeDisconnection, FeedId sourceFeedId)
             throws AlgebricksException {
-        List<String> feedLocations = new ArrayList<String>();
-        FeedConnectionId feedId = new FeedConnectionId(dataverse, feedName, dataset);
-        IFeedMessage feedMessage = new EndFeedMessage(feedId);
-        return buildSendFeedMessageRuntime(jobSpec, dataverse, feedName, dataset, feedMessage, locations);
+        IFeedMessage feedMessage = new EndFeedMessage(feedConenctionId, sourceFeedRuntimeType, sourceFeedId,
+                completeDisconnection, EndFeedMessage.EndMessageType.DISCONNECT_FEED);
+        return buildSendFeedMessageRuntime(jobSpec, feedConenctionId, feedMessage, locations);
+    }
+
+    public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildDiscontinueFeedMessengerRuntime(
+            JobSpecification jobSpec, FeedId feedId, String[] locations) throws AlgebricksException {
+        FeedConnectionId feedConnectionId = new FeedConnectionId(feedId, null);
+        IFeedMessage feedMessage = new EndFeedMessage(feedConnectionId, FeedRuntimeType.INGEST,
+                feedConnectionId.getFeedId(), true, EndFeedMessage.EndMessageType.DISCONTINUE_SOURCE);
+        return buildSendFeedMessageRuntime(jobSpec, feedConnectionId, feedMessage, locations);
     }
 
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildBtreeRuntime(JobSpecification jobSpec,

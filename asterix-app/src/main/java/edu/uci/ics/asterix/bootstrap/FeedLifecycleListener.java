@@ -696,7 +696,18 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
                 }
 
                 deregisterFeedActivity(feedCollectInfo);
-
+                Pair<SubscriptionLocation, List<FeedConnectionId>> dependencyList = dependencyChain
+                        .get(feedCollectInfo.feedConnectionId.getFeedId());
+                if (dependencyList != null) {
+                    FeedId sourceFeedId = feedCollectInfo.sourceFeedId;
+                    if (!sourceFeedId.equals(feedCollectInfo.feedConnectionId.getFeedId())) {
+                        dependencyChain.get(sourceFeedId).second.addAll(dependencyList.second);
+                        if (LOGGER.isLoggable(Level.INFO)) {
+                            LOGGER.info(" Source feed " + feedCollectInfo.feedConnectionId
+                                    + " has ended. Transferred child dependencies to ancestor feed " + sourceFeedId);
+                        }
+                    }
+                }
             } else {
                 if (LOGGER.isLoggable(Level.WARNING)) {
                     LOGGER.warning("Attempt to revive feed");
@@ -876,6 +887,7 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
         public Map<String, String> feedPolicy;
         public String superFeedManagerHost;
         public int superFeedManagerPort;
+        public boolean fullyConnected;
 
         public FeedCollectInfo(FeedId sourceFeedId, FeedConnectionId feedConnectionId, JobSpecification jobSpec,
                 JobId jobId, Map<String, String> feedPolicy) {
@@ -883,6 +895,7 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
             this.sourceFeedId = sourceFeedId;
             this.feedConnectionId = feedConnectionId;
             this.feedPolicy = feedPolicy;
+            this.fullyConnected = true;
         }
 
         @Override
@@ -969,8 +982,7 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
             locations.addAll(feedInfo.storageLocations);
 
             Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p = metadataProvider.buildSendFeedMessageRuntime(
-                    spec, dataverse.getDataverseName(), feedInfo.feedConnectionId.getFeedId().getFeedName(),
-                    feedInfo.feedConnectionId.getDatasetName(), electMessage, locations.toArray(new String[] {}));
+                    spec, feedInfo.feedConnectionId, electMessage, locations.toArray(new String[] {}));
             feedMessenger = p.first;
             messengerPc = p.second;
             AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, feedMessenger, messengerPc);
@@ -1386,7 +1398,7 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
         List<FeedConnectionId> connections = new ArrayList<FeedConnectionId>();
         boolean filter = feedId != null;
         for (FeedCollectInfo cInfo : feedCollectInfos) {
-            if (!filter || filter && cInfo.feedConnectionId.getFeedId().equals(feedId)) {
+            if (!filter || filter && cInfo.feedConnectionId.getFeedId().equals(feedId) && cInfo.fullyConnected) {
                 connections.add(cInfo.feedConnectionId);
             }
         }
@@ -1416,7 +1428,8 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
 
     @Override
     public boolean isFeedConnectionActive(FeedConnectionId feedConnectionId) {
-        return feedJobNotificationHandler.getFeedCollectInfo(feedConnectionId) != null;
+        FeedCollectInfo feedCollectInfo = feedJobNotificationHandler.getFeedCollectInfo(feedConnectionId);
+        return feedCollectInfo != null && feedCollectInfo.fullyConnected;
     }
 
     public void registerFeedReportQueue(FeedConnectionId feedId, LinkedBlockingQueue<String> queue) {
@@ -1456,5 +1469,14 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
             return new Pair<FeedId, SubscriptionLocation>(feedConnectionId.getFeedId(),
                     SubscriptionLocation.SOURCE_FEED_INTAKE);
         }
+    }
+
+    @Override
+    public void reportPartialDisconnection(FeedConnectionId feedConnectionId) {
+        FeedCollectInfo feedCollectInfo = feedJobNotificationHandler.getFeedCollectInfo(feedConnectionId);
+        if (feedCollectInfo != null) {
+            feedCollectInfo.fullyConnected = false;
+        }
+
     }
 }

@@ -406,4 +406,13 @@ public class FeedFrameWriter implements IFeedFrameWriter {
         return partition;
     }
 
+    public FeedConnectionId getFeedConnectionId() {
+        return feedConnectionId;
+    }
+
+    @Override
+    public Type getType() {
+        return Type.BASIC_FEED_WRITER;
+    }
+
 }

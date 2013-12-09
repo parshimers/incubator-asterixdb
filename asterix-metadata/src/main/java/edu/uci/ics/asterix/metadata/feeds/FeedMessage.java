@@ -25,19 +25,19 @@ public class FeedMessage implements IFeedMessage {
     private static final long serialVersionUID = 1L;
 
     protected final MessageType messageType;
-    protected final FeedConnectionId feedId;
+    protected final FeedConnectionId feedConnectionId;
 
-    public FeedMessage(MessageType messageType, FeedConnectionId feedId) {
+    public FeedMessage(MessageType messageType, FeedConnectionId feedConnectionId) {
         this.messageType = messageType;
-        this.feedId = feedId;
+        this.feedConnectionId = feedConnectionId;
     }
 
     public MessageType getMessageType() {
         return messageType;
     }
 
-    public FeedConnectionId getFeedId() {
-        return feedId;
+    public FeedConnectionId getFeedConnectionId() {
+        return feedConnectionId;
     }
 
 }

@@ -214,6 +214,11 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
             return downstreamWriter.getFeedId();
         }
 
+        @Override
+        public Type getType() {
+            return Type.COLLECT_TRANSFORM_FEED_WRITER;
+        }
+
     }
 
 }

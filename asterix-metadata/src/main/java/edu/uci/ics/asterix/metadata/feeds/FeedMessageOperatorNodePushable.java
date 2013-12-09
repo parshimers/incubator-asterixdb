@@ -14,6 +14,8 @@
  */
 package edu.uci.ics.asterix.metadata.feeds;
 
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -21,9 +23,17 @@ import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
 import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime;
 import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
+import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
+import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FeedFrameCollector;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedId;
+import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
+import edu.uci.ics.asterix.common.feeds.IAdapterRuntimeManager;
+import edu.uci.ics.asterix.common.feeds.IFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
+import edu.uci.ics.asterix.common.feeds.ISubscribableRuntime;
+import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.asterix.common.feeds.SuperFeedManager;
 import edu.uci.ics.hyracks.api.application.INCApplicationContext;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
@@ -58,22 +68,20 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
     public void initialize() throws HyracksDataException {
         try {
             writer.open();
-            FeedRuntimeId runtimeId = new FeedRuntimeId(FeedRuntimeType.COLLECT, feedConnectionId, partition);
-            BasicFeedRuntime feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
-            boolean collectionLocation = feedRuntime != null;
 
             switch (feedMessage.getMessageType()) {
                 case END:
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("Ending feed:" + feedConnectionId);
+                    EndFeedMessage endFeedMessage = (EndFeedMessage) feedMessage;
+
+                    switch (endFeedMessage.getEndMessageType()) {
+                        case DISCONNECT_FEED:
+                            hanldeDisconnectFeedTypeMessage(endFeedMessage);
+                            break;
+                        case DISCONTINUE_SOURCE:
+                            handleDiscontinueFeedTypeMessage(endFeedMessage);
+                            break;
                     }
-                    if (collectionLocation) {
-                        ((CollectionRuntime) feedRuntime).getSourceRuntime().unsubscribeFeed(
-                                (CollectionRuntime) feedRuntime);
-                        if (LOGGER.isLoggable(Level.INFO)) {
-                            LOGGER.info("Unsubscribed from feed :" + feedConnectionId);
-                        }
-                    }
+
                     break;
 
                 case SUPER_FEED_MANAGER_ELECT:
@@ -81,8 +89,8 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                         LOGGER.info("Registering Supers Feed Manager for :" + feedConnectionId);
                     }
                     FeedManagerElectMessage mesg = ((FeedManagerElectMessage) feedMessage);
-                    SuperFeedManager sfm = new SuperFeedManager(mesg.getFeedId(), mesg.getHost(), mesg.getNodeId(),
-                            mesg.getPort(), feedManager);
+                    SuperFeedManager sfm = new SuperFeedManager(mesg.getFeedConnectionId(), mesg.getHost(),
+                            mesg.getNodeId(), mesg.getPort(), feedManager);
                     synchronized (feedManager) {
                         INCApplicationContext ncCtx = ctx.getJobletContext().getApplicationContext();
                         String nodeId = ncCtx.getNodeId();
@@ -103,6 +111,84 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
             throw new HyracksDataException(e);
         } finally {
             writer.close();
+        }
+    }
+
+    private void handleDiscontinueFeedTypeMessage(EndFeedMessage endFeedMessage) throws Exception {
+        FeedId sourceFeedId = endFeedMessage.getSourceFeedId();
+        FeedSubscribableRuntimeId subscribableRuntimeId = new FeedSubscribableRuntimeId(sourceFeedId,
+                FeedRuntimeType.INGEST, partition);
+        ISubscribableRuntime feedRuntime = feedManager.getFeedSubscriptionManager().getSubscribableRuntime(
+                subscribableRuntimeId);
+        IAdapterRuntimeManager adapterRuntimeManager = ((IngestionRuntime) feedRuntime).getAdapterRuntimeManager();
+        adapterRuntimeManager.stop();
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Stopped Adapter " + adapterRuntimeManager);
+        }
+    }
+
+    private void hanldeDisconnectFeedTypeMessage(EndFeedMessage endFeedMessage) throws Exception {
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Ending feed:" + endFeedMessage.getFeedConnectionId());
+        }
+        FeedRuntimeId runtimeId = null;
+        FeedRuntimeType subscribaleRuntimeType = ((EndFeedMessage) feedMessage).getSourceRuntimeType();
+        if (endFeedMessage.isCompleteDisconnection()) {
+            // subscribableRuntimeType represents the location at which it receives data
+            switch (subscribaleRuntimeType) {
+                case INGEST:
+                case COMPUTE:
+                    BasicFeedRuntime feedRuntime = null;
+                    runtimeId = new FeedRuntimeId(FeedRuntimeType.COLLECT, feedConnectionId, partition);
+                    feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
+                    ((CollectionRuntime) feedRuntime).getSourceRuntime().unsubscribeFeed(
+                            (CollectionRuntime) feedRuntime);
+                    if (LOGGER.isLoggable(Level.INFO)) {
+                        LOGGER.info("COMPLETE UNSUBSCRIPTION of " + endFeedMessage.getFeedConnectionId());
+                    }
+                    break;
+            }
+        } else {
+            // subscribaleRuntimeType represents the location for data hand-off in presence of subscribers
+            switch (subscribaleRuntimeType) {
+                case INGEST:
+                    // illegal state as data hand-off from one feed to another does not happen at ingest
+
+                    break;
+                case COMPUTE:
+                    // feed could be primary or secondary, doesn't matter
+                    FeedSubscribableRuntimeId feedSubscribableRuntimeId = new FeedSubscribableRuntimeId(
+                            feedConnectionId.getFeedId(), FeedRuntimeType.COMPUTE, partition);
+                    ISubscribableRuntime feedRuntime = feedManager.getFeedSubscriptionManager().getSubscribableRuntime(
+                            feedSubscribableRuntimeId);
+                    DistributeFeedFrameWriter dWriter = (DistributeFeedFrameWriter) feedRuntime.getFeedFrameWriter();
+                    Map<IFeedFrameWriter, FeedFrameCollector> registeredCollectors = dWriter.getRegisteredReaders();
+                    IFeedFrameWriter unsubscribingWriter = null;
+                    for (Entry<IFeedFrameWriter, FeedFrameCollector> entry : registeredCollectors.entrySet()) {
+                        IFeedFrameWriter frameWriter = entry.getKey();
+                        if (frameWriter.getType().equals(IFeedFrameWriter.Type.BASIC_FEED_WRITER)) {
+                            FeedConnectionId feedConnectionId = ((FeedFrameWriter) frameWriter).getFeedConnectionId();
+                            if (feedConnectionId.equals(endFeedMessage.getFeedConnectionId())) {
+                                unsubscribingWriter = frameWriter;
+                                break;
+                            }
+                        }
+                    }
+                    if (unsubscribingWriter != null) {
+                        dWriter.unsubscribeFeed(unsubscribingWriter);
+                        if (LOGGER.isLoggable(Level.INFO)) {
+                            LOGGER.info("PARTIAL UNSUBSCRIPTION of " + unsubscribingWriter);
+                        }
+                    } else {
+                        throw new HyracksDataException("Unable to unsubscribe!!!! " + feedConnectionId);
+                    }
+                    break;
+            }
+
+        }
+
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Unsubscribed from feed :" + feedConnectionId);
         }
     }
 }
