@@ -53,7 +53,7 @@
               <mainClass>edu.uci.ics.hyracks.control.nc.NCDriver</mainClass>
               <commandLineArguments>
                 <commandLineArgument>-app-nc-main-class</commandLineArgument>
-                <commandLineArgument>edu.uci.ics.asterix.hyracks.bootstrap.NCApplicationEntryPoint</commandLineArgument>
+                <commandLineArgument>edu.uci.ics.asterix.bootstrap.NCApplicationEntryPoint</commandLineArgument>
               </commandLineArguments>
             </program>
           </programs>
@@ -66,7 +66,7 @@
               </platforms>
               <commandLineArguments>
                  <commandLineArgument>-app-cc-main-class</commandLineArgument>
-                 <commandLineArgument>edu.uci.ics.asterix.hyracks.bootstrap.CCApplicationEntryPoint</commandLineArgument>
+                 <commandLineArgument>edu.uci.ics.asterix.bootstrap.CCApplicationEntryPoint</commandLineArgument>
               </commandLineArguments>
             </daemon>
             <daemon>
