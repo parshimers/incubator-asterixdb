@@ -15,6 +15,7 @@
 package edu.uci.ics.asterix.metadata.feeds;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.logging.Level;
@@ -64,6 +65,19 @@ import edu.uci.ics.hyracks.api.job.JobSpecification;
 public class FeedUtil {
 
     private static Logger LOGGER = Logger.getLogger(FeedUtil.class.getName());
+
+    public static String getFeedPointKeyRep(Feed feed, List<String> appliedFunctions) {
+        StringBuilder builder = new StringBuilder();
+        builder.append(feed.getDataverseName() + ":");
+        builder.append(feed.getFeedName() + ":");
+        if (appliedFunctions != null && !appliedFunctions.isEmpty()) {
+            for (String function : appliedFunctions) {
+                builder.append(function + ":");
+            }
+            builder.deleteCharAt(builder.length() - 1);
+        }
+        return builder.toString();
+    }
 
     public static JobSpecification alterJobSpecificationForFeed(JobSpecification spec,
             FeedConnectionId feedConnectionId, FeedPolicy feedPolicy) {

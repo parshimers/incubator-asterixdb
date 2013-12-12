@@ -17,7 +17,6 @@ package edu.uci.ics.asterix.common.feeds;
 import java.util.List;
 
 import edu.uci.ics.asterix.common.api.IClusterEventsSubscriber;
-import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 import edu.uci.ics.hyracks.api.job.IJobLifecycleListener;
 
 public interface IFeedLifecycleListener extends IJobLifecycleListener, IClusterEventsSubscriber {
@@ -27,13 +26,13 @@ public interface IFeedLifecycleListener extends IJobLifecycleListener, IClusterE
         SOURCE_FEED_COMPUTE
     }
 
-    public SubscriptionLocation getSubscriptionLocation(FeedId feedId);
+    public IFeedPoint getAvailableFeedPoint(FeedPointKey feedPointKey);
 
-    public Pair<SubscriptionLocation, List<FeedConnectionId>> getFeedSubscriptions(FeedId feedId);
+    public boolean isFeedPointAvailable(FeedPointKey feedPointKey);
 
     public List<FeedConnectionId> getActiveFeedConnections(FeedId feedId);
 
-    public String[] getComputeLocations(FeedId feedId);
+    public List<String> getComputeLocations(FeedId feedId);
 
     public String[] getIntakeLocations(FeedId feedId);
 
@@ -41,7 +40,6 @@ public interface IFeedLifecycleListener extends IJobLifecycleListener, IClusterE
 
     public boolean isFeedActive(FeedId feedId);
 
-    public Pair<FeedId, SubscriptionLocation> getSourceFeedInfo(FeedConnectionId feedConnectionId);
+    public IFeedPoint getSourceFeedPoint(FeedConnectionId connectionId);
 
-    public void reportPartialDisconnection(FeedConnectionId feedConnectionId);
 }

@@ -27,9 +27,11 @@ import edu.uci.ics.asterix.aql.expression.DataverseDecl;
 import edu.uci.ics.asterix.aql.expression.Identifier;
 import edu.uci.ics.asterix.aql.expression.SubscribeFeedStatement;
 import edu.uci.ics.asterix.aql.translator.AqlTranslator;
-import edu.uci.ics.asterix.bootstrap.FeedLifecycleListener.FeedCollectInfo;
+import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
+import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest.SubscriptionStatus;
 import edu.uci.ics.asterix.common.feeds.IFeedWork;
 import edu.uci.ics.asterix.common.feeds.IFeedWorkEventListener;
+import edu.uci.ics.asterix.feeds.FeedCollectInfo;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
 import edu.uci.ics.asterix.metadata.bootstrap.MetadataConstants;
@@ -37,8 +39,6 @@ import edu.uci.ics.asterix.metadata.entities.FeedActivity;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityDetails;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
 import edu.uci.ics.asterix.metadata.feeds.FeedPolicyAccessor;
-import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionRequest;
-import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionRequest.SubscriptionStatus;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
 import edu.uci.ics.hyracks.api.job.JobId;
 
@@ -83,8 +83,8 @@ public class FeedWorkCollection {
                 try {
                     PrintWriter writer = new PrintWriter(System.out, true);
                     SessionConfig pc = new SessionConfig(true, false, false, false, false, false, true, true, false);
-                    DataverseDecl dataverseDecl = new DataverseDecl(new Identifier(request.getSourceFeed()
-                            .getDataverseName()));
+                    DataverseDecl dataverseDecl = new DataverseDecl(new Identifier(request.getSubscribingFeedId()
+                            .getDataverse()));
                     SubscribeFeedStatement subscribeStmt = new SubscribeFeedStatement(locations, request);
                     List<Statement> statements = new ArrayList<Statement>();
                     statements.add(dataverseDecl);

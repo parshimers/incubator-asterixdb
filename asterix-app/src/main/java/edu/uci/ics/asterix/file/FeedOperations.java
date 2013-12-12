@@ -15,18 +15,22 @@
 package edu.uci.ics.asterix.file;
 
 import java.util.List;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.commons.lang3.StringUtils;
-
-import edu.uci.ics.asterix.bootstrap.FeedLifecycleListener;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
+import edu.uci.ics.asterix.common.feeds.FeedPointKey;
+import edu.uci.ics.asterix.common.feeds.FeedSubscriber;
 import edu.uci.ics.asterix.common.feeds.IFeedLifecycleListener.SubscriptionLocation;
+import edu.uci.ics.asterix.common.feeds.IFeedPoint;
+import edu.uci.ics.asterix.common.feeds.IFeedPoint.Scope;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
+import edu.uci.ics.asterix.feeds.FeedLifecycleListener;
+import edu.uci.ics.asterix.metadata.MetadataManager;
+import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
 import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
+import edu.uci.ics.asterix.metadata.entities.Feed;
 import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraintHelper;
@@ -116,96 +120,54 @@ public class FeedOperations {
      * @throws AlgebricksException
      */
     public static Triple<JobSpecification, Boolean, Boolean> buildDisconnectFeedJobSpec(
-            AqlMetadataProvider metadataProvider, FeedConnectionId feedConnectionId) throws AsterixException,
+            AqlMetadataProvider metadataProvider, FeedConnectionId connectionId) throws AsterixException,
             AlgebricksException {
 
         JobSpecification spec = JobSpecificationUtils.createJobSpecification();
         IOperatorDescriptor feedMessenger;
         AlgebricksPartitionConstraint messengerPc;
-        boolean completeDisconnection;
-        FeedId sourceFeedId;
-        boolean needToDiscontinueSourceFeed = false;
-
+        boolean hasOtherSubscribers = false;
+        SubscriptionLocation subscriptionLocation = null;
         try {
-            Pair<SubscriptionLocation, List<FeedConnectionId>> subscriptions = FeedLifecycleListener.INSTANCE
-                    .getFeedSubscriptions(feedConnectionId.getFeedId());
-            boolean dependentSubscribers = (subscriptions != null && subscriptions.second.size() > 0);
-            String[] locations = null;
-            FeedRuntimeType subscribableRuntmeType = null;
-            if (!dependentSubscribers) {
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Feed connection " + feedConnectionId
-                            + " has no subscribers to the connection. [COMPLETE DISCONNECTION]");
-                }
+            IFeedPoint sourceFeedPoint = FeedLifecycleListener.INSTANCE.getSourceFeedPoint(connectionId);
+            IFeedPoint subscribableFeedPoint = sourceFeedPoint;
 
-                completeDisconnection = true;
-                // find where this feed is receiving its data from and unsubscribe from the joint. 
-                Pair<FeedId, SubscriptionLocation> sourceFeedInfo = FeedLifecycleListener.INSTANCE
-                        .getSourceFeedInfo(feedConnectionId);
-                sourceFeedId = sourceFeedInfo.first;
-
-                switch (sourceFeedInfo.second) {
-                    case SOURCE_FEED_INTAKE:
-                        //case for a primary feed that has no subscribers
-                        locations = FeedLifecycleListener.INSTANCE.getIntakeLocations(sourceFeedInfo.first);
-                        subscribableRuntmeType = FeedRuntimeType.COLLECT;
-                        break;
-                    case SOURCE_FEED_COMPUTE:
-                        // case of a secondary feed that has no subscribers
-                        locations = FeedLifecycleListener.INSTANCE.getComputeLocations(sourceFeedInfo.first);
-                        subscribableRuntmeType = FeedRuntimeType.COMPUTE;
-
-                        Pair<SubscriptionLocation, List<FeedConnectionId>> subscriptionsOfSource = FeedLifecycleListener.INSTANCE
-                                .getFeedSubscriptions(sourceFeedInfo.first);
-                        if (subscriptionsOfSource.second.size() == 1) {
-                            // other subscribers are absent, so parent feed should discontinue
-                            needToDiscontinueSourceFeed = true;
-                        }
-                        break;
-                }
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Feed disconnect message would be sent to " + StringUtils.join(locations, ','));
-                }
-
+            if (sourceFeedPoint.getScope().equals(Scope.PRIVATE)) {
+                IFeedPoint feedPoint = FeedLifecycleListener.INSTANCE.getFeedPoint(sourceFeedPoint.getFeedPointKey()
+                        .getFeedId(), Scope.PUBLIC);
+                List<FeedSubscriber> subscribers = feedPoint.getSubscribers();
+                hasOtherSubscribers = subscribers != null && !subscribers.isEmpty();
+                subscriptionLocation = feedPoint.getSubscriptionLocation();
             } else {
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Feed connection " + feedConnectionId
-                            + " has no subscribers to the connection. [PARTIAL DISCONNECTION]");
-                }
-                sourceFeedId = feedConnectionId.getFeedId();
-                completeDisconnection = false;
-                // find the location where the feed is offering data to its subscribers and unsubscribe itself 
-                // at that joint
-                SubscriptionLocation subscriptionLocation = subscriptions.first;
-                switch (subscriptionLocation) {
-                    case SOURCE_FEED_INTAKE:
-                        throw new IllegalStateException("Data hand-off at " + subscriptionLocation
-                                + " should not be counted as subscription");
-
-                    case SOURCE_FEED_COMPUTE:
-                        locations = FeedLifecycleListener.INSTANCE.getComputeLocations(feedConnectionId.getFeedId());
-                        subscribableRuntmeType = FeedRuntimeType.COMPUTE;
-                        break;
-                }
-
+                List<FeedSubscriber> subscribers = sourceFeedPoint.getSubscribers();
+                hasOtherSubscribers = subscribers != null && !subscribers.isEmpty();
+                subscriptionLocation = sourceFeedPoint.getSubscriptionLocation();
             }
 
+            List<String> locations = subscribableFeedPoint.getLocations();
+
+            boolean needToDiscontinueSource = !hasOtherSubscribers
+                    && subscriptionLocation.equals(SubscriptionLocation.SOURCE_FEED_COMPUTE);
+            FeedRuntimeType feedRuntimeType = subscriptionLocation.equals(SubscriptionLocation.SOURCE_FEED_INTAKE) ? FeedRuntimeType.INGEST
+                    : FeedRuntimeType.COMPUTE;
+
             Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p = metadataProvider
-                    .buildDisconnectFeedMessengerRuntime(spec, feedConnectionId, locations, subscribableRuntmeType,
-                            completeDisconnection, sourceFeedId);
+                    .buildDisconnectFeedMessengerRuntime(spec, connectionId, locations.toArray(new String[] {}),
+                            feedRuntimeType, !hasOtherSubscribers, subscribableFeedPoint.getOwnerFeedId());
 
             feedMessenger = p.first;
             messengerPc = p.second;
+
+            AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, feedMessenger, messengerPc);
+            NullSinkOperatorDescriptor nullSink = new NullSinkOperatorDescriptor(spec);
+            AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, nullSink, messengerPc);
+            spec.connect(new OneToOneConnectorDescriptor(spec), feedMessenger, 0, nullSink, 0);
+            spec.addRoot(nullSink);
+            return new Triple<JobSpecification, Boolean, Boolean>(spec, !hasOtherSubscribers, needToDiscontinueSource);
 
         } catch (AlgebricksException e) {
             throw new AsterixException(e);
         }
 
-        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, feedMessenger, messengerPc);
-        NullSinkOperatorDescriptor nullSink = new NullSinkOperatorDescriptor(spec);
-        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, nullSink, messengerPc);
-        spec.connect(new OneToOneConnectorDescriptor(spec), feedMessenger, 0, nullSink, 0);
-        spec.addRoot(nullSink);
-        return new Triple<JobSpecification, Boolean, Boolean>(spec, completeDisconnection, needToDiscontinueSourceFeed);
     }
 }

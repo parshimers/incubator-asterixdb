@@ -25,6 +25,7 @@ import edu.uci.ics.asterix.aql.parser.ParseException;
 import edu.uci.ics.asterix.aql.util.FunctionUtils;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedId;
+import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
 import edu.uci.ics.asterix.common.functions.FunctionSignature;
 import edu.uci.ics.asterix.metadata.MetadataException;
 import edu.uci.ics.asterix.metadata.MetadataManager;
@@ -34,7 +35,6 @@ import edu.uci.ics.asterix.metadata.entities.FeedActivity;
 import edu.uci.ics.asterix.metadata.entities.Function;
 import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
 import edu.uci.ics.asterix.metadata.entities.SecondaryFeed;
-import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionRequest;
 import edu.uci.ics.asterix.metadata.feeds.FeedUtil;
 import edu.uci.ics.asterix.metadata.feeds.IAdapterFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
@@ -60,10 +60,10 @@ public class SubscribeFeedStatement implements Statement {
     }
 
     public void initialize(MetadataTransactionContext mdTxnCtx) throws MetadataException {
-        query = new Query();
-        FeedId sourceFeedId = subscriptionRequest.getSourceFeed().getFeedId();
-        Feed subscriberFeed = MetadataManager.INSTANCE.getFeed(mdTxnCtx, subscriptionRequest.getFeed()
-                .getDataverseName(), subscriptionRequest.getFeed().getFeedName());
+        this.query = new Query();
+        FeedId sourceFeedId = subscriptionRequest.getFeedPointKey().getFeedId();
+        Feed subscriberFeed = MetadataManager.INSTANCE.getFeed(mdTxnCtx, subscriptionRequest.getSubscribingFeedId()
+                .getDataverse(), subscriptionRequest.getSubscribingFeedId().getFeedName());
         if (subscriberFeed == null) {
             throw new IllegalStateException(" Subscriber feed " + subscriberFeed + " not found.");
         }
@@ -82,7 +82,7 @@ public class SubscribeFeedStatement implements Statement {
         }
 
         StringBuilder builder = new StringBuilder();
-        builder.append("use dataverse " + subscriptionRequest.getSourceFeed().getDataverseName() + ";\n");
+        builder.append("use dataverse " + sourceFeedId.getDataverse() + ";\n");
         builder.append("set" + " " + FunctionUtils.IMPORT_PRIVATE_FUNCTIONS + " " + "'" + Boolean.TRUE + "'" + ";\n");
         builder.append("set" + " " + FeedActivity.FeedActivityDetails.FEED_POLICY_NAME + " " + "'"
                 + subscriptionRequest.getPolicy() + "'" + ";\n");
@@ -91,21 +91,24 @@ public class SubscribeFeedStatement implements Statement {
 
         if (appliedFunction == null) {
             builder.append(" (" + " for $x in feed-collect ('" + sourceFeedId.getDataverse() + "'" + "," + "'"
-                    + sourceFeedId.getFeedName() + "'" + "," + "'" + subscriptionRequest.getFeed().getFeedName() + "'"
-                    + "," + "'" + subscriptionRequest.getSubscriptionLocation().name() + "'" + "," + "'"
+                    + sourceFeedId.getFeedName() + "'" + "," + "'"
+                    + subscriptionRequest.getSubscribingFeedId().getFeedName() + "'" + "," + "'"
+                    + subscriptionRequest.getSubscriptionLocation().name() + "'" + "," + "'"
                     + subscriptionRequest.getTargetDataset() + "'" + "," + "'" + feedOutputType + "'" + ")");
             builder.append(" return $x");
         } else {
             if (function.getLanguage().equalsIgnoreCase(Function.LANGUAGE_AQL)) {
                 builder.append(" (" + " for $x in feed-collect ('" + sourceFeedId.getDataverse() + "'" + "," + "'"
-                        + sourceFeedId.getFeedName() + "'" + "," + "'" + subscriptionRequest.getFeed().getFeedName()
-                        + "'" + "," + "'" + subscriptionRequest.getSubscriptionLocation().name() + "'" + "," + "'"
+                        + sourceFeedId.getFeedName() + "'" + "," + "'"
+                        + subscriptionRequest.getSubscribingFeedId().getFeedName() + "'" + "," + "'"
+                        + subscriptionRequest.getSubscriptionLocation().name() + "'" + "," + "'"
                         + subscriptionRequest.getTargetDataset() + "'" + "," + "'" + feedOutputType + "'" + ")");
                 builder.append(" let $y:=(" + function.getFunctionBody() + ")" + " return $y");
             } else {
                 builder.append(" (" + " for $x in feed-collect ('" + sourceFeedId.getDataverse() + "'" + "," + "'"
-                        + sourceFeedId.getFeedName() + "'" + "," + "'" + subscriptionRequest.getFeed().getFeedName()
-                        + "'" + "," + "'" + subscriptionRequest.getSubscriptionLocation().name() + "'" + "," + "'"
+                        + sourceFeedId.getFeedName() + "'" + "," + "'"
+                        + subscriptionRequest.getSubscribingFeedId().getFeedName() + "'" + "," + "'"
+                        + subscriptionRequest.getSubscriptionLocation().name() + "'" + "," + "'"
                         + subscriptionRequest.getTargetDataset() + "'" + "," + "'" + feedOutputType + "'" + ")");
 
                 builder.append(" let $y:=" + function.getName() + "(" + "$x" + ")");
@@ -157,12 +160,13 @@ public class SubscribeFeedStatement implements Statement {
     }
 
     public String getDataverseName() {
-        return subscriptionRequest.getSourceFeed().getDataverseName();
+        return subscriptionRequest.getSubscribingFeedId().getDataverse();
     }
 
     private String getOutputType(MetadataTransactionContext mdTxnCtx) throws MetadataException {
         String outputType = null;
-        Feed feed = subscriptionRequest.getFeed();
+        FeedId feedId = subscriptionRequest.getSubscribingFeedId();
+        Feed feed = MetadataManager.INSTANCE.getFeed(mdTxnCtx, feedId.getDataverse(), feedId.getFeedName());
         try {
             switch (feed.getFeedType()) {
                 case PRIMARY:

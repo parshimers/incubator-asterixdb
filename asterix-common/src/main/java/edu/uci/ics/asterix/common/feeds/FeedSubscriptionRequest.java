@@ -12,49 +12,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.asterix.metadata.feeds;
+package edu.uci.ics.asterix.common.feeds;
 
-import java.util.List;
+import java.util.Map;
 
 import edu.uci.ics.asterix.common.feeds.IFeedLifecycleListener.SubscriptionLocation;
-import edu.uci.ics.asterix.metadata.entities.Feed;
 
 /**
  * A request for subscribing to a feed.
  */
 public class FeedSubscriptionRequest {
 
-    /** The source of data for the feed. This is null in the case of a primary feed */
-    private final Feed sourceFeed;
+    /** Represents the feed point on the feed pipeline that serves as the source for this subscription **/
+    private final FeedPointKey feedPointKey;
 
-    /** The feed handle representing the feed that is subscribing for data. */
-    private final Feed feed;
-
-    /** An ordered list of functions that need to be applied to receiving tuple to produce the feed. **/
-    private final List<String> appliedFunctions;
+    /** Represents the subscription location in the source feed pipeline from where feed tuples are received. **/
+    private final SubscriptionLocation subscriptionLocation;
 
     /** The status associated with the subscription. */
     private SubscriptionStatus subscriptionStatus;
 
-    /** The policy associated with a feed connection. **/
+    /** The name of the policy that governs feed ingestion **/
     private final String policy;
+
+    /** The policy associated with a feed connection. **/
+    private final Map<String, String> policyParameters;
 
     /** The target dataset that would receive the feed. **/
     private final String targetDataset;
 
-    /** Represents the location in the source feed pipeline from where feed tuples are received. **/
-    private final SubscriptionLocation subscriptionLocation;
-
-    public FeedSubscriptionRequest(Feed feed, Feed sourceFeed, SubscriptionLocation subscriptionLocation,
-            List<String> appliedFunctions, String targetDataset, String policy) {
-        this.feed = feed;
-        this.sourceFeed = sourceFeed;
-        this.subscriptionLocation = subscriptionLocation;
-        this.appliedFunctions = appliedFunctions;
-        this.targetDataset = targetDataset;
-        this.policy = policy;
-        this.subscriptionStatus = SubscriptionStatus.INITIALIZED;
-    }
+    private final FeedId subscribingFeedId;
 
     public enum SubscriptionStatus {
         INITIALIZED, // initial state upon creating a subscription request
@@ -63,24 +50,27 @@ public class FeedSubscriptionRequest {
         FAILED // subscription failed
     }
 
+    public FeedSubscriptionRequest(FeedPointKey feedPointKey, SubscriptionLocation subscriptionLocation,
+            String targetDataset, String policy, Map<String, String> policyParameters, FeedId subscribingFeedId) {
+        this.feedPointKey = feedPointKey;
+        this.subscriptionLocation = subscriptionLocation;
+        this.targetDataset = targetDataset;
+        this.policy = policy;
+        this.policyParameters = policyParameters;
+        this.subscribingFeedId = subscribingFeedId;
+        this.subscriptionStatus = SubscriptionStatus.INITIALIZED;
+    }
+
+    public FeedPointKey getFeedPointKey() {
+        return feedPointKey;
+    }
+
     public SubscriptionStatus getSubscriptionStatus() {
         return subscriptionStatus;
     }
 
     public void setSubscriptionStatus(SubscriptionStatus subscriptionStatus) {
         this.subscriptionStatus = subscriptionStatus;
-    }
-
-    public Feed getSourceFeed() {
-        return sourceFeed;
-    }
-
-    public Feed getFeed() {
-        return feed;
-    }
-
-    public List<String> getAssociatedFunctions() {
-        return appliedFunctions;
     }
 
     public String getPolicy() {
@@ -95,10 +85,17 @@ public class FeedSubscriptionRequest {
         return subscriptionLocation;
     }
 
+    public FeedId getSubscribingFeedId() {
+        return subscribingFeedId;
+    }
+
+    public Map<String, String> getPolicyParameters() {
+        return policyParameters;
+    }
+
     @Override
     public String toString() {
-        return "Feed Subscription Request " + sourceFeed.getFeedId() + " --> " + feed.getFeedId() + " ["
-                + subscriptionLocation + "]";
+        return "Feed Subscription Request " + feedPointKey + " [" + subscriptionLocation + "]";
     }
 
 }

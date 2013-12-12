@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.asterix.bootstrap;
+package edu.uci.ics.asterix.feeds;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,9 +24,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.bootstrap.FeedLifecycleListener.FeedCollectInfo;
-import edu.uci.ics.asterix.bootstrap.FeedLifecycleListener.FeedIntakeInfo;
-import edu.uci.ics.asterix.bootstrap.FeedLifecycleListener.FeedJobNotificationHandler;
 import edu.uci.ics.asterix.common.api.IClusterManagementWork;
 import edu.uci.ics.asterix.common.api.IClusterManagementWorkResponse;
 import edu.uci.ics.asterix.metadata.cluster.AddNodeWork;
