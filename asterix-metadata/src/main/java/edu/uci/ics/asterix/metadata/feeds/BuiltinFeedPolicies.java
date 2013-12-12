@@ -50,6 +50,7 @@ public class BuiltinFeedPolicies {
         return null;
     }
 
+    // BMFE
     private static FeedPolicy initializeFaultTolerantBasicMonitoredElasticPolicy() {
         Map<String, String> policyParams = new HashMap<String, String>();
         policyParams.put(FeedPolicyAccessor.FAILURE_LOG_ERROR, "true");
@@ -78,6 +79,7 @@ public class BuiltinFeedPolicies {
         return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "BF", description, policyParams);
     }
 
+    //BMF
     private static FeedPolicy initializeFaultTolerantBasicMonitoredPolicy() {
         Map<String, String> policyParams = new HashMap<String, String>();
         policyParams.put(FeedPolicyAccessor.FAILURE_LOG_ERROR, "true");
@@ -93,6 +95,7 @@ public class BuiltinFeedPolicies {
         return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "BMF", description, policyParams);
     }
 
+    //BM
     private static FeedPolicy initializeBasicMonitoredPolicy() {
         Map<String, String> policyParams = new HashMap<String, String>();
         policyParams.put(FeedPolicyAccessor.FAILURE_LOG_ERROR, "false");
@@ -108,6 +111,7 @@ public class BuiltinFeedPolicies {
         return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "BM", description, policyParams);
     }
 
+    //B
     private static FeedPolicy initializeBasicPolicy() {
         Map<String, String> policyParams = new HashMap<String, String>();
         policyParams.put(FeedPolicyAccessor.FAILURE_LOG_ERROR, "true");
@@ -120,6 +124,7 @@ public class BuiltinFeedPolicies {
         return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "B", description, policyParams);
     }
 
+    //Br
     private static FeedPolicy initializeBrittlePolicy() {
         Map<String, String> policyParams = new HashMap<String, String>();
         policyParams.put(FeedPolicyAccessor.FAILURE_LOG_ERROR, "false");

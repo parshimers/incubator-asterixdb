@@ -88,7 +88,7 @@ public abstract class AqlDataSource implements IDataSource<AqlSourceId> {
     public IDataSourcePropertiesProvider getPropertiesProvider() {
         return new AqlDataSourcePartitioningProvider(datasourceType, domain);
     }
-
+    
     @Override
     public void computeFDs(List<LogicalVariable> scanVariables, List<FunctionalDependency> fdList) {
         int n = scanVariables.size();
@@ -100,7 +100,8 @@ public abstract class AqlDataSource implements IDataSource<AqlSourceId> {
             fdList.add(fd);
         }
     }
-
+    
+ 
     private static class AqlDataSourcePartitioningProvider implements IDataSourcePropertiesProvider {
 
         private INodeDomain domain;

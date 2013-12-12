@@ -62,7 +62,7 @@ import edu.uci.ics.asterix.aql.expression.LimitClause;
 import edu.uci.ics.asterix.aql.expression.ListConstructor;
 import edu.uci.ics.asterix.aql.expression.ListConstructor.Type;
 import edu.uci.ics.asterix.aql.expression.LiteralExpr;
-import edu.uci.ics.asterix.aql.expression.LoadFromFileStatement;
+import edu.uci.ics.asterix.aql.expression.LoadStatement;
 import edu.uci.ics.asterix.aql.expression.MetaVariableClause;
 import edu.uci.ics.asterix.aql.expression.MetaVariableExpr;
 import edu.uci.ics.asterix.aql.expression.NodeGroupDropStatement;
@@ -1211,7 +1211,7 @@ public class AqlPlusExpressionToPlanTranslator extends AbstractAqlTranslator imp
     }
 
     @Override
-    public Pair<ILogicalOperator, LogicalVariable> visitLoadFromFileStatement(LoadFromFileStatement stmtLoad,
+    public Pair<ILogicalOperator, LogicalVariable> visitLoadStatement(LoadStatement stmtLoad,
             Mutable<ILogicalOperator> arg) throws AsterixException {
         // TODO Auto-generated method stub
         return null;

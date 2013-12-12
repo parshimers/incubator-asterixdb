@@ -44,7 +44,7 @@ import edu.uci.ics.asterix.aql.expression.LetClause;
 import edu.uci.ics.asterix.aql.expression.LimitClause;
 import edu.uci.ics.asterix.aql.expression.ListConstructor;
 import edu.uci.ics.asterix.aql.expression.LiteralExpr;
-import edu.uci.ics.asterix.aql.expression.LoadFromFileStatement;
+import edu.uci.ics.asterix.aql.expression.LoadStatement;
 import edu.uci.ics.asterix.aql.expression.NodeGroupDropStatement;
 import edu.uci.ics.asterix.aql.expression.NodegroupDecl;
 import edu.uci.ics.asterix.aql.expression.OperatorExpr;
@@ -80,7 +80,7 @@ public interface IAqlExpressionVisitor<R, T> {
 
     R visitDatasetDecl(DatasetDecl dd, T arg) throws AsterixException;
 
-    R visitLoadFromFileStatement(LoadFromFileStatement stmtLoad, T arg) throws AsterixException;
+    R visitLoadStatement(LoadStatement stmtLoad, T arg) throws AsterixException;
 
     R visitDropStatement(DropStatement del, T arg) throws AsterixException;
 

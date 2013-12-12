@@ -14,6 +14,9 @@
  */
 package edu.uci.ics.asterix.metadata.feeds;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -79,10 +82,22 @@ public class FeedUtil {
         return builder.toString();
     }
 
+    private static class LocationConstraint {
+        int partition;
+        String location;
+    }
+
     public static JobSpecification alterJobSpecificationForFeed(JobSpecification spec,
             FeedConnectionId feedConnectionId, FeedPolicy feedPolicy) {
-        JobSpecification altered = null;
-        altered = new JobSpecification();
+
+        FeedPolicyAccessor fpa = new FeedPolicyAccessor(feedPolicy.getProperties());
+        boolean alterationRequired = (fpa.collectStatistics() || fpa.continueOnApplicationFailure()
+                || fpa.continueOnHardwareFailure() || fpa.isElastic());
+        if (!alterationRequired) {
+            return spec;
+        }
+
+        JobSpecification altered = new JobSpecification();
         Map<OperatorDescriptorId, IOperatorDescriptor> operatorMap = spec.getOperatorMap();
 
         // copy operators
@@ -164,7 +179,7 @@ public class FeedUtil {
         }
 
         // prepare for setting partition constraints
-        Map<OperatorDescriptorId, Map<Integer, String>> operatorLocations = new HashMap<OperatorDescriptorId, Map<Integer, String>>();
+        Map<OperatorDescriptorId, List<LocationConstraint>> operatorLocations = new HashMap<OperatorDescriptorId, List<LocationConstraint>>();
         Map<OperatorDescriptorId, Integer> operatorCounts = new HashMap<OperatorDescriptorId, Integer>();
 
         for (Constraint constraint : spec.getUserConstraints()) {
@@ -178,25 +193,35 @@ public class FeedUtil {
                     break;
                 case PARTITION_LOCATION:
                     opId = ((PartitionLocationExpression) lexpr).getOperatorDescriptorId();
+
                     IOperatorDescriptor opDesc = altered.getOperatorMap().get(oldNewOID.get(opId));
-                    Map<Integer, String> locations = operatorLocations.get(opDesc.getOperatorId());
+                    List<LocationConstraint> locations = operatorLocations.get(opDesc.getOperatorId());
                     if (locations == null) {
-                        locations = new HashMap<Integer, String>();
+                        locations = new ArrayList<>();
                         operatorLocations.put(opDesc.getOperatorId(), locations);
                     }
                     String location = (String) ((ConstantExpression) cexpr).getValue();
-                    int partition = ((PartitionLocationExpression) lexpr).getPartition();
-                    locations.put(partition, location);
+                    LocationConstraint lc = new LocationConstraint();
+                    lc.location = location;
+                    lc.partition = ((PartitionLocationExpression) lexpr).getPartition();
+                    locations.add(lc);
                     break;
             }
         }
 
         // set absolute location constraints
-        for (Entry<OperatorDescriptorId, Map<Integer, String>> entry : operatorLocations.entrySet()) {
+        for (Entry<OperatorDescriptorId, List<LocationConstraint>> entry : operatorLocations.entrySet()) {
             IOperatorDescriptor opDesc = altered.getOperatorMap().get(oldNewOID.get(entry.getKey()));
+            Collections.sort(entry.getValue(), new Comparator<LocationConstraint>() {
+
+                @Override
+                public int compare(LocationConstraint o1, LocationConstraint o2) {
+                    return o1.partition - o2.partition;
+                }
+            });
             String[] locations = new String[entry.getValue().size()];
-            for (Entry<Integer, String> e : entry.getValue().entrySet()) {
-                locations[e.getKey()] = e.getValue();
+            for (int i = 0; i < locations.length; ++i) {
+                locations[i] = entry.getValue().get(i).location;
             }
             PartitionConstraintHelper.addAbsoluteLocationConstraint(altered, opDesc, locations);
         }
@@ -232,7 +257,8 @@ public class FeedUtil {
     }
 
     public static Pair<IAdapterFactory, ARecordType> getPrimaryFeedFactoryAndOutput(PrimaryFeed feed,
-            MetadataTransactionContext mdTxnCtx) throws AlgebricksException {
+
+    MetadataTransactionContext mdTxnCtx) throws AlgebricksException {
 
         String adapterName = null;
         DatasourceAdapter adapterEntity = null;
@@ -264,8 +290,7 @@ public class FeedUtil {
                 }
             } else {
                 adapterFactoryClassname = AqlMetadataProvider.adapterFactoryMapping.get(adapterName);
-                if (adapterFactoryClassname != null) {
-                } else {
+                if (adapterFactoryClassname == null) {
                     adapterFactoryClassname = adapterName;
                 }
                 adapterFactory = (IAdapterFactory) Class.forName(adapterFactoryClassname).newInstance();

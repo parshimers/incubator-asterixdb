@@ -85,7 +85,7 @@ public class MetadataBuiltinFunctions {
                 }
                 return t2;
             }
-        });
+        }, true);
 
         AsterixBuiltinFunctions.addPrivateFunction(AsterixBuiltinFunctions.FEED_COLLECT, new IResultTypeComputer() {
 
@@ -123,7 +123,7 @@ public class MetadataBuiltinFunctions {
                 }
                 return t2;
             }
-        });
+        }, true);
 
     }
 

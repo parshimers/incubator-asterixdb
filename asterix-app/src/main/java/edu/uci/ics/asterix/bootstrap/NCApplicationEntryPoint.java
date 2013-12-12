@@ -30,6 +30,7 @@ import edu.uci.ics.asterix.common.transactions.IRecoveryManager;
 import edu.uci.ics.asterix.common.transactions.IRecoveryManager.SystemState;
 import edu.uci.ics.asterix.event.schema.cluster.Cluster;
 import edu.uci.ics.asterix.event.schema.cluster.Node;
+import edu.uci.ics.asterix.hyracks.bootstrap.AsterixStateDumpHandler;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataNode;
 import edu.uci.ics.asterix.metadata.api.IAsterixStateProxy;
@@ -39,6 +40,7 @@ import edu.uci.ics.asterix.om.util.AsterixClusterProperties;
 import edu.uci.ics.asterix.transaction.management.resource.PersistentLocalResourceRepository;
 import edu.uci.ics.hyracks.api.application.INCApplicationContext;
 import edu.uci.ics.hyracks.api.application.INCApplicationEntryPoint;
+import edu.uci.ics.hyracks.api.lifecycle.ILifeCycleComponentManager;
 import edu.uci.ics.hyracks.api.lifecycle.LifeCycleComponentManager;
 
 public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
@@ -53,7 +55,7 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
 
     @Override
     public void start(INCApplicationContext ncAppCtx, String[] args) throws Exception {
-        ncAppCtx.setThreadFactory(AsterixThreadFactory.INSTANCE);
+        ncAppCtx.setThreadFactory(new AsterixThreadFactory(ncAppCtx.getLifeCycleComponentManager()));
         ncApplicationContext = ncAppCtx;
         nodeId = ncApplicationContext.getNodeId();
         if (LOGGER.isLoggable(Level.INFO)) {
@@ -108,7 +110,7 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
                 MetadataBootstrap.stopUniverse();
             }
 
-            LifeCycleComponentManager.INSTANCE.stopAll(false);
+            ncApplicationContext.getLifeCycleComponentManager().stopAll(false);
             runtimeContext.deinitialize();
         } else {
             if (LOGGER.isLoggable(Level.INFO)) {
@@ -151,10 +153,6 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
                     systemState == SystemState.NEW_UNIVERSE);
             MetadataBootstrap.startDDLRecovery();
 
-            IMetadataNode stub = null;
-            stub = (IMetadataNode) UnicastRemoteObject.exportObject(MetadataNode.INSTANCE, 0);
-            proxy.setMetadataNode(stub);
-
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Metadata node bound");
             }
@@ -166,21 +164,30 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
         }
 
         Map<String, String> lifecycleMgmtConfiguration = new HashMap<String, String>();
-        String key = LifeCycleComponentManager.Config.DUMP_PATH_KEY;
-        String value = metadataProperties.getCoredumpPath(nodeId);
-        lifecycleMgmtConfiguration.put(key, value);
+        String dumpPathKey = LifeCycleComponentManager.Config.DUMP_PATH_KEY;
+        String dumpPath = metadataProperties.getCoredumpPath(nodeId);
+        lifecycleMgmtConfiguration.put(dumpPathKey, dumpPath);
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Coredump directory for NC is: " + value);
+            LOGGER.info("Coredump directory for NC is: " + dumpPath);
         }
-        LifeCycleComponentManager.INSTANCE.configure(lifecycleMgmtConfiguration);
+        ILifeCycleComponentManager lccm = ncApplicationContext.getLifeCycleComponentManager();
+        lccm.configure(lifecycleMgmtConfiguration);
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Configured:" + LifeCycleComponentManager.INSTANCE);
+            LOGGER.info("Configured:" + lccm);
         }
+        ncApplicationContext.setStateDumpHandler(new AsterixStateDumpHandler(ncApplicationContext.getNodeId(), lccm
+                .getDumpPath(), lccm));
 
-        LifeCycleComponentManager.INSTANCE.startAll();
+        lccm.startAll();
 
         IRecoveryManager recoveryMgr = runtimeContext.getTransactionSubsystem().getRecoveryManager();
         recoveryMgr.checkpoint(true);
+        
+        if (isMetadataNode) {
+            IMetadataNode stub = null;
+            stub = (IMetadataNode) UnicastRemoteObject.exportObject(MetadataNode.INSTANCE, 0);
+            proxy.setMetadataNode(stub);
+        }
 
         // TODO
         // reclaim storage for orphaned index artifacts in NCs.
