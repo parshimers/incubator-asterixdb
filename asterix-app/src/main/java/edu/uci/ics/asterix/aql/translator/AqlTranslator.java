@@ -1631,9 +1631,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
             FeedConnectionId feedConnId = new FeedConnectionId(dataverseName, cfs.getFeedName(), cfs.getDatasetName()
                     .getValue());
-            List<FeedConnectionId> feedConnections = FeedLifecycleListener.INSTANCE.getActiveFeedConnections(feedConnId
-                    .getFeedId());
-            if (feedConnections != null && !feedConnections.isEmpty()) {
+
+            if (FeedLifecycleListener.INSTANCE.isFeedConnectionActive(feedConnId)) {
                 throw new AsterixException("Feed " + cfs.getFeedName()
                         + " is currently ACTIVE. Operation not supported");
             }
@@ -1694,7 +1693,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
         FeedPointKey feedPointKey = getFeedPointKey(feed, mdTxnCtx);
         boolean isFeedPointAvailable = FeedLifecycleListener.INSTANCE.isFeedPointAvailable(feedPointKey);
-
+        List<String> functionsToApply = new ArrayList<String>();
         SubscriptionLocation subscriptionLocation = null;
         if (!isFeedPointAvailable) {
             sourceFeedPoint = FeedLifecycleListener.INSTANCE.getAvailableFeedPoint(feedPointKey);
@@ -1702,53 +1701,51 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 FeedId sourceFeedId = feedPointKey.getFeedId(); // the root/primary feedId 
                 Feed primaryFeed = MetadataManager.INSTANCE.getFeed(mdTxnCtx, dataverse, sourceFeedId.getFeedName());
 
-                List<String> appliedFunctions = new ArrayList<String>();
                 subscriptionLocation = SubscriptionLocation.SOURCE_FEED_INTAKE;
-                FeedPointKey intakeFeedPointKey = new FeedPointKey(sourceFeedId, appliedFunctions);
+                FeedPointKey intakeFeedPointKey = new FeedPointKey(sourceFeedId, new ArrayList<String>());
                 Scope scope = (primaryFeed.getAppliedFunction() != null) ? Scope.PRIVATE : Scope.PUBLIC;
                 sourceFeedPoint = new FeedPoint(intakeFeedPointKey, primaryFeed.getFeedId(), subscriptionLocation,
                         Type.PRIMARY, scope);
                 FeedLifecycleListener.INSTANCE.registerFeedPoint(sourceFeedPoint);
-
-                if (primaryFeed.getAppliedFunction() != null) {
-                    appliedFunctions.add(primaryFeed.getAppliedFunction().getName());
-                    FeedPointKey computeFeedPointKey = new FeedPointKey(sourceFeedId, appliedFunctions);
-                    IFeedPoint computeFeedPoint = new FeedPoint(computeFeedPointKey, primaryFeed.getFeedId(),
-                            SubscriptionLocation.SOURCE_FEED_COMPUTE, Type.PRIMARY, scope.PUBLIC);
-                    FeedLifecycleListener.INSTANCE.registerFeedPoint(computeFeedPoint);
-                }
 
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Registered new feed  (" + subscriptionLocation + ")" + sourceFeedPoint);
                 }
                 needIntakeJob = true;
             } else {
-                FeedId ownerFeedId = sourceFeedPoint.getOwnerFeedId();
-                Feed ownerFeed = MetadataManager.INSTANCE.getFeed(mdTxnCtx, ownerFeedId.getDataverse(),
-                        ownerFeedId.getFeedName());
-                subscriptionLocation = ownerFeed.getAppliedFunction() != null ? SubscriptionLocation.SOURCE_FEED_COMPUTE
-                        : SubscriptionLocation.SOURCE_FEED_INTAKE;
-                if (feed.getAppliedFunction() != null) {
-                    FeedPoint feedPoint = new FeedPoint(feedPointKey, feed.getFeedId(),
-                            SubscriptionLocation.SOURCE_FEED_COMPUTE, Type.SECONDARY, Scope.PUBLIC);
-                    FeedLifecycleListener.INSTANCE.registerFeedPoint(feedPoint);
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("Registered new feed (Compute) point " + feedPoint);
-                    }
-                } else {
-                    subscriptionLocation = SubscriptionLocation.SOURCE_FEED_INTAKE;
+                subscriptionLocation = sourceFeedPoint.getSubscriptionLocation();
+            }
+
+            String functionComponent = feedPointKey.getStringRep().substring(
+                    sourceFeedPoint.getFeedPointKey().getStringRep().length());
+            String[] functions = functionComponent.trim().split(":");
+            for (String f : functions) {
+                if (f.trim().length() > 0) {
+                    functionsToApply.add(f);
                 }
+            }
+            // register the compute feed point that represents the final output from the collection of
+            // functions that will be applied. 
+            if (!functionsToApply.isEmpty()) {
+                FeedPointKey computeFeedPointKey = new FeedPointKey(feed.getFeedId(), functionsToApply);
+                IFeedPoint computeFeedPoint = new FeedPoint(computeFeedPointKey, feed.getFeedId(),
+                        SubscriptionLocation.SOURCE_FEED_COMPUTE, Type.PRIMARY, Scope.PUBLIC);
+                FeedLifecycleListener.INSTANCE.registerFeedPoint(computeFeedPoint);
             }
         } else {
             sourceFeedPoint = FeedLifecycleListener.INSTANCE.getFeedPoint(feedPointKey);
             subscriptionLocation = sourceFeedPoint.getSubscriptionLocation();
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Feed point " + sourceFeedPoint + " is available!");
+                LOGGER.info("Feed point " + sourceFeedPoint + " is available! need not apply any further computation");
             }
         }
 
-        request = new FeedSubscriptionRequest(sourceFeedPoint.getFeedPointKey(), subscriptionLocation, dataset,
-                feedPolicy.getPolicyName(), feedPolicy.getProperties(), feed.getFeedId());
+        request = new FeedSubscriptionRequest(sourceFeedPoint.getFeedPointKey(), subscriptionLocation,
+                functionsToApply, dataset, feedPolicy.getPolicyName(), feedPolicy.getProperties(), feed.getFeedId());
+
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Generated Subscription Request" + request);
+        }
         sourceFeedPoint.addSubscriptionRequest(request);
         return new Pair<FeedSubscriptionRequest, Boolean>(request, needIntakeJob);
     }
@@ -1827,7 +1824,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 bActiveTxn = true;
                 MetadataManager.INSTANCE.deregisterFeedActivity(mdTxnCtx, connectionId);
                 MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
-                //  FeedLifecycleListener.INSTANCE.reportPartialDisconnection(connectionId);
+                FeedLifecycleListener.INSTANCE.reportPartialDisconnection(connectionId);
             }
 
         } catch (Exception e) {

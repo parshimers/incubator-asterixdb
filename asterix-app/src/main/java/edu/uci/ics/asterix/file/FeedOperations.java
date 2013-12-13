@@ -140,14 +140,14 @@ public class FeedOperations {
                 subscriptionLocation = feedPoint.getSubscriptionLocation();
             } else {
                 List<FeedSubscriber> subscribers = sourceFeedPoint.getSubscribers();
-                hasOtherSubscribers = subscribers != null && !subscribers.isEmpty();
+                hasOtherSubscribers = subscribers != null && !subscribers.isEmpty() && subscribers.size() > 1;
                 subscriptionLocation = sourceFeedPoint.getSubscriptionLocation();
             }
 
             List<String> locations = subscribableFeedPoint.getLocations();
 
             boolean needToDiscontinueSource = !hasOtherSubscribers
-                    && subscriptionLocation.equals(SubscriptionLocation.SOURCE_FEED_COMPUTE);
+                    && subscriptionLocation.equals(SubscriptionLocation.SOURCE_FEED_INTAKE);
             FeedRuntimeType feedRuntimeType = subscriptionLocation.equals(SubscriptionLocation.SOURCE_FEED_INTAKE) ? FeedRuntimeType.INGEST
                     : FeedRuntimeType.COMPUTE;
 

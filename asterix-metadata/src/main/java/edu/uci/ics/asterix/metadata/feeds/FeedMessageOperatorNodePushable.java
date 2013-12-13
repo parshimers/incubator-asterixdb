@@ -35,6 +35,7 @@ import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.ISubscribableRuntime;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.asterix.common.feeds.SuperFeedManager;
+import edu.uci.ics.asterix.metadata.feeds.FeedCollectOperatorNodePushable.CollectTransformFeedFrameWriter;
 import edu.uci.ics.hyracks.api.application.INCApplicationContext;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -139,7 +140,12 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                 case INGEST:
                 case COMPUTE:
                     BasicFeedRuntime feedRuntime = null;
-                    runtimeId = new FeedRuntimeId(FeedRuntimeType.COLLECT, feedConnectionId, partition);
+                    runtimeId = new FeedRuntimeId(FeedRuntimeType.COMPUTE_COLLECT, feedConnectionId, partition);
+                    feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
+                    if (feedRuntime == null) {
+                        runtimeId = new FeedRuntimeId(FeedRuntimeType.COLLECT, feedConnectionId, partition);
+                        feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
+                    }
                     feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
                     ((CollectionRuntime) feedRuntime).getSourceRuntime().unsubscribeFeed(
                             (CollectionRuntime) feedRuntime);
@@ -166,12 +172,23 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                     IFeedFrameWriter unsubscribingWriter = null;
                     for (Entry<IFeedFrameWriter, FeedFrameCollector> entry : registeredCollectors.entrySet()) {
                         IFeedFrameWriter frameWriter = entry.getKey();
-                        if (frameWriter.getType().equals(IFeedFrameWriter.Type.BASIC_FEED_WRITER)) {
-                            FeedConnectionId feedConnectionId = ((FeedFrameWriter) frameWriter).getFeedConnectionId();
-                            if (feedConnectionId.equals(endFeedMessage.getFeedConnectionId())) {
-                                unsubscribingWriter = frameWriter;
+                        FeedConnectionId connectionId = null;
+                        switch (frameWriter.getType()) {
+                            case BASIC_FEED_WRITER:
+                                connectionId = ((FeedFrameWriter) frameWriter).getFeedConnectionId();
                                 break;
-                            }
+                            case COLLECT_TRANSFORM_FEED_WRITER:
+                                connectionId = ((FeedFrameWriter) ((CollectTransformFeedFrameWriter) frameWriter)
+                                        .getDownstreamWriter()).getFeedConnectionId();
+
+                                break;
+                            case DISTRIBUTE_FEED_WRITER:
+                                throw new IllegalStateException("Invalid feed frame writer type "
+                                        + frameWriter.getType());
+                        }
+                        if (connectionId.equals(endFeedMessage.getFeedConnectionId())) {
+                            unsubscribingWriter = frameWriter;
+                            break;
                         }
                     }
                     if (unsubscribingWriter != null) {

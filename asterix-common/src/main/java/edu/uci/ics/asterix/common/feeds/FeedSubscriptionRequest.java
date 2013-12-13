@@ -14,7 +14,10 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
+import java.util.List;
 import java.util.Map;
+
+import org.apache.commons.lang3.StringUtils;
 
 import edu.uci.ics.asterix.common.feeds.IFeedLifecycleListener.SubscriptionLocation;
 
@@ -28,6 +31,9 @@ public class FeedSubscriptionRequest {
 
     /** Represents the subscription location in the source feed pipeline from where feed tuples are received. **/
     private final SubscriptionLocation subscriptionLocation;
+
+    /** The list of functions that need to be applied in sequence after the data hand-off at the source feedPointKey. **/
+    private final List<String> functionsToApply;
 
     /** The status associated with the subscription. */
     private SubscriptionStatus subscriptionStatus;
@@ -51,9 +57,11 @@ public class FeedSubscriptionRequest {
     }
 
     public FeedSubscriptionRequest(FeedPointKey feedPointKey, SubscriptionLocation subscriptionLocation,
-            String targetDataset, String policy, Map<String, String> policyParameters, FeedId subscribingFeedId) {
+            List<String> functionsToApply, String targetDataset, String policy, Map<String, String> policyParameters,
+            FeedId subscribingFeedId) {
         this.feedPointKey = feedPointKey;
         this.subscriptionLocation = subscriptionLocation;
+        this.functionsToApply = functionsToApply;
         this.targetDataset = targetDataset;
         this.policy = policy;
         this.policyParameters = policyParameters;
@@ -93,9 +101,14 @@ public class FeedSubscriptionRequest {
         return policyParameters;
     }
 
+    public List<String> getFunctionsToApply() {
+        return functionsToApply;
+    }
+
     @Override
     public String toString() {
-        return "Feed Subscription Request " + feedPointKey + " [" + subscriptionLocation + "]";
+        return "Feed Subscription Request " + feedPointKey + " [" + subscriptionLocation + "]" + " Apply ("
+                + StringUtils.join(functionsToApply, ",") + ")";
     }
 
 }

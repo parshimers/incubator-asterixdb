@@ -132,8 +132,10 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
                 break;
             case SINGLE:
                 if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Will disconnect the lone frame reader in " + frameDistributor.mode + " mode");
+                    LOGGER.info("Will disconnect the lone frame reader in " + frameDistributor.mode + " mode "
+                            + " FeedId " + feedId);
                 }
+                frameDistributor.setMode(DistributionMode.INACTIVE);
                 registeredCollectors.values().iterator().next().disconnect();
                 break;
             case SHARED:
@@ -381,7 +383,8 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
                             break;
                         case FINISHED:
                             if (LOGGER.isLoggable(Level.WARNING)) {
-                                LOGGER.warning("Discarding fetched tuples as feed has ended");
+                                LOGGER.warning("Discarding fetched tuples as feed has ended ["
+                                        + registeredCollectors.get(0) + "]" + " Feed Id " + feedId);
                             }
                             registeredCollectors.remove(0);
                             break;
@@ -390,7 +393,7 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
                 case SHARED:
                     if (LOGGER.isLoggable(Level.INFO)) {
                         LOGGER.info("Processing frame in " + DistributionMode.SHARED
-                                + " mode. # of registered readers " + registeredCollectors.size());
+                                + " mode. # of registered readers " + registeredCollectors.size() + " feedId " + feedId);
                     }
                     DataBucket bucket = pool.getDataBucket();
                     bucket.setDesiredReadCount(registeredCollectors.size());
@@ -428,21 +431,37 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
                         }
                         if (pendingDeletions.size() > 0) {
                             registeredCollectors.removeAll(pendingDeletions);
-                            pendingDeletions.clear();
                             if (registeredCollectors.size() == 1) {
                                 FeedFrameCollector loneReader = registeredCollectors.get(0);
                                 setMode(DistributionMode.SINGLE);
                                 loneReader.setState(FeedFrameCollector.State.TRANSITION);
+                                loneReader.setContinueReading(false);
+                                if (LOGGER.isLoggable(Level.INFO)) {
+                                    LOGGER.info("Collector " + loneReader + " set to "
+                                            + FeedFrameCollector.State.TRANSITION
+                                            + " mode. Continue Reading is DISABLED.");
+                                }
+                                /*
                                 DataBucket bucket = getDataBucket();
                                 bucket.setContentType(DataBucket.ContentType.EOD);
-                                loneReader.inputQueue.add(bucket);
+                                for (FeedFrameCollector toBeRemovedCollector : pendingDeletions) {
+                                    toBeRemovedCollector.setContinueReading(false);
+                                    toBeRemovedCollector.inputQueue.add(bucket);
+                                    if (LOGGER.isLoggable(Level.INFO)) {
+                                        LOGGER.info("Deposited feed end packet to be processed by "
+                                                + toBeRemovedCollector);
+                                    }
+                                }
+                                */
                             } else if (registeredCollectors.size() == 0) {
                                 mode = DistributionMode.INACTIVE;
                                 if (LOGGER.isLoggable(Level.INFO)) {
-                                    LOGGER.info("Distribution is " + DistributionMode.INACTIVE);
+                                    LOGGER.info("Distribution is " + DistributionMode.INACTIVE
+                                            + " as all feed collectors have unsubscribed");
                                 }
                                 break;
                             }
+                            pendingDeletions.clear();
                         }
                     }
                 } catch (InterruptedException e) {
@@ -505,7 +524,7 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
             }
             if (state.equals(State.TRANSITION)) {
                 if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info(this + " in " + State.TRANSITION + " mode ");
+                    LOGGER.info(" PROCESSING " + this + " in " + State.TRANSITION + " mode ");
                 }
                 while (!inputQueue.isEmpty()) {
                     try {

@@ -42,7 +42,7 @@
               <mainClass>edu.uci.ics.hyracks.control.cc.CCDriver</mainClass>
               <commandLineArguments>
                  <commandLineArgument>-app-cc-main-class</commandLineArgument>
-                 <commandLineArgument>edu.uci.ics.asterix.hyracks.bootstrap.CCApplicationEntryPoint</commandLineArgument>
+                 <commandLineArgument>edu.uci.ics.asterix.bootstrap.CCApplicationEntryPoint</commandLineArgument>
               </commandLineArguments>
             </program>
             <program>
@@ -77,36 +77,13 @@
               </platforms>
               <commandLineArguments>
                 <commandLineArgument>-app-nc-main-class</commandLineArgument>
-                <commandLineArgument>edu.uci.ics.asterix.hyracks.bootstrap.NCApplicationEntryPoint</commandLineArgument>
+                <commandLineArgument>edu.uci.ics.asterix.bootstrap.NCApplicationEntryPoint</commandLineArgument>
               </commandLineArguments>
             </daemon>
           </daemons>
         </configuration>
         <executions>
           <execution>
-            <configuration>
-              <programs>
-                <program>
-                  <mainClass>edu.uci.ics.hyracks.control.cc.CCDriver</mainClass>
-                  <name>asterixcc</name>
-                  <commandLineArguments>
-                    <commandLineArgument>-app-cc-main-class</commandLineArgument>
-                    <commandLineArgument>edu.uci.ics.asterix.bootstrap.CCApplicationEntryPoint</commandLineArgument>
-                  </commandLineArguments>
-                </program>
-                <program>
-                  <mainClass>edu.uci.ics.hyracks.control.nc.NCDriver</mainClass>
-                  <name>asterixnc</name>
-                  <commandLineArguments>
-                    <commandLineArgument>-app-nc-main-class</commandLineArgument>
-                    <commandLineArgument>edu.uci.ics.asterix.bootstrap.NCApplicationEntryPoint</commandLineArgument>
-                  </commandLineArguments>
-                </program>
-              </programs>
-              <repositoryLayout>flat</repositoryLayout>
-              <repositoryName>lib</repositoryName>
-            </configuration>
-            <phase>package</phase>
             <goals>
               <goal>assemble</goal>
               <goal>generate-daemons</goal>

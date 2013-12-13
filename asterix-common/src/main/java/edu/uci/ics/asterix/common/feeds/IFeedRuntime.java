@@ -20,6 +20,7 @@ public interface IFeedRuntime {
     public enum FeedRuntimeType {
         INGEST,
         COLLECT,
+        COMPUTE_COLLECT,
         COMPUTE,
         STORE,
         COMMIT

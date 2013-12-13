@@ -15,6 +15,7 @@
 package edu.uci.ics.asterix.aql.expression;
 
 import java.io.StringReader;
+import java.util.ArrayList;
 import java.util.List;
 
 import edu.uci.ics.asterix.aql.base.Statement;
@@ -88,32 +89,37 @@ public class SubscribeFeedStatement implements Statement {
                 + subscriptionRequest.getPolicy() + "'" + ";\n");
 
         builder.append("insert into dataset " + subscriptionRequest.getTargetDataset() + " ");
+        builder.append(" (" + " for $x in feed-collect ('" + sourceFeedId.getDataverse() + "'" + "," + "'"
+                + sourceFeedId.getFeedName() + "'" + "," + "'"
+                + subscriptionRequest.getSubscribingFeedId().getFeedName() + "'" + "," + "'"
+                + subscriptionRequest.getSubscriptionLocation().name() + "'" + "," + "'"
+                + subscriptionRequest.getTargetDataset() + "'" + "," + "'" + feedOutputType + "'" + ")");
 
-        if (appliedFunction == null) {
-            builder.append(" (" + " for $x in feed-collect ('" + sourceFeedId.getDataverse() + "'" + "," + "'"
-                    + sourceFeedId.getFeedName() + "'" + "," + "'"
-                    + subscriptionRequest.getSubscribingFeedId().getFeedName() + "'" + "," + "'"
-                    + subscriptionRequest.getSubscriptionLocation().name() + "'" + "," + "'"
-                    + subscriptionRequest.getTargetDataset() + "'" + "," + "'" + feedOutputType + "'" + ")");
+        List<String> functionsToApply = subscriptionRequest.getFunctionsToApply();
+        if (functionsToApply != null && functionsToApply.isEmpty()) {
             builder.append(" return $x");
         } else {
-            if (function.getLanguage().equalsIgnoreCase(Function.LANGUAGE_AQL)) {
-                builder.append(" (" + " for $x in feed-collect ('" + sourceFeedId.getDataverse() + "'" + "," + "'"
-                        + sourceFeedId.getFeedName() + "'" + "," + "'"
-                        + subscriptionRequest.getSubscribingFeedId().getFeedName() + "'" + "," + "'"
-                        + subscriptionRequest.getSubscriptionLocation().name() + "'" + "," + "'"
-                        + subscriptionRequest.getTargetDataset() + "'" + "," + "'" + feedOutputType + "'" + ")");
-                builder.append(" let $y:=(" + function.getFunctionBody() + ")" + " return $y");
-            } else {
-                builder.append(" (" + " for $x in feed-collect ('" + sourceFeedId.getDataverse() + "'" + "," + "'"
-                        + sourceFeedId.getFeedName() + "'" + "," + "'"
-                        + subscriptionRequest.getSubscribingFeedId().getFeedName() + "'" + "," + "'"
-                        + subscriptionRequest.getSubscriptionLocation().name() + "'" + "," + "'"
-                        + subscriptionRequest.getTargetDataset() + "'" + "," + "'" + feedOutputType + "'" + ")");
-
-                builder.append(" let $y:=" + function.getName() + "(" + "$x" + ")");
-                builder.append(" return $y");
+            String rValueName = "x";
+            String lValueName = "y";
+            int variableIndex = 0;
+            for (String functionName : functionsToApply) {
+                function = MetadataManager.INSTANCE.getFunction(mdTxnCtx, appliedFunction);
+                variableIndex++;
+                switch (function.getLanguage().toUpperCase()) {
+                    case Function.LANGUAGE_AQL:
+                        builder.append(" let " + "$" + lValueName + variableIndex + ":=(" + function.getFunctionBody()
+                                + ")");
+                        builder.append("\n");
+                        break;
+                    case Function.LANGUAGE_JAVA:
+                        builder.append(" let " + "$" + lValueName + variableIndex + ":=" + functionName + "(" + "$"
+                                + rValueName + ")");
+                        rValueName = lValueName + variableIndex;
+                        break;
+                }
+                builder.append("\n");
             }
+            builder.append("return $" + lValueName + variableIndex);
         }
         builder.append(")");
         builder.append(";");

@@ -424,21 +424,21 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
 
     public void submitFeedSubscriptionRequest(IFeedPoint feedPoint, FeedSubscriptionRequest subscriptionRequest)
             throws Exception {
-        synchronized (feedJobNotificationHandler) {
-            feedJobNotificationHandler.submitFeedSubscriptionRequest(feedPoint, subscriptionRequest);
-        }
+        feedJobNotificationHandler.submitFeedSubscriptionRequest(feedPoint, subscriptionRequest);
     }
 
     @Override
     public List<FeedConnectionId> getActiveFeedConnections(FeedId feedId) {
-        Collection<FeedSubscriber> subscribers = feedJobNotificationHandler.getSubscribers();
         List<FeedConnectionId> connections = new ArrayList<FeedConnectionId>();
-        boolean filter = feedId != null;
-        for (FeedSubscriber subscriber : subscribers) {
-            if (!filter || filter && subscriber.getFeedConnectionId().getFeedId().equals(feedId)
-                    && subscriber.getStatus().equals(FeedSubscriber.Status.ACTIVE)) {
-                connections.add(subscriber.getFeedConnectionId());
+        Collection<FeedConnectionId> activeConnections = feedJobNotificationHandler.getActiveFeedConnections();
+        if (feedId != null) {
+            for (FeedConnectionId connectionId : activeConnections) {
+                if (connectionId.getFeedId().equals(feedId)) {
+                    connections.add(connectionId);
+                }
             }
+        } else {
+            connections.addAll(activeConnections);
         }
         return connections;
     }
@@ -459,13 +459,12 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
     }
 
     @Override
-    public boolean isFeedActive(FeedId feedId) {
-        return false;
+    public boolean isFeedConnectionActive(FeedConnectionId connectionId) {
+        return feedJobNotificationHandler.isFeedConnectionActive(connectionId);
     }
 
-    @Override
-    public boolean isFeedConnectionActive(FeedConnectionId connectionId) {
-        return feedJobNotificationHandler.getSourceFeedPoint(connectionId) != null;
+    public void reportPartialDisconnection(FeedConnectionId connectionId) {
+        feedJobNotificationHandler.deregisterFeedConnection(connectionId);
     }
 
     public void registerFeedReportQueue(FeedConnectionId feedId, LinkedBlockingQueue<String> queue) {

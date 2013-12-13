@@ -79,42 +79,16 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
     public void initialize() throws HyracksDataException {
         try {
             outputRecordDescriptor = recordDesc;
-            FeedRuntimeId runtimeId = new FeedRuntimeId(FeedRuntimeType.COLLECT, feedConnectionId, partition);
-            collectRuntime = (CollectionRuntime) feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
-            if (collectRuntime == null) {
-                feedFrameWriter = new FeedFrameWriter(ctx, writer, this, feedConnectionId, policyEnforcer, nodeId,
-                        FeedRuntimeType.COLLECT, partition, outputRecordDescriptor, feedManager);
-                feedFrameWriter.open();
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Beginning new feed:" + feedConnectionId);
-                }
-
-                IFeedFrameWriter wrapper = feedFrameWriter;
-                if (sourceRuntime.getFeedRuntimeType().equals(FeedRuntimeType.COMPUTE)) {
-                    wrapper = new CollectTransformFeedFrameWriter(ctx, feedFrameWriter, sourceRuntime,
-                            outputRecordDescriptor);
-                }
-
-                collectRuntime = new CollectionRuntime(feedConnectionId, partition, wrapper, sourceRuntime, feedPolicy);
-                feedManager.getFeedConnectionManager().registerFeedRuntime(collectRuntime);
-                if (sourceRuntime.getFeedRuntimeType().equals(FeedRuntimeType.COMPUTE)) {
-                    this.recordDesc = sourceRuntime.getFeedFrameWriter().getRecordDescriptor();
-                }
-                sourceRuntime.subscribeFeed(collectRuntime);
-            } else {
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Resuming old feed:" + feedConnectionId);
-                }
-                writer.open();
-                FeedFrameCollector frameReader = collectRuntime.getFrameCollector();
-                feedFrameWriter = (FeedFrameWriter) frameReader.getFrameWriter();
-                feedFrameWriter.setWriter(writer);
-                //feedFrameWriter.getWriter()).reset();
-                feedFrameWriter.setMode(FeedFrameWriter.Mode.FORWARD);
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Reset the internal frame writer for " + collectRuntime + " to "
-                            + FeedFrameWriter.Mode.FORWARD + " mode ");
-                }
+            FeedRuntimeType sourceRuntimeType = sourceRuntime.getFeedRuntimeType();
+            switch (sourceRuntimeType) {
+                case INGEST:
+                    handleCompleteConnection();
+                    break;
+                case COMPUTE:
+                    handlePartialConnection();
+                    break;
+                default:
+                    throw new IllegalStateException("Invalid source type " + sourceRuntimeType);
             }
 
             collectRuntime.waitTillCollectionOver();
@@ -141,11 +115,72 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
         }
     }
 
+    private void handlePartialConnection() throws Exception {
+        feedFrameWriter = new FeedFrameWriter(ctx, writer, this, feedConnectionId, policyEnforcer, nodeId,
+                FeedRuntimeType.COMPUTE_COLLECT, partition, outputRecordDescriptor, feedManager);
+        feedFrameWriter.open();
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Beginning new feed (from existing partial connection):" + feedConnectionId);
+        }
+        IFeedFrameWriter wrapper = feedFrameWriter;
+        if (sourceRuntime.getFeedRuntimeType().equals(FeedRuntimeType.COMPUTE)) {
+            wrapper = new CollectTransformFeedFrameWriter(ctx, feedFrameWriter, sourceRuntime, outputRecordDescriptor);
+        }
+        collectRuntime = new CollectionRuntime(feedConnectionId, partition, wrapper, sourceRuntime, feedPolicy,
+                FeedRuntimeType.COMPUTE_COLLECT);
+        feedManager.getFeedConnectionManager().registerFeedRuntime(collectRuntime);
+        if (sourceRuntime.getFeedRuntimeType().equals(FeedRuntimeType.COMPUTE)) {
+            this.recordDesc = sourceRuntime.getFeedFrameWriter().getRecordDescriptor();
+        }
+        sourceRuntime.subscribeFeed(collectRuntime);
+    }
+
+    private void handleCompleteConnection() throws Exception {
+        FeedRuntimeId runtimeId = new FeedRuntimeId(FeedRuntimeType.COLLECT, feedConnectionId, partition);
+        collectRuntime = (CollectionRuntime) feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
+        if (collectRuntime == null) {
+            feedFrameWriter = new FeedFrameWriter(ctx, writer, this, feedConnectionId, policyEnforcer, nodeId,
+                    FeedRuntimeType.COLLECT, partition, outputRecordDescriptor, feedManager);
+            feedFrameWriter.open();
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Beginning new feed:" + feedConnectionId);
+            }
+
+            IFeedFrameWriter wrapper = feedFrameWriter;
+            if (sourceRuntime.getFeedRuntimeType().equals(FeedRuntimeType.COMPUTE)) {
+                wrapper = new CollectTransformFeedFrameWriter(ctx, feedFrameWriter, sourceRuntime,
+                        outputRecordDescriptor);
+            }
+
+            collectRuntime = new CollectionRuntime(feedConnectionId, partition, wrapper, sourceRuntime, feedPolicy,
+                    FeedRuntimeType.COLLECT);
+            feedManager.getFeedConnectionManager().registerFeedRuntime(collectRuntime);
+            if (sourceRuntime.getFeedRuntimeType().equals(FeedRuntimeType.COMPUTE)) {
+                this.recordDesc = sourceRuntime.getFeedFrameWriter().getRecordDescriptor();
+            }
+            sourceRuntime.subscribeFeed(collectRuntime);
+        } else {
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Resuming old feed:" + feedConnectionId);
+            }
+            writer.open();
+            FeedFrameCollector frameReader = collectRuntime.getFrameCollector();
+            feedFrameWriter = (FeedFrameWriter) frameReader.getFrameWriter();
+            feedFrameWriter.setWriter(writer);
+            //feedFrameWriter.getWriter()).reset();
+            feedFrameWriter.setMode(FeedFrameWriter.Mode.FORWARD);
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Reset the internal frame writer for " + collectRuntime + " to "
+                        + FeedFrameWriter.Mode.FORWARD + " mode ");
+            }
+        }
+    }
+
     public Map<String, String> getFeedPolicy() {
         return feedPolicy;
     }
 
-    private static class CollectTransformFeedFrameWriter implements IFeedFrameWriter {
+    public static class CollectTransformFeedFrameWriter implements IFeedFrameWriter {
 
         private final IFeedFrameWriter downstreamWriter;
         private final ISubscribableRuntime sourceRuntime;
@@ -217,6 +252,10 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
         @Override
         public Type getType() {
             return Type.COLLECT_TRANSFORM_FEED_WRITER;
+        }
+
+        public IFeedFrameWriter getDownstreamWriter() {
+            return downstreamWriter;
         }
 
     }
