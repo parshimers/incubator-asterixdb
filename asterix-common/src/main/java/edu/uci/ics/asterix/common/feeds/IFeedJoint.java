@@ -6,7 +6,7 @@ import edu.uci.ics.asterix.common.feeds.IFeedLifecycleListener.SubscriptionLocat
 import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 
-public interface IFeedPoint {
+public interface IFeedJoint {
 
     public enum Type {
         PRIMARY,
@@ -36,7 +36,7 @@ public interface IFeedPoint {
 
     public SubscriptionLocation getSubscriptionLocation();
 
-    public FeedPointKey getFeedPointKey();
+    public FeedJointKey getFeedJointKey();
 
     public FeedSubscriber getSubscriber(FeedConnectionId feedConnectionId);
 

@@ -77,15 +77,15 @@ import edu.uci.ics.asterix.common.exceptions.ACIDException;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
-import edu.uci.ics.asterix.common.feeds.FeedPointKey;
+import edu.uci.ics.asterix.common.feeds.FeedJointKey;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
 import edu.uci.ics.asterix.common.feeds.IFeedLifecycleListener.SubscriptionLocation;
-import edu.uci.ics.asterix.common.feeds.IFeedPoint;
-import edu.uci.ics.asterix.common.feeds.IFeedPoint.Scope;
-import edu.uci.ics.asterix.common.feeds.IFeedPoint.Type;
+import edu.uci.ics.asterix.common.feeds.IFeedJoint;
+import edu.uci.ics.asterix.common.feeds.IFeedJoint.Scope;
+import edu.uci.ics.asterix.common.feeds.IFeedJoint.Type;
 import edu.uci.ics.asterix.common.functions.FunctionSignature;
 import edu.uci.ics.asterix.feeds.FeedLifecycleListener;
-import edu.uci.ics.asterix.feeds.FeedPoint;
+import edu.uci.ics.asterix.feeds.FeedJoint;
 import edu.uci.ics.asterix.file.DatasetOperations;
 import edu.uci.ics.asterix.file.DataverseOperations;
 import edu.uci.ics.asterix.file.FeedOperations;
@@ -1687,11 +1687,11 @@ public class AqlTranslator extends AbstractAqlTranslator {
      */
     private Pair<FeedSubscriptionRequest, Boolean> getFeedSubscriptionRequest(String dataverse, Feed feed,
             String dataset, FeedPolicy feedPolicy, MetadataTransactionContext mdTxnCtx) throws MetadataException {
-        IFeedPoint sourceFeedPoint = null;
+        IFeedJoint sourceFeedPoint = null;
         FeedSubscriptionRequest request = null;
         boolean needIntakeJob = false;
 
-        FeedPointKey feedPointKey = getFeedPointKey(feed, mdTxnCtx);
+        FeedJointKey feedPointKey = getFeedPointKey(feed, mdTxnCtx);
         boolean isFeedPointAvailable = FeedLifecycleListener.INSTANCE.isFeedPointAvailable(feedPointKey);
         List<String> functionsToApply = new ArrayList<String>();
         SubscriptionLocation subscriptionLocation = null;
@@ -1702,9 +1702,9 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 Feed primaryFeed = MetadataManager.INSTANCE.getFeed(mdTxnCtx, dataverse, sourceFeedId.getFeedName());
 
                 subscriptionLocation = SubscriptionLocation.SOURCE_FEED_INTAKE;
-                FeedPointKey intakeFeedPointKey = new FeedPointKey(sourceFeedId, new ArrayList<String>());
+                FeedJointKey intakeFeedPointKey = new FeedJointKey(sourceFeedId, new ArrayList<String>());
                 Scope scope = (primaryFeed.getAppliedFunction() != null) ? Scope.PRIVATE : Scope.PUBLIC;
-                sourceFeedPoint = new FeedPoint(intakeFeedPointKey, primaryFeed.getFeedId(), subscriptionLocation,
+                sourceFeedPoint = new FeedJoint(intakeFeedPointKey, primaryFeed.getFeedId(), subscriptionLocation,
                         Type.PRIMARY, scope);
                 FeedLifecycleListener.INSTANCE.registerFeedPoint(sourceFeedPoint);
 
@@ -1717,7 +1717,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
             }
 
             String functionComponent = feedPointKey.getStringRep().substring(
-                    sourceFeedPoint.getFeedPointKey().getStringRep().length());
+                    sourceFeedPoint.getFeedJointKey().getStringRep().length());
             String[] functions = functionComponent.trim().split(":");
             for (String f : functions) {
                 if (f.trim().length() > 0) {
@@ -1727,8 +1727,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
             // register the compute feed point that represents the final output from the collection of
             // functions that will be applied. 
             if (!functionsToApply.isEmpty()) {
-                FeedPointKey computeFeedPointKey = new FeedPointKey(feed.getFeedId(), functionsToApply);
-                IFeedPoint computeFeedPoint = new FeedPoint(computeFeedPointKey, feed.getFeedId(),
+                FeedJointKey computeFeedPointKey = new FeedJointKey(feed.getFeedId(), functionsToApply);
+                IFeedJoint computeFeedPoint = new FeedJoint(computeFeedPointKey, feed.getFeedId(),
                         SubscriptionLocation.SOURCE_FEED_COMPUTE, Type.PRIMARY, Scope.PUBLIC);
                 FeedLifecycleListener.INSTANCE.registerFeedPoint(computeFeedPoint);
             }
@@ -1740,7 +1740,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
             }
         }
 
-        request = new FeedSubscriptionRequest(sourceFeedPoint.getFeedPointKey(), subscriptionLocation,
+        request = new FeedSubscriptionRequest(sourceFeedPoint.getFeedJointKey(), subscriptionLocation,
                 functionsToApply, dataset, feedPolicy.getPolicyName(), feedPolicy.getProperties(), feed.getFeedId());
 
         if (LOGGER.isLoggable(Level.INFO)) {
@@ -1750,7 +1750,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
         return new Pair<FeedSubscriptionRequest, Boolean>(request, needIntakeJob);
     }
 
-    private FeedPointKey getFeedPointKey(Feed feed, MetadataTransactionContext ctx) throws MetadataException {
+    private FeedJointKey getFeedPointKey(Feed feed, MetadataTransactionContext ctx) throws MetadataException {
         Feed sourceFeed = feed;
         List<String> appliedFunctions = new ArrayList<String>();
         while (sourceFeed.getFeedType().equals(FeedType.SECONDARY)) {
@@ -1766,7 +1766,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
             appliedFunctions.add(0, sourceFeed.getAppliedFunction().getName());
         }
 
-        return new FeedPointKey(sourceFeed.getFeedId(), appliedFunctions);
+        return new FeedJointKey(sourceFeed.getFeedId(), appliedFunctions);
     }
 
     private void handleDisconnectFeedStatement(AqlMetadataProvider metadataProvider, Statement stmt,
@@ -1786,10 +1786,6 @@ public class AqlTranslator extends AbstractAqlTranslator {
             if (dataset == null) {
                 throw new AsterixException("Unknown dataset :" + cfs.getDatasetName().getValue() + " in dataverse "
                         + dataverseName);
-            }
-            if (!dataset.getDatasetType().equals(DatasetType.INTERNAL)) {
-                throw new AsterixException("Statement not applicable. Dataset " + cfs.getDatasetName().getValue()
-                        + " is not of required type " + DatasetType.INTERNAL);
             }
 
             Feed feed = MetadataManager.INSTANCE.getFeed(metadataProvider.getMetadataTxnContext(), dataverseName, cfs
@@ -1867,13 +1863,6 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
             FeedPolicy feedPolicy = MetadataManager.INSTANCE.getFeedPolicy(mdTxnCtx, bfs.getSubscriptionRequest()
                     .getSubscribingFeedId().getDataverse(), bfs.getSubscriptionRequest().getPolicy());
-            if (feedPolicy == null) {
-                feedPolicy = MetadataManager.INSTANCE.getFeedPolicy(mdTxnCtx,
-                        MetadataConstants.METADATA_DATAVERSE_NAME, bfs.getSubscriptionRequest().getPolicy());
-                if (feedPolicy == null) {
-                    throw new AsterixException("Unknown feed policy" + bfs.getSubscriptionRequest().getPolicy());
-                }
-            }
             JobSpecification alteredJobSpec = FeedUtil.alterJobSpecificationForFeed(compiled, feedConnectionId,
                     feedPolicy);
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);

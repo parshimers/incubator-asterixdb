@@ -18,13 +18,13 @@ import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
 
-public class FeedPointKey {
+public class FeedJointKey {
 
     private final FeedId primaryFeedId;
     private final List<String> appliedFunctions;
     private final String stringRep;
 
-    public FeedPointKey(FeedId feedId, List<String> appliedFunctions) {
+    public FeedJointKey(FeedId feedId, List<String> appliedFunctions) {
         this.primaryFeedId = feedId;
         this.appliedFunctions = appliedFunctions;
         StringBuilder builder = new StringBuilder();
@@ -60,11 +60,11 @@ public class FeedPointKey {
     public boolean equals(Object o) {
         if (this == o)
             return true;
-        if (!(o instanceof FeedPointKey)) {
+        if (!(o instanceof FeedJointKey)) {
             return false;
         }
 
-        return stringRep.equals(((FeedPointKey) o).stringRep);
+        return stringRep.equals(((FeedJointKey) o).stringRep);
     }
 
 }

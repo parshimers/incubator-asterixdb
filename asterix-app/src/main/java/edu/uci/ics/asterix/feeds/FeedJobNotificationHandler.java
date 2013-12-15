@@ -37,12 +37,12 @@ import edu.uci.ics.asterix.common.exceptions.ACIDException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionInfo;
 import edu.uci.ics.asterix.common.feeds.FeedId;
-import edu.uci.ics.asterix.common.feeds.FeedPointKey;
+import edu.uci.ics.asterix.common.feeds.FeedJointKey;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriber;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
-import edu.uci.ics.asterix.common.feeds.IFeedPoint;
-import edu.uci.ics.asterix.common.feeds.IFeedPoint.Scope;
-import edu.uci.ics.asterix.common.feeds.IFeedPoint.State;
+import edu.uci.ics.asterix.common.feeds.IFeedJoint;
+import edu.uci.ics.asterix.common.feeds.IFeedJoint.Scope;
+import edu.uci.ics.asterix.common.feeds.IFeedJoint.State;
 import edu.uci.ics.asterix.common.feeds.SuperFeedManager;
 import edu.uci.ics.asterix.event.schema.cluster.Cluster;
 import edu.uci.ics.asterix.event.schema.cluster.Node;
@@ -97,10 +97,10 @@ public class FeedJobNotificationHandler implements Runnable {
 
     private Map<JobId, FeedSubscriber> jobSubscriberMap = new HashMap<JobId, FeedSubscriber>();
     private Map<FeedConnectionId, FeedSubscriber> connectionSubscriberMap = new HashMap<FeedConnectionId, FeedSubscriber>();
-    private Map<JobId, FeedPointKey> intakeFeedPointMap = new HashMap<JobId, FeedPointKey>();
-    private Map<FeedId, List<FeedPointKey>> feedPipeline = new HashMap<FeedId, List<FeedPointKey>>();
-    private Map<FeedPointKey, IFeedPoint> feedPoints = new HashMap<FeedPointKey, IFeedPoint>();
-    private Map<FeedConnectionId, FeedPointKey> feedConnections = new HashMap<FeedConnectionId, FeedPointKey>();
+    private Map<JobId, FeedJointKey> intakeFeedPointMap = new HashMap<JobId, FeedJointKey>();
+    private Map<FeedId, List<FeedJointKey>> feedPipeline = new HashMap<FeedId, List<FeedJointKey>>();
+    private Map<FeedJointKey, IFeedJoint> feedPoints = new HashMap<FeedJointKey, IFeedJoint>();
+    private Map<FeedConnectionId, FeedJointKey> feedConnections = new HashMap<FeedConnectionId, FeedJointKey>();
     private List<JobId> registeredJobs = new ArrayList<JobId>();
 
     public FeedJobNotificationHandler(LinkedBlockingQueue<Message> inbox) {
@@ -110,7 +110,7 @@ public class FeedJobNotificationHandler implements Runnable {
         executor.execute(feedMessenger);
     }
 
-    public boolean isFeedPointAvailable(FeedPointKey feedPointKey) {
+    public boolean isFeedPointAvailable(FeedJointKey feedPointKey) {
         return feedPoints.containsKey(feedPointKey);
     }
 
@@ -118,53 +118,53 @@ public class FeedJobNotificationHandler implements Runnable {
         return jobSubscriberMap.values();
     }
 
-    public Collection<IFeedPoint> getFeedIntakePoints() {
-        List<IFeedPoint> intakeFeedPoints = new ArrayList<IFeedPoint>();
-        for (FeedPointKey fpk : intakeFeedPointMap.values()) {
-            IFeedPoint fp = feedPoints.get(fpk);
-            if (fp.getType().equals(FeedPoint.Type.PRIMARY)) {
+    public Collection<IFeedJoint> getFeedIntakePoints() {
+        List<IFeedJoint> intakeFeedPoints = new ArrayList<IFeedJoint>();
+        for (FeedJointKey fpk : intakeFeedPointMap.values()) {
+            IFeedJoint fp = feedPoints.get(fpk);
+            if (fp.getType().equals(FeedJoint.Type.PRIMARY)) {
                 intakeFeedPoints.add(fp);
             }
         }
         return intakeFeedPoints;
     }
 
-    public void registerFeedPoint(IFeedPoint feedPoint) {
-        if (feedPoints.containsKey(feedPoint.getFeedPointKey())) {
+    public void registerFeedPoint(IFeedJoint feedPoint) {
+        if (feedPoints.containsKey(feedPoint.getFeedJointKey())) {
             throw new IllegalArgumentException("Feed point " + feedPoint + " already registered");
         }
-        feedPoints.put(feedPoint.getFeedPointKey(), feedPoint);
-        List<FeedPointKey> feedPointsOnPipeline = feedPipeline.get(feedPoint.getOwnerFeedId());
+        feedPoints.put(feedPoint.getFeedJointKey(), feedPoint);
+        List<FeedJointKey> feedPointsOnPipeline = feedPipeline.get(feedPoint.getOwnerFeedId());
         if (feedPointsOnPipeline == null) {
-            feedPointsOnPipeline = new ArrayList<FeedPointKey>();
+            feedPointsOnPipeline = new ArrayList<FeedJointKey>();
             feedPipeline.put(feedPoint.getOwnerFeedId(), feedPointsOnPipeline);
         }
-        feedPointsOnPipeline.add(feedPoint.getFeedPointKey());
+        feedPointsOnPipeline.add(feedPoint.getFeedJointKey());
     }
 
-    public void deregisterFeedPoint(FeedPointKey feedPointKey) {
+    public void deregisterFeedPoint(FeedJointKey feedPointKey) {
         if (!feedPoints.containsKey(feedPointKey)) {
             throw new IllegalArgumentException("Feed point key " + feedPointKey + " is not registered");
         }
         feedPoints.remove(feedPointKey);
-        List<FeedPointKey> fps = feedPipeline.get(feedPointKey.getFeedId());
+        List<FeedJointKey> fps = feedPipeline.get(feedPointKey.getFeedId());
         if (fps != null && !fps.isEmpty()) {
             fps.remove(feedPointKey);
         }
     }
 
-    public IFeedPoint getFeedPoint(FeedPointKey feedPointKey) {
+    public IFeedJoint getFeedPoint(FeedJointKey feedPointKey) {
         return feedPoints.get(feedPointKey);
     }
 
-    public IFeedPoint getAvailableFeedPoint(FeedPointKey feedPointKey) {
-        IFeedPoint feedPoint = feedPoints.get(feedPointKey);
+    public IFeedJoint getAvailableFeedPoint(FeedJointKey feedPointKey) {
+        IFeedJoint feedPoint = feedPoints.get(feedPointKey);
         if (feedPoint == null) {
             String feedPointKeyString = feedPointKey.getStringRep();
-            List<FeedPointKey> feedPointsOnFeedPipeline = feedPipeline.get(feedPointKey.getFeedId());
-            FeedPointKey candidateFeedPointKey = null;
+            List<FeedJointKey> feedPointsOnFeedPipeline = feedPipeline.get(feedPointKey.getFeedId());
+            FeedJointKey candidateFeedPointKey = null;
             if (feedPointsOnFeedPipeline != null) {
-                for (FeedPointKey fk : feedPointsOnFeedPipeline) {
+                for (FeedJointKey fk : feedPointsOnFeedPipeline) {
                     if (feedPointKeyString.contains(fk.getStringRep())) {
                         if (candidateFeedPointKey == null) {
                             candidateFeedPointKey = fk;
@@ -186,8 +186,8 @@ public class FeedJobNotificationHandler implements Runnable {
         }
 
         boolean found = false;
-        for (Entry<FeedPointKey, IFeedPoint> entry : feedPoints.entrySet()) {
-            IFeedPoint feedPoint = entry.getValue();
+        for (Entry<FeedJointKey, IFeedJoint> entry : feedPoints.entrySet()) {
+            IFeedJoint feedPoint = entry.getValue();
             FeedSubscriber subscriber = feedPoint.getSubscriber(feedConnectionId);
             if (subscriber != null) {
                 subscriber.setJobId(jobId);
@@ -215,10 +215,10 @@ public class FeedJobNotificationHandler implements Runnable {
 
     }
 
-    public IFeedPoint getFeedPoint(FeedId sourceFeedId, Scope scope) {
-        List<FeedPointKey> feedPointKeys = feedPipeline.get(sourceFeedId);
-        for (FeedPointKey fpk : feedPointKeys) {
-            IFeedPoint feedPoint = feedPoints.get(fpk);
+    public IFeedJoint getFeedPoint(FeedId sourceFeedId, Scope scope) {
+        List<FeedJointKey> feedPointKeys = feedPipeline.get(sourceFeedId);
+        for (FeedJointKey fpk : feedPointKeys) {
+            IFeedJoint feedPoint = feedPoints.get(fpk);
             if (feedPoint.getScope().equals(scope)) {
                 return feedPoint;
             }
@@ -232,8 +232,8 @@ public class FeedJobNotificationHandler implements Runnable {
         }
 
         boolean found = false;
-        List<FeedPointKey> feedPointKeysOnPipeline = feedPipeline.get(feedId);
-        IFeedPoint feedPoint = null;
+        List<FeedJointKey> feedPointKeysOnPipeline = feedPipeline.get(feedId);
+        IFeedJoint feedPoint = null;
         switch (feedPointKeysOnPipeline.size()) {
             case 0:
                 break;
@@ -242,8 +242,8 @@ public class FeedJobNotificationHandler implements Runnable {
                 found = true;
                 break;
             case 2:
-                IFeedPoint fp1 = feedPoints.get(feedPointKeysOnPipeline.get(0));
-                if (fp1.getScope().equals(IFeedPoint.Scope.PRIVATE)) {
+                IFeedJoint fp1 = feedPoints.get(feedPointKeysOnPipeline.get(0));
+                if (fp1.getScope().equals(IFeedJoint.Scope.PRIVATE)) {
                     feedPoint = fp1;
                 } else {
                     feedPoint = feedPoints.get(feedPointKeysOnPipeline.get(1));
@@ -255,10 +255,10 @@ public class FeedJobNotificationHandler implements Runnable {
                 break;
         }
 
-        intakeFeedPointMap.put(jobId, feedPoint.getFeedPointKey());
+        intakeFeedPointMap.put(jobId, feedPoint.getFeedJointKey());
         feedPoint.setJobId(jobId);
         feedPoint.setJobSpec(jobSpec);
-        feedPoint.setState(FeedPoint.State.INITIALIZED);
+        feedPoint.setState(FeedJoint.State.INITIALIZED);
 
         if (found) {
             registeredJobs.add(jobId);
@@ -302,10 +302,10 @@ public class FeedJobNotificationHandler implements Runnable {
     }
 
     private void handleFeedJobStartMessage(Message message) throws Exception {
-        FeedPointKey fpk = intakeFeedPointMap.get(message.jobId);
+        FeedJointKey fpk = intakeFeedPointMap.get(message.jobId);
         boolean intakeJob = fpk != null;
         if (intakeJob) {
-            IFeedPoint fp = feedPoints.get(fpk);
+            IFeedJoint fp = feedPoints.get(fpk);
             handleFeedIntakeJobStartMessage(fp, message);
         } else {
             FeedSubscriber feedSubscriber = jobSubscriberMap.get(message.jobId);
@@ -315,10 +315,10 @@ public class FeedJobNotificationHandler implements Runnable {
     }
 
     private void handleFeedJobFinishMessage(Message message) throws Exception {
-        FeedPointKey fpk = intakeFeedPointMap.get(message.jobId);
+        FeedJointKey fpk = intakeFeedPointMap.get(message.jobId);
         boolean intakeJob = fpk != null;
         if (intakeJob) {
-            IFeedPoint fp = feedPoints.get(fpk);
+            IFeedJoint fp = feedPoints.get(fpk);
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Job finished for feed intake" + fp);
             }
@@ -332,7 +332,7 @@ public class FeedJobNotificationHandler implements Runnable {
         }
     }
 
-    private synchronized void handleFeedIntakeJobStartMessage(IFeedPoint feedPoint, Message message) throws Exception {
+    private synchronized void handleFeedIntakeJobStartMessage(IFeedJoint feedPoint, Message message) throws Exception {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Job started for FeedPoint " + feedPoint);
         }
@@ -360,15 +360,15 @@ public class FeedJobNotificationHandler implements Runnable {
         feedPoint.setState(State.ACTIVE);
     }
 
-    public synchronized void submitFeedSubscriptionRequest(IFeedPoint feedPoint, final FeedSubscriptionRequest request)
+    public synchronized void submitFeedSubscriptionRequest(IFeedJoint feedPoint, final FeedSubscriptionRequest request)
             throws Exception {
         List<String> locations = feedPoint.getLocations();
         SubscribeFeedWork work = new SubscribeFeedWork(locations.toArray(new String[] {}), request);
         FeedWorkManager.INSTANCE.submitWork(work, new SubscribeFeedWork.FeedSubscribeWorkEventListener());
     }
 
-    public IFeedPoint getSourceFeedPoint(FeedConnectionId connectionId) {
-        FeedPointKey feedPointKey = feedConnections.get(connectionId);
+    public IFeedJoint getSourceFeedPoint(FeedConnectionId connectionId) {
+        FeedJointKey feedPointKey = feedConnections.get(connectionId);
         if (feedPointKey != null) {
             return feedPoints.get(feedPointKey);
         }
@@ -456,13 +456,13 @@ public class FeedJobNotificationHandler implements Runnable {
                     collectLocations, computeLocations, storageLocations);
             subscriber.setFeedConnectionInfo(connectionInfo);
 
-            List<FeedPointKey> feedPointKeysOnPipeline = feedPipeline.get(subscriber.getFeedConnectionId().getFeedId());
-            for (FeedPointKey fpk : feedPointKeysOnPipeline) {
+            List<FeedJointKey> feedPointKeysOnPipeline = feedPipeline.get(subscriber.getFeedConnectionId().getFeedId());
+            for (FeedJointKey fpk : feedPointKeysOnPipeline) {
                 if (fpk.equals(subscriber.getSourceFeedPointKey())) {
                     continue;
                 }
-                IFeedPoint fp = feedPoints.get(fpk);
-                if (!fp.getState().equals(IFeedPoint.State.ACTIVE)) {
+                IFeedJoint fp = feedPoints.get(fpk);
+                if (!fp.getState().equals(IFeedJoint.State.ACTIVE)) {
                     fp.setJobId(jobId);
                     fp.setJobSpec(jobSpec);
                     fp.setLocations(computeLocations);
@@ -543,9 +543,9 @@ public class FeedJobNotificationHandler implements Runnable {
         messengerOutbox.add(new FeedMessengerMessage(feedMessage, feedSubscriber));
     }
 
-    private void handleFeedIntakeJobFinishMessage(IFeedPoint feedPoint, Message message) {
+    private void handleFeedIntakeJobFinishMessage(IFeedJoint feedPoint, Message message) {
         boolean feedFailedDueToPostSubmissionNodeLoss = failedDueToNodeFalilurePostSubmission(feedPoint.getJobSpec());
-        deregisterFeedIntakeJob(feedPoint.getFeedPointKey().getFeedId(), feedPoint.getJobId());
+        deregisterFeedIntakeJob(feedPoint.getFeedJointKey().getFeedId(), feedPoint.getJobId());
     }
 
     private void handleFeedCollectJobFinishMessage(FeedSubscriber subscriber, Message message) throws Exception {
@@ -616,13 +616,13 @@ public class FeedJobNotificationHandler implements Runnable {
 
     public void deregisterFeedConnection(FeedConnectionId connectionId) {
         feedConnections.remove(connectionId);
-        List<FeedPointKey> fpks = feedPipeline.get(connectionId.getFeedId());
+        List<FeedJointKey> fpks = feedPipeline.get(connectionId.getFeedId());
         boolean hasDependents = false;
-        List<FeedPointKey> candidateFPForRemoval = new ArrayList<FeedPointKey>();
-        List<FeedPointKey> candidateFPForRetention = new ArrayList<FeedPointKey>();
+        List<FeedJointKey> candidateFPForRemoval = new ArrayList<FeedJointKey>();
+        List<FeedJointKey> candidateFPForRetention = new ArrayList<FeedJointKey>();
 
-        for (FeedPointKey fpk : fpks) {
-            IFeedPoint fp = feedPoints.get(fpk);
+        for (FeedJointKey fpk : fpks) {
+            IFeedJoint fp = feedPoints.get(fpk);
             List<FeedSubscriber> subscribers = fp.getSubscribers();
             if (subscribers != null && !subscribers.isEmpty()) {
                 for (FeedSubscriber subscriber : subscribers) {
@@ -634,13 +634,13 @@ public class FeedJobNotificationHandler implements Runnable {
                 }
             }
             if (!hasDependents) {
-                candidateFPForRemoval.add(fp.getFeedPointKey());
+                candidateFPForRemoval.add(fp.getFeedJointKey());
             } else {
-                candidateFPForRetention.add(fp.getFeedPointKey());
+                candidateFPForRetention.add(fp.getFeedJointKey());
             }
             hasDependents = false;
         }
-        for (FeedPointKey fpk : candidateFPForRemoval) {
+        for (FeedJointKey fpk : candidateFPForRemoval) {
             feedPoints.remove(fpk);
         }
 

@@ -46,13 +46,13 @@ public class FeedSubscriber {
 
     private JobSpecification jobSpec;
 
-    private final FeedPointKey sourceFeedPointKey;
+    private final FeedJointKey sourceFeedPointKey;
 
     private String superFeedManagerHost;
 
     private int superFeedManagerPort;
 
-    public FeedSubscriber(FeedPointKey sourceFeedPointKey, FeedConnectionId feedConnectionId, String feedPolicy,
+    public FeedSubscriber(FeedJointKey sourceFeedPointKey, FeedConnectionId feedConnectionId, String feedPolicy,
             Map<String, String> feedPolicyParameters, Status status) {
         this.sourceFeedPointKey = sourceFeedPointKey;
         this.feedConnectionId = feedConnectionId;
@@ -145,7 +145,7 @@ public class FeedSubscriber {
         this.jobSpec = jobSpec;
     }
 
-    public FeedPointKey getSourceFeedPointKey() {
+    public FeedJointKey getSourceFeedPointKey() {
         return sourceFeedPointKey;
     }
 }

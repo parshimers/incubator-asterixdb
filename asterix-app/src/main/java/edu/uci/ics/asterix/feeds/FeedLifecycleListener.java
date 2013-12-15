@@ -41,12 +41,12 @@ import edu.uci.ics.asterix.common.api.IClusterManagementWork.ClusterState;
 import edu.uci.ics.asterix.common.api.IClusterManagementWorkResponse;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
-import edu.uci.ics.asterix.common.feeds.FeedPointKey;
+import edu.uci.ics.asterix.common.feeds.FeedJointKey;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriber;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
 import edu.uci.ics.asterix.common.feeds.IFeedLifecycleListener;
-import edu.uci.ics.asterix.common.feeds.IFeedPoint;
-import edu.uci.ics.asterix.common.feeds.IFeedPoint.Scope;
+import edu.uci.ics.asterix.common.feeds.IFeedJoint;
+import edu.uci.ics.asterix.common.feeds.IFeedJoint.Scope;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
 import edu.uci.ics.asterix.metadata.cluster.AddNodeWork;
@@ -230,11 +230,11 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
         Set<IClusterManagementWork> workToBeDone = new HashSet<IClusterManagementWork>();
         Map<String, Pair<List<FeedIntakeInfo>, List<FeedCollectInfo>>> recoverableFeeds = new HashMap<String, Pair<List<FeedIntakeInfo>, List<FeedCollectInfo>>>();
         Collection<FeedSubscriber> feedSubscribers = feedJobNotificationHandler.getSubscribers();
-        Collection<IFeedPoint> feedIntakePoints = feedJobNotificationHandler.getFeedIntakePoints();
+        Collection<IFeedJoint> feedIntakePoints = feedJobNotificationHandler.getFeedIntakePoints();
 
         List<FeedSubscriber> irrecoverableFeeds = new ArrayList<FeedSubscriber>();
         for (String deadNode : deadNodeIds) {
-            for (IFeedPoint fp : feedIntakePoints) {
+            for (IFeedJoint fp : feedIntakePoints) {
                 if (fp.getLocations().contains(deadNode)) {
                     //insertAffectedRecoverableFeed(deadNode, fp, recoverableFeeds);
                 }
@@ -422,7 +422,7 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
         }
     }
 
-    public void submitFeedSubscriptionRequest(IFeedPoint feedPoint, FeedSubscriptionRequest subscriptionRequest)
+    public void submitFeedSubscriptionRequest(IFeedJoint feedPoint, FeedSubscriptionRequest subscriptionRequest)
             throws Exception {
         feedJobNotificationHandler.submitFeedSubscriptionRequest(feedPoint, subscriptionRequest);
     }
@@ -480,7 +480,7 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
     }
 
     @Override
-    public IFeedPoint getAvailableFeedPoint(FeedPointKey feedPointKey) {
+    public IFeedJoint getAvailableFeedPoint(FeedJointKey feedPointKey) {
         if (isFeedPointAvailable(feedPointKey)) {
             return feedJobNotificationHandler.getFeedPoint(feedPointKey);
         } else {
@@ -489,24 +489,24 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
     }
 
     @Override
-    public boolean isFeedPointAvailable(FeedPointKey feedPointKey) {
+    public boolean isFeedPointAvailable(FeedJointKey feedPointKey) {
         return feedJobNotificationHandler.isFeedPointAvailable(feedPointKey);
     }
 
-    public void registerFeedPoint(IFeedPoint feedPoint) {
+    public void registerFeedPoint(IFeedJoint feedPoint) {
         feedJobNotificationHandler.registerFeedPoint(feedPoint);
     }
 
-    public IFeedPoint getFeedPoint(FeedPointKey feedPointKey) {
+    public IFeedJoint getFeedPoint(FeedJointKey feedPointKey) {
         return feedJobNotificationHandler.getFeedPoint(feedPointKey);
     }
 
     @Override
-    public IFeedPoint getSourceFeedPoint(FeedConnectionId connectionId) {
+    public IFeedJoint getSourceFeedPoint(FeedConnectionId connectionId) {
         return feedJobNotificationHandler.getSourceFeedPoint(connectionId);
     }
 
-    public IFeedPoint getFeedPoint(FeedId feedId, Scope scope) {
+    public IFeedJoint getFeedPoint(FeedId feedId, Scope scope) {
         return feedJobNotificationHandler.getFeedPoint(feedId, scope);
     }
 }

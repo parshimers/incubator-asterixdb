@@ -21,34 +21,34 @@ import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
-import edu.uci.ics.asterix.common.feeds.FeedPointKey;
+import edu.uci.ics.asterix.common.feeds.FeedJointKey;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriber;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
 import edu.uci.ics.asterix.common.feeds.IFeedLifecycleListener.SubscriptionLocation;
-import edu.uci.ics.asterix.common.feeds.IFeedPoint;
+import edu.uci.ics.asterix.common.feeds.IFeedJoint;
 import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 
-public class FeedPoint implements IFeedPoint {
+public class FeedJoint implements IFeedJoint {
 
-    private static final Logger LOGGER = Logger.getLogger(FeedPoint.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(FeedJoint.class.getName());
 
     /** A unique key associated with the feed point **/
-    private final FeedPointKey key;
+    private final FeedJointKey key;
 
-    /** The locations at which data from the feedPoint can be found **/
+    /** The locations at which data from the FeedJoint can be found **/
     private List<String> locations;
 
-    /** The state associated with the FeedPoint **/
+    /** The state associated with the FeedJoint **/
     private State state;
 
-    /** A list of subscribers that receive data from thie FeedPoint **/
+    /** A list of subscribers that receive data from this FeedJoint **/
     private final List<FeedSubscriber> subscribers;
 
-    /** The jobId associated with the job that produces the FeedPoint's data **/
+    /** The jobId associated with the job that produces the FeedJoint's data **/
     private JobId jobId;
 
-    /** The job specification of the job that produces the FeedPoint's data **/
+    /** The job specification of the job that produces the FeedJsoint's data **/
     private JobSpecification jobSpec;
 
     /** The feedId on which the feedPoint resides **/
@@ -63,7 +63,7 @@ public class FeedPoint implements IFeedPoint {
 
     private Scope scope;
 
-    public FeedPoint(FeedPointKey key, FeedId ownerFeedId, SubscriptionLocation subscriptionLocation, Type type,
+    public FeedJoint(FeedJointKey key, FeedId ownerFeedId, SubscriptionLocation subscriptionLocation, Type type,
             Scope scope) {
         this.key = key;
         this.ownerFeedId = ownerFeedId;
@@ -99,7 +99,7 @@ public class FeedPoint implements IFeedPoint {
         return subscribers;
     }
 
-    public FeedPointKey getKey() {
+    public FeedJointKey getKey() {
         return key;
     }
 
@@ -118,7 +118,7 @@ public class FeedPoint implements IFeedPoint {
         this.state = state;
         if (this.state.equals(State.ACTIVE)) {
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Feed point " + this + " is not " + State.ACTIVE);
+                LOGGER.info("Feed joint " + this + " is now " + State.ACTIVE);
             }
             handlePendingSubscriptionRequest();
         }
@@ -130,27 +130,24 @@ public class FeedPoint implements IFeedPoint {
                     subscriptionRequest.getTargetDataset());
             try {
                 FeedLifecycleListener.INSTANCE.submitFeedSubscriptionRequest(this, subscriptionRequest);
-                FeedSubscriber subscriber = new FeedSubscriber(this.getFeedPointKey(), connectionId,
+                FeedSubscriber subscriber = new FeedSubscriber(this.getFeedJointKey(), connectionId,
                         subscriptionRequest.getPolicy(), subscriptionRequest.getPolicyParameters(),
                         FeedSubscriber.Status.CREATED);
-                subscribers.add(subscriber);
                 if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Submitted feed subscrtion request " + subscriptionRequest + " at feed point " + this);
+                    LOGGER.info("Submitted feed subscrtion request " + subscriptionRequest + " at feed joint " + this);
                 }
-
+                subscribers.add(subscriber);
             } catch (Exception e) {
                 if (LOGGER.isLoggable(Level.WARNING)) {
                     LOGGER.warning("Unsuccessful attempt at submitting subscription request " + subscriptionRequest
                             + " at feed point " + this + ". Message " + e.getMessage());
                 }
                 e.printStackTrace();
-                FeedSubscriber subscriber = new FeedSubscriber(this.getFeedPointKey(), connectionId,
+                FeedSubscriber subscriber = new FeedSubscriber(this.getFeedJointKey(), connectionId,
                         subscriptionRequest.getPolicy(), subscriptionRequest.getPolicyParameters(),
                         FeedSubscriber.Status.INACTIVE);
-                subscribers.add(subscriber);
             }
         }
-
         subscriptionRequests.clear();
     }
 
@@ -212,7 +209,7 @@ public class FeedPoint implements IFeedPoint {
     }
 
     @Override
-    public FeedPointKey getFeedPointKey() {
+    public FeedJointKey getFeedJointKey() {
         return key;
     }
 

@@ -27,7 +27,7 @@ import edu.uci.ics.asterix.common.feeds.IFeedLifecycleListener.SubscriptionLocat
 public class FeedSubscriptionRequest {
 
     /** Represents the feed point on the feed pipeline that serves as the source for this subscription **/
-    private final FeedPointKey feedPointKey;
+    private final FeedJointKey feedPointKey;
 
     /** Represents the subscription location in the source feed pipeline from where feed tuples are received. **/
     private final SubscriptionLocation subscriptionLocation;
@@ -56,7 +56,7 @@ public class FeedSubscriptionRequest {
         FAILED // subscription failed
     }
 
-    public FeedSubscriptionRequest(FeedPointKey feedPointKey, SubscriptionLocation subscriptionLocation,
+    public FeedSubscriptionRequest(FeedJointKey feedPointKey, SubscriptionLocation subscriptionLocation,
             List<String> functionsToApply, String targetDataset, String policy, Map<String, String> policyParameters,
             FeedId subscribingFeedId) {
         this.feedPointKey = feedPointKey;
@@ -69,7 +69,7 @@ public class FeedSubscriptionRequest {
         this.subscriptionStatus = SubscriptionStatus.INITIALIZED;
     }
 
-    public FeedPointKey getFeedPointKey() {
+    public FeedJointKey getFeedPointKey() {
         return feedPointKey;
     }
 

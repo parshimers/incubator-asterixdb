@@ -20,11 +20,11 @@ import java.util.logging.Logger;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
-import edu.uci.ics.asterix.common.feeds.FeedPointKey;
+import edu.uci.ics.asterix.common.feeds.FeedJointKey;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriber;
 import edu.uci.ics.asterix.common.feeds.IFeedLifecycleListener.SubscriptionLocation;
-import edu.uci.ics.asterix.common.feeds.IFeedPoint;
-import edu.uci.ics.asterix.common.feeds.IFeedPoint.Scope;
+import edu.uci.ics.asterix.common.feeds.IFeedJoint;
+import edu.uci.ics.asterix.common.feeds.IFeedJoint.Scope;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.feeds.FeedLifecycleListener;
 import edu.uci.ics.asterix.metadata.MetadataManager;
@@ -129,11 +129,11 @@ public class FeedOperations {
         boolean hasOtherSubscribers = false;
         SubscriptionLocation subscriptionLocation = null;
         try {
-            IFeedPoint sourceFeedPoint = FeedLifecycleListener.INSTANCE.getSourceFeedPoint(connectionId);
-            IFeedPoint subscribableFeedPoint = sourceFeedPoint;
+            IFeedJoint sourceFeedPoint = FeedLifecycleListener.INSTANCE.getSourceFeedPoint(connectionId);
+            IFeedJoint subscribableFeedPoint = sourceFeedPoint;
 
             if (sourceFeedPoint.getScope().equals(Scope.PRIVATE)) {
-                IFeedPoint feedPoint = FeedLifecycleListener.INSTANCE.getFeedPoint(sourceFeedPoint.getFeedPointKey()
+                IFeedJoint feedPoint = FeedLifecycleListener.INSTANCE.getFeedPoint(sourceFeedPoint.getFeedJointKey()
                         .getFeedId(), Scope.PUBLIC);
                 List<FeedSubscriber> subscribers = feedPoint.getSubscribers();
                 hasOtherSubscribers = subscribers != null && !subscribers.isEmpty();
