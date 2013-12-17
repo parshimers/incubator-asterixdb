@@ -114,6 +114,12 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
             }
 
         } catch (InterruptedException ie) {
+            /*
+             * An Interrupted Exception is thrown is the Intake job cannot progress further due to failure of another node involved in the Hyracks job.  
+             * As the Intake job involves only the intake operator, the exception is indicative of a the sibling intake operator location
+             * failing. The surviving intake partitions must continue to live and receive data from the external source. 
+             * Intake operators coincide with collect operators. 
+             */
             List<ISubscriberRuntime> subscribers = ingestionRuntime.getSubscribers();
             FeedPolicyAccessor policyAccessor = new FeedPolicyAccessor();
             boolean needToHandleFailure = false;

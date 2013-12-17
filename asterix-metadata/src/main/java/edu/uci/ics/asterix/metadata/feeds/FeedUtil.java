@@ -88,9 +88,9 @@ public class FeedUtil {
     }
 
     public static JobSpecification alterJobSpecificationForFeed(JobSpecification spec,
-            FeedConnectionId feedConnectionId, FeedPolicy feedPolicy) {
+            FeedConnectionId feedConnectionId, Map<String, String> feedPolicyProperties) {
 
-        FeedPolicyAccessor fpa = new FeedPolicyAccessor(feedPolicy.getProperties());
+        FeedPolicyAccessor fpa = new FeedPolicyAccessor(feedPolicyProperties);
         boolean alterationRequired = (fpa.collectStatistics() || fpa.continueOnApplicationFailure()
                 || fpa.continueOnHardwareFailure() || fpa.isElastic());
         if (!alterationRequired) {
@@ -109,10 +109,10 @@ public class FeedUtil {
                 FeedCollectOperatorDescriptor orig = (FeedCollectOperatorDescriptor) opDesc;
                 FeedCollectOperatorDescriptor fiop = new FeedCollectOperatorDescriptor(altered,
                         orig.getFeedConnectionId(), orig.getSourceFeedId(), (ARecordType) orig.getOutputType(),
-                        orig.getRecordDescriptor(), orig.getFeedPolicy(), orig.getSubscriptionLocation());
+                        orig.getRecordDescriptor(), orig.getFeedPolicyProperties(), orig.getSubscriptionLocation());
                 oldNewOID.put(opDesc.getOperatorId(), fiop.getOperatorId());
             } else if (opDesc instanceof AsterixLSMTreeInsertDeleteOperatorDescriptor) {
-                metaOp = new FeedMetaOperatorDescriptor(altered, feedConnectionId, opDesc, feedPolicy,
+                metaOp = new FeedMetaOperatorDescriptor(altered, feedConnectionId, opDesc, feedPolicyProperties,
                         FeedRuntimeType.STORE, false);
                 oldNewOID.put(opDesc.getOperatorId(), metaOp.getOperatorId());
 
@@ -149,8 +149,8 @@ public class FeedUtil {
                         runtimeType = FeedRuntimeType.COMMIT;
                     }
                 }
-                metaOp = new FeedMetaOperatorDescriptor(altered, feedConnectionId, opDesc, feedPolicy, runtimeType,
-                        enableSubscriptionMode);
+                metaOp = new FeedMetaOperatorDescriptor(altered, feedConnectionId, opDesc, feedPolicyProperties,
+                        runtimeType, enableSubscriptionMode);
                 oldNewOID.put(opDesc.getOperatorId(), metaOp.getOperatorId());
             }
         }

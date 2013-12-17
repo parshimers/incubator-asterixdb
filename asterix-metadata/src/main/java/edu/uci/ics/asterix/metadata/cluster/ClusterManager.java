@@ -43,14 +43,13 @@ import edu.uci.ics.asterix.installer.schema.conf.Configuration;
 import edu.uci.ics.asterix.metadata.api.IClusterManager;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
 import edu.uci.ics.asterix.om.util.AsterixClusterProperties;
+import edu.uci.ics.hyracks.algebricks.common.exceptions.NotImplementedException;
 
 public class ClusterManager implements IClusterManager {
 
     private static final Logger LOGGER = Logger.getLogger(AsterixEventServiceClient.class.getName());
 
     public static ClusterManager INSTANCE = new ClusterManager();
-
-    private static String eventsDir = System.getenv("user.dir") + File.separator + "eventrix";
 
     private static AsterixEventServiceClient client;
 
@@ -149,7 +148,7 @@ public class ClusterManager implements IClusterManager {
 
     @Override
     public void removeNode(Node node) throws AsterixException {
-        // to be implemented later.
+        throw new NotImplementedException("Not supported yet");
     }
 
     @Override
@@ -163,7 +162,7 @@ public class ClusterManager implements IClusterManager {
     }
 
     @Override
-    public Set<IClusterEventsSubscriber> getRegisteredClusterEventSubscribers() {
+    public Set<IClusterEventsSubscriber> getRegisteredSubscribers() {
         return eventSubscribers;
     }
 }

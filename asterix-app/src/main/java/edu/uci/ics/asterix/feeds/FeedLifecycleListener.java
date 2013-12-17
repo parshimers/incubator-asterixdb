@@ -92,11 +92,11 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
     private ClusterState state;
 
     private FeedLifecycleListener() {
-        jobEventInbox = new LinkedBlockingQueue<Message>();
-        feedJobNotificationHandler = new FeedJobNotificationHandler(jobEventInbox);
-        responseInbox = new LinkedBlockingQueue<IClusterManagementWorkResponse>();
-        feedWorkRequestResponseHandler = new FeedWorkRequestResponseHandler(responseInbox, feedJobNotificationHandler);
-        feedReportQueue = new HashMap<FeedConnectionId, LinkedBlockingQueue<String>>();
+        this.jobEventInbox = new LinkedBlockingQueue<Message>();
+        this.feedJobNotificationHandler = new FeedJobNotificationHandler(jobEventInbox);
+        this.responseInbox = new LinkedBlockingQueue<IClusterManagementWorkResponse>();
+        this.feedWorkRequestResponseHandler = new FeedWorkRequestResponseHandler(responseInbox, feedJobNotificationHandler);
+        this.feedReportQueue = new HashMap<FeedConnectionId, LinkedBlockingQueue<String>>();
         this.healthDataParser = new FeedHealthDataParser();
         this.healthDataListener = new MessageListener(FEED_HEALTH_PORT, healthDataParser.getMessageQueue());
         this.healthDataListener.start();
@@ -104,7 +104,7 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
         this.executorService.execute(feedJobNotificationHandler);
         this.executorService.execute(feedWorkRequestResponseHandler);
         ClusterManager.INSTANCE.registerSubscriber(this);
-        state = AsterixClusterProperties.INSTANCE.getState();
+        this.state = AsterixClusterProperties.INSTANCE.getState();
     }
 
     @Override
@@ -136,7 +136,7 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
         for (IOperatorDescriptor opDesc : spec.getOperatorMap().values()) {
             if (opDesc instanceof FeedCollectOperatorDescriptor) {
                 feedConnectionId = ((FeedCollectOperatorDescriptor) opDesc).getFeedConnectionId();
-                feedPolicy = ((FeedCollectOperatorDescriptor) opDesc).getFeedPolicy();
+                feedPolicy = ((FeedCollectOperatorDescriptor) opDesc).getFeedPolicyProperties();
                 sourceFeedId = ((FeedCollectOperatorDescriptor) opDesc).getSourceFeedId();
                 feedCollectionJob = true;
                 break;
@@ -177,22 +177,6 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
         }
     }
 
-    public static class FeedFailureReport {
-        public Map<FeedCollectInfo, List<FeedFailure>> failures = new HashMap<FeedCollectInfo, List<FeedFailure>>();
-
-        @Override
-        public String toString() {
-            StringBuilder builder = new StringBuilder();
-            for (Map.Entry<FeedCollectInfo, List<FeedLifecycleListener.FeedFailure>> entry : failures.entrySet()) {
-                builder.append(entry.getKey() + " -> failures");
-                for (FeedFailure failure : entry.getValue()) {
-                    builder.append("failure -> " + failure);
-                }
-            }
-            return builder.toString();
-        }
-    }
-
     private static class FeedHealthDataParser implements IMessageAnalyzer {
 
         private LinkedBlockingQueue<String> inbox = new LinkedBlockingQueue<String>();
@@ -204,94 +188,88 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
 
     }
 
-    private void insertAffectedRecoverableFeed(String deadNodeId, FeedSubscriber subscriber,
-            Map<String, Pair<List<FeedIntakeInfo>, List<FeedCollectInfo>>> affectedFeeds) {
-        Pair<List<FeedIntakeInfo>, List<FeedCollectInfo>> pair = affectedFeeds.get(deadNodeId);
-        if (pair == null) {
-            List<FeedIntakeInfo> intakeInfos = new ArrayList<FeedIntakeInfo>();
-            List<FeedCollectInfo> collectInfos = new ArrayList<FeedCollectInfo>();
-            pair = new Pair<List<FeedIntakeInfo>, List<FeedCollectInfo>>(intakeInfos, collectInfos);
-            affectedFeeds.put(deadNodeId, pair);
-        }
-        /*
-                switch (feedInfo.infoType) {
-                    case INTAKE:
-                        pair.first.add((FeedIntakeInfo) feedInfo);
-                        break;
-                    case COLLECT:
-                        pair.second.add((FeedCollectInfo) feedInfo);
-                        break;
-                }
-         */
-    }
-
     @Override
     public Set<IClusterManagementWork> notifyNodeFailure(Set<String> deadNodeIds) {
         Set<IClusterManagementWork> workToBeDone = new HashSet<IClusterManagementWork>();
-        Map<String, Pair<List<FeedIntakeInfo>, List<FeedCollectInfo>>> recoverableFeeds = new HashMap<String, Pair<List<FeedIntakeInfo>, List<FeedCollectInfo>>>();
-        Collection<FeedSubscriber> feedSubscribers = feedJobNotificationHandler.getSubscribers();
-        Collection<IFeedJoint> feedIntakePoints = feedJobNotificationHandler.getFeedIntakePoints();
+        Collection<FeedSubscriber> subscribers = feedJobNotificationHandler.getSubscribers();
+        List<FeedSubscriber> irrecoverableSubscribers = new ArrayList<FeedSubscriber>();
 
-        List<FeedSubscriber> irrecoverableFeeds = new ArrayList<FeedSubscriber>();
-        for (String deadNode : deadNodeIds) {
-            for (IFeedJoint fp : feedIntakePoints) {
-                if (fp.getLocations().contains(deadNode)) {
-                    //insertAffectedRecoverableFeed(deadNode, fp, recoverableFeeds);
-                }
-            }
-
-            for (FeedSubscriber subscriber : feedSubscribers) {
-                boolean collectNodeFailure = subscriber.getFeedConnectionInfo().getCollectLocations()
-                        .contains(deadNode);
-                boolean computeNodeFailure = subscriber.getFeedConnectionInfo().getComputeLocations()
-                        .contains(deadNode);
-                boolean storageNodeFailure = subscriber.getFeedConnectionInfo().getStorageLocations()
-                        .contains(deadNode);
-                boolean affectedFeed = collectNodeFailure || computeNodeFailure || storageNodeFailure;
-                if (affectedFeed) {
-                    boolean recoverableFailure = !storageNodeFailure;
-                    if (recoverableFailure) {
-                        insertAffectedRecoverableFeed(deadNode, subscriber, recoverableFeeds);
+        List<Pair<FeedSubscriber, List<String>>> recoverableSubscribers = new ArrayList<Pair<FeedSubscriber, List<String>>>();
+        for (FeedSubscriber subscriber : subscribers) {
+            List<String> deadNodes = new ArrayList<String>();
+            boolean isFailureRecoverable = true;
+            boolean failure = false;
+            Pair<FeedSubscriber, List<String>> p = new Pair<FeedSubscriber, List<String>>(subscriber, deadNodes);
+            for (String deadNode : deadNodeIds) {
+                boolean failureBecauseOfThisNode = subscriber.getFeedConnectionInfo().getCollectLocations()
+                        .contains(deadNode)
+                        || subscriber.getFeedConnectionInfo().getComputeLocations().contains(deadNode)
+                        || subscriber.getFeedConnectionInfo().getStorageLocations().contains(deadNode);
+                if (failureBecauseOfThisNode) {
+                    failure = true;
+                    isFailureRecoverable = isFailureRecoverable
+                            && !subscriber.getFeedConnectionInfo().getStorageLocations().contains(deadNode);
+                    if (isFailureRecoverable) {
+                        deadNodes.add(deadNode);
                     } else {
-                        irrecoverableFeeds.add(subscriber);
+                        irrecoverableSubscribers.add(subscriber);
+                        break;
                     }
                 }
             }
+            if (failure && isFailureRecoverable) {
+                recoverableSubscribers.add(p);
+            }
         }
 
-        if (irrecoverableFeeds != null && irrecoverableFeeds.size() > 0) {
-            //   Thread t = new Thread(new FeedsDeActivator(irrecoverableFeeds));
-            // t.start();
+        Collection<IFeedJoint> intakeFeedJoints = feedJobNotificationHandler.getFeedIntakePoints();
+        Map<IFeedJoint, List<String>> recoverableIntakeFeedIds = new HashMap<IFeedJoint, List<String>>();
+        for (IFeedJoint feedJoint : intakeFeedJoints) {
+            List<String> deadNodes = new ArrayList<String>();
+            for (String deadNode : deadNodeIds) {
+                if (feedJoint.getLocations().contains(deadNode)) {
+                    deadNodes.add(deadNode);
+                }
+            }
+            if (deadNodes.size() > 0) {
+                recoverableIntakeFeedIds.put(feedJoint, deadNodes);
+            }
         }
 
-        if (recoverableFeeds.size() > 0) {
-            AddNodeWork addNodeWork = new AddNodeWork(deadNodeIds.size(), this);
-            feedWorkRequestResponseHandler.registerFeedWork(addNodeWork.getWorkId(), recoverableFeeds);
+        FailureReport failureReport = new FailureReport(recoverableIntakeFeedIds, recoverableSubscribers);
+
+        if (irrecoverableSubscribers.size() > 0) {
+            executorService.execute(new FeedsDeActivator(irrecoverableSubscribers));
+        }
+
+        if (recoverableSubscribers.size() > 0) {
+            AddNodeWork addNodeWork = new AddNodeWork(deadNodeIds, deadNodeIds.size(), this);
+            feedWorkRequestResponseHandler.registerFeedWork(addNodeWork.getWorkId(), failureReport);
             workToBeDone.add(addNodeWork);
         }
         return workToBeDone;
     }
 
-    public static class FeedFailure {
+    public static class FailureReport {
 
-        public enum FailureType {
-            COLLECT_NODE,
-            COMPUTE_NODE,
-            STORAGE_NODE
+        private final List<Pair<FeedSubscriber, List<String>>> recoverableSubscribers;
+        private final Map<IFeedJoint, List<String>> recoverableIntakeFeedIds;
+
+        public FailureReport(Map<IFeedJoint, List<String>> recoverableIntakeFeedIds,
+                List<Pair<FeedSubscriber, List<String>>> recoverableSubscribers) {
+            this.recoverableSubscribers = recoverableSubscribers;
+            this.recoverableIntakeFeedIds = recoverableIntakeFeedIds;
+
         }
 
-        public FailureType failureType;
-        public String nodeId;
-
-        public FeedFailure(FailureType failureType, String nodeId) {
-            this.failureType = failureType;
-            this.nodeId = nodeId;
+        public List<Pair<FeedSubscriber, List<String>>> getRecoverableSubscribers() {
+            return recoverableSubscribers;
         }
 
-        @Override
-        public String toString() {
-            return failureType + " (" + nodeId + ") ";
+        public Map<IFeedJoint, List<String>> getRecoverableIntakeFeedIds() {
+            return recoverableIntakeFeedIds;
         }
+
     }
 
     @Override
@@ -369,42 +347,42 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
 
     public static class FeedsDeActivator implements Runnable {
 
-        private List<FeedCollectInfo> feedsToTerminate;
+        private List<FeedSubscriber> failedSubscribers;
 
-        public FeedsDeActivator(List<FeedCollectInfo> feedsToTerminate) {
-            this.feedsToTerminate = feedsToTerminate;
+        public FeedsDeActivator(List<FeedSubscriber> failedSubscribers) {
+            this.failedSubscribers = failedSubscribers;
         }
 
         @Override
         public void run() {
-            for (FeedCollectInfo feedCollectInfo : feedsToTerminate) {
-                endFeed(feedCollectInfo);
+            for (FeedSubscriber subscribers : failedSubscribers) {
+                endFeed(subscribers);
             }
         }
 
-        private void endFeed(FeedCollectInfo feedInfo) {
+        private void endFeed(FeedSubscriber subscriber) {
             MetadataTransactionContext ctx = null;
             PrintWriter writer = new PrintWriter(System.out, true);
             SessionConfig pc = new SessionConfig(true, false, false, false, false, false, true, true, false);
             try {
                 ctx = MetadataManager.INSTANCE.beginTransaction();
-                DisconnectFeedStatement stmt = new DisconnectFeedStatement(new Identifier(feedInfo.feedConnectionId
-                        .getFeedId().getDataverse()), new Identifier(feedInfo.feedConnectionId.getFeedId()
-                        .getFeedName()), new Identifier(feedInfo.feedConnectionId.getDatasetName()));
+                FeedId feedId = subscriber.getFeedConnectionId().getFeedId();
+                DisconnectFeedStatement stmt = new DisconnectFeedStatement(new Identifier(feedId.getDataverse()),
+                        new Identifier(feedId.getFeedName()), new Identifier(subscriber.getFeedConnectionId()
+                                .getDatasetName()));
                 List<Statement> statements = new ArrayList<Statement>();
-                DataverseDecl dataverseDecl = new DataverseDecl(new Identifier(feedInfo.feedConnectionId.getFeedId()
-                        .getDataverse()));
+                DataverseDecl dataverseDecl = new DataverseDecl(new Identifier(feedId.getDataverse()));
                 statements.add(dataverseDecl);
                 statements.add(stmt);
                 AqlTranslator translator = new AqlTranslator(statements, writer, pc, DisplayFormat.TEXT);
                 translator.compileAndExecute(AsterixAppContextInfo.getInstance().getHcc(), null, false);
                 if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("End irrecoverable feed: " + feedInfo.feedConnectionId);
+                    LOGGER.info("End irrecoverable feed: " + subscriber.getFeedConnectionId());
                 }
                 MetadataManager.INSTANCE.commitTransaction(ctx);
             } catch (Exception e) {
                 if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Exception in ending loser feed: " + feedInfo.feedConnectionId + " Exception "
+                    LOGGER.info("Exception in ending loser feed: " + subscriber.getFeedConnectionId() + " Exception "
                             + e.getMessage());
                 }
                 e.printStackTrace();

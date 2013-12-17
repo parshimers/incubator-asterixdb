@@ -71,7 +71,7 @@ public class ClusterLifecycleListener implements IClusterLifecycleListener {
         Set<String> nodeAddition = new HashSet<String>();
         nodeAddition.add(nodeId);
         updateProgress(ClusterEventType.NODE_JOIN, nodeAddition);
-        Set<IClusterEventsSubscriber> subscribers = ClusterManager.INSTANCE.getRegisteredClusterEventSubscribers();
+        Set<IClusterEventsSubscriber> subscribers = ClusterManager.INSTANCE.getRegisteredSubscribers();
         Set<IClusterManagementWork> work = new HashSet<IClusterManagementWork>();
         for (IClusterEventsSubscriber sub : subscribers) {
             Set<IClusterManagementWork> workRequest = sub.notifyNodeJoin(nodeId);
@@ -93,7 +93,7 @@ public class ClusterLifecycleListener implements IClusterLifecycleListener {
             AsterixClusterProperties.INSTANCE.removeNCConfiguration(deadNode);
         }
         updateProgress(ClusterEventType.NODE_FAILURE, deadNodeIds);
-        Set<IClusterEventsSubscriber> subscribers = ClusterManager.INSTANCE.getRegisteredClusterEventSubscribers();
+        Set<IClusterEventsSubscriber> subscribers = ClusterManager.INSTANCE.getRegisteredSubscribers();
         Set<IClusterManagementWork> work = new HashSet<IClusterManagementWork>();
         for (IClusterEventsSubscriber sub : subscribers) {
             Set<IClusterManagementWork> workRequest = sub.notifyNodeFailure(deadNodeIds);
@@ -141,8 +141,8 @@ public class ClusterLifecycleListener implements IClusterLifecycleListener {
         for (IClusterManagementWork w : workSet) {
             switch (w.getClusterManagementWorkType()) {
                 case ADD_NODE:
-                    if (nodesToAdd < ((AddNodeWork) w).getNumberOfNodes()) {
-                        nodesToAdd = ((AddNodeWork) w).getNumberOfNodes();
+                    if (nodesToAdd < ((AddNodeWork) w).getNumberOfNodesRequested()) {
+                        nodesToAdd = ((AddNodeWork) w).getNumberOfNodesRequested();
                     }
                     nodeAdditionRequests.add((AddNodeWork) w);
                     break;
@@ -181,7 +181,7 @@ public class ClusterLifecycleListener implements IClusterLifecycleListener {
         }
 
         for (AddNodeWork w : nodeAdditionRequests) {
-            int n = w.getNumberOfNodes();
+            int n = w.getNumberOfNodesRequested();
             List<String> nodesToBeAddedForWork = new ArrayList<String>();
             for (int i = 0; i < n && i < addedNodes.size(); i++) {
                 nodesToBeAddedForWork.add(addedNodes.get(i));

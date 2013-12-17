@@ -62,7 +62,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
     /**
      * The policy associated with the feed instance.
      */
-    private final FeedPolicy feedPolicy;
+    private final Map<String, String> feedPolicyProperties;
 
     /**
      * type for the feed runtime associated with the operator.
@@ -74,11 +74,11 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
     private final boolean enableSubscriptionMode;
 
     public FeedMetaOperatorDescriptor(JobSpecification spec, FeedConnectionId feedConnectionId,
-            IOperatorDescriptor coreOperatorDescriptor, FeedPolicy feedPolicy, FeedRuntimeType runtimeType,
-            boolean enableSubscriptionMode) {
+            IOperatorDescriptor coreOperatorDescriptor, Map<String, String> feedPolicyProperties,
+            FeedRuntimeType runtimeType, boolean enableSubscriptionMode) {
         super(spec, coreOperatorDescriptor.getInputArity(), coreOperatorDescriptor.getOutputArity());
         this.feedConnectionId = feedConnectionId;
-        this.feedPolicy = feedPolicy;
+        this.feedPolicyProperties = feedPolicyProperties;
         if (coreOperatorDescriptor.getOutputRecordDescriptors().length == 1) {
             recordDescriptors[0] = coreOperatorDescriptor.getOutputRecordDescriptors()[0];
         }
@@ -91,7 +91,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
         return new FeedMetaNodePushable(ctx, recordDescProvider, partition, nPartitions, coreOperator,
-                feedConnectionId, feedPolicy, runtimeType, enableSubscriptionMode);
+                feedConnectionId, feedPolicyProperties, runtimeType, enableSubscriptionMode);
     }
 
     @Override
@@ -151,12 +151,12 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
 
         public FeedMetaNodePushable(IHyracksTaskContext ctx, IRecordDescriptorProvider recordDescProvider,
                 int partition, int nPartitions, IOperatorDescriptor coreOperator, FeedConnectionId feedConnectionId,
-                FeedPolicy feedPolicy, FeedRuntimeType runtimeType, boolean enableSubscriptionMode)
+                Map<String, String> feedPolicyProperties, FeedRuntimeType runtimeType, boolean enableSubscriptionMode)
                 throws HyracksDataException {
             this.ctx = ctx;
             this.coreOperatorNodePushable = (AbstractUnaryInputUnaryOutputOperatorNodePushable) ((IActivity) coreOperator)
                     .createPushRuntime(ctx, recordDescProvider, partition, nPartitions);
-            this.policyEnforcer = new FeedPolicyEnforcer(feedConnectionId, feedPolicy.getProperties());
+            this.policyEnforcer = new FeedPolicyEnforcer(feedConnectionId, feedPolicyProperties);
             this.partition = partition;
             this.runtimeType = runtimeType;
             this.feedConnectionId = feedConnectionId;

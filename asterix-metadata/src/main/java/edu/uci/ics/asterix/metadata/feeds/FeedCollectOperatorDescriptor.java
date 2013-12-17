@@ -55,7 +55,7 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
     private final FeedConnectionId feedConnectionId;
 
     /** Map representation of policy parameters */
-    private final Map<String, String> feedPolicy;
+    private final Map<String, String> feedPolicyProperties;
 
     /** The (singleton) instance of {@code IFeedIngestionManager} **/
     private IFeedSubscriptionManager feedSubscriptionManager;
@@ -70,13 +70,13 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
     private final SubscriptionLocation subscriptionLocation;
 
     public FeedCollectOperatorDescriptor(JobSpecification spec, FeedConnectionId feedConnectionId, FeedId sourceFeedId,
-            ARecordType atype, RecordDescriptor rDesc, Map<String, String> feedPolicy,
+            ARecordType atype, RecordDescriptor rDesc, Map<String, String> feedPolicyProperties,
             SubscriptionLocation subscriptionLocation) {
         super(spec, 0, 1);
         recordDescriptors[0] = rDesc;
         this.outptuType = atype;
         this.feedConnectionId = feedConnectionId;
-        this.feedPolicy = feedPolicy;
+        this.feedPolicyProperties = feedPolicyProperties;
         this.sourceFeedId = sourceFeedId;
         this.subscriptionLocation = subscriptionLocation;
     }
@@ -103,7 +103,7 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
                         throw new HyracksDataException("Source ingestion task not found for source feed id "
                                 + sourceFeedId);
                     }
-                    nodePushable = new FeedCollectOperatorNodePushable(ctx, sourceFeedId, feedConnectionId, feedPolicy,
+                    nodePushable = new FeedCollectOperatorNodePushable(ctx, sourceFeedId, feedConnectionId, feedPolicyProperties,
                             partition, sourceRuntime);
 
                 } catch (Exception exception) {
@@ -121,7 +121,7 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
                 if (sourceRuntime == null) {
                     throw new HyracksDataException("Source compute task not found for source feed id " + sourceFeedId);
                 }
-                nodePushable = new FeedCollectOperatorNodePushable(ctx, sourceFeedId, feedConnectionId, feedPolicy,
+                nodePushable = new FeedCollectOperatorNodePushable(ctx, sourceFeedId, feedConnectionId, feedPolicyProperties,
                         partition, sourceRuntime);
                 break;
         }
@@ -132,8 +132,8 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
         return feedConnectionId;
     }
 
-    public Map<String, String> getFeedPolicy() {
-        return feedPolicy;
+    public Map<String, String> getFeedPolicyProperties() {
+        return feedPolicyProperties;
     }
 
     public IAType getOutputType() {

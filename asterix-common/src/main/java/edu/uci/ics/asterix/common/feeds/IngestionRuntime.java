@@ -43,16 +43,16 @@ public class IngestionRuntime extends SubscribableRuntime {
 
     public void unsubscribeFeed(CollectionRuntime collectionRuntime) throws Exception {
         feedWriter.unsubscribeFeed(collectionRuntime.getFeedFrameWriter());
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Unsubscribed feed collection [" + collectionRuntime + "] from " + this);
+        }
         if (feedWriter.getDistributionMode().equals(DistributeFeedFrameWriter.DistributionMode.INACTIVE)) {
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Stopping adapter for " + this);
+                LOGGER.info("Stopping adapter for " + this + " as no more registered collectors");
             }
             adapterRuntimeManager.stop();
         }
         subscribers.remove(collectionRuntime);
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Unsubscribed feed collection [" + collectionRuntime + "] from " + this);
-        }
     }
 
     public void endOfFeed() {

@@ -1861,10 +1861,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
             FeedConnectionId feedConnectionId = new FeedConnectionId(bfs.getSubscriptionRequest()
                     .getSubscribingFeedId(), bfs.getSubscriptionRequest().getTargetDataset());
 
-            FeedPolicy feedPolicy = MetadataManager.INSTANCE.getFeedPolicy(mdTxnCtx, bfs.getSubscriptionRequest()
-                    .getSubscribingFeedId().getDataverse(), bfs.getSubscriptionRequest().getPolicy());
-            JobSpecification alteredJobSpec = FeedUtil.alterJobSpecificationForFeed(compiled, feedConnectionId,
-                    feedPolicy);
+            JobSpecification alteredJobSpec = FeedUtil.alterJobSpecificationForFeed(compiled, feedConnectionId, bfs
+                    .getSubscriptionRequest().getPolicyParameters());
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             bActiveTxn = false;
 

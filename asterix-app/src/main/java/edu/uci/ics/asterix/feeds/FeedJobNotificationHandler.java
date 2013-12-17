@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -95,7 +96,7 @@ public class FeedJobNotificationHandler implements Runnable {
     private int superFeedManagerPort = 3000;
     private Executor executor = Executors.newCachedThreadPool();
 
-    private Map<JobId, FeedSubscriber> jobSubscriberMap = new HashMap<JobId, FeedSubscriber>();
+    private Map<JobId, FeedSubscriber> jobSubscriberMap = new LinkedHashMap<JobId, FeedSubscriber>();
     private Map<FeedConnectionId, FeedSubscriber> connectionSubscriberMap = new HashMap<FeedConnectionId, FeedSubscriber>();
     private Map<JobId, FeedJointKey> intakeFeedPointMap = new HashMap<JobId, FeedJointKey>();
     private Map<FeedId, List<FeedJointKey>> feedPipeline = new HashMap<FeedId, List<FeedJointKey>>();
@@ -224,6 +225,10 @@ public class FeedJobNotificationHandler implements Runnable {
             }
         }
         return null;
+    }
+
+    public Map<FeedJointKey, IFeedJoint> getFeedPoints() {
+        return feedPoints;
     }
 
     public void registerFeedIntakeJob(FeedId feedId, JobId jobId, JobSpecification jobSpec) {
@@ -462,12 +467,12 @@ public class FeedJobNotificationHandler implements Runnable {
                     continue;
                 }
                 IFeedJoint fp = feedPoints.get(fpk);
-                if (!fp.getState().equals(IFeedJoint.State.ACTIVE)) {
-                    fp.setJobId(jobId);
-                    fp.setJobSpec(jobSpec);
-                    fp.setLocations(computeLocations);
-                    fp.setState(State.ACTIVE);
-                }
+                //if (!fp.getState().equals(IFeedJoint.State.ACTIVE)) {
+                fp.setJobId(jobId);
+                fp.setJobSpec(jobSpec);
+                fp.setLocations(computeLocations);
+                fp.setState(State.ACTIVE);
+                //}
             }
 
             FeedPolicyAccessor policyAccessor = new FeedPolicyAccessor(subscriber.getFeedPolicyParameters());
@@ -543,9 +548,17 @@ public class FeedJobNotificationHandler implements Runnable {
         messengerOutbox.add(new FeedMessengerMessage(feedMessage, feedSubscriber));
     }
 
-    private void handleFeedIntakeJobFinishMessage(IFeedJoint feedPoint, Message message) {
+    private void handleFeedIntakeJobFinishMessage(IFeedJoint feedPoint, Message message) throws Exception {
         boolean feedFailedDueToPostSubmissionNodeLoss = failedDueToNodeFalilurePostSubmission(feedPoint.getJobSpec());
-        deregisterFeedIntakeJob(feedPoint.getFeedJointKey().getFeedId(), feedPoint.getJobId());
+        IHyracksClientConnection hcc = AsterixAppContextInfo.getInstance().getHcc();
+        JobInfo info = hcc.getJobInfo(message.jobId);
+        JobStatus status = info.getStatus();
+        if (!status.equals(JobStatus.FAILURE)) {
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info(" Not deregistering feed intake job ");
+            }
+            deregisterFeedIntakeJob(feedPoint.getFeedJointKey().getFeedId(), feedPoint.getJobId());
+        }
     }
 
     private void handleFeedCollectJobFinishMessage(FeedSubscriber subscriber, Message message) throws Exception {
@@ -555,6 +568,7 @@ public class FeedJobNotificationHandler implements Runnable {
             JobInfo info = hcc.getJobInfo(message.jobId);
             JobStatus status = info.getStatus();
             boolean failure = status != null && status.equals(JobStatus.FAILURE);
+            FeedPolicyAccessor fpa = new FeedPolicyAccessor(subscriber.getFeedPolicyParameters());
             Map<String, String> details = new HashMap<String, String>();
             if (failure) {
                 if (LOGGER.isLoggable(Level.INFO)) {
@@ -569,8 +583,16 @@ public class FeedJobNotificationHandler implements Runnable {
                 }
             }
 
-            deregisterFeedSubscriber(subscriber);
-            deregisterFeedConnection(subscriber.getFeedConnectionId());
+            if (!failure || !fpa.continueOnHardwareFailure()) {
+                deregisterFeedSubscriber(subscriber);
+                deregisterFeedConnection(subscriber.getFeedConnectionId());
+            } else {
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("Not deregistering subscriber " + subscriber + "as subscriber's policy "
+                            + subscriber.getFeedPolicy() + " requires recovery from failure");
+                }
+                deregisterFeedActivity(subscriber);
+            }
 
         } else {
             if (LOGGER.isLoggable(Level.WARNING)) {

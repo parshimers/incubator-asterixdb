@@ -190,7 +190,7 @@ public class FeedFrameWriter implements IFeedFrameWriter {
 
                 /* TODO:
                  * Limit the in-memory space utilized during the STORE mode. The limit (expressed in bytes) 
-                 * is a parameter specified as part of the feed ingestion policy. Below is a basic implemenation
+                 * is a parameter specified as part of the feed ingestion policy. Below is a basic implementaion
                  * that allocates a buffer on demand.   
                  * */
 

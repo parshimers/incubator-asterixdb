@@ -50,8 +50,8 @@ public class ClusterWorkExecutor implements Runnable {
                 for (IClusterManagementWork w : workSet) {
                     switch (w.getClusterManagementWorkType()) {
                         case ADD_NODE:
-                            if (nodesToAdd < ((AddNodeWork) w).getNumberOfNodes()) {
-                                nodesToAdd = ((AddNodeWork) w).getNumberOfNodes();
+                            if (nodesToAdd < ((AddNodeWork) w).getNumberOfNodesRequested()) {
+                                nodesToAdd = ((AddNodeWork) w).getNumberOfNodesRequested();
                             }
                             nodeAdditionRequests.add(w);
                             break;

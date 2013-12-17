@@ -143,9 +143,6 @@ public class FeedJoint implements IFeedJoint {
                             + " at feed point " + this + ". Message " + e.getMessage());
                 }
                 e.printStackTrace();
-                FeedSubscriber subscriber = new FeedSubscriber(this.getFeedJointKey(), connectionId,
-                        subscriptionRequest.getPolicy(), subscriptionRequest.getPolicyParameters(),
-                        FeedSubscriber.Status.INACTIVE);
             }
         }
         subscriptionRequests.clear();

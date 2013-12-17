@@ -17,44 +17,50 @@ package edu.uci.ics.asterix.common.feeds;
 public interface IAdapterRuntimeManager {
 
     public enum State {
-        /*
+        /**
          * Indicates that data from external source will be pushed downstream
          * for storage
          */
         ACTIVE_INGESTION,
-        /*
-         * Indicates that data from external source would be buffered and not
+
+        /**
+         * Indicates that data from external source is being buffered and not
          * pushed downstream
          */
+
         INACTIVE_INGESTION,
-        /*
+        /**
          * Indicates that feed ingestion activity has finished
          */
         FINISHED_INGESTION
     }
 
     /**
+     * Start feed ingestion
+     * 
      * @throws Exception
      */
     public void start() throws Exception;
 
     /**
+     * Stop the feed ingestion.
+     * 
      * @throws Exception
      */
     public void stop() throws Exception;
 
     /**
-     * @return
+     * @return feedId associated with the feed that is being ingested
      */
     public FeedId getFeedId();
 
     /**
-     * @return
+     * @return the instance of the feed adapter (an implementation of {@code IFeedAdapter}) in use.
      */
     public IFeedAdapter getFeedAdapter();
 
     /**
-     * @return
+     * @return state associated with the AdapterRuntimeManager. See {@code State}.
      */
     public State getState();
 
