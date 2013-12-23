@@ -51,6 +51,7 @@ public class JavaFunctionHelper implements IFunctionHelper {
     private IJObject resultHolder;
     private ISerializerDeserializer resultSerde;
     private IObjectPool<IJObject, IAType> objectPool = new ListObjectPool<IJObject, IAType>(new JTypeObjectFactory());
+    private IObjectPool<IJObject, IAType> metadataPool = new ListObjectPool<IJObject, IAType>(new JTypeObjectFactory());
     byte[] buffer = new byte[32768];
     ByteArrayAccessibleInputStream bis = new ByteArrayAccessibleInputStream(buffer, 0, buffer.length);
     ByteArrayAccessibleDataInputStream dis = new ByteArrayAccessibleDataInputStream(bis);
@@ -63,10 +64,10 @@ public class JavaFunctionHelper implements IFunctionHelper {
         arguments = new IJObject[params.size()];
         int index = 0;
         for (IAType param : params) {
-            this.arguments[index] = objectPool.allocate(param);
+            this.arguments[index] = metadataPool.allocate(param);
             index++;
         }
-        resultHolder = objectPool.allocate(finfo.getReturnType());
+        resultHolder = metadataPool.allocate(finfo.getReturnType());
     }
 
     @Override
@@ -158,6 +159,7 @@ public class JavaFunctionHelper implements IFunctionHelper {
                 reset((JRecord) resultHolder);
                 break;
         }
+        objectPool.reset();
     }
 
     private void reset(JRecord jRecord) {

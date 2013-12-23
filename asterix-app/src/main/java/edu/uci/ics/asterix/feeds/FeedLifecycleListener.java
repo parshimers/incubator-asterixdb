@@ -95,7 +95,8 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
         this.jobEventInbox = new LinkedBlockingQueue<Message>();
         this.feedJobNotificationHandler = new FeedJobNotificationHandler(jobEventInbox);
         this.responseInbox = new LinkedBlockingQueue<IClusterManagementWorkResponse>();
-        this.feedWorkRequestResponseHandler = new FeedWorkRequestResponseHandler(responseInbox, feedJobNotificationHandler);
+        this.feedWorkRequestResponseHandler = new FeedWorkRequestResponseHandler(responseInbox,
+                feedJobNotificationHandler);
         this.feedReportQueue = new HashMap<FeedConnectionId, LinkedBlockingQueue<String>>();
         this.healthDataParser = new FeedHealthDataParser();
         this.healthDataListener = new MessageListener(FEED_HEALTH_PORT, healthDataParser.getMessageQueue());
@@ -428,12 +429,18 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
 
     @Override
     public String[] getIntakeLocations(FeedId feedId) {
+        Collection<IFeedJoint> intakeFeedJoints = feedJobNotificationHandler.getFeedIntakePoints();
+        for (IFeedJoint feedJoint : intakeFeedJoints) {
+            if (feedJoint.getFeedJointKey().getFeedId().equals(feedId)) {
+                return feedJoint.getLocations().toArray(new String[] {});
+            }
+        }
         return null;
     }
 
     @Override
     public String[] getStoreLocations(FeedConnectionId feedConnectionId) {
-        return null;
+        return feedJobNotificationHandler.getFeedStorageLocations(feedConnectionId).toArray(new String[] {});
     }
 
     @Override

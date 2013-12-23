@@ -124,6 +124,11 @@ public class FeedJoint implements IFeedJoint {
         }
     }
 
+    @Override
+    public FeedJointKey getFeedJointKey() {
+        return key;
+    }
+
     private void handlePendingSubscriptionRequest() {
         for (FeedSubscriptionRequest subscriptionRequest : subscriptionRequests) {
             FeedConnectionId connectionId = new FeedConnectionId(subscriptionRequest.getSubscribingFeedId(),
@@ -203,11 +208,6 @@ public class FeedJoint implements IFeedJoint {
 
     public void setScope(Scope scope) {
         this.scope = scope;
-    }
-
-    @Override
-    public FeedJointKey getFeedJointKey() {
-        return key;
     }
 
 }

@@ -14,8 +14,8 @@ public interface IFeedJoint {
     }
 
     public enum State {
-        CREATED,
-        INITIALIZED,
+        CREATED, // created but location info not known 
+        INITIALIZED, // location info has been determined and set
         ACTIVE // data is flowing through the feed point
     }
 
