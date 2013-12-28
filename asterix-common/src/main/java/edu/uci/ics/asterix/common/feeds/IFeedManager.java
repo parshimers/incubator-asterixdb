@@ -25,4 +25,6 @@ public interface IFeedManager {
 
     public IFeedConnectionManager getFeedConnectionManager();
 
+    public IFeedMemoryManager getFeedMemoryManager();
+
 }

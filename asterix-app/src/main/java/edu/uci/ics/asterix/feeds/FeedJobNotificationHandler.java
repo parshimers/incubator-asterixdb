@@ -284,7 +284,7 @@ public class FeedJobNotificationHandler implements Runnable {
         }
     }
 
-    public void deregisterFeedIntakeJob(FeedId feedId, JobId jobId) {
+    public void deregisterFeedIntakeJob(JobId jobId) {
         if (!registeredJobs.contains(jobId)) {
             throw new IllegalStateException(" Feed Intake job not registered ");
         }
@@ -332,9 +332,9 @@ public class FeedJobNotificationHandler implements Runnable {
         if (intakeJob) {
             IFeedJoint fp = feedJoints.get(fpk);
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Job finished for feed intake" + fp);
+                LOGGER.info("Job finished for feed intake " + fp);
             }
-            handleFeedIntakeJobFinishMessage(fp, message);
+            handleFeedIntakeJobFinishMessage(message);
         } else {
             FeedSubscriber feedSubscriber = jobSubscriberMap.get(message.jobId);
             if (LOGGER.isLoggable(Level.INFO)) {
@@ -553,16 +553,15 @@ public class FeedJobNotificationHandler implements Runnable {
         messengerOutbox.add(new FeedMessengerMessage(feedMessage, feedSubscriber));
     }
 
-    private void handleFeedIntakeJobFinishMessage(IFeedJoint feedPoint, Message message) throws Exception {
-        boolean feedFailedDueToPostSubmissionNodeLoss = failedDueToNodeFalilurePostSubmission(feedPoint.getJobSpec());
+    private void handleFeedIntakeJobFinishMessage(Message message) throws Exception {
         IHyracksClientConnection hcc = AsterixAppContextInfo.getInstance().getHcc();
         JobInfo info = hcc.getJobInfo(message.jobId);
         JobStatus status = info.getStatus();
         if (!status.equals(JobStatus.FAILURE)) {
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info(" Not deregistering feed intake job ");
+                LOGGER.info(" Now deregistering feed intake job ");
             }
-            deregisterFeedIntakeJob(feedPoint.getFeedJointKey().getFeedId(), feedPoint.getJobId());
+            deregisterFeedIntakeJob(message.jobId);
         }
     }
 

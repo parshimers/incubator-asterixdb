@@ -44,7 +44,7 @@ public class FunctionSignature implements Serializable {
     }
 
     public String toString() {
-        return namespace + "." + name + "@" + arity;
+        return rep;
     }
 
     @Override

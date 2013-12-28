@@ -14,8 +14,11 @@
  */
 package edu.uci.ics.asterix.metadata.feeds;
 
+import edu.uci.ics.asterix.common.config.AsterixFeedProperties;
+import edu.uci.ics.asterix.common.feeds.FeedMemoryManager;
 import edu.uci.ics.asterix.common.feeds.IFeedConnectionManager;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
+import edu.uci.ics.asterix.common.feeds.IFeedMemoryManager;
 import edu.uci.ics.asterix.common.feeds.IFeedSubscriptionManager;
 
 /**
@@ -29,12 +32,15 @@ public class FeedManager implements IFeedManager {
 
     private final IFeedConnectionManager feedConnectionManager;
 
+    private final IFeedMemoryManager feedMemoryManager;
+
     private final String nodeId;
 
-    public FeedManager(String nodeId) {
+    public FeedManager(String nodeId, AsterixFeedProperties feedProperties) {
         this.nodeId = nodeId;
         this.feedIngestionManager = new FeedSubscriptionManager(nodeId);
         this.feedConnectionManager = new FeedConnectionManager(nodeId);
+        this.feedMemoryManager = new FeedMemoryManager(nodeId, feedProperties);
     }
 
     public IFeedSubscriptionManager getFeedSubscriptionManager() {
@@ -46,7 +52,13 @@ public class FeedManager implements IFeedManager {
     }
 
     @Override
+    public IFeedMemoryManager getFeedMemoryManager() {
+        return feedMemoryManager;
+    }
+
+    @Override
     public String toString() {
         return "FeedManager " + "[" + nodeId + "]";
     }
+
 }

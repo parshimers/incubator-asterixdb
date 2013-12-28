@@ -14,16 +14,18 @@
  */
 package edu.uci.ics.asterix.common.config;
 
-public interface IAsterixPropertiesProvider {
-    public AsterixStorageProperties getStorageProperties();
+public class AsterixFeedProperties extends AbstractAsterixProperties {
 
-    public AsterixTransactionProperties getTransactionProperties();
+    private static final String FEED_MEMORY_GLOBALBUDGET_KEY = "feed.memory.global.budget";
+    private static final long FEED_MEMORY_GLOBALBUDGET_DEFAULT = 67108864; // 64MB
 
-    public AsterixCompilerProperties getCompilerProperties();
+    public AsterixFeedProperties(AsterixPropertiesAccessor accessor) {
+        super(accessor);
+    }
 
-    public AsterixMetadataProperties getMetadataProperties();
+    public long getMemoryComponentGlobalBudget() {
+        return accessor.getProperty(FEED_MEMORY_GLOBALBUDGET_KEY, FEED_MEMORY_GLOBALBUDGET_DEFAULT,
+                PropertyInterpreters.getLongPropertyInterpreter());
+    }
 
-    public AsterixExternalProperties getExternalProperties();
-
-    public AsterixFeedProperties getFeedProperties();
 }

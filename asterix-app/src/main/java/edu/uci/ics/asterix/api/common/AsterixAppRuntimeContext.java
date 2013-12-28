@@ -22,6 +22,7 @@ import edu.uci.ics.asterix.common.api.AsterixThreadExecutor;
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
 import edu.uci.ics.asterix.common.config.AsterixCompilerProperties;
 import edu.uci.ics.asterix.common.config.AsterixExternalProperties;
+import edu.uci.ics.asterix.common.config.AsterixFeedProperties;
 import edu.uci.ics.asterix.common.config.AsterixMetadataProperties;
 import edu.uci.ics.asterix.common.config.AsterixPropertiesAccessor;
 import edu.uci.ics.asterix.common.config.AsterixStorageProperties;
@@ -80,6 +81,7 @@ public class AsterixAppRuntimeContext implements IAsterixAppRuntimeContext, IAst
     private AsterixMetadataProperties metadataProperties;
     private AsterixStorageProperties storageProperties;
     private AsterixTransactionProperties txnProperties;
+    private AsterixFeedProperties feedProperties;
 
     private AsterixThreadExecutor threadExecutor;
     private DatasetLifecycleManager indexLifecycleManager;
@@ -102,6 +104,7 @@ public class AsterixAppRuntimeContext implements IAsterixAppRuntimeContext, IAst
         metadataProperties = new AsterixMetadataProperties(ASTERIX_PROPERTIES_ACCESSOR);
         storageProperties = new AsterixStorageProperties(ASTERIX_PROPERTIES_ACCESSOR);
         txnProperties = new AsterixTransactionProperties(ASTERIX_PROPERTIES_ACCESSOR);
+        feedProperties = new AsterixFeedProperties(ASTERIX_PROPERTIES_ACCESSOR);
     }
 
     private static AsterixPropertiesAccessor createAsterixPropertiesAccessor() {
@@ -145,7 +148,7 @@ public class AsterixAppRuntimeContext implements IAsterixAppRuntimeContext, IAst
                 txnProperties);
         isShuttingdown = false;
 
-        feedManager = new FeedManager(ncApplicationContext.getNodeId());
+        feedManager = new FeedManager(ncApplicationContext.getNodeId(), feedProperties);
 
         // The order of registration is important. The buffer cache must registered before recovery and transaction managers.
         ILifeCycleComponentManager lccm = ncApplicationContext.getLifeCycleComponentManager();
@@ -234,6 +237,11 @@ public class AsterixAppRuntimeContext implements IAsterixAppRuntimeContext, IAst
     }
 
     @Override
+    public AsterixFeedProperties getFeedProperties() {
+        return feedProperties;
+    }
+
+    @Override
     public List<IVirtualBufferCache> getVirtualBufferCaches(int datasetID) {
         return indexLifecycleManager.getVirtualBufferCaches(datasetID);
     }
@@ -256,4 +264,5 @@ public class AsterixAppRuntimeContext implements IAsterixAppRuntimeContext, IAst
     public IFeedManager getFeedManager() {
         return feedManager;
     }
+
 }

@@ -1,0 +1,95 @@
+/*
+ * Copyright 2009-2013 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package edu.uci.ics.asterix.common.feeds;
+
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import edu.uci.ics.asterix.common.config.AsterixFeedProperties;
+import edu.uci.ics.asterix.common.config.GlobalConfig;
+import edu.uci.ics.asterix.common.feeds.IFeedMemoryComponent.Type;
+
+public class FeedMemoryManager implements IFeedMemoryManager {
+
+    public static final int ALLOCATION_INCREMENT = 10;
+
+    private static final Logger LOGGER = Logger.getLogger(FeedMemoryManager.class.getName());
+
+    private final AtomicInteger componentId = new AtomicInteger(0);
+
+    private final String nodeId;
+
+    private int budget;
+
+    private int committed;
+
+    public FeedMemoryManager(String nodeId, AsterixFeedProperties feedProperties) {
+        this.nodeId = nodeId;
+        int frameSize = GlobalConfig.getFrameSize();
+        budget = (int) feedProperties.getMemoryComponentGlobalBudget() / frameSize;
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Feed Memory budget " + budget + " frames (frame size=" + frameSize + ")");
+        }
+    }
+
+    @Override
+    public IFeedMemoryComponent getMemoryComponent(Type type) {
+        IFeedMemoryComponent memoryComponent = null;
+        boolean valid = false;
+        switch (type) {
+            case COLLECTION:
+                valid = committed + START_COLLECTION_SIZE <= budget;
+                if (valid) {
+                    memoryComponent = new FrameCollection(componentId.incrementAndGet(), this, START_COLLECTION_SIZE);
+                }
+                break;
+            case POOL:
+                valid = committed + START_POOL_SIZE <= budget;
+                if (valid) {
+                    memoryComponent = new DataBucketPool(componentId.incrementAndGet(), this, START_POOL_SIZE);
+                }
+                committed += START_POOL_SIZE;
+                break;
+        }
+        return valid ? memoryComponent : null;
+    }
+
+    @Override
+    public boolean expandMemoryComponent(IFeedMemoryComponent memoryComponent) {
+        memoryComponent.expand(ALLOCATION_INCREMENT);
+        committed += ALLOCATION_INCREMENT;
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Expanded memory component " + memoryComponent + " by " + ALLOCATION_INCREMENT + " " + this);
+        }
+        return true;
+    }
+
+    @Override
+    public void releaseMemoryComponent(IFeedMemoryComponent memoryComponent) {
+        int delta = memoryComponent.getCurrentSize();
+        committed -= delta;
+        memoryComponent.reset();
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Reset " + memoryComponent + " and reclaimed " + delta + " frames " + this);
+        }
+    }
+
+    @Override
+    public String toString() {
+        return "FeedMemoryManager  [" + nodeId + "]" + "(" + committed + "/" + budget + ")";
+    }
+
+}

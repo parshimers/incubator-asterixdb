@@ -16,8 +16,7 @@ package edu.uci.ics.asterix.metadata.feeds;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Iterator;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicLong;
@@ -27,8 +26,11 @@ import java.util.logging.Logger;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FeedMessageService;
+import edu.uci.ics.asterix.common.feeds.FrameCollection;
 import edu.uci.ics.asterix.common.feeds.IFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
+import edu.uci.ics.asterix.common.feeds.IFeedMemoryComponent;
+import edu.uci.ics.asterix.common.feeds.IFeedMemoryManager;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.SuperFeedManager;
 import edu.uci.ics.asterix.common.feeds.SuperFeedManager.FeedReportMessageType;
@@ -82,9 +84,6 @@ public class FeedFrameWriter implements IFeedFrameWriter {
     /** set to true if health need to be monitored **/
     private final boolean reportHealth;
 
-    /** A buffer for keeping frames that are waiting to be processed **/
-    private List<ByteBuffer> frames = new ArrayList<ByteBuffer>();
-
     /**
      * Mode associated with the frame writer
      * Possible values: FORWARD, STORE
@@ -113,6 +112,11 @@ public class FeedFrameWriter implements IFeedFrameWriter {
      */
     private FrameTupleAccessor fta;
 
+    private IFeedMemoryManager memoryManager;
+
+    /** A buffer for keeping frames that are waiting to be processed **/
+    private FrameCollection frames;
+
     public FeedFrameWriter(IHyracksTaskContext ctx, IFrameWriter writer, IOperatorNodePushable nodePushable,
             FeedConnectionId feedConnectionId, FeedPolicyEnforcer policyEnforcer, String nodeId,
             FeedRuntimeType feedRuntimeType, int partition, RecordDescriptor outputRecordDescriptor,
@@ -139,6 +143,7 @@ public class FeedFrameWriter implements IFeedFrameWriter {
         }
         this.partition = partition;
         this.fta = new FrameTupleAccessor(ctx.getFrameSize(), outputRecordDescriptor);
+        this.memoryManager = feedManager.getFeedMemoryManager();
     }
 
     public Mode getMode() {
@@ -175,15 +180,17 @@ public class FeedFrameWriter implements IFeedFrameWriter {
                                 + ":\n" + e);
                     }
                 }
-                if (frames.size() > 0) {
-                    for (ByteBuffer buf : frames) {
+                if (frames != null && frames.getCurrentSize() > 0) {
+                    Iterator<ByteBuffer> iterator = frames.getFrameCollectionIterator();
+                    while (iterator.hasNext()) {
+                        ByteBuffer buf = iterator.next();
                         writer.nextFrame(buf);
                         if (LOGGER.isLoggable(Level.WARNING)) {
                             LOGGER.warning("Flushed old frame (from previous failed execution) : " + buf
                                     + " on behalf of " + nodePushable.getDisplayName());
                         }
                     }
-                    frames.clear();
+                    frames.reset();
                 }
                 break;
             case STORE:
@@ -193,13 +200,26 @@ public class FeedFrameWriter implements IFeedFrameWriter {
                  * is a parameter specified as part of the feed ingestion policy. Below is a basic implementaion
                  * that allocates a buffer on demand.   
                  * */
+                if (frames == null) {
+                    frames = (FrameCollection) memoryManager.getMemoryComponent(IFeedMemoryComponent.Type.COLLECTION);
+                    if (frames == null) {
+                        if (LOGGER.isLoggable(Level.WARNING)) {
+                            LOGGER.warning("Insufficient Memory: unable to store frame (discarding) for "
+                                    + nodePushable.getDisplayName());
+                        }
+                        break;
+                    }
+                }
 
-                ByteBuffer storageBuffer = ByteBuffer.allocate(buffer.capacity());
-                storageBuffer.put(buffer);
-                frames.add(storageBuffer);
-                storageBuffer.flip();
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Stored frame for " + nodePushable.getDisplayName());
+                boolean success = frames.addFrame(buffer);
+                if (success) {
+                    if (LOGGER.isLoggable(Level.INFO)) {
+                        LOGGER.info("Stored frame for " + nodePushable.getDisplayName());
+                    }
+                } else {
+                    if (LOGGER.isLoggable(Level.WARNING)) {
+                        LOGGER.warning("Insufficient Memory: unable to store frame (discarding) ");
+                    }
                 }
                 break;
         }
@@ -364,6 +384,9 @@ public class FeedFrameWriter implements IFeedFrameWriter {
                 LOGGER.info("Closing frame statistics collection activity" + healthMonitor);
             }
         }
+        if (frames != null) {
+            memoryManager.releaseMemoryComponent(frames);
+        }
         writer.close();
     }
 
@@ -378,14 +401,6 @@ public class FeedFrameWriter implements IFeedFrameWriter {
     @Override
     public String toString() {
         return "FeedFrameWriter [" + feedConnectionId + ":" + partition + "(" + mode + ")" + "]";
-    }
-
-    public List<ByteBuffer> getStoredFrames() {
-        return frames;
-    }
-
-    public void clear() {
-        frames.clear();
     }
 
     @Override

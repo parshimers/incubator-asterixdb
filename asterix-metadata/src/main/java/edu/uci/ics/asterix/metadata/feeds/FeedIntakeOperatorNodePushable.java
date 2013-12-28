@@ -26,6 +26,7 @@ import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.IAdapterRuntimeManager;
 import edu.uci.ics.asterix.common.feeds.IAdapterRuntimeManager.State;
 import edu.uci.ics.asterix.common.feeds.IFeedAdapter;
+import edu.uci.ics.asterix.common.feeds.IFeedMemoryManager;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.IFeedSubscriptionManager;
 import edu.uci.ics.asterix.common.feeds.ISubscriberRuntime;
@@ -46,6 +47,8 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
     private final int partition;
     private final FeedId feedId;
     private final IFeedSubscriptionManager feedSubscriptionManager;
+    private final IFeedMemoryManager feedMemoryManager;
+
     private IngestionRuntime ingestionRuntime;
     private IFeedAdapter adapter;
     private DistributeFeedFrameWriter feedFrameWriter;
@@ -62,6 +65,7 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
         IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject();
         this.feedSubscriptionManager = runtimeCtx.getFeedManager().getFeedSubscriptionManager();
+        this.feedMemoryManager = runtimeCtx.getFeedManager().getFeedMemoryManager();
     }
 
     @Override
@@ -78,7 +82,8 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                     }
                     throw new HyracksDataException(e);
                 }
-                feedFrameWriter = new DistributeFeedFrameWriter(feedId, writer, FeedRuntimeType.INGEST, recordDesc);
+                feedFrameWriter = new DistributeFeedFrameWriter(feedId, writer, FeedRuntimeType.INGEST, recordDesc,
+                        feedMemoryManager);
                 adapterExecutor = new AdapterRuntimeManager(feedId, adapter, feedFrameWriter, partition);
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Set up feed ingestion activity, would wait for subscribers: " + feedId);

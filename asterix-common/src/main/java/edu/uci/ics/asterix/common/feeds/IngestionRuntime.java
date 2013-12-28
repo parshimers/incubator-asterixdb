@@ -16,8 +16,6 @@ package edu.uci.ics.asterix.common.feeds;
 
 import java.util.logging.Level;
 
-import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FeedFrameCollector;
-
 public class IngestionRuntime extends SubscribableRuntime {
 
     private final IAdapterRuntimeManager adapterRuntimeManager;

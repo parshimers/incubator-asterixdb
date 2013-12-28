@@ -18,8 +18,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FeedFrameCollector;
-
 public class SubscribableRuntime implements ISubscribableRuntime {
 
     protected static final Logger LOGGER = Logger.getLogger(SubscribableRuntime.class.getName());

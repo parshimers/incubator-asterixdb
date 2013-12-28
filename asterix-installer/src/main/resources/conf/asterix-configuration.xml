@@ -1,17 +1,12 @@
-<!--
- ! Copyright 2009-2013 by The Regents of the University of California
- ! Licensed under the Apache License, Version 2.0 (the "License");
- ! you may not use this file except in compliance with the License.
- ! you may obtain a copy of the License from
- ! 
- !     http://www.apache.org/licenses/LICENSE-2.0
- ! 
- ! Unless required by applicable law or agreed to in writing, software
- ! distributed under the License is distributed on an "AS IS" BASIS,
- ! WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ! See the License for the specific language governing permissions and
- ! limitations under the License.
- !-->
+<!-- ! Copyright 2009-2013 by The Regents of the University of California 
+	! Licensed under the Apache License, Version 2.0 (the "License"); ! you may 
+	not use this file except in compliance with the License. ! you may obtain 
+	a copy of the License from ! ! http://www.apache.org/licenses/LICENSE-2.0 
+	! ! Unless required by applicable law or agreed to in writing, software ! 
+	distributed under the License is distributed on an "AS IS" BASIS, ! WITHOUT 
+	WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. ! See the 
+	License for the specific language governing permissions and ! limitations 
+	under the License. ! -->
 <asterixConfiguration xmlns="asterixconf">
 
 	<property>
@@ -27,13 +22,15 @@
 		</description>
 	</property>
 
-        <property>
-                <name>max.wait.active.cluster</name>
-                <value>60</value>
-                <description>Maximum wait (in seconds) for a cluster to be ACTIVE (all nodes are available)
-                        before a submitted query/statement can be executed. (Default = 60 seconds)
-                </description>
-        </property>
+	<property>
+		<name>max.wait.active.cluster</name>
+		<value>60</value>
+		<description>Maximum wait (in seconds) for a cluster to be ACTIVE (all
+			nodes are available)
+			before a submitted query/statement can be
+			executed. (Default = 60 seconds)
+		</description>
+	</property>
 
 	<property>
 		<name>storage.buffercache.pagesize</name>
@@ -75,7 +72,7 @@
 			(Default = 256)
 		</description>
 	</property>
-	
+
 	<property>
 		<name>storage.metadata.memorycomponent.numpages</name>
 		<value>64</value>
@@ -84,14 +81,14 @@
 		</description>
 	</property>
 
-    <property>
+	<property>
 		<name>storage.memorycomponent.numcomponents</name>
 		<value>2</value>
 		<description>The number of memory components to be used per lsm index.
 			(Default = 2)
 		</description>
 	</property>
-	
+
 	<property>
 		<name>storage.memorycomponent.globalbudget</name>
 		<value>536870912</value>
@@ -108,7 +105,7 @@
 			filters associated with LSM indexes. (Default = "0.01" // 1%)
 		</description>
 	</property>
-	
+
 	<property>
 		<name>txn.log.buffer.numpages</name>
 		<value>8</value>
@@ -233,6 +230,15 @@
 		<name>log.level</name>
 		<value>INFO</value>
 		<description>The minimum log level to be displayed. (Default = INFO)
+		</description>
+	</property>
+
+	<property>
+		<name>feed.memory.global.budget</name>
+		<value>67108864</value>
+		<description>The total size of memory in bytes that the sum of all
+			open memory buffers holding feed tuples cannot exceed. (Default =
+			"67108864" // 64MB)
 		</description>
 	</property>
 </asterixConfiguration>

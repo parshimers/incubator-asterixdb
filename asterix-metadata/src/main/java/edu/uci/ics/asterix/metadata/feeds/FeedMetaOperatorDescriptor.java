@@ -11,8 +11,8 @@ import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime;
 import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeState;
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
-import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.FeedFrameCollector;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedFrameCollector;
 import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
 import edu.uci.ics.asterix.common.feeds.IFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
@@ -20,7 +20,6 @@ import edu.uci.ics.asterix.common.feeds.IFeedRuntime;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.ISubscribableRuntime;
 import edu.uci.ics.asterix.common.feeds.SubscribableRuntime;
-import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.IActivity;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
@@ -252,7 +251,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
 
         private void registerSubscribableRuntime(IFeedFrameWriter feedFrameWriter) throws Exception {
             IFeedFrameWriter mWriter = new DistributeFeedFrameWriter(feedConnectionId.getFeedId(), writer, runtimeType,
-                    recordDesc);
+                    recordDesc, feedManager.getFeedMemoryManager());
             frameReader = ((DistributeFeedFrameWriter) mWriter).subscribeFeed(feedFrameWriter);
             FeedSubscribableRuntimeId sid = new FeedSubscribableRuntimeId(feedConnectionId.getFeedId(), runtimeType,
                     partition);
@@ -340,8 +339,6 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                             .getFeedSubscribableRuntimeId();
                     feedManager.getFeedSubscriptionManager().deregisterFeedSubscribableRuntime(runtimeId);
                     break;
-            // do nothing
-
             }
         }
 
