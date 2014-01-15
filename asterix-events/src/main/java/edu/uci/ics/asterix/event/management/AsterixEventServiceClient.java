@@ -32,6 +32,7 @@ import edu.uci.ics.asterix.event.driver.EventDriver;
 import edu.uci.ics.asterix.event.schema.cluster.Cluster;
 import edu.uci.ics.asterix.event.schema.cluster.Node;
 import edu.uci.ics.asterix.event.schema.event.Events;
+import edu.uci.ics.asterix.event.schema.pattern.Delay;
 import edu.uci.ics.asterix.event.schema.pattern.Event;
 import edu.uci.ics.asterix.event.schema.pattern.Nodeid;
 import edu.uci.ics.asterix.event.schema.pattern.Pattern;
@@ -186,14 +187,26 @@ public class AsterixEventServiceClient {
                 workingDir));
 
         if (!cluster.getWorkingDir().isNFS()) {
-            for (Node node : cluster.getNode()) {
-                patternList.add(getDirectoryTransferPattern(username, eventsDir, nodeid, node.getClusterIp(),
-                        workingDir));
-
-            }
+            distributeEventsDir(eventsDir, cluster);
         }
         Patterns patterns = new Patterns(patternList);
         return patterns;
+    }
+
+    private void distributeEventsDir(String eventsDir, Cluster cluster) throws Exception {
+        String workingDir = cluster.getWorkingDir().getDir();
+        Nodeid nodeid = new Nodeid(new Value(null, EventDriver.CLIENT_NODE.getId()));
+        if (!cluster.getWorkingDir().isNFS()) {
+            List<Pattern> patternList = new ArrayList<Pattern>();
+            Patterns patterns = new Patterns(patternList);
+            for (Node node : cluster.getNode()) {
+                Pattern p = getDirectoryTransferPattern(cluster.getUsername(), eventsDir, nodeid, node.getClusterIp(),
+                        workingDir);
+                patternList.add(p);
+                submit(patterns);
+                patternList.clear();
+            }
+        }
     }
 
     private Pattern getDirectoryTransferPattern(String username, String src, Nodeid srcNode, String destNodeIp,

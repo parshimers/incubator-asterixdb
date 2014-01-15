@@ -303,6 +303,50 @@ public class AqlExpressionToPlanTranslator extends AbstractAqlTranslator impleme
         return plan;
     }
 
+    private void insertAssignForComputationInFeedIngestion(ProjectOperator topOp, DatasetDataSource targetDatasource) {
+        ILogicalOperator parent = topOp;
+        ILogicalOperator assign = null;
+        ILogicalOperator unnest = null;
+        while (!parent.getOperatorTag().equals(LogicalOperatorTag.EMPTYTUPLESOURCE)) {
+            Mutable<ILogicalOperator> child = topOp.getInputs().get(0);
+            if(child.getValue().getOperatorTag().equals(LogicalOperatorTag.ASSIGN)){
+                if(child.getValue().getInputs().get(0).getValue().getOperatorTag().equals(LogicalOperatorTag.UNNEST)){
+                    unnest = child.getValue().getInputs().get(0).getValue();
+                    assign = child.getValue();
+                    break;
+                }
+            } else {
+                parent = child.getValue();
+            }
+        }
+        
+        if(assign != null){
+            ArrayList<LogicalVariable> vars = new ArrayList<LogicalVariable>();
+            ArrayList<Mutable<ILogicalExpression>> exprs = new ArrayList<Mutable<ILogicalExpression>>();
+            List<Mutable<ILogicalExpression>> varRefsForLoading = new ArrayList<Mutable<ILogicalExpression>>();
+            List<String> partitionKeys = DatasetUtils.getPartitioningKeys(targetDatasource.getDataset());
+            for (String keyFieldName : partitionKeys) {
+                IFunctionInfo finfoAccess = FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.FIELD_ACCESS_BY_NAME);
+                @SuppressWarnings("unchecked")
+                ScalarFunctionCallExpression f = new ScalarFunctionCallExpression(finfoAccess,
+                        new MutableObject<ILogicalExpression>(new VariableReferenceExpression(METADATA_DUMMY_VAR)),
+                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
+                                new AString(keyFieldName)))));
+              //  f.substituteVar(METADATA_DUMMY_VAR, resVar);
+                exprs.add(new MutableObject<ILogicalExpression>(f));
+                LogicalVariable v = context.newVar();
+                vars.add(v);
+                varRefsForLoading.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(v)));
+            }
+            AssignOperator newAssign = new AssignOperator(vars, exprs);
+            newAssign.getInputs().add(new MutableObject<ILogicalOperator>(unnest));
+     //       Mutable<ILogicalExpression> varRef = new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
+       //             resVar));
+            
+        }
+        
+    }
+
     private DatasetDataSource validateDatasetInfo(AqlMetadataProvider metadataProvider, String dataverseName,
             String datasetName) throws AlgebricksException {
         Dataset dataset = metadataProvider.findDataset(dataverseName, datasetName);

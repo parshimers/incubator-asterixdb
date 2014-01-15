@@ -96,6 +96,8 @@ public class EventUtil {
             vmult = 60 * 1000;
         } else if ("sec".equalsIgnoreCase(unit)) {
             vmult = 1000;
+        } else if ("msec".equalsIgnoreCase(unit)) {
+            vmult = 1;
         } else
             throw new IllegalArgumentException(" invalid unit value specified for frequency (hr,min,sec)");
         return val * vmult;
