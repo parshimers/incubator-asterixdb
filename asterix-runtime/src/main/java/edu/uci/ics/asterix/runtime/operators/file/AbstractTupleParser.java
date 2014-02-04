@@ -18,7 +18,6 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
@@ -56,6 +55,10 @@ public abstract class AbstractTupleParser implements ITupleParser {
 
     public abstract IDataParser getDataParser();
 
+    protected void postParserInitHook() {
+
+    }
+
     @Override
     public void parse(InputStream in, IFrameWriter writer) throws HyracksDataException {
 
@@ -63,6 +66,7 @@ public abstract class AbstractTupleParser implements ITupleParser {
         IDataParser parser = getDataParser();
         try {
             parser.initialize(in, recType, true);
+            postParserInitHook();
             while (true) {
                 tb.reset();
                 if (!parser.parse(tb.getDataOutput())) {

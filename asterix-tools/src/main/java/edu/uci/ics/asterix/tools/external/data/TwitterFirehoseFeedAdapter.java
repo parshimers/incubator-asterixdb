@@ -105,8 +105,7 @@ public class TwitterFirehoseFeedAdapter extends StreamBasedAdapter implements IF
 
         public DataProvider(Map<String, String> configuration, ARecordType outputtype, int partition, OutputStream os)
                 throws Exception {
-            this.tweetGenerator = new TweetGenerator(configuration, partition, TweetGenerator.OUTPUT_FORMAT_ADM_STRING,
-                    os);
+            this.tweetGenerator = new TweetGenerator(configuration, partition, os);
             this.os = os;
             mode = configuration.get(KEY_MODE) != null ? Mode.valueOf(configuration.get(KEY_MODE).toUpperCase())
                     : Mode.AGGRESSIVE;

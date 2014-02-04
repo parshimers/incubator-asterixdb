@@ -19,6 +19,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.exceptions.ACIDException;
@@ -28,11 +29,12 @@ import edu.uci.ics.asterix.common.transactions.ILogRecord;
 import edu.uci.ics.asterix.common.transactions.ITransactionContext;
 import edu.uci.ics.asterix.common.transactions.JobId;
 import edu.uci.ics.asterix.common.transactions.MutableLong;
-import edu.uci.ics.asterix.transaction.management.service.locking.LockManager;
 import edu.uci.ics.asterix.transaction.management.service.transaction.TransactionManagementConstants.LockManagerConstants.LockMode;
 import edu.uci.ics.asterix.transaction.management.service.transaction.TransactionSubsystem;
 
 public class LogPage implements ILogPage {
+
+    public static final AtomicInteger count = new AtomicInteger(0);
 
     public static final boolean IS_DEBUG_MODE = false;//true
     private static final Logger LOGGER = Logger.getLogger(LogPage.class.getName());
@@ -202,10 +204,12 @@ public class LogPage implements ILogPage {
             LogRecord logRecord = logPageReader.next();
             while (logRecord != null) {
                 if (logRecord.getLogType() == LogType.ENTITY_COMMIT) {
+                    count.incrementAndGet();
                     reusableJobId.setId(logRecord.getJobId());
                     txnCtx = txnSubsystem.getTransactionManager().getTransactionContext(reusableJobId, false);
                     reusableDsId.setId(logRecord.getDatasetId());
-                    txnSubsystem.getLockManager().unlock(reusableDsId, logRecord.getPKHashValue(), LockMode.ANY, txnCtx);
+                    txnSubsystem.getLockManager()
+                            .unlock(reusableDsId, logRecord.getPKHashValue(), LockMode.ANY, txnCtx);
                     txnCtx.notifyOptracker(false);
                 } else if (logRecord.getLogType() == LogType.JOB_COMMIT || logRecord.getLogType() == LogType.ABORT) {
                     reusableJobId.setId(logRecord.getJobId());

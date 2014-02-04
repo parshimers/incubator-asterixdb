@@ -55,7 +55,7 @@ public class TweetGenerator {
         return tweetCount;
     }
 
-    public TweetGenerator(Map<String, String> configuration, int partition, String format, OutputStream os)
+    public TweetGenerator(Map<String, String> configuration, int partition, OutputStream os)
             throws Exception {
         this.partition = partition;
         String value = configuration.get(KEY_DURATION);

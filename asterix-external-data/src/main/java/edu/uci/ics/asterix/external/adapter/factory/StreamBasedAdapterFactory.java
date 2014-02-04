@@ -27,7 +27,7 @@ import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.AUnionType;
 import edu.uci.ics.asterix.om.types.IAType;
-import edu.uci.ics.asterix.runtime.operators.file.AdmSchemafullRecordParserFactory;
+import edu.uci.ics.asterix.runtime.operators.file.ExperimentAdmSchemafullRecordParserFactory;
 import edu.uci.ics.asterix.runtime.operators.file.NtDelimitedDataTupleParserFactory;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.NotImplementedException;
 import edu.uci.ics.hyracks.dataflow.common.data.parsers.DoubleParserFactory;
@@ -47,6 +47,7 @@ public abstract class StreamBasedAdapterFactory implements IAdapterFactory {
     protected Map<String, String> configuration;
     protected static INodeResolver nodeResolver;
 
+    public static final String KEY_DURATION = "duration";
     public static final String KEY_FORMAT = "format";
     public static final String KEY_PARSER_FACTORY = "parser";
     public static final String KEY_DELIMITER = "delimiter";
@@ -107,9 +108,14 @@ public abstract class StreamBasedAdapterFactory implements IAdapterFactory {
 
     protected ITupleParserFactory getADMDataTupleParserFactory(ARecordType recordType, boolean conditionalPush)
             throws AsterixException {
+        long duration = 60000;
+        String durationStr = configuration.get(KEY_DURATION);
+        if (durationStr != null) {
+            duration = Long.parseLong(durationStr) * 1000;
+        }
         try {
             return conditionalPush ? new ConditionalPushTupleParserFactory(recordType, configuration)
-                    : new AdmSchemafullRecordParserFactory(recordType);
+                    : new ExperimentAdmSchemafullRecordParserFactory(recordType, duration);
         } catch (Exception e) {
             throw new AsterixException(e);
         }
