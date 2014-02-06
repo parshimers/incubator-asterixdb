@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ParallelActionSet extends AbstractAction {
 
@@ -12,7 +14,18 @@ public class ParallelActionSet extends AbstractAction {
     private final List<IAction> actions;
 
     public ParallelActionSet() {
-        executor = Executors.newCachedThreadPool();
+        executor = Executors.newCachedThreadPool(new ThreadFactory() {
+
+            private final AtomicInteger tid = new AtomicInteger(0);
+
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread t = new Thread(r);
+                t.setDaemon(true);
+                t.setName("ParallelActionThread " + tid.getAndIncrement());
+                return t;
+            }
+        });
         actions = new ArrayList<>();
     }
 

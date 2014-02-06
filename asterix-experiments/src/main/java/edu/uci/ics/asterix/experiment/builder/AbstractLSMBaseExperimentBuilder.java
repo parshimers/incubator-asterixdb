@@ -25,28 +25,35 @@ import edu.uci.ics.asterix.experiment.action.derived.SleepAction;
 import edu.uci.ics.asterix.experiment.client.LSMExperimentConstants;
 import edu.uci.ics.asterix.experiment.client.LSMExperimentSetRunner.LSMExperimentSetRunnerConfig;
 
-public class Experiment1Builder extends AbstractExperimentBuilder {
+public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimentBuilder {
 
     private static final String ASTERIX_INSTANCE_NAME = "a1";
 
-    private static final String CLUSTER_CONFIG = "1node.xml";
+    protected final HttpClient httpClient;
 
-    private final HttpClient httpClient;
+    protected final String restHost;
 
-    private final String restHost;
-
-    private final int restPort;
+    protected final int restPort;
 
     private final String managixHomePath;
 
-    private final Path localExperimentRoot;
+    protected final Path localExperimentRoot;
 
     private final String username;
 
     private final String sshKeyLocation;
 
-    public Experiment1Builder(LSMExperimentSetRunnerConfig config) {
-        super("Experiment 1");
+    private final int duration;
+
+    private final String clusterConfigFileName;
+
+    private final String ingestFileName;
+
+    private final String dgenFileName;
+
+    public AbstractLSMBaseExperimentBuilder(String name, LSMExperimentSetRunnerConfig config,
+            String clusterConfigFileName, String ingestFileName, String dgenFileName) {
+        super(name);
         this.httpClient = new DefaultHttpClient();
         this.restHost = config.getRESTHost();
         this.restPort = config.getRESTPort();
@@ -54,36 +61,41 @@ public class Experiment1Builder extends AbstractExperimentBuilder {
         this.localExperimentRoot = Paths.get(config.getLocalExperimentRoot());
         this.username = config.getUsername();
         this.sshKeyLocation = config.getSSHKeyLocation();
+        this.duration = config.getDuration();
+        this.clusterConfigFileName = clusterConfigFileName;
+        this.ingestFileName = ingestFileName;
+        this.dgenFileName = dgenFileName;
     }
+
+    protected abstract void doBuildDDL(SequentialActionList seq);
 
     @Override
     protected void doBuild(Experiment e) throws Exception {
         SequentialActionList execs = new SequentialActionList();
 
-        String clusterConfigFileName = localExperimentRoot.resolve(LSMExperimentConstants.CONFIG_DIR)
-                .resolve(CLUSTER_CONFIG).toString();
-        String asterixConfigFileName = localExperimentRoot.resolve(LSMExperimentConstants.CONFIG_DIR)
+        String clusterConfigPath = localExperimentRoot.resolve(LSMExperimentConstants.CONFIG_DIR)
+                .resolve(clusterConfigFileName).toString();
+        String asterixConfigPath = localExperimentRoot.resolve(LSMExperimentConstants.CONFIG_DIR)
                 .resolve(LSMExperimentConstants.ASTERIX_CONFIGURATION).toString();
 
         //create instance
         execs.add(new StopAsterixManagixAction(managixHomePath, ASTERIX_INSTANCE_NAME));
         execs.add(new DeleteAsterixManagixAction(managixHomePath, ASTERIX_INSTANCE_NAME));
-        execs.add(new CreateAsterixManagixAction(managixHomePath, ASTERIX_INSTANCE_NAME, clusterConfigFileName,
-                asterixConfigFileName));
+        execs.add(new CreateAsterixManagixAction(managixHomePath, ASTERIX_INSTANCE_NAME, clusterConfigPath,
+                asterixConfigPath));
 
         //run ddl statements
         execs.add(new SleepAction(4000));
         execs.add(new RunAQLFileAction(httpClient, restHost, restPort, localExperimentRoot.resolve(
                 LSMExperimentConstants.AQL_DIR).resolve(LSMExperimentConstants.BASE_TYPES)));
-        execs.add(new RunAQLFileAction(httpClient, restHost, restPort, localExperimentRoot.resolve(
-                LSMExperimentConstants.AQL_DIR).resolve("1.aql")));
+        doBuildDDL(execs);
         execs.add(new RunAQLFileAction(httpClient, restHost, restPort, localExperimentRoot
                 .resolve(LSMExperimentConstants.AQL_DIR).resolve(LSMExperimentConstants.BASE_DIR)
-                .resolve("base_1_ingest.aql")));
+                .resolve(ingestFileName)));
 
         //start datagen
         final Map<String, List<String>> dgenPairs = readDatagenPairs(localExperimentRoot.resolve(
-                LSMExperimentConstants.DGEN_DIR).resolve("1.dgen"));
+                LSMExperimentConstants.DGEN_DIR).resolve(dgenFileName));
         ParallelActionSet dgenActions = new ParallelActionSet();
         int partition = 0;
         for (String dgenHost : dgenPairs.keySet()) {
@@ -96,14 +108,17 @@ public class Experiment1Builder extends AbstractExperimentBuilder {
                     String ipPortPairs = StringUtils.join(rcvrs.iterator(), " ");
                     String binary = "JAVA_HOME=/home/zheilbro/java/jdk1.7.0_51 "
                             + localExperimentRoot.resolve("bin").resolve("expclient").toString();
-                    return StringUtils.join(new String[] { binary, "-p", "" + p, "-d", "" + 10, ipPortPairs }, " ");
+                    return StringUtils.join(new String[] { binary, "-p", "" + p, "-d", "" + duration, ipPortPairs },
+                            " ");
                 }
             });
             partition += rcvrs.size();
         }
         execs.add(dgenActions);
 
-        execs.add(new SleepAction(10000));
+        execs.add(new SleepAction(duration * 1000));
+        execs.add(new RunAQLFileAction(httpClient, restHost, restPort, localExperimentRoot.resolve(
+                LSMExperimentConstants.AQL_DIR).resolve("count.aql")));
         execs.add(new StopAsterixManagixAction(managixHomePath, ASTERIX_INSTANCE_NAME));
 
         e.addBody(execs);

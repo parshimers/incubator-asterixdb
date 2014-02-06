@@ -7,6 +7,10 @@ public abstract class AbstractExperimentBuilder {
         this.name = name;
     }
 
+    public String getName() {
+        return name;
+    }
+
     public final Experiment build() throws Exception {
         Experiment e = new Experiment(name);
         doBuild(e);

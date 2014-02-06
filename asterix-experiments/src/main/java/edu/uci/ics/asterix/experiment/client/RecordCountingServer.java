@@ -8,6 +8,7 @@ import java.net.Socket;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class RecordCountingServer {
 
@@ -21,13 +22,17 @@ public class RecordCountingServer {
 
     private boolean stopped;
 
+    private final Object o = new Object();
+
+    final AtomicBoolean b = new AtomicBoolean(false);
+
     public RecordCountingServer(int port, long duration) {
         this.port = port;
         this.duration = duration;
         threadPool = Executors.newCachedThreadPool();
     }
 
-    public void start() throws IOException {
+    public void start() throws IOException, InterruptedException {
         Thread t = new Thread(new Runnable() {
 
             @Override
@@ -41,6 +46,10 @@ public class RecordCountingServer {
                             break;
                         }
                         threadPool.execute(new RecordCountingThread(s, duration));
+                        synchronized (o) {
+                            b.set(true);
+                            o.notifyAll();
+                        }
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -50,11 +59,19 @@ public class RecordCountingServer {
         t.start();
     }
 
+    public void awaitFirstConnection() throws InterruptedException {
+        synchronized (o) {
+            if (!b.get()) {
+                o.wait();
+            }
+        }
+    }
+
     public void stop() throws IOException, InterruptedException {
         stopped = true;
-        ss.close();
         threadPool.shutdown();
         threadPool.awaitTermination(1000, TimeUnit.DAYS);
+        ss.close();
     }
 
     private static class RecordCountingThread implements Runnable {
@@ -112,14 +129,19 @@ public class RecordCountingServer {
     }
 
     public static void main(String[] args) throws Exception {
-        if (args.length != 1) {
-            System.err.println("Expecting <duration> argument (unit = milliseconds)");
-            System.exit(1);
-        }
         long duration = Long.parseLong(args[0]);
-        RecordCountingServer rcs = new RecordCountingServer(10005, duration);
-        rcs.start();
-        Thread.sleep(duration + 10000);
-        rcs.stop();
+        int port1 = Integer.parseInt(args[1]);
+        int port2 = Integer.parseInt(args[2]);
+        RecordCountingServer rcs1 = new RecordCountingServer(port1, duration * 1000);
+        RecordCountingServer rcs2 = new RecordCountingServer(port2, duration * 1000);
+        try {
+            rcs1.start();
+            rcs2.start();
+            rcs1.awaitFirstConnection();
+            rcs2.awaitFirstConnection();
+        } finally {
+            rcs1.stop();
+            rcs2.stop();
+        }
     }
 }

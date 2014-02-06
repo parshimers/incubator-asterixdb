@@ -1,15 +1,19 @@
 package edu.uci.ics.asterix.experiment.action.derived;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.MessageFormat;
 
+import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpHeaders;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
-import org.apache.http.util.EntityUtils;
 
 import edu.uci.ics.asterix.experiment.action.base.AbstractAction;
 
@@ -36,7 +40,16 @@ public class RunAQLFileAction extends AbstractAction {
         String aql = StandardCharsets.UTF_8.decode(ByteBuffer.wrap(Files.readAllBytes(aqlFilePath))).toString();
         String uri = MessageFormat.format(REST_URI_TEMPLATE, restHost, String.valueOf(restPort));
         HttpPost post = new HttpPost(uri);
+        post.setHeader(HttpHeaders.CONTENT_TYPE, "application/json");
         post.setEntity(new StringEntity(aql, StandardCharsets.UTF_8));
-        EntityUtils.consume(httpClient.execute(post).getEntity());
+        HttpEntity entity = httpClient.execute(post).getEntity();
+        if (entity != null && entity.isStreaming()) {
+            printStream(entity.getContent());
+        }
+    }
+
+    private void printStream(InputStream content) throws IOException {
+        IOUtils.copy(content, System.out);
+        System.out.flush();
     }
 }

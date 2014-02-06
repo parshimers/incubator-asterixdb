@@ -1,13 +1,50 @@
 package edu.uci.ics.asterix.experiment.client;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Pattern;
+
+import org.apache.log4j.LogManager;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
-import edu.uci.ics.asterix.experiment.builder.Experiment;
-import edu.uci.ics.asterix.experiment.builder.Experiment1Builder;
+import edu.uci.ics.asterix.experiment.action.base.SequentialActionList;
+import edu.uci.ics.asterix.experiment.builder.AbstractExperimentBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment1ABuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment1BBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment1CBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment1DBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment2A1Builder;
+import edu.uci.ics.asterix.experiment.builder.Experiment2A2Builder;
+import edu.uci.ics.asterix.experiment.builder.Experiment2A4Builder;
+import edu.uci.ics.asterix.experiment.builder.Experiment2A8Builder;
+import edu.uci.ics.asterix.experiment.builder.Experiment2B1Builder;
+import edu.uci.ics.asterix.experiment.builder.Experiment2B2Builder;
+import edu.uci.ics.asterix.experiment.builder.Experiment2B4Builder;
+import edu.uci.ics.asterix.experiment.builder.Experiment2B8Builder;
+import edu.uci.ics.asterix.experiment.builder.Experiment2C1Builder;
+import edu.uci.ics.asterix.experiment.builder.Experiment2C2Builder;
+import edu.uci.ics.asterix.experiment.builder.Experiment2C4Builder;
+import edu.uci.ics.asterix.experiment.builder.Experiment2C8Builder;
+import edu.uci.ics.asterix.experiment.builder.Experiment3Builder;
+import edu.uci.ics.asterix.experiment.builder.Experiment4ABuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment4BBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment4CBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment4DBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment5ABuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment5BBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment5CBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment5DBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment6ABuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment6BBuilder;
 
 public class LSMExperimentSetRunner {
+
+    private static final Logger LOGGER = Logger.getLogger(LSMExperimentSetRunner.class.getName());
+
     public static class LSMExperimentSetRunnerConfig {
         @Option(name = "-rh", aliases = "--rest-host", usage = "Asterix REST API host address", required = true, metaVar = "HOST")
         private String restHost;
@@ -50,9 +87,24 @@ public class LSMExperimentSetRunner {
         public String getSSHKeyLocation() {
             return sshKeyLocation;
         }
+
+        @Option(name = "-d", aliases = "--duartion", usage = "Duration in seconds", metaVar = "DURATION")
+        private int duration;
+
+        public int getDuration() {
+            return duration;
+        }
+
+        @Option(name = "-regex", aliases = "--regex", usage = "Regular expression used to match experiment names", metaVar = "REGEXP")
+        private String regex;
+
+        public String getRegex() {
+            return regex;
+        }
     }
 
     public static void main(String[] args) throws Exception {
+        LogManager.getRootLogger().setLevel(org.apache.log4j.Level.OFF);
         LSMExperimentSetRunnerConfig config = new LSMExperimentSetRunnerConfig();
         CmdLineParser clp = new CmdLineParser(config);
         try {
@@ -63,7 +115,46 @@ public class LSMExperimentSetRunner {
             System.exit(1);
         }
 
-        Experiment e1 = new Experiment1Builder(config).build();
-        e1.perform();
+        Collection<AbstractExperimentBuilder> suite = new ArrayList<>();
+        suite.add(new Experiment1ABuilder(config));
+        suite.add(new Experiment1BBuilder(config));
+        suite.add(new Experiment1CBuilder(config));
+        suite.add(new Experiment1DBuilder(config));
+        suite.add(new Experiment2A1Builder(config));
+        suite.add(new Experiment2A2Builder(config));
+        suite.add(new Experiment2A4Builder(config));
+        suite.add(new Experiment2A8Builder(config));
+        suite.add(new Experiment2B1Builder(config));
+        suite.add(new Experiment2B2Builder(config));
+        suite.add(new Experiment2B4Builder(config));
+        suite.add(new Experiment2B8Builder(config));
+        suite.add(new Experiment2C1Builder(config));
+        suite.add(new Experiment2C2Builder(config));
+        suite.add(new Experiment2C4Builder(config));
+        suite.add(new Experiment2C8Builder(config));
+        suite.add(new Experiment3Builder(config));
+        suite.add(new Experiment4ABuilder(config));
+        suite.add(new Experiment4BBuilder(config));
+        suite.add(new Experiment4CBuilder(config));
+        suite.add(new Experiment4DBuilder(config));
+        suite.add(new Experiment5ABuilder(config));
+        suite.add(new Experiment5BBuilder(config));
+        suite.add(new Experiment5CBuilder(config));
+        suite.add(new Experiment5DBuilder(config));
+        suite.add(new Experiment6ABuilder(config));
+        suite.add(new Experiment6BBuilder(config));
+
+        Pattern p = config.getRegex() == null ? null : Pattern.compile(config.getRegex());
+
+        SequentialActionList exps = new SequentialActionList();
+        for (AbstractExperimentBuilder eb : suite) {
+            if (p == null || p.matcher(eb.getName()).matches()) {
+                exps.add(eb.build());
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("Added " + eb.getName() + " to run list...");
+                }
+            }
+        }
+        //        exps.perform();
     }
 }
