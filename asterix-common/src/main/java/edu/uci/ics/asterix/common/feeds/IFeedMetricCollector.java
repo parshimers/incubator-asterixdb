@@ -14,19 +14,14 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
-/**
- * Handle (de)registration of feeds for delivery of control messages.
- */
-public interface IFeedManager {
+public interface IFeedMetricCollector {
 
-    public static final long SOCKET_CONNECT_TIMEOUT = 5000;
-
-    public IFeedSubscriptionManager getFeedSubscriptionManager();
-
-    public IFeedConnectionManager getFeedConnectionManager();
-
-    public IFeedMemoryManager getFeedMemoryManager();
-
-    public IFeedMetricCollector getFeedMetricCollector();
-
+    public enum MetricType {
+        AVG,
+        RATE
+    }
+    
+    public int createReportSender(String displayName, MetricType metricType);
+    
+    public void sendReport(int senderId, int value);
 }

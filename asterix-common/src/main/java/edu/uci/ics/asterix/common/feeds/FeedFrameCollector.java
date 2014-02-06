@@ -7,6 +7,7 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
 public class FeedFrameCollector extends MessageReceiver<DataBucket> implements IMessageReceiver<DataBucket> {
 
+    private FeedPolicyAccessor fpa;
     private IFeedFrameWriter frameWriter;
     private State state;
 
@@ -16,8 +17,9 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
         TRANSITION
     }
 
-    public FeedFrameCollector(IFeedFrameWriter frameWriter) {
+    public FeedFrameCollector(FeedPolicyAccessor feedPolicyAccessor, IFeedFrameWriter frameWriter) {
         super();
+        this.fpa = feedPolicyAccessor;
         this.frameWriter = frameWriter;
         this.state = State.ACTIVE;
     }
@@ -66,6 +68,10 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
 
     public synchronized void nextFrame(ByteBuffer frame) throws HyracksDataException {
         frameWriter.nextFrame(frame);
+    }
+
+    public FeedPolicyAccessor getFeedPolicyAccessor() {
+        return fpa;
     }
 
     public synchronized State getState() {

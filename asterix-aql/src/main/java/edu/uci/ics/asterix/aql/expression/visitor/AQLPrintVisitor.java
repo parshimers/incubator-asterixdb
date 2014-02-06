@@ -25,6 +25,7 @@ import edu.uci.ics.asterix.aql.expression.CallExpr;
 import edu.uci.ics.asterix.aql.expression.CompactStatement;
 import edu.uci.ics.asterix.aql.expression.ConnectFeedStatement;
 import edu.uci.ics.asterix.aql.expression.CreateDataverseStatement;
+import edu.uci.ics.asterix.aql.expression.CreateFeedPolicyStatement;
 import edu.uci.ics.asterix.aql.expression.CreateFeedStatement;
 import edu.uci.ics.asterix.aql.expression.CreateFunctionStatement;
 import edu.uci.ics.asterix.aql.expression.CreateIndexStatement;
@@ -37,6 +38,7 @@ import edu.uci.ics.asterix.aql.expression.DistinctClause;
 import edu.uci.ics.asterix.aql.expression.DropStatement;
 import edu.uci.ics.asterix.aql.expression.FLWOGRExpression;
 import edu.uci.ics.asterix.aql.expression.FeedDropStatement;
+import edu.uci.ics.asterix.aql.expression.FeedPolicyDropStatement;
 import edu.uci.ics.asterix.aql.expression.FieldAccessor;
 import edu.uci.ics.asterix.aql.expression.FieldBinding;
 import edu.uci.ics.asterix.aql.expression.ForClause;
@@ -551,6 +553,18 @@ public class AQLPrintVisitor implements IAqlVisitorWithVoidReturn<Integer> {
 
     @Override
     public void visit(CompactStatement fds, Integer arg) throws AsterixException {
+        // TODO Auto-generated method stub
+
+    }
+
+    @Override
+    public void visit(CreateFeedPolicyStatement stmt, Integer arg) throws AsterixException {
+        // TODO Auto-generated method stub
+
+    }
+
+    @Override
+    public void visit(FeedPolicyDropStatement stmt, Integer arg) throws AsterixException {
         // TODO Auto-generated method stub
 
     }

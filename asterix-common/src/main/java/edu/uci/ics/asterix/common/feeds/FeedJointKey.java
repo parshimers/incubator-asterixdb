@@ -18,6 +18,12 @@ import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
 
+/**
+ * Represents a unique identifier for a Feed Joint. A Feed joint is a logical entity located
+ * along a feed ingestion pipeline at a point where the tuples moving as part of data flow
+ * constitute the feed. The feed joint acts as a network tap and allows the flowing data to be
+ * routed to multiple paths.
+ */
 public class FeedJointKey {
 
     private final FeedId primaryFeedId;
@@ -63,7 +69,6 @@ public class FeedJointKey {
         if (!(o instanceof FeedJointKey)) {
             return false;
         }
-
         return stringRep.equals(((FeedJointKey) o).stringRep);
     }
 

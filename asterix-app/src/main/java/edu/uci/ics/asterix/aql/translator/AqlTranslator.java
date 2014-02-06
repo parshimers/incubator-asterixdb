@@ -15,6 +15,8 @@
 package edu.uci.ics.asterix.aql.translator;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.nio.ByteBuffer;
 import java.rmi.RemoteException;
@@ -24,6 +26,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Properties;
 import java.util.Random;
 import java.util.Set;
 import java.util.logging.Level;
@@ -42,6 +45,7 @@ import edu.uci.ics.asterix.aql.base.Statement;
 import edu.uci.ics.asterix.aql.expression.CompactStatement;
 import edu.uci.ics.asterix.aql.expression.ConnectFeedStatement;
 import edu.uci.ics.asterix.aql.expression.CreateDataverseStatement;
+import edu.uci.ics.asterix.aql.expression.CreateFeedPolicyStatement;
 import edu.uci.ics.asterix.aql.expression.CreateFeedStatement;
 import edu.uci.ics.asterix.aql.expression.CreateFunctionStatement;
 import edu.uci.ics.asterix.aql.expression.CreateIndexStatement;
@@ -55,6 +59,7 @@ import edu.uci.ics.asterix.aql.expression.DisconnectFeedStatement;
 import edu.uci.ics.asterix.aql.expression.DropStatement;
 import edu.uci.ics.asterix.aql.expression.ExternalDetailsDecl;
 import edu.uci.ics.asterix.aql.expression.FeedDropStatement;
+import edu.uci.ics.asterix.aql.expression.FeedPolicyDropStatement;
 import edu.uci.ics.asterix.aql.expression.FunctionDecl;
 import edu.uci.ics.asterix.aql.expression.FunctionDropStatement;
 import edu.uci.ics.asterix.aql.expression.Identifier;
@@ -79,13 +84,13 @@ import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FeedJointKey;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
-import edu.uci.ics.asterix.common.feeds.IFeedLifecycleListener.SubscriptionLocation;
 import edu.uci.ics.asterix.common.feeds.IFeedJoint;
 import edu.uci.ics.asterix.common.feeds.IFeedJoint.Scope;
 import edu.uci.ics.asterix.common.feeds.IFeedJoint.Type;
+import edu.uci.ics.asterix.common.feeds.IFeedLifecycleListener.SubscriptionLocation;
 import edu.uci.ics.asterix.common.functions.FunctionSignature;
-import edu.uci.ics.asterix.feeds.FeedLifecycleListener;
 import edu.uci.ics.asterix.feeds.FeedJoint;
+import edu.uci.ics.asterix.feeds.FeedLifecycleListener;
 import edu.uci.ics.asterix.file.DatasetOperations;
 import edu.uci.ics.asterix.file.DataverseOperations;
 import edu.uci.ics.asterix.file.FeedOperations;
@@ -302,6 +307,12 @@ public class AqlTranslator extends AbstractAqlTranslator {
                     handleDropFeedStatement(metadataProvider, stmt, hcc);
                     break;
                 }
+
+                case DROP_FEED_POLICY: {
+                    handleDropFeedPolicyStatement(metadataProvider, stmt, hcc);
+                    break;
+                }
+
                 case CONNECT_FEED: {
                     handleConnectFeedStatement(metadataProvider, stmt, hcc);
                     break;
@@ -314,6 +325,11 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
                 case SUBSCRIBE_FEED: {
                     handleSubscribeFeedStatement(metadataProvider, stmt, hcc);
+                    break;
+                }
+
+                case CREATE_FEED_POLICY: {
+                    handleCreateFeedPolicyStatement(metadataProvider, stmt, hcc);
                     break;
                 }
 
@@ -446,7 +462,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
         Dataset dataset = null;
         try {
             DatasetDecl dd = (DatasetDecl) stmt;
-            dataverseName = getActiveDataverseName(dd.getDataverse());
+            dataverseName = getActiveDataverse(dd.getDataverse());
             datasetName = dd.getName().getValue();
 
             DatasetType dsType = dd.getDatasetType();
@@ -660,7 +676,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
         Dataset ds = null;
         try {
             CreateIndexStatement stmtCreateIndex = (CreateIndexStatement) stmt;
-            dataverseName = getActiveDataverseName(stmtCreateIndex.getDataverseName());
+            dataverseName = getActiveDataverse(stmtCreateIndex.getDataverseName());
             datasetName = stmtCreateIndex.getDatasetName().getValue();
 
             ds = MetadataManager.INSTANCE.getDataset(metadataProvider.getMetadataTxnContext(), dataverseName,
@@ -808,7 +824,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
         try {
             TypeDecl stmtCreateType = (TypeDecl) stmt;
-            String dataverseName = getActiveDataverseName(stmtCreateType.getDataverseName());
+            String dataverseName = getActiveDataverse(stmtCreateType.getDataverseName());
             String typeName = stmtCreateType.getIdent().getValue();
             Dataverse dv = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverseName);
             if (dv == null) {
@@ -993,7 +1009,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
         List<JobSpecification> jobsToExecute = new ArrayList<JobSpecification>();
         try {
             DropStatement stmtDelete = (DropStatement) stmt;
-            dataverseName = getActiveDataverseName(stmtDelete.getDataverseName());
+            dataverseName = getActiveDataverse(stmtDelete.getDataverseName());
             datasetName = stmtDelete.getDatasetName().getValue();
 
             Dataset ds = MetadataManager.INSTANCE.getDataset(mdTxnCtx, dataverseName, datasetName);
@@ -1139,7 +1155,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
         try {
             IndexDropStatement stmtIndexDrop = (IndexDropStatement) stmt;
             datasetName = stmtIndexDrop.getDatasetName().getValue();
-            dataverseName = getActiveDataverseName(stmtIndexDrop.getDataverseName());
+            dataverseName = getActiveDataverse(stmtIndexDrop.getDataverseName());
 
             Dataset ds = MetadataManager.INSTANCE.getDataset(mdTxnCtx, dataverseName, datasetName);
             if (ds == null) {
@@ -1254,7 +1270,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
         try {
             TypeDropStatement stmtTypeDrop = (TypeDropStatement) stmt;
-            String dataverseName = getActiveDataverseName(stmtTypeDrop.getDataverseName());
+            String dataverseName = getActiveDataverse(stmtTypeDrop.getDataverseName());
             String typeName = stmtTypeDrop.getTypeName().getValue();
             Datatype dt = MetadataManager.INSTANCE.getDatatype(mdTxnCtx, dataverseName, typeName);
             if (dt == null) {
@@ -1305,7 +1321,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
         try {
             CreateFunctionStatement cfs = (CreateFunctionStatement) stmt;
-            String dataverse = getActiveDataverseName(cfs.getSignature().getNamespace());
+            String dataverse = getActiveDataverse(new Identifier(cfs.getSignature().getNamespace()));
             Dataverse dv = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverse);
             if (dv == null) {
                 throw new AlgebricksException("There is no dataverse with this name " + dataverse + ".");
@@ -1358,7 +1374,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
         List<JobSpecification> jobsToExecute = new ArrayList<JobSpecification>();
         try {
             LoadStatement loadStmt = (LoadStatement) stmt;
-            String dataverseName = getActiveDataverseName(loadStmt.getDataverseName());
+            String dataverseName = getActiveDataverse(loadStmt.getDataverseName());
             CompiledLoadFromFileStatement cls = new CompiledLoadFromFileStatement(dataverseName, loadStmt
                     .getDatasetName().getValue(), loadStmt.getAdapter(), loadStmt.getProperties(),
                     loadStmt.dataIsAlreadySorted());
@@ -1407,7 +1423,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
         try {
             metadataProvider.setWriteTransaction(true);
             InsertStatement stmtInsert = (InsertStatement) stmt;
-            String dataverseName = getActiveDataverseName(stmtInsert.getDataverseName());
+            String dataverseName = getActiveDataverse(stmtInsert.getDataverseName());
             CompiledInsertStatement clfrqs = new CompiledInsertStatement(dataverseName, stmtInsert.getDatasetName()
                     .getValue(), stmtInsert.getQuery(), stmtInsert.getVarCounter());
             JobSpecification compiled = rewriteCompileQuery(metadataProvider, clfrqs.getQuery(), clfrqs);
@@ -1440,7 +1456,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
         try {
             metadataProvider.setWriteTransaction(true);
             DeleteStatement stmtDelete = (DeleteStatement) stmt;
-            String dataverseName = getActiveDataverseName(stmtDelete.getDataverseName());
+            String dataverseName = getActiveDataverse(stmtDelete.getDataverseName());
             CompiledDeleteStatement clfrqs = new CompiledDeleteStatement(stmtDelete.getVariableExpr(), dataverseName,
                     stmtDelete.getDatasetName().getValue(), stmtDelete.getCondition(), stmtDelete.getVarCounter(),
                     metadataProvider);
@@ -1492,7 +1508,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
         Feed feed = null;
         try {
             CreateFeedStatement cfs = (CreateFeedStatement) stmt;
-            dataverseName = getActiveDataverseName(cfs.getDataverseName());
+            dataverseName = getActiveDataverse(cfs.getDataverseName());
             feedName = cfs.getFeedName().getValue();
 
             feed = MetadataManager.INSTANCE.getFeed(metadataProvider.getMetadataTxnContext(), dataverseName, feedName);
@@ -1533,6 +1549,66 @@ public class AqlTranslator extends AbstractAqlTranslator {
         }
     }
 
+    private void handleCreateFeedPolicyStatement(AqlMetadataProvider metadataProvider, Statement stmt,
+            IHyracksClientConnection hcc) throws Exception {
+        MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+        metadataProvider.setMetadataTxnContext(mdTxnCtx);
+        acquireWriteLatch();
+        String dataverse;
+        String policy;
+        FeedPolicy newPolicy = null;
+        try {
+            CreateFeedPolicyStatement cfps = (CreateFeedPolicyStatement) stmt;
+            dataverse = getActiveDataverse(null);
+            policy = cfps.getPolicyName();
+            FeedPolicy feedPolicy = MetadataManager.INSTANCE.getFeedPolicy(metadataProvider.getMetadataTxnContext(),
+                    dataverse, policy);
+            if (feedPolicy != null) {
+                if (cfps.getIfNotExists()) {
+                    MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+                    return;
+                } else {
+                    throw new AlgebricksException("A policy with this name " + policy + " already exists.");
+                }
+            }
+            boolean extendingExisting = cfps.getSourcePolicyName() != null;
+            if (extendingExisting) {
+                FeedPolicy sourceFeedPolicy = MetadataManager.INSTANCE.getFeedPolicy(
+                        metadataProvider.getMetadataTxnContext(), dataverse, cfps.getSourcePolicyName());
+                if (sourceFeedPolicy == null) {
+                    sourceFeedPolicy = MetadataManager.INSTANCE.getFeedPolicy(metadataProvider.getMetadataTxnContext(),
+                            MetadataConstants.METADATA_DATAVERSE_NAME, cfps.getSourcePolicyName());
+                    if (sourceFeedPolicy == null) {
+                        throw new AlgebricksException("Unknown policy " + cfps.getSourcePolicyName());
+                    }
+                }
+                Map<String, String> policyProperties = sourceFeedPolicy.getProperties();
+                policyProperties.putAll(cfps.getProperties());
+                newPolicy = new FeedPolicy(dataverse, policy, null, policyProperties);
+            } else {
+                Properties prop = new Properties();
+                try {
+                    InputStream stream = new FileInputStream(cfps.getSourcePolicyFile());
+                    prop.load(stream);
+                } catch (Exception e) {
+                    throw new AlgebricksException("Unable to read policy file" + cfps.getSourcePolicyFile());
+                }
+                Map<String, String> policyProperties = new HashMap<String, String>();
+                for (Entry<Object, Object> entry : prop.entrySet()) {
+                    policyProperties.put((String) entry.getKey(), (String) entry.getValue());
+                }
+                newPolicy = new FeedPolicy(dataverse, policy, cfps.getDescription(), policyProperties);
+            }
+            MetadataManager.INSTANCE.addFeedPolicy(mdTxnCtx, newPolicy);
+            MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+        } catch (Exception e) {
+            abort(e, e, mdTxnCtx);
+            throw e;
+        } finally {
+            releaseWriteLatch();
+        }
+    }
+
     private void handleDropFeedStatement(AqlMetadataProvider metadataProvider, Statement stmt,
             IHyracksClientConnection hcc) throws Exception {
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
@@ -1541,7 +1617,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
         try {
             FeedDropStatement stmtFeedDrop = (FeedDropStatement) stmt;
-            String dataverseName = getActiveDataverseName(stmtFeedDrop.getDataverseName());
+            String dataverseName = getActiveDataverse(stmtFeedDrop.getDataverseName());
             String feedName = stmtFeedDrop.getFeedName().getValue();
             Feed feed = MetadataManager.INSTANCE.getFeed(mdTxnCtx, dataverseName, feedName);
             if (feed == null) {
@@ -1587,7 +1663,35 @@ public class AqlTranslator extends AbstractAqlTranslator {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Dropped feed " + feedName);
             }
+            MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
 
+        } catch (Exception e) {
+            abort(e, e, mdTxnCtx);
+            throw e;
+        } finally {
+            releaseWriteLatch();
+        }
+    }
+
+    private void handleDropFeedPolicyStatement(AqlMetadataProvider metadataProvider, Statement stmt,
+            IHyracksClientConnection hcc) throws Exception {
+
+        MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+        metadataProvider.setMetadataTxnContext(mdTxnCtx);
+        acquireWriteLatch();
+
+        try {
+            FeedPolicyDropStatement stmtFeedPolicyDrop = (FeedPolicyDropStatement) stmt;
+            String dataverseName = getActiveDataverse(stmtFeedPolicyDrop.getDataverseName());
+            String policyName = stmtFeedPolicyDrop.getPolicyName().getValue();
+            FeedPolicy feedPolicy = MetadataManager.INSTANCE.getFeedPolicy(mdTxnCtx, dataverseName, policyName);
+            if (feedPolicy == null) {
+                if (!stmtFeedPolicyDrop.getIfExists()) {
+                    throw new AlgebricksException("There is no feed policy with this name " + policyName + ".");
+                }
+            }
+            MetadataManager.INSTANCE.dropFeedPolicy(mdTxnCtx, dataverseName, policyName);
+            MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
         } catch (Exception e) {
             abort(e, e, mdTxnCtx);
             throw e;
@@ -1606,7 +1710,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
         boolean readLatchAcquired = true;
         try {
             ConnectFeedStatement cfs = (ConnectFeedStatement) stmt;
-            String dataverseName = getActiveDataverseName(cfs.getDataverseName());
+            String dataverseName = getActiveDataverse(cfs.getDataverseName());
             metadataProvider.setWriteTransaction(true);
 
             CompiledConnectFeedStatement cbfs = new CompiledConnectFeedStatement(dataverseName, cfs.getFeedName(), cfs
@@ -1778,7 +1882,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
         try {
             DisconnectFeedStatement cfs = (DisconnectFeedStatement) stmt;
-            String dataverseName = getActiveDataverseName(cfs.getDataverseName());
+            String dataverseName = getActiveDataverse(cfs.getDataverseName());
 
             String datasetName = cfs.getDatasetName().getValue();
             Dataset dataset = MetadataManager.INSTANCE.getDataset(metadataProvider.getMetadataTxnContext(),
@@ -1893,7 +1997,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
         List<JobSpecification> jobsToExecute = new ArrayList<JobSpecification>();
         try {
             CompactStatement compactStatement = (CompactStatement) stmt;
-            dataverseName = getActiveDataverseName(compactStatement.getDataverseName());
+            dataverseName = getActiveDataverse(compactStatement.getDataverseName());
             datasetName = compactStatement.getDatasetName().getValue();
 
             Dataset ds = MetadataManager.INSTANCE.getDataset(mdTxnCtx, dataverseName, datasetName);
@@ -2084,7 +2188,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
         throw new AlgebricksException("dataverse not specified");
     }
 
-    private String getActiveDataverseName(Identifier dataverse) throws AlgebricksException {
+    private String getActiveDataverse(Identifier dataverse) throws AlgebricksException {
         return getActiveDataverseName(dataverse != null ? dataverse.getValue() : null);
     }
 

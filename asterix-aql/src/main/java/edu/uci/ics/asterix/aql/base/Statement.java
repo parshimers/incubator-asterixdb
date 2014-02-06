@@ -43,6 +43,8 @@ public interface Statement extends IAqlExpression {
         CONNECT_FEED,
         DISCONNECT_FEED,
         SUBSCRIBE_FEED,
+        CREATE_FEED_POLICY,
+        DROP_FEED_POLICY,
         CREATE_FUNCTION,
         FUNCTION_DROP,
         COMPACT

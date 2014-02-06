@@ -17,6 +17,7 @@ package edu.uci.ics.asterix.metadata.feeds;
 import java.util.HashMap;
 import java.util.Map;
 
+import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.metadata.bootstrap.MetadataConstants;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
 
@@ -75,6 +76,7 @@ public class BuiltinFeedPolicies {
         policyParams.put(FeedPolicyAccessor.CLUSTER_REBOOT_AUTO_RESTART, "true");
         policyParams.put(FeedPolicyAccessor.COLLECT_STATISTICS, "false");
         policyParams.put(FeedPolicyAccessor.ELASTIC, "false");
+        policyParams.put(FeedPolicyAccessor.MAX_SPILL_SIZE_ON_DISK, "false");
         String description = "Basic Monitored Fault-Tolerant";
         return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "BF", description, policyParams);
     }

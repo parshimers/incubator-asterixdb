@@ -241,6 +241,7 @@ Statement CreateStatement() throws ParseException:
     | stmt = DataverseSpecification()
     | stmt = FunctionSpecification()
     | stmt = FeedSpecification()
+    | stmt = FeedPolicySpecification()
   )        
   {
     return stmt;
@@ -518,7 +519,36 @@ CreateFeedStatement FeedSpecification() throws ParseException:
     }
 }
 
-
+CreateFeedPolicyStatement FeedPolicySpecification() throws ParseException:
+{
+  String policyName = null;  
+  String basePolicyName = null; 
+  String sourcePolicyFile = null;
+  String description = null;
+  boolean ifNotExists = false;
+  Map<String,String> properties = null;
+  CreateFeedPolicyStatement cfps = null;
+}
+{
+  (
+    "ingestion" "policy"  policyName = Identifier() ifNotExists = IfNotExists()
+      "from" 
+      ("policy" basePolicyName = Identifier() properties = Configuration() ("description" description = StringLiteral())?  
+      {
+        cfps = new CreateFeedPolicyStatement(policyName,
+                                   basePolicyName, properties, description, ifNotExists);
+      }
+     | "path" sourcePolicyFile = Identifier() ("description" description = StringLiteral())?  
+       {
+        cfps = new CreateFeedPolicyStatement(policyName, sourcePolicyFile, description, ifNotExists);
+       }
+     ) 
+       
+  )
+    {
+      return cfps;
+    }
+}
 
 List<VarIdentifier> ParameterList() throws ParseException:
 {
@@ -663,7 +693,11 @@ Statement DropStatement() throws ParseException:
     | "feed" pairId = QualifiedName() ifExists = IfExists()
       {
         stmt = new FeedDropStatement(pairId.first, pairId.second, ifExists);
-      }  
+      }
+    | "ingestion" "policy" pairId = QualifiedName() ifExists = IfExists()
+      {
+        stmt = new FeedPolicyDropStatement(pairId.first, pairId.second, ifExists);
+      }    
   )
   {
     return stmt;  

@@ -39,6 +39,7 @@ import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionInfo;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FeedJointKey;
+import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriber;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
 import edu.uci.ics.asterix.common.feeds.IFeedJoint;
@@ -59,7 +60,6 @@ import edu.uci.ics.asterix.metadata.feeds.FeedCollectOperatorDescriptor;
 import edu.uci.ics.asterix.metadata.feeds.FeedIntakeOperatorDescriptor;
 import edu.uci.ics.asterix.metadata.feeds.FeedManagerElectMessage;
 import edu.uci.ics.asterix.metadata.feeds.FeedMetaOperatorDescriptor;
-import edu.uci.ics.asterix.metadata.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.metadata.feeds.FeedWorkManager;
 import edu.uci.ics.asterix.metadata.feeds.IFeedMessage;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
@@ -417,10 +417,15 @@ public class FeedJobNotificationHandler implements Runnable {
             if (actualOp instanceof AlgebricksMetaOperatorDescriptor) {
                 AlgebricksMetaOperatorDescriptor op = ((AlgebricksMetaOperatorDescriptor) actualOp);
                 IPushRuntimeFactory[] runtimeFactories = op.getPipeline().getRuntimeFactories();
+                boolean computeOp = false;
                 for (IPushRuntimeFactory rf : runtimeFactories) {
                     if (rf instanceof AssignRuntimeFactory) {
-                        computeOperatorIds.add(entry.getKey());
+                        computeOp = true;
+                        break;
                     }
+                }
+                if (computeOp) {
+                    computeOperatorIds.add(entry.getKey());
                 }
             } else if (actualOp instanceof LSMTreeIndexInsertUpdateDeleteOperatorDescriptor) {
                 storageOperatorIds.add(entry.getKey());

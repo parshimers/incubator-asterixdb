@@ -14,19 +14,19 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
-/**
- * Handle (de)registration of feeds for delivery of control messages.
- */
-public interface IFeedManager {
+import java.nio.ByteBuffer;
+import java.util.Iterator;
 
-    public static final long SOCKET_CONNECT_TIMEOUT = 5000;
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
-    public IFeedSubscriptionManager getFeedSubscriptionManager();
+public interface IFeedFrameHandler {
 
-    public IFeedConnectionManager getFeedConnectionManager();
+    public void handleFrame(ByteBuffer frame) throws HyracksDataException;
 
-    public IFeedMemoryManager getFeedMemoryManager();
-
-    public IFeedMetricCollector getFeedMetricCollector();
+    public void handleDataBucket(DataBucket bucket);
+    
+    public void close();
+    
+    public Iterator<ByteBuffer> replayData() throws Exception;
 
 }

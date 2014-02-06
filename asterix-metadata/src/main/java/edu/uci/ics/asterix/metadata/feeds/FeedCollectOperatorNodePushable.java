@@ -132,7 +132,7 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
         if (sourceRuntime.getFeedRuntimeType().equals(FeedRuntimeType.COMPUTE)) {
             this.recordDesc = sourceRuntime.getFeedFrameWriter().getRecordDescriptor();
         }
-        sourceRuntime.subscribeFeed(collectRuntime);
+        sourceRuntime.subscribeFeed(policyEnforcer.getFeedPolicyAccessor(), collectRuntime);
     }
 
     private void handleCompleteConnection() throws Exception {
@@ -158,7 +158,7 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
             if (sourceRuntime.getFeedRuntimeType().equals(FeedRuntimeType.COMPUTE)) {
                 this.recordDesc = sourceRuntime.getFeedFrameWriter().getRecordDescriptor();
             }
-            sourceRuntime.subscribeFeed(collectRuntime);
+            sourceRuntime.subscribeFeed(policyEnforcer.getFeedPolicyAccessor(), collectRuntime);
         } else {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Resuming old feed:" + feedConnectionId);

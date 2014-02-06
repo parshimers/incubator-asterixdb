@@ -17,7 +17,6 @@ package edu.uci.ics.asterix.metadata;
 
 import java.rmi.RemoteException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
@@ -47,7 +46,6 @@ import edu.uci.ics.asterix.metadata.entities.Datatype;
 import edu.uci.ics.asterix.metadata.entities.Dataverse;
 import edu.uci.ics.asterix.metadata.entities.Feed;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity;
-import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityType;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
 import edu.uci.ics.asterix.metadata.entities.Function;
 import edu.uci.ics.asterix.metadata.entities.Index;
@@ -1477,6 +1475,28 @@ public class MetadataNode implements IMetadataNode {
             throw new MetadataException(e);
         }
 
+    }
+
+    @Override
+    public void dropFeedPolicy(JobId jobId, String dataverseName, String policyName) throws MetadataException,
+            RemoteException {
+        try {
+            ITupleReference searchKey = createTuple(dataverseName, policyName);
+            ITupleReference tuple = getTupleToBeDeleted(jobId, MetadataPrimaryIndexes.FEED_POLICY_DATASET, searchKey);
+            deleteTupleFromIndex(jobId, MetadataPrimaryIndexes.FEED_POLICY_DATASET, tuple);
+
+            List<ITupleReference> tuplesToBeDeleted = getTuplesToBeDeleted(jobId,
+                    MetadataPrimaryIndexes.FEED_POLICY_DATASET, searchKey);
+            if (tuplesToBeDeleted != null && !tuplesToBeDeleted.isEmpty()) {
+                for (ITupleReference t : tuplesToBeDeleted) {
+                    deleteTupleFromIndex(jobId, MetadataPrimaryIndexes.FEED_POLICY_DATASET, t);
+                }
+            }
+        } catch (TreeIndexException e) {
+            throw new MetadataException("Unknown feed policy " + policyName, e);
+        } catch (Exception e) {
+            throw new MetadataException(e);
+        }
     }
 
 }

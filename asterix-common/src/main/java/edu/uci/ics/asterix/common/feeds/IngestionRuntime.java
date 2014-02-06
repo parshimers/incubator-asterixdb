@@ -27,8 +27,8 @@ public class IngestionRuntime extends SubscribableRuntime {
         this.adapterRuntimeManager = adaptorRuntimeManager;
     }
 
-    public void subscribeFeed(CollectionRuntime collectionRuntime) throws Exception {
-        FeedFrameCollector reader = feedWriter.subscribeFeed(collectionRuntime.getFeedFrameWriter());
+    public void subscribeFeed(FeedPolicyAccessor fpa, CollectionRuntime collectionRuntime) throws Exception {
+        FeedFrameCollector reader = feedWriter.subscribeFeed(fpa, collectionRuntime.getFeedFrameWriter());
         collectionRuntime.setFrameCollector(reader);
         if (feedWriter.getDistributionMode().equals(DistributeFeedFrameWriter.DistributionMode.SINGLE)) {
             adapterRuntimeManager.start();

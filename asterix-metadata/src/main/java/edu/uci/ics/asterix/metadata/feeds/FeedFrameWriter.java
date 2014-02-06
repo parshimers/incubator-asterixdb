@@ -31,6 +31,8 @@ import edu.uci.ics.asterix.common.feeds.IFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.IFeedMemoryComponent;
 import edu.uci.ics.asterix.common.feeds.IFeedMemoryManager;
+import edu.uci.ics.asterix.common.feeds.IFeedMetricCollector;
+import edu.uci.ics.asterix.common.feeds.IFeedMetricCollector.MetricType;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.SuperFeedManager;
 import edu.uci.ics.asterix.common.feeds.SuperFeedManager.FeedReportMessageType;
@@ -112,7 +114,11 @@ public class FeedFrameWriter implements IFeedFrameWriter {
      */
     private FrameTupleAccessor fta;
 
-    private IFeedMemoryManager memoryManager;
+    private final IFeedMemoryManager memoryManager;
+
+    private final IFeedMetricCollector metricCollector;
+
+    private final int metricSourceId;
 
     /** A buffer for keeping frames that are waiting to be processed **/
     private FrameCollection frames;
@@ -125,6 +131,12 @@ public class FeedFrameWriter implements IFeedFrameWriter {
         this.writer = writer;
         this.mode = Mode.FORWARD;
         this.nodePushable = nodePushable;
+        this.partition = partition;
+        this.fta = new FrameTupleAccessor(ctx.getFrameSize(), outputRecordDescriptor);
+        this.memoryManager = feedManager.getFeedMemoryManager();
+        this.metricCollector = feedManager.getFeedMetricCollector();
+        metricSourceId = metricCollector.createReportSender(feedConnectionId + "(" + feedRuntimeType + ")" + "["
+                + partition + "]", MetricType.RATE);
         this.reportHealth = policyEnforcer.getFeedPolicyAccessor().collectStatistics();
         if (reportHealth) {
             timer = new Timer();
@@ -141,9 +153,6 @@ public class FeedFrameWriter implements IFeedFrameWriter {
                         + feedRuntimeType + " [" + partition + "]");
             }
         }
-        this.partition = partition;
-        this.fta = new FrameTupleAccessor(ctx.getFrameSize(), outputRecordDescriptor);
-        this.memoryManager = feedManager.getFeedMemoryManager();
     }
 
     public Mode getMode() {
@@ -173,6 +182,8 @@ public class FeedFrameWriter implements IFeedFrameWriter {
                     } else {
                         writer.nextFrame(buffer);
                     }
+                    fta.reset(buffer);
+                    metricCollector.sendReport(metricSourceId, fta.getTupleCount());
                 } catch (Exception e) {
                     e.printStackTrace();
                     if (LOGGER.isLoggable(Level.SEVERE)) {
@@ -234,12 +245,6 @@ public class FeedFrameWriter implements IFeedFrameWriter {
 
         private static final String EOL = "\n";
 
-        private long startTime = -1;
-        private FramePushState state;
-        private AtomicLong numTuplesInInterval = new AtomicLong(0);
-        private boolean collectThroughput;
-        private FeedMessageService mesgService;
-
         private final FeedConnectionId feedConnectionId;
         private final String nodeId;
         private final FeedRuntimeType feedRuntimeType;
@@ -247,6 +252,12 @@ public class FeedFrameWriter implements IFeedFrameWriter {
         private final long period;
         private final FrameTupleAccessor fta;
         private final IFeedManager feedManager;
+
+        private long startTime = -1;
+        private FramePushState state;
+        private AtomicLong numTuplesInInterval = new AtomicLong(0);
+        private boolean collectThroughput;
+        private FeedMessageService mesgService;
 
         public HealthMonitor(FeedConnectionId feedId, String nodeId, FeedRuntimeType feedRuntimeType, int partition,
                 Timer timer, FrameTupleAccessor fta, IFeedManager feedManager) {
@@ -286,7 +297,8 @@ public class FeedFrameWriter implements IFeedFrameWriter {
                 long currentTime = System.currentTimeMillis();
                 if (currentTime - startTime > FLUSH_THRESHOLD_TIME) {
                     if (LOGGER.isLoggable(Level.SEVERE)) {
-                        LOGGER.severe("Congestion reported by " + feedRuntimeType + " [" + partition + "]");
+                        LOGGER.severe("Unable to flush " + "[" + (currentTime - startTime) + "msec]"
+                                + "Congestion reported by " + feedRuntimeType + " [" + partition + "]");
                     }
                     sendReportToSuperFeedManager(currentTime - startTime, FeedReportMessageType.CONGESTION,
                             System.currentTimeMillis());
@@ -400,7 +412,7 @@ public class FeedFrameWriter implements IFeedFrameWriter {
 
     @Override
     public String toString() {
-        return "FeedFrameWriter [" + feedConnectionId + ":" + partition + "(" + mode + ")" + "]";
+        return "FeedFrameWriter [" + feedConnectionId.getFeedId() + "[" + partition + "]" + mode + ")" + "]";
     }
 
     @Override

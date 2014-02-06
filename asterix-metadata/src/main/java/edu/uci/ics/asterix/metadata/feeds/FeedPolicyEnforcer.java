@@ -19,6 +19,7 @@ import java.util.Map;
 
 import edu.uci.ics.asterix.common.exceptions.ACIDException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 
 public class FeedPolicyEnforcer {
 

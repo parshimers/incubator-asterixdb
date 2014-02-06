@@ -1,5 +1,6 @@
 package edu.uci.ics.asterix.metadata.feeds;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -14,8 +15,10 @@ import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedFrameCollector;
 import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
+import edu.uci.ics.asterix.common.feeds.FrameCollection;
 import edu.uci.ics.asterix.common.feeds.IFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
+import edu.uci.ics.asterix.common.feeds.IFeedMemoryComponent;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.ISubscribableRuntime;
@@ -27,6 +30,7 @@ import edu.uci.ics.hyracks.api.dataflow.IOperatorNodePushable;
 import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
+import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
 import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
@@ -141,10 +145,18 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
         private IFeedManager feedManager;
 
         /** The frame reader instance that reads the input frames from the distribute feed writer **/
-        private FeedFrameCollector frameReader;
+        private FeedFrameCollector outputSideFrameCollector;
 
         /** true indicates that the runtime can be subscribed for data by other runtime instances. **/
         private final boolean enableSubscriptionMode;
+
+        private final boolean inputSideBufferring;
+
+        /** A data structure that allows buffering at the input side so that back-pressure is not escalated upstream. **/
+        private FrameCollection frameCollection;
+
+        /** The frame reader instance that reads the input frames from upstream operator **/
+        private FeedFrameCollector inputSideFrameCollector;
 
         private final IHyracksTaskContext ctx;
 
@@ -162,8 +174,8 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
             this.nodeId = ctx.getJobletContext().getApplicationContext().getNodeId();
             this.feedManager = ((IAsterixAppRuntimeContext) (IAsterixAppRuntimeContext) ctx.getJobletContext()
                     .getApplicationContext().getApplicationObject()).getFeedManager();
-            this.enableSubscriptionMode = enableSubscriptionMode;
-
+            this.enableSubscriptionMode = enableSubscriptionMode; // set to true for COMPUTE operator when feed has an associated UDF.
+            this.inputSideBufferring = runtimeType.equals(FeedRuntimeType.COMPUTE) && enableSubscriptionMode;
         }
 
         @Override
@@ -176,11 +188,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                 if (feedRuntime == null) {
                     switch (runtimeType) {
                         case COMPUTE:
-                            if (enableSubscriptionMode) {
-                                registerSubscribableRuntime(mWriter);
-                            } else {
-                                registerBasicFeedRuntime(mWriter);
-                            }
+                            wrapComputeOperator(mWriter);
                             break;
                         case COMMIT:
                         case STORE:
@@ -221,9 +229,23 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                 coreOperatorNodePushable.open();
             } catch (Exception e) {
                 if (LOGGER.isLoggable(Level.SEVERE)) {
-                    LOGGER.severe("Unable to initialize feed operator " + feedRuntime + " [" + partition + "]");
+                    LOGGER.severe("Unable to initialize feed operator " + runtimeType + " [" + partition + "]");
                 }
                 throw new HyracksDataException(e);
+            }
+        }
+
+        private void wrapComputeOperator(IFeedFrameWriter writer) throws Exception {
+            IFeedFrameWriter outputWriter = writer;
+            if (enableSubscriptionMode) {
+                outputWriter = registerSubscribableRuntime(outputWriter);
+            } else {
+                registerBasicFeedRuntime(outputWriter);
+            }
+            if (inputSideBufferring) {
+                frameCollection = (FrameCollection) feedManager.getFeedMemoryManager().getMemoryComponent(
+                        IFeedMemoryComponent.Type.COLLECTION);
+                inputSideFrameCollector = new FeedFrameCollector(policyEnforcer.getFeedPolicyAccessor(), outputWriter);
             }
         }
 
@@ -232,8 +254,8 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
             dWriter.setWriter(writer);
             Map<IFeedFrameWriter, FeedFrameCollector> registeredReaders = dWriter.getRegisteredReaders();
             for (Entry<IFeedFrameWriter, FeedFrameCollector> entry : registeredReaders.entrySet()) {
-                if (entry.getValue().equals(frameReader)) {
-                    frameReader.setFrameWriter(frameWriter);
+                if (entry.getValue().equals(outputSideFrameCollector)) {
+                    outputSideFrameCollector.setFrameWriter(frameWriter);
                     break;
                 }
             }
@@ -249,23 +271,26 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
             }
         }
 
-        private void registerSubscribableRuntime(IFeedFrameWriter feedFrameWriter) throws Exception {
-            IFeedFrameWriter mWriter = new DistributeFeedFrameWriter(feedConnectionId.getFeedId(), writer, runtimeType,
-                    recordDesc, feedManager.getFeedMemoryManager());
-            frameReader = ((DistributeFeedFrameWriter) mWriter).subscribeFeed(feedFrameWriter);
+        private IFeedFrameWriter registerSubscribableRuntime(IFeedFrameWriter feedFrameWriter) throws Exception {
+            FrameTupleAccessor fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
+            IFeedFrameWriter distributeWriter = new DistributeFeedFrameWriter(feedConnectionId.getFeedId(), writer,
+                    runtimeType, partition, recordDesc, fta, feedManager);
+            outputSideFrameCollector = ((DistributeFeedFrameWriter) distributeWriter).subscribeFeed(
+                    policyEnforcer.getFeedPolicyAccessor(), feedFrameWriter);
             FeedSubscribableRuntimeId sid = new FeedSubscribableRuntimeId(feedConnectionId.getFeedId(), runtimeType,
                     partition);
-            feedRuntime = new SubscribableRuntime(sid, (DistributeFeedFrameWriter) mWriter, runtimeType);
+            feedRuntime = new SubscribableRuntime(sid, (DistributeFeedFrameWriter) distributeWriter, runtimeType);
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Set up distrbute feed frame writer for subscribable runtime id " + sid + " of type ["
                         + FeedRuntimeType.COMPUTE + "]");
             }
             feedManager.getFeedSubscriptionManager()
                     .registerFeedSubscribableRuntime((ISubscribableRuntime) feedRuntime);
-            coreOperatorNodePushable.setOutputFrameWriter(0, mWriter, recordDesc);
+            coreOperatorNodePushable.setOutputFrameWriter(0, distributeWriter, recordDesc);
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Registered subscribable feed runtime " + feedRuntime);
             }
+            return distributeWriter;
         }
 
         @Override
@@ -278,7 +303,17 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                     resumeOldState = false;
                 }
                 currentBuffer = buffer;
-                coreOperatorNodePushable.nextFrame(buffer);
+                // add buffering here...
+                if (frameCollection == null) {
+                    coreOperatorNodePushable.nextFrame(buffer);
+                } else {
+                    boolean added = frameCollection.addFrame(buffer);
+                    if (added) {
+
+                    } else {
+                        // handle memory congestion
+                    }
+                }
                 currentBuffer = null;
             } catch (HyracksDataException e) {
                 if (policyEnforcer.getFeedPolicyAccessor().continueOnApplicationFailure()) {

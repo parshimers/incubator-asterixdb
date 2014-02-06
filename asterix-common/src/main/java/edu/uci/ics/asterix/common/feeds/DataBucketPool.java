@@ -19,6 +19,8 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import edu.uci.ics.asterix.common.feeds.IMemoryEventListener.MemoryEventType;
+
 /**
  * Represents a pool of reusable {@link DataBucket}
  */
@@ -38,7 +40,9 @@ public class DataBucketPool implements IFeedMemoryComponent {
     private final List<DataBucket> pool;
 
     /** The total number of data buckets {@link DataBucket} allocated **/
-    private int totolAllocation;
+    private int totalAllocation;
+
+    private IMemoryEventListener listener;
 
     public DataBucketPool(int componentId, IFeedMemoryManager memoryManager, int size) {
         this.componentId = componentId;
@@ -48,7 +52,15 @@ public class DataBucketPool implements IFeedMemoryComponent {
             DataBucket bucket = new DataBucket(this);
             pool.add(bucket);
         }
-        this.totolAllocation += size;
+        this.totalAllocation += size;
+    }
+
+    public void registerMemoryEventListener(IMemoryEventListener listener) {
+        this.listener = listener;
+    }
+
+    public void unregisterMemoryEventListener() {
+        this.listener = null;
     }
 
     public void returnDataBucket(DataBucket bucket) {
@@ -56,6 +68,19 @@ public class DataBucketPool implements IFeedMemoryComponent {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("returned data bucket " + this + " back to the pool");
         }
+        if (((float) pool.size()) / totalAllocation > 0.5) {
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("DataBucketPool " + this + " is 50% available. Memory available event signalled");
+            }
+            listener.processEvent(MemoryEventType.MEMORY_AVAILABLE);
+            unregisterMemoryEventListener();
+        } else {
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Current size of pool:" + pool.size() + ".  Waiting for pool size to be atleast "
+                        + (float) totalAllocation / 2);
+            }
+        }
+
     }
 
     public DataBucket getDataBucket() {
@@ -93,7 +118,7 @@ public class DataBucketPool implements IFeedMemoryComponent {
 
     @Override
     public int getCurrentSize() {
-        return totolAllocation;
+        return totalAllocation;
     }
 
     @Override
@@ -107,18 +132,18 @@ public class DataBucketPool implements IFeedMemoryComponent {
             DataBucket bucket = new DataBucket(this);
             pool.add(bucket);
         }
-        totolAllocation += delta;
+        totalAllocation += delta;
     }
 
     @Override
     public void reset() {
-        totolAllocation -= pool.size();
+        totalAllocation -= pool.size();
         pool.clear();
     }
 
     @Override
     public String toString() {
-        return "DataBucketPool" + "[" + componentId + "]" + "(" + totolAllocation + ")";
+        return "DataBucketPool" + "[" + componentId + "]" + "(" + totalAllocation + ")";
     }
 
     public int getSize() {

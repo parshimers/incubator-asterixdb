@@ -17,7 +17,7 @@ package edu.uci.ics.asterix.common.feeds;
 import java.util.List;
 
 /**
- * Represent a feed runtime whose output can be subscribed.
+ * Represent a feed runtime the output of which can be subscribed.
  */
 public interface ISubscribableRuntime extends IFeedRuntime {
 
@@ -30,7 +30,7 @@ public interface ISubscribableRuntime extends IFeedRuntime {
      * @param collectionRuntime
      * @throws Exception
      */
-    public void subscribeFeed(CollectionRuntime collectionRuntime) throws Exception;
+    public void subscribeFeed(FeedPolicyAccessor fpa, CollectionRuntime collectionRuntime) throws Exception;
 
     /**
      * @param collectionRuntime

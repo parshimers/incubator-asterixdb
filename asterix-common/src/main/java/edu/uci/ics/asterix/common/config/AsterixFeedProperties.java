@@ -17,7 +17,10 @@ package edu.uci.ics.asterix.common.config;
 public class AsterixFeedProperties extends AbstractAsterixProperties {
 
     private static final String FEED_MEMORY_GLOBALBUDGET_KEY = "feed.memory.global.budget";
-    private static final long FEED_MEMORY_GLOBALBUDGET_DEFAULT = 67108864; // 64MB
+    private static final long FEED_MEMORY_GLOBALBUDGET_DEFAULT = 67108864; // 64MB or 2048 frames (assuming 32768 as frame size)
+
+    private static final String FEED_MEMORY_AVAILABLE_WAIT_TIMEOUT_KEY = "feed.memory.available.wait.timeout";
+    private static final long FEED_MEMORY_AVAILABLE_WAIT_TIMEOUT_DEFAULT = 10; // 10 seconds
 
     public AsterixFeedProperties(AsterixPropertiesAccessor accessor) {
         super(accessor);
@@ -25,6 +28,11 @@ public class AsterixFeedProperties extends AbstractAsterixProperties {
 
     public long getMemoryComponentGlobalBudget() {
         return accessor.getProperty(FEED_MEMORY_GLOBALBUDGET_KEY, FEED_MEMORY_GLOBALBUDGET_DEFAULT,
+                PropertyInterpreters.getLongPropertyInterpreter());
+    }
+
+    public long getMemoryAvailableWaitTimeout() {
+        return accessor.getProperty(FEED_MEMORY_AVAILABLE_WAIT_TIMEOUT_KEY, FEED_MEMORY_AVAILABLE_WAIT_TIMEOUT_DEFAULT,
                 PropertyInterpreters.getLongPropertyInterpreter());
     }
 

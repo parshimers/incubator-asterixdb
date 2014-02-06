@@ -49,8 +49,9 @@ public class SubscribableRuntime implements ISubscribableRuntime {
     }
 
     @Override
-    public void subscribeFeed(CollectionRuntime collectionRuntime) throws Exception {
-        FeedFrameCollector collector = feedWriter.subscribeFeed(collectionRuntime.getFeedFrameWriter());
+    public void subscribeFeed(FeedPolicyAccessor fpa, CollectionRuntime collectionRuntime) throws Exception {
+        FeedFrameCollector collector = feedWriter.subscribeFeed(
+                new FeedPolicyAccessor(collectionRuntime.getFeedPolicy()), collectionRuntime.getFeedFrameWriter());
         collectionRuntime.setFrameCollector(collector);
         subscribers.add(collectionRuntime);
     }

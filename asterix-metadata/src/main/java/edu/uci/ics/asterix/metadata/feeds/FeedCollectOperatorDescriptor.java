@@ -103,8 +103,8 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
                         throw new HyracksDataException("Source ingestion task not found for source feed id "
                                 + sourceFeedId);
                     }
-                    nodePushable = new FeedCollectOperatorNodePushable(ctx, sourceFeedId, feedConnectionId, feedPolicyProperties,
-                            partition, sourceRuntime);
+                    nodePushable = new FeedCollectOperatorNodePushable(ctx, sourceFeedId, feedConnectionId,
+                            feedPolicyProperties, partition, sourceRuntime);
 
                 } catch (Exception exception) {
                     if (LOGGER.isLoggable(Level.SEVERE)) {
@@ -119,10 +119,11 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
                 sourceRuntime = (ISubscribableRuntime) feedSubscriptionManager
                         .getSubscribableRuntime(feedSubscribableRuntimeId);
                 if (sourceRuntime == null) {
-                    throw new HyracksDataException("Source compute task not found for source feed id " + sourceFeedId);
+                    throw new HyracksDataException("Source compute task not found for source feed id " + sourceFeedId
+                            + " " + FeedRuntimeType.COMPUTE + "[" + partition + "]");
                 }
-                nodePushable = new FeedCollectOperatorNodePushable(ctx, sourceFeedId, feedConnectionId, feedPolicyProperties,
-                        partition, sourceRuntime);
+                nodePushable = new FeedCollectOperatorNodePushable(ctx, sourceFeedId, feedConnectionId,
+                        feedPolicyProperties, partition, sourceRuntime);
                 break;
         }
         return nodePushable;

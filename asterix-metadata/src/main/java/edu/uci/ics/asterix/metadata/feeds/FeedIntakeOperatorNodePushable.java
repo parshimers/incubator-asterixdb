@@ -15,6 +15,7 @@
 package edu.uci.ics.asterix.metadata.feeds;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -23,16 +24,18 @@ import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
 import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.FeedId;
+import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.IAdapterRuntimeManager;
 import edu.uci.ics.asterix.common.feeds.IAdapterRuntimeManager.State;
 import edu.uci.ics.asterix.common.feeds.IFeedAdapter;
-import edu.uci.ics.asterix.common.feeds.IFeedMemoryManager;
+import edu.uci.ics.asterix.common.feeds.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.IFeedSubscriptionManager;
 import edu.uci.ics.asterix.common.feeds.ISubscriberRuntime;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
 
 /**
@@ -47,7 +50,7 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
     private final int partition;
     private final FeedId feedId;
     private final IFeedSubscriptionManager feedSubscriptionManager;
-    private final IFeedMemoryManager feedMemoryManager;
+    private final IFeedManager feedManager;
 
     private IngestionRuntime ingestionRuntime;
     private IFeedAdapter adapter;
@@ -65,7 +68,7 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
         IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject();
         this.feedSubscriptionManager = runtimeCtx.getFeedManager().getFeedSubscriptionManager();
-        this.feedMemoryManager = runtimeCtx.getFeedManager().getFeedMemoryManager();
+        this.feedManager = runtimeCtx.getFeedManager();
     }
 
     @Override
@@ -82,8 +85,9 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                     }
                     throw new HyracksDataException(e);
                 }
-                feedFrameWriter = new DistributeFeedFrameWriter(feedId, writer, FeedRuntimeType.INGEST, recordDesc,
-                        feedMemoryManager);
+                FrameTupleAccessor fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
+                feedFrameWriter = new DistributeFeedFrameWriter(feedId, writer, FeedRuntimeType.INGEST, partition, recordDesc,
+                        fta, feedManager);
                 adapterExecutor = new AdapterRuntimeManager(feedId, adapter, feedFrameWriter, partition);
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Set up feed ingestion activity, would wait for subscribers: " + feedId);
@@ -126,7 +130,7 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
              * Intake operators coincide with collect operators. 
              */
             List<ISubscriberRuntime> subscribers = ingestionRuntime.getSubscribers();
-            FeedPolicyAccessor policyAccessor = new FeedPolicyAccessor();
+            FeedPolicyAccessor policyAccessor = new FeedPolicyAccessor(new HashMap<String, String>());
             boolean needToHandleFailure = false;
             List<ISubscriberRuntime> failingSubscribers = new ArrayList<ISubscriberRuntime>();
             for (ISubscriberRuntime subscriber : subscribers) {

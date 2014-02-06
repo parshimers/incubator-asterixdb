@@ -14,16 +14,19 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import edu.uci.ics.asterix.common.feeds.IFeedMetricCollector.MetricType;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 
 /**
  * Provides mechanism for distributing the frames, as received from an operator to a
@@ -44,14 +47,24 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
     /** A map storing the registered frame readers ({@code FeedFrameCollector}. **/
     private final Map<IFeedFrameWriter, FeedFrameCollector> registeredCollectors;
 
-    /** The original frame writer instantiated as part of job creation. **/
+    /** The original frame writer instantiated as part of job creation **/
     private IFrameWriter writer;
 
-    /** The feed operation whose output is being distributed by the DistributeFeedFrameWriter. **/
+    /** The feed operation whose output is being distributed by the DistributeFeedFrameWriter **/
     private final FeedRuntimeType feedRuntimeType;
 
-    /** RecordDescriptor {@code RecordDescriptor} representing the output from the DistributeFeedFrameWriter. **/
+    /** The value of the partition 'i' if this is the i'th instance **/
+    private final int partition;
+
+    /** RecordDescriptor {@code RecordDescriptor} representing the output from the DistributeFeedFrameWriter **/
     private final RecordDescriptor recordDescriptor;
+
+    /** FrameTupleAccessor {@code FrameTupleAccessor} instance for keeping track of # of produced tuples **/
+    private final FrameTupleAccessor fta;
+
+    private final IFeedMetricCollector feedMetricCollector;
+
+    private final int reportSenderId;
 
     public enum DistributionMode {
         /** A single feed frame collector is registered for receiving tuples. **/
@@ -60,24 +73,31 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
         /** Multiple feed frame collectors are concurrently registered for receiving tuples. **/
         SHARED,
 
-        /** Feed tuples are not being routed, irrespective of # of registered feed frame collectors. **/
+        /** Feed tuples are not being processed, irrespective of # of registered feed frame collectors. **/
         INACTIVE
     }
 
     public DistributeFeedFrameWriter(FeedId feedId, IFrameWriter writer, FeedRuntimeType feedRuntimeType,
-            RecordDescriptor recordDescriptor, IFeedMemoryManager memoryManager) {
+            int partition, RecordDescriptor recordDescriptor, FrameTupleAccessor fta, IFeedManager feedManager)
+            throws IOException {
         this.feedId = feedId;
-        this.frameDistributor = new FrameDistributor(feedId, memoryManager);
+        this.frameDistributor = new FrameDistributor(feedId, feedRuntimeType, partition,
+                feedManager.getFeedMemoryManager());
         this.registeredCollectors = new HashMap<IFeedFrameWriter, FeedFrameCollector>();
         this.feedRuntimeType = feedRuntimeType;
+        this.partition = partition;
         this.writer = writer;
         this.recordDescriptor = recordDescriptor;
+        this.fta = fta;
+        this.feedMetricCollector = feedManager.getFeedMetricCollector();
+        reportSenderId = feedMetricCollector.createReportSender(toString(), MetricType.RATE);
     }
 
-    public synchronized FeedFrameCollector subscribeFeed(IFeedFrameWriter frameWriter) throws Exception {
+    public synchronized FeedFrameCollector subscribeFeed(FeedPolicyAccessor fpa, IFeedFrameWriter frameWriter)
+            throws Exception {
         FeedFrameCollector collector = null;
         if (!frameDistributor.isRegistered(frameWriter)) {
-            collector = new FeedFrameCollector(frameWriter);
+            collector = new FeedFrameCollector(fpa, frameWriter);
             registeredCollectors.put(frameWriter, collector);
             frameDistributor.registerFrameCollector(collector);
             if (LOGGER.isLoggable(Level.INFO)) {
@@ -119,7 +139,7 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
                 break;
             case SINGLE:
                 if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Will disconnect the lone frame reader in " + mode + " mode " + " FeedId " + feedId);
+                    LOGGER.info("Disconnecting single frame reader in " + mode + " mode " + " for  feedId " + feedId);
                 }
                 frameDistributor.setMode(DistributionMode.INACTIVE);
                 registeredCollectors.values().iterator().next().disconnect();
@@ -182,4 +202,8 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
         return IFeedFrameWriter.Type.DISTRIBUTE_FEED_WRITER;
     }
 
+    @Override
+    public String toString() {
+        return feedId.toString() + feedRuntimeType + "[" + partition + "]";
+    }
 }

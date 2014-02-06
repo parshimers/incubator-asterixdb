@@ -15,7 +15,6 @@
 package edu.uci.ics.asterix.aql.expression;
 
 import java.io.StringReader;
-import java.util.ArrayList;
 import java.util.List;
 
 import edu.uci.ics.asterix.aql.base.Statement;

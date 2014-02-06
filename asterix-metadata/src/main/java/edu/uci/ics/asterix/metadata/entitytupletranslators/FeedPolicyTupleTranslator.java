@@ -62,14 +62,9 @@ public class FeedPolicyTupleTranslator extends AbstractTupleTranslator<FeedPolic
     @SuppressWarnings("unchecked")
     private ISerializerDeserializer<ARecord> recordSerDes = AqlSerializerDeserializerProvider.INSTANCE
             .getSerializerDeserializer(MetadataRecordTypes.FEED_POLICY_RECORDTYPE);
-    private AMutableInt32 aInt32;
-    protected ISerializerDeserializer<AInt32> aInt32Serde;
 
-    @SuppressWarnings("unchecked")
     public FeedPolicyTupleTranslator(boolean getTuple) {
         super(getTuple, MetadataPrimaryIndexes.FEED_POLICY_DATASET.getFieldCount());
-        aInt32 = new AMutableInt32(-1);
-        aInt32Serde = AqlSerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.AINT32);
     }
 
     @Override
@@ -139,9 +134,11 @@ public class FeedPolicyTupleTranslator extends AbstractTupleTranslator<FeedPolic
 
         // write field 2
         fieldValue.reset();
-        aString.setValue(feedPolicy.getDescription());
-        stringSerde.serialize(aString, fieldValue.getDataOutput());
-        recordBuilder.addField(MetadataRecordTypes.FEED_POLICY_ARECORD_POLICY_NAME_FIELD_INDEX, fieldValue);
+        if (feedPolicy.getDescription() != null) {
+            aString.setValue(feedPolicy.getDescription());
+            stringSerde.serialize(aString, fieldValue.getDataOutput());
+            recordBuilder.addField(MetadataRecordTypes.FEED_POLICY_ARECORD_DESCRIPTION_FIELD_INDEX, fieldValue);
+        }
 
         // write field 3 (properties)
         Map<String, String> properties = feedPolicy.getProperties();
@@ -171,6 +168,7 @@ public class FeedPolicyTupleTranslator extends AbstractTupleTranslator<FeedPolic
         return tuple;
     }
 
+    @SuppressWarnings("unchecked")
     public void writePropertyTypeRecord(String name, String value, DataOutput out) throws HyracksDataException {
         IARecordBuilder propertyRecordBuilder = new RecordBuilder();
         ArrayBackedValueStorage fieldValue = new ArrayBackedValueStorage();

@@ -14,6 +14,10 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -21,10 +25,13 @@ import java.util.logging.Logger;
 import edu.uci.ics.asterix.common.config.AsterixFeedProperties;
 import edu.uci.ics.asterix.common.config.GlobalConfig;
 import edu.uci.ics.asterix.common.feeds.IFeedMemoryComponent.Type;
+import edu.uci.ics.asterix.common.feeds.IMemoryEventListener.MemoryEventType;
 
 public class FeedMemoryManager implements IFeedMemoryManager {
 
     public static final int ALLOCATION_INCREMENT = 10;
+
+    public static final float MEMORY_AVAILABLE_THRESHOLD = 0.1f;
 
     private static final Logger LOGGER = Logger.getLogger(FeedMemoryManager.class.getName());
 
@@ -36,6 +43,10 @@ public class FeedMemoryManager implements IFeedMemoryManager {
 
     private int committed;
 
+    private final List<IMemoryEventListener> listeners;
+
+    private Timer monitorMemory;
+
     public FeedMemoryManager(String nodeId, AsterixFeedProperties feedProperties) {
         this.nodeId = nodeId;
         int frameSize = GlobalConfig.getFrameSize();
@@ -43,6 +54,8 @@ public class FeedMemoryManager implements IFeedMemoryManager {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Feed Memory budget " + budget + " frames (frame size=" + frameSize + ")");
         }
+        listeners = new ArrayList<IMemoryEventListener>();
+        monitorMemory = new Timer();
     }
 
     @Override
@@ -69,12 +82,20 @@ public class FeedMemoryManager implements IFeedMemoryManager {
 
     @Override
     public boolean expandMemoryComponent(IFeedMemoryComponent memoryComponent) {
-        memoryComponent.expand(ALLOCATION_INCREMENT);
-        committed += ALLOCATION_INCREMENT;
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Expanded memory component " + memoryComponent + " by " + ALLOCATION_INCREMENT + " " + this);
+        if (committed + ALLOCATION_INCREMENT > budget) {
+            if (LOGGER.isLoggable(Level.WARNING)) {
+                LOGGER.warning("Memory budget " + budget + " is exhausted. Space left: " + (budget - committed)
+                        + " frames.");
+            }
+            return false;
+        } else {
+            memoryComponent.expand(ALLOCATION_INCREMENT);
+            committed += ALLOCATION_INCREMENT;
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Expanded memory component " + memoryComponent + " by " + ALLOCATION_INCREMENT + " " + this);
+            }
+            return true;
         }
-        return true;
     }
 
     @Override
@@ -92,4 +113,33 @@ public class FeedMemoryManager implements IFeedMemoryManager {
         return "FeedMemoryManager  [" + nodeId + "]" + "(" + committed + "/" + budget + ")";
     }
 
+    @Override
+    public synchronized void registerMemoryEventListener(IMemoryEventListener listener) {
+        if (listeners.size() == 0) {
+            boolean added = listeners.add(listener);
+            if (added) {
+                monitorMemory.scheduleAtFixedRate(new MonitorMemoryTask(), 0, 5000);
+            }
+        }
+    }
+
+    @Override
+    public synchronized void unregisterMemoryEventListener(IMemoryEventListener listener) {
+        boolean removed = listeners.remove(listener);
+        if (removed && listeners.size() == 0) {
+            monitorMemory.cancel();
+        }
+    }
+
+    private final class MonitorMemoryTask extends TimerTask {
+        @Override
+        public void run() {
+            int available = budget - committed;
+            if ((float) available / budget > MEMORY_AVAILABLE_THRESHOLD) {
+                for (IMemoryEventListener listener : listeners) {
+                    listener.processEvent(MemoryEventType.MEMORY_AVAILABLE);
+                }
+            }
+        }
+    }
 }

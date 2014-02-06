@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.asterix.metadata.feeds;
+package edu.uci.ics.asterix.common.feeds;
 
 import java.util.Map;
 
@@ -21,6 +21,8 @@ public class FeedPolicyAccessor {
     public static final String APPLICATION_FAILURE_LOG_DATA = "application.failure.log.data";
     public static final String APPLICATION_FAILURE_CONTINUE = "application.failure.continue";
     public static final String HARDWARE_FAILURE_CONTINUE = "hardware.failure.continue";
+    public static final String SPILL_TO_DISK_ON_CONGESTION = "spill.to.disk.on.congestion";
+    public static final String MAX_SPILL_SIZE_ON_DISK = "max.spill.size.on.disk";
     public static final String CLUSTER_REBOOT_AUTO_RESTART = "cluster.reboot.auto.restart";
     public static final String COLLECT_STATISTICS = "collect.statistics";
     public static final String COLLECT_STATISTICS_PERIOD = "collect.statistics.period";
@@ -28,15 +30,22 @@ public class FeedPolicyAccessor {
     public static final String ELASTIC = "elastic";
 
     public enum TimeUnit {
-        SEC,
-        MIN,
-        HRS,
-        DAYS
+        SEC(1),
+        MIN(60),
+        HRS(3600),
+        DAYS(86400);
+
+        private int factor;
+
+        private TimeUnit(final int value) {
+            this.factor = value;
+        }
     }
 
     private Map<String, String> feedPolicy;
 
-    public FeedPolicyAccessor() {
+    public Map<String, String> getFeedPolicy() {
+        return feedPolicy;
     }
 
     public FeedPolicyAccessor(Map<String, String> feedPolicy) {
@@ -63,6 +72,14 @@ public class FeedPolicyAccessor {
         return getBooleanPropertyValue(HARDWARE_FAILURE_CONTINUE);
     }
 
+    public boolean spillToDiskOnCongestion() {
+        return getBooleanPropertyValue(SPILL_TO_DISK_ON_CONGESTION);
+    }
+
+    public int getMaxSpillOnDisk() {
+        return getIntegerPropertyValue(MAX_SPILL_SIZE_ON_DISK);
+    }
+
     public boolean autoRestartOnClusterReboot() {
         return getBooleanPropertyValue(CLUSTER_REBOOT_AUTO_RESTART);
     }
@@ -72,31 +89,13 @@ public class FeedPolicyAccessor {
     }
 
     public long getStatisicsCollectionPeriodInSecs() {
-        return getIntegerPropertyValue(COLLECT_STATISTICS_PERIOD) * getTimeUnitFactor();
+        int value = getIntegerPropertyValue(COLLECT_STATISTICS_PERIOD);
+        int factor = TimeUnit.valueOf(feedPolicy.get(COLLECT_STATISTICS_PERIOD_UNIT)).factor;
+        return value * factor;
     }
 
     public boolean isElastic() {
         return getBooleanPropertyValue(ELASTIC);
-    }
-
-    private int getTimeUnitFactor() {
-        String v = feedPolicy.get(COLLECT_STATISTICS_PERIOD_UNIT);
-        int factor = 1;
-        switch (TimeUnit.valueOf(v)) {
-            case SEC:
-                factor = 1;
-                break;
-            case MIN:
-                factor = 60;
-                break;
-            case HRS:
-                factor = 3600;
-                break;
-            case DAYS:
-                factor = 86400;
-                break;
-        }
-        return factor;
     }
 
     private boolean getBooleanPropertyValue(String key) {
@@ -108,4 +107,5 @@ public class FeedPolicyAccessor {
         String v = feedPolicy.get(key);
         return Integer.parseInt(v);
     }
+
 }
