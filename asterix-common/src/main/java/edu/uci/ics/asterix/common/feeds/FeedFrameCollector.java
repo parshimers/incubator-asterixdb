@@ -3,13 +3,16 @@ package edu.uci.ics.asterix.common.feeds;
 import java.nio.ByteBuffer;
 import java.util.logging.Level;
 
+import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
 public class FeedFrameCollector extends MessageReceiver<DataBucket> implements IMessageReceiver<DataBucket> {
 
     private FeedPolicyAccessor fpa;
-    private IFeedFrameWriter frameWriter;
+    private final FeedId feedId;
+    private IFrameWriter frameWriter;
     private State state;
+    private final Mode mode;
 
     public enum State {
         ACTIVE,
@@ -17,11 +20,27 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
         TRANSITION
     }
 
-    public FeedFrameCollector(FeedPolicyAccessor feedPolicyAccessor, IFeedFrameWriter frameWriter) {
+    public enum Mode {
+        FORWARD_TO_WRITER,
+        FORWARD_TO_OPERATOR
+    }
+
+    public FeedFrameCollector(FeedPolicyAccessor feedPolicyAccessor, IFeedFrameWriter frameWriter, FeedId feedId) {
         super();
         this.fpa = feedPolicyAccessor;
+        this.feedId = feedId;
         this.frameWriter = frameWriter;
         this.state = State.ACTIVE;
+        this.mode = Mode.FORWARD_TO_WRITER;
+    }
+
+    public FeedFrameCollector(FeedPolicyAccessor feedPolicyAccessor, IFrameWriter frameWriter, FeedId feedId) {
+        super();
+        this.fpa = feedPolicyAccessor;
+        this.feedId = feedId;
+        this.frameWriter = frameWriter;
+        this.state = State.ACTIVE;
+        this.mode = Mode.FORWARD_TO_OPERATOR;
     }
 
     @Override
@@ -61,8 +80,10 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
     public synchronized void disconnect() {
         setState(State.FINISHED);
         notifyAll();
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Disconnected feed frame collector for " + frameWriter.getFeedId());
+        if (mode.equals(Mode.FORWARD_TO_WRITER)) {
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Disconnected feed frame collector for " + ((IFeedFrameWriter) frameWriter).getFeedId());
+            }
         }
     }
 
@@ -82,7 +103,7 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
         this.state = state;
     }
 
-    public IFeedFrameWriter getFrameWriter() {
+    public IFrameWriter getFrameWriter() {
         return frameWriter;
     }
 
@@ -90,9 +111,13 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
         this.frameWriter = frameWriter;
     }
 
+    public Mode getMode() {
+        return mode;
+    }
+
     @Override
     public String toString() {
-        return "FrameCollector [" + frameWriter.getFeedId() + "," + state + "]";
+        return "FrameCollector (" + mode + ")" + feedId + "," + state + "]";
     }
 
     @Override
@@ -101,7 +126,7 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
             return true;
         }
         if (o instanceof FeedFrameCollector) {
-            return ((FeedFrameCollector) o).getFrameWriter().getFeedId().equals(this.getFrameWriter().getFeedId());
+            return feedId.equals(((FeedFrameCollector) o).feedId);
         }
         return false;
     }

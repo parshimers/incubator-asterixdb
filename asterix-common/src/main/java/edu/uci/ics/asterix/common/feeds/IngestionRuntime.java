@@ -30,7 +30,7 @@ public class IngestionRuntime extends SubscribableRuntime {
     public void subscribeFeed(FeedPolicyAccessor fpa, CollectionRuntime collectionRuntime) throws Exception {
         FeedFrameCollector reader = feedWriter.subscribeFeed(fpa, collectionRuntime.getFeedFrameWriter());
         collectionRuntime.setFrameCollector(reader);
-        if (feedWriter.getDistributionMode().equals(DistributeFeedFrameWriter.DistributionMode.SINGLE)) {
+        if (feedWriter.getDistributionMode().equals(FrameDistributor.DistributionMode.SINGLE)) {
             adapterRuntimeManager.start();
         }
         subscribers.add(collectionRuntime);
@@ -44,7 +44,7 @@ public class IngestionRuntime extends SubscribableRuntime {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Unsubscribed feed collection [" + collectionRuntime + "] from " + this);
         }
-        if (feedWriter.getDistributionMode().equals(DistributeFeedFrameWriter.DistributionMode.INACTIVE)) {
+        if (feedWriter.getDistributionMode().equals(FrameDistributor.DistributionMode.INACTIVE)) {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Stopping adapter for " + this + " as no more registered collectors");
             }

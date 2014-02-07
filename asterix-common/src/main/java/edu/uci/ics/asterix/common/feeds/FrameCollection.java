@@ -90,4 +90,10 @@ public class FrameCollection implements IFeedMemoryComponent {
     public String toString() {
         return "FrameCollection" + "[" + componentId + "]" + "(" + frames.size() + "/" + maxSize + ")";
     }
+
+    @Override
+    public DataBucket getDataBucket() {
+        // TODO Auto-generated method stub
+        return null;
+    }
 }

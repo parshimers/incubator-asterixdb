@@ -30,6 +30,8 @@ public interface IFeedMemoryComponent {
         COLLECTION
     }
 
+    public DataBucket getDataBucket();
+
     public int getComponentId();
 
     /** Returns the type associated with the component. **/

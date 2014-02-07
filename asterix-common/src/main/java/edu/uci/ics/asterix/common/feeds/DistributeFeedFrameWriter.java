@@ -44,9 +44,6 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
     /** Provides mechanism for distributing a frame to multiple readers, each operating in isolation. **/
     private final FrameDistributor frameDistributor;
 
-    /** A map storing the registered frame readers ({@code FeedFrameCollector}. **/
-    private final Map<IFeedFrameWriter, FeedFrameCollector> registeredCollectors;
-
     /** The original frame writer instantiated as part of job creation **/
     private IFrameWriter writer;
 
@@ -62,43 +59,23 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
     /** FrameTupleAccessor {@code FrameTupleAccessor} instance for keeping track of # of produced tuples **/
     private final FrameTupleAccessor fta;
 
-    private final IFeedMetricCollector feedMetricCollector;
-
-    private final int reportSenderId;
-
-    public enum DistributionMode {
-        /** A single feed frame collector is registered for receiving tuples. **/
-        SINGLE,
-
-        /** Multiple feed frame collectors are concurrently registered for receiving tuples. **/
-        SHARED,
-
-        /** Feed tuples are not being processed, irrespective of # of registered feed frame collectors. **/
-        INACTIVE
-    }
-
     public DistributeFeedFrameWriter(FeedId feedId, IFrameWriter writer, FeedRuntimeType feedRuntimeType,
             int partition, RecordDescriptor recordDescriptor, FrameTupleAccessor fta, IFeedManager feedManager)
             throws IOException {
         this.feedId = feedId;
-        this.frameDistributor = new FrameDistributor(feedId, feedRuntimeType, partition,
+        this.frameDistributor = new FrameDistributor(feedId, feedRuntimeType, partition, true,
                 feedManager.getFeedMemoryManager());
-        this.registeredCollectors = new HashMap<IFeedFrameWriter, FeedFrameCollector>();
         this.feedRuntimeType = feedRuntimeType;
         this.partition = partition;
         this.writer = writer;
         this.recordDescriptor = recordDescriptor;
         this.fta = fta;
-        this.feedMetricCollector = feedManager.getFeedMetricCollector();
-        reportSenderId = feedMetricCollector.createReportSender(toString(), MetricType.RATE);
     }
 
-    public synchronized FeedFrameCollector subscribeFeed(FeedPolicyAccessor fpa, IFeedFrameWriter frameWriter)
-            throws Exception {
+    public FeedFrameCollector subscribeFeed(FeedPolicyAccessor fpa, IFeedFrameWriter frameWriter) throws Exception {
         FeedFrameCollector collector = null;
         if (!frameDistributor.isRegistered(frameWriter)) {
-            collector = new FeedFrameCollector(fpa, frameWriter);
-            registeredCollectors.put(frameWriter, collector);
+            collector = new FeedFrameCollector(fpa, frameWriter, frameWriter.getFeedId());
             frameDistributor.registerFrameCollector(collector);
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Registered subscriber, new mode " + frameDistributor.getMode());
@@ -109,15 +86,9 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
         }
     }
 
-    public synchronized void unsubscribeFeed(IFeedFrameWriter recipientFeedFrameWriter) throws Exception {
-        FeedFrameCollector frameCollector = registeredCollectors.get(recipientFeedFrameWriter);
-        if (frameCollector != null) {
-            frameDistributor.deregisterFrameCollector(frameCollector);
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("De-registered frame reader " + frameCollector);
-            }
-            registeredCollectors.remove(recipientFeedFrameWriter);
-        } else {
+    public void unsubscribeFeed(IFeedFrameWriter recipientFeedFrameWriter) throws Exception {
+        boolean success = frameDistributor.deregisterFrameCollector(recipientFeedFrameWriter);
+        if (!success) {
             throw new IllegalStateException("Invalid attempt to unregister FeedFrameWriter " + recipientFeedFrameWriter
                     + " not registered.");
         }
@@ -129,28 +100,8 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
 
     @Override
     public void close() throws HyracksDataException {
+        frameDistributor.close();
         writer.close();
-        DistributionMode mode = frameDistributor.getMode();
-        switch (frameDistributor.getMode()) {
-            case INACTIVE:
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("FrameDistributor is " + mode);
-                }
-                break;
-            case SINGLE:
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Disconnecting single frame reader in " + mode + " mode " + " for  feedId " + feedId);
-                }
-                frameDistributor.setMode(DistributionMode.INACTIVE);
-                registeredCollectors.values().iterator().next().disconnect();
-                break;
-            case SHARED:
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Signalling End Of Feed; currently operating in " + mode + " mode");
-                }
-                notifyEndOfFeed();
-                break;
-        }
     }
 
     @Override
@@ -173,8 +124,8 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
         return feedId;
     }
 
-    public DistributionMode getDistributionMode() {
-        return frameDistributor.getMode();
+    public Map<IFrameWriter, FeedFrameCollector> getRegisteredReaders() {
+        return frameDistributor.getRegisteredReaders();
     }
 
     public IFrameWriter getWriter() {
@@ -183,10 +134,6 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
 
     public void setWriter(IFrameWriter writer) {
         this.writer = writer;
-    }
-
-    public Map<IFeedFrameWriter, FeedFrameCollector> getRegisteredReaders() {
-        return registeredCollectors;
     }
 
     public FeedRuntimeType getFeedRuntimeType() {
@@ -205,5 +152,9 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
     @Override
     public String toString() {
         return feedId.toString() + feedRuntimeType + "[" + partition + "]";
+    }
+
+    public FrameDistributor.DistributionMode getDistributionMode() {
+        return frameDistributor.getDistributionMode();
     }
 }

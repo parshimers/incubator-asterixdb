@@ -78,7 +78,7 @@ public class GenericSocketFeedAdapterFactory extends StreamBasedAdapterFactory i
     @Override
     public void configure(Map<String, String> configuration, ARecordType outputType) throws Exception {
         this.configuration = configuration;
-        outputType = (ARecordType) outputType;
+        this.outputType = (ARecordType) outputType;
         this.configureFormat(outputType);
         this.configureSockets(configuration);
     }
@@ -114,8 +114,8 @@ public class GenericSocketFeedAdapterFactory extends StreamBasedAdapterFactory i
         Random random = new Random();
         for (String socket : socketsArray) {
             String[] socketTokens = socket.split(":");
-            String host = socketTokens[0];
-            int port = Integer.parseInt(socketTokens[1]);
+            String host = socketTokens[0].trim();
+            int port = Integer.parseInt(socketTokens[1].trim());
             Pair<String, Integer> p = null;
             switch (mode) {
                 case IP:

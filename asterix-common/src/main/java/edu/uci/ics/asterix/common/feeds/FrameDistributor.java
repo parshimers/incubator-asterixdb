@@ -16,15 +16,16 @@ package edu.uci.ics.asterix.common.feeds;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter.DistributionMode;
 import edu.uci.ics.asterix.common.feeds.FeedFrameHandlers.FeedMemoryEventListener;
 import edu.uci.ics.asterix.common.feeds.IFeedMemoryComponent.Type;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
+import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
 public class FrameDistributor {
@@ -34,14 +35,19 @@ public class FrameDistributor {
     private final FeedId feedId;
     private final FeedRuntimeType feedRuntimeType;
     private final int partition;
-    private final List<FeedFrameCollector> registeredCollectors;
+
+    /** A map storing the registered frame readers ({@code FeedFrameCollector}. **/
+    private final Map<IFrameWriter, FeedFrameCollector> registeredCollectors;
+
     private DataBucketPool pool;
-    private DistributionMode mode;
+    private DistributionMode distributionMode;
     private final IFeedMemoryManager memoryManager;
     private IFeedFrameHandler inMemoryHandler;
     private IFeedFrameHandler diskSpillHandler;
+    private boolean enableShortCircuiting;
     private RoutingMode routingMode;
     private IMemoryEventListener mListener;
+    private boolean spillToDiskRequired = false;
 
     public static enum RoutingMode {
         IN_MEMORY_ROUTE,
@@ -49,17 +55,36 @@ public class FrameDistributor {
         DISCARD
     }
 
+    public enum DistributionMode {
+        /**
+         * A single feed frame collector is registered for receiving tuples.
+         * Tuple is sent via synchronous call, that is no buffering is involved
+         **/
+        SINGLE,
+
+        /** Multiple feed frame collectors are concurrently registered for receiving tuples. **/
+        SHARED,
+
+        /** Feed tuples are not being processed, irrespective of # of registered feed frame collectors. **/
+        INACTIVE
+    }
+
     public FrameDistributor(FeedId feedId, FeedRuntimeType feedRuntimeType, int partition,
-            IFeedMemoryManager memoryManager) throws IOException {
+            boolean enableShortCircuiting, IFeedMemoryManager memoryManager) throws HyracksDataException {
         this.feedId = feedId;
         this.feedRuntimeType = feedRuntimeType;
         this.partition = partition;
         this.memoryManager = memoryManager;
-        this.registeredCollectors = new ArrayList<FeedFrameCollector>();
-        mode = DistributionMode.INACTIVE;
+        this.enableShortCircuiting = enableShortCircuiting;
+        this.registeredCollectors = new HashMap<IFrameWriter, FeedFrameCollector>();
+        distributionMode = DistributionMode.INACTIVE;
         routingMode = RoutingMode.IN_MEMORY_ROUTE;
-        inMemoryHandler = FeedFrameHandlers.getFeedFrameHandler(this, feedId, RoutingMode.IN_MEMORY_ROUTE);
-        diskSpillHandler = FeedFrameHandlers.getFeedFrameHandler(this, feedId, RoutingMode.SPILL_TO_DISK);
+        try {
+            inMemoryHandler = FeedFrameHandlers.getFeedFrameHandler(this, feedId, RoutingMode.IN_MEMORY_ROUTE);
+            diskSpillHandler = FeedFrameHandlers.getFeedFrameHandler(this, feedId, RoutingMode.SPILL_TO_DISK);
+        } catch (IOException ioe) {
+            throw new HyracksDataException(ioe);
+        }
         mListener = new FeedMemoryEventListener(this);
     }
 
@@ -73,34 +98,43 @@ public class FrameDistributor {
     }
 
     public synchronized void registerFrameCollector(FeedFrameCollector frameCollector) {
-        DistributionMode currentMode = mode;
-        switch (mode) {
+        DistributionMode currentMode = distributionMode;
+        switch (distributionMode) {
             case INACTIVE:
-                registeredCollectors.add(frameCollector);
+                if (!enableShortCircuiting) {
+                    pool = (DataBucketPool) memoryManager.getMemoryComponent(Type.POOL);
+                    frameCollector.start();
+                }
+                registeredCollectors.put(frameCollector.getFrameWriter(), frameCollector);
                 setMode(DistributionMode.SINGLE);
                 break;
             case SINGLE:
                 pool = (DataBucketPool) memoryManager.getMemoryComponent(Type.POOL);
-                registeredCollectors.add(frameCollector);
-                for (FeedFrameCollector reader : registeredCollectors) {
+                registeredCollectors.put(frameCollector.getFrameWriter(), frameCollector);
+                for (FeedFrameCollector reader : registeredCollectors.values()) {
                     reader.start();
                 }
                 setMode(DistributionMode.SHARED);
                 break;
             case SHARED:
                 frameCollector.start();
-                registeredCollectors.add(frameCollector);
+                registeredCollectors.put(frameCollector.getFrameWriter(), frameCollector);
                 break;
         }
+        if (!spillToDiskRequired) {
+            spillToDiskRequired = frameCollector.getFeedPolicyAccessor().spillToDiskOnCongestion();
+        }
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Switching to " + mode + " mode from " + currentMode + " mode " + " Feed id " + feedId);
+            LOGGER.info("Switching to " + distributionMode + " mode from " + currentMode + " mode " + " Feed id "
+                    + feedId);
         }
     }
 
     public synchronized void deregisterFrameCollector(FeedFrameCollector frameCollector) {
-        switch (mode) {
+        switch (distributionMode) {
             case INACTIVE:
-                throw new IllegalStateException("Invalid attempt to deregister frame collector in " + mode + " mode.");
+                throw new IllegalStateException("Invalid attempt to deregister frame collector in " + distributionMode
+                        + " mode.");
             case SHARED:
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Closing collector " + frameCollector);
@@ -127,12 +161,17 @@ public class FrameDistributor {
         }
     }
 
+    public boolean deregisterFrameCollector(IFeedFrameWriter frameWriter) {
+        FeedFrameCollector collector = registeredCollectors.remove(frameWriter);
+        return collector != null;
+    }
+
     public synchronized void setMode(DistributionMode mode) {
-        this.mode = mode;
+        this.distributionMode = mode;
     }
 
     public boolean isRegistered(IFeedFrameWriter writer) {
-        return registeredCollectors.contains(writer);
+        return registeredCollectors.get(writer) != null;
     }
 
     public synchronized void nextFrame(ByteBuffer frame) throws HyracksDataException {
@@ -160,14 +199,24 @@ public class FrameDistributor {
     }
 
     void handleInMemoryRouteMode(ByteBuffer frame) throws HyracksDataException {
-        switch (mode) {
+        switch (distributionMode) {
             case INACTIVE:
                 break;
             case SINGLE:
-                FeedFrameCollector collector = registeredCollectors.get(0);
+                FeedFrameCollector collector = registeredCollectors.values().iterator().next();
                 switch (collector.getState()) {
                     case ACTIVE:
-                        collector.nextFrame(frame); //processing is synchronous
+                        if (enableShortCircuiting) {
+                            collector.nextFrame(frame); //processing is synchronous
+                        } else {
+                            DataBucket bucket = getDataBucket();
+                            if (bucket == null) {
+                                switchRoutingMode(frame); // memory congestion
+                            } else {
+                                bucket.reset(frame);
+                                inMemoryHandler.handleDataBucket(bucket);
+                            }
+                        }
                         break;
                     case TRANSITION:
                         DataBucket bucket = getDataBucket();
@@ -209,13 +258,17 @@ public class FrameDistributor {
         }
     }
 
+    private void handleUnRoutableFrame(ByteBuffer frame) throws HyracksDataException {
+
+    }
+
     private void switchRoutingMode(ByteBuffer frame) throws HyracksDataException {
         if (LOGGER.isLoggable(Level.WARNING)) {
             LOGGER.warning("Unable to allocate memory, will evaluate the need to spill");
         }
         boolean spillToDisk = false;
         int maxSpillSizeMB = 0;
-        for (FeedFrameCollector collector : registeredCollectors) {
+        for (FeedFrameCollector collector : registeredCollectors.values()) {
             FeedPolicyAccessor fpa = collector.getFeedPolicyAccessor();
             if (fpa.spillToDiskOnCongestion()) {
                 spillToDisk = true;
@@ -243,7 +296,7 @@ public class FrameDistributor {
     }
 
     private synchronized void processMessage(DataBucket bucket) {
-        for (FeedFrameCollector collector : registeredCollectors) {
+        for (FeedFrameCollector collector : registeredCollectors.values()) {
             collector.sendMessage(bucket); //processing is asynchronous
         }
     }
@@ -259,7 +312,7 @@ public class FrameDistributor {
     }
 
     public DistributionMode getMode() {
-        return mode;
+        return distributionMode;
     }
 
     public RoutingMode getRoutingMode() {
@@ -283,7 +336,35 @@ public class FrameDistributor {
         this.routingMode = routingMode;
     }
 
-    public List<FeedFrameCollector> getRegisteredCollectors() {
+    public void close() {
+        switch (distributionMode) {
+            case INACTIVE:
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("FrameDistributor is " + distributionMode);
+                }
+                break;
+            case SINGLE:
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("Disconnecting single frame reader in " + distributionMode + " mode " + " for  feedId "
+                            + feedId);
+                }
+                setMode(DistributionMode.INACTIVE);
+                registeredCollectors.values().iterator().next().disconnect();
+                break;
+            case SHARED:
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("Signalling End Of Feed; currently operating in " + distributionMode + " mode");
+                }
+                notifyEndOfFeed();
+                break;
+        }
+    }
+
+    public Collection<FeedFrameCollector> getRegisteredCollectors() {
+        return registeredCollectors.values();
+    }
+
+    public Map<IFrameWriter, FeedFrameCollector> getRegisteredReaders() {
         return registeredCollectors;
     }
 
@@ -305,6 +386,18 @@ public class FrameDistributor {
 
     public IFeedMemoryManager getMemoryManager() {
         return memoryManager;
+    }
+
+    public DistributionMode getDistributionMode() {
+        return distributionMode;
+    }
+
+    public FeedRuntimeType getFeedRuntimeType() {
+        return feedRuntimeType;
+    }
+
+    public int getPartition() {
+        return partition;
     }
 
 }

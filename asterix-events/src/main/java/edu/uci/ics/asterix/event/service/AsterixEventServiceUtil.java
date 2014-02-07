@@ -507,8 +507,10 @@ public class AsterixEventServiceUtil {
         boolean conflictFound = false;
         AsterixInstance conflictingInstance = null;
         for (AsterixInstance existing : existingInstances) {
-            conflictFound = !existing.getState().equals(State.INACTIVE)
-                    && existing.getCluster().getMasterNode().getClusterIp().equals(masterIp);
+            if (existing.getState().equals(State.INACTIVE)) {
+                continue;
+            }
+            conflictFound = existing.getCluster().getMasterNode().getClusterIp().equals(masterIp);
             if (conflictFound) {
                 conflictingInstance = existing;
                 break;

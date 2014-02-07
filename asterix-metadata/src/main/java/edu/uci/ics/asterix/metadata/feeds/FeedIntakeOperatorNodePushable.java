@@ -86,8 +86,8 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                     throw new HyracksDataException(e);
                 }
                 FrameTupleAccessor fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
-                feedFrameWriter = new DistributeFeedFrameWriter(feedId, writer, FeedRuntimeType.INGEST, partition, recordDesc,
-                        fta, feedManager);
+                feedFrameWriter = new DistributeFeedFrameWriter(feedId, writer, FeedRuntimeType.INGEST, partition,
+                        recordDesc, fta, feedManager);
                 adapterExecutor = new AdapterRuntimeManager(feedId, adapter, feedFrameWriter, partition);
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Set up feed ingestion activity, would wait for subscribers: " + feedId);
@@ -170,9 +170,11 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                 throw new HyracksDataException(ie);
             }
         } catch (Exception e) {
+            e.printStackTrace();
             throw new HyracksDataException(e);
         } finally {
-            if (!ingestionRuntime.getAdapterRuntimeManager().getState().equals(State.INACTIVE_INGESTION)) {
+            if (ingestionRuntime != null
+                    && !ingestionRuntime.getAdapterRuntimeManager().getState().equals(State.INACTIVE_INGESTION)) {
                 feedFrameWriter.close();
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Closed Frame Writer " + feedFrameWriter + " adapter state "

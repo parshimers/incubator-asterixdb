@@ -21,8 +21,9 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Collection;
+import java.util.Date;
 import java.util.Iterator;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -36,10 +37,10 @@ public class FeedFrameHandlers {
         IFeedFrameHandler handler = null;
         switch (routingMode) {
             case IN_MEMORY_ROUTE:
-                handler = new InMemoryRouter(distributor.getRegisteredCollectors());
+                handler = new InMemoryRouter(distributor.getRegisteredReaders().values());
                 break;
             case SPILL_TO_DISK:
-                handler = new DiskSpiller(feedId);
+                handler = new DiskSpiller(distributor, feedId);
                 break;
             default:
                 throw new IllegalArgumentException("Invalid routing mode" + routingMode);
@@ -49,9 +50,9 @@ public class FeedFrameHandlers {
 
     public static class InMemoryRouter implements IFeedFrameHandler {
 
-        private final List<FeedFrameCollector> frameCollectors;
+        private final Collection<FeedFrameCollector> frameCollectors;
 
-        public InMemoryRouter(List<FeedFrameCollector> frameCollectors) {
+        public InMemoryRouter(Collection<FeedFrameCollector> frameCollectors) {
             this.frameCollectors = frameCollectors;
         }
 
@@ -84,9 +85,9 @@ public class FeedFrameHandlers {
         private FrameSpiller<ByteBuffer> receiver;
         private Iterator<ByteBuffer> iterator;
 
-        public DiskSpiller(FeedId feedId) throws IOException {
+        public DiskSpiller(FrameDistributor distributor, FeedId feedId) throws IOException {
             this.feedId = feedId;
-            receiver = new FrameSpiller<ByteBuffer>(feedId);
+            receiver = new FrameSpiller<ByteBuffer>(distributor, feedId);
         }
 
         @Override
@@ -103,8 +104,12 @@ public class FeedFrameHandlers {
 
             private final File file;
 
-            public FrameSpiller(FeedId feedId) throws IOException {
-                file = new File(feedId.toString());
+            public FrameSpiller(FrameDistributor distributor, FeedId feedId) throws IOException {
+                Date date = new Date();
+                String dateSuffix = date.toString().replace(' ', '_');
+                String filename = feedId.toString() + "_" + distributor.getFeedRuntimeType() + "_"
+                        + distributor.getPartition() + "_" + dateSuffix;
+                file = new File(filename);
                 if (!file.exists()) {
                     boolean success = file.createNewFile();
                     if (!success) {
