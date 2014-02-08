@@ -12,6 +12,7 @@ public class ManagixActions {
         START("start", "-n"),
         STOP("stop", "-n"),
         DELETE("delete", "-n"),
+        LOG("log", "-n", "-d"),
         SHUTDOWN("shutdown");
 
         private final String cmdFormat;
@@ -100,6 +101,15 @@ public class ManagixActions {
 
         public DeleteAsterixManagixAction(String managixHomePath, String asterixInstanceName) {
             super(managixHomePath, MessageFormat.format(ManagixCommand.DELETE.getCommandFormat(), asterixInstanceName));
+        }
+
+    }
+
+    public static class LogAsterixManagixAction extends AbstractManagixCommandAction {
+
+        public LogAsterixManagixAction(String managixHomePath, String asterixInstanceName, String destinationDir) {
+            super(managixHomePath, MessageFormat.format(ManagixCommand.LOG.getCommandFormat(), asterixInstanceName,
+                    destinationDir));
         }
 
     }

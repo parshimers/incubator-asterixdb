@@ -155,6 +155,6 @@ public class LSMExperimentSetRunner {
                 }
             }
         }
-        //        exps.perform();
+        exps.perform();
     }
 }

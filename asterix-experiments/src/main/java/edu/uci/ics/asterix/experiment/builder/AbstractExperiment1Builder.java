@@ -9,7 +9,7 @@ public abstract class AbstractExperiment1Builder extends AbstractLSMBaseExperime
 
     public AbstractExperiment1Builder(String name, LSMExperimentSetRunnerConfig config, String clusterConfigFileName,
             String ingestFileName, String dgenFileName) {
-        super(name, config, clusterConfigFileName, ingestFileName, dgenFileName);
+        super(name, config, clusterConfigFileName, ingestFileName, dgenFileName, "count.aql");
     }
 
     @Override

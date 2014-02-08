@@ -19,6 +19,7 @@ import edu.uci.ics.asterix.experiment.action.base.SequentialActionList;
 import edu.uci.ics.asterix.experiment.action.derived.AbstractRemoteExecutableAction;
 import edu.uci.ics.asterix.experiment.action.derived.ManagixActions.CreateAsterixManagixAction;
 import edu.uci.ics.asterix.experiment.action.derived.ManagixActions.DeleteAsterixManagixAction;
+import edu.uci.ics.asterix.experiment.action.derived.ManagixActions.LogAsterixManagixAction;
 import edu.uci.ics.asterix.experiment.action.derived.ManagixActions.StopAsterixManagixAction;
 import edu.uci.ics.asterix.experiment.action.derived.RunAQLFileAction;
 import edu.uci.ics.asterix.experiment.action.derived.SleepAction;
@@ -51,8 +52,10 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
 
     private final String dgenFileName;
 
+    private final String countFileName;
+
     public AbstractLSMBaseExperimentBuilder(String name, LSMExperimentSetRunnerConfig config,
-            String clusterConfigFileName, String ingestFileName, String dgenFileName) {
+            String clusterConfigFileName, String ingestFileName, String dgenFileName, String countFileName) {
         super(name);
         this.httpClient = new DefaultHttpClient();
         this.restHost = config.getRESTHost();
@@ -65,6 +68,7 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
         this.clusterConfigFileName = clusterConfigFileName;
         this.ingestFileName = ingestFileName;
         this.dgenFileName = dgenFileName;
+        this.countFileName = countFileName;
     }
 
     protected abstract void doBuildDDL(SequentialActionList seq);
@@ -118,9 +122,10 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
 
         execs.add(new SleepAction(duration * 1000));
         execs.add(new RunAQLFileAction(httpClient, restHost, restPort, localExperimentRoot.resolve(
-                LSMExperimentConstants.AQL_DIR).resolve("count.aql")));
+                LSMExperimentConstants.AQL_DIR).resolve(countFileName)));
         execs.add(new StopAsterixManagixAction(managixHomePath, ASTERIX_INSTANCE_NAME));
-
+        execs.add(new LogAsterixManagixAction(managixHomePath, ASTERIX_INSTANCE_NAME, localExperimentRoot
+                .resolve(LSMExperimentConstants.LOG_DIR).resolve(getName()).toString()));
         e.addBody(execs);
     }
 
