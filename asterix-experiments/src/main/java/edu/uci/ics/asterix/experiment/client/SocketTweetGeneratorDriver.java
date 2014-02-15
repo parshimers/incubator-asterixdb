@@ -14,6 +14,14 @@ public class SocketTweetGeneratorDriver {
             clp.printUsage(System.err);
             System.exit(1);
         }
+
+        if ((clientConfig.getDataInterval() == -1 && clientConfig.getDuration() == -1)
+                || (clientConfig.getDataInterval() > 0 && clientConfig.getDuration() > 0)) {
+            System.err.println("Must use exactly one of -d or -di");
+            clp.printUsage(System.err);
+            System.exit(1);
+        }
+
         SocketTweetGenerator client = new SocketTweetGenerator(clientConfig);
         client.start();
     }

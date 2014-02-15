@@ -5,10 +5,11 @@ import edu.uci.ics.asterix.experiment.action.derived.RunAQLFileAction;
 import edu.uci.ics.asterix.experiment.client.LSMExperimentConstants;
 import edu.uci.ics.asterix.experiment.client.LSMExperimentSetRunner.LSMExperimentSetRunnerConfig;
 
-public class Experiment3Builder extends AbstractLSMBaseExperimentBuilder {
+public abstract class AbstractExperiment3Builder extends AbstractLSMBaseExperimentBuilder {
 
-    public Experiment3Builder(LSMExperimentSetRunnerConfig config) {
-        super("3", config, "8node.xml", "base_8_ingest.aql", "8.dgen", "count.aql");
+    public AbstractExperiment3Builder(String name, LSMExperimentSetRunnerConfig config, String clusterConfigFileName,
+            String ingestFileName, String dgenFileName) {
+        super(name, config, clusterConfigFileName, ingestFileName, dgenFileName, "count.aql", true);
     }
 
     @Override
@@ -16,5 +17,4 @@ public class Experiment3Builder extends AbstractLSMBaseExperimentBuilder {
         seq.add(new RunAQLFileAction(httpClient, restHost, restPort, localExperimentRoot.resolve(
                 LSMExperimentConstants.AQL_DIR).resolve("3.aql")));
     }
-
 }

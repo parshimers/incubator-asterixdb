@@ -1,5 +1,7 @@
 package edu.uci.ics.asterix.experiment.client;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
@@ -24,7 +26,22 @@ public class SocketTweetGenerator {
 
     private final int duration;
 
+    private final long startDataInterval;
+
+    private final int nDataIntervals;
+
+    private final String orchHost;
+
+    private final int orchPort;
+
     private final List<Pair<String, Integer>> receiverAddresses;
+
+    private final Mode mode;
+
+    private enum Mode {
+        TIME,
+        DATA
+    }
 
     public SocketTweetGenerator(SocketTweetGeneratorConfig config) {
         threadPool = Executors.newCachedThreadPool(new ThreadFactory() {
@@ -42,15 +59,20 @@ public class SocketTweetGenerator {
 
         partitionRangeStart = config.getPartitionRangeStart();
         duration = config.getDuration();
+        startDataInterval = config.getDataInterval();
+        nDataIntervals = config.getNIntervals();
+        orchHost = config.getOrchestratorHost();
+        orchPort = config.getOrchestratorPort();
         receiverAddresses = config.getAddresses();
+        mode = startDataInterval > 0 ? Mode.DATA : Mode.TIME;
     }
 
     public void start() throws Exception {
         final Semaphore sem = new Semaphore((receiverAddresses.size() - 1) * -1);
         int i = 0;
         for (Pair<String, Integer> address : receiverAddresses) {
-            threadPool.submit(new DataGenerator(sem, address.getLeft(), address.getRight(), i + partitionRangeStart,
-                    duration));
+            threadPool.submit(new DataGenerator(mode, sem, address.getLeft(), address.getRight(), i
+                    + partitionRangeStart, duration, nDataIntervals, startDataInterval, orchHost, orchPort));
             ++i;
         }
         sem.acquire();
@@ -58,18 +80,32 @@ public class SocketTweetGenerator {
 
     public class DataGenerator implements Runnable {
 
+        private final Mode m;
         private final Semaphore sem;
         private final String host;
         private final int port;
         private final int partition;
         private final int duration;
+        private final int nDataIntervals;
+        private final String orchHost;
+        private final int orchPort;
 
-        public DataGenerator(Semaphore sem, String host, int port, int partition, int duration) {
+        private int currentInterval;
+        private long nextStopInterval;
+
+        public DataGenerator(Mode m, Semaphore sem, String host, int port, int partition, int duration,
+                int nDataIntervals, long initialDataSizeInterval, String orchHost, int orchPort) {
+            this.m = m;
             this.sem = sem;
             this.host = host;
             this.port = port;
             this.partition = partition;
             this.duration = duration;
+            this.nDataIntervals = nDataIntervals;
+            currentInterval = 0;
+            this.nextStopInterval = initialDataSizeInterval;
+            this.orchHost = orchHost;
+            this.orchPort = orchPort;
         }
 
         @Override
@@ -77,16 +113,39 @@ public class SocketTweetGenerator {
             try {
                 Socket s = new Socket(host, port);
                 try {
-                    Map<String, String> config = new HashMap<>();
-                    if (duration >= 0) {
-                        config.put(TweetGenerator.KEY_DURATION, String.valueOf(duration));
+                    Socket orchSocket = null;
+                    if (m == Mode.DATA) {
+                        orchSocket = new Socket(orchHost, orchPort);
                     }
+                    try {
+                        Map<String, String> config = new HashMap<>();
+                        String durationVal = m == Mode.TIME ? String.valueOf(duration) : "0";
+                        config.put(TweetGenerator.KEY_DURATION, String.valueOf(durationVal));
 
-                    TweetGenerator tg = new TweetGenerator(config, partition, s.getOutputStream());
-                    while (tg.setNextRecordBatch(1000)) {
+                        TweetGenerator tg = new TweetGenerator(config, partition, s.getOutputStream());
+                        while (tg.setNextRecordBatch(1000)) {
+                            if (m == Mode.DATA) {
+                                if (tg.getFlushedDataSize() >= nextStopInterval) {
+                                    // send stop to orchestrator
+                                    sendStopped(orchSocket);
+
+                                    // update intervals
+                                    nextStopInterval *= 2;
+                                    if (++currentInterval >= nDataIntervals) {
+                                        break;
+                                    }
+
+                                    receiveResume(orchSocket);
+                                }
+                            }
+                        }
+                        System.out.println("Num tweets flushed = " + tg.getNumFlushedTweets() + " in " + duration
+                                + " seconds.");
+                    } finally {
+                        if (orchSocket != null) {
+                            orchSocket.close();
+                        }
                     }
-                    System.out.println("Num tweets flushed = " + tg.getNumFlushedTweets() + " in " + duration
-                            + " seconds.");
                 } catch (Throwable t) {
                     t.printStackTrace();
                 } finally {
@@ -98,6 +157,19 @@ public class SocketTweetGenerator {
             } finally {
                 sem.release();
             }
+        }
+
+        private void receiveResume(Socket s) throws IOException {
+            int msg = new DataInputStream(s.getInputStream()).readInt();
+            OrchestratorDGProtocol msgType = OrchestratorDGProtocol.values()[msg];
+            if (msgType != OrchestratorDGProtocol.RESUME) {
+                throw new IllegalStateException("Unknown protocol message received: " + msgType);
+            }
+        }
+
+        private void sendStopped(Socket s) throws IOException {
+            new DataOutputStream(s.getOutputStream()).writeInt(OrchestratorDGProtocol.STOPPED.ordinal());
+            s.getOutputStream().flush();
         }
 
     }

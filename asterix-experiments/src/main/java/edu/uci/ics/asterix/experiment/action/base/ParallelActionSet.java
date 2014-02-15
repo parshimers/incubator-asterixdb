@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -35,15 +36,21 @@ public class ParallelActionSet extends AbstractAction {
 
     @Override
     protected void doPerform() throws Exception {
+        final Semaphore sem = new Semaphore(-(actions.size() - 1));
         for (final IAction a : actions) {
             executor.execute(new Runnable() {
 
                 @Override
                 public void run() {
-                    a.perform();
+                    try {
+                        a.perform();
+                    } finally {
+                        sem.release();
+                    }
                 }
             });
         }
+        sem.acquire();
     }
 
 }

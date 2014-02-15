@@ -21,11 +21,39 @@ public class SocketTweetGeneratorConfig {
         return partitionRangeStart;
     }
 
-    @Option(name = "-d", aliases = { "--duration" }, usage = "Duration in seconds to run data generation (default: 60)")
-    private int duration = 60;
+    @Option(name = "-d", aliases = { "--duration" }, usage = "Duration in seconds to run data generation")
+    private int duration = -1;
 
     public int getDuration() {
         return duration;
+    }
+
+    @Option(name = "-di", aliases = "--data-interval", usage = "Initial data interval to use when generating data based on data size")
+    private long dataInterval = -1;
+
+    public long getDataInterval() {
+        return dataInterval;
+    }
+
+    @Option(name = "-ni", aliases = "--num-intervals", usage = "Number of intervals to use when generating data based on data size (default = 4)")
+    private int nIntervals = 4;
+
+    public int getNIntervals() {
+        return nIntervals;
+    }
+
+    @Option(name = "-oh", aliases = "--orachestrator-host", usage = "The host name of the orchestrator")
+    private String orchHost;
+
+    public String getOrchestratorHost() {
+        return orchHost;
+    }
+
+    @Option(name = "-op", aliases = "--orchestrator-port", usage = "The port number of the orchestrator")
+    private int orchPort;
+
+    public int getOrchestratorPort() {
+        return orchPort;
     }
 
     @Argument(required = true, usage = "A list of <ip>:<port> pairs (addresses) to send data to", metaVar = "addresses...", handler = AddressOptionHandler.class)

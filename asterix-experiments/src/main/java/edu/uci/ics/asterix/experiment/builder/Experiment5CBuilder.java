@@ -8,7 +8,7 @@ import edu.uci.ics.asterix.experiment.client.LSMExperimentSetRunner.LSMExperimen
 public class Experiment5CBuilder extends AbstractLSMBaseExperimentBuilder {
 
     public Experiment5CBuilder(LSMExperimentSetRunnerConfig config) {
-        super("5C", config, "8node.xml", "5_3_ingest.aql", "5_3.dgen", "5_3_count.aql");
+        super("5C", config, "8node.xml", "5_3_ingest.aql", "5_3.dgen", "5_3_count.aql", true);
     }
 
     @Override

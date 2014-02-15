@@ -6,7 +6,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
-import org.apache.log4j.LogManager;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
@@ -29,7 +28,10 @@ import edu.uci.ics.asterix.experiment.builder.Experiment2C1Builder;
 import edu.uci.ics.asterix.experiment.builder.Experiment2C2Builder;
 import edu.uci.ics.asterix.experiment.builder.Experiment2C4Builder;
 import edu.uci.ics.asterix.experiment.builder.Experiment2C8Builder;
-import edu.uci.ics.asterix.experiment.builder.Experiment3Builder;
+import edu.uci.ics.asterix.experiment.builder.Experiment3ABuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment3BBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment3CBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment3DBuilder;
 import edu.uci.ics.asterix.experiment.builder.Experiment4ABuilder;
 import edu.uci.ics.asterix.experiment.builder.Experiment4BBuilder;
 import edu.uci.ics.asterix.experiment.builder.Experiment4CBuilder;
@@ -40,12 +42,35 @@ import edu.uci.ics.asterix.experiment.builder.Experiment5CBuilder;
 import edu.uci.ics.asterix.experiment.builder.Experiment5DBuilder;
 import edu.uci.ics.asterix.experiment.builder.Experiment6ABuilder;
 import edu.uci.ics.asterix.experiment.builder.Experiment6BBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment6CBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment7ABuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment7BBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment7CBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment7DBuilder;
 
 public class LSMExperimentSetRunner {
 
     private static final Logger LOGGER = Logger.getLogger(LSMExperimentSetRunner.class.getName());
 
     public static class LSMExperimentSetRunnerConfig {
+
+        private final String logDirSuffix;
+
+        private final int nQueryRuns;
+
+        public LSMExperimentSetRunnerConfig(String logDirSuffix, int nQueryRuns) {
+            this.logDirSuffix = logDirSuffix;
+            this.nQueryRuns = nQueryRuns;
+        }
+
+        public String getLogDirSuffix() {
+            return logDirSuffix;
+        }
+
+        public int getNQueryRuns() {
+            return nQueryRuns;
+        }
+
         @Option(name = "-rh", aliases = "--rest-host", usage = "Asterix REST API host address", required = true, metaVar = "HOST")
         private String restHost;
 
@@ -101,11 +126,40 @@ public class LSMExperimentSetRunner {
         public String getRegex() {
             return regex;
         }
+
+        @Option(name = "-oh", aliases = "--orchestrator-host", usage = "The host address of THIS orchestrator")
+        private String orchHost;
+
+        public String getOrchestratorHost() {
+            return orchHost;
+        }
+
+        @Option(name = "-op", aliases = "--orchestrator-port", usage = "The port to be used for the orchestrator server of THIS orchestrator")
+        private int orchPort;
+
+        public int getOrchestratorPort() {
+            return orchPort;
+        }
+
+        @Option(name = "-di", aliases = "--data-interval", usage = " Initial data interval to use when generating data for exp 7")
+        private long dataInterval;
+
+        public long getDataInterval() {
+            return dataInterval;
+        }
+
+        @Option(name = "-ni", aliases = "--num-data-intervals", usage = "Number of data intervals to use when generating data for exp 7")
+        private int numIntervals;
+
+        public int getNIntervals() {
+            return numIntervals;
+        }
     }
 
     public static void main(String[] args) throws Exception {
-        LogManager.getRootLogger().setLevel(org.apache.log4j.Level.OFF);
-        LSMExperimentSetRunnerConfig config = new LSMExperimentSetRunnerConfig();
+        //        LogManager.getRootLogger().setLevel(org.apache.log4j.Level.OFF);
+        LSMExperimentSetRunnerConfig config = new LSMExperimentSetRunnerConfig(String.valueOf(System
+                .currentTimeMillis()), 20);
         CmdLineParser clp = new CmdLineParser(config);
         try {
             clp.parseArgument(args);
@@ -116,6 +170,17 @@ public class LSMExperimentSetRunner {
         }
 
         Collection<AbstractExperimentBuilder> suite = new ArrayList<>();
+        suite.add(new Experiment7ABuilder(config));
+        suite.add(new Experiment7BBuilder(config));
+        suite.add(new Experiment7CBuilder(config));
+        suite.add(new Experiment7DBuilder(config));
+        suite.add(new Experiment6ABuilder(config));
+        suite.add(new Experiment6BBuilder(config));
+        suite.add(new Experiment6CBuilder(config));
+        suite.add(new Experiment3ABuilder(config));
+        suite.add(new Experiment3BBuilder(config));
+        suite.add(new Experiment3CBuilder(config));
+        suite.add(new Experiment3DBuilder(config));
         suite.add(new Experiment1ABuilder(config));
         suite.add(new Experiment1BBuilder(config));
         suite.add(new Experiment1CBuilder(config));
@@ -132,7 +197,6 @@ public class LSMExperimentSetRunner {
         suite.add(new Experiment2C2Builder(config));
         suite.add(new Experiment2C4Builder(config));
         suite.add(new Experiment2C8Builder(config));
-        suite.add(new Experiment3Builder(config));
         suite.add(new Experiment4ABuilder(config));
         suite.add(new Experiment4BBuilder(config));
         suite.add(new Experiment4CBuilder(config));
@@ -141,8 +205,6 @@ public class LSMExperimentSetRunner {
         suite.add(new Experiment5BBuilder(config));
         suite.add(new Experiment5CBuilder(config));
         suite.add(new Experiment5DBuilder(config));
-        suite.add(new Experiment6ABuilder(config));
-        suite.add(new Experiment6BBuilder(config));
 
         Pattern p = config.getRegex() == null ? null : Pattern.compile(config.getRegex());
 
