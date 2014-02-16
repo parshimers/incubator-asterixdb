@@ -43,10 +43,10 @@ import edu.uci.ics.asterix.experiment.builder.Experiment5DBuilder;
 import edu.uci.ics.asterix.experiment.builder.Experiment6ABuilder;
 import edu.uci.ics.asterix.experiment.builder.Experiment6BBuilder;
 import edu.uci.ics.asterix.experiment.builder.Experiment6CBuilder;
-import edu.uci.ics.asterix.experiment.builder.Experiment7ABuilder;
-import edu.uci.ics.asterix.experiment.builder.Experiment7BBuilder;
-import edu.uci.ics.asterix.experiment.builder.Experiment7CBuilder;
-import edu.uci.ics.asterix.experiment.builder.Experiment7DBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment8ABuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment8BBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment8CBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment8DBuilder;
 
 public class LSMExperimentSetRunner {
 
@@ -170,10 +170,6 @@ public class LSMExperimentSetRunner {
         }
 
         Collection<AbstractExperimentBuilder> suite = new ArrayList<>();
-        suite.add(new Experiment7ABuilder(config));
-        suite.add(new Experiment7BBuilder(config));
-        suite.add(new Experiment7CBuilder(config));
-        suite.add(new Experiment7DBuilder(config));
         suite.add(new Experiment6ABuilder(config));
         suite.add(new Experiment6BBuilder(config));
         suite.add(new Experiment6CBuilder(config));
@@ -205,6 +201,10 @@ public class LSMExperimentSetRunner {
         suite.add(new Experiment5BBuilder(config));
         suite.add(new Experiment5CBuilder(config));
         suite.add(new Experiment5DBuilder(config));
+        suite.add(new Experiment8ABuilder(config));
+        suite.add(new Experiment8BBuilder(config));
+        suite.add(new Experiment8CBuilder(config));
+        suite.add(new Experiment8DBuilder(config));
 
         Pattern p = config.getRegex() == null ? null : Pattern.compile(config.getRegex());
 

@@ -92,9 +92,11 @@ public class SocketTweetGenerator {
 
         private int currentInterval;
         private long nextStopInterval;
+        private final long dataSizeInterval;
+        private final boolean flagStopResume;
 
         public DataGenerator(Mode m, Semaphore sem, String host, int port, int partition, int duration,
-                int nDataIntervals, long initialDataSizeInterval, String orchHost, int orchPort) {
+                int nDataIntervals, long dataSizeInterval, String orchHost, int orchPort) {
             this.m = m;
             this.sem = sem;
             this.host = host;
@@ -103,9 +105,11 @@ public class SocketTweetGenerator {
             this.duration = duration;
             this.nDataIntervals = nDataIntervals;
             currentInterval = 0;
-            this.nextStopInterval = initialDataSizeInterval;
+            this.dataSizeInterval = dataSizeInterval;
+            this.nextStopInterval = dataSizeInterval;
             this.orchHost = orchHost;
             this.orchPort = orchPort;
+            this.flagStopResume = false;
         }
 
         @Override
@@ -126,16 +130,24 @@ public class SocketTweetGenerator {
                         while (tg.setNextRecordBatch(1000)) {
                             if (m == Mode.DATA) {
                                 if (tg.getFlushedDataSize() >= nextStopInterval) {
-                                    // send stop to orchestrator
-                                    sendStopped(orchSocket);
+                                    //TODO stop/resume option
+                                    if (flagStopResume) {
+                                        // send stop to orchestrator
+                                        sendStopped(orchSocket);
+                                    } else {
+                                        sendReached(orchSocket);
+                                    }
 
                                     // update intervals
-                                    nextStopInterval *= 2;
+                                    // TODO give options: exponential/linear interval
+                                    nextStopInterval += dataSizeInterval;
                                     if (++currentInterval >= nDataIntervals) {
                                         break;
                                     }
 
-                                    receiveResume(orchSocket);
+                                    if (flagStopResume) {
+                                        receiveResume(orchSocket);
+                                    }
                                 }
                             }
                         }
@@ -157,6 +169,11 @@ public class SocketTweetGenerator {
             } finally {
                 sem.release();
             }
+        }
+
+        private void sendReached(Socket s) throws IOException {
+            new DataOutputStream(s.getOutputStream()).writeInt(OrchestratorDGProtocol.REACHED.ordinal());
+            s.getOutputStream().flush();
         }
 
         private void receiveResume(Socket s) throws IOException {

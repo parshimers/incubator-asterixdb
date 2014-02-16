@@ -19,14 +19,17 @@ public class OrchestratorServer {
 
     private final AtomicBoolean running;
 
-    private final IAction pauseAction;
+    private final IAction[] protocolActions;
 
-    public OrchestratorServer(int port, int nDataGens, int nIntervals, IAction pauseAction) {
+    private final boolean flagStopResume;
+
+    public OrchestratorServer(int port, int nDataGens, int nIntervals, IAction[] protocolActions) {
         this.port = port;
         this.nDataGens = nDataGens;
         this.nIntervals = nIntervals;
         running = new AtomicBoolean();
-        this.pauseAction = pauseAction;
+        this.protocolActions = protocolActions;
+        this.flagStopResume = false;
     }
 
     public synchronized void start() throws IOException, InterruptedException {
@@ -48,14 +51,22 @@ public class OrchestratorServer {
                             conn[i] = ss.accept();
                         }
                         for (int n = 0; n < nIntervals; ++n) {
-                            for (int i = 0; i < nDataGens; i++) {
-                                receiveStopped(conn[i]);
-                            }
-                            pauseAction.perform();
-                            if (n != nIntervals - 1) {
+                            //TODO refactor operations according to the protocol message
+                            if (flagStopResume) {
                                 for (int i = 0; i < nDataGens; i++) {
-                                    sendResume(conn[i]);
+                                    receiveStopped(conn[i]);
                                 }
+                                protocolActions[n].perform();
+                                if (n != nIntervals - 1) {
+                                    for (int i = 0; i < nDataGens; i++) {
+                                        sendResume(conn[i]);
+                                    }
+                                }
+                            } else {
+                                for (int i = 0; i < nDataGens; i++) {
+                                    receiveReached(conn[i]);
+                                }
+                                protocolActions[n].perform();
                             }
                         }
                     } finally {
@@ -74,6 +85,7 @@ public class OrchestratorServer {
                     t.printStackTrace();
                 }
             }
+
         });
         t.start();
         synchronized (bound) {
@@ -94,6 +106,15 @@ public class OrchestratorServer {
         if (msgType != OrchestratorDGProtocol.STOPPED) {
             throw new IllegalStateException("Encounted unknown message type " + msgType);
         }
+    }
+
+    private void receiveReached(Socket conn) throws IOException {
+        int msg = new DataInputStream(conn.getInputStream()).readInt();
+        OrchestratorDGProtocol msgType = OrchestratorDGProtocol.values()[msg];
+        if (msgType != OrchestratorDGProtocol.REACHED) {
+            throw new IllegalStateException("Encounted unknown message type " + msgType);
+        }
+
     }
 
     public synchronized void awaitFinished() throws InterruptedException {

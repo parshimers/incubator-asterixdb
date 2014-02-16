@@ -1,7 +1,12 @@
 package edu.uci.ics.asterix.experiment.builder;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -10,9 +15,10 @@ import edu.uci.ics.asterix.experiment.action.base.ParallelActionSet;
 import edu.uci.ics.asterix.experiment.action.base.SequentialActionList;
 import edu.uci.ics.asterix.experiment.action.derived.AbstractRemoteExecutableAction;
 import edu.uci.ics.asterix.experiment.client.LSMExperimentSetRunner.LSMExperimentSetRunnerConfig;
+import edu.uci.ics.asterix.experiment.client.LSMExperimentConstants;
 import edu.uci.ics.asterix.experiment.client.OrchestratorServer;
 
-public abstract class AbstractExperiment7Builder extends AbstractLSMBaseExperimentBuilder {
+public abstract class AbstractExperiment8Builder extends AbstractLSMBaseExperimentBuilder {
 
     private final int nIntervals;
 
@@ -20,11 +26,13 @@ public abstract class AbstractExperiment7Builder extends AbstractLSMBaseExperime
 
     private final int orchPort;
 
-    private final long dataInterval;
+    protected final long dataInterval;
 
     protected final int nQueryRuns;
-
-    public AbstractExperiment7Builder(String name, LSMExperimentSetRunnerConfig config, String clusterConfigFileName,
+    
+    protected final Random randGen;
+    
+    public AbstractExperiment8Builder(String name, LSMExperimentSetRunnerConfig config, String clusterConfigFileName,
             String ingestFileName, String dgenFileName) {
         super(name, config, clusterConfigFileName, ingestFileName, dgenFileName, null, false);
         nIntervals = config.getNIntervals();
@@ -32,6 +40,7 @@ public abstract class AbstractExperiment7Builder extends AbstractLSMBaseExperime
         orchPort = config.getOrchestratorPort();
         dataInterval = config.getDataInterval();
         this.nQueryRuns = config.getNQueryRuns();
+        this.randGen = new Random();
     }
 
     protected abstract void doBuildProtocolAction(SequentialActionList seq, int queryRound) throws Exception;
@@ -87,4 +96,26 @@ public abstract class AbstractExperiment7Builder extends AbstractLSMBaseExperime
         });
     }
 
+    protected String getPointLookUpAQL(String templateFileName, int round) throws Exception {
+        Path aqlTemplateFilePath = localExperimentRoot.resolve(LSMExperimentConstants.AQL_DIR)
+                .resolve(templateFileName);
+        String aqlTemplate = StandardCharsets.UTF_8.decode(ByteBuffer.wrap(Files.readAllBytes(aqlTemplateFilePath)))
+                .toString();
+        long key = randGen.nextLong() % ((round * dataInterval) / 1000);
+        return aqlTemplate.replaceAll("\\$KEY\\$", Long.toString(key));
+    }
+    
+    protected String getRangeAQL(String templateFileName, int round) throws Exception {
+        Path aqlTemplateFilePath = localExperimentRoot.resolve(LSMExperimentConstants.AQL_DIR)
+                .resolve(templateFileName);
+        String aqlTemplate = StandardCharsets.UTF_8.decode(ByteBuffer.wrap(Files.readAllBytes(aqlTemplateFilePath)))
+                .toString();
+        long maxKey = (round * dataInterval) / 1000;  
+        long lowKey = randGen.nextLong() % maxKey;
+        if (lowKey+1000 > maxKey) {
+            lowKey = lowKey - 1000;
+        }
+        long highKey = lowKey + 1000;
+        return aqlTemplate.replaceAll("\\$LKEY\\$", Long.toString(lowKey)).replaceAll("\\$HKEY\\$", Long.toString(highKey));
+    }
 }

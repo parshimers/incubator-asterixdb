@@ -19,7 +19,7 @@ public class Experiment7DBuilder extends AbstractExperiment7Builder {
     }
 
     @Override
-    protected void doBuildPauseAction(SequentialActionList seq) throws Exception {
+    protected void doBuildProtocolAction(SequentialActionList seq, int queryRound) throws Exception {
         for (int i = 0; i < nQueryRuns; ++i) {
             seq.add(new TimedAction(new RunAQLFileAction(httpClient, restHost, restPort, localExperimentRoot.resolve(
                     LSMExperimentConstants.AQL_DIR).resolve("7_q1.aql"))));
