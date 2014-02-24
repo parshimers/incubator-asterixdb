@@ -26,7 +26,7 @@ public abstract class AbstractExperiment7Builder extends AbstractLSMBaseExperime
 
     public AbstractExperiment7Builder(String name, LSMExperimentSetRunnerConfig config, String clusterConfigFileName,
             String ingestFileName, String dgenFileName) {
-        super(name, config, clusterConfigFileName, ingestFileName, dgenFileName, null, false);
+        super(name, config, clusterConfigFileName, ingestFileName, dgenFileName, null);
         nIntervals = config.getNIntervals();
         orchHost = config.getOrchestratorHost();
         orchPort = config.getOrchestratorPort();

@@ -4,6 +4,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.List;
@@ -13,6 +14,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -78,7 +81,9 @@ public class SocketTweetGenerator {
         sem.acquire();
     }
 
-    public class DataGenerator implements Runnable {
+    public static class DataGenerator implements Runnable {
+
+        private static final Logger LOGGER = Logger.getLogger(DataGenerator.class.getName());
 
         private final Mode m;
         private final Semaphore sem;
@@ -121,12 +126,13 @@ public class SocketTweetGenerator {
                     if (m == Mode.DATA) {
                         orchSocket = new Socket(orchHost, orchPort);
                     }
+                    TweetGenerator tg = null;
                     try {
                         Map<String, String> config = new HashMap<>();
                         String durationVal = m == Mode.TIME ? String.valueOf(duration) : "0";
                         config.put(TweetGenerator.KEY_DURATION, String.valueOf(durationVal));
 
-                        TweetGenerator tg = new TweetGenerator(config, partition, s.getOutputStream());
+                        tg = new TweetGenerator(config, partition, s.getOutputStream());
                         while (tg.setNextRecordBatch(1000)) {
                             if (m == Mode.DATA) {
                                 if (tg.getFlushedDataSize() >= nextStopInterval) {
@@ -151,12 +157,12 @@ public class SocketTweetGenerator {
                                 }
                             }
                         }
-                        System.out.println("Num tweets flushed = " + tg.getNumFlushedTweets() + " in " + duration
-                                + " seconds.");
                     } finally {
                         if (orchSocket != null) {
                             orchSocket.close();
                         }
+                        System.out.println("Num tweets flushed = " + tg.getNumFlushedTweets() + " in " + duration
+                                + " seconds from " + InetAddress.getLocalHost() + " to " + host + ":" + port);
                     }
                 } catch (Throwable t) {
                     t.printStackTrace();
@@ -174,11 +180,17 @@ public class SocketTweetGenerator {
         private void sendReached(Socket s) throws IOException {
             new DataOutputStream(s.getOutputStream()).writeInt(OrchestratorDGProtocol.REACHED.ordinal());
             s.getOutputStream().flush();
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Sent " + OrchestratorDGProtocol.REACHED + " to " + s.getRemoteSocketAddress());
+            }
         }
 
         private void receiveResume(Socket s) throws IOException {
             int msg = new DataInputStream(s.getInputStream()).readInt();
             OrchestratorDGProtocol msgType = OrchestratorDGProtocol.values()[msg];
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Received " + msgType + " from " + s.getRemoteSocketAddress());
+            }
             if (msgType != OrchestratorDGProtocol.RESUME) {
                 throw new IllegalStateException("Unknown protocol message received: " + msgType);
             }
@@ -187,6 +199,9 @@ public class SocketTweetGenerator {
         private void sendStopped(Socket s) throws IOException {
             new DataOutputStream(s.getOutputStream()).writeInt(OrchestratorDGProtocol.STOPPED.ordinal());
             s.getOutputStream().flush();
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Sent " + OrchestratorDGProtocol.STOPPED + " to " + s.getRemoteSocketAddress());
+            }
         }
 
     }

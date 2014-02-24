@@ -1,5 +1,6 @@
 package edu.uci.ics.asterix.runtime.operators.file;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
@@ -12,12 +13,17 @@ public class ExperimentAdmTupleParser extends AdmTupleParser {
 
     private static final Logger LOGGER = Logger.getLogger(ExperimentAdmTupleParser.class.getName());
 
+    private static final AtomicBoolean countMonitorActive = new AtomicBoolean();
+
     private final long duration;
 
-    public ExperimentAdmTupleParser(IHyracksTaskContext ctx, ARecordType recType, long duration)
+    private final long pollFrequency;
+
+    public ExperimentAdmTupleParser(IHyracksTaskContext ctx, ARecordType recType, long duration, long pollFrequency)
             throws HyracksDataException {
         super(ctx, recType);
         this.duration = duration;
+        this.pollFrequency = pollFrequency;
     }
 
     @Override
@@ -43,6 +49,35 @@ public class ExperimentAdmTupleParser extends AdmTupleParser {
                         + " seconds [RPS = " + rps + "]");
             }
         });
+        t.setName("Average Throughput Monitor");
+        t.setDaemon(true);
         t.start();
+        if (pollFrequency > 0) {
+            synchronized (countMonitorActive) {
+                if (!countMonitorActive.get()) {
+                    Thread cmThread = new Thread(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            int count = lm.getCount();
+                            while (true) {
+                                try {
+                                    Thread.sleep(pollFrequency * 1000);
+                                    int newCount = lm.getCount();
+                                    LOGGER.severe("Instantaneous throughput: " + (newCount - count) / pollFrequency);
+                                    count = newCount;
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        }
+                    });
+                    cmThread.setDaemon(true);
+                    cmThread.setName("Instantaneous Throughput Monitor");
+                    cmThread.start();
+                    countMonitorActive.set(true);
+                }
+            }
+        }
     }
 }

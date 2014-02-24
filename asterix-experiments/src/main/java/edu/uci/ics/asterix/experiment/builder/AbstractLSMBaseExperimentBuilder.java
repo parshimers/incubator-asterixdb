@@ -64,11 +64,10 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
 
     private final String countFileName;
 
-    private final boolean waitAfterDGen;
+    private final String statFile;
 
     public AbstractLSMBaseExperimentBuilder(String name, LSMExperimentSetRunnerConfig config,
-            String clusterConfigFileName, String ingestFileName, String dgenFileName, String countFileName,
-            boolean waitAfterDGen) {
+            String clusterConfigFileName, String ingestFileName, String dgenFileName, String countFileName) {
         super(name);
         this.logDirSuffix = config.getLogDirSuffix();
         this.httpClient = new DefaultHttpClient();
@@ -83,7 +82,7 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
         this.ingestFileName = ingestFileName;
         this.dgenFileName = dgenFileName;
         this.countFileName = countFileName;
-        this.waitAfterDGen = waitAfterDGen;
+        this.statFile = config.getStatFile();
     }
 
     protected abstract void doBuildDDL(SequentialActionList seq);
@@ -148,23 +147,39 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
                 ncHosts.add(ncHost.split(":")[0]);
             }
         }
-        // TODO: io counting
 
-        //        for (String ncHost : ncHosts) {
-        //            execs.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
-        //
-        //                @Override
-        //                protected String getCommand() {
-        //                    String cmd = "screen -d -m sar -b -u 1 | tee -a test.txt";
-        //                    return null;
-        //                }
-        //            });
-        //        }
+        if (statFile != null) {
+            ParallelActionSet ioCountActions = new ParallelActionSet();
+            for (String ncHost : ncHosts) {
+                ioCountActions.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
+
+                    @Override
+                    protected String getCommand() {
+                        String cmd = "screen -d -m sh -c \"sar -b -u 1 > " + statFile + "\"";
+                        return cmd;
+                    }
+                });
+            }
+            execs.add(ioCountActions);
+        }
 
         // main exp
         doBuildDataGen(execs, dgenPairs);
 
-        // TODO: kill io counting
+        if (statFile != null) {
+            ParallelActionSet ioCountKillActions = new ParallelActionSet();
+            for (String ncHost : ncHosts) {
+                ioCountKillActions.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
+
+                    @Override
+                    protected String getCommand() {
+                        String cmd = "screen -X -S `screen -list | grep Detached | awk '{print $1}'` quit";
+                        return cmd;
+                    }
+                });
+            }
+            execs.add(ioCountKillActions);
+        }
 
         execs.add(new SleepAction(10000));
         if (countFileName != null) {
@@ -175,7 +190,7 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
         File file = new File(clusterConfigPath);
         JAXBContext ctx = JAXBContext.newInstance(Cluster.class);
         Unmarshaller unmarshaller = ctx.createUnmarshaller();
-        Cluster cluster = (Cluster) unmarshaller.unmarshal(file);
+        final Cluster cluster = (Cluster) unmarshaller.unmarshal(file);
         String[] storageRoots = cluster.getIodevices().split(",");
         for (String ncHost : ncHosts) {
             for (final String sRoot : storageRoots) {
@@ -196,8 +211,23 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
         killCmds.add(new RemoteAsterixDriverKill(restHost, username, sshKeyLocation));
         execs.add(killCmds);
         execs.add(new StopAsterixManagixAction(managixHomePath, ASTERIX_INSTANCE_NAME));
+        if (statFile != null) {
+            ParallelActionSet collectIOActions = new ParallelActionSet();
+            for (String ncHost : ncHosts) {
+                collectIOActions.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
+
+                    @Override
+                    protected String getCommand() {
+                        String cmd = "cp " + statFile + " " + cluster.getLogDir();
+                        return cmd;
+                    }
+                });
+            }
+            execs.add(collectIOActions);
+        }
         execs.add(new LogAsterixManagixAction(managixHomePath, ASTERIX_INSTANCE_NAME, localExperimentRoot
                 .resolve(LSMExperimentConstants.LOG_DIR + "-" + logDirSuffix).resolve(getName()).toString()));
+
         e.addBody(execs);
     }
 

@@ -5,16 +5,15 @@ import edu.uci.ics.asterix.experiment.action.derived.RunAQLFileAction;
 import edu.uci.ics.asterix.experiment.client.LSMExperimentConstants;
 import edu.uci.ics.asterix.experiment.client.LSMExperimentSetRunner.LSMExperimentSetRunnerConfig;
 
-public class Experiment5CBuilder extends AbstractLSMBaseExperimentBuilder {
+public class Experiment9DBuilder extends AbstractExperiment9Builder {
 
-    public Experiment5CBuilder(LSMExperimentSetRunnerConfig config) {
-        super("5C", config, "8node.xml", "5_3_ingest.aql", "5_3.dgen", "5_3_count.aql");
+    public Experiment9DBuilder(LSMExperimentSetRunnerConfig config) {
+        super("9D", config, "8node.xml", "base_8_ingest.aql", "8.dgen");
     }
 
     @Override
     protected void doBuildDDL(SequentialActionList seq) {
         seq.add(new RunAQLFileAction(httpClient, restHost, restPort, localExperimentRoot.resolve(
-                LSMExperimentConstants.AQL_DIR).resolve("5_3.aql")));
+                LSMExperimentConstants.AQL_DIR).resolve("8_d.aql")));
     }
-
 }

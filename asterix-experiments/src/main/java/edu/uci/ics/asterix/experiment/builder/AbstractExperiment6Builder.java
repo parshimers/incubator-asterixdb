@@ -5,6 +5,6 @@ import edu.uci.ics.asterix.experiment.client.LSMExperimentSetRunner.LSMExperimen
 public abstract class AbstractExperiment6Builder extends AbstractLSMBaseExperimentBuilder {
 
     public AbstractExperiment6Builder(String name, LSMExperimentSetRunnerConfig config) {
-        super(name, config, "8node.xml", "base_8_ingest.aql", "8.dgen", "count.aql", true);
+        super(name, config, "8node.xml", "base_8_ingest.aql", "8.dgen", "count.aql");
     }
 }

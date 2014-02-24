@@ -28,6 +28,10 @@ import edu.uci.ics.asterix.experiment.builder.Experiment2C1Builder;
 import edu.uci.ics.asterix.experiment.builder.Experiment2C2Builder;
 import edu.uci.ics.asterix.experiment.builder.Experiment2C4Builder;
 import edu.uci.ics.asterix.experiment.builder.Experiment2C8Builder;
+import edu.uci.ics.asterix.experiment.builder.Experiment2D1Builder;
+import edu.uci.ics.asterix.experiment.builder.Experiment2D2Builder;
+import edu.uci.ics.asterix.experiment.builder.Experiment2D4Builder;
+import edu.uci.ics.asterix.experiment.builder.Experiment2D8Builder;
 import edu.uci.ics.asterix.experiment.builder.Experiment3ABuilder;
 import edu.uci.ics.asterix.experiment.builder.Experiment3BBuilder;
 import edu.uci.ics.asterix.experiment.builder.Experiment3CBuilder;
@@ -45,8 +49,10 @@ import edu.uci.ics.asterix.experiment.builder.Experiment6BBuilder;
 import edu.uci.ics.asterix.experiment.builder.Experiment6CBuilder;
 import edu.uci.ics.asterix.experiment.builder.Experiment8ABuilder;
 import edu.uci.ics.asterix.experiment.builder.Experiment8BBuilder;
-import edu.uci.ics.asterix.experiment.builder.Experiment8CBuilder;
 import edu.uci.ics.asterix.experiment.builder.Experiment8DBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment9ABuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment9BBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment9DBuilder;
 
 public class LSMExperimentSetRunner {
 
@@ -154,12 +160,19 @@ public class LSMExperimentSetRunner {
         public int getNIntervals() {
             return numIntervals;
         }
+
+        @Option(name = "-sf", aliases = "--stat-file", usage = "Enable IO/CPU stats and place in specified file")
+        private String statFile = null;
+
+        public String getStatFile() {
+            return statFile;
+        }
     }
 
     public static void main(String[] args) throws Exception {
         //        LogManager.getRootLogger().setLevel(org.apache.log4j.Level.OFF);
         LSMExperimentSetRunnerConfig config = new LSMExperimentSetRunnerConfig(String.valueOf(System
-                .currentTimeMillis()), 20);
+                .currentTimeMillis()), 1);
         CmdLineParser clp = new CmdLineParser(config);
         try {
             clp.parseArgument(args);
@@ -170,17 +183,23 @@ public class LSMExperimentSetRunner {
         }
 
         Collection<AbstractExperimentBuilder> suite = new ArrayList<>();
+        suite.add(new Experiment9ABuilder(config));
+        suite.add(new Experiment9DBuilder(config));
+        suite.add(new Experiment9BBuilder(config));
+        suite.add(new Experiment8ABuilder(config));
+        suite.add(new Experiment8BBuilder(config));
+        suite.add(new Experiment8DBuilder(config));
         suite.add(new Experiment6ABuilder(config));
         suite.add(new Experiment6BBuilder(config));
         suite.add(new Experiment6CBuilder(config));
-        suite.add(new Experiment3ABuilder(config));
-        suite.add(new Experiment3BBuilder(config));
-        suite.add(new Experiment3CBuilder(config));
-        suite.add(new Experiment3DBuilder(config));
-        suite.add(new Experiment1ABuilder(config));
-        suite.add(new Experiment1BBuilder(config));
-        suite.add(new Experiment1CBuilder(config));
-        suite.add(new Experiment1DBuilder(config));
+        suite.add(new Experiment2D1Builder(config));
+        suite.add(new Experiment2D2Builder(config));
+        suite.add(new Experiment2D4Builder(config));
+        suite.add(new Experiment2D8Builder(config));
+        suite.add(new Experiment2C1Builder(config));
+        suite.add(new Experiment2C2Builder(config));
+        suite.add(new Experiment2C4Builder(config));
+        suite.add(new Experiment2C8Builder(config));
         suite.add(new Experiment2A1Builder(config));
         suite.add(new Experiment2A2Builder(config));
         suite.add(new Experiment2A4Builder(config));
@@ -189,22 +208,22 @@ public class LSMExperimentSetRunner {
         suite.add(new Experiment2B2Builder(config));
         suite.add(new Experiment2B4Builder(config));
         suite.add(new Experiment2B8Builder(config));
-        suite.add(new Experiment2C1Builder(config));
-        suite.add(new Experiment2C2Builder(config));
-        suite.add(new Experiment2C4Builder(config));
-        suite.add(new Experiment2C8Builder(config));
+        suite.add(new Experiment1ABuilder(config));
+        suite.add(new Experiment1BBuilder(config));
+        suite.add(new Experiment1CBuilder(config));
+        suite.add(new Experiment1DBuilder(config));
         suite.add(new Experiment4ABuilder(config));
         suite.add(new Experiment4BBuilder(config));
         suite.add(new Experiment4CBuilder(config));
         suite.add(new Experiment4DBuilder(config));
+        suite.add(new Experiment3ABuilder(config));
+        suite.add(new Experiment3BBuilder(config));
+        suite.add(new Experiment3CBuilder(config));
+        suite.add(new Experiment3DBuilder(config));
         suite.add(new Experiment5ABuilder(config));
         suite.add(new Experiment5BBuilder(config));
         suite.add(new Experiment5CBuilder(config));
         suite.add(new Experiment5DBuilder(config));
-        suite.add(new Experiment8ABuilder(config));
-        suite.add(new Experiment8BBuilder(config));
-        suite.add(new Experiment8CBuilder(config));
-        suite.add(new Experiment8DBuilder(config));
 
         Pattern p = config.getRegex() == null ? null : Pattern.compile(config.getRegex());
 

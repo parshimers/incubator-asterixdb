@@ -70,8 +70,12 @@ public class DataGenerator {
             Message message = randMessageGen.getNextRandomMessage();
             Point location = randLocationGen.getRandomPoint();
             DateTime sendTime = randDateGen.getNextRandomDatetime();
+            int btreeExtraFieldKey = random.nextInt();
+            if (btreeExtraFieldKey == Integer.MIN_VALUE) {
+                btreeExtraFieldKey = Integer.MIN_VALUE + 1;
+            }
             twMessage.reset(idGen.getNextULong(), twUser, location, sendTime, message.getReferredTopics(), message,
-                    random.nextInt(), DUMMY_SIZE_ADJUSTER);
+                    btreeExtraFieldKey, DUMMY_SIZE_ADJUSTER);
             msg = twMessage;
             return msg;
         }

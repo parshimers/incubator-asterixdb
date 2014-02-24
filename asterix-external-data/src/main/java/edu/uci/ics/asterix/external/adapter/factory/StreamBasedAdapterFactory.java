@@ -47,6 +47,7 @@ public abstract class StreamBasedAdapterFactory implements IAdapterFactory {
     protected Map<String, String> configuration;
     protected static INodeResolver nodeResolver;
 
+    public static final String KEY_POLL_FREQUENCY = "poll-frequency";
     public static final String KEY_DURATION = "duration";
     public static final String KEY_FORMAT = "format";
     public static final String KEY_PARSER_FACTORY = "parser";
@@ -108,6 +109,11 @@ public abstract class StreamBasedAdapterFactory implements IAdapterFactory {
 
     protected ITupleParserFactory getADMDataTupleParserFactory(ARecordType recordType, boolean conditionalPush)
             throws AsterixException {
+        int pollFrequency = 0;
+        String pollFrequencyStr = configuration.get(KEY_POLL_FREQUENCY);
+        if (pollFrequencyStr != null) {
+            pollFrequency = Integer.parseInt(pollFrequencyStr);
+        }
         long duration = 60000;
         String durationStr = configuration.get(KEY_DURATION);
         if (durationStr != null) {
@@ -115,7 +121,7 @@ public abstract class StreamBasedAdapterFactory implements IAdapterFactory {
         }
         try {
             return conditionalPush ? new ConditionalPushTupleParserFactory(recordType, configuration)
-                    : new ExperimentAdmSchemafullRecordParserFactory(recordType, duration);
+                    : new ExperimentAdmSchemafullRecordParserFactory(recordType, duration, pollFrequency);
         } catch (Exception e) {
             throw new AsterixException(e);
         }

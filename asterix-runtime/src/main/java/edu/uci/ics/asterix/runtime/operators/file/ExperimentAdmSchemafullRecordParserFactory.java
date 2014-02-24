@@ -10,13 +10,16 @@ public class ExperimentAdmSchemafullRecordParserFactory extends AdmSchemafullRec
 
     private final long duration;
 
-    public ExperimentAdmSchemafullRecordParserFactory(ARecordType recType, long duration) {
+    private final long pollFrequency;
+
+    public ExperimentAdmSchemafullRecordParserFactory(ARecordType recType, long duration, long pollFrequency) {
         super(recType);
         this.duration = duration;
+        this.pollFrequency = pollFrequency;
     }
 
     @Override
     public ITupleParser createTupleParser(final IHyracksTaskContext ctx) throws HyracksDataException {
-        return new ExperimentAdmTupleParser(ctx, recType, duration);
+        return new ExperimentAdmTupleParser(ctx, recType, duration, pollFrequency);
     }
 }

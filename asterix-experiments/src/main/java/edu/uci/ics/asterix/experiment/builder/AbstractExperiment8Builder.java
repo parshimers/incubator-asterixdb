@@ -14,11 +14,17 @@ import edu.uci.ics.asterix.experiment.action.base.AbstractAction;
 import edu.uci.ics.asterix.experiment.action.base.ParallelActionSet;
 import edu.uci.ics.asterix.experiment.action.base.SequentialActionList;
 import edu.uci.ics.asterix.experiment.action.derived.AbstractRemoteExecutableAction;
-import edu.uci.ics.asterix.experiment.client.LSMExperimentSetRunner.LSMExperimentSetRunnerConfig;
 import edu.uci.ics.asterix.experiment.client.LSMExperimentConstants;
+import edu.uci.ics.asterix.experiment.client.LSMExperimentSetRunner.LSMExperimentSetRunnerConfig;
 import edu.uci.ics.asterix.experiment.client.OrchestratorServer;
 
 public abstract class AbstractExperiment8Builder extends AbstractLSMBaseExperimentBuilder {
+
+    private static final long DOMAIN_SIZE = (1L << 32);
+
+    private static final long EXPECTED_RANGE_CARDINALITY = 1000;
+
+    private static int N_PARTITIONS = 16;
 
     private final int nIntervals;
 
@@ -29,12 +35,12 @@ public abstract class AbstractExperiment8Builder extends AbstractLSMBaseExperime
     protected final long dataInterval;
 
     protected final int nQueryRuns;
-    
+
     protected final Random randGen;
-    
+
     public AbstractExperiment8Builder(String name, LSMExperimentSetRunnerConfig config, String clusterConfigFileName,
             String ingestFileName, String dgenFileName) {
-        super(name, config, clusterConfigFileName, ingestFileName, dgenFileName, null, false);
+        super(name, config, clusterConfigFileName, ingestFileName, dgenFileName, null);
         nIntervals = config.getNIntervals();
         orchHost = config.getOrchestratorHost();
         orchPort = config.getOrchestratorPort();
@@ -49,12 +55,16 @@ public abstract class AbstractExperiment8Builder extends AbstractLSMBaseExperime
     protected void doBuildDataGen(SequentialActionList seq, Map<String, List<String>> dgenPairs) throws Exception {
         //start datagen
         SequentialActionList[] protocolActions = new SequentialActionList[nIntervals];
-        for (int i=0; i < nIntervals; i++) {
+        for (int i = 0; i < nIntervals; i++) {
             protocolActions[i] = new SequentialActionList();
             doBuildProtocolAction(protocolActions[i], i);
         }
-        
-        final OrchestratorServer oServer = new OrchestratorServer(orchPort, dgenPairs.size(), nIntervals, protocolActions);
+
+        int nDgens = 0;
+        for (List<String> v : dgenPairs.values()) {
+            nDgens += v.size();
+        }
+        final OrchestratorServer oServer = new OrchestratorServer(orchPort, nDgens, nIntervals, protocolActions);
 
         seq.add(new AbstractAction() {
 
@@ -101,21 +111,30 @@ public abstract class AbstractExperiment8Builder extends AbstractLSMBaseExperime
                 .resolve(templateFileName);
         String aqlTemplate = StandardCharsets.UTF_8.decode(ByteBuffer.wrap(Files.readAllBytes(aqlTemplateFilePath)))
                 .toString();
-        long key = randGen.nextLong() % ((round * dataInterval) / 1000);
+        ByteBuffer bb = ByteBuffer.allocate(8);
+        bb.put((byte) 0);
+        bb.put((byte) randGen.nextInt(N_PARTITIONS));
+        bb.putShort((short) 0);
+        bb.putInt(randGen.nextInt((int) (((1 + round) * dataInterval) / 1000)));
+        bb.flip();
+        long key = bb.getLong();
         return aqlTemplate.replaceAll("\\$KEY\\$", Long.toString(key));
     }
-    
+
     protected String getRangeAQL(String templateFileName, int round) throws Exception {
         Path aqlTemplateFilePath = localExperimentRoot.resolve(LSMExperimentConstants.AQL_DIR)
                 .resolve(templateFileName);
         String aqlTemplate = StandardCharsets.UTF_8.decode(ByteBuffer.wrap(Files.readAllBytes(aqlTemplateFilePath)))
                 .toString();
-        long maxKey = (round * dataInterval) / 1000;  
-        long lowKey = randGen.nextLong() % maxKey;
-        if (lowKey+1000 > maxKey) {
-            lowKey = lowKey - 1000;
+        long numKeys = (((1 + round) * dataInterval) / 1000) * N_PARTITIONS;
+        long rangeSize = (long) ((EXPECTED_RANGE_CARDINALITY / (double) numKeys) * DOMAIN_SIZE);
+        int lowKey = randGen.nextInt();
+        long maxLowKey = Integer.MAX_VALUE - rangeSize;
+        if (lowKey > maxLowKey) {
+            lowKey = (int) maxLowKey;
         }
-        long highKey = lowKey + 1000;
-        return aqlTemplate.replaceAll("\\$LKEY\\$", Long.toString(lowKey)).replaceAll("\\$HKEY\\$", Long.toString(highKey));
+        int highKey = (int) (lowKey + rangeSize);
+        return aqlTemplate.replaceAll("\\$LKEY\\$", Long.toString(lowKey)).replaceAll("\\$HKEY\\$",
+                Long.toString(highKey));
     }
 }
