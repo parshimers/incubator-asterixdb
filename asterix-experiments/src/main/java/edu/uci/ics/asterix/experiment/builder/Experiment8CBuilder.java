@@ -24,10 +24,10 @@ public class Experiment8CBuilder extends AbstractExperiment8Builder {
         seq.add(new TimedAction(new RunAQLFileAction(httpClient, restHost, restPort, localExperimentRoot.resolve(
                 LSMExperimentConstants.AQL_DIR).resolve("8_compact.aql"))));
         for (int i = 0; i < nQueryRuns; ++i) {
-            String aql = getPointLookUpAQL("8_q1.aql", round);
+            String aql = getPointLookUpAQL(round);
             seq.add(new TimedAction(new RunAQLStringAction(httpClient, restHost, restPort, aql)));
 
-            aql = getRangeAQL("8_q2.aql", round);
+            aql = getRangeAQL(round);
             seq.add(new TimedAction(new RunAQLStringAction(httpClient, restHost, restPort, aql)));
         }
     }

@@ -14,6 +14,8 @@ import edu.uci.ics.asterix.experiment.action.base.AbstractAction;
 import edu.uci.ics.asterix.experiment.action.base.ParallelActionSet;
 import edu.uci.ics.asterix.experiment.action.base.SequentialActionList;
 import edu.uci.ics.asterix.experiment.action.derived.AbstractRemoteExecutableAction;
+import edu.uci.ics.asterix.experiment.action.derived.RunRESTIOWaitAction;
+import edu.uci.ics.asterix.experiment.action.derived.SleepAction;
 import edu.uci.ics.asterix.experiment.client.LSMExperimentConstants;
 import edu.uci.ics.asterix.experiment.client.LSMExperimentSetRunner.LSMExperimentSetRunnerConfig;
 import edu.uci.ics.asterix.experiment.client.OrchestratorServer;
@@ -22,7 +24,7 @@ public abstract class AbstractExperiment8Builder extends AbstractLSMBaseExperime
 
     private static final long DOMAIN_SIZE = (1L << 32);
 
-    private static final long EXPECTED_RANGE_CARDINALITY = 1000;
+    private static final long EXPECTED_RANGE_CARDINALITY = 50000;
 
     private static int N_PARTITIONS = 16;
 
@@ -38,6 +40,9 @@ public abstract class AbstractExperiment8Builder extends AbstractLSMBaseExperime
 
     protected final Random randGen;
 
+    private final String pointQueryTemplate;
+    private final String rangeQueryTemplate;
+
     public AbstractExperiment8Builder(String name, LSMExperimentSetRunnerConfig config, String clusterConfigFileName,
             String ingestFileName, String dgenFileName) {
         super(name, config, clusterConfigFileName, ingestFileName, dgenFileName, null);
@@ -47,6 +52,8 @@ public abstract class AbstractExperiment8Builder extends AbstractLSMBaseExperime
         dataInterval = config.getDataInterval();
         this.nQueryRuns = config.getNQueryRuns();
         this.randGen = new Random();
+        this.pointQueryTemplate = getPointQueryTemplate();
+        this.rangeQueryTemplate = getRangeQueryTemplate();
     }
 
     protected abstract void doBuildProtocolAction(SequentialActionList seq, int queryRound) throws Exception;
@@ -57,6 +64,8 @@ public abstract class AbstractExperiment8Builder extends AbstractLSMBaseExperime
         SequentialActionList[] protocolActions = new SequentialActionList[nIntervals];
         for (int i = 0; i < nIntervals; i++) {
             protocolActions[i] = new SequentialActionList();
+            protocolActions[i].add(new RunRESTIOWaitAction(httpClient, restHost, restPort));
+            protocolActions[i].add(new SleepAction(10000));
             doBuildProtocolAction(protocolActions[i], i);
         }
 
@@ -86,7 +95,7 @@ public abstract class AbstractExperiment8Builder extends AbstractLSMBaseExperime
                 @Override
                 protected String getCommand() {
                     String ipPortPairs = StringUtils.join(rcvrs.iterator(), " ");
-                    String binary = "JAVA_HOME=/home/zheilbro/java/jdk1.7.0_51 "
+                    String binary = "JAVA_HOME=/home/youngsk2/jdk1.7.0_25 "
                             + localExperimentRoot.resolve("bin").resolve("expclient").toString();
                     return StringUtils.join(new String[] { binary, "-p", "" + p, "-di", "" + dataInterval, "-ni",
                             "" + nIntervals, "-oh", orchHost, "-op", "" + orchPort, ipPortPairs }, " ");
@@ -106,11 +115,25 @@ public abstract class AbstractExperiment8Builder extends AbstractLSMBaseExperime
         });
     }
 
-    protected String getPointLookUpAQL(String templateFileName, int round) throws Exception {
-        Path aqlTemplateFilePath = localExperimentRoot.resolve(LSMExperimentConstants.AQL_DIR)
-                .resolve(templateFileName);
-        String aqlTemplate = StandardCharsets.UTF_8.decode(ByteBuffer.wrap(Files.readAllBytes(aqlTemplateFilePath)))
-                .toString();
+    private String getRangeQueryTemplate() {
+        try {
+            Path aqlTemplateFilePath = localExperimentRoot.resolve(LSMExperimentConstants.AQL_DIR).resolve("8_q2.aql");
+            return StandardCharsets.UTF_8.decode(ByteBuffer.wrap(Files.readAllBytes(aqlTemplateFilePath))).toString();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private String getPointQueryTemplate() {
+        try {
+            Path aqlTemplateFilePath = localExperimentRoot.resolve(LSMExperimentConstants.AQL_DIR).resolve("8_q1.aql");
+            return StandardCharsets.UTF_8.decode(ByteBuffer.wrap(Files.readAllBytes(aqlTemplateFilePath))).toString();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    protected String getPointLookUpAQL(int round) throws Exception {
         ByteBuffer bb = ByteBuffer.allocate(8);
         bb.put((byte) 0);
         bb.put((byte) randGen.nextInt(N_PARTITIONS));
@@ -118,14 +141,10 @@ public abstract class AbstractExperiment8Builder extends AbstractLSMBaseExperime
         bb.putInt(randGen.nextInt((int) (((1 + round) * dataInterval) / 1000)));
         bb.flip();
         long key = bb.getLong();
-        return aqlTemplate.replaceAll("\\$KEY\\$", Long.toString(key));
+        return pointQueryTemplate.replaceAll("\\$KEY\\$", Long.toString(key));
     }
 
-    protected String getRangeAQL(String templateFileName, int round) throws Exception {
-        Path aqlTemplateFilePath = localExperimentRoot.resolve(LSMExperimentConstants.AQL_DIR)
-                .resolve(templateFileName);
-        String aqlTemplate = StandardCharsets.UTF_8.decode(ByteBuffer.wrap(Files.readAllBytes(aqlTemplateFilePath)))
-                .toString();
+    protected String getRangeAQL(int round) throws Exception {
         long numKeys = (((1 + round) * dataInterval) / 1000) * N_PARTITIONS;
         long rangeSize = (long) ((EXPECTED_RANGE_CARDINALITY / (double) numKeys) * DOMAIN_SIZE);
         int lowKey = randGen.nextInt();
@@ -134,7 +153,7 @@ public abstract class AbstractExperiment8Builder extends AbstractLSMBaseExperime
             lowKey = (int) maxLowKey;
         }
         int highKey = (int) (lowKey + rangeSize);
-        return aqlTemplate.replaceAll("\\$LKEY\\$", Long.toString(lowKey)).replaceAll("\\$HKEY\\$",
+        return rangeQueryTemplate.replaceAll("\\$LKEY\\$", Long.toString(lowKey)).replaceAll("\\$HKEY\\$",
                 Long.toString(highKey));
     }
 }

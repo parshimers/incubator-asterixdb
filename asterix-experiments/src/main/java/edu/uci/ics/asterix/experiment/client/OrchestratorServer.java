@@ -33,7 +33,7 @@ public class OrchestratorServer {
         this.nIntervals = nIntervals;
         running = new AtomicBoolean();
         this.protocolActions = protocolActions;
-        this.flagStopResume = false;
+        this.flagStopResume = true;
     }
 
     public synchronized void start() throws IOException, InterruptedException {

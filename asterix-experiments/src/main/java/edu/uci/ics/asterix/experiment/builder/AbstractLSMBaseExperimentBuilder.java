@@ -102,7 +102,7 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
                 @Override
                 protected String getCommand() {
                     String ipPortPairs = StringUtils.join(rcvrs.iterator(), " ");
-                    String binary = "JAVA_HOME=/home/zheilbro/java/jdk1.7.0_51 "
+                    String binary = "JAVA_HOME=/home/youngsk2/jdk1.7.0_25 "
                             + localExperimentRoot.resolve("bin").resolve("expclient").toString();
                     return StringUtils.join(new String[] { binary, "-p", "" + p, "-d", "" + duration, ipPortPairs },
                             " ");

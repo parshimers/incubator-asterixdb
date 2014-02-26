@@ -82,7 +82,7 @@ public abstract class AbstractExperiment9Builder extends AbstractLSMBaseExperime
                 @Override
                 protected String getCommand() {
                     String ipPortPairs = StringUtils.join(rcvrs.iterator(), " ");
-                    String binary = "JAVA_HOME=/home/zheilbro/java/jdk1.7.0_51 "
+                    String binary = "JAVA_HOME=/home/youngsk2/jdk1.7.0_25 "
                             + localExperimentRoot.resolve("bin").resolve("expclient").toString();
                     return StringUtils.join(new String[] { binary, "-p", "" + p, "-di", "" + dataInterval, "-ni",
                             "" + nIntervals, "-oh", orchHost, "-op", "" + orchPort, ipPortPairs }, " ");
@@ -104,17 +104,11 @@ public abstract class AbstractExperiment9Builder extends AbstractLSMBaseExperime
 
     public class ProtocolActionBuilder implements IProtocolActionBuilder {
 
-        private IAction lastAction;
-
-        private int lastRound;
-
         private final String pointQueryTemplate;
 
         private final String rangeQueryTemplate;
 
         public ProtocolActionBuilder() {
-            lastAction = null;
-            lastRound = -1;
             this.pointQueryTemplate = getPointQueryTemplate();
             this.rangeQueryTemplate = getRangeQueryTemplate();
         }
@@ -143,9 +137,6 @@ public abstract class AbstractExperiment9Builder extends AbstractLSMBaseExperime
 
         @Override
         public IAction buildAction(int round) throws Exception {
-            if (round == lastRound) {
-                return lastAction;
-            }
             SequentialActionList protoAction = new SequentialActionList();
             IAction pointQueryAction = new TimedAction(new RunAQLStringAction(httpClient, restHost, restPort,
                     getPointLookUpAQL(round)));
@@ -153,8 +144,6 @@ public abstract class AbstractExperiment9Builder extends AbstractLSMBaseExperime
                     getRangeAQL(round)));
             protoAction.add(pointQueryAction);
             protoAction.add(rangeQueryAction);
-            lastRound = round;
-            lastAction = protoAction;
             return protoAction;
         }
 
@@ -183,4 +172,6 @@ public abstract class AbstractExperiment9Builder extends AbstractLSMBaseExperime
         }
 
     }
+
+
 }

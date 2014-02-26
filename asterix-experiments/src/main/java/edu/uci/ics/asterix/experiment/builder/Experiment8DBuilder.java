@@ -22,10 +22,10 @@ public class Experiment8DBuilder extends AbstractExperiment8Builder {
     @Override
     protected void doBuildProtocolAction(SequentialActionList seq, int round) throws Exception {
         for (int i = 0; i < nQueryRuns; ++i) {
-            String aql = getPointLookUpAQL("8_q1.aql", round);
+            String aql = getPointLookUpAQL(round);
             seq.add(new TimedAction(new RunAQLStringAction(httpClient, restHost, restPort, aql)));
 
-            aql = getRangeAQL("8_q2.aql", round);
+            aql = getRangeAQL(round);
             seq.add(new TimedAction(new RunAQLStringAction(httpClient, restHost, restPort, aql)));
         }
     }
