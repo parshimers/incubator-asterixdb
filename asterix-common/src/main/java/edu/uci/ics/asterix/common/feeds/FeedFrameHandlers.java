@@ -28,19 +28,26 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.feeds.FrameDistributor.RoutingMode;
+import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 
 public class FeedFrameHandlers {
 
+    private static final Logger LOGGER = Logger.getLogger(FeedFrameHandlers.class.getName());
+
     public static IFeedFrameHandler getFeedFrameHandler(FrameDistributor distributor, FeedId feedId,
-            RoutingMode routingMode) throws IOException {
+            RoutingMode routingMode, FeedRuntimeType runtimeType, int partition) throws IOException {
         IFeedFrameHandler handler = null;
         switch (routingMode) {
             case IN_MEMORY_ROUTE:
-                handler = new InMemoryRouter(distributor.getRegisteredReaders().values());
+                handler = new InMemoryRouter(distributor.getRegisteredReaders().values(), runtimeType, partition);
                 break;
             case SPILL_TO_DISK:
-                handler = new DiskSpiller(distributor, feedId);
+                handler = new DiskSpiller(distributor, feedId, runtimeType, partition);
+                break;
+            case DISCARD:
+                handler = new DiscardRouter(distributor, feedId, runtimeType, partition);
                 break;
             default:
                 throw new IllegalArgumentException("Invalid routing mode" + routingMode);
@@ -48,11 +55,70 @@ public class FeedFrameHandlers {
         return handler;
     }
 
+    public static class DiscardRouter implements IFeedFrameHandler {
+
+        private final FeedId feedId;
+        private int nDiscarded;
+        private final FeedRuntimeType runtimeType;
+        private final int partition;
+        private final FrameDistributor distributor;
+
+        public DiscardRouter(FrameDistributor distributor, FeedId feedId, FeedRuntimeType runtimeType, int partition)
+                throws HyracksDataException {
+            this.distributor = distributor;
+            this.feedId = feedId;
+            this.nDiscarded = 0;
+            this.runtimeType = runtimeType;
+            this.partition = partition;
+        }
+
+        @Override
+        public void handleFrame(ByteBuffer frame) throws HyracksDataException {
+            FrameTupleAccessor fta = distributor.getFta();
+            fta.reset(frame);
+            int nTuples = fta.getTupleCount();
+            nDiscarded += nTuples;
+            if (LOGGER.isLoggable(Level.WARNING)) {
+                LOGGER.warning("Discarded additional [" + runtimeType + "]" + "(" + partition + ")" + "  " + nTuples);
+            }
+        }
+
+        @Override
+        public void handleDataBucket(DataBucket bucket) {
+            nDiscarded++;
+            if (LOGGER.isLoggable(Level.WARNING)) {
+                LOGGER.warning("Discard Count" + nDiscarded);
+            }
+        }
+
+        @Override
+        public void close() {
+            // do nothing, no resource to relinquish
+        }
+
+        @Override
+        public Iterator<ByteBuffer> replayData() throws Exception {
+            throw new IllegalStateException("Invalid operation");
+        }
+
+        @Override
+        public String toString() {
+            return "DiscardRouter" + "[" + feedId + "]" + "(" + nDiscarded + ")";
+        }
+
+        @Override
+        public String getSummary() {
+            return new String("Number of discarded frames (since last reset)" + " feedId " + "[" + feedId + "]" + "("
+                    + nDiscarded + ")");
+        }
+
+    }
+
     public static class InMemoryRouter implements IFeedFrameHandler {
 
         private final Collection<FeedFrameCollector> frameCollectors;
 
-        public InMemoryRouter(Collection<FeedFrameCollector> frameCollectors) {
+        public InMemoryRouter(Collection<FeedFrameCollector> frameCollectors, FeedRuntimeType runtimeType, int partition) {
             this.frameCollectors = frameCollectors;
         }
 
@@ -77,6 +143,11 @@ public class FeedFrameHandlers {
         public Iterator<ByteBuffer> replayData() throws Exception {
             throw new IllegalStateException("Operation not supported");
         }
+
+        @Override
+        public String getSummary() {
+            return "InMemoryRouter Summary";
+        }
     }
 
     public static class DiskSpiller implements IFeedFrameHandler {
@@ -85,7 +156,8 @@ public class FeedFrameHandlers {
         private FrameSpiller<ByteBuffer> receiver;
         private Iterator<ByteBuffer> iterator;
 
-        public DiskSpiller(FrameDistributor distributor, FeedId feedId) throws IOException {
+        public DiskSpiller(FrameDistributor distributor, FeedId feedId, FeedRuntimeType runtimeType, int partition)
+                throws IOException {
             this.feedId = feedId;
             receiver = new FrameSpiller<ByteBuffer>(distributor, feedId);
         }
@@ -190,6 +262,11 @@ public class FeedFrameHandlers {
         public Iterator<ByteBuffer> replayData() throws Exception {
             iterator = receiver.replayData();
             return iterator;
+        }
+
+        @Override
+        public String getSummary() {
+            return "Disk Spiller Summary";
         }
 
     }

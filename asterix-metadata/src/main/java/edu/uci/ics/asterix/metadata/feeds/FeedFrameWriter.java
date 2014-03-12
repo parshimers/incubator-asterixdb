@@ -123,6 +123,8 @@ public class FeedFrameWriter implements IFeedFrameWriter {
     /** A buffer for keeping frames that are waiting to be processed **/
     private FrameCollection frames;
 
+    private FeedRuntimeType feedRuntimeType;
+
     public FeedFrameWriter(IHyracksTaskContext ctx, IFrameWriter writer, IOperatorNodePushable nodePushable,
             FeedConnectionId feedConnectionId, FeedPolicyEnforcer policyEnforcer, String nodeId,
             FeedRuntimeType feedRuntimeType, int partition, RecordDescriptor outputRecordDescriptor,
@@ -131,6 +133,7 @@ public class FeedFrameWriter implements IFeedFrameWriter {
         this.writer = writer;
         this.mode = Mode.FORWARD;
         this.nodePushable = nodePushable;
+        this.feedRuntimeType = feedRuntimeType;
         this.partition = partition;
         this.fta = new FrameTupleAccessor(ctx.getFrameSize(), outputRecordDescriptor);
         this.memoryManager = feedManager.getFeedMemoryManager();
@@ -193,13 +196,23 @@ public class FeedFrameWriter implements IFeedFrameWriter {
                 }
                 if (frames != null && frames.getCurrentSize() > 0) {
                     Iterator<ByteBuffer> iterator = frames.getFrameCollectionIterator();
+                    int tTuples = 0;
+                    int nTuples = 0;
+
                     while (iterator.hasNext()) {
                         ByteBuffer buf = iterator.next();
+                        fta.reset(buffer);
                         writer.nextFrame(buf);
+                        nTuples = fta.getTupleCount();
+                        tTuples += nTuples;
+                        metricCollector.sendReport(metricSourceId, fta.getTupleCount());
                         if (LOGGER.isLoggable(Level.WARNING)) {
-                            LOGGER.warning("Flushed old frame (from previous failed execution) : " + buf
-                                    + " on behalf of " + nodePushable.getDisplayName());
+                            LOGGER.warning("Flushed old frame (from previous failed execution) : " + nTuples
+                                    + " on behalf of " + feedRuntimeType + "[" + partition + "]");
                         }
+                    }
+                    if (LOGGER.isLoggable(Level.WARNING)) {
+                        LOGGER.warning("Flushed total of " + tTuples + " post recovery");
                     }
                     frames.reset();
                 }

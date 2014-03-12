@@ -67,6 +67,7 @@ public class BuiltinFeedPolicies {
         return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "BMFE", description, policyParams);
     }
 
+    // Default Policy
     private static FeedPolicy initializeBasicFaultTolerantPolicy() {
         Map<String, String> policyParams = new HashMap<String, String>();
         policyParams.put(FeedPolicyAccessor.FAILURE_LOG_ERROR, "true");
@@ -77,6 +78,8 @@ public class BuiltinFeedPolicies {
         policyParams.put(FeedPolicyAccessor.COLLECT_STATISTICS, "false");
         policyParams.put(FeedPolicyAccessor.ELASTIC, "false");
         policyParams.put(FeedPolicyAccessor.MAX_SPILL_SIZE_ON_DISK, "false");
+        policyParams.put(FeedPolicyAccessor.MAX_FRACTION_DISCARD, "100");
+        
         String description = "Basic Monitored Fault-Tolerant";
         return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "BF", description, policyParams);
     }

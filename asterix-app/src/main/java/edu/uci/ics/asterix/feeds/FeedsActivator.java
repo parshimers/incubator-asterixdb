@@ -84,11 +84,13 @@ public class FeedsActivator implements Runnable {
             MetadataManager.INSTANCE.init();
             ctx = MetadataManager.INSTANCE.beginTransaction();
             List<FeedActivity> activeFeeds = MetadataManager.INSTANCE.getFeedActivity(ctx, null);
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Attempt to resume feeds that were active prior to instance shutdown!");
-                LOGGER.info("Number of feeds affected:" + activeFeeds.size());
-                for (FeedActivity fa : activeFeeds) {
-                    LOGGER.info("Active feed " + fa.getDataverseName() + ":" + fa.getDatasetName());
+            if (activeFeeds != null && !activeFeeds.isEmpty()) {
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("Attempt to resume feeds that were active prior to instance shutdown!");
+                    LOGGER.info("Number of feeds affected:" + activeFeeds.size());
+                    for (FeedActivity fa : activeFeeds) {
+                        LOGGER.info("Active feed " + fa.getDataverseName() + ":" + fa.getDatasetName());
+                    }
                 }
             }
             for (FeedActivity fa : activeFeeds) {

@@ -23,6 +23,7 @@ public class FeedPolicyAccessor {
     public static final String HARDWARE_FAILURE_CONTINUE = "hardware.failure.continue";
     public static final String SPILL_TO_DISK_ON_CONGESTION = "spill.to.disk.on.congestion";
     public static final String MAX_SPILL_SIZE_ON_DISK = "max.spill.size.on.disk";
+    public static final String MAX_FRACTION_DISCARD = "max.fraction.discard";
     public static final String CLUSTER_REBOOT_AUTO_RESTART = "cluster.reboot.auto.restart";
     public static final String COLLECT_STATISTICS = "collect.statistics";
     public static final String COLLECT_STATISTICS_PERIOD = "collect.statistics.period";

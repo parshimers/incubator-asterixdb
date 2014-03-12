@@ -1462,10 +1462,13 @@ public class MetadataNode implements IMetadataNode {
             ITupleReference tuple = getTupleToBeDeleted(jobId, MetadataPrimaryIndexes.FEED_DATASET, searchKey);
             deleteTupleFromIndex(jobId, MetadataPrimaryIndexes.FEED_DATASET, tuple);
 
-            List<ITupleReference> tuplesToBeDeleted = getTuplesToBeDeleted(jobId,
-                    MetadataPrimaryIndexes.FEED_ACTIVITY_DATASET, searchKey);
-            if (tuplesToBeDeleted != null && !tuplesToBeDeleted.isEmpty()) {
-                for (ITupleReference t : tuplesToBeDeleted) {
+            IMetadataIndex feedActivityIndex = MetadataPrimaryIndexes.FEED_ACTIVITY_DATASET;
+            IValueExtractor<ITupleReference> valueExtractor = new TupleCopyValueExtractor(
+                    feedActivityIndex.getTypeTraits());
+            List<ITupleReference> results = new ArrayList<ITupleReference>();
+            searchIndex(jobId, feedActivityIndex, searchKey, valueExtractor, results);
+            if (!results.isEmpty()) {
+                for (ITupleReference t : results) {
                     deleteTupleFromIndex(jobId, MetadataPrimaryIndexes.FEED_ACTIVITY_DATASET, t);
                 }
             }

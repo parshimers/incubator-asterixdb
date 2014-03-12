@@ -124,7 +124,8 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
         }
         IFeedFrameWriter wrapper = feedFrameWriter;
         if (sourceRuntime.getFeedRuntimeType().equals(FeedRuntimeType.COMPUTE)) {
-            wrapper = new CollectTransformFeedFrameWriter(ctx, feedFrameWriter, sourceRuntime, outputRecordDescriptor);
+            wrapper = new CollectTransformFeedFrameWriter(ctx, feedFrameWriter, sourceRuntime, outputRecordDescriptor,
+                    feedConnectionId);
         }
         collectRuntime = new CollectionRuntime(feedConnectionId, partition, wrapper, sourceRuntime, feedPolicy,
                 FeedRuntimeType.COMPUTE_COLLECT);
@@ -149,7 +150,7 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
             IFeedFrameWriter wrapper = feedFrameWriter;
             if (sourceRuntime.getFeedRuntimeType().equals(FeedRuntimeType.COMPUTE)) {
                 wrapper = new CollectTransformFeedFrameWriter(ctx, feedFrameWriter, sourceRuntime,
-                        outputRecordDescriptor);
+                        outputRecordDescriptor, feedConnectionId);
             }
 
             collectRuntime = new CollectionRuntime(feedConnectionId, partition, wrapper, sourceRuntime, feedPolicy,
@@ -182,6 +183,7 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
 
     public static class CollectTransformFeedFrameWriter implements IFeedFrameWriter {
 
+        private final FeedConnectionId connectionId;
         private final IFeedFrameWriter downstreamWriter;
         private final ISubscribableRuntime sourceRuntime;
         private final FrameTupleAccessor inputFrameTupleAccessor;
@@ -193,8 +195,8 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
         private ArrayTupleBuilder tupleBuilder = new ArrayTupleBuilder(1);
 
         public CollectTransformFeedFrameWriter(IHyracksTaskContext ctx, IFeedFrameWriter downstreamWriter,
-                ISubscribableRuntime sourceRuntime, RecordDescriptor outputRecordDescriptor)
-                throws HyracksDataException {
+                ISubscribableRuntime sourceRuntime, RecordDescriptor outputRecordDescriptor,
+                FeedConnectionId connectionId) throws HyracksDataException {
             this.downstreamWriter = downstreamWriter;
             this.sourceRuntime = sourceRuntime;
             RecordDescriptor inputRecordDescriptor = sourceRuntime.getFeedFrameWriter().getRecordDescriptor();
@@ -204,6 +206,7 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
             tupleAppender.reset(frame, true);
             tupleRef = new FrameTupleReference();
             this.outputRecordDescriptor = outputRecordDescriptor;
+            this.connectionId = connectionId;
         }
 
         @Override
@@ -256,6 +259,10 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
 
         public IFeedFrameWriter getDownstreamWriter() {
             return downstreamWriter;
+        }
+
+        public FeedConnectionId getConnectionId() {
+            return connectionId;
         }
 
     }

@@ -288,7 +288,8 @@ public class FeedJobNotificationHandler implements Runnable {
         if (!registeredJobs.contains(jobId)) {
             throw new IllegalStateException(" Feed Intake job not registered ");
         }
-        intakeFeedPointMap.remove(jobId);
+        FeedJointKey feedJointKey = intakeFeedPointMap.remove(jobId);
+        feedJoints.remove(feedJointKey);
         registeredJobs.remove(jobId);
     }
 
@@ -585,7 +586,10 @@ public class FeedJobNotificationHandler implements Runnable {
                 }
             } else {
                 subscriber.setStatus(FeedSubscriber.Status.INACTIVE);
-                feedJoints.get(subscriber.getSourceFeedPointKey()).removeSubscriber(subscriber);
+                IFeedJoint feedJoint = feedJoints.get(subscriber.getSourceFeedPointKey());
+                if (feedJoint != null) {
+                    feedJoint.removeSubscriber(subscriber);
+                }
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Subscription " + subscriber.getFeedConnectionId()
                             + " completed successfully. Removed subscription");
@@ -650,34 +654,48 @@ public class FeedJobNotificationHandler implements Runnable {
         List<FeedJointKey> fpks = feedPipeline.get(connectionId.getFeedId());
         boolean hasDependents = false;
         List<FeedJointKey> candidateFPForRemoval = new ArrayList<FeedJointKey>();
-        List<FeedJointKey> candidateFPForRetention = new ArrayList<FeedJointKey>();
+        List<FeedJointKey> feedJointsForRetention = new ArrayList<FeedJointKey>();
 
-        for (FeedJointKey fpk : fpks) {
-            IFeedJoint fp = feedJoints.get(fpk);
-            List<FeedSubscriber> subscribers = fp.getSubscribers();
-            if (subscribers != null && !subscribers.isEmpty()) {
-                for (FeedSubscriber subscriber : subscribers) {
-                    if (!subscriber.getFeedConnectionId().getFeedId().equals(connectionId.getFeedId())
-                            || !subscriber.getFeedConnectionId().equals(connectionId)) {
-                        hasDependents = true;
-                        break;
+        if (fpks != null) {
+            for (FeedJointKey fpk : fpks) {
+                IFeedJoint fp = feedJoints.get(fpk);
+                List<FeedSubscriber> subscribers = fp.getSubscribers();
+                if (subscribers != null && !subscribers.isEmpty()) {
+                    for (FeedSubscriber subscriber : subscribers) {
+                        if (!subscriber.getFeedConnectionId().getFeedId().equals(connectionId.getFeedId())
+                                || !subscriber.getFeedConnectionId().equals(connectionId)) {
+                            hasDependents = true;
+                            break;
+                        }
+                    }
+                }
+                if (!hasDependents) {
+                    candidateFPForRemoval.add(fp.getFeedJointKey());
+                } else {
+                    feedJointsForRetention.add(fp.getFeedJointKey());
+                }
+                hasDependents = false;
+            }
+
+            List<FeedJointKey> feedJointsToBeRetained = new ArrayList<FeedJointKey>();
+            for (FeedJointKey key : feedJointsForRetention) {
+                String stringRep = key.getStringRep();
+                for (FeedJointKey fpk : candidateFPForRemoval) {
+                    String rep = fpk.getStringRep();
+                    if (stringRep.startsWith(rep)) {
+                        feedJointsToBeRetained.add(fpk);
                     }
                 }
             }
-            if (!hasDependents) {
-                candidateFPForRemoval.add(fp.getFeedJointKey());
-            } else {
-                candidateFPForRetention.add(fp.getFeedJointKey());
+            candidateFPForRemoval.removeAll(feedJointsToBeRetained);
+            for (FeedJointKey fpk : candidateFPForRemoval) {
+                feedJoints.remove(fpk);
             }
-            hasDependents = false;
-        }
-        for (FeedJointKey fpk : candidateFPForRemoval) {
-            feedJoints.remove(fpk);
-        }
 
-        feedPipeline.remove(connectionId.getFeedId());
-        if (!candidateFPForRetention.isEmpty()) {
-            feedPipeline.put(candidateFPForRetention.get(0).getFeedId(), candidateFPForRetention);
+            feedPipeline.remove(connectionId.getFeedId());
+            if (!feedJointsForRetention.isEmpty()) {
+                feedPipeline.put(feedJointsForRetention.get(0).getFeedId(), feedJointsForRetention);
+            }
         }
 
         connectionSubscriberMap.remove(connectionId);

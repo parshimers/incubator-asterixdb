@@ -36,8 +36,8 @@ public class FeedMetricCollector implements IFeedMetricCollector {
 
     private final Map<Integer, Series> statHistory = new HashMap<Integer, Series>();
 
-    private static final long DEFAULT_PERIODICITY = 10000;
-    private static final int MAX_HISTORY_SIZE = 100;
+    private static final long DEFAULT_PERIODICITY = 1000;
+    private static final int MAX_HISTORY_SIZE = 10000;
 
     private final Timer timer;
 
@@ -69,6 +69,8 @@ public class FeedMetricCollector implements IFeedMetricCollector {
                 statHistory.put(sender.senderId, series);
             }
             series.addValue(value);
+        } else {
+            System.out.println("Unable to report for sender Id" + senderId + " " + value);
         }
     }
 
@@ -107,62 +109,59 @@ public class FeedMetricCollector implements IFeedMetricCollector {
 
     private class Series {
         private long windowBegin;
-        private int[] series;
-        private int next;
-        private int size;
+        private int currentValue;
+        private int nEntries;
 
         public Series() {
-            this.windowBegin = System.currentTimeMillis();
-            series = new int[MAX_HISTORY_SIZE];
-            next = 0;
-            size = 0;
+            this.windowBegin = -1;
+            currentValue = 0;
+            nEntries = 0;
         }
 
         public synchronized void addValue(int value) {
-            series[next] = value;
-            next = (next + 1) % MAX_HISTORY_SIZE;
-            if (size < MAX_HISTORY_SIZE) {
-                size++;
-            }
+            currentValue += value;
+            nEntries++;
         }
 
         public synchronized void reset() {
             windowBegin = System.currentTimeMillis();
-            Arrays.fill(series, 0);
-            next = 0;
-            size = 0;
+            currentValue = 0;
+            nEntries = 0;
         }
 
         public synchronized float getAvg() {
-            int nValues = next < MAX_HISTORY_SIZE ? next : MAX_HISTORY_SIZE;
             int sum = getSum();
-            return ((float) sum) / nValues;
+            return ((float) sum) / nEntries;
         }
 
         public synchronized int getSum() {
-            int nValues = next < MAX_HISTORY_SIZE ? next : MAX_HISTORY_SIZE;
-            int sum = 0;
-            for (int i = 0; i < nValues; i++) {
-                sum += series[i];
-            }
+            int sum = currentValue;
             reset();
             return sum;
         }
 
         public synchronized float getRate() {
-            int nValues = next < MAX_HISTORY_SIZE ? next : MAX_HISTORY_SIZE;
-            int sum = 0;
-            for (int i = 0; i < nValues; i++) {
-                sum += series[i];
+            if (windowBegin < 0) { // first window
+                currentValue = 0;
+                windowBegin = System.currentTimeMillis();
             }
+            int sum = currentValue;
             long timeElapsed = System.currentTimeMillis() - windowBegin;
             float result = ((float) (sum * 1000) / timeElapsed);
             reset();
             return result;
         }
 
+        public synchronized float getRateNew() {
+            float result = 0;
+            long timeElapsed = windowBegin < 0 ? DEFAULT_PERIODICITY : (System.currentTimeMillis() - windowBegin);
+            result = ((float) (currentValue * 1000) / timeElapsed);
+            reset();
+            return result;
+        }
+
         public int getSize() {
-            return size;
+            return nEntries;
         }
     }
 
@@ -174,6 +173,7 @@ public class FeedMetricCollector implements IFeedMetricCollector {
         public void run() {
             float result = -1;
             boolean dataCollected = false;
+            Date d = new Date();
             for (Entry<Integer, Sender> entry : senders.entrySet()) {
                 Sender sender = entry.getValue();
                 Series series = statHistory.get(sender.senderId);
@@ -190,13 +190,8 @@ public class FeedMetricCollector implements IFeedMetricCollector {
                         break;
                 }
                 series.reset();
-                report.append(sender.displayName + ":" + result + " " + sender.mType + "\n");
-            }
-            if (dataCollected) {
-                Date d = new Date();
-                System.out.println(d.toString());
+                report.append(d.toString() + sender.displayName + ": " + result + " " + sender.mType + "\n");
                 System.out.println(report.toString());
-                System.out.println("==============================");
                 report.delete(0, report.length() - 1);
             }
         }

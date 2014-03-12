@@ -63,13 +63,15 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
             int partition, RecordDescriptor recordDescriptor, FrameTupleAccessor fta, IFeedManager feedManager)
             throws IOException {
         this.feedId = feedId;
+        this.fta = fta;
         this.frameDistributor = new FrameDistributor(feedId, feedRuntimeType, partition, true,
                 feedManager.getFeedMemoryManager());
+        this.frameDistributor.setFta(fta);
         this.feedRuntimeType = feedRuntimeType;
         this.partition = partition;
         this.writer = writer;
         this.recordDescriptor = recordDescriptor;
-        this.fta = fta;
+
     }
 
     public FeedFrameCollector subscribeFeed(FeedPolicyAccessor fpa, IFeedFrameWriter frameWriter) throws Exception {

@@ -114,4 +114,8 @@ public class TweetGenerator {
             return true;
         }
     }
+
+	public void resetOs(OutputStream os) {
+		this.os = os;
+	}
 }

@@ -27,6 +27,7 @@ import edu.uci.ics.asterix.common.feeds.IFeedMemoryComponent.Type;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 
 public class FrameDistributor {
 
@@ -35,6 +36,7 @@ public class FrameDistributor {
     private final FeedId feedId;
     private final FeedRuntimeType feedRuntimeType;
     private final int partition;
+    private FrameTupleAccessor fta;
 
     /** A map storing the registered frame readers ({@code FeedFrameCollector}. **/
     private final Map<IFrameWriter, FeedFrameCollector> registeredCollectors;
@@ -44,6 +46,7 @@ public class FrameDistributor {
     private final IFeedMemoryManager memoryManager;
     private IFeedFrameHandler inMemoryHandler;
     private IFeedFrameHandler diskSpillHandler;
+    private IFeedFrameHandler discardHandler;
     private boolean enableShortCircuiting;
     private RoutingMode routingMode;
     private IMemoryEventListener mListener;
@@ -80,8 +83,12 @@ public class FrameDistributor {
         distributionMode = DistributionMode.INACTIVE;
         routingMode = RoutingMode.IN_MEMORY_ROUTE;
         try {
-            inMemoryHandler = FeedFrameHandlers.getFeedFrameHandler(this, feedId, RoutingMode.IN_MEMORY_ROUTE);
-            diskSpillHandler = FeedFrameHandlers.getFeedFrameHandler(this, feedId, RoutingMode.SPILL_TO_DISK);
+            inMemoryHandler = FeedFrameHandlers.getFeedFrameHandler(this, feedId, RoutingMode.IN_MEMORY_ROUTE,
+                    feedRuntimeType, partition);
+            diskSpillHandler = FeedFrameHandlers.getFeedFrameHandler(this, feedId, RoutingMode.SPILL_TO_DISK,
+                    feedRuntimeType, partition);
+            discardHandler = FeedFrameHandlers.getFeedFrameHandler(this, feedId, RoutingMode.DISCARD, feedRuntimeType,
+                    partition);
         } catch (IOException ioe) {
             throw new HyracksDataException(ioe);
         }
@@ -140,10 +147,10 @@ public class FrameDistributor {
                     LOGGER.info("Closing collector " + frameCollector);
                 }
                 frameCollector.closeCollector();
-                registeredCollectors.remove(frameCollector);
+                registeredCollectors.remove(frameCollector.getFrameWriter());
                 int nCollectors = registeredCollectors.size();
                 if (nCollectors == 1) {
-                    FeedFrameCollector loneCollector = registeredCollectors.get(0);
+                    FeedFrameCollector loneCollector = registeredCollectors.values().iterator().next();
                     setMode(DistributionMode.SINGLE);
                     loneCollector.setState(FeedFrameCollector.State.TRANSITION);
                     loneCollector.closeCollector();
@@ -162,8 +169,12 @@ public class FrameDistributor {
     }
 
     public boolean deregisterFrameCollector(IFeedFrameWriter frameWriter) {
-        FeedFrameCollector collector = registeredCollectors.remove(frameWriter);
-        return collector != null;
+        FeedFrameCollector collector = registeredCollectors.get(frameWriter);
+        if (collector != null) {
+            deregisterFrameCollector(collector);
+            return true;
+        }
+        return false;
     }
 
     public synchronized void setMode(DistributionMode mode) {
@@ -178,9 +189,6 @@ public class FrameDistributor {
         switch (routingMode) {
             case IN_MEMORY_ROUTE:
                 handleInMemoryRouteMode(frame);
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("In-memory routing of " + feedId + "(" + feedRuntimeType + ")" + "[" + partition + "]");
-                }
                 break;
             case SPILL_TO_DISK:
                 handleSpillToDiskMode(frame);
@@ -190,6 +198,7 @@ public class FrameDistributor {
                 }
                 break;
             case DISCARD:
+                handleDiscardMode(frame);
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Discarding frame due to memory pressure " + feedId + "(" + feedRuntimeType + ")" + "["
                             + partition + "]");
@@ -258,8 +267,12 @@ public class FrameDistributor {
         }
     }
 
-    private void handleUnRoutableFrame(ByteBuffer frame) throws HyracksDataException {
-
+    private void handleDiscardMode(ByteBuffer frame) throws HyracksDataException {
+        try {
+            discardHandler.handleFrame(frame);
+        } catch (IOException ioe) {
+            throw new HyracksDataException(ioe);
+        }
     }
 
     private void switchRoutingMode(ByteBuffer frame) throws HyracksDataException {
@@ -283,7 +296,9 @@ public class FrameDistributor {
                 setRoutingMode(RoutingMode.SPILL_TO_DISK);
                 diskSpillHandler.handleFrame(frame);
             } else {
-                setRoutingMode(RoutingMode.DISCARD);
+                discardHandler.handleFrame(frame);
+                //setRoutingMode(RoutingMode.DISCARD);
+                printSummary();
             }
 
             if (LOGGER.isLoggable(Level.WARNING)) {
@@ -302,13 +317,17 @@ public class FrameDistributor {
     }
 
     private DataBucket getDataBucket() {
-        DataBucket bucket = pool.getDataBucket();
-        if (bucket != null) {
-            bucket.setDesiredReadCount(registeredCollectors.size());
-            return bucket;
-        } else {
-            return null;
+        DataBucket bucket = null;
+        if (pool != null) {
+            bucket = pool.getDataBucket();
+            if (bucket != null) {
+                bucket.setDesiredReadCount(registeredCollectors.size());
+                return bucket;
+            } else {
+                return null;
+            }
         }
+        return null;
     }
 
     public DistributionMode getMode() {
@@ -337,6 +356,7 @@ public class FrameDistributor {
     }
 
     public void close() {
+        printSummary();
         switch (distributionMode) {
             case INACTIVE:
                 if (LOGGER.isLoggable(Level.INFO)) {
@@ -398,6 +418,22 @@ public class FrameDistributor {
 
     public int getPartition() {
         return partition;
+    }
+
+    private void printSummary() {
+        if (LOGGER.isLoggable(Level.WARNING)) {
+            LOGGER.warning(diskSpillHandler.getSummary());
+            LOGGER.warning(discardHandler.getSummary());
+            LOGGER.warning(inMemoryHandler.getSummary());
+        }
+    }
+
+    public FrameTupleAccessor getFta() {
+        return fta;
+    }
+
+    public void setFta(FrameTupleAccessor fta) {
+        this.fta = fta;
     }
 
 }

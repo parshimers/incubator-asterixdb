@@ -45,7 +45,6 @@ import edu.uci.ics.asterix.metadata.entities.Node;
 import edu.uci.ics.asterix.metadata.entities.NodeGroup;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.transaction.management.service.transaction.JobIdFactory;
-import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
 
 /**
  * Provides access to Asterix metadata via remote methods to the metadata node.
@@ -91,7 +90,6 @@ public class MetadataManager implements IMetadataManager {
     private IMetadataNode metadataNode;
     private final ReadWriteLock metadataLatch;
     private final AsterixMetadataProperties metadataProperties;
-    private IHyracksClientConnection hcc;
 
     public MetadataManager(IAsterixStateProxy proxy, AsterixMetadataProperties metadataProperties) {
         if (proxy == null) {

@@ -24,9 +24,11 @@ public interface IFeedFrameHandler {
     public void handleFrame(ByteBuffer frame) throws HyracksDataException;
 
     public void handleDataBucket(DataBucket bucket);
-    
+
     public void close();
-    
+
     public Iterator<ByteBuffer> replayData() throws Exception;
+
+    public String getSummary();
 
 }

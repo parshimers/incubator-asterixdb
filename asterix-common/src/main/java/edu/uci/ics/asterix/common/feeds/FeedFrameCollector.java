@@ -131,4 +131,9 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
         return false;
     }
 
+    @Override
+    public int hashCode() {
+        return feedId.toString().hashCode();
+    }
+
 }

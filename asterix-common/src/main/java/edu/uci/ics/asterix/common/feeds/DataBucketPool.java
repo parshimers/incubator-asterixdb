@@ -28,7 +28,7 @@ public class DataBucketPool implements IFeedMemoryComponent {
 
     private static final Logger LOGGER = Logger.getLogger(DataBucketPool.class.getName());
 
-    private static final int TIMEOUT_WAIT_AVAILABILITY_POOL = 10; //seconds
+    private static final int TIMEOUT_WAIT_AVAILABILITY_POOL = 0; //seconds
 
     /** A unique identifier for the memory component **/
     private final int componentId;
@@ -65,22 +65,15 @@ public class DataBucketPool implements IFeedMemoryComponent {
 
     public void returnDataBucket(DataBucket bucket) {
         pool.add(bucket);
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("returned data bucket " + this + " back to the pool");
+        if (LOGGER.isLoggable(Level.FINE)) {
+            LOGGER.fine("returned data bucket " + this + " back to the pool");
         }
+        /*
         if (((float) pool.size()) / totalAllocation > 0.5) {
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("DataBucketPool " + this + " is 50% available. Memory available event signalled");
-            }
             listener.processEvent(MemoryEventType.MEMORY_AVAILABLE);
             unregisterMemoryEventListener();
-        } else {
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Current size of pool:" + pool.size() + ".  Waiting for pool size to be atleast "
-                        + (float) totalAllocation / 2);
-            }
         }
-
+        */
     }
 
     public DataBucket getDataBucket() {

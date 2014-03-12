@@ -176,11 +176,11 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                         IFrameWriter frameWriter = entry.getKey();
                         FeedFrameCollector collector = entry.getValue();
                         if (collector.getMode().equals(Mode.FORWARD_TO_WRITER)) {
-                            FeedFrameWriter feedFrameWriter = (FeedFrameWriter) frameWriter;
+                            IFeedFrameWriter feedFrameWriter = (IFeedFrameWriter) frameWriter;
                             FeedConnectionId connectionId = null;
                             switch (feedFrameWriter.getType()) {
                                 case BASIC_FEED_WRITER:
-                                    connectionId = feedFrameWriter.getFeedConnectionId();
+                                    connectionId = ((FeedFrameWriter) feedFrameWriter).getFeedConnectionId();
                                     break;
                                 case COLLECT_TRANSFORM_FEED_WRITER:
                                     connectionId = ((FeedFrameWriter) ((CollectTransformFeedFrameWriter) frameWriter)

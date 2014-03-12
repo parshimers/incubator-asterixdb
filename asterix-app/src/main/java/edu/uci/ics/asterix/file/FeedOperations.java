@@ -125,25 +125,30 @@ public class FeedOperations {
         boolean hasOtherSubscribers = false;
         SubscriptionLocation subscriptionLocation = null;
         try {
-            IFeedJoint sourceFeedPoint = FeedLifecycleListener.INSTANCE.getSourceFeedPoint(connectionId);
-            IFeedJoint subscribableFeedPoint = sourceFeedPoint;
-
-            if (sourceFeedPoint.getScope().equals(Scope.PRIVATE)) {
-                IFeedJoint feedPoint = FeedLifecycleListener.INSTANCE.getFeedPoint(sourceFeedPoint.getFeedJointKey()
+            IFeedJoint sourceFeedJoint = FeedLifecycleListener.INSTANCE.getSourceFeedPoint(connectionId);
+            IFeedJoint subscribableFeedPoint = sourceFeedJoint;
+            List<String> locations = null;
+            if (sourceFeedJoint.getScope().equals(Scope.PRIVATE)) {
+                // get the public feed joint on this pipeline
+                IFeedJoint feedJoint = FeedLifecycleListener.INSTANCE.getFeedPoint(sourceFeedJoint.getFeedJointKey()
                         .getFeedId(), Scope.PUBLIC);
-                List<FeedSubscriber> subscribers = feedPoint.getSubscribers();
+                List<FeedSubscriber> subscribers = feedJoint.getSubscribers();
                 hasOtherSubscribers = subscribers != null && !subscribers.isEmpty();
-                subscriptionLocation = feedPoint.getSubscriptionLocation();
+                if (hasOtherSubscribers) { // if public feed joint is serving other subscribers, we disconnect partially
+                    subscriptionLocation = feedJoint.getSubscriptionLocation();
+                    locations = feedJoint.getLocations();
+                } else { // disconnect completely
+                    subscriptionLocation = sourceFeedJoint.getSubscriptionLocation();
+                    locations = sourceFeedJoint.getLocations();
+                }
             } else {
-                List<FeedSubscriber> subscribers = sourceFeedPoint.getSubscribers();
-                hasOtherSubscribers = subscribers != null && !subscribers.isEmpty() && subscribers.size() > 1;
-                subscriptionLocation = sourceFeedPoint.getSubscriptionLocation();
+                List<FeedSubscriber> subscribers = sourceFeedJoint.getSubscribers();
+                hasOtherSubscribers = subscribers != null && subscribers.size() > 1;
+                subscriptionLocation = sourceFeedJoint.getSubscriptionLocation();
+                locations = subscribableFeedPoint.getLocations();
             }
 
-            List<String> locations = subscribableFeedPoint.getLocations();
-
-            boolean needToDiscontinueSource = !hasOtherSubscribers
-                    && subscriptionLocation.equals(SubscriptionLocation.SOURCE_FEED_INTAKE);
+            boolean needToDiscontinueSource = !hasOtherSubscribers && sourceFeedJoint.getSubscribers().size() == 1;
             FeedRuntimeType feedRuntimeType = subscriptionLocation.equals(SubscriptionLocation.SOURCE_FEED_INTAKE) ? FeedRuntimeType.INGEST
                     : FeedRuntimeType.COMPUTE;
 
@@ -159,7 +164,7 @@ public class FeedOperations {
             AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, nullSink, messengerPc);
             spec.connect(new OneToOneConnectorDescriptor(spec), feedMessenger, 0, nullSink, 0);
             spec.addRoot(nullSink);
-            return new Triple<JobSpecification, Boolean, Boolean>(spec, !hasOtherSubscribers, needToDiscontinueSource);
+            return new Triple<JobSpecification, Boolean, Boolean>(spec, hasOtherSubscribers, needToDiscontinueSource);
 
         } catch (AlgebricksException e) {
             throw new AsterixException(e);

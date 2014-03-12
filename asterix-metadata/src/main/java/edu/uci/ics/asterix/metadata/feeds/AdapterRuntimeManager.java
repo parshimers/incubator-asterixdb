@@ -112,7 +112,6 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
                     LOGGER.info("Starting ingestion for partition:" + partition);
                 }
                 adapter.start(partition, writer);
-                runtimeManager.setState(State.FINISHED_INGESTION);
             } catch (Exception e) {
                 e.printStackTrace();
                 if (LOGGER.isLoggable(Level.SEVERE)) {
@@ -120,6 +119,7 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
                     e.printStackTrace();
                 }
             } finally {
+                runtimeManager.setState(State.FINISHED_INGESTION);
                 synchronized (runtimeManager) {
                     runtimeManager.notifyAll();
                 }
@@ -128,14 +128,6 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
 
         public DistributeFeedFrameWriter getWriter() {
             return writer;
-        }
-
-        public void setWriter(IFrameWriter writer) {
-            if (this.writer != null) {
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Switching writer to:" + writer + " from " + this.writer);
-                }
-            }
         }
 
     }

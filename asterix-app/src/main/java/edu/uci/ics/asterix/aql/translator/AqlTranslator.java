@@ -1629,8 +1629,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
             FeedId feedId = new FeedId(dataverseName, feedName);
             List<FeedConnectionId> activeConnections = FeedLifecycleListener.INSTANCE.getActiveFeedConnections(feedId);
             List<FeedConnectionId> completedDisconnections = new ArrayList<FeedConnectionId>();
-            FeedConnectionId discontinuedSource = null;
             if (activeConnections != null && !activeConnections.isEmpty()) {
+                throw new AlgebricksException("Feed " + feedId + " is currently active");
                 /*
                 Pair<SubscriptionLocation, List<FeedConnectionId>> subscriptions = FeedLifecycleListener.INSTANCE
                         .get(feedId);
@@ -1654,10 +1654,11 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 //TODO
                 // ensure ancestor feed intake jobs are discontnued
 
-            }
-            MetadataManager.INSTANCE.dropFeed(mdTxnCtx, dataverseName, feedName);
-            for (FeedConnectionId connId : completedDisconnections) {
-                MetadataManager.INSTANCE.deregisterFeedActivity(mdTxnCtx, connId);
+            } else {
+                MetadataManager.INSTANCE.dropFeed(mdTxnCtx, dataverseName, feedName);
+                for (FeedConnectionId connId : completedDisconnections) {
+                    MetadataManager.INSTANCE.deregisterFeedActivity(mdTxnCtx, connId);
+                }
             }
 
             if (LOGGER.isLoggable(Level.INFO)) {
@@ -1913,7 +1914,15 @@ public class AqlTranslator extends AbstractAqlTranslator {
             runJob(hcc, jobSpec, true);
 
             if (specDisconnectType.third) {
-                String sourceFeedName = ((SecondaryFeed) feed).getSourceFeedName();
+                String sourceFeedName = null;
+                switch(feed.getFeedType()){
+                    case PRIMARY:
+                        sourceFeedName = feed.getFeedName();
+                        break;
+                    case SECONDARY:
+                        sourceFeedName = ((SecondaryFeed) feed).getSourceFeedName();
+                        break;
+                }
                 JobSpecification spec = FeedOperations.buildDiscontinueFeedSourceSpec(metadataProvider, new FeedId(
                         dataverseName, sourceFeedName));
                 runJob(hcc, spec, true);

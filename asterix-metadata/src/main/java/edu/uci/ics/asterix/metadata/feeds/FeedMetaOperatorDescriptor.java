@@ -173,8 +173,9 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
             this.feedManager = ((IAsterixAppRuntimeContext) (IAsterixAppRuntimeContext) ctx.getJobletContext()
                     .getApplicationContext().getApplicationObject()).getFeedManager();
             this.enableSubscriptionMode = enableSubscriptionMode; // set to true for COMPUTE operator when feed has an associated UDF.
-            this.inputSideBufferring = runtimeType.equals(FeedRuntimeType.COMPUTE) && enableSubscriptionMode;
+            this.inputSideBufferring = runtimeType.equals(FeedRuntimeType.COMPUTE); //&& enableSubscriptionMode;
             if (inputSideBufferring) {
+                FrameTupleAccessor fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
                 frameDistributor = new FrameDistributor(feedConnectionId.getFeedId(), runtimeType, partition, false,
                         feedManager.getFeedMemoryManager());
             } else {
@@ -189,6 +190,9 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                 feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
                 IFeedFrameWriter mWriter = new FeedFrameWriter(ctx, writer, this, feedConnectionId, policyEnforcer,
                         nodeId, runtimeType, partition, recordDesc, feedManager);
+                if (frameDistributor != null) {
+                    frameDistributor.setFta(new FrameTupleAccessor(ctx.getFrameSize(), recordDesc));
+                }
                 if (feedRuntime == null) {
                     switch (runtimeType) {
                         case COMPUTE:

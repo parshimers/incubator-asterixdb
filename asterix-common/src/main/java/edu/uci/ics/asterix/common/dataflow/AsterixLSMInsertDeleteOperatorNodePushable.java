@@ -15,6 +15,7 @@
 package edu.uci.ics.asterix.common.dataflow;
 
 import java.nio.ByteBuffer;
+import java.util.Date;
 
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
