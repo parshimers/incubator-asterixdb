@@ -25,6 +25,7 @@ import twitter4j.Twitter;
 import twitter4j.TwitterException;
 import twitter4j.TwitterFactory;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.ARecordSerializerDeserializer;
+import edu.uci.ics.asterix.external.adapter.factory.PullBasedTwitterAdapterFactory;
 import edu.uci.ics.asterix.om.base.AMutableRecord;
 import edu.uci.ics.asterix.om.base.AMutableString;
 import edu.uci.ics.asterix.om.base.IAObject;
@@ -89,8 +90,8 @@ public class PullBasedTwitterFeedClient extends PullBasedFeedClient {
     }
 
     private void initialize(Map<String, String> params) {
-        this.keywords = (String) params.get(PullBasedTwitterAdapter.QUERY);
-        this.requestInterval = Integer.parseInt((String) params.get(PullBasedTwitterAdapter.INTERVAL));
+        this.keywords = (String) params.get(PullBasedTwitterAdapterFactory.QUERY);
+        this.requestInterval = Integer.parseInt((String) params.get(PullBasedTwitterAdapterFactory.INTERVAL));
         this.query = new Query(keywords);
         query.setRpp(100);
     }

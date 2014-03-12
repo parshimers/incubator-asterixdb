@@ -29,9 +29,6 @@ public class PullBasedTwitterAdapter extends PullBasedAdapter implements IFeedAd
 
     private static final long serialVersionUID = 1L;
 
-    public static final String QUERY = "query";
-    public static final String INTERVAL = "interval";
-
     private ARecordType recordType;
     private PullBasedTwitterFeedClient tweetClient;
 

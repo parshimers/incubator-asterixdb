@@ -15,6 +15,8 @@
 package edu.uci.ics.asterix.external.adapter.factory;
 
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.feeds.IDatasourceAdapter;
 import edu.uci.ics.asterix.external.dataset.adapter.PullBasedTwitterAdapter;
@@ -33,7 +35,13 @@ import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
  */
 public class PullBasedTwitterAdapterFactory implements ITypedAdapterFactory {
     private static final long serialVersionUID = 1L;
+    private static final Logger LOGGER = Logger.getLogger(PullBasedTwitterAdapterFactory.class.getName());
+
     public static final String PULL_BASED_TWITTER_ADAPTER_NAME = "pull_twitter";
+    public static final String QUERY = "query";
+    public static final String INTERVAL = "interval";
+
+    private static final String DEFAULT_INTERVAL = "10"; // 10 seconds
 
     private Map<String, String> configuration;
     private static ARecordType recordType = initOutputType();
@@ -74,6 +82,24 @@ public class PullBasedTwitterAdapterFactory implements ITypedAdapterFactory {
     @Override
     public void configure(Map<String, String> configuration) throws Exception {
         this.configuration = configuration;
+        if (configuration.get(QUERY) == null) {
+            throw new IllegalArgumentException("parameter " + QUERY + " not specified as part of adaptor configuration");
+        }
+        String interval = configuration.get(INTERVAL);
+        if (interval != null) {
+            try {
+                Integer.parseInt(interval);
+            } catch (NumberFormatException nfe) {
+                throw new IllegalArgumentException("parameter " + INTERVAL
+                        + " is defined incorrectly, expecting a number");
+            }
+        } else {
+            configuration.put(INTERVAL, DEFAULT_INTERVAL);
+            if (LOGGER.isLoggable(Level.WARNING)) {
+                LOGGER.warning(" Parameter " + INTERVAL + " not defined, using default (" + DEFAULT_INTERVAL + ")");
+            }
+        }
+
     }
 
     @Override
