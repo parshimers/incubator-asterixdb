@@ -47,6 +47,9 @@ import edu.uci.ics.asterix.experiment.builder.Experiment5DBuilder;
 import edu.uci.ics.asterix.experiment.builder.Experiment6ABuilder;
 import edu.uci.ics.asterix.experiment.builder.Experiment6BBuilder;
 import edu.uci.ics.asterix.experiment.builder.Experiment6CBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment7ABuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment7BBuilder;
+import edu.uci.ics.asterix.experiment.builder.Experiment7DBuilder;
 import edu.uci.ics.asterix.experiment.builder.Experiment8ABuilder;
 import edu.uci.ics.asterix.experiment.builder.Experiment8BBuilder;
 import edu.uci.ics.asterix.experiment.builder.Experiment8DBuilder;
@@ -172,7 +175,7 @@ public class LSMExperimentSetRunner {
     public static void main(String[] args) throws Exception {
         //        LogManager.getRootLogger().setLevel(org.apache.log4j.Level.OFF);
         LSMExperimentSetRunnerConfig config = new LSMExperimentSetRunnerConfig(String.valueOf(System
-                .currentTimeMillis()), 1);
+                .currentTimeMillis()), 3);
         CmdLineParser clp = new CmdLineParser(config);
         try {
             clp.parseArgument(args);
@@ -183,12 +186,15 @@ public class LSMExperimentSetRunner {
         }
 
         Collection<AbstractExperimentBuilder> suite = new ArrayList<>();
+        suite.add(new Experiment7BBuilder(config));
+        suite.add(new Experiment7DBuilder(config));
+        suite.add(new Experiment7ABuilder(config));
+        suite.add(new Experiment8DBuilder(config));
+        suite.add(new Experiment8ABuilder(config));
+        suite.add(new Experiment8BBuilder(config));
         suite.add(new Experiment9ABuilder(config));
         suite.add(new Experiment9DBuilder(config));
         suite.add(new Experiment9BBuilder(config));
-        suite.add(new Experiment8ABuilder(config));
-        suite.add(new Experiment8BBuilder(config));
-        suite.add(new Experiment8DBuilder(config));
         suite.add(new Experiment6ABuilder(config));
         suite.add(new Experiment6BBuilder(config));
         suite.add(new Experiment6CBuilder(config));

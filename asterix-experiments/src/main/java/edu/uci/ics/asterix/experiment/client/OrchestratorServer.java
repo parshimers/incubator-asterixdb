@@ -35,7 +35,7 @@ public class OrchestratorServer {
         this.protocolActions = protocolActions;
         this.flagStopResume = true;
     }
-
+    
     public synchronized void start() throws IOException, InterruptedException {
         final AtomicBoolean bound = new AtomicBoolean();
         running.set(true);

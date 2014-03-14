@@ -7,6 +7,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.MessageFormat;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
@@ -18,6 +20,7 @@ import org.apache.http.entity.StringEntity;
 import edu.uci.ics.asterix.experiment.action.base.AbstractAction;
 
 public class RunAQLFileAction extends AbstractAction {
+    private final Logger LOGGER = Logger.getLogger(RunAQLFileAction.class.getName());
     private static final String REST_URI_TEMPLATE = "http://{0}:{1}/aql";
 
     private final HttpClient httpClient;
@@ -45,6 +48,11 @@ public class RunAQLFileAction extends AbstractAction {
         HttpEntity entity = httpClient.execute(post).getEntity();
         if (entity != null && entity.isStreaming()) {
             printStream(entity.getContent());
+        }
+        if (aql.contains("compact")) {
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Compaction has been completed");
+            }
         }
     }
 

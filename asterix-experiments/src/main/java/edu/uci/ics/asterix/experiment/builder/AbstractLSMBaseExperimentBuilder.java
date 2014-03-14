@@ -21,6 +21,7 @@ import org.apache.http.client.HttpClient;
 import org.apache.http.impl.client.DefaultHttpClient;
 
 import edu.uci.ics.asterix.event.schema.cluster.Cluster;
+import edu.uci.ics.asterix.experiment.action.base.IAction;
 import edu.uci.ics.asterix.experiment.action.base.ParallelActionSet;
 import edu.uci.ics.asterix.experiment.action.base.SequentialActionList;
 import edu.uci.ics.asterix.experiment.action.derived.AbstractRemoteExecutableAction;
@@ -65,6 +66,8 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
     private final String countFileName;
 
     private final String statFile;
+    
+    protected final SequentialActionList lsAction;
 
     public AbstractLSMBaseExperimentBuilder(String name, LSMExperimentSetRunnerConfig config,
             String clusterConfigFileName, String ingestFileName, String dgenFileName, String countFileName) {
@@ -83,6 +86,7 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
         this.dgenFileName = dgenFileName;
         this.countFileName = countFileName;
         this.statFile = config.getStatFile();
+        this.lsAction = new SequentialActionList();
     }
 
     protected abstract void doBuildDDL(SequentialActionList seq);
@@ -90,7 +94,10 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
     protected void doPost(SequentialActionList seq) {
     }
 
-    protected void doBuildDataGen(SequentialActionList seq, final Map<String, List<String>> dgenPairs) throws Exception {
+    protected void doBuildDataGen(SequentialActionList seq, final Map<String, List<String>> dgenPairs)
+            throws Exception {
+        
+        
         //start datagen
         ParallelActionSet dgenActions = new ParallelActionSet();
         int partition = 0;
@@ -163,6 +170,30 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
             execs.add(ioCountActions);
         }
 
+        SequentialActionList postLSAction = new SequentialActionList();
+        File file = new File(clusterConfigPath);
+        JAXBContext ctx = JAXBContext.newInstance(Cluster.class);
+        Unmarshaller unmarshaller = ctx.createUnmarshaller();
+        final Cluster cluster = (Cluster) unmarshaller.unmarshal(file);
+        String[] storageRoots = cluster.getIodevices().split(",");
+        for (String ncHost : ncHosts) {
+            for (final String sRoot : storageRoots) {
+                lsAction.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
+                    @Override
+                    protected String getCommand() {
+                        return "ls -Rl " + sRoot;
+                    }
+                });
+                postLSAction.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
+                    @Override
+                    protected String getCommand() {
+                        return "ls -Rl " + sRoot;
+                    }
+                });
+                
+            }
+        }
+
         // main exp
         doBuildDataGen(execs, dgenPairs);
 
@@ -187,22 +218,7 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
                     LSMExperimentConstants.AQL_DIR).resolve(countFileName)));
         }
 
-        File file = new File(clusterConfigPath);
-        JAXBContext ctx = JAXBContext.newInstance(Cluster.class);
-        Unmarshaller unmarshaller = ctx.createUnmarshaller();
-        final Cluster cluster = (Cluster) unmarshaller.unmarshal(file);
-        String[] storageRoots = cluster.getIodevices().split(",");
-        for (String ncHost : ncHosts) {
-            for (final String sRoot : storageRoots) {
-                execs.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
-
-                    @Override
-                    protected String getCommand() {
-                        return "ls -Rl " + sRoot;
-                    }
-                });
-            }
-        }
+        execs.add(postLSAction);
         doPost(execs);
         ParallelActionSet killCmds = new ParallelActionSet();
         for (String ncHost : ncHosts) {

@@ -14,8 +14,10 @@ import edu.uci.ics.asterix.experiment.action.base.AbstractAction;
 import edu.uci.ics.asterix.experiment.action.base.ParallelActionSet;
 import edu.uci.ics.asterix.experiment.action.base.SequentialActionList;
 import edu.uci.ics.asterix.experiment.action.derived.AbstractRemoteExecutableAction;
+import edu.uci.ics.asterix.experiment.action.derived.RunAQLStringAction;
 import edu.uci.ics.asterix.experiment.action.derived.RunRESTIOWaitAction;
 import edu.uci.ics.asterix.experiment.action.derived.SleepAction;
+import edu.uci.ics.asterix.experiment.action.derived.TimedAction;
 import edu.uci.ics.asterix.experiment.client.LSMExperimentConstants;
 import edu.uci.ics.asterix.experiment.client.LSMExperimentSetRunner.LSMExperimentSetRunnerConfig;
 import edu.uci.ics.asterix.experiment.client.OrchestratorServer;
@@ -56,7 +58,14 @@ public abstract class AbstractExperiment8Builder extends AbstractLSMBaseExperime
         this.rangeQueryTemplate = getRangeQueryTemplate();
     }
 
-    protected abstract void doBuildProtocolAction(SequentialActionList seq, int queryRound) throws Exception;
+    protected void doBuildProtocolAction(SequentialActionList seq, int round) throws Exception {
+        for (int i = 0; i < nQueryRuns; ++i) {
+//            String aql = getPointLookUpAQL(round);
+//            seq.add(new TimedAction(new RunAQLStringAction(httpClient, restHost, restPort, aql)));
+            String aql = getRangeAQL(round);
+            seq.add(new TimedAction(new RunAQLStringAction(httpClient, restHost, restPort, aql)));
+        }
+    }
 
     @Override
     protected void doBuildDataGen(SequentialActionList seq, Map<String, List<String>> dgenPairs) throws Exception {
@@ -64,6 +73,7 @@ public abstract class AbstractExperiment8Builder extends AbstractLSMBaseExperime
         SequentialActionList[] protocolActions = new SequentialActionList[nIntervals];
         for (int i = 0; i < nIntervals; i++) {
             protocolActions[i] = new SequentialActionList();
+            protocolActions[i].add(new SleepAction(10000));
             protocolActions[i].add(new RunRESTIOWaitAction(httpClient, restHost, restPort));
             protocolActions[i].add(new SleepAction(10000));
             doBuildProtocolAction(protocolActions[i], i);

@@ -1,18 +1,37 @@
 package edu.uci.ics.asterix.experiment.builder;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 import org.apache.commons.lang3.StringUtils;
 
 import edu.uci.ics.asterix.experiment.action.base.AbstractAction;
+import edu.uci.ics.asterix.experiment.action.base.IAction;
 import edu.uci.ics.asterix.experiment.action.base.ParallelActionSet;
 import edu.uci.ics.asterix.experiment.action.base.SequentialActionList;
 import edu.uci.ics.asterix.experiment.action.derived.AbstractRemoteExecutableAction;
+import edu.uci.ics.asterix.experiment.action.derived.RunAQLFileAction;
+import edu.uci.ics.asterix.experiment.action.derived.RunAQLStringAction;
+import edu.uci.ics.asterix.experiment.action.derived.RunRESTIOWaitAction;
+import edu.uci.ics.asterix.experiment.action.derived.SleepAction;
+import edu.uci.ics.asterix.experiment.action.derived.TimedAction;
+import edu.uci.ics.asterix.experiment.client.LSMExperimentConstants;
 import edu.uci.ics.asterix.experiment.client.LSMExperimentSetRunner.LSMExperimentSetRunnerConfig;
-import edu.uci.ics.asterix.experiment.client.OrchestratorServer;
+import edu.uci.ics.asterix.experiment.client.OrchestratorServer7;
+import edu.uci.ics.asterix.experiment.client.OrchestratorServer7.IProtocolActionBuilder;
 
 public abstract class AbstractExperiment7Builder extends AbstractLSMBaseExperimentBuilder {
+
+    private static final long DOMAIN_SIZE = (1L << 32);
+
+    public static final long QUERY_BEGIN_ROUND = 6;
+
+    private static int N_PARTITIONS = 16;
 
     private final int nIntervals;
 
@@ -20,9 +39,11 @@ public abstract class AbstractExperiment7Builder extends AbstractLSMBaseExperime
 
     private final int orchPort;
 
-    private final long dataInterval;
+    protected final long dataInterval;
 
     protected final int nQueryRuns;
+
+    protected final Random randGen;
 
     public AbstractExperiment7Builder(String name, LSMExperimentSetRunnerConfig config, String clusterConfigFileName,
             String ingestFileName, String dgenFileName) {
@@ -32,20 +53,17 @@ public abstract class AbstractExperiment7Builder extends AbstractLSMBaseExperime
         orchPort = config.getOrchestratorPort();
         dataInterval = config.getDataInterval();
         this.nQueryRuns = config.getNQueryRuns();
+        this.randGen = new Random();
     }
-
-    protected abstract void doBuildProtocolAction(SequentialActionList seq, int queryRound) throws Exception;
 
     @Override
     protected void doBuildDataGen(SequentialActionList seq, Map<String, List<String>> dgenPairs) throws Exception {
-        //start datagen
-        SequentialActionList[] protocolActions = new SequentialActionList[nIntervals];
-        for (int i=0; i < nIntervals; i++) {
-            protocolActions[i] = new SequentialActionList();
-            doBuildProtocolAction(protocolActions[i], i);
+        int nDgens = 0;
+        for (List<String> v : dgenPairs.values()) {
+            nDgens += v.size();
         }
-        
-        final OrchestratorServer oServer = new OrchestratorServer(orchPort, dgenPairs.size(), nIntervals, protocolActions);
+        final OrchestratorServer7 oServer = new OrchestratorServer7(orchPort, nDgens, nIntervals,
+                new ProtocolActionBuilder(), this.lsAction);
 
         seq.add(new AbstractAction() {
 
@@ -85,6 +103,67 @@ public abstract class AbstractExperiment7Builder extends AbstractLSMBaseExperime
                 oServer.awaitFinished();
             }
         });
+    }
+
+    public class ProtocolActionBuilder implements IProtocolActionBuilder {
+
+        private final String rangeQueryTemplate;
+
+        public ProtocolActionBuilder() {
+            this.rangeQueryTemplate = getRangeQueryTemplate();
+        }
+
+        private String getRangeQueryTemplate() {
+            try {
+                Path aqlTemplateFilePath = localExperimentRoot.resolve(LSMExperimentConstants.AQL_DIR).resolve(
+                        "8_q2.aql");
+                return StandardCharsets.UTF_8.decode(ByteBuffer.wrap(Files.readAllBytes(aqlTemplateFilePath)))
+                        .toString();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        @Override
+        public IAction buildQueryAction(long cardinality, boolean finalRound) throws Exception {
+            SequentialActionList protoAction = new SequentialActionList();
+            IAction rangeQueryAction = new TimedAction(new RunAQLStringAction(httpClient, restHost, restPort,
+                    getRangeAQL(cardinality, finalRound)));
+            protoAction.add(rangeQueryAction);
+            return protoAction;
+        }
+
+        private String getRangeAQL(long cardinaliry, boolean finalRound) throws Exception {
+            long round = QUERY_BEGIN_ROUND;
+            if (finalRound) {
+                ++round;
+            }
+            long numKeys = ((round * dataInterval) / 1000) * N_PARTITIONS;
+            long rangeSize = (long) ((cardinaliry / (double) numKeys) * DOMAIN_SIZE);
+            int lowKey = randGen.nextInt();
+            long maxLowKey = Integer.MAX_VALUE - rangeSize;
+            if (lowKey > maxLowKey) {
+                lowKey = (int) maxLowKey;
+            }
+            int highKey = (int) (lowKey + rangeSize);
+            return rangeQueryTemplate.replaceAll("\\$LKEY\\$", Long.toString(lowKey)).replaceAll("\\$HKEY\\$",
+                    Long.toString(highKey));
+        }
+
+        @Override
+        public IAction buildIOWaitAction() throws Exception {
+            SequentialActionList ioAction = new SequentialActionList();
+            ioAction.add(new SleepAction(10000));
+            ioAction.add(new RunRESTIOWaitAction(httpClient, restHost, restPort));
+            ioAction.add(new SleepAction(10000));
+            return ioAction;
+        }
+
+        @Override
+        public IAction buildCompactAction() throws Exception {
+            return (new RunAQLFileAction(httpClient, restHost, restPort, localExperimentRoot.resolve(
+                    LSMExperimentConstants.AQL_DIR).resolve("8_compact.aql")));
+        }
     }
 
 }
