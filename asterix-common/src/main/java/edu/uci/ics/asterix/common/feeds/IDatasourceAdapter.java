@@ -27,12 +27,6 @@ import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 public interface IDatasourceAdapter extends Serializable {
 
     /**
-     * An adapter can be used to read from an external data source and may also
-     * allow writing to the external data source. This enum type indicates the
-     * kind of operations supported by the adapter.
-     */
-
-    /**
      * Triggers the adapter to begin ingesting data from the external source.
      * 
      * @param partition

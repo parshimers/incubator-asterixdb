@@ -220,7 +220,7 @@ public class FrameDistributor {
                         } else {
                             DataBucket bucket = getDataBucket();
                             if (bucket == null) {
-                                switchRoutingMode(frame); // memory congestion
+                                handleFrameDuringMemoryCongestion(frame); // memory congestion
                             } else {
                                 bucket.reset(frame);
                                 inMemoryHandler.handleDataBucket(bucket);
@@ -230,7 +230,7 @@ public class FrameDistributor {
                     case TRANSITION:
                         DataBucket bucket = getDataBucket();
                         if (bucket == null) {
-                            switchRoutingMode(frame); // memory congestion
+                            handleFrameDuringMemoryCongestion(frame); // memory congestion
                         } else {
                             bucket.reset(frame);
                             inMemoryHandler.handleDataBucket(bucket);
@@ -248,7 +248,7 @@ public class FrameDistributor {
             case SHARED:
                 DataBucket bucket = pool.getDataBucket();
                 if (bucket == null) {
-                    switchRoutingMode(frame); // memory congestion
+                    handleFrameDuringMemoryCongestion(frame); // memory congestion
                 } else {
                     bucket.setDesiredReadCount(registeredCollectors.size());
                     bucket.reset(frame);
@@ -275,20 +275,15 @@ public class FrameDistributor {
         }
     }
 
-    private void switchRoutingMode(ByteBuffer frame) throws HyracksDataException {
+    private void handleFrameDuringMemoryCongestion(ByteBuffer frame) throws HyracksDataException {
         if (LOGGER.isLoggable(Level.WARNING)) {
             LOGGER.warning("Unable to allocate memory, will evaluate the need to spill");
         }
         boolean spillToDisk = false;
-        int maxSpillSizeMB = 0;
         for (FeedFrameCollector collector : registeredCollectors.values()) {
             FeedPolicyAccessor fpa = collector.getFeedPolicyAccessor();
             if (fpa.spillToDiskOnCongestion()) {
                 spillToDisk = true;
-                int mss = fpa.getMaxSpillOnDisk();
-                if (maxSpillSizeMB < mss) {
-                    maxSpillSizeMB = mss;
-                }
             }
         }
         try {
@@ -297,12 +292,7 @@ public class FrameDistributor {
                 diskSpillHandler.handleFrame(frame);
             } else {
                 discardHandler.handleFrame(frame);
-                //setRoutingMode(RoutingMode.DISCARD);
                 printSummary();
-            }
-
-            if (LOGGER.isLoggable(Level.WARNING)) {
-                LOGGER.warning("Switched to " + routingMode + " mode.");
             }
 
         } catch (IOException ioe) {

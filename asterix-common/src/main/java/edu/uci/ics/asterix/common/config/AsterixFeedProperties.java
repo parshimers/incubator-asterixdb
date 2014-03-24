@@ -16,6 +16,9 @@ package edu.uci.ics.asterix.common.config;
 
 public class AsterixFeedProperties extends AbstractAsterixProperties {
 
+    private static final String FEED_CENTRAL_MANAGER_PORT_KEY = "feed.central.manager.port";
+    private static final int FEED_CENTRAL_MANAGER_PORT_DEFAULT = 4500; // 64MB or 2048 frames (assuming 32768 as frame size)
+
     private static final String FEED_MEMORY_GLOBALBUDGET_KEY = "feed.memory.global.budget";
     private static final long FEED_MEMORY_GLOBALBUDGET_DEFAULT = 67108864; // 64MB or 2048 frames (assuming 32768 as frame size)
 
@@ -34,6 +37,11 @@ public class AsterixFeedProperties extends AbstractAsterixProperties {
     public long getMemoryAvailableWaitTimeout() {
         return accessor.getProperty(FEED_MEMORY_AVAILABLE_WAIT_TIMEOUT_KEY, FEED_MEMORY_AVAILABLE_WAIT_TIMEOUT_DEFAULT,
                 PropertyInterpreters.getLongPropertyInterpreter());
+    }
+
+    public int getFeedCentralManagerPort() {
+        return accessor.getProperty(FEED_CENTRAL_MANAGER_PORT_KEY, FEED_CENTRAL_MANAGER_PORT_DEFAULT,
+                PropertyInterpreters.getIntegerPropertyInterpreter());
     }
 
 }

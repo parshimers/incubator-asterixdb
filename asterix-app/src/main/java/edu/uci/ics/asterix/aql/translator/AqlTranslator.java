@@ -1572,6 +1572,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 }
             }
             boolean extendingExisting = cfps.getSourcePolicyName() != null;
+            String description = cfps.getDescription() == null ? "" : cfps.getDescription();
             if (extendingExisting) {
                 FeedPolicy sourceFeedPolicy = MetadataManager.INSTANCE.getFeedPolicy(
                         metadataProvider.getMetadataTxnContext(), dataverse, cfps.getSourcePolicyName());
@@ -1584,7 +1585,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 }
                 Map<String, String> policyProperties = sourceFeedPolicy.getProperties();
                 policyProperties.putAll(cfps.getProperties());
-                newPolicy = new FeedPolicy(dataverse, policy, null, policyProperties);
+                newPolicy = new FeedPolicy(dataverse, policy, description, policyProperties);
             } else {
                 Properties prop = new Properties();
                 try {
@@ -1597,7 +1598,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 for (Entry<Object, Object> entry : prop.entrySet()) {
                     policyProperties.put((String) entry.getKey(), (String) entry.getValue());
                 }
-                newPolicy = new FeedPolicy(dataverse, policy, cfps.getDescription(), policyProperties);
+                newPolicy = new FeedPolicy(dataverse, policy, description, policyProperties);
             }
             MetadataManager.INSTANCE.addFeedPolicy(mdTxnCtx, newPolicy);
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
@@ -1915,7 +1916,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
             if (specDisconnectType.third) {
                 String sourceFeedName = null;
-                switch(feed.getFeedType()){
+                switch (feed.getFeedType()) {
                     case PRIMARY:
                         sourceFeedName = feed.getFeedName();
                         break;

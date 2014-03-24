@@ -15,11 +15,14 @@
 package edu.uci.ics.asterix.common.dataflow;
 
 import java.nio.ByteBuffer;
-import java.util.Date;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
+import edu.uci.ics.asterix.common.exceptions.FrameDataException;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.IIndexOperatorDescriptor;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOperation;
@@ -27,6 +30,8 @@ import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
 import edu.uci.ics.hyracks.storage.am.lsm.common.dataflow.LSMIndexInsertUpdateDeleteOperatorNodePushable;
 
 public class AsterixLSMInsertDeleteOperatorNodePushable extends LSMIndexInsertUpdateDeleteOperatorNodePushable {
+
+    private static final Logger LOGGER = Logger.getLogger(AsterixLSMInsertDeleteOperatorNodePushable.class.getName());
 
     private final boolean isPrimary;
 
@@ -43,8 +48,9 @@ public class AsterixLSMInsertDeleteOperatorNodePushable extends LSMIndexInsertUp
         accessor.reset(buffer);
         ILSMIndexAccessor lsmAccessor = (ILSMIndexAccessor) indexAccessor;
         int tupleCount = accessor.getTupleCount();
+        int i = 0;
         try {
-            for (int i = 0; i < tupleCount; i++) {
+            for (; i < tupleCount; i++) {
                 if (tupleFilter != null) {
                     frameTuple.reset(accessor, i);
                     if (!tupleFilter.accept(frameTuple)) {
@@ -75,12 +81,12 @@ public class AsterixLSMInsertDeleteOperatorNodePushable extends LSMIndexInsertUp
                     }
                 }
             }
+            System.arraycopy(buffer.array(), 0, writeBuffer.array(), 0, buffer.capacity());
+            FrameUtils.flushFrame(writeBuffer, writer);
         } catch (Exception e) {
             e.printStackTrace();
             throw new HyracksDataException(e);
         }
-        System.arraycopy(buffer.array(), 0, writeBuffer.array(), 0, buffer.capacity());
-        FrameUtils.flushFrame(writeBuffer, writer);
     }
 
 }

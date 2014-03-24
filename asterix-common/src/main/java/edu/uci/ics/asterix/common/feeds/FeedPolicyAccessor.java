@@ -16,18 +16,29 @@ package edu.uci.ics.asterix.common.feeds;
 
 import java.util.Map;
 
+/**
+ * A utility class to access the configuration parameters of a feed ingestion policy.
+ */
 public class FeedPolicyAccessor {
+
+    // failure configuration
     public static final String FAILURE_LOG_ERROR = "failure.log.error";
-    public static final String APPLICATION_FAILURE_LOG_DATA = "application.failure.log.data";
-    public static final String APPLICATION_FAILURE_CONTINUE = "application.failure.continue";
+    public static final String SOFT_FAILURE_LOG_DATA = "soft.failure.log.data";
+    public static final String SOFT_FAILURE_CONTINUE = "soft.failure.continue";
+    public static final String FAILURE_LOG_DATASET = "failure.log.dataset";
     public static final String HARDWARE_FAILURE_CONTINUE = "hardware.failure.continue";
+    public static final String CLUSTER_REBOOT_AUTO_RESTART = "cluster.reboot.auto.restart";
+
+    // flow control configuration
     public static final String SPILL_TO_DISK_ON_CONGESTION = "spill.to.disk.on.congestion";
     public static final String MAX_SPILL_SIZE_ON_DISK = "max.spill.size.on.disk";
     public static final String MAX_FRACTION_DISCARD = "max.fraction.discard";
-    public static final String CLUSTER_REBOOT_AUTO_RESTART = "cluster.reboot.auto.restart";
+
+    // monitoring configuration
     public static final String COLLECT_STATISTICS = "collect.statistics";
     public static final String COLLECT_STATISTICS_PERIOD = "collect.statistics.period";
     public static final String COLLECT_STATISTICS_PERIOD_UNIT = "collect.statistics.period.unit";
+
     public static final String ELASTIC = "elastic";
 
     public enum TimeUnit {
@@ -36,7 +47,7 @@ public class FeedPolicyAccessor {
         HRS(3600),
         DAYS(86400);
 
-        private int factor;
+        private final int factor;
 
         private TimeUnit(final int value) {
             this.factor = value;
@@ -61,12 +72,12 @@ public class FeedPolicyAccessor {
         return getBooleanPropertyValue(FAILURE_LOG_ERROR);
     }
 
-    public boolean logDataOnApplicationFailure() {
-        return getBooleanPropertyValue(APPLICATION_FAILURE_LOG_DATA);
+    public boolean logDataOnSoftFailure() {
+        return getBooleanPropertyValue(SOFT_FAILURE_LOG_DATA);
     }
 
-    public boolean continueOnApplicationFailure() {
-        return getBooleanPropertyValue(APPLICATION_FAILURE_CONTINUE);
+    public boolean continueOnSoftFailure() {
+        return getBooleanPropertyValue(SOFT_FAILURE_CONTINUE);
     }
 
     public boolean continueOnHardwareFailure() {

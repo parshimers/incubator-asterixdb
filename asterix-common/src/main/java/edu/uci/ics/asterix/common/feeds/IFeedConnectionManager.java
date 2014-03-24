@@ -44,11 +44,6 @@ public interface IFeedConnectionManager {
             ISubscribableRuntime subscribableRuntime, FeedRuntimeType runtimeType);
 
     /**
-     * @param feedId
-     */
-    public void deregisterComputeRuntime(FeedId feedId);
-
-    /**
      * Allows registration of a feedRuntime.
      * 
      * @param feedRuntime
@@ -72,23 +67,6 @@ public interface IFeedConnectionManager {
     public BasicFeedRuntime getFeedRuntime(FeedRuntimeId feedRuntimeId);
 
     /**
-     * Register the Super Feed Manager associated witht a feed.
-     * 
-     * @param feedConnection
-     * @param sfm
-     * @throws Exception
-     */
-    public void registerSuperFeedManager(FeedConnectionId feedConnection, SuperFeedManager sfm) throws Exception;
-
-    /**
-     * Obtain a handle to the Super Feed Manager associated with the feed.
-     * 
-     * @param feedConnection
-     * @return
-     */
-    public SuperFeedManager getSuperFeedManager(FeedConnectionId feedConnection);
-
-    /**
      * De-register a feed
      * 
      * @param feedConnection
@@ -103,13 +81,5 @@ public interface IFeedConnectionManager {
      * @return
      */
     public FeedRuntimeManager getFeedRuntimeManager(FeedConnectionId feedConnection);
-
-    /**
-     * Obtain a handle to the feed Message service associated with a feed.
-     * 
-     * @param feedConnection
-     * @return
-     */
-    public FeedMessageService getFeedMessageService(FeedConnectionId feedConnection);
 
 }

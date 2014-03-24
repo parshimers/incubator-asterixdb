@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.IFeedMetricCollector.MetricType;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
@@ -53,14 +52,11 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
     /** The value of the partition 'i' if this is the i'th instance **/
     private final int partition;
 
-    /** RecordDescriptor {@code RecordDescriptor} representing the output from the DistributeFeedFrameWriter **/
-    private final RecordDescriptor recordDescriptor;
-
     /** FrameTupleAccessor {@code FrameTupleAccessor} instance for keeping track of # of produced tuples **/
     private final FrameTupleAccessor fta;
 
     public DistributeFeedFrameWriter(FeedId feedId, IFrameWriter writer, FeedRuntimeType feedRuntimeType,
-            int partition, RecordDescriptor recordDescriptor, FrameTupleAccessor fta, IFeedManager feedManager)
+            int partition, FrameTupleAccessor fta, IFeedManager feedManager)
             throws IOException {
         this.feedId = feedId;
         this.fta = fta;
@@ -70,7 +66,6 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
         this.feedRuntimeType = feedRuntimeType;
         this.partition = partition;
         this.writer = writer;
-        this.recordDescriptor = recordDescriptor;
 
     }
 
@@ -143,7 +138,7 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
     }
 
     public RecordDescriptor getRecordDescriptor() {
-        return recordDescriptor;
+        return fta.getRecordDescriptor();
     }
 
     @Override

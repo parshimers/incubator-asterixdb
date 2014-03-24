@@ -149,7 +149,7 @@ public class FeedOperations {
             }
 
             boolean needToDiscontinueSource = !hasOtherSubscribers && sourceFeedJoint.getSubscribers().size() == 1;
-            FeedRuntimeType feedRuntimeType = subscriptionLocation.equals(SubscriptionLocation.SOURCE_FEED_INTAKE) ? FeedRuntimeType.INGEST
+            FeedRuntimeType feedRuntimeType = subscriptionLocation.equals(SubscriptionLocation.SOURCE_FEED_INTAKE) ? FeedRuntimeType.INTAKE
                     : FeedRuntimeType.COMPUTE;
 
             Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p = metadataProvider

@@ -15,17 +15,27 @@
 package edu.uci.ics.asterix.common.feeds;
 
 /**
- * Interface implemented by an adapter that can be controlled or managed by external
- * commands (stop,alter)
+ * Interface implemented by a feed adapter.
  */
 public interface IFeedAdapter extends IDatasourceAdapter {
 
     public enum DataExchangeMode {
+        /*
+         * PULL model requires the adaptor to make a separate request each time to receive data 
+         */
         PULL,
+
+        /*
+         * PUSH mode involves the use o just one initial request (handshake) by the adaptor
+         * to the datasource for setting up the connection and providing any protocol-specific 
+         * parameters. Once a connection is established, the data source "pushes" data to the adaptor.
+         */
         PUSH
     }
 
     /**
+     * Returns the data exchange mode (PULL/PUSH) associated with the flow.
+     * 
      * @return
      */
     public DataExchangeMode getDataExchangeMode();

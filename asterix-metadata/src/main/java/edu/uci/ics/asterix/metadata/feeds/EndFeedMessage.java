@@ -16,6 +16,8 @@ package edu.uci.ics.asterix.metadata.feeds;
 
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
+import edu.uci.ics.asterix.common.feeds.FeedMessage;
+import edu.uci.ics.asterix.common.feeds.IFeedMessage;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 
 /**
@@ -75,4 +77,10 @@ public class EndFeedMessage extends FeedMessage {
     public EndMessageType getEndMessageType() {
         return endMessageType;
     }
+
+    @Override
+    public String toJSON() {
+        return null;
+    }
+
 }

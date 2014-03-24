@@ -20,6 +20,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.builders.IARecordBuilder;
+import edu.uci.ics.asterix.builders.OrderedListBuilder;
 import edu.uci.ics.asterix.builders.RecordBuilder;
 import edu.uci.ics.asterix.builders.UnorderedListBuilder;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
@@ -29,6 +30,7 @@ import edu.uci.ics.asterix.om.base.ABoolean;
 import edu.uci.ics.asterix.om.base.AInt32;
 import edu.uci.ics.asterix.om.base.AMutableDateTime;
 import edu.uci.ics.asterix.om.base.AMutableInt32;
+import edu.uci.ics.asterix.om.base.AMutableOrderedList;
 import edu.uci.ics.asterix.om.base.AMutablePoint;
 import edu.uci.ics.asterix.om.base.AMutableRecord;
 import edu.uci.ics.asterix.om.base.AMutableString;
@@ -125,9 +127,10 @@ public abstract class PullBasedFeedClient implements IPullBasedFeedClient {
     }
 
     private void writeObject(IAObject obj, DataOutput dataOutput) throws IOException, AsterixException {
+        ATypeTag tag = null;
         switch (obj.getType().getTypeTag()) {
-            case RECORD:
-                ATypeTag tag = obj.getType().getTypeTag();
+            case RECORD: {
+                tag = obj.getType().getTypeTag();
                 try {
                     dataOutput.writeByte(tag.serialize());
                 } catch (IOException e) {
@@ -138,7 +141,30 @@ public abstract class PullBasedFeedClient implements IPullBasedFeedClient {
                 recordBuilder.init();
                 writeRecord((AMutableRecord) obj, dataOutput, recordBuilder);
                 break;
-            case UNORDEREDLIST:
+            }
+
+            case ORDEREDLIST: {
+                tag = obj.getType().getTypeTag();
+                try {
+                    dataOutput.writeByte(tag.serialize());
+                } catch (IOException e) {
+                    throw new HyracksDataException(e);
+                }
+                OrderedListBuilder listBuilder = new OrderedListBuilder();
+                listBuilder.reset((AUnorderedListType) ((AMutableOrderedList) obj).getType());
+                IACursor cursor = ((AMutableOrderedList) obj).getCursor();
+                ArrayBackedValueStorage listItemValue = new ArrayBackedValueStorage();
+                while (cursor.next()) {
+                    listItemValue.reset();
+                    IAObject item = cursor.get();
+                    writeObject(item, listItemValue.getDataOutput());
+                    listBuilder.addItem(listItemValue);
+                }
+                listBuilder.write(dataOutput, false);
+                break;
+            }
+
+            case UNORDEREDLIST: {
                 tag = obj.getType().getTypeTag();
                 try {
                     dataOutput.writeByte(tag.serialize());
@@ -157,6 +183,8 @@ public abstract class PullBasedFeedClient implements IPullBasedFeedClient {
                 }
                 listBuilder.write(dataOutput, false);
                 break;
+            }
+
             default:
                 AqlSerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(obj.getType()).serialize(obj,
                         dataOutput);

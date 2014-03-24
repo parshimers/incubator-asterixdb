@@ -32,13 +32,13 @@ public class FeedPolicyEnforcer {
     }
 
     public boolean continueIngestionPostSoftwareFailure(Exception e) throws RemoteException, ACIDException {
-        boolean continueIngestion = feedPolicyAccessor.continueOnApplicationFailure();
+        boolean continueIngestion = feedPolicyAccessor.continueOnSoftFailure();
         if (feedPolicyAccessor.logErrorOnFailure()) {
             persistExceptionDetails(e);
         }
         return continueIngestion;
     }
-
+    
     private synchronized void persistExceptionDetails(Exception e) throws RemoteException, ACIDException {
         //TODO Put log message in feed shadow dataset
     }

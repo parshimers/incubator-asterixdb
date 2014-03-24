@@ -1,3 +1,17 @@
+/*
+ * Copyright 2009-2013 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package edu.uci.ics.asterix.metadata.feeds;
 
 import java.nio.ByteBuffer;
@@ -13,6 +27,7 @@ import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeState;
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedFrameCollector;
+import edu.uci.ics.asterix.common.feeds.FeedFrameProcessor;
 import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
 import edu.uci.ics.asterix.common.feeds.FrameDistributor;
 import edu.uci.ics.asterix.common.feeds.IFeedFrameWriter;
@@ -32,7 +47,6 @@ import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
-import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
 
 /**
  * FeedMetaOperatorDescriptor is a wrapper operator that provides a sanboox like
@@ -68,7 +82,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
 
     /**
      * type for the feed runtime associated with the operator.
-     * Possible values: INGESTION, COMPUTE, STORAGE, COMMIT
+     * Possible values: INTAKE, COMPUTE, STORAGE, COMMIT
      */
     private final FeedRuntimeType runtimeType;
 
@@ -156,6 +170,10 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
         /** The frame reader instance that reads the input frames from upstream operator **/
         private FeedFrameCollector inputSideFrameCollector;
 
+        private boolean recoverSoftFailure;
+
+        private FrameTupleAccessor fta;
+
         private final IHyracksTaskContext ctx;
 
         public FeedMetaNodePushable(IHyracksTaskContext ctx, IRecordDescriptorProvider recordDescProvider,
@@ -175,12 +193,12 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
             this.enableSubscriptionMode = enableSubscriptionMode; // set to true for COMPUTE operator when feed has an associated UDF.
             this.inputSideBufferring = runtimeType.equals(FeedRuntimeType.COMPUTE); //&& enableSubscriptionMode;
             if (inputSideBufferring) {
-                FrameTupleAccessor fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
                 frameDistributor = new FrameDistributor(feedConnectionId.getFeedId(), runtimeType, partition, false,
                         feedManager.getFeedMemoryManager());
             } else {
                 frameDistributor = null;
             }
+            recoverSoftFailure = policyEnforcer.getFeedPolicyAccessor().continueOnSoftFailure();
         }
 
         @Override
@@ -203,7 +221,8 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                             registerBasicFeedRuntime(mWriter);
                             break;
                         case COLLECT:
-                        case INGEST:
+                        case COMPUTE_COLLECT:
+                        case INTAKE:
                             throw new IllegalStateException("Invalid wrapping of " + runtimeType
                                     + " by meta feed operator");
                     }
@@ -235,6 +254,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                     }
                 }
                 coreOperatorNodePushable.open();
+                fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
             } catch (Exception e) {
                 if (LOGGER.isLoggable(Level.SEVERE)) {
                     LOGGER.severe("Unable to initialize feed operator " + runtimeType + " [" + partition + "]");
@@ -283,7 +303,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
         private IFeedFrameWriter registerSubscribableRuntime(IFeedFrameWriter feedFrameWriter) throws Exception {
             FrameTupleAccessor fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
             DistributeFeedFrameWriter distributeWriter = new DistributeFeedFrameWriter(feedConnectionId.getFeedId(),
-                    writer, runtimeType, partition, recordDesc, fta, feedManager);
+                    writer, runtimeType, partition, fta, feedManager);
             outputSideFrameCollector = distributeWriter.subscribeFeed(policyEnforcer.getFeedPolicyAccessor(),
                     feedFrameWriter);
             FeedSubscribableRuntimeId sid = new FeedSubscribableRuntimeId(feedConnectionId.getFeedId(), runtimeType,
@@ -308,29 +328,15 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                     frameDistributor.nextFrame(buffer);
                 } else { // no buffering
                     currentBuffer = buffer;
-                    coreOperatorNodePushable.nextFrame(buffer);
+                    FeedFrameProcessor.nextFrame(feedConnectionId, coreOperatorNodePushable, buffer,
+                            recoverSoftFailure, ctx.getFrameSize(), fta, recordDesc, feedManager);
+                    //coreOperatorNodePushable.nextFrame(buffer);
                     currentBuffer = null;
                 }
-            } catch (HyracksDataException e) {
-                if (policyEnforcer.getFeedPolicyAccessor().continueOnApplicationFailure()) {
-                    boolean isExceptionHarmful = e.getCause() instanceof TreeIndexException && !resumeOldState;
-                    if (isExceptionHarmful) {
-                        // TODO: log the tuple
-                        FeedRuntimeState runtimeState = new FeedRuntimeState(buffer, writer, e);
-                        // sfeedRuntime.setRuntimeState(runtimeState);
-                    } else {
-                        // ignore the frame (exception is expected)
-                        if (LOGGER.isLoggable(Level.WARNING)) {
-                            LOGGER.warning("Ignoring exception " + e + " BY " + feedConnectionId);
-                        }
-                    }
-                } else {
-                    if (LOGGER.isLoggable(Level.SEVERE)) {
-                        LOGGER.severe("Feed policy does not require feed to survive soft failure");
-                    }
-                    throw e;
-                }
+            } catch (Exception e) {
+                throw e;
             }
+
         }
 
         @Override
@@ -366,9 +372,14 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                             ((BasicFeedRuntime) feedRuntime).getFeedRuntimeId());
                     break;
                 case COMPUTE:
-                    FeedSubscribableRuntimeId runtimeId = ((ISubscribableRuntime) feedRuntime)
-                            .getFeedSubscribableRuntimeId();
-                    feedManager.getFeedSubscriptionManager().deregisterFeedSubscribableRuntime(runtimeId);
+                    if (enableSubscriptionMode) {
+                        FeedSubscribableRuntimeId runtimeId = ((ISubscribableRuntime) feedRuntime)
+                                .getFeedSubscribableRuntimeId();
+                        feedManager.getFeedSubscriptionManager().deregisterFeedSubscribableRuntime(runtimeId);
+                    } else {
+                        feedManager.getFeedConnectionManager().deRegisterFeedRuntime(
+                                ((BasicFeedRuntime) feedRuntime).getFeedRuntimeId());
+                    }
                     break;
             }
         }

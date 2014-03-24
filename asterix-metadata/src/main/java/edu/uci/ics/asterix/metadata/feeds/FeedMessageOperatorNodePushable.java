@@ -32,12 +32,11 @@ import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
 import edu.uci.ics.asterix.common.feeds.IAdapterRuntimeManager;
 import edu.uci.ics.asterix.common.feeds.IFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
+import edu.uci.ics.asterix.common.feeds.IFeedMessage;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.ISubscribableRuntime;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
-import edu.uci.ics.asterix.common.feeds.SuperFeedManager;
 import edu.uci.ics.asterix.metadata.feeds.FeedCollectOperatorNodePushable.CollectTransformFeedFrameWriter;
-import edu.uci.ics.hyracks.api.application.INCApplicationContext;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -87,27 +86,6 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
 
                     break;
 
-                case SUPER_FEED_MANAGER_ELECT:
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("Registering Supers Feed Manager for :" + feedConnectionId);
-                    }
-                    FeedManagerElectMessage mesg = ((FeedManagerElectMessage) feedMessage);
-                    SuperFeedManager sfm = new SuperFeedManager(mesg.getFeedConnectionId(), mesg.getHost(),
-                            mesg.getNodeId(), mesg.getPort(), feedManager);
-                    synchronized (feedManager) {
-                        INCApplicationContext ncCtx = ctx.getJobletContext().getApplicationContext();
-                        String nodeId = ncCtx.getNodeId();
-                        if (sfm.getNodeId().equals(nodeId)) {
-                            sfm.setLocal(true);
-                        } else {
-                            Thread.sleep(5000);
-                        }
-                        feedManager.getFeedConnectionManager().registerSuperFeedManager(feedConnectionId, sfm);
-                        if (LOGGER.isLoggable(Level.INFO)) {
-                            LOGGER.info("Registered super feed mgr " + sfm + " for feed " + feedConnectionId);
-                        }
-                    }
-                    break;
             }
 
         } catch (Exception e) {
@@ -120,7 +98,7 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
     private void handleDiscontinueFeedTypeMessage(EndFeedMessage endFeedMessage) throws Exception {
         FeedId sourceFeedId = endFeedMessage.getSourceFeedId();
         FeedSubscribableRuntimeId subscribableRuntimeId = new FeedSubscribableRuntimeId(sourceFeedId,
-                FeedRuntimeType.INGEST, partition);
+                FeedRuntimeType.INTAKE, partition);
         ISubscribableRuntime feedRuntime = feedManager.getFeedSubscriptionManager().getSubscribableRuntime(
                 subscribableRuntimeId);
         IAdapterRuntimeManager adapterRuntimeManager = ((IngestionRuntime) feedRuntime).getAdapterRuntimeManager();
@@ -139,7 +117,7 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
         if (endFeedMessage.isCompleteDisconnection()) {
             // subscribableRuntimeType represents the location at which it receives data
             switch (subscribaleRuntimeType) {
-                case INGEST:
+                case INTAKE:
                 case COMPUTE:
                     BasicFeedRuntime feedRuntime = null;
                     runtimeId = new FeedRuntimeId(FeedRuntimeType.COMPUTE_COLLECT, feedConnectionId, partition);
@@ -159,10 +137,9 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
         } else {
             // subscribaleRuntimeType represents the location for data hand-off in presence of subscribers
             switch (subscribaleRuntimeType) {
-                case INGEST:
+                case INTAKE:
                     // illegal state as data hand-off from one feed to another does not happen at ingest
-
-                    break;
+                    throw new IllegalStateException("Illegal State, invalid runtime type  " + subscribaleRuntimeType);
                 case COMPUTE:
                     // feed could be primary or secondary, doesn't matter
                     FeedSubscribableRuntimeId feedSubscribableRuntimeId = new FeedSubscribableRuntimeId(

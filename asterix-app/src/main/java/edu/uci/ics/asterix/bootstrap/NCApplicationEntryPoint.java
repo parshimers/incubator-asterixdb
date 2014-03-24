@@ -59,7 +59,7 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
         ncApplicationContext = ncAppCtx;
         nodeId = ncApplicationContext.getNodeId();
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Starting Asterix node controller  TAKE NOTE: " + nodeId);
+            LOGGER.info("Starting Asterix node controller: " + nodeId);
         }
 
         runtimeContext = new AsterixAppRuntimeContext(ncApplicationContext);
@@ -67,7 +67,7 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
                 .getMetadataProperties();
         if (!metadataProperties.getNodeNames().contains(ncApplicationContext.getNodeId())) {
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Substitute node joining : " + ncApplicationContext.getNodeId());
+                LOGGER.info("Substitute node joining: " + ncApplicationContext.getNodeId());
             }
             updateOnNodeJoin();
         }
@@ -152,13 +152,13 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
             MetadataBootstrap.startUniverse(((IAsterixPropertiesProvider) runtimeContext), ncApplicationContext,
                     systemState == SystemState.NEW_UNIVERSE);
             MetadataBootstrap.startDDLRecovery();
-
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Metadata node bound");
             }
         }
 
         ExternalLibraryBootstrap.setUpExternaLibraries(isMetadataNode);
+
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Starting lifecycle components");
         }
@@ -182,7 +182,7 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
 
         IRecoveryManager recoveryMgr = runtimeContext.getTransactionSubsystem().getRecoveryManager();
         recoveryMgr.checkpoint(true);
-        
+
         if (isMetadataNode) {
             IMetadataNode stub = null;
             stub = (IMetadataNode) UnicastRemoteObject.exportObject(MetadataNode.INSTANCE, 0);

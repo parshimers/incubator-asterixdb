@@ -23,7 +23,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -45,9 +44,7 @@ import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
 import edu.uci.ics.asterix.common.feeds.IFeedJoint;
 import edu.uci.ics.asterix.common.feeds.IFeedJoint.Scope;
 import edu.uci.ics.asterix.common.feeds.IFeedJoint.State;
-import edu.uci.ics.asterix.common.feeds.SuperFeedManager;
-import edu.uci.ics.asterix.event.schema.cluster.Cluster;
-import edu.uci.ics.asterix.event.schema.cluster.Node;
+import edu.uci.ics.asterix.common.feeds.IFeedMessage;
 import edu.uci.ics.asterix.feeds.FeedLifecycleListener.Message;
 import edu.uci.ics.asterix.file.JobSpecificationUtils;
 import edu.uci.ics.asterix.metadata.MetadataManager;
@@ -58,10 +55,8 @@ import edu.uci.ics.asterix.metadata.entities.FeedActivity;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityType;
 import edu.uci.ics.asterix.metadata.feeds.FeedCollectOperatorDescriptor;
 import edu.uci.ics.asterix.metadata.feeds.FeedIntakeOperatorDescriptor;
-import edu.uci.ics.asterix.metadata.feeds.FeedManagerElectMessage;
 import edu.uci.ics.asterix.metadata.feeds.FeedMetaOperatorDescriptor;
 import edu.uci.ics.asterix.metadata.feeds.FeedWorkManager;
-import edu.uci.ics.asterix.metadata.feeds.IFeedMessage;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
 import edu.uci.ics.asterix.om.util.AsterixClusterProperties;
 import edu.uci.ics.asterix.runtime.formats.NonTaggedDataFormat;
@@ -89,8 +84,6 @@ import edu.uci.ics.hyracks.storage.am.lsm.common.dataflow.LSMTreeIndexInsertUpda
 public class FeedJobNotificationHandler implements Runnable {
 
     private static final Logger LOGGER = Logger.getLogger(FeedJobNotificationHandler.class.getName());
-
-    private int superFeedManagerPort = 3000;
 
     private final Executor executor = Executors.newCachedThreadPool();
     private final LinkedBlockingQueue<Message> inbox;
@@ -333,13 +326,13 @@ public class FeedJobNotificationHandler implements Runnable {
         if (intakeJob) {
             IFeedJoint fp = feedJoints.get(fpk);
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Job finished for feed intake " + fp);
+                LOGGER.info("Intake Job finished for feed intake " + fp);
             }
             handleFeedIntakeJobFinishMessage(message);
         } else {
             FeedSubscriber feedSubscriber = jobSubscriberMap.get(message.jobId);
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Job finished for feed feedSubscriber " + feedSubscriber);
+                LOGGER.info("Collect Job finished for feed feedSubscriber " + feedSubscriber);
             }
             handleFeedCollectJobFinishMessage(feedSubscriber, message);
         }
@@ -486,14 +479,6 @@ public class FeedJobNotificationHandler implements Runnable {
                 fp.setState(State.ACTIVE);
             }
 
-            FeedPolicyAccessor policyAccessor = new FeedPolicyAccessor(subscriber.getFeedPolicyParameters());
-            if (policyAccessor.collectStatistics() || policyAccessor.isElastic()) {
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Feed " + subscriber.getFeedConnectionId() + " requires Super Feed Manager");
-                }
-                configureSuperFeedManager(subscriber);
-            }
-
             Map<String, String> feedActivityDetails = new HashMap<String, String>();
             feedActivityDetails.put(FeedActivity.FeedActivityDetails.INTAKE_LOCATIONS,
                     StringUtils.join(connectionInfo.getCollectLocations().iterator(), ','));
@@ -524,39 +509,6 @@ public class FeedJobNotificationHandler implements Runnable {
         } catch (Exception e) {
             // TODO Add Exception handling here
         }
-    }
-
-    private void configureSuperFeedManager(FeedSubscriber feedSubscriber) {
-        FeedConnectionInfo feedConnectionInfo = feedSubscriber.getFeedConnectionInfo();
-        int superFeedManagerIndex = new Random().nextInt(feedConnectionInfo.getCollectLocations().size());
-        String superFeedManagerHost = feedConnectionInfo.getCollectLocations().get(superFeedManagerIndex);
-
-        Cluster cluster = AsterixClusterProperties.INSTANCE.getCluster();
-        String instanceName = cluster.getInstanceName();
-        String node = superFeedManagerHost.substring(instanceName.length() + 1);
-        String hostIp = null;
-        for (Node n : cluster.getNode()) {
-            if (n.getId().equals(node)) {
-                hostIp = n.getClusterIp();
-                break;
-            }
-        }
-        if (hostIp == null) {
-            throw new IllegalStateException("Unknown node " + superFeedManagerHost);
-        }
-
-        feedSubscriber.setSuperFeedManagerHost(hostIp);
-        feedSubscriber.setSuperFeedManagerPort(superFeedManagerPort);
-
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Super Feed Manager for " + feedSubscriber.getFeedConnectionId() + " is " + hostIp + " node "
-                    + superFeedManagerHost + "[" + superFeedManagerPort + "]");
-        }
-
-        FeedManagerElectMessage feedMessage = new FeedManagerElectMessage(hostIp, superFeedManagerHost,
-                superFeedManagerPort, feedSubscriber.getFeedConnectionId());
-        superFeedManagerPort += SuperFeedManager.PORT_RANGE_ASSIGNED;
-        messengerOutbox.add(new FeedMessengerMessage(feedMessage, feedSubscriber));
     }
 
     private void handleFeedIntakeJobFinishMessage(Message message) throws Exception {
@@ -659,6 +611,9 @@ public class FeedJobNotificationHandler implements Runnable {
         if (fpks != null) {
             for (FeedJointKey fpk : fpks) {
                 IFeedJoint fp = feedJoints.get(fpk);
+                if (fp == null) {
+                    continue;
+                }
                 List<FeedSubscriber> subscribers = fp.getSubscribers();
                 if (subscribers != null && !subscribers.isEmpty()) {
                     for (FeedSubscriber subscriber : subscribers) {
@@ -772,10 +727,8 @@ public class FeedJobNotificationHandler implements Runnable {
                     message = inbox.take();
                     FeedSubscriber feedSubscriber = message.getFeedSubscriber();
                     switch (message.getMessage().getMessageType()) {
-                        case SUPER_FEED_MANAGER_ELECT:
+                        case END:
                             Thread.sleep(2000);
-                            sendSuperFeedManangerElectMessage(feedSubscriber,
-                                    (FeedManagerElectMessage) message.getMessage());
                             if (LOGGER.isLoggable(Level.WARNING)) {
                                 LOGGER.warning("Sent super feed manager election message" + message.getMessage());
                             }
@@ -788,8 +741,7 @@ public class FeedJobNotificationHandler implements Runnable {
 
     }
 
-    private static void sendSuperFeedManangerElectMessage(FeedSubscriber feedSubscriber,
-            FeedManagerElectMessage electMessage) {
+    private static void sendSuperFeedManangerElectMessage(FeedSubscriber feedSubscriber, IFeedMessage electMessage) {
         try {
             Dataverse dataverse = new Dataverse(feedSubscriber.getFeedConnectionId().getFeedId().getDataverse(),
                     NonTaggedDataFormat.NON_TAGGED_DATA_FORMAT, 0);

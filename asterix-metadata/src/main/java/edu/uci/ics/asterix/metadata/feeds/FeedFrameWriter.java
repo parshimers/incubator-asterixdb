@@ -14,7 +14,6 @@
  */
 package edu.uci.ics.asterix.metadata.feeds;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.Timer;
@@ -34,8 +33,6 @@ import edu.uci.ics.asterix.common.feeds.IFeedMemoryManager;
 import edu.uci.ics.asterix.common.feeds.IFeedMetricCollector;
 import edu.uci.ics.asterix.common.feeds.IFeedMetricCollector.MetricType;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
-import edu.uci.ics.asterix.common.feeds.SuperFeedManager;
-import edu.uci.ics.asterix.common.feeds.SuperFeedManager.FeedReportMessageType;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorNodePushable;
@@ -313,55 +310,13 @@ public class FeedFrameWriter implements IFeedFrameWriter {
                         LOGGER.severe("Unable to flush " + "[" + (currentTime - startTime) + "msec]"
                                 + "Congestion reported by " + feedRuntimeType + " [" + partition + "]");
                     }
-                    sendReportToSuperFeedManager(currentTime - startTime, FeedReportMessageType.CONGESTION,
-                            System.currentTimeMillis());
+
                 }
             }
             if (collectThroughput) {
                 int instantTput = (int) Math.ceil((((double) numTuplesInInterval.get() * 1000) / period));
-                sendReportToSuperFeedManager(instantTput, FeedReportMessageType.THROUGHPUT, System.currentTimeMillis());
             }
             numTuplesInInterval.set(0);
-        }
-
-        private void sendReportToSuperFeedManager(long value, SuperFeedManager.FeedReportMessageType mesgType,
-                long timestamp) {
-            if (mesgService == null) {
-                waitTillMessageServiceIsUp();
-            }
-            String feedRep = feedConnectionId.getFeedId().getDataverse() + ":"
-                    + feedConnectionId.getFeedId().getFeedName() + ":" + feedConnectionId.getDatasetName();
-            String message = mesgType.name().toLowerCase() + FeedMessageService.MessageSeparator + feedRep
-                    + FeedMessageService.MessageSeparator + feedRuntimeType + FeedMessageService.MessageSeparator
-                    + partition + FeedMessageService.MessageSeparator + value + FeedMessageService.MessageSeparator
-                    + nodeId + FeedMessageService.MessageSeparator + timestamp + FeedMessageService.MessageSeparator
-                    + EOL;
-            try {
-                mesgService.sendMessage(message);
-            } catch (IOException ioe) {
-                if (LOGGER.isLoggable(Level.WARNING)) {
-                    LOGGER.warning("Unable to send feed report to Super Feed Manager for feed " + feedConnectionId
-                            + " " + feedRuntimeType + "[" + partition + "]");
-                }
-            }
-        }
-
-        private void waitTillMessageServiceIsUp() {
-            while (mesgService == null) {
-                mesgService = feedManager.getFeedConnectionManager().getFeedMessageService(feedConnectionId);
-                if (mesgService == null) {
-                    try {
-                        /**
-                         * wait for the message service to be available
-                         */
-                        Thread.sleep(2000);
-                    } catch (InterruptedException e) {
-                        if (LOGGER.isLoggable(Level.WARNING)) {
-                            LOGGER.warning("Encountered an interrupted exception " + " Exception " + e);
-                        }
-                    }
-                }
-            }
         }
 
         public void deactivate() {

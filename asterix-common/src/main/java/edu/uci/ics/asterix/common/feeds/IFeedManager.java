@@ -27,6 +27,10 @@ public interface IFeedManager {
 
     public IFeedMemoryManager getFeedMemoryManager();
 
+    public IFeedMetadataManager getFeedMetadataManager();
+
     public IFeedMetricCollector getFeedMetricCollector();
+    
+    public IFeedMessageService getFeedMessageService();
 
 }

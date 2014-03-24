@@ -1,81 +1,90 @@
 package edu.uci.ics.asterix.common.feeds;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.nio.CharBuffer;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import org.json.JSONException;
+
+import edu.uci.ics.asterix.common.config.AsterixFeedProperties;
 
 /**
  * Sends feed report messages on behalf of an operator instance
  * to the SuperFeedManager associated with the feed.
  */
-public class FeedMessageService {
+public class FeedMessageService implements IFeedMessageService {
 
     private static final Logger LOGGER = Logger.getLogger(FeedMessageService.class.getName());
 
-    public static final char MessageSeparator = '|';
-    private static final char EOL = (char) "\n".getBytes()[0];
-
-    private final FeedConnectionId feedId;
+    private final String nodeId;
     private final LinkedBlockingQueue<String> inbox;
     private final FeedMessageHandler mesgHandler;
-    private final IFeedConnectionManager feedManager;
+    private Executor executor;
 
-    public FeedMessageService(FeedConnectionId feedId, IFeedConnectionManager feedManager) {
-        this.feedId = feedId;
-        inbox = new LinkedBlockingQueue<String>();
-        mesgHandler = new FeedMessageHandler(inbox, feedId, feedManager);
-        this.feedManager = feedManager;
+    public FeedMessageService(String nodeId, AsterixFeedProperties feedProperties, String ccClusterIp) {
+        this.nodeId = nodeId;
+        this.inbox = new LinkedBlockingQueue<String>();
+        this.mesgHandler = new FeedMessageHandler(inbox, ccClusterIp, feedProperties.getFeedCentralManagerPort());
+        this.executor = Executors.newSingleThreadExecutor();
     }
 
-    public void start() throws UnknownHostException, IOException, Exception {
-        feedManager.getFeedExecutorService(feedId).execute(mesgHandler);
+    public void start() throws Exception {
+        executor.execute(mesgHandler);
     }
 
-    public void stop() throws IOException {
+    public void stop() {
         mesgHandler.stop();
     }
 
-    public void sendMessage(String message) throws IOException {
-        inbox.add(message);
+    @Override
+    public void sendMessage(IFeedMessage message) {
+        try {
+            inbox.add(message.toJSON());
+        } catch (JSONException jse) {
+
+        }
     }
 
     private static class FeedMessageHandler implements Runnable {
 
         private final LinkedBlockingQueue<String> inbox;
-        private final FeedConnectionId feedId;
-        private Socket sfmSocket;
+        private Socket cfmSocket;
         private boolean process = true;
-        private final IFeedConnectionManager feedManager;
+        private final String host;
+        private int port;
 
-        public FeedMessageHandler(LinkedBlockingQueue<String> inbox, FeedConnectionId feedId,
-                IFeedConnectionManager feedManager) {
+        private static byte[] EOL = "\n".getBytes();
+
+        public FeedMessageHandler(LinkedBlockingQueue<String> inbox, String host, int port) {
             this.inbox = inbox;
-            this.feedId = feedId;
-            this.feedManager = feedManager;
+            this.host = host;
+            this.port = port;
         }
 
         public void run() {
             try {
-                sfmSocket = obtainSFMSocket();
-                if (sfmSocket != null) {
+                cfmSocket = new Socket(host, port);
+                if (cfmSocket != null) {
                     while (process) {
                         String message = inbox.take();
-                        sfmSocket.getOutputStream().write(message.getBytes());
+                        cfmSocket.getOutputStream().write(message.getBytes());
+                        cfmSocket.getOutputStream().write(EOL);
+                        if (LOGGER.isLoggable(Level.INFO)) {
+                            LOGGER.info(" Sent message " + message + " to CentralFeedManager ");
+                        }
                     }
                 } else {
                     if (LOGGER.isLoggable(Level.WARNING)) {
-                        LOGGER.warning("Unable to start feed message service for " + feedId);
+                        LOGGER.warning("Unable to start feed message service");
                     }
                 }
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Ended feed message service for " + feedId);
-                }
             } catch (Exception e) {
+                e.printStackTrace();
                 if (LOGGER.isLoggable(Level.WARNING)) {
                     LOGGER.warning("Exception in handling incoming feed messages" + e.getMessage());
                 }
@@ -83,9 +92,9 @@ public class FeedMessageService {
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Stopping feed message handler");
                 }
-                if (sfmSocket != null) {
+                if (cfmSocket != null) {
                     try {
-                        sfmSocket.close();
+                        cfmSocket.close();
                     } catch (Exception e) {
                         if (LOGGER.isLoggable(Level.WARNING)) {
                             LOGGER.warning("Exception in closing socket " + e.getMessage());
@@ -100,51 +109,6 @@ public class FeedMessageService {
             process = false;
         }
 
-        private Socket obtainSFMSocket() throws UnknownHostException, IOException, Exception {
-            Socket sfmDirServiceSocket = null;
-            SuperFeedManager sfm = feedManager.getSuperFeedManager(feedId);
-            try {
-                FeedRuntimeManager runtimeManager = feedManager.getFeedRuntimeManager(feedId);
-                sfmDirServiceSocket = runtimeManager.createClientSocket(sfm.getHost(), sfm.getPort(),
-                        IFeedConnectionManager.SOCKET_CONNECT_TIMEOUT);
-                if (sfmDirServiceSocket == null) {
-                    if (LOGGER.isLoggable(Level.WARNING)) {
-                        LOGGER.warning("Unable to connect to " + sfm.getHost() + "[" + sfm.getPort() + "]");
-                    }
-                } else {
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info(" Connected to Super Feed Manager service " + sfm.getHost() + " " + sfm.getPort());
-                    }
-                    while (!sfmDirServiceSocket.isConnected()) {
-                        Thread.sleep(2000);
-                    }
-                    InputStream in = sfmDirServiceSocket.getInputStream();
-                    CharBuffer buffer = CharBuffer.allocate(50);
-                    char ch = 0;
-                    while (ch != EOL) {
-                        buffer.put(ch);
-                        ch = (char) in.read();
-                    }
-                    buffer.flip();
-                    String s = new String(buffer.array());
-                    int port = Integer.parseInt(s.trim());
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("Response from Super Feed Manager service " + port + " will connect at "
-                                + sfm.getHost() + " " + port);
-                    }
-                    sfmSocket = runtimeManager.createClientSocket(sfm.getHost(), port,
-                            IFeedConnectionManager.SOCKET_CONNECT_TIMEOUT);
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-                throw e;
-            } finally {
-                if (sfmDirServiceSocket != null) {
-                    sfmDirServiceSocket.close();
-                }
-            }
-            return sfmSocket;
-        }
     }
 
 }
