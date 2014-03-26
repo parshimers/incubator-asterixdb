@@ -194,7 +194,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
             this.inputSideBufferring = runtimeType.equals(FeedRuntimeType.COMPUTE); //&& enableSubscriptionMode;
             if (inputSideBufferring) {
                 frameDistributor = new FrameDistributor(feedConnectionId.getFeedId(), runtimeType, partition, false,
-                        feedManager.getFeedMemoryManager());
+                        feedManager.getFeedMemoryManager(), ctx.getFrameSize());
             } else {
                 frameDistributor = null;
             }
@@ -272,7 +272,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                 registerBasicFeedRuntime(writer);
             }
             if (inputSideBufferring) {
-                inputSideFrameCollector = new FeedFrameCollector(policyEnforcer.getFeedPolicyAccessor(),
+                inputSideFrameCollector = new FeedFrameCollector(frameDistributor, policyEnforcer.getFeedPolicyAccessor(),
                         coreOperatorNodePushable, feedConnectionId.getFeedId());
                 frameDistributor.registerFrameCollector(inputSideFrameCollector);
             }
@@ -303,7 +303,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
         private IFeedFrameWriter registerSubscribableRuntime(IFeedFrameWriter feedFrameWriter) throws Exception {
             FrameTupleAccessor fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
             DistributeFeedFrameWriter distributeWriter = new DistributeFeedFrameWriter(feedConnectionId.getFeedId(),
-                    writer, runtimeType, partition, fta, feedManager);
+                    writer, runtimeType, partition, fta, feedManager, ctx.getFrameSize());
             outputSideFrameCollector = distributeWriter.subscribeFeed(policyEnforcer.getFeedPolicyAccessor(),
                     feedFrameWriter);
             FeedSubscribableRuntimeId sid = new FeedSubscribableRuntimeId(feedConnectionId.getFeedId(), runtimeType,
@@ -363,6 +363,9 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
 
         @Override
         public void close() throws HyracksDataException {
+            if (frameDistributor != null) {
+                frameDistributor.close();
+            }
             coreOperatorNodePushable.close();
             switch (feedRuntime.getFeedRuntimeType()) {
                 case STORE:

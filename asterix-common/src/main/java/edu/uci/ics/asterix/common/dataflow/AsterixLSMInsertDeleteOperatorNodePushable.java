@@ -85,7 +85,7 @@ public class AsterixLSMInsertDeleteOperatorNodePushable extends LSMIndexInsertUp
             FrameUtils.flushFrame(writeBuffer, writer);
         } catch (Exception e) {
             e.printStackTrace();
-            throw new HyracksDataException(e);
+            throw new FrameDataException(i, e);
         }
     }
 

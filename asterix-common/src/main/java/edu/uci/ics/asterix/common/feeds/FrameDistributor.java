@@ -18,11 +18,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.FeedFrameHandlers.FeedMemoryEventListener;
 import edu.uci.ics.asterix.common.feeds.IFeedMemoryComponent.Type;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
@@ -49,8 +49,8 @@ public class FrameDistributor {
     private IFeedFrameHandler discardHandler;
     private boolean enableShortCircuiting;
     private RoutingMode routingMode;
-    private IMemoryEventListener mListener;
     private boolean spillToDiskRequired = false;
+    private final int frameSize;
 
     public static enum RoutingMode {
         IN_MEMORY_ROUTE,
@@ -65,34 +65,40 @@ public class FrameDistributor {
          **/
         SINGLE,
 
-        /** Multiple feed frame collectors are concurrently registered for receiving tuples. **/
+        /**
+         * Multiple feed frame collectors are concurrently registered for
+         * receiving tuples.
+         **/
         SHARED,
 
-        /** Feed tuples are not being processed, irrespective of # of registered feed frame collectors. **/
+        /**
+         * Feed tuples are not being processed, irrespective of # of registered
+         * feed frame collectors.
+         **/
         INACTIVE
     }
 
     public FrameDistributor(FeedId feedId, FeedRuntimeType feedRuntimeType, int partition,
-            boolean enableShortCircuiting, IFeedMemoryManager memoryManager) throws HyracksDataException {
+            boolean enableShortCircuiting, IFeedMemoryManager memoryManager, int frameSize) throws HyracksDataException {
         this.feedId = feedId;
         this.feedRuntimeType = feedRuntimeType;
         this.partition = partition;
         this.memoryManager = memoryManager;
         this.enableShortCircuiting = enableShortCircuiting;
         this.registeredCollectors = new HashMap<IFrameWriter, FeedFrameCollector>();
+        this.frameSize = frameSize;
         distributionMode = DistributionMode.INACTIVE;
         routingMode = RoutingMode.IN_MEMORY_ROUTE;
         try {
             inMemoryHandler = FeedFrameHandlers.getFeedFrameHandler(this, feedId, RoutingMode.IN_MEMORY_ROUTE,
-                    feedRuntimeType, partition);
+                    feedRuntimeType, partition, frameSize);
             diskSpillHandler = FeedFrameHandlers.getFeedFrameHandler(this, feedId, RoutingMode.SPILL_TO_DISK,
-                    feedRuntimeType, partition);
+                    feedRuntimeType, partition, frameSize);
             discardHandler = FeedFrameHandlers.getFeedFrameHandler(this, feedId, RoutingMode.DISCARD, feedRuntimeType,
-                    partition);
+                    partition, frameSize);
         } catch (IOException ioe) {
             throw new HyracksDataException(ioe);
         }
-        mListener = new FeedMemoryEventListener(this);
     }
 
     public void notifyEndOfFeed() {
@@ -100,7 +106,7 @@ public class FrameDistributor {
         bucket.setContentType(DataBucket.ContentType.EOD);
         processMessage(bucket);
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("End of feed signal received");
+            LOGGER.info("End of feed data packet sent " + this.feedId);
         }
     }
 
@@ -128,6 +134,7 @@ public class FrameDistributor {
                 registeredCollectors.put(frameCollector.getFrameWriter(), frameCollector);
                 break;
         }
+        // evaluate the need to spill to disk based on the frame collector
         if (!spillToDiskRequired) {
             spillToDiskRequired = frameCollector.getFeedPolicyAccessor().spillToDiskOnCongestion();
         }
@@ -143,9 +150,6 @@ public class FrameDistributor {
                 throw new IllegalStateException("Invalid attempt to deregister frame collector in " + distributionMode
                         + " mode.");
             case SHARED:
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Closing collector " + frameCollector);
-                }
                 frameCollector.closeCollector();
                 registeredCollectors.remove(frameCollector.getFrameWriter());
                 int nCollectors = registeredCollectors.size();
@@ -216,47 +220,56 @@ public class FrameDistributor {
                 switch (collector.getState()) {
                     case ACTIVE:
                         if (enableShortCircuiting) {
-                            collector.nextFrame(frame); //processing is synchronous
+                            collector.nextFrame(frame); // processing is synchronous
                         } else {
-                            DataBucket bucket = getDataBucket();
-                            if (bucket == null) {
-                                handleFrameDuringMemoryCongestion(frame); // memory congestion
-                            } else {
-                                bucket.reset(frame);
-                                inMemoryHandler.handleDataBucket(bucket);
-                            }
+                            handleDataBucket(frame);
                         }
                         break;
                     case TRANSITION:
-                        DataBucket bucket = getDataBucket();
-                        if (bucket == null) {
-                            handleFrameDuringMemoryCongestion(frame); // memory congestion
-                        } else {
-                            bucket.reset(frame);
-                            inMemoryHandler.handleDataBucket(bucket);
-                        }
+                        handleDataBucket(frame);
                         break;
                     case FINISHED:
                         if (LOGGER.isLoggable(Level.WARNING)) {
-                            LOGGER.warning("Discarding fetched tuples as feed has ended ["
-                                    + registeredCollectors.get(0) + "]" + " Feed Id " + feedId);
+                            LOGGER.warning("Discarding fetched tuples, feed has ended [" + registeredCollectors.get(0)
+                                    + "]" + " Feed Id " + feedId);
                         }
                         registeredCollectors.remove(0);
                         break;
                 }
                 break;
             case SHARED:
-                DataBucket bucket = pool.getDataBucket();
-                if (bucket == null) {
-                    handleFrameDuringMemoryCongestion(frame); // memory congestion
-                } else {
-                    bucket.setDesiredReadCount(registeredCollectors.size());
-                    bucket.reset(frame);
-                    inMemoryHandler.handleDataBucket(bucket);
-                }
+                handleDataBucket(frame);
                 break;
         }
+    }
 
+    private void handleDataBucket(ByteBuffer frame) throws HyracksDataException {
+        DataBucket bucket = getDataBucket();
+        if (bucket == null) {
+            handleFrameDuringMemoryCongestion(frame);
+        } else {
+            switch (routingMode) {
+                case IN_MEMORY_ROUTE:
+                    bucket.reset(frame);
+                    bucket.setDesiredReadCount(registeredCollectors.size());
+                    inMemoryHandler.handleDataBucket(bucket);
+                    break;
+                case SPILL_TO_DISK:
+                    setRoutingMode(RoutingMode.IN_MEMORY_ROUTE);
+                    Iterator<ByteBuffer> spilledFramesIterator = diskSpillHandler.replayData();
+                    ByteBuffer spilledFrame = null;
+                    if (spilledFramesIterator != null) {
+                        while (spilledFramesIterator.hasNext()) {
+                            spilledFrame = spilledFramesIterator.next();
+                            handleDataBucket(spilledFrame);
+                        }
+                    }
+                    bucket.reset(frame);
+                    bucket.setDesiredReadCount(registeredCollectors.size());
+                    inMemoryHandler.handleDataBucket(bucket);
+                    break;
+            }
+        }
     }
 
     private void handleSpillToDiskMode(ByteBuffer frame) throws HyracksDataException {
@@ -302,7 +315,7 @@ public class FrameDistributor {
 
     private synchronized void processMessage(DataBucket bucket) {
         for (FeedFrameCollector collector : registeredCollectors.values()) {
-            collector.sendMessage(bucket); //processing is asynchronous
+            collector.sendMessage(bucket); // processing is asynchronous
         }
     }
 
@@ -329,16 +342,6 @@ public class FrameDistributor {
     }
 
     public void setRoutingMode(RoutingMode routingMode) {
-        switch (routingMode) {
-            case DISCARD:
-            case SPILL_TO_DISK:
-                memoryManager.registerMemoryEventListener(mListener);
-                break;
-            case IN_MEMORY_ROUTE:
-                memoryManager.unregisterMemoryEventListener(mListener);
-                break;
-        }
-
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Switching from " + this.routingMode + "  to " + routingMode);
         }
@@ -359,15 +362,40 @@ public class FrameDistributor {
                             + feedId);
                 }
                 setMode(DistributionMode.INACTIVE);
+                if (!enableShortCircuiting) {
+                    notifyEndOfFeed(); // send EOD Data Bucket
+                    waitForCollectorsToFinish();
+                }
                 registeredCollectors.values().iterator().next().disconnect();
                 break;
             case SHARED:
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Signalling End Of Feed; currently operating in " + distributionMode + " mode");
                 }
-                notifyEndOfFeed();
+                notifyEndOfFeed(); // send EOD Data Bucket
+                waitForCollectorsToFinish();
                 break;
         }
+    }
+
+    private void waitForCollectorsToFinish() {
+        synchronized (registeredCollectors.values()) {
+            while (!allCollectorsFinished()) {
+                try {
+                    registeredCollectors.values().wait();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    private boolean allCollectorsFinished() {
+        boolean allFinished = true;
+        for (FeedFrameCollector collector : registeredCollectors.values()) {
+            allFinished = allFinished && collector.getState().equals(FeedFrameCollector.State.FINISHED);
+        }
+        return allFinished;
     }
 
     public Collection<FeedFrameCollector> getRegisteredCollectors() {

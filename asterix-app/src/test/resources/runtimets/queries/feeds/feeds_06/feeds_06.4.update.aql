@@ -14,4 +14,4 @@ use dataverse feeds;
 
 set wait-for-completion-feed "true";
 
-connect feed client_test_feed to dataset DummyTweets;
+connect feed socket_feed to dataset MyTweets;

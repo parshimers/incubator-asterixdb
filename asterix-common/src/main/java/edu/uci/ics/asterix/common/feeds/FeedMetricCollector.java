@@ -14,7 +14,6 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
-import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -22,6 +21,7 @@ import java.util.Map.Entry;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class FeedMetricCollector implements IFeedMetricCollector {
@@ -36,8 +36,7 @@ public class FeedMetricCollector implements IFeedMetricCollector {
 
     private final Map<Integer, Series> statHistory = new HashMap<Integer, Series>();
 
-    private static final long DEFAULT_PERIODICITY = 1000;
-    private static final int MAX_HISTORY_SIZE = 10000;
+    private static final long DEFAULT_PERIODICITY = 1000; // 1 second
 
     private final Timer timer;
 
@@ -70,7 +69,9 @@ public class FeedMetricCollector implements IFeedMetricCollector {
             }
             series.addValue(value);
         } else {
-            System.out.println("Unable to report for sender Id" + senderId + " " + value);
+            if (LOGGER.isLoggable(Level.WARNING)) {
+                LOGGER.warning("Unable to report for sender Id" + senderId + " " + value);
+            }
         }
     }
 
@@ -152,14 +153,6 @@ public class FeedMetricCollector implements IFeedMetricCollector {
             return result;
         }
 
-        public synchronized float getRateNew() {
-            float result = 0;
-            long timeElapsed = windowBegin < 0 ? DEFAULT_PERIODICITY : (System.currentTimeMillis() - windowBegin);
-            result = ((float) (currentValue * 1000) / timeElapsed);
-            reset();
-            return result;
-        }
-
         public int getSize() {
             return nEntries;
         }
@@ -172,7 +165,6 @@ public class FeedMetricCollector implements IFeedMetricCollector {
         @Override
         public void run() {
             float result = -1;
-            boolean dataCollected = false;
             Date d = new Date();
             for (Entry<Integer, Sender> entry : senders.entrySet()) {
                 Sender sender = entry.getValue();
@@ -180,7 +172,6 @@ public class FeedMetricCollector implements IFeedMetricCollector {
                 if (series == null || series.getSize() == 0) {
                     continue;
                 }
-                dataCollected = true;
                 switch (sender.mType) {
                     case AVG:
                         result = series.getAvg();
@@ -191,7 +182,9 @@ public class FeedMetricCollector implements IFeedMetricCollector {
                 }
                 series.reset();
                 report.append(d.toString() + sender.displayName + ": " + result + " " + sender.mType + "\n");
-                System.out.println(report.toString());
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info(report.toString());
+                }
                 report.delete(0, report.length() - 1);
             }
         }

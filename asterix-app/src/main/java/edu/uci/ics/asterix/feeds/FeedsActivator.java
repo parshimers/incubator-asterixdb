@@ -48,7 +48,7 @@ public class FeedsActivator implements Runnable {
     public void run() {
         switch (mode) {
             case REVIVAL_POST_CLUSTER_REBOOT:
-                revivePostClusterReboot();
+                // revivePostClusterReboot();
                 break;
             case REVIVAL_POST_NODE_REJOIN:
                 try {

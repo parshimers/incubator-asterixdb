@@ -8,6 +8,7 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
 public class FeedFrameCollector extends MessageReceiver<DataBucket> implements IMessageReceiver<DataBucket> {
 
+    private final FrameDistributor frameDistributor;
     private FeedPolicyAccessor fpa;
     private final FeedId feedId;
     private IFrameWriter frameWriter;
@@ -25,8 +26,10 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
         FORWARD_TO_OPERATOR
     }
 
-    public FeedFrameCollector(FeedPolicyAccessor feedPolicyAccessor, IFeedFrameWriter frameWriter, FeedId feedId) {
+    public FeedFrameCollector(FrameDistributor frameDistributor, FeedPolicyAccessor feedPolicyAccessor,
+            IFeedFrameWriter frameWriter, FeedId feedId) {
         super();
+        this.frameDistributor = frameDistributor;
         this.fpa = feedPolicyAccessor;
         this.feedId = feedId;
         this.frameWriter = frameWriter;
@@ -34,8 +37,10 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
         this.mode = Mode.FORWARD_TO_WRITER;
     }
 
-    public FeedFrameCollector(FeedPolicyAccessor feedPolicyAccessor, IFrameWriter frameWriter, FeedId feedId) {
+    public FeedFrameCollector(FrameDistributor frameDistributor, FeedPolicyAccessor feedPolicyAccessor,
+            IFrameWriter frameWriter, FeedId feedId) {
         super();
+        this.frameDistributor = frameDistributor;
         this.fpa = feedPolicyAccessor;
         this.feedId = feedId;
         this.frameWriter = frameWriter;
@@ -72,19 +77,21 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
                 LOGGER.info(this + " is now " + State.ACTIVE + " mode, processing frames synchronously");
             }
         } else {
-            super.close(false);
+            flushPendingMessages();
+            setState(State.FINISHED);
+            synchronized (frameDistributor.getRegisteredCollectors()) {
+                frameDistributor.getRegisteredCollectors().notifyAll();
+            }
             disconnect();
+        }
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Closed collector " + this);
         }
     }
 
     public synchronized void disconnect() {
         setState(State.FINISHED);
         notifyAll();
-        if (mode.equals(Mode.FORWARD_TO_WRITER)) {
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Disconnected feed frame collector for " + ((IFeedFrameWriter) frameWriter).getFeedId());
-            }
-        }
     }
 
     public synchronized void nextFrame(ByteBuffer frame) throws HyracksDataException {

@@ -19,8 +19,6 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.IMemoryEventListener.MemoryEventType;
-
 /**
  * Represents a pool of reusable {@link DataBucket}
  */
@@ -42,8 +40,6 @@ public class DataBucketPool implements IFeedMemoryComponent {
     /** The total number of data buckets {@link DataBucket} allocated **/
     private int totalAllocation;
 
-    private IMemoryEventListener listener;
-
     public DataBucketPool(int componentId, IFeedMemoryManager memoryManager, int size) {
         this.componentId = componentId;
         this.memoryManager = memoryManager;
@@ -55,25 +51,11 @@ public class DataBucketPool implements IFeedMemoryComponent {
         this.totalAllocation += size;
     }
 
-    public void registerMemoryEventListener(IMemoryEventListener listener) {
-        this.listener = listener;
-    }
-
-    public void unregisterMemoryEventListener() {
-        this.listener = null;
-    }
-
     public void returnDataBucket(DataBucket bucket) {
         pool.add(bucket);
         if (LOGGER.isLoggable(Level.FINE)) {
             LOGGER.fine("returned data bucket " + this + " back to the pool");
         }
-        /*
-        if (((float) pool.size()) / totalAllocation > 0.5) {
-            listener.processEvent(MemoryEventType.MEMORY_AVAILABLE);
-            unregisterMemoryEventListener();
-        }
-        */
     }
 
     public DataBucket getDataBucket() {

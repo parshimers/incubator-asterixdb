@@ -14,10 +14,6 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -25,7 +21,6 @@ import java.util.logging.Logger;
 import edu.uci.ics.asterix.common.config.AsterixFeedProperties;
 import edu.uci.ics.asterix.common.config.GlobalConfig;
 import edu.uci.ics.asterix.common.feeds.IFeedMemoryComponent.Type;
-import edu.uci.ics.asterix.common.feeds.IMemoryEventListener.MemoryEventType;
 
 public class FeedMemoryManager implements IFeedMemoryManager {
 
@@ -43,10 +38,6 @@ public class FeedMemoryManager implements IFeedMemoryManager {
 
     private int committed;
 
-    private final List<IMemoryEventListener> listeners;
-
-    private Timer monitorMemory;
-
     public FeedMemoryManager(String nodeId, AsterixFeedProperties feedProperties) {
         this.nodeId = nodeId;
         int frameSize = GlobalConfig.getFrameSize();
@@ -54,8 +45,6 @@ public class FeedMemoryManager implements IFeedMemoryManager {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Feed Memory budget " + budget + " frames (frame size=" + frameSize + ")");
         }
-        listeners = new ArrayList<IMemoryEventListener>();
-        monitorMemory = new Timer();
     }
 
     @Override
@@ -113,33 +102,4 @@ public class FeedMemoryManager implements IFeedMemoryManager {
         return "FeedMemoryManager  [" + nodeId + "]" + "(" + committed + "/" + budget + ")";
     }
 
-    @Override
-    public synchronized void registerMemoryEventListener(IMemoryEventListener listener) {
-        if (listeners.size() == 0) {
-            boolean added = listeners.add(listener);
-            if (added) {
-                monitorMemory.scheduleAtFixedRate(new MonitorMemoryTask(), 0, 5000);
-            }
-        }
-    }
-
-    @Override
-    public synchronized void unregisterMemoryEventListener(IMemoryEventListener listener) {
-        boolean removed = listeners.remove(listener);
-        if (removed && listeners.size() == 0) {
-            monitorMemory.cancel();
-        }
-    }
-
-    private final class MonitorMemoryTask extends TimerTask {
-        @Override
-        public void run() {
-            int available = budget - committed;
-            if ((float) available / budget > MEMORY_AVAILABLE_THRESHOLD) {
-                for (IMemoryEventListener listener : listeners) {
-                    listener.processEvent(MemoryEventType.MEMORY_AVAILABLE);
-                }
-            }
-        }
-    }
 }

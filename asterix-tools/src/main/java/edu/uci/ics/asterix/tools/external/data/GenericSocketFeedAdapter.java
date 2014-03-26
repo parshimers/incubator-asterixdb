@@ -65,7 +65,7 @@ public class GenericSocketFeedAdapter extends StreamBasedAdapter implements IFee
                 if (LOGGER.isLoggable(Level.SEVERE)) {
                     LOGGER.severe("Unable to create input stream required for feed ingestion");
                 }
-            }
+            } 
             return inputStream;
         }
 

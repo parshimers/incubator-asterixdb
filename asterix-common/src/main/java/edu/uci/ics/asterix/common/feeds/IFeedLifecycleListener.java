@@ -26,9 +26,9 @@ public interface IFeedLifecycleListener extends IJobLifecycleListener, IClusterE
         SOURCE_FEED_COMPUTE
     }
 
-    public IFeedJoint getAvailableFeedPoint(FeedJointKey feedPointKey);
+    public IFeedJoint getAvailableFeedJoint(FeedJointKey feedPointKey);
 
-    public boolean isFeedPointAvailable(FeedJointKey feedPointKey);
+    public boolean isFeedJointAvailable(FeedJointKey feedPointKey);
 
     public List<FeedConnectionId> getActiveFeedConnections(FeedId feedId);
 
@@ -38,6 +38,10 @@ public interface IFeedLifecycleListener extends IJobLifecycleListener, IClusterE
 
     public String[] getStoreLocations(FeedConnectionId feedId);
 
-    public IFeedJoint getSourceFeedPoint(FeedConnectionId connectionId);
+    public IFeedJoint getSourceFeedJoint(FeedConnectionId connectionId);
+
+    public void registerFeedEventSubscriber(FeedConnectionId connectionId, IFeedLifecycleEventSubscriber subscriber);
+
+    public void deregisterFeedEventSubscriber(FeedConnectionId connectionId, IFeedLifecycleEventSubscriber subscriber);
 
 }

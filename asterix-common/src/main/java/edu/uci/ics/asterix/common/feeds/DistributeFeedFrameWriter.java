@@ -55,24 +55,25 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
     /** FrameTupleAccessor {@code FrameTupleAccessor} instance for keeping track of # of produced tuples **/
     private final FrameTupleAccessor fta;
 
+    private final int frameSize;
+
     public DistributeFeedFrameWriter(FeedId feedId, IFrameWriter writer, FeedRuntimeType feedRuntimeType,
-            int partition, FrameTupleAccessor fta, IFeedManager feedManager)
-            throws IOException {
+            int partition, FrameTupleAccessor fta, IFeedManager feedManager, int frameSize) throws IOException {
         this.feedId = feedId;
         this.fta = fta;
         this.frameDistributor = new FrameDistributor(feedId, feedRuntimeType, partition, true,
-                feedManager.getFeedMemoryManager());
+                feedManager.getFeedMemoryManager(), frameSize);
         this.frameDistributor.setFta(fta);
         this.feedRuntimeType = feedRuntimeType;
         this.partition = partition;
         this.writer = writer;
-
+        this.frameSize = frameSize;
     }
 
     public FeedFrameCollector subscribeFeed(FeedPolicyAccessor fpa, IFeedFrameWriter frameWriter) throws Exception {
         FeedFrameCollector collector = null;
         if (!frameDistributor.isRegistered(frameWriter)) {
-            collector = new FeedFrameCollector(fpa, frameWriter, frameWriter.getFeedId());
+            collector = new FeedFrameCollector(frameDistributor, fpa, frameWriter, frameWriter.getFeedId());
             frameDistributor.registerFrameCollector(collector);
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Registered subscriber, new mode " + frameDistributor.getMode());
