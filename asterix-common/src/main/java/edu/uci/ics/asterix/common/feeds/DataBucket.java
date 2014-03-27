@@ -33,7 +33,7 @@ public class DataBucket {
     }
 
     public DataBucket(DataBucketPool pool) {
-        buffer = ByteBuffer.allocate(32768);
+        buffer = ByteBuffer.allocate(pool.getFrameSize());
         readCount = new AtomicInteger(0);
         this.pool = pool;
         this.contentType = ContentType.DATA;

@@ -31,67 +31,73 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AssignOpera
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DataSourceScanOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExchangeOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.AssignPOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.RandomPartitionPOperator;
+//import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.RandomPartitionPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.INodeDomain;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 
-public class IntroduceRandomPartitioningFeedComputationRule implements IAlgebraicRewriteRule {
+public class IntroduceRandomPartitioningFeedComputationRule implements
+		IAlgebraicRewriteRule {
 
-    @Override
-    public boolean rewritePre(Mutable<ILogicalOperator> opRef, IOptimizationContext context) throws AlgebricksException {
-        ILogicalOperator op = opRef.getValue();
-        if (!op.getOperatorTag().equals(LogicalOperatorTag.ASSIGN)) {
-            return false;
-        }
+	@Override
+	public boolean rewritePre(Mutable<ILogicalOperator> opRef,
+			IOptimizationContext context) throws AlgebricksException {
+		ILogicalOperator op = opRef.getValue();
+		if (!op.getOperatorTag().equals(LogicalOperatorTag.ASSIGN)) {
+			return false;
+		}
 
-        ILogicalOperator opChild = op.getInputs().get(0).getValue();
-        if (!opChild.getOperatorTag().equals(LogicalOperatorTag.DATASOURCESCAN)) {
-            return false;
-        }
+		ILogicalOperator opChild = op.getInputs().get(0).getValue();
+		if (!opChild.getOperatorTag().equals(LogicalOperatorTag.DATASOURCESCAN)) {
+			return false;
+		}
 
-        DataSourceScanOperator scanOp = (DataSourceScanOperator) opChild;
-        AqlDataSource dataSource = (AqlDataSource) scanOp.getDataSource();
-        if (!dataSource.getDatasourceType().equals(AqlDataSourceType.FEED)) {
-            return false;
-        }
+		DataSourceScanOperator scanOp = (DataSourceScanOperator) opChild;
+		AqlDataSource dataSource = (AqlDataSource) scanOp.getDataSource();
+		if (!dataSource.getDatasourceType().equals(AqlDataSourceType.FEED)) {
+			return false;
+		}
 
-        FeedDataSource feedDataSource = (FeedDataSource) dataSource;
-        Feed feed = feedDataSource.getFeed();
-        if (feed.getAppliedFunction() == null) {
-            return false;
-        }
+		FeedDataSource feedDataSource = (FeedDataSource) dataSource;
+		Feed feed = feedDataSource.getFeed();
+		if (feed.getAppliedFunction() == null) {
+			return false;
+		}
 
-        ExchangeOperator exchangeOp = new ExchangeOperator();
-        INodeDomain domain = new INodeDomain() {
-            @Override
-            public boolean sameAs(INodeDomain domain) {
-                return domain == this;
-            }
+		ExchangeOperator exchangeOp = new ExchangeOperator();
+		INodeDomain domain = new INodeDomain() {
+			@Override
+			public boolean sameAs(INodeDomain domain) {
+				return domain == this;
+			}
 
-            @Override
-            public Integer cardinality() {
-                return 2;
-            }
-        };
-        
-        exchangeOp.setPhysicalOperator(new RandomPartitionPOperator(domain));
-        op.getInputs().get(0).setValue(exchangeOp);
-        exchangeOp.getInputs().add(new MutableObject<ILogicalOperator>(scanOp));
-        ExecutionMode em = ((AbstractLogicalOperator) scanOp).getExecutionMode();
-        exchangeOp.setExecutionMode(em);
-        exchangeOp.computeDeliveredPhysicalProperties(context);
-        context.computeAndSetTypeEnvironmentForOperator(exchangeOp);
-        
-        AssignOperator assignOp = (AssignOperator)opRef.getValue();
-        AssignPOperator assignPhyOp = (AssignPOperator) assignOp.getPhysicalOperator();
-        assignPhyOp.setCardinalityConstraint(domain.cardinality());
-        return true;
-    }
+			@Override
+			public Integer cardinality() {
+				return 2;
+			}
+		};
 
-    @Override
-    public boolean rewritePost(Mutable<ILogicalOperator> opRef, IOptimizationContext context)
-            throws AlgebricksException {
-        return false;
-    }
+		/*
+		 * exchangeOp.setPhysicalOperator(new RandomPartitionPOperator(domain));
+		 * op.getInputs().get(0).setValue(exchangeOp);
+		 * exchangeOp.getInputs().add(new
+		 * MutableObject<ILogicalOperator>(scanOp)); ExecutionMode em =
+		 * ((AbstractLogicalOperator) scanOp).getExecutionMode();
+		 * exchangeOp.setExecutionMode(em);
+		 * exchangeOp.computeDeliveredPhysicalProperties(context);
+		 * context.computeAndSetTypeEnvironmentForOperator(exchangeOp);
+		 * 
+		 * AssignOperator assignOp = (AssignOperator)opRef.getValue();
+		 * AssignPOperator assignPhyOp = (AssignPOperator)
+		 * assignOp.getPhysicalOperator();
+		 * assignPhyOp.setCardinalityConstraint(domain.cardinality());
+		 */
+		return true;
+	}
+
+	@Override
+	public boolean rewritePost(Mutable<ILogicalOperator> opRef,
+			IOptimizationContext context) throws AlgebricksException {
+		return false;
+	}
 
 }

@@ -48,11 +48,17 @@ public class PullBasedTwitterAdapterFactory implements ITypedAdapterFactory {
 
     private static ARecordType initOutputType() {
         ARecordType recordType = null;
-        String[] fieldNames = { "id", "username", "location", "text", "timestamp" };
-        IAType[] fieldTypes = { BuiltinType.ASTRING, BuiltinType.ASTRING, BuiltinType.ASTRING, BuiltinType.ASTRING,
-                BuiltinType.ASTRING };
         try {
-            recordType = new ARecordType("TweetType", fieldNames, fieldTypes, false);
+            String[] userFieldNames = { "screen-name", "lang", "friends_count", "statuses-count", "name",
+                    "followers-count" };
+            IAType[] userFieldTypes = { BuiltinType.ASTRING, BuiltinType.ASTRING, BuiltinType.AINT32,
+                    BuiltinType.AINT32, BuiltinType.ASTRING, BuiltinType.AINT32 };
+            ARecordType userType = new ARecordType("TwitterUser", userFieldNames, userFieldTypes, false);
+
+            String[] fieldNames = { "tweetid", "user", "location-lat", "location-long", "send-time", "message-text" };
+            IAType[] fieldTypes = { BuiltinType.ASTRING, userType, BuiltinType.ADOUBLE, BuiltinType.ADOUBLE,
+                    BuiltinType.ASTRING, BuiltinType.ASTRING };
+            recordType = new ARecordType("RawTweet", fieldNames, fieldTypes, false);
         } catch (Exception e) {
             throw new IllegalStateException("Unable to create adapter output type");
         }

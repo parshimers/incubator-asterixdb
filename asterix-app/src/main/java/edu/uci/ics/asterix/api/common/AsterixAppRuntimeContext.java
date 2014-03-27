@@ -148,7 +148,7 @@ public class AsterixAppRuntimeContext implements IAsterixAppRuntimeContext, IAst
                 txnProperties);
         isShuttingdown = false;
 
-        feedManager = new FeedManager(ncApplicationContext.getNodeId(), feedProperties);
+        feedManager = new FeedManager(ncApplicationContext.getNodeId(), feedProperties, compilerProperties.getFrameSize());
 
         // The order of registration is important. The buffer cache must registered before recovery and transaction managers.
         ILifeCycleComponentManager lccm = ncApplicationContext.getLifeCycleComponentManager();

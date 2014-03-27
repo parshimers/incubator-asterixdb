@@ -36,14 +36,15 @@ import edu.uci.ics.hyracks.storage.am.common.api.TreeIndexException;
 
 /**
  * FeedMetaOperatorDescriptor is a wrapper operator that provides a sanboox like
- * environment for an hyracks operator that is part of a feed ingestion pipeline.
- * The MetaFeed operator provides an interface iden- tical to that offered by the
- * underlying wrapped operator, hereafter referred to as the core operator.
- * As seen by Hyracks, the altered pipeline is identical to the earlier version formed
- * from core operators. The MetaFeed operator enhances each core operator by providing
- * functionality for handling runtime exceptions, saving any state for future retrieval,
- * and measuring/reporting of performance characteristics. We next describe how the added
- * functionality contributes to providing fault- tolerance.
+ * environment for an hyracks operator that is part of a feed ingestion
+ * pipeline. The MetaFeed operator provides an interface iden- tical to that
+ * offered by the underlying wrapped operator, hereafter referred to as the core
+ * operator. As seen by Hyracks, the altered pipeline is identical to the
+ * earlier version formed from core operators. The MetaFeed operator enhances
+ * each core operator by providing functionality for handling runtime
+ * exceptions, saving any state for future retrieval, and measuring/reporting of
+ * performance characteristics. We next describe how the added functionality
+ * contributes to providing fault- tolerance.
  */
 
 public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDescriptor {
@@ -52,12 +53,15 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
 
     private static final Logger LOGGER = Logger.getLogger(FeedMetaOperatorDescriptor.class.getName());
 
-    /** The actual (Hyracks) operator that is wrapped around by the Metafeed Adaptor **/
+    /**
+     * The actual (Hyracks) operator that is wrapped around by the Metafeed
+     * Adaptor
+     **/
     private IOperatorDescriptor coreOperator;
 
     /**
-     * A unique identifier for the feed instance. A feed instance represents the flow of data
-     * from a feed to a dataset.
+     * A unique identifier for the feed instance. A feed instance represents the
+     * flow of data from a feed to a dataset.
      **/
     private final FeedConnectionId feedConnectionId;
 
@@ -67,12 +71,15 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
     private final Map<String, String> feedPolicyProperties;
 
     /**
-     * type for the feed runtime associated with the operator.
-     * Possible values: INGESTION, COMPUTE, STORAGE, COMMIT
+     * type for the feed runtime associated with the operator. Possible values:
+     * INGESTION, COMPUTE, STORAGE, COMMIT
      */
     private final FeedRuntimeType runtimeType;
 
-    /** true indicates that the runtime can be subscribed for data by other runtime instances. **/
+    /**
+     * true indicates that the runtime can be subscribed for data by other
+     * runtime instances.
+     **/
     private final boolean enableSubscriptionMode;
 
     public FeedMetaOperatorDescriptor(JobSpecification spec, FeedConnectionId feedConnectionId,
@@ -107,27 +114,33 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
         private AbstractUnaryInputUnaryOutputOperatorNodePushable coreOperatorNodePushable;
 
         /**
-         * A policy enforcer that ensures dyanmic decisions for a feed are taken in accordance
-         * with the associated ingestion policy
+         * A policy enforcer that ensures dyanmic decisions for a feed are taken
+         * in accordance with the associated ingestion policy
          **/
         private FeedPolicyEnforcer policyEnforcer;
 
         /**
-         * The Feed Runtime instance associated with the operator. Feed Runtime captures the state of the operator while
-         * the feed is active.
+         * The Feed Runtime instance associated with the operator. Feed Runtime
+         * captures the state of the operator while the feed is active.
          */
         private IFeedRuntime feedRuntime;
 
         /**
-         * A unique identifier for the feed instance. A feed instance represents the flow of data
-         * from a feed to a dataset.
+         * A unique identifier for the feed instance. A feed instance represents
+         * the flow of data from a feed to a dataset.
          **/
         private FeedConnectionId feedConnectionId;
 
-        /** Denotes the i'th operator instance in a setting where K operator instances are scheduled to run in parallel **/
+        /**
+         * Denotes the i'th operator instance in a setting where K operator
+         * instances are scheduled to run in parallel
+         **/
         private int partition;
 
-        /** A buffer that is used to hold the current frame that is being processed **/
+        /**
+         * A buffer that is used to hold the current frame that is being
+         * processed
+         **/
         private ByteBuffer currentBuffer;
 
         /** Type associated with the core feed operator **/
@@ -143,17 +156,26 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
         /** The (singleton) instance of IFeedManager **/
         private IFeedManager feedManager;
 
-        /** The frame reader instance that reads the input frames from the distribute feed writer **/
+        /**
+         * The frame reader instance that reads the input frames from the
+         * distribute feed writer
+         **/
         private FeedFrameCollector outputSideFrameCollector;
 
-        /** true indicates that the runtime can be subscribed for data by other runtime instances. **/
+        /**
+         * true indicates that the runtime can be subscribed for data by other
+         * runtime instances.
+         **/
         private final boolean enableSubscriptionMode;
 
         private final boolean inputSideBufferring;
 
         private final FrameDistributor frameDistributor;
 
-        /** The frame reader instance that reads the input frames from upstream operator **/
+        /**
+         * The frame reader instance that reads the input frames from upstream
+         * operator
+         **/
         private FeedFrameCollector inputSideFrameCollector;
 
         private final IHyracksTaskContext ctx;
@@ -172,8 +194,16 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
             this.nodeId = ctx.getJobletContext().getApplicationContext().getNodeId();
             this.feedManager = ((IAsterixAppRuntimeContext) (IAsterixAppRuntimeContext) ctx.getJobletContext()
                     .getApplicationContext().getApplicationObject()).getFeedManager();
-            this.enableSubscriptionMode = enableSubscriptionMode; // set to true for COMPUTE operator when feed has an associated UDF.
-            this.inputSideBufferring = runtimeType.equals(FeedRuntimeType.COMPUTE); //&& enableSubscriptionMode;
+            this.enableSubscriptionMode = enableSubscriptionMode; // set to true
+                                                                  // for
+                                                                  // COMPUTE
+                                                                  // operator
+                                                                  // when feed
+                                                                  // has an
+                                                                  // associated
+                                                                  // UDF.
+            this.inputSideBufferring = runtimeType.equals(FeedRuntimeType.COMPUTE); // &&
+                                                                                    // enableSubscriptionMode;
             if (inputSideBufferring) {
                 FrameTupleAccessor fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
                 frameDistributor = new FrameDistributor(feedConnectionId.getFeedId(), runtimeType, partition, false,
@@ -246,7 +276,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
         private void wrapComputeOperator(IFeedFrameWriter writer) throws Exception {
             IFeedFrameWriter outputWriter = null;
             if (enableSubscriptionMode) {
-                outputWriter = registerSubscribableRuntime(writer); //DistributeFeedFrameWriter
+                outputWriter = registerSubscribableRuntime(writer); // DistributeFeedFrameWriter
             } else {
                 outputWriter = writer;
                 registerBasicFeedRuntime(writer);
@@ -341,12 +371,12 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
             if (policyEnforcer.getFeedPolicyAccessor().continueOnHardwareFailure()) {
                 if (currentBuffer != null) {
                     FeedRuntimeState runtimeState = new FeedRuntimeState(currentBuffer, writer, null);
-                    //feedRuntime.setFeedRuntimeState(runtimeState);
+                    // feedRuntime.setFeedRuntimeState(runtimeState);
                     if (LOGGER.isLoggable(Level.INFO)) {
                         LOGGER.info("Saved feed compute runtime for revivals" + feedRuntime.getFeedId());
                     }
                 } else {
-                    //feedManager.getFeedConnectionManager().deRegisterFeedRuntime(feedRuntime.getFeedRuntimeId());
+                    // feedManager.getFeedConnectionManager().deRegisterFeedRuntime(feedRuntime.getFeedRuntimeId());
                     if (LOGGER.isLoggable(Level.INFO)) {
                         LOGGER.warning("No state to save, de-registered feed runtime " + feedRuntime.getFeedId());
                     }
@@ -366,9 +396,14 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                             ((BasicFeedRuntime) feedRuntime).getFeedRuntimeId());
                     break;
                 case COMPUTE:
-                    FeedSubscribableRuntimeId runtimeId = ((ISubscribableRuntime) feedRuntime)
-                            .getFeedSubscribableRuntimeId();
-                    feedManager.getFeedSubscriptionManager().deregisterFeedSubscribableRuntime(runtimeId);
+                    FeedSubscribableRuntimeId runtimeId = null;
+                    if (enableSubscriptionMode) {
+                        runtimeId = ((ISubscribableRuntime) feedRuntime).getFeedSubscribableRuntimeId();
+                        feedManager.getFeedSubscriptionManager().deregisterFeedSubscribableRuntime(runtimeId);
+                    } else {
+                        feedManager.getFeedConnectionManager().deRegisterFeedRuntime(
+                                ((BasicFeedRuntime) feedRuntime).getFeedRuntimeId());
+                    }
                     break;
             }
         }

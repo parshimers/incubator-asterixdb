@@ -19,8 +19,6 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.IDatasourceAdapter;
-import edu.uci.ics.asterix.common.feeds.IFeedAdapter;
 import edu.uci.ics.asterix.external.dataset.adapter.IPullBasedFeedClient.InflowState;
 import edu.uci.ics.asterix.metadata.feeds.FeedPolicyEnforcer;
 import edu.uci.ics.asterix.metadata.feeds.IPullBasedFeedAdapter;

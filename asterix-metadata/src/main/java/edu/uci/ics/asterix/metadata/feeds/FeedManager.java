@@ -40,12 +40,15 @@ public class FeedManager implements IFeedManager {
 
     private final String nodeId;
 
-    public FeedManager(String nodeId, AsterixFeedProperties feedProperties) {
+    private final int frameSize;
+
+    public FeedManager(String nodeId, AsterixFeedProperties feedProperties, int frameSize) {
         this.nodeId = nodeId;
         this.feedIngestionManager = new FeedSubscriptionManager(nodeId);
         this.feedConnectionManager = new FeedConnectionManager(nodeId);
-        this.feedMemoryManager = new FeedMemoryManager(nodeId, feedProperties);
+        this.feedMemoryManager = new FeedMemoryManager(nodeId, feedProperties, frameSize);
         this.feedMetricCollector = new FeedMetricCollector(nodeId);
+        this.frameSize = frameSize;
     }
 
     @Override
@@ -66,6 +69,10 @@ public class FeedManager implements IFeedManager {
     @Override
     public IFeedMetricCollector getFeedMetricCollector() {
         return feedMetricCollector;
+    }
+
+    public int getFrameSize() {
+        return frameSize;
     }
 
     @Override

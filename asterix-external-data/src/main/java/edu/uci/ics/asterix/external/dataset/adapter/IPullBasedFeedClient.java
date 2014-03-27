@@ -33,7 +33,7 @@ public interface IPullBasedFeedClient {
      * @param dataOutput
      *            The receiving channel for the feed client to write ADM records to.
      * @param timeout
-     *            Threshold time (expressed in seconds) for the next tuple to be obtained from the externa source.
+     *            Threshold time (expressed in seconds) for the next tuple to be obtained from the external source.
      * @return
      * @throws AsterixException
      */

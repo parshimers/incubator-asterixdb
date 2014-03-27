@@ -19,8 +19,6 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.IMemoryEventListener.MemoryEventType;
-
 /**
  * Represents a pool of reusable {@link DataBucket}
  */
@@ -44,10 +42,13 @@ public class DataBucketPool implements IFeedMemoryComponent {
 
     private IMemoryEventListener listener;
 
-    public DataBucketPool(int componentId, IFeedMemoryManager memoryManager, int size) {
+    private final int frameSize;
+
+    public DataBucketPool(int componentId, IFeedMemoryManager memoryManager, int size, int frameSize) {
         this.componentId = componentId;
         this.memoryManager = memoryManager;
         this.pool = new ArrayList<DataBucket>();
+        this.frameSize = frameSize;
         for (int i = 0; i < size; i++) {
             DataBucket bucket = new DataBucket(this);
             pool.add(bucket);
@@ -141,6 +142,10 @@ public class DataBucketPool implements IFeedMemoryComponent {
 
     public int getSize() {
         return pool.size();
+    }
+
+    public int getFrameSize() {
+        return frameSize;
     }
 
 }

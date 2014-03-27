@@ -23,7 +23,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.config.AsterixFeedProperties;
-import edu.uci.ics.asterix.common.config.GlobalConfig;
 import edu.uci.ics.asterix.common.feeds.IFeedMemoryComponent.Type;
 import edu.uci.ics.asterix.common.feeds.IMemoryEventListener.MemoryEventType;
 
@@ -47,9 +46,11 @@ public class FeedMemoryManager implements IFeedMemoryManager {
 
     private Timer monitorMemory;
 
-    public FeedMemoryManager(String nodeId, AsterixFeedProperties feedProperties) {
+    private final int frameSize;
+
+    public FeedMemoryManager(String nodeId, AsterixFeedProperties feedProperties, int frameSize) {
         this.nodeId = nodeId;
-        int frameSize = GlobalConfig.getFrameSize();
+        this.frameSize = frameSize;
         budget = (int) feedProperties.getMemoryComponentGlobalBudget() / frameSize;
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Feed Memory budget " + budget + " frames (frame size=" + frameSize + ")");
@@ -72,7 +73,8 @@ public class FeedMemoryManager implements IFeedMemoryManager {
             case POOL:
                 valid = committed + START_POOL_SIZE <= budget;
                 if (valid) {
-                    memoryComponent = new DataBucketPool(componentId.incrementAndGet(), this, START_POOL_SIZE);
+                    memoryComponent = new DataBucketPool(componentId.incrementAndGet(), this, START_POOL_SIZE,
+                            frameSize);
                 }
                 committed += START_POOL_SIZE;
                 break;
