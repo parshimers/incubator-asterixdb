@@ -27,7 +27,7 @@ public interface IFeedFrameHandler {
 
     public void close();
 
-    public Iterator<ByteBuffer> replayData() throws Exception;
+    public Iterator<ByteBuffer> replayData() throws HyracksDataException;
 
     public String getSummary();
 

@@ -91,7 +91,7 @@ public class FeedUtil {
             FeedConnectionId feedConnectionId, Map<String, String> feedPolicyProperties) {
 
         FeedPolicyAccessor fpa = new FeedPolicyAccessor(feedPolicyProperties);
-        boolean alterationRequired = (fpa.collectStatistics() || fpa.continueOnApplicationFailure()
+        boolean alterationRequired = (fpa.collectStatistics() || fpa.continueOnSoftFailure()
                 || fpa.continueOnHardwareFailure() || fpa.isElastic());
         if (!alterationRequired) {
             return spec;

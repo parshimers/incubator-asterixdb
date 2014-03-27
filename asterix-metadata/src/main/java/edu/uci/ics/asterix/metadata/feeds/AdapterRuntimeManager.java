@@ -14,6 +14,8 @@
  */
 package edu.uci.ics.asterix.metadata.feeds;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -22,7 +24,6 @@ import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.IAdapterRuntimeManager;
 import edu.uci.ics.asterix.common.feeds.IFeedAdapter;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
-import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 
 public class AdapterRuntimeManager implements IAdapterRuntimeManager {
 
@@ -40,34 +41,38 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
 
     private IngestionRuntime ingestionRuntime;
 
+    private ExecutorService executorService;
+
     public AdapterRuntimeManager(FeedId feedId, IFeedAdapter feedAdapter, DistributeFeedFrameWriter writer,
             int partition) {
         this.feedId = feedId;
         this.feedAdapter = feedAdapter;
         this.partition = partition;
         this.adapterExecutor = new AdapterExecutor(partition, writer, feedAdapter, this);
+        this.executorService = Executors.newSingleThreadExecutor();
         this.state = State.INACTIVE_INGESTION;
     }
 
     @Override
     public void start() throws Exception {
         state = State.ACTIVE_INGESTION;
+        executorService.execute(adapterExecutor);
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Registered feed runtime manager for " + this.getFeedId());
+            LOGGER.info("Started feed runtime manager for " + this.getFeedId());
         }
-        (new Thread(adapterExecutor)).start();
     }
 
     @Override
     public void stop() {
         try {
             feedAdapter.stop();
-            state = State.FINISHED_INGESTION;
-            //   ingestionRuntime.endOfFeed();
         } catch (Exception exception) {
             if (LOGGER.isLoggable(Level.SEVERE)) {
                 LOGGER.severe("Unable to stop adapter " + feedAdapter + ", encountered exception " + exception);
             }
+        } finally {
+            state = State.FINISHED_INGESTION;
+            executorService.shutdown();
         }
     }
 
@@ -83,10 +88,6 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
 
     public IFeedAdapter getFeedAdapter() {
         return feedAdapter;
-    }
-
-    public void setFeedAdapter(IFeedAdapter feedAdapter) {
-        this.feedAdapter = feedAdapter;
     }
 
     public static class AdapterExecutor implements Runnable {
@@ -113,7 +114,6 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
                 }
                 adapter.start(partition, writer);
             } catch (Exception e) {
-                e.printStackTrace();
                 if (LOGGER.isLoggable(Level.SEVERE)) {
                     LOGGER.severe("Exception during feed ingestion " + e.getMessage());
                     e.printStackTrace();
@@ -123,6 +123,11 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
                 synchronized (runtimeManager) {
                     runtimeManager.notifyAll();
                 }
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("End of ingestion for feed " + runtimeManager.getFeedId() + "["
+                            + runtimeManager.getPartition() + "]");
+                }
+
             }
         }
 

@@ -84,7 +84,6 @@ public class PatternCreator {
         List<Pattern> ps = new ArrayList<Pattern>();
 
         Pattern createCC = createCCStartPattern(ccLocationId);
-        //  addInitialDelay(createCC, 3, "sec");
         ps.add(createCC);
 
         for (Node node : cluster.getNode()) {

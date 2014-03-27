@@ -125,12 +125,12 @@ public class FeedOperations {
         boolean hasOtherSubscribers = false;
         SubscriptionLocation subscriptionLocation = null;
         try {
-            IFeedJoint sourceFeedJoint = FeedLifecycleListener.INSTANCE.getSourceFeedPoint(connectionId);
+            IFeedJoint sourceFeedJoint = FeedLifecycleListener.INSTANCE.getSourceFeedJoint(connectionId);
             IFeedJoint subscribableFeedPoint = sourceFeedJoint;
             List<String> locations = null;
             if (sourceFeedJoint.getScope().equals(Scope.PRIVATE)) {
                 // get the public feed joint on this pipeline
-                IFeedJoint feedJoint = FeedLifecycleListener.INSTANCE.getFeedPoint(sourceFeedJoint.getFeedJointKey()
+                IFeedJoint feedJoint = FeedLifecycleListener.INSTANCE.getFeedJoint(sourceFeedJoint.getFeedJointKey()
                         .getFeedId(), Scope.PUBLIC);
                 List<FeedSubscriber> subscribers = feedJoint.getSubscribers();
                 hasOtherSubscribers = subscribers != null && !subscribers.isEmpty();
@@ -149,7 +149,7 @@ public class FeedOperations {
             }
 
             boolean needToDiscontinueSource = !hasOtherSubscribers && sourceFeedJoint.getSubscribers().size() == 1;
-            FeedRuntimeType feedRuntimeType = subscriptionLocation.equals(SubscriptionLocation.SOURCE_FEED_INTAKE) ? FeedRuntimeType.INGEST
+            FeedRuntimeType feedRuntimeType = subscriptionLocation.equals(SubscriptionLocation.SOURCE_FEED_INTAKE) ? FeedRuntimeType.INTAKE
                     : FeedRuntimeType.COMPUTE;
 
             Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p = metadataProvider

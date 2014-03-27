@@ -17,10 +17,10 @@ package edu.uci.ics.asterix.om.util;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.HashSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -51,6 +51,8 @@ public class AsterixClusterProperties {
 
     private final Cluster cluster;
 
+    private ClusterState state = ClusterState.UNUSABLE;
+
     private AlgebricksAbsolutePartitionConstraint clusterPartitionConstraint;
 
     private AsterixClusterProperties() {
@@ -68,8 +70,6 @@ public class AsterixClusterProperties {
             cluster = null;
         }
     }
-
-    private ClusterState state = ClusterState.UNUSABLE;
 
     public synchronized void removeNCConfiguration(String nodeId) {
         // state = State.UNUSABLE;

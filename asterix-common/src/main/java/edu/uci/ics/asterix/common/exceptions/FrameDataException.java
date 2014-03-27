@@ -12,13 +12,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.asterix.common.feeds;
+package edu.uci.ics.asterix.common.exceptions;
 
-public interface IMemoryEventListener {
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
-    public enum MemoryEventType {
-        MEMORY_AVAILABLE
+public class FrameDataException extends HyracksDataException {
+
+    private static final long serialVersionUID = 1L;
+
+    private final int tupleIndex;
+
+    public FrameDataException(int tupleIndex, Exception cause) {
+        super(cause);
+        this.tupleIndex = tupleIndex;
     }
 
-    public void processEvent(MemoryEventType eventType);
+    public int getTupleIndex() {
+        return tupleIndex;
+    }
+
 }

@@ -23,14 +23,11 @@ import java.util.logging.Logger;
 import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime;
 import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
-import edu.uci.ics.asterix.common.feeds.FeedId;
-import edu.uci.ics.asterix.common.feeds.FeedMessageService;
 import edu.uci.ics.asterix.common.feeds.FeedRuntimeManager;
 import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
 import edu.uci.ics.asterix.common.feeds.IFeedConnectionManager;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.ISubscribableRuntime;
-import edu.uci.ics.asterix.common.feeds.SuperFeedManager;
 
 /**
  * An implementation of the IFeedManager interface.
@@ -58,12 +55,6 @@ public class FeedConnectionManager implements IFeedConnectionManager {
     }
 
     @Override
-    public FeedMessageService getFeedMessageService(FeedConnectionId feedId) {
-        FeedRuntimeManager mgr = feedRuntimeManagers.get(feedId);
-        return mgr == null ? null : mgr.getMessageService();
-    }
-
-    @Override
     public void deregisterFeed(FeedConnectionId feedId) {
         try {
             FeedRuntimeManager mgr = feedRuntimeManagers.get(feedId);
@@ -75,7 +66,7 @@ public class FeedConnectionManager implements IFeedConnectionManager {
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Closing feed runtime manager: " + mgr);
                 }
-                mgr.close(true);
+                mgr.close();
             }
         } catch (Exception e) {
             if (LOGGER.isLoggable(Level.WARNING)) {
@@ -124,23 +115,6 @@ public class FeedConnectionManager implements IFeedConnectionManager {
     }
 
     @Override
-    public void registerSuperFeedManager(FeedConnectionId feedId, SuperFeedManager sfm) throws Exception {
-        FeedRuntimeManager runtimeMgr = feedRuntimeManagers.get(feedId);
-        if (runtimeMgr != null) {
-            runtimeMgr.setSuperFeedManager(sfm);
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Registered Super Feed Manager " + sfm);
-            }
-        }
-    }
-
-    @Override
-    public SuperFeedManager getSuperFeedManager(FeedConnectionId feedId) {
-        FeedRuntimeManager runtimeMgr = feedRuntimeManagers.get(feedId);
-        return runtimeMgr != null ? runtimeMgr.getSuperFeedManager() : null;
-    }
-
-    @Override
     public String toString() {
         return "FeedManager " + "[" + nodeId + "]";
     }
@@ -152,10 +126,5 @@ public class FeedConnectionManager implements IFeedConnectionManager {
 
     }
 
-    @Override
-    public void deregisterComputeRuntime(FeedId feedId) {
-        // TODO Auto-generated method stub
-
-    }
-
+   
 }

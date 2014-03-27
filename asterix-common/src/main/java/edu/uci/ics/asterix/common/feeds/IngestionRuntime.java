@@ -22,8 +22,8 @@ public class IngestionRuntime extends SubscribableRuntime {
 
     public IngestionRuntime(FeedId feedId, int partition, IAdapterRuntimeManager adaptorRuntimeManager,
             DistributeFeedFrameWriter feedWriter) {
-        super(new FeedSubscribableRuntimeId(feedId, FeedRuntimeType.INGEST, partition), feedWriter,
-                FeedRuntimeType.INGEST);
+        super(new FeedSubscribableRuntimeId(feedId, FeedRuntimeType.INTAKE, partition), feedWriter,
+                FeedRuntimeType.INTAKE);
         this.adapterRuntimeManager = adaptorRuntimeManager;
     }
 

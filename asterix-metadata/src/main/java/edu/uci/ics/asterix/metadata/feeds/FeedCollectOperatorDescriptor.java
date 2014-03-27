@@ -93,7 +93,7 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
             case SOURCE_FEED_INTAKE:
                 try {
                     FeedSubscribableRuntimeId feedSubscribableRuntimeId = new FeedSubscribableRuntimeId(sourceFeedId,
-                            FeedRuntimeType.INGEST, partition);
+                            FeedRuntimeType.INTAKE, partition);
                     if (LOGGER.isLoggable(Level.INFO)) {
                         LOGGER.info("Attempting to obtain source ingestion runtime" + sourceFeedId + " location "
                                 + subscriptionLocation);

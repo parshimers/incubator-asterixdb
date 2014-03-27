@@ -16,8 +16,10 @@ package edu.uci.ics.asterix.tools.external.data;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -32,6 +34,8 @@ public class SocketClientAdapter implements IFeedAdapter {
     private static final Logger LOGGER = Logger.getLogger(SocketClientAdapter.class.getName());
 
     private static final String LOCALHOST = "127.0.0.1";
+
+    private static final long RECONNECT_PERIOD = 2000;
 
     private final String localFile;
 
@@ -49,7 +53,7 @@ public class SocketClientAdapter implements IFeedAdapter {
 
     @Override
     public void start(int partition, IFrameWriter writer) throws Exception {
-        Socket socket = new Socket(LOCALHOST, port);
+        Socket socket = waitForReceiver();
         OutputStream os = socket.getOutputStream();
         FileInputStream fin = new FileInputStream(new File(localFile));
         byte[] chunk = new byte[1024];
@@ -63,13 +67,31 @@ public class SocketClientAdapter implements IFeedAdapter {
                     break;
                 }
             }
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Finished streaming file " + localFile + "to port [" + port + "]");
+            }
+
         } finally {
             socket.close();
             fin.close();
         }
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Finished streaming file " + localFile + "to port [" + port + "]");
+
+    }
+
+    private Socket waitForReceiver() throws Exception {
+        Socket socket = null;
+        while (socket == null) {
+            try {
+                socket = new Socket(LOCALHOST, port);
+            } catch (Exception e) {
+                if (LOGGER.isLoggable(Level.WARNING)) {
+                    LOGGER.warning("Receiver not reader, would wait for " + (RECONNECT_PERIOD / 1000)
+                            + " seconds before reconnecting");
+                }
+                Thread.sleep(RECONNECT_PERIOD);
+            }
         }
+        return socket;
     }
 
     @Override

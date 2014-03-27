@@ -45,6 +45,7 @@ import edu.uci.ics.asterix.common.feeds.FeedJointKey;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriber;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
 import edu.uci.ics.asterix.common.feeds.IFeedJoint;
+import edu.uci.ics.asterix.common.feeds.IFeedLifecycleEventSubscriber;
 import edu.uci.ics.asterix.common.feeds.IFeedJoint.Scope;
 import edu.uci.ics.asterix.common.feeds.IFeedLifecycleListener;
 import edu.uci.ics.asterix.metadata.MetadataManager;
@@ -334,7 +335,7 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
                 if (previousState.equals(ClusterState.UNUSABLE)) {
                     try {
                         FeedsActivator activator = new FeedsActivator();
-                        (new Thread(activator)).start();
+                        // (new Thread(activator)).start();
                     } catch (Exception e) {
                         if (LOGGER.isLoggable(Level.INFO)) {
                             LOGGER.info("Exception in resuming feeds" + e.getMessage());
@@ -465,33 +466,39 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
     }
 
     @Override
-    public IFeedJoint getAvailableFeedPoint(FeedJointKey feedPointKey) {
-        if (isFeedPointAvailable(feedPointKey)) {
-            return feedJobNotificationHandler.getFeedPoint(feedPointKey);
-        } else {
-            return feedJobNotificationHandler.getAvailableFeedPoint(feedPointKey);
-        }
+    public IFeedJoint getAvailableFeedJoint(FeedJointKey feedJointKey) {
+        return feedJobNotificationHandler.getAvailableFeedJoint(feedJointKey);
     }
 
     @Override
-    public boolean isFeedPointAvailable(FeedJointKey feedPointKey) {
-        return feedJobNotificationHandler.isFeedPointAvailable(feedPointKey);
+    public boolean isFeedJointAvailable(FeedJointKey feedJointKey) {
+        return feedJobNotificationHandler.isFeedPointAvailable(feedJointKey);
     }
 
-    public void registerFeedPoint(IFeedJoint feedPoint) {
-        feedJobNotificationHandler.registerFeedPoint(feedPoint);
+    public void registerFeedJoint(IFeedJoint feedJoint) {
+        feedJobNotificationHandler.registerFeedJoint(feedJoint);
     }
 
-    public IFeedJoint getFeedPoint(FeedJointKey feedPointKey) {
-        return feedJobNotificationHandler.getFeedPoint(feedPointKey);
+    public IFeedJoint getFeedJoint(FeedJointKey feedJointKey) {
+        return feedJobNotificationHandler.getFeedJoint(feedJointKey);
     }
 
     @Override
-    public IFeedJoint getSourceFeedPoint(FeedConnectionId connectionId) {
+    public IFeedJoint getSourceFeedJoint(FeedConnectionId connectionId) {
         return feedJobNotificationHandler.getSourceFeedPoint(connectionId);
     }
 
-    public IFeedJoint getFeedPoint(FeedId feedId, Scope scope) {
+    public IFeedJoint getFeedJoint(FeedId feedId, Scope scope) {
         return feedJobNotificationHandler.getFeedPoint(feedId, scope);
     }
+
+    public void registerFeedEventSubscriber(FeedConnectionId connectionId, IFeedLifecycleEventSubscriber subscriber) {
+        feedJobNotificationHandler.registerFeedEventSubscriber(connectionId, subscriber);
+    }
+
+    public void deregisterFeedEventSubscriber(FeedConnectionId connectionId, IFeedLifecycleEventSubscriber subscriber) {
+        feedJobNotificationHandler.deregisterFeedEventSubscriber(connectionId, subscriber);
+
+    }
+
 }

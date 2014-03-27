@@ -37,7 +37,6 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
-import edu.uci.ics.hyracks.dataflow.common.data.accessors.FrameTupleReference;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
 
 /**
@@ -81,7 +80,7 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
             outputRecordDescriptor = recordDesc;
             FeedRuntimeType sourceRuntimeType = sourceRuntime.getFeedRuntimeType();
             switch (sourceRuntimeType) {
-                case INGEST:
+                case INTAKE:
                     handleCompleteConnection();
                     break;
                 case COMPUTE:
@@ -123,16 +122,12 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
             LOGGER.info("Beginning new feed (from existing partial connection):" + feedConnectionId);
         }
         IFeedFrameWriter wrapper = feedFrameWriter;
-        if (sourceRuntime.getFeedRuntimeType().equals(FeedRuntimeType.COMPUTE)) {
-            wrapper = new CollectTransformFeedFrameWriter(ctx, feedFrameWriter, sourceRuntime, outputRecordDescriptor,
-                    feedConnectionId);
-        }
+        wrapper = new CollectTransformFeedFrameWriter(ctx, feedFrameWriter, sourceRuntime, outputRecordDescriptor,
+                feedConnectionId);
         collectRuntime = new CollectionRuntime(feedConnectionId, partition, wrapper, sourceRuntime, feedPolicy,
                 FeedRuntimeType.COMPUTE_COLLECT);
         feedManager.getFeedConnectionManager().registerFeedRuntime(collectRuntime);
-        if (sourceRuntime.getFeedRuntimeType().equals(FeedRuntimeType.COMPUTE)) {
-            this.recordDesc = sourceRuntime.getFeedFrameWriter().getRecordDescriptor();
-        }
+        this.recordDesc = sourceRuntime.getFeedFrameWriter().getRecordDescriptor();
         sourceRuntime.subscribeFeed(policyEnforcer.getFeedPolicyAccessor(), collectRuntime);
     }
 
@@ -185,27 +180,21 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
 
         private final FeedConnectionId connectionId;
         private final IFeedFrameWriter downstreamWriter;
-        private final ISubscribableRuntime sourceRuntime;
         private final FrameTupleAccessor inputFrameTupleAccessor;
-        private final RecordDescriptor outputRecordDescriptor;
-
         private final FrameTupleAppender tupleAppender;
-        private final FrameTupleReference tupleRef;
         private final ByteBuffer frame;
+
         private ArrayTupleBuilder tupleBuilder = new ArrayTupleBuilder(1);
 
         public CollectTransformFeedFrameWriter(IHyracksTaskContext ctx, IFeedFrameWriter downstreamWriter,
                 ISubscribableRuntime sourceRuntime, RecordDescriptor outputRecordDescriptor,
                 FeedConnectionId connectionId) throws HyracksDataException {
             this.downstreamWriter = downstreamWriter;
-            this.sourceRuntime = sourceRuntime;
             RecordDescriptor inputRecordDescriptor = sourceRuntime.getFeedFrameWriter().getRecordDescriptor();
             inputFrameTupleAccessor = new FrameTupleAccessor(ctx.getFrameSize(), inputRecordDescriptor);
             tupleAppender = new FrameTupleAppender(ctx.getFrameSize());
             frame = ctx.allocateFrame();
             tupleAppender.reset(frame, true);
-            tupleRef = new FrameTupleReference();
-            this.outputRecordDescriptor = outputRecordDescriptor;
             this.connectionId = connectionId;
         }
 

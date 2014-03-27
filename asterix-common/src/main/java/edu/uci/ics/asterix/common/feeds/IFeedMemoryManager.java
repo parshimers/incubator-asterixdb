@@ -27,7 +27,4 @@ public interface IFeedMemoryManager {
 
     public void releaseMemoryComponent(IFeedMemoryComponent memoryComponent);
 
-    public void registerMemoryEventListener(IMemoryEventListener listener);
-
-    public void unregisterMemoryEventListener(IMemoryEventListener listener);
 }

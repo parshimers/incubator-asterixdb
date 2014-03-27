@@ -33,6 +33,8 @@ import edu.uci.ics.asterix.api.http.servlet.UpdateAPIServlet;
 import edu.uci.ics.asterix.common.api.AsterixThreadFactory;
 import edu.uci.ics.asterix.common.config.AsterixExternalProperties;
 import edu.uci.ics.asterix.common.config.AsterixMetadataProperties;
+import edu.uci.ics.asterix.common.feeds.ICentralFeedManager;
+import edu.uci.ics.asterix.feeds.CentralFeedManager;
 import edu.uci.ics.asterix.feeds.FeedLifecycleListener;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.api.IAsterixStateProxy;
@@ -52,6 +54,7 @@ public class CCApplicationEntryPoint implements ICCApplicationEntryPoint {
     private Server webServer;
     private Server jsonAPIServer;
     private Server feedServer;
+    private ICentralFeedManager centralFeedManager;
 
     private static IAsterixStateProxy proxy;
     private ICCApplicationContext appCtx;
@@ -86,7 +89,9 @@ public class CCApplicationEntryPoint implements ICCApplicationEntryPoint {
 
         setupFeedServer(externalProperties);
         feedServer.start();
-
+        centralFeedManager = CentralFeedManager.getInstance();
+        centralFeedManager.start();
+        
         ccAppCtx.addClusterLifecycleListener(ClusterLifecycleListener.INSTANCE);
     }
 
@@ -99,6 +104,8 @@ public class CCApplicationEntryPoint implements ICCApplicationEntryPoint {
 
         webServer.stop();
         jsonAPIServer.stop();
+        feedServer.stop();
+        centralFeedManager.stop();
     }
 
     private IHyracksClientConnection getNewHyracksClientConnection() throws Exception {

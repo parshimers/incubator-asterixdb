@@ -18,7 +18,7 @@ package edu.uci.ics.asterix.common.feeds;
 public interface IFeedRuntime {
 
     public enum FeedRuntimeType {
-        INGEST,
+        INTAKE,
         COLLECT,
         COMPUTE_COLLECT,
         COMPUTE,

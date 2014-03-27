@@ -18,8 +18,7 @@ public interface IAdapterRuntimeManager {
 
     public enum State {
         /**
-         * Indicates that data from external source will be pushed downstream
-         * for storage
+         * Indicates that AsterixDB is maintaining the flow of data from external source into its storage.
          */
         ACTIVE_INGESTION,
 
@@ -30,7 +29,7 @@ public interface IAdapterRuntimeManager {
 
         INACTIVE_INGESTION,
         /**
-         * Indicates that feed ingestion activity has finished
+         * Indicates that feed ingestion activity has finished.
          */
         FINISHED_INGESTION
     }
@@ -43,7 +42,7 @@ public interface IAdapterRuntimeManager {
     public void start() throws Exception;
 
     /**
-     * Stop the feed ingestion.
+     * Stop feed ingestion.
      * 
      * @throws Exception
      */

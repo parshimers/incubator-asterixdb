@@ -37,14 +37,14 @@ public class FeedFrameHandlers {
     private static final Logger LOGGER = Logger.getLogger(FeedFrameHandlers.class.getName());
 
     public static IFeedFrameHandler getFeedFrameHandler(FrameDistributor distributor, FeedId feedId,
-            RoutingMode routingMode, FeedRuntimeType runtimeType, int partition) throws IOException {
+            RoutingMode routingMode, FeedRuntimeType runtimeType, int partition, int frameSize) throws IOException {
         IFeedFrameHandler handler = null;
         switch (routingMode) {
             case IN_MEMORY_ROUTE:
                 handler = new InMemoryRouter(distributor.getRegisteredReaders().values(), runtimeType, partition);
                 break;
             case SPILL_TO_DISK:
-                handler = new DiskSpiller(distributor, feedId, runtimeType, partition);
+                handler = new DiskSpiller(distributor, feedId, runtimeType, partition, frameSize);
                 break;
             case DISCARD:
                 handler = new DiscardRouter(distributor, feedId, runtimeType, partition);
@@ -97,7 +97,7 @@ public class FeedFrameHandlers {
         }
 
         @Override
-        public Iterator<ByteBuffer> replayData() throws Exception {
+        public Iterator<ByteBuffer> replayData() throws HyracksDataException {
             throw new IllegalStateException("Invalid operation");
         }
 
@@ -140,7 +140,7 @@ public class FeedFrameHandlers {
         }
 
         @Override
-        public Iterator<ByteBuffer> replayData() throws Exception {
+        public Iterator<ByteBuffer> replayData() throws HyracksDataException {
             throw new IllegalStateException("Operation not supported");
         }
 
@@ -156,10 +156,10 @@ public class FeedFrameHandlers {
         private FrameSpiller<ByteBuffer> receiver;
         private Iterator<ByteBuffer> iterator;
 
-        public DiskSpiller(FrameDistributor distributor, FeedId feedId, FeedRuntimeType runtimeType, int partition)
-                throws IOException {
+        public DiskSpiller(FrameDistributor distributor, FeedId feedId, FeedRuntimeType runtimeType, int partition,
+                int frameSize) throws IOException {
             this.feedId = feedId;
-            receiver = new FrameSpiller<ByteBuffer>(distributor, feedId);
+            receiver = new FrameSpiller<ByteBuffer>(distributor, feedId, frameSize);
         }
 
         @Override
@@ -169,19 +169,44 @@ public class FeedFrameHandlers {
 
         private static class FrameSpiller<T> extends MessageReceiver<ByteBuffer> {
 
-            private final BufferedOutputStream bos;
+            private final int frameSize;
+            private final FeedId feedId;
+            private BufferedOutputStream bos;
             private final ByteBuffer reusableLengthBuffer;
             private final ByteBuffer reusableDataBuffer;
             private long offset;
+            private File file;
+            private final FrameDistributor frameDistributor;
+            private boolean fileCreated = false;
 
-            private final File file;
+            public FrameSpiller(FrameDistributor distributor, FeedId feedId, int frameSize) throws IOException {
+                this.feedId = feedId;
+                this.frameSize = frameSize;
+                this.frameDistributor = distributor;
+                reusableLengthBuffer = ByteBuffer.allocate(4);
+                reusableDataBuffer = ByteBuffer.allocate(frameSize);
+                this.offset = 0;
+            }
 
-            public FrameSpiller(FrameDistributor distributor, FeedId feedId) throws IOException {
+            @Override
+            public void processMessage(ByteBuffer message) throws Exception {
+                if (!fileCreated) {
+                    createFile();
+                    fileCreated = true;
+                }
+                reusableLengthBuffer.flip();
+                reusableLengthBuffer.putInt(message.array().length);
+                bos.write(reusableLengthBuffer.array());
+                bos.write(message.array());
+            }
+
+            private void createFile() throws IOException {
                 Date date = new Date();
                 String dateSuffix = date.toString().replace(' ', '_');
-                String filename = feedId.toString() + "_" + distributor.getFeedRuntimeType() + "_"
-                        + distributor.getPartition() + "_" + dateSuffix;
-                file = new File(filename);
+                String fileName = feedId.toString() + "_" + frameDistributor.getFeedRuntimeType() + "_"
+                        + frameDistributor.getPartition() + "_" + dateSuffix;
+
+                file = new File(fileName);
                 if (!file.exists()) {
                     boolean success = file.createNewFile();
                     if (!success) {
@@ -189,17 +214,9 @@ public class FeedFrameHandlers {
                     }
                 }
                 bos = new BufferedOutputStream(new FileOutputStream(file));
-                reusableLengthBuffer = ByteBuffer.allocate(4);
-                reusableDataBuffer = ByteBuffer.allocate(32768);
-                this.offset = 0;
-            }
-
-            @Override
-            public void processMessage(ByteBuffer message) throws Exception {
-                reusableLengthBuffer.flip();
-                reusableLengthBuffer.putInt(message.array().length);
-                bos.write(reusableLengthBuffer.array());
-                bos.write(message.array());
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("Created Spill File for feed " + feedId);
+                }
             }
 
             @SuppressWarnings("resource")
@@ -259,8 +276,12 @@ public class FeedFrameHandlers {
         }
 
         @Override
-        public Iterator<ByteBuffer> replayData() throws Exception {
-            iterator = receiver.replayData();
+        public Iterator<ByteBuffer> replayData() throws HyracksDataException {
+            try {
+                iterator = receiver.replayData();
+            } catch (Exception e) {
+                throw new HyracksDataException(e);
+            }
             return iterator;
         }
 
@@ -269,50 +290,6 @@ public class FeedFrameHandlers {
             return "Disk Spiller Summary";
         }
 
-    }
-
-    public static class FeedMemoryEventListener implements IMemoryEventListener {
-
-        private static final Logger LOGGER = Logger.getLogger(FeedMemoryEventListener.class.getName());
-        private FrameDistributor frameDistributor;
-
-        public FeedMemoryEventListener(FrameDistributor frameDistributor) {
-            this.frameDistributor = frameDistributor;
-        }
-
-        @Override
-        public void processEvent(MemoryEventType eventType) {
-            switch (eventType) {
-                case MEMORY_AVAILABLE:
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("Memomry event of type " + eventType + " notification");
-                    }
-                    switch (frameDistributor.getRoutingMode()) {
-                        case SPILL_TO_DISK:
-                            try {
-                                Iterator<ByteBuffer> replayIterator = frameDistributor.getDiskSpillHandler()
-                                        .replayData();
-                                while (replayIterator.hasNext()) {
-                                    ByteBuffer buffer = replayIterator.next();
-                                    frameDistributor.handleInMemoryRouteMode(buffer);
-                                }
-                            } catch (Exception e) {
-                                if (LOGGER.isLoggable(Level.WARNING)) {
-                                    LOGGER.warning("Unable to process spilled frames for feed "
-                                            + frameDistributor.getFeedId());
-                                }
-                            }
-                            break;
-                        case DISCARD:
-                            frameDistributor.setRoutingMode(RoutingMode.IN_MEMORY_ROUTE);
-                            break;
-                        case IN_MEMORY_ROUTE:
-                            // nothing to do 
-                            break;
-                    }
-                    break;
-            }
-        }
     }
 
 }

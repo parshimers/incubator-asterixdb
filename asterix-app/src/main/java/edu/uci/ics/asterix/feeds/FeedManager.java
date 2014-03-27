@@ -12,16 +12,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.asterix.metadata.feeds;
+package edu.uci.ics.asterix.feeds;
+
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.config.AsterixFeedProperties;
+import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedMemoryManager;
+import edu.uci.ics.asterix.common.feeds.FeedMessageService;
 import edu.uci.ics.asterix.common.feeds.FeedMetricCollector;
 import edu.uci.ics.asterix.common.feeds.IFeedConnectionManager;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.IFeedMemoryManager;
+import edu.uci.ics.asterix.common.feeds.IFeedMessageService;
+import edu.uci.ics.asterix.common.feeds.IFeedMetadataManager;
 import edu.uci.ics.asterix.common.feeds.IFeedMetricCollector;
 import edu.uci.ics.asterix.common.feeds.IFeedSubscriptionManager;
+import edu.uci.ics.asterix.metadata.feeds.FeedConnectionManager;
+import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionManager;
+import edu.uci.ics.asterix.om.util.AsterixClusterProperties;
 
 /**
  * An implementation of the IFeedManager interface.
@@ -29,6 +39,8 @@ import edu.uci.ics.asterix.common.feeds.IFeedSubscriptionManager;
  * artifacts/services associated with a feed.
  */
 public class FeedManager implements IFeedManager {
+
+    private static final Logger LOGGER = Logger.getLogger(FeedManager.class.getName());
 
     private final IFeedSubscriptionManager feedIngestionManager;
 
@@ -38,15 +50,31 @@ public class FeedManager implements IFeedManager {
 
     private final IFeedMetricCollector feedMetricCollector;
 
+    private final IFeedMetadataManager feedMetadataManager;
+
+    private final IFeedMessageService feedMessageService;
+
     private final String nodeId;
 
     private final int frameSize;
 
-    public FeedManager(String nodeId, AsterixFeedProperties feedProperties, int frameSize) {
+    public FeedManager(String nodeId, AsterixFeedProperties feedProperties, int frameSize) throws AsterixException {
         this.nodeId = nodeId;
         this.feedIngestionManager = new FeedSubscriptionManager(nodeId);
         this.feedConnectionManager = new FeedConnectionManager(nodeId);
+        this.feedMetadataManager = new FeedMetadataManager(nodeId);
         this.feedMemoryManager = new FeedMemoryManager(nodeId, feedProperties, frameSize);
+        String ccClusterIp = AsterixClusterProperties.INSTANCE.getCluster() != null ? AsterixClusterProperties.INSTANCE
+                .getCluster().getMasterNode().getClusterIp() : "localhost";
+        this.feedMessageService = new FeedMessageService(nodeId, feedProperties, ccClusterIp);
+        try {
+            this.feedMessageService.start();
+        } catch (Exception e) {
+            if (LOGGER.isLoggable(Level.WARNING)) {
+                LOGGER.warning("Unable to start feed message service " + e.getMessage());
+            }
+            e.printStackTrace();
+        }
         this.feedMetricCollector = new FeedMetricCollector(nodeId);
         this.frameSize = frameSize;
     }
@@ -73,6 +101,16 @@ public class FeedManager implements IFeedManager {
 
     public int getFrameSize() {
         return frameSize;
+    }
+
+    @Override
+    public IFeedMetadataManager getFeedMetadataManager() {
+        return feedMetadataManager;
+    }
+
+    @Override
+    public IFeedMessageService getFeedMessageService() {
+        return feedMessageService;
     }
 
     @Override

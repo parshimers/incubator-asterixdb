@@ -48,10 +48,6 @@ public class FeedSubscriber {
 
     private final FeedJointKey sourceFeedPointKey;
 
-    private String superFeedManagerHost;
-
-    private int superFeedManagerPort;
-
     public FeedSubscriber(FeedJointKey sourceFeedPointKey, FeedConnectionId feedConnectionId, String feedPolicy,
             Map<String, String> feedPolicyParameters, Status status) {
         this.sourceFeedPointKey = sourceFeedPointKey;
@@ -119,22 +115,6 @@ public class FeedSubscriber {
 
     public void setFeedConnectionInfo(FeedConnectionInfo feedConnectionInfo) {
         this.feedConnectionInfo = feedConnectionInfo;
-    }
-
-    public String getSuperFeedManagerHost() {
-        return superFeedManagerHost;
-    }
-
-    public void setSuperFeedManagerHost(String superFeedManagerHost) {
-        this.superFeedManagerHost = superFeedManagerHost;
-    }
-
-    public int getSuperFeedManagerPort() {
-        return superFeedManagerPort;
-    }
-
-    public void setSuperFeedManagerPort(int superFeedManagerPort) {
-        this.superFeedManagerPort = superFeedManagerPort;
     }
 
     public JobSpecification getJobSpec() {

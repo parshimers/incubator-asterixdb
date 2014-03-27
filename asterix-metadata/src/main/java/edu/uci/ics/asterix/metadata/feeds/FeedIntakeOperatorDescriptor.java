@@ -55,7 +55,7 @@ public class FeedIntakeOperatorDescriptor extends AbstractSingleActivityOperator
         IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject();
         IFeedSubscriptionManager feedSubscriptionManager = runtimeCtx.getFeedManager().getFeedSubscriptionManager();
-        FeedSubscribableRuntimeId feedIngestionId = new FeedSubscribableRuntimeId(feedId, FeedRuntimeType.INGEST,
+        FeedSubscribableRuntimeId feedIngestionId = new FeedSubscribableRuntimeId(feedId, FeedRuntimeType.INTAKE,
                 partition);
         IngestionRuntime ingestionRuntime = (IngestionRuntime) feedSubscriptionManager
                 .getSubscribableRuntime(feedIngestionId);

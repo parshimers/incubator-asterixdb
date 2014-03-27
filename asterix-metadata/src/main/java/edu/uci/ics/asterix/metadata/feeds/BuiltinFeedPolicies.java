@@ -55,8 +55,8 @@ public class BuiltinFeedPolicies {
     private static FeedPolicy initializeFaultTolerantBasicMonitoredElasticPolicy() {
         Map<String, String> policyParams = new HashMap<String, String>();
         policyParams.put(FeedPolicyAccessor.FAILURE_LOG_ERROR, "true");
-        policyParams.put(FeedPolicyAccessor.APPLICATION_FAILURE_CONTINUE, "true");
-        policyParams.put(FeedPolicyAccessor.APPLICATION_FAILURE_LOG_DATA, "true");
+        policyParams.put(FeedPolicyAccessor.SOFT_FAILURE_CONTINUE, "true");
+        policyParams.put(FeedPolicyAccessor.SOFT_FAILURE_LOG_DATA, "true");
         policyParams.put(FeedPolicyAccessor.HARDWARE_FAILURE_CONTINUE, "true");
         policyParams.put(FeedPolicyAccessor.CLUSTER_REBOOT_AUTO_RESTART, "true");
         policyParams.put(FeedPolicyAccessor.COLLECT_STATISTICS, "true");
@@ -71,8 +71,8 @@ public class BuiltinFeedPolicies {
     private static FeedPolicy initializeBasicFaultTolerantPolicy() {
         Map<String, String> policyParams = new HashMap<String, String>();
         policyParams.put(FeedPolicyAccessor.FAILURE_LOG_ERROR, "true");
-        policyParams.put(FeedPolicyAccessor.APPLICATION_FAILURE_CONTINUE, "true");
-        policyParams.put(FeedPolicyAccessor.APPLICATION_FAILURE_LOG_DATA, "true");
+        policyParams.put(FeedPolicyAccessor.SOFT_FAILURE_CONTINUE, "true");
+        policyParams.put(FeedPolicyAccessor.SOFT_FAILURE_LOG_DATA, "true");
         policyParams.put(FeedPolicyAccessor.HARDWARE_FAILURE_CONTINUE, "true");
         policyParams.put(FeedPolicyAccessor.CLUSTER_REBOOT_AUTO_RESTART, "true");
         policyParams.put(FeedPolicyAccessor.COLLECT_STATISTICS, "false");
@@ -88,8 +88,8 @@ public class BuiltinFeedPolicies {
     private static FeedPolicy initializeFaultTolerantBasicMonitoredPolicy() {
         Map<String, String> policyParams = new HashMap<String, String>();
         policyParams.put(FeedPolicyAccessor.FAILURE_LOG_ERROR, "true");
-        policyParams.put(FeedPolicyAccessor.APPLICATION_FAILURE_CONTINUE, "true");
-        policyParams.put(FeedPolicyAccessor.APPLICATION_FAILURE_LOG_DATA, "true");
+        policyParams.put(FeedPolicyAccessor.SOFT_FAILURE_CONTINUE, "true");
+        policyParams.put(FeedPolicyAccessor.SOFT_FAILURE_LOG_DATA, "true");
         policyParams.put(FeedPolicyAccessor.HARDWARE_FAILURE_CONTINUE, "true");
         policyParams.put(FeedPolicyAccessor.CLUSTER_REBOOT_AUTO_RESTART, "true");
         policyParams.put(FeedPolicyAccessor.COLLECT_STATISTICS, "true");
@@ -104,8 +104,8 @@ public class BuiltinFeedPolicies {
     private static FeedPolicy initializeBasicMonitoredPolicy() {
         Map<String, String> policyParams = new HashMap<String, String>();
         policyParams.put(FeedPolicyAccessor.FAILURE_LOG_ERROR, "false");
-        policyParams.put(FeedPolicyAccessor.APPLICATION_FAILURE_CONTINUE, "true");
-        policyParams.put(FeedPolicyAccessor.APPLICATION_FAILURE_LOG_DATA, "true");
+        policyParams.put(FeedPolicyAccessor.SOFT_FAILURE_CONTINUE, "true");
+        policyParams.put(FeedPolicyAccessor.SOFT_FAILURE_LOG_DATA, "true");
         policyParams.put(FeedPolicyAccessor.HARDWARE_FAILURE_CONTINUE, "false");
         policyParams.put(FeedPolicyAccessor.CLUSTER_REBOOT_AUTO_RESTART, "true");
         policyParams.put(FeedPolicyAccessor.COLLECT_STATISTICS, "true");
@@ -120,8 +120,8 @@ public class BuiltinFeedPolicies {
     private static FeedPolicy initializeBasicPolicy() {
         Map<String, String> policyParams = new HashMap<String, String>();
         policyParams.put(FeedPolicyAccessor.FAILURE_LOG_ERROR, "true");
-        policyParams.put(FeedPolicyAccessor.APPLICATION_FAILURE_CONTINUE, "true");
-        policyParams.put(FeedPolicyAccessor.APPLICATION_FAILURE_LOG_DATA, "false");
+        policyParams.put(FeedPolicyAccessor.SOFT_FAILURE_CONTINUE, "true");
+        policyParams.put(FeedPolicyAccessor.SOFT_FAILURE_LOG_DATA, "false");
         policyParams.put(FeedPolicyAccessor.CLUSTER_REBOOT_AUTO_RESTART, "true");
         policyParams.put(FeedPolicyAccessor.COLLECT_STATISTICS, "false");
         policyParams.put(FeedPolicyAccessor.ELASTIC, "false");
@@ -133,8 +133,8 @@ public class BuiltinFeedPolicies {
     private static FeedPolicy initializeBrittlePolicy() {
         Map<String, String> policyParams = new HashMap<String, String>();
         policyParams.put(FeedPolicyAccessor.FAILURE_LOG_ERROR, "false");
-        policyParams.put(FeedPolicyAccessor.APPLICATION_FAILURE_CONTINUE, "false");
-        policyParams.put(FeedPolicyAccessor.APPLICATION_FAILURE_LOG_DATA, "false");
+        policyParams.put(FeedPolicyAccessor.SOFT_FAILURE_CONTINUE, "false");
+        policyParams.put(FeedPolicyAccessor.SOFT_FAILURE_LOG_DATA, "false");
         policyParams.put(FeedPolicyAccessor.HARDWARE_FAILURE_CONTINUE, "false");
         policyParams.put(FeedPolicyAccessor.CLUSTER_REBOOT_AUTO_RESTART, "false");
         policyParams.put(FeedPolicyAccessor.COLLECT_STATISTICS, "false");
