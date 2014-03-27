@@ -18,6 +18,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
+import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
+
 public class SubscribableRuntime implements ISubscribableRuntime {
 
     protected static final Logger LOGGER = Logger.getLogger(SubscribableRuntime.class.getName());
@@ -30,11 +32,14 @@ public class SubscribableRuntime implements ISubscribableRuntime {
 
     protected final List<ISubscriberRuntime> subscribers;
 
+    protected RecordDescriptor recordDescriptor;
+
     public SubscribableRuntime(FeedSubscribableRuntimeId runtimeId, DistributeFeedFrameWriter feedWriter,
-            FeedRuntimeType runtimeType) {
+            FeedRuntimeType runtimeType, RecordDescriptor recordDescriptor) {
         this.subscribableRuntimeId = runtimeId;
         this.feedWriter = feedWriter;
         this.runtimeType = runtimeType;
+        this.recordDescriptor = recordDescriptor;
         this.subscribers = new ArrayList<ISubscriberRuntime>();
     }
 
@@ -80,6 +85,11 @@ public class SubscribableRuntime implements ISubscribableRuntime {
     @Override
     public FeedRuntimeType getFeedRuntimeType() {
         return runtimeType;
+    }
+
+    @Override
+    public RecordDescriptor getRecordDescriptor() {
+        return recordDescriptor;
     }
 
 }

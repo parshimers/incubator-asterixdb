@@ -96,9 +96,11 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
      **/
     private final boolean enableSubscriptionMode;
 
+    private final String operandId;
+
     public FeedMetaOperatorDescriptor(JobSpecification spec, FeedConnectionId feedConnectionId,
             IOperatorDescriptor coreOperatorDescriptor, Map<String, String> feedPolicyProperties,
-            FeedRuntimeType runtimeType, boolean enableSubscriptionMode) {
+            FeedRuntimeType runtimeType, boolean enableSubscriptionMode, String operandId) {
         super(spec, coreOperatorDescriptor.getInputArity(), coreOperatorDescriptor.getOutputArity());
         this.feedConnectionId = feedConnectionId;
         this.feedPolicyProperties = feedPolicyProperties;
@@ -108,13 +110,14 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
         this.coreOperator = coreOperatorDescriptor;
         this.runtimeType = runtimeType;
         this.enableSubscriptionMode = enableSubscriptionMode;
+        this.operandId = operandId;
     }
 
     @Override
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
         return new FeedMetaNodePushable(ctx, recordDescProvider, partition, nPartitions, coreOperator,
-                feedConnectionId, feedPolicyProperties, runtimeType, enableSubscriptionMode);
+                feedConnectionId, feedPolicyProperties, runtimeType, enableSubscriptionMode, operandId);
     }
 
     @Override
@@ -198,10 +201,12 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
 
         private final IHyracksTaskContext ctx;
 
+        private final String operandId;
+
         public FeedMetaNodePushable(IHyracksTaskContext ctx, IRecordDescriptorProvider recordDescProvider,
                 int partition, int nPartitions, IOperatorDescriptor coreOperator, FeedConnectionId feedConnectionId,
-                Map<String, String> feedPolicyProperties, FeedRuntimeType runtimeType, boolean enableSubscriptionMode)
-                throws HyracksDataException {
+                Map<String, String> feedPolicyProperties, FeedRuntimeType runtimeType, boolean enableSubscriptionMode,
+                String operationId) throws HyracksDataException {
             this.ctx = ctx;
             this.coreOperatorNodePushable = (AbstractUnaryInputUnaryOutputOperatorNodePushable) ((IActivity) coreOperator)
                     .createPushRuntime(ctx, recordDescProvider, partition, nPartitions);
@@ -229,11 +234,16 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                 frameDistributor = null;
             }
             recoverSoftFailure = policyEnforcer.getFeedPolicyAccessor().continueOnSoftFailure();
+            fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
+            IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
+                    .getApplicationContext().getApplicationObject();
+            this.feedManager = runtimeCtx.getFeedManager();
+            this.operandId = operationId;
         }
 
         @Override
         public void open() throws HyracksDataException {
-            FeedRuntimeId runtimeId = new FeedRuntimeId(runtimeType, feedConnectionId, partition);
+            FeedRuntimeId runtimeId = new FeedRuntimeId(feedConnectionId, runtimeType, operandId, partition);
             try {
                 feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
                 IFeedFrameWriter mWriter = new FeedFrameWriter(ctx, writer, this, feedConnectionId, policyEnforcer,
@@ -302,8 +312,8 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                 registerBasicFeedRuntime(writer);
             }
             if (inputSideBufferring) {
-                inputSideFrameCollector = new FeedFrameCollector(frameDistributor, policyEnforcer.getFeedPolicyAccessor(),
-                        coreOperatorNodePushable, feedConnectionId.getFeedId());
+                inputSideFrameCollector = new FeedFrameCollector(frameDistributor,
+                        policyEnforcer.getFeedPolicyAccessor(), coreOperatorNodePushable, feedConnectionId.getFeedId());
                 frameDistributor.registerFrameCollector(inputSideFrameCollector);
             }
         }
@@ -338,7 +348,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                     feedFrameWriter);
             FeedSubscribableRuntimeId sid = new FeedSubscribableRuntimeId(feedConnectionId.getFeedId(), runtimeType,
                     partition);
-            feedRuntime = new SubscribableRuntime(sid, distributeWriter, runtimeType);
+            feedRuntime = new SubscribableRuntime(sid, distributeWriter, runtimeType, recordDesc);
             feedManager.getFeedSubscriptionManager()
                     .registerFeedSubscribableRuntime((ISubscribableRuntime) feedRuntime);
             coreOperatorNodePushable.setOutputFrameWriter(0, distributeWriter, recordDesc);

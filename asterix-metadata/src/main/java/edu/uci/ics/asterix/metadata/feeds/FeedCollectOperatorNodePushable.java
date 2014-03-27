@@ -127,12 +127,12 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
         collectRuntime = new CollectionRuntime(feedConnectionId, partition, wrapper, sourceRuntime, feedPolicy,
                 FeedRuntimeType.COMPUTE_COLLECT);
         feedManager.getFeedConnectionManager().registerFeedRuntime(collectRuntime);
-        this.recordDesc = sourceRuntime.getFeedFrameWriter().getRecordDescriptor();
+        this.recordDesc = sourceRuntime.getRecordDescriptor();
         sourceRuntime.subscribeFeed(policyEnforcer.getFeedPolicyAccessor(), collectRuntime);
     }
 
     private void handleCompleteConnection() throws Exception {
-        FeedRuntimeId runtimeId = new FeedRuntimeId(FeedRuntimeType.COLLECT, feedConnectionId, partition);
+        FeedRuntimeId runtimeId = new FeedRuntimeId(feedConnectionId, FeedRuntimeType.COLLECT, partition);
         collectRuntime = (CollectionRuntime) feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
         if (collectRuntime == null) {
             feedFrameWriter = new FeedFrameWriter(ctx, writer, this, feedConnectionId, policyEnforcer, nodeId,
@@ -152,7 +152,7 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
                     FeedRuntimeType.COLLECT);
             feedManager.getFeedConnectionManager().registerFeedRuntime(collectRuntime);
             if (sourceRuntime.getFeedRuntimeType().equals(FeedRuntimeType.COMPUTE)) {
-                this.recordDesc = sourceRuntime.getFeedFrameWriter().getRecordDescriptor();
+                this.recordDesc = sourceRuntime.getRecordDescriptor();
             }
             sourceRuntime.subscribeFeed(policyEnforcer.getFeedPolicyAccessor(), collectRuntime);
         } else {
@@ -190,7 +190,7 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
                 ISubscribableRuntime sourceRuntime, RecordDescriptor outputRecordDescriptor,
                 FeedConnectionId connectionId) throws HyracksDataException {
             this.downstreamWriter = downstreamWriter;
-            RecordDescriptor inputRecordDescriptor = sourceRuntime.getFeedFrameWriter().getRecordDescriptor();
+            RecordDescriptor inputRecordDescriptor = sourceRuntime.getRecordDescriptor();
             inputFrameTupleAccessor = new FrameTupleAccessor(ctx.getFrameSize(), inputRecordDescriptor);
             tupleAppender = new FrameTupleAppender(ctx.getFrameSize());
             frame = ctx.allocateFrame();

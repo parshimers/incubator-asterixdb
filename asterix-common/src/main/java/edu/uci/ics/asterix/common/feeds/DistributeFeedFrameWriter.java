@@ -138,10 +138,6 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
         return feedRuntimeType;
     }
 
-    public RecordDescriptor getRecordDescriptor() {
-        return fta.getRecordDescriptor();
-    }
-
     @Override
     public Type getType() {
         return IFeedFrameWriter.Type.DISTRIBUTE_FEED_WRITER;

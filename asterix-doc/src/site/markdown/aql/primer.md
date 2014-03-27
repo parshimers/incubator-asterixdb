@@ -346,11 +346,9 @@ Note that AQL is not SQL and not based on SQL: In other words, AsterixDB is full
 In this section we introduce AQL via a set of example queries, along with their expected results,
 based on the data above, to help you get started.
 Many of the most important features of AQL are presented in this set of representative queries.
-You can find a BNF description of the current AQL grammar at [wiki:AsterixDBGrammar], and someday
-in the not-too-distant future we will also provide a complete reference manual for the language.
-In the meantime, this will get you started down the path of using AsterixDB.
-A more complete list of the supported AsterixDB primitive types and built-in functions can be
-found at [Asterix Data Model (ADM)](datamodel.html) and [Asterix Functions](functions.html).
+You can find more details in the document on the [Asterix Data Model (ADM)](datamodel.html),
+in the [AQL Reference Manual](manual.html), and a complete list of built-in functions is available
+in the [Asterix Functions](functions.html) document.
 
 AQL is an expression language.
 Even the expression 1+1 is a valid AQL query that evaluates to 2.
@@ -884,6 +882,10 @@ Currently, only insert and delete operations are supported; update is not.
 To achieve the effect of an update, two statements are currently needed---one to delete the old record from the
 dataset where it resides, and another to insert the new replacement record (with the same primary key but with
 different field values for some of the associated data content).
+
+### Transaction Support
+
+AsterixDB supports record-level ACID transactions that begin and terminate implicitly for each record inserted, deleted, or searched while a given AQL statement is being executed. This is quite similar to the level of transaction support found in today's NoSQL stores. AsterixDB does not support multi-statement transactions, and in fact an AQL statement that involves multiple records can itself involve multiple independent record-level transactions. An example consequence of this is that, when an AQL statement attempts to insert 1000 records, it is possible that the first 800 records could end up being committed while the remaining 200 records fail to be inserted. This situation could happen, for example, if a duplicate key exception occurs as the 801st insertion is attempted. If this happens, AsterixDB will report the error (e.g., a duplicate key exception) as the result of the offending AQL insert statement, and the application logic above will need to take the appropriate action(s) needed to assess the resulting state and to clean up and/or continue as appropriate.
 
 ## Further Help ##
 That's it  You are now armed and dangerous with respect to semistructured data management using AsterixDB.

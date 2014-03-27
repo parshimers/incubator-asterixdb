@@ -89,7 +89,7 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                 feedFrameWriter = new DistributeFeedFrameWriter(feedId, writer, FeedRuntimeType.INTAKE, partition, fta,
                         feedManager, ctx.getFrameSize());
                 adapterRuntimeManager = new AdapterRuntimeManager(feedId, adapter, feedFrameWriter, partition);
-                ingestionRuntime = new IngestionRuntime(feedId, partition, adapterRuntimeManager, feedFrameWriter);
+                ingestionRuntime = new IngestionRuntime(feedId, partition, adapterRuntimeManager, feedFrameWriter, recordDesc);
                 feedSubscriptionManager.registerFeedSubscribableRuntime(ingestionRuntime);
                 feedFrameWriter.open();
             } else {

@@ -1528,14 +1528,12 @@ public class AqlExpressionToPlanTranslator extends AbstractAqlTranslator impleme
     @Override
     public Pair<ILogicalOperator, LogicalVariable> visitCreateFeedPolicyStatement(CreateFeedPolicyStatement cfps,
             Mutable<ILogicalOperator> arg) throws AsterixException {
-        // TODO Auto-generated method stub
         return null;
     }
 
     @Override
     public Pair<ILogicalOperator, LogicalVariable> visitDropFeedPolicyStatement(FeedPolicyDropStatement dfs,
             Mutable<ILogicalOperator> arg) throws AsterixException {
-        // TODO Auto-generated method stub
         return null;
     }
 

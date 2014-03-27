@@ -16,6 +16,8 @@ package edu.uci.ics.asterix.common.feeds;
 
 import java.util.List;
 
+import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
+
 /**
  * Represent a feed runtime the output of which can be subscribed.
  */
@@ -48,5 +50,11 @@ public interface ISubscribableRuntime extends IFeedRuntime {
      * @return
      */
     public DistributeFeedFrameWriter getFeedFrameWriter();
+    
+    /**
+     * 
+     * @return
+     */
+    public RecordDescriptor getRecordDescriptor();
 
 }

@@ -16,14 +16,16 @@ package edu.uci.ics.asterix.common.feeds;
 
 import java.util.logging.Level;
 
+import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
+
 public class IngestionRuntime extends SubscribableRuntime {
 
     private final IAdapterRuntimeManager adapterRuntimeManager;
 
     public IngestionRuntime(FeedId feedId, int partition, IAdapterRuntimeManager adaptorRuntimeManager,
-            DistributeFeedFrameWriter feedWriter) {
+            DistributeFeedFrameWriter feedWriter, RecordDescriptor recordDesc) {
         super(new FeedSubscribableRuntimeId(feedId, FeedRuntimeType.INTAKE, partition), feedWriter,
-                FeedRuntimeType.INTAKE);
+                FeedRuntimeType.INTAKE, recordDesc);
         this.adapterRuntimeManager = adaptorRuntimeManager;
     }
 

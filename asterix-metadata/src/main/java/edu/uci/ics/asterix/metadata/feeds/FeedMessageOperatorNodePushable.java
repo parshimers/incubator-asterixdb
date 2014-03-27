@@ -70,7 +70,6 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
     public void initialize() throws HyracksDataException {
         try {
             writer.open();
-
             switch (feedMessage.getMessageType()) {
                 case END:
                     EndFeedMessage endFeedMessage = (EndFeedMessage) feedMessage;
@@ -120,10 +119,10 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                 case INTAKE:
                 case COMPUTE:
                     BasicFeedRuntime feedRuntime = null;
-                    runtimeId = new FeedRuntimeId(FeedRuntimeType.COMPUTE_COLLECT, feedConnectionId, partition);
+                    runtimeId = new FeedRuntimeId(feedConnectionId, FeedRuntimeType.COMPUTE_COLLECT, partition);
                     feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
                     if (feedRuntime == null) {
-                        runtimeId = new FeedRuntimeId(FeedRuntimeType.COLLECT, feedConnectionId, partition);
+                        runtimeId = new FeedRuntimeId(feedConnectionId, FeedRuntimeType.COLLECT, partition);
                         feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
                     }
                     feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);

@@ -56,6 +56,7 @@ public class AQLParser extends ScopeChecker {
 
     // optimizer hints
     private static final String HASH_GROUP_BY_HINT = "hash";
+    private static final String SKIP_SECONDARY_INDEX_SEARCH_HINT = "skip-index";
     private static final String BROADCAST_JOIN_HINT = "bcast";
     private static final String INDEXED_NESTED_LOOP_JOIN_HINT = "indexnl";
     private static final String INMEMORY_HINT = "inmem";
@@ -1360,8 +1361,12 @@ Expression RelExpr()throws ParseException:
       LOOKAHEAD(2)( <LT> | <GT> | <LE> | <GE> | <EQ> | <NE> |<SIMILAR>)
   	  {
   	    String mhint = getHint(token);
-  	    if (mhint != null && mhint.equals(INDEXED_NESTED_LOOP_JOIN_HINT)) {
-          annotation = IndexedNLJoinExpressionAnnotation.INSTANCE;
+  	    if (mhint != null) {
+  	      if (mhint.equals(INDEXED_NESTED_LOOP_JOIN_HINT)) {
+            annotation = IndexedNLJoinExpressionAnnotation.INSTANCE;
+          } else if (mhint.equals(SKIP_SECONDARY_INDEX_SEARCH_HINT)) {
+            annotation = SkipSecondaryIndexSearchExpressionAnnotation.INSTANCE;
+          }
         }
   	    if (op == null) {
   	      op = new OperatorExpr();
@@ -1812,8 +1817,12 @@ Expression FunctionCallExpr() throws ParseException:
         signature = new FunctionSignature(funcName.dataverse, fqFunctionName, arity);
       }
       callExpr = new CallExpr(signature,argList);
-      if (hint != null && hint.startsWith(INDEXED_NESTED_LOOP_JOIN_HINT)) {
-        callExpr.addHint(IndexedNLJoinExpressionAnnotation.INSTANCE);
+      if (hint != null) {
+        if (hint.startsWith(INDEXED_NESTED_LOOP_JOIN_HINT)) {
+          callExpr.addHint(IndexedNLJoinExpressionAnnotation.INSTANCE);
+        } else if (hint.startsWith(SKIP_SECONDARY_INDEX_SEARCH_HINT)) {
+          callExpr.addHint(SkipSecondaryIndexSearchExpressionAnnotation.INSTANCE);
+        }
       }
       return callExpr;
     }

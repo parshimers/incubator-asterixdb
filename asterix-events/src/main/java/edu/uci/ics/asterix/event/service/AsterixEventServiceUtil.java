@@ -514,7 +514,7 @@ public class AsterixEventServiceUtil {
             if (conflictFound) {
                 conflictingInstance = existing;
                 break;
-            }
+            } 
             for (Node n : existing.getCluster().getNode()) {
                 if (usedIps.contains(n.getClusterIp())) {
                     conflictFound = true;

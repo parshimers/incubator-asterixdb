@@ -144,6 +144,7 @@ import edu.uci.ics.hyracks.storage.am.btree.frames.BTreeNSMInteriorFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.IPrimitiveValueProviderFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.ISearchOperationCallbackFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
+import edu.uci.ics.hyracks.storage.am.common.dataflow.IIndexDataflowHelperFactory;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.TreeIndexBulkLoadOperatorDescriptor;
 import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallbackFactory;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOperation;
@@ -151,6 +152,7 @@ import edu.uci.ics.hyracks.storage.am.common.tuples.TypeAwareTupleWriterFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.btree.dataflow.LSMBTreeDataflowHelperFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMMergePolicyFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.dataflow.LSMInvertedIndexDataflowHelperFactory;
+import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.dataflow.PartitionedLSMInvertedIndexDataflowHelperFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.IBinaryTokenizerFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.rtree.dataflow.LSMRTreeDataflowHelperFactory;
 import edu.uci.ics.hyracks.storage.am.rtree.dataflow.RTreeSearchOperatorDescriptor;
@@ -548,26 +550,33 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             }
             int numPrimaryKeys = DatasetUtils.getPartitioningKeys(dataset).size();
             RecordDescriptor outputRecDesc = JobGenHelper.mkRecordDescriptor(typeEnv, opSchema, context);
-            ITypeTraits[] typeTraits = null;
             int[] bloomFilterKeyFields;
+            ITypeTraits[] typeTraits;
+            IBinaryComparatorFactory[] comparatorFactories;
             if (isSecondary) {
                 Index secondaryIndex = MetadataManager.INSTANCE.getIndex(mdTxnCtx, dataset.getDataverseName(),
                         dataset.getDatasetName(), indexName);
                 int numSecondaryKeys = secondaryIndex.getKeyFieldNames().size();
-                typeTraits = JobGenHelper.variablesToTypeTraits(outputVars, 0, outputVars.size(), typeEnv, context);
                 bloomFilterKeyFields = new int[numSecondaryKeys];
                 for (int i = 0; i < numSecondaryKeys; i++) {
                     bloomFilterKeyFields[i] = i;
                 }
-            } else {
                 typeTraits = JobGenHelper.variablesToTypeTraits(outputVars, 0, outputVars.size(), typeEnv, context);
+                comparatorFactories = JobGenHelper.variablesToAscBinaryComparatorFactories(outputVars, 0,
+                        outputVars.size(), typeEnv, context);
+            } else {
                 bloomFilterKeyFields = new int[numPrimaryKeys];
                 for (int i = 0; i < numPrimaryKeys; i++) {
                     bloomFilterKeyFields[i] = i;
                 }
+                String itemTypeName = dataset.getItemTypeName();
+                ARecordType itemType = (ARecordType) MetadataManager.INSTANCE.getDatatype(mdTxnCtx,
+                        dataset.getDataverseName(), itemTypeName).getDatatype();
+
+                typeTraits = DatasetUtils.computeTupleTypeTraits(dataset, itemType);
+                comparatorFactories = DatasetUtils.computeKeysBinaryComparatorFactories(dataset, itemType,
+                        context.getBinaryComparatorFactoryProvider());
             }
-            IBinaryComparatorFactory[] comparatorFactories = JobGenHelper.variablesToAscBinaryComparatorFactories(
-                    outputVars, 0, outputVars.size(), typeEnv, context);
 
             IAsterixApplicationContextInfo appContext = (IAsterixApplicationContextInfo) context.getAppContext();
             Pair<IFileSplitProvider, AlgebricksPartitionConstraint> spPc;
@@ -610,7 +619,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                             compactionInfo.second, isSecondary ? new SecondaryIndexOperationTrackerProvider(
                                     dataset.getDatasetId()) : new PrimaryIndexOperationTrackerProvider(
                                     dataset.getDatasetId()), rtcProvider, LSMBTreeIOOperationCallbackFactory.INSTANCE,
-                            storageProperties.getBloomFilterFalsePositiveRate()), retainInput, searchCallbackFactory);
+                            storageProperties.getBloomFilterFalsePositiveRate(), !isSecondary), retainInput,
+                    searchCallbackFactory);
 
             return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(btreeSearchOp, spPc.second);
 
@@ -661,13 +671,18 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             IBinaryComparatorFactory[] comparatorFactories = JobGenHelper.variablesToAscBinaryComparatorFactories(
                     outputVars, keysStartIndex, numNestedSecondaryKeyFields, typeEnv, context);
             ITypeTraits[] typeTraits = JobGenHelper.variablesToTypeTraits(outputVars, keysStartIndex,
-                    numNestedSecondaryKeyFields, typeEnv, context);
+                    numNestedSecondaryKeyFields + numPrimaryKeys, typeEnv, context);
             IAsterixApplicationContextInfo appContext = (IAsterixApplicationContextInfo) context.getAppContext();
             Pair<IFileSplitProvider, AlgebricksPartitionConstraint> spPc = splitProviderAndPartitionConstraintsForInternalOrFeedDataset(
                     dataset.getDataverseName(), dataset.getDatasetName(), indexName);
 
             IBinaryComparatorFactory[] primaryComparatorFactories = DatasetUtils.computeKeysBinaryComparatorFactories(
                     dataset, recType, context.getBinaryComparatorFactoryProvider());
+            int[] btreeFields = new int[primaryComparatorFactories.length];
+            for (int i = 0; i < btreeFields.length; i++) {
+                btreeFields[i] = i + numSecondaryKeys;
+            }
+
             IAType nestedKeyType = NonTaggedFormatUtil.getNestedSpatialType(keyType.getTypeTag());
             Pair<ILSMMergePolicyFactory, Map<String, String>> compactionInfo = DatasetUtils.getMergePolicyFactory(
                     dataset, mdTxnCtx);
@@ -680,8 +695,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                             compactionInfo.second, new SecondaryIndexOperationTrackerProvider(dataset.getDatasetId()),
                             AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                             LSMRTreeIOOperationCallbackFactory.INSTANCE, proposeLinearizer(nestedKeyType.getTypeTag(),
-                                    comparatorFactories.length), storageProperties.getBloomFilterFalsePositiveRate()),
-                    retainInput, searchCallbackFactory);
+                                    comparatorFactories.length), storageProperties.getBloomFilterFalsePositiveRate(),
+                            btreeFields), retainInput, searchCallbackFactory);
             return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(rtreeSearchOp, spPc.second);
 
         } catch (MetadataException me) {
@@ -839,8 +854,9 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                     new LSMBTreeDataflowHelperFactory(new AsterixVirtualBufferCacheProvider(dataset.getDatasetId()),
                             compactionInfo.first, compactionInfo.second, new PrimaryIndexOperationTrackerProvider(
                                     dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
-                            LSMBTreeIOOperationCallbackFactory.INSTANCE,
-                            storageProperties.getBloomFilterFalsePositiveRate()), NoOpOperationCallbackFactory.INSTANCE);
+                            LSMBTreeIOOperationCallbackFactory.INSTANCE, storageProperties
+                                    .getBloomFilterFalsePositiveRate(), true),
+                    NoOpOperationCallbackFactory.INSTANCE);
             return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(btreeBulkLoad,
                     splitsAndConstraint.second);
         } catch (MetadataException me) {
@@ -909,7 +925,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                             compactionInfo.first, compactionInfo.second, new PrimaryIndexOperationTrackerProvider(
                                     dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                             LSMBTreeIOOperationCallbackFactory.INSTANCE, storageProperties
-                                    .getBloomFilterFalsePositiveRate()), null, modificationCallbackFactory, true);
+                                    .getBloomFilterFalsePositiveRate(), true), null, modificationCallbackFactory, true,
+                    indexName);
 
             return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(insertDeleteOp,
                     splitsAndConstraint.second);
@@ -1104,8 +1121,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                             compactionInfo.first, compactionInfo.second, new SecondaryIndexOperationTrackerProvider(
                                     dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                             LSMBTreeIOOperationCallbackFactory.INSTANCE, storageProperties
-                                    .getBloomFilterFalsePositiveRate()), filterFactory, modificationCallbackFactory,
-                    false);
+                                    .getBloomFilterFalsePositiveRate(), false), filterFactory,
+                    modificationCallbackFactory, false, indexName);
             return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(btreeBulkLoad,
                     splitsAndConstraint.second);
         } catch (MetadataException e) {
@@ -1182,7 +1199,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             ITypeTraits[] tokenTypeTraits = new ITypeTraits[numTokenFields];
             ITypeTraits[] invListsTypeTraits = new ITypeTraits[primaryKeys.size()];
             IBinaryComparatorFactory[] tokenComparatorFactories = new IBinaryComparatorFactory[numTokenFields];
-            IBinaryComparatorFactory[] invListComparatorFactories = new IBinaryComparatorFactory[primaryKeys.size()];
+            IBinaryComparatorFactory[] invListComparatorFactories = DatasetUtils.computeKeysBinaryComparatorFactories(
+                    dataset, recType, context.getBinaryComparatorFactoryProvider());
 
             IAType secondaryKeyType = null;
             for (i = 0; i < secondaryKeys.size(); ++i) {
@@ -1223,15 +1241,27 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
 
             Pair<ILSMMergePolicyFactory, Map<String, String>> compactionInfo = DatasetUtils.getMergePolicyFactory(
                     dataset, mdTxnCtx);
+            IIndexDataflowHelperFactory indexDataFlowFactory;
+            if (!isPartitioned) {
+                indexDataFlowFactory = new LSMInvertedIndexDataflowHelperFactory(new AsterixVirtualBufferCacheProvider(
+                        datasetId), compactionInfo.first, compactionInfo.second,
+                        new SecondaryIndexOperationTrackerProvider(dataset.getDatasetId()),
+                        AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
+                        LSMInvertedIndexIOOperationCallbackFactory.INSTANCE,
+                        storageProperties.getBloomFilterFalsePositiveRate());
+            } else {
+                indexDataFlowFactory = new PartitionedLSMInvertedIndexDataflowHelperFactory(
+                        new AsterixVirtualBufferCacheProvider(datasetId), compactionInfo.first, compactionInfo.second,
+                        new SecondaryIndexOperationTrackerProvider(dataset.getDatasetId()),
+                        AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
+                        LSMInvertedIndexIOOperationCallbackFactory.INSTANCE,
+                        storageProperties.getBloomFilterFalsePositiveRate());
+            }
             AsterixLSMInvertedIndexInsertDeleteOperatorDescriptor insertDeleteOp = new AsterixLSMInvertedIndexInsertDeleteOperatorDescriptor(
                     spec, recordDesc, appContext.getStorageManagerInterface(), splitsAndConstraint.first,
                     appContext.getIndexLifecycleManagerProvider(), tokenTypeTraits, tokenComparatorFactories,
                     invListsTypeTraits, invListComparatorFactories, tokenizerFactory, fieldPermutation, indexOp,
-                    new LSMInvertedIndexDataflowHelperFactory(new AsterixVirtualBufferCacheProvider(datasetId),
-                            compactionInfo.first, compactionInfo.second, new SecondaryIndexOperationTrackerProvider(
-                                    dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
-                            LSMInvertedIndexIOOperationCallbackFactory.INSTANCE, storageProperties
-                                    .getBloomFilterFalsePositiveRate()), filterFactory, modificationCallbackFactory);
+                    indexDataFlowFactory, filterFactory, modificationCallbackFactory, indexName);
             return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(insertDeleteOp,
                     splitsAndConstraint.second);
         } catch (MetadataException e) {
@@ -1264,7 +1294,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             int numPrimaryKeys = primaryKeys.size();
             int numKeys = numSecondaryKeys + numPrimaryKeys;
             ITypeTraits[] typeTraits = new ITypeTraits[numKeys];
-            IBinaryComparatorFactory[] comparatorFactories = new IBinaryComparatorFactory[numKeys];
+            IBinaryComparatorFactory[] comparatorFactories = new IBinaryComparatorFactory[numSecondaryKeys];
             int[] fieldPermutation = new int[numKeys];
             int[] modificationCallbackPrimaryKeyFields = new int[primaryKeys.size()];
             int i = 0;
@@ -1293,8 +1323,6 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             List<String> partitioningKeys = DatasetUtils.getPartitioningKeys(dataset);
             for (String partitioningKey : partitioningKeys) {
                 IAType keyType = recType.getFieldType(partitioningKey);
-                comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(
-                        keyType, true);
                 typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(keyType);
                 ++i;
             }
@@ -1304,6 +1332,10 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             IAsterixApplicationContextInfo appContext = (IAsterixApplicationContextInfo) context.getAppContext();
             Pair<IFileSplitProvider, AlgebricksPartitionConstraint> splitsAndConstraint = splitProviderAndPartitionConstraintsForInternalOrFeedDataset(
                     dataverseName, datasetName, indexName);
+            int[] btreeFields = new int[primaryComparatorFactories.length];
+            for (int k = 0; k < btreeFields.length; k++) {
+                btreeFields[k] = k + numSecondaryKeys;
+            }
 
             // prepare callback
             JobId jobId = ((JobEventListenerFactory) spec.getJobletEventListenerFactory()).getJobId();
@@ -1324,8 +1356,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                             compactionInfo.second, new SecondaryIndexOperationTrackerProvider(dataset.getDatasetId()),
                             AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                             LSMRTreeIOOperationCallbackFactory.INSTANCE, proposeLinearizer(nestedKeyType.getTypeTag(),
-                                    comparatorFactories.length), storageProperties.getBloomFilterFalsePositiveRate()),
-                    filterFactory, modificationCallbackFactory, false);
+                                    comparatorFactories.length), storageProperties.getBloomFilterFalsePositiveRate(),
+                            btreeFields), filterFactory, modificationCallbackFactory, false, indexName);
             return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(rtreeUpdate, splitsAndConstraint.second);
         } catch (MetadataException | IOException e) {
             throw new AlgebricksException(e);

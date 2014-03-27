@@ -620,14 +620,12 @@ public class CloneAndSubstituteVariablesVisitor implements
     @Override
     public Pair<IAqlExpression, List<VariableSubstitution>> visitCreateFeedPolicyStatement(
             CreateFeedPolicyStatement cfps, List<VariableSubstitution> arg) throws AsterixException {
-        // TODO Auto-generated method stub
         return null;
     }
 
     @Override
     public Pair<IAqlExpression, List<VariableSubstitution>> visitDropFeedPolicyStatement(FeedPolicyDropStatement dfs,
             List<VariableSubstitution> arg) throws AsterixException {
-        // TODO Auto-generated method stub
         return null;
     }
 }

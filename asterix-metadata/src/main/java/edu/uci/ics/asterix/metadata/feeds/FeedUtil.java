@@ -26,7 +26,9 @@ import java.util.logging.Logger;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import edu.uci.ics.asterix.common.dataflow.AsterixLSMInvertedIndexInsertDeleteOperatorDescriptor;
 import edu.uci.ics.asterix.common.dataflow.AsterixLSMTreeInsertDeleteOperatorDescriptor;
+import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
@@ -97,13 +99,15 @@ public class FeedUtil {
             return spec;
         }
 
-        JobSpecification altered = new JobSpecification();
+        JobSpecification altered = new JobSpecification(spec.getFrameSize());
         Map<OperatorDescriptorId, IOperatorDescriptor> operatorMap = spec.getOperatorMap();
 
         // copy operators
+        String operationId = null;
         Map<OperatorDescriptorId, OperatorDescriptorId> oldNewOID = new HashMap<OperatorDescriptorId, OperatorDescriptorId>();
         FeedMetaOperatorDescriptor metaOp = null;
         for (Entry<OperatorDescriptorId, IOperatorDescriptor> entry : operatorMap.entrySet()) {
+            operationId = BasicFeedRuntime.FeedRuntimeId.DEFAULT_OPERATION_ID;
             IOperatorDescriptor opDesc = entry.getValue();
             if (opDesc instanceof FeedCollectOperatorDescriptor) {
                 FeedCollectOperatorDescriptor orig = (FeedCollectOperatorDescriptor) opDesc;
@@ -112,8 +116,14 @@ public class FeedUtil {
                         orig.getRecordDescriptor(), orig.getFeedPolicyProperties(), orig.getSubscriptionLocation());
                 oldNewOID.put(opDesc.getOperatorId(), fiop.getOperatorId());
             } else if (opDesc instanceof AsterixLSMTreeInsertDeleteOperatorDescriptor) {
+                operationId = ((AsterixLSMTreeInsertDeleteOperatorDescriptor) opDesc).getIndexName();
                 metaOp = new FeedMetaOperatorDescriptor(altered, feedConnectionId, opDesc, feedPolicyProperties,
-                        FeedRuntimeType.STORE, false);
+                        FeedRuntimeType.STORE, false, operationId);
+                oldNewOID.put(opDesc.getOperatorId(), metaOp.getOperatorId());
+            } else if (opDesc instanceof AsterixLSMInvertedIndexInsertDeleteOperatorDescriptor) {
+                operationId = ((AsterixLSMInvertedIndexInsertDeleteOperatorDescriptor) opDesc).getIndexName();
+                metaOp = new FeedMetaOperatorDescriptor(altered, feedConnectionId, opDesc, feedPolicyProperties,
+                        FeedRuntimeType.STORE, false, operationId);
                 oldNewOID.put(opDesc.getOperatorId(), metaOp.getOperatorId());
 
             } else {
@@ -150,7 +160,8 @@ public class FeedUtil {
                     }
                 }
                 metaOp = new FeedMetaOperatorDescriptor(altered, feedConnectionId, opDesc, feedPolicyProperties,
-                        runtimeType, enableSubscriptionMode);
+                        runtimeType, enableSubscriptionMode, operationId);
+
                 oldNewOID.put(opDesc.getOperatorId(), metaOp.getOperatorId());
             }
         }

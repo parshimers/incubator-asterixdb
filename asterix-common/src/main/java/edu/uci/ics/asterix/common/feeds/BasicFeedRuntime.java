@@ -31,7 +31,7 @@ public class BasicFeedRuntime implements IFeedRuntime {
 
     public BasicFeedRuntime(FeedConnectionId feedConnectionId, int partition, IFeedFrameWriter frameWriter,
             FeedRuntimeType feedRuntimeType) {
-        this.feedRuntimeId = new FeedRuntimeId(feedRuntimeType, feedConnectionId, partition);
+        this.feedRuntimeId = new FeedRuntimeId(feedConnectionId, feedRuntimeType, partition);
         this.frameWriter = frameWriter;
     }
 
@@ -84,21 +84,33 @@ public class BasicFeedRuntime implements IFeedRuntime {
 
     public static class FeedRuntimeId {
 
+        public static final String DEFAULT_OPERATION_ID = "N/A";
+
         private final FeedRuntimeType feedRuntimeType;
         private final FeedConnectionId feedConnectionId;
+        private final String operandId;
         private final int partition;
         private final int hashCode;
 
-        public FeedRuntimeId(FeedRuntimeType runtimeType, FeedConnectionId feedId, int partition) {
+        public FeedRuntimeId(FeedConnectionId connectionId, FeedRuntimeType runtimeType, String operandId, int partition) {
             this.feedRuntimeType = runtimeType;
-            this.feedConnectionId = feedId;
+            this.operandId = operandId;
+            this.feedConnectionId = connectionId;
             this.partition = partition;
-            this.hashCode = (feedId + "[" + partition + "]" + feedRuntimeType).hashCode();
+            this.hashCode = (feedConnectionId + "[" + partition + "]" + feedRuntimeType).hashCode();
+        }
+
+        public FeedRuntimeId(FeedConnectionId connectionId, FeedRuntimeType runtimeType, int partition) {
+            this.feedRuntimeType = runtimeType;
+            this.feedConnectionId = connectionId;
+            this.operandId = DEFAULT_OPERATION_ID;
+            this.partition = partition;
+            this.hashCode = (connectionId + "[" + partition + "]" + feedRuntimeType).hashCode();
         }
 
         @Override
         public String toString() {
-            return feedConnectionId + "[" + partition + "]" + " " + feedRuntimeType;
+            return feedConnectionId + "[" + partition + "]" + " " + feedRuntimeType + "(" + operandId + ")";
         }
 
         @Override
@@ -110,8 +122,8 @@ public class BasicFeedRuntime implements IFeedRuntime {
         public boolean equals(Object o) {
             if (o instanceof FeedRuntimeId) {
                 FeedRuntimeId oid = ((FeedRuntimeId) o);
-                return oid.getFeedConnectionId().equals(feedConnectionId)
-                        && oid.getFeedRuntimeType().equals(feedRuntimeType) && oid.getPartition() == partition;
+                return oid.getFeedConnectionId().equals(feedConnectionId) && oid.getFeedRuntimeType().equals(feedRuntimeType)
+                        && oid.getOperandId().equals(operandId) && oid.getPartition() == partition;
             }
             return false;
         }
@@ -122,6 +134,10 @@ public class BasicFeedRuntime implements IFeedRuntime {
 
         public FeedConnectionId getFeedConnectionId() {
             return feedConnectionId;
+        }
+
+        public String getOperandId() {
+            return operandId;
         }
 
         public int getPartition() {
