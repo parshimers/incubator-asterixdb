@@ -76,6 +76,7 @@ public class FeedMetricCollector implements IFeedMetricCollector {
     }
 
     private static class Sender {
+
         private final int senderId;
         private final MetricType mType;
         private final String displayName;

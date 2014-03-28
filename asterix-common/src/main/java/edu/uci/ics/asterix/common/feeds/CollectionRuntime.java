@@ -24,9 +24,9 @@ import java.util.Map;
  */
 public class CollectionRuntime extends BasicFeedRuntime implements ISubscriberRuntime {
 
-    private ISubscribableRuntime sourceRuntime;
+    private final ISubscribableRuntime sourceRuntime;
+    private final Map<String, String> feedPolicy;
     private FeedFrameCollector frameCollector;
-    private Map<String, String> feedPolicy;
 
     public CollectionRuntime(FeedConnectionId feedId, int partition, IFeedFrameWriter feedFrameWriter,
             ISubscribableRuntime sourceRuntime, Map<String, String> feedPolicy, FeedRuntimeType runtimeType) {
@@ -39,10 +39,6 @@ public class CollectionRuntime extends BasicFeedRuntime implements ISubscriberRu
         return sourceRuntime;
     }
 
-    public void setSourceRuntime(ISubscribableRuntime sourceRuntime) {
-        this.sourceRuntime = sourceRuntime;
-    }
-
     public void setFrameCollector(FeedFrameCollector frameCollector) {
         this.frameCollector = frameCollector;
     }
@@ -52,9 +48,11 @@ public class CollectionRuntime extends BasicFeedRuntime implements ISubscriberRu
     }
 
     public void waitTillCollectionOver() throws InterruptedException {
-        synchronized (frameCollector) {
-            while (!frameCollector.getState().equals(FeedFrameCollector.State.FINISHED)) {
-                frameCollector.wait();
+        if (!frameCollector.getState().equals(FeedFrameCollector.State.FINISHED)) {
+            synchronized (frameCollector) {
+                while (!frameCollector.getState().equals(FeedFrameCollector.State.FINISHED)) {
+                    frameCollector.wait();
+                }
             }
         }
     }

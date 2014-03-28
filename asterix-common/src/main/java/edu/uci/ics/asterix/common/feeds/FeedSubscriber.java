@@ -25,9 +25,9 @@ public class FeedSubscriber {
 
     private static final Logger LOGGER = Logger.getLogger(FeedSubscriber.class.getName());
 
-    private final FeedConnectionId feedConnectionId;
+    private final FeedConnectionId connectionId;
 
-    private FeedConnectionInfo feedConnectionInfo;
+    private FeedConnectionInfo connectionInfo;
 
     public enum Status {
         CREATED,
@@ -46,12 +46,12 @@ public class FeedSubscriber {
 
     private JobSpecification jobSpec;
 
-    private final FeedJointKey sourceFeedPointKey;
+    private final FeedJointKey sourceFeedJointKey;
 
-    public FeedSubscriber(FeedJointKey sourceFeedPointKey, FeedConnectionId feedConnectionId, String feedPolicy,
+    public FeedSubscriber(FeedJointKey sourceFeedJointKey, FeedConnectionId connectionId, String feedPolicy,
             Map<String, String> feedPolicyParameters, Status status) {
-        this.sourceFeedPointKey = sourceFeedPointKey;
-        this.feedConnectionId = feedConnectionId;
+        this.sourceFeedJointKey = sourceFeedJointKey;
+        this.connectionId = connectionId;
         this.status = status;
         this.feedPolicy = feedPolicy;
         this.feedPolicyParameters = feedPolicyParameters;
@@ -59,7 +59,7 @@ public class FeedSubscriber {
 
     @Override
     public int hashCode() {
-        return feedConnectionId.hashCode();
+        return connectionId.hashCode();
     }
 
     @Override
@@ -70,16 +70,16 @@ public class FeedSubscriber {
         if (!(o instanceof FeedSubscriber)) {
             return false;
         }
-        return ((FeedSubscriber) o).feedConnectionId.equals(feedConnectionId);
+        return ((FeedSubscriber) o).connectionId.equals(connectionId);
     }
 
     @Override
     public String toString() {
-        return feedConnectionId.toString() + "[" + status + "]";
+        return connectionId.toString() + "[" + status + "]";
     }
 
     public FeedConnectionId getFeedConnectionId() {
-        return feedConnectionId;
+        return connectionId;
     }
 
     public Status getStatus() {
@@ -89,7 +89,7 @@ public class FeedSubscriber {
     public void setStatus(Status status) {
         this.status = status;
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("FeedSubscriber " + "[" + feedConnectionId + "]" + " is now " + status);
+            LOGGER.info("FeedSubscriber " + "[" + connectionId + "]" + " is now " + status);
         }
     }
 
@@ -110,11 +110,11 @@ public class FeedSubscriber {
     }
 
     public FeedConnectionInfo getFeedConnectionInfo() {
-        return feedConnectionInfo;
+        return connectionInfo;
     }
 
     public void setFeedConnectionInfo(FeedConnectionInfo feedConnectionInfo) {
-        this.feedConnectionInfo = feedConnectionInfo;
+        this.connectionInfo = feedConnectionInfo;
     }
 
     public JobSpecification getJobSpec() {
@@ -126,6 +126,6 @@ public class FeedSubscriber {
     }
 
     public FeedJointKey getSourceFeedPointKey() {
-        return sourceFeedPointKey;
+        return sourceFeedJointKey;
     }
 }

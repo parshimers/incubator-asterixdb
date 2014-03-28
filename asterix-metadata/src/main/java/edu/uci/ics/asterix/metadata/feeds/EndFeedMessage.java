@@ -14,10 +14,12 @@
  */
 package edu.uci.ics.asterix.metadata.feeds;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FeedMessage;
-import edu.uci.ics.asterix.common.feeds.IFeedMessage;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 
 /**
@@ -27,8 +29,6 @@ import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 public class EndFeedMessage extends FeedMessage {
 
     private static final long serialVersionUID = 1L;
-
-    private final FeedConnectionId feedConnectionId;
 
     private final FeedId sourceFeedId;
 
@@ -43,10 +43,9 @@ public class EndFeedMessage extends FeedMessage {
         DISCONTINUE_SOURCE
     }
 
-    public EndFeedMessage(FeedConnectionId feedId, FeedRuntimeType sourceRuntimeType, FeedId sourceFeedId,
+    public EndFeedMessage(FeedConnectionId connectionId, FeedRuntimeType sourceRuntimeType, FeedId sourceFeedId,
             boolean completeDisconnection, EndMessageType endMessageType) {
-        super(MessageType.END, feedId);
-        this.feedConnectionId = feedId;
+        super(MessageType.END, connectionId);
         this.sourceRuntimeType = sourceRuntimeType;
         this.sourceFeedId = sourceFeedId;
         this.completeDisconnection = completeDisconnection;
@@ -55,11 +54,7 @@ public class EndFeedMessage extends FeedMessage {
 
     @Override
     public String toString() {
-        return MessageType.END.name() + feedConnectionId + " [" + sourceRuntimeType + "] ";
-    }
-
-    public FeedConnectionId getFeedConnectionId() {
-        return feedConnectionId;
+        return MessageType.END.name() + connectionId + " [" + sourceRuntimeType + "] ";
     }
 
     public FeedRuntimeType getSourceRuntimeType() {
@@ -79,8 +74,13 @@ public class EndFeedMessage extends FeedMessage {
     }
 
     @Override
-    public String toJSON() {
-        return null;
+    public String toJSON() throws JSONException {
+        JSONObject obj = new JSONObject();
+        obj.put("message-type", messageType.name());
+        obj.put("dataverse", connectionId.getFeedId().getDataverse());
+        obj.put("feed", connectionId.getFeedId().getFeedName());
+        obj.put("dataset", connectionId.getDatasetName());
+        return obj.toString();
     }
 
 }

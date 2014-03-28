@@ -23,11 +23,9 @@ import edu.uci.ics.asterix.common.feeds.IFeedMemoryComponent.Type;
 
 public class FeedMemoryManager implements IFeedMemoryManager {
 
-    public static final int ALLOCATION_INCREMENT = 10;
-
-    public static final float MEMORY_AVAILABLE_THRESHOLD = 0.1f;
-
     private static final Logger LOGGER = Logger.getLogger(FeedMemoryManager.class.getName());
+
+    private static final int ALLOCATION_INCREMENT = 10;
 
     private final AtomicInteger componentId = new AtomicInteger(0);
 
@@ -49,7 +47,7 @@ public class FeedMemoryManager implements IFeedMemoryManager {
     }
 
     @Override
-    public IFeedMemoryComponent getMemoryComponent(Type type) {
+    public synchronized IFeedMemoryComponent getMemoryComponent(Type type) {
         IFeedMemoryComponent memoryComponent = null;
         boolean valid = false;
         switch (type) {
@@ -72,7 +70,7 @@ public class FeedMemoryManager implements IFeedMemoryManager {
     }
 
     @Override
-    public boolean expandMemoryComponent(IFeedMemoryComponent memoryComponent) {
+    public synchronized boolean expandMemoryComponent(IFeedMemoryComponent memoryComponent) {
         if (committed + ALLOCATION_INCREMENT > budget) {
             if (LOGGER.isLoggable(Level.WARNING)) {
                 LOGGER.warning("Memory budget " + budget + " is exhausted. Space left: " + (budget - committed)
@@ -90,7 +88,7 @@ public class FeedMemoryManager implements IFeedMemoryManager {
     }
 
     @Override
-    public void releaseMemoryComponent(IFeedMemoryComponent memoryComponent) {
+    public synchronized void releaseMemoryComponent(IFeedMemoryComponent memoryComponent) {
         int delta = memoryComponent.getCurrentSize();
         committed -= delta;
         memoryComponent.reset();

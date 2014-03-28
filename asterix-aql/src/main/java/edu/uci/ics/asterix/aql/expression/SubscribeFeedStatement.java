@@ -61,7 +61,7 @@ public class SubscribeFeedStatement implements Statement {
 
     public void initialize(MetadataTransactionContext mdTxnCtx) throws MetadataException {
         this.query = new Query();
-        FeedId sourceFeedId = subscriptionRequest.getFeedPointKey().getFeedId();
+        FeedId sourceFeedId = subscriptionRequest.getFeedJointKey().getFeedId();
         Feed subscriberFeed = MetadataManager.INSTANCE.getFeed(mdTxnCtx, subscriptionRequest.getSubscribingFeedId()
                 .getDataverse(), subscriptionRequest.getSubscribingFeedId().getFeedName());
         if (subscriberFeed == null) {

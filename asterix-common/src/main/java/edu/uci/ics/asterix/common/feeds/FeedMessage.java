@@ -14,7 +14,6 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
-
 /**
  * A control message that can be sent to the runtime instance of a
  * feed's adapter.
@@ -24,11 +23,11 @@ public abstract class FeedMessage implements IFeedMessage {
     private static final long serialVersionUID = 1L;
 
     protected final MessageType messageType;
-    protected final FeedConnectionId feedConnectionId;
+    protected final FeedConnectionId connectionId;
 
-    public FeedMessage(MessageType messageType, FeedConnectionId feedConnectionId) {
+    public FeedMessage(MessageType messageType, FeedConnectionId connectionId) {
         this.messageType = messageType;
-        this.feedConnectionId = feedConnectionId;
+        this.connectionId = connectionId;
     }
 
     public MessageType getMessageType() {
@@ -36,7 +35,12 @@ public abstract class FeedMessage implements IFeedMessage {
     }
 
     public FeedConnectionId getFeedConnectionId() {
-        return feedConnectionId;
+        return connectionId;
     }
-   
+
+    @Override
+    public String toString() {
+        return messageType + "[" + connectionId + "]";
+    }
+
 }

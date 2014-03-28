@@ -16,14 +16,12 @@ package edu.uci.ics.asterix.common.feeds;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
-import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 
@@ -52,22 +50,15 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
     /** The value of the partition 'i' if this is the i'th instance **/
     private final int partition;
 
-    /** FrameTupleAccessor {@code FrameTupleAccessor} instance for keeping track of # of produced tuples **/
-    private final FrameTupleAccessor fta;
-
-    private final int frameSize;
-
     public DistributeFeedFrameWriter(FeedId feedId, IFrameWriter writer, FeedRuntimeType feedRuntimeType,
             int partition, FrameTupleAccessor fta, IFeedManager feedManager, int frameSize) throws IOException {
         this.feedId = feedId;
-        this.fta = fta;
         this.frameDistributor = new FrameDistributor(feedId, feedRuntimeType, partition, true,
                 feedManager.getFeedMemoryManager(), frameSize);
         this.frameDistributor.setFta(fta);
         this.feedRuntimeType = feedRuntimeType;
         this.partition = partition;
         this.writer = writer;
-        this.frameSize = frameSize;
     }
 
     public FeedFrameCollector subscribeFeed(FeedPolicyAccessor fpa, IFeedFrameWriter frameWriter) throws Exception {

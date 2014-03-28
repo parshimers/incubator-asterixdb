@@ -54,7 +54,8 @@ public class SubscribableRuntime implements ISubscribableRuntime {
     }
 
     @Override
-    public void subscribeFeed(FeedPolicyAccessor fpa, CollectionRuntime collectionRuntime) throws Exception {
+    public synchronized void subscribeFeed(FeedPolicyAccessor fpa, CollectionRuntime collectionRuntime)
+            throws Exception {
         FeedFrameCollector collector = feedWriter.subscribeFeed(
                 new FeedPolicyAccessor(collectionRuntime.getFeedPolicy()), collectionRuntime.getFeedFrameWriter());
         collectionRuntime.setFrameCollector(collector);
@@ -62,13 +63,13 @@ public class SubscribableRuntime implements ISubscribableRuntime {
     }
 
     @Override
-    public void unsubscribeFeed(CollectionRuntime collectionRuntime) throws Exception {
+    public synchronized void unsubscribeFeed(CollectionRuntime collectionRuntime) throws Exception {
         feedWriter.unsubscribeFeed(collectionRuntime.getFeedFrameWriter());
         subscribers.remove(collectionRuntime);
     }
 
     @Override
-    public List<ISubscriberRuntime> getSubscribers() {
+    public synchronized List<ISubscriberRuntime> getSubscribers() {
         return subscribers;
     }
 

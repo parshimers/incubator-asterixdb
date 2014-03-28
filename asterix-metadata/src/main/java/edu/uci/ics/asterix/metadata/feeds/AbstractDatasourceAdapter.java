@@ -19,6 +19,8 @@ import java.util.Map;
 
 import edu.uci.ics.asterix.common.feeds.IDatasourceAdapter;
 import edu.uci.ics.asterix.om.types.IAType;
+import edu.uci.ics.asterix.runtime.operators.file.AdmSchemafullRecordParserFactory;
+import edu.uci.ics.asterix.runtime.operators.file.NtDelimitedDataTupleParserFactory;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 
@@ -44,8 +46,8 @@ public abstract class AbstractDatasourceAdapter implements IDatasourceAdapter {
 
     private static Map<String, Object> initializeFormatParserFactoryMap() {
         Map<String, Object> map = new HashMap<String, Object>();
-        map.put(FORMAT_DELIMITED_TEXT, "edu.uci.ics.asterix.runtime.operators.file.NtDelimitedDataTupleParserFactory");
-        map.put(FORMAT_ADM, "edu.uci.ics.asterix.runtime.operators.file.AdmSchemafullRecordParserFactory");
+        map.put(FORMAT_DELIMITED_TEXT, NtDelimitedDataTupleParserFactory.class.getName());
+        map.put(FORMAT_ADM, AdmSchemafullRecordParserFactory.class.getName());
         return map;
     }
 

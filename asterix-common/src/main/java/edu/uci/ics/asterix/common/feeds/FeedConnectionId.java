@@ -17,7 +17,7 @@ package edu.uci.ics.asterix.common.feeds;
 import java.io.Serializable;
 
 /**
- * A unique identifier for a data feed flowing into a dataset.
+ * A unique identifier for an instance of a data feed that is flowing into a dataset.
  */
 public class FeedConnectionId implements Serializable {
 
@@ -49,8 +49,10 @@ public class FeedConnectionId implements Serializable {
         if (o == null || !(o instanceof FeedConnectionId)) {
             return false;
         }
-        if (((FeedConnectionId) o).getFeedId().equals(feedId)
-                && ((FeedConnectionId) o).getDatasetName().equals(datasetName)) {
+
+        if (this == o
+                || (((FeedConnectionId) o).getFeedId().equals(feedId) && ((FeedConnectionId) o).getDatasetName()
+                        .equals(datasetName))) {
             return true;
         }
         return false;

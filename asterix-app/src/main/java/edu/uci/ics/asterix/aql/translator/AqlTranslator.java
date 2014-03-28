@@ -1761,7 +1761,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
             FeedSubscriptionRequest subscriptionRequest = p.first;
             boolean createFeedIntakeJob = p.second;
             if (createFeedIntakeJob) {
-                FeedId feedId = subscriptionRequest.getFeedPointKey().getFeedId();
+                FeedId feedId = subscriptionRequest.getFeedJointKey().getFeedId();
                 PrimaryFeed primaryFeed = (PrimaryFeed) MetadataManager.INSTANCE.getFeed(mdTxnCtx,
                         feedId.getDataverse(), feedId.getFeedName());
                 JobSpecification feedIntakeJobSpec = FeedOperations.buildFeedIntakeJobSpec(primaryFeed,

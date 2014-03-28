@@ -60,9 +60,6 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
     /** The (singleton) instance of {@code IFeedIngestionManager} **/
     private IFeedSubscriptionManager feedSubscriptionManager;
 
-    /** The (singleton) instance of {@code IFeedConnectionManager} **/
-    private IFeedConnectionManager feedConnectionManager;
-
     /** The source feed from which the feed derives its data from. **/
     private final FeedId sourceFeedId;
 

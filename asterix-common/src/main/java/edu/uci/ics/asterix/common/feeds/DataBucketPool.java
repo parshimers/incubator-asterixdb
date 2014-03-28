@@ -26,8 +26,6 @@ public class DataBucketPool implements IFeedMemoryComponent {
 
     private static final Logger LOGGER = Logger.getLogger(DataBucketPool.class.getName());
 
-    private static final int TIMEOUT_WAIT_AVAILABILITY_POOL = 0; //seconds
-
     /** A unique identifier for the memory component **/
     private final int componentId;
 
@@ -54,39 +52,21 @@ public class DataBucketPool implements IFeedMemoryComponent {
         this.totalAllocation += size;
     }
 
-    public void returnDataBucket(DataBucket bucket) {
+    public synchronized void returnDataBucket(DataBucket bucket) {
         pool.add(bucket);
         if (LOGGER.isLoggable(Level.FINE)) {
             LOGGER.fine("returned data bucket " + this + " back to the pool");
         }
     }
 
-    public DataBucket getDataBucket() {
+    public synchronized DataBucket getDataBucket() {
         if (pool.size() == 0) {
-            boolean success = memoryManager.expandMemoryComponent(this);
-            if (!success) {
-                success = waitTillPoolGetsBackObjects(TIMEOUT_WAIT_AVAILABILITY_POOL);
-                if (!success) {
-                    return null;
-                }
+            if (!memoryManager.expandMemoryComponent(this)) {
+                return null;
             }
+
         }
         return pool.remove(0);
-    }
-
-    private boolean waitTillPoolGetsBackObjects(int timeout) {
-        int sleepCycle = 0;
-        while (pool.size() == 0 && sleepCycle < timeout) {
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Interrupted" + e);
-                }
-            }
-            sleepCycle++;
-        }
-        return pool.size() > 0;
     }
 
     @Override

@@ -66,7 +66,7 @@ public class FeedManager implements IFeedManager {
         this.feedMemoryManager = new FeedMemoryManager(nodeId, feedProperties, frameSize);
         String ccClusterIp = AsterixClusterProperties.INSTANCE.getCluster() != null ? AsterixClusterProperties.INSTANCE
                 .getCluster().getMasterNode().getClusterIp() : "localhost";
-        this.feedMessageService = new FeedMessageService(nodeId, feedProperties, ccClusterIp);
+        this.feedMessageService = new FeedMessageService(feedProperties, ccClusterIp);
         try {
             this.feedMessageService.start();
         } catch (Exception e) {

@@ -76,11 +76,15 @@ public class FeedConnectionManager implements IFeedConnectionManager {
         }
 
         feedRuntimeManagers.remove(feedId);
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("De-registered feed " + feedId);
+        }
+
     }
 
     @Override
     public void registerFeedRuntime(BasicFeedRuntime feedRuntime) throws Exception {
-        FeedConnectionId feedId = feedRuntime.getFeedRuntimeId().getFeedConnectionId();
+        FeedConnectionId feedId = feedRuntime.getFeedRuntimeId().getConnectionId();
         FeedRuntimeManager runtimeMgr = feedRuntimeManagers.get(feedId);
         if (runtimeMgr == null) {
             synchronized (feedRuntimeManagers) {
@@ -99,7 +103,7 @@ public class FeedConnectionManager implements IFeedConnectionManager {
 
     @Override
     public void deRegisterFeedRuntime(FeedRuntimeId feedRuntimeId) {
-        FeedRuntimeManager runtimeMgr = feedRuntimeManagers.get(feedRuntimeId.getFeedConnectionId());
+        FeedRuntimeManager runtimeMgr = feedRuntimeManagers.get(feedRuntimeId.getConnectionId());
         if (runtimeMgr != null) {
             runtimeMgr.deregisterFeedRuntime(feedRuntimeId);
             if (LOGGER.isLoggable(Level.INFO)) {
@@ -110,7 +114,7 @@ public class FeedConnectionManager implements IFeedConnectionManager {
 
     @Override
     public BasicFeedRuntime getFeedRuntime(FeedRuntimeId feedRuntimeId) {
-        FeedRuntimeManager runtimeMgr = feedRuntimeManagers.get(feedRuntimeId.getFeedConnectionId());
+        FeedRuntimeManager runtimeMgr = feedRuntimeManagers.get(feedRuntimeId.getConnectionId());
         return runtimeMgr != null ? runtimeMgr.getFeedRuntime(feedRuntimeId) : null;
     }
 
@@ -126,5 +130,4 @@ public class FeedConnectionManager implements IFeedConnectionManager {
 
     }
 
-   
 }

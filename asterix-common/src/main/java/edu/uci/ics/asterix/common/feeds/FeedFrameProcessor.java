@@ -80,7 +80,8 @@ public class FeedFrameProcessor {
                     Object instance = recordDesc.getFields()[i].deserialize(di);
                     if (i == 0) {
                         String tuple = String.valueOf(instance);
-                        //feedManager.getFeedMetadataManager().logTuple(feedConnectionId, tuple, e.getMessage(), feedManager);
+                        feedManager.getFeedMetadataManager().logTuple(feedConnectionId, tuple, e.getMessage(),
+                                feedManager);
                     } else {
                         System.out.print(", " + String.valueOf(instance));
                     }

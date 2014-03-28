@@ -20,11 +20,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class DataBucket {
 
     private static AtomicInteger globalBucketId = new AtomicInteger(0);
+
     private final ByteBuffer buffer;
     private final AtomicInteger readCount;
-    private final DataBucketPool pool;
     private int desiredReadCount;
     private ContentType contentType;
+
+    private final DataBucketPool pool;
     private AtomicInteger bucketId = new AtomicInteger(0);
 
     public enum ContentType {
@@ -40,7 +42,7 @@ public class DataBucket {
         bucketId.set(globalBucketId.incrementAndGet());
     }
 
-    public void reset(ByteBuffer frame) {
+    public synchronized void reset(ByteBuffer frame) {
         buffer.flip();
         System.arraycopy(frame.array(), 0, buffer.array(), 0, frame.limit());
         buffer.limit(frame.limit());
@@ -66,7 +68,7 @@ public class DataBucket {
         this.contentType = contentType;
     }
 
-    public ByteBuffer getBuffer() {
+    public synchronized ByteBuffer getBuffer() {
         return buffer;
     }
 

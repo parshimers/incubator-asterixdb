@@ -386,7 +386,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
             }
             if (policyEnforcer.getFeedPolicyAccessor().continueOnHardwareFailure()) {
                 if (currentBuffer != null) {
-                    FeedRuntimeState runtimeState = new FeedRuntimeState(currentBuffer, writer, null);
+                    FeedRuntimeState runtimeState = new FeedRuntimeState(currentBuffer, writer);
                     // feedRuntime.setFeedRuntimeState(runtimeState);
                     if (LOGGER.isLoggable(Level.INFO)) {
                         LOGGER.info("Saved feed compute runtime for revivals" + feedRuntime.getFeedId());

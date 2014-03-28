@@ -23,32 +23,24 @@ import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 
 public class FeedPolicyEnforcer {
 
-    private final FeedConnectionId feedConnectionId;
-    private final FeedPolicyAccessor feedPolicyAccessor;
+    private final FeedConnectionId connectionId;
+    private final FeedPolicyAccessor policyAccessor;
 
     public FeedPolicyEnforcer(FeedConnectionId feedConnectionId, Map<String, String> feedPolicy) {
-        this.feedConnectionId = feedConnectionId;
-        this.feedPolicyAccessor = new FeedPolicyAccessor(feedPolicy);
+        this.connectionId = feedConnectionId;
+        this.policyAccessor = new FeedPolicyAccessor(feedPolicy);
     }
 
     public boolean continueIngestionPostSoftwareFailure(Exception e) throws RemoteException, ACIDException {
-        boolean continueIngestion = feedPolicyAccessor.continueOnSoftFailure();
-        if (feedPolicyAccessor.logErrorOnFailure()) {
-            persistExceptionDetails(e);
-        }
-        return continueIngestion;
-    }
-    
-    private synchronized void persistExceptionDetails(Exception e) throws RemoteException, ACIDException {
-        //TODO Put log message in feed shadow dataset
+        return policyAccessor.continueOnSoftFailure();
     }
 
     public FeedPolicyAccessor getFeedPolicyAccessor() {
-        return feedPolicyAccessor;
+        return policyAccessor;
     }
 
     public FeedConnectionId getFeedId() {
-        return feedConnectionId;
+        return connectionId;
     }
 
 }

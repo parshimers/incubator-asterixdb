@@ -26,11 +26,11 @@ public class FeedMetadataManager implements IFeedMetadataManager {
 
     public FeedMetadataManager(String nodeId) throws AsterixException {
         this.nodeId = nodeId;
-        String[] fieldNames = new String[] { "id", "dataverseName", "feedName", "targetDataset", "tuple",
-                "message", "timestamp" };
+        String[] fieldNames = new String[] { "id", "dataverseName", "feedName", "targetDataset", "tuple", "message",
+                "timestamp" };
         IAType[] fieldTypes = new IAType[] { BuiltinType.ASTRING, BuiltinType.ASTRING, BuiltinType.ASTRING,
                 BuiltinType.ASTRING, BuiltinType.ASTRING, BuiltinType.ASTRING, BuiltinType.ASTRING };
-        
+
         recordType = new ARecordType(FeedBootstrap.FAILED_TUPLE_DATASET_TYPE, fieldNames, fieldTypes, true);
     }
 
@@ -69,47 +69,6 @@ public class FeedMetadataManager implements IFeedMetadataManager {
     public String toString() {
         return "FeedMetadataManager [" + nodeId + "]";
     }
-
-    /*
-    MetadataManager.INSTANCE.acquireWriteLatch();
-
-    MetadataTransactionContext tCtx = null;
-    try {
-      tCtx = MetadataManager.INSTANCE.beginTransaction();
-
-      Dataverse dataverse = new Dataverse(FEEDS_METADATA_DV, NonTaggedDataFormat.NON_TAGGED_DATA_FORMAT,
-              IMetadataEntity.PENDING_NO_OP);
-      MetadataManager.INSTANCE.addDataverse(tCtx, dataverse);
-
-      String[] fieldNames = new String[] { "id", "dataverse", "feed", "targetDataset", "tuple", "message",
-              "timestamp" };
-      IAType[] fieldTypes = new IAType[] { BuiltinType.ASTRING, BuiltinType.ASTRING, BuiltinType.ASTRING,
-              BuiltinType.ASTRING, BuiltinType.ASTRING, BuiltinType.ASTRING, BuiltinType.ASTRING };
-      recordType = new ARecordType(FAILED_TUPLE_DATASET_TYPE, fieldNames, fieldTypes, true);
-
-      Datatype datatype = new Datatype(FEEDS_METADATA_DV, FAILED_TUPLE_DATASET_TYPE, (IAType) recordType, false);
-      MetadataManager.INSTANCE.addDatatype(tCtx, datatype);
-
-      List<String> pKey = new ArrayList<String>();
-      pKey.add(FAILED_TUPLE_DATASET_KEY);
-      IDatasetDetails id = new InternalDatasetDetails(FileStructure.BTREE, PartitioningStrategy.HASH, pKey, pKey,
-              MetadataConstants.METADATA_NODEGROUP_NAME, false, GlobalConfig.DEFAULT_COMPACTION_POLICY_NAME,
-              GlobalConfig.DEFAULT_COMPACTION_POLICY_PROPERTIES);
-
-      Dataset dataset = new Dataset(FEEDS_METADATA_DV, FAILED_TUPLE_DATASET, FAILED_TUPLE_DATASET_TYPE, id,
-              new HashMap<String, String>(), DatasetType.INTERNAL, DatasetIdFactory.generateDatasetId(),
-              IMetadataEntity.PENDING_NO_OP);
-
-      MetadataManager.INSTANCE.addDataset(tCtx, dataset);
-      MetadataManager.INSTANCE.commitTransaction(tCtx);
-      initialized = true;
-    } catch (Exception e) {
-      if (tCtx != null) {
-          MetadataManager.INSTANCE.abortTransaction(tCtx);
-      }
-    } finally {
-      MetadataManager.INSTANCE.releaseWriteLatch();
-    }*/
 
     private String recordToString(ARecord record) {
         String[] fieldNames = record.getType().getFieldNames();

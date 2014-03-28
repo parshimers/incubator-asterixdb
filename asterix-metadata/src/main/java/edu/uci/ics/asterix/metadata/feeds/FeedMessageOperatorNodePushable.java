@@ -49,16 +49,16 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
 
     private static final Logger LOGGER = Logger.getLogger(FeedMessageOperatorNodePushable.class.getName());
 
-    private final FeedConnectionId feedConnectionId;
-    private final IFeedMessage feedMessage;
+    private final FeedConnectionId connectionId;
+    private final IFeedMessage message;
     private final int partition;
     private final IHyracksTaskContext ctx;
     private final IFeedManager feedManager;
 
-    public FeedMessageOperatorNodePushable(IHyracksTaskContext ctx, FeedConnectionId feedConnectionId,
+    public FeedMessageOperatorNodePushable(IHyracksTaskContext ctx, FeedConnectionId connectionId,
             IFeedMessage feedMessage, int partition, int nPartitions) {
-        this.feedConnectionId = feedConnectionId;
-        this.feedMessage = feedMessage;
+        this.connectionId = connectionId;
+        this.message = feedMessage;
         this.partition = partition;
         this.ctx = ctx;
         IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
@@ -70,9 +70,9 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
     public void initialize() throws HyracksDataException {
         try {
             writer.open();
-            switch (feedMessage.getMessageType()) {
+            switch (message.getMessageType()) {
                 case END:
-                    EndFeedMessage endFeedMessage = (EndFeedMessage) feedMessage;
+                    EndFeedMessage endFeedMessage = (EndFeedMessage) message;
 
                     switch (endFeedMessage.getEndMessageType()) {
                         case DISCONNECT_FEED:
@@ -112,17 +112,17 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
             LOGGER.info("Ending feed:" + endFeedMessage.getFeedConnectionId());
         }
         FeedRuntimeId runtimeId = null;
-        FeedRuntimeType subscribaleRuntimeType = ((EndFeedMessage) feedMessage).getSourceRuntimeType();
+        FeedRuntimeType subscribaleRuntimeType = ((EndFeedMessage) message).getSourceRuntimeType();
         if (endFeedMessage.isCompleteDisconnection()) {
             // subscribableRuntimeType represents the location at which it receives data
             switch (subscribaleRuntimeType) {
                 case INTAKE:
                 case COMPUTE:
                     BasicFeedRuntime feedRuntime = null;
-                    runtimeId = new FeedRuntimeId(feedConnectionId, FeedRuntimeType.COMPUTE_COLLECT, partition);
+                    runtimeId = new FeedRuntimeId(connectionId, FeedRuntimeType.COMPUTE_COLLECT, partition);
                     feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
                     if (feedRuntime == null) {
-                        runtimeId = new FeedRuntimeId(feedConnectionId, FeedRuntimeType.COLLECT, partition);
+                        runtimeId = new FeedRuntimeId(connectionId, FeedRuntimeType.COLLECT, partition);
                         feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
                     }
                     feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
@@ -142,7 +142,7 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                 case COMPUTE:
                     // feed could be primary or secondary, doesn't matter
                     FeedSubscribableRuntimeId feedSubscribableRuntimeId = new FeedSubscribableRuntimeId(
-                            feedConnectionId.getFeedId(), FeedRuntimeType.COMPUTE, partition);
+                            connectionId.getFeedId(), FeedRuntimeType.COMPUTE, partition);
                     ISubscribableRuntime feedRuntime = feedManager.getFeedSubscriptionManager().getSubscribableRuntime(
                             feedSubscribableRuntimeId);
                     DistributeFeedFrameWriter dWriter = (DistributeFeedFrameWriter) feedRuntime.getFeedFrameWriter();
@@ -179,7 +179,7 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                             LOGGER.info("PARTIAL UNSUBSCRIPTION of " + unsubscribingWriter);
                         }
                     } else {
-                        throw new HyracksDataException("Unable to unsubscribe!!!! " + feedConnectionId);
+                        throw new HyracksDataException("Unable to unsubscribe!!!! " + connectionId);
                     }
                     break;
             }
@@ -187,7 +187,7 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
         }
 
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Unsubscribed from feed :" + feedConnectionId);
+            LOGGER.info("Unsubscribed from feed :" + connectionId);
         }
     }
 }

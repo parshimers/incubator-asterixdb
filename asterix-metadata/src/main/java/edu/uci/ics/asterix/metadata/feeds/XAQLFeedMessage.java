@@ -38,7 +38,7 @@ public class XAQLFeedMessage extends FeedMessage {
 
     @Override
     public String toString() {
-        return messageType.name() + feedConnectionId + " [" + aql + "] ";
+        return messageType.name() + connectionId + " [" + aql + "] ";
     }
 
     public FeedConnectionId getConnectionId() {
@@ -53,9 +53,9 @@ public class XAQLFeedMessage extends FeedMessage {
     public String toJSON() throws JSONException {
         JSONObject obj = new JSONObject();
         obj.put("message-type", messageType.name());
-        obj.put("dataverse", feedConnectionId.getFeedId().getDataverse());
-        obj.put("feed", feedConnectionId.getFeedId().getFeedName());
-        obj.put("dataset", feedConnectionId.getDatasetName());
+        obj.put("dataverse", connectionId.getFeedId().getDataverse());
+        obj.put("feed", connectionId.getFeedId().getFeedName());
+        obj.put("dataset", connectionId.getDatasetName());
         obj.put("aql", aql);
         return obj.toString();
     }

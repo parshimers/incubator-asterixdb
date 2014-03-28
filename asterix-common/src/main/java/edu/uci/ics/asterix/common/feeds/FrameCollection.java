@@ -24,7 +24,7 @@ import java.util.List;
  */
 public class FrameCollection implements IFeedMemoryComponent {
 
-    /** A unique identifier for the memory component **/
+    /** A unique identifier for the feed memory component **/
     private final int componentId;
 
     /** A collection of frames (each being a ByteBuffer) **/
@@ -91,9 +91,4 @@ public class FrameCollection implements IFeedMemoryComponent {
         return "FrameCollection" + "[" + componentId + "]" + "(" + frames.size() + "/" + maxSize + ")";
     }
 
-    @Override
-    public DataBucket getDataBucket() {
-        // TODO Auto-generated method stub
-        return null;
-    }
 }

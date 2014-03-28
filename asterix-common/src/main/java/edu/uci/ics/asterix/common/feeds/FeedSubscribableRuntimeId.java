@@ -33,12 +33,12 @@ public class FeedSubscribableRuntimeId {
     @Override
     public boolean equals(Object o) {
         if (o == null || !(o instanceof FeedSubscribableRuntimeId)) {
-            return true;
+            return false;
         }
 
         FeedSubscribableRuntimeId otherId = (FeedSubscribableRuntimeId) o;
-        return feedId.equals(otherId.feedId) && feedRuntimeType.equals(otherId.feedRuntimeType)
-                && partition == otherId.partition;
+        return this == o
+                || (feedId.equals(otherId.feedId) && feedRuntimeType.equals(otherId.feedRuntimeType) && partition == otherId.partition);
     }
 
     @Override

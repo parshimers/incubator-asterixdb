@@ -19,7 +19,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -29,26 +28,23 @@ public class FeedRuntimeManager {
 
     private static Logger LOGGER = Logger.getLogger(FeedRuntimeManager.class.getName());
 
-    private final FeedConnectionId feedId;
-    private final IFeedConnectionManager feedConnectionManager;
+    private final FeedConnectionId connectionId;
+    private final IFeedConnectionManager connectionManager;
     private final Map<FeedRuntimeId, BasicFeedRuntime> feedRuntimes;
-
     private final ExecutorService executorService;
-    private final LinkedBlockingQueue<String> feedReportQueue;
 
-    public FeedRuntimeManager(FeedConnectionId feedId, IFeedConnectionManager feedConnectionManager) {
-        this.feedId = feedId;
-        feedRuntimes = new ConcurrentHashMap<FeedRuntimeId, BasicFeedRuntime>();
-        executorService = Executors.newCachedThreadPool();
-        feedReportQueue = new LinkedBlockingQueue<String>();
-        this.feedConnectionManager = feedConnectionManager;
+    public FeedRuntimeManager(FeedConnectionId connectionId, IFeedConnectionManager feedConnectionManager) {
+        this.connectionId = connectionId;
+        this.feedRuntimes = new ConcurrentHashMap<FeedRuntimeId, BasicFeedRuntime>();
+        this.executorService = Executors.newCachedThreadPool();
+        this.connectionManager = feedConnectionManager;
     }
 
     public void close() throws IOException {
         if (executorService != null) {
             executorService.shutdownNow();
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Shut down executor service for :" + feedId);
+                LOGGER.info("Shut down executor service for :" + connectionId);
             }
         }
     }
@@ -61,30 +57,15 @@ public class FeedRuntimeManager {
         feedRuntimes.put(runtimeId, feedRuntime);
     }
 
-    public void deregisterFeedRuntime(FeedRuntimeId runtimeId) {
+    public synchronized void deregisterFeedRuntime(FeedRuntimeId runtimeId) {
         feedRuntimes.remove(runtimeId);
         if (feedRuntimes.isEmpty()) {
-            synchronized (this) {
-                if (feedRuntimes.isEmpty()) {
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("De-registering feed");
-                    }
-                    feedConnectionManager.deregisterFeed(runtimeId.getFeedConnectionId());
-                }
-            }
+            connectionManager.deregisterFeed(runtimeId.getConnectionId());
         }
     }
 
     public ExecutorService getExecutorService() {
         return executorService;
-    }
-
-    public FeedConnectionId getFeedId() {
-        return feedId;
-    }
-
-    public LinkedBlockingQueue<String> getFeedReportQueue() {
-        return feedReportQueue;
     }
 
 }

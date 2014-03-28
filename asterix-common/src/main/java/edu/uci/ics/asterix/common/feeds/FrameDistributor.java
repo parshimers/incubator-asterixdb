@@ -50,7 +50,7 @@ public class FrameDistributor {
     private boolean enableShortCircuiting;
     private RoutingMode routingMode;
     private boolean spillToDiskRequired = false;
-    private final int frameSize;
+   // private final int frameSize;
 
     public static enum RoutingMode {
         IN_MEMORY_ROUTE,
@@ -86,7 +86,6 @@ public class FrameDistributor {
         this.memoryManager = memoryManager;
         this.enableShortCircuiting = enableShortCircuiting;
         this.registeredCollectors = new HashMap<IFrameWriter, FeedFrameCollector>();
-        this.frameSize = frameSize;
         distributionMode = DistributionMode.INACTIVE;
         routingMode = RoutingMode.IN_MEMORY_ROUTE;
         try {

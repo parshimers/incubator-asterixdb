@@ -15,7 +15,6 @@
 package edu.uci.ics.asterix.file;
 
 import java.util.List;
-import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
@@ -43,14 +42,12 @@ import edu.uci.ics.hyracks.dataflow.std.misc.NullSinkOperatorDescriptor;
  */
 public class FeedOperations {
 
-    private static Logger LOGGER = Logger.getLogger(FeedOperations.class.getName());
-
     /**
      * Builds the job spec for ingesting a (primary) feed from its external source via the feed adaptor.
      * 
      * @param primaryFeed
      * @param metadataProvider
-     * @return
+     * @return JobSpecification the Hyracks job specification for receiving data from external source
      * @throws Exception
      */
     public static JobSpecification buildFeedIntakeJobSpec(PrimaryFeed primaryFeed, AqlMetadataProvider metadataProvider)
@@ -105,15 +102,6 @@ public class FeedOperations {
     /**
      * Builds the job spec for sending message to an active feed to disconnect it from the
      * its source.
-     * 
-     * @param dataverseName
-     * @param feedName
-     * @param datasetName
-     * @param metadataProvider
-     * @param feedActivity
-     * @return
-     * @throws AsterixException
-     * @throws AlgebricksException
      */
     public static Triple<JobSpecification, Boolean, Boolean> buildDisconnectFeedJobSpec(
             AqlMetadataProvider metadataProvider, FeedConnectionId connectionId) throws AsterixException,
