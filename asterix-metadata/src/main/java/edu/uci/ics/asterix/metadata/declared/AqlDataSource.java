@@ -67,7 +67,7 @@ public abstract class AqlDataSource implements IDataSource<AqlSourceId> {
     }
 
     public String getDatasourceName() {
-        return id.getDataverseName();
+        return id.getDatasourceName();
     }
 
     public abstract IAType[] getSchemaTypes();
