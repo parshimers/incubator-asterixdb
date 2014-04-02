@@ -38,7 +38,7 @@ public class XAQLFeedMessage extends FeedMessage {
 
     @Override
     public String toString() {
-        return messageType.name() + connectionId + " [" + aql + "] ";
+        return messageType.name() + " " + connectionId + " [" + aql + "] ";
     }
 
     public FeedConnectionId getConnectionId() {

@@ -155,7 +155,7 @@ public class FeedFrameWriter implements IFeedFrameWriter {
                                 + ":\n" + e);
                     }
                 }
-                if (frames != null && frames.getCurrentSize() > 0) {
+                if (frames != null && frames.getTotalAllocation() > 0) {
                     Iterator<ByteBuffer> iterator = frames.getFrameCollectionIterator();
                     int tTuples = 0;
                     int nTuples = 0;

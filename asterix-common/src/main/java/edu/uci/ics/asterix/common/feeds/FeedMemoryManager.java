@@ -89,7 +89,7 @@ public class FeedMemoryManager implements IFeedMemoryManager {
 
     @Override
     public synchronized void releaseMemoryComponent(IFeedMemoryComponent memoryComponent) {
-        int delta = memoryComponent.getCurrentSize();
+        int delta = memoryComponent.getTotalAllocation();
         committed -= delta;
         memoryComponent.reset();
         if (LOGGER.isLoggable(Level.INFO)) {

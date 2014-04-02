@@ -139,7 +139,7 @@ public class FeedJoint implements IFeedJoint {
                         subscriptionRequest.getPolicy(), subscriptionRequest.getPolicyParameters(),
                         FeedSubscriber.Status.CREATED);
                 if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Submitted feed subscrtion request " + subscriptionRequest + " at feed joint " + this);
+                    LOGGER.info("Submitted feed subscription request " + subscriptionRequest + " at feed joint " + this);
                 }
                 subscribers.add(subscriber);
             } catch (Exception e) {

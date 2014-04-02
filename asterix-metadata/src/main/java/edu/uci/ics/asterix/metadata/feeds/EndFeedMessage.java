@@ -54,7 +54,7 @@ public class EndFeedMessage extends FeedMessage {
 
     @Override
     public String toString() {
-        return MessageType.END.name() + connectionId + " [" + sourceRuntimeType + "] ";
+        return MessageType.END.name() + "  " + connectionId + " [" + sourceRuntimeType + "] ";
     }
 
     public FeedRuntimeType getSourceRuntimeType() {

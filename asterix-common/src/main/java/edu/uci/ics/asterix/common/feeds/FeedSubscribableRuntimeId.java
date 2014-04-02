@@ -55,12 +55,4 @@ public class FeedSubscribableRuntimeId {
         return feedId;
     }
 
-    public int getPartition() {
-        return partition;
-    }
-
-    public FeedRuntimeType getFeedRuntimeType() {
-        return feedRuntimeType;
-    }
-
 }

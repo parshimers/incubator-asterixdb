@@ -14,17 +14,12 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.Stack;
 
 /**
  * Represents a pool of reusable {@link DataBucket}
  */
 public class DataBucketPool implements IFeedMemoryComponent {
-
-    private static final Logger LOGGER = Logger.getLogger(DataBucketPool.class.getName());
 
     /** A unique identifier for the memory component **/
     private final int componentId;
@@ -33,7 +28,7 @@ public class DataBucketPool implements IFeedMemoryComponent {
     private final IFeedMemoryManager memoryManager;
 
     /** A collection of available data buckets {@link DataBucket} **/
-    private final List<DataBucket> pool;
+    private final Stack<DataBucket> pool;
 
     /** The total number of data buckets {@link DataBucket} allocated **/
     private int totalAllocation;
@@ -43,7 +38,7 @@ public class DataBucketPool implements IFeedMemoryComponent {
     public DataBucketPool(int componentId, IFeedMemoryManager memoryManager, int size, int frameSize) {
         this.componentId = componentId;
         this.memoryManager = memoryManager;
-        this.pool = new ArrayList<DataBucket>();
+        this.pool = new Stack<DataBucket>();
         this.frameSize = frameSize;
         for (int i = 0; i < size; i++) {
             DataBucket bucket = new DataBucket(this);
@@ -53,10 +48,7 @@ public class DataBucketPool implements IFeedMemoryComponent {
     }
 
     public synchronized void returnDataBucket(DataBucket bucket) {
-        pool.add(bucket);
-        if (LOGGER.isLoggable(Level.FINE)) {
-            LOGGER.fine("returned data bucket " + this + " back to the pool");
-        }
+        pool.push(bucket);
     }
 
     public synchronized DataBucket getDataBucket() {
@@ -64,9 +56,8 @@ public class DataBucketPool implements IFeedMemoryComponent {
             if (!memoryManager.expandMemoryComponent(this)) {
                 return null;
             }
-
         }
-        return pool.remove(0);
+        return pool.pop();
     }
 
     @Override
@@ -75,7 +66,7 @@ public class DataBucketPool implements IFeedMemoryComponent {
     }
 
     @Override
-    public int getCurrentSize() {
+    public int getTotalAllocation() {
         return totalAllocation;
     }
 

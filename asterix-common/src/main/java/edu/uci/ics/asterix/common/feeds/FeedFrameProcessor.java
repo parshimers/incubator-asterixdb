@@ -76,6 +76,7 @@ public class FeedFrameProcessor {
                 bbis.setByteBuffer(fta.getBuffer(), start);
 
                 Object[] record = new Object[recordDesc.getFieldCount()];
+
                 for (int i = 0; i < record.length; ++i) {
                     Object instance = recordDesc.getFields()[i].deserialize(di);
                     if (i == 0) {
@@ -83,7 +84,9 @@ public class FeedFrameProcessor {
                         feedManager.getFeedMetadataManager().logTuple(feedConnectionId, tuple, e.getMessage(),
                                 feedManager);
                     } else {
-                        System.out.print(", " + String.valueOf(instance));
+                        if (LOGGER.isLoggable(Level.WARNING)) {
+                            LOGGER.warning(", " + String.valueOf(instance));
+                        }
                     }
                 }
 

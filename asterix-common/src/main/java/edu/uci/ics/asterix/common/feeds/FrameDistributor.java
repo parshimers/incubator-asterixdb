@@ -33,6 +33,8 @@ public class FrameDistributor {
 
     private static final Logger LOGGER = Logger.getLogger(FrameDistributor.class.getName());
 
+    private static final long MEMORY_AVAILABLE_POLL_PERIOD = 1000;
+
     private final FeedId feedId;
     private final FeedRuntimeType feedRuntimeType;
     private final int partition;
@@ -47,10 +49,9 @@ public class FrameDistributor {
     private IFeedFrameHandler inMemoryHandler;
     private IFeedFrameHandler diskSpillHandler;
     private IFeedFrameHandler discardHandler;
-    private boolean enableShortCircuiting;
+    private boolean enableSynchronousTransfer;
     private RoutingMode routingMode;
     private boolean spillToDiskRequired = false;
-   // private final int frameSize;
 
     public static enum RoutingMode {
         IN_MEMORY_ROUTE,
@@ -79,12 +80,13 @@ public class FrameDistributor {
     }
 
     public FrameDistributor(FeedId feedId, FeedRuntimeType feedRuntimeType, int partition,
-            boolean enableShortCircuiting, IFeedMemoryManager memoryManager, int frameSize) throws HyracksDataException {
+            boolean enableSynchronousTransfer, IFeedMemoryManager memoryManager, int frameSize)
+            throws HyracksDataException {
         this.feedId = feedId;
         this.feedRuntimeType = feedRuntimeType;
         this.partition = partition;
         this.memoryManager = memoryManager;
-        this.enableShortCircuiting = enableShortCircuiting;
+        this.enableSynchronousTransfer = enableSynchronousTransfer;
         this.registeredCollectors = new HashMap<IFrameWriter, FeedFrameCollector>();
         distributionMode = DistributionMode.INACTIVE;
         routingMode = RoutingMode.IN_MEMORY_ROUTE;
@@ -98,10 +100,29 @@ public class FrameDistributor {
         } catch (IOException ioe) {
             throw new HyracksDataException(ioe);
         }
+
     }
 
     public void notifyEndOfFeed() {
         DataBucket bucket = getDataBucket();
+        if (bucket != null) {
+            sendEndOfFeedDataBucket(bucket);
+        } else {
+            while (bucket == null) {
+                try {
+                    Thread.sleep(MEMORY_AVAILABLE_POLL_PERIOD);
+                    bucket = getDataBucket();
+                } catch (InterruptedException e) {
+                    break;
+                }
+            }
+            if (bucket != null) {
+                sendEndOfFeedDataBucket(bucket);
+            }
+        }
+    }
+
+    private void sendEndOfFeedDataBucket(DataBucket bucket) {
         bucket.setContentType(DataBucket.ContentType.EOD);
         processMessage(bucket);
         if (LOGGER.isLoggable(Level.INFO)) {
@@ -113,7 +134,7 @@ public class FrameDistributor {
         DistributionMode currentMode = distributionMode;
         switch (distributionMode) {
             case INACTIVE:
-                if (!enableShortCircuiting) {
+                if (!enableSynchronousTransfer) {
                     pool = (DataBucketPool) memoryManager.getMemoryComponent(Type.POOL);
                     frameCollector.start();
                 }
@@ -158,11 +179,23 @@ public class FrameDistributor {
                     loneCollector.setState(FeedFrameCollector.State.TRANSITION);
                     loneCollector.closeCollector();
                     memoryManager.releaseMemoryComponent(pool);
+                    spillToDiskRequired = loneCollector.getFeedPolicyAccessor().spillToDiskOnCongestion();
+                } else {
+                    if (!spillToDiskRequired) {
+                        for (FeedFrameCollector collector : registeredCollectors.values()) {
+                            spillToDiskRequired = spillToDiskRequired
+                                    || collector.getFeedPolicyAccessor().spillToDiskOnCongestion();
+                            if (spillToDiskRequired) {
+                                break;
+                            }
+                        }
+                    }
                 }
                 break;
             case SINGLE:
                 frameCollector.closeCollector();
                 setMode(DistributionMode.INACTIVE);
+                spillToDiskRequired = false;
                 break;
 
         }
@@ -218,7 +251,7 @@ public class FrameDistributor {
                 FeedFrameCollector collector = registeredCollectors.values().iterator().next();
                 switch (collector.getState()) {
                     case ACTIVE:
-                        if (enableShortCircuiting) {
+                        if (enableSynchronousTransfer) {
                             collector.nextFrame(frame); // processing is synchronous
                         } else {
                             handleDataBucket(frame);
@@ -361,7 +394,7 @@ public class FrameDistributor {
                             + feedId);
                 }
                 setMode(DistributionMode.INACTIVE);
-                if (!enableShortCircuiting) {
+                if (!enableSynchronousTransfer) {
                     notifyEndOfFeed(); // send EOD Data Bucket
                     waitForCollectorsToFinish();
                 }

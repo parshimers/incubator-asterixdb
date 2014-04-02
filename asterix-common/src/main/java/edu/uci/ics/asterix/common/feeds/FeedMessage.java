@@ -38,9 +38,4 @@ public abstract class FeedMessage implements IFeedMessage {
         return connectionId;
     }
 
-    @Override
-    public String toString() {
-        return messageType + "[" + connectionId + "]";
-    }
-
 }

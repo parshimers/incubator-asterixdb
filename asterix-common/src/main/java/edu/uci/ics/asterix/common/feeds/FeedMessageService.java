@@ -44,6 +44,7 @@ public class FeedMessageService implements IFeedMessageService {
     }
 
     public void start() throws Exception {
+
         executor.execute(mesgHandler);
     }
 
@@ -92,9 +93,9 @@ public class FeedMessageService implements IFeedMessageService {
                         synchronized (lock) {
                             cfmSocket.getOutputStream().write(message.getBytes());
                             cfmSocket.getOutputStream().write(EOL);
-                            if (LOGGER.isLoggable(Level.INFO)) {
-                                LOGGER.info(" Sent message " + message + " to CentralFeedManager ");
-                            }
+                        }
+                        if (LOGGER.isLoggable(Level.INFO)) {
+                            LOGGER.info(" Sent message " + message + " to CentralFeedManager ");
                         }
                     }
                 } else {

@@ -61,7 +61,7 @@ public class FrameCollection implements IFeedMemoryComponent {
     }
 
     @Override
-    public int getCurrentSize() {
+    public int getTotalAllocation() {
         return frames.size();
     }
 

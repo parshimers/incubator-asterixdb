@@ -36,7 +36,7 @@ public interface IFeedMemoryComponent {
     public Type getType();
 
     /** Returns the current size (number of allocated frames) of the component. **/
-    public int getCurrentSize();
+    public int getTotalAllocation();
 
     /** Expand the component with allocation of delta frames **/
     public void expand(int delta);
