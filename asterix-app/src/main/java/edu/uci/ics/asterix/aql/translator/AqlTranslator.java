@@ -2127,7 +2127,6 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
             return queryResult;
         } catch (Exception e) {
-            e.printStackTrace();
             if (bActiveTxn) {
                 abort(e, e, mdTxnCtx);
             }

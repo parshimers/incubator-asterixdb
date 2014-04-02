@@ -92,7 +92,7 @@ public class CCApplicationEntryPoint implements ICCApplicationEntryPoint {
         feedServer.start();
         centralFeedManager = CentralFeedManager.getInstance();
         centralFeedManager.start();
-        
+
         ccAppCtx.addClusterLifecycleListener(ClusterLifecycleListener.INSTANCE);
     }
 

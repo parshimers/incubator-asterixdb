@@ -107,12 +107,12 @@ public final class MetadataRecordTypes {
 
     public static final int FEED_POLICY_ARECORD_DATAVERSE_NAME_FIELD_INDEX = 0;
     public static final int FEED_POLICY_ARECORD_POLICY_NAME_FIELD_INDEX = 1;
-    public static final int FEED_POLICY_ARECORD_DESCRIPTION_FIELD_INDEX = 2;
+    public static final int FEED_POLICY_ARECORD_POLICY_DESCRIPTION_FIELD_INDEX = 2;
     public static final int FEED_POLICY_ARECORD_PROPERTIES_FIELD_INDEX = 3;
 
     private static ARecordType createFeedPolicyRecordType() throws AsterixException {
         AUnorderedListType listPropertiesType = new AUnorderedListType(POLICY_PARAMS_RECORDTYPE, null);
-        String[] fieldNames = { "DataverseName", "PolicyName", "Description", "Properties" };
+        String[] fieldNames = { "DataverseName", "PolicyName", "PolicyDescription", "Properties" };
         IAType[] fieldTypes = { BuiltinType.ASTRING, BuiltinType.ASTRING, BuiltinType.ASTRING, listPropertiesType };
         return new ARecordType("FeedPolicyRecordType", fieldNames, fieldTypes, true);
     }

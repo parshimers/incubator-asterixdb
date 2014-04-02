@@ -366,7 +366,8 @@ public class TestsUtils {
 
         List<CompilationUnit> cUnits = testCaseCtx.getTestCase().getCompilationUnit();
         for (CompilationUnit cUnit : cUnits) {
-            LOGGER.info("Starting [TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName() + " ... ");
+            System.out.println("Starting [TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName()
+                    + " ... ");
             testFileCtxs = testCaseCtx.getTestFiles(cUnit);
             expectedResultFileCtxs = testCaseCtx.getExpectedResultFiles(cUnit);
 
@@ -413,8 +414,8 @@ public class TestsUtils {
 
                             TestsUtils.runScriptAndCompareWithResult(testFile, new PrintWriter(System.err),
                                     expectedResultFile, actualFile);
-                            LOGGER.info("[TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName()
-                                    + " PASSED ");
+                            System.out.println("[TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/"
+                                    + cUnit.getName() + " PASSED ");
 
                             queryCount++;
                             break;
@@ -437,11 +438,11 @@ public class TestsUtils {
                             qarFile.getParentFile().mkdirs();
                             TestsUtils.writeResultsToFile(qarFile, resultStream);
 
-                            TestsUtils.runScriptAndCompareWithResult(testFile, new PrintWriter(System.err),
-                                    qbcFile, qarFile);
+                            TestsUtils.runScriptAndCompareWithResult(testFile, new PrintWriter(System.err), qbcFile,
+                                    qarFile);
 
-                            LOGGER.info("[TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/"
-                                    + cUnit.getName() + " PASSED ");
+                            LOGGER.info("[TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName()
+                                    + " PASSED ");
                             break;
                         case "txneu": //eu represents erroneous update
                             try {
