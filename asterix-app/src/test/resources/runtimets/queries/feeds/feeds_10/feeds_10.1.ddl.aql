@@ -23,13 +23,8 @@ create type TweetType as closed {
 create dataset Tweets(TweetType)
 primary key id;
 
-create function echo ($x) {
-$x
-}
-
 create index usernameIdx on Tweets(username) type btree;
 
 create feed TweetFeed
 using file_feed
-(("fs"="hdfs"),("hdfs"="hdfs://127.0.0.1:31888"),("path"="/asterix/obamatweets.adm"),("format"="adm"),("input-format"="text-input-format"),("type-name"="TweetType"),("tuple-interval"="10"))
-apply function echo;
+(("fs"="hdfs"),("hdfs"="hdfs://127.0.0.1:31888"),("path"="/asterix/obamatweets.adm"),("format"="adm"),("input-format"="text-input-format"),("type-name"="TweetType"),("tuple-interval"="10"));

@@ -91,7 +91,7 @@
 		<dependency>
 			<groupId>edu.uci.ics.asterix</groupId>
 			<artifactId>asterix-common</artifactId>
-			<version>0.8.5-SNAPSHOT</version>
+			<version>0.8.6-SNAPSHOT</version>
 			<scope>compile</scope>
 		</dependency>
 		<dependency>

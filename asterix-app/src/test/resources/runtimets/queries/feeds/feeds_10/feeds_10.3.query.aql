@@ -9,6 +9,8 @@
  */
 use dataverse feeds_10;
 
+count(
 for $x in dataset('Tweets')
 order by $x.id
 return $x
+)
