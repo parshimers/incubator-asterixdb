@@ -49,7 +49,7 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
     private static final Logger LOGGER = Logger.getLogger(FeedCollectOperatorDescriptor.class.getName());
 
     /** The type associated with the ADM data output from the feed adaptor */
-    private final IAType outptuType;
+    private final IAType outputType;
 
     /** unique identifier for a feed instance. */
     private final FeedConnectionId feedConnectionId;
@@ -71,7 +71,7 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
             SubscriptionLocation subscriptionLocation) {
         super(spec, 0, 1);
         recordDescriptors[0] = rDesc;
-        this.outptuType = atype;
+        this.outputType = atype;
         this.feedConnectionId = feedConnectionId;
         this.feedPolicyProperties = feedPolicyProperties;
         this.sourceFeedId = sourceFeedId;
@@ -135,7 +135,7 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
     }
 
     public IAType getOutputType() {
-        return outptuType;
+        return outputType;
     }
 
     public RecordDescriptor getRecordDescriptor() {

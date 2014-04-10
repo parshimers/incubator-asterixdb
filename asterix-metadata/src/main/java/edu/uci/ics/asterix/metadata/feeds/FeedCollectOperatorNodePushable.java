@@ -132,7 +132,7 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
     }
 
     private void handleCompleteConnection() throws Exception {
-        FeedRuntimeId runtimeId = new FeedRuntimeId(feedConnectionId, FeedRuntimeType.COLLECT, partition);
+        FeedRuntimeId runtimeId = new FeedRuntimeId(feedConnectionId, FeedRuntimeType.COLLECT, FeedRuntimeId.DEFAULT_OPERAND_ID, partition);
         collectRuntime = (CollectionRuntime) feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
         if (collectRuntime == null) {
             feedFrameWriter = new FeedFrameWriter(ctx, writer, this, feedConnectionId, policyEnforcer, nodeId,

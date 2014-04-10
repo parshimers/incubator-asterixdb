@@ -23,7 +23,8 @@ public interface IFeedRuntime {
         COMPUTE_COLLECT,
         COMPUTE,
         STORE,
-        COMMIT
+        COMMIT,
+        OTHER
     }
 
     /**

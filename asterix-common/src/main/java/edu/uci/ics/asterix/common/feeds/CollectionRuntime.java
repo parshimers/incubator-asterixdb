@@ -30,7 +30,7 @@ public class CollectionRuntime extends BasicFeedRuntime implements ISubscriberRu
 
     public CollectionRuntime(FeedConnectionId feedId, int partition, IFeedFrameWriter feedFrameWriter,
             ISubscribableRuntime sourceRuntime, Map<String, String> feedPolicy, FeedRuntimeType runtimeType) {
-        super(feedId, partition, feedFrameWriter, runtimeType);
+        super(feedId, partition, feedFrameWriter, runtimeType, FeedRuntimeId.DEFAULT_OPERAND_ID);
         this.sourceRuntime = sourceRuntime;
         this.feedPolicy = feedPolicy;
     }

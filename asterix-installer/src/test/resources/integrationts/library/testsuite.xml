@@ -20,6 +20,16 @@
         <output-dir compare="Text">getCapital</output-dir>
       </compilation-unit>
     </test-case>
+    <test-case FilePath="library-functions">
+      <compilation-unit name="listConcat">
+        <output-dir compare="Text">listConcat</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="library-functions">
+      <compilation-unit name="sumProduct">
+        <output-dir compare="Text">sumProduct</output-dir>
+      </compilation-unit>
+    </test-case>
   </test-group>
   <test-group name="library-metadata">
     <test-case FilePath="library-metadata">
@@ -42,6 +52,11 @@
     <test-case FilePath="library-feeds" category="slow">
       <compilation-unit name="feed_ingest">
         <output-dir compare="Text">feed_ingest</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="library-feeds" category="slow">
+      <compilation-unit name="feed_ingest_02">
+        <output-dir compare="Text">feed_ingest_02</output-dir>
       </compilation-unit>
     </test-case>
   </test-group>

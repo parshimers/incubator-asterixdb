@@ -4,12 +4,11 @@
                   The synthetic feed simulator uses the Social-Data generator to generate data and simulate a feed.
                   The feed lasts a configured duration with data arriving at a configured rate (tweets per second).
                   Verify the existence of data after the feed finishes.
- * Issue        : 711
  * Expected Res : Success
  * Date         : 8th Feb 2014
  */
   
-use dataverse feeds;
+use dataverse feeds_07;
 
 set wait-for-completion-feed "true";
 

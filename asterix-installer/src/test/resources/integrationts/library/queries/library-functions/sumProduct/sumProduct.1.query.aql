@@ -1,0 +1,5 @@
+use dataverse externallibtest;
+
+let $x:=3
+let $y:=4
+return testlib#sumproduct(3,4)

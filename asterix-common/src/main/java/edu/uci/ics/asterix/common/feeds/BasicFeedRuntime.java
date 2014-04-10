@@ -30,8 +30,8 @@ public class BasicFeedRuntime implements IFeedRuntime {
     protected IFeedFrameWriter frameWriter;
 
     public BasicFeedRuntime(FeedConnectionId connectionId, int partition, IFeedFrameWriter frameWriter,
-            FeedRuntimeType runtimeType) {
-        this.feedRuntimeId = new FeedRuntimeId(connectionId, runtimeType, partition);
+            FeedRuntimeType runtimeType, String operandId) {
+        this.feedRuntimeId = new FeedRuntimeId(connectionId, runtimeType, operandId, partition);
         this.frameWriter = frameWriter;
     }
 
@@ -97,7 +97,7 @@ public class BasicFeedRuntime implements IFeedRuntime {
 
     public static class FeedRuntimeId {
 
-        public static final String DEFAULT_OPERATION_ID = "N/A";
+        public static final String DEFAULT_OPERAND_ID = "N/A";
 
         private final FeedRuntimeType runtimeType;
         private final FeedConnectionId connectionId;
@@ -111,10 +111,6 @@ public class BasicFeedRuntime implements IFeedRuntime {
             this.connectionId = connectionId;
             this.partition = partition;
             this.hashCode = (connectionId + "[" + partition + "]" + runtimeType).hashCode();
-        }
-
-        public FeedRuntimeId(FeedConnectionId connectionId, FeedRuntimeType runtimeType, int partition) {
-            this(connectionId, runtimeType, DEFAULT_OPERATION_ID, partition);
         }
 
         @Override

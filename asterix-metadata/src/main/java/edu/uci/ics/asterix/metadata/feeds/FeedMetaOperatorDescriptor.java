@@ -36,6 +36,12 @@ import edu.uci.ics.asterix.common.feeds.IFeedRuntime;
 import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.ISubscribableRuntime;
 import edu.uci.ics.asterix.common.feeds.SubscribableRuntime;
+import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
+import edu.uci.ics.hyracks.algebricks.runtime.base.IPushRuntimeFactory;
+import edu.uci.ics.hyracks.algebricks.runtime.base.IScalarEvaluator;
+import edu.uci.ics.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
+import edu.uci.ics.hyracks.algebricks.runtime.operators.meta.AlgebricksMetaOperatorDescriptor;
+import edu.uci.ics.hyracks.algebricks.runtime.operators.std.AssignRuntimeFactory;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.IActivity;
@@ -260,6 +266,9 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                         case STORE:
                             registerBasicFeedRuntime(mWriter);
                             break;
+                        case OTHER:
+                            registerOtherRuntime(mWriter);
+                            break;
                         case COLLECT:
                         case COMPUTE_COLLECT:
                         case INTAKE:
@@ -281,6 +290,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                                 coreOperatorNodePushable.setOutputFrameWriter(0, mWriter, recordDesc);
                             }
                             break;
+                        case OTHER:
                         case COMMIT:
                         case STORE:
                             coreOperatorNodePushable.setOutputFrameWriter(0, mWriter, recordDesc);
@@ -296,6 +306,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                 coreOperatorNodePushable.open();
                 fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
             } catch (Exception e) {
+                e.printStackTrace();
                 if (LOGGER.isLoggable(Level.SEVERE)) {
                     LOGGER.severe("Unable to initialize feed operator " + runtimeType + " [" + partition + "]");
                 }
@@ -332,12 +343,16 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
         }
 
         private void registerBasicFeedRuntime(IFeedFrameWriter mWriter) throws Exception {
-            feedRuntime = new BasicFeedRuntime(feedConnectionId, partition, mWriter, runtimeType);
+            feedRuntime = new BasicFeedRuntime(feedConnectionId, partition, mWriter, runtimeType, operandId);
             feedManager.getFeedConnectionManager().registerFeedRuntime((BasicFeedRuntime) feedRuntime);
             coreOperatorNodePushable.setOutputFrameWriter(0, mWriter, recordDesc);
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Registered basic feed runtime " + feedRuntime);
             }
+        }
+
+        private void registerOtherRuntime(IFeedFrameWriter mWriter) throws Exception {
+            coreOperatorNodePushable.setOutputFrameWriter(0, mWriter, recordDesc);
         }
 
         private IFeedFrameWriter registerSubscribableRuntime(IFeedFrameWriter feedFrameWriter) throws Exception {
@@ -407,23 +422,25 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
                 frameDistributor.close();
             }
             coreOperatorNodePushable.close();
-            switch (feedRuntime.getFeedRuntimeType()) {
-                case STORE:
-                case COMMIT:
-                case COLLECT:
-                    feedManager.getFeedConnectionManager().deRegisterFeedRuntime(
-                            ((BasicFeedRuntime) feedRuntime).getFeedRuntimeId());
-                    break;
-                case COMPUTE:
-                    if (enableSubscriptionMode) {
-                        FeedSubscribableRuntimeId runtimeId = ((ISubscribableRuntime) feedRuntime)
-                                .getFeedSubscribableRuntimeId();
-                        feedManager.getFeedSubscriptionManager().deregisterFeedSubscribableRuntime(runtimeId);
-                    } else {
+            if (feedRuntime != null) {
+                switch (feedRuntime.getFeedRuntimeType()) {
+                    case STORE:
+                    case COMMIT:
+                    case COLLECT:
                         feedManager.getFeedConnectionManager().deRegisterFeedRuntime(
                                 ((BasicFeedRuntime) feedRuntime).getFeedRuntimeId());
-                    }
-                    break;
+                        break;
+                    case COMPUTE:
+                        if (enableSubscriptionMode) {
+                            FeedSubscribableRuntimeId runtimeId = ((ISubscribableRuntime) feedRuntime)
+                                    .getFeedSubscribableRuntimeId();
+                            feedManager.getFeedSubscriptionManager().deregisterFeedSubscribableRuntime(runtimeId);
+                        } else {
+                            feedManager.getFeedConnectionManager().deRegisterFeedRuntime(
+                                    ((BasicFeedRuntime) feedRuntime).getFeedRuntimeId());
+                        }
+                        break;
+                }
             }
         }
 

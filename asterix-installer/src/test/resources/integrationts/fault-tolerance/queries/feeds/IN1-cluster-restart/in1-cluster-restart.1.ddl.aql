@@ -12,7 +12,7 @@ create type TwitterUserType as closed {
 } 
 
 create type TweetMessageType as closed {
-	tweetid: int64,
+	tweetid: string,
         user: TwitterUserType,
         sender-location: point,
 	send-time: datetime,

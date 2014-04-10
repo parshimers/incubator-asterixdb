@@ -525,7 +525,7 @@ CreateFeedPolicyStatement FeedPolicySpecification() throws ParseException:
   String policyName = null;  
   String basePolicyName = null; 
   String sourcePolicyFile = null;
-  String description = null;
+  String definition = null;
   boolean ifNotExists = false;
   Map<String,String> properties = null;
   CreateFeedPolicyStatement cfps = null;
@@ -534,14 +534,14 @@ CreateFeedPolicyStatement FeedPolicySpecification() throws ParseException:
   (
     "ingestion" "policy"  policyName = Identifier() ifNotExists = IfNotExists()
       "from" 
-      ("policy" basePolicyName = Identifier() properties = Configuration() ("description" description = StringLiteral())?  
+      ("policy" basePolicyName = Identifier() properties = Configuration() ("definition" definition = StringLiteral())?  
       {
         cfps = new CreateFeedPolicyStatement(policyName,
-                                   basePolicyName, properties, description, ifNotExists);
+                                   basePolicyName, properties, definition, ifNotExists);
       }
-     | "path" sourcePolicyFile = Identifier() ("description" description = StringLiteral())?  
+     | "path" sourcePolicyFile = Identifier() ("definition" definition = StringLiteral())?  
        {
-        cfps = new CreateFeedPolicyStatement(policyName, sourcePolicyFile, description, ifNotExists);
+        cfps = new CreateFeedPolicyStatement(policyName, sourcePolicyFile, definition, ifNotExists);
        }
      ) 
        

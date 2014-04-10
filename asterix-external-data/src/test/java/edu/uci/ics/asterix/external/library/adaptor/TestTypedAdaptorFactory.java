@@ -30,6 +30,8 @@ import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 
 public class TestTypedAdaptorFactory implements ITypedAdapterFactory {
 
+    private static final long serialVersionUID = 1L;
+
     public static final String NAME = "test_typed_adaptor";
 
     private static ARecordType adapterOutputType = initOutputType();

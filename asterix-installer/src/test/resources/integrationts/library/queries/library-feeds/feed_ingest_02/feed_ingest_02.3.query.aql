@@ -1,0 +1,13 @@
+/*
+ * Description  : Create a feed (containing tweets) from the contents of  a file using a file_feed adaptor.
+                  Apply pre-processing on each tweet to extract hash-tags and populate them as an additional attribute (unordered list) in each tweet.
+                  Verify the contents of the target dataset after the ingestion is over.
+ * Expected Res : Success
+ * Date         : 7th Apr 2014
+ */
+
+use dataverse feeds_ingest_02;
+
+for $x in dataset('RichTweets')
+order by $x.tweetid
+return $x

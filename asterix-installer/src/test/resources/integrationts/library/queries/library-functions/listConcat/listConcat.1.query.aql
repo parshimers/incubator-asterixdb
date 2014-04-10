@@ -1,0 +1,4 @@
+use dataverse externallibtest;
+
+let $x:=["AsterixDB:", "An", "Open", "Source", "Scalable", "BDMS"]
+return testlib#listConcat($x)

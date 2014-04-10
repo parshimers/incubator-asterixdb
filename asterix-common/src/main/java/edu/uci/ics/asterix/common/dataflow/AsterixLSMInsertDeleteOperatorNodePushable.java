@@ -81,11 +81,29 @@ public class AsterixLSMInsertDeleteOperatorNodePushable extends LSMIndexInsertUp
                     }
                 }
             }
-            System.arraycopy(buffer.array(), 0, writeBuffer.array(), 0, buffer.capacity());
-            FrameUtils.flushFrame(writeBuffer, writer);
         } catch (Exception e) {
             e.printStackTrace();
             throw new FrameDataException(i, e);
+        } finally {
+            boolean success = i == tupleCount;
+            if (!success) {
+                if (LOGGER.isLoggable(Level.WARNING)) {
+                    LOGGER.warning("Exception amidst frame processing, will process first " + i + " tuples");
+                }
+                FrameTupleAppender appender = new FrameTupleAppender(ctx.getFrameSize());
+                appender.reset(writeBuffer, true);
+                boolean pendingTuples = i > 0;
+                for (int j = 0; j < i; j++) {
+                    appender.append(accessor, j);
+                }
+                if (pendingTuples) {
+                    FrameUtils.flushFrame(writeBuffer, writer);
+                }
+            } else {
+                System.arraycopy(buffer.array(), 0, writeBuffer.array(), 0, buffer.capacity());
+                FrameUtils.flushFrame(writeBuffer, writer);
+            }
+
         }
     }
 

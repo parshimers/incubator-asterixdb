@@ -9,7 +9,7 @@
  * Date         : 8th Feb 2014
  */
 
-use dataverse feeds;
+use dataverse feeds_08;
 
 let $totalTweets:=count(
 for $x in dataset('SyntheticTweets')

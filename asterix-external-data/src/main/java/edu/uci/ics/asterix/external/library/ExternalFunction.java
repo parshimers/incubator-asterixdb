@@ -77,7 +77,7 @@ public abstract class ExternalFunction implements IExternalFunction {
         for (int i = 0; i < evaluatorFactories.length; i++) {
             inputVal.reset();
             argumentEvaluators[i].evaluate(tuple);
-            functionHelper.setArgument(i, inputVal.getByteArray());
+            functionHelper.setArgument(i, inputVal);
         }
     }
 

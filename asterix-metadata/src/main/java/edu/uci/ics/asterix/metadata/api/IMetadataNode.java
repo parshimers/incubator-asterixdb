@@ -686,4 +686,14 @@ public interface IMetadataNode extends Remote, Serializable {
     public void dropFeedPolicy(JobId jobId, String dataverseName, String policyName) throws MetadataException,
             RemoteException;
 
+    /**
+     * @param jobId
+     * @param dataverse
+     * @return
+     * @throws MetadataException
+     * @throws RemoteException
+     */
+    public List<FeedPolicy> getDataversePolicies(JobId jobId, String dataverse) throws MetadataException,
+            RemoteException;
+
 }

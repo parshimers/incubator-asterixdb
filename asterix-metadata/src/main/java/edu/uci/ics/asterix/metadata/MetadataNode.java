@@ -369,6 +369,14 @@ public class MetadataNode implements IMetadataNode {
                 }
             }
 
+            List<FeedPolicy> feedPolicies = getDataversePolicies(jobId, dataverseName);
+            if (feedPolicies != null && feedPolicies.size() > 0) {
+                // Drop all feed ingestion policies in this dataverse.
+                for (FeedPolicy feedPolicy : feedPolicies) {
+                    dropFeedPolicy(jobId, dataverseName, feedPolicy.getPolicyName());
+                }
+            }
+
             // Delete the dataverse entry from the 'dataverse' dataset.
             ITupleReference searchKey = createTuple(dataverseName);
             // As a side effect, acquires an S lock on the 'dataverse' dataset
@@ -1154,16 +1162,10 @@ public class MetadataNode implements IMetadataNode {
             throw new MetadataException("Cannot drop adapter '" + adapter + "' because it doesn't exist.");
         }
         try {
-            // Delete entry from the 'Adapter' dataset.
             ITupleReference searchKey = createTuple(dataverseName, adapterName);
-            // Searches the index for the tuple to be deleted. Acquires an S
-            // lock on the 'Adapter' dataset.
             ITupleReference datasetTuple = getTupleToBeDeleted(jobId,
                     MetadataPrimaryIndexes.DATASOURCE_ADAPTER_DATASET, searchKey);
             deleteTupleFromIndex(jobId, MetadataPrimaryIndexes.DATASOURCE_ADAPTER_DATASET, datasetTuple);
-
-            // TODO: Change this to be a BTree specific exception, e.g.,
-            // BTreeKeyDoesNotExistException.
         } catch (TreeIndexException e) {
             throw new MetadataException("Cannot drop adapter '" + adapterName, e);
         } catch (Exception e) {
@@ -1265,25 +1267,10 @@ public class MetadataNode implements IMetadataNode {
     @Override
     public void dropLibrary(JobId jobId, String dataverseName, String libraryName) throws MetadataException,
             RemoteException {
-        Library library;
         try {
-            library = getLibrary(jobId, dataverseName, libraryName);
-        } catch (Exception e) {
-            throw new MetadataException(e);
-        }
-        if (library == null) {
-            throw new MetadataException("Cannot drop library '" + library + "' because it doesn't exist.");
-        }
-        try {
-            // Delete entry from the 'Library' dataset.
             ITupleReference searchKey = createTuple(dataverseName, libraryName);
-            // Searches the index for the tuple to be deleted. Acquires an S
-            // lock on the 'Adapter' dataset.
             ITupleReference datasetTuple = getTupleToBeDeleted(jobId, MetadataPrimaryIndexes.LIBRARY_DATASET, searchKey);
             deleteTupleFromIndex(jobId, MetadataPrimaryIndexes.LIBRARY_DATASET, datasetTuple);
-
-            // TODO: Change this to be a BTree specific exception, e.g.,
-            // BTreeKeyDoesNotExistException.
         } catch (TreeIndexException e) {
             throw new MetadataException("Cannot drop library '" + libraryName, e);
         } catch (Exception e) {
@@ -1487,16 +1474,23 @@ public class MetadataNode implements IMetadataNode {
             ITupleReference searchKey = createTuple(dataverseName, policyName);
             ITupleReference tuple = getTupleToBeDeleted(jobId, MetadataPrimaryIndexes.FEED_POLICY_DATASET, searchKey);
             deleteTupleFromIndex(jobId, MetadataPrimaryIndexes.FEED_POLICY_DATASET, tuple);
-
-            List<ITupleReference> tuplesToBeDeleted = getTuplesToBeDeleted(jobId,
-                    MetadataPrimaryIndexes.FEED_POLICY_DATASET, searchKey);
-            if (tuplesToBeDeleted != null && !tuplesToBeDeleted.isEmpty()) {
-                for (ITupleReference t : tuplesToBeDeleted) {
-                    deleteTupleFromIndex(jobId, MetadataPrimaryIndexes.FEED_POLICY_DATASET, t);
-                }
-            }
         } catch (TreeIndexException e) {
             throw new MetadataException("Unknown feed policy " + policyName, e);
+        } catch (Exception e) {
+            throw new MetadataException(e);
+        }
+    }
+
+    @Override
+    public List<FeedPolicy> getDataversePolicies(JobId jobId, String dataverse) throws MetadataException,
+            RemoteException {
+        try {
+            ITupleReference searchKey = createTuple(dataverse);
+            FeedPolicyTupleTranslator tupleReaderWriter = new FeedPolicyTupleTranslator(false);
+            IValueExtractor<FeedPolicy> valueExtractor = new MetadataEntityValueExtractor<FeedPolicy>(tupleReaderWriter);
+            List<FeedPolicy> results = new ArrayList<FeedPolicy>();
+            searchIndex(jobId, MetadataPrimaryIndexes.FEED_POLICY_DATASET, searchKey, valueExtractor, results);
+            return results;
         } catch (Exception e) {
             throw new MetadataException(e);
         }

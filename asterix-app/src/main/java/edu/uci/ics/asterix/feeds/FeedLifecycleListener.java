@@ -84,8 +84,6 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
     private final LinkedBlockingQueue<Message> jobEventInbox;
     private final LinkedBlockingQueue<IClusterManagementWorkResponse> responseInbox;
     private final Map<FeedCollectInfo, List<String>> dependentFeeds = new HashMap<FeedCollectInfo, List<String>>();
-    private final IMessageAnalyzer healthDataParser;
-    private final MessageListener healthDataListener;
     private final Map<FeedConnectionId, LinkedBlockingQueue<String>> feedReportQueue;
     private final FeedJobNotificationHandler feedJobNotificationHandler;
     private final FeedWorkRequestResponseHandler feedWorkRequestResponseHandler;
@@ -99,9 +97,6 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
         this.feedWorkRequestResponseHandler = new FeedWorkRequestResponseHandler(responseInbox,
                 feedJobNotificationHandler);
         this.feedReportQueue = new HashMap<FeedConnectionId, LinkedBlockingQueue<String>>();
-        this.healthDataParser = new FeedHealthDataParser();
-        this.healthDataListener = new MessageListener(FEED_HEALTH_PORT, healthDataParser.getMessageQueue());
-        this.healthDataListener.start();
         this.executorService = Executors.newCachedThreadPool();
         this.executorService.execute(feedJobNotificationHandler);
         this.executorService.execute(feedWorkRequestResponseHandler);
@@ -177,17 +172,6 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
             this.jobId = jobId;
             this.messageKind = msgKind;
         }
-    }
-
-    private static class FeedHealthDataParser implements IMessageAnalyzer {
-
-        private LinkedBlockingQueue<String> inbox = new LinkedBlockingQueue<String>();
-
-        @Override
-        public LinkedBlockingQueue<String> getMessageQueue() {
-            return inbox;
-        }
-
     }
 
     @Override

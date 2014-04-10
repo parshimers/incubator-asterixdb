@@ -14,60 +14,52 @@
  */
 package edu.uci.ics.asterix.external.library;
 
-import java.io.DataOutput;
 import java.io.IOException;
 import java.util.List;
 
-import edu.uci.ics.asterix.builders.RecordBuilder;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.external.library.java.IJObject;
-import edu.uci.ics.asterix.external.library.java.JObjectUtil;
-import edu.uci.ics.asterix.external.library.java.JObjects.ByteArrayAccessibleDataInputStream;
-import edu.uci.ics.asterix.external.library.java.JObjects.ByteArrayAccessibleInputStream;
-import edu.uci.ics.asterix.external.library.java.JObjects.JRecord;
+import edu.uci.ics.asterix.external.library.java.JObjectPointableVisitor;
 import edu.uci.ics.asterix.external.library.java.JTypeTag;
-import edu.uci.ics.asterix.formats.nontagged.AqlSerializerDeserializerProvider;
-import edu.uci.ics.asterix.om.base.ARecord;
-import edu.uci.ics.asterix.om.base.AString;
-import edu.uci.ics.asterix.om.base.IAObject;
 import edu.uci.ics.asterix.om.functions.IExternalFunctionInfo;
-import edu.uci.ics.asterix.om.types.ARecordType;
-import edu.uci.ics.asterix.om.types.ATypeTag;
+import edu.uci.ics.asterix.om.pointables.AFlatValuePointable;
+import edu.uci.ics.asterix.om.pointables.AListPointable;
+import edu.uci.ics.asterix.om.pointables.ARecordPointable;
+import edu.uci.ics.asterix.om.pointables.PointableAllocator;
+import edu.uci.ics.asterix.om.pointables.base.IVisitablePointable;
 import edu.uci.ics.asterix.om.types.BuiltinType;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.container.IObjectPool;
 import edu.uci.ics.asterix.om.util.container.ListObjectPool;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
-import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
+import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.data.std.api.IDataOutputProvider;
-import edu.uci.ics.hyracks.data.std.util.ArrayBackedValueStorage;
+import edu.uci.ics.hyracks.data.std.api.IValueReference;
 
 public class JavaFunctionHelper implements IFunctionHelper {
 
     private final IExternalFunctionInfo finfo;
     private final IDataOutputProvider outputProvider;
-    private IJObject[] arguments;
+    private final IJObject[] arguments;
     private IJObject resultHolder;
-    private ISerializerDeserializer resultSerde;
-    private IObjectPool<IJObject, IAType> objectPool = new ListObjectPool<IJObject, IAType>(new JTypeObjectFactory());
-    private IObjectPool<IJObject, IAType> metadataPool = new ListObjectPool<IJObject, IAType>(new JTypeObjectFactory());
-    byte[] buffer = new byte[32768];
-    ByteArrayAccessibleInputStream bis = new ByteArrayAccessibleInputStream(buffer, 0, buffer.length);
-    ByteArrayAccessibleDataInputStream dis = new ByteArrayAccessibleDataInputStream(bis);
+    private final IObjectPool<IJObject, IAType> objectPool = new ListObjectPool<IJObject, IAType>(
+            JTypeObjectFactory.INSTANCE);
+    private final JObjectPointableVisitor pointableVisitor;
+    private final PointableAllocator pointableAllocator;
 
     public JavaFunctionHelper(IExternalFunctionInfo finfo, IDataOutputProvider outputProvider)
             throws AlgebricksException {
         this.finfo = finfo;
         this.outputProvider = outputProvider;
-        List<IAType> params = finfo.getParamList();
-        arguments = new IJObject[params.size()];
+        this.pointableVisitor = new JObjectPointableVisitor();
+        this.pointableAllocator = new PointableAllocator();
+        this.arguments = new IJObject[finfo.getParamList().size()];
         int index = 0;
-        for (IAType param : params) {
-            this.arguments[index] = metadataPool.allocate(param);
-            index++;
+        for (IAType param : finfo.getParamList()) {
+            this.arguments[index++] = objectPool.allocate(param);
         }
-        resultHolder = metadataPool.allocate(finfo.getReturnType());
+        this.resultHolder = objectPool.allocate(finfo.getReturnType());
     }
 
     @Override
@@ -77,111 +69,54 @@ public class JavaFunctionHelper implements IFunctionHelper {
 
     @Override
     public void setResult(IJObject result) throws IOException, AsterixException {
-        IAObject obj = result.getIAObject();
         try {
-            outputProvider.getDataOutput().writeByte(obj.getType().getTypeTag().serialize());
+            result.serialize(outputProvider.getDataOutput(), true);
         } catch (IOException e) {
             throw new HyracksDataException(e);
         }
-
-        if (obj.getType().getTypeTag().equals(ATypeTag.RECORD)) {
-            ARecordType recType = (ARecordType) obj.getType();
-            if (recType.isOpen()) {
-                writeOpenRecord((JRecord) result, outputProvider.getDataOutput());
-            } else {
-                resultSerde = AqlSerializerDeserializerProvider.INSTANCE.getNonTaggedSerializerDeserializer(recType);
-                resultSerde.serialize(obj, outputProvider.getDataOutput());
-            }
-        } else {
-            resultSerde = AqlSerializerDeserializerProvider.INSTANCE.getNonTaggedSerializerDeserializer(obj.getType());
-            resultSerde.serialize(obj, outputProvider.getDataOutput());
-        }
-        reset();
-    }
-
-    private void writeOpenRecord(JRecord jRecord, DataOutput dataOutput) throws AsterixException, IOException {
-        ARecord aRecord = (ARecord) jRecord.getIAObject();
-        RecordBuilder recordBuilder = new RecordBuilder();
-        ARecordType recordType = aRecord.getType();
-        recordBuilder.reset(recordType);
-        ArrayBackedValueStorage fieldName = new ArrayBackedValueStorage();
-        ArrayBackedValueStorage fieldValue = new ArrayBackedValueStorage();
-        List<Boolean> openField = jRecord.getOpenField();
-
-        int fieldIndex = 0;
-        int closedFieldId = 0;
-        for (IJObject field : jRecord.getFields()) {
-            fieldValue.reset();
-            switch (field.getTypeTag()) {
-                case RECORD:
-                    ARecordType recType = (ARecordType) field.getIAObject().getType();
-                    if (recType.isOpen()) {
-                        fieldValue.getDataOutput().writeByte(recType.getTypeTag().serialize());
-                        writeOpenRecord((JRecord) field, fieldValue.getDataOutput());
-                    } else {
-                        AqlSerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(
-                                field.getIAObject().getType()).serialize(field.getIAObject(),
-                                fieldValue.getDataOutput());
-                    }
-                    break;
-                default:
-                    AqlSerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(field.getIAObject().getType())
-                            .serialize(field.getIAObject(), fieldValue.getDataOutput());
-                    break;
-            }
-            if (openField.get(fieldIndex)) {
-                String fName = jRecord.getFieldNames().get(fieldIndex);
-                fieldName.reset();
-                AqlSerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.ASTRING).serialize(
-                        new AString(fName), fieldName.getDataOutput());
-                recordBuilder.addField(fieldName, fieldValue);
-            } else {
-                recordBuilder.addField(closedFieldId, fieldValue);
-                closedFieldId++;
-            }
-            fieldIndex++;
-        }
-
-        recordBuilder.write(dataOutput, false);
-
     }
 
     private void reset() {
-        for (IJObject jObject : arguments) {
-            switch (jObject.getTypeTag()) {
-                case RECORD:
-                    reset((JRecord) jObject);
-                    break;
-            }
-        }
-        switch (resultHolder.getTypeTag()) {
-            case RECORD:
-                reset((JRecord) resultHolder);
-                break;
-        }
+        resultHolder.reset();
         objectPool.reset();
     }
 
-    private void reset(JRecord jRecord) {
-        List<IJObject> fields = ((JRecord) jRecord).getFields();
-        for (IJObject field : fields) {
-            switch (field.getTypeTag()) {
-                case RECORD:
-                    reset((JRecord) field);
-                    break;
-            }
-        }
-        jRecord.close();
-    }
-
-    public void setArgument(int index, byte[] argument) throws IOException, AsterixException {
-        bis.setContent(argument, 1, argument.length);
+    public void setArgument(int index, IValueReference valueReference) throws IOException, AsterixException {
+        IVisitablePointable pointable = null;
+        IJObject jObject = null;
         IAType type = finfo.getParamList().get(index);
-        arguments[index] = JObjectUtil.getJType(type.getTypeTag(), type, dis, objectPool);
+        switch (type.getTypeTag()) {
+            case RECORD:
+                pointable = pointableAllocator.allocateRecordValue(type);
+                pointable.set(valueReference);
+                jObject = pointableVisitor.visit((ARecordPointable) pointable,
+                        new Pair<IObjectPool<IJObject, IAType>, IAType>(objectPool, type));
+                break;
+            case ORDEREDLIST:
+            case UNORDEREDLIST:
+                pointable = pointableAllocator.allocateListValue(type);
+                pointable.set(valueReference);
+                jObject = pointableVisitor.visit((AListPointable) pointable,
+                        new Pair<IObjectPool<IJObject, IAType>, IAType>(objectPool, type));
+                break;
+            case ANY:
+                throw new IllegalStateException("Cannot handle  as function argument of type " + type.getTypeTag());
+
+            default:
+                pointable = pointableAllocator.allocateFieldValue(type.getTypeTag());
+                pointable.set(valueReference);
+                jObject = pointableVisitor.visit((AFlatValuePointable) pointable,
+                        new Pair<IObjectPool<IJObject, IAType>, IAType>(objectPool, type));
+                break;
+        }
+        arguments[index] = jObject;
     }
 
     @Override
     public IJObject getResultObject() {
+        if (resultHolder == null) {
+            resultHolder = objectPool.allocate(finfo.getReturnType());
+        }
         return resultHolder;
     }
 

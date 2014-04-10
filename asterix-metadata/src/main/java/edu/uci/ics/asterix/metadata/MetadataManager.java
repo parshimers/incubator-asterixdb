@@ -830,4 +830,15 @@ public class MetadataManager implements IMetadataManager {
         mdTxnCtx.dropFeedPolicy(feedPolicy);
     }
 
+    public List<FeedPolicy> getDataversePolicies(MetadataTransactionContext mdTxnCtx, String dataverse)
+            throws MetadataException {
+        List<FeedPolicy> dataverseFeedPolicies;
+        try {
+            dataverseFeedPolicies = metadataNode.getDataversePolicies(mdTxnCtx.getJobId(), dataverse);
+        } catch (RemoteException e) {
+            throw new MetadataException(e);
+        }
+        return dataverseFeedPolicies;
+    }
+
 }

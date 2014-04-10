@@ -9,9 +9,9 @@
  * Date         : 8th Feb 2014
  */
 
-drop dataverse feeds if exists;
-create dataverse feeds;
-use dataverse feeds;
+drop dataverse feeds_07 if exists;
+create dataverse feeds_07;
+use dataverse feeds_07;
 
 create type TwitterUserType as closed {
 	screen-name: string,

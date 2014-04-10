@@ -7,7 +7,7 @@
  * Expected Res : Success
  * Date         : 6th Feb 2014
  */
-use dataverse feeds;
+use dataverse feeds_10;
 
 for $x in dataset('Tweets')
 order by $x.id

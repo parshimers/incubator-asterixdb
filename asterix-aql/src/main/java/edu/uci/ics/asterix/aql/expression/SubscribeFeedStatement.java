@@ -38,6 +38,8 @@ import edu.uci.ics.asterix.metadata.entities.SecondaryFeed;
 import edu.uci.ics.asterix.metadata.feeds.FeedUtil;
 import edu.uci.ics.asterix.metadata.feeds.IAdapterFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
+import edu.uci.ics.hyracks.algebricks.common.utils.Triple;
+import edu.uci.ics.asterix.metadata.entities.DatasourceAdapter.AdapterType;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 
 /**
@@ -175,9 +177,9 @@ public class SubscribeFeedStatement implements Statement {
         try {
             switch (feed.getFeedType()) {
                 case PRIMARY:
-                    org.apache.commons.lang3.tuple.Pair<IAdapterFactory, ARecordType> factoryOutput = null;
+                    Triple<IAdapterFactory, ARecordType, AdapterType> factoryOutput = null;
                     factoryOutput = FeedUtil.getPrimaryFeedFactoryAndOutput((PrimaryFeed) feed, mdTxnCtx);
-                    outputType = factoryOutput.getRight().getTypeName();
+                    outputType = factoryOutput.second.getTypeName();
                     break;
                 case SECONDARY:
                     outputType = FeedUtil.getSecondaryFeedOutput((SecondaryFeed) feed, mdTxnCtx);

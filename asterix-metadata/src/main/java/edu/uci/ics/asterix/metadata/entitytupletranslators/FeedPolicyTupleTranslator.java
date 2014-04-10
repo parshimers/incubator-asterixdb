@@ -86,7 +86,7 @@ public class FeedPolicyTupleTranslator extends AbstractTupleTranslator<FeedPolic
                 .getValueByPos(MetadataRecordTypes.FEED_POLICY_ARECORD_POLICY_NAME_FIELD_INDEX)).getStringValue();
 
         String description = ((AString) feedPolicyRecord
-                .getValueByPos(MetadataRecordTypes.FEED_POLICY_ARECORD_POLICY_DESCRIPTION_FIELD_INDEX)).getStringValue();
+                .getValueByPos(MetadataRecordTypes.FEED_POLICY_ARECORD_POLICY_DEFINITION_FIELD_INDEX)).getStringValue();
 
         IACursor cursor = ((AUnorderedList) feedPolicyRecord
                 .getValueByPos(MetadataRecordTypes.FEED_POLICY_ARECORD_PROPERTIES_FIELD_INDEX)).getCursor();
@@ -137,7 +137,7 @@ public class FeedPolicyTupleTranslator extends AbstractTupleTranslator<FeedPolic
         if (feedPolicy.getDescription() != null) {
             aString.setValue(feedPolicy.getDescription());
             stringSerde.serialize(aString, fieldValue.getDataOutput());
-            recordBuilder.addField(MetadataRecordTypes.FEED_POLICY_ARECORD_POLICY_DESCRIPTION_FIELD_INDEX, fieldValue);
+            recordBuilder.addField(MetadataRecordTypes.FEED_POLICY_ARECORD_POLICY_DEFINITION_FIELD_INDEX, fieldValue);
         }
 
         // write field 3 (properties)

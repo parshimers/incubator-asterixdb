@@ -119,10 +119,11 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                 case INTAKE:
                 case COMPUTE:
                     BasicFeedRuntime feedRuntime = null;
-                    runtimeId = new FeedRuntimeId(connectionId, FeedRuntimeType.COMPUTE_COLLECT, partition);
+                    runtimeId = new FeedRuntimeId(connectionId, FeedRuntimeType.COMPUTE_COLLECT,
+                            FeedRuntimeId.DEFAULT_OPERAND_ID, partition);
                     feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
                     if (feedRuntime == null) {
-                        runtimeId = new FeedRuntimeId(connectionId, FeedRuntimeType.COLLECT, partition);
+                        runtimeId = new FeedRuntimeId(connectionId, FeedRuntimeType.COLLECT, FeedRuntimeId.DEFAULT_OPERAND_ID, partition);
                         feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
                     }
                     feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);

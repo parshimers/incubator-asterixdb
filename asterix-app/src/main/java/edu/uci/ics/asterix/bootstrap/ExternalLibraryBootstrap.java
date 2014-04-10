@@ -145,7 +145,7 @@ public class ExternalLibraryBootstrap {
     private static void installLibraryIfNeeded(String dataverse, final File libraryDir,
             Map<String, List<String>> uninstalledLibs) throws Exception {
 
-        String libraryName = libraryDir.getName();
+        String libraryName = libraryDir.getName().trim();
         List<String> uninstalledLibsInDv = uninstalledLibs.get(dataverse);
         boolean wasUninstalled = uninstalledLibsInDv != null && uninstalledLibsInDv.contains(libraryName);
 
@@ -187,9 +187,9 @@ public class ExternalLibraryBootstrap {
                         args.add(arg);
                     }
                     edu.uci.ics.asterix.metadata.entities.Function f = new edu.uci.ics.asterix.metadata.entities.Function(
-                            dataverse, libraryName + "#" + function.getName(), args.size(), args,
-                            function.getReturnType(), function.getDefinition(), library.getLanguage(),
-                            function.getFunctionType());
+                            dataverse, libraryName + "#" + function.getName().trim(), args.size(), args, function
+                                    .getReturnType().trim(), function.getDefinition().trim(), library.getLanguage()
+                                    .trim(), function.getFunctionType().trim());
                     MetadataManager.INSTANCE.addFunction(mdTxnCtx, f);
                     if (LOGGER.isLoggable(Level.INFO)) {
                         LOGGER.info("Installed function: " + libraryName + "#" + function.getName());
@@ -204,7 +204,7 @@ public class ExternalLibraryBootstrap {
             if (library.getLibraryAdapters() != null) {
                 for (LibraryAdapter adapter : library.getLibraryAdapters().getLibraryAdapter()) {
                     String adapterFactoryClass = adapter.getFactoryClass();
-                    String adapterName = libraryName + "#" + adapter.getName();
+                    String adapterName = libraryName + "#" + adapter.getName().trim();
                     AdapterIdentifier aid = new AdapterIdentifier(dataverse, adapterName);
                     DatasourceAdapter dsa = new DatasourceAdapter(aid, adapterFactoryClass, AdapterType.EXTERNAL);
                     MetadataManager.INSTANCE.addAdapter(mdTxnCtx, dsa);

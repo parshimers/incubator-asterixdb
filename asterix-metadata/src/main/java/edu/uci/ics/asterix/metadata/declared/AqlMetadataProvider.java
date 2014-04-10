@@ -56,6 +56,7 @@ import edu.uci.ics.asterix.metadata.dataset.hints.DatasetHints.DatasetCardinalit
 import edu.uci.ics.asterix.metadata.declared.AqlDataSource.AqlDataSourceType;
 import edu.uci.ics.asterix.metadata.entities.Dataset;
 import edu.uci.ics.asterix.metadata.entities.DatasourceAdapter;
+import edu.uci.ics.asterix.metadata.entities.DatasourceAdapter.AdapterType;
 import edu.uci.ics.asterix.metadata.entities.Datatype;
 import edu.uci.ics.asterix.metadata.entities.Dataverse;
 import edu.uci.ics.asterix.metadata.entities.ExternalDatasetDetails;
@@ -102,6 +103,7 @@ import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksAbsoluteParti
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
+import edu.uci.ics.hyracks.algebricks.common.utils.Triple;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IExpressionRuntimeProvider;
@@ -500,12 +502,21 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
 
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildFeedIntakeRuntime(JobSpecification jobSpec,
             PrimaryFeed primaryFeed) throws Exception {
-        org.apache.commons.lang3.tuple.Pair<IAdapterFactory, ARecordType> factoryOutput = null;
+        Triple<IAdapterFactory, ARecordType, AdapterType> factoryOutput = null;
         factoryOutput = FeedUtil.getPrimaryFeedFactoryAndOutput(primaryFeed, mdTxnCtx);
-        IAdapterFactory adapterFactory = factoryOutput.getLeft();
+        IAdapterFactory adapterFactory = factoryOutput.first;
+        FeedIntakeOperatorDescriptor feedIngestor = null;
+        switch (factoryOutput.third) {
+            case INTERNAL:
+                feedIngestor = new FeedIntakeOperatorDescriptor(jobSpec, primaryFeed, adapterFactory);
+                break;
+            case EXTERNAL:
+                String libraryName = primaryFeed.getAdaptorName().trim().split("#")[0];
+                feedIngestor = new FeedIntakeOperatorDescriptor(jobSpec, primaryFeed, libraryName, adapterFactory
+                        .getClass().getName(), factoryOutput.second);
+                break;
+        }
         AlgebricksPartitionConstraint partitionConstraint = adapterFactory.getPartitionConstraint();
-        FeedIntakeOperatorDescriptor feedIngestor = new FeedIntakeOperatorDescriptor(jobSpec, primaryFeed,
-                adapterFactory);
         return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(feedIngestor, partitionConstraint);
 
     }

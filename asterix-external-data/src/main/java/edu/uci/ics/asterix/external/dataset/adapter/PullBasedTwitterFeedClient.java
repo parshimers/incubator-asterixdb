@@ -17,7 +17,6 @@ package edu.uci.ics.asterix.external.dataset.adapter;
 import java.util.List;
 import java.util.Map;
 
-import twitter4j.conf.ConfigurationBuilder;
 import twitter4j.Query;
 import twitter4j.QueryResult;
 import twitter4j.Status;
@@ -25,7 +24,7 @@ import twitter4j.Twitter;
 import twitter4j.TwitterException;
 import twitter4j.TwitterFactory;
 import twitter4j.User;
-
+import twitter4j.conf.ConfigurationBuilder;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.ARecordSerializerDeserializer;
 import edu.uci.ics.asterix.external.adapter.factory.PullBasedTwitterAdapterFactory;
 import edu.uci.ics.asterix.om.base.AMutableDouble;
@@ -58,7 +57,7 @@ public class PullBasedTwitterFeedClient extends PullBasedFeedClient {
     private long lastTweetIdReceived = 0;
 
     public PullBasedTwitterFeedClient(IHyracksTaskContext ctx, ARecordType recordType, PullBasedTwitterAdapter adapter) {
-        twitter = getTwitterService();
+        twitter = getTwitterService(adapter.getConfiguration());
 
         mutableUserFields = new IAObject[] { new AMutableString(null), new AMutableString(null), new AMutableInt32(0),
                 new AMutableInt32(0), new AMutableString(null), new AMutableInt32(0) };
@@ -72,13 +71,18 @@ public class PullBasedTwitterFeedClient extends PullBasedFeedClient {
         initialize(adapter.getConfiguration());
     }
 
-    private static Twitter getTwitterService() {
+    private static Twitter getTwitterService(Map<String, String> configuration) {
         ConfigurationBuilder cb = new ConfigurationBuilder();
         cb.setDebugEnabled(true);
-        cb.setOAuthConsumerKey("ecE3VLu7vnHa5y5A0rP8g");
-        cb.setOAuthConsumerSecret("6ToSX51jDlgb7Nj46rMjLNLAvM84j9dqowPASp1d8Y");
-        cb.setOAuthAccessToken("179203714-XBQ3sz01CIHbAXZGgcR4eW3dbV3JxXT5qXacl8n0");
-        cb.setOAuthAccessTokenSecret("kvoGk0qBRzcuNUawicbABK6Bwt2SkKfDSB7RFYxGidsxh");
+        String oAuthConsumerKey = configuration.get(PullBasedTwitterAdapterFactory.OAUTH_CONSUMER_KEY);
+        String oAuthConsumerSecret = configuration.get(PullBasedTwitterAdapterFactory.OAUTH_CONSUMER_SECRET);
+        String oAuthAccessToken = configuration.get(PullBasedTwitterAdapterFactory.OAUTH_ACCESS_TOKEN);
+        String oAuthAccessTokenSecret = configuration.get(PullBasedTwitterAdapterFactory.OAUTH_ACCESS_TOKEN_SECRET);
+
+        cb.setOAuthConsumerKey(oAuthConsumerKey);
+        cb.setOAuthConsumerSecret(oAuthConsumerSecret);
+        cb.setOAuthAccessToken(oAuthAccessToken);
+        cb.setOAuthAccessTokenSecret(oAuthAccessTokenSecret);
         TwitterFactory tf = new TwitterFactory(cb.build());
         Twitter twitter = tf.getInstance();
         return twitter;

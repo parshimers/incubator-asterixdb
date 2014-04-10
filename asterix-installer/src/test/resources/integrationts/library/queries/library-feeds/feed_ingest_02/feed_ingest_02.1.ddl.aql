@@ -1,0 +1,38 @@
+/*
+ * Description  : Create a feed (containing tweets) from the contents of  a file using a file_feed adaptor. 
+                  Apply pre-processing on each tweet to extract hash-tags and populate them as an additional attribute (unordered list) in each tweet. 
+                  Verify the contents of the target dataset after the ingestion is over.
+ * Expected Res : Success
+ * Date         : 7th Apr 2014
+ */
+
+drop dataverse feeds_ingest_02 if exists;
+create dataverse feeds_ingest_02;
+use dataverse feeds_ingest_02;
+
+create type TwitterUserType as closed {
+	screen-name: string,
+	lang: string,
+	friends_count: int32,
+	statuses_count: int32,
+	name: string,
+	followers_count: int32
+} 
+
+create type RichTweetInputType as open {
+	tweetid: int64,
+        user: TwitterUserType,
+        sender-location: point,
+	send-time: datetime,
+	message-text: string,
+        topics:  {{string}} ?
+}
+
+create dataset RichTweets(RichTweetInputType)
+primary key tweetid;
+
+create feed RichTweetFeed
+using file_feed
+(("type-name"="RichTweetInputType"),("fs"="localfs"),("path"="127.0.0.1://data/twitter/rich_tweets.adm"),("format"="adm"),("tuple-interval"="10"))
+apply function testlib#parseRichTweet;
+

@@ -84,9 +84,11 @@ public abstract class PullBasedFeedClient implements IPullBasedFeedClient {
                 state = setNextRecord();
                 switch (state) {
                     case DATA_AVAILABLE:
+                        /*
                         IAType t = mutableRecord.getType();
                         ATypeTag tag = t.getTypeTag();
                         dataOutput.writeByte(tag.serialize());
+                        */
                         recordBuilder.reset(mutableRecord.getType());
                         recordBuilder.init();
                         writeRecord(mutableRecord, dataOutput, recordBuilder);
@@ -123,19 +125,12 @@ public abstract class PullBasedFeedClient implements IPullBasedFeedClient {
             writeObject(obj, fieldValue.getDataOutput());
             recordBuilder.addField(pos, fieldValue);
         }
-        recordBuilder.write(dataOutput, false);
+        recordBuilder.write(dataOutput, true);
     }
 
     private void writeObject(IAObject obj, DataOutput dataOutput) throws IOException, AsterixException {
-        ATypeTag tag = null;
         switch (obj.getType().getTypeTag()) {
             case RECORD: {
-                tag = obj.getType().getTypeTag();
-                try {
-                    dataOutput.writeByte(tag.serialize());
-                } catch (IOException e) {
-                    throw new HyracksDataException(e);
-                }
                 IARecordBuilder recordBuilder = new RecordBuilder();
                 recordBuilder.reset((ARecordType) obj.getType());
                 recordBuilder.init();
@@ -144,12 +139,6 @@ public abstract class PullBasedFeedClient implements IPullBasedFeedClient {
             }
 
             case ORDEREDLIST: {
-                tag = obj.getType().getTypeTag();
-                try {
-                    dataOutput.writeByte(tag.serialize());
-                } catch (IOException e) {
-                    throw new HyracksDataException(e);
-                }
                 OrderedListBuilder listBuilder = new OrderedListBuilder();
                 listBuilder.reset((AUnorderedListType) ((AMutableOrderedList) obj).getType());
                 IACursor cursor = ((AMutableOrderedList) obj).getCursor();
@@ -160,17 +149,11 @@ public abstract class PullBasedFeedClient implements IPullBasedFeedClient {
                     writeObject(item, listItemValue.getDataOutput());
                     listBuilder.addItem(listItemValue);
                 }
-                listBuilder.write(dataOutput, false);
+                listBuilder.write(dataOutput, true);
                 break;
             }
 
             case UNORDEREDLIST: {
-                tag = obj.getType().getTypeTag();
-                try {
-                    dataOutput.writeByte(tag.serialize());
-                } catch (IOException e) {
-                    throw new HyracksDataException(e);
-                }
                 UnorderedListBuilder listBuilder = new UnorderedListBuilder();
                 listBuilder.reset((AUnorderedListType) ((AMutableUnorderedList) obj).getType());
                 IACursor cursor = ((AMutableUnorderedList) obj).getCursor();
@@ -181,7 +164,7 @@ public abstract class PullBasedFeedClient implements IPullBasedFeedClient {
                     writeObject(item, listItemValue.getDataOutput());
                     listBuilder.addItem(listItemValue);
                 }
-                listBuilder.write(dataOutput, false);
+                listBuilder.write(dataOutput, true);
                 break;
             }
 

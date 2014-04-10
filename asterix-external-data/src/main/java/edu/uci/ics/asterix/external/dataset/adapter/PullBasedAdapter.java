@@ -86,7 +86,6 @@ public abstract class PullBasedAdapter implements IPullBasedFeedAdapter {
         while (continueIngestion) {
             tupleBuilder.reset();
             try {
-                // blocking call
                 inflowState = pullBasedFeedClient.nextTuple(tupleBuilder.getDataOutput(), timeout);
                 switch (inflowState) {
                     case DATA_AVAILABLE:
