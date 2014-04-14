@@ -16,12 +16,12 @@ package edu.uci.ics.asterix.common.feeds;
 
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 
-public interface IFeedFrameWriter extends IFrameWriter {
+public interface IFeedOperatorOutputSideHandler extends IFrameWriter {
 
     public enum Type {
-        BASIC_FEED_WRITER,
-        DISTRIBUTE_FEED_WRITER,
-        COLLECT_TRANSFORM_FEED_WRITER
+        BASIC_FEED_OUTPUT_HANDLER,
+        DISTRIBUTE_FEED_OUTPUT_HANDLER,
+        COLLECT_TRANSFORM_FEED_OUTPUT_HANDLER
     }
 
     public FeedId getFeedId();

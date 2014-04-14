@@ -45,18 +45,15 @@ import edu.uci.ics.asterix.common.feeds.FeedJointKey;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriber;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
 import edu.uci.ics.asterix.common.feeds.IFeedJoint;
-import edu.uci.ics.asterix.common.feeds.IFeedLifecycleEventSubscriber;
 import edu.uci.ics.asterix.common.feeds.IFeedJoint.Scope;
+import edu.uci.ics.asterix.common.feeds.IFeedLifecycleEventSubscriber;
 import edu.uci.ics.asterix.common.feeds.IFeedLifecycleListener;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
 import edu.uci.ics.asterix.metadata.cluster.AddNodeWork;
 import edu.uci.ics.asterix.metadata.cluster.ClusterManager;
-import edu.uci.ics.asterix.metadata.feeds.BuiltinFeedPolicies;
 import edu.uci.ics.asterix.metadata.feeds.FeedCollectOperatorDescriptor;
 import edu.uci.ics.asterix.metadata.feeds.FeedIntakeOperatorDescriptor;
-import edu.uci.ics.asterix.metadata.feeds.MessageListener;
-import edu.uci.ics.asterix.metadata.feeds.MessageListener.IMessageAnalyzer;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
 import edu.uci.ics.asterix.om.util.AsterixClusterProperties;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
@@ -78,8 +75,6 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
     private static final Logger LOGGER = Logger.getLogger(FeedLifecycleListener.class.getName());
 
     public static FeedLifecycleListener INSTANCE = new FeedLifecycleListener();
-
-    public static final int FEED_HEALTH_PORT = 2999;
 
     private final LinkedBlockingQueue<Message> jobEventInbox;
     private final LinkedBlockingQueue<IClusterManagementWorkResponse> responseInbox;
@@ -124,36 +119,20 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
     @Override
     public void notifyJobCreation(JobId jobId, IActivityClusterGraphGeneratorFactory acggf) throws HyracksException {
         JobSpecification spec = acggf.getJobSpecification();
-        boolean feedIntakeJob = false;
-        boolean feedCollectionJob = false;
         FeedConnectionId feedConnectionId = null;
-        FeedId feedId = null;
-        FeedId sourceFeedId = null;
         Map<String, String> feedPolicy = null;
         for (IOperatorDescriptor opDesc : spec.getOperatorMap().values()) {
             if (opDesc instanceof FeedCollectOperatorDescriptor) {
                 feedConnectionId = ((FeedCollectOperatorDescriptor) opDesc).getFeedConnectionId();
                 feedPolicy = ((FeedCollectOperatorDescriptor) opDesc).getFeedPolicyProperties();
-                sourceFeedId = ((FeedCollectOperatorDescriptor) opDesc).getSourceFeedId();
-                feedCollectionJob = true;
+                feedJobNotificationHandler.registerFeedCollectionJob(
+                        ((FeedCollectOperatorDescriptor) opDesc).getSourceFeedId(), feedConnectionId, jobId, spec,
+                        feedPolicy);
                 break;
             } else if (opDesc instanceof FeedIntakeOperatorDescriptor) {
-                feedId = ((FeedIntakeOperatorDescriptor) opDesc).getFeedId();
-                feedIntakeJob = true;
+                feedJobNotificationHandler.registerFeedIntakeJob(((FeedIntakeOperatorDescriptor) opDesc).getFeedId(),
+                        jobId, spec);
                 break;
-            }
-        }
-        if (feedCollectionJob) {
-            feedJobNotificationHandler.registerFeedCollectionJob(sourceFeedId, feedConnectionId, jobId, spec,
-                    feedPolicy);
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Registered feed collection: " + feedConnectionId + " ingestion policy "
-                        + feedPolicy.get(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY));
-            }
-        } else if (feedIntakeJob) {
-            feedJobNotificationHandler.registerFeedIntakeJob(feedId, jobId, spec);
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Registered feed intake job for feed: " + feedId);
             }
         }
     }
@@ -245,7 +224,6 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
                 List<Pair<FeedSubscriber, List<String>>> recoverableSubscribers) {
             this.recoverableSubscribers = recoverableSubscribers;
             this.recoverableIntakeFeedIds = recoverableIntakeFeedIds;
-
         }
 
         public List<Pair<FeedSubscriber, List<String>>> getRecoverableSubscribers() {

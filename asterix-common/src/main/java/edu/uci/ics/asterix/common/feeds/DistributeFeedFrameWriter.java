@@ -31,7 +31,7 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
  * are isolated from each other to ensure that a slow reader does not impact the progress of
  * others.
  **/
-public class DistributeFeedFrameWriter implements IFeedFrameWriter {
+public class DistributeFeedFrameWriter implements IFeedOperatorOutputSideHandler {
 
     private static final Logger LOGGER = Logger.getLogger(DistributeFeedFrameWriter.class.getName());
 
@@ -61,7 +61,8 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
         this.writer = writer;
     }
 
-    public FeedFrameCollector subscribeFeed(FeedPolicyAccessor fpa, IFeedFrameWriter frameWriter) throws Exception {
+    public FeedFrameCollector subscribeFeed(FeedPolicyAccessor fpa, IFeedOperatorOutputSideHandler frameWriter)
+            throws Exception {
         FeedFrameCollector collector = null;
         if (!frameDistributor.isRegistered(frameWriter)) {
             collector = new FeedFrameCollector(frameDistributor, fpa, frameWriter, frameWriter.getFeedId());
@@ -75,7 +76,7 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
         }
     }
 
-    public void unsubscribeFeed(IFeedFrameWriter recipientFeedFrameWriter) throws Exception {
+    public void unsubscribeFeed(IFeedOperatorOutputSideHandler recipientFeedFrameWriter) throws Exception {
         boolean success = frameDistributor.deregisterFrameCollector(recipientFeedFrameWriter);
         if (!success) {
             throw new IllegalStateException("Invalid attempt to unregister FeedFrameWriter " + recipientFeedFrameWriter
@@ -131,7 +132,7 @@ public class DistributeFeedFrameWriter implements IFeedFrameWriter {
 
     @Override
     public Type getType() {
-        return IFeedFrameWriter.Type.DISTRIBUTE_FEED_WRITER;
+        return IFeedOperatorOutputSideHandler.Type.DISTRIBUTE_FEED_OUTPUT_HANDLER;
     }
 
     @Override

@@ -24,8 +24,8 @@ public abstract class MessageReceiver<T> implements IMessageReceiver<T> {
 
     protected static final Logger LOGGER = Logger.getLogger(MessageReceiver.class.getName());
 
-    private final LinkedBlockingQueue<T> inbox;
-    private ExecutorService executor;
+    protected final LinkedBlockingQueue<T> inbox;
+    protected ExecutorService executor;
 
     public MessageReceiver() {
         inbox = new LinkedBlockingQueue<T>();

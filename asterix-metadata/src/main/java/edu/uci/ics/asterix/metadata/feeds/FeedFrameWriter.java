@@ -22,7 +22,8 @@ import java.util.logging.Logger;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FrameCollection;
-import edu.uci.ics.asterix.common.feeds.IFeedFrameWriter;
+import edu.uci.ics.asterix.common.feeds.IFeedMetricCollector.ValueType;
+import edu.uci.ics.asterix.common.feeds.IFeedOperatorOutputSideHandler;
 import edu.uci.ics.asterix.common.feeds.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.IFeedMemoryComponent;
 import edu.uci.ics.asterix.common.feeds.IFeedMemoryManager;
@@ -43,7 +44,7 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
  * and reports them to the Super Feed Manager chosen for the feed. In addition any
  * congestion experienced by the operator is also reported.
  */
-public class FeedFrameWriter implements IFeedFrameWriter {
+public class FeedFrameWriter implements IFeedOperatorOutputSideHandler {
 
     private static final Logger LOGGER = Logger.getLogger(FeedFrameWriter.class.getName());
 
@@ -64,35 +65,25 @@ public class FeedFrameWriter implements IFeedFrameWriter {
         STORE
     }
 
-    /** The threshold for the time required in pushing a frame to the network. **/
-    public static final long FLUSH_THRESHOLD_TIME = 5000; // 5 seconds
-
     /** A unique identifier for the feed connection. **/
     private final FeedConnectionId feedConnectionId;
 
     /** Actual frame writer provided to an operator. **/
     private IFrameWriter writer;
 
-    /** The node pushable associated with the operator **/
-    private IOperatorNodePushable nodePushable;
+    /** The core operator associated with the operator **/
+    private IOperatorNodePushable coreOperator;
 
     /** set to true if health need to be monitored **/
-    private final boolean reportHealth;
+    private final boolean reportMetrics;
 
-    /**
-     * Mode associated with the frame writer
-     * Possible values: FORWARD, STORE
-     * 
-     * @see Mode
-     */
+    /** Mode associated with the frame writer. Possible values: FORWARD, STORE **/
     private Mode mode;
 
     /** The partition associated with the operator instance using the feed frame writer **/
     private int partition;
 
-    /**
-     * Provides access to the tuples in a frame. Used in collecting statistics
-     */
+    /** Provides access to the tuples in a frame. Used in collecting statistics **/
     private FrameTupleAccessor fta;
 
     private final IFeedMemoryManager memoryManager;
@@ -113,29 +104,16 @@ public class FeedFrameWriter implements IFeedFrameWriter {
         this.feedConnectionId = feedConnectionId;
         this.writer = writer;
         this.mode = Mode.FORWARD;
-        this.nodePushable = nodePushable;
+        this.coreOperator = nodePushable;
         this.feedRuntimeType = feedRuntimeType;
         this.partition = partition;
         this.fta = new FrameTupleAccessor(ctx.getFrameSize(), outputRecordDescriptor);
         this.memoryManager = feedManager.getFeedMemoryManager();
         this.metricCollector = feedManager.getFeedMetricCollector();
-        metricSourceId = metricCollector.createReportSender(feedConnectionId + "(" + feedRuntimeType + ")" + "["
-                + partition + "]", MetricType.RATE);
-        this.reportHealth = policyEnforcer.getFeedPolicyAccessor().collectStatistics();
-    }
-
-    public Mode getMode() {
-        return mode;
-    }
-
-    public void setMode(Mode newMode) throws HyracksDataException {
-        if (this.mode.equals(newMode)) {
-            return;
-        }
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info(this + " switching to :" + newMode + " from " + this.mode);
-        }
-        this.mode = newMode;
+        metricSourceId = metricCollector.createReportSender(feedConnectionId, feedRuntimeType, partition,
+                ValueType.OUTFLOW_RATE, MetricType.RATE);
+        this.reportMetrics = feedRuntimeType.equals(FeedRuntimeType.COLLECT)
+                || feedRuntimeType.equals(FeedRuntimeType.COMPUTE) || feedRuntimeType.equals(FeedRuntimeType.STORE);
     }
 
     @Override
@@ -144,60 +122,28 @@ public class FeedFrameWriter implements IFeedFrameWriter {
             case FORWARD:
                 try {
                     writer.nextFrame(buffer);
-                    if (reportHealth) {
+                    if (reportMetrics) {
                         fta.reset(buffer);
                         metricCollector.sendReport(metricSourceId, fta.getTupleCount());
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
-                    if (LOGGER.isLoggable(Level.SEVERE)) {
-                        LOGGER.severe("Unable to write frame " + " on behalf of " + nodePushable.getDisplayName()
-                                + ":\n" + e);
-                    }
-                }
-                if (frames != null && frames.getTotalAllocation() > 0) {
-                    Iterator<ByteBuffer> iterator = frames.getFrameCollectionIterator();
-                    int tTuples = 0;
-                    int nTuples = 0;
-
-                    while (iterator.hasNext()) {
-                        ByteBuffer buf = iterator.next();
-                        fta.reset(buffer);
-                        writer.nextFrame(buf);
-                        nTuples = fta.getTupleCount();
-                        tTuples += nTuples;
-                        metricCollector.sendReport(metricSourceId, fta.getTupleCount());
-                        if (LOGGER.isLoggable(Level.WARNING)) {
-                            LOGGER.warning("Flushed old frame (from previous failed execution) : " + nTuples
-                                    + " on behalf of " + feedRuntimeType + "[" + partition + "]");
-                        }
-                    }
-                    if (LOGGER.isLoggable(Level.WARNING)) {
-                        LOGGER.warning("Flushed total of " + tTuples + " post recovery");
-                    }
-                    frames.reset();
                 }
                 break;
             case STORE:
-
                 if (frames == null) {
                     frames = (FrameCollection) memoryManager.getMemoryComponent(IFeedMemoryComponent.Type.COLLECTION);
                     if (frames == null) {
                         if (LOGGER.isLoggable(Level.WARNING)) {
                             LOGGER.warning("Insufficient Memory: unable to store frame (discarding) for "
-                                    + nodePushable.getDisplayName());
+                                    + coreOperator.getDisplayName());
                         }
                         break;
                     }
                 }
-
                 if (frames != null) {
                     boolean success = frames.addFrame(buffer);
-                    if (success) {
-                        if (LOGGER.isLoggable(Level.INFO)) {
-                            LOGGER.info("Stored frame for " + nodePushable.getDisplayName());
-                        }
-                    } else {
+                    if (!success) {
                         if (LOGGER.isLoggable(Level.WARNING)) {
                             LOGGER.warning("Insufficient Memory: unable to store frame (discarding) ");
                         }
@@ -220,8 +166,42 @@ public class FeedFrameWriter implements IFeedFrameWriter {
         writer.close();
     }
 
-    public IFrameWriter getWriter() {
-        return writer;
+    public void setMode(Mode newMode) throws HyracksDataException {
+        if (this.mode.equals(newMode)) {
+            return;
+        }
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info(this + " switching to :" + newMode + " from " + this.mode);
+        }
+        this.mode = newMode;
+        if (mode.equals(Mode.FORWARD)) {
+            processBufferedRecords();
+        }
+    }
+
+    private void processBufferedRecords() throws HyracksDataException {
+        if (frames != null && frames.getTotalAllocation() > 0) {
+            Iterator<ByteBuffer> iterator = frames.getFrameCollectionIterator();
+            int tTuples = 0;
+            int nTuples = 0;
+
+            while (iterator.hasNext()) {
+                ByteBuffer bufferedFrame = iterator.next();
+                fta.reset(bufferedFrame);
+                writer.nextFrame(bufferedFrame);
+                nTuples = fta.getTupleCount();
+                tTuples += nTuples;
+                metricCollector.sendReport(metricSourceId, fta.getTupleCount());
+                if (LOGGER.isLoggable(Level.WARNING)) {
+                    LOGGER.warning("Flushed old frame (from previous failed execution) : " + nTuples + " on behalf of "
+                            + feedRuntimeType + "[" + partition + "]");
+                }
+            }
+            if (LOGGER.isLoggable(Level.WARNING)) {
+                LOGGER.warning("Flushed total of " + tTuples + " post recovery");
+            }
+            frames.reset();
+        }
     }
 
     public void setWriter(IFrameWriter writer) {
@@ -230,7 +210,7 @@ public class FeedFrameWriter implements IFeedFrameWriter {
 
     @Override
     public String toString() {
-        return "FeedFrameWriter [" + feedConnectionId.getFeedId() + "[" + partition + "]" + mode + ")" + "]";
+        return "FeedFrameWriter (" + feedConnectionId + " [" + partition + "]" + mode + ")" + "]";
     }
 
     @Override
@@ -238,16 +218,9 @@ public class FeedFrameWriter implements IFeedFrameWriter {
         writer.open();
     }
 
-    public void reset() {
-    }
-
     @Override
     public FeedId getFeedId() {
         return feedConnectionId.getFeedId();
-    }
-
-    public int getPartition() {
-        return partition;
     }
 
     public FeedConnectionId getFeedConnectionId() {
@@ -256,7 +229,7 @@ public class FeedFrameWriter implements IFeedFrameWriter {
 
     @Override
     public Type getType() {
-        return Type.BASIC_FEED_WRITER;
+        return Type.BASIC_FEED_OUTPUT_HANDLER;
     }
 
 }

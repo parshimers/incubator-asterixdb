@@ -27,15 +27,15 @@ public class BasicFeedRuntime implements IFeedRuntime {
     protected FeedRuntimeState runtimeState;
 
     /** The frame writer associated with the runtime **/
-    protected IFeedFrameWriter frameWriter;
+    protected IFeedOperatorOutputSideHandler frameWriter;
 
-    public BasicFeedRuntime(FeedConnectionId connectionId, int partition, IFeedFrameWriter frameWriter,
+    public BasicFeedRuntime(FeedConnectionId connectionId, int partition, IFeedOperatorOutputSideHandler frameWriter,
             FeedRuntimeType runtimeType, String operandId) {
         this.feedRuntimeId = new FeedRuntimeId(connectionId, runtimeType, operandId, partition);
         this.frameWriter = frameWriter;
     }
 
-    public void setFrameWriter(IFeedFrameWriter frameWriter) {
+    public void setFrameWriter(IFeedOperatorOutputSideHandler frameWriter) {
         this.frameWriter = frameWriter;
     }
 
@@ -67,7 +67,7 @@ public class BasicFeedRuntime implements IFeedRuntime {
     }
 
     @Override
-    public IFeedFrameWriter getFeedFrameWriter() {
+    public IFeedOperatorOutputSideHandler getFeedFrameWriter() {
         return frameWriter;
     }
 

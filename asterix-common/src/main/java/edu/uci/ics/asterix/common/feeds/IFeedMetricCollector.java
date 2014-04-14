@@ -14,14 +14,27 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
+import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
+
 public interface IFeedMetricCollector {
+
+    public enum ValueType {
+        CPU_USAGE,
+        INFLOW_RATE,
+        OUTFLOW_RATE
+    }
 
     public enum MetricType {
         AVG,
         RATE
     }
-    
-    public int createReportSender(String displayName, MetricType metricType);
-    
+
+    public int createReportSender(FeedConnectionId connectionId, FeedRuntimeType runtimeType, int partition,
+            ValueType valueType, MetricType metricType);
+
     public void sendReport(int senderId, int value);
+
+    public int getMetric(int senderId);
+
+    int getMetric(FeedConnectionId connectionId, FeedRuntimeType runtimeType, int partition, ValueType valueType);
 }

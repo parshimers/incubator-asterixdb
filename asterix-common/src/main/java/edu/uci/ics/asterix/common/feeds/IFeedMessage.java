@@ -22,7 +22,8 @@ public interface IFeedMessage extends Serializable {
 
     public enum MessageType {
         END,
-        XAQL
+        XAQL,
+        REPORT
     }
 
     public MessageType getMessageType();

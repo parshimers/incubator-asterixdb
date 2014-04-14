@@ -26,6 +26,7 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
     private FeedPolicyAccessor fpa;
     private final FeedId feedId;
     private IFrameWriter frameWriter;
+    private FeedOperatorInputSideHandler frameProcessor;
     private State state;
     private final Mode mode;
 
@@ -41,7 +42,7 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
     }
 
     public FeedFrameCollector(FrameDistributor frameDistributor, FeedPolicyAccessor feedPolicyAccessor,
-            IFeedFrameWriter frameWriter, FeedId feedId) {
+            IFeedOperatorOutputSideHandler frameWriter, FeedId feedId) {
         super();
         this.frameDistributor = frameDistributor;
         this.fpa = feedPolicyAccessor;
@@ -52,12 +53,12 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
     }
 
     public FeedFrameCollector(FrameDistributor frameDistributor, FeedPolicyAccessor feedPolicyAccessor,
-            IFrameWriter frameWriter, FeedId feedId) {
+            FeedOperatorInputSideHandler frameProcessor, FeedId feedId) {
         super();
         this.frameDistributor = frameDistributor;
         this.fpa = feedPolicyAccessor;
         this.feedId = feedId;
-        this.frameWriter = frameWriter;
+        this.frameProcessor = frameProcessor;
         this.state = State.ACTIVE;
         this.mode = Mode.FORWARD_TO_OPERATOR;
     }
@@ -65,9 +66,17 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
     @Override
     public void processMessage(DataBucket bucket) throws Exception {
         try {
+            ByteBuffer frame = bucket.getBuffer();
             switch (bucket.getContentType()) {
                 case DATA:
-                    frameWriter.nextFrame(bucket.getBuffer());
+                    switch (mode) {
+                        case FORWARD_TO_OPERATOR:
+                            frameProcessor.nextFrame(frame);
+                            break;
+                        case FORWARD_TO_WRITER:
+                            frameWriter.nextFrame(frame);
+                            break;
+                    }
                     break;
                 case EOD:
                     closeCollector();
@@ -128,7 +137,7 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
         return frameWriter;
     }
 
-    public void setFrameWriter(IFeedFrameWriter frameWriter) {
+    public void setFrameWriter(IFeedOperatorOutputSideHandler frameWriter) {
         this.frameWriter = frameWriter;
     }
 
@@ -155,6 +164,10 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
     @Override
     public int hashCode() {
         return feedId.toString().hashCode();
+    }
+
+    public FeedOperatorInputSideHandler getFrameProcessor() {
+        return frameProcessor;
     }
 
 }

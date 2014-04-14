@@ -136,7 +136,7 @@ public class FeedUtil {
                                 .get(0);
                         IOperatorDescriptor sourceOp = spec.getProducer(connectorDesc);
                         if (sourceOp instanceof FeedCollectOperatorDescriptor) {
-                            runtimeType = FeedRuntimeType.COMPUTE;
+                            runtimeType = preProcessingRequired ? FeedRuntimeType.COMPUTE : FeedRuntimeType.OTHER;
                             enableSubscriptionMode = preProcessingRequired;
                         } else {
                             runtimeType = FeedRuntimeType.OTHER;

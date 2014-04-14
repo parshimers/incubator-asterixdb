@@ -110,7 +110,7 @@ public class FeedDataProviderServlet extends HttpServlet {
                 obj.put("status", "ended");
             }
         } catch (Exception e) {
-            // ignore
+            e.printStackTrace();
         }
         return obj;
 

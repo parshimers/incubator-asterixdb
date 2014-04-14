@@ -158,18 +158,6 @@ public class FeedJobNotificationHandler implements Runnable {
         feedJointsOnPipeline.add(feedJoint.getFeedJointKey());
     }
 
-    /*
-    public void deregisterFeedJoint(FeedJointKey feedJointKey) {
-        if (!feedJoints.containsKey(feedJointKey)) {
-            throw new IllegalArgumentException("Feed point key " + feedJointKey + " is not registered");
-        }
-        feedJoints.remove(feedJointKey);
-        List<FeedJointKey> fps = feedPipeline.get(feedJointKey.getFeedId());
-        if (fps != null && !fps.isEmpty()) {
-            fps.remove(feedJointKey);
-        }
-    }*/
-
     public IFeedJoint getFeedJoint(FeedJointKey feedPointKey) {
         return feedJoints.get(feedPointKey);
     }

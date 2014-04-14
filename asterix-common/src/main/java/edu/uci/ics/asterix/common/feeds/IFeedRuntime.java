@@ -40,6 +40,6 @@ public interface IFeedRuntime {
     /**
      * @return the frame writer associated with the feed runtime.
      */
-    public IFeedFrameWriter getFeedFrameWriter();
+    public IFeedOperatorOutputSideHandler getFeedFrameWriter();
 
 }
