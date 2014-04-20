@@ -22,10 +22,8 @@ import java.util.Map;
 public class FeedPolicyAccessor {
 
     // failure configuration
-    public static final String FAILURE_LOG_ERROR = "failure.log.error";
-    public static final String SOFT_FAILURE_LOG_DATA = "soft.failure.log.data";
     public static final String SOFT_FAILURE_CONTINUE = "soft.failure.continue";
-    public static final String FAILURE_LOG_DATASET = "failure.log.dataset";
+    public static final String SOFT_FAILURE_LOG_DATA = "soft.failure.log.data";
     public static final String HARDWARE_FAILURE_CONTINUE = "hardware.failure.continue";
     public static final String CLUSTER_REBOOT_AUTO_RESTART = "cluster.reboot.auto.restart";
 
@@ -34,25 +32,10 @@ public class FeedPolicyAccessor {
     public static final String MAX_SPILL_SIZE_ON_DISK = "max.spill.size.on.disk";
     public static final String MAX_FRACTION_DISCARD = "max.fraction.discard";
 
-    // monitoring configuration
-    public static final String COLLECT_STATISTICS = "collect.statistics";
-    public static final String COLLECT_STATISTICS_PERIOD = "collect.statistics.period";
-    public static final String COLLECT_STATISTICS_PERIOD_UNIT = "collect.statistics.period.unit";
-
+    // elasticity
     public static final String ELASTIC = "elastic";
 
-    public enum TimeUnit {
-        SEC(1),
-        MIN(60),
-        HRS(3600),
-        DAYS(86400);
-
-        private final int factor;
-
-        private TimeUnit(final int value) {
-            this.factor = value;
-        }
-    }
+    public static final long NO_LIMIT = -1;
 
     private Map<String, String> feedPolicy;
 
@@ -68,56 +51,55 @@ public class FeedPolicyAccessor {
         this.feedPolicy = feedPolicy;
     }
 
-    public boolean logErrorOnFailure() {
-        return getBooleanPropertyValue(FAILURE_LOG_ERROR);
-    }
+    /** Failure recover/reporting **/
 
     public boolean logDataOnSoftFailure() {
-        return getBooleanPropertyValue(SOFT_FAILURE_LOG_DATA);
+        return getBooleanPropertyValue(SOFT_FAILURE_LOG_DATA, false);
     }
 
     public boolean continueOnSoftFailure() {
-        return getBooleanPropertyValue(SOFT_FAILURE_CONTINUE);
+        return getBooleanPropertyValue(SOFT_FAILURE_CONTINUE, false);
     }
 
     public boolean continueOnHardwareFailure() {
-        return getBooleanPropertyValue(HARDWARE_FAILURE_CONTINUE);
-    }
-
-    public boolean spillToDiskOnCongestion() {
-        return getBooleanPropertyValue(SPILL_TO_DISK_ON_CONGESTION);
-    }
-
-    public int getMaxSpillOnDisk() {
-        return getIntegerPropertyValue(MAX_SPILL_SIZE_ON_DISK);
+        return getBooleanPropertyValue(HARDWARE_FAILURE_CONTINUE, false);
     }
 
     public boolean autoRestartOnClusterReboot() {
-        return getBooleanPropertyValue(CLUSTER_REBOOT_AUTO_RESTART);
+        return getBooleanPropertyValue(CLUSTER_REBOOT_AUTO_RESTART, false);
     }
 
-    public boolean collectStatistics() {
-        return getBooleanPropertyValue(COLLECT_STATISTICS);
+    /** flow control **/
+    public boolean spillToDiskOnCongestion() {
+        return getBooleanPropertyValue(SPILL_TO_DISK_ON_CONGESTION, false);
     }
 
-    public long getStatisicsCollectionPeriodInSecs() {
-        int value = getIntegerPropertyValue(COLLECT_STATISTICS_PERIOD);
-        int factor = TimeUnit.valueOf(feedPolicy.get(COLLECT_STATISTICS_PERIOD_UNIT)).factor;
-        return value * factor;
+    public long getMaxSpillOnDisk() {
+        return getLongPropertyValue(MAX_SPILL_SIZE_ON_DISK, NO_LIMIT);
     }
 
+    public float getMaxFractionDiscard() {
+        return getFloatPropertyValue(MAX_FRACTION_DISCARD, 1);
+    }
+
+    /** Elasticity **/
     public boolean isElastic() {
-        return getBooleanPropertyValue(ELASTIC);
+        return getBooleanPropertyValue(ELASTIC, false);
     }
 
-    private boolean getBooleanPropertyValue(String key) {
+    private boolean getBooleanPropertyValue(String key, boolean defValue) {
         String v = feedPolicy.get(key);
         return v == null ? false : Boolean.valueOf(v);
     }
 
-    private int getIntegerPropertyValue(String key) {
+    private long getLongPropertyValue(String key, long defValue) {
         String v = feedPolicy.get(key);
-        return Integer.parseInt(v);
+        return v != null ? Long.parseLong(v) : defValue;
+    }
+
+    private float getFloatPropertyValue(String key, float defValue) {
+        String v = feedPolicy.get(key);
+        return v != null ? Float.parseFloat(v) : defValue;
     }
 
 }

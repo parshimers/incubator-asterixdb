@@ -20,6 +20,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import edu.uci.ics.asterix.common.feeds.api.IMessageReceiver;
+
 public abstract class MessageReceiver<T> implements IMessageReceiver<T> {
 
     protected static final Logger LOGGER = Logger.getLogger(MessageReceiver.class.getName());
@@ -53,7 +55,13 @@ public abstract class MessageReceiver<T> implements IMessageReceiver<T> {
         if (executor != null) {
             executor.shutdown();
             executor = null;
-            flushPendingMessages();
+            if (processPending) {
+                flushPendingMessages();
+            } else {
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("Will discard the pending frames " + inbox.size());
+                }
+            }
         }
     }
 

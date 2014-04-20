@@ -1,3 +1,17 @@
+/*
+ * Copyright 2009-2014 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package edu.uci.ics.asterix.feeds;
 
 import java.io.PrintWriter;
@@ -17,9 +31,11 @@ import edu.uci.ics.asterix.aql.translator.AqlTranslator;
 import edu.uci.ics.asterix.bootstrap.FeedBootstrap;
 import edu.uci.ics.asterix.common.config.AsterixFeedProperties;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
-import edu.uci.ics.asterix.common.feeds.ICentralFeedManager;
-import edu.uci.ics.asterix.common.feeds.IFeedMessage.MessageType;
 import edu.uci.ics.asterix.common.feeds.MessageReceiver;
+import edu.uci.ics.asterix.common.feeds.NodeLoadReport;
+import edu.uci.ics.asterix.common.feeds.api.ICentralFeedManager;
+import edu.uci.ics.asterix.common.feeds.api.IFeedLoadManager;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMessage.MessageType;
 import edu.uci.ics.asterix.metadata.feeds.MessageListener;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
 
@@ -28,6 +44,8 @@ public class CentralFeedManager implements ICentralFeedManager {
     private static final Logger LOGGER = Logger.getLogger(CentralFeedManager.class.getName());
 
     private static ICentralFeedManager centralFeedManager = new CentralFeedManager();
+
+    private static IFeedLoadManager feedLoadManager = new FeedLoadManager();
 
     private static int port;
 
@@ -72,19 +90,34 @@ public class CentralFeedManager implements ICentralFeedManager {
 
         @Override
         public void processMessage(String message) throws Exception {
-            if (!initialized) {
-                FeedBootstrap.setUpInitialArtifacts();
-                initialized = true;
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Created artifacts to store feed failure data");
-                }
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Received message:" + message);
             }
             JSONObject obj = new JSONObject(message);
             MessageType messageType = MessageType.valueOf(obj.getString("message-type"));
             switch (messageType) {
                 case XAQL:
+                    if (!initialized) {
+                        FeedBootstrap.setUpInitialArtifacts();
+                        initialized = true;
+                        if (LOGGER.isLoggable(Level.INFO)) {
+                            LOGGER.info("Created artifacts to store feed failure data");
+                        }
+                    }
                     String aql = obj.getString("aql");
                     AQLExecutor.executeAQL(aql);
+                    break;
+                case CONGESTION:
+                    feedLoadManager.reportCongestion(obj);
+                    break;
+                case FEED_REPORT:
+                    feedLoadManager.submitFeedRuntimeReport(obj);
+                    break;
+                case NODE_REPORT:
+                    NodeLoadReport r = new NodeLoadReport(obj.getString("nodeId"), (float) obj.getDouble("cpuLoad"));
+                    feedLoadManager.submitNodeLoadReport(r);
+                    break;
+                default:
                     break;
             }
 

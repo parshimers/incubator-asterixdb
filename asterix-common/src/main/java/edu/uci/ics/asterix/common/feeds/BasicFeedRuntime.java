@@ -16,6 +16,9 @@ package edu.uci.ics.asterix.common.feeds;
 
 import java.nio.ByteBuffer;
 
+import edu.uci.ics.asterix.common.feeds.api.IFeedOperatorOutputSideHandler;
+import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime;
+import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 
 public class BasicFeedRuntime implements IFeedRuntime {

@@ -20,16 +20,20 @@ import edu.uci.ics.asterix.external.library.java.JObjects.JRecord;
 
 public class EchoDelayFunction implements IExternalScalarFunction {
 
-    private Random rand = new Random();
-    private long sleepIntervalMin;
-    private long sleepIntervalMax;
-    private int range;
+    public static final String DELAY_RPOPERTY = "feeds.function.delay";
+    private static final long DEAULT_DELAY = 10;
+    private long sleepInterval;
 
     @Override
     public void initialize(IFunctionHelper functionHelper) {
-        sleepIntervalMin = 50;
-        sleepIntervalMax = 100;
-        range = (new Long(sleepIntervalMax - sleepIntervalMin)).intValue();
+        String v = System.getProperty(DELAY_RPOPERTY);
+        if (v != null) {
+            sleepInterval = Integer.parseInt(v);
+        } else {
+            sleepInterval = DEAULT_DELAY;
+        }
+        System.out.println("INTER TUPLE DELAY " + sleepInterval);
+
     }
 
     @Override
@@ -39,7 +43,6 @@ public class EchoDelayFunction implements IExternalScalarFunction {
     @Override
     public void evaluate(IFunctionHelper functionHelper) throws Exception {
         JRecord inputRecord = (JRecord) functionHelper.getArgument(0);
-        long sleepInterval = rand.nextInt(range);
         Thread.sleep(sleepInterval);
         functionHelper.setResult(inputRecord);
     }

@@ -24,12 +24,11 @@ import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedFrameCollector;
-import edu.uci.ics.asterix.common.feeds.FeedOperatorInputSideHandler;
 import edu.uci.ics.asterix.common.feeds.FeedId;
-import edu.uci.ics.asterix.common.feeds.IFeedOperatorOutputSideHandler;
-import edu.uci.ics.asterix.common.feeds.IFeedManager;
-import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
-import edu.uci.ics.asterix.common.feeds.ISubscribableRuntime;
+import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
+import edu.uci.ics.asterix.common.feeds.api.IFeedOperatorOutputSideHandler;
+import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
+import edu.uci.ics.asterix.common.feeds.api.ISubscribableRuntime;
 import edu.uci.ics.asterix.metadata.feeds.FeedFrameWriter.Mode;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
@@ -117,8 +116,10 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
     }
 
     private void handlePartialConnection() throws Exception {
-        feedFrameWriter = new FeedFrameWriter(ctx, writer, this, feedConnectionId, policyEnforcer, nodeId,
-                FeedRuntimeType.COMPUTE_COLLECT, partition, outputRecordDescriptor, feedManager);
+        FeedRuntimeId runtimeId = new FeedRuntimeId(feedConnectionId, FeedRuntimeType.COMPUTE_COLLECT,
+                FeedRuntimeId.DEFAULT_OPERAND_ID, partition);
+        feedFrameWriter = new FeedFrameWriter(ctx, writer, this, runtimeId, policyEnforcer, nodeId,
+                outputRecordDescriptor, feedManager);
         feedFrameWriter.open();
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Beginning new feed (from existing partial connection):" + feedConnectionId);
@@ -138,8 +139,8 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
                 FeedRuntimeId.DEFAULT_OPERAND_ID, partition);
         collectRuntime = (CollectionRuntime) feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
         if (collectRuntime == null) {
-            feedFrameWriter = new FeedFrameWriter(ctx, writer, this, feedConnectionId, policyEnforcer, nodeId,
-                    FeedRuntimeType.COLLECT, partition, outputRecordDescriptor, feedManager);
+            feedFrameWriter = new FeedFrameWriter(ctx, writer, this, runtimeId, policyEnforcer, nodeId,
+                    outputRecordDescriptor, feedManager);
             feedFrameWriter.open();
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Beginning new feed:" + feedConnectionId);
@@ -189,9 +190,9 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
 
         private ArrayTupleBuilder tupleBuilder = new ArrayTupleBuilder(1);
 
-        public CollectTransformFeedFrameWriter(IHyracksTaskContext ctx, IFeedOperatorOutputSideHandler downstreamWriter,
-                ISubscribableRuntime sourceRuntime, RecordDescriptor outputRecordDescriptor,
-                FeedConnectionId connectionId) throws HyracksDataException {
+        public CollectTransformFeedFrameWriter(IHyracksTaskContext ctx,
+                IFeedOperatorOutputSideHandler downstreamWriter, ISubscribableRuntime sourceRuntime,
+                RecordDescriptor outputRecordDescriptor, FeedConnectionId connectionId) throws HyracksDataException {
             this.downstreamWriter = downstreamWriter;
             RecordDescriptor inputRecordDescriptor = sourceRuntime.getRecordDescriptor();
             inputFrameTupleAccessor = new FrameTupleAccessor(ctx.getFrameSize(), inputRecordDescriptor);

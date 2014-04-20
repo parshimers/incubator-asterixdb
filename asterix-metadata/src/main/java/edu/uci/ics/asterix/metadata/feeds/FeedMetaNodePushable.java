@@ -1,6 +1,5 @@
 package edu.uci.ics.asterix.metadata.feeds;
 
-import java.awt.im.InputSubset;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -15,12 +14,12 @@ import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedFrameCollector;
 import edu.uci.ics.asterix.common.feeds.FeedOperatorInputSideHandler;
 import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
-import edu.uci.ics.asterix.common.feeds.IFeedManager;
-import edu.uci.ics.asterix.common.feeds.IFeedOperatorOutputSideHandler;
-import edu.uci.ics.asterix.common.feeds.IFeedRuntime;
-import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
-import edu.uci.ics.asterix.common.feeds.ISubscribableRuntime;
 import edu.uci.ics.asterix.common.feeds.SubscribableRuntime;
+import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
+import edu.uci.ics.asterix.common.feeds.api.IFeedOperatorOutputSideHandler;
+import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime;
+import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
+import edu.uci.ics.asterix.common.feeds.api.ISubscribableRuntime;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.IActivity;
@@ -120,12 +119,12 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
         FeedRuntimeId runtimeId = new FeedRuntimeId(feedConnectionId, runtimeType, operandId, partition);
         try {
             feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
-            IFeedOperatorOutputSideHandler mWriter = new FeedFrameWriter(ctx, writer, this, feedConnectionId,
-                    policyEnforcer, nodeId, runtimeType, partition, recordDesc, feedManager);
+            IFeedOperatorOutputSideHandler mWriter = new FeedFrameWriter(ctx, writer, this, runtimeId, policyEnforcer,
+                    nodeId, recordDesc, feedManager);
             fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
-            this.inputSideHandler = new FeedOperatorInputSideHandler(feedConnectionId, coreOperator, runtimeType,
-                    partition, policyEnforcer.getFeedPolicyAccessor(), inputSideBufferring, ctx.getFrameSize(), fta,
-                    recordDesc, feedManager);
+            this.inputSideHandler = new FeedOperatorInputSideHandler(runtimeId, coreOperator,
+                    policyEnforcer.getFeedPolicyAccessor(), inputSideBufferring, ctx.getFrameSize(), fta, recordDesc,
+                    feedManager);
 
             if (feedRuntime == null) {
                 switch (runtimeType) {
@@ -159,8 +158,8 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
                             + runtimeType + " node.");
                 }
             }
+
             coreOperator.open();
-            fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
         } catch (Exception e) {
             e.printStackTrace();
             if (LOGGER.isLoggable(Level.SEVERE)) {
@@ -201,7 +200,6 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
                 feedFrameWriter);
         feedRuntime = new SubscribableRuntime(sid, distributeWriter, runtimeType, recordDesc);
         feedManager.getFeedSubscriptionManager().registerFeedSubscribableRuntime((ISubscribableRuntime) feedRuntime);
-
         coreOperator.setOutputFrameWriter(0, distributeWriter, recordDesc);
     }
 
@@ -229,14 +227,17 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
         try {
             if (inputSideBufferring) {
                 inputSideHandler.nextFrame(null); // signal end of data
-                synchronized (coreOperator) {
-                    coreOperator.wait();
+                while (!inputSideHandler.isFinished()) {
+                    synchronized (coreOperator) {
+                        coreOperator.wait();
+                    }
                 }
                 coreOperator.close();
             } else {
                 coreOperator.close();
             }
         } catch (Exception e) {
+            e.printStackTrace();
             // ignore
         } finally {
             deregister();

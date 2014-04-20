@@ -1,6 +1,6 @@
 package edu.uci.ics.asterix.metadata.feeds;
 
-import edu.uci.ics.asterix.common.feeds.IDatasourceAdapter;
+import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
 
 
 public abstract class AbstractFeedDatasourceAdapter implements IDatasourceAdapter {

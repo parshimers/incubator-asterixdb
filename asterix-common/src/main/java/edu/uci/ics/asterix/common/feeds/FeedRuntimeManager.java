@@ -16,6 +16,7 @@ package edu.uci.ics.asterix.common.feeds;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -23,6 +24,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
+import edu.uci.ics.asterix.common.feeds.api.IFeedConnectionManager;
 
 public class FeedRuntimeManager {
 
@@ -66,6 +68,10 @@ public class FeedRuntimeManager {
 
     public ExecutorService getExecutorService() {
         return executorService;
+    }
+
+    public Set<FeedRuntimeId> getFeedRuntimes() {
+        return feedRuntimes.keySet();
     }
 
 }

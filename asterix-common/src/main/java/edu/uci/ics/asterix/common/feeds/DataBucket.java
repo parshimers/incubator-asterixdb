@@ -31,7 +31,8 @@ public class DataBucket {
 
     public enum ContentType {
         DATA, // data (feed tuple)
-        EOD // A signal indicating that there shall be no more data
+        EOD, // A signal indicating that there shall be no more data
+        EOSD
     }
 
     public DataBucket(DataBucketPool pool) {

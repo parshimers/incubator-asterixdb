@@ -19,17 +19,14 @@ import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FrameCollection;
-import edu.uci.ics.asterix.common.feeds.IFeedMetricCollector.ValueType;
-import edu.uci.ics.asterix.common.feeds.IFeedOperatorOutputSideHandler;
-import edu.uci.ics.asterix.common.feeds.IFeedManager;
-import edu.uci.ics.asterix.common.feeds.IFeedMemoryComponent;
-import edu.uci.ics.asterix.common.feeds.IFeedMemoryManager;
-import edu.uci.ics.asterix.common.feeds.IFeedMetricCollector;
-import edu.uci.ics.asterix.common.feeds.IFeedMetricCollector.MetricType;
-import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
+import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMemoryComponent;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMemoryManager;
+import edu.uci.ics.asterix.common.feeds.api.IFeedOperatorOutputSideHandler;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorNodePushable;
@@ -65,8 +62,8 @@ public class FeedFrameWriter implements IFeedOperatorOutputSideHandler {
         STORE
     }
 
-    /** A unique identifier for the feed connection. **/
-    private final FeedConnectionId feedConnectionId;
+    /** A unique identifier for the feed runtime. **/
+    private final FeedRuntimeId runtimeId;
 
     /** Actual frame writer provided to an operator. **/
     private IFrameWriter writer;
@@ -74,61 +71,33 @@ public class FeedFrameWriter implements IFeedOperatorOutputSideHandler {
     /** The core operator associated with the operator **/
     private IOperatorNodePushable coreOperator;
 
-    /** set to true if health need to be monitored **/
-    private final boolean reportMetrics;
-
     /** Mode associated with the frame writer. Possible values: FORWARD, STORE **/
     private Mode mode;
-
-    /** The partition associated with the operator instance using the feed frame writer **/
-    private int partition;
 
     /** Provides access to the tuples in a frame. Used in collecting statistics **/
     private FrameTupleAccessor fta;
 
     private final IFeedMemoryManager memoryManager;
 
-    private final IFeedMetricCollector metricCollector;
-
-    private final int metricSourceId;
-
     /** A buffer for keeping frames that are waiting to be processed **/
     private FrameCollection frames;
 
-    private FeedRuntimeType feedRuntimeType;
-
     public FeedFrameWriter(IHyracksTaskContext ctx, IFrameWriter writer, IOperatorNodePushable nodePushable,
-            FeedConnectionId feedConnectionId, FeedPolicyEnforcer policyEnforcer, String nodeId,
-            FeedRuntimeType feedRuntimeType, int partition, RecordDescriptor outputRecordDescriptor,
-            IFeedManager feedManager) {
-        this.feedConnectionId = feedConnectionId;
+            FeedRuntimeId runtimeId, FeedPolicyEnforcer policyEnforcer, String nodeId,
+            RecordDescriptor outputRecordDescriptor, IFeedManager feedManager) {
+        this.runtimeId = runtimeId;
         this.writer = writer;
         this.mode = Mode.FORWARD;
         this.coreOperator = nodePushable;
-        this.feedRuntimeType = feedRuntimeType;
-        this.partition = partition;
         this.fta = new FrameTupleAccessor(ctx.getFrameSize(), outputRecordDescriptor);
         this.memoryManager = feedManager.getFeedMemoryManager();
-        this.metricCollector = feedManager.getFeedMetricCollector();
-        metricSourceId = metricCollector.createReportSender(feedConnectionId, feedRuntimeType, partition,
-                ValueType.OUTFLOW_RATE, MetricType.RATE);
-        this.reportMetrics = feedRuntimeType.equals(FeedRuntimeType.COLLECT)
-                || feedRuntimeType.equals(FeedRuntimeType.COMPUTE) || feedRuntimeType.equals(FeedRuntimeType.STORE);
     }
 
     @Override
     public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
         switch (mode) {
             case FORWARD:
-                try {
-                    writer.nextFrame(buffer);
-                    if (reportMetrics) {
-                        fta.reset(buffer);
-                        metricCollector.sendReport(metricSourceId, fta.getTupleCount());
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                writer.nextFrame(buffer);
                 break;
             case STORE:
                 if (frames == null) {
@@ -191,10 +160,9 @@ public class FeedFrameWriter implements IFeedOperatorOutputSideHandler {
                 writer.nextFrame(bufferedFrame);
                 nTuples = fta.getTupleCount();
                 tTuples += nTuples;
-                metricCollector.sendReport(metricSourceId, fta.getTupleCount());
                 if (LOGGER.isLoggable(Level.WARNING)) {
                     LOGGER.warning("Flushed old frame (from previous failed execution) : " + nTuples + " on behalf of "
-                            + feedRuntimeType + "[" + partition + "]");
+                            + runtimeId);
                 }
             }
             if (LOGGER.isLoggable(Level.WARNING)) {
@@ -210,7 +178,7 @@ public class FeedFrameWriter implements IFeedOperatorOutputSideHandler {
 
     @Override
     public String toString() {
-        return "FeedFrameWriter (" + feedConnectionId + " [" + partition + "]" + mode + ")" + "]";
+        return "FeedFrameWriter (" + runtimeId + "-" + mode + ")" + "]";
     }
 
     @Override
@@ -220,11 +188,11 @@ public class FeedFrameWriter implements IFeedOperatorOutputSideHandler {
 
     @Override
     public FeedId getFeedId() {
-        return feedConnectionId.getFeedId();
+        return runtimeId.getConnectionId().getFeedId();
     }
 
     public FeedConnectionId getFeedConnectionId() {
-        return feedConnectionId;
+        return runtimeId.getConnectionId();
     }
 
     @Override

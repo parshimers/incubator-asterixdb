@@ -2,10 +2,10 @@ package edu.uci.ics.asterix.external.dataset.adapter;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.IDatasourceAdapter;
+import edu.uci.ics.asterix.common.exceptions.AsterixException;
+import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
@@ -37,10 +37,9 @@ public abstract class StreamBasedAdapter implements IDatasourceAdapter {
         if (in != null) {
             tupleParser.parse(in, writer);
         } else {
-            if (LOGGER.isLoggable(Level.WARNING)) {
-                LOGGER.warning("Could not obtain input stream for parsing from adaptor " + this + "[" + partition + "]");
-            }
+            String message = "Could not obtain input stream for parsing from adaptor " + this + "[" + partition + "]";
+            LOGGER.warning(message);
+            throw new AsterixException(message);
         }
     }
-
 }

@@ -20,8 +20,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
-import edu.uci.ics.asterix.common.feeds.IFeedSubscriptionManager;
-import edu.uci.ics.asterix.common.feeds.ISubscribableRuntime;
+import edu.uci.ics.asterix.common.feeds.api.IFeedSubscriptionManager;
+import edu.uci.ics.asterix.common.feeds.api.ISubscribableRuntime;
 
 public class FeedSubscriptionManager implements IFeedSubscriptionManager {
 

@@ -32,6 +32,7 @@ public class TweetGenerator {
     public static final String NUM_KEY_SPACES = "num-key-spaces";
     public static final String KEY_DURATION = "duration";
     public static final String KEY_TPS = "tps";
+    public static final String KEY_VERBOSE = "verbose";
 
     public static final String KEY_GUID_SEED = "guid-seed";
 
@@ -41,7 +42,7 @@ public class TweetGenerator {
     private int duration;
     private TweetMessageIterator tweetIterator = null;
     private int partition;
-    private int tweetCount = 0;
+    private long tweetCount = 0;
     private int frameTweetCount = 0;
     private int numFlushedTweets = 0;
     private OutputStream os;
@@ -49,8 +50,10 @@ public class TweetGenerator {
     private ByteBuffer outputBuffer = ByteBuffer.allocate(32 * 1024);
     private GULongIDGenerator uidGenerator;
     private String[] fields;
+    private boolean verbose;
+    private long timestamp;
 
-    public int getTweetCount() {
+    public long getTweetCount() {
         return tweetCount;
     }
 
@@ -67,11 +70,19 @@ public class TweetGenerator {
             fields = configuration.get(TwitterFirehoseFeedAdapterFactory.KEY_FIELDS).trim().split(",");
         }
         this.os = os;
+        this.verbose = configuration.get(KEY_VERBOSE) != null ? Boolean.parseBoolean(configuration.get(KEY_VERBOSE))
+                : false;
+        this.timestamp = System.currentTimeMillis();
     }
 
     private void writeTweetString(TweetMessage tweetMessage) throws IOException {
         String tweet = fields == null ? tweetMessage + "\n" : tweetMessage.getAdmEquivalent(fields) + "\n";
         tweetCount++;
+        if (verbose && tweetCount % 1000 == 0) {
+            long timeElapsed = ((System.currentTimeMillis() - timestamp) / 1000L);
+            System.out.println("Sent (so far) " + tweetCount + " last 1000 tweets in " + timeElapsed);
+            timestamp = System.currentTimeMillis();
+        }
         byte[] b = tweet.getBytes();
         if (outputBuffer.position() + b.length > outputBuffer.limit()) {
             flush();
@@ -115,7 +126,7 @@ public class TweetGenerator {
         }
     }
 
-	public void resetOs(OutputStream os) {
-		this.os = os;
-	}
+    public void resetOs(OutputStream os) {
+        this.os = os;
+    }
 }

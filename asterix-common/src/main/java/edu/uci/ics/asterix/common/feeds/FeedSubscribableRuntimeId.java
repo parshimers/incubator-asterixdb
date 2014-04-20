@@ -14,7 +14,7 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
-import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
+import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 
 public class FeedSubscribableRuntimeId {
 

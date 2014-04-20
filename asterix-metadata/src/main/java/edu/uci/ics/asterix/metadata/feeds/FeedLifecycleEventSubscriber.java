@@ -14,7 +14,7 @@
  */
 package edu.uci.ics.asterix.metadata.feeds;
 
-import edu.uci.ics.asterix.common.feeds.IFeedLifecycleEventSubscriber;
+import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleEventSubscriber;
 
 public class FeedLifecycleEventSubscriber implements IFeedLifecycleEventSubscriber {
 

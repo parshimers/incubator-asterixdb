@@ -17,9 +17,9 @@ package edu.uci.ics.asterix.metadata.feeds;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import edu.uci.ics.asterix.common.feeds.IFeedWork;
-import edu.uci.ics.asterix.common.feeds.IFeedWorkEventListener;
-import edu.uci.ics.asterix.common.feeds.IFeedWorkManager;
+import edu.uci.ics.asterix.common.feeds.api.IFeedWork;
+import edu.uci.ics.asterix.common.feeds.api.IFeedWorkEventListener;
+import edu.uci.ics.asterix.common.feeds.api.IFeedWorkManager;
 
 /**
  * Handles asynchronous execution of feed management related tasks.

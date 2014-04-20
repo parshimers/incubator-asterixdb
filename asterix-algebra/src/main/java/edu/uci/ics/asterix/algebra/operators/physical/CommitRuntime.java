@@ -111,6 +111,7 @@ public class CommitRuntime implements IPushRuntime {
     @Override
     public void close() throws HyracksDataException {
         // TODO Auto-generated method stub
+        System.out.println("Commit close called");
     }
 
     @Override

@@ -19,6 +19,7 @@ import java.io.InputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.CharBuffer;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -71,10 +72,12 @@ public class MessageListener {
         private final int port;
         private final LinkedBlockingQueue<String> outbox;
         private ServerSocket server;
+        private final Executor executor;
 
         public MessageListenerServer(int port, LinkedBlockingQueue<String> outbox) {
             this.port = port;
             this.outbox = outbox;
+            this.executor = Executors.newCachedThreadPool();
         }
 
         public void stop() {
@@ -87,30 +90,16 @@ public class MessageListener {
 
         @Override
         public void run() {
-            char EOL = (char) "\n".getBytes()[0];
             Socket client = null;
             try {
                 server = new ServerSocket(port);
-                client = server.accept();
-                InputStream in = client.getInputStream();
-                CharBuffer buffer = CharBuffer.allocate(5000);
-                char ch;
                 while (true) {
-                    ch = (char) in.read();
-                    if (((int) ch) == -1) {
-                        break;
+                    client = server.accept();
+                    ClientHandler handler = new ClientHandler(client, outbox);
+                    executor.execute(handler);
+                    if (LOGGER.isLoggable(Level.INFO)) {
+                        LOGGER.info("Received connection request from " + client);
                     }
-                    while (ch != EOL) {
-                        buffer.put(ch);
-                        ch = (char) in.read();
-                    }
-                    buffer.flip();
-                    String s = new String(buffer.array());
-                    synchronized (outbox) {
-                        outbox.add(s + "\n");
-                    }
-                    buffer.position(0);
-                    buffer.limit(5000);
                 }
 
             } catch (Exception e) {
@@ -126,15 +115,57 @@ public class MessageListener {
                     }
                 }
             }
+        }
 
+        private static class ClientHandler implements Runnable {
+
+            private final Socket client;
+            private final LinkedBlockingQueue<String> outbox;
+            private static char EOL = (char) "\n".getBytes()[0];
+
+            public ClientHandler(Socket client, LinkedBlockingQueue<String> outbox) {
+                this.client = client;
+                this.outbox = outbox;
+            }
+
+            @Override
+            public void run() {
+                try {
+                    InputStream in = client.getInputStream();
+                    CharBuffer buffer = CharBuffer.allocate(5000);
+                    char ch;
+                    while (true) {
+                        ch = (char) in.read();
+                        if (((int) ch) == -1) {
+                            break;
+                        }
+                        while (ch != EOL) {
+                            buffer.put(ch);
+                            ch = (char) in.read();
+                        }
+                        buffer.flip();
+                        String s = new String(buffer.array());
+                        synchronized (outbox) {
+                            outbox.add(s + "\n");
+                        }
+                        buffer.position(0);
+                        buffer.limit(5000);
+                    }
+                } catch (Exception e) {
+                    if (LOGGER.isLoggable(Level.WARNING)) {
+                        LOGGER.warning("Unable to process mesages from client" + client);
+                    }
+                } finally {
+                    if (client != null) {
+                        try {
+                            client.close();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            }
         }
 
     }
-
-    public static interface IMessageAnalyzer {
-
-        public LinkedBlockingQueue<String> getMessageQueue();
-
-    }
-
 }

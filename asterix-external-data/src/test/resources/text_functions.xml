@@ -66,8 +66,8 @@
 		<libraryFunction>
 			<function_type>SCALAR</function_type>
 			<name>echoDelay</name>
-			<arguments>TweetMessageType</arguments>
-			<return_type>TweetMessageType</return_type>
+			<arguments>BasicTweet</arguments>
+			<return_type>BasicTweet</return_type>
 			<definition>edu.uci.ics.asterix.external.library.EchoDelayFactory</definition>
 		</libraryFunction>
 	</libraryFunctions>
@@ -75,6 +75,10 @@
 		<libraryAdapter>
 			<name>test_typed_adaptor</name>
 			<factory_class>edu.uci.ics.asterix.external.library.adaptor.TestTypedAdaptorFactory</factory_class>
+		</libraryAdapter>
+		<libraryAdapter>
+			<name>tweetgen_adaptor</name>
+			<factory_class>edu.uci.ics.asterix.external.library.adaptor.TweetGenAdaptorFactory</factory_class>
 		</libraryAdapter>
 	</libraryAdapters>
 </externalLibrary>

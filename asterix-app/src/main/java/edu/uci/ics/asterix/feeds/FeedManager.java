@@ -22,13 +22,14 @@ import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedMemoryManager;
 import edu.uci.ics.asterix.common.feeds.FeedMessageService;
 import edu.uci.ics.asterix.common.feeds.FeedMetricCollector;
-import edu.uci.ics.asterix.common.feeds.IFeedConnectionManager;
-import edu.uci.ics.asterix.common.feeds.IFeedManager;
-import edu.uci.ics.asterix.common.feeds.IFeedMemoryManager;
-import edu.uci.ics.asterix.common.feeds.IFeedMessageService;
-import edu.uci.ics.asterix.common.feeds.IFeedMetadataManager;
-import edu.uci.ics.asterix.common.feeds.IFeedMetricCollector;
-import edu.uci.ics.asterix.common.feeds.IFeedSubscriptionManager;
+import edu.uci.ics.asterix.common.feeds.NodeLoadReportService;
+import edu.uci.ics.asterix.common.feeds.api.IFeedConnectionManager;
+import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMemoryManager;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMessageService;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMetadataManager;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector;
+import edu.uci.ics.asterix.common.feeds.api.IFeedSubscriptionManager;
 import edu.uci.ics.asterix.metadata.feeds.FeedConnectionManager;
 import edu.uci.ics.asterix.metadata.feeds.FeedSubscriptionManager;
 import edu.uci.ics.asterix.om.util.AsterixClusterProperties;
@@ -54,6 +55,8 @@ public class FeedManager implements IFeedManager {
 
     private final IFeedMessageService feedMessageService;
 
+    private final NodeLoadReportService nodeLoadReportService;
+
     private final String nodeId;
 
     private final int frameSize;
@@ -66,12 +69,14 @@ public class FeedManager implements IFeedManager {
         this.feedMemoryManager = new FeedMemoryManager(nodeId, feedProperties, frameSize);
         String ccClusterIp = AsterixClusterProperties.INSTANCE.getCluster() != null ? AsterixClusterProperties.INSTANCE
                 .getCluster().getMasterNode().getClusterIp() : "localhost";
-        this.feedMessageService = new FeedMessageService(feedProperties, ccClusterIp);
+        this.feedMessageService = new FeedMessageService(feedProperties, nodeId, ccClusterIp);
+        this.nodeLoadReportService = new NodeLoadReportService(nodeId, this);
         try {
             this.feedMessageService.start();
+            this.nodeLoadReportService.start();
         } catch (Exception e) {
             if (LOGGER.isLoggable(Level.WARNING)) {
-                LOGGER.warning("Unable to start feed message service " + e.getMessage());
+                LOGGER.warning("Unable to start feed services " + e.getMessage());
             }
             e.printStackTrace();
         }

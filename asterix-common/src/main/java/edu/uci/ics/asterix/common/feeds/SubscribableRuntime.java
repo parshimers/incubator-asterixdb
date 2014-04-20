@@ -18,6 +18,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
+import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
+import edu.uci.ics.asterix.common.feeds.api.ISubscribableRuntime;
+import edu.uci.ics.asterix.common.feeds.api.ISubscriberRuntime;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 
 public class SubscribableRuntime implements ISubscribableRuntime {

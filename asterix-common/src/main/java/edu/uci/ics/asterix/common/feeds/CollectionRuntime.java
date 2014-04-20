@@ -16,6 +16,10 @@ package edu.uci.ics.asterix.common.feeds;
 
 import java.util.Map;
 
+import edu.uci.ics.asterix.common.feeds.api.IFeedOperatorOutputSideHandler;
+import edu.uci.ics.asterix.common.feeds.api.ISubscribableRuntime;
+import edu.uci.ics.asterix.common.feeds.api.ISubscriberRuntime;
+
 /**
  * Represents the feed runtime that collects feed tuples from another feed.
  * In case of a primary feed, the collect runtime collects tuples from the feed

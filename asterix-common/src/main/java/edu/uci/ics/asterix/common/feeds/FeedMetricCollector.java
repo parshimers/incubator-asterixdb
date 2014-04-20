@@ -24,7 +24,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
+import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector.MetricType;
 
 public class FeedMetricCollector implements IFeedMetricCollector {
 
@@ -38,7 +40,7 @@ public class FeedMetricCollector implements IFeedMetricCollector {
 
     private final Map<Integer, Series> statHistory = new HashMap<Integer, Series>();
 
-    private static final long DEFAULT_PERIODICITY = 1000; // 1 second
+    private static final long METRIC_ANALYSIS_PERIODICITY = 1000; // 1 second
 
     private final Timer timer;
 
@@ -50,14 +52,12 @@ public class FeedMetricCollector implements IFeedMetricCollector {
         this.nodeId = nodeId;
         sendersByName = new HashMap<String, Sender>();
         this.timer = new Timer();
-        timer.scheduleAtFixedRate(new ProcessCollectedStats(), 0, DEFAULT_PERIODICITY);
+        //timer.scheduleAtFixedRate(new ProcessCollectedStats(), 0, METRIC_ANALYSIS_PERIODICITY);
     }
 
     @Override
-    public int createReportSender(FeedConnectionId connectionId, FeedRuntimeType runtimeType, int partition,
-            ValueType valueType, MetricType metricType) {
-        Sender sender = new Sender(senderId.getAndIncrement(), connectionId, runtimeType, partition, valueType,
-                metricType);
+    public int createReportSender(FeedRuntimeId runtimeId, ValueType valueType, MetricType metricType) {
+        Sender sender = new Sender(senderId.getAndIncrement(), runtimeId, valueType, metricType);
         senders.put(sender.senderId, sender);
         sendersByName.put(sender.getDisplayName(), sender);
         return sender.senderId;
@@ -92,11 +92,10 @@ public class FeedMetricCollector implements IFeedMetricCollector {
         private final MetricType mType;
         private final String displayName;
 
-        public Sender(int senderId, FeedConnectionId connectionId, FeedRuntimeType runtimeType, int partition,
-                ValueType valueType, MetricType mType) {
+        public Sender(int senderId, FeedRuntimeId runtimeId, ValueType valueType, MetricType mType) {
             this.senderId = senderId;
             this.mType = mType;
-            this.displayName = createDisplayName(connectionId, runtimeType, partition, valueType);
+            this.displayName = createDisplayName(runtimeId, valueType);
         }
 
         @Override
@@ -120,36 +119,48 @@ public class FeedMetricCollector implements IFeedMetricCollector {
             return senderId;
         }
 
-        public static String createDisplayName(FeedConnectionId connectionId, FeedRuntimeType runtimeType,
-                int partition, ValueType valueType) {
-            return connectionId + " (" + runtimeType + " )" + "[" + partition + "]" + "{" + valueType + "}";
+        public static String createDisplayName(FeedRuntimeId runtimeId, ValueType valueType) {
+            return runtimeId.getConnectionId() + " (" + runtimeId.getFeedRuntimeType() + " )" + "["
+                    + runtimeId.getPartition() + "]" + "{" + valueType + "}";
         }
 
         public String getDisplayName() {
             return displayName;
         }
+
+        public int getSenderId() {
+            return senderId;
+        }
     }
 
     private class Series {
         private long windowBegin;
+        private long windowEnd;
         private int currentValue;
         private int nEntries;
 
         public Series() {
             this.windowBegin = -1;
-            currentValue = 0;
-            nEntries = 0;
+            this.windowEnd = -1;
+            this.currentValue = 0;
+            this.nEntries = 0;
         }
 
         public synchronized void addValue(int value) {
-            currentValue += value;
-            nEntries++;
+            if (windowBegin < 0) {
+                markBeginning(); // ignore the first entry
+            } else {
+                currentValue += value;
+                nEntries++;
+                windowEnd = System.currentTimeMillis();
+            }
         }
 
-        public synchronized void reset() {
+        public synchronized void markBeginning() {
             windowBegin = System.currentTimeMillis();
             currentValue = 0;
             nEntries = 0;
+            windowEnd = -1;
         }
 
         public synchronized float getAvg() {
@@ -158,20 +169,16 @@ public class FeedMetricCollector implements IFeedMetricCollector {
         }
 
         public synchronized int getSum() {
-            int sum = currentValue;
-            reset();
-            return sum;
+            return currentValue;
         }
 
         public synchronized float getRate() {
-            if (windowBegin < 0) { // first window
-                currentValue = 0;
-                windowBegin = System.currentTimeMillis();
+            if (nEntries < 0) { // first window
+                return UNKNOWN;
             }
             int sum = currentValue;
-            long timeElapsed = System.currentTimeMillis() - windowBegin;
+            long timeElapsed = windowEnd - windowBegin;
             float result = ((float) (sum * 1000) / timeElapsed);
-            reset();
             return result;
         }
 
@@ -200,7 +207,7 @@ public class FeedMetricCollector implements IFeedMetricCollector {
                 if (result == UNKNOWN) {
                     continue;
                 }
-                series.reset();
+                series.markBeginning();
                 report.append(d.toString() + sender.displayName + ": " + result + " " + sender.mType + "\n");
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info(report.toString());
@@ -217,19 +224,20 @@ public class FeedMetricCollector implements IFeedMetricCollector {
     }
 
     @Override
-    public int getMetric(FeedConnectionId connectionId, FeedRuntimeType runtimeType, int partition, ValueType valueType) {
-        String displayName = Sender.createDisplayName(connectionId, runtimeType, partition, valueType);
+    public int getMetric(FeedRuntimeId runtimeId, ValueType valueType) {
+        String displayName = Sender.createDisplayName(runtimeId, valueType);
         Sender sender = sendersByName.get(displayName);
         return getMetric(sender);
     }
 
     private int getMetric(Sender sender) {
-        if (sender == null || statHistory.get(senderId) == null || statHistory.get(senderId).getSize() == 0) {
+        if (sender == null || statHistory.get(sender.getSenderId()) == null
+                || statHistory.get(sender.getSenderId()).getSize() == 0) {
             return UNKNOWN;
         }
 
         float result = -1;
-        Series series = statHistory.get(senderId);
+        Series series = statHistory.get(sender.getSenderId());
         switch (sender.mType) {
             case AVG:
                 result = series.getAvg();

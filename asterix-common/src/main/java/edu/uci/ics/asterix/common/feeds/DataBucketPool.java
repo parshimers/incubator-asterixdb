@@ -16,6 +16,9 @@ package edu.uci.ics.asterix.common.feeds;
 
 import java.util.Stack;
 
+import edu.uci.ics.asterix.common.feeds.api.IFeedMemoryComponent;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMemoryManager;
+
 /**
  * Represents a pool of reusable {@link DataBucket}
  */

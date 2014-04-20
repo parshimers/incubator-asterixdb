@@ -14,7 +14,7 @@ x * Copyright 2009-2013 by The Regents of the University of California
  */
 package edu.uci.ics.asterix.metadata.feeds;
 
-import edu.uci.ics.asterix.common.feeds.IFeedAdapter;
+import edu.uci.ics.asterix.common.feeds.api.IFeedAdapter;
 
 public interface IPullBasedFeedAdapter extends IFeedAdapter {
 

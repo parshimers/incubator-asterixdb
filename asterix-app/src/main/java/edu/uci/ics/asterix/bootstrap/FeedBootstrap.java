@@ -41,6 +41,7 @@ public class FeedBootstrap {
 
             CentralFeedManager.AQLExecutor.executeAQL(builder.toString());
         } catch (Exception e) {
+            e.printStackTrace();
             System.out.println("Error: " + builder.toString());
             throw e;
         }

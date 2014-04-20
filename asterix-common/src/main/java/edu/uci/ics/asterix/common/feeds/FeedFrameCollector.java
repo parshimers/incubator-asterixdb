@@ -17,6 +17,8 @@ package edu.uci.ics.asterix.common.feeds;
 import java.nio.ByteBuffer;
 import java.util.logging.Level;
 
+import edu.uci.ics.asterix.common.feeds.api.IFeedOperatorOutputSideHandler;
+import edu.uci.ics.asterix.common.feeds.api.IMessageReceiver;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 

@@ -20,7 +20,8 @@ import org.json.JSONObject;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FeedMessage;
-import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMessage;
+import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 
 /**
  * A feed control message indicating the need to end the feed. This message is dispatched
@@ -31,6 +32,8 @@ public class EndFeedMessage extends FeedMessage {
     private static final long serialVersionUID = 1L;
 
     private final FeedId sourceFeedId;
+
+    private final FeedConnectionId connectionId;
 
     private final FeedRuntimeType sourceRuntimeType;
 
@@ -45,7 +48,8 @@ public class EndFeedMessage extends FeedMessage {
 
     public EndFeedMessage(FeedConnectionId connectionId, FeedRuntimeType sourceRuntimeType, FeedId sourceFeedId,
             boolean completeDisconnection, EndMessageType endMessageType) {
-        super(MessageType.END, connectionId);
+        super(MessageType.END);
+        this.connectionId = connectionId;
         this.sourceRuntimeType = sourceRuntimeType;
         this.sourceFeedId = sourceFeedId;
         this.completeDisconnection = completeDisconnection;
@@ -74,13 +78,17 @@ public class EndFeedMessage extends FeedMessage {
     }
 
     @Override
-    public String toJSON() throws JSONException {
+    public JSONObject toJSON() throws JSONException {
         JSONObject obj = new JSONObject();
-        obj.put("message-type", messageType.name());
-        obj.put("dataverse", connectionId.getFeedId().getDataverse());
-        obj.put("feed", connectionId.getFeedId().getFeedName());
-        obj.put("dataset", connectionId.getDatasetName());
-        return obj.toString();
+        obj.put(IFeedMessage.Constants.MESSAGE_TYPE, messageType.name());
+        obj.put(IFeedMessage.Constants.DATAVERSE, connectionId.getFeedId().getDataverse());
+        obj.put(IFeedMessage.Constants.FEED, connectionId.getFeedId().getFeedName());
+        obj.put(IFeedMessage.Constants.DATASET, connectionId.getDatasetName());
+        return obj;
+    }
+
+    public FeedConnectionId getFeedConnectionId() {
+        return connectionId;
     }
 
 }

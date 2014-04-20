@@ -22,8 +22,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.json.JSONException;
+import org.json.JSONObject;
 
 import edu.uci.ics.asterix.common.config.AsterixFeedProperties;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMessage;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMessageService;
 
 /**
  * Sends feed report messages on behalf of an operator instance
@@ -35,11 +38,13 @@ public class FeedMessageService implements IFeedMessageService {
 
     private final LinkedBlockingQueue<String> inbox;
     private final FeedMessageHandler mesgHandler;
+    private final String nodeId;
     private ExecutorService executor;
 
-    public FeedMessageService(AsterixFeedProperties feedProperties, String ccClusterIp) {
+    public FeedMessageService(AsterixFeedProperties feedProperties, String nodeId, String ccClusterIp) {
         this.inbox = new LinkedBlockingQueue<String>();
         this.mesgHandler = new FeedMessageHandler(inbox, ccClusterIp, feedProperties.getFeedCentralManagerPort());
+        this.nodeId = nodeId;
         this.executor = Executors.newSingleThreadExecutor();
     }
 
@@ -58,7 +63,10 @@ public class FeedMessageService implements IFeedMessageService {
     @Override
     public void sendMessage(IFeedMessage message) {
         try {
-            inbox.add(message.toJSON());
+            JSONObject obj = message.toJSON();
+            obj.put("nodeId", nodeId);
+            obj.put("message-type", message.getMessageType().name());
+            inbox.add(obj.toString());
         } catch (JSONException jse) {
             if (LOGGER.isLoggable(Level.WARNING)) {
                 LOGGER.warning("JSON Exception in parsing message " + message);

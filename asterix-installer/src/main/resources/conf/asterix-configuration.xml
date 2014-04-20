@@ -235,7 +235,7 @@
 
 	<property>
 		<name>feed.memory.global.budget</name>
-		<value>67108864</value>
+		<value>524288000</value>
 		<description>The total size of memory in bytes that the sum of all
 			open memory buffers holding feed tuples cannot exceed. (Default =
 			"67108864" // 64MB)

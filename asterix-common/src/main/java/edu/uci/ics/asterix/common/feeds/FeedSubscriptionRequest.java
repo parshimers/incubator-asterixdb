@@ -19,7 +19,7 @@ import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 
-import edu.uci.ics.asterix.common.feeds.IFeedLifecycleListener.SubscriptionLocation;
+import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleListener.SubscriptionLocation;
 
 /**
  * A request for subscribing to a feed.

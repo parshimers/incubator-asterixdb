@@ -14,8 +14,11 @@
  */
 package edu.uci.ics.asterix.metadata.feeds;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -25,9 +28,9 @@ import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedRuntimeManager;
 import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
-import edu.uci.ics.asterix.common.feeds.IFeedConnectionManager;
-import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
-import edu.uci.ics.asterix.common.feeds.ISubscribableRuntime;
+import edu.uci.ics.asterix.common.feeds.api.IFeedConnectionManager;
+import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
+import edu.uci.ics.asterix.common.feeds.api.ISubscribableRuntime;
 
 /**
  * An implementation of the IFeedManager interface.
@@ -130,4 +133,12 @@ public class FeedConnectionManager implements IFeedConnectionManager {
 
     }
 
+    @Override
+    public List<FeedRuntimeId> getRegisteredRuntimes() {
+        List<FeedRuntimeId> runtimes = new ArrayList<FeedRuntimeId>();
+        for (Entry<FeedConnectionId, FeedRuntimeManager> entry : feedRuntimeManagers.entrySet()) {
+            runtimes.addAll(entry.getValue().getFeedRuntimes());
+        }
+        return runtimes;
+    }
 }

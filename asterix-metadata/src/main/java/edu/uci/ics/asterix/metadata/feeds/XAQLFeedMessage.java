@@ -19,6 +19,7 @@ import org.json.JSONObject;
 
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedMessage;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMessage;
 
 /**
  * A feed control message indicating the need to execute a give AQL.
@@ -31,7 +32,7 @@ public class XAQLFeedMessage extends FeedMessage {
     private final FeedConnectionId connectionId;
 
     public XAQLFeedMessage(FeedConnectionId connectionId, String aql) {
-        super(MessageType.XAQL, connectionId);
+        super(MessageType.XAQL);
         this.connectionId = connectionId;
         this.aql = aql;
     }
@@ -50,14 +51,14 @@ public class XAQLFeedMessage extends FeedMessage {
     }
 
     @Override
-    public String toJSON() throws JSONException {
+    public JSONObject toJSON() throws JSONException {
         JSONObject obj = new JSONObject();
-        obj.put("message-type", messageType.name());
-        obj.put("dataverse", connectionId.getFeedId().getDataverse());
-        obj.put("feed", connectionId.getFeedId().getFeedName());
-        obj.put("dataset", connectionId.getDatasetName());
-        obj.put("aql", aql);
-        return obj.toString();
+        obj.put(IFeedMessage.Constants.MESSAGE_TYPE, messageType.name());
+        obj.put(IFeedMessage.Constants.DATAVERSE, connectionId.getFeedId().getDataverse());
+        obj.put(IFeedMessage.Constants.FEED, connectionId.getFeedId().getFeedName());
+        obj.put(IFeedMessage.Constants.DATASET, connectionId.getDatasetName());
+        obj.put(IFeedMessage.Constants.AQL, aql);
+        return obj;
     }
 
 }

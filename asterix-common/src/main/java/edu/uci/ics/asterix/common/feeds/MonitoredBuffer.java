@@ -16,75 +16,60 @@ package edu.uci.ics.asterix.common.feeds;
 
 import java.nio.ByteBuffer;
 import java.util.Timer;
+import java.util.TimerTask;
+import java.util.logging.Level;
 
-import edu.uci.ics.asterix.common.feeds.IFeedMetricCollector.MetricType;
-import edu.uci.ics.asterix.common.feeds.IFeedMetricCollector.ValueType;
-import edu.uci.ics.asterix.common.feeds.IFeedRuntime.FeedRuntimeType;
+import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
+import edu.uci.ics.asterix.common.feeds.FeedOperatorInputSideHandler.Mode;
+import edu.uci.ics.asterix.common.feeds.api.IExceptionHandler;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector.MetricType;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector.ValueType;
+import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback;
+import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback.FrameEvent;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 
 public class MonitoredBuffer extends MessageReceiver<DataBucket> {
 
     private static final long MONITOR_FREQUENCY = 2000; // 2 seconds
-    
+
     private final IFrameWriter frameWriter;
     private final FrameTupleAccessor fta;
     private final IFeedMetricCollector metricCollector;
+    private final FeedRuntimeId runtimeId;
     private final int inflowReportSenderId;
     private final int outflowReportSenderId;
-    private final FeedPolicyAccessor fpa;
     private final IExceptionHandler exceptionHandler;
-    private final IFrameEventCallback callback;
-    private Timer monitorTask;
-    
+    private TimerTask monitorTask;
+    private final FeedOperatorInputSideHandler inputHandler;
+    private IFrameEventCallback callback;
+    private final Timer timer;
 
-    public MonitoredBuffer(IFrameWriter frameWriter, FrameTupleAccessor fta, IFeedMetricCollector metricCollector,
-            FeedConnectionId connectionId, FeedRuntimeType runtimeType, int partition,
-            IExceptionHandler exceptionHandler, FeedPolicyAccessor fpa, IFrameEventCallback callback) {
+    public MonitoredBuffer(FeedOperatorInputSideHandler inputHandler, IFrameWriter frameWriter, FrameTupleAccessor fta,
+            IFeedMetricCollector metricCollector, FeedRuntimeId runtimeId, IExceptionHandler exceptionHandler,
+            IFrameEventCallback callback) {
         this.frameWriter = frameWriter;
         this.fta = fta;
-        this.fpa = fpa;
+        this.runtimeId = runtimeId;
         this.metricCollector = metricCollector;
-        this.inflowReportSenderId = metricCollector.createReportSender(connectionId, runtimeType, partition,
-                ValueType.INFLOW_RATE, MetricType.RATE);
-        this.outflowReportSenderId = metricCollector.createReportSender(connectionId, runtimeType, partition,
-                ValueType.OUTFLOW_RATE, MetricType.RATE);
+        this.inflowReportSenderId = metricCollector.createReportSender(runtimeId, ValueType.INFLOW_RATE,
+                MetricType.RATE);
+        this.outflowReportSenderId = metricCollector.createReportSender(runtimeId, ValueType.OUTFLOW_RATE,
+                MetricType.RATE);
         this.exceptionHandler = exceptionHandler;
+        this.monitorTask = new MonitoredBufferTimerTask(this, callback);
         this.callback = callback;
-        Timer timer = new Timer();
-        timer.scheduleAtFixedRate(new MonitorTimerTask(this), 0, MONITOR_FREQUENCY);
+        this.inputHandler = inputHandler;
+        timer = new Timer();
+        timer.scheduleAtFixedRate(monitorTask, 0, MONITOR_FREQUENCY);
     }
 
     @Override
     public void sendMessage(DataBucket message) {
         inbox.add(message);
         fta.reset(message.getBuffer());
-        int nTuples = fta.getTupleCount();
-        metricCollector.sendReport(inflowReportSenderId, nTuples);
-    }
-
-    @Override
-    public void processMessage(DataBucket message) throws Exception {
-        boolean finishedProcessing = false;
-        ByteBuffer frame = message.getBuffer();
-        while (!finishedProcessing) {
-            try {
-                switch (message.getContentType()) {
-                    case DATA:
-                        frameWriter.nextFrame(frame);
-                        break;
-                    case EOD:
-                        callback.frameEvent(IFrameEventCallback.FrameEvent.FINISHED_PROCESSING);
-                }
-                finishedProcessing = true;
-            } catch (Exception e) {
-                if (fpa.continueOnSoftFailure()) {
-                    frame = exceptionHandler.handleException(e, frame);
-                } else {
-                    throw e;
-                }
-            }
-        }
+        metricCollector.sendReport(inflowReportSenderId, fta.getTupleCount());
     }
 
     /** return rate in terms of tuples/sec **/
@@ -100,5 +85,46 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
     /** return the number of pending frames from the input queue **/
     public int getWorkSize() {
         return inbox.size();
+    }
+
+    @Override
+    public void processMessage(DataBucket message) throws Exception {
+        switch (message.getContentType()) {
+            case DATA:
+                boolean finishedProcessing = false;
+                ByteBuffer frame = message.getBuffer();
+                while (!finishedProcessing) {
+                    try {
+                        frameWriter.nextFrame(frame);
+                        finishedProcessing = true;
+                        metricCollector.sendReport(outflowReportSenderId, fta.getTupleCount());
+                    } catch (Exception e) {
+                        frame = exceptionHandler.handleException(e, frame);
+                    }
+                }
+                message.doneReading();
+                break;
+            case EOD:
+                message.doneReading();
+                timer.cancel();
+                callback.frameEvent(FrameEvent.FINISHED_PROCESSING);
+                break;
+            case EOSD:
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("Done processing spillage");
+                }
+                message.doneReading();
+                callback.frameEvent(FrameEvent.FINISHED_PROCESSING_SPILLAGE);
+                break;
+
+        }
+    }
+
+    public Mode getMode() {
+        return inputHandler.getMode();
+    }
+
+    public FeedRuntimeId getRuntimeId() {
+        return runtimeId;
     }
 }
