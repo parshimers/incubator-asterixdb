@@ -123,6 +123,59 @@
 		</plugins>
 	</build>
 
+
+    <profiles>
+        <profile>
+            <id>cluster-tests</id>
+            <activation>
+                 <activeByDefault>false</activeByDefault>
+                 <property>
+                     <name>clusterTest</name>
+                     <value>true</value>
+                 </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                      <groupId>net.ju-n.maven.plugins</groupId>
+                      <artifactId>vagrant-maven-plugin</artifactId>
+                      <version>1.1.0-SNAPSHOT</version>
+                      <executions>
+
+                        <!-- Before tests: import box, start VM -->
+                        <execution>
+                          <id>setup-and-start-vagrant-vm</id>
+                          <phase>pre-integration-test</phase>
+                          <goals>
+                            <goal>up</goal>
+                          </goals>
+                          <configuration>
+                            <box>chef/centos-6.5</box>
+                            <url>https://vagrantcloud.com/chef/centos-6.5</url>
+                            <vagrantHome>${project.basedir}/src/test/resources/clusterts</vagrantHome>
+                          </configuration>
+                        </execution>
+
+                        <!-- After tests: shut down, destroy VM -->
+                        <execution>
+                          <id>destroy-vagrant-vm</id>
+                          <phase>post-integration-test</phase>
+                          <goals>
+                            <goal>destroy</goal>
+                          </goals>
+                          <configuration>
+                            <box>chef/centos-6.5</box>
+                            <url>https://vagrantcloud.com/chef/centos-6.5</url>
+                            <vagrantHome>${project.basedir}/src/test/resources/clusterts</vagrantHome>
+                          </configuration>
+                        </execution>
+                      </executions>
+                    </plugin>
+                 </plugins>
+             </build>
+         </profile>
+      </profiles>
+
 	<dependencies>
 		<dependency>
 			<groupId>args4j</groupId>
