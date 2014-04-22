@@ -32,7 +32,7 @@ public class DataBucket {
     public enum ContentType {
         DATA, // data (feed tuple)
         EOD, // A signal indicating that there shall be no more data
-        EOSD
+        EOSD // End of processing of spilled data
     }
 
     public DataBucket(DataBucketPool pool) {

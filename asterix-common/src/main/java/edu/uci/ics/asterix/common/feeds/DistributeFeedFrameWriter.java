@@ -22,6 +22,7 @@ import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedOperatorOutputSideHandler;
+import edu.uci.ics.asterix.common.feeds.api.IFeedOperatorOutputSideHandler.Type;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -33,7 +34,7 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
  * are isolated from each other to ensure that a slow reader does not impact the progress of
  * others.
  **/
-public class DistributeFeedFrameWriter implements IFeedOperatorOutputSideHandler {
+public class DistributeFeedFrameWriter implements IFrameWriter {
 
     private static final Logger LOGGER = Logger.getLogger(DistributeFeedFrameWriter.class.getName());
 
@@ -63,22 +64,22 @@ public class DistributeFeedFrameWriter implements IFeedOperatorOutputSideHandler
         this.writer = writer;
     }
 
-    public FeedFrameCollector subscribeFeed(FeedPolicyAccessor fpa, IFeedOperatorOutputSideHandler frameWriter)
-            throws Exception {
+    public FeedFrameCollector subscribeFeed(FeedPolicyAccessor fpa, IFrameWriter frameWriter,
+            FeedConnectionId connectionId) throws Exception {
         FeedFrameCollector collector = null;
         if (!frameDistributor.isRegistered(frameWriter)) {
-            collector = new FeedFrameCollector(frameDistributor, fpa, frameWriter, frameWriter.getFeedId());
+            collector = new FeedFrameCollector(frameDistributor, fpa, frameWriter, connectionId);
             frameDistributor.registerFrameCollector(collector);
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Registered subscriber, new mode " + frameDistributor.getMode());
             }
             return collector;
         } else {
-            throw new IllegalStateException("subscriber " + frameWriter.getFeedId() + " already registered");
+            throw new IllegalStateException("subscriber " + feedId + " already registered");
         }
     }
 
-    public void unsubscribeFeed(IFeedOperatorOutputSideHandler recipientFeedFrameWriter) throws Exception {
+    public void unsubscribeFeed(IFrameWriter recipientFeedFrameWriter) throws Exception {
         boolean success = frameDistributor.deregisterFrameCollector(recipientFeedFrameWriter);
         if (!success) {
             throw new IllegalStateException("Invalid attempt to unregister FeedFrameWriter " + recipientFeedFrameWriter
@@ -111,7 +112,6 @@ public class DistributeFeedFrameWriter implements IFeedOperatorOutputSideHandler
         writer.open();
     }
 
-    @Override
     public FeedId getFeedId() {
         return feedId;
     }
@@ -132,7 +132,6 @@ public class DistributeFeedFrameWriter implements IFeedOperatorOutputSideHandler
         return feedRuntimeType;
     }
 
-    @Override
     public Type getType() {
         return IFeedOperatorOutputSideHandler.Type.DISTRIBUTE_FEED_OUTPUT_HANDLER;
     }

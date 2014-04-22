@@ -91,6 +91,7 @@ public class FeedJobNotificationHandler implements Runnable {
 
     private final Map<FeedConnectionId, FeedJointKey> feedConnections;
     private final List<JobId> registeredJobs;
+    private final Map<FeedConnectionId, JobSpecification> collectFeedJobs;
     private final Map<FeedConnectionId, List<IFeedLifecycleEventSubscriber>> registeredFeedEventSubscribers;
 
     public FeedJobNotificationHandler(LinkedBlockingQueue<Message> inbox) {
@@ -105,7 +106,12 @@ public class FeedJobNotificationHandler implements Runnable {
         this.feedJoints = new HashMap<FeedJointKey, IFeedJoint>();
         this.feedConnections = new HashMap<FeedConnectionId, FeedJointKey>();
         this.registeredJobs = new ArrayList<JobId>();
+        this.collectFeedJobs = new HashMap<FeedConnectionId, JobSpecification>();
         this.registeredFeedEventSubscribers = new HashMap<FeedConnectionId, List<IFeedLifecycleEventSubscriber>>();
+    }
+
+    public JobSpecification getCollectJobSpecification(FeedConnectionId connectionId) {
+        return collectFeedJobs.get(connectionId);
     }
 
     public void registerFeedEventSubscriber(FeedConnectionId connectionId, IFeedLifecycleEventSubscriber subscriber) {
@@ -208,6 +214,7 @@ public class FeedJobNotificationHandler implements Runnable {
 
         if (found) {
             registeredJobs.add(jobId);
+            collectFeedJobs.put(feedConnectionId, jobSpec);
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Registered feed connection [" + jobId + "]" + " for feed " + feedConnectionId);
             }
@@ -662,6 +669,7 @@ public class FeedJobNotificationHandler implements Runnable {
     private void deregisterFeedSubscriber(FeedSubscriber subscriber) {
         jobSubscriberMap.remove(subscriber.getJobId());
         registeredJobs.remove(subscriber.getJobId());
+        collectFeedJobs.remove(subscriber.getFeedConnectionId());
     }
 
     private boolean failedDueToNodeFalilurePostSubmission(JobSpecification spec) {

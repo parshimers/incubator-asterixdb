@@ -84,7 +84,7 @@ public abstract class MessageReceiver<T> implements IMessageReceiver<T> {
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 } catch (Exception e) {
-
+                    e.printStackTrace();
                 }
             }
         }

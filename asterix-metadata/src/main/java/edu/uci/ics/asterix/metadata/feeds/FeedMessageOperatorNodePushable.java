@@ -26,17 +26,16 @@ import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedFrameCollector;
-import edu.uci.ics.asterix.common.feeds.FeedFrameCollector.Mode;
 import edu.uci.ics.asterix.common.feeds.FeedId;
+import edu.uci.ics.asterix.common.feeds.FeedOperatorInputSideHandler;
+import edu.uci.ics.asterix.common.feeds.FeedOperatorInputSideHandler.Mode;
 import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.asterix.common.feeds.api.IAdapterRuntimeManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMessage;
-import edu.uci.ics.asterix.common.feeds.api.IFeedOperatorOutputSideHandler;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.api.ISubscribableRuntime;
-import edu.uci.ics.asterix.metadata.feeds.FeedCollectOperatorNodePushable.CollectTransformFeedFrameWriter;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -73,7 +72,6 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
             switch (message.getMessageType()) {
                 case END:
                     EndFeedMessage endFeedMessage = (EndFeedMessage) message;
-
                     switch (endFeedMessage.getEndMessageType()) {
                         case DISCONNECT_FEED:
                             hanldeDisconnectFeedTypeMessage(endFeedMessage);
@@ -82,9 +80,12 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                             handleDiscontinueFeedTypeMessage(endFeedMessage);
                             break;
                     }
-
                     break;
-
+                case PREPARE_STALL:
+                    PrepareStallMessage prepareStallMessage = (PrepareStallMessage) message;
+                    FeedConnectionId connectionId = prepareStallMessage.getConnectionId();
+                    handlePrepareStallMessage(connectionId);
+                    break;
             }
 
         } catch (Exception e) {
@@ -92,6 +93,14 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
         } finally {
             writer.close();
         }
+    }
+
+    private void handlePrepareStallMessage(FeedConnectionId connectionId) {
+        FeedRuntimeId runtimeId = new FeedRuntimeId(connectionId, FeedRuntimeType.COLLECT,
+                FeedRuntimeId.DEFAULT_OPERAND_ID, partition);
+        CollectionRuntime collectionRuntime = (CollectionRuntime) feedManager.getFeedConnectionManager()
+                .getFeedRuntime(runtimeId);
+        collectionRuntime.setMode(Mode.BUFFER_RECOVERY);
     }
 
     private void handleDiscontinueFeedTypeMessage(EndFeedMessage endFeedMessage) throws Exception {
@@ -149,39 +158,20 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                             feedSubscribableRuntimeId);
                     DistributeFeedFrameWriter dWriter = (DistributeFeedFrameWriter) feedRuntime.getFeedFrameWriter();
                     Map<IFrameWriter, FeedFrameCollector> registeredCollectors = dWriter.getRegisteredReaders();
-                    IFeedOperatorOutputSideHandler unsubscribingWriter = null;
+
+                    IFrameWriter unsubscribingWriter = null;
                     for (Entry<IFrameWriter, FeedFrameCollector> entry : registeredCollectors.entrySet()) {
                         IFrameWriter frameWriter = entry.getKey();
-                        FeedFrameCollector collector = entry.getValue();
-                        if (collector.getMode().equals(Mode.FORWARD_TO_WRITER)) {
-                            IFeedOperatorOutputSideHandler feedFrameWriter = (IFeedOperatorOutputSideHandler) frameWriter;
-                            FeedConnectionId connectionId = null;
-                            switch (feedFrameWriter.getType()) {
-                                case BASIC_FEED_OUTPUT_HANDLER:
-                                    connectionId = ((FeedFrameWriter) feedFrameWriter).getFeedConnectionId();
-                                    break;
-                                case COLLECT_TRANSFORM_FEED_OUTPUT_HANDLER:
-                                    connectionId = ((FeedFrameWriter) ((CollectTransformFeedFrameWriter) frameWriter)
-                                            .getDownstreamWriter()).getFeedConnectionId();
-
-                                    break;
-                                case DISTRIBUTE_FEED_OUTPUT_HANDLER:
-                                    throw new IllegalStateException("Invalid feed frame writer type "
-                                            + feedFrameWriter.getType());
+                        FeedOperatorInputSideHandler feedFrameWriter = (FeedOperatorInputSideHandler) frameWriter;
+                        if (feedFrameWriter.getRuntimeId().getConnectionId()
+                                .equals(endFeedMessage.getFeedConnectionId())) {
+                            unsubscribingWriter = feedFrameWriter;
+                            dWriter.unsubscribeFeed(unsubscribingWriter);
+                            if (LOGGER.isLoggable(Level.INFO)) {
+                                LOGGER.info("PARTIAL UNSUBSCRIPTION of " + unsubscribingWriter);
                             }
-                            if (connectionId.equals(endFeedMessage.getFeedConnectionId())) {
-                                unsubscribingWriter = feedFrameWriter;
-                                break;
-                            }
+                            break;
                         }
-                    }
-                    if (unsubscribingWriter != null) {
-                        dWriter.unsubscribeFeed(unsubscribingWriter);
-                        if (LOGGER.isLoggable(Level.INFO)) {
-                            LOGGER.info("PARTIAL UNSUBSCRIPTION of " + unsubscribingWriter);
-                        }
-                    } else {
-                        throw new HyracksDataException("Unable to unsubscribe!!!! " + connectionId);
                     }
                     break;
             }

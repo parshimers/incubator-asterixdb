@@ -387,7 +387,8 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
 
     @Override
     public List<String> getComputeLocations(FeedId feedId) {
-        return feedJobNotificationHandler.getFeedComputeLocations(feedId);
+        IFeedJoint feedJoint = feedJobNotificationHandler.getFeedPoint(feedId, Scope.PUBLIC);
+        return feedJoint.getLocations();
     }
 
     @Override
@@ -461,6 +462,10 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
     public void deregisterFeedEventSubscriber(FeedConnectionId connectionId, IFeedLifecycleEventSubscriber subscriber) {
         feedJobNotificationHandler.deregisterFeedEventSubscriber(connectionId, subscriber);
 
+    }
+
+    public JobSpecification getCollectJobSpecification(FeedConnectionId connectionId) {
+        return feedJobNotificationHandler.getCollectJobSpecification(connectionId);
     }
 
 }

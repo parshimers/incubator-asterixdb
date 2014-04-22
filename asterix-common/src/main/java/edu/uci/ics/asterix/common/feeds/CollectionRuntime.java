@@ -16,7 +16,7 @@ package edu.uci.ics.asterix.common.feeds;
 
 import java.util.Map;
 
-import edu.uci.ics.asterix.common.feeds.api.IFeedOperatorOutputSideHandler;
+import edu.uci.ics.asterix.common.feeds.FeedOperatorInputSideHandler.Mode;
 import edu.uci.ics.asterix.common.feeds.api.ISubscribableRuntime;
 import edu.uci.ics.asterix.common.feeds.api.ISubscriberRuntime;
 
@@ -31,12 +31,14 @@ public class CollectionRuntime extends BasicFeedRuntime implements ISubscriberRu
     private final ISubscribableRuntime sourceRuntime;
     private final Map<String, String> feedPolicy;
     private FeedFrameCollector frameCollector;
+    private Mode mode;
 
-    public CollectionRuntime(FeedConnectionId feedId, int partition, IFeedOperatorOutputSideHandler feedFrameWriter,
+    public CollectionRuntime(FeedConnectionId feedId, int partition, FeedOperatorInputSideHandler inputSideHandler,
             ISubscribableRuntime sourceRuntime, Map<String, String> feedPolicy, FeedRuntimeType runtimeType) {
-        super(feedId, partition, feedFrameWriter, runtimeType, FeedRuntimeId.DEFAULT_OPERAND_ID);
+        super(feedId, partition, inputSideHandler, runtimeType, FeedRuntimeId.DEFAULT_OPERAND_ID);
         this.sourceRuntime = sourceRuntime;
         this.feedPolicy = feedPolicy;
+        this.mode = Mode.PROCESS;
     }
 
     public ISubscribableRuntime getSourceRuntime() {
@@ -59,6 +61,11 @@ public class CollectionRuntime extends BasicFeedRuntime implements ISubscriberRu
                 }
             }
         }
+    }
+
+    public void setMode(Mode mode) {
+        FeedOperatorInputSideHandler inputSideHandler = (FeedOperatorInputSideHandler) getFeedFrameWriter();
+        inputSideHandler.setMode(mode);
     }
 
     @Override

@@ -197,7 +197,7 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
                 writer, runtimeType, partition, new FrameTupleAccessor(ctx.getFrameSize(), recordDesc), feedManager,
                 ctx.getFrameSize());
         outputSideFrameCollector = distributeWriter.subscribeFeed(policyEnforcer.getFeedPolicyAccessor(),
-                feedFrameWriter);
+                feedFrameWriter, feedConnectionId);
         feedRuntime = new SubscribableRuntime(sid, distributeWriter, runtimeType, recordDesc);
         feedManager.getFeedSubscriptionManager().registerFeedSubscribableRuntime((ISubscribableRuntime) feedRuntime);
         coreOperator.setOutputFrameWriter(0, distributeWriter, recordDesc);

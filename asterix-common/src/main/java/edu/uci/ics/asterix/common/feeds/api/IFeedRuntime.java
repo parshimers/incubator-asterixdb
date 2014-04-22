@@ -15,7 +15,7 @@
 package edu.uci.ics.asterix.common.feeds.api;
 
 import edu.uci.ics.asterix.common.feeds.FeedId;
-
+import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 
 public interface IFeedRuntime {
 
@@ -42,6 +42,6 @@ public interface IFeedRuntime {
     /**
      * @return the frame writer associated with the feed runtime.
      */
-    public IFeedOperatorOutputSideHandler getFeedFrameWriter();
+    public IFrameWriter getFeedFrameWriter();
 
 }

@@ -105,4 +105,8 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
         return coreOperator;
     }
 
+    public FeedRuntimeType getRuntimeType() {
+        return runtimeType;
+    }
+
 }

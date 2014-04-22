@@ -41,9 +41,9 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
     private final int inflowReportSenderId;
     private final int outflowReportSenderId;
     private final IExceptionHandler exceptionHandler;
-    private TimerTask monitorTask;
+    private final TimerTask monitorTask;
     private final FeedOperatorInputSideHandler inputHandler;
-    private IFrameEventCallback callback;
+    private final IFrameEventCallback callback;
     private final Timer timer;
 
     public MonitoredBuffer(FeedOperatorInputSideHandler inputHandler, IFrameWriter frameWriter, FrameTupleAccessor fta,
@@ -61,8 +61,8 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
         this.monitorTask = new MonitoredBufferTimerTask(this, callback);
         this.callback = callback;
         this.inputHandler = inputHandler;
-        timer = new Timer();
-        timer.scheduleAtFixedRate(monitorTask, 0, MONITOR_FREQUENCY);
+        this.timer = new Timer();
+        this.timer.scheduleAtFixedRate(monitorTask, 0, MONITOR_FREQUENCY);
     }
 
     @Override

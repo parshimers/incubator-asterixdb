@@ -18,7 +18,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.api.ISubscribableRuntime;
 import edu.uci.ics.asterix.common.feeds.api.ISubscriberRuntime;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
@@ -60,7 +59,8 @@ public class SubscribableRuntime implements ISubscribableRuntime {
     public synchronized void subscribeFeed(FeedPolicyAccessor fpa, CollectionRuntime collectionRuntime)
             throws Exception {
         FeedFrameCollector collector = feedWriter.subscribeFeed(
-                new FeedPolicyAccessor(collectionRuntime.getFeedPolicy()), collectionRuntime.getFeedFrameWriter());
+                new FeedPolicyAccessor(collectionRuntime.getFeedPolicy()), collectionRuntime.getFeedFrameWriter(),
+                collectionRuntime.getFeedRuntimeId().getConnectionId());
         collectionRuntime.setFrameCollector(collector);
         subscribers.add(collectionRuntime);
     }

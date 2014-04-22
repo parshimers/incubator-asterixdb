@@ -17,6 +17,7 @@ package edu.uci.ics.asterix.common.feeds;
 import java.nio.ByteBuffer;
 import java.util.logging.Level;
 
+import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.api.IFeedOperatorOutputSideHandler;
 import edu.uci.ics.asterix.common.feeds.api.IMessageReceiver;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
@@ -26,11 +27,9 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
 
     private final FrameDistributor frameDistributor;
     private FeedPolicyAccessor fpa;
-    private final FeedId feedId;
+    private final FeedConnectionId connectionId;
     private IFrameWriter frameWriter;
-    private FeedOperatorInputSideHandler frameProcessor;
     private State state;
-    private final Mode mode;
 
     public enum State {
         ACTIVE,
@@ -38,31 +37,14 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
         TRANSITION
     }
 
-    public enum Mode {
-        FORWARD_TO_WRITER,
-        FORWARD_TO_OPERATOR
-    }
-
     public FeedFrameCollector(FrameDistributor frameDistributor, FeedPolicyAccessor feedPolicyAccessor,
-            IFeedOperatorOutputSideHandler frameWriter, FeedId feedId) {
+            IFrameWriter frameWriter, FeedConnectionId connectionId) {
         super();
         this.frameDistributor = frameDistributor;
         this.fpa = feedPolicyAccessor;
-        this.feedId = feedId;
+        this.connectionId = connectionId;
         this.frameWriter = frameWriter;
         this.state = State.ACTIVE;
-        this.mode = Mode.FORWARD_TO_WRITER;
-    }
-
-    public FeedFrameCollector(FrameDistributor frameDistributor, FeedPolicyAccessor feedPolicyAccessor,
-            FeedOperatorInputSideHandler frameProcessor, FeedId feedId) {
-        super();
-        this.frameDistributor = frameDistributor;
-        this.fpa = feedPolicyAccessor;
-        this.feedId = feedId;
-        this.frameProcessor = frameProcessor;
-        this.state = State.ACTIVE;
-        this.mode = Mode.FORWARD_TO_OPERATOR;
     }
 
     @Override
@@ -71,18 +53,13 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
             ByteBuffer frame = bucket.getBuffer();
             switch (bucket.getContentType()) {
                 case DATA:
-                    switch (mode) {
-                        case FORWARD_TO_OPERATOR:
-                            frameProcessor.nextFrame(frame);
-                            break;
-                        case FORWARD_TO_WRITER:
-                            frameWriter.nextFrame(frame);
-                            break;
-                    }
+                    frameWriter.nextFrame(frame);
                     break;
                 case EOD:
                     closeCollector();
                     break;
+                case EOSD:
+                    throw new AsterixException("Received data bucket with content of type " + bucket.getContentType());
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -143,13 +120,9 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
         this.frameWriter = frameWriter;
     }
 
-    public Mode getMode() {
-        return mode;
-    }
-
     @Override
     public String toString() {
-        return "FrameCollector (" + mode + ")" + feedId + "," + state + "]";
+        return "FrameCollector " + connectionId + "," + state + "]";
     }
 
     @Override
@@ -158,18 +131,14 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
             return true;
         }
         if (o instanceof FeedFrameCollector) {
-            return feedId.equals(((FeedFrameCollector) o).feedId);
+            return connectionId.equals(((FeedFrameCollector) o).connectionId);
         }
         return false;
     }
 
     @Override
     public int hashCode() {
-        return feedId.toString().hashCode();
-    }
-
-    public FeedOperatorInputSideHandler getFrameProcessor() {
-        return frameProcessor;
+        return connectionId.toString().hashCode();
     }
 
 }

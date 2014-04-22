@@ -64,8 +64,8 @@ public class FeedMessageService implements IFeedMessageService {
     public void sendMessage(IFeedMessage message) {
         try {
             JSONObject obj = message.toJSON();
-            obj.put("nodeId", nodeId);
-            obj.put("message-type", message.getMessageType().name());
+            obj.put(IFeedMessage.Constants.NODE_ID, nodeId);
+            obj.put(IFeedMessage.Constants.MESSAGE_TYPE, message.getMessageType().name());
             inbox.add(obj.toString());
         } catch (JSONException jse) {
             if (LOGGER.isLoggable(Level.WARNING)) {
@@ -101,9 +101,6 @@ public class FeedMessageService implements IFeedMessageService {
                         synchronized (lock) {
                             cfmSocket.getOutputStream().write(message.getBytes());
                             cfmSocket.getOutputStream().write(EOL);
-                        }
-                        if (LOGGER.isLoggable(Level.INFO)) {
-                            LOGGER.info(" Sent message " + message + " to CentralFeedManager ");
                         }
                     }
                 } else {

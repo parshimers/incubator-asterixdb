@@ -207,7 +207,7 @@ public class FrameDistributor {
         }
     }
 
-    public boolean deregisterFrameCollector(IFeedOperatorOutputSideHandler frameWriter) {
+    public boolean deregisterFrameCollector(IFrameWriter frameWriter) {
         FeedFrameCollector collector = registeredCollectors.get(frameWriter);
         if (collector != null) {
             deregisterFrameCollector(collector);
@@ -220,7 +220,7 @@ public class FrameDistributor {
         this.distributionMode = mode;
     }
 
-    public boolean isRegistered(IFeedOperatorOutputSideHandler writer) {
+    public boolean isRegistered(IFrameWriter writer) {
         return registeredCollectors.get(writer) != null;
     }
 

@@ -26,11 +26,13 @@ public interface IFeedMessage extends Serializable {
         XAQL,
         FEED_REPORT,
         NODE_REPORT,
-        CONGESTION
+        CONGESTION,
+        PREPARE_STALL
     }
 
     public static final class Constants {
         public static final String MESSAGE_TYPE = "message-type";
+        public static final String NODE_ID = "nodeId";
         public static final String DATAVERSE = "dataverse";
         public static final String FEED = "feed";
         public static final String DATASET = "dataset";
@@ -44,6 +46,7 @@ public interface IFeedMessage extends Serializable {
         public static final String CPU_LOAD = "cpu-load";
         public static final String N_RUNTIMES = "n_runtimes";
         public static final String HEAP_USAGE = "heap_usage";
+        public static final String OPERAND_ID = "operand-id";
     }
 
     public MessageType getMessageType();

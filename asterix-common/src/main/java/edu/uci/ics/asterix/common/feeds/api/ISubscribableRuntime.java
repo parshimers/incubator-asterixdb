@@ -18,6 +18,7 @@ import java.util.List;
 
 import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
+import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
@@ -54,9 +55,8 @@ public interface ISubscribableRuntime extends IFeedRuntime {
      * @return
      */
     public DistributeFeedFrameWriter getFeedFrameWriter();
-    
+
     /**
-     * 
      * @return
      */
     public RecordDescriptor getRecordDescriptor();

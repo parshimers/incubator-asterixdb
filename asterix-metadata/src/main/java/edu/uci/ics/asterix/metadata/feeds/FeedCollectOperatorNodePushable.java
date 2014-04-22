@@ -14,7 +14,6 @@
  */
 package edu.uci.ics.asterix.metadata.feeds;
 
-import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -25,18 +24,17 @@ import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedFrameCollector;
 import edu.uci.ics.asterix.common.feeds.FeedId;
+import edu.uci.ics.asterix.common.feeds.FeedOperatorInputSideHandler;
 import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedOperatorOutputSideHandler;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.api.ISubscribableRuntime;
 import edu.uci.ics.asterix.metadata.feeds.FeedFrameWriter.Mode;
+import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
-import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
-import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
 
 /**
@@ -55,9 +53,9 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
     private final ISubscribableRuntime sourceRuntime;
     private final IHyracksTaskContext ctx;
     private RecordDescriptor outputRecordDescriptor;
+    private FeedOperatorInputSideHandler inputSideHandler;
 
     private CollectionRuntime collectRuntime;
-    private FeedFrameWriter feedFrameWriter;
 
     public FeedCollectOperatorNodePushable(IHyracksTaskContext ctx, FeedId sourceFeedId,
             FeedConnectionId feedConnectionId, Map<String, String> feedPolicy, int partition,
@@ -92,21 +90,21 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
 
             collectRuntime.waitTillCollectionOver();
             feedManager.getFeedConnectionManager().deRegisterFeedRuntime(collectRuntime.getFeedRuntimeId());
-            feedFrameWriter.close();
+            writer.close();
         } catch (InterruptedException ie) {
             if (policyEnforcer.getFeedPolicyAccessor().continueOnHardwareFailure()) {
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Continuing on failure as per feed policy, switching to " + Mode.STORE
                             + " until failure is resolved");
                 }
-                feedFrameWriter.setMode(Mode.STORE);
+                inputSideHandler.setMode(FeedOperatorInputSideHandler.Mode.BUFFER_RECOVERY);
             } else {
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Failure during feed ingestion. Deregistering feed runtime " + collectRuntime
                             + " as feed is not configured to handle failures");
                 }
                 feedManager.getFeedConnectionManager().deRegisterFeedRuntime(collectRuntime.getFeedRuntimeId());
-                feedFrameWriter.close();
+                writer.close();
                 throw new HyracksDataException(ie);
             }
         } catch (Exception e) {
@@ -118,17 +116,19 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
     private void handlePartialConnection() throws Exception {
         FeedRuntimeId runtimeId = new FeedRuntimeId(feedConnectionId, FeedRuntimeType.COMPUTE_COLLECT,
                 FeedRuntimeId.DEFAULT_OPERAND_ID, partition);
-        feedFrameWriter = new FeedFrameWriter(ctx, writer, this, runtimeId, policyEnforcer, nodeId,
-                outputRecordDescriptor, feedManager);
-        feedFrameWriter.open();
+        writer.open();
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Beginning new feed (from existing partial connection):" + feedConnectionId);
         }
-        IFeedOperatorOutputSideHandler wrapper = feedFrameWriter;
-        wrapper = new CollectTransformFeedFrameWriter(ctx, feedFrameWriter, sourceRuntime, outputRecordDescriptor,
-                feedConnectionId);
-        collectRuntime = new CollectionRuntime(feedConnectionId, partition, wrapper, sourceRuntime, feedPolicy,
-                FeedRuntimeType.COMPUTE_COLLECT);
+        IFeedOperatorOutputSideHandler wrapper = new CollectTransformFeedFrameWriter(ctx, writer, sourceRuntime,
+                outputRecordDescriptor, feedConnectionId);
+
+        inputSideHandler = new FeedOperatorInputSideHandler(runtimeId, wrapper, policyEnforcer.getFeedPolicyAccessor(),
+                false, ctx.getFrameSize(), new FrameTupleAccessor(ctx.getFrameSize(), recordDesc), recordDesc,
+                feedManager);
+
+        collectRuntime = new CollectionRuntime(feedConnectionId, partition, inputSideHandler, sourceRuntime,
+                feedPolicy, FeedRuntimeType.COMPUTE_COLLECT);
         feedManager.getFeedConnectionManager().registerFeedRuntime(collectRuntime);
         this.recordDesc = sourceRuntime.getRecordDescriptor();
         sourceRuntime.subscribeFeed(policyEnforcer.getFeedPolicyAccessor(), collectRuntime);
@@ -139,36 +139,37 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
                 FeedRuntimeId.DEFAULT_OPERAND_ID, partition);
         collectRuntime = (CollectionRuntime) feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
         if (collectRuntime == null) {
-            feedFrameWriter = new FeedFrameWriter(ctx, writer, this, runtimeId, policyEnforcer, nodeId,
-                    outputRecordDescriptor, feedManager);
-            feedFrameWriter.open();
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Beginning new feed:" + feedConnectionId);
-            }
-
-            IFeedOperatorOutputSideHandler wrapper = feedFrameWriter;
+            writer.open();
+            IFrameWriter wrapper = writer;
             if (sourceRuntime.getFeedRuntimeType().equals(FeedRuntimeType.COMPUTE)) {
-                wrapper = new CollectTransformFeedFrameWriter(ctx, feedFrameWriter, sourceRuntime,
-                        outputRecordDescriptor, feedConnectionId);
-            }
-
-            collectRuntime = new CollectionRuntime(feedConnectionId, partition, wrapper, sourceRuntime, feedPolicy,
-                    FeedRuntimeType.COLLECT);
-            feedManager.getFeedConnectionManager().registerFeedRuntime(collectRuntime);
-            if (sourceRuntime.getFeedRuntimeType().equals(FeedRuntimeType.COMPUTE)) {
+                wrapper = new CollectTransformFeedFrameWriter(ctx, writer, sourceRuntime, outputRecordDescriptor,
+                        feedConnectionId);
                 this.recordDesc = sourceRuntime.getRecordDescriptor();
             }
+
+            FrameTupleAccessor fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
+            inputSideHandler = new FeedOperatorInputSideHandler(runtimeId, wrapper,
+                    policyEnforcer.getFeedPolicyAccessor(), false, ctx.getFrameSize(), fta, recordDesc, feedManager);
+
+            collectRuntime = new CollectionRuntime(feedConnectionId, partition, inputSideHandler, sourceRuntime,
+                    feedPolicy, FeedRuntimeType.COLLECT);
+            feedManager.getFeedConnectionManager().registerFeedRuntime(collectRuntime);
             sourceRuntime.subscribeFeed(policyEnforcer.getFeedPolicyAccessor(), collectRuntime);
         } else {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Resuming old feed:" + feedConnectionId);
             }
             writer.open();
-            FeedFrameCollector frameReader = collectRuntime.getFrameCollector();
-            feedFrameWriter = (FeedFrameWriter) frameReader.getFrameWriter();
-            feedFrameWriter.setWriter(writer);
-            //feedFrameWriter.getWriter()).reset();
-            feedFrameWriter.setMode(FeedFrameWriter.Mode.FORWARD);
+            FeedFrameCollector frameCollector = collectRuntime.getFrameCollector();
+            inputSideHandler = (FeedOperatorInputSideHandler) frameCollector.getFrameWriter();
+            IFrameWriter innerWriter = inputSideHandler.getCoreOperator();
+            if (innerWriter instanceof CollectTransformFeedFrameWriter) {
+                ((CollectTransformFeedFrameWriter) writer).reset(this.writer);
+            } else {
+                inputSideHandler.reset(this.writer);
+            }
+            inputSideHandler.setMode(FeedOperatorInputSideHandler.Mode.PROCESS);
+
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Reset the internal frame writer for " + collectRuntime + " to "
                         + FeedFrameWriter.Mode.FORWARD + " mode ");
@@ -178,86 +179,6 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
 
     public Map<String, String> getFeedPolicy() {
         return feedPolicy;
-    }
-
-    public static class CollectTransformFeedFrameWriter implements IFeedOperatorOutputSideHandler {
-
-        private final FeedConnectionId connectionId;
-        private final IFeedOperatorOutputSideHandler downstreamWriter;
-        private final FrameTupleAccessor inputFrameTupleAccessor;
-        private final FrameTupleAppender tupleAppender;
-        private final ByteBuffer frame;
-
-        private ArrayTupleBuilder tupleBuilder = new ArrayTupleBuilder(1);
-
-        public CollectTransformFeedFrameWriter(IHyracksTaskContext ctx,
-                IFeedOperatorOutputSideHandler downstreamWriter, ISubscribableRuntime sourceRuntime,
-                RecordDescriptor outputRecordDescriptor, FeedConnectionId connectionId) throws HyracksDataException {
-            this.downstreamWriter = downstreamWriter;
-            RecordDescriptor inputRecordDescriptor = sourceRuntime.getRecordDescriptor();
-            inputFrameTupleAccessor = new FrameTupleAccessor(ctx.getFrameSize(), inputRecordDescriptor);
-            tupleAppender = new FrameTupleAppender(ctx.getFrameSize());
-            frame = ctx.allocateFrame();
-            tupleAppender.reset(frame, true);
-            this.connectionId = connectionId;
-        }
-
-        @Override
-        public void open() throws HyracksDataException {
-            downstreamWriter.open();
-        }
-
-        @Override
-        public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
-            inputFrameTupleAccessor.reset(buffer);
-            int nTuple = inputFrameTupleAccessor.getTupleCount();
-            for (int t = 0; t < nTuple; t++) {
-                tupleBuilder.addField(inputFrameTupleAccessor, t, 0);
-                appendTupleToFrame();
-                tupleBuilder.reset();
-            }
-        }
-
-        private void appendTupleToFrame() throws HyracksDataException {
-            if (!tupleAppender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(), 0,
-                    tupleBuilder.getSize())) {
-                FrameUtils.flushFrame(frame, downstreamWriter);
-                tupleAppender.reset(frame, true);
-                if (!tupleAppender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(), 0,
-                        tupleBuilder.getSize())) {
-                    throw new IllegalStateException();
-                }
-            }
-        }
-
-        @Override
-        public void fail() throws HyracksDataException {
-            downstreamWriter.fail();
-        }
-
-        @Override
-        public void close() throws HyracksDataException {
-            downstreamWriter.close();
-        }
-
-        @Override
-        public FeedId getFeedId() {
-            return downstreamWriter.getFeedId();
-        }
-
-        @Override
-        public Type getType() {
-            return Type.COLLECT_TRANSFORM_FEED_OUTPUT_HANDLER;
-        }
-
-        public IFeedOperatorOutputSideHandler getDownstreamWriter() {
-            return downstreamWriter;
-        }
-
-        public FeedConnectionId getConnectionId() {
-            return connectionId;
-        }
-
     }
 
 }

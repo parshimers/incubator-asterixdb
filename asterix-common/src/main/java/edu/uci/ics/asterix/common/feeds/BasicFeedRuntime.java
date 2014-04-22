@@ -18,7 +18,6 @@ import java.nio.ByteBuffer;
 
 import edu.uci.ics.asterix.common.feeds.api.IFeedOperatorOutputSideHandler;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime;
-import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 
 public class BasicFeedRuntime implements IFeedRuntime {
@@ -30,9 +29,9 @@ public class BasicFeedRuntime implements IFeedRuntime {
     protected FeedRuntimeState runtimeState;
 
     /** The frame writer associated with the runtime **/
-    protected IFeedOperatorOutputSideHandler frameWriter;
+    protected IFrameWriter frameWriter;
 
-    public BasicFeedRuntime(FeedConnectionId connectionId, int partition, IFeedOperatorOutputSideHandler frameWriter,
+    public BasicFeedRuntime(FeedConnectionId connectionId, int partition, IFrameWriter frameWriter,
             FeedRuntimeType runtimeType, String operandId) {
         this.feedRuntimeId = new FeedRuntimeId(connectionId, runtimeType, operandId, partition);
         this.frameWriter = frameWriter;
@@ -70,7 +69,7 @@ public class BasicFeedRuntime implements IFeedRuntime {
     }
 
     @Override
-    public IFeedOperatorOutputSideHandler getFeedFrameWriter() {
+    public IFrameWriter getFeedFrameWriter() {
         return frameWriter;
     }
 

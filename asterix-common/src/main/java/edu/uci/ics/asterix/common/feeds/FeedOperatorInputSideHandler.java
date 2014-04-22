@@ -32,16 +32,17 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 
 // Handles Exception + inflow rate measurement
-public class FeedOperatorInputSideHandler {
+public class FeedOperatorInputSideHandler implements IFrameWriter {
 
     private static Logger LOGGER = Logger.getLogger(FeedOperatorInputSideHandler.class.getName());
 
-    private final IFrameWriter coreOperator;
+    private IFrameWriter coreOperator;
     private final FeedRuntimeId runtimeId;
     private final FeedPolicyAccessor feedPolicyAccessor;
     private final boolean bufferingEnabled;
     private MonitoredBuffer mBuffer;
     private DataBucketPool pool;
+    private FrameCollection frameCollection;
     private final IExceptionHandler exceptionHandler;
     private Mode mode;
     private Mode lastMode;
@@ -53,13 +54,21 @@ public class FeedOperatorInputSideHandler {
     private final FeedPolicyAccessor fpa;
     private final IFeedManager feedManager;
 
+    public IFrameWriter getCoreOperator() {
+        return coreOperator;
+    }
+
+    public void setCoreOperator(IFrameWriter coreOperator) {
+        this.coreOperator = coreOperator;
+    }
+
     public enum Mode {
         PROCESS,
         SPILL,
         PROCESS_SPILL,
-        PROCESS_MEMORY_BACKLOG,
         DISCARD,
-        FORCED_DISCARD
+        POST_SPILL_DISCARD,
+        BUFFER_RECOVERY
     }
 
     public FeedOperatorInputSideHandler(FeedRuntimeId runtimeId, IFrameWriter coreOperator, FeedPolicyAccessor fpa,
@@ -86,6 +95,8 @@ public class FeedOperatorInputSideHandler {
                     IFeedMemoryComponent.Type.POOL);
             mBuffer.start();
         }
+        frameCollection = (FrameCollection) feedManager.getFeedMemoryManager().getMemoryComponent(
+                IFeedMemoryComponent.Type.COLLECTION);
 
     }
 
@@ -93,15 +104,29 @@ public class FeedOperatorInputSideHandler {
         try {
             switch (mode) {
                 case PROCESS:
-                case PROCESS_SPILL:
-                    if (lastMode.equals(Mode.SPILL) || lastMode.equals(Mode.FORCED_DISCARD)) {
-                        setMode(Mode.PROCESS_SPILL);
-                        processSpilledBacklog(); // non blocking call
-                        if (LOGGER.isLoggable(Level.INFO)) {
-                            LOGGER.info("Done with replaying spilled data, will resume normal processing, backlog collected "
-                                    + mBuffer.getWorkSize());
-                        }
+                    switch (lastMode) {
+                        case SPILL:
+                        case POST_SPILL_DISCARD:
+                            setMode(Mode.PROCESS_SPILL);
+                            processSpilledBacklog(); // non blocking call
+                            if (LOGGER.isLoggable(Level.INFO)) {
+                                LOGGER.info("Done with replaying spilled data, will resume normal processing, backlog collected "
+                                        + mBuffer.getWorkSize());
+                            }
+                            break;
+                        case BUFFER_RECOVERY:
+                            processBufferredBacklog(); // non-blocking call
+                            break;
+                        default:
+                            break;
                     }
+                    process(frame);
+                    if (frame != null) {
+                        nProcessed++;
+                    }
+                    break;
+
+                case PROCESS_SPILL:
                     process(frame);
                     if (frame != null) {
                         nProcessed++;
@@ -116,12 +141,16 @@ public class FeedOperatorInputSideHandler {
                     break;
                 }
                 case DISCARD:
-                case FORCED_DISCARD:
+                case POST_SPILL_DISCARD:
                     boolean success = discarder.processMessage(frame);
                     if (!success) {
                         // sendMessage to CentralFeedManager
                         reportUnresolvableCongestion();
                     }
+                    break;
+                case BUFFER_RECOVERY:
+                    // buffer until the pipeline is restored
+                    bufferDataDuringRecovery(frame);
                     break;
             }
         } catch (Exception e) {
@@ -130,10 +159,43 @@ public class FeedOperatorInputSideHandler {
         }
     }
 
+    private void bufferDataDuringRecovery(ByteBuffer frame) throws Exception {
+        boolean success = frameCollection.addFrame(frame);
+        if (!success) {
+            if (fpa.spillToDiskOnCongestion()) {
+                if (frame != null) {
+                    spiller.processMessage(frame);
+                    setMode(Mode.SPILL);
+                } // TODO handle the else case
+            } else {
+                discarder.processMessage(frame);
+                setMode(Mode.DISCARD);
+            }
+        }
+    }
+
     private void reportUnresolvableCongestion() {
         FeedCongestionMessage congestionReport = new FeedCongestionMessage(runtimeId, mBuffer.getInflowRate(),
                 mBuffer.getOutflowRate());
         feedManager.getFeedMessageService().sendMessage(congestionReport);
+    }
+
+    private void processBufferredBacklog() throws HyracksDataException {
+        try {
+            Iterator<ByteBuffer> backlog = frameCollection.getFrameCollectionIterator();
+            while (backlog.hasNext()) {
+                process(backlog.next());
+                nProcessed++;
+            }
+            DataBucket bucket = pool.getDataBucket();
+            bucket.setContentType(ContentType.EOSD);
+            bucket.setDesiredReadCount(1);
+            mBuffer.sendMessage(bucket);
+            frameCollection.reset();
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new HyracksDataException(e);
+        }
     }
 
     private void processSpilledBacklog() throws HyracksDataException {
@@ -210,7 +272,7 @@ public class FeedOperatorInputSideHandler {
         boolean success = spiller.processMessage(frame);
         if (!success) {
             // limit reached
-            setMode(Mode.FORCED_DISCARD);
+            setMode(Mode.POST_SPILL_DISCARD);
         }
         return success;
     }
@@ -277,7 +339,7 @@ public class FeedOperatorInputSideHandler {
                     switch (inputSideHandler.getMode()) {
                         case SPILL:
                         case DISCARD:
-                        case FORCED_DISCARD:
+                        case POST_SPILL_DISCARD:
                             inputSideHandler.setMode(Mode.PROCESS);
                             break;
                         default:
@@ -309,6 +371,20 @@ public class FeedOperatorInputSideHandler {
 
     public FeedRuntimeId getRuntimeId() {
         return runtimeId;
+    }
+
+    @Override
+    public void open() throws HyracksDataException {
+        coreOperator.open();
+    }
+
+    @Override
+    public void fail() throws HyracksDataException {
+        coreOperator.fail();
+    }
+
+    public void reset(IFrameWriter frameWriter) {
+        this.coreOperator = frameWriter;
     }
 
 }

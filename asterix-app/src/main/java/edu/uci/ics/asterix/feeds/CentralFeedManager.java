@@ -31,10 +31,12 @@ import edu.uci.ics.asterix.aql.translator.AqlTranslator;
 import edu.uci.ics.asterix.bootstrap.FeedBootstrap;
 import edu.uci.ics.asterix.common.config.AsterixFeedProperties;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
+import edu.uci.ics.asterix.common.feeds.FeedCongestionMessage;
 import edu.uci.ics.asterix.common.feeds.MessageReceiver;
 import edu.uci.ics.asterix.common.feeds.NodeLoadReport;
 import edu.uci.ics.asterix.common.feeds.api.ICentralFeedManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLoadManager;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMessage;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMessage.MessageType;
 import edu.uci.ics.asterix.metadata.feeds.MessageListener;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
@@ -94,7 +96,7 @@ public class CentralFeedManager implements ICentralFeedManager {
                 LOGGER.info("Received message:" + message);
             }
             JSONObject obj = new JSONObject(message);
-            MessageType messageType = MessageType.valueOf(obj.getString("message-type"));
+            MessageType messageType = MessageType.valueOf(obj.getString(IFeedMessage.Constants.MESSAGE_TYPE));
             switch (messageType) {
                 case XAQL:
                     if (!initialized) {
@@ -108,13 +110,15 @@ public class CentralFeedManager implements ICentralFeedManager {
                     AQLExecutor.executeAQL(aql);
                     break;
                 case CONGESTION:
-                    feedLoadManager.reportCongestion(obj);
+                    FeedCongestionMessage congestionMessage = FeedCongestionMessage.read(obj);
+                    feedLoadManager.reportCongestion(congestionMessage);
                     break;
                 case FEED_REPORT:
                     feedLoadManager.submitFeedRuntimeReport(obj);
                     break;
                 case NODE_REPORT:
-                    NodeLoadReport r = new NodeLoadReport(obj.getString("nodeId"), (float) obj.getDouble("cpuLoad"));
+                    NodeLoadReport r = new NodeLoadReport(obj.getString(IFeedMessage.Constants.NODE_ID),
+                            (float) obj.getDouble(IFeedMessage.Constants.CPU_LOAD));
                     feedLoadManager.submitNodeLoadReport(r);
                     break;
                 default:
@@ -136,5 +140,9 @@ public class CentralFeedManager implements ICentralFeedManager {
             AqlTranslator translator = new AqlTranslator(statements, out, pc, DisplayFormat.TEXT);
             translator.compileAndExecute(AsterixAppContextInfo.getInstance().getHcc(), null, false);
         }
+    }
+
+    public static IFeedLoadManager getFeedLoadManager() {
+        return feedLoadManager;
     }
 }

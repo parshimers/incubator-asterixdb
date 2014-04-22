@@ -32,7 +32,8 @@ public class IngestionRuntime extends SubscribableRuntime {
     }
 
     public void subscribeFeed(FeedPolicyAccessor fpa, CollectionRuntime collectionRuntime) throws Exception {
-        FeedFrameCollector reader = feedWriter.subscribeFeed(fpa, collectionRuntime.getFeedFrameWriter());
+        FeedFrameCollector reader = feedWriter.subscribeFeed(fpa, collectionRuntime.getFeedFrameWriter(),
+                collectionRuntime.getFeedRuntimeId().getConnectionId());
         collectionRuntime.setFrameCollector(reader);
         if (feedWriter.getDistributionMode().equals(FrameDistributor.DistributionMode.SINGLE)) {
             adapterRuntimeManager.start();
