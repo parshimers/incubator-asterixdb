@@ -31,6 +31,7 @@
     <metadata.tests>**/metadata/*Test.java</metadata.tests>
     <execution.tests>**/ExecutionTest.java</execution.tests>
     <invalid.tests>**/DmlTest.java</invalid.tests>
+    <cluster.tests>**/AsterixClusterLifeCycleIT.java</cluster.tests>
     <global.test.includes>**/*TestSuite.java,**/*Test.java,${execution.tests}</global.test.includes>
     <global.test.excludes>${optimizer.tests},${metadata.tests},${invalid.tests}</global.test.excludes>
   </properties>

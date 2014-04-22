@@ -108,7 +108,7 @@
 					<runOrder>alphabetical</runOrder>
 					<forkMode>pertest</forkMode>
 					<excludes>
-						<exclude>${failsafe.test.excludes}</exclude>
+						<exclude>${failsafe.test.excludes},${cluster.tests}</exclude>
 					</excludes>
 				</configuration>
 				<executions>
@@ -170,6 +170,26 @@
                           </configuration>
                         </execution>
                       </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <version>2.6</version>
+                        <configuration>
+                            <runOrder>alphabetical</runOrder>
+                            <forkMode>pertest</forkMode>
+                            <excludes>
+                                <exclude>${failsafe.test.excludes}</exclude>
+                            </excludes>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                            </execution>
+                        </executions>
                     </plugin>
                  </plugins>
              </build>
