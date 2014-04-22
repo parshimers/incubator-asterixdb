@@ -43,7 +43,19 @@
 	      <http_port>8888</http_port>
       </master_node>
       <node>
-              <id>nc</id>
+          <id>nc</id>
 	      <cluster_ip>10.10.0.1</cluster_ip>
+      </node>
+      <node>
+          <id>nc</id>
+	      <cluster_ip>10.10.0.2</cluster_ip>
+      </node>
+      <node>
+          <id>nc</id>
+	      <cluster_ip>10.10.0.3</cluster_ip>
+      </node>
+      <node>
+          <id>nc</id>
+	      <cluster_ip>10.10.0.4</cluster_ip>
       </node>
 </cluster>
