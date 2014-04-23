@@ -67,24 +67,27 @@ public class AsterixClusterLifeCycleIT {
         })[0];
         invoke("cp","-r",installerTargetDir.toString()+"/"+managixFolderName,asterixProjectDir+"/"+CLUSTER_BASE);
 
-        printOutput(remoteInvoke("cp -rv /vagrant/"+managixFolderName+" /tmp/asterix").getInputStream());
+        printOutput(remoteInvoke("cp -r /vagrant/"+managixFolderName+" /tmp/asterix").getInputStream());
 
         printOutput(managixInvoke("configure").getInputStream());
         printOutput(managixInvoke("validate").getInputStream());
 
         Process p = managixInvoke("create -n vagrant-ssh -c /vagrant/cluster.xml");
-        assert(checkOutput(p.getInputStream(),"ACTIVE"));
+        String pout = processOut(p);
+        assert(checkOutput(pout,"ACTIVE"));
+        assert(!checkOutput(pout,"WARNING!"));
         LOGGER.info("Test start active cluster instance PASSED");
 
-        printOutput(managixInvoke("stop -n vagrant-ssh").getInputStream());
-
+        Process stop = managixInvoke("stop -n vagrant-ssh").getInputStream();
+        assert(checkOutput(stop.getInputStream(),"Stopped Asterix instance"));
+        LOGGER.info("Test stop active cluster instance PASSED");
     }
 
     @AfterClass
     public static void tearDown() throws Exception {
         Process p = managixInvoke("delete -n vagrant-ssh");
-        assert (checkOutput(p.getInputStream(),"Deleted Asterix instance"));
         managixInvoke("rm -rf /vagrant/managix-working");
+        assert (checkOutput(p.getInputStream(),"Deleted Asterix instance"));
         LOGGER.info("Test delete active instance PASSED");
     }
 
@@ -103,9 +106,16 @@ public class AsterixClusterLifeCycleIT {
         catch(IOException e){
             return false;
         }
-        //debug
-        System.out.println(candidate);
         return candidate.contains(requiredSubString);
+    }
+    public static boolean checkOutput(String candidate, String requiredSubString){
+        return candidate.contains(requiredSubString);
+    }
+    public static String processOut(Process p) throws IOException{
+        InputStream input = p.getInputStream();
+        String candidate = "";
+        candidate = IOUtils.toString(input,"UTF-8");
+        return candidate;
     }
     public static void printOutput(InputStream input){
         String candidate = "";
@@ -140,28 +150,18 @@ public class AsterixClusterLifeCycleIT {
     }
 
     @Test
-    public void test1StartActiveInstance() throws Exception {
+    public void StartStopActiveInstance() throws Exception {
         //TODO: is the instance actually live?
-        try {
-                Process p = managixInvoke("start -n vagrant-ssh");
-                assert(checkOutput(p.getInputStream(),"ACTIVE"));
-                LOGGER.info("Test start active cluster instance PASSED");
-            }
-            catch (Exception e) {
-            throw new Exception("Test configure installer " + "\" FAILED!", e);
-        }
-    }
-
-    @Test
-    public void test2StopActiveInstance() throws Exception {
         //TODO: is ZK still running?
         try {
-            Process p = managixInvoke("stop -n vagrant-ssh");
-            assert(checkOutput(p.getInputStream(),"Stopped Asterix instance"));
-            LOGGER.info("Test stop active cluster instance PASSED");
-
-        } catch (Exception e) {
-            throw new Exception("Test configure installer " + "\" FAILED!", e);
+                Process start = managixInvoke("start -n vagrant-ssh");
+                assert(checkOutput(start.getInputStream(),"ACTIVE"));
+                Process stop = managixInvoke("stop -n vagrant-ssh");
+                assert(checkOutput(stop.getInputStream(),"Stopped Asterix instance"));
+                LOGGER.info("Test start/stop active cluster instance PASSED");
+            }
+            catch (Exception e) {
+            throw new Exception("Test start/stop " + "\" FAILED!", e);
         }
     }
 
