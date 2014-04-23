@@ -84,6 +84,7 @@ public class AsterixClusterLifeCycleIT {
     public static void tearDown() throws Exception {
         Process p = managixInvoke("delete -n vagrant-ssh");
         assert (checkOutput(p.getInputStream(),"Deleted Asterix instance"));
+        Process p =  managixInvoke("rm -rf /vagrant/managix-working");
         LOGGER.info("Test delete active instance PASSED");
     }
 

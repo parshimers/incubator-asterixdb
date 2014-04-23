@@ -53,7 +53,10 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   #
   # View the documentation for the provider you're using for more
   # information on available options.
-
+  config.vm.provider "virtualbox" do |v|
+     v.memory = 2048
+     v.cpus = 2
+   end
    config.vm.provision "file", source: "id_rsa", destination: "/home/vagrant/.ssh/id_rsa"
    config.vm.provision "file", source: "known_hosts", destination: "/home/vagrant/.ssh/known_hosts"
    config.vm.provision "shell", privileged: false, inline: "chmod 400 /home/vagrant/.ssh/id_rsa"
