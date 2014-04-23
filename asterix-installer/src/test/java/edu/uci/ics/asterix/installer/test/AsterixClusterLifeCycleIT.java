@@ -78,7 +78,7 @@ public class AsterixClusterLifeCycleIT {
         assert(!checkOutput(pout,"WARNING!"));
         LOGGER.info("Test start active cluster instance PASSED");
 
-        Process stop = managixInvoke("stop -n vagrant-ssh").getInputStream();
+        Process stop = managixInvoke("stop -n vagrant-ssh");
         assert(checkOutput(stop.getInputStream(),"Stopped Asterix instance"));
         LOGGER.info("Test stop active cluster instance PASSED");
     }
