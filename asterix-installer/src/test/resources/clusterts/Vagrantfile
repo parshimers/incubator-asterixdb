@@ -64,6 +64,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
    config.vm.provision "shell", privileged: false, inline: "chmod 400 /home/vagrant/.ssh/id_rsa"
    config.vm.provision "shell", inline: "wget -q --no-cookies --no-check-certificate --header 'Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie' 'http://download.oracle.com/otn-pub/java/jdk/7u51-b13/jdk-7u51-linux-x64.rpm' -O /tmp/jdk.rpm"
    config.vm.provision "shell", inline: "sudo yum -y localinstall /tmp/jdk.rpm"
+   config.vm.provision "shell", inline: "sudo yum -y install unzip"
  
   config.vm.define "nc3" do |nc|
 	nc.vm.box = "chef/centos-6.5"
