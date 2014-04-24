@@ -19,13 +19,13 @@
 	Needs to be on the local file system of each machine.
 	Managix creates the directory if it doesn't exist. 
         This property can be overriden for a node by redefining at the node level. -->
-      <log_dir>/tmp/logs/</log_dir>
-      <txn_log_dir>/tmp/tx_logs</txn_log_dir>
+      <log_dir>/home/vagrant/logs/</log_dir>
+      <txn_log_dir>/home/vagrant/tx_logs</txn_log_dir>
 
       <!-- Mount point of an iodevice. Use a comma separated list for a machine that
                       has multiple iodevices (disks).
                                  This property can be overriden for a node by redefining at the node level. -->
-      <iodevices>/tmp</iodevices>
+      <iodevices>/home/vagrant</iodevices>
 
       <!-- Path on each iodevice where Asterix will store its data -->
       <store>storage</store>
@@ -36,26 +36,26 @@
        <!-- IP addresses of the master machine A -->
       <master_node>
               <id>cc</id>
-	      <client_ip>10.10.0.1</client_ip>
-	      <cluster_ip>10.10.0.1</cluster_ip>
+	      <client_ip>10.10.0.2</client_ip>
+	      <cluster_ip>10.10.0.2</cluster_ip>
 	      <client_port>1098</client_port>
 	      <cluster_port>1099</cluster_port>
 	      <http_port>8888</http_port>
       </master_node>
       <node>
-          <id>nc1</id>
-	      <cluster_ip>10.10.0.1</cluster_ip>
-      </node>
-      <node>
-          <id>nc2</id>
+          <id>nc0</id>
 	      <cluster_ip>10.10.0.2</cluster_ip>
       </node>
       <node>
-          <id>nc3</id>
+          <id>nc1</id>
 	      <cluster_ip>10.10.0.3</cluster_ip>
       </node>
       <node>
-          <id>nc4</id>
+          <id>nc2</id>
 	      <cluster_ip>10.10.0.4</cluster_ip>
+      </node>
+      <node>
+          <id>nc3</id>
+	      <cluster_ip>10.10.0.5</cluster_ip>
       </node>
 </cluster>
