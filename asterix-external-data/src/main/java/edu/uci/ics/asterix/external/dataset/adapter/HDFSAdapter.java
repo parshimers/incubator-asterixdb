@@ -89,6 +89,10 @@ public class HDFSAdapter extends FileSystemBasedAdapter {
             @Override
             public void progress() {
             }
+            public float getProgress(){ 
+            	return 0.0f/0.0f;
+            }
+            
         };
 
         return reporter;
