@@ -16,14 +16,11 @@ package edu.uci.ics.asterix.common.feeds.api;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 
-import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime;
-import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedRuntime;
+import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.FeedRuntimeManager;
-import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
-import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 
 /**
  * Handle (de)registration of feeds for delivery of control messages.
@@ -31,35 +28,12 @@ import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 public interface IFeedConnectionManager {
 
     /**
-     * Returns the executor service associated with the feed connection.
-     * 
-     * @param feedConnection
-     * @return
-     */
-    public ExecutorService getFeedExecutorService(FeedConnectionId feedConnection);
-
-    /**
-     * @param feedSubscribibaleId
-     * @param subscribableRuntime
-     * @param runtimeType
-     */
-    public void registerSubscribableFeedRuntime(FeedSubscribableRuntimeId feedSubscribibaleId,
-            ISubscribableRuntime subscribableRuntime, FeedRuntimeType runtimeType);
-
-    /**
      * Allows registration of a feedRuntime.
      * 
      * @param feedRuntime
      * @throws Exception
      */
-    public void registerFeedRuntime(BasicFeedRuntime feedRuntime) throws Exception;
-
-    /**
-     * Allows de-registration of a feed runtime.
-     * 
-     * @param feedRuntimeId
-     */
-    public void deRegisterFeedRuntime(FeedRuntimeId feedRuntimeId);
+    public void registerFeedRuntime(FeedConnectionId connectionId, FeedRuntime feedRuntime) throws Exception;
 
     /**
      * Obtain feed runtime corresponding to a feedRuntimeId
@@ -67,7 +41,7 @@ public interface IFeedConnectionManager {
      * @param feedRuntimeId
      * @return
      */
-    public BasicFeedRuntime getFeedRuntime(FeedRuntimeId feedRuntimeId);
+    public FeedRuntime getFeedRuntime(FeedConnectionId connectionId, FeedRuntimeId feedRuntimeId);
 
     /**
      * De-register a feed
@@ -86,8 +60,12 @@ public interface IFeedConnectionManager {
     public FeedRuntimeManager getFeedRuntimeManager(FeedConnectionId feedConnection);
 
     /**
-     * @return the list of registered feed runtimes
+     * Allows de-registration of a feed runtime.
+     * 
+     * @param feedRuntimeId
      */
+    void deRegisterFeedRuntime(FeedConnectionId connectionId, FeedRuntimeId feedRuntimeId);
+
     public List<FeedRuntimeId> getRegisteredRuntimes();
 
 }

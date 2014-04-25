@@ -20,21 +20,21 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
-import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime;
-import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedFrameCollector;
 import edu.uci.ics.asterix.common.feeds.FeedId;
-import edu.uci.ics.asterix.common.feeds.FeedOperatorInputSideHandler;
-import edu.uci.ics.asterix.common.feeds.FeedOperatorInputSideHandler.Mode;
-import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
+import edu.uci.ics.asterix.common.feeds.FeedRuntime;
+import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
+import edu.uci.ics.asterix.common.feeds.FeedRuntimeInputHandler;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
+import edu.uci.ics.asterix.common.feeds.SubscribableFeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.api.IAdapterRuntimeManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMessage;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
+import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
 import edu.uci.ics.asterix.common.feeds.api.ISubscribableRuntime;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
@@ -95,17 +95,18 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
         }
     }
 
-    private void handlePrepareStallMessage(FeedConnectionId connectionId) {
-        FeedRuntimeId runtimeId = new FeedRuntimeId(connectionId, FeedRuntimeType.COLLECT,
-                FeedRuntimeId.DEFAULT_OPERAND_ID, partition);
+    private void handlePrepareStallMessage(FeedConnectionId connectionId) throws HyracksDataException {
+        FeedRuntimeId runtimeId = new FeedRuntimeId(FeedRuntimeType.COLLECT, partition,
+                FeedRuntimeId.DEFAULT_OPERAND_ID);
         CollectionRuntime collectionRuntime = (CollectionRuntime) feedManager.getFeedConnectionManager()
-                .getFeedRuntime(runtimeId);
+                .getFeedRuntime(connectionId, runtimeId);
         collectionRuntime.setMode(Mode.BUFFER_RECOVERY);
+        collectionRuntime.getFrameCollector().closeDownstream();
     }
 
     private void handleDiscontinueFeedTypeMessage(EndFeedMessage endFeedMessage) throws Exception {
         FeedId sourceFeedId = endFeedMessage.getSourceFeedId();
-        FeedSubscribableRuntimeId subscribableRuntimeId = new FeedSubscribableRuntimeId(sourceFeedId,
+        SubscribableFeedRuntimeId subscribableRuntimeId = new SubscribableFeedRuntimeId(sourceFeedId,
                 FeedRuntimeType.INTAKE, partition);
         ISubscribableRuntime feedRuntime = feedManager.getFeedSubscriptionManager().getSubscribableRuntime(
                 subscribableRuntimeId);
@@ -127,16 +128,16 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
             switch (subscribaleRuntimeType) {
                 case INTAKE:
                 case COMPUTE:
-                    BasicFeedRuntime feedRuntime = null;
-                    runtimeId = new FeedRuntimeId(connectionId, FeedRuntimeType.COMPUTE_COLLECT,
-                            FeedRuntimeId.DEFAULT_OPERAND_ID, partition);
-                    feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
+                    FeedRuntime feedRuntime = null;
+                    runtimeId = new FeedRuntimeId(FeedRuntimeType.COMPUTE_COLLECT, partition,
+                            FeedRuntimeId.DEFAULT_OPERAND_ID);
+                    feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(connectionId, runtimeId);
                     if (feedRuntime == null) {
-                        runtimeId = new FeedRuntimeId(connectionId, FeedRuntimeType.COLLECT,
-                                FeedRuntimeId.DEFAULT_OPERAND_ID, partition);
-                        feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
+                        runtimeId = new FeedRuntimeId(FeedRuntimeType.COLLECT, partition,
+                                FeedRuntimeId.DEFAULT_OPERAND_ID);
+                        feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(connectionId, runtimeId);
                     }
-                    feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(runtimeId);
+                    feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(connectionId, runtimeId);
                     ((CollectionRuntime) feedRuntime).getSourceRuntime().unsubscribeFeed(
                             (CollectionRuntime) feedRuntime);
                     if (LOGGER.isLoggable(Level.INFO)) {
@@ -152,7 +153,7 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                     throw new IllegalStateException("Illegal State, invalid runtime type  " + subscribaleRuntimeType);
                 case COMPUTE:
                     // feed could be primary or secondary, doesn't matter
-                    FeedSubscribableRuntimeId feedSubscribableRuntimeId = new FeedSubscribableRuntimeId(
+                    SubscribableFeedRuntimeId feedSubscribableRuntimeId = new SubscribableFeedRuntimeId(
                             connectionId.getFeedId(), FeedRuntimeType.COMPUTE, partition);
                     ISubscribableRuntime feedRuntime = feedManager.getFeedSubscriptionManager().getSubscribableRuntime(
                             feedSubscribableRuntimeId);
@@ -162,9 +163,8 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                     IFrameWriter unsubscribingWriter = null;
                     for (Entry<IFrameWriter, FeedFrameCollector> entry : registeredCollectors.entrySet()) {
                         IFrameWriter frameWriter = entry.getKey();
-                        FeedOperatorInputSideHandler feedFrameWriter = (FeedOperatorInputSideHandler) frameWriter;
-                        if (feedFrameWriter.getRuntimeId().getConnectionId()
-                                .equals(endFeedMessage.getFeedConnectionId())) {
+                        FeedRuntimeInputHandler feedFrameWriter = (FeedRuntimeInputHandler) frameWriter;
+                        if (feedFrameWriter.getConnectionId().equals(endFeedMessage.getFeedConnectionId())) {
                             unsubscribingWriter = feedFrameWriter;
                             dWriter.unsubscribeFeed(unsubscribingWriter);
                             if (LOGGER.isLoggable(Level.INFO)) {

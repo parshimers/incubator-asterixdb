@@ -20,11 +20,11 @@ import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.DataBucket.ContentType;
 import edu.uci.ics.asterix.common.feeds.api.IExceptionHandler;
 import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMemoryComponent;
+import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
 import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
@@ -32,11 +32,12 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 
 // Handles Exception + inflow rate measurement
-public class FeedOperatorInputSideHandler implements IFrameWriter {
+public class FeedRuntimeInputHandler implements IFrameWriter {
 
-    private static Logger LOGGER = Logger.getLogger(FeedOperatorInputSideHandler.class.getName());
+    private static Logger LOGGER = Logger.getLogger(FeedRuntimeInputHandler.class.getName());
 
     private IFrameWriter coreOperator;
+    private final FeedConnectionId connectionId;
     private final FeedRuntimeId runtimeId;
     private final FeedPolicyAccessor feedPolicyAccessor;
     private final boolean bufferingEnabled;
@@ -62,42 +63,34 @@ public class FeedOperatorInputSideHandler implements IFrameWriter {
         this.coreOperator = coreOperator;
     }
 
-    public enum Mode {
-        PROCESS,
-        SPILL,
-        PROCESS_SPILL,
-        DISCARD,
-        POST_SPILL_DISCARD,
-        BUFFER_RECOVERY
-    }
-
-    public FeedOperatorInputSideHandler(FeedRuntimeId runtimeId, IFrameWriter coreOperator, FeedPolicyAccessor fpa,
-            boolean bufferingEnabled, int frameSize, FrameTupleAccessor fta, RecordDescriptor recordDesc,
-            IFeedManager feedManager) throws IOException {
+    public FeedRuntimeInputHandler(FeedConnectionId connectionId, FeedRuntimeId runtimeId, IFrameWriter coreOperator,
+            FeedPolicyAccessor fpa, boolean bufferingEnabled, int frameSize, FrameTupleAccessor fta,
+            RecordDescriptor recordDesc, IFeedManager feedManager) throws IOException {
+        this.connectionId = connectionId;
         this.runtimeId = runtimeId;
         this.coreOperator = coreOperator;
         this.bufferingEnabled = bufferingEnabled;
         this.feedPolicyAccessor = fpa;
-        this.spiller = new FeedFrameSpiller(runtimeId, frameSize, fpa);
-        this.discarder = new FeedFrameDiscarder(runtimeId, frameSize, fpa, this);
-        this.exceptionHandler = new FeedExceptionHandler(frameSize, fta, recordDesc, feedManager,
-                runtimeId.getConnectionId());
+        this.spiller = new FeedFrameSpiller(connectionId, runtimeId, frameSize, fpa);
+        this.discarder = new FeedFrameDiscarder(connectionId, runtimeId, frameSize, fpa, this);
+        this.exceptionHandler = new FeedExceptionHandler(frameSize, fta, recordDesc, feedManager, connectionId);
         this.mode = Mode.PROCESS;
         this.lastMode = Mode.PROCESS;
         this.finished = false;
         this.fpa = fpa;
         this.fta = fta;
         this.feedManager = feedManager;
-        if (bufferingEnabled) {
-            mBuffer = new MonitoredBuffer(this, coreOperator, fta, feedManager.getFeedMetricCollector(), runtimeId,
-                    exceptionHandler, new FrameEventCallback(fpa, this, coreOperator));
-            pool = (DataBucketPool) feedManager.getFeedMemoryManager().getMemoryComponent(
-                    IFeedMemoryComponent.Type.POOL);
-            mBuffer.start();
-        }
-        frameCollection = (FrameCollection) feedManager.getFeedMemoryManager().getMemoryComponent(
+        this.pool = (DataBucketPool) feedManager.getFeedMemoryManager().getMemoryComponent(
+                IFeedMemoryComponent.Type.POOL);
+
+        this.frameCollection = (FrameCollection) feedManager.getFeedMemoryManager().getMemoryComponent(
                 IFeedMemoryComponent.Type.COLLECTION);
 
+        //  if (bufferingEnabled) {
+        mBuffer = new MonitoredBuffer(this, coreOperator, fta, feedManager.getFeedMetricCollector(), connectionId,
+                runtimeId, exceptionHandler, new FrameEventCallback(fpa, this, coreOperator));
+        mBuffer.start();
+        //  }
     }
 
     public synchronized void nextFrame(ByteBuffer frame) throws HyracksDataException {
@@ -174,9 +167,9 @@ public class FeedOperatorInputSideHandler implements IFrameWriter {
         }
     }
 
-    private void reportUnresolvableCongestion() {
-        FeedCongestionMessage congestionReport = new FeedCongestionMessage(runtimeId, mBuffer.getInflowRate(),
-                mBuffer.getOutflowRate());
+    private void reportUnresolvableCongestion() throws HyracksDataException {
+        FeedCongestionMessage congestionReport = new FeedCongestionMessage(connectionId, runtimeId,
+                mBuffer.getInflowRate(), mBuffer.getOutflowRate());
         feedManager.getFeedMessageService().sendMessage(congestionReport);
     }
 
@@ -302,10 +295,10 @@ public class FeedOperatorInputSideHandler implements IFrameWriter {
         private static final Logger LOGGER = Logger.getLogger(FrameEventCallback.class.getName());
 
         private final FeedPolicyAccessor fpa;
-        private final FeedOperatorInputSideHandler inputSideHandler;
+        private final FeedRuntimeInputHandler inputSideHandler;
         private final IFrameWriter coreOperator;
 
-        public FrameEventCallback(FeedPolicyAccessor fpa, FeedOperatorInputSideHandler inputSideHandler,
+        public FrameEventCallback(FeedPolicyAccessor fpa, FeedRuntimeInputHandler inputSideHandler,
                 IFrameWriter coreOperator) {
             this.fpa = fpa;
             this.inputSideHandler = inputSideHandler;
@@ -385,6 +378,10 @@ public class FeedOperatorInputSideHandler implements IFrameWriter {
 
     public void reset(IFrameWriter frameWriter) {
         this.coreOperator = frameWriter;
+    }
+
+    public FeedConnectionId getConnectionId() {
+        return connectionId;
     }
 
 }

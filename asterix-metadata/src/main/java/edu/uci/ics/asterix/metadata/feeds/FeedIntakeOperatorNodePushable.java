@@ -26,6 +26,7 @@ import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
+import edu.uci.ics.asterix.common.feeds.SubscribableFeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.api.IAdapterRuntimeManager;
 import edu.uci.ics.asterix.common.feeds.api.IAdapterRuntimeManager.State;
 import edu.uci.ics.asterix.common.feeds.api.IFeedAdapter;
@@ -50,6 +51,7 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
     private final FeedId feedId;
     private final int partition;
     private final IFeedSubscriptionManager feedSubscriptionManager;
+
     private final IFeedManager feedManager;
 
     private IngestionRuntime ingestionRuntime;
@@ -89,8 +91,11 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                 feedFrameWriter = new DistributeFeedFrameWriter(feedId, writer, FeedRuntimeType.INTAKE, partition, fta,
                         feedManager, ctx.getFrameSize());
                 adapterRuntimeManager = new AdapterRuntimeManager(feedId, adapter, feedFrameWriter, partition);
-                ingestionRuntime = new IngestionRuntime(feedId, partition, adapterRuntimeManager, feedFrameWriter,
-                        recordDesc);
+
+                SubscribableFeedRuntimeId runtimeId = new SubscribableFeedRuntimeId(feedId, FeedRuntimeType.INTAKE,
+                        partition);
+                ingestionRuntime = new IngestionRuntime(feedId, runtimeId, feedFrameWriter, recordDesc,
+                        adapterRuntimeManager);
                 feedSubscriptionManager.registerFeedSubscribableRuntime(ingestionRuntime);
                 feedFrameWriter.open();
             } else {
@@ -113,7 +118,8 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
             }
 
             waitTillIngestionIsOver(adapterRuntimeManager);
-            feedSubscriptionManager.deregisterFeedSubscribableRuntime(ingestionRuntime.getFeedSubscribableRuntimeId());
+            feedSubscriptionManager.deregisterFeedSubscribableRuntime((SubscribableFeedRuntimeId) ingestionRuntime
+                    .getRuntimeId());
 
         } catch (InterruptedException ie) {
             /*
@@ -153,8 +159,8 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Interrupted Exception, something went wrong. None of the subscribers need to handle failures. Shutting down feed ingestion");
                 }
-                feedSubscriptionManager.deregisterFeedSubscribableRuntime(ingestionRuntime
-                        .getFeedSubscribableRuntimeId());
+                feedSubscriptionManager.deregisterFeedSubscribableRuntime((SubscribableFeedRuntimeId) ingestionRuntime
+                        .getRuntimeId());
                 throw new HyracksDataException(ie);
             }
         } catch (Exception e) {
@@ -192,6 +198,5 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                     + " done with ingestion of feed " + feedId);
         }
     }
-    
 
 }

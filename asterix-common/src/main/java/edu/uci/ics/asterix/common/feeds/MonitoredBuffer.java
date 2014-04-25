@@ -19,12 +19,11 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.logging.Level;
 
-import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
-import edu.uci.ics.asterix.common.feeds.FeedOperatorInputSideHandler.Mode;
 import edu.uci.ics.asterix.common.feeds.api.IExceptionHandler;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector.MetricType;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector.ValueType;
+import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
 import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback;
 import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback.FrameEvent;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
@@ -42,21 +41,21 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
     private final int outflowReportSenderId;
     private final IExceptionHandler exceptionHandler;
     private final TimerTask monitorTask;
-    private final FeedOperatorInputSideHandler inputHandler;
+    private final FeedRuntimeInputHandler inputHandler;
     private final IFrameEventCallback callback;
     private final Timer timer;
 
-    public MonitoredBuffer(FeedOperatorInputSideHandler inputHandler, IFrameWriter frameWriter, FrameTupleAccessor fta,
-            IFeedMetricCollector metricCollector, FeedRuntimeId runtimeId, IExceptionHandler exceptionHandler,
-            IFrameEventCallback callback) {
+    public MonitoredBuffer(FeedRuntimeInputHandler inputHandler, IFrameWriter frameWriter, FrameTupleAccessor fta,
+            IFeedMetricCollector metricCollector, FeedConnectionId connectionId, FeedRuntimeId runtimeId,
+            IExceptionHandler exceptionHandler, IFrameEventCallback callback) {
         this.frameWriter = frameWriter;
         this.fta = fta;
         this.runtimeId = runtimeId;
         this.metricCollector = metricCollector;
-        this.inflowReportSenderId = metricCollector.createReportSender(runtimeId, ValueType.INFLOW_RATE,
+        this.inflowReportSenderId = metricCollector.createReportSender(connectionId, runtimeId, ValueType.INFLOW_RATE,
                 MetricType.RATE);
-        this.outflowReportSenderId = metricCollector.createReportSender(runtimeId, ValueType.OUTFLOW_RATE,
-                MetricType.RATE);
+        this.outflowReportSenderId = metricCollector.createReportSender(connectionId, runtimeId,
+                ValueType.OUTFLOW_RATE, MetricType.RATE);
         this.exceptionHandler = exceptionHandler;
         this.monitorTask = new MonitoredBufferTimerTask(this, callback);
         this.callback = callback;

@@ -19,18 +19,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.ExecutorService;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime;
-import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedRuntime;
+import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.FeedRuntimeManager;
-import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
 import edu.uci.ics.asterix.common.feeds.api.IFeedConnectionManager;
-import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
-import edu.uci.ics.asterix.common.feeds.api.ISubscribableRuntime;
 
 /**
  * An implementation of the IFeedManager interface.
@@ -50,11 +46,6 @@ public class FeedConnectionManager implements IFeedConnectionManager {
 
     public FeedRuntimeManager getFeedRuntimeManager(FeedConnectionId feedId) {
         return feedRuntimeManagers.get(feedId);
-    }
-
-    public ExecutorService getFeedExecutorService(FeedConnectionId feedId) {
-        FeedRuntimeManager mgr = feedRuntimeManagers.get(feedId);
-        return mgr == null ? null : mgr.getExecutorService();
     }
 
     @Override
@@ -86,27 +77,26 @@ public class FeedConnectionManager implements IFeedConnectionManager {
     }
 
     @Override
-    public void registerFeedRuntime(BasicFeedRuntime feedRuntime) throws Exception {
-        FeedConnectionId feedId = feedRuntime.getFeedRuntimeId().getConnectionId();
-        FeedRuntimeManager runtimeMgr = feedRuntimeManagers.get(feedId);
+    public void registerFeedRuntime(FeedConnectionId connectionId, FeedRuntime feedRuntime) throws Exception {
+        FeedRuntimeManager runtimeMgr = feedRuntimeManagers.get(connectionId);
         if (runtimeMgr == null) {
             synchronized (feedRuntimeManagers) {
                 if (runtimeMgr == null) {
-                    runtimeMgr = new FeedRuntimeManager(feedId, this);
-                    feedRuntimeManagers.put(feedId, runtimeMgr);
+                    runtimeMgr = new FeedRuntimeManager(connectionId, this);
+                    feedRuntimeManagers.put(connectionId, runtimeMgr);
                 }
             }
         }
 
-        runtimeMgr.registerFeedRuntime(feedRuntime.getFeedRuntimeId(), feedRuntime);
+        runtimeMgr.registerFeedRuntime(feedRuntime.getRuntimeId(), feedRuntime);
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Registered runtime " + feedRuntime + " for feed " + feedId);
+            LOGGER.info("Registered runtime " + feedRuntime + " for feed connection " + connectionId);
         }
     }
 
     @Override
-    public void deRegisterFeedRuntime(FeedRuntimeId feedRuntimeId) {
-        FeedRuntimeManager runtimeMgr = feedRuntimeManagers.get(feedRuntimeId.getConnectionId());
+    public void deRegisterFeedRuntime(FeedConnectionId connectionId, FeedRuntimeId feedRuntimeId) {
+        FeedRuntimeManager runtimeMgr = feedRuntimeManagers.get(connectionId);
         if (runtimeMgr != null) {
             runtimeMgr.deregisterFeedRuntime(feedRuntimeId);
             if (LOGGER.isLoggable(Level.INFO)) {
@@ -116,21 +106,14 @@ public class FeedConnectionManager implements IFeedConnectionManager {
     }
 
     @Override
-    public BasicFeedRuntime getFeedRuntime(FeedRuntimeId feedRuntimeId) {
-        FeedRuntimeManager runtimeMgr = feedRuntimeManagers.get(feedRuntimeId.getConnectionId());
+    public FeedRuntime getFeedRuntime(FeedConnectionId connectionId, FeedRuntimeId feedRuntimeId) {
+        FeedRuntimeManager runtimeMgr = feedRuntimeManagers.get(connectionId);
         return runtimeMgr != null ? runtimeMgr.getFeedRuntime(feedRuntimeId) : null;
     }
 
     @Override
     public String toString() {
         return "FeedManager " + "[" + nodeId + "]";
-    }
-
-    @Override
-    public void registerSubscribableFeedRuntime(FeedSubscribableRuntimeId feedSubscribibaleId,
-            ISubscribableRuntime subscribableRuntime, FeedRuntimeType runtimeType) {
-        // TODO Auto-generated method stub
-
     }
 
     @Override

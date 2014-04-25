@@ -16,43 +16,33 @@ package edu.uci.ics.asterix.common.feeds;
 
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 
-public class FeedSubscribableRuntimeId {
+public class SubscribableFeedRuntimeId extends FeedRuntimeId {
 
     private final FeedId feedId;
 
-    private final int partition;
-
-    private final FeedRuntimeType feedRuntimeType;
-
-    public FeedSubscribableRuntimeId(FeedId feedId, FeedRuntimeType feedRuntimeType, int partition) {
+    public SubscribableFeedRuntimeId(FeedId feedId, FeedRuntimeType runtimeType, int partition) {
+        super(runtimeType, partition, FeedRuntimeId.DEFAULT_OPERAND_ID);
         this.feedId = feedId;
-        this.feedRuntimeType = feedRuntimeType;
-        this.partition = partition;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (o == null || !(o instanceof FeedSubscribableRuntimeId)) {
-            return false;
-        }
-
-        FeedSubscribableRuntimeId otherId = (FeedSubscribableRuntimeId) o;
-        return this == o
-                || (feedId.equals(otherId.feedId) && feedRuntimeType.equals(otherId.feedRuntimeType) && partition == otherId.partition);
-    }
-
-    @Override
-    public int hashCode() {
-        return (feedId.toString() + ":" + feedRuntimeType + "[" + partition + "]").hashCode();
-    }
-
-    @Override
-    public String toString() {
-        return feedId.toString() + ":" + feedRuntimeType + "[" + partition + "]";
     }
 
     public FeedId getFeedId() {
         return feedId;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof SubscribableFeedRuntimeId)) {
+            return false;
+        }
+
+        return (super.equals(o) && this.feedId.equals(((SubscribableFeedRuntimeId) o).getFeedId()));
+    }
+
+    @Override
+    public int hashCode() {
+        return super.hashCode() + feedId.hashCode();
+    }
 }

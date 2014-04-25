@@ -18,13 +18,18 @@ import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleListener.SubscriptionLocation;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
+import edu.uci.ics.asterix.metadata.entities.Dataset;
 import edu.uci.ics.asterix.metadata.entities.Feed;
 import edu.uci.ics.asterix.metadata.entities.Feed.FeedType;
+import edu.uci.ics.asterix.metadata.entities.InternalDatasetDetails;
+import edu.uci.ics.asterix.metadata.entities.NodeGroup;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.INodeDomain;
 
 public class FeedDataSource extends AqlDataSource {
+
+    private static final int DEFAULT_COMPUTE_CARDINALITY = 1;
 
     private Feed feed;
     private FeedId sourceFeedId;
@@ -32,6 +37,7 @@ public class FeedDataSource extends AqlDataSource {
     private final SubscriptionLocation location;
     private final String targetDataset;
     private final String[] locations;
+    private int computeCardinality;
 
     public FeedDataSource(AqlSourceId id, String targetDataset, IAType itemType, AqlDataSourceType dataSourceType,
             FeedId sourceFeedId, FeedType sourceFeedType, SubscriptionLocation location, String[] locations)
@@ -47,6 +53,16 @@ public class FeedDataSource extends AqlDataSource {
             MetadataManager.INSTANCE.acquireReadLatch();
             ctx = MetadataManager.INSTANCE.beginTransaction();
             this.feed = MetadataManager.INSTANCE.getFeed(ctx, id.getDataverseName(), id.getDatasourceName());
+            Dataset dataset = MetadataManager.INSTANCE.getDataset(ctx, id.getDataverseName(), targetDataset);
+            computeCardinality = DEFAULT_COMPUTE_CARDINALITY;
+            if (dataset != null) {
+                InternalDatasetDetails idd = (InternalDatasetDetails) dataset.getDatasetDetails();
+                String nodeGroup = idd.getNodeGroupName();
+                NodeGroup ng = MetadataManager.INSTANCE.getNodegroup(ctx, nodeGroup);
+                if (ng != null) {
+                    computeCardinality = ng.getNodeNames().size();
+                }
+            }
             MetadataManager.INSTANCE.commitTransaction(ctx);
             initFeedDataSource(itemType);
         } catch (Exception e) {
@@ -113,5 +129,9 @@ public class FeedDataSource extends AqlDataSource {
 
     public FeedType getSourceFeedType() {
         return sourceFeedType;
+    }
+
+    public int getComputeCardinality() {
+        return computeCardinality;
     }
 }

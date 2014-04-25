@@ -16,9 +16,10 @@ package edu.uci.ics.asterix.common.feeds;
 
 import java.util.Map;
 
-import edu.uci.ics.asterix.common.feeds.FeedOperatorInputSideHandler.Mode;
+import edu.uci.ics.asterix.common.feeds.FeedFrameCollector.State;
 import edu.uci.ics.asterix.common.feeds.api.ISubscribableRuntime;
 import edu.uci.ics.asterix.common.feeds.api.ISubscriberRuntime;
+import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 
 /**
  * Represents the feed runtime that collects feed tuples from another feed.
@@ -26,19 +27,20 @@ import edu.uci.ics.asterix.common.feeds.api.ISubscriberRuntime;
  * intake job. For a secondary feed, tuples are collected from the intake/compute
  * runtime associated with the source feed.
  */
-public class CollectionRuntime extends BasicFeedRuntime implements ISubscriberRuntime {
+public class CollectionRuntime extends FeedRuntime implements ISubscriberRuntime {
 
+    private final FeedConnectionId connectionId;
     private final ISubscribableRuntime sourceRuntime;
     private final Map<String, String> feedPolicy;
     private FeedFrameCollector frameCollector;
-    private Mode mode;
 
-    public CollectionRuntime(FeedConnectionId feedId, int partition, FeedOperatorInputSideHandler inputSideHandler,
-            ISubscribableRuntime sourceRuntime, Map<String, String> feedPolicy, FeedRuntimeType runtimeType) {
-        super(feedId, partition, inputSideHandler, runtimeType, FeedRuntimeId.DEFAULT_OPERAND_ID);
+    public CollectionRuntime(FeedConnectionId connectionId, FeedRuntimeId runtimeId,
+            FeedRuntimeInputHandler inputSideHandler, IFrameWriter outputSideWriter,
+            ISubscribableRuntime sourceRuntime, Map<String, String> feedPolicy) {
+        super(runtimeId, inputSideHandler, outputSideWriter);
+        this.connectionId = connectionId;
         this.sourceRuntime = sourceRuntime;
         this.feedPolicy = feedPolicy;
-        this.mode = Mode.PROCESS;
     }
 
     public ISubscribableRuntime getSourceRuntime() {
@@ -53,24 +55,31 @@ public class CollectionRuntime extends BasicFeedRuntime implements ISubscriberRu
         return frameCollector;
     }
 
-    public void waitTillCollectionOver() throws InterruptedException {
-        if (!frameCollector.getState().equals(FeedFrameCollector.State.FINISHED)) {
+    public State waitTillCollectionOver() throws InterruptedException {
+        if (!(frameCollector.getState().equals(FeedFrameCollector.State.FINISHED) || frameCollector.getState().equals(
+                FeedFrameCollector.State.HANDOVER))) {
             synchronized (frameCollector) {
-                while (!frameCollector.getState().equals(FeedFrameCollector.State.FINISHED)) {
+                while (!(frameCollector.getState().equals(FeedFrameCollector.State.FINISHED) || frameCollector
+                        .getState().equals(FeedFrameCollector.State.HANDOVER))) {
                     frameCollector.wait();
                 }
             }
         }
+        return frameCollector.getState();
     }
 
     public void setMode(Mode mode) {
-        FeedOperatorInputSideHandler inputSideHandler = (FeedOperatorInputSideHandler) getFeedFrameWriter();
+        FeedRuntimeInputHandler inputSideHandler = (FeedRuntimeInputHandler) getInputHandler();
         inputSideHandler.setMode(mode);
     }
 
     @Override
     public Map<String, String> getFeedPolicy() {
         return feedPolicy;
+    }
+
+    public FeedConnectionId getConnectionId() {
+        return connectionId;
     }
 
 }

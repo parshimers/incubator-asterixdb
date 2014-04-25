@@ -34,7 +34,6 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.AssignPOpe
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.RandomPartitionPOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.INodeDomain;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
-//import edu.uci.ics.hyracks.algebricks.core.algebra.operators.physical.RandomPartitionPOperator;
 
 public class IntroduceRandomPartitioningFeedComputationRule implements IAlgebraicRewriteRule {
 
@@ -56,7 +55,7 @@ public class IntroduceRandomPartitioningFeedComputationRule implements IAlgebrai
             return false;
         }
 
-        FeedDataSource feedDataSource = (FeedDataSource) dataSource;
+        final FeedDataSource feedDataSource = (FeedDataSource) dataSource;
         Feed feed = feedDataSource.getFeed();
         if (feed.getAppliedFunction() == null) {
             return false;
@@ -71,7 +70,7 @@ public class IntroduceRandomPartitioningFeedComputationRule implements IAlgebrai
 
             @Override
             public Integer cardinality() {
-                return 2;
+                return feedDataSource.getComputeCardinality();
             }
         };
 

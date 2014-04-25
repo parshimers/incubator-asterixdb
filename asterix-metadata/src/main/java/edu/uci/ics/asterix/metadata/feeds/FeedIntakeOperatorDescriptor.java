@@ -20,8 +20,9 @@ import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
 import edu.uci.ics.asterix.common.feeds.FeedId;
-import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
+import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
+import edu.uci.ics.asterix.common.feeds.SubscribableFeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.api.IFeedSubscriptionManager;
 import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
@@ -83,7 +84,7 @@ public class FeedIntakeOperatorDescriptor extends AbstractSingleActivityOperator
         IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject();
         IFeedSubscriptionManager feedSubscriptionManager = runtimeCtx.getFeedManager().getFeedSubscriptionManager();
-        FeedSubscribableRuntimeId feedIngestionId = new FeedSubscribableRuntimeId(feedId, FeedRuntimeType.INTAKE,
+        SubscribableFeedRuntimeId feedIngestionId = new SubscribableFeedRuntimeId(feedId, FeedRuntimeType.INTAKE,
                 partition);
         IngestionRuntime ingestionRuntime = (IngestionRuntime) feedSubscriptionManager
                 .getSubscribableRuntime(feedIngestionId);

@@ -14,10 +14,13 @@
  */
 package edu.uci.ics.asterix.common.feeds.api;
 
-import edu.uci.ics.asterix.common.feeds.FeedId;
+import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
+import edu.uci.ics.asterix.common.feeds.FeedRuntimeInputHandler;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 
 public interface IFeedRuntime {
+
+    public static final String TARGET_DATASET_NA = "N/A";
 
     public enum FeedRuntimeType {
         INTAKE,
@@ -29,19 +32,29 @@ public interface IFeedRuntime {
         OTHER
     }
 
-    /**
-     * @return the feed id for the feed.
-     */
-    public FeedId getFeedId();
+    public enum Mode {
+        PROCESS,
+        SPILL,
+        PROCESS_SPILL,
+        DISCARD,
+        POST_SPILL_DISCARD,
+        BUFFER_RECOVERY,
+        FAIL,
+        SHIFT,
+        STALL,
+        CLOSED
+    }
 
     /**
-     * @return the type @see {@link FeedRuntimeType} associated with the runtime.
+     * @return the unique runtime id associated with the feedRuntime
      */
-    public FeedRuntimeType getFeedRuntimeType();
+    public FeedRuntimeId getRuntimeId();
 
     /**
      * @return the frame writer associated with the feed runtime.
      */
     public IFrameWriter getFeedFrameWriter();
+
+    public FeedRuntimeInputHandler getInputHandler();
 
 }

@@ -4,7 +4,7 @@ import java.util.TimerTask;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.FeedOperatorInputSideHandler.Mode;
+import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
 import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback;
 import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback.FrameEvent;
 
@@ -28,10 +28,11 @@ public class MonitoredBufferTimerTask extends TimerTask {
 
     @Override
     public void run() {
+        /*
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info(mBuffer.getRuntimeId() + " " + "Outflow rate:" + mBuffer.getOutflowRate() + " Inflow Rate:"
-                    + mBuffer.getInflowRate());
-        }
+           LOGGER.info(mBuffer.getRuntimeId() + " " + "Outflow rate:" + mBuffer.getOutflowRate() + " Inflow Rate:"
+                   + mBuffer.getInflowRate());
+        }*/
         int pendingWork = mBuffer.getWorkSize();
         if (mBuffer.getMode().equals(Mode.PROCESS_SPILL)) {
             if (LOGGER.isLoggable(Level.INFO)) {
@@ -40,9 +41,10 @@ public class MonitoredBufferTimerTask extends TimerTask {
             return;
         }
 
+        /*
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Pending work for " + mBuffer.getRuntimeId() + " " + pendingWork);
-        }
+        }*/
 
         switch (lastEvent) {
             case NO_OP:

@@ -21,8 +21,8 @@ import java.util.logging.Logger;
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
-import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
+import edu.uci.ics.asterix.common.feeds.SubscribableFeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleListener.SubscriptionLocation;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.api.IFeedSubscriptionManager;
@@ -88,7 +88,7 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
         switch (subscriptionLocation) {
             case SOURCE_FEED_INTAKE:
                 try {
-                    FeedSubscribableRuntimeId feedSubscribableRuntimeId = new FeedSubscribableRuntimeId(sourceFeedId,
+                    SubscribableFeedRuntimeId feedSubscribableRuntimeId = new SubscribableFeedRuntimeId(sourceFeedId,
                             FeedRuntimeType.INTAKE, partition);
                     if (LOGGER.isLoggable(Level.INFO)) {
                         LOGGER.info("Attempting to obtain source ingestion runtime" + sourceFeedId + " location "
@@ -110,7 +110,7 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
                 }
                 break;
             case SOURCE_FEED_COMPUTE:
-                FeedSubscribableRuntimeId feedSubscribableRuntimeId = new FeedSubscribableRuntimeId(sourceFeedId,
+                SubscribableFeedRuntimeId feedSubscribableRuntimeId = new SubscribableFeedRuntimeId(sourceFeedId,
                         FeedRuntimeType.COMPUTE, partition);
                 sourceRuntime = (ISubscribableRuntime) feedSubscriptionManager
                         .getSubscribableRuntime(feedSubscribableRuntimeId);
@@ -145,7 +145,7 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
         return sourceFeedId;
     }
 
-    private IngestionRuntime getIngestionRuntime(FeedSubscribableRuntimeId subscribableRuntimeId) {
+    private IngestionRuntime getIngestionRuntime(SubscribableFeedRuntimeId subscribableRuntimeId) {
         int waitCycleCount = 0;
         ISubscribableRuntime ingestionRuntime = feedSubscriptionManager.getSubscribableRuntime(subscribableRuntimeId);
         while (ingestionRuntime == null && waitCycleCount < 10) {

@@ -22,52 +22,45 @@ import edu.uci.ics.asterix.common.feeds.api.ISubscribableRuntime;
 import edu.uci.ics.asterix.common.feeds.api.ISubscriberRuntime;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 
-public class SubscribableRuntime implements ISubscribableRuntime {
+public class SubscribableRuntime extends FeedRuntime implements ISubscribableRuntime {
 
     protected static final Logger LOGGER = Logger.getLogger(SubscribableRuntime.class.getName());
 
-    protected final FeedSubscribableRuntimeId subscribableRuntimeId;
-
-    protected final FeedRuntimeType runtimeType;
-
-    protected final DistributeFeedFrameWriter feedWriter;
-
+    protected final FeedId feedId;
     protected final List<ISubscriberRuntime> subscribers;
+    protected final RecordDescriptor recordDescriptor;
+    protected final DistributeFeedFrameWriter dWriter;
 
-    protected RecordDescriptor recordDescriptor;
-
-    public SubscribableRuntime(FeedSubscribableRuntimeId runtimeId, DistributeFeedFrameWriter feedWriter,
-            FeedRuntimeType runtimeType, RecordDescriptor recordDescriptor) {
-        this.subscribableRuntimeId = runtimeId;
-        this.feedWriter = feedWriter;
-        this.runtimeType = runtimeType;
+    public SubscribableRuntime(FeedId feedId, FeedRuntimeId runtimeId, FeedRuntimeInputHandler inputHandler,
+            DistributeFeedFrameWriter dWriter, RecordDescriptor recordDescriptor) {
+        super(runtimeId, inputHandler, dWriter);
+        this.feedId = feedId;
         this.recordDescriptor = recordDescriptor;
+        this.dWriter = dWriter;
         this.subscribers = new ArrayList<ISubscriberRuntime>();
     }
 
-    @Override
     public FeedId getFeedId() {
-        return subscribableRuntimeId.getFeedId();
+        return feedId;
     }
 
     @Override
     public String toString() {
-        return "SubscribableRuntime" + " [" + subscribableRuntimeId + "]";
+        return "SubscribableRuntime" + " [" + feedId + "]" + "(" + runtimeId + ")";
     }
 
     @Override
     public synchronized void subscribeFeed(FeedPolicyAccessor fpa, CollectionRuntime collectionRuntime)
             throws Exception {
-        FeedFrameCollector collector = feedWriter.subscribeFeed(
-                new FeedPolicyAccessor(collectionRuntime.getFeedPolicy()), collectionRuntime.getFeedFrameWriter(),
-                collectionRuntime.getFeedRuntimeId().getConnectionId());
+        FeedFrameCollector collector = dWriter.subscribeFeed(new FeedPolicyAccessor(collectionRuntime.getFeedPolicy()),
+                collectionRuntime.getFeedFrameWriter(), collectionRuntime.getConnectionId());
         collectionRuntime.setFrameCollector(collector);
         subscribers.add(collectionRuntime);
     }
 
     @Override
     public synchronized void unsubscribeFeed(CollectionRuntime collectionRuntime) throws Exception {
-        feedWriter.unsubscribeFeed(collectionRuntime.getFeedFrameWriter());
+        dWriter.unsubscribeFeed(collectionRuntime.getFeedFrameWriter());
         subscribers.remove(collectionRuntime);
     }
 
@@ -78,17 +71,11 @@ public class SubscribableRuntime implements ISubscribableRuntime {
 
     @Override
     public DistributeFeedFrameWriter getFeedFrameWriter() {
-        return feedWriter;
+        return dWriter;
     }
 
-    @Override
-    public FeedSubscribableRuntimeId getFeedSubscribableRuntimeId() {
-        return subscribableRuntimeId;
-    }
-
-    @Override
     public FeedRuntimeType getFeedRuntimeType() {
-        return runtimeType;
+        return runtimeId.getFeedRuntimeType();
     }
 
     @Override

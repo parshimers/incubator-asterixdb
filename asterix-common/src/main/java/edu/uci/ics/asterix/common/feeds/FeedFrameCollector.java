@@ -18,7 +18,6 @@ import java.nio.ByteBuffer;
 import java.util.logging.Level;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
-import edu.uci.ics.asterix.common.feeds.api.IFeedOperatorOutputSideHandler;
 import edu.uci.ics.asterix.common.feeds.api.IMessageReceiver;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -34,7 +33,8 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
     public enum State {
         ACTIVE,
         FINISHED,
-        TRANSITION
+        TRANSITION,
+        HANDOVER
     }
 
     public FeedFrameCollector(FrameDistributor frameDistributor, FeedPolicyAccessor feedPolicyAccessor,
@@ -91,6 +91,10 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
         }
     }
 
+    public void closeDownstream() throws HyracksDataException {
+        this.frameWriter.close();
+    }
+
     public synchronized void disconnect() {
         setState(State.FINISHED);
         notifyAll();
@@ -116,7 +120,7 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
         return frameWriter;
     }
 
-    public void setFrameWriter(IFeedOperatorOutputSideHandler frameWriter) {
+    public void setFrameWriter(IFrameWriter frameWriter) {
         this.frameWriter = frameWriter;
     }
 

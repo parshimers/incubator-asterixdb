@@ -23,8 +23,8 @@ import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.api.IFeedConnectionManager;
+import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime;
 
 public class FeedRuntimeManager {
 
@@ -32,12 +32,13 @@ public class FeedRuntimeManager {
 
     private final FeedConnectionId connectionId;
     private final IFeedConnectionManager connectionManager;
-    private final Map<FeedRuntimeId, BasicFeedRuntime> feedRuntimes;
+    private final Map<FeedRuntimeId, FeedRuntime> feedRuntimes;
+
     private final ExecutorService executorService;
 
     public FeedRuntimeManager(FeedConnectionId connectionId, IFeedConnectionManager feedConnectionManager) {
         this.connectionId = connectionId;
-        this.feedRuntimes = new ConcurrentHashMap<FeedRuntimeId, BasicFeedRuntime>();
+        this.feedRuntimes = new ConcurrentHashMap<FeedRuntimeId, FeedRuntime>();
         this.executorService = Executors.newCachedThreadPool();
         this.connectionManager = feedConnectionManager;
     }
@@ -51,18 +52,18 @@ public class FeedRuntimeManager {
         }
     }
 
-    public BasicFeedRuntime getFeedRuntime(FeedRuntimeId runtimeId) {
+    public FeedRuntime getFeedRuntime(FeedRuntimeId runtimeId) {
         return feedRuntimes.get(runtimeId);
     }
 
-    public void registerFeedRuntime(FeedRuntimeId runtimeId, BasicFeedRuntime feedRuntime) {
+    public void registerFeedRuntime(FeedRuntimeId runtimeId, FeedRuntime feedRuntime) {
         feedRuntimes.put(runtimeId, feedRuntime);
     }
 
     public synchronized void deregisterFeedRuntime(FeedRuntimeId runtimeId) {
         feedRuntimes.remove(runtimeId);
         if (feedRuntimes.isEmpty()) {
-            connectionManager.deregisterFeed(runtimeId.getConnectionId());
+            connectionManager.deregisterFeed(connectionId);
         }
     }
 

@@ -19,9 +19,9 @@ import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
+import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.FrameCollection;
 import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMemoryComponent;
@@ -62,6 +62,8 @@ public class FeedFrameWriter implements IFeedOperatorOutputSideHandler {
         STORE
     }
 
+    private final FeedConnectionId connectionId;
+
     /** A unique identifier for the feed runtime. **/
     private final FeedRuntimeId runtimeId;
 
@@ -83,8 +85,9 @@ public class FeedFrameWriter implements IFeedOperatorOutputSideHandler {
     private FrameCollection frames;
 
     public FeedFrameWriter(IHyracksTaskContext ctx, IFrameWriter writer, IOperatorNodePushable nodePushable,
-            FeedRuntimeId runtimeId, FeedPolicyEnforcer policyEnforcer, String nodeId,
+            FeedConnectionId connectionId, FeedRuntimeId runtimeId, FeedPolicyEnforcer policyEnforcer, String nodeId,
             RecordDescriptor outputRecordDescriptor, IFeedManager feedManager) {
+        this.connectionId = connectionId;
         this.runtimeId = runtimeId;
         this.writer = writer;
         this.mode = Mode.FORWARD;
@@ -188,11 +191,11 @@ public class FeedFrameWriter implements IFeedOperatorOutputSideHandler {
 
     @Override
     public FeedId getFeedId() {
-        return runtimeId.getConnectionId().getFeedId();
+        return connectionId.getFeedId();
     }
 
     public FeedConnectionId getFeedConnectionId() {
-        return runtimeId.getConnectionId();
+        return connectionId;
     }
 
     @Override

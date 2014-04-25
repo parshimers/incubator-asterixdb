@@ -22,19 +22,17 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
-
 public class FeedFrameSpiller {
 
     private static final Logger LOGGER = Logger.getLogger(FeedFrameSpiller.class.getName());
 
+    private final FeedConnectionId connectionId;
     private final FeedRuntimeId runtimeId;
     private final FeedPolicyAccessor policyAccessor;
     private BufferedOutputStream bos;
@@ -44,8 +42,9 @@ public class FeedFrameSpiller {
     private long bytesWritten = 0;
     private int spilledFrameCount = 0;
 
-    public FeedFrameSpiller(FeedRuntimeId runtimeId, int frameSize, FeedPolicyAccessor policyAccessor)
-            throws IOException {
+    public FeedFrameSpiller(FeedConnectionId connectionId, FeedRuntimeId runtimeId, int frameSize,
+            FeedPolicyAccessor policyAccessor) throws IOException {
+        this.connectionId = connectionId;
         this.runtimeId = runtimeId;
         this.policyAccessor = policyAccessor;
         this.frameSize = frameSize;
@@ -73,8 +72,8 @@ public class FeedFrameSpiller {
     private void createFile() throws IOException {
         Date date = new Date();
         String dateSuffix = date.toString().replace(' ', '_');
-        String fileName = runtimeId.getConnectionId().getFeedId() + "_" + runtimeId.getConnectionId().getDatasetName()
-                + "_" + runtimeId.getFeedRuntimeType() + "_" + runtimeId.getPartition() + "_" + dateSuffix;
+        String fileName = connectionId.getFeedId() + "_" + connectionId.getDatasetName() + "_"
+                + runtimeId.getFeedRuntimeType() + "_" + runtimeId.getPartition() + "_" + dateSuffix;
 
         file = new File(fileName);
         if (!file.exists()) {

@@ -26,9 +26,9 @@ import java.util.logging.Logger;
 import org.json.JSONObject;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
-import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.FeedCongestionMessage;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.NodeLoadReport;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLoadManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
@@ -67,7 +67,7 @@ public class FeedLoadManager implements IFeedLoadManager {
     @Override
     public void reportCongestion(FeedCongestionMessage message) throws AsterixException {
         FeedRuntimeId runtimeId = message.getRuntimeId();
-        FeedJobState jobState = jobStates.get(runtimeId.getConnectionId());
+        FeedJobState jobState = jobStates.get(message.getConnectionId());
         if (jobState != null
                 && (jobState.equals(FeedJobState.CONGESTION_REPORTED) || jobState.equals(FeedJobState.UNDER_RECOVERY))) {
             if (LOGGER.isLoggable(Level.INFO)) {
@@ -76,11 +76,11 @@ public class FeedLoadManager implements IFeedLoadManager {
             return;
         } else {
             try {
-                jobStates.put(runtimeId.getConnectionId(), FeedJobState.CONGESTION_REPORTED);
+                jobStates.put(message.getConnectionId(), FeedJobState.CONGESTION_REPORTED);
                 int inflowRate = message.getInflowRate();
                 int outflowRate = message.getOutflowRate();
                 List<String> computeLocations = new ArrayList<String>();
-                computeLocations.addAll(FeedLifecycleListener.INSTANCE.getComputeLocations(runtimeId.getConnectionId()
+                computeLocations.addAll(FeedLifecycleListener.INSTANCE.getComputeLocations(message.getConnectionId()
                         .getFeedId()));
                 int computeCardinality = computeLocations.size();
                 int requiredCardinality = (int) Math.ceil((double) ((computeCardinality * inflowRate) / outflowRate));
@@ -88,26 +88,26 @@ public class FeedLoadManager implements IFeedLoadManager {
                 List<String> helperComputeNodes = getNodeForSubstitution(additionalComputeNodes);
 
                 // Step 1) Alter the original feed job to adjust the cardinality
-                JobSpecification jobSpec = FeedLifecycleListener.INSTANCE.getCollectJobSpecification(runtimeId
+                JobSpecification jobSpec = FeedLifecycleListener.INSTANCE.getCollectJobSpecification(message
                         .getConnectionId());
                 FeedUtil.alterCardinality(jobSpec, FeedRuntimeType.COMPUTE, requiredCardinality, helperComputeNodes,
                         computeLocations);
 
                 // Step 2) send prepare to  stall message
-                PrepareStallMessage stallMessage = new PrepareStallMessage(runtimeId.getConnectionId());
-                String[] intakeLocations = FeedLifecycleListener.INSTANCE.getIntakeLocations(runtimeId
-                        .getConnectionId().getFeedId());
+                PrepareStallMessage stallMessage = new PrepareStallMessage(message.getConnectionId());
+                String[] intakeLocations = FeedLifecycleListener.INSTANCE.getIntakeLocations(message.getConnectionId()
+                        .getFeedId());
                 JobSpecification messageJobSpec = FeedOperations.buildPrepareStallMessageJob(stallMessage,
                         intakeLocations);
-                runJob(messageJobSpec, runtimeId.getConnectionId());
+                runJob(messageJobSpec);
 
                 // Step 3) run the altered job specification 
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("New Job after adjusting to the workload " + jobSpec);
                 }
-                runJob(jobSpec, runtimeId.getConnectionId());
+                // runJob(jobSpec);
 
-                jobStates.put(runtimeId.getConnectionId(), FeedJobState.UNDER_RECOVERY);
+                jobStates.put(message.getConnectionId(), FeedJobState.UNDER_RECOVERY);
             } catch (Exception e) {
                 e.printStackTrace();
                 if (LOGGER.isLoggable(Level.SEVERE)) {
@@ -118,13 +118,9 @@ public class FeedLoadManager implements IFeedLoadManager {
         }
     }
 
-    private void runJob(JobSpecification spec, FeedConnectionId connectionId) throws AsterixException {
+    private void runJob(JobSpecification spec) throws Exception {
         IHyracksClientConnection hcc = AsterixAppContextInfo.getInstance().getHcc();
-        try {
-            hcc.startJob(spec);
-        } catch (Exception e) {
-            throw new AsterixException("Unable to start prepare stall job for " + connectionId + " " + e);
-        }
+        hcc.startJob(spec);
     }
 
     @Override

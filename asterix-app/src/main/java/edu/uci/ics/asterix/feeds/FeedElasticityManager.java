@@ -17,8 +17,8 @@ package edu.uci.ics.asterix.feeds;
 import java.util.List;
 import java.util.Map;
 
-import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.NodeLoadReport;
 
 public class FeedElasticityManager {

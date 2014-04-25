@@ -17,25 +17,23 @@ package edu.uci.ics.asterix.common.feeds;
 import java.util.logging.Level;
 
 import edu.uci.ics.asterix.common.feeds.api.IAdapterRuntimeManager;
-import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 
 public class IngestionRuntime extends SubscribableRuntime {
 
     private final IAdapterRuntimeManager adapterRuntimeManager;
 
-    public IngestionRuntime(FeedId feedId, int partition, IAdapterRuntimeManager adaptorRuntimeManager,
-            DistributeFeedFrameWriter feedWriter, RecordDescriptor recordDesc) {
-        super(new FeedSubscribableRuntimeId(feedId, FeedRuntimeType.INTAKE, partition), feedWriter,
-                FeedRuntimeType.INTAKE, recordDesc);
+    public IngestionRuntime(FeedId feedId, FeedRuntimeId runtimeId, DistributeFeedFrameWriter feedWriter,
+            RecordDescriptor recordDesc, IAdapterRuntimeManager adaptorRuntimeManager) {
+        super(feedId, runtimeId, null, feedWriter, recordDesc);
         this.adapterRuntimeManager = adaptorRuntimeManager;
     }
 
     public void subscribeFeed(FeedPolicyAccessor fpa, CollectionRuntime collectionRuntime) throws Exception {
-        FeedFrameCollector reader = feedWriter.subscribeFeed(fpa, collectionRuntime.getFeedFrameWriter(),
-                collectionRuntime.getFeedRuntimeId().getConnectionId());
+        FeedFrameCollector reader = dWriter.subscribeFeed(fpa, collectionRuntime.getFeedFrameWriter(),
+                collectionRuntime.getConnectionId());
         collectionRuntime.setFrameCollector(reader);
-        if (feedWriter.getDistributionMode().equals(FrameDistributor.DistributionMode.SINGLE)) {
+        if (dWriter.getDistributionMode().equals(FrameDistributor.DistributionMode.SINGLE)) {
             adapterRuntimeManager.start();
         }
         subscribers.add(collectionRuntime);
@@ -45,11 +43,11 @@ public class IngestionRuntime extends SubscribableRuntime {
     }
 
     public void unsubscribeFeed(CollectionRuntime collectionRuntime) throws Exception {
-        feedWriter.unsubscribeFeed(collectionRuntime.getFeedFrameWriter());
+        dWriter.unsubscribeFeed(collectionRuntime.getFeedFrameWriter());
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Unsubscribed feed collection [" + collectionRuntime + "] from " + this);
         }
-        if (feedWriter.getDistributionMode().equals(FrameDistributor.DistributionMode.INACTIVE)) {
+        if (dWriter.getDistributionMode().equals(FrameDistributor.DistributionMode.INACTIVE)) {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Stopping adapter for " + this + " as no more registered collectors");
             }
@@ -59,7 +57,7 @@ public class IngestionRuntime extends SubscribableRuntime {
     }
 
     public void endOfFeed() {
-        feedWriter.notifyEndOfFeed();
+        dWriter.notifyEndOfFeed();
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Notified End Of Feed  [" + this + "]");
         }

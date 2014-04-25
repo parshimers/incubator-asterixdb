@@ -14,7 +14,8 @@
  */
 package edu.uci.ics.asterix.common.feeds.api;
 
-import edu.uci.ics.asterix.common.feeds.BasicFeedRuntime.FeedRuntimeId;
+import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
 
 public interface IFeedMetricCollector {
 
@@ -29,11 +30,13 @@ public interface IFeedMetricCollector {
         RATE
     }
 
-    public int createReportSender(FeedRuntimeId runtimeId, ValueType valueType, MetricType metricType);
-
     public void sendReport(int senderId, int value);
 
     public int getMetric(int senderId);
 
-    int getMetric(FeedRuntimeId runtimeId, ValueType valueType);
+    int getMetric(FeedConnectionId connectionId, FeedRuntimeId runtimeId, ValueType valueType);
+
+    int createReportSender(FeedConnectionId connectionId, FeedRuntimeId runtimeId, ValueType valueType,
+            MetricType metricType);
+
 }

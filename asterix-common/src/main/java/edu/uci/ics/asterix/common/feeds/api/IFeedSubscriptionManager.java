@@ -14,7 +14,7 @@
  */
 package edu.uci.ics.asterix.common.feeds.api;
 
-import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
+import edu.uci.ics.asterix.common.feeds.SubscribableFeedRuntimeId;
 
 public interface IFeedSubscriptionManager {
 
@@ -26,11 +26,12 @@ public interface IFeedSubscriptionManager {
     /**
      * @param subscribableRuntimeId
      */
-    public void deregisterFeedSubscribableRuntime(FeedSubscribableRuntimeId subscribableRuntimeId);
+    public void deregisterFeedSubscribableRuntime(SubscribableFeedRuntimeId subscribableRuntimeId);
 
     /**
      * @param subscribableRuntimeId
      * @return
      */
-    public ISubscribableRuntime getSubscribableRuntime(FeedSubscribableRuntimeId subscribableRuntimeId);
+    public ISubscribableRuntime getSubscribableRuntime(SubscribableFeedRuntimeId subscribableRuntimeId);
+
 }

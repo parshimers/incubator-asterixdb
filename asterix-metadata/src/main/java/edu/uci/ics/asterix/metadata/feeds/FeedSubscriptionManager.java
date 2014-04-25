@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.FeedSubscribableRuntimeId;
+import edu.uci.ics.asterix.common.feeds.SubscribableFeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.api.IFeedSubscriptionManager;
 import edu.uci.ics.asterix.common.feeds.api.ISubscribableRuntime;
 
@@ -29,16 +29,18 @@ public class FeedSubscriptionManager implements IFeedSubscriptionManager {
 
     private final String nodeId;
 
-    private final Map<FeedSubscribableRuntimeId, ISubscribableRuntime> ingestionRuntimes = new HashMap<FeedSubscribableRuntimeId, ISubscribableRuntime>();
+    private final Map<SubscribableFeedRuntimeId, ISubscribableRuntime> subscribableRuntimes;
 
     public FeedSubscriptionManager(String nodeId) {
         this.nodeId = nodeId;
+        this.subscribableRuntimes = new HashMap<SubscribableFeedRuntimeId, ISubscribableRuntime>();
     }
 
     @Override
     public void registerFeedSubscribableRuntime(ISubscribableRuntime subscribableRuntime) {
-        if (!ingestionRuntimes.containsKey(subscribableRuntime.getFeedSubscribableRuntimeId())) {
-            ingestionRuntimes.put(subscribableRuntime.getFeedSubscribableRuntimeId(), subscribableRuntime);
+        SubscribableFeedRuntimeId sid = (SubscribableFeedRuntimeId) subscribableRuntime.getRuntimeId();
+        if (!subscribableRuntimes.containsKey(sid)) {
+            subscribableRuntimes.put(sid, subscribableRuntime);
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Registered feed subscribable runtime " + subscribableRuntime);
             }
@@ -50,16 +52,16 @@ public class FeedSubscriptionManager implements IFeedSubscriptionManager {
     }
 
     @Override
-    public ISubscribableRuntime getSubscribableRuntime(FeedSubscribableRuntimeId feedIngestionId) {
-        return ingestionRuntimes.get(feedIngestionId);
+    public ISubscribableRuntime getSubscribableRuntime(SubscribableFeedRuntimeId subscribableFeedRuntimeId) {
+        return subscribableRuntimes.get(subscribableFeedRuntimeId);
     }
 
     @Override
-    public void deregisterFeedSubscribableRuntime(FeedSubscribableRuntimeId ingestionId) {
+    public void deregisterFeedSubscribableRuntime(SubscribableFeedRuntimeId ingestionId) {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("De-registered feed subscribable runtime " + ingestionId);
         }
-        ingestionRuntimes.remove(ingestionId);
+        subscribableRuntimes.remove(ingestionId);
     }
 
     @Override
