@@ -21,7 +21,6 @@ import java.util.logging.Logger;
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
 import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
-import edu.uci.ics.asterix.common.feeds.FeedFrameCollector;
 import edu.uci.ics.asterix.common.feeds.FeedFrameCollector.State;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
@@ -38,6 +37,7 @@ import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
+import edu.uci.ics.hyracks.dataflow.std.connectors.PartitionDataWriter;
 
 /**
  * The runtime for @see{FeedIntakeOperationDescriptor}
@@ -50,7 +50,6 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
     private final FeedConnectionId connectionId;
     private final Map<String, String> feedPolicy;
     private final FeedPolicyEnforcer policyEnforcer;
-    private final String nodeId;
     private final IFeedManager feedManager;
     private final ISubscribableRuntime sourceRuntime;
     private final IHyracksTaskContext ctx;
@@ -68,7 +67,6 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
         this.sourceRuntime = sourceRuntime;
         this.feedPolicy = feedPolicy;
         policyEnforcer = new FeedPolicyEnforcer(feedConnectionId, feedPolicy);
-        nodeId = ctx.getJobletContext().getApplicationContext().getNodeId();
         IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject();
         this.feedManager = runtimeCtx.getFeedManager();
@@ -95,15 +93,16 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
             if (state.equals(State.FINISHED)) {
                 feedManager.getFeedConnectionManager().deRegisterFeedRuntime(connectionId,
                         collectRuntime.getRuntimeId());
-            } else {
+                writer.close();
+            } else if (state.equals(State.HANDOVER)) {
+                inputSideHandler.setMode(Mode.STALL);
+                writer.close();
                 if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Closing pipeline and moving forward with the Handover stage");
+                    LOGGER.info("Ending Collect Operator, the input side handler is now in " + Mode.STALL
+                            + " and the output writer " + writer + " has been closed ");
                 }
             }
-            writer.close();
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Closed writer " + writer);
-            }
+            System.out.println("ENDING COLLECT OPERATOR " + collectRuntime.getRuntimeId());
         } catch (InterruptedException ie) {
             handleInterruptedException(ie);
         } catch (Exception e) {
@@ -120,14 +119,11 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
         if (collectRuntime == null) {
             beginNewFeed(runtimeId);
         } else {
-            resumeOldFeed();
+            reviveOldFeed();
         }
     }
 
     private void beginNewFeed(FeedRuntimeId runtimeId) throws Exception {
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Beginning new feed:" + connectionId);
-        }
         writer.open();
         IFrameWriter outputSideWriter = writer;
         if (((SubscribableFeedRuntimeId) sourceRuntime.getRuntimeId()).getFeedRuntimeType().equals(
@@ -147,25 +143,24 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
         sourceRuntime.subscribeFeed(policyEnforcer.getFeedPolicyAccessor(), collectRuntime);
     }
 
-    private void resumeOldFeed() throws HyracksDataException {
+    private void reviveOldFeed() throws HyracksDataException {
         writer.open();
-        collectRuntime.getFrameCollector().setState(State.HANDOVER); // this will trigger the closing of the downstream operators from the previous pipeline
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Resuming old feed:" + connectionId + " triggered handover");
+        System.out.println("NEW WRITER FOR COLLECT " + writer);
+        if (writer instanceof PartitionDataWriter) {
+            System.out.println("NUMBER OF OUT GOING PARTITIONS :"
+                    + ((PartitionDataWriter) writer).getNumberOfPartitions());
         }
+        collectRuntime.getFrameCollector().setState(State.ACTIVE);
+        inputSideHandler = collectRuntime.getInputHandler();
 
-        this.inputSideHandler = collectRuntime.getInputHandler();
         IFrameWriter innerWriter = inputSideHandler.getCoreOperator();
         if (innerWriter instanceof CollectTransformFeedFrameWriter) {
-            ((CollectTransformFeedFrameWriter) writer).reset(this.writer);
+            ((CollectTransformFeedFrameWriter) innerWriter).reset(this.writer);
         } else {
-            inputSideHandler.reset(this.writer);
+            inputSideHandler.setCoreOperator(writer);
         }
-        inputSideHandler.setMode(Mode.PROCESS);
 
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Reset the internal frame writer for " + collectRuntime + " to " + Mode.PROCESS + " mode");
-        }
+        inputSideHandler.setMode(Mode.PROCESS);
     }
 
     private void handlePartialConnection() throws Exception {
@@ -192,10 +187,10 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
     private void handleInterruptedException(InterruptedException ie) throws HyracksDataException {
         if (policyEnforcer.getFeedPolicyAccessor().continueOnHardwareFailure()) {
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Continuing on failure as per feed policy, switching to " + Mode.BUFFER_RECOVERY
+                LOGGER.info("Continuing on failure as per feed policy, switching to " + Mode.STALL
                         + " until failure is resolved");
             }
-            inputSideHandler.setMode(Mode.BUFFER_RECOVERY);
+            inputSideHandler.setMode(Mode.STALL);
         } else {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Failure during feed ingestion. Deregistering feed runtime " + collectRuntime

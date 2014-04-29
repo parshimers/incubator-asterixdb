@@ -16,9 +16,11 @@ package edu.uci.ics.asterix.feeds;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -35,8 +37,10 @@ import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.file.FeedOperations;
 import edu.uci.ics.asterix.metadata.feeds.FeedUtil;
 import edu.uci.ics.asterix.metadata.feeds.PrepareStallMessage;
+import edu.uci.ics.asterix.metadata.feeds.TerminateDataFlowMessage;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
 import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
+import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 
 public class FeedLoadManager implements IFeedLoadManager {
@@ -79,10 +83,10 @@ public class FeedLoadManager implements IFeedLoadManager {
                 jobStates.put(message.getConnectionId(), FeedJobState.CONGESTION_REPORTED);
                 int inflowRate = message.getInflowRate();
                 int outflowRate = message.getOutflowRate();
-                List<String> computeLocations = new ArrayList<String>();
-                computeLocations.addAll(FeedLifecycleListener.INSTANCE.getComputeLocations(message.getConnectionId()
-                        .getFeedId()));
-                int computeCardinality = computeLocations.size();
+                List<String> currentComputeLocations = new ArrayList<String>();
+                currentComputeLocations.addAll(FeedLifecycleListener.INSTANCE.getComputeLocations(message
+                        .getConnectionId().getFeedId()));
+                int computeCardinality = currentComputeLocations.size();
                 int requiredCardinality = (int) Math.ceil((double) ((computeCardinality * inflowRate) / outflowRate));
                 int additionalComputeNodes = requiredCardinality - computeCardinality;
                 List<String> helperComputeNodes = getNodeForSubstitution(additionalComputeNodes);
@@ -91,21 +95,41 @@ public class FeedLoadManager implements IFeedLoadManager {
                 JobSpecification jobSpec = FeedLifecycleListener.INSTANCE.getCollectJobSpecification(message
                         .getConnectionId());
                 FeedUtil.alterCardinality(jobSpec, FeedRuntimeType.COMPUTE, requiredCardinality, helperComputeNodes,
-                        computeLocations);
+                        currentComputeLocations);
 
                 // Step 2) send prepare to  stall message
                 PrepareStallMessage stallMessage = new PrepareStallMessage(message.getConnectionId());
                 String[] intakeLocations = FeedLifecycleListener.INSTANCE.getIntakeLocations(message.getConnectionId()
                         .getFeedId());
-                JobSpecification messageJobSpec = FeedOperations.buildPrepareStallMessageJob(stallMessage,
-                        intakeLocations);
-                runJob(messageJobSpec);
+                List<String> computeLocations = FeedLifecycleListener.INSTANCE.getComputeLocations(message
+                        .getConnectionId().getFeedId());
+                String[] storageLocations = FeedLifecycleListener.INSTANCE.getStoreLocations(message.getConnectionId());
 
-                // Step 3) run the altered job specification 
+                Set<String> operatorLocations = new HashSet<String>();
+                for (String loc : intakeLocations) {
+                    operatorLocations.add(loc);
+                }
+                for (String loc : computeLocations) {
+                    operatorLocations.add(loc);
+                }
+                for (String loc : storageLocations) {
+                    operatorLocations.add(loc);
+                }
+
+                JobSpecification messageJobSpec = FeedOperations.buildPrepareStallMessageJob(stallMessage,
+                        operatorLocations.toArray(new String[] {}));
+                runJob(messageJobSpec, true);
+
+                // Step 3)
+                TerminateDataFlowMessage terminateMesg = new TerminateDataFlowMessage(message.getConnectionId());
+                messageJobSpec = FeedOperations.buildTerminateFlowMessageJob(terminateMesg, intakeLocations);
+                runJob(messageJobSpec, true);
+
+                // Step 4) run the altered job specification 
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("New Job after adjusting to the workload " + jobSpec);
                 }
-                // runJob(jobSpec);
+                runJob(jobSpec, false);
 
                 jobStates.put(message.getConnectionId(), FeedJobState.UNDER_RECOVERY);
             } catch (Exception e) {
@@ -118,9 +142,12 @@ public class FeedLoadManager implements IFeedLoadManager {
         }
     }
 
-    private void runJob(JobSpecification spec) throws Exception {
+    private void runJob(JobSpecification spec, boolean waitForCompletion) throws Exception {
         IHyracksClientConnection hcc = AsterixAppContextInfo.getInstance().getHcc();
-        hcc.startJob(spec);
+        JobId jobId = hcc.startJob(spec);
+        if (waitForCompletion) {
+            hcc.waitForCompletion(jobId);
+        }
     }
 
     @Override

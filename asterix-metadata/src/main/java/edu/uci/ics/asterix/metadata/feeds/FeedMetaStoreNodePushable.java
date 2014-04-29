@@ -21,9 +21,9 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
 
-public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorNodePushable {
+public class FeedMetaStoreNodePushable extends AbstractUnaryInputUnaryOutputOperatorNodePushable {
 
-    private static final Logger LOGGER = Logger.getLogger(FeedMetaNodePushable.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(FeedMetaStoreNodePushable.class.getName());
 
     /** Runtime node pushable corresponding to the core feed operator **/
     private AbstractUnaryInputUnaryOutputOperatorNodePushable coreOperator;
@@ -53,7 +53,7 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
     private int partition;
 
     /** Type associated with the core feed operator **/
-    private final FeedRuntimeType runtimeType = FeedRuntimeType.OTHER;
+    private final FeedRuntimeType runtimeType = FeedRuntimeType.STORE;
 
     /** The (singleton) instance of IFeedManager **/
     private IFeedManager feedManager;
@@ -66,8 +66,8 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
 
     private FeedRuntimeInputHandler inputSideHandler;
 
-    public FeedMetaNodePushable(IHyracksTaskContext ctx, IRecordDescriptorProvider recordDescProvider, int partition,
-            int nPartitions, IOperatorDescriptor coreOperator, FeedConnectionId feedConnectionId,
+    public FeedMetaStoreNodePushable(IHyracksTaskContext ctx, IRecordDescriptorProvider recordDescProvider,
+            int partition, int nPartitions, IOperatorDescriptor coreOperator, FeedConnectionId feedConnectionId,
             Map<String, String> feedPolicyProperties, String operationId) throws HyracksDataException {
         this.ctx = ctx;
         this.coreOperator = (AbstractUnaryInputUnaryOutputOperatorNodePushable) ((IActivity) coreOperator)
@@ -93,6 +93,7 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
             } else {
                 reviveOldFeedRuntime(runtimeId);
             }
+
             coreOperator.open();
         } catch (Exception e) {
             e.printStackTrace();
@@ -106,7 +107,7 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
         }
         this.fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
         this.inputSideHandler = new FeedRuntimeInputHandler(connectionId, runtimeId, coreOperator,
-                policyEnforcer.getFeedPolicyAccessor(), false, ctx.getFrameSize(), fta, recordDesc, feedManager);
+                policyEnforcer.getFeedPolicyAccessor(), true, ctx.getFrameSize(), fta, recordDesc, feedManager);
         setupBasicRuntime(inputSideHandler);
     }
 
@@ -115,8 +116,9 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
         this.fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
         coreOperator.setOutputFrameWriter(0, writer, recordDesc);
         feedRuntime.setMode(Mode.PROCESS);
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Retreived state from the zombie instance " + runtimeType + " node.");
+        if (LOGGER.isLoggable(Level.WARNING)) {
+            LOGGER.warning("Retreived state from the zombie instance from previous execution for " + runtimeType
+                    + " node.");
         }
     }
 
@@ -124,6 +126,7 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
         coreOperator.setOutputFrameWriter(0, writer, recordDesc);
         FeedRuntimeId runtimeId = new FeedRuntimeId(runtimeType, partition, operandId);
         feedRuntime = new FeedRuntime(runtimeId, inputHandler, writer);
+        feedManager.getFeedConnectionManager().registerFeedRuntime(connectionId, (FeedRuntime) feedRuntime);
     }
 
     @Override
@@ -148,18 +151,38 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
     @Override
     public void close() throws HyracksDataException {
         System.out.println("CLOSE CALLED FOR " + this.feedRuntime.getRuntimeId());
+        boolean stalled = inputSideHandler.getMode().equals(Mode.STALL);
         try {
+            if (!stalled) {
+                inputSideHandler.nextFrame(null); // signal end of data
+                while (!inputSideHandler.isFinished()) {
+                    synchronized (coreOperator) {
+                        coreOperator.wait();
+                    }
+                }
+            }
             coreOperator.close();
         } catch (Exception e) {
             e.printStackTrace();
             // ignore
         } finally {
-            if (inputSideHandler != null) {
-                inputSideHandler.close();
+            if (!stalled) {
+                deregister();
+                System.out.println("DEREGISTERING " + this.feedRuntime.getRuntimeId());
+            } else {
+                System.out.println("NOT DEREGISTERING " + this.feedRuntime.getRuntimeId());
             }
+            inputSideHandler.close();
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Ending Operator  " + this.feedRuntime.getRuntimeId());
             }
+        }
+    }
+
+    private void deregister() {
+        if (feedRuntime != null) {
+            feedManager.getFeedConnectionManager().deRegisterFeedRuntime(connectionId,
+                    ((FeedRuntime) feedRuntime).getRuntimeId());
         }
     }
 

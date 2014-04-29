@@ -77,17 +77,13 @@ public class FeedConnectionManager implements IFeedConnectionManager {
     }
 
     @Override
-    public void registerFeedRuntime(FeedConnectionId connectionId, FeedRuntime feedRuntime) throws Exception {
+    public synchronized void registerFeedRuntime(FeedConnectionId connectionId, FeedRuntime feedRuntime)
+            throws Exception {
         FeedRuntimeManager runtimeMgr = feedRuntimeManagers.get(connectionId);
         if (runtimeMgr == null) {
-            synchronized (feedRuntimeManagers) {
-                if (runtimeMgr == null) {
-                    runtimeMgr = new FeedRuntimeManager(connectionId, this);
-                    feedRuntimeManagers.put(connectionId, runtimeMgr);
-                }
-            }
+            runtimeMgr = new FeedRuntimeManager(connectionId, this);
+            feedRuntimeManagers.put(connectionId, runtimeMgr);
         }
-
         runtimeMgr.registerFeedRuntime(feedRuntime.getRuntimeId(), feedRuntime);
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Registered runtime " + feedRuntime + " for feed connection " + connectionId);

@@ -56,7 +56,11 @@ public class TweetGenAdaptor extends StreamBasedAdapter implements IFeedAdapter 
     @Override
     public void stop() throws Exception {
         if (socket != null) {
-            socket.close();
+            try {
+                socket.close();
+            } catch (Exception e) {
+                // ignore
+            }
         }
     }
 

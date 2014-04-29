@@ -253,6 +253,7 @@ public class FrameDistributor {
             case SINGLE:
                 FeedFrameCollector collector = registeredCollectors.values().iterator().next();
                 switch (collector.getState()) {
+                    case HANDOVER:
                     case ACTIVE:
                         if (enableSynchronousTransfer) {
                             collector.nextFrame(frame); // processing is synchronous
@@ -266,7 +267,7 @@ public class FrameDistributor {
                     case FINISHED:
                         if (LOGGER.isLoggable(Level.WARNING)) {
                             LOGGER.warning("Discarding fetched tuples, feed has ended [" + registeredCollectors.get(0)
-                                    + "]" + " Feed Id " + feedId);
+                                    + "]" + " Feed Id " + feedId + " frame distributor " + this.getFeedRuntimeType());
                         }
                         registeredCollectors.remove(0);
                         break;
@@ -394,7 +395,7 @@ public class FrameDistributor {
             case SINGLE:
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Disconnecting single frame reader in " + distributionMode + " mode " + " for  feedId "
-                            + feedId);
+                            + feedId + " " + this.feedRuntimeType);
                 }
                 setMode(DistributionMode.INACTIVE);
                 if (!enableSynchronousTransfer) {

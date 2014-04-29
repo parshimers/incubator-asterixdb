@@ -34,7 +34,7 @@ public class MonitoredBufferTimerTask extends TimerTask {
                    + mBuffer.getInflowRate());
         }*/
         int pendingWork = mBuffer.getWorkSize();
-        if (mBuffer.getMode().equals(Mode.PROCESS_SPILL)) {
+        if (mBuffer.getMode().equals(Mode.PROCESS_SPILL) || mBuffer.getMode().equals(Mode.PROCESS_BACKLOG)) {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Not acting while spillage processing in progress " + pendingWork);
             }

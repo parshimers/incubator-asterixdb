@@ -16,7 +16,7 @@ package edu.uci.ics.asterix.common.feeds;
 
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 
-public class FeedRuntimeId {
+public class FeedRuntimeId{
 
     public static final String DEFAULT_OPERAND_ID = "N/A";
 

@@ -53,7 +53,7 @@ public class SubscribableRuntime extends FeedRuntime implements ISubscribableRun
     public synchronized void subscribeFeed(FeedPolicyAccessor fpa, CollectionRuntime collectionRuntime)
             throws Exception {
         FeedFrameCollector collector = dWriter.subscribeFeed(new FeedPolicyAccessor(collectionRuntime.getFeedPolicy()),
-                collectionRuntime.getFeedFrameWriter(), collectionRuntime.getConnectionId());
+                collectionRuntime.getInputHandler(), collectionRuntime.getConnectionId());
         collectionRuntime.setFrameCollector(collector);
         subscribers.add(collectionRuntime);
     }

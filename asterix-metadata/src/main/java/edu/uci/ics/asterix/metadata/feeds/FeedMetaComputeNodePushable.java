@@ -6,13 +6,18 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
+import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedFrameCollector;
 import edu.uci.ics.asterix.common.feeds.FeedRuntime;
 import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.FeedRuntimeInputHandler;
+import edu.uci.ics.asterix.common.feeds.SubscribableFeedRuntimeId;
+import edu.uci.ics.asterix.common.feeds.SubscribableRuntime;
 import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
+import edu.uci.ics.asterix.common.feeds.api.ISubscribableRuntime;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.IActivity;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
@@ -21,9 +26,9 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
 
-public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorNodePushable {
+public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOperatorNodePushable {
 
-    private static final Logger LOGGER = Logger.getLogger(FeedMetaNodePushable.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(FeedMetaComputeNodePushable.class.getName());
 
     /** Runtime node pushable corresponding to the core feed operator **/
     private AbstractUnaryInputUnaryOutputOperatorNodePushable coreOperator;
@@ -52,9 +57,6 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
      **/
     private int partition;
 
-    /** Type associated with the core feed operator **/
-    private final FeedRuntimeType runtimeType = FeedRuntimeType.OTHER;
-
     /** The (singleton) instance of IFeedManager **/
     private IFeedManager feedManager;
 
@@ -64,10 +66,12 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
 
     private final String operandId;
 
+    private final FeedRuntimeType runtimeType = FeedRuntimeType.COMPUTE;
+
     private FeedRuntimeInputHandler inputSideHandler;
 
-    public FeedMetaNodePushable(IHyracksTaskContext ctx, IRecordDescriptorProvider recordDescProvider, int partition,
-            int nPartitions, IOperatorDescriptor coreOperator, FeedConnectionId feedConnectionId,
+    public FeedMetaComputeNodePushable(IHyracksTaskContext ctx, IRecordDescriptorProvider recordDescProvider,
+            int partition, int nPartitions, IOperatorDescriptor coreOperator, FeedConnectionId feedConnectionId,
             Map<String, String> feedPolicyProperties, String operationId) throws HyracksDataException {
         this.ctx = ctx;
         this.coreOperator = (AbstractUnaryInputUnaryOutputOperatorNodePushable) ((IActivity) coreOperator)
@@ -85,7 +89,7 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
 
     @Override
     public void open() throws HyracksDataException {
-        FeedRuntimeId runtimeId = new FeedRuntimeId(runtimeType, partition, operandId);
+        FeedRuntimeId runtimeId = new SubscribableFeedRuntimeId(connectionId.getFeedId(), runtimeType, partition);
         try {
             feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(connectionId, runtimeId);
             if (feedRuntime == null) {
@@ -93,6 +97,7 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
             } else {
                 reviveOldFeedRuntime(runtimeId);
             }
+            writer.open();
             coreOperator.open();
         } catch (Exception e) {
             e.printStackTrace();
@@ -106,24 +111,36 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
         }
         this.fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
         this.inputSideHandler = new FeedRuntimeInputHandler(connectionId, runtimeId, coreOperator,
-                policyEnforcer.getFeedPolicyAccessor(), false, ctx.getFrameSize(), fta, recordDesc, feedManager);
-        setupBasicRuntime(inputSideHandler);
+                policyEnforcer.getFeedPolicyAccessor(), true, ctx.getFrameSize(), fta, recordDesc, feedManager);
+
+        DistributeFeedFrameWriter distributeWriter = new DistributeFeedFrameWriter(connectionId.getFeedId(), writer,
+                runtimeType, partition, new FrameTupleAccessor(ctx.getFrameSize(), recordDesc), feedManager,
+                ctx.getFrameSize());
+        coreOperator.setOutputFrameWriter(0, distributeWriter, recordDesc);
+
+        feedRuntime = new SubscribableRuntime(connectionId.getFeedId(), runtimeId, inputSideHandler, distributeWriter,
+                recordDesc);
+        feedManager.getFeedSubscriptionManager().registerFeedSubscribableRuntime((ISubscribableRuntime) feedRuntime);
+        feedManager.getFeedConnectionManager().registerFeedRuntime(connectionId, feedRuntime);
+
+        distributeWriter.subscribeFeed(policyEnforcer.getFeedPolicyAccessor(), writer, connectionId);
     }
 
     private void reviveOldFeedRuntime(FeedRuntimeId runtimeId) throws Exception {
-        this.inputSideHandler = feedRuntime.getInputHandler();
-        this.fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
-        coreOperator.setOutputFrameWriter(0, writer, recordDesc);
-        feedRuntime.setMode(Mode.PROCESS);
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Retreived state from the zombie instance " + runtimeType + " node.");
+            LOGGER.info("Reviving old state from zombie instance  " + runtimeType + " mode "
+                    + feedRuntime.getInputHandler().getMode());
         }
-    }
+        this.fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
+        this.inputSideHandler = feedRuntime.getInputHandler();
 
-    private void setupBasicRuntime(FeedRuntimeInputHandler inputHandler) throws Exception {
-        coreOperator.setOutputFrameWriter(0, writer, recordDesc);
-        FeedRuntimeId runtimeId = new FeedRuntimeId(runtimeType, partition, operandId);
-        feedRuntime = new FeedRuntime(runtimeId, inputHandler, writer);
+        DistributeFeedFrameWriter distributeWriter = new DistributeFeedFrameWriter(connectionId.getFeedId(), writer,
+                runtimeType, partition, new FrameTupleAccessor(ctx.getFrameSize(), recordDesc), feedManager,
+                ctx.getFrameSize());
+        coreOperator.setOutputFrameWriter(0, distributeWriter, recordDesc);
+        distributeWriter.subscribeFeed(policyEnforcer.getFeedPolicyAccessor(), writer, connectionId);
+
+        feedRuntime.setMode(Mode.PROCESS);
     }
 
     @Override
@@ -148,18 +165,43 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
     @Override
     public void close() throws HyracksDataException {
         System.out.println("CLOSE CALLED FOR " + this.feedRuntime.getRuntimeId());
+        boolean stalled = inputSideHandler.getMode().equals(Mode.STALL);
         try {
+            if (inputSideHandler != null) {
+                if (!stalled) {
+                    inputSideHandler.nextFrame(null); // signal end of data
+                    while (!inputSideHandler.isFinished()) {
+                        synchronized (coreOperator) {
+                            coreOperator.wait();
+                        }
+                    }
+                }
+            }
             coreOperator.close();
+            System.out.println("CLOSED " + coreOperator);
         } catch (Exception e) {
             e.printStackTrace();
             // ignore
         } finally {
+            if (!stalled) {
+                deregister();
+                System.out.println("DEREGISTERING " + this.feedRuntime.getRuntimeId());
+            } else {
+                System.out.println("NOT DEREGISTERING " + this.feedRuntime.getRuntimeId());
+            }
             if (inputSideHandler != null) {
                 inputSideHandler.close();
             }
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Ending Operator  " + this.feedRuntime.getRuntimeId());
             }
+        }
+    }
+
+    private void deregister() {
+        if (feedRuntime != null) {
+            SubscribableFeedRuntimeId runtimeId = (SubscribableFeedRuntimeId) feedRuntime.getRuntimeId();
+            feedManager.getFeedSubscriptionManager().deregisterFeedSubscribableRuntime(runtimeId);
         }
     }
 

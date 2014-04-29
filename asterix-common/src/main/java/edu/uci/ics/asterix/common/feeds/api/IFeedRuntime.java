@@ -28,7 +28,6 @@ public interface IFeedRuntime {
         COMPUTE_COLLECT,
         COMPUTE,
         STORE,
-        COMMIT,
         OTHER
     }
 
@@ -38,11 +37,9 @@ public interface IFeedRuntime {
         PROCESS_SPILL,
         DISCARD,
         POST_SPILL_DISCARD,
-        BUFFER_RECOVERY,
-        FAIL,
-        SHIFT,
+        PROCESS_BACKLOG,
         STALL,
-        CLOSED
+        FAIL
     }
 
     /**

@@ -14,8 +14,11 @@
  */
 package edu.uci.ics.asterix.metadata.feeds;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -24,10 +27,12 @@ import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedFrameCollector;
+import edu.uci.ics.asterix.common.feeds.FeedFrameCollector.State;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FeedRuntime;
 import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.FeedRuntimeInputHandler;
+import edu.uci.ics.asterix.common.feeds.FeedRuntimeManager;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.asterix.common.feeds.SubscribableFeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.api.IAdapterRuntimeManager;
@@ -81,27 +86,56 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                             break;
                     }
                     break;
-                case PREPARE_STALL:
+                case PREPARE_STALL: {
                     PrepareStallMessage prepareStallMessage = (PrepareStallMessage) message;
                     FeedConnectionId connectionId = prepareStallMessage.getConnectionId();
                     handlePrepareStallMessage(connectionId);
                     break;
+                }
+                case TERMINATE_FLOW: {
+                    TerminateDataFlowMessage terminateMessage = (TerminateDataFlowMessage) message;
+                    FeedConnectionId connectionId = terminateMessage.getConnectionId();
+                    handleTerminateFlowMessage(connectionId);
+                    break;
+                }
             }
 
         } catch (Exception e) {
+            e.printStackTrace();
             throw new HyracksDataException(e);
         } finally {
             writer.close();
         }
     }
 
+    private void handleTerminateFlowMessage(FeedConnectionId connectionId) throws HyracksDataException {
+        FeedRuntimeManager runtimeManager = feedManager.getFeedConnectionManager().getFeedRuntimeManager(connectionId);
+        Set<FeedRuntimeId> feedRuntimes = runtimeManager.getFeedRuntimes();
+
+        boolean found = false;
+        for (FeedRuntimeId runtimeId : feedRuntimes) {
+            FeedRuntime runtime = runtimeManager.getFeedRuntime(runtimeId);
+            System.out.println("Examning " + runtime.getRuntimeId());
+            if (runtime.getRuntimeId().getRuntimeType().equals(FeedRuntimeType.COLLECT)) {
+                ((CollectionRuntime) runtime).getFrameCollector().setState(State.HANDOVER);
+                found = true;
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("Switched " + runtime + " to Hand Over stage");
+                }
+            }
+        }
+        if (!found) {
+            throw new HyracksDataException("COLLECT Runtime  not found!");
+        }
+    }
+
     private void handlePrepareStallMessage(FeedConnectionId connectionId) throws HyracksDataException {
-        FeedRuntimeId runtimeId = new FeedRuntimeId(FeedRuntimeType.COLLECT, partition,
-                FeedRuntimeId.DEFAULT_OPERAND_ID);
-        CollectionRuntime collectionRuntime = (CollectionRuntime) feedManager.getFeedConnectionManager()
-                .getFeedRuntime(connectionId, runtimeId);
-        collectionRuntime.setMode(Mode.BUFFER_RECOVERY);
-        collectionRuntime.getFrameCollector().closeDownstream();
+        FeedRuntimeManager runtimeManager = feedManager.getFeedConnectionManager().getFeedRuntimeManager(connectionId);
+        Set<FeedRuntimeId> feedRuntimes = runtimeManager.getFeedRuntimes();
+        for (FeedRuntimeId runtimeId : feedRuntimes) {
+            FeedRuntime runtime = runtimeManager.getFeedRuntime(runtimeId);
+            runtime.setMode(Mode.STALL);
+        }
     }
 
     private void handleDiscontinueFeedTypeMessage(EndFeedMessage endFeedMessage) throws Exception {

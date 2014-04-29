@@ -30,6 +30,7 @@ import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
+import edu.uci.ics.hyracks.dataflow.std.connectors.PartitionDataWriter;
 
 // Handles Exception + inflow rate measurement
 public class FeedRuntimeInputHandler implements IFrameWriter {
@@ -54,6 +55,7 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
     private final FrameTupleAccessor fta;
     private final FeedPolicyAccessor fpa;
     private final IFeedManager feedManager;
+    private FrameEventCallback frameEventCallback;
 
     public IFrameWriter getCoreOperator() {
         return coreOperator;
@@ -61,6 +63,9 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
 
     public void setCoreOperator(IFrameWriter coreOperator) {
         this.coreOperator = coreOperator;
+        mBuffer.setFrameWriter(coreOperator);
+        frameEventCallback.setCoreOperator(coreOperator);
+        System.out.println("SET CORE OPERATOR INSIDE INPUT HANDLER AS  " + coreOperator);
     }
 
     public FeedRuntimeInputHandler(FeedConnectionId connectionId, FeedRuntimeId runtimeId, IFrameWriter coreOperator,
@@ -82,13 +87,13 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
         this.feedManager = feedManager;
         this.pool = (DataBucketPool) feedManager.getFeedMemoryManager().getMemoryComponent(
                 IFeedMemoryComponent.Type.POOL);
-
         this.frameCollection = (FrameCollection) feedManager.getFeedMemoryManager().getMemoryComponent(
                 IFeedMemoryComponent.Type.COLLECTION);
+        this.frameEventCallback = new FrameEventCallback(fpa, this, coreOperator);
 
         //  if (bufferingEnabled) {
         mBuffer = new MonitoredBuffer(this, coreOperator, fta, feedManager.getFeedMetricCollector(), connectionId,
-                runtimeId, exceptionHandler, new FrameEventCallback(fpa, this, coreOperator));
+                runtimeId, exceptionHandler, frameEventCallback);
         mBuffer.start();
         //  }
     }
@@ -107,8 +112,13 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
                                         + mBuffer.getWorkSize());
                             }
                             break;
-                        case BUFFER_RECOVERY:
+                        case STALL:
+                            setMode(Mode.PROCESS_BACKLOG);
                             processBufferredBacklog(); // non-blocking call
+                            if (LOGGER.isLoggable(Level.INFO)) {
+                                LOGGER.info("Done with replaying buffered data, will resume normal processing, backlog collected "
+                                        + mBuffer.getWorkSize());
+                            }
                             break;
                         default:
                             break;
@@ -119,6 +129,7 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
                     }
                     break;
 
+                case PROCESS_BACKLOG:
                 case PROCESS_SPILL:
                     process(frame);
                     if (frame != null) {
@@ -141,9 +152,21 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
                         reportUnresolvableCongestion();
                     }
                     break;
-                case BUFFER_RECOVERY:
-                    // buffer until the pipeline is restored
-                    bufferDataDuringRecovery(frame);
+
+                case STALL:
+                    switch (runtimeId.getFeedRuntimeType()) {
+                        case COLLECT:
+                        case COMPUTE_COLLECT:
+                        case COMPUTE:
+                        case STORE:
+                            bufferDataUntilRecovery(frame);
+                            break;
+                        default:
+                            if (LOGGER.isLoggable(Level.WARNING)) {
+                                LOGGER.warning("Discarding frame during " + mode + " mode " + this.runtimeId);
+                            }
+                            break;
+                    }
                     break;
             }
         } catch (Exception e) {
@@ -152,29 +175,34 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
         }
     }
 
-    private void bufferDataDuringRecovery(ByteBuffer frame) throws Exception {
+    private void bufferDataUntilRecovery(ByteBuffer frame) throws Exception {
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Bufferring data until recovery is complete " + this.runtimeId);
+        }
         boolean success = frameCollection.addFrame(frame);
         if (!success) {
             if (fpa.spillToDiskOnCongestion()) {
                 if (frame != null) {
                     spiller.processMessage(frame);
-                    setMode(Mode.SPILL);
                 } // TODO handle the else case
             } else {
                 discarder.processMessage(frame);
-                setMode(Mode.DISCARD);
             }
         }
     }
 
-    private void reportUnresolvableCongestion() throws HyracksDataException {
+    private void reportUnresolvableCongestion() throws HyracksDataException, FeedCongestionException {
         FeedCongestionMessage congestionReport = new FeedCongestionMessage(connectionId, runtimeId,
                 mBuffer.getInflowRate(), mBuffer.getOutflowRate());
         feedManager.getFeedMessageService().sendMessage(congestionReport);
+        //throw new FeedCongestionException(connectionId, runtimeId);
     }
 
     private void processBufferredBacklog() throws HyracksDataException {
         try {
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Processing backlog " + this.runtimeId);
+            }
             Iterator<ByteBuffer> backlog = frameCollection.getFrameCollectionIterator();
             while (backlog.hasNext()) {
                 process(backlog.next());
@@ -215,6 +243,11 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
             try {
                 if (!bufferingEnabled) {
                     coreOperator.nextFrame(frame);
+                    System.out.println(" NO BUFFERING " + this.getRuntimeId() + " write using " + coreOperator);
+                    if (coreOperator instanceof PartitionDataWriter) {
+                        System.out.println("Number of partitions "
+                                + ((PartitionDataWriter) coreOperator).getNumberOfPartitions());
+                    }
                 } else {
                     DataBucket bucket = pool.getDataBucket();
                     if (bucket == null) {
@@ -279,7 +312,7 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
             this.lastMode = this.mode;
             this.mode = mode;
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Switched from " + lastMode + " to " + mode);
+                LOGGER.info("Switched from " + lastMode + " to " + mode + " " + this.runtimeId);
             }
         }
     }
@@ -296,7 +329,7 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
 
         private final FeedPolicyAccessor fpa;
         private final FeedRuntimeInputHandler inputSideHandler;
-        private final IFrameWriter coreOperator;
+        private IFrameWriter coreOperator;
 
         public FrameEventCallback(FeedPolicyAccessor fpa, FeedRuntimeInputHandler inputSideHandler,
                 IFrameWriter coreOperator) {
@@ -336,8 +369,10 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
                             inputSideHandler.setMode(Mode.PROCESS);
                             break;
                         default:
-                            throw new IllegalStateException(" Received event type " + event);
-
+                            if (LOGGER.isLoggable(Level.INFO)) {
+                                LOGGER.info("Received " + event + " ignoring as operating in "
+                                        + inputSideHandler.getMode());
+                            }
                     }
                     break;
                 case FINISHED_PROCESSING_SPILLAGE:
@@ -346,6 +381,14 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
                 default:
                     break;
             }
+        }
+
+        public IFrameWriter getCoreOperator() {
+            return coreOperator;
+        }
+
+        public void setCoreOperator(IFrameWriter coreOperator) {
+            this.coreOperator = coreOperator;
         }
 
     }

@@ -41,9 +41,9 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
  * and reports them to the Super Feed Manager chosen for the feed. In addition any
  * congestion experienced by the operator is also reported.
  */
-public class FeedFrameWriter implements IFeedOperatorOutputSideHandler {
+public class OldFeedFrameWriter implements IFeedOperatorOutputSideHandler {
 
-    private static final Logger LOGGER = Logger.getLogger(FeedFrameWriter.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(OldFeedFrameWriter.class.getName());
 
     public enum Mode {
         /**
@@ -84,7 +84,7 @@ public class FeedFrameWriter implements IFeedOperatorOutputSideHandler {
     /** A buffer for keeping frames that are waiting to be processed **/
     private FrameCollection frames;
 
-    public FeedFrameWriter(IHyracksTaskContext ctx, IFrameWriter writer, IOperatorNodePushable nodePushable,
+    public OldFeedFrameWriter(IHyracksTaskContext ctx, IFrameWriter writer, IOperatorNodePushable nodePushable,
             FeedConnectionId connectionId, FeedRuntimeId runtimeId, FeedPolicyEnforcer policyEnforcer, String nodeId,
             RecordDescriptor outputRecordDescriptor, IFeedManager feedManager) {
         this.connectionId = connectionId;

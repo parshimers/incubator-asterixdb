@@ -53,6 +53,8 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
             ByteBuffer frame = bucket.getBuffer();
             switch (bucket.getContentType()) {
                 case DATA:
+                    System.out.println("FEED FRAME COLLECTOR SENDING FRAME " + "("
+                            + this.frameDistributor.getFeedRuntimeType() + ")" + " Mode " + state);
                     frameWriter.nextFrame(frame);
                     break;
                 case EOD:
@@ -91,13 +93,8 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
         }
     }
 
-    public void closeDownstream() throws HyracksDataException {
-        this.frameWriter.close();
-    }
-
     public synchronized void disconnect() {
         setState(State.FINISHED);
-        notifyAll();
     }
 
     public synchronized void nextFrame(ByteBuffer frame) throws HyracksDataException {
@@ -114,6 +111,17 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
 
     public synchronized void setState(State state) {
         this.state = state;
+        switch (state) {
+            case FINISHED:
+            case HANDOVER:
+                notifyAll();
+                break;
+            default:
+                break;
+        }
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Frame Collector " + this.frameDistributor.getFeedRuntimeType() + " switched to " + state);
+        }
     }
 
     public IFrameWriter getFrameWriter() {

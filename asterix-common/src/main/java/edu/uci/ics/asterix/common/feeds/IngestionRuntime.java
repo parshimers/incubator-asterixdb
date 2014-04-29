@@ -30,7 +30,7 @@ public class IngestionRuntime extends SubscribableRuntime {
     }
 
     public void subscribeFeed(FeedPolicyAccessor fpa, CollectionRuntime collectionRuntime) throws Exception {
-        FeedFrameCollector reader = dWriter.subscribeFeed(fpa, collectionRuntime.getFeedFrameWriter(),
+        FeedFrameCollector reader = dWriter.subscribeFeed(fpa, collectionRuntime.getInputHandler(),
                 collectionRuntime.getConnectionId());
         collectionRuntime.setFrameCollector(reader);
         if (dWriter.getDistributionMode().equals(FrameDistributor.DistributionMode.SINGLE)) {
@@ -43,7 +43,7 @@ public class IngestionRuntime extends SubscribableRuntime {
     }
 
     public void unsubscribeFeed(CollectionRuntime collectionRuntime) throws Exception {
-        dWriter.unsubscribeFeed(collectionRuntime.getFeedFrameWriter());
+        dWriter.unsubscribeFeed(collectionRuntime.getInputHandler());
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Unsubscribed feed collection [" + collectionRuntime + "] from " + this);
         }

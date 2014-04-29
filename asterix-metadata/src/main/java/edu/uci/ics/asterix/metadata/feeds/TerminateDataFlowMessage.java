@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package edu.uci.ics.asterix.metadata.feeds;
 
 import org.json.JSONException;
@@ -21,24 +22,15 @@ import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedMessage;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMessage;
 
-/**
- * A feed control message indicating the need to end the feed. This message is dispatched
- * to all locations that host an operator involved in the feed pipeline.
- */
-public class PrepareStallMessage extends FeedMessage {
+public class TerminateDataFlowMessage extends FeedMessage {
 
     private static final long serialVersionUID = 1L;
 
     private final FeedConnectionId connectionId;
 
-    public PrepareStallMessage(FeedConnectionId connectionId) {
-        super(MessageType.PREPARE_STALL);
+    public TerminateDataFlowMessage(FeedConnectionId connectionId) {
+        super(MessageType.TERMINATE_FLOW);
         this.connectionId = connectionId;
-    }
-
-    @Override
-    public String toString() {
-        return MessageType.PREPARE_STALL.name() + "  " + connectionId;
     }
 
     @Override

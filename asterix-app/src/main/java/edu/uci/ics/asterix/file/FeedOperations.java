@@ -31,6 +31,7 @@ import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
 import edu.uci.ics.asterix.metadata.feeds.EndFeedMessage;
 import edu.uci.ics.asterix.metadata.feeds.FeedMessageOperatorDescriptor;
 import edu.uci.ics.asterix.metadata.feeds.PrepareStallMessage;
+import edu.uci.ics.asterix.metadata.feeds.TerminateDataFlowMessage;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraintHelper;
@@ -165,6 +166,32 @@ public class FeedOperations {
 
     }
 
+    public static JobSpecification buildPrepareStallMessageJob(PrepareStallMessage stallMessage,
+            String[] collectLocations) throws AsterixException {
+        JobSpecification messageJobSpec = JobSpecificationUtils.createJobSpecification();
+        try {
+            Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p = FeedOperations.buildSendFeedMessageRuntime(
+                    messageJobSpec, stallMessage.getConnectionId(), stallMessage, collectLocations);
+            buildSendFeedMessageJobSpec(p.first, p.second, messageJobSpec);
+        } catch (AlgebricksException ae) {
+            throw new AsterixException(ae);
+        }
+        return messageJobSpec;
+    }
+
+    public static JobSpecification buildTerminateFlowMessageJob(TerminateDataFlowMessage terminateMessage,
+            String[] collectLocations) throws AsterixException {
+        JobSpecification messageJobSpec = JobSpecificationUtils.createJobSpecification();
+        try {
+            Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p = FeedOperations.buildSendFeedMessageRuntime(
+                    messageJobSpec, terminateMessage.getConnectionId(), terminateMessage, collectLocations);
+            buildSendFeedMessageJobSpec(p.first, p.second, messageJobSpec);
+        } catch (AlgebricksException ae) {
+            throw new AsterixException(ae);
+        }
+        return messageJobSpec;
+    }
+
     public static Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildDiscontinueFeedMessengerRuntime(
             JobSpecification jobSpec, FeedId feedId, String[] locations) throws AlgebricksException {
         FeedConnectionId feedConnectionId = new FeedConnectionId(feedId, null);
@@ -173,7 +200,7 @@ public class FeedOperations {
         return buildSendFeedMessageRuntime(jobSpec, feedConnectionId, feedMessage, locations);
     }
 
-    public static Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildSendFeedMessageRuntime(
+    private static Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildSendFeedMessageRuntime(
             JobSpecification jobSpec, FeedConnectionId feedConenctionId, IFeedMessage feedMessage, String[] locations)
             throws AlgebricksException {
         AlgebricksPartitionConstraint partitionConstraint = new AlgebricksAbsolutePartitionConstraint(locations);
@@ -182,26 +209,14 @@ public class FeedOperations {
         return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(feedMessenger, partitionConstraint);
     }
 
-    public static JobSpecification buildPrepareStallMessageJob(PrepareStallMessage stallMessage,
-            String[] collectLocations) throws AsterixException {
-        JobSpecification messageJobSpec = JobSpecificationUtils.createJobSpecification();
-        try {
-            Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p = FeedOperations.buildSendFeedMessageRuntime(
-                    messageJobSpec, stallMessage.getConnectionId(), stallMessage, collectLocations);
-
-            IOperatorDescriptor feedMessenger = p.first;
-            AlgebricksPartitionConstraint messengerPc = p.second;
-
-            AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(messageJobSpec, feedMessenger,
-                    messengerPc);
-            NullSinkOperatorDescriptor nullSink = new NullSinkOperatorDescriptor(messageJobSpec);
-            AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(messageJobSpec, nullSink, messengerPc);
-            messageJobSpec.connect(new OneToOneConnectorDescriptor(messageJobSpec), feedMessenger, 0, nullSink, 0);
-            messageJobSpec.addRoot(nullSink);
-
-        } catch (AlgebricksException ae) {
-            throw new AsterixException(ae);
-        }
+    private static JobSpecification buildSendFeedMessageJobSpec(IOperatorDescriptor operatorDescriptor,
+            AlgebricksPartitionConstraint messengerPc, JobSpecification messageJobSpec) {
+        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(messageJobSpec, operatorDescriptor,
+                messengerPc);
+        NullSinkOperatorDescriptor nullSink = new NullSinkOperatorDescriptor(messageJobSpec);
+        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(messageJobSpec, nullSink, messengerPc);
+        messageJobSpec.connect(new OneToOneConnectorDescriptor(messageJobSpec), operatorDescriptor, 0, nullSink, 0);
+        messageJobSpec.addRoot(nullSink);
         return messageJobSpec;
     }
 

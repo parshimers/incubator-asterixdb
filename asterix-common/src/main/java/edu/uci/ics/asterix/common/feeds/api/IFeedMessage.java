@@ -27,7 +27,8 @@ public interface IFeedMessage extends Serializable {
         FEED_REPORT,
         NODE_REPORT,
         CONGESTION,
-        PREPARE_STALL
+        PREPARE_STALL,
+        TERMINATE_FLOW
     }
 
     public static final class Constants {

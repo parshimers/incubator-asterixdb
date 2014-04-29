@@ -28,12 +28,13 @@ import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback;
 import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback.FrameEvent;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
+import edu.uci.ics.hyracks.dataflow.std.connectors.PartitionDataWriter;
 
 public class MonitoredBuffer extends MessageReceiver<DataBucket> {
 
     private static final long MONITOR_FREQUENCY = 2000; // 2 seconds
 
-    private final IFrameWriter frameWriter;
+    private IFrameWriter frameWriter;
     private final FrameTupleAccessor fta;
     private final IFeedMetricCollector metricCollector;
     private final FeedRuntimeId runtimeId;
@@ -95,6 +96,7 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
                 while (!finishedProcessing) {
                     try {
                         frameWriter.nextFrame(frame);
+                        System.out.println("Writing " + this.runtimeId + " USING " + frameWriter);
                         finishedProcessing = true;
                         metricCollector.sendReport(outflowReportSenderId, fta.getTupleCount());
                     } catch (Exception e) {
@@ -125,5 +127,9 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
 
     public FeedRuntimeId getRuntimeId() {
         return runtimeId;
+    }
+
+    public void setFrameWriter(IFrameWriter frameWriter) {
+        this.frameWriter = frameWriter;
     }
 }

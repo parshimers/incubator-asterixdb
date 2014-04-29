@@ -39,7 +39,7 @@ import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescr
  * contributes to providing fault- tolerance.
  */
 
-public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDescriptor {
+public class FeedMetaComputeOperatorDescriptor extends AbstractSingleActivityOperatorDescriptor {
 
     private static final long serialVersionUID = 1L;
 
@@ -60,23 +60,10 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
      */
     private final Map<String, String> feedPolicyProperties;
 
-    /*
-     * type for the feed runtime associated with the operator.
-     * Possible values: INTAKE, COMPUTE, STORAGE, OTHER
-     */
-    private final FeedRuntimeType runtimeType;
-
-    /**
-     * true indicates that the runtime can be subscribed for data by other
-     * runtime instances.
-     **/
-    private final boolean enableSubscriptionMode;
-
     private final String operandId;
 
-    public FeedMetaOperatorDescriptor(JobSpecification spec, FeedConnectionId feedConnectionId,
-            IOperatorDescriptor coreOperatorDescriptor, Map<String, String> feedPolicyProperties,
-            FeedRuntimeType runtimeType, boolean enableSubscriptionMode, String operandId) {
+    public FeedMetaComputeOperatorDescriptor(JobSpecification spec, FeedConnectionId feedConnectionId,
+            IOperatorDescriptor coreOperatorDescriptor, Map<String, String> feedPolicyProperties, String operandId) {
         super(spec, coreOperatorDescriptor.getInputArity(), coreOperatorDescriptor.getOutputArity());
         this.feedConnectionId = feedConnectionId;
         this.feedPolicyProperties = feedPolicyProperties;
@@ -84,32 +71,14 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
             recordDescriptors[0] = coreOperatorDescriptor.getOutputRecordDescriptors()[0];
         }
         this.coreOperator = coreOperatorDescriptor;
-        this.runtimeType = runtimeType;
-        this.enableSubscriptionMode = enableSubscriptionMode;
         this.operandId = operandId;
     }
 
     @Override
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
-        IOperatorNodePushable nodePushable = null;
-        switch (runtimeType) {
-            case COMPUTE:
-                nodePushable = new FeedMetaComputeNodePushable(ctx, recordDescProvider, partition, nPartitions,
-                        coreOperator, feedConnectionId, feedPolicyProperties, operandId);
-                break;
-            case STORE:
-                nodePushable = new FeedMetaStoreNodePushable(ctx, recordDescProvider, partition, nPartitions,
-                        coreOperator, feedConnectionId, feedPolicyProperties, operandId);
-                break;
-            case OTHER:
-                nodePushable = new FeedMetaNodePushable(ctx, recordDescProvider, partition, nPartitions, coreOperator,
-                        feedConnectionId, feedPolicyProperties, operandId);
-                break;
-            default:
-                throw new HyracksDataException(new IllegalArgumentException("Invalid feed runtime: " + runtimeType));
-        }
-        return nodePushable;
+        return new FeedMetaComputeNodePushable(ctx, recordDescProvider, partition, nPartitions, coreOperator,
+                feedConnectionId, feedPolicyProperties, operandId);
     }
 
     @Override
@@ -122,7 +91,7 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
     }
 
     public FeedRuntimeType getRuntimeType() {
-        return runtimeType;
+        return FeedRuntimeType.COMPUTE;
     }
 
 }

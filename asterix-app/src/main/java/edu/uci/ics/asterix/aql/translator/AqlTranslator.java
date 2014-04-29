@@ -1926,6 +1926,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
             bActiveTxn = false;
             runJob(hcc, jobSpec, true);
 
+            /*
             if (specDisconnectType.third) {
                 String sourceFeedName = null;
                 switch (feed.getFeedType()) {
@@ -1939,7 +1940,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 JobSpecification spec = FeedOperations.buildDiscontinueFeedSourceSpec(metadataProvider, new FeedId(
                         dataverseName, sourceFeedName));
                 runJob(hcc, spec, true);
-            }
+            }*/
 
             if (!specDisconnectType.second) {
                 mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
