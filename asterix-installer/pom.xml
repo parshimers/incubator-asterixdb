@@ -109,7 +109,7 @@
 					<runOrder>alphabetical</runOrder>
 					<forkMode>pertest</forkMode>
 					<excludes>
-						<exclude>${failsafe.test.excludes},${cluster.tests}</exclude>
+						<exclude>${failsafe.test.excludes},${cluster.test.excludes}</exclude>
 					</excludes>
 				</configuration>
 				<executions>
