@@ -20,6 +20,8 @@ package edu.uci.ics.asterix.tools.aoya;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
@@ -29,12 +31,19 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
+
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Marshaller;
+import javax.xml.bind.Unmarshaller;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.GnuParser;
@@ -83,12 +92,23 @@ import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 
+import edu.uci.ics.asterix.common.configuration.AsterixConfiguration;
+import edu.uci.ics.asterix.common.configuration.Coredump;
+import edu.uci.ics.asterix.common.configuration.Store;
+import edu.uci.ics.asterix.common.configuration.TransactionLogDir;
+import edu.uci.ics.asterix.event.schema.yarnCluster.*;
+import edu.uci.ics.asterix.event.service.AsterixEventService;
+
 @InterfaceAudience.Public
 @InterfaceStability.Unstable
 public class ApplicationMaster {
 
     private static final Log LOG = LogFactory.getLog(ApplicationMaster.class);
-
+    private static final String BASE_CONF_PATH = "conf"+File.separator+"asterix-configuration.xml";
+    private static final String CLUSTER_DESC_PATH = "cluster.xml";
+    private static final String WORKING_CONF_PATH = "bin"+File.separator+"asterix-configuration.xml";
+    private static final String ASTERIX_CC_BIN_PATH = "asterix-server" + File.separator + "bin" + File.separator + "asterixcc";
+    private static final String ASTERIX_NC_BIN_PATH = "asterix-server" + File.separator + "bin" + File.separator + "asterixnc";
     // Configuration
     private Configuration conf;
 
@@ -132,17 +152,28 @@ public class ApplicationMaster {
     private long asterixTarTimestamp = 0;
     // File length needed for local resource
     private long asterixTarLen = 0;
+
+    //HDFS path to Asterix distributable tarball
+    private String asterixConfPath = "";
+    // Timestamp needed for creating a local resource
+    private long asterixConfTimestamp = 0;
+    // File length needed for local resource
+    private long asterixConfLen = 0;
+
     private int numTotalContainers = 0;
+
+    // Set the local resources
+    private Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();;
+
+    private Cluster clusterDesc = null;
+    private MasterNode CC = null;
+
 
     private volatile boolean done;
     private volatile boolean success;
 
     // Launch threads
     private List<Thread> launchThreads = new ArrayList<Thread>();
-
-    private String CC = "";
-    private String NC = "";
-    private String IODevices = "";
 
     public static void main(String[] args) {
 
@@ -207,10 +238,6 @@ public class ApplicationMaster {
 
         Options opts = new Options();
         opts.addOption("app_attempt_id", true, "App Attempt ID. Not to be used unless for testing purposes");
-        opts.addOption("asterixTar", true, "Asterix TAR file path");
-        opts.addOption("CC", true, "CC host");
-        opts.addOption("NC", true, "NC hosts");
-        opts.addOption("IODevices", true, "IODevice Paths");
         opts.addOption("priority", true, "Application Priority. Default 0");
         opts.addOption("debug", false, "Dump out debug information");
 
@@ -262,18 +289,209 @@ public class ApplicationMaster {
                 + ", clustertimestamp=" + appAttemptID.getApplicationId().getClusterTimestamp() + ", attemptId="
                 + appAttemptID.getAttemptId());
 
-        CC = cliParser.getOptionValue("CC");
-        NC = cliParser.getOptionValue("NC");
-        IODevices = cliParser.getOptionValue("IODevices");
-        asterixTarPath = cliParser.getOptionValue("asterixTar");
+        asterixTarPath = envs.get(MConstants.TARLOCATION);
+        asterixTarTimestamp = Long.parseLong(envs.get(MConstants.TARTIMESTAMP));
+        asterixTarLen = Long.parseLong(envs.get(MConstants.TARLEN));
 
-        asterixTarPath = envs.get(MConstants.LIBSLOCATION);
-        asterixTarTimestamp = Long.parseLong(envs.get(MConstants.LIBSTIMESTAMP));
-        asterixTarLen = Long.parseLong(envs.get(MConstants.LIBSLEN));
+        asterixConfPath = envs.get(MConstants.CONFLOCATION);
+        asterixConfTimestamp = Long.parseLong(envs.get(MConstants.CONFTIMESTAMP));
+        asterixConfLen = Long.parseLong(envs.get(MConstants.CONFLEN));
+        
+        
+        localizeDFSResources();
+
+        try{
+        	clusterDesc = parseYarnClusterConfig();
+        	CC = clusterDesc.getMasterNode();
+        }
+        catch(FileNotFoundException | JAXBException e){
+        	LOG.error("Could not deserialize Cluster Config from disk- aborting!");
+        	return false;
+        }
+        
+        
+        
 
         return true;
     }
+    
+    private Cluster parseYarnClusterConfig() throws FileNotFoundException, JAXBException{
+    	//this method just hides away the deserialization silliness
+    	File f = new File(CLUSTER_DESC_PATH);
+    	JAXBContext configCtx = JAXBContext.newInstance(Cluster.class);
+        Unmarshaller unmarshaller = configCtx.createUnmarshaller();
+        Cluster cl = (Cluster) unmarshaller.unmarshal(f);	
+    	return cl;
+    }
+    /**
+     * Loads the basic Asterix configuration file that is embedded in the 
+     * distributable tar file 
+     * 
+     * @return A skeleton Asterix configuration
+     *
+     */
+    private AsterixConfiguration loadBaseAsterixConfig() throws FileNotFoundException, 
+    	JAXBException {
+    	File f = new File(BASE_CONF_PATH);
+    	JAXBContext configCtx = JAXBContext.newInstance(AsterixConfiguration.class);
+        Unmarshaller unmarshaller = configCtx.createUnmarshaller();
+        AsterixConfiguration conf = (AsterixConfiguration) unmarshaller.unmarshal(f);	
+    	return conf;
+    }
+    private void requestResources(Cluster c)throws YarnException{
+//        //request CC
+//        int numNodes = 0;
+//        ContainerRequest ccAsk = askForHost(CC);
+//        resourceManager.addContainerRequest(ccAsk);
+//        LOG.info("Asked for CC: " + CC);
+//        numNodes++;
+//        //now we wait to be given the CC before starting the NCs...
+//        while (ccUp.get() == false) {
+//            try {
+//                Thread.sleep(100);
+//            } catch (InterruptedException ex) {
+//            }
+//        }
+//        LOG.info("Waiting for CC to start...");
+//        //TODO: inspect for actual liveness instead of waiting.
+//        try {
+//            Thread.sleep(10000);
+//        } catch (InterruptedException ex) {
+//        }
+//        //request NCs
+//        for (String s : NC.split(",")) {
+//            resourceManager.addContainerRequest(askForHost(s));
+//            LOG.info("Asked for NC: " + s);
+//            numNodes++;
+//        }
+//        System.out.println("Requested...");
+//        numRequestedContainers.set(numNodes);
+//        numTotalContainers = numNodes;
+//
+    }
+//        }
+//        finish();
+    /**
+     * Writes an Asterix configuration based on the data inside the cluster description
+     * @param cluster
+     * @throws JAXBException
+     * @throws FileNotFoundException
+     */
+    private void writeAsterixConfig(Cluster cluster) throws JAXBException, FileNotFoundException, IOException{
+        String metadataNodeId = this.getMetadataNode(cluster).getId();
+        String asterixInstanceName = appAttemptID.toString();
 
+        //this is the "base" config that is inside the tarball, we start here
+        AsterixConfiguration configuration = loadBaseAsterixConfig();
+
+        configuration.setInstanceName(asterixInstanceName);
+
+        String storeDir = null;
+        List<Store> stores = new ArrayList<Store>();
+        for (Node node : cluster.getNode()) {
+            storeDir = node.getStore() == null ? cluster.getStore() : node.getStore();
+            stores.add(new Store(asterixInstanceName + "_" + node.getId(), storeDir));
+        }
+        configuration.setStore(stores);
+
+        List<Coredump> coredump = new ArrayList<Coredump>();
+        String coredumpDir = null;
+        List<TransactionLogDir> txnLogDirs = new ArrayList<TransactionLogDir>();
+        String txnLogDir = null;
+        for (Node node : cluster.getNode()) {
+            coredumpDir = node.getLogDir() == null ? cluster.getLogDir() : node.getLogDir();
+            coredump.add(new Coredump(asterixInstanceName + "_" + node.getId(), coredumpDir + File.separator
+                    + asterixInstanceName + "_" + node.getId()));
+
+            txnLogDir = node.getTxnLogDir() == null ? cluster.getTxnLogDir() : node.getTxnLogDir();
+            txnLogDirs.add(new TransactionLogDir(asterixInstanceName + "_" + node.getId(), txnLogDir));
+        }
+        configuration.setMetadataNode(asterixInstanceName + "_" + metadataNodeId);
+
+        configuration.setCoredump(coredump);
+        configuration.setTransactionLogDir(txnLogDirs);
+
+        JAXBContext ctx = JAXBContext.newInstance(AsterixConfiguration.class);
+        Marshaller marshaller = ctx.createMarshaller();
+        marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
+        FileOutputStream os = new FileOutputStream(WORKING_CONF_PATH);
+        marshaller.marshal(configuration, os);
+        os.close();	
+    }
+    private Node getMetadataNode(Cluster cluster) {
+        Node metadataNode = null;
+        if (cluster.getMetadataNode() != null) {
+            for (Node node : cluster.getNode()) {
+                if (node.getId().equals(cluster.getMetadataNode())) {
+                    metadataNode = node;
+                    break;
+                }
+            }
+        } else {
+            Random random = new Random();
+            int nNodes = cluster.getNode().size();
+            metadataNode = cluster.getNode().get(random.nextInt(nNodes));
+        }
+        return metadataNode;
+    }
+
+    private void localizeDFSResources(){
+
+        LocalResource asterixTar = Records.newRecord(LocalResource.class);
+
+        //this un-tar's the asterix distribution
+        asterixTar.setType(LocalResourceType.ARCHIVE);
+
+        // Set visibility of the resource
+        // Setting to most private option
+        asterixTar.setVisibility(LocalResourceVisibility.APPLICATION);
+        // Set the resource to be copied over
+        try {
+            asterixTar.setResource(ConverterUtils.getYarnUrlFromURI(new URI(asterixTarPath)));
+
+        } catch (URISyntaxException e) {
+            LOG.error("Error locating Asterix tarball" + " in env, path=" + asterixTarPath);
+            e.printStackTrace();
+        }
+        // Set timestamp and length of file so that the framework
+        // can do basic sanity checks for the local resource
+        // after it has been copied over to ensure it is the same
+        // resource the client intended to use with the application
+        LOG.debug("DSConstants Jar: " + MConstants.TARLOCATION);
+        LOG.debug("DSConstants Size: " + MConstants.TARTIMESTAMP);
+        LOG.debug("DSConstants TimeStamp: " + MConstants.TARLEN);
+
+        asterixTar.setTimestamp(asterixTarTimestamp);
+        asterixTar.setSize(asterixTarLen);
+        localResources.put("asterix-server", asterixTar);
+        
+
+        //now let's do the same for the config XML
+        LocalResource asterixConf = Records.newRecord(LocalResource.class);
+        asterixConf.setType(LocalResourceType.FILE);
+
+        // Set visibility of the resource
+        // Setting to most private option
+        asterixConf.setVisibility(LocalResourceVisibility.APPLICATION);
+        try {
+            asterixConf.setResource(ConverterUtils.getYarnUrlFromURI(new URI(asterixConfPath)));
+
+        } catch (URISyntaxException e) {
+            LOG.error("Error locating Asterix config" + " in env, path=" + asterixConfPath);
+            e.printStackTrace();
+        }
+        // Set timestamp and length of file so that the framework
+        // can do basic sanity checks for the local resource
+        // after it has been copied over to ensure it is the same
+        // resource the client intended to use with the application
+        LOG.debug("DSConstants Jar: " + MConstants.CONFLOCATION);
+        LOG.debug("DSConstants Size: " + MConstants.CONFTIMESTAMP);
+        LOG.debug("DSConstants TimeStamp: " + MConstants.CONFLEN);
+
+        asterixConf.setTimestamp(asterixConfTimestamp);
+        asterixConf.setSize(asterixConfLen);
+        localResources.put("cluster.xml", asterixConf);
+    }
     private void printUsage(Options opts) {
         new HelpFormatter().printHelp("ApplicationMaster", opts);
     }
@@ -292,12 +510,6 @@ public class ApplicationMaster {
         nmClientAsync.init(conf);
         nmClientAsync.start();
 
-        // Setup local RPC Server to accept status requests directly from clients
-        // TODO need to setup a protocol for client to be able to communicate to
-        // the RPC server
-        // TODO use the rpc port info to register with the RM for the client to
-        // send requests to this app master
-
         // Register self with ResourceManager
         // This will start heartbeating to the RM
         try{
@@ -313,40 +525,18 @@ public class ApplicationMaster {
         int maxMem = response.getMaximumResourceCapability().getMemory();
         LOG.info("Max mem capabililty of resources in this cluster " + maxMem);
 
-
-        //request CC
-        int numNodes = 0;
-        ContainerRequest ccAsk = askForHost(CC);
-        resourceManager.addContainerRequest(ccAsk);
-        LOG.info("Asked for CC: " + CC);
-        numNodes++;
-        //now we wait to be given the CC before starting the NCs...
-        while (ccUp.get() == false) {
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException ex) {
-            }
+        try{
+        	requestResources(clusterDesc);
         }
-        LOG.info("Waiting for CC to start...");
-        try {
-            Thread.sleep(10000);
-        } catch (InterruptedException ex) {
+        catch(YarnException e){
+        	LOG.error("Could not allocate resources properly:" + e.getStackTrace());
         }
-        //request NCs
-        for (String s : NC.split(",")) {
-            resourceManager.addContainerRequest(askForHost(s));
-            LOG.info("Asked for NC: " + s);
-            numNodes++;
-        }
-        System.out.println("Requested...");
-        numRequestedContainers.set(numNodes);
-        numTotalContainers = numNodes;
-
+//		now we just sit and listen for messages from the RM
+        
         while (!done) {
-            try {
-                Thread.sleep(200);
-            } catch (InterruptedException ex) {
-            }
+        	try {
+        		Thread.sleep(200);
+        	} catch (InterruptedException ex) {}
         }
         finish();
         return success;
@@ -451,7 +641,7 @@ public class ApplicationMaster {
                         containerListener);
                 Thread launchThread = new Thread(runnableLaunchContainer);
 
-                if (allocatedContainer.getNodeId().getHost().equals(CC)) {
+                if (allocatedContainer.getNodeId().getHost().equals(CC.getId())) {
                     ccUp.set(true);
                 }
                 // launch and start the container on a separate thread to keep
@@ -463,10 +653,12 @@ public class ApplicationMaster {
         }
 
         public void onShutdownRequest() {
+        	LOG.info("AM shutting down per request");
             done = true;
         }
 
         public void onNodesUpdated(List<NodeReport> updatedNodes) {
+        	//TODO: This will become important when we deal with what happens if an NC dies
         }
 
         public float getProgress() {
@@ -475,6 +667,7 @@ public class ApplicationMaster {
         }
 
         public void onError(Throwable arg0) {
+        	LOG.error("Fatal Error recieved by AM: "+arg0);
             done = true;
         }
     }
@@ -556,36 +749,6 @@ public class ApplicationMaster {
             LOG.info("Setting up container launch container for containerid=" + container.getId());
             ContainerLaunchContext ctx = Records.newRecord(ContainerLaunchContext.class);
             // Set the local resources
-            Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
-
-            LocalResource asterixTar = Records.newRecord(LocalResource.class);
-
-            //this un-tar's the asterix distribution
-            asterixTar.setType(LocalResourceType.ARCHIVE);
-
-            // Set visibility of the resource
-            // Setting to most private option
-            asterixTar.setVisibility(LocalResourceVisibility.APPLICATION);
-            Map<String, String> envs = System.getenv();
-            // Set the resource to be copied over
-            try {
-                asterixTar.setResource(ConverterUtils.getYarnUrlFromURI(new URI(asterixTarPath)));
-
-            } catch (URISyntaxException e) {
-                LOG.error("Error locating Asterix tarball" + " in env, path=" + asterixTarPath);
-                e.printStackTrace();
-            }
-            // Set timestamp and length of file so that the framework
-            // can do basic sanity checks for the local resource
-            // after it has been copied over to ensure it is the same
-            // resource the client intended to use with the application
-            LOG.debug("DSConstants Jar: " + MConstants.APPLICATIONMASTERJARLOCATION);
-            LOG.debug("DSConstants Size: " + MConstants.APPLICATIONMASTERJARTIMESTAMP);
-            LOG.debug("DSConstants TimeStamp: " + MConstants.APPLICATIONMASTERJARLEN);
-
-            asterixTar.setTimestamp(asterixTarTimestamp);
-            asterixTar.setSize(asterixTarLen);
-            localResources.put("asterix-server", asterixTar);
             ctx.setLocalResources(localResources);
 
             //Set the env variables to be setup in the env where the application master will be run
@@ -617,37 +780,52 @@ public class ApplicationMaster {
 
             ctx.setEnvironment(env);
             LOG.info(ctx.getEnvironment().toString());
-
+            ctx.setCommands(produceStartCmd(container));
+            containerListener.addContainer(container.getId(), container);
+            //finally start the container!?
+            nmClientAsync.startContainerAsync(container, ctx);
+        }
+        /**
+         * Determines for a given container what the necessary command line
+         * arguments are to start the Asterix processes on that instance
+         * 
+         * @param container The container to produce the commands for
+         * @return A list of the commands that should be executed
+         */
+        private List<String> produceStartCmd(Container container){
+            List<String> commands = new ArrayList<String>();
             // Set the necessary command to execute on the allocated container
             Vector<CharSequence> vargs = new Vector<CharSequence>(5);
 
-            //now we need to know if we're on the NC or the CC
-            String containerHost = container.getNodeId().getHost();
-            InetAddress ccAddr;
-            try {
-                ccAddr = InetAddress.getByName(CC);
-            } catch (java.net.UnknownHostException e) {
-                ccAddr = null;
+            //first see if this node is the CC
+            if(containerIsCC(container)){
+            	LOG.info("CC found on container" + container.getNodeId().getHost());
+            	Vector<CharSequence> ccargs = new Vector<CharSequence>(5);	
+                ccargs.add("export JAVA_OPTS=-Xmx1024m;");
+                ccargs.add(ASTERIX_CC_BIN_PATH+" -cluster-net-ip-address "+ CC.getClusterIp() +
+                		  " -client-net-ip-address "+ CC.getClientIp());
+                commands.add(ccargs.toString());
+                
             }
-            String ccIP = "nope";
-            if (ccAddr != null)
-                ccIP = ccAddr.getHostAddress();
-            LOG.info(containerHost + ", " + CC);
-            LOG.info("Resolved CC IP to " + ccIP);
-            if (containerHost.equals(CC)) {
-                vargs.add("cd asterix-server/bin;");
-                vargs.add("export JAVA_OPTS=-Xmx1024m;");
-                vargs.add("./asterixcc -cluster-net-ip-address 0.0.0.0 -client-net-ip-address 0.0.0.0");
-            } else {
-                vargs.add("cd asterix-server/bin;");
+            //now we need to know what node we are on, so we can apply the correct properties
+
+            Node local;
+            try{
+            	local = containerToNode(container, clusterDesc);
+                LOG.info("Attempting to start NC on host " + local.getId());
                 vargs.add("export JAVA_OPTS=-Xmx1536m;");
-                vargs.add("./asterixnc -node-id "+ containerHost.split("\\.")[0]);
-                vargs.add("-cc-host "+ ccIP);
-                vargs.add("-iodevices "+IODevices);
-                vargs.add("-cluster-net-ip-address 0.0.0.0 ");
-                vargs.add("-data-ip-address 0.0.0.0");
-                vargs.add("-result-ip-address 0.0.0.0");
+                vargs.add(ASTERIX_NC_BIN_PATH+" -node-id "+ local.getId());
+                vargs.add("-cc-host "+ CC.getClusterIp());
+                vargs.add("-iodevices "+local.getIodevices());
+                vargs.add("-cluster-net-ip-address "+local.getClusterIp());
+                vargs.add("-data-ip-address "+CC.getClusterIp());
+                vargs.add("-result-ip-address "+CC.getClusterIp());
             }
+            catch(UnknownHostException e){
+            	LOG.error("Unable to find NC configured for host: "+
+            			   container.getId() + e.getStackTrace());
+            }
+            
             // Add log redirect params
             vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout");
             vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr");
@@ -657,17 +835,47 @@ public class ApplicationMaster {
             for (CharSequence str : vargs) {
                 command.append(str).append(" ");
             }
-
-            List<String> commands = new ArrayList<String>();
             commands.add(command.toString());
-            ctx.setCommands(commands);
-
-            containerListener.addContainer(container.getId(), container);
-            //finally start the container!?
-            nmClientAsync.startContainerAsync(container, ctx);
+            return commands;
+        }
+        /**
+         * Attempts to find the Node in the Cluster Description that matches this container
+         * @param c The container to resolve
+         * @return The node this container corresponds to
+         * @throws java.net.UnknownHostException if the container isn't present in the description
+         */
+        private Node containerToNode(Container c, Cluster cl) throws UnknownHostException{
+            String containerHost = c.getNodeId().getHost();
+            InetAddress containerIp = InetAddress.getByName(containerHost);
+            for (Node node : cl.getNode()) {
+            	InetAddress nodeIp = InetAddress.getByName(node.getClusterIp());
+            	if(nodeIp == containerIp) return node;
+            }
+            //if we find nothing, this is bad...
+            throw new java.net.UnknownHostException("Could not resolve container to node");
+        }
+        /**
+         * Determines whether or not a container is the one on which the CC should reside
+         * @param c The container in question
+         * @return True if the container should have the CC process on it, false otherwise.
+         */
+        private boolean containerIsCC(Container c){
+            String containerHost = c.getNodeId().getHost();
+            try{
+            	InetAddress containerIp = InetAddress.getByName(containerHost);
+            	InetAddress ccIp = InetAddress.getByName(CC.getClusterIp());
+            	return containerIp.equals(ccIp);
+            }
+            catch(UnknownHostException e){
+            	return false;
+            }
         }
     }
-
+    /**
+    * Asks the RM for a particular host, nicely.  
+    * @param host The host to request
+    * @return A container request that is (hopefully) for the host we asked for. 
+    */
     private ContainerRequest askForHost(String host) {
         Priority pri = Records.newRecord(Priority.class);
         pri.setPriority(0);

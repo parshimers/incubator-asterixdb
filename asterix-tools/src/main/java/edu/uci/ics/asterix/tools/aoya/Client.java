@@ -67,6 +67,8 @@ import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 
+import edu.uci.ics.asterix.event.schema.yarnCluster.*;
+
 @InterfaceAudience.Public
 @InterfaceStability.Unstable
 public class Client {
@@ -89,11 +91,12 @@ public class Client {
     // Application master jar file
     private String appMasterJar = "";
     // Main class to invoke application master
-    private final String appMasterMainClass = "edu.uci.ics.asterix.aoya.yarn.ApplicationMaster";
+    private final String appMasterMainClass = "edu.uci.ics.asterix.tools.aoya.ApplicationMaster";
 
-    // Shell command to be executed
+    //location of distributable asterix tarfile
     private String asterixTar = "";
-    // Location of shell script
+    // Location of cluster configuration
+    private String asterixConf = "";
 
     // Env variables to be setup for the shell command
     private Map<String, String> shellEnv = new HashMap<String, String>();
@@ -116,9 +119,6 @@ public class Client {
     // Command line options
     private Options opts;
 
-    private String CC = null;
-    private String NC = null;
-    private String IODevices = null;
 
     /**
      * @param args
@@ -163,12 +163,11 @@ public class Client {
         opts.addOption("queue", true, "RM Queue in which this application is to be submitted");
         opts.addOption("master_memory", true, "Amount of memory in MB to be requested to run the application master");
         opts.addOption("jar", true, "Jar file containing the application master");
-        opts.addOption("asterixTar", true, "Runnable Jar with Asterix inside");
+
         opts.addOption("log_properties", true, "log4j.properties file");
         //new
-        opts.addOption("CC", true, "Hostname/IP of node CC should reside on");
-        opts.addOption("NC", true, "Comma-separated list of NC hostnames/IPs");
-        opts.addOption("IODevices", true, "List of IODevices for NCs");
+        opts.addOption("asterixTar", true, "Runnable Jar with Asterix inside");
+        opts.addOption("asterixConf", true, "Asterix cluster config");
         opts.addOption("debug", false, "Dump out debug information");
         opts.addOption("help", false, "Print usage");
     }
@@ -216,9 +215,7 @@ public class Client {
         amPriority = Integer.parseInt(cliParser.getOptionValue("priority", "0"));
         amQueue = cliParser.getOptionValue("queue", "default");
         amMemory = Integer.parseInt(cliParser.getOptionValue("master_memory", "10"));
-        CC = cliParser.getOptionValue("CC", "");
-        NC = cliParser.getOptionValue("NC", "");
-        IODevices = cliParser.getOptionValue("IODevices", "");
+
         if (amMemory < 0) {
             throw new IllegalArgumentException("Invalid memory specified for application master, exiting."
                     + " Specified memory=" + amMemory);
@@ -234,6 +231,7 @@ public class Client {
             throw new IllegalArgumentException("The deployable Asterix tar file");
         }
         asterixTar = cliParser.getOptionValue("asterixTar");
+        asterixConf = cliParser.getOptionValue("asterixConf");
 
         moyaPriority = Integer.parseInt(cliParser.getOptionValue("moya_priority", "0"));
 
@@ -360,7 +358,7 @@ public class Client {
         amJarLen = shellFileStatus.getLen();
         amJarTimestamp = shellFileStatus.getModificationTime();
 
-        // ADD libs needed that will be untared
+        // Add the asterix tarfile to HDFS for easy distribution
         // Keep it all archived for now so add it as a file...
         src = new Path(asterixTar);
         pathSuffix = appName + "/" + appId.getId() + "/asterix-server.tar";
@@ -374,16 +372,40 @@ public class Client {
         asterixTarLoc.setTimestamp(destStatus.getModificationTime());
         localResources.put("asterix-server.tar", asterixTarLoc);
 
-        // Setup Libs Constants
-        String libsLocation = "";
-        long libsLen = 0;
-        long libsTimestamp = 0;
+        // Setup tarball Constants
+        String tarLocation = "";
+        long tarLen = 0;
+        long tarTimestamp = 0;
+
+        // adding info so we can add the tarball to the App master container path
+        tarLocation = dst.toUri().toString();
+        FileStatus tarFileStatus = fs.getFileStatus(dst);
+        tarLen = tarFileStatus.getLen();
+        tarTimestamp = tarFileStatus.getModificationTime();
+
+        //and finally, add the config too so the AM can see it 
+        src = new Path(asterixConf);
+        pathSuffix = appName + "/" + appId.getId() + "/cluster-config.xml";
+        dst = new Path(fs.getHomeDirectory(), pathSuffix);
+        fs.copyFromLocalFile(false, true, src, dst);
+        destStatus = fs.getFileStatus(dst);
+        LocalResource asterixConfLoc = Records.newRecord(LocalResource.class);
+        asterixConfLoc.setType(LocalResourceType.FILE);
+        asterixConfLoc.setVisibility(LocalResourceVisibility.PUBLIC);
+        asterixConfLoc.setResource(ConverterUtils.getYarnUrlFromPath(dst));
+        asterixConfLoc.setTimestamp(destStatus.getModificationTime());
+        localResources.put("cluster-config.xml", asterixConfLoc);
+        
+        // Setup confg file Constants
+        String confLocation = "";
+        long confLen = 0;
+        long confTimestamp = 0;
 
         // adding info so we can add the jar to the App master container path
-        libsLocation = dst.toUri().toString();
-        FileStatus libsFileStatus = fs.getFileStatus(dst);
-        libsLen = libsFileStatus.getLen();
-        libsTimestamp = libsFileStatus.getModificationTime();
+        confLocation = dst.toUri().toString();
+        FileStatus confFileStatus = fs.getFileStatus(dst);
+        confLen = confFileStatus.getLen();
+        confTimestamp = confFileStatus.getModificationTime();
 
         // Set the log4j properties if needed
         if (!log4jPropFile.isEmpty()) {
@@ -417,13 +439,13 @@ public class Client {
         env.put(MConstants.APPLICATIONMASTERJARTIMESTAMP, Long.toString(amJarTimestamp));
         env.put(MConstants.APPLICATIONMASTERJARLEN, Long.toString(amJarLen));
 
-        env.put(MConstants.LIBSLOCATION, libsLocation);
-        env.put(MConstants.LIBSTIMESTAMP, Long.toString(libsTimestamp));
-        env.put(MConstants.LIBSLEN, Long.toString(libsLen));
-
-        env.put(MConstants.CC, CC);
-        env.put(MConstants.NC, NC);
-        env.put(MConstants.IODEVICES, IODevices);
+        env.put(MConstants.TARLOCATION, tarLocation);
+        env.put(MConstants.TARTIMESTAMP, Long.toString(tarTimestamp));
+        env.put(MConstants.TARLEN, Long.toString(tarLen));
+        
+        env.put(MConstants.CONFLOCATION, confLocation);
+        env.put(MConstants.CONFTIMESTAMP, Long.toString(confTimestamp));
+        env.put(MConstants.CONFLEN, Long.toString(confLen));
 
         // Add AppMaster.jar location to classpath
         // At some point we should not be required to add
@@ -459,12 +481,12 @@ public class Client {
         // Set class name
         vargs.add(appMasterMainClass);
         // Set params for Application Master
-        vargs.add("-CC " + CC);
-        vargs.add("-NC " + NC);
-        vargs.add("-IODevices " + IODevices);
         vargs.add("-priority " + String.valueOf(moyaPriority));
         if (!asterixTar.isEmpty()) {
             vargs.add("-asterixTar " + asterixTar + "");
+        }
+        if (!asterixTar.isEmpty()) {
+            vargs.add("-asterixConf " + asterixConf + "");
         }
         if (debugFlag) {
             vargs.add("-debug");
