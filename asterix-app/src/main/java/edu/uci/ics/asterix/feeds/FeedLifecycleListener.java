@@ -48,6 +48,7 @@ import edu.uci.ics.asterix.common.feeds.api.IFeedJoint;
 import edu.uci.ics.asterix.common.feeds.api.IFeedJoint.Scope;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleEventSubscriber;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleListener;
+import edu.uci.ics.asterix.feeds.FeedJobNotificationHandler.FeedJobState;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
 import edu.uci.ics.asterix.metadata.cluster.AddNodeWork;
@@ -135,6 +136,14 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
                 break;
             }
         }
+    }
+
+    public void setJobState(JobId jobId, FeedJobState jobState) {
+        feedJobNotificationHandler.setJobState(jobId, jobState);
+    }
+
+    public FeedJobState getFeedJobState(JobId jobId) {
+        return feedJobNotificationHandler.getFeedJobState(jobId);
     }
 
     public static class Message {
@@ -466,6 +475,10 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
 
     public JobSpecification getCollectJobSpecification(FeedConnectionId connectionId) {
         return feedJobNotificationHandler.getCollectJobSpecification(connectionId);
+    }
+
+    public JobId getFeedCollectJobId(FeedConnectionId connectionId) {
+        return feedJobNotificationHandler.getFeedCollectJobId(connectionId);
     }
 
 }

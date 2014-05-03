@@ -28,7 +28,8 @@ public interface IFeedMessage extends Serializable {
         NODE_REPORT,
         CONGESTION,
         PREPARE_STALL,
-        TERMINATE_FLOW
+        TERMINATE_FLOW,
+        SCALE_IN_POSSIBLE
     }
 
     public static final class Constants {
@@ -42,12 +43,16 @@ public interface IFeedMessage extends Serializable {
         public static final String PARTITION = "partition";
         public static final String INFLOW_RATE = "inflow-rate";
         public static final String OUTFLOW_RATE = "outflow-rate";
+        public static final String CURRENT_CARDINALITY = "current-cardinality";
+        public static final String REDUCED_CARDINALITY = "reduced-cardinality";
         public static final String VALUE_TYPE = "value-type";
         public static final String VALUE = "value";
         public static final String CPU_LOAD = "cpu-load";
         public static final String N_RUNTIMES = "n_runtimes";
         public static final String HEAP_USAGE = "heap_usage";
         public static final String OPERAND_ID = "operand-id";
+        public static final String COMPUTE_PARTITION_RETAIN_LIMIT = "compute-partition-retain-limit";
+
     }
 
     public MessageType getMessageType();

@@ -24,13 +24,13 @@ import edu.uci.ics.asterix.common.feeds.DataBucket.ContentType;
 import edu.uci.ics.asterix.common.feeds.api.IExceptionHandler;
 import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMemoryComponent;
+import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
 import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
-import edu.uci.ics.hyracks.dataflow.std.connectors.PartitionDataWriter;
 
 // Handles Exception + inflow rate measurement
 public class FeedRuntimeInputHandler implements IFrameWriter {
@@ -56,21 +56,11 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
     private final FeedPolicyAccessor fpa;
     private final IFeedManager feedManager;
     private FrameEventCallback frameEventCallback;
-
-    public IFrameWriter getCoreOperator() {
-        return coreOperator;
-    }
-
-    public void setCoreOperator(IFrameWriter coreOperator) {
-        this.coreOperator = coreOperator;
-        mBuffer.setFrameWriter(coreOperator);
-        frameEventCallback.setCoreOperator(coreOperator);
-        System.out.println("SET CORE OPERATOR INSIDE INPUT HANDLER AS  " + coreOperator);
-    }
+    private int nPartitions;
 
     public FeedRuntimeInputHandler(FeedConnectionId connectionId, FeedRuntimeId runtimeId, IFrameWriter coreOperator,
             FeedPolicyAccessor fpa, boolean bufferingEnabled, int frameSize, FrameTupleAccessor fta,
-            RecordDescriptor recordDesc, IFeedManager feedManager) throws IOException {
+            RecordDescriptor recordDesc, IFeedManager feedManager, int nPartitions) throws IOException {
         this.connectionId = connectionId;
         this.runtimeId = runtimeId;
         this.coreOperator = coreOperator;
@@ -85,17 +75,27 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
         this.fpa = fpa;
         this.fta = fta;
         this.feedManager = feedManager;
+        this.nPartitions = nPartitions;
         this.pool = (DataBucketPool) feedManager.getFeedMemoryManager().getMemoryComponent(
                 IFeedMemoryComponent.Type.POOL);
         this.frameCollection = (FrameCollection) feedManager.getFeedMemoryManager().getMemoryComponent(
                 IFeedMemoryComponent.Type.COLLECTION);
         this.frameEventCallback = new FrameEventCallback(fpa, this, coreOperator);
 
-        //  if (bufferingEnabled) {
-        mBuffer = new MonitoredBuffer(this, coreOperator, fta, feedManager.getFeedMetricCollector(), connectionId,
-                runtimeId, exceptionHandler, frameEventCallback);
+        // if (bufferingEnabled) {
+        mBuffer = new MonitoredBuffer(this, coreOperator, fta, frameSize, recordDesc,
+                feedManager.getFeedMetricCollector(), connectionId, runtimeId, exceptionHandler, frameEventCallback,
+                nPartitions);
         mBuffer.start();
-        //  }
+        // }
+    }
+
+    public void resetNumberOfPartitions(int nPartitions) {
+        this.nPartitions = nPartitions;
+        this.mBuffer.setNumberOfPartitions(nPartitions);
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Reset number of partitions to " + nPartitions);
+        }
     }
 
     public synchronized void nextFrame(ByteBuffer frame) throws HyracksDataException {
@@ -175,6 +175,12 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
         }
     }
 
+    public void resetMetrics() {
+        if (mBuffer != null) {
+            mBuffer.resetMetrics();
+        }
+    }
+
     private void bufferDataUntilRecovery(ByteBuffer frame) throws Exception {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Bufferring data until recovery is complete " + this.runtimeId);
@@ -191,11 +197,16 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
         }
     }
 
-    private void reportUnresolvableCongestion() throws HyracksDataException, FeedCongestionException {
-        FeedCongestionMessage congestionReport = new FeedCongestionMessage(connectionId, runtimeId,
-                mBuffer.getInflowRate(), mBuffer.getOutflowRate());
-        feedManager.getFeedMessageService().sendMessage(congestionReport);
-        //throw new FeedCongestionException(connectionId, runtimeId);
+    private void reportUnresolvableCongestion() throws HyracksDataException {
+        if (this.runtimeId.getFeedRuntimeType().equals(FeedRuntimeType.COMPUTE)) {
+            FeedCongestionMessage congestionReport = new FeedCongestionMessage(connectionId, runtimeId,
+                    mBuffer.getInflowRate(), mBuffer.getOutflowRate());
+            feedManager.getFeedMessageService().sendMessage(congestionReport);
+        } else {
+            if (LOGGER.isLoggable(Level.WARNING)) {
+                LOGGER.warning("Congestion reported " + this.connectionId + " " + this.runtimeId);
+            }
+        }
     }
 
     private void processBufferredBacklog() throws HyracksDataException {
@@ -203,6 +214,7 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Processing backlog " + this.runtimeId);
             }
+
             Iterator<ByteBuffer> backlog = frameCollection.getFrameCollectionIterator();
             while (backlog.hasNext()) {
                 process(backlog.next());
@@ -212,6 +224,7 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
             bucket.setContentType(ContentType.EOSD);
             bucket.setDesiredReadCount(1);
             mBuffer.sendMessage(bucket);
+
             frameCollection.reset();
         } catch (Exception e) {
             e.printStackTrace();
@@ -243,11 +256,6 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
             try {
                 if (!bufferingEnabled) {
                     coreOperator.nextFrame(frame);
-                    System.out.println(" NO BUFFERING " + this.getRuntimeId() + " write using " + coreOperator);
-                    if (coreOperator instanceof PartitionDataWriter) {
-                        System.out.println("Number of partitions "
-                                + ((PartitionDataWriter) coreOperator).getNumberOfPartitions());
-                    }
                 } else {
                     DataBucket bucket = pool.getDataBucket();
                     if (bucket == null) {
@@ -319,7 +327,12 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
 
     public void close() {
         if (mBuffer != null) {
-            mBuffer.close(false);
+            boolean disableMonitoring = !this.mode.equals(Mode.STALL);
+            mBuffer.close(false, disableMonitoring);
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Closed input side handler for " + this.runtimeId + " disabled monitoring "
+                        + disableMonitoring);
+            }
         }
     }
 
@@ -383,14 +396,20 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
             }
         }
 
-        public IFrameWriter getCoreOperator() {
-            return coreOperator;
-        }
-
         public void setCoreOperator(IFrameWriter coreOperator) {
             this.coreOperator = coreOperator;
         }
 
+    }
+
+    public IFrameWriter getCoreOperator() {
+        return coreOperator;
+    }
+
+    public void setCoreOperator(IFrameWriter coreOperator) {
+        this.coreOperator = coreOperator;
+        mBuffer.setFrameWriter(coreOperator);
+        frameEventCallback.setCoreOperator(coreOperator);
     }
 
     public boolean isFinished() {
@@ -425,6 +444,10 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
 
     public FeedConnectionId getConnectionId() {
         return connectionId;
+    }
+
+    public IFeedManager getFeedManager() {
+        return feedManager;
     }
 
 }

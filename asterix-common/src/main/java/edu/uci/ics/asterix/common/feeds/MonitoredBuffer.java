@@ -19,6 +19,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.logging.Level;
 
+import edu.uci.ics.asterix.common.feeds.MonitoredBufferTimerTasks.MonitoredBufferProcessRateTimerTask;
 import edu.uci.ics.asterix.common.feeds.api.IExceptionHandler;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector.MetricType;
@@ -27,30 +28,38 @@ import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
 import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback;
 import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback.FrameEvent;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
+import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
-import edu.uci.ics.hyracks.dataflow.std.connectors.PartitionDataWriter;
 
 public class MonitoredBuffer extends MessageReceiver<DataBucket> {
 
     private static final long MONITOR_FREQUENCY = 2000; // 2 seconds
+    private static final long PROCESSING_RATE_MEASURE_FREQUENCY = 10000; // 10 seconds
 
     private IFrameWriter frameWriter;
-    private final FrameTupleAccessor fta;
+    private final FrameTupleAccessor inflowFta;
+    private final FrameTupleAccessor outflowFta;
     private final IFeedMetricCollector metricCollector;
     private final FeedRuntimeId runtimeId;
     private final int inflowReportSenderId;
     private final int outflowReportSenderId;
     private final IExceptionHandler exceptionHandler;
-    private final TimerTask monitorTask;
+    private TimerTask monitorTask;
+    private TimerTask processingRateTask;
     private final FeedRuntimeInputHandler inputHandler;
     private final IFrameEventCallback callback;
     private final Timer timer;
 
+    private boolean evaluateProcessingRate;
+    private int processingRate = -1;
+
     public MonitoredBuffer(FeedRuntimeInputHandler inputHandler, IFrameWriter frameWriter, FrameTupleAccessor fta,
-            IFeedMetricCollector metricCollector, FeedConnectionId connectionId, FeedRuntimeId runtimeId,
-            IExceptionHandler exceptionHandler, IFrameEventCallback callback) {
+            int frameSize, RecordDescriptor recordDesc, IFeedMetricCollector metricCollector,
+            FeedConnectionId connectionId, FeedRuntimeId runtimeId, IExceptionHandler exceptionHandler,
+            IFrameEventCallback callback, int nPartitions) {
         this.frameWriter = frameWriter;
-        this.fta = fta;
+        this.inflowFta = fta;
+        this.outflowFta = new FrameTupleAccessor(frameSize, recordDesc);
         this.runtimeId = runtimeId;
         this.metricCollector = metricCollector;
         this.inflowReportSenderId = metricCollector.createReportSender(connectionId, runtimeId, ValueType.INFLOW_RATE,
@@ -58,18 +67,32 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
         this.outflowReportSenderId = metricCollector.createReportSender(connectionId, runtimeId,
                 ValueType.OUTFLOW_RATE, MetricType.RATE);
         this.exceptionHandler = exceptionHandler;
-        this.monitorTask = new MonitoredBufferTimerTask(this, callback);
+
         this.callback = callback;
         this.inputHandler = inputHandler;
         this.timer = new Timer();
-        this.timer.scheduleAtFixedRate(monitorTask, 0, MONITOR_FREQUENCY);
+        switch (runtimeId.getFeedRuntimeType()) {
+            case COMPUTE:
+                this.processingRateTask = new MonitoredBufferTimerTasks.MonitoredBufferProcessRateTimerTask(this,
+                        inputHandler.getFeedManager(), connectionId, nPartitions);
+                this.timer.scheduleAtFixedRate(processingRateTask, 0, PROCESSING_RATE_MEASURE_FREQUENCY);
+                this.monitorTask = new MonitoredBufferTimerTasks.MonitoredBufferTimerTask(this, callback);
+                this.timer.scheduleAtFixedRate(monitorTask, 0, MONITOR_FREQUENCY);
+                break;
+            case STORE:
+                this.monitorTask = new MonitoredBufferTimerTasks.MonitoredBufferTimerTask(this, callback);
+                this.timer.scheduleAtFixedRate(monitorTask, 0, MONITOR_FREQUENCY);
+                break;
+            default:
+                break;
+        }
     }
 
     @Override
     public void sendMessage(DataBucket message) {
         inbox.add(message);
-        fta.reset(message.getBuffer());
-        metricCollector.sendReport(inflowReportSenderId, fta.getTupleCount());
+        inflowFta.reset(message.getBuffer());
+        metricCollector.sendReport(inflowReportSenderId, inflowFta.getTupleCount());
     }
 
     /** return rate in terms of tuples/sec **/
@@ -87,18 +110,55 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
         return inbox.size();
     }
 
+    /** reset the number of partitions (cardinality) for the runtime **/
+    public void setNumberOfPartitions(int nPartitions) {
+        if (processingRateTask != null) {
+            ((MonitoredBufferProcessRateTimerTask) processingRateTask).setNumberOfPartitions(nPartitions);
+        }
+    }
+
+    public void close(boolean processPending, boolean disableMonitoring) {
+        super.close(processPending);
+        if (disableMonitoring) {
+            if (monitorTask != null) {
+                monitorTask.cancel();
+            }
+            if (processingRateTask != null) {
+                processingRateTask.cancel();
+            }
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Disabled monitoring for " + this.runtimeId);
+            }
+        }
+    }
+
     @Override
     public void processMessage(DataBucket message) throws Exception {
         switch (message.getContentType()) {
             case DATA:
                 boolean finishedProcessing = false;
                 ByteBuffer frame = message.getBuffer();
+                outflowFta.reset(frame);
+                long startTime = 0;
+                long endTime = 0;
                 while (!finishedProcessing) {
                     try {
+                        if (evaluateProcessingRate) {
+                            startTime = System.currentTimeMillis();
+                        }
                         frameWriter.nextFrame(frame);
-                        System.out.println("Writing " + this.runtimeId + " USING " + frameWriter);
+                        if (evaluateProcessingRate) {
+                            endTime = System.currentTimeMillis();
+                            int currentRate = (int) ((double) outflowFta.getTupleCount() * 1000 / (endTime - startTime));
+                            if (processingRate > 0) {
+                                processingRate = (processingRate + currentRate) / 2;
+                            } else {
+                                processingRate = currentRate;
+                            }
+                            evaluateProcessingRate = false;
+                        }
                         finishedProcessing = true;
-                        metricCollector.sendReport(outflowReportSenderId, fta.getTupleCount());
+                        metricCollector.sendReport(outflowReportSenderId, outflowFta.getTupleCount());
                     } catch (Exception e) {
                         frame = exceptionHandler.handleException(e, frame);
                     }
@@ -131,5 +191,26 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
 
     public void setFrameWriter(IFrameWriter frameWriter) {
         this.frameWriter = frameWriter;
+    }
+
+    public void resetMetrics() {
+        metricCollector.resetReportSender(inflowReportSenderId);
+        metricCollector.resetReportSender(outflowReportSenderId);
+    }
+
+    public int getProcessingRate() {
+        return processingRate;
+    }
+
+    public void setProcessingRate(int processingRate) {
+        this.processingRate = processingRate;
+    }
+
+    public boolean isEvaluateProcessingRate() {
+        return evaluateProcessingRate;
+    }
+
+    public void setEvaluateProcessingRate(boolean evaluateProcessingRate) {
+        this.evaluateProcessingRate = evaluateProcessingRate;
     }
 }

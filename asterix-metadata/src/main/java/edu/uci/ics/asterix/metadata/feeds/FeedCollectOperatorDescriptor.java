@@ -100,7 +100,7 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
                                 + sourceFeedId);
                     }
                     nodePushable = new FeedCollectOperatorNodePushable(ctx, sourceFeedId, feedConnectionId,
-                            feedPolicyProperties, partition, sourceRuntime);
+                            feedPolicyProperties, partition, nPartitions, sourceRuntime);
 
                 } catch (Exception exception) {
                     if (LOGGER.isLoggable(Level.SEVERE)) {
@@ -119,7 +119,7 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
                             + " " + FeedRuntimeType.COMPUTE + "[" + partition + "]");
                 }
                 nodePushable = new FeedCollectOperatorNodePushable(ctx, sourceFeedId, feedConnectionId,
-                        feedPolicyProperties, partition, sourceRuntime);
+                        feedPolicyProperties, partition, nPartitions, sourceRuntime);
                 break;
         }
         return nodePushable;

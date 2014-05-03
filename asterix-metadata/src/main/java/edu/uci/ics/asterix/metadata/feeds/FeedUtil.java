@@ -29,6 +29,7 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import edu.uci.ics.asterix.common.dataflow.AsterixLSMInvertedIndexInsertDeleteOperatorDescriptor;
 import edu.uci.ics.asterix.common.dataflow.AsterixLSMTreeInsertDeleteOperatorDescriptor;
+import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
@@ -66,7 +67,10 @@ import edu.uci.ics.hyracks.api.dataflow.ConnectorDescriptorId;
 import edu.uci.ics.hyracks.api.dataflow.IConnectorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.OperatorDescriptorId;
+import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputerFactory;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
+import edu.uci.ics.hyracks.dataflow.common.data.partition.RandomPartitionComputerFactory;
+import edu.uci.ics.hyracks.dataflow.std.connectors.MToNPartitioningConnectorDescriptor;
 
 /**
  * A utility class for providing helper functions for feeds
@@ -96,8 +100,8 @@ public class FeedUtil {
     public static JobSpecification alterJobSpecificationForFeed(JobSpecification spec,
             FeedConnectionId feedConnectionId, Map<String, String> feedPolicyProperties) {
 
-        JobSpecification altered =  new JobSpecification(frameSize);
-        Map opertorMap = spec.getOperatorMap();
+        JobSpecification altered = new JobSpecification(spec.getFrameSize());
+        Map<OperatorDescriptorId, IOperatorDescriptor> operatorMap = spec.getOperatorMap();
         boolean preProcessingRequired = preProcessingRequired(feedConnectionId);
         // copy operators
         String operandId = null;
@@ -251,66 +255,63 @@ public class FeedUtil {
 
     }
 
-    public static void alterCardinality2(JobSpecification spec, FeedRuntimeType compute, int requiredCardinality,
-            List<String> helperComputeNodes, List<String> currentLocations, FeedConnectionId feedConnectionId,
-            Map<String, String> feedPolicyProperties) {
+    public static void increaseCardinality(JobSpecification spec, FeedRuntimeType compute, int requiredCardinality,
+            List<String> newLocations) throws AsterixException {
+        IOperatorDescriptor changingOpDesc = alterJobSpecForComputeCardinality(spec, requiredCardinality);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, changingOpDesc,
+                nChooseK(requiredCardinality, newLocations));
 
-        FeedPolicyAccessor fpa = new FeedPolicyAccessor(feedPolicyProperties);
-        boolean preProcessingRequired = preProcessingRequired(feedConnectionId);
+    }
 
-        JobSpecification altered = new JobSpecification(spec.getFrameSize());
-        Map<OperatorDescriptorId, IOperatorDescriptor> operatorMap = spec.getOperatorMap();
+    public static void decreaseComputeCardinality(JobSpecification spec, FeedRuntimeType compute,
+            int requiredCardinality, List<String> currentLocations) throws AsterixException {
+        IOperatorDescriptor changingOpDesc = alterJobSpecForComputeCardinality(spec, requiredCardinality);
+        String[] chosenLocations = nChooseK(requiredCardinality, currentLocations);
+        PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, changingOpDesc, chosenLocations);
+    }
 
-        // copy operators
-        String operandId = null;
-        Map<OperatorDescriptorId, OperatorDescriptorId> oldNewOID = new HashMap<OperatorDescriptorId, OperatorDescriptorId>();
-        FeedMetaOperatorDescriptor metaOp = null;
-        for (Entry<OperatorDescriptorId, IOperatorDescriptor> entry : operatorMap.entrySet()) {
-            operandId = FeedRuntimeId.DEFAULT_OPERAND_ID;
-            IOperatorDescriptor opDesc = entry.getValue();
-            if (opDesc instanceof FeedCollectOperatorDescriptor) {
-                FeedCollectOperatorDescriptor orig = (FeedCollectOperatorDescriptor) opDesc;
-                FeedCollectOperatorDescriptor fiop = new FeedCollectOperatorDescriptor(altered,
-                        orig.getFeedConnectionId(), orig.getSourceFeedId(), (ARecordType) orig.getOutputType(),
-                        orig.getRecordDescriptor(), orig.getFeedPolicyProperties(), orig.getSubscriptionLocation());
-                oldNewOID.put(opDesc.getOperatorId(), fiop.getOperatorId());
-            } else if (opDesc instanceof AsterixLSMTreeInsertDeleteOperatorDescriptor) {
-                operandId = ((AsterixLSMTreeInsertDeleteOperatorDescriptor) opDesc).getIndexName();
-                metaOp = new FeedMetaOperatorDescriptor(altered, feedConnectionId, opDesc, feedPolicyProperties,
-                        FeedRuntimeType.STORE, false, operandId);
-                oldNewOID.put(opDesc.getOperatorId(), metaOp.getOperatorId());
-            } else if (opDesc instanceof AsterixLSMInvertedIndexInsertDeleteOperatorDescriptor) {
-                operandId = ((AsterixLSMInvertedIndexInsertDeleteOperatorDescriptor) opDesc).getIndexName();
-                metaOp = new FeedMetaOperatorDescriptor(altered, feedConnectionId, opDesc, feedPolicyProperties,
-                        FeedRuntimeType.STORE, false, operandId);
-                oldNewOID.put(opDesc.getOperatorId(), metaOp.getOperatorId());
+    private static IOperatorDescriptor alterJobSpecForComputeCardinality(JobSpecification spec, int requiredCardinality)
+            throws AsterixException {
+        Map<ConnectorDescriptorId, IConnectorDescriptor> connectors = spec.getConnectorMap();
+        Map<ConnectorDescriptorId, Pair<Pair<IOperatorDescriptor, Integer>, Pair<IOperatorDescriptor, Integer>>> connectorOpMap = spec
+                .getConnectorOperatorMap();
 
-            } else {
-                FeedRuntimeType runtimeType = null;
-                boolean enableSubscriptionMode = false;
-                if (opDesc instanceof AlgebricksMetaOperatorDescriptor) {
-                    IPushRuntimeFactory runtimeFactory = ((AlgebricksMetaOperatorDescriptor) opDesc).getPipeline()
-                            .getRuntimeFactories()[0];
-                    if (runtimeFactory instanceof AssignRuntimeFactory) {
-                        IConnectorDescriptor connectorDesc = spec.getOperatorInputMap().get(opDesc.getOperatorId())
-                                .get(0);
-                        IOperatorDescriptor sourceOp = spec.getProducer(connectorDesc);
-                        if (sourceOp instanceof FeedCollectOperatorDescriptor) {
-                            runtimeType = preProcessingRequired ? FeedRuntimeType.COMPUTE : FeedRuntimeType.OTHER;
-                            enableSubscriptionMode = preProcessingRequired;
-                        } else {
-                            runtimeType = FeedRuntimeType.OTHER;
-                        }
-                    } else if (runtimeFactory instanceof StreamProjectRuntimeFactory) {
-                        runtimeType = FeedRuntimeType.OTHER;
-                    }
+        IOperatorDescriptor sourceOp = null;
+        IOperatorDescriptor targetOp = null;
+        IConnectorDescriptor connDesc = null;
+        for (Entry<ConnectorDescriptorId, Pair<Pair<IOperatorDescriptor, Integer>, Pair<IOperatorDescriptor, Integer>>> entry : connectorOpMap
+                .entrySet()) {
+            ConnectorDescriptorId cid = entry.getKey();
+            sourceOp = entry.getValue().getKey().getKey();
+            if (sourceOp instanceof FeedCollectOperatorDescriptor) {
+                targetOp = entry.getValue().getValue().getKey();
+                if (targetOp instanceof FeedMetaOperatorDescriptor
+                        && (((FeedMetaOperatorDescriptor) targetOp).getRuntimeType().equals(FeedRuntimeType.COMPUTE))) {
+                    connDesc = connectors.get(cid);
+                    break;
+                } else {
+                    throw new AsterixException("Incorrect manipulation, feed does not have a compute stage");
                 }
-                metaOp = new FeedMetaOperatorDescriptor(altered, feedConnectionId, opDesc, feedPolicyProperties,
-                        runtimeType, enableSubscriptionMode, operandId);
-
-                oldNewOID.put(opDesc.getOperatorId(), metaOp.getOperatorId());
             }
         }
+
+        Map<OperatorDescriptorId, List<IConnectorDescriptor>> operatorInputMap = spec.getOperatorInputMap();
+        boolean removed = operatorInputMap.get(targetOp.getOperatorId()).remove(connDesc);
+        if (!removed) {
+            throw new AsterixException("Connector desc not found");
+        }
+        Map<OperatorDescriptorId, List<IConnectorDescriptor>> operatorOutputMap = spec.getOperatorOutputMap();
+        removed = operatorOutputMap.get(sourceOp.getOperatorId()).remove(connDesc);
+        if (!removed) {
+            throw new AsterixException("Connector desc not found");
+        }
+        spec.getConnectorMap().remove(connDesc.getConnectorId());
+        connectorOpMap.remove(connDesc.getConnectorId());
+
+        ITuplePartitionComputerFactory tpcf = new RandomPartitionComputerFactory(requiredCardinality);
+        MToNPartitioningConnectorDescriptor newConnector = new MToNPartitioningConnectorDescriptor(spec, tpcf);
+        spec.getConnectorMap().put(newConnector.getConnectorId(), newConnector);
+        spec.connect(newConnector, sourceOp, 0, targetOp, 0);
 
         // ==============================================================================
         Set<Constraint> userConstraints = spec.getUserConstraints();
@@ -356,16 +357,20 @@ public class FeedUtil {
             }
         }
 
-        if (countConstraint != null) {
-            userConstraints.remove(countConstraint);
-            if (locationConstraint != null) {
-                userConstraints.remove(locationConstraint);
-            }
-            currentLocations.addAll(helperComputeNodes);
-            PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, changingOpDesc,
-                    currentLocations.toArray(new String[] {}));
+        userConstraints.remove(countConstraint);
+        if (locationConstraint != null) {
+            userConstraints.remove(locationConstraint);
         }
 
+        return changingOpDesc;
+    }
+
+    private static String[] nChooseK(int k, List<String> locations) {
+        String[] result = new String[k];
+        for (int i = 0; i < k; i++) {
+            result[i] = locations.get(i);
+        }
+        return result;
     }
 
     private static boolean preProcessingRequired(FeedConnectionId connectionId) {
@@ -498,61 +503,4 @@ public class FeedUtil {
         return outputType;
     }
 
-    public static void alterCardinality(JobSpecification spec, FeedRuntimeType compute, int requiredCardinality,
-            List<String> helperComputeNodes, List<String> currentLocations) {
-
-        Set<Constraint> userConstraints = spec.getUserConstraints();
-        Constraint countConstraint = null;
-        Constraint locationConstraint = null;
-        List<LocationConstraint> locations = new ArrayList<LocationConstraint>();
-        IOperatorDescriptor changingOpDesc = null;
-
-        for (Constraint constraint : userConstraints) {
-            LValueConstraintExpression lexpr = constraint.getLValue();
-            ConstraintExpression cexpr = constraint.getRValue();
-            OperatorDescriptorId opId;
-            switch (lexpr.getTag()) {
-                case PARTITION_COUNT: {
-                    opId = ((PartitionCountExpression) lexpr).getOperatorDescriptorId();
-                    IOperatorDescriptor opDesc = spec.getOperatorMap().get(opId);
-                    if (opDesc instanceof FeedMetaOperatorDescriptor) {
-                        FeedRuntimeType runtimeType = ((FeedMetaOperatorDescriptor) opDesc).getRuntimeType();
-                        if (runtimeType.equals(FeedRuntimeType.COMPUTE)) {
-                            countConstraint = constraint;
-                            changingOpDesc = opDesc;
-                        }
-                    }
-                    break;
-                }
-                case PARTITION_LOCATION:
-                    opId = ((PartitionLocationExpression) lexpr).getOperatorDescriptorId();
-                    IOperatorDescriptor opDesc = spec.getOperatorMap().get(opId);
-                    if (opDesc instanceof FeedMetaOperatorDescriptor) {
-                        FeedRuntimeType runtimeType = ((FeedMetaOperatorDescriptor) opDesc).getRuntimeType();
-                        if (runtimeType.equals(FeedRuntimeType.COMPUTE)) {
-                            locationConstraint = constraint;
-                            changingOpDesc = opDesc;
-                            String location = (String) ((ConstantExpression) cexpr).getValue();
-                            LocationConstraint lc = new LocationConstraint();
-                            lc.location = location;
-                            lc.partition = ((PartitionLocationExpression) lexpr).getPartition();
-                            locations.add(lc);
-                        }
-                    }
-
-                    break;
-            }
-        }
-
-        if (countConstraint != null) {
-            userConstraints.remove(countConstraint);
-            if (locationConstraint != null) {
-                userConstraints.remove(locationConstraint);
-            }
-            currentLocations.addAll(helperComputeNodes);
-            PartitionConstraintHelper.addAbsoluteLocationConstraint(spec, changingOpDesc,
-                    currentLocations.toArray(new String[] {}));
-        }
-
-    }
 }

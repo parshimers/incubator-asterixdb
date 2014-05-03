@@ -54,13 +54,26 @@ public class FeedMetricCollector implements IFeedMetricCollector {
     }
 
     @Override
-    public int createReportSender(FeedConnectionId connectionId, FeedRuntimeId runtimeId, ValueType valueType,
-            MetricType metricType) {
+    public synchronized int createReportSender(FeedConnectionId connectionId, FeedRuntimeId runtimeId,
+            ValueType valueType, MetricType metricType) {
         Sender sender = new Sender(senderId.getAndIncrement(), connectionId, runtimeId, valueType, metricType);
         senders.put(sender.senderId, sender);
         sendersByName.put(sender.getDisplayName(), sender);
         return sender.senderId;
 
+    }
+
+    @Override
+    public void removeReportSender(int senderId) {
+        Sender sender = senders.get(senderId);
+        if (sender != null) {
+            statHistory.remove(senderId);
+            senders.remove(senderId);
+        } else {
+            if (LOGGER.isLoggable(Level.WARNING)) {
+                LOGGER.warning("Unable to remove sender Id");
+            }
+        }
     }
 
     @Override
@@ -81,6 +94,19 @@ public class FeedMetricCollector implements IFeedMetricCollector {
         } else {
             if (LOGGER.isLoggable(Level.WARNING)) {
                 LOGGER.warning("Unable to report for sender Id" + senderId + " " + value);
+            }
+        }
+    }
+
+    @Override
+    public void resetReportSender(int senderId) {
+        Sender sender = senders.get(senderId);
+        if (sender != null) {
+            Series series = statHistory.get(sender.senderId);
+            series.reset();
+        } else {
+            if (LOGGER.isLoggable(Level.WARNING)) {
+                LOGGER.warning("Sender with id " + senderId + " not found. Unable to reset!");
             }
         }
     }
@@ -185,6 +211,13 @@ public class FeedMetricCollector implements IFeedMetricCollector {
 
         public int getSize() {
             return nEntries;
+        }
+
+        public void reset() {
+            this.windowBegin = -1;
+            this.windowEnd = -1;
+            this.currentValue = 0;
+            this.nEntries = 0;
         }
     }
 

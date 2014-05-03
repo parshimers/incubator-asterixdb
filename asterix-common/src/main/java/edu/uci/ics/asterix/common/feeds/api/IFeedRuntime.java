@@ -39,7 +39,8 @@ public interface IFeedRuntime {
         POST_SPILL_DISCARD,
         PROCESS_BACKLOG,
         STALL,
-        FAIL
+        FAIL,
+        END
     }
 
     /**

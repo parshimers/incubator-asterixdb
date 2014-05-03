@@ -14,8 +14,6 @@
  */
 package edu.uci.ics.asterix.metadata.feeds;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -88,8 +86,7 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                     break;
                 case PREPARE_STALL: {
                     PrepareStallMessage prepareStallMessage = (PrepareStallMessage) message;
-                    FeedConnectionId connectionId = prepareStallMessage.getConnectionId();
-                    handlePrepareStallMessage(connectionId);
+                    handlePrepareStallMessage(prepareStallMessage);
                     break;
                 }
                 case TERMINATE_FLOW: {
@@ -129,12 +126,23 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
         }
     }
 
-    private void handlePrepareStallMessage(FeedConnectionId connectionId) throws HyracksDataException {
+    private void handlePrepareStallMessage(PrepareStallMessage prepareStallMessage) throws HyracksDataException {
+        FeedConnectionId connectionId = prepareStallMessage.getConnectionId();
+        int computePartitionsRetainLimit = prepareStallMessage.getComputePartitionsRetainLimit();
         FeedRuntimeManager runtimeManager = feedManager.getFeedConnectionManager().getFeedRuntimeManager(connectionId);
         Set<FeedRuntimeId> feedRuntimes = runtimeManager.getFeedRuntimes();
         for (FeedRuntimeId runtimeId : feedRuntimes) {
             FeedRuntime runtime = runtimeManager.getFeedRuntime(runtimeId);
-            runtime.setMode(Mode.STALL);
+            switch (runtimeId.getFeedRuntimeType()) {
+                case COMPUTE:
+                    Mode requiredMode = runtimeId.getPartition() <= computePartitionsRetainLimit ? Mode.STALL
+                            : Mode.END;
+                    runtime.setMode(requiredMode);
+                    break;
+                default:
+                    runtime.setMode(Mode.STALL);
+                    break;
+            }
         }
     }
 

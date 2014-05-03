@@ -52,6 +52,8 @@ public class FeedMetaStoreNodePushable extends AbstractUnaryInputUnaryOutputOper
      **/
     private int partition;
 
+    private int nPartitions;
+
     /** Type associated with the core feed operator **/
     private final FeedRuntimeType runtimeType = FeedRuntimeType.STORE;
 
@@ -74,6 +76,7 @@ public class FeedMetaStoreNodePushable extends AbstractUnaryInputUnaryOutputOper
                 .createPushRuntime(ctx, recordDescProvider, partition, nPartitions);
         this.policyEnforcer = new FeedPolicyEnforcer(feedConnectionId, feedPolicyProperties);
         this.partition = partition;
+        this.nPartitions = nPartitions;
         this.connectionId = feedConnectionId;
         this.feedManager = ((IAsterixAppRuntimeContext) (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject()).getFeedManager();
@@ -107,7 +110,8 @@ public class FeedMetaStoreNodePushable extends AbstractUnaryInputUnaryOutputOper
         }
         this.fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
         this.inputSideHandler = new FeedRuntimeInputHandler(connectionId, runtimeId, coreOperator,
-                policyEnforcer.getFeedPolicyAccessor(), true, ctx.getFrameSize(), fta, recordDesc, feedManager);
+                policyEnforcer.getFeedPolicyAccessor(), true, ctx.getFrameSize(), fta, recordDesc, feedManager,
+                nPartitions);
         setupBasicRuntime(inputSideHandler);
     }
 
@@ -115,6 +119,7 @@ public class FeedMetaStoreNodePushable extends AbstractUnaryInputUnaryOutputOper
         this.inputSideHandler = feedRuntime.getInputHandler();
         this.fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
         coreOperator.setOutputFrameWriter(0, writer, recordDesc);
+        this.inputSideHandler.resetMetrics();
         feedRuntime.setMode(Mode.PROCESS);
         if (LOGGER.isLoggable(Level.WARNING)) {
             LOGGER.warning("Retreived state from the zombie instance from previous execution for " + runtimeType

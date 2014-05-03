@@ -52,6 +52,8 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
      **/
     private int partition;
 
+    private int nPartitions;
+
     /** Type associated with the core feed operator **/
     private final FeedRuntimeType runtimeType = FeedRuntimeType.OTHER;
 
@@ -74,6 +76,7 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
                 .createPushRuntime(ctx, recordDescProvider, partition, nPartitions);
         this.policyEnforcer = new FeedPolicyEnforcer(feedConnectionId, feedPolicyProperties);
         this.partition = partition;
+        this.nPartitions = nPartitions;
         this.connectionId = feedConnectionId;
         this.feedManager = ((IAsterixAppRuntimeContext) (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject()).getFeedManager();
@@ -106,7 +109,8 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
         }
         this.fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
         this.inputSideHandler = new FeedRuntimeInputHandler(connectionId, runtimeId, coreOperator,
-                policyEnforcer.getFeedPolicyAccessor(), false, ctx.getFrameSize(), fta, recordDesc, feedManager);
+                policyEnforcer.getFeedPolicyAccessor(), false, ctx.getFrameSize(), fta, recordDesc, feedManager,
+                nPartitions);
         setupBasicRuntime(inputSideHandler);
     }
 

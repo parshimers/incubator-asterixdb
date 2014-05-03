@@ -53,16 +53,18 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
     private final IFeedManager feedManager;
     private final ISubscribableRuntime sourceRuntime;
     private final IHyracksTaskContext ctx;
+    private final int nPartitions;
     private RecordDescriptor outputRecordDescriptor;
     private FeedRuntimeInputHandler inputSideHandler;
 
     private CollectionRuntime collectRuntime;
 
     public FeedCollectOperatorNodePushable(IHyracksTaskContext ctx, FeedId sourceFeedId,
-            FeedConnectionId feedConnectionId, Map<String, String> feedPolicy, int partition,
+            FeedConnectionId feedConnectionId, Map<String, String> feedPolicy, int partition, int nPartitions,
             ISubscribableRuntime sourceRuntime) {
         this.ctx = ctx;
         this.partition = partition;
+        this.nPartitions = nPartitions;
         this.connectionId = feedConnectionId;
         this.sourceRuntime = sourceRuntime;
         this.feedPolicy = feedPolicy;
@@ -94,6 +96,7 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
                 feedManager.getFeedConnectionManager().deRegisterFeedRuntime(connectionId,
                         collectRuntime.getRuntimeId());
                 writer.close();
+                inputSideHandler.close();
             } else if (state.equals(State.HANDOVER)) {
                 inputSideHandler.setMode(Mode.STALL);
                 writer.close();
@@ -102,7 +105,6 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
                             + " and the output writer " + writer + " has been closed ");
                 }
             }
-            System.out.println("ENDING COLLECT OPERATOR " + collectRuntime.getRuntimeId());
         } catch (InterruptedException ie) {
             handleInterruptedException(ie);
         } catch (Exception e) {
@@ -135,7 +137,7 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
 
         inputSideHandler = new FeedRuntimeInputHandler(connectionId, runtimeId, outputSideWriter,
                 policyEnforcer.getFeedPolicyAccessor(), false, ctx.getFrameSize(), new FrameTupleAccessor(
-                        ctx.getFrameSize(), recordDesc), recordDesc, feedManager);
+                        ctx.getFrameSize(), recordDesc), recordDesc, feedManager, nPartitions);
 
         collectRuntime = new CollectionRuntime(connectionId, runtimeId, inputSideHandler, outputSideWriter,
                 sourceRuntime, feedPolicy);
@@ -175,7 +177,7 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
 
         inputSideHandler = new FeedRuntimeInputHandler(connectionId, runtimeId, wrapper,
                 policyEnforcer.getFeedPolicyAccessor(), false, ctx.getFrameSize(), new FrameTupleAccessor(
-                        ctx.getFrameSize(), recordDesc), recordDesc, feedManager);
+                        ctx.getFrameSize(), recordDesc), recordDesc, feedManager, nPartitions);
 
         collectRuntime = new CollectionRuntime(connectionId, runtimeId, inputSideHandler, wrapper, sourceRuntime,
                 feedPolicy);

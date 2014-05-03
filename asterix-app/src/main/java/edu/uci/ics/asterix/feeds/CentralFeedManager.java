@@ -34,6 +34,7 @@ import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedCongestionMessage;
 import edu.uci.ics.asterix.common.feeds.MessageReceiver;
 import edu.uci.ics.asterix.common.feeds.NodeLoadReport;
+import edu.uci.ics.asterix.common.feeds.ScaleInReportMessage;
 import edu.uci.ics.asterix.common.feeds.api.ICentralFeedManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLoadManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMessage;
@@ -120,6 +121,13 @@ public class CentralFeedManager implements ICentralFeedManager {
                     NodeLoadReport r = new NodeLoadReport(obj.getString(IFeedMessage.Constants.NODE_ID),
                             (float) obj.getDouble(IFeedMessage.Constants.CPU_LOAD));
                     feedLoadManager.submitNodeLoadReport(r);
+                    break;
+                case SCALE_IN_POSSIBLE:
+                    if (LOGGER.isLoggable(Level.INFO)) {
+                        LOGGER.info("Received ScaleInReportMessage " + obj);
+                    }
+                    ScaleInReportMessage sm = ScaleInReportMessage.read(obj);
+                    feedLoadManager.submitScaleInPossibleReport(sm);
                     break;
                 default:
                     break;

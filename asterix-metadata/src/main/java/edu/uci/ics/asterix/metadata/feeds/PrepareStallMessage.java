@@ -31,9 +31,12 @@ public class PrepareStallMessage extends FeedMessage {
 
     private final FeedConnectionId connectionId;
 
-    public PrepareStallMessage(FeedConnectionId connectionId) {
+    private final int computePartitionsRetainLimit;
+
+    public PrepareStallMessage(FeedConnectionId connectionId, int computePartitionsRetainLimit) {
         super(MessageType.PREPARE_STALL);
         this.connectionId = connectionId;
+        this.computePartitionsRetainLimit = computePartitionsRetainLimit;
     }
 
     @Override
@@ -48,11 +51,16 @@ public class PrepareStallMessage extends FeedMessage {
         obj.put(IFeedMessage.Constants.DATAVERSE, connectionId.getFeedId().getDataverse());
         obj.put(IFeedMessage.Constants.FEED, connectionId.getFeedId().getFeedName());
         obj.put(IFeedMessage.Constants.DATASET, connectionId.getDatasetName());
+        obj.put(IFeedMessage.Constants.COMPUTE_PARTITION_RETAIN_LIMIT, computePartitionsRetainLimit);
         return obj;
     }
 
     public FeedConnectionId getConnectionId() {
         return connectionId;
+    }
+
+    public int getComputePartitionsRetainLimit() {
+        return computePartitionsRetainLimit;
     }
 
 }

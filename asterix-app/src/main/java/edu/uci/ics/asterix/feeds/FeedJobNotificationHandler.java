@@ -46,6 +46,7 @@ import edu.uci.ics.asterix.common.feeds.api.IFeedJoint.State;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleEventSubscriber;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleEventSubscriber.FeedLifecycleEvent;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMessage;
+import edu.uci.ics.asterix.feeds.FeedJobNotificationHandler.FeedJobState;
 import edu.uci.ics.asterix.feeds.FeedLifecycleListener.Message;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
@@ -78,6 +79,12 @@ public class FeedJobNotificationHandler implements Runnable {
 
     private static final Logger LOGGER = Logger.getLogger(FeedJobNotificationHandler.class.getName());
 
+    public enum FeedJobState {
+        ACTIVE,
+        CONGESTION_REPORTED,
+        UNDER_RECOVERY
+    }
+
     private final Executor executor = Executors.newCachedThreadPool();
     private final LinkedBlockingQueue<Message> inbox;
     private final FeedMessenger feedMessenger;
@@ -92,6 +99,7 @@ public class FeedJobNotificationHandler implements Runnable {
     private final Map<FeedConnectionId, FeedJointKey> feedConnections;
     private final List<JobId> registeredJobs;
     private final Map<FeedConnectionId, JobSpecification> collectFeedJobs;
+    private final Map<JobId, FeedJobState> jobStates;
     private final Map<FeedConnectionId, List<IFeedLifecycleEventSubscriber>> registeredFeedEventSubscribers;
 
     public FeedJobNotificationHandler(LinkedBlockingQueue<Message> inbox) {
@@ -107,6 +115,7 @@ public class FeedJobNotificationHandler implements Runnable {
         this.feedConnections = new HashMap<FeedConnectionId, FeedJointKey>();
         this.registeredJobs = new ArrayList<JobId>();
         this.collectFeedJobs = new HashMap<FeedConnectionId, JobSpecification>();
+        this.jobStates = new HashMap<JobId, FeedJobState>();
         this.registeredFeedEventSubscribers = new HashMap<FeedConnectionId, List<IFeedLifecycleEventSubscriber>>();
     }
 
@@ -407,9 +416,17 @@ public class FeedJobNotificationHandler implements Runnable {
         return feedConnections.get(connectionId) != null;
     }
 
+    public void setJobState(JobId jobId, FeedJobState jobState) {
+        jobStates.put(jobId, jobState);
+    }
+
+    public FeedJobState getFeedJobState(JobId jobId) {
+        return jobStates.get(jobId);
+    }
+
     private void handleFeedCollectJobStartMessage(FeedSubscriber subscriber, Message message) {
         JobId jobId = message.jobId;
-
+        jobStates.put(jobId, FeedJobState.ACTIVE);
         JobSpecification jobSpec = subscriber.getJobSpec();
 
         List<OperatorDescriptorId> collectOperatorIds = new ArrayList<OperatorDescriptorId>();
@@ -546,8 +563,18 @@ public class FeedJobNotificationHandler implements Runnable {
     }
 
     private void handleFeedCollectJobFinishMessage(FeedSubscriber subscriber, Message message) throws Exception {
+        FeedJobState jobState = jobStates.get(message.jobId);
+        if (jobState.equals(FeedJobState.UNDER_RECOVERY)) {
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Ignoring feed collect job finish notification as it is under recovery");
+            }
+            deregisterFeedActivity(subscriber);
+            return;
+        }
+
         IHyracksClientConnection hcc = AsterixAppContextInfo.getInstance().getHcc();
         JobInfo info = hcc.getJobInfo(message.jobId);
+
         JobStatus status = info.getStatus();
         boolean failure = status != null && status.equals(JobStatus.FAILURE);
         FeedPolicyAccessor fpa = new FeedPolicyAccessor(subscriber.getFeedPolicyParameters());
@@ -769,4 +796,13 @@ public class FeedJobNotificationHandler implements Runnable {
     public List<String> getFeedStorageLocations(FeedConnectionId connectionId) {
         return connectionSubscriberMap.get(connectionId).getFeedConnectionInfo().getStorageLocations();
     }
+
+    public JobId getFeedCollectJobId(FeedConnectionId connectionId) {
+        FeedSubscriber subscriber = connectionSubscriberMap.get(connectionId);
+        if (subscriber != null) {
+            return subscriber.getJobId();
+        }
+        return null;
+    }
+
 }

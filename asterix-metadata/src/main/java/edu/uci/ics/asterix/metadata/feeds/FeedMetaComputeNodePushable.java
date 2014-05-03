@@ -57,6 +57,8 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
      **/
     private int partition;
 
+    private int nPartitions;
+
     /** The (singleton) instance of IFeedManager **/
     private IFeedManager feedManager;
 
@@ -78,6 +80,7 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
                 .createPushRuntime(ctx, recordDescProvider, partition, nPartitions);
         this.policyEnforcer = new FeedPolicyEnforcer(feedConnectionId, feedPolicyProperties);
         this.partition = partition;
+        this.nPartitions = nPartitions;
         this.connectionId = feedConnectionId;
         this.feedManager = ((IAsterixAppRuntimeContext) (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject()).getFeedManager();
@@ -107,11 +110,13 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
 
     private void initializeNewFeedRuntime(FeedRuntimeId runtimeId) throws Exception {
         if (LOGGER.isLoggable(Level.WARNING)) {
-            LOGGER.warning("Runtime not found for  " + runtimeId + " connection id " + connectionId);
+            LOGGER.warning("Runtime not found for  " + runtimeId + "[" + partition + "]" + "connection id "
+                    + connectionId);
         }
         this.fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
         this.inputSideHandler = new FeedRuntimeInputHandler(connectionId, runtimeId, coreOperator,
-                policyEnforcer.getFeedPolicyAccessor(), true, ctx.getFrameSize(), fta, recordDesc, feedManager);
+                policyEnforcer.getFeedPolicyAccessor(), true, ctx.getFrameSize(), fta, recordDesc, feedManager,
+                nPartitions);
 
         DistributeFeedFrameWriter distributeWriter = new DistributeFeedFrameWriter(connectionId.getFeedId(), writer,
                 runtimeType, partition, new FrameTupleAccessor(ctx.getFrameSize(), recordDesc), feedManager,
@@ -128,11 +133,12 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
 
     private void reviveOldFeedRuntime(FeedRuntimeId runtimeId) throws Exception {
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Reviving old state from zombie instance  " + runtimeType + " mode "
+            LOGGER.info("Reviving old state from zombie instance  " + runtimeType + "[" + partition + "]" + " mode "
                     + feedRuntime.getInputHandler().getMode());
         }
         this.fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
         this.inputSideHandler = feedRuntime.getInputHandler();
+        this.inputSideHandler.setCoreOperator(coreOperator);
 
         DistributeFeedFrameWriter distributeWriter = new DistributeFeedFrameWriter(connectionId.getFeedId(), writer,
                 runtimeType, partition, new FrameTupleAccessor(ctx.getFrameSize(), recordDesc), feedManager,
@@ -140,6 +146,8 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
         coreOperator.setOutputFrameWriter(0, distributeWriter, recordDesc);
         distributeWriter.subscribeFeed(policyEnforcer.getFeedPolicyAccessor(), writer, connectionId);
 
+        inputSideHandler.resetMetrics();
+        inputSideHandler.resetNumberOfPartitions(nPartitions);
         feedRuntime.setMode(Mode.PROCESS);
     }
 
@@ -166,15 +174,17 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
     public void close() throws HyracksDataException {
         System.out.println("CLOSE CALLED FOR " + this.feedRuntime.getRuntimeId());
         boolean stalled = inputSideHandler.getMode().equals(Mode.STALL);
+        boolean end = inputSideHandler.getMode().equals(Mode.END);
         try {
             if (inputSideHandler != null) {
-                if (!stalled) {
+                if (!(stalled || end)) {
                     inputSideHandler.nextFrame(null); // signal end of data
                     while (!inputSideHandler.isFinished()) {
                         synchronized (coreOperator) {
                             coreOperator.wait();
                         }
                     }
+                    // inputSideHandler.close();
                 }
             }
             coreOperator.close();

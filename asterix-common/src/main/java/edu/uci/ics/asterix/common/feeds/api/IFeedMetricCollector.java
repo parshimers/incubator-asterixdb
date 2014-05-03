@@ -34,9 +34,13 @@ public interface IFeedMetricCollector {
 
     public int getMetric(int senderId);
 
-    int getMetric(FeedConnectionId connectionId, FeedRuntimeId runtimeId, ValueType valueType);
+    public int getMetric(FeedConnectionId connectionId, FeedRuntimeId runtimeId, ValueType valueType);
 
     int createReportSender(FeedConnectionId connectionId, FeedRuntimeId runtimeId, ValueType valueType,
             MetricType metricType);
+
+    public void removeReportSender(int senderId);
+
+    public void resetReportSender(int senderId);
 
 }
