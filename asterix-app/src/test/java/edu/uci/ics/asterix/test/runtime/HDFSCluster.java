@@ -67,7 +67,7 @@ public class HDFSCluster {
         //this constructor is deprecated in hadoop 2x 
         //dfsCluster = new MiniDFSCluster(nameNodePort, conf, numDataNodes, true, true, StartupOption.REGULAR, null);
         MiniDFSCluster.Builder build = new MiniDFSCluster.Builder(conf);
-        build.nameNodeHttpPort(nameNodePort);
+        build.nameNodePort(nameNodePort);
         build.numDataNodes(numDataNodes);
         build.startupOption(StartupOption.REGULAR);
         dfsCluster = build.build();
