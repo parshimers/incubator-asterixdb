@@ -14,12 +14,8 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -30,37 +26,28 @@ public class FeedMetricCollector implements IFeedMetricCollector {
 
     private static final Logger LOGGER = Logger.getLogger(FeedMetricCollector.class.getName());
 
-    private final String nodeId;
-
-    private final AtomicInteger senderId = new AtomicInteger(1);
-
-    private final Map<Integer, Sender> senders = new HashMap<Integer, Sender>();
-
-    private final Map<Integer, Series> statHistory = new HashMap<Integer, Series>();
-
-    private static final long METRIC_ANALYSIS_PERIODICITY = 1000; // 1 second
-
-    private final Timer timer;
-
     private static final int UNKNOWN = -1;
 
-    private Map<String, Sender> sendersByName;
+    private final String nodeId;
+    private final AtomicInteger globalSenderId = new AtomicInteger(1);
+    private final Map<Integer, Sender> senders = new HashMap<Integer, Sender>();
+    private final Map<Integer, Series> statHistory = new HashMap<Integer, Series>();
+    private final Map<String, Sender> sendersByName = new HashMap<String, Sender>();
 
     public FeedMetricCollector(String nodeId) {
         this.nodeId = nodeId;
-        sendersByName = new HashMap<String, Sender>();
-        this.timer = new Timer();
-        //timer.scheduleAtFixedRate(new ProcessCollectedStats(), 0, METRIC_ANALYSIS_PERIODICITY);
     }
 
     @Override
     public synchronized int createReportSender(FeedConnectionId connectionId, FeedRuntimeId runtimeId,
             ValueType valueType, MetricType metricType) {
-        Sender sender = new Sender(senderId.getAndIncrement(), connectionId, runtimeId, valueType, metricType);
+        Sender sender = new Sender(globalSenderId.getAndIncrement(), connectionId, runtimeId, valueType, metricType);
         senders.put(sender.senderId, sender);
         sendersByName.put(sender.getDisplayName(), sender);
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Sender id " + sender.getSenderId() + " created for " + sender);
+        }
         return sender.senderId;
-
     }
 
     @Override
@@ -73,16 +60,12 @@ public class FeedMetricCollector implements IFeedMetricCollector {
             if (LOGGER.isLoggable(Level.WARNING)) {
                 LOGGER.warning("Unable to remove sender Id");
             }
+            throw new IllegalStateException("Unable to remove sender Id " + senderId + " senders " + senders);
         }
     }
 
     @Override
-    public String toString() {
-        return "FeedMetricCollector" + " [" + nodeId + "]";
-    }
-
-    @Override
-    public void sendReport(int senderId, int value) {
+    public boolean sendReport(int senderId, int value) {
         Sender sender = senders.get(senderId);
         if (sender != null) {
             Series series = statHistory.get(sender.senderId);
@@ -91,11 +74,11 @@ public class FeedMetricCollector implements IFeedMetricCollector {
                 statHistory.put(sender.senderId, series);
             }
             series.addValue(value);
-        } else {
-            if (LOGGER.isLoggable(Level.WARNING)) {
-                LOGGER.warning("Unable to report for sender Id" + senderId + " " + value);
-            }
+            return true;
         }
+        throw new IllegalStateException("Unable to send report sender Id " + senderId + " senders " + senders);
+
+        //        return false;
     }
 
     @Override
@@ -103,11 +86,14 @@ public class FeedMetricCollector implements IFeedMetricCollector {
         Sender sender = senders.get(senderId);
         if (sender != null) {
             Series series = statHistory.get(sender.senderId);
-            series.reset();
+            if (series != null) {
+                series.reset();
+            }
         } else {
             if (LOGGER.isLoggable(Level.WARNING)) {
                 LOGGER.warning("Sender with id " + senderId + " not found. Unable to reset!");
             }
+            throw new IllegalStateException("Unable to reset sender Id " + senderId + " senders " + senders);
         }
     }
 
@@ -191,22 +177,11 @@ public class FeedMetricCollector implements IFeedMetricCollector {
         }
 
         public synchronized float getAvg() {
-            int sum = getSum();
-            return ((float) sum) / nEntries;
-        }
-
-        public synchronized int getSum() {
-            return currentValue;
+            return ((float) currentValue) / nEntries;
         }
 
         public synchronized float getRate() {
-            if (nEntries < 0) { // first window
-                return UNKNOWN;
-            }
-            int sum = currentValue;
-            long timeElapsed = windowEnd - windowBegin;
-            float result = ((float) (sum * 1000) / timeElapsed);
-            return result;
+            return nEntries == 0 ? UNKNOWN : ((float) (currentValue * 1000) / (windowEnd - windowBegin));
         }
 
         public int getSize() {
@@ -218,36 +193,6 @@ public class FeedMetricCollector implements IFeedMetricCollector {
             this.windowEnd = -1;
             this.currentValue = 0;
             this.nEntries = 0;
-        }
-    }
-
-    private class ProcessCollectedStats extends TimerTask {
-
-        private final StringBuilder report = new StringBuilder();
-
-        @Override
-        public void run() {
-            int result = -1;
-            Date d = new Date();
-            for (Entry<Integer, Sender> entry : senders.entrySet()) {
-                Sender sender = entry.getValue();
-                Series series = statHistory.get(sender.senderId);
-                try {
-                    result = getMetric(sender.senderId);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    result = UNKNOWN;
-                }
-                if (result == UNKNOWN) {
-                    continue;
-                }
-                series.markBeginning();
-                report.append(d.toString() + sender.displayName + ": " + result + " " + sender.mType + "\n");
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info(report.toString());
-                }
-                report.delete(0, report.length() - 1);
-            }
         }
     }
 

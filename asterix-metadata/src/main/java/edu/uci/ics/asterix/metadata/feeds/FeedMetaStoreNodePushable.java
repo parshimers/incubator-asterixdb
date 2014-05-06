@@ -119,7 +119,8 @@ public class FeedMetaStoreNodePushable extends AbstractUnaryInputUnaryOutputOper
         this.inputSideHandler = feedRuntime.getInputHandler();
         this.fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
         coreOperator.setOutputFrameWriter(0, writer, recordDesc);
-        this.inputSideHandler.resetMetrics();
+        this.inputSideHandler.reset(nPartitions);
+        this.inputSideHandler.setCoreOperator(coreOperator);
         feedRuntime.setMode(Mode.PROCESS);
         if (LOGGER.isLoggable(Level.WARNING)) {
             LOGGER.warning("Retreived state from the zombie instance from previous execution for " + runtimeType
@@ -159,12 +160,15 @@ public class FeedMetaStoreNodePushable extends AbstractUnaryInputUnaryOutputOper
         boolean stalled = inputSideHandler.getMode().equals(Mode.STALL);
         try {
             if (!stalled) {
+                System.out.println("SIGNALLING END OF DATA for " + this.feedRuntime.getRuntimeId() + " mode is "
+                        + inputSideHandler.getMode() + " WAITING ON " + coreOperator);
                 inputSideHandler.nextFrame(null); // signal end of data
                 while (!inputSideHandler.isFinished()) {
                     synchronized (coreOperator) {
                         coreOperator.wait();
                     }
                 }
+                System.out.println("ABOUT TO CLOSE OPERATOR  " + coreOperator);
             }
             coreOperator.close();
         } catch (Exception e) {

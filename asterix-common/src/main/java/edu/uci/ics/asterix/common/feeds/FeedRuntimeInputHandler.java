@@ -26,7 +26,6 @@ import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMemoryComponent;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
-import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -52,11 +51,9 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
     private final FeedFrameSpiller spiller;
     private boolean finished;
     private long nProcessed;
-    private final FrameTupleAccessor fta;
     private final FeedPolicyAccessor fpa;
     private final IFeedManager feedManager;
     private FrameEventCallback frameEventCallback;
-    private int nPartitions;
 
     public FeedRuntimeInputHandler(FeedConnectionId connectionId, FeedRuntimeId runtimeId, IFrameWriter coreOperator,
             FeedPolicyAccessor fpa, boolean bufferingEnabled, int frameSize, FrameTupleAccessor fta,
@@ -73,29 +70,16 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
         this.lastMode = Mode.PROCESS;
         this.finished = false;
         this.fpa = fpa;
-        this.fta = fta;
         this.feedManager = feedManager;
-        this.nPartitions = nPartitions;
         this.pool = (DataBucketPool) feedManager.getFeedMemoryManager().getMemoryComponent(
                 IFeedMemoryComponent.Type.POOL);
         this.frameCollection = (FrameCollection) feedManager.getFeedMemoryManager().getMemoryComponent(
                 IFeedMemoryComponent.Type.COLLECTION);
         this.frameEventCallback = new FrameEventCallback(fpa, this, coreOperator);
-
-        // if (bufferingEnabled) {
         mBuffer = new MonitoredBuffer(this, coreOperator, fta, frameSize, recordDesc,
                 feedManager.getFeedMetricCollector(), connectionId, runtimeId, exceptionHandler, frameEventCallback,
                 nPartitions);
         mBuffer.start();
-        // }
-    }
-
-    public void resetNumberOfPartitions(int nPartitions) {
-        this.nPartitions = nPartitions;
-        this.mBuffer.setNumberOfPartitions(nPartitions);
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Reset number of partitions to " + nPartitions);
-        }
     }
 
     public synchronized void nextFrame(ByteBuffer frame) throws HyracksDataException {
@@ -168,16 +152,16 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
                             break;
                     }
                     break;
+                case END:
+                case FAIL:
+                    if (LOGGER.isLoggable(Level.WARNING)) {
+                        LOGGER.warning("Ignoring incoming tuples in " + mode + " mode");
+                    }
+                    break;
             }
         } catch (Exception e) {
             e.printStackTrace();
             throw new HyracksDataException(e);
-        }
-    }
-
-    public void resetMetrics() {
-        if (mBuffer != null) {
-            mBuffer.resetMetrics();
         }
     }
 
@@ -336,72 +320,6 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
         }
     }
 
-    private static class FrameEventCallback implements IFrameEventCallback {
-
-        private static final Logger LOGGER = Logger.getLogger(FrameEventCallback.class.getName());
-
-        private final FeedPolicyAccessor fpa;
-        private final FeedRuntimeInputHandler inputSideHandler;
-        private IFrameWriter coreOperator;
-
-        public FrameEventCallback(FeedPolicyAccessor fpa, FeedRuntimeInputHandler inputSideHandler,
-                IFrameWriter coreOperator) {
-            this.fpa = fpa;
-            this.inputSideHandler = inputSideHandler;
-            this.coreOperator = coreOperator;
-        }
-
-        @Override
-        public void frameEvent(FrameEvent event) {
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Frame Event for " + inputSideHandler.getRuntimeId() + " " + event);
-            }
-            if (!event.equals(FrameEvent.FINISHED_PROCESSING_SPILLAGE)
-                    && inputSideHandler.getMode().equals(Mode.PROCESS_SPILL)) {
-                return;
-            }
-            switch (event) {
-                case PENDING_WORK_THRESHOLD_REACHED:
-                    if (fpa.spillToDiskOnCongestion()) {
-                        inputSideHandler.setMode(Mode.SPILL);
-                    } else {
-                        inputSideHandler.setMode(Mode.DISCARD);
-                    }
-                    break;
-                case FINISHED_PROCESSING:
-                    inputSideHandler.setFinished(true);
-                    synchronized (coreOperator) {
-                        coreOperator.notifyAll();
-                    }
-                    break;
-                case PENDING_WORK_DONE:
-                    switch (inputSideHandler.getMode()) {
-                        case SPILL:
-                        case DISCARD:
-                        case POST_SPILL_DISCARD:
-                            inputSideHandler.setMode(Mode.PROCESS);
-                            break;
-                        default:
-                            if (LOGGER.isLoggable(Level.INFO)) {
-                                LOGGER.info("Received " + event + " ignoring as operating in "
-                                        + inputSideHandler.getMode());
-                            }
-                    }
-                    break;
-                case FINISHED_PROCESSING_SPILLAGE:
-                    inputSideHandler.setMode(Mode.PROCESS);
-                    break;
-                default:
-                    break;
-            }
-        }
-
-        public void setCoreOperator(IFrameWriter coreOperator) {
-            this.coreOperator = coreOperator;
-        }
-
-    }
-
     public IFrameWriter getCoreOperator() {
         return coreOperator;
     }
@@ -438,8 +356,14 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
         coreOperator.fail();
     }
 
-    public void reset(IFrameWriter frameWriter) {
-        this.coreOperator = frameWriter;
+    public void reset(int nPartitions) {
+        this.mBuffer.setNumberOfPartitions(nPartitions);
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Reset number of partitions to " + nPartitions);
+        }
+        if (mBuffer != null) {
+            mBuffer.resetMetrics();
+        }
     }
 
     public FeedConnectionId getConnectionId() {

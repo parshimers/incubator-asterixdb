@@ -144,7 +144,7 @@ public class MessageListener {
                             ch = (char) in.read();
                         }
                         buffer.flip();
-                        String s = new String(buffer.array());
+                        String s = new String(buffer.array(), 0, buffer.limit());
                         synchronized (outbox) {
                             outbox.add(s + "\n");
                         }

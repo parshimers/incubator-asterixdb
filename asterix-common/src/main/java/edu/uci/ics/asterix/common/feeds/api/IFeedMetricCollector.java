@@ -30,7 +30,7 @@ public interface IFeedMetricCollector {
         RATE
     }
 
-    public void sendReport(int senderId, int value);
+    public boolean sendReport(int senderId, int value);
 
     public int getMetric(int senderId);
 

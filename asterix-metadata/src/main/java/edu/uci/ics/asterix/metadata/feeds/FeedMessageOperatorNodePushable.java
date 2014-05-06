@@ -112,7 +112,6 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
         boolean found = false;
         for (FeedRuntimeId runtimeId : feedRuntimes) {
             FeedRuntime runtime = runtimeManager.getFeedRuntime(runtimeId);
-            System.out.println("Examning " + runtime.getRuntimeId());
             if (runtime.getRuntimeId().getRuntimeType().equals(FeedRuntimeType.COLLECT)) {
                 ((CollectionRuntime) runtime).getFrameCollector().setState(State.HANDOVER);
                 found = true;

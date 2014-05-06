@@ -146,8 +146,7 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
         coreOperator.setOutputFrameWriter(0, distributeWriter, recordDesc);
         distributeWriter.subscribeFeed(policyEnforcer.getFeedPolicyAccessor(), writer, connectionId);
 
-        inputSideHandler.resetMetrics();
-        inputSideHandler.resetNumberOfPartitions(nPartitions);
+        inputSideHandler.reset(nPartitions);
         feedRuntime.setMode(Mode.PROCESS);
     }
 

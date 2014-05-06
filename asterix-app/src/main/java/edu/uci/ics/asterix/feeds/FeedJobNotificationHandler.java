@@ -572,6 +572,10 @@ public class FeedJobNotificationHandler implements Runnable {
             return;
         }
 
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Processing feed collect job finish notification for Job Id " + message.jobId);
+        }
+
         IHyracksClientConnection hcc = AsterixAppContextInfo.getInstance().getHcc();
         JobInfo info = hcc.getJobInfo(message.jobId);
 

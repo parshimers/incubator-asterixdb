@@ -46,20 +46,16 @@ public class MonitoredBufferTimerTasks {
 
         @Override
         public void run() {
+            int pendingWork = mBuffer.getWorkSize();
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info(mBuffer.getRuntimeId() + " " + "Outflow rate:" + mBuffer.getOutflowRate() + " Inflow Rate:"
-                        + mBuffer.getInflowRate());
+                        + mBuffer.getInflowRate() + " Pending Work " + pendingWork);
             }
-            int pendingWork = mBuffer.getWorkSize();
             if (mBuffer.getMode().equals(Mode.PROCESS_SPILL) || mBuffer.getMode().equals(Mode.PROCESS_BACKLOG)) {
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Not acting while spillage processing in progress " + pendingWork);
                 }
                 return;
-            }
-
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Pending work for " + mBuffer.getRuntimeId() + " " + pendingWork);
             }
 
             switch (lastEvent) {
@@ -121,17 +117,24 @@ public class MonitoredBufferTimerTasks {
         @Override
         public void run() {
             if (!proposedChange) {
-                mBuffer.setEvaluateProcessingRate(true);
+                mBuffer.setProcessingRateEnabled(true);
                 int inflowRate = mBuffer.getInflowRate();
                 int procRate = mBuffer.getProcessingRate();
-                if (inflowRate > 0 && procRate > 0 && inflowRate < procRate) {
-                    int possibleCardinality = (int) Math.ceil(nPartitions * inflowRate / (double) procRate);
-                    if (possibleCardinality < nPartitions) {
-                        sMessage.reset(nPartitions, possibleCardinality);
-                        feedManager.getFeedMessageService().sendMessage(sMessage);
-                        proposedChange = true;
+                if (inflowRate > 0 && procRate > 0) {
+                    if (inflowRate < procRate) {
+                        int possibleCardinality = (int) Math.ceil(nPartitions * inflowRate / (double) procRate);
+                        if (possibleCardinality < nPartitions) {
+                            sMessage.reset(nPartitions, possibleCardinality);
+                            feedManager.getFeedMessageService().sendMessage(sMessage);
+                            proposedChange = true;
+                            mBuffer.setProcessingRateEnabled(false);
+                            if (LOGGER.isLoggable(Level.INFO)) {
+                                LOGGER.info("Proposed scale-in " + sMessage);
+                            }
+                        }
+                    } else {
                         if (LOGGER.isLoggable(Level.INFO)) {
-                            LOGGER.info("Proposed scale-in " + sMessage);
+                            LOGGER.info("Processing Rate exceeds Inflow Rate");
                         }
                     }
                 } else {

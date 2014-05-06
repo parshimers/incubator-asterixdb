@@ -126,9 +126,7 @@ public class FeedLoadManager implements IFeedLoadManager {
         for (String loc : intakeLocations) {
             operatorLocations.add(loc);
         }
-        for (String loc : computeLocations) {
-            operatorLocations.add(loc);
-        }
+        operatorLocations.addAll(computeLocations);
         for (String loc : storageLocations) {
             operatorLocations.add(loc);
         }
@@ -154,6 +152,9 @@ public class FeedLoadManager implements IFeedLoadManager {
             }
             return;
         } else {
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Processing scale-in message " + message);
+            }
             FeedLifecycleListener.INSTANCE.setJobState(jobId, FeedJobState.UNDER_RECOVERY);
             JobSpecification jobSpec = FeedLifecycleListener.INSTANCE.getCollectJobSpecification(message
                     .getConnectionId());
@@ -170,7 +171,7 @@ public class FeedLoadManager implements IFeedLoadManager {
             }
             Thread.sleep(3000);
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Launch modified job for scale-in " + jobSpec);
+                LOGGER.info("Launch modified job for scale-in \n" + jobSpec);
             }
             runJob(jobSpec, false);
         }
