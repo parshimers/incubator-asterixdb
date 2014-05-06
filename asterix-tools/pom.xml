@@ -57,29 +57,6 @@
 				</executions>
 			</plugin>
 			<plugin>
-				<artifactId>maven-jar-plugin</artifactId>
-				<executions>
-					<execution>
-						<id>aoya</id>
-						<goals>
-							<goal>jar</goal>
-						</goals>
-						<phase>package</phase>
-						<configuration>
-							<classifier>aoya</classifier>
-							<archive>
-								<manifest>
-									<MainClass>edu.uci.ics.asterix.tools.aoya.Client</MainClass>
-								</manifest>
-							</archive>
-							<includes>
-								<include>**/uci/ics/asterix/tools/aoya/*</include>
-							</includes>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
 				<artifactId>appassembler-maven-plugin</artifactId>
 				<version>1.0</version>
@@ -203,6 +180,12 @@
 		<dependency>
 			<groupId>edu.uci.ics.asterix</groupId>
 			<artifactId>asterix-metadata</artifactId>
+			<version>0.8.6-SNAPSHOT</version>
+			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>edu.uci.ics.asterix</groupId>
+			<artifactId>asterix-events</artifactId>
 			<version>0.8.6-SNAPSHOT</version>
 			<scope>compile</scope>
 		</dependency>

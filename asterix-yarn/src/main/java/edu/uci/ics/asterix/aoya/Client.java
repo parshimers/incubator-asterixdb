@@ -91,7 +91,7 @@ public class Client {
     // Application master jar file
     private String appMasterJar = "";
     // Main class to invoke application master
-    private final String appMasterMainClass = "edu.uci.ics.asterix.tools.aoya.ApplicationMaster";
+    private final String appMasterMainClass = "edu.uci.ics.asterix.aoya.ApplicationMaster";
 
     //location of distributable asterix tarfile
     private String asterixTar = "";

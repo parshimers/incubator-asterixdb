@@ -46,7 +46,7 @@
 							<classifier>aoya</classifier>
 							<archive>
 								<manifest>
-									<MainClass>edu.uci.ics.asterix.tools.aoya.Client</MainClass>
+									<MainClass>edu.uci.ics.asterix.aoya.Client</MainClass>
 								</manifest>
 							</archive>
 							<includes>
