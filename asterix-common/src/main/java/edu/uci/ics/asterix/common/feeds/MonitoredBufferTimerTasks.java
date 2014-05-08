@@ -47,15 +47,16 @@ public class MonitoredBufferTimerTasks {
         @Override
         public void run() {
             int pendingWork = mBuffer.getWorkSize();
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info(mBuffer.getRuntimeId() + " " + "Outflow rate:" + mBuffer.getOutflowRate() + " Inflow Rate:"
-                        + mBuffer.getInflowRate() + " Pending Work " + pendingWork);
-            }
             if (mBuffer.getMode().equals(Mode.PROCESS_SPILL) || mBuffer.getMode().equals(Mode.PROCESS_BACKLOG)) {
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Not acting while spillage processing in progress " + pendingWork);
                 }
                 return;
+            }
+
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info(mBuffer.getRuntimeId() + " " + "Outflow rate:" + mBuffer.getOutflowRate() + " Inflow Rate:"
+                        + mBuffer.getInflowRate() + " Pending Work " + pendingWork);
             }
 
             switch (lastEvent) {
@@ -117,7 +118,6 @@ public class MonitoredBufferTimerTasks {
         @Override
         public void run() {
             if (!proposedChange) {
-                mBuffer.setProcessingRateEnabled(true);
                 int inflowRate = mBuffer.getInflowRate();
                 int procRate = mBuffer.getProcessingRate();
                 if (inflowRate > 0 && procRate > 0) {
@@ -127,7 +127,6 @@ public class MonitoredBufferTimerTasks {
                             sMessage.reset(nPartitions, possibleCardinality);
                             feedManager.getFeedMessageService().sendMessage(sMessage);
                             proposedChange = true;
-                            mBuffer.setProcessingRateEnabled(false);
                             if (LOGGER.isLoggable(Level.INFO)) {
                                 LOGGER.info("Proposed scale-in " + sMessage);
                             }

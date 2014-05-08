@@ -26,7 +26,7 @@ import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.api.IClusterManagementWork;
 import edu.uci.ics.asterix.common.api.IClusterManagementWorkResponse;
-import edu.uci.ics.asterix.common.feeds.FeedSubscriber;
+import edu.uci.ics.asterix.common.feeds.FeedConnectJobInfo;
 import edu.uci.ics.asterix.common.feeds.api.IFeedJoint;
 import edu.uci.ics.asterix.feeds.FeedLifecycleListener.FailureReport;
 import edu.uci.ics.asterix.metadata.cluster.AddNodeWork;
@@ -119,7 +119,9 @@ public class FeedWorkRequestResponseHandler implements Runnable {
                         List<String> deadNodes = entry.getValue();
                         for (String deadNode : deadNodes) {
                             String replacement = nodeSubstitution.get(deadNode);
-                            replaceNode(feedJoint.getJobSpec(), deadNode, nodeSubstitution.get(deadNode));
+                            JobSpecification spec = FeedLifecycleListener.INSTANCE.getCollectJobSpecification(feedJoint
+                                    .getProvider());
+                            replaceNode(spec, deadNode, nodeSubstitution.get(deadNode));
                             if (LOGGER.isLoggable(Level.INFO)) {
                                 LOGGER.info("Replaced node " + deadNode + " with " + replacement
                                         + " for feed intake joint [" + feedJoint + "]");
@@ -128,20 +130,21 @@ public class FeedWorkRequestResponseHandler implements Runnable {
                         intakeFeedJoints.add(feedJoint);
                     }
 
+                    /*
                     // alter failed feed collect jobs
-                    List<FeedSubscriber> subscribers = new ArrayList<FeedSubscriber>();
-                    for (Pair<FeedSubscriber, List<String>> p : failureReport.getRecoverableSubscribers()) {
-                        FeedSubscriber subscriber = p.first;
+                    List<FeedConnectJobInfo> cInfos = new ArrayList<FeedConnectJobInfo>();
+                    for (Pair<FeedConnectJobInfo, List<String>> p : failureReport.getRecoverableSubscribers()) {
+                        FeedConnectJobInfo cInfo = p.first;
                         List<String> deadNodes = p.second;
                         for (String deadNode : deadNodes) {
                             String replacement = nodeSubstitution.get(deadNode);
-                            replaceNode(subscriber.getJobSpec(), deadNode, replacement);
+                            replaceNode(cInfo.getSpec(), deadNode, replacement);
                             if (LOGGER.isLoggable(Level.INFO)) {
                                 LOGGER.info("Replaced node " + deadNode + " with " + replacement
-                                        + " for feed subscriber [" + subscriber + "]");
+                                        + " for feed subscriber [" + cInfo + "]");
                             }
                         }
-                        subscribers.add(subscriber);
+                        cInfos.add(cInfo);
                     }
 
                     // launch feed intake jobs followed by feed collect jobs
@@ -169,10 +172,10 @@ public class FeedWorkRequestResponseHandler implements Runnable {
                         } catch (Exception e) {
                             if (LOGGER.isLoggable(Level.WARNING)) {
                                 LOGGER.warning("Exception in launching feed collect job "
-                                        + subscriber.getFeedConnectionId());
+                                        + subscriber.getConnectionId());
                             }
                         }
-                    }
+                    }*/
                     break;
                 case REMOVE_NODE:
                     throw new IllegalStateException("Invalid work submitted");

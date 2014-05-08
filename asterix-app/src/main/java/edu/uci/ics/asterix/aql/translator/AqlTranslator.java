@@ -85,7 +85,6 @@ import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FeedJointKey;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
 import edu.uci.ics.asterix.common.feeds.api.IFeedJoint;
-import edu.uci.ics.asterix.common.feeds.api.IFeedJoint.Scope;
 import edu.uci.ics.asterix.common.feeds.api.IFeedJoint.Type;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleEventSubscriber;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleListener.SubscriptionLocation;
@@ -1025,14 +1024,14 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 }
             }
 
-            Map<FeedConnectionId, Triple<JobSpecification, Boolean, Boolean>> disconnectJobList = new HashMap<FeedConnectionId, Triple<JobSpecification, Boolean, Boolean>>();
+            Map<FeedConnectionId, Pair<JobSpecification, Boolean>> disconnectJobList = new HashMap<FeedConnectionId, Pair<JobSpecification, Boolean>>();
             if (ds.getDatasetType() == DatasetType.INTERNAL) {
                 // prepare job spec(s) that would disconnect any active feeds involving the dataset.
                 List<FeedConnectionId> feedConnections = FeedLifecycleListener.INSTANCE.getActiveFeedConnections(null);
                 if (feedConnections != null && !feedConnections.isEmpty()) {
                     for (FeedConnectionId connection : feedConnections) {
-                        Triple<JobSpecification, Boolean, Boolean> p = FeedOperations.buildDisconnectFeedJobSpec(
-                                metadataProvider, connection);
+                        Pair<JobSpecification, Boolean> p = FeedOperations.buildDisconnectFeedJobSpec(metadataProvider,
+                                connection);
                         disconnectJobList.put(connection, p);
                         if (LOGGER.isLoggable(Level.INFO)) {
                             LOGGER.info("Disconnecting feed " + connection.getFeedId().getFeedName() + " from dataset "
@@ -1065,7 +1064,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 progress = ProgressState.ADDED_PENDINGOP_RECORD_TO_METADATA;
 
                 //# disconnect the feeds
-                for (Triple<JobSpecification, Boolean, Boolean> p : disconnectJobList.values()) {
+                for (Pair<JobSpecification, Boolean> p : disconnectJobList.values()) {
                     runJob(hcc, p.first, true);
                 }
 
@@ -1076,15 +1075,13 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
                 mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
                 bActiveTxn = true;
-                for (Entry<FeedConnectionId, Triple<JobSpecification, Boolean, Boolean>> entry : disconnectJobList
-                        .entrySet()) {
+                for (Entry<FeedConnectionId, Pair<JobSpecification, Boolean>> entry : disconnectJobList.entrySet()) {
                     if (!entry.getValue().second) {
                         MetadataManager.INSTANCE.deregisterFeedActivity(mdTxnCtx, entry.getKey());
                     }
                 }
 
-                for (Entry<FeedConnectionId, Triple<JobSpecification, Boolean, Boolean>> entry : disconnectJobList
-                        .entrySet()) {
+                for (Entry<FeedConnectionId, Pair<JobSpecification, Boolean>> entry : disconnectJobList.entrySet()) {
                     if (!entry.getValue().second) {
                         MetadataManager.INSTANCE.deregisterFeedActivity(mdTxnCtx, entry.getKey());
                     }
@@ -1774,7 +1771,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 FeedLifecycleListener.INSTANCE.registerFeedEventSubscriber(feedConnId, eventSubscriber);
                 releaseReadLatch();
                 readLatchAcquired = false;
-                eventSubscriber.waitForFeedCompletion();
+                eventSubscriber.waitForFeedCompletion(); // blocking call
             }
         } catch (Exception e) {
             if (bActiveTxn) {
@@ -1809,22 +1806,18 @@ public class AqlTranslator extends AbstractAqlTranslator {
         SubscriptionLocation subscriptionLocation = null;
         FeedJointKey feedPointKey = getFeedPointKey(feed, mdTxnCtx);
         boolean isFeedPointAvailable = FeedLifecycleListener.INSTANCE.isFeedJointAvailable(feedPointKey);
+        List<IFeedJoint> jointsToRegister = new ArrayList<IFeedJoint>();
+        FeedConnectionId connectionId = new FeedConnectionId(feed.getFeedId(), dataset);
         if (!isFeedPointAvailable) { // feed point is not available
             sourceFeedPoint = FeedLifecycleListener.INSTANCE.getAvailableFeedJoint(feedPointKey);
             if (sourceFeedPoint == null) { // the feed is currently not being ingested, that is it is unavailable.
+                subscriptionLocation = SubscriptionLocation.SOURCE_FEED_INTAKE;
                 FeedId sourceFeedId = feedPointKey.getFeedId(); // the root/primary feedId 
                 Feed primaryFeed = MetadataManager.INSTANCE.getFeed(mdTxnCtx, dataverse, sourceFeedId.getFeedName());
-
-                subscriptionLocation = SubscriptionLocation.SOURCE_FEED_INTAKE;
                 FeedJointKey intakeFeedPointKey = new FeedJointKey(sourceFeedId, new ArrayList<String>());
-                Scope scope = (primaryFeed.getAppliedFunction() != null) ? Scope.PRIVATE : Scope.PUBLIC;
                 sourceFeedPoint = new FeedJoint(intakeFeedPointKey, primaryFeed.getFeedId(), subscriptionLocation,
-                        Type.PRIMARY, scope);
-                FeedLifecycleListener.INSTANCE.registerFeedJoint(sourceFeedPoint);
-
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Registered new feed  (" + subscriptionLocation + ")" + sourceFeedPoint);
-                }
+                        Type.INTAKE, connectionId);
+                jointsToRegister.add(sourceFeedPoint);
                 needIntakeJob = true;
             } else {
                 subscriptionLocation = sourceFeedPoint.getSubscriptionLocation();
@@ -1843,8 +1836,11 @@ public class AqlTranslator extends AbstractAqlTranslator {
             if (!functionsToApply.isEmpty()) {
                 FeedJointKey computeFeedPointKey = new FeedJointKey(feed.getFeedId(), functionsToApply);
                 IFeedJoint computeFeedPoint = new FeedJoint(computeFeedPointKey, feed.getFeedId(),
-                        SubscriptionLocation.SOURCE_FEED_COMPUTE, Type.PRIMARY, Scope.PUBLIC);
-                FeedLifecycleListener.INSTANCE.registerFeedJoint(computeFeedPoint); // register compute feed joint
+                        SubscriptionLocation.SOURCE_FEED_COMPUTE, Type.COMPUTE, connectionId);
+                jointsToRegister.add(computeFeedPoint);
+            }
+            for (IFeedJoint joint : jointsToRegister) {
+                FeedLifecycleListener.INSTANCE.registerFeedJoint(joint);
             }
         } else {
             sourceFeedPoint = FeedLifecycleListener.INSTANCE.getFeedJoint(feedPointKey);
@@ -1919,28 +1915,12 @@ public class AqlTranslator extends AbstractAqlTranslator {
                         + cfs.getDatasetName().getValue() + ". Invalid operation!");
             }
 
-            Triple<JobSpecification, Boolean, Boolean> specDisconnectType = FeedOperations.buildDisconnectFeedJobSpec(
+            Pair<JobSpecification, Boolean> specDisconnectType = FeedOperations.buildDisconnectFeedJobSpec(
                     metadataProvider, connectionId);
             JobSpecification jobSpec = specDisconnectType.first;
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             bActiveTxn = false;
             runJob(hcc, jobSpec, true);
-
-            /*
-            if (specDisconnectType.third) {
-                String sourceFeedName = null;
-                switch (feed.getFeedType()) {
-                    case PRIMARY:
-                        sourceFeedName = feed.getFeedName();
-                        break;
-                    case SECONDARY:
-                        sourceFeedName = ((SecondaryFeed) feed).getSourceFeedName();
-                        break;
-                }
-                JobSpecification spec = FeedOperations.buildDiscontinueFeedSourceSpec(metadataProvider, new FeedId(
-                        dataverseName, sourceFeedName));
-                runJob(hcc, spec, true);
-            }*/
 
             if (!specDisconnectType.second) {
                 mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();

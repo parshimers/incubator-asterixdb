@@ -17,11 +17,10 @@ package edu.uci.ics.asterix.file;
 import java.util.List;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
+import edu.uci.ics.asterix.common.feeds.FeedConnectJobInfo;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
-import edu.uci.ics.asterix.common.feeds.FeedSubscriber;
 import edu.uci.ics.asterix.common.feeds.api.IFeedJoint;
-import edu.uci.ics.asterix.common.feeds.api.IFeedJoint.Scope;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleListener.SubscriptionLocation;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMessage;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
@@ -37,7 +36,6 @@ import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionCons
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraintHelper;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
-import edu.uci.ics.hyracks.algebricks.common.utils.Triple;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
@@ -109,46 +107,35 @@ public class FeedOperations {
      * Builds the job spec for sending message to an active feed to disconnect it from the
      * its source.
      */
-    public static Triple<JobSpecification, Boolean, Boolean> buildDisconnectFeedJobSpec(
-            AqlMetadataProvider metadataProvider, FeedConnectionId connectionId) throws AsterixException,
-            AlgebricksException {
+    public static Pair<JobSpecification, Boolean> buildDisconnectFeedJobSpec(AqlMetadataProvider metadataProvider,
+            FeedConnectionId connectionId) throws AsterixException, AlgebricksException {
 
         JobSpecification spec = JobSpecificationUtils.createJobSpecification();
         IOperatorDescriptor feedMessenger;
         AlgebricksPartitionConstraint messengerPc;
-        boolean hasOtherSubscribers = false;
-        SubscriptionLocation subscriptionLocation = null;
+        List<String> locations = null;
+        FeedRuntimeType sourceRuntimeType;
         try {
-            IFeedJoint sourceFeedJoint = FeedLifecycleListener.INSTANCE.getSourceFeedJoint(connectionId);
-            IFeedJoint subscribableFeedPoint = sourceFeedJoint;
-            List<String> locations = null;
-            if (sourceFeedJoint.getScope().equals(Scope.PRIVATE)) {
-                // get the public feed joint on this pipeline
-                IFeedJoint feedJoint = FeedLifecycleListener.INSTANCE.getFeedJoint(sourceFeedJoint.getFeedJointKey()
-                        .getFeedId(), Scope.PUBLIC);
-                List<FeedSubscriber> subscribers = feedJoint.getSubscribers();
-                hasOtherSubscribers = subscribers != null && !subscribers.isEmpty();
-                if (hasOtherSubscribers) { // if public feed joint is serving other subscribers, we disconnect partially
-                    subscriptionLocation = feedJoint.getSubscriptionLocation();
-                    locations = feedJoint.getLocations();
-                } else { // disconnect completely
-                    subscriptionLocation = sourceFeedJoint.getSubscriptionLocation();
-                    locations = sourceFeedJoint.getLocations();
-                }
+            FeedConnectJobInfo cInfo = FeedLifecycleListener.INSTANCE.getFeedConnectJobInfo(connectionId);
+            IFeedJoint sourceFeedJoint = cInfo.getSourceFeedJoint();
+            IFeedJoint computeFeedJoint = cInfo.getComputeFeedJoint();
+
+            boolean terminateIntakeJob = sourceFeedJoint.getSubscribers().size() == 1
+                    || (computeFeedJoint != null && computeFeedJoint.getSubscribers().isEmpty());
+            if (computeFeedJoint == null || computeFeedJoint.getSubscribers().isEmpty()) {
+                locations = cInfo.getCollectLocations();
+                sourceRuntimeType = FeedRuntimeType.INTAKE;
+            } else if (computeFeedJoint.getSubscribers().isEmpty()) {
+                locations = cInfo.getCollectLocations();
+                sourceRuntimeType = FeedRuntimeType.INTAKE;
             } else {
-                List<FeedSubscriber> subscribers = sourceFeedJoint.getSubscribers();
-                hasOtherSubscribers = subscribers != null && subscribers.size() > 1;
-                subscriptionLocation = sourceFeedJoint.getSubscriptionLocation();
-                locations = subscribableFeedPoint.getLocations();
+                locations = cInfo.getComputeLocations();
+                sourceRuntimeType = FeedRuntimeType.COMPUTE;
             }
 
-            boolean needToDiscontinueSource = !hasOtherSubscribers && sourceFeedJoint.getSubscribers().size() == 1;
-            FeedRuntimeType feedRuntimeType = subscriptionLocation.equals(SubscriptionLocation.SOURCE_FEED_INTAKE) ? FeedRuntimeType.INTAKE
-                    : FeedRuntimeType.COMPUTE;
-
             Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p = buildDisconnectFeedMessengerRuntime(spec,
-                    connectionId, locations.toArray(new String[] {}), feedRuntimeType, !hasOtherSubscribers,
-                    subscribableFeedPoint.getOwnerFeedId());
+                    connectionId, locations.toArray(new String[] {}), sourceRuntimeType, terminateIntakeJob,
+                    sourceFeedJoint.getOwnerFeedId());
 
             feedMessenger = p.first;
             messengerPc = p.second;
@@ -158,7 +145,7 @@ public class FeedOperations {
             AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, nullSink, messengerPc);
             spec.connect(new OneToOneConnectorDescriptor(spec), feedMessenger, 0, nullSink, 0);
             spec.addRoot(nullSink);
-            return new Triple<JobSpecification, Boolean, Boolean>(spec, hasOtherSubscribers, needToDiscontinueSource);
+            return new Pair<JobSpecification, Boolean>(spec, terminateIntakeJob);
 
         } catch (AlgebricksException e) {
             throw new AsterixException(e);

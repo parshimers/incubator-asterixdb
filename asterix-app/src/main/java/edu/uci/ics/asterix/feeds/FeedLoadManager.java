@@ -28,12 +28,12 @@ import org.json.JSONObject;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedCongestionMessage;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedJobInfo.FeedJobState;
 import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.NodeLoadReport;
 import edu.uci.ics.asterix.common.feeds.ScaleInReportMessage;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLoadManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
-import edu.uci.ics.asterix.feeds.FeedJobNotificationHandler.FeedJobState;
 import edu.uci.ics.asterix.file.FeedOperations;
 import edu.uci.ics.asterix.metadata.feeds.FeedUtil;
 import edu.uci.ics.asterix.metadata.feeds.PrepareStallMessage;
@@ -114,6 +114,39 @@ public class FeedLoadManager implements IFeedLoadManager {
         }
     }
 
+    @Override
+    public void submitScaleInPossibleReport(ScaleInReportMessage message) throws Exception {
+        JobId jobId = FeedLifecycleListener.INSTANCE.getFeedCollectJobId(message.getConnectionId());
+        FeedJobState jobState = FeedLifecycleListener.INSTANCE.getFeedJobState(jobId);
+        if (jobState == null || (jobState.equals(FeedJobState.UNDER_RECOVERY))) {
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("JobState information for job " + "[" + jobId + "]" + " not found ");
+            }
+            return;
+        } else {
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Processing scale-in message " + message);
+            }
+            FeedLifecycleListener.INSTANCE.setJobState(jobId, FeedJobState.UNDER_RECOVERY);
+            JobSpecification jobSpec = FeedLifecycleListener.INSTANCE.getCollectJobSpecification(message
+                    .getConnectionId());
+            int reducedCardinality = message.getReducedCardinaliy();
+            List<String> currentComputeLocations = new ArrayList<String>();
+            currentComputeLocations.addAll(FeedLifecycleListener.INSTANCE.getComputeLocations(message.getConnectionId()
+                    .getFeedId()));
+            FeedUtil.decreaseComputeCardinality(jobSpec, FeedRuntimeType.COMPUTE, reducedCardinality,
+                    currentComputeLocations);
+
+            gracefullyTerminateDataFlow(message.getConnectionId(), reducedCardinality - 1);
+            Thread.sleep(3000);
+            JobId newJobId = runJob(jobSpec, false);
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Launch modified job" + "[" + newJobId + "]" + "for scale-in \n" + jobSpec);
+            }
+
+        }
+    }
+
     private void gracefullyTerminateDataFlow(FeedConnectionId connectionId, int computePartitionRetainLimit)
             throws Exception {
         // Step 1) send prepare to  stall message
@@ -141,48 +174,13 @@ public class FeedLoadManager implements IFeedLoadManager {
         runJob(messageJobSpec, true);
     }
 
-    @Override
-    public void submitScaleInPossibleReport(ScaleInReportMessage message) throws Exception {
-        JobId jobId = FeedLifecycleListener.INSTANCE.getFeedCollectJobId(message.getConnectionId());
-        FeedJobState jobState = FeedLifecycleListener.INSTANCE.getFeedJobState(jobId);
-        if (jobState != null && (jobState.equals(FeedJobState.UNDER_RECOVERY))) {
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Ignoring scale-in proposal from " + message.getConnectionId()
-                        + " as job is already under recovery");
-            }
-            return;
-        } else {
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Processing scale-in message " + message);
-            }
-            FeedLifecycleListener.INSTANCE.setJobState(jobId, FeedJobState.UNDER_RECOVERY);
-            JobSpecification jobSpec = FeedLifecycleListener.INSTANCE.getCollectJobSpecification(message
-                    .getConnectionId());
-            int reducedCardinality = message.getReducedCardinaliy();
-            List<String> currentComputeLocations = new ArrayList<String>();
-            currentComputeLocations.addAll(FeedLifecycleListener.INSTANCE.getComputeLocations(message.getConnectionId()
-                    .getFeedId()));
-            FeedUtil.decreaseComputeCardinality(jobSpec, FeedRuntimeType.COMPUTE, reducedCardinality,
-                    currentComputeLocations);
-
-            gracefullyTerminateDataFlow(message.getConnectionId(), reducedCardinality - 1);
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Gracefully terminated the dataflow " + message.getConnectionId());
-            }
-            Thread.sleep(3000);
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Launch modified job for scale-in \n" + jobSpec);
-            }
-            runJob(jobSpec, false);
-        }
-    }
-
-    private void runJob(JobSpecification spec, boolean waitForCompletion) throws Exception {
+    private JobId runJob(JobSpecification spec, boolean waitForCompletion) throws Exception {
         IHyracksClientConnection hcc = AsterixAppContextInfo.getInstance().getHcc();
         JobId jobId = hcc.startJob(spec);
         if (waitForCompletion) {
             hcc.waitForCompletion(jobId);
         }
+        return jobId;
     }
 
     @Override

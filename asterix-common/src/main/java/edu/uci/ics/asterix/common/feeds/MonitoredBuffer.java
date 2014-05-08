@@ -35,6 +35,7 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
 
     private static final long MONITOR_FREQUENCY = 2000; // 2 seconds
     private static final long PROCESSING_RATE_MEASURE_FREQUENCY = 10000; // 10 seconds
+    private static final int PROCESS_RATE_REFRESH = 10; // refresh processing rate every 10th frame
 
     private IFrameWriter frameWriter;
     private final FrameTupleAccessor inflowFta;
@@ -51,8 +52,8 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
     private final FeedRuntimeInputHandler inputHandler;
     private final IFrameEventCallback callback;
     private final Timer timer;
-
     private int processingRate = -1;
+    private int frameCount = 0;
 
     public MonitoredBuffer(FeedRuntimeInputHandler inputHandler, IFrameWriter frameWriter, FrameTupleAccessor fta,
             int frameSize, RecordDescriptor recordDesc, IFeedMetricCollector metricCollector,
@@ -96,14 +97,11 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
     @Override
     public void sendMessage(DataBucket message) {
         inbox.add(message);
-        inflowFta.reset(message.getBuffer());
-        if (trackDataMovementRate) {
-            boolean success = metricCollector.sendReport(inflowReportSenderId, inflowFta.getTupleCount());
-            if (!success) {
-                if (LOGGER.isLoggable(Level.WARNING)) {
-                    LOGGER.warning("Unable to report for runtime " + this.runtimeId);
-                }
-            }
+        if (trackDataMovementRate
+                && !(inputHandler.getMode().equals(Mode.PROCESS_BACKLOG) || inputHandler.getMode().equals(
+                        Mode.PROCESS_SPILL))) {
+            inflowFta.reset(message.getBuffer());
+            metricCollector.sendReport(inflowReportSenderId, inflowFta.getTupleCount());
         }
     }
 
@@ -163,24 +161,20 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
                         startTime = System.currentTimeMillis();
                         frameWriter.nextFrame(frame);
                         if (processingRateEnabled) {
-                            endTime = System.currentTimeMillis();
-                            processingRate = (int) ((double) outflowFta.getTupleCount() * 1000 / (endTime - startTime));
-                            if (LOGGER.isLoggable(Level.INFO)) {
-                                LOGGER.info("Processing Rate :" + processingRate + " tuples/sec");
+                            frameCount++;
+                            if (frameCount % PROCESS_RATE_REFRESH == 0) {
+                                endTime = System.currentTimeMillis();
+                                processingRate = (int) ((double) outflowFta.getTupleCount() * 1000 / (endTime - startTime));
+                                if (LOGGER.isLoggable(Level.INFO)) {
+                                    LOGGER.info("Processing Rate :" + processingRate + " tuples/sec");
+                                }
+                                frameCount = 0;
                             }
-                            processingRateEnabled = false;
                         }
                         if (trackDataMovementRate) {
-                            boolean success = metricCollector.sendReport(outflowReportSenderId,
-                                    outflowFta.getTupleCount());
-                            if (!success) {
-                                if (LOGGER.isLoggable(Level.WARNING)) {
-                                    LOGGER.warning("Unable to report for " + this.runtimeId);
-                                }
-                            }
+                            metricCollector.sendReport(outflowReportSenderId, outflowFta.getTupleCount());
                         }
                         finishedProcessing = true;
-
                     } catch (Exception e) {
                         frame = exceptionHandler.handleException(e, frame);
                     }
@@ -226,7 +220,4 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
         return processingRate;
     }
 
-    public void setProcessingRateEnabled(boolean processingRateEnabled) {
-        this.processingRateEnabled = processingRateEnabled;
-    }
 }

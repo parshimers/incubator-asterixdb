@@ -97,6 +97,9 @@ public class CentralFeedManager implements ICentralFeedManager {
                 LOGGER.info("Received message:" + message);
             }
             JSONObject obj = new JSONObject(message);
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Received message " + obj);
+            }
             MessageType messageType = MessageType.valueOf(obj.getString(IFeedMessage.Constants.MESSAGE_TYPE));
             switch (messageType) {
                 case XAQL:
@@ -107,7 +110,7 @@ public class CentralFeedManager implements ICentralFeedManager {
                             LOGGER.info("Created artifacts to store feed failure data");
                         }
                     }
-                    String aql = obj.getString("aql");
+                    String aql = obj.getString(IFeedMessage.Constants.AQL);
                     AQLExecutor.executeAQL(aql);
                     break;
                 case CONGESTION:
@@ -123,9 +126,6 @@ public class CentralFeedManager implements ICentralFeedManager {
                     feedLoadManager.submitNodeLoadReport(r);
                     break;
                 case SCALE_IN_POSSIBLE:
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("Received ScaleInReportMessage " + obj);
-                    }
                     ScaleInReportMessage sm = ScaleInReportMessage.read(obj);
                     feedLoadManager.submitScaleInPossibleReport(sm);
                     break;
