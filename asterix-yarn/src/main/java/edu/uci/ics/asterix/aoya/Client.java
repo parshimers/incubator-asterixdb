@@ -447,6 +447,8 @@ public class Client {
         env.put(MConstants.CONFTIMESTAMP, Long.toString(confTimestamp));
         env.put(MConstants.CONFLEN, Long.toString(confLen));
 
+        env.put(MConstants.PATHSUFFIX, appName + "/" + appId.getId());
+        
         // Add AppMaster.jar location to classpath
         // At some point we should not be required to add
         // the hadoop specific classpaths to the env.

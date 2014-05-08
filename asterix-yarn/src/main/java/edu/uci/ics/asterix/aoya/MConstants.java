@@ -60,4 +60,26 @@ public class MConstants {
    */
 
   public static final String CONFLEN = "CONFLEN";
+
+  /**
+   * Environment key name pointing to the Asterix parameters file 
+   */
+
+  public static final String PARAMLOCATION = "PARAMLOCATION";
+
+  /**
+   * Environment key name denoting the file timestamp for the Asterix parameters.
+   * Used to validate the local resource.
+   */
+
+  public static final String PARAMTIMESTAMP = "PARAMTIMESTAMP";
+
+  /**
+   * Environment key name denoting the file content length for the Asterix parameters.
+   * Used to validate the local resource.
+   */
+
+  public static final String PARAMLEN = "PARAMLEN";
+  
+  public static final String PATHSUFFIX = "";
 }

@@ -27,6 +27,8 @@ import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
+import java.io.FileInputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -52,6 +54,11 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.commons.compress.archivers.ArchiveException;
+import org.apache.commons.compress.archivers.ArchiveStreamFactory;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.conf.Configuration;
@@ -100,12 +107,14 @@ import edu.uci.ics.asterix.event.schema.yarnCluster.*;
 
 @InterfaceAudience.Public
 @InterfaceStability.Unstable
+//TODO: this entire file is in danger of falling victim to the 'big ball of mud' antipattern.
 public class ApplicationMaster {
 
     private static final Log LOG = LogFactory.getLog(ApplicationMaster.class);
-    private static final String BASE_CONF_PATH = "conf"+File.separator+"asterix-configuration.xml";
+    private static final String BASE_CONF_PATH = "asterix-server" + File.separator + "conf"+File.separator+"asterix-configuration.xml";
     private static final String CLUSTER_DESC_PATH = "cluster-config.xml";
-    private static final String WORKING_CONF_PATH = "bin"+File.separator+"asterix-configuration.xml";
+    private static final String ASTERIX_TAR_PATH = "asterix-server.tar";
+    private static final String WORKING_CONF_PATH = "asterix-server" + File.separator + "bin" +File.separator+"asterix-configuration.xml";
     private static final String ASTERIX_CC_BIN_PATH = "asterix-server" + File.separator + "bin" + File.separator + "asterixcc";
     private static final String ASTERIX_NC_BIN_PATH = "asterix-server" + File.separator + "bin" + File.separator + "asterixnc";
     // Configuration
@@ -161,8 +170,10 @@ public class ApplicationMaster {
 
     private int numTotalContainers = 0;
 
+    private String DFSpathSuffix = "";
+    
     // Set the local resources
-    private Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();;
+    private Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
 
     private Cluster clusterDesc = null;
     private MasterNode CC = null;
@@ -295,13 +306,15 @@ public class ApplicationMaster {
         asterixConfPath = envs.get(MConstants.CONFLOCATION);
         asterixConfTimestamp = Long.parseLong(envs.get(MConstants.CONFTIMESTAMP));
         asterixConfLen = Long.parseLong(envs.get(MConstants.CONFLEN));
-        
+
+        DFSpathSuffix = envs.get(MConstants.PATHSUFFIX);
         
         localizeDFSResources();
 
         try{
         	clusterDesc = parseYarnClusterConfig();
         	CC = clusterDesc.getMasterNode();
+        	writeAsterixConfig(clusterDesc);
         }
         catch(FileNotFoundException | JAXBException e){
         	LOG.error("Could not deserialize Cluster Config from disk- aborting!");
@@ -311,7 +324,12 @@ public class ApplicationMaster {
         
         return true;
     }
-    
+    /**
+     * Simply parses out the YARN cluster config and instantiates it into a nice object. 
+     * @return The object representing the configuration
+     * @throws FileNotFoundException 
+     * @throws JAXBException
+     */
     private Cluster parseYarnClusterConfig() throws FileNotFoundException, JAXBException{
     	//this method just hides away the deserialization silliness
     	File f = new File(CLUSTER_DESC_PATH);
@@ -321,15 +339,113 @@ public class ApplicationMaster {
     	return cl;
     }
     /**
+     * Kanged from managix. Splices the cluster config and asterix config parameters together, then puts the product to HDFS.
+     * @param cluster
+     * @throws JAXBException
+     * @throws FileNotFoundException
+     * @throws IOException
+     */
+    private void writeAsterixConfig(Cluster cluster) throws JAXBException, FileNotFoundException, IOException{
+        String metadataNodeId = getMetadataNode(cluster).getId();
+        String asterixInstanceName = appAttemptID.toString();
+
+        //this is the "base" config that is inside the tarball, we start here
+        AsterixConfiguration configuration = loadBaseAsterixConfig();
+
+        configuration.setInstanceName(asterixInstanceName);
+
+        String storeDir = null;
+        List<Store> stores = new ArrayList<Store>();
+        for (Node node : cluster.getNode()) {
+            storeDir = node.getStore() == null ? cluster.getStore() : node.getStore();
+            stores.add(new Store(asterixInstanceName + "_" + node.getId(), storeDir));
+        }
+        configuration.setStore(stores);
+
+        List<Coredump> coredump = new ArrayList<Coredump>();
+        String coredumpDir = null;
+        List<TransactionLogDir> txnLogDirs = new ArrayList<TransactionLogDir>();
+        String txnLogDir = null;
+        for (Node node : cluster.getNode()) {
+            coredumpDir = node.getLogDir() == null ? cluster.getLogDir() : node.getLogDir();
+            coredump.add(new Coredump(asterixInstanceName + "_" + node.getId(), coredumpDir + File.separator
+                    + asterixInstanceName + "_" + node.getId()));
+            txnLogDir = node.getTxnLogDir() == null ? cluster.getTxnLogDir() : node.getTxnLogDir();
+            txnLogDirs.add(new TransactionLogDir(asterixInstanceName + "_" + node.getId(), txnLogDir));
+        }
+        configuration.setMetadataNode(asterixInstanceName + "_" + metadataNodeId);
+
+        configuration.setCoredump(coredump);
+        configuration.setTransactionLogDir(txnLogDirs);
+
+        JAXBContext ctx = JAXBContext.newInstance(AsterixConfiguration.class);
+        Marshaller marshaller = ctx.createMarshaller();
+        marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
+        FileOutputStream os = new FileOutputStream(WORKING_CONF_PATH);
+        marshaller.marshal(configuration, os);
+        os.close();	
+        //now put this to HDFS so our NCs and CC can use it. 
+        FileSystem fs = FileSystem.get(conf);
+        Path src = new Path(new File("./asterix-server/bin/asterix-configuration.xml").getCanonicalPath());
+        String pathSuffix = DFSpathSuffix + "/asterix-configuration.xml";
+        Path dst = new Path(fs.getHomeDirectory(), pathSuffix);
+        fs.copyFromLocalFile(false, true, src, dst);
+        FileStatus destStatus = fs.getFileStatus(dst);
+        LocalResource asterixParamLoc = Records.newRecord(LocalResource.class);
+        asterixParamLoc.setType(LocalResourceType.FILE);
+        asterixParamLoc.setVisibility(LocalResourceVisibility.PUBLIC);
+        asterixParamLoc.setResource(ConverterUtils.getYarnUrlFromPath(dst));
+        asterixParamLoc.setTimestamp(destStatus.getModificationTime());
+        localResources.put("asterix-configuration.xml", asterixParamLoc);
+    }
+    
+    private void unTarAsterixConf() throws IOException{
+    	LOG.info("Untarring "+ ASTERIX_TAR_PATH);
+    	File tarball = new File(ASTERIX_TAR_PATH);
+    	if(!tarball.isFile()){
+    		LOG.error("Tar not found!");
+    		return;
+    	}
+    	TarArchiveInputStream tar = new TarArchiveInputStream(new FileInputStream(tarball) );
+    	TarArchiveEntry current = tar.getNextTarEntry();
+    	//make the extraction dir...
+    	new File("asterix-server/").mkdir();
+    	while(current != null ){
+    		LOG.info("Extracting File: "+current.getName());
+    		File output = new File(new File("./asterix-server").getCanonicalPath()+File.separator+current.getName());
+    		if(output.exists()){
+    			LOG.info("File exists: "+output.getName());
+    			current = tar.getNextTarEntry();
+    			continue;
+    		}
+    		//decide if we want to write this or not...
+    		if(current.isDirectory()){
+    			if(!output.mkdirs())LOG.info("Couldn't make directory: " + output.getCanonicalPath());;
+    			current = tar.getNextTarEntry();
+    			continue;
+    		}
+    		if(!output.getParentFile().exists()) output.getParentFile().mkdirs();
+    		OutputStream os = new FileOutputStream(output);
+    		IOUtils.copy(tar, os);
+    		LOG.info("Untarred "+ output.getName());
+    		os.close();
+            current = tar.getNextTarEntry();
+    	}
+    	tar.close();
+    }
+    /**
      * Loads the basic Asterix configuration file that is embedded in the 
      * distributable tar file 
      * 
      * @return A skeleton Asterix configuration
      *
      */
-    private AsterixConfiguration loadBaseAsterixConfig() throws FileNotFoundException, 
-    	JAXBException {
-    	File f = new File(BASE_CONF_PATH);
+    
+    private AsterixConfiguration loadBaseAsterixConfig() throws IOException, JAXBException {
+    	//now oddly enough, at the AM, we won't have this file un-tarred even though i said it was an archive (go figure)
+    	//so let's do that 
+    	unTarAsterixConf();
+    	File f = new File(WORKING_CONF_PATH);
     	JAXBContext configCtx = JAXBContext.newInstance(AsterixConfiguration.class);
         Unmarshaller unmarshaller = configCtx.createUnmarshaller();
         AsterixConfiguration conf = (AsterixConfiguration) unmarshaller.unmarshal(f);	
@@ -340,12 +456,12 @@ public class ApplicationMaster {
      * @param c The cluster exception to attempt to alocate with the RM
      * @throws YarnException
      */
-    private void requestResources(Cluster c)throws YarnException{
+    private void requestResources(Cluster c)throws YarnException,UnknownHostException{
         //request CC
         int numNodes = 0;
         ContainerRequest ccAsk = askForHost(CC.getClusterIp());
         resourceManager.addContainerRequest(ccAsk);
-        LOG.info("Asked for CC: " + CC);
+        LOG.info("Asked for CC: " + CC.getClusterIp());
         numNodes++;
         //now we wait to be given the CC before starting the NCs...
         //we will wait a minute. 
@@ -386,66 +502,31 @@ public class ApplicationMaster {
     * @param host The host to request
     * @return A container request that is (hopefully) for the host we asked for. 
     */
-    private ContainerRequest askForHost(String host) {
+    private ContainerRequest askForHost(String host) throws UnknownHostException {
+    	InetAddress hostIp = InetAddress.getByName(host);
         Priority pri = Records.newRecord(Priority.class);
         pri.setPriority(0);
         Resource capability = Records.newRecord(Resource.class);
         capability.setMemory(768);
         //we dont set anything because we don't care about that
         String[] hosts = new String[1];
-        hosts[0] = host;
+        //TODO this is silly
+        hosts[0] = hostIp.getHostName().split("\\.")[0];
+        LOG.info("IP addr: "+host+" resolved to "+hostIp.getHostName());
         // last flag must be false (relaxLocality)
-        ContainerRequest request = new ContainerRequest(capability, hosts, null, pri, false);
+        //changed for testing?????
+        ContainerRequest request = new ContainerRequest(capability, hosts, null, pri, true);
         LOG.info("Requested host ask: " + request.getNodes());
         return request;
     }
+    
     /**
      * Writes an Asterix configuration based on the data inside the cluster description
      * @param cluster
      * @throws JAXBException
      * @throws FileNotFoundException
      */
-    private void writeAsterixConfig(Cluster cluster) throws JAXBException, FileNotFoundException, IOException{
-        String metadataNodeId = this.getMetadataNode(cluster).getId();
-        String asterixInstanceName = appAttemptID.toString();
-
-        //this is the "base" config that is inside the tarball, we start here
-        AsterixConfiguration configuration = loadBaseAsterixConfig();
-
-        configuration.setInstanceName(asterixInstanceName);
-
-        String storeDir = null;
-        List<Store> stores = new ArrayList<Store>();
-        for (Node node : cluster.getNode()) {
-            storeDir = node.getStore() == null ? cluster.getStore() : node.getStore();
-            stores.add(new Store(asterixInstanceName + "_" + node.getId(), storeDir));
-        }
-        configuration.setStore(stores);
-
-        List<Coredump> coredump = new ArrayList<Coredump>();
-        String coredumpDir = null;
-        List<TransactionLogDir> txnLogDirs = new ArrayList<TransactionLogDir>();
-        String txnLogDir = null;
-        for (Node node : cluster.getNode()) {
-            coredumpDir = node.getLogDir() == null ? cluster.getLogDir() : node.getLogDir();
-            coredump.add(new Coredump(asterixInstanceName + "_" + node.getId(), coredumpDir + File.separator
-                    + asterixInstanceName + "_" + node.getId()));
-
-            txnLogDir = node.getTxnLogDir() == null ? cluster.getTxnLogDir() : node.getTxnLogDir();
-            txnLogDirs.add(new TransactionLogDir(asterixInstanceName + "_" + node.getId(), txnLogDir));
-        }
-        configuration.setMetadataNode(asterixInstanceName + "_" + metadataNodeId);
-
-        configuration.setCoredump(coredump);
-        configuration.setTransactionLogDir(txnLogDirs);
-
-        JAXBContext ctx = JAXBContext.newInstance(AsterixConfiguration.class);
-        Marshaller marshaller = ctx.createMarshaller();
-        marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
-        FileOutputStream os = new FileOutputStream(WORKING_CONF_PATH);
-        marshaller.marshal(configuration, os);
-        os.close();	
-    }
+    
     private Node getMetadataNode(Cluster cluster) {
         Node metadataNode = null;
         if (cluster.getMetadataNode() != null) {
@@ -561,7 +642,8 @@ public class ApplicationMaster {
         	requestResources(clusterDesc);
         }
         catch(YarnException e){
-        	LOG.error("Could not allocate resources properly:" + e.getStackTrace());
+        	LOG.error("Could not allocate resources properly:" + e.getMessage());
+        	done = true;
         }
         //now we just sit and listen for messages from the RM
         
@@ -819,7 +901,19 @@ public class ApplicationMaster {
 
             ctx.setEnvironment(env);
             LOG.info(ctx.getEnvironment().toString());
-            ctx.setCommands(produceStartCmd(container));
+            try{
+            writeAsterixConfig(clusterDesc);
+            }
+            catch (JAXBException | IOException e){
+            	LOG.error("Couldn't write properites config file to disk.");
+            	e.printStackTrace();
+            	return;
+            }
+            List<String> startCmd = produceStartCmd(container);
+            for(String s :startCmd){
+            	LOG.info("Command to execute: "+s);
+            }
+            ctx.setCommands(startCmd);
             containerListener.addContainer(container.getId(), container);
             //finally start the container!?
             nmClientAsync.startContainerAsync(container, ctx);
@@ -832,6 +926,7 @@ public class ApplicationMaster {
          * @return A list of the commands that should be executed
          */
         private List<String> produceStartCmd(Container container){
+        	//TODO: stop using export! bad programmer, no coffee
             List<String> commands = new ArrayList<String>();
             // Set the necessary command to execute on the allocated container
             Vector<CharSequence> vargs = new Vector<CharSequence>(5);
@@ -839,11 +934,9 @@ public class ApplicationMaster {
             //first see if this node is the CC
             if(containerIsCC(container)){
             	LOG.info("CC found on container" + container.getNodeId().getHost());
-            	Vector<CharSequence> ccargs = new Vector<CharSequence>(5);	
-                ccargs.add("export JAVA_OPTS=-Xmx1024m;");
-                ccargs.add(ASTERIX_CC_BIN_PATH+" -cluster-net-ip-address "+ CC.getClusterIp() +
+                vargs.add("export JAVA_OPTS=-Xmx1024m -DAsterixConfigFileName="+WORKING_CONF_PATH+";");
+                vargs.add(ASTERIX_CC_BIN_PATH+" -cluster-net-ip-address "+ CC.getClusterIp() +
                 		  " -client-net-ip-address "+ CC.getClientIp());
-                commands.add(ccargs.toString());
                 
             }
             //now we need to know what node we are on, so we can apply the correct properties
@@ -852,7 +945,7 @@ public class ApplicationMaster {
             try{
             	local = containerToNode(container, clusterDesc);
                 LOG.info("Attempting to start NC on host " + local.getId());
-                vargs.add("export JAVA_OPTS=-Xmx1536m;");
+                vargs.add("export JAVA_OPTS=-Xmx1536m -DAsterixConfigFileName="+WORKING_CONF_PATH+";");
                 vargs.add(ASTERIX_NC_BIN_PATH+" -node-id "+ local.getId());
                 vargs.add("-cc-host "+ CC.getClusterIp());
                 vargs.add("-iodevices "+local.getIodevices());
@@ -909,5 +1002,6 @@ public class ApplicationMaster {
             	return false;
             }
         }
+        
     }
 }
