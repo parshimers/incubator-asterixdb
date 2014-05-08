@@ -360,6 +360,16 @@ public class FeedJobNotificationHandler implements Runnable {
         connectJobInfos.remove(connectionId);
         jobInfos.remove(cInfo.getJobId());
         deregisterFeedActivity(cInfo);
+
+        // notify event listeners and remove subscription
+        List<IFeedLifecycleEventSubscriber> eventSubscribers = registeredFeedEventSubscribers.get(cInfo
+                .getConnectionId());
+        if (eventSubscribers != null) {
+            for (IFeedLifecycleEventSubscriber eventSubscriber : eventSubscribers) {
+                eventSubscriber.handleFeedEvent(FeedLifecycleEvent.FEED_ENDED);
+            }
+        }
+        registeredFeedEventSubscribers.remove(cInfo.getConnectionId());
     }
 
     private void registerFeedActivity(FeedConnectJobInfo cInfo) {
