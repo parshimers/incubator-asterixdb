@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -39,7 +39,6 @@ public class AsterixClusterLifeCycleIT {
 
     private static final String PATH_BASE = "src/test/resources/integrationts/lifecycle";
     private static final String CLUSTER_BASE = "src/test/resources/clusterts";
-    private static final String VAGRANT_RC = "/home/imaxon/Work/asterixdb-vm/asterix-installer/target/vagrant/vagrantrc";
     private static final String PATH_ACTUAL = "ittest/";
     private static String managixFolderName = "";
     private static final Logger LOGGER = Logger.getLogger(AsterixClusterLifeCycleIT.class.getName());
@@ -132,7 +131,6 @@ public class AsterixClusterLifeCycleIT {
 
     private static Process invoke(String... args) throws Exception{
         ProcessBuilder pb = new ProcessBuilder(args);
-        Map<String,String> env = pb.environment();
         pb.redirectErrorStream(true);
         Process p = pb.start();
         return p;
@@ -140,7 +138,6 @@ public class AsterixClusterLifeCycleIT {
     private static Process remoteInvoke(String cmd) throws Exception{
         ProcessBuilder pb = new ProcessBuilder("vagrant","ssh","cc", "-c","MANAGIX_HOME=/tmp/asterix/ "+cmd);
         System.out.println("---- "+cmd);
-        Map<String,String> env = pb.environment();
         File cwd = new File(asterixProjectDir.toString()+"/"+CLUSTER_BASE);
         pb.directory(cwd);
         pb.redirectErrorStream(true);
