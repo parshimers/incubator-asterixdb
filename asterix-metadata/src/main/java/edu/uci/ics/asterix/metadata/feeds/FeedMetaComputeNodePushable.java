@@ -109,10 +109,6 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
     }
 
     private void initializeNewFeedRuntime(FeedRuntimeId runtimeId) throws Exception {
-        if (LOGGER.isLoggable(Level.WARNING)) {
-            LOGGER.warning("Runtime not found for  " + runtimeId + "[" + partition + "]" + "connection id "
-                    + connectionId);
-        }
         this.fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
         this.inputSideHandler = new FeedRuntimeInputHandler(connectionId, runtimeId, coreOperator,
                 policyEnforcer.getFeedPolicyAccessor(), true, ctx.getFrameSize(), fta, recordDesc, feedManager,
@@ -132,10 +128,6 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
     }
 
     private void reviveOldFeedRuntime(FeedRuntimeId runtimeId) throws Exception {
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Reviving old state from zombie instance  " + runtimeType + "[" + partition + "]" + " mode "
-                    + feedRuntime.getInputHandler().getMode());
-        }
         this.fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
         this.inputSideHandler = feedRuntime.getInputHandler();
         this.inputSideHandler.setCoreOperator(coreOperator);
@@ -187,7 +179,7 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
                 }
             }
             coreOperator.close();
-            System.out.println("CLOSED " + coreOperator);
+            System.out.println("CLOSED " + coreOperator + " STALLED ?" + stalled + " ENDED " + end);
         } catch (Exception e) {
             e.printStackTrace();
             // ignore

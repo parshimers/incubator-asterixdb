@@ -14,15 +14,16 @@
  */
 package edu.uci.ics.asterix.external.library;
 
-import java.util.Random;
-
+import edu.uci.ics.asterix.external.library.java.JObjects.JLong;
 import edu.uci.ics.asterix.external.library.java.JObjects.JRecord;
 
 public class EchoDelayFunction implements IExternalScalarFunction {
 
     public static final String DELAY_RPOPERTY = "feeds.function.delay";
     private static final long DEAULT_DELAY = 10;
+
     private long sleepInterval;
+    private JLong timestamp;
 
     @Override
     public void initialize(IFunctionHelper functionHelper) {
@@ -32,8 +33,7 @@ public class EchoDelayFunction implements IExternalScalarFunction {
         } else {
             sleepInterval = DEAULT_DELAY;
         }
-        System.out.println("INTER TUPLE DELAY " + sleepInterval);
-
+        timestamp = new JLong(0);
     }
 
     @Override
@@ -44,6 +44,8 @@ public class EchoDelayFunction implements IExternalScalarFunction {
     public void evaluate(IFunctionHelper functionHelper) throws Exception {
         JRecord inputRecord = (JRecord) functionHelper.getArgument(0);
         Thread.sleep(sleepInterval);
+        timestamp.setValue(System.currentTimeMillis());
+        inputRecord.addField("compute-timestamp", timestamp);
         functionHelper.setResult(inputRecord);
     }
 }

@@ -176,6 +176,7 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
                         }
                         finishedProcessing = true;
                     } catch (Exception e) {
+                        e.printStackTrace();
                         frame = exceptionHandler.handleException(e, frame);
                     }
                 }

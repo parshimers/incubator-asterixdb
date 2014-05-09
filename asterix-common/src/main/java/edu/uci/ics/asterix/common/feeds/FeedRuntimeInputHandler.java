@@ -91,18 +91,10 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
                         case POST_SPILL_DISCARD:
                             setMode(Mode.PROCESS_SPILL);
                             processSpilledBacklog(); // non blocking call
-                            if (LOGGER.isLoggable(Level.INFO)) {
-                                LOGGER.info("Done with replaying spilled data, will resume normal processing, backlog collected "
-                                        + mBuffer.getWorkSize());
-                            }
                             break;
                         case STALL:
                             setMode(Mode.PROCESS_BACKLOG);
                             processBufferredBacklog(); // non-blocking call
-                            if (LOGGER.isLoggable(Level.INFO)) {
-                                LOGGER.info("Done with replaying buffered data, will resume normal processing, backlog collected "
-                                        + mBuffer.getWorkSize());
-                            }
                             break;
                         default:
                             break;
@@ -359,7 +351,8 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
     public void reset(int nPartitions) {
         this.mBuffer.setNumberOfPartitions(nPartitions);
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Reset number of partitions to " + nPartitions);
+            LOGGER.info("ELASTIC BEHAVIOR APPROVED: Reset number of partitions to " + nPartitions + " for "
+                    + this.runtimeId);
         }
         if (mBuffer != null) {
             mBuffer.resetMetrics();

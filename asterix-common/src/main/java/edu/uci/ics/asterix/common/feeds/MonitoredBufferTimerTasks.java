@@ -48,15 +48,16 @@ public class MonitoredBufferTimerTasks {
         public void run() {
             int pendingWork = mBuffer.getWorkSize();
             if (mBuffer.getMode().equals(Mode.PROCESS_SPILL) || mBuffer.getMode().equals(Mode.PROCESS_BACKLOG)) {
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Not acting while spillage processing in progress " + pendingWork);
-                }
                 return;
             }
 
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info(mBuffer.getRuntimeId() + " " + "Outflow rate:" + mBuffer.getOutflowRate() + " Inflow Rate:"
-                        + mBuffer.getInflowRate() + " Pending Work " + pendingWork);
+                int outflowRate = mBuffer.getOutflowRate();
+                int inflowRate = mBuffer.getInflowRate();
+                //  if (inflowRate > 0 && outflowRate > 0) {
+                LOGGER.info(mBuffer.getRuntimeId() + " " + "Inflow rate:" + inflowRate + " Outflow Rate:" + outflowRate
+                        + " Pending Work " + pendingWork);
+                //  }
             }
 
             switch (lastEvent) {
@@ -111,7 +112,7 @@ public class MonitoredBufferTimerTasks {
             this.nPartitions = nPartitions;
             proposedChange = false;
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Reset the number of partitions for " + mBuffer.getMode() + " to " + nPartitions);
+                LOGGER.info("Reset the number of partitions for " + mBuffer.getRuntimeId() + " to " + nPartitions);
             }
         }
 
@@ -135,10 +136,6 @@ public class MonitoredBufferTimerTasks {
                         if (LOGGER.isLoggable(Level.INFO)) {
                             LOGGER.info("Processing Rate exceeds Inflow Rate");
                         }
-                    }
-                } else {
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("Insufficient information to detect possibility for scale-in");
                     }
                 }
             } else {

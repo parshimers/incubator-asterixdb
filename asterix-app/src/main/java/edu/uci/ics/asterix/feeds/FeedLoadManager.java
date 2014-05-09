@@ -101,7 +101,7 @@ public class FeedLoadManager implements IFeedLoadManager {
                     LOGGER.info("New Job after adjusting to the workload " + jobSpec);
                 }
 
-                Thread.sleep(3000);
+                Thread.sleep(5000);
                 runJob(jobSpec, false);
 
             } catch (Exception e) {
