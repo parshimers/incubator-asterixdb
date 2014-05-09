@@ -46,7 +46,8 @@ import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
 import edu.uci.ics.hyracks.api.lifecycle.LifeCycleComponentManager;
 
 public class CCApplicationEntryPoint implements ICCApplicationEntryPoint {
-    private static final Logger LOGGER = Logger.getLogger(CCApplicationEntryPoint.class.getName());
+	private static final Logger LOGGER = Logger
+			.getLogger(CCApplicationEntryPoint.class.getName());
 
     private static final String HYRACKS_CONNECTION_ATTR = "edu.uci.ics.asterix.HYRACKS_CONNECTION";
 

@@ -110,6 +110,10 @@ public class AccessMethodUtils {
         // One of the args must be a constant, and the other arg must be a variable.
         if (arg1.getExpressionTag() == LogicalExpressionTag.CONSTANT
                 && arg2.getExpressionTag() == LogicalExpressionTag.VARIABLE) {
+            // The arguments of contains() function are asymmetrical, we can only use index if it is on the first argument
+            if (funcExpr.getFunctionIdentifier() == AsterixBuiltinFunctions.CONTAINS) {
+                return false;
+            }
             ConstantExpression constExpr = (ConstantExpression) arg1;
             constFilterVal = constExpr.getValue();
             VariableReferenceExpression varExpr = (VariableReferenceExpression) arg2;
@@ -194,6 +198,10 @@ public class AccessMethodUtils {
                     }
                     break;
                 }
+                case LENGTH_PARTITIONED_NGRAM_INVIX:
+                case LENGTH_PARTITIONED_WORD_INVIX:
+                default:
+                    break;
             }
         }
         // Primary keys.
@@ -218,7 +226,7 @@ public class AccessMethodUtils {
         }
     }
 
-    public static List<LogicalVariable> getPrimaryKeyVarsFromUnnestMap(Dataset dataset, ILogicalOperator unnestMapOp) {
+    public static List<LogicalVariable> getPrimaryKeyVarsFromSecondaryUnnestMap(Dataset dataset, ILogicalOperator unnestMapOp) {
         int numPrimaryKeys = DatasetUtils.getPartitioningKeys(dataset).size();
         List<LogicalVariable> primaryKeyVars = new ArrayList<LogicalVariable>();
         List<LogicalVariable> sourceVars = ((UnnestMapOperator) unnestMapOp).getVariables();
@@ -226,6 +234,17 @@ public class AccessMethodUtils {
         int start = sourceVars.size() - numPrimaryKeys;
         int stop = sourceVars.size();
         for (int i = start; i < stop; i++) {
+            primaryKeyVars.add(sourceVars.get(i));
+        }
+        return primaryKeyVars;
+    }
+
+    public static List<LogicalVariable> getPrimaryKeyVarsFromPrimaryUnnestMap(Dataset dataset, ILogicalOperator unnestMapOp) {
+        int numPrimaryKeys = DatasetUtils.getPartitioningKeys(dataset).size();
+        List<LogicalVariable> primaryKeyVars = new ArrayList<LogicalVariable>();
+        List<LogicalVariable> sourceVars = ((UnnestMapOperator) unnestMapOp).getVariables();
+        // Assumes the primary keys are located at the beginning.
+        for (int i = 0; i < numPrimaryKeys; i++) {
             primaryKeyVars.add(sourceVars.get(i));
         }
         return primaryKeyVars;
@@ -291,7 +310,7 @@ public class AccessMethodUtils {
     public static UnnestMapOperator createPrimaryIndexUnnestMap(DataSourceScanOperator dataSourceScan, Dataset dataset,
             ARecordType recordType, ILogicalOperator inputOp, IOptimizationContext context, boolean sortPrimaryKeys,
             boolean retainInput, boolean requiresBroadcast) throws AlgebricksException {
-        List<LogicalVariable> primaryKeyVars = AccessMethodUtils.getPrimaryKeyVarsFromUnnestMap(dataset, inputOp);
+        List<LogicalVariable> primaryKeyVars = AccessMethodUtils.getPrimaryKeyVarsFromSecondaryUnnestMap(dataset, inputOp);
         // Optionally add a sort on the primary-index keys before searching the primary index.
         OrderOperator order = null;
         if (sortPrimaryKeys) {

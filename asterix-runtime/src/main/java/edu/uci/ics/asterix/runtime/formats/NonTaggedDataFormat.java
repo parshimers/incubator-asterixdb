@@ -166,6 +166,7 @@ import edu.uci.ics.asterix.runtime.evaluators.functions.CreatePolygonDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.CreateRectangleDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.CreateUUIDDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.EditDistanceCheckDescriptor;
+import edu.uci.ics.asterix.runtime.evaluators.functions.EditDistanceContainsDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.EditDistanceDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.EditDistanceListIsFilterable;
 import edu.uci.ics.asterix.runtime.evaluators.functions.EditDistanceStringIsFilterable;
@@ -533,6 +534,7 @@ public class NonTaggedDataFormat implements IDataFormat {
         temp.add(EditDistanceCheckDescriptor.FACTORY);
         temp.add(EditDistanceStringIsFilterable.FACTORY);
         temp.add(EditDistanceListIsFilterable.FACTORY);
+        temp.add(EditDistanceContainsDescriptor.FACTORY);
 
         temp.add(SimilarityJaccardDescriptor.FACTORY);
         temp.add(SimilarityJaccardCheckDescriptor.FACTORY);
@@ -912,21 +914,7 @@ public class NonTaggedDataFormat implements IDataFormat {
 
     @Override
     public ITupleParserFactory createTupleParser(ARecordType recType, IParseFileSplitsDecl decl) {
-        if (decl.isDelimitedFileFormat()) {
-            int n = recType.getFieldTypes().length;
-            IValueParserFactory[] fieldParserFactories = new IValueParserFactory[n];
-            for (int i = 0; i < n; i++) {
-                ATypeTag tag = recType.getFieldTypes()[i].getTypeTag();
-                IValueParserFactory vpf = typeToValueParserFactMap.get(tag);
-                if (vpf == null) {
-                    throw new NotImplementedException("No value parser factory for delimited fields of type " + tag);
-                }
-                fieldParserFactories[i] = vpf;
-            }
-            return new NtDelimitedDataTupleParserFactory(recType, fieldParserFactories, decl.getDelimChar());
-        } else {
-            return new AdmSchemafullRecordParserFactory(recType);
-        }
+        return createTupleParser(recType, decl.isDelimitedFileFormat(), decl.getDelimChar());
     }
 
     @Override

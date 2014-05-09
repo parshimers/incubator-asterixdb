@@ -87,7 +87,7 @@ public class BTreeAccessMethod implements IAccessMethod {
     }
 
     @Override
-    public boolean analyzeFuncExprArgs(AbstractFunctionCallExpression funcExpr, List<AssignOperator> assigns,
+    public boolean analyzeFuncExprArgs(AbstractFunctionCallExpression funcExpr, List<AbstractLogicalOperator> assignsAndUnnests,
             AccessMethodAnalysisContext analysisCtx) {
         boolean matches = AccessMethodUtils.analyzeFuncExprArgsForOneConstAndVar(funcExpr, analysisCtx);
         if (!matches) {
@@ -118,25 +118,25 @@ public class BTreeAccessMethod implements IAccessMethod {
         if (primaryIndexUnnestOp == null) {
             return false;
         }
-        Mutable<ILogicalOperator> assignRef = (subTree.assignRefs.isEmpty()) ? null : subTree.assignRefs.get(0);
-        AssignOperator assign = null;
-        if (assignRef != null) {
-            assign = (AssignOperator) assignRef.getValue();
+        Mutable<ILogicalOperator> opRef = (subTree.assignsAndUnnestsRefs.isEmpty()) ? null : subTree.assignsAndUnnestsRefs.get(0);
+        ILogicalOperator op = null;
+        if (opRef != null) {
+            op = opRef.getValue();
         }
         // Generate new select using the new condition.
         if (conditionRef.getValue() != null) {
             select.getInputs().clear();
-            if (assign != null) {
-                subTree.dataSourceScanRef.setValue(primaryIndexUnnestOp);
-                select.getInputs().add(new MutableObject<ILogicalOperator>(assign));
+            if (op != null) {
+                subTree.dataSourceRef.setValue(primaryIndexUnnestOp);
+                select.getInputs().add(new MutableObject<ILogicalOperator>(op));
             } else {
                 select.getInputs().add(new MutableObject<ILogicalOperator>(primaryIndexUnnestOp));
             }
         } else {
             ((AbstractLogicalOperator) primaryIndexUnnestOp).setExecutionMode(ExecutionMode.PARTITIONED);
-            if (assign != null) {
-                subTree.dataSourceScanRef.setValue(primaryIndexUnnestOp);
-                selectRef.setValue(assign);
+            if (op != null) {
+                subTree.dataSourceRef.setValue(primaryIndexUnnestOp);
+                selectRef.setValue(op);
             } else {
                 selectRef.setValue(primaryIndexUnnestOp);
             }
@@ -155,10 +155,10 @@ public class BTreeAccessMethod implements IAccessMethod {
         // Determine probe and index subtrees based on chosen index.
         OptimizableOperatorSubTree indexSubTree = null;
         OptimizableOperatorSubTree probeSubTree = null;
-        if (leftSubTree.dataset != null && dataset.getDatasetName().equals(leftSubTree.dataset.getDatasetName())) {
+        if (leftSubTree.hasDataSourceScan() && dataset.getDatasetName().equals(leftSubTree.dataset.getDatasetName())) {
             indexSubTree = leftSubTree;
             probeSubTree = rightSubTree;
-        } else if (rightSubTree.dataset != null
+        } else if (rightSubTree.hasDataSourceScan()
                 && dataset.getDatasetName().equals(rightSubTree.dataset.getDatasetName())) {
             indexSubTree = rightSubTree;
             probeSubTree = leftSubTree;
@@ -169,7 +169,7 @@ public class BTreeAccessMethod implements IAccessMethod {
             return false;
         }
         // If there are conditions left, add a new select operator on top.
-        indexSubTree.dataSourceScanRef.setValue(primaryIndexUnnestOp);
+        indexSubTree.dataSourceRef.setValue(primaryIndexUnnestOp);
         if (conditionRef.getValue() != null) {
             SelectOperator topSelect = new SelectOperator(conditionRef);
             topSelect.getInputs().add(indexSubTree.rootRef);
@@ -189,7 +189,8 @@ public class BTreeAccessMethod implements IAccessMethod {
             boolean retainInput, boolean requiresBroadcast, IOptimizationContext context) throws AlgebricksException {
         Dataset dataset = indexSubTree.dataset;
         ARecordType recordType = indexSubTree.recordType;
-        DataSourceScanOperator dataSourceScan = indexSubTree.dataSourceScan;
+        // we made sure indexSubTree has datasource scan
+        DataSourceScanOperator dataSourceScan = (DataSourceScanOperator) indexSubTree.dataSourceRef.getValue();
         int numSecondaryKeys = chosenIndex.getKeyFieldNames().size();
 
         // Info on high and low keys for the BTree search predicate.
@@ -423,7 +424,7 @@ public class BTreeAccessMethod implements IAccessMethod {
 
             // Replace the datasource scan with the new plan rooted at
             // primaryIndexUnnestMap.
-            indexSubTree.dataSourceScanRef.setValue(primaryIndexUnnestOp); //kisskys
+            indexSubTree.dataSourceRef.setValue(primaryIndexUnnestOp);
         } else {
             List<Object> primaryIndexOutputTypes = new ArrayList<Object>();
             try {

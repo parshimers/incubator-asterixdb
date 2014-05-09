@@ -14,6 +14,7 @@
  */
 package edu.uci.ics.asterix.optimizer.rules.am;
 
+import edu.uci.ics.asterix.om.functions.AsterixBuiltinFunctions;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IAlgebricksConstantValue;
@@ -28,6 +29,7 @@ public class OptimizableFuncExpr implements IOptimizableFuncExpr {
     protected final String[] fieldNames;
     protected final OptimizableOperatorSubTree[] subTrees;
     protected final IAlgebricksConstantValue[] constantVals;
+    protected boolean partialField;
 
     public OptimizableFuncExpr(AbstractFunctionCallExpression funcExpr, LogicalVariable[] logicalVars,
             IAlgebricksConstantValue[] constantVals) {
@@ -36,6 +38,11 @@ public class OptimizableFuncExpr implements IOptimizableFuncExpr {
         this.constantVals = constantVals;
         this.fieldNames = new String[logicalVars.length];
         this.subTrees = new OptimizableOperatorSubTree[logicalVars.length];
+        if (funcExpr.getFunctionIdentifier() == AsterixBuiltinFunctions.EDIT_DISTANCE_CONTAINS) {
+            this.partialField = true;
+        } else {
+            this.partialField = false;
+        }
     }
 
     // Special, more convenient c'tor for simple binary functions.
@@ -46,6 +53,11 @@ public class OptimizableFuncExpr implements IOptimizableFuncExpr {
         this.constantVals = new IAlgebricksConstantValue[] { constantVal };
         this.fieldNames = new String[logicalVars.length];
         this.subTrees = new OptimizableOperatorSubTree[logicalVars.length];
+        if (funcExpr.getFunctionIdentifier() == AsterixBuiltinFunctions.EDIT_DISTANCE_CONTAINS) {
+            this.partialField = true;
+        } else {
+            this.partialField = false;
+        }
     }
 
     @Override
@@ -123,5 +135,15 @@ public class OptimizableFuncExpr implements IOptimizableFuncExpr {
                 }
             }
         }
+    }
+
+    @Override
+    public void setPartialField(boolean partialField) {
+        this.partialField = partialField;
+    }
+ 
+    @Override
+    public boolean containsPartialField() {
+        return partialField;
     }
 }
