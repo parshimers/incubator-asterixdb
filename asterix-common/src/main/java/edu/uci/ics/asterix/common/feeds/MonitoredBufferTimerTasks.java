@@ -108,6 +108,10 @@ public class MonitoredBufferTimerTasks {
             this.proposedChange = false;
         }
 
+        public int getNumberOfPartitions() {
+            return nPartitions;
+        }
+
         public void setNumberOfPartitions(int nPartitions) {
             this.nPartitions = nPartitions;
             proposedChange = false;

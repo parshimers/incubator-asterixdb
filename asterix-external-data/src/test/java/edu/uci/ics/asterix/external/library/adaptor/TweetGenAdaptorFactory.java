@@ -18,6 +18,7 @@ import java.util.Map;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
+import edu.uci.ics.asterix.metadata.feeds.ConditionalPushTupleParserFactory;
 import edu.uci.ics.asterix.metadata.feeds.ITypedAdapterFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.BuiltinType;
@@ -48,11 +49,11 @@ public class TweetGenAdaptorFactory implements ITypedAdapterFactory {
     }
 
     private static ARecordType initOutputType() {
-        String[] fieldNames = new String[] { "tweetid", "message-text" };
-        IAType[] fieldTypes = new IAType[] { BuiltinType.ASTRING, BuiltinType.ASTRING };
+        String[] fieldNames = new String[] { "tweetid", "message-text", "generation-timestamp" };
+        IAType[] fieldTypes = new IAType[] { BuiltinType.ASTRING, BuiltinType.ASTRING, BuiltinType.AINT64 };
         ARecordType outputType = null;
         try {
-            outputType = new ARecordType("BasicTweet", fieldNames, fieldTypes, false);
+            outputType = new ARecordType("BasicTweet", fieldNames, fieldTypes, true);
         } catch (AsterixException exception) {
             throw new IllegalStateException("Unable to create output type for adaptor " + NAME);
         }
@@ -76,7 +77,8 @@ public class TweetGenAdaptorFactory implements ITypedAdapterFactory {
 
     @Override
     public IDatasourceAdapter createAdapter(IHyracksTaskContext ctx, int partition) throws Exception {
-        ITupleParserFactory tupleParserFactory = new AdmSchemafullRecordParserFactory(outputType);
+        //     ITupleParserFactory tupleParserFactory = new AdmSchemafullRecordParserFactory(outputType);
+        ITupleParserFactory tupleParserFactory = new ConditionalPushTupleParserFactory(outputType, configuration);
         return new TweetGenAdaptor(tupleParserFactory, outputType, ctx, configuration);
     }
 
