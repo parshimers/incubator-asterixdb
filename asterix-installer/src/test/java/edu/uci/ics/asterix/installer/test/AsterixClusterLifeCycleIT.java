@@ -23,10 +23,12 @@ import java.util.List;
 import java.io.InputStream;
 import java.io.FilenameFilter;
 import java.lang.ProcessBuilder;
+import java.nio.charset.StandardCharsets;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.Assert;
 import org.junit.runners.Parameterized.Parameters;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -36,10 +38,12 @@ import edu.uci.ics.asterix.testframework.context.TestCaseContext;
 
 public class AsterixClusterLifeCycleIT {
 
-    private static final String PATH_BASE = StringUtils.join(new String[] { "src", "test", "resources", "integrationts","lifecycle" },File.separator);
-    private static final String CLUSTER_BASE = StringUtils.join(new String[] { "src", "test", "resources", "clusterts" },File.separator);
-    private static final String PATH_ACTUAL = "ittest"+File.separator;
-    private static String managixFolderName = "";
+    private static final String PATH_BASE = StringUtils.join(new String[] { "src", "test", "resources",
+            "integrationts", "lifecycle" }, File.separator);
+    private static final String CLUSTER_BASE = StringUtils.join(
+            new String[] { "src", "test", "resources", "clusterts" }, File.separator);
+    private static final String PATH_ACTUAL = "ittest" + File.separator;
+    private static String managixFolderName;
     private static final Logger LOGGER = Logger.getLogger(AsterixClusterLifeCycleIT.class.getName());
     private static List<TestCaseContext> testCaseCollection;
     private static File asterixProjectDir = new File(System.getProperty("user.dir"));
@@ -66,20 +70,20 @@ public class AsterixClusterLifeCycleIT {
         invoke("cp", "-r", installerTargetDir.toString() + "/" + managixFolderName, asterixProjectDir + "/"
                 + CLUSTER_BASE);
 
-        printOutput(remoteInvoke("cp -r /vagrant/" + managixFolderName + " /tmp/asterix").getInputStream());
+        logOutput(remoteInvoke("cp -r /vagrant/" + managixFolderName + " /tmp/asterix").getInputStream());
 
-        printOutput(managixInvoke("configure").getInputStream());
-        printOutput(managixInvoke("validate").getInputStream());
+        logOutput(managixInvoke("configure").getInputStream());
+        logOutput(managixInvoke("validate").getInputStream());
 
         Process p = managixInvoke("create -n vagrant-ssh -c /vagrant/cluster.xml");
         String pout = processOut(p);
         LOGGER.info(pout);
-        assert (checkOutput(pout, "ACTIVE"));
-        //TODO: I should check for 'WARNING' here, but managix seems to not report this reliably
+        Assert.assertTrue(checkOutput(pout, "ACTIVE"));
+        //TODO: I should check for 'WARNING' here, but issue 764 stops this from being reliable 
         LOGGER.info("Test start active cluster instance PASSED");
 
         Process stop = managixInvoke("stop -n vagrant-ssh");
-        assert (checkOutput(stop.getInputStream(), "Stopped Asterix instance"));
+        Assert.assertTrue(checkOutput(stop.getInputStream(), "Stopped Asterix instance"));
         LOGGER.info("Test stop active cluster instance PASSED");
     }
 
@@ -87,7 +91,7 @@ public class AsterixClusterLifeCycleIT {
     public static void tearDown() throws Exception {
         Process p = managixInvoke("delete -n vagrant-ssh");
         managixInvoke("rm -rf /vagrant/managix-working");
-        assert (checkOutput(p.getInputStream(), "Deleted Asterix instance"));
+        Assert.assertTrue(checkOutput(p.getInputStream(), "Deleted Asterix instance"));
         LOGGER.info("Test delete active instance PASSED");
     }
 
@@ -100,9 +104,9 @@ public class AsterixClusterLifeCycleIT {
     public static boolean checkOutput(InputStream input, String requiredSubString) {
         //right now im just going to look at the output, which is wholly inadequate
         //TODO: try using cURL to actually poke the instance to see if it is more alive
-        String candidate = "";
+        String candidate;
         try {
-            candidate = IOUtils.toString(input, "UTF-8");
+            candidate = IOUtils.toString(input, StandardCharsets.UTF_8.name());
         } catch (IOException e) {
             LOGGER.warning("Could not check output of subprocess");
             return false;
@@ -116,12 +120,12 @@ public class AsterixClusterLifeCycleIT {
 
     public static String processOut(Process p) throws IOException {
         InputStream input = p.getInputStream();
-        return IOUtils.toString(input, "UTF-8");
+        return IOUtils.toString(input, StandardCharsets.UTF_8.name());
     }
 
-    public static void printOutput(InputStream input) {
+    public static void logOutput(InputStream input) {
         try {
-            LOGGER.info(IOUtils.toString(input, "UTF-8"));
+            LOGGER.info(IOUtils.toString(input, StandardCharsets.UTF_8.name()));
         } catch (IOException e) {
             LOGGER.warning("Could not print output of subprocess");
         }
@@ -153,9 +157,9 @@ public class AsterixClusterLifeCycleIT {
         //TODO: is ZK still running?
         try {
             Process start = managixInvoke("start -n vagrant-ssh");
-            assert (checkOutput(start.getInputStream(), "ACTIVE"));
+            Assert.assertTrue(checkOutput(start.getInputStream(), "ACTIVE"));
             Process stop = managixInvoke("stop -n vagrant-ssh");
-            assert (checkOutput(stop.getInputStream(), "Stopped Asterix instance"));
+            Assert.assertTrue(checkOutput(stop.getInputStream(), "Stopped Asterix instance"));
             LOGGER.info("Test start/stop active cluster instance PASSED");
         } catch (Exception e) {
             throw new Exception("Test start/stop FAILED!", e);
