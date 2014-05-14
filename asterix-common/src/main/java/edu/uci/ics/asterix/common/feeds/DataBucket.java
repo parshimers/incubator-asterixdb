@@ -21,11 +21,12 @@ public class DataBucket {
 
     private static final AtomicInteger globalBucketId = new AtomicInteger(0);
 
-    private final ByteBuffer buffer;
+    private final ByteBuffer content;
     private final AtomicInteger readCount;
+    private final int bucketId;
+
     private int desiredReadCount;
     private ContentType contentType;
-    private int bucketId;
 
     private final DataBucketPool pool;
 
@@ -36,7 +37,7 @@ public class DataBucket {
     }
 
     public DataBucket(DataBucketPool pool) {
-        buffer = ByteBuffer.allocate(pool.getFrameSize());
+        content = ByteBuffer.allocate(pool.getFrameSize());
         readCount = new AtomicInteger(0);
         this.pool = pool;
         this.contentType = ContentType.DATA;
@@ -44,10 +45,12 @@ public class DataBucket {
     }
 
     public synchronized void reset(ByteBuffer frame) {
-        buffer.flip();
-        System.arraycopy(frame.array(), 0, buffer.array(), 0, frame.limit());
-        buffer.limit(frame.limit());
-        buffer.position(0);
+        if (frame != null) {
+            content.flip();
+            System.arraycopy(frame.array(), 0, content.array(), 0, frame.limit());
+            content.limit(frame.limit());
+            content.position(0);
+        }
     }
 
     public synchronized void doneReading() {
@@ -69,8 +72,8 @@ public class DataBucket {
         this.contentType = contentType;
     }
 
-    public synchronized ByteBuffer getBuffer() {
-        return buffer;
+    public synchronized ByteBuffer getContent() {
+        return content;
     }
 
     @Override

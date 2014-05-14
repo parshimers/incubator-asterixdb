@@ -20,7 +20,6 @@ import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
 import edu.uci.ics.asterix.common.feeds.FeedId;
-import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.asterix.common.feeds.SubscribableFeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
@@ -103,9 +102,9 @@ public class FeedIntakeOperatorDescriptor extends AbstractSingleActivityOperator
     }
 
     private IAdapterFactory createAdapterFactory(IHyracksTaskContext ctx, int partition) throws Exception {
+        IAdapterFactory adapterFactory = null;
         ClassLoader classLoader = ExternalLibraryManager.getLibraryClassLoader(feedId.getDataverse(),
                 adaptorLibraryName);
-        IAdapterFactory adapterFactory = null;
         if (classLoader != null) {
             adapterFactory = ((IAdapterFactory) (classLoader.loadClass(adapterFactoryClassName).newInstance()));
 
@@ -126,7 +125,7 @@ public class FeedIntakeOperatorDescriptor extends AbstractSingleActivityOperator
                             (ARecordType) adapterOutputType);
                     break;
                 default:
-                    throw new IllegalStateException(" Unknown factory type for " + adapterFactoryClassName);
+                    throw new IllegalArgumentException(" Unknown factory type for " + adapterFactoryClassName);
             }
         } else {
             String message = "Unable to create adapter as class loader not configured for library "

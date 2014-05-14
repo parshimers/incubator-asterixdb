@@ -66,8 +66,6 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
 
     private final IHyracksTaskContext ctx;
 
-    private final String operandId;
-
     private final FeedRuntimeType runtimeType = FeedRuntimeType.COMPUTE;
 
     private FeedRuntimeInputHandler inputSideHandler;
@@ -87,7 +85,6 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
         IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject();
         this.feedManager = runtimeCtx.getFeedManager();
-        this.operandId = operationId;
     }
 
     @Override
@@ -163,7 +160,6 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
 
     @Override
     public void close() throws HyracksDataException {
-        System.out.println("CLOSE CALLED FOR " + this.feedRuntime.getRuntimeId());
         boolean stalled = inputSideHandler.getMode().equals(Mode.STALL);
         boolean end = inputSideHandler.getMode().equals(Mode.END);
         try {
@@ -175,14 +171,14 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
                             coreOperator.wait();
                         }
                     }
-                    // inputSideHandler.close();
+                } else {
+                    inputSideHandler.setFinished(true);
                 }
             }
             coreOperator.close();
             System.out.println("CLOSED " + coreOperator + " STALLED ?" + stalled + " ENDED " + end);
         } catch (Exception e) {
             e.printStackTrace();
-            // ignore
         } finally {
             if (!stalled) {
                 deregister();
@@ -201,8 +197,13 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
 
     private void deregister() {
         if (feedRuntime != null) {
+            // deregister from subscription manager
             SubscribableFeedRuntimeId runtimeId = (SubscribableFeedRuntimeId) feedRuntime.getRuntimeId();
             feedManager.getFeedSubscriptionManager().deregisterFeedSubscribableRuntime(runtimeId);
+
+            // deregister from connection manager
+            feedManager.getFeedConnectionManager().deRegisterFeedRuntime(connectionId,
+                    ((FeedRuntime) feedRuntime).getRuntimeId());
         }
     }
 

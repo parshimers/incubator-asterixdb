@@ -132,4 +132,9 @@ public class TestTypedAdaptor extends StreamBasedAdapter implements IFeedAdapter
         generator.stop();
     }
 
+    @Override
+    public boolean handleException(Exception e) {
+        return false;
+    }
+
 }

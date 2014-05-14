@@ -54,10 +54,10 @@ public class MonitoredBufferTimerTasks {
             if (LOGGER.isLoggable(Level.INFO)) {
                 int outflowRate = mBuffer.getOutflowRate();
                 int inflowRate = mBuffer.getInflowRate();
-                //  if (inflowRate > 0 && outflowRate > 0) {
-                LOGGER.info(mBuffer.getRuntimeId() + " " + "Inflow rate:" + inflowRate + " Outflow Rate:" + outflowRate
-                        + " Pending Work " + pendingWork);
-                //  }
+                if (inflowRate > 0 && outflowRate > 0) {
+                    LOGGER.info(mBuffer.getRuntimeId() + " " + "Inflow rate:" + inflowRate + " Outflow Rate:"
+                            + outflowRate + " Pending Work " + pendingWork);
+                }
             }
 
             switch (lastEvent) {

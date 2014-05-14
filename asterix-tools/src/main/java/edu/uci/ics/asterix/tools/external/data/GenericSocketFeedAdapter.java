@@ -8,7 +8,6 @@ import java.util.logging.Level;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.api.IFeedAdapter;
-import edu.uci.ics.asterix.common.feeds.api.IFeedAdapter.DataExchangeMode;
 import edu.uci.ics.asterix.external.dataset.adapter.StreamBasedAdapter;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
@@ -19,12 +18,14 @@ public class GenericSocketFeedAdapter extends StreamBasedAdapter implements IFee
 
     private static final long serialVersionUID = 1L;
 
+    private final int port;
     private SocketFeedServer socketFeedServer;
 
-    public GenericSocketFeedAdapter(ITupleParserFactory parserFactory, ARecordType outputtype, int port,
+    public GenericSocketFeedAdapter(ITupleParserFactory parserFactory, ARecordType outputType, int port,
             IHyracksTaskContext ctx) throws AsterixException, IOException {
-        super(parserFactory, outputtype, ctx);
-        this.socketFeedServer = new SocketFeedServer(outputtype, port);
+        super(parserFactory, outputType, ctx);
+        this.port = port;
+        this.socketFeedServer = new SocketFeedServer(outputType, port);
     }
 
     @Override
@@ -66,7 +67,7 @@ public class GenericSocketFeedAdapter extends StreamBasedAdapter implements IFee
                 if (LOGGER.isLoggable(Level.SEVERE)) {
                     LOGGER.severe("Unable to create input stream required for feed ingestion");
                 }
-            } 
+            }
             return inputStream;
         }
 
@@ -89,6 +90,16 @@ public class GenericSocketFeedAdapter extends StreamBasedAdapter implements IFee
 
     public DataExchangeMode getDataExchangeMode() {
         return DataExchangeMode.PUSH;
+    }
+
+    @Override
+    public boolean handleException(Exception e) {
+        try {
+            this.socketFeedServer = new SocketFeedServer((ARecordType) sourceDatatype, port);
+            return true;
+        } catch (Exception re) {
+            return false;
+        }
     }
 
 }

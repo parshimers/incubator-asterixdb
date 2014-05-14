@@ -131,7 +131,7 @@ public class FeedFrameHandlers {
         @Override
         public void handleDataBucket(DataBucket bucket) {
             for (FeedFrameCollector collector : frameCollectors) {
-                collector.sendMessage(bucket);
+                collector.sendMessage(bucket); // asynchronous call
             }
         }
 

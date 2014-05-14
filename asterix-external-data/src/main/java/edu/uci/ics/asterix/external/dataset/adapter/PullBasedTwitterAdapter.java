@@ -37,7 +37,8 @@ public class PullBasedTwitterAdapter extends PullBasedAdapter implements IFeedAd
         return tweetClient;
     }
 
-    public PullBasedTwitterAdapter(Map<String, String> configuration, ARecordType recordType, IHyracksTaskContext ctx) throws AsterixException {
+    public PullBasedTwitterAdapter(Map<String, String> configuration, ARecordType recordType, IHyracksTaskContext ctx)
+            throws AsterixException {
         super(configuration, ctx);
         tweetClient = new PullBasedTwitterFeedClient(ctx, recordType, this);
     }
@@ -49,6 +50,11 @@ public class PullBasedTwitterAdapter extends PullBasedAdapter implements IFeedAd
     @Override
     public DataExchangeMode getDataExchangeMode() {
         return DataExchangeMode.PULL;
+    }
+
+    @Override
+    public boolean handleException(Exception e) {
+        return true;
     }
 
 }

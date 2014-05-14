@@ -31,17 +31,17 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
 
     private final FeedId feedId;
 
-    private IFeedAdapter feedAdapter;
+    private final IFeedAdapter feedAdapter;
 
-    private AdapterExecutor adapterExecutor;
+    private final AdapterExecutor adapterExecutor;
 
-    private State state;
+    private final int partition;
 
-    private int partition;
+    private final ExecutorService executorService;
 
     private IngestionRuntime ingestionRuntime;
 
-    private ExecutorService executorService;
+    private State state;
 
     public AdapterRuntimeManager(FeedId feedId, IFeedAdapter feedAdapter, DistributeFeedFrameWriter writer,
             int partition) {
@@ -57,9 +57,6 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
     public void start() throws Exception {
         state = State.ACTIVE_INGESTION;
         executorService.execute(adapterExecutor);
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Started feed runtime manager for " + this.getFeedId());
-        }
     }
 
     @Override
@@ -107,27 +104,31 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
 
         @Override
         public void run() {
-            try {
-                int partition = runtimeManager.getPartition();
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Starting ingestion for partition:" + partition);
+            int partition = runtimeManager.getPartition();
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Starting ingestion for partition:" + partition);
+            }
+            boolean continueIngestion = true;
+            while (continueIngestion) {
+                try {
+                    adapter.start(partition, writer);
+                    continueIngestion = false;
+                } catch (Exception e) {
+                    if (LOGGER.isLoggable(Level.SEVERE)) {
+                        LOGGER.severe("Exception during feed ingestion " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                    continueIngestion = adapter.handleException(e);
                 }
-                adapter.start(partition, writer);
-            } catch (Exception e) {
-                if (LOGGER.isLoggable(Level.SEVERE)) {
-                    LOGGER.severe("Exception during feed ingestion " + e.getMessage());
-                    e.printStackTrace();
-                }
-            } finally {
-                runtimeManager.setState(State.FINISHED_INGESTION);
-                synchronized (runtimeManager) {
-                    runtimeManager.notifyAll();
-                }
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("End of ingestion for feed " + runtimeManager.getFeedId() + "["
-                            + runtimeManager.getPartition() + "]");
-                }
+            }
 
+            runtimeManager.setState(State.FINISHED_INGESTION);
+            synchronized (runtimeManager) {
+                runtimeManager.notifyAll();
+            }
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("End of ingestion for feed " + runtimeManager.getFeedId() + "["
+                        + runtimeManager.getPartition() + "]");
             }
         }
 

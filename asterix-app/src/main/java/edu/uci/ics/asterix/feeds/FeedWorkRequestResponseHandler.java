@@ -16,6 +16,7 @@ package edu.uci.ics.asterix.feeds;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -27,13 +28,13 @@ import java.util.logging.Logger;
 import edu.uci.ics.asterix.common.api.IClusterManagementWork;
 import edu.uci.ics.asterix.common.api.IClusterManagementWorkResponse;
 import edu.uci.ics.asterix.common.feeds.FeedConnectJobInfo;
-import edu.uci.ics.asterix.common.feeds.api.IFeedJoint;
-import edu.uci.ics.asterix.feeds.FeedLifecycleListener.FailureReport;
+import edu.uci.ics.asterix.common.feeds.FeedIntakeInfo;
+import edu.uci.ics.asterix.common.feeds.FeedJobInfo;
 import edu.uci.ics.asterix.metadata.cluster.AddNodeWork;
 import edu.uci.ics.asterix.metadata.cluster.AddNodeWorkResponse;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
 import edu.uci.ics.asterix.om.util.AsterixClusterProperties;
-import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
+import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
 import edu.uci.ics.hyracks.api.constraints.Constraint;
 import edu.uci.ics.hyracks.api.constraints.PartitionConstraintHelper;
 import edu.uci.ics.hyracks.api.constraints.expressions.ConstantExpression;
@@ -52,14 +53,10 @@ public class FeedWorkRequestResponseHandler implements Runnable {
 
     private final LinkedBlockingQueue<IClusterManagementWorkResponse> inbox;
 
-    private final FeedJobNotificationHandler feedJobNotificationHandler;
+    private Map<Integer, Map<String, List<FeedJobInfo>>> feedsWaitingForResponse = new HashMap<Integer, Map<String, List<FeedJobInfo>>>();
 
-    private Map<Integer, FailureReport> feedsWaitingForResponse = new HashMap<Integer, FailureReport>();
-
-    public FeedWorkRequestResponseHandler(LinkedBlockingQueue<IClusterManagementWorkResponse> inbox,
-            FeedJobNotificationHandler feedJobNotificationHandler) {
+    public FeedWorkRequestResponseHandler(LinkedBlockingQueue<IClusterManagementWorkResponse> inbox) {
         this.inbox = inbox;
-        this.feedJobNotificationHandler = feedJobNotificationHandler;
     }
 
     @Override
@@ -79,12 +76,12 @@ public class FeedWorkRequestResponseHandler implements Runnable {
                 case ADD_NODE:
                     AddNodeWork addNodeWork = (AddNodeWork) submittedWork;
                     int workId = addNodeWork.getWorkId();
-                    FailureReport failureReport = feedsWaitingForResponse.get(workId);
+                    Map<String, List<FeedJobInfo>> failureAnalysis = feedsWaitingForResponse.get(workId);
                     AddNodeWorkResponse resp = (AddNodeWorkResponse) response;
                     List<String> nodesAdded = resp.getNodesAdded();
-                    int nodeIndex = 0;
                     List<String> unsubstitutedNodes = new ArrayList<String>();
                     unsubstitutedNodes.addAll(addNodeWork.getDeadNodes());
+                    int nodeIndex = 0;
 
                     /** form a mapping between the failed node and its substitute **/
                     if (nodesAdded != null && nodesAdded.size() > 0) {
@@ -104,78 +101,62 @@ public class FeedWorkRequestResponseHandler implements Runnable {
                         nodeIndex = 0;
                         for (String unsubstitutedNode : unsubstitutedNodes) {
                             nodeSubstitution.put(unsubstitutedNode, participantNodes[nodeIndex]);
+                            if (LOGGER.isLoggable(Level.INFO)) {
+                                LOGGER.info("Node " + participantNodes[nodeIndex] + " chosen to substiute lost node "
+                                        + unsubstitutedNode);
+                            }
                             nodeIndex = (nodeIndex + 1) % participantNodes.length;
                         }
-                    }
 
-                    if (LOGGER.isLoggable(Level.WARNING)) {
-                        LOGGER.warning("Request " + resp.getWork() + " completed using internal nodes");
+                        if (LOGGER.isLoggable(Level.WARNING)) {
+                            LOGGER.warning("Request " + resp.getWork() + " completed using internal nodes");
+                        }
                     }
 
                     // alter failed feed intake jobs
-                    List<IFeedJoint> intakeFeedJoints = new ArrayList<IFeedJoint>();
-                    for (Entry<IFeedJoint, List<String>> entry : failureReport.getRecoverableIntakeFeedIds().entrySet()) {
-                        IFeedJoint feedJoint = entry.getKey();
-                        List<String> deadNodes = entry.getValue();
-                        for (String deadNode : deadNodes) {
-                            String replacement = nodeSubstitution.get(deadNode);
-                            JobSpecification spec = FeedLifecycleListener.INSTANCE.getCollectJobSpecification(feedJoint
-                                    .getProvider());
-                            replaceNode(spec, deadNode, nodeSubstitution.get(deadNode));
-                            if (LOGGER.isLoggable(Level.INFO)) {
-                                LOGGER.info("Replaced node " + deadNode + " with " + replacement
-                                        + " for feed intake joint [" + feedJoint + "]");
-                            }
+
+                    for (Entry<String, List<FeedJobInfo>> entry : failureAnalysis.entrySet()) {
+                        String failedNode = entry.getKey();
+                        List<FeedJobInfo> impactedJobInfos = entry.getValue();
+                        for (FeedJobInfo info : impactedJobInfos) {
+                            JobSpecification spec = info.getSpec();
+                            replaceNode(spec, failedNode, nodeSubstitution.get(failedNode));
+                            info.setSpec(spec);
                         }
-                        intakeFeedJoints.add(feedJoint);
                     }
 
-                    /*
-                    // alter failed feed collect jobs
-                    List<FeedConnectJobInfo> cInfos = new ArrayList<FeedConnectJobInfo>();
-                    for (Pair<FeedConnectJobInfo, List<String>> p : failureReport.getRecoverableSubscribers()) {
-                        FeedConnectJobInfo cInfo = p.first;
-                        List<String> deadNodes = p.second;
-                        for (String deadNode : deadNodes) {
-                            String replacement = nodeSubstitution.get(deadNode);
-                            replaceNode(cInfo.getSpec(), deadNode, replacement);
-                            if (LOGGER.isLoggable(Level.INFO)) {
-                                LOGGER.info("Replaced node " + deadNode + " with " + replacement
-                                        + " for feed subscriber [" + cInfo + "]");
-                            }
-                        }
-                        cInfos.add(cInfo);
-                    }
+                    Set<FeedIntakeInfo> revisedIntakeJobs = new HashSet<FeedIntakeInfo>();
+                    Set<FeedConnectJobInfo> revisedConnectJobInfos = new HashSet<FeedConnectJobInfo>();
 
-                    // launch feed intake jobs followed by feed collect jobs
-                    for (IFeedJoint feedJoint : intakeFeedJoints) {
-                        try {
-                            AsterixAppContextInfo.getInstance().getHcc().startJob(feedJoint.getJobSpec());
-                            if (LOGGER.isLoggable(Level.INFO)) {
-                                LOGGER.info("Launched feed intake jobs [" + feedJoint + "] post failure");
-                            }
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                            if (LOGGER.isLoggable(Level.WARNING)) {
-                                LOGGER.warning("Exception in launching feed intake job " + feedJoint);
+                    for (List<FeedJobInfo> infos : failureAnalysis.values()) {
+                        for (FeedJobInfo info : infos) {
+                            switch (info.getJobType()) {
+                                case INTAKE:
+                                    revisedIntakeJobs.add((FeedIntakeInfo) info);
+                                    break;
+                                case FEED_CONNECT:
+                                    revisedConnectJobInfos.add((FeedConnectJobInfo) info);
+                                    break;
                             }
                         }
                     }
 
-                    for (FeedSubscriber subscriber : subscribers) {
-                        try {
-                            AsterixAppContextInfo.getInstance().getHcc().startJob(subscriber.getJobSpec());
-                            if (LOGGER.isLoggable(Level.INFO)) {
-                                LOGGER.info("Launched feed collect info [" + subscriber + "] jobs post failure");
-                            }
+                    IHyracksClientConnection hcc = AsterixAppContextInfo.getInstance().getHcc();
+                    try {
+                        for (FeedIntakeInfo info : revisedIntakeJobs) {
+                            hcc.startJob(info.getSpec());
+                        }
+                        Thread.sleep(2000);
+                        for (FeedConnectJobInfo info : revisedConnectJobInfos) {
+                            hcc.startJob(info.getSpec());
                             Thread.sleep(2000);
-                        } catch (Exception e) {
-                            if (LOGGER.isLoggable(Level.WARNING)) {
-                                LOGGER.warning("Exception in launching feed collect job "
-                                        + subscriber.getConnectionId());
-                            }
                         }
-                    }*/
+                    } catch (Exception e) {
+                        if (LOGGER.isLoggable(Level.WARNING)) {
+                            LOGGER.warning("Unable to start revised job post failure");
+                        }
+                    }
+
                     break;
                 case REMOVE_NODE:
                     throw new IllegalStateException("Invalid work submitted");
@@ -276,7 +257,7 @@ public class FeedWorkRequestResponseHandler implements Runnable {
 
     }
 
-    public void registerFeedWork(int workId, FailureReport failureReport) {
-        feedsWaitingForResponse.put(workId, failureReport);
+    public void registerFeedWork(int workId, Map<String, List<FeedJobInfo>> impactedJobs) {
+        feedsWaitingForResponse.put(workId, impactedJobs);
     }
 }

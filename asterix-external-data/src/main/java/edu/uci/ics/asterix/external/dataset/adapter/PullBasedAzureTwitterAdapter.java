@@ -77,4 +77,9 @@ public class PullBasedAzureTwitterAdapter extends PullBasedAdapter implements IF
     public DataExchangeMode getDataExchangeMode() {
         return DataExchangeMode.PULL;
     }
+
+    @Override
+    public boolean handleException(Exception e) {
+        return false;
+    }
 }

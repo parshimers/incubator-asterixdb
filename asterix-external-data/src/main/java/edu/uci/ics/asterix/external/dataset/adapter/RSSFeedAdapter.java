@@ -78,4 +78,9 @@ public class RSSFeedAdapter extends PullBasedAdapter implements IFeedAdapter {
         return DataExchangeMode.PULL;
     }
 
+    @Override
+    public boolean handleException(Exception e) {
+        return false;
+    }
+
 }

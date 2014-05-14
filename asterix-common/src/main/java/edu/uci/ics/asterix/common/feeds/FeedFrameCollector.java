@@ -50,7 +50,7 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
     @Override
     public void processMessage(DataBucket bucket) throws Exception {
         try {
-            ByteBuffer frame = bucket.getBuffer();
+            ByteBuffer frame = bucket.getContent();
             switch (bucket.getContentType()) {
                 case DATA:
                     System.out.println("FEED FRAME COLLECTOR SENDING FRAME " + "("

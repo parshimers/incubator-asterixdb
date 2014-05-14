@@ -18,6 +18,7 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -41,6 +42,8 @@ import edu.uci.ics.asterix.common.api.IClusterManagementWorkResponse;
 import edu.uci.ics.asterix.common.feeds.FeedConnectJobInfo;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
+import edu.uci.ics.asterix.common.feeds.FeedIntakeInfo;
+import edu.uci.ics.asterix.common.feeds.FeedJobInfo;
 import edu.uci.ics.asterix.common.feeds.FeedJobInfo.FeedJobState;
 import edu.uci.ics.asterix.common.feeds.FeedJointKey;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
@@ -49,6 +52,7 @@ import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleEventSubscriber;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleListener;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
+import edu.uci.ics.asterix.metadata.cluster.AddNodeWork;
 import edu.uci.ics.asterix.metadata.cluster.ClusterManager;
 import edu.uci.ics.asterix.metadata.feeds.FeedCollectOperatorDescriptor;
 import edu.uci.ics.asterix.metadata.feeds.FeedIntakeOperatorDescriptor;
@@ -87,8 +91,7 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
         this.jobEventInbox = new LinkedBlockingQueue<Message>();
         this.feedJobNotificationHandler = new FeedJobNotificationHandler(jobEventInbox);
         this.responseInbox = new LinkedBlockingQueue<IClusterManagementWorkResponse>();
-        this.feedWorkRequestResponseHandler = new FeedWorkRequestResponseHandler(responseInbox,
-                feedJobNotificationHandler);
+        this.feedWorkRequestResponseHandler = new FeedWorkRequestResponseHandler(responseInbox);
         this.feedReportQueue = new HashMap<FeedConnectionId, LinkedBlockingQueue<String>>();
         this.executorService = Executors.newCachedThreadPool();
         this.executorService.execute(feedJobNotificationHandler);
@@ -139,12 +142,12 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
         }
     }
 
-    public void setJobState(JobId jobId, FeedJobState jobState) {
-        feedJobNotificationHandler.setJobState(jobId, jobState);
+    public void setJobState(FeedConnectionId connectionId, FeedJobState jobState) {
+        feedJobNotificationHandler.setJobState(connectionId, jobState);
     }
 
-    public FeedJobState getFeedJobState(JobId jobId) {
-        return feedJobNotificationHandler.getFeedJobState(jobId);
+    public FeedJobState getFeedJobState(FeedConnectionId connectionId) {
+        return feedJobNotificationHandler.getFeedJobState(connectionId);
     }
 
     public static class Message {
@@ -165,67 +168,48 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
 
     @Override
     public Set<IClusterManagementWork> notifyNodeFailure(Set<String> deadNodeIds) {
-        return null;
-        /*
         Set<IClusterManagementWork> workToBeDone = new HashSet<IClusterManagementWork>();
-        Collection<FeedSubscriber> subscribers = feedJobNotificationHandler.getSubscribers();
-        List<FeedSubscriber> irrecoverableSubscribers = new ArrayList<FeedSubscriber>();
 
-        List<Pair<FeedSubscriber, List<String>>> recoverableSubscribers = new ArrayList<Pair<FeedSubscriber, List<String>>>();
-        for (FeedSubscriber subscriber : subscribers) {
-            List<String> deadNodes = new ArrayList<String>();
-            boolean isFailureRecoverable = true;
-            boolean failure = false;
-            Pair<FeedSubscriber, List<String>> p = new Pair<FeedSubscriber, List<String>>(subscriber, deadNodes);
-            for (String deadNode : deadNodeIds) {
-                boolean failureBecauseOfThisNode = subscriber.getFeedConnectionInfo().getCollectLocations()
-                        .contains(deadNode)
-                        || subscriber.getFeedConnectionInfo().getComputeLocations().contains(deadNode)
-                        || subscriber.getFeedConnectionInfo().getStorageLocations().contains(deadNode);
-                if (failureBecauseOfThisNode) {
-                    failure = true;
-                    isFailureRecoverable = isFailureRecoverable
-                            && !subscriber.getFeedConnectionInfo().getStorageLocations().contains(deadNode);
-                    if (isFailureRecoverable) {
-                        deadNodes.add(deadNode);
-                    } else {
-                        irrecoverableSubscribers.add(subscriber);
-                        break;
+        Collection<FeedIntakeInfo> intakeInfos = feedJobNotificationHandler.getFeedIntakeInfos();
+        Collection<FeedConnectJobInfo> connectJobInfos = feedJobNotificationHandler.getFeedConnectInfos();
+
+        List<FeedIntakeInfo> recoverableIntakeJobs;
+        List<FeedConnectJobInfo> recoverableConnectJobs;
+        Map<String, List<FeedJobInfo>> impactedJobs = new HashMap<String, List<FeedJobInfo>>();
+
+        for (String deadNode : deadNodeIds) {
+            for (FeedIntakeInfo intakeInfo : intakeInfos) {
+                if (intakeInfo.getIntakeLocation().contains(deadNode)) {
+                    List<FeedJobInfo> infos = impactedJobs.get(deadNode);
+                    if (infos == null) {
+                        infos = new ArrayList<FeedJobInfo>();
+                        impactedJobs.put(deadNode, infos);
                     }
+                    infos.add(intakeInfo);
                 }
             }
-            if (failure && isFailureRecoverable) {
-                recoverableSubscribers.add(p);
-            }
-        }
 
-        Collection<IFeedJoint> intakeFeedJoints = feedJobNotificationHandler.getFeedIntakeJoints();
-        Map<IFeedJoint, List<String>> recoverableIntakeFeedIds = new HashMap<IFeedJoint, List<String>>();
-        for (IFeedJoint feedJoint : intakeFeedJoints) {
-            List<String> deadNodes = new ArrayList<String>();
-            for (String deadNode : deadNodeIds) {
-                if (feedJoint.getLocations().contains(deadNode)) {
-                    deadNodes.add(deadNode);
+            for (FeedConnectJobInfo connectInfo : connectJobInfos) {
+                if (connectInfo.getStorageLocations().contains(deadNode)) {
+                    continue;
                 }
+                List<FeedJobInfo> infos = impactedJobs.get(deadNode);
+                if (infos == null) {
+                    infos = new ArrayList<FeedJobInfo>();
+                    impactedJobs.put(deadNode, infos);
+                }
+                infos.add(connectInfo);
             }
-            if (deadNodes.size() > 0) {
-                recoverableIntakeFeedIds.put(feedJoint, deadNodes);
-            }
+
         }
 
-        FailureReport failureReport = new FailureReport(recoverableIntakeFeedIds, recoverableSubscribers);
-
-        if (irrecoverableSubscribers.size() > 0) {
-            executorService.execute(new FeedsDeActivator(irrecoverableSubscribers));
-        }
-
-        if (recoverableSubscribers.size() > 0) {
+        if (impactedJobs.size() > 0) {
             AddNodeWork addNodeWork = new AddNodeWork(deadNodeIds, deadNodeIds.size(), this);
-            feedWorkRequestResponseHandler.registerFeedWork(addNodeWork.getWorkId(), failureReport);
+            feedWorkRequestResponseHandler.registerFeedWork(addNodeWork.getWorkId(), impactedJobs);
             workToBeDone.add(addNodeWork);
         }
         return workToBeDone;
-        */
+
     }
 
     public static class FailureReport {
@@ -449,11 +433,6 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
 
     public IFeedJoint getFeedJoint(FeedJointKey feedJointKey) {
         return feedJobNotificationHandler.getFeedJoint(feedJointKey);
-    }
-
-    @Override
-    public IFeedJoint getSourceFeedJoint(FeedConnectionId connectionId) {
-        return feedJobNotificationHandler.getSourceFeedJoint(connectionId);
     }
 
     public void registerFeedEventSubscriber(FeedConnectionId connectionId, IFeedLifecycleEventSubscriber subscriber) {

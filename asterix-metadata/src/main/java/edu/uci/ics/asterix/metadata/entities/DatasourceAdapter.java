@@ -23,7 +23,10 @@ public class DatasourceAdapter implements IMetadataEntity {
     private static final long serialVersionUID = 1L;
 
     public enum AdapterType {
+        /** Built-in adapter included in AsterixDB **/
         INTERNAL,
+
+        /** User defined adapter installed as part of an AsterixDB library **/
         EXTERNAL
     }
 

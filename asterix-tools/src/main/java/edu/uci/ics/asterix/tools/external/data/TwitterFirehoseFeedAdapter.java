@@ -33,9 +33,8 @@ import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 
 /**
- * TPS can be configured between 1 and 20,000
- * 
- * @author ramang
+ * A simulator of the Twitter Firehose. Generates meaningful tweets
+ * at a configurable rate
  */
 public class TwitterFirehoseFeedAdapter extends StreamBasedAdapter implements IFeedAdapter {
 
@@ -170,6 +169,18 @@ public class TwitterFirehoseFeedAdapter extends StreamBasedAdapter implements IF
     @Override
     public DataExchangeMode getDataExchangeMode() {
         return DataExchangeMode.PUSH;
+    }
+
+    @Override
+    public boolean handleException(Exception e) {
+        try {
+            twitterServer.stop();
+        } catch (Exception re) {
+            re.printStackTrace();
+            return false;
+        }
+        twitterServer.start();
+        return true;
     }
 
 }

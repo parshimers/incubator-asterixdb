@@ -41,8 +41,6 @@ public interface IFeedLifecycleListener extends IJobLifecycleListener, IClusterE
 
     public String[] getStoreLocations(FeedConnectionId feedId);
 
-    public IFeedJoint getSourceFeedJoint(FeedConnectionId connectionId);
-
     public void registerFeedEventSubscriber(FeedConnectionId connectionId, IFeedLifecycleEventSubscriber subscriber);
 
     public void deregisterFeedEventSubscriber(FeedConnectionId connectionId, IFeedLifecycleEventSubscriber subscriber);

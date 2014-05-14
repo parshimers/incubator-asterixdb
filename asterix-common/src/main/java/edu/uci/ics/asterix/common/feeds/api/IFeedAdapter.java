@@ -20,16 +20,16 @@ package edu.uci.ics.asterix.common.feeds.api;
 public interface IFeedAdapter extends IDatasourceAdapter {
 
     public enum DataExchangeMode {
-        /*
-         * PULL model requires the adaptor to make a separate request each time to receive data 
-         */
+        /**
+         * PULL model requires the adaptor to make a separate request each time to receive data
+         **/
         PULL,
 
-        /*
+        /**
          * PUSH mode involves the use o just one initial request (handshake) by the adaptor
-         * to the datasource for setting up the connection and providing any protocol-specific 
+         * to the datasource for setting up the connection and providing any protocol-specific
          * parameters. Once a connection is established, the data source "pushes" data to the adaptor.
-         */
+         **/
         PUSH
     }
 
@@ -46,5 +46,7 @@ public interface IFeedAdapter extends IDatasourceAdapter {
      * @throws Exception
      */
     public void stop() throws Exception;
+
+    public boolean handleException(Exception e);
 
 }

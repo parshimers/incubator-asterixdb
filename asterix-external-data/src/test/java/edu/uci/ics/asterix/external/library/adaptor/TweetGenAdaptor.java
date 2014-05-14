@@ -64,4 +64,9 @@ public class TweetGenAdaptor extends StreamBasedAdapter implements IFeedAdapter 
         }
     }
 
+    @Override
+    public boolean handleException(Exception e) {
+        return false;
+    }
+
 }

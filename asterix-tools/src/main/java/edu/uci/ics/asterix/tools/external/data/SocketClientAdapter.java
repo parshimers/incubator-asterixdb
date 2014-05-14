@@ -103,4 +103,9 @@ public class SocketClientAdapter implements IFeedAdapter {
         continueStreaming = false;
     }
 
+    @Override
+    public boolean handleException(Exception e) {
+        return false;
+    }
+
 }

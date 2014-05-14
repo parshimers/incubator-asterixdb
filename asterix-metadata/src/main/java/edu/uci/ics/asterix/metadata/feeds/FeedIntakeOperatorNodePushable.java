@@ -41,7 +41,7 @@ import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNo
 
 /**
  * The runtime for @see{FeedIntakeOperationDescriptor}.
- * The core functionality provided by this pushable is to set up the artifacts for ingestion of a feed.
+ * Provides the core functionality to set up the artifacts for ingestion of a feed.
  * The artifacts are lazily activated when a feed receives a subscription request.
  */
 public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOperatorNodePushable {
@@ -51,14 +51,13 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
     private final FeedId feedId;
     private final int partition;
     private final IFeedSubscriptionManager feedSubscriptionManager;
-
     private final IFeedManager feedManager;
+    private final IHyracksTaskContext ctx;
+    private final IAdapterFactory adapterFactory;
 
     private IngestionRuntime ingestionRuntime;
     private IFeedAdapter adapter;
     private DistributeFeedFrameWriter feedFrameWriter;
-    private IAdapterFactory adapterFactory;
-    private IHyracksTaskContext ctx;
 
     public FeedIntakeOperatorNodePushable(IHyracksTaskContext ctx, FeedId feedId, IAdapterFactory adapterFactory,
             int partition, IngestionRuntime ingestionRuntime) {
@@ -81,17 +80,14 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                 try {
                     adapter = (IFeedAdapter) adapterFactory.createAdapter(ctx, partition);
                 } catch (Exception e) {
-                    if (LOGGER.isLoggable(Level.SEVERE)) {
-                        LOGGER.severe("Unable to create adapter : " + adapterFactory.getName() + "[" + partition + "]"
-                                + " Exception " + e);
-                    }
+                    LOGGER.severe("Unable to create adapter : " + adapterFactory.getName() + "[" + partition + "]"
+                            + " Exception " + e);
                     throw new HyracksDataException(e);
                 }
                 FrameTupleAccessor fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
                 feedFrameWriter = new DistributeFeedFrameWriter(feedId, writer, FeedRuntimeType.INTAKE, partition, fta,
                         feedManager, ctx.getFrameSize());
                 adapterRuntimeManager = new AdapterRuntimeManager(feedId, adapter, feedFrameWriter, partition);
-
                 SubscribableFeedRuntimeId runtimeId = new SubscribableFeedRuntimeId(feedId, FeedRuntimeType.INTAKE,
                         partition);
                 ingestionRuntime = new IngestionRuntime(feedId, runtimeId, feedFrameWriter, recordDesc,
@@ -157,7 +153,7 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                 }
             } else {
                 if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Interrupted Exception, something went wrong. None of the subscribers need to handle failures. Shutting down feed ingestion");
+                    LOGGER.info("Interrupted Exception. None of the subscribers need to handle failures. Shutting down feed ingestion");
                 }
                 feedSubscriptionManager.deregisterFeedSubscribableRuntime((SubscribableFeedRuntimeId) ingestionRuntime
                         .getRuntimeId());

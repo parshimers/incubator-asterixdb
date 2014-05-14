@@ -47,7 +47,11 @@ public class FeedLoadManager implements IFeedLoadManager {
 
     private static final Logger LOGGER = Logger.getLogger(FeedLoadManager.class.getName());
 
+    private static final long MIN_MODIFICATION_INTERVAL = 10000; // 10 seconds
     private final TreeSet<NodeLoadReport> nodeReports;
+
+    private FeedConnectionId lastModified;
+    private long lastModifiedTimestamp;
 
     public FeedLoadManager() {
         nodeReports = new TreeSet<NodeLoadReport>();
@@ -62,17 +66,18 @@ public class FeedLoadManager implements IFeedLoadManager {
     @Override
     public void reportCongestion(FeedCongestionMessage message) throws AsterixException {
         FeedRuntimeId runtimeId = message.getRuntimeId();
-        JobId jobId = FeedLifecycleListener.INSTANCE.getFeedCollectJobId(message.getConnectionId());
-        FeedJobState jobState = FeedLifecycleListener.INSTANCE.getFeedJobState(jobId);
-        if (jobState != null
-                && (jobState.equals(FeedJobState.CONGESTION_REPORTED) || jobState.equals(FeedJobState.UNDER_RECOVERY))) {
+        FeedJobState jobState = FeedLifecycleListener.INSTANCE.getFeedJobState(message.getConnectionId());
+        if (jobState == null
+                || (jobState.equals(FeedJobState.UNDER_RECOVERY))
+                || (message.getConnectionId().equals(lastModified) && System.currentTimeMillis()
+                        - lastModifiedTimestamp < MIN_MODIFICATION_INTERVAL)) {
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Ignoring congestion report from " + runtimeId + " as job is already under recovery");
+                LOGGER.info("Ignoring congestion report from " + runtimeId);
             }
             return;
         } else {
             try {
-                FeedLifecycleListener.INSTANCE.setJobState(jobId, FeedJobState.UNDER_RECOVERY);
+                FeedLifecycleListener.INSTANCE.setJobState(message.getConnectionId(), FeedJobState.UNDER_RECOVERY);
                 int inflowRate = message.getInflowRate();
                 int outflowRate = message.getOutflowRate();
                 List<String> currentComputeLocations = new ArrayList<String>();
@@ -103,6 +108,8 @@ public class FeedLoadManager implements IFeedLoadManager {
 
                 Thread.sleep(5000);
                 runJob(jobSpec, false);
+                lastModified = message.getConnectionId();
+                lastModifiedTimestamp = System.currentTimeMillis();
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -116,18 +123,17 @@ public class FeedLoadManager implements IFeedLoadManager {
 
     @Override
     public void submitScaleInPossibleReport(ScaleInReportMessage message) throws Exception {
-        JobId jobId = FeedLifecycleListener.INSTANCE.getFeedCollectJobId(message.getConnectionId());
-        FeedJobState jobState = FeedLifecycleListener.INSTANCE.getFeedJobState(jobId);
+        FeedJobState jobState = FeedLifecycleListener.INSTANCE.getFeedJobState(message.getConnectionId());
         if (jobState == null || (jobState.equals(FeedJobState.UNDER_RECOVERY))) {
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("JobState information for job " + "[" + jobId + "]" + " not found ");
+            if (LOGGER.isLoggable(Level.WARNING)) {
+                LOGGER.warning("JobState information for job " + "[" + message.getConnectionId() + "]" + " not found ");
             }
             return;
         } else {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Processing scale-in message " + message);
             }
-            FeedLifecycleListener.INSTANCE.setJobState(jobId, FeedJobState.UNDER_RECOVERY);
+            FeedLifecycleListener.INSTANCE.setJobState(message.getConnectionId(), FeedJobState.UNDER_RECOVERY);
             JobSpecification jobSpec = FeedLifecycleListener.INSTANCE.getCollectJobSpecification(message
                     .getConnectionId());
             int reducedCardinality = message.getReducedCardinaliy();

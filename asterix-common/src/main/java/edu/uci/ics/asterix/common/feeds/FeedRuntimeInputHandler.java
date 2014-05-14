@@ -31,7 +31,9 @@ import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 
-// Handles Exception + inflow rate measurement
+/**
+ * Provides for error-handling and input-side buffering for a feed runtime.
+ */
 public class FeedRuntimeInputHandler implements IFrameWriter {
 
     private static Logger LOGGER = Logger.getLogger(FeedRuntimeInputHandler.class.getName());
@@ -41,10 +43,11 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
     private final FeedRuntimeId runtimeId;
     private final FeedPolicyAccessor feedPolicyAccessor;
     private final boolean bufferingEnabled;
+    private final IExceptionHandler exceptionHandler;
+
     private MonitoredBuffer mBuffer;
     private DataBucketPool pool;
     private FrameCollection frameCollection;
-    private final IExceptionHandler exceptionHandler;
     private Mode mode;
     private Mode lastMode;
     private final FeedFrameDiscarder discarder;
@@ -76,10 +79,10 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
         this.frameCollection = (FrameCollection) feedManager.getFeedMemoryManager().getMemoryComponent(
                 IFeedMemoryComponent.Type.COLLECTION);
         this.frameEventCallback = new FrameEventCallback(fpa, this, coreOperator);
-        mBuffer = new MonitoredBuffer(this, coreOperator, fta, frameSize, recordDesc,
+        this.mBuffer = new MonitoredBuffer(this, coreOperator, fta, frameSize, recordDesc,
                 feedManager.getFeedMetricCollector(), connectionId, runtimeId, exceptionHandler, frameEventCallback,
                 nPartitions);
-        mBuffer.start();
+        this.mBuffer.start();
     }
 
     public synchronized void nextFrame(ByteBuffer frame) throws HyracksDataException {
@@ -100,31 +103,21 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
                             break;
                     }
                     process(frame);
-                    if (frame != null) {
-                        nProcessed++;
-                    }
                     break;
 
                 case PROCESS_BACKLOG:
                 case PROCESS_SPILL:
                     process(frame);
-                    if (frame != null) {
-                        nProcessed++;
-                    }
                     break;
                 case SPILL: {
-                    boolean success = spill(frame);
-                    if (!success) {
-                        // sendMessage to CentralFeedManager
+                    if (!spill(frame)) {
                         reportUnresolvableCongestion();
                     }
                     break;
                 }
                 case DISCARD:
                 case POST_SPILL_DISCARD:
-                    boolean success = discarder.processMessage(frame);
-                    if (!success) {
-                        // sendMessage to CentralFeedManager
+                    if (!discarder.processMessage(frame)) {
                         reportUnresolvableCongestion();
                     }
                     break;
@@ -234,7 +227,17 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
                     coreOperator.nextFrame(frame);
                 } else {
                     DataBucket bucket = pool.getDataBucket();
-                    if (bucket == null) {
+                    if (bucket != null) {
+                        if (frame != null) {
+                            bucket.reset(frame); // created a copy here
+                            bucket.setContentType(ContentType.DATA);
+                        } else {
+                            bucket.setContentType(ContentType.EOD);
+                        }
+                        bucket.setDesiredReadCount(1);
+                        mBuffer.sendMessage(bucket);
+                        nProcessed++;
+                    } else {
                         if (fpa.spillToDiskOnCongestion()) {
                             if (frame != null) {
                                 spiller.processMessage(frame);
@@ -244,15 +247,7 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
                             discarder.processMessage(frame);
                             setMode(Mode.DISCARD);
                         }
-                    } else {
-                        if (frame != null) {
-                            bucket.reset(frame); // created a copy here
-                            bucket.setContentType(ContentType.DATA);
-                        } else {
-                            bucket.setContentType(ContentType.EOD);
-                        }
-                        bucket.setDesiredReadCount(1);
-                        mBuffer.sendMessage(bucket);
+
                     }
                 }
                 finishedProcessing = true;
@@ -304,10 +299,11 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
     public void close() {
         if (mBuffer != null) {
             boolean disableMonitoring = !this.mode.equals(Mode.STALL);
+
             mBuffer.close(false, disableMonitoring);
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Closed input side handler for " + this.runtimeId + " disabled monitoring "
-                        + disableMonitoring);
+                        + disableMonitoring + " Mode for runtime " + this.mode);
             }
         }
     }
@@ -355,7 +351,7 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
                     + this.runtimeId);
         }
         if (mBuffer != null) {
-            mBuffer.resetMetrics();
+            mBuffer.reset();
         }
     }
 

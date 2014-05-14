@@ -13,14 +13,13 @@ public class FeedJobInfo {
     public enum FeedJobState {
         CREATED,
         ACTIVE,
-        CONGESTION_REPORTED,
         UNDER_RECOVERY
     }
 
     protected final JobId jobId;
     protected FeedJobState state;
     protected final JobType jobType;
-    protected final JobSpecification spec;
+    protected JobSpecification spec;
 
     public FeedJobInfo(JobId jobId, FeedJobState state, JobType jobType, JobSpecification spec) {
         this.jobId = jobId;
@@ -47,6 +46,10 @@ public class FeedJobInfo {
 
     public JobSpecification getSpec() {
         return spec;
+    }
+
+    public void setSpec(JobSpecification spec) {
+        this.spec = spec;
     }
 
 }

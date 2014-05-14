@@ -89,6 +89,14 @@ public class FeedJobNotificationHandler implements Runnable {
         this.registeredFeedEventSubscribers = new HashMap<FeedConnectionId, List<IFeedLifecycleEventSubscriber>>();
     }
 
+    public Collection<FeedIntakeInfo> getFeedIntakeInfos() {
+        return intakeJobInfos.values();
+    }
+
+    public Collection<FeedConnectJobInfo> getFeedConnectInfos() {
+        return connectJobInfos.values();
+    }
+
     public void registerFeedJoint(IFeedJoint feedJoint) {
         List<IFeedJoint> feedJointsOnPipeline = feedPipeline.get(feedJoint.getOwnerFeedId());
         if (feedJointsOnPipeline == null) {
@@ -114,6 +122,7 @@ public class FeedJobNotificationHandler implements Runnable {
         for (IFeedJoint joint : joints) {
             if (joint.getType().equals(IFeedJoint.Type.INTAKE)) {
                 intakeJoint = joint;
+                break;
             }
         }
 
@@ -318,13 +327,13 @@ public class FeedJobNotificationHandler implements Runnable {
         return false;
     }
 
-    public void setJobState(JobId jobId, FeedJobState jobState) {
-        FeedJobInfo jobInfo = jobInfos.get(jobId);
-        jobInfo.setState(jobState);
+    public void setJobState(FeedConnectionId connectionId, FeedJobState jobState) {
+        FeedConnectJobInfo connectJobInfo = connectJobInfos.get(connectionId);
+        connectJobInfo.setState(jobState);
     }
 
-    public FeedJobState getFeedJobState(JobId jobId) {
-        return jobInfos.get(jobId).getState();
+    public FeedJobState getFeedJobState(FeedConnectionId connectionId) {
+        return connectJobInfos.get(connectionId).getState();
     }
 
     private void handleFeedIntakeJobFinishMessage(Message message) throws Exception {
@@ -345,6 +354,7 @@ public class FeedJobNotificationHandler implements Runnable {
         boolean failure = status != null && status.equals(JobStatus.FAILURE);
         FeedPolicyAccessor fpa = new FeedPolicyAccessor(cInfo.getFeedPolicy());
 
+        boolean removeJobHistory = !failure;
         boolean removeSubsription = !cInfo.getState().equals(FeedJobState.UNDER_RECOVERY)
                 && (failure && !fpa.continueOnHardwareFailure());
 
@@ -357,8 +367,10 @@ public class FeedJobNotificationHandler implements Runnable {
             removeFeedJointsPostPipelineTermination(cInfo.getConnectionId());
         }
 
-        connectJobInfos.remove(connectionId);
-        jobInfos.remove(cInfo.getJobId());
+        if (removeJobHistory) {
+            connectJobInfos.remove(connectionId);
+            jobInfos.remove(cInfo.getJobId());
+        }
         deregisterFeedActivity(cInfo);
 
         // notify event listeners and remove subscription
@@ -669,6 +681,7 @@ public class FeedJobNotificationHandler implements Runnable {
             cInfo.setStorageLocations(storageLocations);
 
         } catch (Exception e) {
+            e.printStackTrace();
         }
 
     }

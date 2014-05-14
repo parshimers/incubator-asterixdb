@@ -23,6 +23,7 @@ import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedFrameCollector.State;
 import edu.uci.ics.asterix.common.feeds.FeedId;
+import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.FeedRuntimeInputHandler;
 import edu.uci.ics.asterix.common.feeds.SubscribableFeedRuntimeId;
@@ -37,7 +38,6 @@ import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
-import edu.uci.ics.hyracks.dataflow.std.connectors.PartitionDataWriter;
 
 /**
  * The runtime for @see{FeedIntakeOperationDescriptor}
@@ -49,14 +49,14 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
     private final int partition;
     private final FeedConnectionId connectionId;
     private final Map<String, String> feedPolicy;
-    private final FeedPolicyEnforcer policyEnforcer;
+    private final FeedPolicyAccessor policyAccessor;
     private final IFeedManager feedManager;
     private final ISubscribableRuntime sourceRuntime;
     private final IHyracksTaskContext ctx;
     private final int nPartitions;
+
     private RecordDescriptor outputRecordDescriptor;
     private FeedRuntimeInputHandler inputSideHandler;
-
     private CollectionRuntime collectRuntime;
 
     public FeedCollectOperatorNodePushable(IHyracksTaskContext ctx, FeedId sourceFeedId,
@@ -68,7 +68,7 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
         this.connectionId = feedConnectionId;
         this.sourceRuntime = sourceRuntime;
         this.feedPolicy = feedPolicy;
-        policyEnforcer = new FeedPolicyEnforcer(feedConnectionId, feedPolicy);
+        policyAccessor = new FeedPolicyAccessor(feedPolicy);
         IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject();
         this.feedManager = runtimeCtx.getFeedManager();
@@ -135,23 +135,18 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
             this.recordDesc = sourceRuntime.getRecordDescriptor();
         }
 
-        inputSideHandler = new FeedRuntimeInputHandler(connectionId, runtimeId, outputSideWriter,
-                policyEnforcer.getFeedPolicyAccessor(), false, ctx.getFrameSize(), new FrameTupleAccessor(
-                        ctx.getFrameSize(), recordDesc), recordDesc, feedManager, nPartitions);
+        inputSideHandler = new FeedRuntimeInputHandler(connectionId, runtimeId, outputSideWriter, policyAccessor,
+                false, ctx.getFrameSize(), new FrameTupleAccessor(ctx.getFrameSize(), recordDesc), recordDesc,
+                feedManager, nPartitions);
 
         collectRuntime = new CollectionRuntime(connectionId, runtimeId, inputSideHandler, outputSideWriter,
                 sourceRuntime, feedPolicy);
         feedManager.getFeedConnectionManager().registerFeedRuntime(connectionId, collectRuntime);
-        sourceRuntime.subscribeFeed(policyEnforcer.getFeedPolicyAccessor(), collectRuntime);
+        sourceRuntime.subscribeFeed(policyAccessor, collectRuntime);
     }
 
     private void reviveOldFeed() throws HyracksDataException {
         writer.open();
-        System.out.println("NEW WRITER FOR COLLECT " + writer);
-        if (writer instanceof PartitionDataWriter) {
-            System.out.println("NUMBER OF OUT GOING PARTITIONS :"
-                    + ((PartitionDataWriter) writer).getNumberOfPartitions());
-        }
         collectRuntime.getFrameCollector().setState(State.ACTIVE);
         inputSideHandler = collectRuntime.getInputHandler();
 
@@ -175,19 +170,19 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
         IFeedOperatorOutputSideHandler wrapper = new CollectTransformFeedFrameWriter(ctx, writer, sourceRuntime,
                 outputRecordDescriptor, connectionId);
 
-        inputSideHandler = new FeedRuntimeInputHandler(connectionId, runtimeId, wrapper,
-                policyEnforcer.getFeedPolicyAccessor(), false, ctx.getFrameSize(), new FrameTupleAccessor(
-                        ctx.getFrameSize(), recordDesc), recordDesc, feedManager, nPartitions);
+        inputSideHandler = new FeedRuntimeInputHandler(connectionId, runtimeId, wrapper, policyAccessor, false,
+                ctx.getFrameSize(), new FrameTupleAccessor(ctx.getFrameSize(), recordDesc), recordDesc, feedManager,
+                nPartitions);
 
         collectRuntime = new CollectionRuntime(connectionId, runtimeId, inputSideHandler, wrapper, sourceRuntime,
                 feedPolicy);
         feedManager.getFeedConnectionManager().registerFeedRuntime(connectionId, collectRuntime);
         recordDesc = sourceRuntime.getRecordDescriptor();
-        sourceRuntime.subscribeFeed(policyEnforcer.getFeedPolicyAccessor(), collectRuntime);
+        sourceRuntime.subscribeFeed(policyAccessor, collectRuntime);
     }
 
     private void handleInterruptedException(InterruptedException ie) throws HyracksDataException {
-        if (policyEnforcer.getFeedPolicyAccessor().continueOnHardwareFailure()) {
+        if (policyAccessor.continueOnHardwareFailure()) {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Continuing on failure as per feed policy, switching to " + Mode.STALL
                         + " until failure is resolved");

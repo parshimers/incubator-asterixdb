@@ -31,7 +31,6 @@ import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback;
 import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback.FrameEvent;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
-import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 
 public class MonitoredBuffer extends MessageReceiver<DataBucket> {
@@ -57,6 +56,7 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
     private final Timer timer;
     private int processingRate = -1;
     private int frameCount = 0;
+    private boolean active;
 
     public MonitoredBuffer(FeedRuntimeInputHandler inputHandler, IFrameWriter frameWriter, FrameTupleAccessor fta,
             int frameSize, RecordDescriptor recordDesc, IFeedMetricCollector metricCollector,
@@ -95,6 +95,8 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
                     ValueType.OUTFLOW_RATE, MetricType.RATE);
         }
 
+        active = true;
+
     }
 
     @Override
@@ -103,7 +105,7 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
         if (trackDataMovementRate
                 && !(inputHandler.getMode().equals(Mode.PROCESS_BACKLOG) || inputHandler.getMode().equals(
                         Mode.PROCESS_SPILL))) {
-            inflowFta.reset(message.getBuffer());
+            inflowFta.reset(message.getContent());
             metricCollector.sendReport(inflowReportSenderId, inflowFta.getTupleCount());
         }
     }
@@ -133,7 +135,7 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
         }
     }
 
-    public void close(boolean processPending, boolean disableMonitoring) {
+    public synchronized void close(boolean processPending, boolean disableMonitoring) {
         super.close(processPending);
         if (disableMonitoring) {
             if (monitorTask != null) {
@@ -151,14 +153,19 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
                 LOGGER.info("Disabled monitoring for " + this.runtimeId);
             }
         }
+        active = false;
     }
 
     @Override
-    public void processMessage(DataBucket message) throws Exception {
+    public synchronized void processMessage(DataBucket message) throws Exception {
+        if (!active) {
+            message.doneReading();
+            return;
+        }
         switch (message.getContentType()) {
             case DATA:
                 boolean finishedProcessing = false;
-                ByteBuffer frame = message.getBuffer();
+                ByteBuffer frame = message.getContent();
                 outflowFta.reset(frame);
                 long startTime = 0;
                 long endTime = 0;
@@ -168,6 +175,9 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
                         startTime = System.currentTimeMillis();
                         if (runtimeId.getFeedRuntimeType().equals(FeedRuntimeType.STORE)) {
                             updateStorageTimestamp(frame);
+                        }
+                        if (frame == null) {
+                            throw new IllegalStateException(" HOW IS THIS POSSIBLE ????");
                         }
                         frameWriter.nextFrame(frame);
                         if (processingRateEnabled) {
@@ -218,85 +228,6 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
         }
     }
 
-    /*
-    private void writeTimestampedFrame(ByteBuffer frame) throws IOException {
-        appender.reset(timestamped, false);
-        int nTuples = inflowFta.getTupleCount();
-        boolean s = false;
-        for (int i = 0; i < nTuples; i++) {
-            tb.reset();
-            int startOffset = inflowFta.getTupleStartOffset(i) + inflowFta.getFieldSlotsLength();
-            int endOffset = inflowFta.getTupleEndOffset(i);
-            createModifiedRecord(frame, startOffset, endOffset, tb);
-            addTupleToFrame(timestamped);
-        }
-    }*/
-
-    private static void createModifiedRecord(ByteBuffer b, int tupleStart, int tupleEnd, ArrayTupleBuilder tb)
-            throws IOException {
-        int rIndex = 0;
-
-        int nTupleFields = 2;
-        int addHashCode = 4;
-        int addOffset = 4;
-        int addNameLength = "storage-timestamp".length();
-        int addValueLength = 8;
-        int addNamePrefix = 2;
-        int addValuePrefix = 1;
-        int deltaLength = addHashCode + addOffset + addNameLength + addValueLength + addNamePrefix + addValuePrefix;
-
-        int recordStart = tupleStart + 8;
-        int origRecordLength = (tupleEnd - recordStart + 1);
-        ByteBuffer tupleBuffer = ByteBuffer.allocate(origRecordLength + 8 + deltaLength);
-        tupleBuffer.putInt(b.getInt(tupleStart) + deltaLength); // tuple field end offset 1
-        tupleBuffer.putInt(b.getInt(tupleStart + 4) + deltaLength); // tuple field end offset 2
-        tupleBuffer.put(b.get(recordStart)); // record header
-        tupleBuffer.putInt(b.getInt(recordStart + 1) + deltaLength); // length of record
-
-        int openPartOffsetOrig = b.getInt(recordStart + 6);
-        int identicalStartPos = nTupleFields * 4 + 1 + 4;
-        int indenticalEndPos = recordStart + openPartOffsetOrig - 1;
-        int nSame = indenticalEndPos - identicalStartPos + 1;
-        tupleBuffer.put(b.array(), identicalStartPos, nSame); // write uptil closed part
-
-        rIndex = openPartOffsetOrig;
-        tupleBuffer.putInt(2); // number of open fields incremented by 1
-        rIndex += 4;
-
-        int lenComputeName = (int) b.get(recordStart + openPartOffsetOrig + 13);
-
-        tupleBuffer.put(new byte[] { 39, -39, -80, 68 });// hashCode of the 1st field (storage timestamp)
-        int secondFieldOffset = tupleBuffer.position() + 4 + 8 + 2 + lenComputeName + 9 - recordStart;
-        tupleBuffer.putInt(secondFieldOffset); // offset of second field
-
-        tupleBuffer.putInt(b.getInt(recordStart + openPartOffsetOrig + 4)); // hash code for 1st field
-        tupleBuffer.putInt(b.getInt(recordStart + openPartOffsetOrig + 8)); // offset for 1st field 
-        rIndex += 8;
-
-        tupleBuffer.put(b.array(), recordStart + rIndex, lenComputeName + 2); // copy the string "compute-timestamp"
-        rIndex += 2 + lenComputeName;
-
-        tupleBuffer.put(b.array(), recordStart + rIndex, 1 + 8); // copy long
-        rIndex += 9;
-
-        tupleBuffer.put((byte) 0);
-        tupleBuffer.put((byte) "storage-timestamp".length()); // copy the string "storage-timestamp"
-        tupleBuffer.put("storage-timestamp".getBytes());
-        tupleBuffer.put((byte) 4);
-        tupleBuffer.putLong(System.currentTimeMillis()); // copy long value
-
-        int startOfRemainingContent = recordStart + rIndex;
-        tupleBuffer.put(b.array(), startOfRemainingContent, tupleEnd - startOfRemainingContent + 1);
-        //   tupleBuffer.put
-
-        tupleBuffer.flip();
-
-        for (int i = 0; i < tupleBuffer.array().length; i++) {
-            System.out.print(tupleBuffer.array()[i] + ",");
-        }
-        tb.getDataOutput().write(tupleBuffer.array());
-    }
-
     public Mode getMode() {
         return inputHandler.getMode();
     }
@@ -309,7 +240,8 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
         this.frameWriter = frameWriter;
     }
 
-    public void resetMetrics() {
+    public void reset() {
+        active = true;
         if (trackDataMovementRate || processingRateEnabled) {
             metricCollector.resetReportSender(inflowReportSenderId);
             metricCollector.resetReportSender(outflowReportSenderId);

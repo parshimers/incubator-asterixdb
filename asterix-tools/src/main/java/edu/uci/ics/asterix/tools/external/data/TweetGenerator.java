@@ -17,6 +17,8 @@ package edu.uci.ics.asterix.tools.external.data;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -52,6 +54,7 @@ public class TweetGenerator {
     private String[] fields;
     private boolean verbose;
     private long timestamp;
+    private List<String> stringifiedTweets = new ArrayList<String>();
 
     public long getTweetCount() {
         return tweetCount;
@@ -85,14 +88,36 @@ public class TweetGenerator {
         }
         byte[] b = tweet.getBytes();
         if (outputBuffer.position() + b.length > outputBuffer.limit()) {
+            List<String> results = timestampCollectedTweets();
+            outputBuffer.clear();
+            for (String s : results) {
+                outputBuffer.put(s.getBytes());
+            }
             flush();
+            stringifiedTweets.clear();
             numFlushedTweets += frameTweetCount;
             frameTweetCount = 0;
             outputBuffer.put(b);
+            stringifiedTweets.add(tweet);
         } else {
+            stringifiedTweets.add(tweet);
             outputBuffer.put(b);
         }
         frameTweetCount++;
+    }
+
+    private List<String> timestampCollectedTweets() {
+        List<String> results = new ArrayList<String>();
+        long t = System.currentTimeMillis();
+        String prefix = "\"generation-timestamp\":";
+        for (String tweet : stringifiedTweets) {
+            int breakBegin = tweet.indexOf(prefix);
+            String s1 = tweet.substring(0, breakBegin - 1);
+            String s2 = tweet.substring(breakBegin + prefix.length() + 13);
+            String result = s1 + prefix + t + s2;
+            results.add(result);
+        }
+        return results;
     }
 
     public int getNumFlushedTweets() {
