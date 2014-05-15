@@ -29,19 +29,20 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.URI;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.commons.httpclient.DefaultHttpMethodRetryHandler;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpMethod;
-import org.apache.commons.httpclient.HttpStatus;
-import org.apache.commons.httpclient.NameValuePair;
-import org.apache.commons.httpclient.methods.GetMethod;
-import org.apache.commons.httpclient.methods.PostMethod;
-import org.apache.commons.httpclient.methods.StringRequestEntity;
-import org.apache.commons.httpclient.params.HttpMethodParams;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
+import org.apache.http.HttpStatus;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.HttpClients;
 import org.apache.commons.io.IOUtils;
 import org.json.JSONObject;
 
@@ -185,8 +186,8 @@ public class TestsUtils {
         }
     }
 
-    private static String[] handleError(HttpMethod method) throws Exception {
-        String errorBody = method.getResponseBodyAsString();
+    private static String[] handleError(CloseableHttpResponse resp) throws Exception {
+        String errorBody = IOUtils.toString(resp.getEntity().getContent()); 
         JSONObject result = new JSONObject(errorBody);
         String[] errors = { result.getJSONArray("error-code").getString(0), result.getString("summary"),
                 result.getString("stacktrace") };
@@ -197,29 +198,34 @@ public class TestsUtils {
     public static InputStream executeQuery(String str) throws Exception {
         InputStream resultStream = null;
 
-        final String url = "http://localhost:19002/query";
+        URI url = new URIBuilder()
+            .setScheme("http")
+            .setHost("localhost")
+            .setPort(19002)
+            .setPath("query")
+            .setParameter("query", str)
+            .build();
 
-        // Create an instance of HttpClient.
-        HttpClient client = new HttpClient();
+        // Create an instance of HttpClient, and set the Request Retry Handler to allow for 3 tries.
+        CloseableHttpClient client = HttpClients.custom()
+                                     .setRetryHandler(new DefaultHttpRequestRetryHandler(3,false))
+                                     .build();
 
         // Create a method instance.
-        GetMethod method = new GetMethod(url);
-        method.setQueryString(new NameValuePair[] { new NameValuePair("query", str) });
-
-        // Provide custom retry handler is necessary
-        method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
+        HttpGet method = new HttpGet(url);
 
         try {
             // Execute the method.
-            int statusCode = client.executeMethod(method);
+            CloseableHttpResponse resp = client.execute(method);
+            int statusCode = resp.getStatusLine().getStatusCode();
 
             // Check if the method was executed successfully.
             if (statusCode != HttpStatus.SC_OK) {
-                GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, "Method failed: " + method.getStatusLine());
+                GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, "Method failed: " + resp.getStatusLine());
             }
 
             // Read the response body as stream
-            resultStream = method.getResponseBodyAsStream();
+            resultStream = resp.getEntity().getContent();
         } catch (Exception e) {
             GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, e.getMessage(), e);
             e.printStackTrace();
@@ -230,25 +236,32 @@ public class TestsUtils {
     // To execute Update statements
     // Insert and Delete statements are executed here
     public static void executeUpdate(String str) throws Exception {
-        final String url = "http://localhost:19002/update";
+        URI url = new URIBuilder()
+        .setScheme("http")
+        .setHost("localhost")
+        .setPort(19002)
+        .setPath("update")
+        .build();
 
         // Create an instance of HttpClient.
-        HttpClient client = new HttpClient();
+        CloseableHttpClient client = HttpClients.custom()
+                .setRetryHandler(new DefaultHttpRequestRetryHandler(3,false))
+                .build();
 
         // Create a method instance.
-        PostMethod method = new PostMethod(url);
-        method.setRequestEntity(new StringRequestEntity(str));
+        HttpPost method = new HttpPost(url);
+        method.setEntity(new StringEntity(str));
 
         // Provide custom retry handler is necessary
-        method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
 
         // Execute the method.
-        int statusCode = client.executeMethod(method);
+        CloseableHttpResponse resp = client.execute(method);
+        int statusCode = resp.getStatusLine().getStatusCode();;
 
         // Check if the method was executed successfully.
         if (statusCode != HttpStatus.SC_OK) {
-            GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, "Method failed: " + method.getStatusLine());
-            String[] errors = handleError(method);
+            GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, "Method failed: " + resp.getStatusLine());
+            String[] errors = handleError(resp);
             GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, errors[2]);
             throw new Exception("DDL operation failed: " + errors[0] + "\nSUMMARY: " + errors[1] + "\nSTACKTRACE: "
                     + errors[2]);
@@ -262,24 +275,30 @@ public class TestsUtils {
     // create dataverse statement
     // create function statement
     public static void executeDDL(String str) throws Exception {
-        final String url = "http://localhost:19002/ddl";
-
+        URI url = new URIBuilder()
+        .setScheme("http")
+        .setHost("localhost")
+        .setPort(19002)
+        .setPath("ddl")
+        .build();
         // Create an instance of HttpClient.
-        HttpClient client = new HttpClient();
+        // Provide custom retry handler is necessary
+        CloseableHttpClient client = HttpClients.custom()
+                .setRetryHandler(new DefaultHttpRequestRetryHandler(3,false))
+                .build();
 
         // Create a method instance.
-        PostMethod method = new PostMethod(url);
-        method.setRequestEntity(new StringRequestEntity(str));
-        // Provide custom retry handler is necessary
-        method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
+        HttpPost method = new HttpPost(url);
+        method.setEntity(new StringEntity(str));
 
         // Execute the method.
-        int statusCode = client.executeMethod(method);
+        CloseableHttpResponse resp = client.execute(method);
+        int statusCode = resp.getStatusLine().getStatusCode();;
 
         // Check if the method was executed successfully.
         if (statusCode != HttpStatus.SC_OK) {
-            GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, "Method failed: " + method.getStatusLine());
-            String[] errors = handleError(method);
+            GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, "Method failed: " + resp.getStatusLine());
+            String[] errors = handleError(resp);
             GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, errors[2]);
             throw new Exception("DDL operation failed: " + errors[0] + "\nSUMMARY: " + errors[1] + "\nSTACKTRACE: "
                     + errors[2]);
@@ -299,7 +318,7 @@ public class TestsUtils {
             stringBuilder.append(line);
             stringBuilder.append(ls);
         }
-
+        reader.close();
         return stringBuilder.toString();
     }
 

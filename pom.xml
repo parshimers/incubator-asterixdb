@@ -70,6 +70,25 @@
                 </excludes>
 	      </configuration>
 	    </plugin>
+        <!--plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>1.1.1</version>
+        <executions>
+          <execution>
+            <id>enforce</id>
+            <configuration>
+              <rules>
+                <DependencyConvergence />
+              </rules>
+            </configuration>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <phase>validate</phase>
+          </execution>
+        </executions>
+      </plugin-->
 	  </plugins>
 	</build>
 
@@ -216,6 +235,10 @@
 			<id>algebricks-snapshots</id>
 			<url>http://obelix.ics.uci.edu/nexus/content/repositories/algebricks-snapshots/</url>
 		</repository>
+        <repository>
+            <id>apache-commons</id>
+            <url>https://repository.apache.org/content/repositories/public</url>
+        </repository>
 	</repositories>
         <dependencyManagement>
     	<dependencies>
@@ -348,6 +371,45 @@
             <artifactId>commons-io</artifactId>
             <version>2.4</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>4.3</version>
+        </dependency>
     	</dependencies>
     </dependencyManagement>
+        <dependencies>
+        	<dependency>
+        		<groupId>org.apache.maven</groupId>
+        		<artifactId>maven-artifact</artifactId>
+        		<version>2.2.1</version>
+        		<exclusions>
+        			<exclusion>
+        				<artifactId>plexus-utils</artifactId>
+        				<groupId>org.codehaus.plexus</groupId>
+        			</exclusion>
+        		</exclusions>
+        	</dependency>
+        	<dependency>
+        		<groupId>org.apache.maven</groupId>
+        		<artifactId>maven-project</artifactId>
+        		<version>2.2.1</version>
+        		<exclusions>
+        			<exclusion>
+        				<artifactId>plexus-utils</artifactId>
+        				<groupId>org.codehaus.plexus</groupId>
+        			</exclusion>
+        		</exclusions>
+        	</dependency>
+        	<dependency>
+        		<groupId>org.apache.hadoop</groupId>
+        		<artifactId>hadoop-client</artifactId>
+        		<exclusions>
+        			<exclusion>
+        				<artifactId>jackson-mapper-asl</artifactId>
+        				<groupId>org.codehaus.jackson</groupId>
+        			</exclusion>
+        		</exclusions>
+        	</dependency>
+        </dependencies>
 </project>
