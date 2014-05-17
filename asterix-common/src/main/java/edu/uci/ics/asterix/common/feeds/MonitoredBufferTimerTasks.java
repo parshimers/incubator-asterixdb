@@ -26,9 +26,37 @@ import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback.FrameEvent;
 
 public class MonitoredBufferTimerTasks {
 
-    private static final Logger LOGGER = Logger.getLogger(MonitoredBufferTimerTask.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(MonitoredBufferDataFlowRateMeasureTimerTask.class.getName());
 
-    public static class MonitoredBufferTimerTask extends TimerTask {
+    public static class MonitoredBufferStorageTimerTask extends TimerTask {
+
+        private final MonitoredBuffer mBuffer;
+        private final IFeedManager feedManager;
+        private final int partition;
+        private final FeedConnectionId connectionId;
+        private final StorageReportFeedMessage message;
+
+        public MonitoredBufferStorageTimerTask(MonitoredBuffer mBuffer, IFeedManager feedManager,
+                FeedConnectionId connectionId, int partition) {
+            this.mBuffer = mBuffer;
+            this.feedManager = feedManager;
+            this.connectionId = connectionId;
+            this.partition = partition;
+            this.message = new StorageReportFeedMessage(this.connectionId, this.partition, 0);
+        }
+
+        @Override
+        public void run() {
+            long timestamp = mBuffer.getLastPersistedTupleIntakeTimestamp();
+            if (timestamp > message.getLastPersistedTupleIntakeTimestamp()) {
+                message.reset(timestamp);
+                feedManager.getFeedMessageService().sendMessage(message);
+            }
+        }
+
+    }
+
+    public static class MonitoredBufferDataFlowRateMeasureTimerTask extends TimerTask {
 
         private static final int PENDING_WORK_THRESHOLD = 10;
 
@@ -39,7 +67,7 @@ public class MonitoredBufferTimerTasks {
         private final IFrameEventCallback callback;
         private FrameEvent lastEvent = FrameEvent.NO_OP;
 
-        public MonitoredBufferTimerTask(MonitoredBuffer mBuffer, IFrameEventCallback callback) {
+        public MonitoredBufferDataFlowRateMeasureTimerTask(MonitoredBuffer mBuffer, IFrameEventCallback callback) {
             this.mBuffer = mBuffer;
             this.callback = callback;
         }
@@ -54,10 +82,9 @@ public class MonitoredBufferTimerTasks {
             if (LOGGER.isLoggable(Level.INFO)) {
                 int outflowRate = mBuffer.getOutflowRate();
                 int inflowRate = mBuffer.getInflowRate();
-                if (inflowRate > 0 && outflowRate > 0) {
-                    LOGGER.info(mBuffer.getRuntimeId() + " " + "Inflow rate:" + inflowRate + " Outflow Rate:"
-                            + outflowRate + " Pending Work " + pendingWork);
-                }
+                LOGGER.info(mBuffer.getRuntimeId() + " " + "Inflow rate:" + inflowRate + " Outflow Rate:" + outflowRate
+                        + " Pending Work " + pendingWork);
+
             }
 
             switch (lastEvent) {

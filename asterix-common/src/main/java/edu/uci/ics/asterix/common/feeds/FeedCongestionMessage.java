@@ -40,15 +40,15 @@ public class FeedCongestionMessage extends FeedMessage {
     @Override
     public JSONObject toJSON() throws JSONException {
         JSONObject obj = new JSONObject();
-        obj.put(IFeedMessage.Constants.MESSAGE_TYPE, messageType.name());
-        obj.put(IFeedMessage.Constants.DATAVERSE, connectionId.getFeedId().getDataverse());
-        obj.put(IFeedMessage.Constants.FEED, connectionId.getFeedId().getFeedName());
-        obj.put(IFeedMessage.Constants.DATASET, connectionId.getDatasetName());
-        obj.put(IFeedMessage.Constants.RUNTIME_TYPE, runtimeId.getFeedRuntimeType());
-        obj.put(IFeedMessage.Constants.OPERAND_ID, runtimeId.getOperandId());
-        obj.put(IFeedMessage.Constants.PARTITION, runtimeId.getPartition());
-        obj.put(IFeedMessage.Constants.INFLOW_RATE, inflowRate);
-        obj.put(IFeedMessage.Constants.OUTFLOW_RATE, outflowRate);
+        obj.put(FeedConstants.MessageConstants.MESSAGE_TYPE, messageType.name());
+        obj.put(FeedConstants.MessageConstants.DATAVERSE, connectionId.getFeedId().getDataverse());
+        obj.put(FeedConstants.MessageConstants.FEED, connectionId.getFeedId().getFeedName());
+        obj.put(FeedConstants.MessageConstants.DATASET, connectionId.getDatasetName());
+        obj.put(FeedConstants.MessageConstants.RUNTIME_TYPE, runtimeId.getFeedRuntimeType());
+        obj.put(FeedConstants.MessageConstants.OPERAND_ID, runtimeId.getOperandId());
+        obj.put(FeedConstants.MessageConstants.PARTITION, runtimeId.getPartition());
+        obj.put(FeedConstants.MessageConstants.INFLOW_RATE, inflowRate);
+        obj.put(FeedConstants.MessageConstants.OUTFLOW_RATE, outflowRate);
         return obj;
     }
 
@@ -65,14 +65,17 @@ public class FeedCongestionMessage extends FeedMessage {
     }
 
     public static FeedCongestionMessage read(JSONObject obj) throws JSONException {
-        FeedId feedId = new FeedId(obj.getString(IFeedMessage.Constants.DATAVERSE),
-                obj.getString(IFeedMessage.Constants.FEED));
-        FeedConnectionId connectionId = new FeedConnectionId(feedId, obj.getString(IFeedMessage.Constants.DATASET));
+        FeedId feedId = new FeedId(obj.getString(FeedConstants.MessageConstants.DATAVERSE),
+                obj.getString(FeedConstants.MessageConstants.FEED));
+        FeedConnectionId connectionId = new FeedConnectionId(feedId,
+                obj.getString(FeedConstants.MessageConstants.DATASET));
         FeedRuntimeId runtimeId = new FeedRuntimeId(FeedRuntimeType.valueOf(obj
-                .getString(IFeedMessage.Constants.RUNTIME_TYPE)), obj.getInt(IFeedMessage.Constants.PARTITION),
-                obj.getString(IFeedMessage.Constants.OPERAND_ID));
-        return new FeedCongestionMessage(connectionId, runtimeId, obj.getInt(IFeedMessage.Constants.INFLOW_RATE),
-                obj.getInt(IFeedMessage.Constants.OUTFLOW_RATE));
+                .getString(FeedConstants.MessageConstants.RUNTIME_TYPE)),
+                obj.getInt(FeedConstants.MessageConstants.PARTITION),
+                obj.getString(FeedConstants.MessageConstants.OPERAND_ID));
+        return new FeedCongestionMessage(connectionId, runtimeId,
+                obj.getInt(FeedConstants.MessageConstants.INFLOW_RATE),
+                obj.getInt(FeedConstants.MessageConstants.OUTFLOW_RATE));
     }
 
     public FeedConnectionId getConnectionId() {

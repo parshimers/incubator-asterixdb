@@ -20,19 +20,18 @@ import java.util.Map;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
+import edu.uci.ics.asterix.external.adapter.factory.ExternalDataTupleParserProvider;
 import edu.uci.ics.asterix.external.adapter.factory.HDFSAdapterFactory;
 import edu.uci.ics.asterix.external.adapter.factory.NCFileSystemAdapterFactory;
 import edu.uci.ics.asterix.external.adapter.factory.StreamBasedAdapterFactory;
 import edu.uci.ics.asterix.external.dataset.adapter.FileSystemBasedAdapter;
-import edu.uci.ics.asterix.metadata.feeds.IGenericAdapterFactory;
+import edu.uci.ics.asterix.metadata.feeds.IAdapterFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
-import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.runtime.operators.file.ADMDataParser;
 import edu.uci.ics.asterix.runtime.operators.file.AbstractTupleParser;
 import edu.uci.ics.asterix.runtime.operators.file.DelimitedDataParser;
 import edu.uci.ics.asterix.runtime.operators.file.IDataParser;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
-import edu.uci.ics.hyracks.algebricks.common.exceptions.NotImplementedException;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -47,8 +46,7 @@ import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
  * on the local file system or on HDFS. The feed ends when the content of the
  * source file has been ingested.
  */
-public class RateControlledFileSystemBasedAdapterFactory extends StreamBasedAdapterFactory implements
-        IGenericAdapterFactory {
+public class RateControlledFileSystemBasedAdapterFactory extends StreamBasedAdapterFactory {
     private static final long serialVersionUID = 1L;
 
     public static final String KEY_FILE_SYSTEM = "fs";
@@ -57,7 +55,7 @@ public class RateControlledFileSystemBasedAdapterFactory extends StreamBasedAdap
     public static final String KEY_PATH = "path";
     public static final String KEY_FORMAT = "format";
 
-    private IGenericAdapterFactory adapterFactory;
+    private IAdapterFactory adapterFactory;
     private String format;
     private Map<String, String> configuration;
     private ARecordType atype;
@@ -77,8 +75,8 @@ public class RateControlledFileSystemBasedAdapterFactory extends StreamBasedAdap
         if (configuration.get(KEY_FILE_SYSTEM) == null) {
             throw new Exception("File system type not specified. (fs=?) File system could be 'localfs' or 'hdfs'");
         }
-        if (configuration.get(IGenericAdapterFactory.KEY_TYPE_NAME) == null) {
-            throw new Exception("Record type not specified (output-type-name=?)");
+        if (configuration.get(IAdapterFactory.KEY_TYPE_NAME) == null) {
+            throw new Exception("Record type not specified (type-name=?)");
         }
         if (configuration.get(KEY_PATH) == null) {
             throw new Exception("File path not specified (path=?)");
@@ -89,17 +87,12 @@ public class RateControlledFileSystemBasedAdapterFactory extends StreamBasedAdap
     }
 
     @Override
-    public AdapterType getAdapterType() {
-        return AdapterType.GENERIC;
-    }
-
-    @Override
     public SupportedOperation getSupportedOperations() {
         return SupportedOperation.READ;
     }
 
     @Override
-    public void configure(Map<String, String> configuration, ARecordType recordType) throws Exception {
+    public void configure(Map<String, String> configuration, ARecordType outputType) throws Exception {
         this.configuration = configuration;
         checkRequiredArgs(configuration);
         String fileSystem = (String) configuration.get(KEY_FILE_SYSTEM);
@@ -111,11 +104,10 @@ public class RateControlledFileSystemBasedAdapterFactory extends StreamBasedAdap
         } else {
             throw new AsterixException("Unsupported file system type " + fileSystem);
         }
+        this.atype = outputType;
         format = configuration.get(KEY_FORMAT);
-        adapterFactory = (IGenericAdapterFactory) Class.forName(adapterFactoryClass).newInstance();
-        adapterFactory.configure(configuration, recordType);
-
-        atype = (ARecordType) recordType;
+        adapterFactory = (IAdapterFactory) Class.forName(adapterFactoryClass).newInstance();
+        adapterFactory.configure(configuration, outputType);
         configureFormat();
     }
 
@@ -124,37 +116,13 @@ public class RateControlledFileSystemBasedAdapterFactory extends StreamBasedAdap
         return adapterFactory.getPartitionConstraint();
     }
 
-    private void configureFormat() throws AsterixException {
-        switch (format) {
-            case FORMAT_ADM:
-                parserFactory = new RateControlledTupleParserFactory(atype, configuration);
-                break;
-
-            case FORMAT_DELIMITED_TEXT:
-                String delimiterValue = (String) configuration.get(KEY_DELIMITER);
-                if (delimiterValue != null && delimiterValue.length() > 1) {
-                    throw new AsterixException("improper delimiter");
-                }
-                IValueParserFactory[] valueParserFactories = getValueParserFactories(atype);
-                parserFactory = new RateControlledTupleParserFactory(atype, valueParserFactories,
-                        delimiterValue.charAt(0), configuration);
-                break;
-        }
+    private void configureFormat() throws Exception {
+        parserFactory = ExternalDataTupleParserProvider.getTupleParserFactory(atype, configuration, null);
     }
 
-    protected IValueParserFactory[] getValueParserFactories(ARecordType recordType) throws AsterixException {
-        int n = recordType.getFieldTypes().length;
-        IValueParserFactory[] fieldParserFactories = new IValueParserFactory[n];
-        for (int i = 0; i < n; i++) {
-            ATypeTag tag = recordType.getFieldTypes()[i].getTypeTag();
-            IValueParserFactory vpf = typeToValueParserFactMap.get(tag);
-            if (vpf == null) {
-                throw new NotImplementedException("No value parser factory for delimited fields of type " + tag);
-            }
-            fieldParserFactories[i] = vpf;
-
-        }
-        return fieldParserFactories;
+    @Override
+    public ARecordType getAdapterOutputType() {
+        return atype;
     }
 
 }

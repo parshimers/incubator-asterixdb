@@ -154,14 +154,25 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Bufferring data until recovery is complete " + this.runtimeId);
         }
-        boolean success = frameCollection.addFrame(frame);
-        if (!success) {
-            if (fpa.spillToDiskOnCongestion()) {
-                if (frame != null) {
-                    spiller.processMessage(frame);
-                } // TODO handle the else case
-            } else {
-                discarder.processMessage(frame);
+        if (frameCollection == null) {
+            this.frameCollection = (FrameCollection) feedManager.getFeedMemoryManager().getMemoryComponent(
+                    IFeedMemoryComponent.Type.COLLECTION);
+        }
+        if (frameCollection == null) {
+            discarder.processMessage(frame);
+            if (LOGGER.isLoggable(Level.WARNING)) {
+                LOGGER.warning("Running low on memory!!!!!!!!! DISCARDING FRAME ");
+            }
+        } else {
+            boolean success = frameCollection.addFrame(frame);
+            if (!success) {
+                if (fpa.spillToDiskOnCongestion()) {
+                    if (frame != null) {
+                        spiller.processMessage(frame);
+                    } // TODO handle the else case
+                } else {
+                    discarder.processMessage(frame);
+                }
             }
         }
     }
@@ -184,17 +195,19 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
                 LOGGER.info("Processing backlog " + this.runtimeId);
             }
 
-            Iterator<ByteBuffer> backlog = frameCollection.getFrameCollectionIterator();
-            while (backlog.hasNext()) {
-                process(backlog.next());
-                nProcessed++;
+            if (frameCollection != null) {
+                Iterator<ByteBuffer> backlog = frameCollection.getFrameCollectionIterator();
+                while (backlog.hasNext()) {
+                    process(backlog.next());
+                    nProcessed++;
+                }
+                DataBucket bucket = pool.getDataBucket();
+                bucket.setContentType(ContentType.EOSD);
+                bucket.setDesiredReadCount(1);
+                mBuffer.sendMessage(bucket);
+                feedManager.getFeedMemoryManager().releaseMemoryComponent(frameCollection);
+                frameCollection = null;
             }
-            DataBucket bucket = pool.getDataBucket();
-            bucket.setContentType(ContentType.EOSD);
-            bucket.setDesiredReadCount(1);
-            mBuffer.sendMessage(bucket);
-
-            frameCollection.reset();
         } catch (Exception e) {
             e.printStackTrace();
             throw new HyracksDataException(e);

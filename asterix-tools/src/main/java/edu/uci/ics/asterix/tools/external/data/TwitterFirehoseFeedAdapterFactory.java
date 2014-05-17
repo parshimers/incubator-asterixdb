@@ -18,14 +18,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
 import edu.uci.ics.asterix.external.adapter.factory.StreamBasedAdapterFactory;
-import edu.uci.ics.asterix.metadata.feeds.ITypedAdapterFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
-import edu.uci.ics.asterix.om.types.AUnorderedListType;
-import edu.uci.ics.asterix.om.types.BuiltinType;
-import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.AsterixClusterProperties;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
@@ -36,33 +31,26 @@ import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
  * The adapter simulates a twitter firehose with tweets being "pushed" into Asterix at a configurable rate
  * measured in terms of TPS (tweets/second). The stream of tweets lasts for a configurable duration (measured in seconds).
  */
-public class TwitterFirehoseFeedAdapterFactory extends StreamBasedAdapterFactory implements ITypedAdapterFactory {
+public class TwitterFirehoseFeedAdapterFactory extends StreamBasedAdapterFactory {
 
     private static final long serialVersionUID = 1L;
 
-    /*
+    /**
      * Degree of parallelism for feed ingestion activity. Defaults to 1.
      * This builds up the count constraint for the ingestion operator.
-     */
+     **/
     private static final String KEY_INGESTION_CARDINALITY = "ingestion-cardinality";
 
-    /*
-     * The absolute locations where ingestion operator instances will be places. 
-     */
+    /**
+     * The absolute locations where ingestion operator instances will be places.
+     **/
     private static final String KEY_INGESTION_LOCATIONS = "ingestion-location";
 
-    public static final String KEY_FIELDS = "fields";
-
-    private static ARecordType outputType = null;
+    private ARecordType outputType;
 
     @Override
     public String getName() {
         return "twitter_firehose";
-    }
-
-    @Override
-    public AdapterType getAdapterType() {
-        return AdapterType.TYPED;
     }
 
     @Override
@@ -71,13 +59,11 @@ public class TwitterFirehoseFeedAdapterFactory extends StreamBasedAdapterFactory
     }
 
     @Override
-    public void configure(Map<String, String> configuration) throws Exception {
+    public void configure(Map<String, String> configuration, ARecordType outputType) throws Exception {
         configuration.put(KEY_FORMAT, FORMAT_ADM);
         this.configuration = configuration;
-        this.configureFormat(initOutputType());
-        if (outputType == null) {
-            outputType = initOutputType();
-        }
+        this.outputType = outputType;
+        this.configureFormat(outputType);
     }
 
     @Override
@@ -112,63 +98,4 @@ public class TwitterFirehoseFeedAdapterFactory extends StreamBasedAdapterFactory
         return outputType;
     }
 
-    private ARecordType initOutputType() {
-        try {
-            String[] userFieldNames = new String[] { "screen-name", "lang", "friends_count", "statuses_count", "name",
-                    "followers_count" };
-
-            IAType[] userFieldTypes = new IAType[] { BuiltinType.ASTRING, BuiltinType.ASTRING, BuiltinType.AINT32,
-                    BuiltinType.AINT32, BuiltinType.ASTRING, BuiltinType.AINT32 };
-            ARecordType userRecordType = new ARecordType("TwitterUserType", userFieldNames, userFieldTypes, false);
-
-            AUnorderedListType unorderedListType = new AUnorderedListType(BuiltinType.ASTRING, "referred-topics");
-
-            String fieldsValue = configuration.get(KEY_FIELDS);
-            if (fieldsValue == null) {
-                String[] fieldNames = new String[] { "tweetid", "user", "sender-location", "send-time",
-                        "referred-topics", "message-text" };
-                IAType[] fieldTypes = new IAType[] { BuiltinType.ASTRING, userRecordType, BuiltinType.APOINT,
-                        BuiltinType.ADATETIME, unorderedListType, BuiltinType.ASTRING };
-                outputType = new ARecordType("TweetMessageType", fieldNames, fieldTypes, false);
-            } else {
-                String[] fieldsConfNames = fieldsValue.split(",");
-                List<IAType> outputTypeFields = new ArrayList<IAType>();
-                List<String> outputTypeFieldNames = new ArrayList<String>();
-                for (String field : fieldsConfNames) {
-                    switch (field) {
-                        case "tweetid":
-                            outputTypeFields.add(BuiltinType.ASTRING);
-                            outputTypeFieldNames.add("tweetid");
-                            break;
-                        case "user":
-                            outputTypeFields.add(userRecordType);
-                            outputTypeFieldNames.add("user");
-                            break;
-                        case "sender-location":
-                            outputTypeFields.add(BuiltinType.APOINT);
-                            outputTypeFieldNames.add("sender-location");
-                            break;
-                        case "send-time":
-                            outputTypeFields.add(BuiltinType.ADATETIME);
-                            outputTypeFieldNames.add("send-time");
-                            break;
-                        case "referred-topics":
-                            outputTypeFields.add(unorderedListType);
-                            outputTypeFieldNames.add("referred-topics");
-                            break;
-                        case "message-text":
-                            outputTypeFields.add(BuiltinType.ASTRING);
-                            outputTypeFieldNames.add("message-text");
-                            break;
-                    }
-                }
-                IAType[] fieldTypes = outputTypeFields.toArray(new IAType[] {});
-                String[] fieldNames = outputTypeFieldNames.toArray(new String[] {});
-                outputType = new ARecordType("TweetMessageType", fieldNames, fieldTypes, false);
-            }
-        } catch (AsterixException e) {
-            throw new IllegalStateException("Unable to initialize output type");
-        }
-        return outputType;
-    }
 }

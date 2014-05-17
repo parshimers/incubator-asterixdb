@@ -14,19 +14,15 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.api.IFeedFrameHandler;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMemoryComponent.Type;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMemoryManager;
-import edu.uci.ics.asterix.common.feeds.api.IFeedOperatorOutputSideHandler;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -41,26 +37,15 @@ public class FrameDistributor {
     private final FeedId feedId;
     private final FeedRuntimeType feedRuntimeType;
     private final int partition;
-    private FrameTupleAccessor fta;
-
+    private final IFeedMemoryManager memoryManager;
+    private final boolean enableSynchronousTransfer;
     /** A map storing the registered frame readers ({@code FeedFrameCollector}. **/
     private final Map<IFrameWriter, FeedFrameCollector> registeredCollectors;
 
+    private FrameTupleAccessor fta;
     private DataBucketPool pool;
     private DistributionMode distributionMode;
-    private final IFeedMemoryManager memoryManager;
-    private IFeedFrameHandler inMemoryHandler;
-    private IFeedFrameHandler diskSpillHandler;
-    private IFeedFrameHandler discardHandler;
-    private boolean enableSynchronousTransfer;
-    private RoutingMode routingMode;
     private boolean spillToDiskRequired = false;
-
-    public static enum RoutingMode {
-        IN_MEMORY_ROUTE,
-        SPILL_TO_DISK,
-        DISCARD
-    }
 
     public enum DistributionMode {
         /**
@@ -83,7 +68,7 @@ public class FrameDistributor {
     }
 
     public FrameDistributor(FeedId feedId, FeedRuntimeType feedRuntimeType, int partition,
-            boolean enableSynchronousTransfer, IFeedMemoryManager memoryManager, int frameSize)
+            boolean enableSynchronousTransfer, IFeedMemoryManager memoryManager, int frameSize, FrameTupleAccessor fta)
             throws HyracksDataException {
         this.feedId = feedId;
         this.feedRuntimeType = feedRuntimeType;
@@ -91,19 +76,8 @@ public class FrameDistributor {
         this.memoryManager = memoryManager;
         this.enableSynchronousTransfer = enableSynchronousTransfer;
         this.registeredCollectors = new HashMap<IFrameWriter, FeedFrameCollector>();
-        distributionMode = DistributionMode.INACTIVE;
-        routingMode = RoutingMode.IN_MEMORY_ROUTE;
-        try {
-            inMemoryHandler = FeedFrameHandlers.getFeedFrameHandler(this, feedId, RoutingMode.IN_MEMORY_ROUTE,
-                    feedRuntimeType, partition, frameSize);
-            diskSpillHandler = FeedFrameHandlers.getFeedFrameHandler(this, feedId, RoutingMode.SPILL_TO_DISK,
-                    feedRuntimeType, partition, frameSize);
-            discardHandler = FeedFrameHandlers.getFeedFrameHandler(this, feedId, RoutingMode.DISCARD, feedRuntimeType,
-                    partition, frameSize);
-        } catch (IOException ioe) {
-            throw new HyracksDataException(ioe);
-        }
-
+        this.distributionMode = DistributionMode.INACTIVE;
+        this.fta = fta;
     }
 
     public void notifyEndOfFeed() {
@@ -127,7 +101,7 @@ public class FrameDistributor {
 
     private void sendEndOfFeedDataBucket(DataBucket bucket) {
         bucket.setContentType(DataBucket.ContentType.EOD);
-        processMessage(bucket);
+        nextBucket(bucket);
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("End of feed data packet sent " + this.feedId);
         }
@@ -225,28 +199,6 @@ public class FrameDistributor {
     }
 
     public synchronized void nextFrame(ByteBuffer frame) throws HyracksDataException {
-        switch (routingMode) {
-            case IN_MEMORY_ROUTE:
-                handleInMemoryRouteMode(frame);
-                break;
-            case SPILL_TO_DISK:
-                handleSpillToDiskMode(frame);
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Spilling frame to disk due to memory pressure " + feedId + "(" + feedRuntimeType + ")"
-                            + "[" + partition + "]");
-                }
-                break;
-            case DISCARD:
-                handleDiscardMode(frame);
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Discarding frame due to memory pressure " + feedId + "(" + feedRuntimeType + ")" + "["
-                            + partition + "]");
-                }
-                break;
-        }
-    }
-
-    void handleInMemoryRouteMode(ByteBuffer frame) throws HyracksDataException {
         switch (distributionMode) {
             case INACTIVE:
                 break;
@@ -279,48 +231,20 @@ public class FrameDistributor {
         }
     }
 
+    private void nextBucket(DataBucket bucket) {
+        for (FeedFrameCollector collector : registeredCollectors.values()) {
+            collector.sendMessage(bucket); // asynchronous call
+        }
+    }
+
     private void handleDataBucket(ByteBuffer frame) throws HyracksDataException {
         DataBucket bucket = getDataBucket();
         if (bucket == null) {
             handleFrameDuringMemoryCongestion(frame);
         } else {
-            switch (routingMode) {
-                case IN_MEMORY_ROUTE:
-                    bucket.reset(frame);
-                    bucket.setDesiredReadCount(registeredCollectors.size());
-                    inMemoryHandler.handleDataBucket(bucket);
-                    break;
-                case SPILL_TO_DISK:
-                    setRoutingMode(RoutingMode.IN_MEMORY_ROUTE);
-                    Iterator<ByteBuffer> spilledFramesIterator = diskSpillHandler.replayData();
-                    ByteBuffer spilledFrame = null;
-                    if (spilledFramesIterator != null) {
-                        while (spilledFramesIterator.hasNext()) {
-                            spilledFrame = spilledFramesIterator.next();
-                            handleDataBucket(spilledFrame);
-                        }
-                    }
-                    bucket.reset(frame);
-                    bucket.setDesiredReadCount(registeredCollectors.size());
-                    inMemoryHandler.handleDataBucket(bucket);
-                    break;
-            }
-        }
-    }
-
-    private void handleSpillToDiskMode(ByteBuffer frame) throws HyracksDataException {
-        try {
-            diskSpillHandler.handleFrame(frame);
-        } catch (IOException ioe) {
-            throw new HyracksDataException(ioe);
-        }
-    }
-
-    private void handleDiscardMode(ByteBuffer frame) throws HyracksDataException {
-        try {
-            discardHandler.handleFrame(frame);
-        } catch (IOException ioe) {
-            throw new HyracksDataException(ioe);
+            bucket.reset(frame);
+            bucket.setDesiredReadCount(registeredCollectors.size());
+            nextBucket(bucket);
         }
     }
 
@@ -328,31 +252,7 @@ public class FrameDistributor {
         if (LOGGER.isLoggable(Level.WARNING)) {
             LOGGER.warning("Unable to allocate memory, will evaluate the need to spill");
         }
-        boolean spillToDisk = false;
-        for (FeedFrameCollector collector : registeredCollectors.values()) {
-            FeedPolicyAccessor fpa = collector.getFeedPolicyAccessor();
-            if (fpa.spillToDiskOnCongestion()) {
-                spillToDisk = true;
-            }
-        }
-        try {
-            if (spillToDisk) {
-                setRoutingMode(RoutingMode.SPILL_TO_DISK);
-                diskSpillHandler.handleFrame(frame);
-            } else {
-                discardHandler.handleFrame(frame);
-                printSummary();
-            }
-
-        } catch (IOException ioe) {
-            throw new HyracksDataException(ioe);
-        }
-    }
-
-    private synchronized void processMessage(DataBucket bucket) {
-        for (FeedFrameCollector collector : registeredCollectors.values()) {
-            collector.sendMessage(bucket); // processing is asynchronous
-        }
+        // wait till memory is available
     }
 
     private DataBucket getDataBucket() {
@@ -373,19 +273,7 @@ public class FrameDistributor {
         return distributionMode;
     }
 
-    public RoutingMode getRoutingMode() {
-        return routingMode;
-    }
-
-    public void setRoutingMode(RoutingMode routingMode) {
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Switching from " + this.routingMode + "  to " + routingMode);
-        }
-        this.routingMode = routingMode;
-    }
-
     public void close() {
-        printSummary();
         switch (distributionMode) {
             case INACTIVE:
                 if (LOGGER.isLoggable(Level.INFO)) {
@@ -442,24 +330,8 @@ public class FrameDistributor {
         return registeredCollectors;
     }
 
-    public IFeedFrameHandler getInMemoryHandler() {
-        return inMemoryHandler;
-    }
-
     public FeedId getFeedId() {
         return feedId;
-    }
-
-    public void setInMemoryHandler(IFeedFrameHandler inMemoryHandler) {
-        this.inMemoryHandler = inMemoryHandler;
-    }
-
-    public IFeedFrameHandler getDiskSpillHandler() {
-        return diskSpillHandler;
-    }
-
-    public IFeedMemoryManager getMemoryManager() {
-        return memoryManager;
     }
 
     public DistributionMode getDistributionMode() {
@@ -474,20 +346,8 @@ public class FrameDistributor {
         return partition;
     }
 
-    private void printSummary() {
-        if (LOGGER.isLoggable(Level.WARNING)) {
-            LOGGER.warning(diskSpillHandler.getSummary());
-            LOGGER.warning(discardHandler.getSummary());
-            LOGGER.warning(inMemoryHandler.getSummary());
-        }
-    }
-
     public FrameTupleAccessor getFta() {
         return fta;
-    }
-
-    public void setFta(FrameTupleAccessor fta) {
-        this.fta = fta;
     }
 
 }

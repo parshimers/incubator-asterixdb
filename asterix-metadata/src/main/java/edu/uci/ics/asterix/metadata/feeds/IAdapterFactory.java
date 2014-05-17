@@ -15,8 +15,10 @@
 package edu.uci.ics.asterix.metadata.feeds;
 
 import java.io.Serializable;
+import java.util.Map;
 
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
+import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 
@@ -27,14 +29,7 @@ import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
  */
 public interface IAdapterFactory extends Serializable {
 
-    /**
-     * A 'GENERIC' adapter can be configured to return a given datatype.
-     * A 'TYPED' adapter returns records with a pre-defined datatype.
-     */
-    public enum AdapterType {
-        GENERIC,
-        TYPED
-    }
+    public static final String KEY_TYPE_NAME = "type-name";
 
     public enum SupportedOperation {
         READ,
@@ -60,13 +55,6 @@ public interface IAdapterFactory extends Serializable {
     public String getName();
 
     /**
-     * Returns the type of the adapter (GENERIC or TYPED)
-     * 
-     * @return
-     */
-    public AdapterType getAdapterType();
-
-    /**
      * Returns a list of partition constraints. A partition constraint can be a
      * requirement to execute at a particular location or could be cardinality
      * constraints indicating the number of instances that need to run in
@@ -88,5 +76,17 @@ public interface IAdapterFactory extends Serializable {
      * @throws Exception
      */
     public IDatasourceAdapter createAdapter(IHyracksTaskContext ctx, int partition) throws Exception;
+
+    /**
+     * @param configuration
+     * @param outputType
+     * @throws Exception
+     */
+    public void configure(Map<String, String> configuration, ARecordType outputType) throws Exception;
+
+    /**
+     * @return
+     */
+    public ARecordType getAdapterOutputType();
 
 }

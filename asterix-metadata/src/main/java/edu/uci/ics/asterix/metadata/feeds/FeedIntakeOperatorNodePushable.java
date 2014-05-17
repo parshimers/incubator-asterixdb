@@ -53,14 +53,15 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
     private final IFeedSubscriptionManager feedSubscriptionManager;
     private final IFeedManager feedManager;
     private final IHyracksTaskContext ctx;
-    private final IAdapterFactory adapterFactory;
+    private final IFeedAdapterFactory adapterFactory;
+    private final FeedPolicyAccessor policyAccessor;
 
     private IngestionRuntime ingestionRuntime;
     private IFeedAdapter adapter;
     private DistributeFeedFrameWriter feedFrameWriter;
 
-    public FeedIntakeOperatorNodePushable(IHyracksTaskContext ctx, FeedId feedId, IAdapterFactory adapterFactory,
-            int partition, IngestionRuntime ingestionRuntime) {
+    public FeedIntakeOperatorNodePushable(IHyracksTaskContext ctx, FeedId feedId, IFeedAdapterFactory adapterFactory,
+            int partition, IngestionRuntime ingestionRuntime, FeedPolicyAccessor policyAccessor) {
         this.ctx = ctx;
         this.feedId = feedId;
         this.partition = partition;
@@ -70,6 +71,7 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                 .getApplicationContext().getApplicationObject();
         this.feedSubscriptionManager = runtimeCtx.getFeedManager().getFeedSubscriptionManager();
         this.feedManager = runtimeCtx.getFeedManager();
+        this.policyAccessor = policyAccessor;
     }
 
     @Override
@@ -78,6 +80,7 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
         try {
             if (ingestionRuntime == null) {
                 try {
+                    adapterFactory.setIngestionPolicy(policyAccessor);
                     adapter = (IFeedAdapter) adapterFactory.createAdapter(ctx, partition);
                 } catch (Exception e) {
                     LOGGER.severe("Unable to create adapter : " + adapterFactory.getName() + "[" + partition + "]"

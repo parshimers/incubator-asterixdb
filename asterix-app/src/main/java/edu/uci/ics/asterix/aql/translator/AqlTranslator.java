@@ -83,6 +83,7 @@ import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FeedJointKey;
+import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
 import edu.uci.ics.asterix.common.feeds.api.IFeedJoint;
 import edu.uci.ics.asterix.common.feeds.api.IFeedJoint.Type;
@@ -122,6 +123,8 @@ import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
 import edu.uci.ics.asterix.metadata.entities.SecondaryFeed;
 import edu.uci.ics.asterix.metadata.feeds.FeedLifecycleEventSubscriber;
 import edu.uci.ics.asterix.metadata.feeds.FeedUtil;
+import edu.uci.ics.asterix.metadata.feeds.IAdapterFactory;
+import edu.uci.ics.asterix.metadata.feeds.IFeedAdapterFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.IAType;
@@ -144,7 +147,6 @@ import edu.uci.ics.asterix.translator.CompiledStatements.ICompiledDmlStatement;
 import edu.uci.ics.asterix.translator.TypeTranslator;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
-import edu.uci.ics.hyracks.algebricks.common.utils.Triple;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression.FunctionKind;
 import edu.uci.ics.hyracks.algebricks.data.IAWriterFactory;
 import edu.uci.ics.hyracks.algebricks.data.IResultSerializerFactoryProvider;
@@ -1753,6 +1755,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
             }
             // All Metadata checks have passed. Feed connect request is valid. //
 
+            FeedPolicyAccessor policyAccessor = new FeedPolicyAccessor(feedPolicy.getProperties());
             Pair<FeedSubscriptionRequest, Boolean> p = getFeedSubscriptionRequest(dataverseName, feed,
                     cbfs.getDatasetName(), feedPolicy, mdTxnCtx);
             FeedSubscriptionRequest subscriptionRequest = p.first;
@@ -1761,9 +1764,14 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 FeedId feedId = subscriptionRequest.getFeedJointKey().getFeedId();
                 PrimaryFeed primaryFeed = (PrimaryFeed) MetadataManager.INSTANCE.getFeed(mdTxnCtx,
                         feedId.getDataverse(), feedId.getFeedName());
-                JobSpecification feedIntakeJobSpec = FeedOperations.buildFeedIntakeJobSpec(primaryFeed,
-                        metadataProvider);
-                runJob(hcc, feedIntakeJobSpec, false);
+                Pair<JobSpecification, IFeedAdapterFactory> pair = FeedOperations.buildFeedIntakeJobSpec(primaryFeed,
+                        metadataProvider, policyAccessor);
+                runJob(hcc, pair.first, false);
+                IFeedAdapterFactory adapterFactory = pair.second;
+                if (adapterFactory.isRecordTrackingEnabled()) {
+                    FeedLifecycleListener.INSTANCE.registerFeedIntakeProgressTracker(feedConnId,
+                            adapterFactory.createIntakeProgressTracker());
+                }
             }
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             if (Boolean.valueOf(metadataProvider.getConfig().get(ConnectFeedStatement.WAIT_FOR_COMPLETION))) {

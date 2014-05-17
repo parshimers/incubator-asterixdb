@@ -17,18 +17,20 @@ package edu.uci.ics.asterix.file;
 import java.util.List;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
+import edu.uci.ics.asterix.common.feeds.EndFeedMessage;
 import edu.uci.ics.asterix.common.feeds.FeedConnectJobInfo;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
+import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.api.IFeedJoint;
-import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleListener.SubscriptionLocation;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMessage;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.feeds.FeedLifecycleListener;
 import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
 import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
-import edu.uci.ics.asterix.metadata.feeds.EndFeedMessage;
 import edu.uci.ics.asterix.metadata.feeds.FeedMessageOperatorDescriptor;
+import edu.uci.ics.asterix.metadata.feeds.IAdapterFactory;
+import edu.uci.ics.asterix.metadata.feeds.IFeedAdapterFactory;
 import edu.uci.ics.asterix.metadata.feeds.PrepareStallMessage;
 import edu.uci.ics.asterix.metadata.feeds.TerminateDataFlowMessage;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
@@ -36,6 +38,7 @@ import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionCons
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraintHelper;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
+import edu.uci.ics.hyracks.algebricks.common.utils.Triple;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
@@ -54,18 +57,20 @@ public class FeedOperations {
      * @return JobSpecification the Hyracks job specification for receiving data from external source
      * @throws Exception
      */
-    public static JobSpecification buildFeedIntakeJobSpec(PrimaryFeed primaryFeed, AqlMetadataProvider metadataProvider)
-            throws Exception {
+    public static Pair<JobSpecification, IFeedAdapterFactory> buildFeedIntakeJobSpec(PrimaryFeed primaryFeed,
+            AqlMetadataProvider metadataProvider, FeedPolicyAccessor policyAccessor) throws Exception {
 
         JobSpecification spec = JobSpecificationUtils.createJobSpecification();
+        IFeedAdapterFactory adapterFactory = null;
         IOperatorDescriptor feedIngestor;
         AlgebricksPartitionConstraint ingesterPc;
 
         try {
-            Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p = metadataProvider.buildFeedIntakeRuntime(spec,
-                    primaryFeed);
-            feedIngestor = p.first;
-            ingesterPc = p.second;
+            Triple<IOperatorDescriptor, AlgebricksPartitionConstraint, IFeedAdapterFactory> t = metadataProvider
+                    .buildFeedIntakeRuntime(spec, primaryFeed, policyAccessor);
+            feedIngestor = t.first;
+            ingesterPc = t.second;
+            adapterFactory = t.third;
         } catch (AlgebricksException e) {
             throw new AsterixException(e);
         }
@@ -76,8 +81,7 @@ public class FeedOperations {
         AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, nullSink, ingesterPc);
         spec.connect(new OneToOneConnectorDescriptor(spec), feedIngestor, 0, nullSink, 0);
         spec.addRoot(nullSink);
-        return spec;
-
+        return new Pair<JobSpecification, IFeedAdapterFactory>(spec, adapterFactory);
     }
 
     public static JobSpecification buildDiscontinueFeedSourceSpec(AqlMetadataProvider metadataProvider, FeedId feedId)

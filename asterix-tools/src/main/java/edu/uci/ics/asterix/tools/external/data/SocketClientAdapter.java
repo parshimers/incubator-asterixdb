@@ -22,7 +22,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.feeds.api.IFeedAdapter;
-import edu.uci.ics.asterix.common.feeds.api.IFeedAdapter.DataExchangeMode;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 

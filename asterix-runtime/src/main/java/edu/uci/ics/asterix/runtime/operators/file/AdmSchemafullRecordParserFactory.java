@@ -38,5 +38,5 @@ public class AdmSchemafullRecordParserFactory implements ITupleParserFactory {
     public ITupleParser createTupleParser(final IHyracksTaskContext ctx) throws HyracksDataException {
         return new AdmTupleParser(ctx, recType);
     }
-
+    
 }

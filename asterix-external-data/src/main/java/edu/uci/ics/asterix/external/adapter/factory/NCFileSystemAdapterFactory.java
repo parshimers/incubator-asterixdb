@@ -24,7 +24,6 @@ import edu.uci.ics.asterix.external.dataset.adapter.NCFileSystemAdapter;
 import edu.uci.ics.asterix.external.util.DNSResolverFactory;
 import edu.uci.ics.asterix.external.util.INodeResolver;
 import edu.uci.ics.asterix.external.util.INodeResolverFactory;
-import edu.uci.ics.asterix.metadata.feeds.IGenericAdapterFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
@@ -38,7 +37,8 @@ import edu.uci.ics.hyracks.dataflow.std.file.FileSplit;
  * NCFileSystemAdapter reads external data residing on the local file system of
  * an NC.
  */
-public class NCFileSystemAdapterFactory extends StreamBasedAdapterFactory implements IGenericAdapterFactory {
+public class NCFileSystemAdapterFactory extends StreamBasedAdapterFactory {
+
     private static final long serialVersionUID = 1L;
 
     public static final String NC_FILE_SYSTEM_ADAPTER_NAME = "localfs";
@@ -47,6 +47,7 @@ public class NCFileSystemAdapterFactory extends StreamBasedAdapterFactory implem
 
     private IAType sourceDatatype;
     private FileSplit[] fileSplits;
+    private ARecordType outputType;
 
     @Override
     public IDatasourceAdapter createAdapter(IHyracksTaskContext ctx, int partition) throws Exception {
@@ -60,11 +61,6 @@ public class NCFileSystemAdapterFactory extends StreamBasedAdapterFactory implem
     }
 
     @Override
-    public AdapterType getAdapterType() {
-        return AdapterType.GENERIC;
-    }
-
-    @Override
     public SupportedOperation getSupportedOperations() {
         return SupportedOperation.READ;
     }
@@ -72,10 +68,12 @@ public class NCFileSystemAdapterFactory extends StreamBasedAdapterFactory implem
     @Override
     public void configure(Map<String, String> configuration, ARecordType outputType) throws Exception {
         this.configuration = configuration;
+        this.outputType = outputType;
         String[] splits = ((String) configuration.get(KEY_PATH)).split(",");
         IAType sourceDatatype = (IAType) outputType;
         configureFileSplits(splits);
         configureFormat(sourceDatatype);
+
     }
 
     @Override
@@ -140,6 +138,11 @@ public class NCFileSystemAdapterFactory extends StreamBasedAdapterFactory implem
             nodeResolver = DEFAULT_NODE_RESOLVER;
         }
         return nodeResolver;
+    }
+
+    @Override
+    public ARecordType getAdapterOutputType() {
+        return outputType;
     }
 
 }

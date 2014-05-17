@@ -22,16 +22,14 @@ import java.util.TimerTask;
 import java.util.logging.Level;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
+import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.om.types.ARecordType;
-import edu.uci.ics.asterix.runtime.operators.file.ADMDataParser;
 import edu.uci.ics.asterix.runtime.operators.file.AbstractTupleParser;
-import edu.uci.ics.asterix.runtime.operators.file.DelimitedDataParser;
 import edu.uci.ics.asterix.runtime.operators.file.IDataParser;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
-import edu.uci.ics.hyracks.dataflow.common.data.parsers.IValueParserFactory;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParser;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 
@@ -39,45 +37,22 @@ public class ConditionalPushTupleParserFactory implements ITupleParserFactory {
 
     private static final long serialVersionUID = 1L;
 
+    private final ARecordType outputType;
+    private final Map<String, String> configuration;
+    private final FeedPolicyAccessor policyAccessor;
+    private final IDataParser dataParser;
+
+    public ConditionalPushTupleParserFactory(ARecordType outputType, Map<String, String> configuration,
+            FeedPolicyAccessor policyAccessor, IDataParser dataParser) {
+        this.outputType = outputType;
+        this.configuration = configuration;
+        this.policyAccessor = policyAccessor;
+        this.dataParser = dataParser;
+    }
+
     @Override
     public ITupleParser createTupleParser(IHyracksTaskContext ctx) throws HyracksDataException {
-        IDataParser dataParser = null;
-        switch (parserType) {
-            case ADM:
-                dataParser = new ADMDataParser();
-                break;
-            case DELIMITED_DATA:
-                dataParser = new DelimitedDataParser(recordType, valueParserFactories, delimiter);
-                break;
-        }
-        return new ConditionalPushTupleParser(ctx, recordType, dataParser, configuration);
-    }
-
-    private final ARecordType recordType;
-    private final Map<String, String> configuration;
-    private IValueParserFactory[] valueParserFactories;
-    private char delimiter;
-    private final ParserType parserType;
-
-    public enum ParserType {
-        ADM,
-        DELIMITED_DATA
-    }
-
-    public ConditionalPushTupleParserFactory(ARecordType recordType, IValueParserFactory[] valueParserFactories,
-            char fieldDelimiter, Map<String, String> configuration) {
-        this.recordType = recordType;
-        this.valueParserFactories = valueParserFactories;
-        this.delimiter = fieldDelimiter;
-        this.configuration = configuration;
-        this.parserType = ParserType.DELIMITED_DATA;
-
-    }
-
-    public ConditionalPushTupleParserFactory(ARecordType recordType, Map<String, String> configuration) {
-        this.recordType = recordType;
-        this.configuration = configuration;
-        this.parserType = ParserType.ADM;
+        return new ConditionalPushTupleParser(ctx, outputType, dataParser, configuration);
     }
 
 }

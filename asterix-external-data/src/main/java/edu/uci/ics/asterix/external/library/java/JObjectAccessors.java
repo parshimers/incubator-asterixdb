@@ -68,6 +68,7 @@ import edu.uci.ics.asterix.om.types.EnumDeserializer;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.container.IObjectPool;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
+import edu.uci.ics.hyracks.algebricks.common.utils.Triple;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
 public class JObjectAccessors {
@@ -429,14 +430,14 @@ public class JObjectAccessors {
                 for (IVisitablePointable fieldPointable : fieldPointables) {
                     closedPart = index < recordType.getFieldTypes().length;
                     IVisitablePointable tt = fieldTypeTags.get(index);
-                    IAType fieldType = recordType.getFieldTypes()[index];
+                    IAType fieldType = closedPart ? recordType.getFieldTypes()[index] : null;
                     ATypeTag typeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(tt.getByteArray()[tt
                             .getStartOffset()]);
                     IVisitablePointable fieldName = fieldNames.get(index);
                     switch (typeTag) {
                         case RECORD:
-                            fieldObject = pointableVisitor.visit((ARecordPointable) fieldPointable, new Pair(
-                                    objectPool, fieldType));
+                            fieldObject = pointableVisitor.visit((ARecordPointable) fieldPointable, new Triple(
+                                    objectPool, fieldType, typeTag));
                             break;
                         case ORDEREDLIST:
                         case UNORDEREDLIST:
@@ -444,15 +445,15 @@ public class JObjectAccessors {
                                 // value is null
                                 fieldObject = null;
                             } else {
-                                fieldObject = pointableVisitor.visit((AListPointable) fieldPointable, new Pair(
-                                        objectPool, fieldType));
+                                fieldObject = pointableVisitor.visit((AListPointable) fieldPointable, new Triple(
+                                        objectPool, fieldType, typeTag));
                             }
                             break;
                         case ANY:
                             break;
                         default:
-                            fieldObject = pointableVisitor.visit((AFlatValuePointable) fieldPointable, new Pair(
-                                    objectPool, fieldType));
+                            fieldObject = pointableVisitor.visit((AFlatValuePointable) fieldPointable, new Triple(
+                                    objectPool, fieldType, typeTag));
                     }
                     if (closedPart) {
                         jObjects.add(fieldObject);
@@ -470,6 +471,7 @@ public class JObjectAccessors {
 
                 jRecord = new JRecord(recordType, jObjects.toArray(new IJObject[] {}), openFields);
             } catch (Exception e) {
+                e.printStackTrace();
                 throw new HyracksDataException(e);
             }
             return jRecord;
@@ -493,20 +495,21 @@ public class JObjectAccessors {
                             .getByteArray()[itemTagPointable.getStartOffset()]);
                     switch (itemTypeTag) {
                         case RECORD:
-                            listItem = pointableVisitor.visit((ARecordPointable) itemPointable, new Pair(objectPool,
-                                    listType.getType()));
+                            listItem = pointableVisitor.visit((ARecordPointable) itemPointable, new Triple(objectPool,
+                                    listType.getType(), listType.getTypeTag()));
                             break;
                         case UNORDEREDLIST:
                         case ORDEREDLIST:
-                            listItem = pointableVisitor.visit((AListPointable) itemPointable, new Pair(objectPool,
-                                    listType.getType()));
+                            listItem = pointableVisitor.visit((AListPointable) itemPointable, new Triple(objectPool,
+                                    listType.getType(), listType.getTypeTag()));
                             break;
                         case ANY:
                             throw new IllegalArgumentException("Cannot parse list item of type "
                                     + listType.getTypeTag());
                         default:
-                            listItem = pointableVisitor.visit((AFlatValuePointable) itemPointable, new Pair(objectPool,
-                                    ((AbstractCollectionType) listType).getItemType()));
+                            listItem = pointableVisitor.visit((AFlatValuePointable) itemPointable, new Triple(
+                                    objectPool, ((AbstractCollectionType) listType).getItemType(),
+                                    ((AbstractCollectionType) listType).getTypeTag()));
 
                     }
                     ATypeTag typeTag = EnumDeserializer.ATYPETAGDESERIALIZER

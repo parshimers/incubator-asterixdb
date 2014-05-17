@@ -43,9 +43,9 @@ public class NodeReportMessage extends FeedMessage {
     @Override
     public JSONObject toJSON() throws JSONException {
         JSONObject obj = new JSONObject();
-        obj.put(IFeedMessage.Constants.CPU_LOAD, cpuLoad);
-        obj.put(IFeedMessage.Constants.HEAP_USAGE, usedHeap);
-        obj.put(IFeedMessage.Constants.N_RUNTIMES, nRuntimes);
+        obj.put(FeedConstants.MessageConstants.CPU_LOAD, cpuLoad);
+        obj.put(FeedConstants.MessageConstants.HEAP_USAGE, usedHeap);
+        obj.put(FeedConstants.MessageConstants.N_RUNTIMES, nRuntimes);
         return obj;
     }
 

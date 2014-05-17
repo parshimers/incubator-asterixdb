@@ -32,12 +32,13 @@ import edu.uci.ics.asterix.bootstrap.FeedBootstrap;
 import edu.uci.ics.asterix.common.config.AsterixFeedProperties;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedCongestionMessage;
+import edu.uci.ics.asterix.common.feeds.FeedConstants;
 import edu.uci.ics.asterix.common.feeds.MessageReceiver;
 import edu.uci.ics.asterix.common.feeds.NodeLoadReport;
 import edu.uci.ics.asterix.common.feeds.ScaleInReportMessage;
+import edu.uci.ics.asterix.common.feeds.StorageReportFeedMessage;
 import edu.uci.ics.asterix.common.feeds.api.ICentralFeedManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLoadManager;
-import edu.uci.ics.asterix.common.feeds.api.IFeedMessage;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMessage.MessageType;
 import edu.uci.ics.asterix.metadata.feeds.MessageListener;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
@@ -100,7 +101,7 @@ public class CentralFeedManager implements ICentralFeedManager {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Received message " + obj);
             }
-            MessageType messageType = MessageType.valueOf(obj.getString(IFeedMessage.Constants.MESSAGE_TYPE));
+            MessageType messageType = MessageType.valueOf(obj.getString(FeedConstants.MessageConstants.MESSAGE_TYPE));
             switch (messageType) {
                 case XAQL:
                     if (!initialized) {
@@ -110,7 +111,7 @@ public class CentralFeedManager implements ICentralFeedManager {
                             LOGGER.info("Created artifacts to store feed failure data");
                         }
                     }
-                    String aql = obj.getString(IFeedMessage.Constants.AQL);
+                    String aql = obj.getString(FeedConstants.MessageConstants.AQL);
                     AQLExecutor.executeAQL(aql);
                     break;
                 case CONGESTION:
@@ -121,13 +122,17 @@ public class CentralFeedManager implements ICentralFeedManager {
                     feedLoadManager.submitFeedRuntimeReport(obj);
                     break;
                 case NODE_REPORT:
-                    NodeLoadReport r = new NodeLoadReport(obj.getString(IFeedMessage.Constants.NODE_ID),
-                            (float) obj.getDouble(IFeedMessage.Constants.CPU_LOAD));
+                    NodeLoadReport r = new NodeLoadReport(obj.getString(FeedConstants.MessageConstants.NODE_ID),
+                            (float) obj.getDouble(FeedConstants.MessageConstants.CPU_LOAD));
                     feedLoadManager.submitNodeLoadReport(r);
                     break;
-                case SCALE_IN_POSSIBLE:
+                case SCALE_IN_REQUEST:
                     ScaleInReportMessage sm = ScaleInReportMessage.read(obj);
                     feedLoadManager.submitScaleInPossibleReport(sm);
+                    break;
+                case STORAGE_REPORT:
+                    StorageReportFeedMessage srm = StorageReportFeedMessage.read(obj);
+                    FeedLifecycleListener.INSTANCE.updateTrackingInformation(srm);
                     break;
                 default:
                     break;

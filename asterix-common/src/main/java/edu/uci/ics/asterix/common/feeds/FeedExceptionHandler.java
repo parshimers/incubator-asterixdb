@@ -1,3 +1,17 @@
+/*
+ * Copyright 2009-2013 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package edu.uci.ics.asterix.common.feeds;
 
 import java.io.DataInputStream;
@@ -5,6 +19,7 @@ import java.nio.ByteBuffer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.exceptions.FrameDataException;
 import edu.uci.ics.asterix.common.feeds.api.IExceptionHandler;
 import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
@@ -33,7 +48,7 @@ public class FeedExceptionHandler implements IExceptionHandler {
         this.connectionId = connectionId;
     }
 
-    public ByteBuffer handleException(Exception e, ByteBuffer frame) throws HyracksDataException {
+    public ByteBuffer handleException(Exception e, ByteBuffer frame) {
         try {
             if (e instanceof FrameDataException) {
                 fta.reset(frame);
@@ -41,25 +56,7 @@ public class FeedExceptionHandler implements IExceptionHandler {
                 int tupleIndex = fde.getTupleIndex();
 
                 // logging 
-                ByteBufferInputStream bbis = new ByteBufferInputStream();
-                DataInputStream di = new DataInputStream(bbis);
-
-                int start = fta.getTupleStartOffset(tupleIndex) + fta.getFieldSlotsLength();
-                bbis.setByteBuffer(fta.getBuffer(), start);
-
-                Object[] record = new Object[recordDesc.getFieldCount()];
-
-                for (int i = 0; i < record.length; ++i) {
-                    Object instance = recordDesc.getFields()[i].deserialize(di);
-                    if (i == 0) {
-                        String tuple = String.valueOf(instance);
-                        feedManager.getFeedMetadataManager().logTuple(connectionId, tuple, e.getMessage(), feedManager);
-                    } else {
-                        if (LOGGER.isLoggable(Level.WARNING)) {
-                            LOGGER.warning(", " + String.valueOf(instance));
-                        }
-                    }
-                }
+                logExceptionCausingTuple(tupleIndex, e);
 
                 // slicing
                 FrameTupleAppender appender = new FrameTupleAppender(frameSize);
@@ -72,7 +69,6 @@ public class FeedExceptionHandler implements IExceptionHandler {
                 }
                 return slicedFrame;
             } else {
-
                 return null;
             }
         } catch (Exception exception) {
@@ -81,7 +77,31 @@ public class FeedExceptionHandler implements IExceptionHandler {
                 LOGGER.warning("Unable to handle (log + continue) post exception " + exception.getMessage());
             }
             exception.addSuppressed(e);
-            throw new HyracksDataException(exception);
+            return null;
         }
+    }
+
+    private void logExceptionCausingTuple(int tupleIndex, Exception e) throws HyracksDataException, AsterixException {
+
+        ByteBufferInputStream bbis = new ByteBufferInputStream();
+        DataInputStream di = new DataInputStream(bbis);
+
+        int start = fta.getTupleStartOffset(tupleIndex) + fta.getFieldSlotsLength();
+        bbis.setByteBuffer(fta.getBuffer(), start);
+
+        Object[] record = new Object[recordDesc.getFieldCount()];
+
+        for (int i = 0; i < record.length; ++i) {
+            Object instance = recordDesc.getFields()[i].deserialize(di);
+            if (i == 0) {
+                String tuple = String.valueOf(instance);
+                feedManager.getFeedMetadataManager().logTuple(connectionId, tuple, e.getMessage(), feedManager);
+            } else {
+                if (LOGGER.isLoggable(Level.WARNING)) {
+                    LOGGER.warning(", " + String.valueOf(instance));
+                }
+            }
+        }
+
     }
 }

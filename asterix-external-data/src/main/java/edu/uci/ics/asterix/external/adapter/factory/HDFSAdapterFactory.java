@@ -24,7 +24,7 @@ import org.apache.hadoop.mapred.JobConf;
 
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
 import edu.uci.ics.asterix.external.dataset.adapter.HDFSAdapter;
-import edu.uci.ics.asterix.metadata.feeds.IGenericAdapterFactory;
+import edu.uci.ics.asterix.metadata.feeds.IAdapterFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
@@ -42,7 +42,7 @@ import edu.uci.ics.hyracks.hdfs.scheduler.Scheduler;
  * A factory class for creating an instance of HDFSAdapter
  */
 @SuppressWarnings("deprecation")
-public class HDFSAdapterFactory extends StreamBasedAdapterFactory implements IGenericAdapterFactory {
+public class HDFSAdapterFactory extends StreamBasedAdapterFactory implements IAdapterFactory {
     private static final long serialVersionUID = 1L;
 
     public static final String HDFS_ADAPTER_NAME = "hdfs";
@@ -113,11 +113,6 @@ public class HDFSAdapterFactory extends StreamBasedAdapterFactory implements IGe
     }
 
     @Override
-    public AdapterType getAdapterType() {
-        return AdapterType.GENERIC;
-    }
-
-    @Override
     public AlgebricksPartitionConstraint getPartitionConstraint() throws Exception {
         if (!configured) {
             throw new IllegalStateException("Adapter factory has not been configured yet");
@@ -146,8 +141,9 @@ public class HDFSAdapterFactory extends StreamBasedAdapterFactory implements IGe
         Arrays.fill(executed, false);
         configured = true;
 
-        atype = (IAType) outputType;
+        this.atype = (IAType) outputType;
         configureFormat(atype);
+
     }
 
     @Override
@@ -170,6 +166,11 @@ public class HDFSAdapterFactory extends StreamBasedAdapterFactory implements IGe
         String[] cluster = new String[locs.size()];
         cluster = locs.toArray(cluster);
         return new AlgebricksAbsolutePartitionConstraint(cluster);
+    }
+
+    @Override
+    public ARecordType getAdapterOutputType() {
+        return (ARecordType) atype;
     }
 
 }

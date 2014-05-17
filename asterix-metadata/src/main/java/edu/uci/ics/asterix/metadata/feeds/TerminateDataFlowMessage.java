@@ -19,8 +19,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedConstants;
 import edu.uci.ics.asterix.common.feeds.FeedMessage;
-import edu.uci.ics.asterix.common.feeds.api.IFeedMessage;
 
 public class TerminateDataFlowMessage extends FeedMessage {
 
@@ -36,10 +36,10 @@ public class TerminateDataFlowMessage extends FeedMessage {
     @Override
     public JSONObject toJSON() throws JSONException {
         JSONObject obj = new JSONObject();
-        obj.put(IFeedMessage.Constants.MESSAGE_TYPE, messageType.name());
-        obj.put(IFeedMessage.Constants.DATAVERSE, connectionId.getFeedId().getDataverse());
-        obj.put(IFeedMessage.Constants.FEED, connectionId.getFeedId().getFeedName());
-        obj.put(IFeedMessage.Constants.DATASET, connectionId.getDatasetName());
+        obj.put(FeedConstants.MessageConstants.MESSAGE_TYPE, messageType.name());
+        obj.put(FeedConstants.MessageConstants.DATAVERSE, connectionId.getFeedId().getDataverse());
+        obj.put(FeedConstants.MessageConstants.FEED, connectionId.getFeedId().getFeedName());
+        obj.put(FeedConstants.MessageConstants.DATASET, connectionId.getDatasetName());
         return obj;
     }
 

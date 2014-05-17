@@ -44,9 +44,11 @@ import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FeedIntakeInfo;
 import edu.uci.ics.asterix.common.feeds.FeedJobInfo;
+import edu.uci.ics.asterix.common.feeds.StorageReportFeedMessage;
 import edu.uci.ics.asterix.common.feeds.FeedJobInfo.FeedJobState;
 import edu.uci.ics.asterix.common.feeds.FeedJointKey;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
+import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
 import edu.uci.ics.asterix.common.feeds.api.IFeedJoint;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleEventSubscriber;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleListener;
@@ -85,6 +87,7 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
     private final FeedJobNotificationHandler feedJobNotificationHandler;
     private final FeedWorkRequestResponseHandler feedWorkRequestResponseHandler;
     private final ExecutorService executorService;
+
     private ClusterState state;
 
     private FeedLifecycleListener() {
@@ -116,6 +119,19 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
 
     public FeedConnectJobInfo getFeedConnectJobInfo(FeedConnectionId connectionId) {
         return feedJobNotificationHandler.getFeedConnectJobInfo(connectionId);
+    }
+
+    public void registerFeedIntakeProgressTracker(FeedConnectionId connectionId,
+            IIntakeProgressTracker feedIntakeProgressTracker) {
+        feedJobNotificationHandler.registerFeedIntakeProgressTracker(connectionId, feedIntakeProgressTracker);
+    }
+
+    public void deregisterFeedIntakeProgressTracker(FeedConnectionId connectionId) {
+        feedJobNotificationHandler.deregisterFeedIntakeProgressTracker(connectionId);
+    }
+
+    public void updateTrackingInformation(StorageReportFeedMessage srm) {
+        feedJobNotificationHandler.updateTrackingInformation(srm);
     }
 
     /*
@@ -394,6 +410,11 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
     @Override
     public String[] getStoreLocations(FeedConnectionId feedConnectionId) {
         return feedJobNotificationHandler.getFeedStorageLocations(feedConnectionId).toArray(new String[] {});
+    }
+
+    @Override
+    public List<String> getCollectLocations(FeedConnectionId feedConnectionId) {
+        return feedJobNotificationHandler.getFeedCollectLocations(feedConnectionId);
     }
 
     @Override

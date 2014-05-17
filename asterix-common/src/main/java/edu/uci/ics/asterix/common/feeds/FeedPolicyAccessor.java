@@ -35,6 +35,9 @@ public class FeedPolicyAccessor {
     // elasticity
     public static final String ELASTIC = "elastic";
 
+    // statistics
+    public static final String TIME_TRACKING = "time.tracking";
+
     public static final long NO_LIMIT = -1;
 
     private Map<String, String> feedPolicy;
@@ -85,6 +88,11 @@ public class FeedPolicyAccessor {
     /** Elasticity **/
     public boolean isElastic() {
         return getBooleanPropertyValue(ELASTIC, false);
+    }
+
+    /** Statistics **/
+    public boolean isTimeTrackingEnabled() {
+        return getBooleanPropertyValue(TIME_TRACKING, false);
     }
 
     private boolean getBooleanPropertyValue(String key, boolean defValue) {

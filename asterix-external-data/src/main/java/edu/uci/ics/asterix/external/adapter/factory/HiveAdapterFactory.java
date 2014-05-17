@@ -19,7 +19,7 @@ import java.util.Map;
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
 import edu.uci.ics.asterix.external.dataset.adapter.HDFSAdapter;
 import edu.uci.ics.asterix.external.dataset.adapter.HiveAdapter;
-import edu.uci.ics.asterix.metadata.feeds.IGenericAdapterFactory;
+import edu.uci.ics.asterix.metadata.feeds.IAdapterFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
@@ -28,7 +28,7 @@ import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 /**
  * A factory class for creating an instance of HiveAdapter
  */
-public class HiveAdapterFactory extends StreamBasedAdapterFactory implements IGenericAdapterFactory {
+public class HiveAdapterFactory extends StreamBasedAdapterFactory implements IAdapterFactory {
     private static final long serialVersionUID = 1L;
 
     public static final String HIVE_DATABASE = "database";
@@ -60,11 +60,6 @@ public class HiveAdapterFactory extends StreamBasedAdapterFactory implements IGe
     }
 
     @Override
-    public AdapterType getAdapterType() {
-        return AdapterType.GENERIC;
-    }
-
-    @Override
     public SupportedOperation getSupportedOperations() {
         return SupportedOperation.READ;
     }
@@ -74,6 +69,7 @@ public class HiveAdapterFactory extends StreamBasedAdapterFactory implements IGe
         if (!configured) {
             populateConfiguration(configuration);
             hdfsAdapterFactory.configure(configuration, outputType);
+            this.atype = (IAType) outputType;
         }
     }
 
@@ -102,6 +98,11 @@ public class HiveAdapterFactory extends StreamBasedAdapterFactory implements IGe
     @Override
     public AlgebricksPartitionConstraint getPartitionConstraint() throws Exception {
         return hdfsAdapterFactory.getPartitionConstraint();
+    }
+
+    @Override
+    public ARecordType getAdapterOutputType() {
+        return (ARecordType) atype;
     }
 
 }

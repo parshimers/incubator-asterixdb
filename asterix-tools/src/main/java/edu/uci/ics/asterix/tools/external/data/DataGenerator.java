@@ -25,17 +25,11 @@ import java.util.UUID;
 public class DataGenerator {
 
     private RandomDateGenerator randDateGen;
-
     private RandomNameGenerator randNameGen;
-
     private RandomMessageGenerator randMessageGen;
-
     private RandomLocationGenerator randLocationGen;
-
     private Random random = new Random();
-
     private TwitterUser twUser = new TwitterUser();
-
     private TweetMessage twMessage = new TweetMessage();
 
     public DataGenerator(InitializationInfo info) {
@@ -45,12 +39,10 @@ public class DataGenerator {
     public class TweetMessageIterator implements Iterator<TweetMessage> {
 
         private final int duration;
-        private final GULongIDGenerator idGen;
         private long startTime = 0;
 
-        public TweetMessageIterator(int duration, GULongIDGenerator idGen) {
+        public TweetMessageIterator(int duration) {
             this.duration = duration;
-            this.idGen = idGen;
             this.startTime = System.currentTimeMillis();
         }
 
@@ -69,8 +61,8 @@ public class DataGenerator {
             Message message = randMessageGen.getNextRandomMessage();
             Point location = randLocationGen.getRandomPoint();
             DateTime sendTime = randDateGen.getNextRandomDatetime();
-            twMessage.reset(/* idGen.getNextULong() */UUID.randomUUID().toString(), twUser, location, sendTime,
-                    message.getReferredTopics(), message);
+            twMessage.reset(UUID.randomUUID().toString(), twUser, location, sendTime, message.getReferredTopics(),
+                    message);
             msg = twMessage;
             return msg;
         }
@@ -487,7 +479,6 @@ public class DataGenerator {
         private DateTime sendTime;
         private List<String> referredTopics;
         private Message messageText;
-        private long generationTimestamp;
 
         public TweetMessage() {
         }
@@ -500,7 +491,6 @@ public class DataGenerator {
             this.sendTime = sendTime;
             this.referredTopics = referredTopics;
             this.messageText = messageText;
-            generationTimestamp = System.currentTimeMillis();
         }
 
         public void reset(String tweetid, TwitterUser user, Point senderLocation, DateTime sendTime,
@@ -511,7 +501,6 @@ public class DataGenerator {
             this.sendTime = sendTime;
             this.referredTopics = referredTopics;
             this.messageText = messageText;
-            this.generationTimestamp = System.currentTimeMillis();
         }
 
         public String toString() {
@@ -590,10 +579,6 @@ public class DataGenerator {
                             builder.append(messageText.charAt(i));
                         }
                         builder.append("\"");
-                        break;
-                    case "generation-timestamp":
-                        builder.append("\"generation-timestamp\":");
-                        builder.append(generationTimestamp);
                         break;
                 }
                 builder.append(",");

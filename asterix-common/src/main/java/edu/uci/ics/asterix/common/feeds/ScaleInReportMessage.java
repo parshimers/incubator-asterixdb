@@ -41,7 +41,7 @@ public class ScaleInReportMessage extends FeedMessage {
 
     public ScaleInReportMessage(FeedConnectionId connectionId, FeedRuntimeType runtimeType, int currentCardinality,
             int reducedCardinaliy) {
-        super(MessageType.SCALE_IN_POSSIBLE);
+        super(MessageType.SCALE_IN_REQUEST);
         this.connectionId = connectionId;
         this.runtimeType = runtimeType;
         this.currentCardinality = currentCardinality;
@@ -50,7 +50,7 @@ public class ScaleInReportMessage extends FeedMessage {
 
     @Override
     public String toString() {
-        return MessageType.SCALE_IN_POSSIBLE.name() + "  " + connectionId + " [" + runtimeType + "] "
+        return MessageType.SCALE_IN_REQUEST.name() + "  " + connectionId + " [" + runtimeType + "] "
                 + " currentCardinality " + currentCardinality + " reducedCardinality " + reducedCardinaliy;
     }
 
@@ -61,13 +61,13 @@ public class ScaleInReportMessage extends FeedMessage {
     @Override
     public JSONObject toJSON() throws JSONException {
         JSONObject obj = new JSONObject();
-        obj.put(IFeedMessage.Constants.MESSAGE_TYPE, messageType.name());
-        obj.put(IFeedMessage.Constants.DATAVERSE, connectionId.getFeedId().getDataverse());
-        obj.put(IFeedMessage.Constants.FEED, connectionId.getFeedId().getFeedName());
-        obj.put(IFeedMessage.Constants.DATASET, connectionId.getDatasetName());
-        obj.put(IFeedMessage.Constants.RUNTIME_TYPE, runtimeType);
-        obj.put(IFeedMessage.Constants.CURRENT_CARDINALITY, currentCardinality);
-        obj.put(IFeedMessage.Constants.REDUCED_CARDINALITY, reducedCardinaliy);
+        obj.put(FeedConstants.MessageConstants.MESSAGE_TYPE, messageType.name());
+        obj.put(FeedConstants.MessageConstants.DATAVERSE, connectionId.getFeedId().getDataverse());
+        obj.put(FeedConstants.MessageConstants.FEED, connectionId.getFeedId().getFeedName());
+        obj.put(FeedConstants.MessageConstants.DATASET, connectionId.getDatasetName());
+        obj.put(FeedConstants.MessageConstants.RUNTIME_TYPE, runtimeType);
+        obj.put(FeedConstants.MessageConstants.CURRENT_CARDINALITY, currentCardinality);
+        obj.put(FeedConstants.MessageConstants.REDUCED_CARDINALITY, reducedCardinaliy);
         return obj;
     }
 
@@ -76,13 +76,13 @@ public class ScaleInReportMessage extends FeedMessage {
     }
 
     public static ScaleInReportMessage read(JSONObject obj) throws JSONException {
-        FeedId feedId = new FeedId(obj.getString(IFeedMessage.Constants.DATAVERSE),
-                obj.getString(IFeedMessage.Constants.FEED));
-        FeedConnectionId connectionId = new FeedConnectionId(feedId, obj.getString(IFeedMessage.Constants.DATASET));
-        FeedRuntimeType runtimeType = FeedRuntimeType.valueOf(obj.getString(IFeedMessage.Constants.RUNTIME_TYPE));
+        FeedId feedId = new FeedId(obj.getString(FeedConstants.MessageConstants.DATAVERSE),
+                obj.getString(FeedConstants.MessageConstants.FEED));
+        FeedConnectionId connectionId = new FeedConnectionId(feedId, obj.getString(FeedConstants.MessageConstants.DATASET));
+        FeedRuntimeType runtimeType = FeedRuntimeType.valueOf(obj.getString(FeedConstants.MessageConstants.RUNTIME_TYPE));
         return new ScaleInReportMessage(connectionId, runtimeType,
-                obj.getInt(IFeedMessage.Constants.CURRENT_CARDINALITY),
-                obj.getInt(IFeedMessage.Constants.REDUCED_CARDINALITY));
+                obj.getInt(FeedConstants.MessageConstants.CURRENT_CARDINALITY),
+                obj.getInt(FeedConstants.MessageConstants.REDUCED_CARDINALITY));
     }
 
     public void reset(int currentCardinality, int reducedCardinaliy) {

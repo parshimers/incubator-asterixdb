@@ -45,8 +45,8 @@ public class EchoDelayFunction implements IExternalScalarFunction {
         JRecord inputRecord = (JRecord) functionHelper.getArgument(0);
         Thread.sleep(sleepInterval);
         timestamp.setValue(System.currentTimeMillis());
-        inputRecord.addField("compute-timestamp", timestamp);
-        inputRecord.addField("storage-timestamp", timestamp);
+        //      inputRecord.addField("compute-timestamp", timestamp);
+        //      inputRecord.addField("storage-timestamp", timestamp);
         functionHelper.setResult(inputRecord);
     }
 }

@@ -68,6 +68,11 @@ public class FeedMemoryManager implements IFeedMemoryManager {
                 committed += START_POOL_SIZE;
                 break;
         }
+        if (!valid) {
+            if (LOGGER.isLoggable(Level.WARNING)) {
+                LOGGER.warning("Unable to allocate memory component of type" + type);
+            }
+        }
         return valid ? memoryComponent : null;
     }
 

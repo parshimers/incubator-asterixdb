@@ -21,12 +21,12 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
+import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
+import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
 import edu.uci.ics.asterix.external.dataset.adapter.PullBasedTwitterAdapter;
-import edu.uci.ics.asterix.metadata.feeds.ITypedAdapterFactory;
+import edu.uci.ics.asterix.metadata.feeds.IFeedAdapterFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
-import edu.uci.ics.asterix.om.types.BuiltinType;
-import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksCountPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
@@ -36,7 +36,7 @@ import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
  * This adapter provides the functionality of fetching tweets from Twitter service
  * via pull-based Twitter API.
  */
-public class PullBasedTwitterAdapterFactory implements ITypedAdapterFactory {
+public class PullBasedTwitterAdapterFactory implements IFeedAdapterFactory {
     private static final long serialVersionUID = 1L;
     private static final Logger LOGGER = Logger.getLogger(PullBasedTwitterAdapterFactory.class.getName());
 
@@ -56,39 +56,19 @@ public class PullBasedTwitterAdapterFactory implements ITypedAdapterFactory {
     public static final String AUTHENTICATION_MODE_FILE = "file";
     public static final String AUTHENTICATION_MODE_EXPLICIT = "explicit";
 
-    private static final String TWITTER_USER_DATATYPE_NAME = "TwitterUser";
-    private static final String TWEET_DATATYPE_NAME = "Tweet";
-
     private static final String DEFAULT_INTERVAL = "10"; // 10 seconds
     private static final String DEFAULT_AUTH_FILE = "/feed/twitter/auth.properties"; // default authentication file
     private static final int INTAKE_CARDINALITY = 1; // degree of parallelism at intake stage 
 
-    private static ARecordType recordType = initOutputType();
+    private ARecordType outputType;
 
     private Map<String, String> configuration;
 
-    private static ARecordType initOutputType() {
-        ARecordType recordType = null;
-        try {
-            String[] userFieldNames = { "screen-name", "lang", "friends_count", "statuses-count", "name",
-                    "followers-count" };
-            IAType[] userFieldTypes = { BuiltinType.ASTRING, BuiltinType.ASTRING, BuiltinType.AINT32,
-                    BuiltinType.AINT32, BuiltinType.ASTRING, BuiltinType.AINT32 };
-            ARecordType userType = new ARecordType(TWITTER_USER_DATATYPE_NAME, userFieldNames, userFieldTypes, false);
-
-            String[] fieldNames = { "tweetid", "user", "location-lat", "location-long", "send-time", "message-text" };
-            IAType[] fieldTypes = { BuiltinType.ASTRING, userType, BuiltinType.ADOUBLE, BuiltinType.ADOUBLE,
-                    BuiltinType.ASTRING, BuiltinType.ASTRING };
-            recordType = new ARecordType(TWEET_DATATYPE_NAME, fieldNames, fieldTypes, false);
-        } catch (Exception e) {
-            throw new IllegalStateException("Unable to create adapter output type");
-        }
-        return recordType;
-    }
+    private FeedPolicyAccessor ingestionPolicy;
 
     @Override
     public IDatasourceAdapter createAdapter(IHyracksTaskContext ctx, int partition) throws Exception {
-        return new PullBasedTwitterAdapter(configuration, recordType, ctx);
+        return new PullBasedTwitterAdapter(configuration, outputType, ctx);
     }
 
     @Override
@@ -97,17 +77,13 @@ public class PullBasedTwitterAdapterFactory implements ITypedAdapterFactory {
     }
 
     @Override
-    public AdapterType getAdapterType() {
-        return AdapterType.TYPED;
-    }
-
-    @Override
     public SupportedOperation getSupportedOperations() {
         return SupportedOperation.READ;
     }
 
     @Override
-    public void configure(Map<String, String> configuration) throws Exception {
+    public void configure(Map<String, String> configuration, ARecordType outputType) throws Exception {
+        this.outputType = outputType;
         this.configuration = configuration;
         String authMode = configuration.get(AUTHENTICATION_MODE);
         if (authMode == null) {
@@ -163,8 +139,27 @@ public class PullBasedTwitterAdapterFactory implements ITypedAdapterFactory {
     }
 
     @Override
+    public boolean isRecordTrackingEnabled() {
+        return false;
+    }
+
+    @Override
+    public IIntakeProgressTracker createIntakeProgressTracker() {
+        return null;
+    }
+
+    @Override
     public ARecordType getAdapterOutputType() {
-        return recordType;
+        return outputType;
+    }
+
+    public FeedPolicyAccessor getIngestionPolicy() {
+        return ingestionPolicy;
+    }
+
+    @Override
+    public void setIngestionPolicy(FeedPolicyAccessor policyAccessor) {
+        this.ingestionPolicy = policyAccessor;
     }
 
 }

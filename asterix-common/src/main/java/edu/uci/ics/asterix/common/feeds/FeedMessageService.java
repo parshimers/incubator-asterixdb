@@ -64,8 +64,8 @@ public class FeedMessageService implements IFeedMessageService {
     public void sendMessage(IFeedMessage message) {
         try {
             JSONObject obj = message.toJSON();
-            obj.put(IFeedMessage.Constants.NODE_ID, nodeId);
-            obj.put(IFeedMessage.Constants.MESSAGE_TYPE, message.getMessageType().name());
+            obj.put(FeedConstants.MessageConstants.NODE_ID, nodeId);
+            obj.put(FeedConstants.MessageConstants.MESSAGE_TYPE, message.getMessageType().name());
             inbox.add(obj.toString());
         } catch (JSONException jse) {
             if (LOGGER.isLoggable(Level.WARNING)) {

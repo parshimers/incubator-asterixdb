@@ -1,0 +1,35 @@
+package edu.uci.ics.asterix.common.feeds;
+
+public class FeedConstants {
+
+    public static final class StatisticsConstants {
+        public static final String INTAKE_TIMESTAMP = "intake-timestamp";
+        public static final String COMPUTE_TIMESTAMP = "compute-timestamp";
+        public static final String STORE_TIMESTAMP = "store-timestamp";
+
+    }
+
+    public static final class MessageConstants {
+        public static final String MESSAGE_TYPE = "message-type";
+        public static final String NODE_ID = "nodeId";
+        public static final String DATAVERSE = "dataverse";
+        public static final String FEED = "feed";
+        public static final String DATASET = "dataset";
+        public static final String AQL = "aql";
+        public static final String RUNTIME_TYPE = "runtime-type";
+        public static final String PARTITION = "partition";
+        public static final String INFLOW_RATE = "inflow-rate";
+        public static final String OUTFLOW_RATE = "outflow-rate";
+        public static final String CURRENT_CARDINALITY = "current-cardinality";
+        public static final String REDUCED_CARDINALITY = "reduced-cardinality";
+        public static final String VALUE_TYPE = "value-type";
+        public static final String VALUE = "value";
+        public static final String CPU_LOAD = "cpu-load";
+        public static final String N_RUNTIMES = "n_runtimes";
+        public static final String HEAP_USAGE = "heap_usage";
+        public static final String OPERAND_ID = "operand-id";
+        public static final String COMPUTE_PARTITION_RETAIN_LIMIT = "compute-partition-retain-limit";
+        public static final String LAST_PERSISTED_TUPLE_INTAKE_TIMESTAMP = "last-persisted-tuple-intake_timestamp";
+
+    }
+}

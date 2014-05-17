@@ -97,6 +97,8 @@ public class TransactionManager implements ITransactionManager,
 					}
 				}
 			} else {
+				System.out.println("ERROR!!!! TRANSACTION CONTEXT for " + jobId
+						+ " NOT FOUND at " + System.currentTimeMillis());
 				throw new ACIDException("TransactionContext of " + jobId
 						+ " doesn't exist.");
 			}
@@ -124,6 +126,9 @@ public class TransactionManager implements ITransactionManager,
 		} finally {
 			txnSubsystem.getLockManager().releaseLocks(txnCtx); // release
 			transactionContextRepository.remove(txnCtx.getJobId());
+			System.out.println("REMOVED transaction context for JOB ID "
+					+ txnCtx.getJobId() + " at time "
+					+ System.currentTimeMillis());
 			txnCtx.setTxnState(ITransactionManager.COMMITTED);
 		}
 	}

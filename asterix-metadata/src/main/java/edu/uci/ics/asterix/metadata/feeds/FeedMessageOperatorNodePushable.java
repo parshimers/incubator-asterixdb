@@ -23,6 +23,7 @@ import java.util.logging.Logger;
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
 import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
+import edu.uci.ics.asterix.common.feeds.EndFeedMessage;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedFrameCollector;
 import edu.uci.ics.asterix.common.feeds.FeedFrameCollector.State;

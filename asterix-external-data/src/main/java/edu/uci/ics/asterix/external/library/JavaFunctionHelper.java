@@ -15,24 +15,26 @@
 package edu.uci.ics.asterix.external.library;
 
 import java.io.IOException;
-import java.util.List;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.external.library.java.IJObject;
 import edu.uci.ics.asterix.external.library.java.JObjectPointableVisitor;
 import edu.uci.ics.asterix.external.library.java.JTypeTag;
+import edu.uci.ics.asterix.external.library.java.JObjects.JLong;
+import edu.uci.ics.asterix.external.library.java.JObjects.JRecord;
 import edu.uci.ics.asterix.om.functions.IExternalFunctionInfo;
 import edu.uci.ics.asterix.om.pointables.AFlatValuePointable;
 import edu.uci.ics.asterix.om.pointables.AListPointable;
 import edu.uci.ics.asterix.om.pointables.ARecordPointable;
 import edu.uci.ics.asterix.om.pointables.PointableAllocator;
 import edu.uci.ics.asterix.om.pointables.base.IVisitablePointable;
+import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.BuiltinType;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.container.IObjectPool;
 import edu.uci.ics.asterix.om.util.container.ListObjectPool;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
-import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
+import edu.uci.ics.hyracks.algebricks.common.utils.Triple;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.data.std.api.IDataOutputProvider;
 import edu.uci.ics.hyracks.data.std.api.IValueReference;
@@ -47,6 +49,8 @@ public class JavaFunctionHelper implements IFunctionHelper {
             JTypeObjectFactory.INSTANCE);
     private final JObjectPointableVisitor pointableVisitor;
     private final PointableAllocator pointableAllocator;
+    private JLong computeTimestamp = new JLong(0);
+    private JLong storageTimestamp = new JLong(0);
 
     public JavaFunctionHelper(IExternalFunctionInfo finfo, IDataOutputProvider outputProvider)
             throws AlgebricksException {
@@ -70,6 +74,10 @@ public class JavaFunctionHelper implements IFunctionHelper {
     @Override
     public void setResult(IJObject result) throws IOException, AsterixException {
         try {
+            if (result.getTypeTag().equals(ATypeTag.RECORD)) {
+                computeTimestamp.setValue(System.currentTimeMillis());
+                ((JRecord) result).addField("compute-timestamp", computeTimestamp);
+            }
             result.serialize(outputProvider.getDataOutput(), true);
         } catch (IOException e) {
             throw new HyracksDataException(e);
@@ -89,15 +97,18 @@ public class JavaFunctionHelper implements IFunctionHelper {
             case RECORD:
                 pointable = pointableAllocator.allocateRecordValue(type);
                 pointable.set(valueReference);
-                jObject = pointableVisitor.visit((ARecordPointable) pointable,
-                        new Pair<IObjectPool<IJObject, IAType>, IAType>(objectPool, type));
+                jObject = pointableVisitor
+                        .visit((ARecordPointable) pointable,
+                                new Triple<IObjectPool<IJObject, IAType>, IAType, ATypeTag>(objectPool, type, type
+                                        .getTypeTag()));
                 break;
             case ORDEREDLIST:
             case UNORDEREDLIST:
                 pointable = pointableAllocator.allocateListValue(type);
                 pointable.set(valueReference);
-                jObject = pointableVisitor.visit((AListPointable) pointable,
-                        new Pair<IObjectPool<IJObject, IAType>, IAType>(objectPool, type));
+                jObject = pointableVisitor
+                        .visit((AListPointable) pointable, new Triple<IObjectPool<IJObject, IAType>, IAType, ATypeTag>(
+                                objectPool, type, type.getTypeTag()));
                 break;
             case ANY:
                 throw new IllegalStateException("Cannot handle  as function argument of type " + type.getTypeTag());
@@ -105,8 +116,10 @@ public class JavaFunctionHelper implements IFunctionHelper {
             default:
                 pointable = pointableAllocator.allocateFieldValue(type.getTypeTag());
                 pointable.set(valueReference);
-                jObject = pointableVisitor.visit((AFlatValuePointable) pointable,
-                        new Pair<IObjectPool<IJObject, IAType>, IAType>(objectPool, type));
+                jObject = pointableVisitor
+                        .visit((AFlatValuePointable) pointable,
+                                new Triple<IObjectPool<IJObject, IAType>, IAType, ATypeTag>(objectPool, type, type
+                                        .getTypeTag()));
                 break;
         }
         arguments[index] = jObject;

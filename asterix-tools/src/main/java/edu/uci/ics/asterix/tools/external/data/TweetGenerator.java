@@ -36,10 +36,7 @@ public class TweetGenerator {
     public static final String KEY_TPS = "tps";
     public static final String KEY_VERBOSE = "verbose";
 
-    public static final String KEY_GUID_SEED = "guid-seed";
-
     private static final int DEFAULT_DURATION = 60;
-    private static final int DEFAULT_GUID_SEED = 0;
 
     private int duration;
     private TweetMessageIterator tweetIterator = null;
@@ -50,7 +47,6 @@ public class TweetGenerator {
     private OutputStream os;
     private DataGenerator dataGenerator = null;
     private ByteBuffer outputBuffer = ByteBuffer.allocate(32 * 1024);
-    private GULongIDGenerator uidGenerator;
     private String[] fields;
     private boolean verbose;
     private long timestamp;
@@ -64,14 +60,8 @@ public class TweetGenerator {
         this.partition = partition;
         String value = configuration.get(KEY_DURATION);
         this.duration = value != null ? Integer.parseInt(value) : DEFAULT_DURATION;
-        int guidSeed = configuration.get(KEY_GUID_SEED) != null ? Integer.parseInt(configuration.get(KEY_GUID_SEED))
-                : DEFAULT_GUID_SEED;
-        uidGenerator = new GULongIDGenerator(partition, (byte) (guidSeed));
         dataGenerator = new DataGenerator(new InitializationInfo());
-        tweetIterator = dataGenerator.new TweetMessageIterator(duration, uidGenerator);
-        if (configuration.get(TwitterFirehoseFeedAdapterFactory.KEY_FIELDS) != null) {
-            fields = configuration.get(TwitterFirehoseFeedAdapterFactory.KEY_FIELDS).trim().split(",");
-        }
+        tweetIterator = dataGenerator.new TweetMessageIterator(duration);
         this.os = os;
         this.verbose = configuration.get(KEY_VERBOSE) != null ? Boolean.parseBoolean(configuration.get(KEY_VERBOSE))
                 : false;
@@ -88,19 +78,11 @@ public class TweetGenerator {
         }
         byte[] b = tweet.getBytes();
         if (outputBuffer.position() + b.length > outputBuffer.limit()) {
-            List<String> results = timestampCollectedTweets();
-            outputBuffer.clear();
-            for (String s : results) {
-                outputBuffer.put(s.getBytes());
-            }
             flush();
-            stringifiedTweets.clear();
             numFlushedTweets += frameTweetCount;
             frameTweetCount = 0;
             outputBuffer.put(b);
-            stringifiedTweets.add(tweet);
         } else {
-            stringifiedTweets.add(tweet);
             outputBuffer.put(b);
         }
         frameTweetCount++;

@@ -41,7 +41,7 @@ public class DistributeFeedFrameWriter implements IFrameWriter {
     /** A unique identifier for the feed to which the incoming tuples belong. **/
     private final FeedId feedId;
 
-    /** Provides mechanism for distributing a frame to multiple readers, each operating in isolation. **/
+    /** An instance of FrameDistributor that provides the mechanism for distributing a frame to multiple readers, each operating in isolation. **/
     private final FrameDistributor frameDistributor;
 
     /** The original frame writer instantiated as part of job creation **/
@@ -57,8 +57,7 @@ public class DistributeFeedFrameWriter implements IFrameWriter {
             int partition, FrameTupleAccessor fta, IFeedManager feedManager, int frameSize) throws IOException {
         this.feedId = feedId;
         this.frameDistributor = new FrameDistributor(feedId, feedRuntimeType, partition, true,
-                feedManager.getFeedMemoryManager(), frameSize);
-        this.frameDistributor.setFta(fta);
+                feedManager.getFeedMemoryManager(), frameSize, fta);
         this.feedRuntimeType = feedRuntimeType;
         this.partition = partition;
         this.writer = writer;
@@ -112,24 +111,12 @@ public class DistributeFeedFrameWriter implements IFrameWriter {
         writer.open();
     }
 
-    public FeedId getFeedId() {
-        return feedId;
-    }
-
     public Map<IFrameWriter, FeedFrameCollector> getRegisteredReaders() {
         return frameDistributor.getRegisteredReaders();
     }
 
-    public IFrameWriter getWriter() {
-        return writer;
-    }
-
     public void setWriter(IFrameWriter writer) {
         this.writer = writer;
-    }
-
-    public FeedRuntimeType getFeedRuntimeType() {
-        return feedRuntimeType;
     }
 
     public Type getType() {

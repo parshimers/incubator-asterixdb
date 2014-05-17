@@ -106,7 +106,7 @@ public class FeedLoadManager implements IFeedLoadManager {
                     LOGGER.info("New Job after adjusting to the workload " + jobSpec);
                 }
 
-                Thread.sleep(5000);
+                Thread.sleep(10000);
                 runJob(jobSpec, false);
                 lastModified = message.getConnectionId();
                 lastModifiedTimestamp = System.currentTimeMillis();
@@ -157,7 +157,7 @@ public class FeedLoadManager implements IFeedLoadManager {
             throws Exception {
         // Step 1) send prepare to  stall message
         PrepareStallMessage stallMessage = new PrepareStallMessage(connectionId, computePartitionRetainLimit);
-        String[] intakeLocations = FeedLifecycleListener.INSTANCE.getIntakeLocations(connectionId.getFeedId());
+        List<String> intakeLocations = FeedLifecycleListener.INSTANCE.getCollectLocations(connectionId);
         List<String> computeLocations = FeedLifecycleListener.INSTANCE.getComputeLocations(connectionId.getFeedId());
         String[] storageLocations = FeedLifecycleListener.INSTANCE.getStoreLocations(connectionId);
 
@@ -176,7 +176,8 @@ public class FeedLoadManager implements IFeedLoadManager {
 
         // Step 2)
         TerminateDataFlowMessage terminateMesg = new TerminateDataFlowMessage(connectionId);
-        messageJobSpec = FeedOperations.buildTerminateFlowMessageJob(terminateMesg, intakeLocations);
+        messageJobSpec = FeedOperations.buildTerminateFlowMessageJob(terminateMesg,
+                intakeLocations.toArray(new String[] {}));
         runJob(messageJobSpec, true);
     }
 

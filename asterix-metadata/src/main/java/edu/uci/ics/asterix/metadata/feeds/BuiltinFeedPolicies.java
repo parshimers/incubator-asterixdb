@@ -61,6 +61,8 @@ public class BuiltinFeedPolicies {
         policyParams.put(FeedPolicyAccessor.HARDWARE_FAILURE_CONTINUE, "false");
         policyParams.put(FeedPolicyAccessor.CLUSTER_REBOOT_AUTO_RESTART, "false");
         policyParams.put(FeedPolicyAccessor.ELASTIC, "false");
+        policyParams.put(FeedPolicyAccessor.TIME_TRACKING, "false");
+
         String description = "Brittle";
         return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "Brittle", description, policyParams);
     }
@@ -72,6 +74,8 @@ public class BuiltinFeedPolicies {
         policyParams.put(FeedPolicyAccessor.SOFT_FAILURE_LOG_DATA, "true");
         policyParams.put(FeedPolicyAccessor.CLUSTER_REBOOT_AUTO_RESTART, "true");
         policyParams.put(FeedPolicyAccessor.ELASTIC, "false");
+        policyParams.put(FeedPolicyAccessor.TIME_TRACKING, "false");
+
         String description = "Basic";
         return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "Basic", description, policyParams);
     }
@@ -86,6 +90,7 @@ public class BuiltinFeedPolicies {
         policyParams.put(FeedPolicyAccessor.ELASTIC, "false");
         policyParams.put(FeedPolicyAccessor.SPILL_TO_DISK_ON_CONGESTION, "false");
         policyParams.put(FeedPolicyAccessor.MAX_FRACTION_DISCARD, "1");
+        policyParams.put(FeedPolicyAccessor.TIME_TRACKING, "false");
 
         String description = "Basic Monitored Fault-Tolerant";
         return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "BasicFT", description, policyParams);
@@ -99,6 +104,8 @@ public class BuiltinFeedPolicies {
         policyParams.put(FeedPolicyAccessor.HARDWARE_FAILURE_CONTINUE, "true");
         policyParams.put(FeedPolicyAccessor.CLUSTER_REBOOT_AUTO_RESTART, "true");
         policyParams.put(FeedPolicyAccessor.ELASTIC, "false");
+        policyParams.put(FeedPolicyAccessor.TIME_TRACKING, "false");
+
         String description = "Basic Monitored Fault-Tolerant";
         return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "AdvancedFT", description, policyParams);
     }
@@ -113,6 +120,8 @@ public class BuiltinFeedPolicies {
         policyParams.put(FeedPolicyAccessor.ELASTIC, "false");
         policyParams.put(FeedPolicyAccessor.MAX_SPILL_SIZE_ON_DISK, "false");
         policyParams.put(FeedPolicyAccessor.MAX_FRACTION_DISCARD, "100");
+        policyParams.put(FeedPolicyAccessor.TIME_TRACKING, "false");
+
         String description = "AdvancedFT 100% Discard during congestion";
         return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "AdvancedFT_Discard", description,
                 policyParams);
@@ -128,6 +137,8 @@ public class BuiltinFeedPolicies {
         policyParams.put(FeedPolicyAccessor.ELASTIC, "false");
         policyParams.put(FeedPolicyAccessor.SPILL_TO_DISK_ON_CONGESTION, "" + Boolean.TRUE);
         policyParams.put(FeedPolicyAccessor.MAX_SPILL_SIZE_ON_DISK, "" + FeedPolicyAccessor.NO_LIMIT);
+        policyParams.put(FeedPolicyAccessor.TIME_TRACKING, "false");
+
         String description = "AdvancedFT 100% Discard during congestion";
         return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "AdvancedFT_Spill", description, policyParams);
     }
@@ -140,6 +151,8 @@ public class BuiltinFeedPolicies {
         policyParams.put(FeedPolicyAccessor.HARDWARE_FAILURE_CONTINUE, "true");
         policyParams.put(FeedPolicyAccessor.CLUSTER_REBOOT_AUTO_RESTART, "true");
         policyParams.put(FeedPolicyAccessor.ELASTIC, "true");
+        policyParams.put(FeedPolicyAccessor.TIME_TRACKING, "true");
+
         String description = "Basic Monitored Fault-Tolerant Elastic";
         return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "AdvancedFT_Elastic", description,
                 policyParams);

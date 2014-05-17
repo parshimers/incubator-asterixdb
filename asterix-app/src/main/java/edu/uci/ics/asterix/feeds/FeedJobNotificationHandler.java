@@ -40,6 +40,8 @@ import edu.uci.ics.asterix.common.feeds.FeedJobInfo.FeedJobState;
 import edu.uci.ics.asterix.common.feeds.FeedJointKey;
 import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
+import edu.uci.ics.asterix.common.feeds.StorageReportFeedMessage;
+import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
 import edu.uci.ics.asterix.common.feeds.api.IFeedJoint;
 import edu.uci.ics.asterix.common.feeds.api.IFeedJoint.State;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleEventSubscriber;
@@ -55,6 +57,7 @@ import edu.uci.ics.asterix.metadata.feeds.FeedIntakeOperatorDescriptor;
 import edu.uci.ics.asterix.metadata.feeds.FeedMetaOperatorDescriptor;
 import edu.uci.ics.asterix.metadata.feeds.FeedWorkManager;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
+import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 import edu.uci.ics.hyracks.algebricks.runtime.base.IPushRuntimeFactory;
 import edu.uci.ics.hyracks.algebricks.runtime.operators.meta.AlgebricksMetaOperatorDescriptor;
 import edu.uci.ics.hyracks.algebricks.runtime.operators.std.AssignRuntimeFactory;
@@ -79,6 +82,7 @@ public class FeedJobNotificationHandler implements Runnable {
     private final Map<FeedId, FeedIntakeInfo> intakeJobInfos;
     private final Map<FeedConnectionId, FeedConnectJobInfo> connectJobInfos;
     private final Map<FeedId, List<IFeedJoint>> feedPipeline;
+    private final Map<FeedConnectionId, Pair<IIntakeProgressTracker, Long>> feedIntakeProgressTrackers;
 
     public FeedJobNotificationHandler(LinkedBlockingQueue<Message> inbox) {
         this.inbox = inbox;
@@ -87,6 +91,30 @@ public class FeedJobNotificationHandler implements Runnable {
         this.connectJobInfos = new HashMap<FeedConnectionId, FeedConnectJobInfo>();
         this.feedPipeline = new HashMap<FeedId, List<IFeedJoint>>();
         this.registeredFeedEventSubscribers = new HashMap<FeedConnectionId, List<IFeedLifecycleEventSubscriber>>();
+        this.feedIntakeProgressTrackers = new HashMap<FeedConnectionId, Pair<IIntakeProgressTracker, Long>>();
+    }
+
+    public void registerFeedIntakeProgressTracker(FeedConnectionId connectionId,
+            IIntakeProgressTracker feedIntakeProgressTracker) {
+        if (feedIntakeProgressTrackers.get(connectionId) == null) {
+            this.feedIntakeProgressTrackers.put(connectionId, new Pair<IIntakeProgressTracker, Long>(
+                    feedIntakeProgressTracker, 0L));
+        } else {
+            throw new IllegalStateException(" Progress tracker for connection " + connectionId
+                    + " is alreader registered");
+        }
+    }
+
+    public void deregisterFeedIntakeProgressTracker(FeedConnectionId connectionId) {
+        this.feedIntakeProgressTrackers.remove(connectionId);
+    }
+
+    public void updateTrackingInformation(StorageReportFeedMessage srm) {
+        Pair<IIntakeProgressTracker, Long> p = feedIntakeProgressTrackers.get(srm.getConnectionId());
+        if (p != null && p.second < srm.getLastPersistedTupleIntakeTimestamp()) {
+            p.second = srm.getLastPersistedTupleIntakeTimestamp();
+            p.first.notifyIngestedTupleTimestamp(p.second);
+        }
     }
 
     public Collection<FeedIntakeInfo> getFeedIntakeInfos() {
@@ -370,6 +398,7 @@ public class FeedJobNotificationHandler implements Runnable {
         if (removeJobHistory) {
             connectJobInfos.remove(connectionId);
             jobInfos.remove(cInfo.getJobId());
+            feedIntakeProgressTrackers.remove(cInfo.getConnectionId());
         }
         deregisterFeedActivity(cInfo);
 
@@ -482,6 +511,10 @@ public class FeedJobNotificationHandler implements Runnable {
 
     public List<String> getFeedStorageLocations(FeedConnectionId connectionId) {
         return connectJobInfos.get(connectionId).getStorageLocations();
+    }
+
+    public List<String> getFeedCollectLocations(FeedConnectionId connectionId) {
+        return connectJobInfos.get(connectionId).getCollectLocations();
     }
 
     public List<String> getFeedIntakeLocations(FeedId feedId) {
@@ -685,4 +718,5 @@ public class FeedJobNotificationHandler implements Runnable {
         }
 
     }
+
 }

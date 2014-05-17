@@ -16,20 +16,20 @@ package edu.uci.ics.asterix.external.library.adaptor;
 
 import java.util.Map;
 
-import edu.uci.ics.asterix.common.exceptions.AsterixException;
+import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
-import edu.uci.ics.asterix.metadata.feeds.ConditionalPushTupleParserFactory;
-import edu.uci.ics.asterix.metadata.feeds.ITypedAdapterFactory;
+import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
+import edu.uci.ics.asterix.external.adapter.factory.ExternalDataTupleParserProvider;
+import edu.uci.ics.asterix.external.adapter.factory.StreamBasedAdapterFactory;
+import edu.uci.ics.asterix.metadata.feeds.IFeedAdapterFactory;
+import edu.uci.ics.asterix.metadata.feeds.TimestampedTupleParserFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
-import edu.uci.ics.asterix.om.types.BuiltinType;
-import edu.uci.ics.asterix.om.types.IAType;
-import edu.uci.ics.asterix.runtime.operators.file.AdmSchemafullRecordParserFactory;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksCountPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 
-public class TweetGenAdaptorFactory implements ITypedAdapterFactory {
+public class TweetGenAdaptorFactory extends StreamBasedAdapterFactory implements IFeedAdapterFactory {
 
     private static final long serialVersionUID = 1L;
 
@@ -39,35 +39,18 @@ public class TweetGenAdaptorFactory implements ITypedAdapterFactory {
 
     public static final String TWIITER_SERVER_PORT = "port";
 
-    private static ARecordType outputType = initOutputType();
-
+    private ARecordType outputType;
     private Map<String, String> configuration;
+    private FeedPolicyAccessor policyAccessor;
 
     @Override
     public SupportedOperation getSupportedOperations() {
         return SupportedOperation.READ;
     }
 
-    private static ARecordType initOutputType() {
-        String[] fieldNames = new String[] { "tweetid", "message-text", "generation-timestamp" };
-        IAType[] fieldTypes = new IAType[] { BuiltinType.ASTRING, BuiltinType.ASTRING, BuiltinType.AINT64 };
-        ARecordType outputType = null;
-        try {
-            outputType = new ARecordType("BasicTweet", fieldNames, fieldTypes, true);
-        } catch (AsterixException exception) {
-            throw new IllegalStateException("Unable to create output type for adaptor " + NAME);
-        }
-        return outputType;
-    }
-
     @Override
     public String getName() {
         return NAME;
-    }
-
-    @Override
-    public AdapterType getAdapterType() {
-        return AdapterType.TYPED;
     }
 
     @Override
@@ -77,8 +60,11 @@ public class TweetGenAdaptorFactory implements ITypedAdapterFactory {
 
     @Override
     public IDatasourceAdapter createAdapter(IHyracksTaskContext ctx, int partition) throws Exception {
-        //     ITupleParserFactory tupleParserFactory = new AdmSchemafullRecordParserFactory(outputType);
-        ITupleParserFactory tupleParserFactory = new ConditionalPushTupleParserFactory(outputType, configuration);
+        //   ITupleParserFactory tupleParserFactory = new AdmSchemafullRecordParserFactory(outputType);
+        // ITupleParserFactory tupleParserFactory = new ConditionalPushTupleParserFactory(outputType, configuration);
+        // ITupleParserFactory tupleParserFactory = new TimestampedTupleParserFactory(outputType);
+        ITupleParserFactory tupleParserFactory = ExternalDataTupleParserProvider.getTupleParserFactory(outputType,
+                configuration, policyAccessor);
         return new TweetGenAdaptor(tupleParserFactory, outputType, ctx, configuration);
     }
 
@@ -88,11 +74,43 @@ public class TweetGenAdaptorFactory implements ITypedAdapterFactory {
     }
 
     @Override
-    public void configure(Map<String, String> configuration) throws Exception {
+    public void configure(Map<String, String> configuration, ARecordType outputType) throws Exception {
         this.configuration = configuration;
+        this.outputType = outputType;
         String host = configuration.get(TWIITER_SERVER_HOST);
         assert (host != null);
         int port = Integer.parseInt(configuration.get(TWIITER_SERVER_PORT));
         assert (port > 0);
+    }
+
+    @Override
+    public boolean isRecordTrackingEnabled() {
+        return true;
+    }
+
+    @Override
+    public IIntakeProgressTracker createIntakeProgressTracker() {
+        return new ProgressTracker();
+    }
+
+    private static class ProgressTracker implements IIntakeProgressTracker {
+
+        private Map<String, String> configuration;
+
+        @Override
+        public void configure(Map<String, String> configuration) {
+            this.configuration = configuration;
+        }
+
+        @Override
+        public void notifyIngestedTupleTimestamp(long timestamp) {
+            System.out.println(" LAST PERSISTED TUPLE TIMESTAMP " + timestamp);
+        }
+
+    }
+
+    @Override
+    public void setIngestionPolicy(FeedPolicyAccessor policyAccessor) {
+        this.policyAccessor = policyAccessor;
     }
 }

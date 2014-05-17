@@ -27,7 +27,6 @@ import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.FrameDistributor.RoutingMode;
 import edu.uci.ics.asterix.common.feeds.api.IFeedFrameHandler;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -36,6 +35,12 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 public class FeedFrameHandlers {
 
     private static final Logger LOGGER = Logger.getLogger(FeedFrameHandlers.class.getName());
+
+    public enum RoutingMode {
+        IN_MEMORY_ROUTE,
+        SPILL_TO_DISK,
+        DISCARD
+    }
 
     public static IFeedFrameHandler getFeedFrameHandler(FrameDistributor distributor, FeedId feedId,
             RoutingMode routingMode, FeedRuntimeType runtimeType, int partition, int frameSize) throws IOException {

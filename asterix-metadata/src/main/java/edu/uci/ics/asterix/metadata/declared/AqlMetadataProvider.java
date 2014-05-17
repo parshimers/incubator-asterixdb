@@ -35,6 +35,7 @@ import edu.uci.ics.asterix.common.dataflow.AsterixLSMInvertedIndexInsertDeleteOp
 import edu.uci.ics.asterix.common.dataflow.AsterixLSMTreeInsertDeleteOperatorDescriptor;
 import edu.uci.ics.asterix.common.dataflow.IAsterixApplicationContextInfo;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.ioopcallbacks.LSMBTreeIOOperationCallbackFactory;
 import edu.uci.ics.asterix.common.ioopcallbacks.LSMInvertedIndexIOOperationCallbackFactory;
 import edu.uci.ics.asterix.common.ioopcallbacks.LSMRTreeIOOperationCallbackFactory;
@@ -72,8 +73,7 @@ import edu.uci.ics.asterix.metadata.feeds.FeedIntakeOperatorDescriptor;
 import edu.uci.ics.asterix.metadata.feeds.FeedUtil;
 import edu.uci.ics.asterix.metadata.feeds.IAdapterFactory;
 import edu.uci.ics.asterix.metadata.feeds.IAdapterFactory.SupportedOperation;
-import edu.uci.ics.asterix.metadata.feeds.IGenericAdapterFactory;
-import edu.uci.ics.asterix.metadata.feeds.ITypedAdapterFactory;
+import edu.uci.ics.asterix.metadata.feeds.IFeedAdapterFactory;
 import edu.uci.ics.asterix.metadata.utils.DatasetUtils;
 import edu.uci.ics.asterix.om.functions.AsterixBuiltinFunctions;
 import edu.uci.ics.asterix.om.types.ARecordType;
@@ -355,15 +355,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             }
 
             Map<String, String> configuration = datasetDetails.getProperties();
+            adapterFactory.configure(configuration, (ARecordType) itemType);
 
-            switch (adapterFactory.getAdapterType()) {
-                case GENERIC:
-                    ((IGenericAdapterFactory) adapterFactory).configure(configuration, (ARecordType) itemType);
-                    break;
-                case TYPED:
-                    ((ITypedAdapterFactory) adapterFactory).configure(configuration);
-                    break;
-            }
         } catch (AlgebricksException ae) {
             throw ae;
         } catch (Exception e) {
@@ -495,25 +488,27 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
         }
     }
 
-    public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildFeedIntakeRuntime(JobSpecification jobSpec,
-            PrimaryFeed primaryFeed) throws Exception {
-        Triple<IAdapterFactory, ARecordType, AdapterType> factoryOutput = null;
+    public Triple<IOperatorDescriptor, AlgebricksPartitionConstraint, IFeedAdapterFactory> buildFeedIntakeRuntime(
+            JobSpecification jobSpec, PrimaryFeed primaryFeed, FeedPolicyAccessor policyAccessor) throws Exception {
+        Triple<IFeedAdapterFactory, ARecordType, AdapterType> factoryOutput = null;
         factoryOutput = FeedUtil.getPrimaryFeedFactoryAndOutput(primaryFeed, mdTxnCtx);
-        IAdapterFactory adapterFactory = factoryOutput.first;
+        IFeedAdapterFactory adapterFactory = factoryOutput.first;
         FeedIntakeOperatorDescriptor feedIngestor = null;
         switch (factoryOutput.third) {
             case INTERNAL:
-                feedIngestor = new FeedIntakeOperatorDescriptor(jobSpec, primaryFeed, adapterFactory);
+                feedIngestor = new FeedIntakeOperatorDescriptor(jobSpec, primaryFeed, adapterFactory,
+                        factoryOutput.second, policyAccessor);
                 break;
             case EXTERNAL:
                 String libraryName = primaryFeed.getAdaptorName().trim().split("#")[0];
                 feedIngestor = new FeedIntakeOperatorDescriptor(jobSpec, primaryFeed, libraryName, adapterFactory
-                        .getClass().getName(), factoryOutput.second);
+                        .getClass().getName(), factoryOutput.second, policyAccessor);
                 break;
         }
-        AlgebricksPartitionConstraint partitionConstraint = adapterFactory.getPartitionConstraint();
-        return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(feedIngestor, partitionConstraint);
 
+        AlgebricksPartitionConstraint partitionConstraint = adapterFactory.getPartitionConstraint();
+        return new Triple<IOperatorDescriptor, AlgebricksPartitionConstraint, IFeedAdapterFactory>(feedIngestor,
+                partitionConstraint, adapterFactory);
     }
 
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildBtreeRuntime(JobSpecification jobSpec,

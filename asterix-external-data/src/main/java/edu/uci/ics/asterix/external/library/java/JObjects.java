@@ -20,8 +20,8 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -933,7 +933,7 @@ public class JObjects {
         public JRecord(ARecordType recordType, IJObject[] fields) {
             this.recordType = recordType;
             this.fields = fields;
-            this.openFields = new HashMap<String, IJObject>();
+            this.openFields = new LinkedHashMap<String, IJObject>();
         }
 
         public JRecord(ARecordType recordType, IJObject[] fields, Map<String, IJObject> openFields) {

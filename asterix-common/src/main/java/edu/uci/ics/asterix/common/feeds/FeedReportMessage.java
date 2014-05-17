@@ -45,14 +45,14 @@ public class FeedReportMessage extends FeedMessage {
     @Override
     public JSONObject toJSON() throws JSONException {
         JSONObject obj = new JSONObject();
-        obj.put(IFeedMessage.Constants.MESSAGE_TYPE, messageType.name());
-        obj.put(IFeedMessage.Constants.DATAVERSE, connectionId.getFeedId().getDataverse());
-        obj.put(IFeedMessage.Constants.FEED, connectionId.getFeedId().getFeedName());
-        obj.put(IFeedMessage.Constants.DATASET, connectionId.getDatasetName());
-        obj.put(IFeedMessage.Constants.RUNTIME_TYPE, runtimeId.getFeedRuntimeType());
-        obj.put(IFeedMessage.Constants.PARTITION, runtimeId.getPartition());
-        obj.put(IFeedMessage.Constants.VALUE_TYPE, valueType);
-        obj.put(IFeedMessage.Constants.VALUE, value);
+        obj.put(FeedConstants.MessageConstants.MESSAGE_TYPE, messageType.name());
+        obj.put(FeedConstants.MessageConstants.DATAVERSE, connectionId.getFeedId().getDataverse());
+        obj.put(FeedConstants.MessageConstants.FEED, connectionId.getFeedId().getFeedName());
+        obj.put(FeedConstants.MessageConstants.DATASET, connectionId.getDatasetName());
+        obj.put(FeedConstants.MessageConstants.RUNTIME_TYPE, runtimeId.getFeedRuntimeType());
+        obj.put(FeedConstants.MessageConstants.PARTITION, runtimeId.getPartition());
+        obj.put(FeedConstants.MessageConstants.VALUE_TYPE, valueType);
+        obj.put(FeedConstants.MessageConstants.VALUE, value);
         return obj;
     }
 
