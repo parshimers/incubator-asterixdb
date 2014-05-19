@@ -15,9 +15,7 @@
 		<groupId>edu.uci.ics.asterix</groupId>
 		<version>0.8.6-SNAPSHOT</version>
 	</parent>
-	<groupId>edu.uci.ics.asterix</groupId>
 	<artifactId>asterix-events</artifactId>
-	<version>0.8.6-SNAPSHOT</version>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -165,25 +163,6 @@
 			<artifactId>commons-io</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>org.apache.zookeeper</groupId>
-			<artifactId>zookeeper</artifactId>
-			<version>3.4.5</version>
-			<exclusions>
-				<exclusion>
-					<groupId>com.sun.jmx</groupId>
-					<artifactId>jmxri</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>com.sun.jdmk</groupId>
-					<artifactId>jmxtools</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>javax.jms</groupId>
-					<artifactId>jms</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		<dependency>
 			<groupId>edu.uci.ics.asterix</groupId>
 			<artifactId>asterix-common</artifactId>
 			<version>0.8.6-SNAPSHOT</version>
@@ -193,7 +172,6 @@
 		<dependency>
 			<groupId>log4j</groupId>
 			<artifactId>log4j</artifactId>
-			<version>1.2.9</version>
 		</dependency>
 	</dependencies>
 </project>
