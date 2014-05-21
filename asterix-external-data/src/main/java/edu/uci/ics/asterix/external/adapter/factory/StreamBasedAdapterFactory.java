@@ -31,16 +31,16 @@ public abstract class StreamBasedAdapterFactory implements IAdapterFactory {
     private static final long serialVersionUID = 1L;
     protected static final Logger LOGGER = Logger.getLogger(StreamBasedAdapterFactory.class.getName());
 
-    public static final String KEY_FORMAT = "format";
-    public static final String KEY_PARSER_FACTORY = "parser";
-    public static final String KEY_DELIMITER = "delimiter";
+    public static final String KEY_FORMAT = GenericTupleParserFactory.KEY_FORMAT;
+    public static final String KEY_PARSER_FACTORY = GenericTupleParserFactory.KEY_PARSER_FACTORY;
+    public static final String KEY_DELIMITER = GenericTupleParserFactory.KEY_FORMAT;
     public static final String KEY_PATH = "path";
-    public static final String KEY_SOURCE_DATATYPE = "type-name";
-    public static final String FORMAT_DELIMITED_TEXT = "delimited-text";
-    public static final String FORMAT_ADM = "adm";
+    public static final String KEY_SOURCE_DATATYPE = IAdapterFactory.KEY_TYPE_NAME;
+    public static final String FORMAT_DELIMITED_TEXT = InputDataFormat.DELIMITED.name();
+    public static final String FORMAT_ADM = InputDataFormat.ADM.name();
     public static final String NODE_RESOLVER_FACTORY_PROPERTY = "node.Resolver";
-    public static final String BATCH_SIZE = "batch-size";
-    public static final String BATCH_INTERVAL = "batch-interval";
+    public static final String BATCH_SIZE = GenericTupleParserFactory.BATCH_SIZE;
+    public static final String BATCH_INTERVAL = GenericTupleParserFactory.BATCH_INTERVAL;
 
     protected Map<String, String> configuration;
     protected static INodeResolver nodeResolver;

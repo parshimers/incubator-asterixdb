@@ -23,11 +23,11 @@ create type TwitterUserType as closed {
 } 
 
 create type TweetMessageType as closed {
-	tweetid: int64,
-        user: TwitterUserType,
-        sender-location: point,
+	tweetid: string,
+    user: TwitterUserType,
+    sender-location: point,
 	send-time: datetime,
-        referred-topics: {{ string }},
+    referred-topics: {{ string }},
 	message-text: string
 }
 

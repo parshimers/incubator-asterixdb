@@ -38,6 +38,9 @@ public class GenericTupleParserFactory implements ITupleParserFactory {
     }
 
     public static final String KEY_FORMAT = "format";
+    public static final String FORMAT_ADM = "adm";
+    public static final String FORMAT_DELIMITED_TEXT = "delimited-text";
+
     public static final String BATCH_SIZE = "batch-size";
     public static final String BATCH_INTERVAL = "batch-interval";
     public static final String KEY_DELIMITER = "delimiter";
@@ -117,19 +120,15 @@ public class GenericTupleParserFactory implements ITupleParserFactory {
                 if (specifiedFormat == null) {
                     throw new IllegalArgumentException(" Unspecified data format");
                 } else {
-                    switch (InputDataFormat.valueOf(specifiedFormat.toUpperCase())) {
-                        case ADM:
-                            dataParser = configureADMParser();
-                            break;
-                        case DELIMITED:
-                            dataParser = configureDelimitedDataParser();
-                            break;
-                        default:
-                            throw new IllegalArgumentException(" format " + configuration.get(KEY_FORMAT)
-                                    + " not supported");
+                    if (FORMAT_ADM.equalsIgnoreCase(specifiedFormat.toUpperCase())) {
+                        dataParser = configureADMParser();
+                    } else if (FORMAT_DELIMITED_TEXT.equalsIgnoreCase(specifiedFormat.toUpperCase())) {
+                        dataParser = configureDelimitedDataParser();
+                    } else {
+                        throw new IllegalArgumentException(" format " + configuration.get(KEY_FORMAT)
+                                + " not supported");
                     }
                 }
-                break;
         }
         return dataParser;
     }

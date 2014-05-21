@@ -148,7 +148,7 @@ class RateControlledTupleParserFactory implements ITupleParserFactory {
 
     public enum ParserType {
         ADM,
-        DELIMITED_DATA
+        DELIMITED_TEXT
     }
 
     public RateControlledTupleParserFactory(ARecordType recordType, IValueParserFactory[] valueParserFactories,
@@ -157,7 +157,7 @@ class RateControlledTupleParserFactory implements ITupleParserFactory {
         this.valueParserFactories = valueParserFactories;
         this.delimiter = fieldDelimiter;
         this.configuration = configuration;
-        this.parserType = ParserType.DELIMITED_DATA;
+        this.parserType = ParserType.DELIMITED_TEXT;
     }
 
     public RateControlledTupleParserFactory(ARecordType recordType, Map<String, String> configuration) {
@@ -173,7 +173,7 @@ class RateControlledTupleParserFactory implements ITupleParserFactory {
             case ADM:
                 dataParser = new ADMDataParser();
                 break;
-            case DELIMITED_DATA:
+            case DELIMITED_TEXT:
                 dataParser = new DelimitedDataParser(recordType, valueParserFactories, delimiter);
                 break;
         }

@@ -312,7 +312,12 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
     public void close() {
         if (mBuffer != null) {
             boolean disableMonitoring = !this.mode.equals(Mode.STALL);
-
+            if (frameCollection != null) {
+                feedManager.getFeedMemoryManager().releaseMemoryComponent(frameCollection);
+            }
+            if (pool != null) {
+                feedManager.getFeedMemoryManager().releaseMemoryComponent(pool);
+            }
             mBuffer.close(false, disableMonitoring);
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Closed input side handler for " + this.runtimeId + " disabled monitoring "
