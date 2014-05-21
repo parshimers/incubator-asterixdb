@@ -34,26 +34,45 @@ public class MonitoredBufferTimerTasks {
         private final IFeedManager feedManager;
         private final int partition;
         private final FeedConnectionId connectionId;
-        private final StorageReportFeedMessage message;
+        private final FeedPolicyAccessor policyAccessor;
+
+        private int countDelayExceeded = 0;
+        private final StorageReportFeedMessage storageReportMessage;
+
+        private static final int PERSISTENCE_DELAY_VIOLATION_MAX = 5;
 
         public MonitoredBufferStorageTimerTask(MonitoredBuffer mBuffer, IFeedManager feedManager,
-                FeedConnectionId connectionId, int partition) {
+                FeedConnectionId connectionId, int partition, FeedPolicyAccessor policyAccessor) {
             this.mBuffer = mBuffer;
             this.feedManager = feedManager;
             this.connectionId = connectionId;
             this.partition = partition;
-            this.message = new StorageReportFeedMessage(this.connectionId, this.partition, 0);
+            this.policyAccessor = policyAccessor;
+            this.storageReportMessage = new StorageReportFeedMessage(this.connectionId, this.partition, 0, false, 0);
         }
 
         @Override
         public void run() {
-            long timestamp = mBuffer.getLastPersistedTupleIntakeTimestamp();
-            if (timestamp > message.getLastPersistedTupleIntakeTimestamp()) {
-                message.reset(timestamp);
-                feedManager.getFeedMessageService().sendMessage(message);
-            }
-        }
+            boolean sendReport = false;
+            boolean delayWithinLimit = true;
 
+            long timestamp = mBuffer.getLastPersistedTupleIntakeTimestamp();
+            sendReport = timestamp > storageReportMessage.getLastPersistedTupleIntakeTimestamp();
+            if (mBuffer.getAvgDelayRecordPersistence() > policyAccessor.getMaxDelayRecordPersistence()) {
+                countDelayExceeded++;
+                if (countDelayExceeded > PERSISTENCE_DELAY_VIOLATION_MAX) {
+                    sendReport = true;
+                    delayWithinLimit = false;
+                }
+            } else {
+                countDelayExceeded = 0;
+            }
+
+            if (sendReport) {
+                storageReportMessage.reset(timestamp, delayWithinLimit, mBuffer.getAvgDelayRecordPersistence());
+            }
+            feedManager.getFeedMessageService().sendMessage(storageReportMessage);
+        }
     }
 
     public static class MonitoredBufferDataFlowRateMeasureTimerTask extends TimerTask {

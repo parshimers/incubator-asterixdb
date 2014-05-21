@@ -17,6 +17,7 @@ package edu.uci.ics.asterix.runtime.operators.file;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Serializable;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.om.types.ARecordType;

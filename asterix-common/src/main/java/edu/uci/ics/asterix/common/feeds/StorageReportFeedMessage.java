@@ -17,7 +17,7 @@ package edu.uci.ics.asterix.common.feeds;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import edu.uci.ics.asterix.common.feeds.api.IFeedMessage;
+import edu.uci.ics.asterix.common.feeds.FeedConstants.MessageConstants;
 
 /**
  * A feed control message sent from a storage runtime of a feed pipeline to report the intake timestamp corresponding
@@ -31,12 +31,17 @@ public class StorageReportFeedMessage extends FeedMessage {
     private final int partition;
 
     private long lastPersistedTupleIntakeTimestamp;
+    private boolean persistenceDelayWithinLimit;
+    private long averageDelay;
 
-    public StorageReportFeedMessage(FeedConnectionId connectionId, int partition, long lastPersistedTupleIntakeTimestamp) {
+    public StorageReportFeedMessage(FeedConnectionId connectionId, int partition,
+            long lastPersistedTupleIntakeTimestamp, boolean persistenceDelayWithinLimit, long averageDelay) {
         super(MessageType.STORAGE_REPORT);
         this.connectionId = connectionId;
         this.partition = partition;
         this.lastPersistedTupleIntakeTimestamp = lastPersistedTupleIntakeTimestamp;
+        this.persistenceDelayWithinLimit = persistenceDelayWithinLimit;
+        this.averageDelay = averageDelay;
     }
 
     @Override
@@ -56,6 +61,22 @@ public class StorageReportFeedMessage extends FeedMessage {
         return partition;
     }
 
+    public boolean isPersistenceDelayWithinLimit() {
+        return persistenceDelayWithinLimit;
+    }
+
+    public void setPersistenceDelayWithinLimit(boolean persistenceDelayWithinLimit) {
+        this.persistenceDelayWithinLimit = persistenceDelayWithinLimit;
+    }
+
+    public long getAverageDelay() {
+        return averageDelay;
+    }
+
+    public void setAverageDelay(long averageDelay) {
+        this.averageDelay = averageDelay;
+    }
+
     @Override
     public JSONObject toJSON() throws JSONException {
         JSONObject obj = new JSONObject();
@@ -64,6 +85,8 @@ public class StorageReportFeedMessage extends FeedMessage {
         obj.put(FeedConstants.MessageConstants.FEED, connectionId.getFeedId().getFeedName());
         obj.put(FeedConstants.MessageConstants.DATASET, connectionId.getDatasetName());
         obj.put(FeedConstants.MessageConstants.LAST_PERSISTED_TUPLE_INTAKE_TIMESTAMP, lastPersistedTupleIntakeTimestamp);
+        obj.put(MessageConstants.PERSISTENCE_DELAY_WITHIN_LIMIT, persistenceDelayWithinLimit);
+        obj.put(MessageConstants.AVERAGE_PERSISTENCE_DELAY, averageDelay);
         obj.put(FeedConstants.MessageConstants.PARTITION, partition);
         return obj;
     }
@@ -71,14 +94,20 @@ public class StorageReportFeedMessage extends FeedMessage {
     public static StorageReportFeedMessage read(JSONObject obj) throws JSONException {
         FeedId feedId = new FeedId(obj.getString(FeedConstants.MessageConstants.DATAVERSE),
                 obj.getString(FeedConstants.MessageConstants.FEED));
-        FeedConnectionId connectionId = new FeedConnectionId(feedId, obj.getString(FeedConstants.MessageConstants.DATASET));
+        FeedConnectionId connectionId = new FeedConnectionId(feedId,
+                obj.getString(FeedConstants.MessageConstants.DATASET));
         int partition = obj.getInt(FeedConstants.MessageConstants.PARTITION);
         long timestamp = obj.getLong(FeedConstants.MessageConstants.LAST_PERSISTED_TUPLE_INTAKE_TIMESTAMP);
-        return new StorageReportFeedMessage(connectionId, partition, timestamp);
+        boolean persistenceDelayWithinLimit = obj.getBoolean(MessageConstants.PERSISTENCE_DELAY_WITHIN_LIMIT);
+        long averageDelay = obj.getLong(MessageConstants.AVERAGE_PERSISTENCE_DELAY);
+        return new StorageReportFeedMessage(connectionId, partition, timestamp, persistenceDelayWithinLimit,
+                averageDelay);
     }
 
-    public void reset(long lastPersistedTupleIntakeTimestamp) {
+    public void reset(long lastPersistedTupleIntakeTimestamp, boolean delayWithinLimit, long averageDelay) {
         this.lastPersistedTupleIntakeTimestamp = lastPersistedTupleIntakeTimestamp;
+        this.persistenceDelayWithinLimit = delayWithinLimit;
+        this.averageDelay = averageDelay;
     }
 
 }

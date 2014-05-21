@@ -24,6 +24,8 @@ import org.apache.commons.lang3.StringUtils;
 
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
 import edu.uci.ics.asterix.external.adapter.factory.StreamBasedAdapterFactory;
+import edu.uci.ics.asterix.metadata.feeds.IFeedAdapterFactory;
+import edu.uci.ics.asterix.metadata.utils.GenericTupleParserFactory.InputDataFormat;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.util.AsterixRuntimeUtil;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
@@ -36,7 +38,7 @@ import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
  * adapter listens at a port for receiving data (from external world).
  * Data received is transformed into Asterix Data Format (ADM).
  */
-public class GenericSocketFeedAdapterFactory extends StreamBasedAdapterFactory {
+public class GenericSocketFeedAdapterFactory extends StreamBasedAdapterFactory implements IFeedAdapterFactory {
 
     private static final long serialVersionUID = 1L;
 
@@ -141,5 +143,10 @@ public class GenericSocketFeedAdapterFactory extends StreamBasedAdapterFactory {
     @Override
     public ARecordType getAdapterOutputType() {
         return outputType;
+    }
+
+    @Override
+    public InputDataFormat getInputDataFormat() {
+        return InputDataFormat.UNKNOWN;
     }
 }

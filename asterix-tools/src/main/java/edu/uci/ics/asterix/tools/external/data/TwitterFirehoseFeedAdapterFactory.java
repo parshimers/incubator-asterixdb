@@ -18,8 +18,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
 import edu.uci.ics.asterix.external.adapter.factory.StreamBasedAdapterFactory;
+import edu.uci.ics.asterix.metadata.feeds.IFeedAdapterFactory;
+import edu.uci.ics.asterix.metadata.utils.GenericTupleParserFactory.InputDataFormat;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.util.AsterixClusterProperties;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
@@ -31,7 +34,7 @@ import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
  * The adapter simulates a twitter firehose with tweets being "pushed" into Asterix at a configurable rate
  * measured in terms of TPS (tweets/second). The stream of tweets lasts for a configurable duration (measured in seconds).
  */
-public class TwitterFirehoseFeedAdapterFactory extends StreamBasedAdapterFactory {
+public class TwitterFirehoseFeedAdapterFactory extends StreamBasedAdapterFactory implements IFeedAdapterFactory {
 
     private static final long serialVersionUID = 1L;
 
@@ -96,6 +99,11 @@ public class TwitterFirehoseFeedAdapterFactory extends StreamBasedAdapterFactory
     @Override
     public ARecordType getAdapterOutputType() {
         return outputType;
+    }
+
+    @Override
+    public InputDataFormat getInputDataFormat() {
+        return InputDataFormat.ADM;
     }
 
 }

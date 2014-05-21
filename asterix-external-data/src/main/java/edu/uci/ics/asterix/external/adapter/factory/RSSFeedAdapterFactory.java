@@ -108,9 +108,4 @@ public class RSSFeedAdapterFactory implements IFeedAdapterFactory {
         return ingestionPolicy;
     }
 
-    @Override
-    public void setIngestionPolicy(FeedPolicyAccessor ingestionPolicy) {
-        this.ingestionPolicy = ingestionPolicy;
-    }
-
 }

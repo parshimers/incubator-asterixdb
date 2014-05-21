@@ -442,8 +442,8 @@ public class FeedUtil {
             }
 
             Map<String, String> configuration = feed.getAdaptorConfiguration();
-            ARecordType outputType = getOutputType(configuration);
-            adapterFactory.configure(configuration, outputType);
+            adapterOutputType = getOutputType(feed, configuration);
+            adapterFactory.configure(configuration, adapterOutputType);
             feedProps = new Triple<IFeedAdapterFactory, ARecordType, AdapterType>(adapterFactory, adapterOutputType,
                     adapterType);
         } catch (Exception e) {
@@ -453,7 +453,7 @@ public class FeedUtil {
         return feedProps;
     }
 
-    private static ARecordType getOutputType(Map<String, String> configuration) throws Exception {
+    private static ARecordType getOutputType(PrimaryFeed feed, Map<String, String> configuration) throws Exception {
         ARecordType outputType = null;
         String fqOutputType = configuration.get(IAdapterFactory.KEY_TYPE_NAME);
 
@@ -461,8 +461,17 @@ public class FeedUtil {
             throw new IllegalArgumentException("No output type specified");
         }
         String[] dataverseAndType = fqOutputType.split("[.]");
-        String dataverseName = dataverseAndType[0];
-        String datatypeName = dataverseAndType[1];
+        String dataverseName;
+        String datatypeName;
+
+        if (dataverseAndType.length == 1) {
+            datatypeName = dataverseAndType[0];
+            dataverseName = feed.getDataverseName();
+        } else if (dataverseAndType.length == 2) {
+            dataverseName = dataverseAndType[0];
+            datatypeName = dataverseAndType[1];
+        } else
+            throw new IllegalArgumentException("Invalid value for the parameter " + IAdapterFactory.KEY_TYPE_NAME);
 
         MetadataTransactionContext ctx = null;
         MetadataManager.INSTANCE.acquireReadLatch();

@@ -16,13 +16,12 @@ package edu.uci.ics.asterix.external.library.adaptor;
 
 import java.util.Map;
 
-import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
 import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
-import edu.uci.ics.asterix.external.adapter.factory.ExternalDataTupleParserProvider;
 import edu.uci.ics.asterix.external.adapter.factory.StreamBasedAdapterFactory;
 import edu.uci.ics.asterix.metadata.feeds.IFeedAdapterFactory;
-import edu.uci.ics.asterix.metadata.feeds.TimestampedTupleParserFactory;
+import edu.uci.ics.asterix.metadata.utils.GenericTupleParserFactory;
+import edu.uci.ics.asterix.metadata.utils.GenericTupleParserFactory.InputDataFormat;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksCountPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
@@ -41,7 +40,6 @@ public class TweetGenAdaptorFactory extends StreamBasedAdapterFactory implements
 
     private ARecordType outputType;
     private Map<String, String> configuration;
-    private FeedPolicyAccessor policyAccessor;
 
     @Override
     public SupportedOperation getSupportedOperations() {
@@ -60,11 +58,8 @@ public class TweetGenAdaptorFactory extends StreamBasedAdapterFactory implements
 
     @Override
     public IDatasourceAdapter createAdapter(IHyracksTaskContext ctx, int partition) throws Exception {
-        //   ITupleParserFactory tupleParserFactory = new AdmSchemafullRecordParserFactory(outputType);
-        // ITupleParserFactory tupleParserFactory = new ConditionalPushTupleParserFactory(outputType, configuration);
-        // ITupleParserFactory tupleParserFactory = new TimestampedTupleParserFactory(outputType);
-        ITupleParserFactory tupleParserFactory = ExternalDataTupleParserProvider.getTupleParserFactory(outputType,
-                configuration, policyAccessor);
+        ITupleParserFactory tupleParserFactory = new GenericTupleParserFactory(configuration, outputType,
+                getInputDataFormat());
         return new TweetGenAdaptor(tupleParserFactory, outputType, ctx, configuration);
     }
 
@@ -110,7 +105,7 @@ public class TweetGenAdaptorFactory extends StreamBasedAdapterFactory implements
     }
 
     @Override
-    public void setIngestionPolicy(FeedPolicyAccessor policyAccessor) {
-        this.policyAccessor = policyAccessor;
+    public InputDataFormat getInputDataFormat() {
+        return InputDataFormat.ADM;
     }
 }

@@ -14,12 +14,15 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
+import java.io.Serializable;
 import java.util.Map;
 
 /**
  * A utility class to access the configuration parameters of a feed ingestion policy.
  */
-public class FeedPolicyAccessor {
+public class FeedPolicyAccessor implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     // failure configuration
     public static final String SOFT_FAILURE_CONTINUE = "soft.failure.continue";
@@ -31,6 +34,7 @@ public class FeedPolicyAccessor {
     public static final String SPILL_TO_DISK_ON_CONGESTION = "spill.to.disk.on.congestion";
     public static final String MAX_SPILL_SIZE_ON_DISK = "max.spill.size.on.disk";
     public static final String MAX_FRACTION_DISCARD = "max.fraction.discard";
+    public static final String MAX_DELAY_RECORD_PERSISTENCE = "max.delay.record.persistence";
 
     // elasticity
     public static final String ELASTIC = "elastic";
@@ -83,6 +87,10 @@ public class FeedPolicyAccessor {
 
     public float getMaxFractionDiscard() {
         return getFloatPropertyValue(MAX_FRACTION_DISCARD, 1);
+    }
+
+    public long getMaxDelayRecordPersistence() {
+        return getLongPropertyValue(MAX_DELAY_RECORD_PERSISTENCE, Long.MAX_VALUE);
     }
 
     /** Elasticity **/

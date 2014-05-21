@@ -502,6 +502,7 @@ public class MetadataBootstrap {
             } catch (Exception e2) {
                 e.addSuppressed(e2);
             }
+            e.printStackTrace();
             throw new MetadataException(e);
         } finally {
             MetadataManager.INSTANCE.releaseWriteLatch();

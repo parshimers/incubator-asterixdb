@@ -23,7 +23,6 @@ import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
 import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
 import edu.uci.ics.asterix.external.dataset.adapter.RSSFeedAdapter;
-import edu.uci.ics.asterix.metadata.feeds.IAdapterFactory.SupportedOperation;
 import edu.uci.ics.asterix.metadata.feeds.IFeedAdapterFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksCountPartitionConstraint;
@@ -149,15 +148,6 @@ public class CNNFeedAdapterFactory implements IFeedAdapterFactory {
     @Override
     public IIntakeProgressTracker createIntakeProgressTracker() {
         return null;
-    }
-
-    @Override
-    public void setIngestionPolicy(FeedPolicyAccessor policyAccessor) {
-        this.policyAccessor = policyAccessor;
-    }
-
-    public FeedPolicyAccessor getIngestionPolicy() {
-        return policyAccessor;
     }
 
 }

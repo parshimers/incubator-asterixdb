@@ -157,9 +157,4 @@ public class PullBasedTwitterAdapterFactory implements IFeedAdapterFactory {
         return ingestionPolicy;
     }
 
-    @Override
-    public void setIngestionPolicy(FeedPolicyAccessor policyAccessor) {
-        this.ingestionPolicy = policyAccessor;
-    }
-
 }

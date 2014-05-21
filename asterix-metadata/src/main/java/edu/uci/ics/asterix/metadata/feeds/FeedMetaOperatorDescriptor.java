@@ -57,20 +57,14 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
 
     /**
      * The policy associated with the feed instance.
-     */
+     **/
     private final Map<String, String> feedPolicyProperties;
 
-    /*
-     * type for the feed runtime associated with the operator.
-     * Possible values: INTAKE, COMPUTE, STORAGE, OTHER
-     */
-    private final FeedRuntimeType runtimeType;
-
     /**
-     * true indicates that the runtime can be subscribed for data by other
-     * runtime instances.
+     * type for the feed runtime associated with the operator.
+     * Possible values: COMPUTE, STORE, OTHER
      **/
-    private final boolean enableSubscriptionMode;
+    private final FeedRuntimeType runtimeType;
 
     private final String operandId;
 
@@ -85,7 +79,6 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
         }
         this.coreOperator = coreOperatorDescriptor;
         this.runtimeType = runtimeType;
-        this.enableSubscriptionMode = enableSubscriptionMode;
         this.operandId = operandId;
     }
 

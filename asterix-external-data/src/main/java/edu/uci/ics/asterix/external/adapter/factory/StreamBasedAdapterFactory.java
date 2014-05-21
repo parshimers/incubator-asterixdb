@@ -17,10 +17,12 @@ package edu.uci.ics.asterix.external.adapter.factory;
 import java.util.Map;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
 import edu.uci.ics.asterix.external.util.INodeResolver;
 import edu.uci.ics.asterix.metadata.feeds.IAdapterFactory;
+import edu.uci.ics.asterix.metadata.utils.GenericTupleParserFactory;
+import edu.uci.ics.asterix.metadata.utils.GenericTupleParserFactory.InputDataFormat;
+import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 
@@ -46,10 +48,10 @@ public abstract class StreamBasedAdapterFactory implements IAdapterFactory {
     protected ITupleParserFactory parserFactory;
 
     protected void configureFormat(IAType sourceDatatype) throws Exception {
-        FeedPolicyAccessor policyAccessor = null;
-        parserFactory = ExternalDataTupleParserProvider.getTupleParserFactory(getAdapterOutputType(), configuration,
-                policyAccessor);
+        parserFactory = new GenericTupleParserFactory(configuration, (ARecordType) sourceDatatype, getInputDataFormat());
     }
+
+    public abstract InputDataFormat getInputDataFormat();
 
     public boolean isRecordTrackingEnabled() {
         return false;

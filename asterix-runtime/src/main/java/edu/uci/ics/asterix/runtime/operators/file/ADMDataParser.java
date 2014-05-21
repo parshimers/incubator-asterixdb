@@ -590,7 +590,6 @@ public class ADMDataParser extends AbstractDataParser implements IDataParser {
 			}
 			first = false;
 		} while (inRecord);
-		
 
 		if (recType != null) {
 			nullableFieldId = checkNullConstraints(recType, nulls);
@@ -602,22 +601,6 @@ public class ADMDataParser extends AbstractDataParser implements IDataParser {
 		returnRecordBuilder(recBuilder);
 		returnTempBuffer(fieldNameBuffer);
 		returnTempBuffer(fieldValueBuffer);
-	}
-
-	private void addAttribute(String attrName, long attrValue,
-			IARecordBuilder recordBuilder) throws HyracksDataException,
-			AsterixException {
-		ArrayBackedValueStorage attrNameStorage = new ArrayBackedValueStorage();
-		attrNameStorage.reset();
-		aString.setValue(attrName);
-		stringSerde.serialize(aString, attrNameStorage.getDataOutput());
-
-		ArrayBackedValueStorage attrValueStorage = new ArrayBackedValueStorage();
-		attrValueStorage.reset();
-		aInt64.setValue(attrValue);
-		int64Serde.serialize(aInt64, attrValueStorage.getDataOutput());
-
-		recordBuilder.addField(attrNameStorage, attrValueStorage);
 	}
 
 	protected void writeRecord(IARecordBuilder recordBuilder, DataOutput out,

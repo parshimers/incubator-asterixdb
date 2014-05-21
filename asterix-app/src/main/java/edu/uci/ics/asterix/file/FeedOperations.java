@@ -72,6 +72,7 @@ public class FeedOperations {
             ingesterPc = t.second;
             adapterFactory = t.third;
         } catch (AlgebricksException e) {
+            e.printStackTrace();
             throw new AsterixException(e);
         }
 

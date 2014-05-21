@@ -81,7 +81,7 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
         this.frameEventCallback = new FrameEventCallback(fpa, this, coreOperator);
         this.mBuffer = new MonitoredBuffer(this, coreOperator, fta, frameSize, recordDesc,
                 feedManager.getFeedMetricCollector(), connectionId, runtimeId, exceptionHandler, frameEventCallback,
-                nPartitions);
+                nPartitions, fpa);
         this.mBuffer.start();
     }
 

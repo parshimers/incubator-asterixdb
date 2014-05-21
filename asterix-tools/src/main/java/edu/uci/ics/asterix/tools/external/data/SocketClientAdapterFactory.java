@@ -19,14 +19,13 @@ import java.util.Map;
 import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
 import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
-import edu.uci.ics.asterix.metadata.feeds.IAdapterFactory.SupportedOperation;
 import edu.uci.ics.asterix.metadata.feeds.IFeedAdapterFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 
-public class TwitterSocketClientAdapterFactory implements IFeedAdapterFactory {
+public class SocketClientAdapterFactory implements IFeedAdapterFactory {
 
     private static final long serialVersionUID = 1L;
 
@@ -35,8 +34,6 @@ public class TwitterSocketClientAdapterFactory implements IFeedAdapterFactory {
     private GenericSocketFeedAdapterFactory genericSocketAdapterFactory;
 
     private String[] fileSplits;
-
-    private FeedPolicyAccessor policyAccessor;
 
     public static final String KEY_FILE_SPLITS = "file_splits";
 
@@ -89,8 +86,4 @@ public class TwitterSocketClientAdapterFactory implements IFeedAdapterFactory {
         return null;
     }
 
-    @Override
-    public void setIngestionPolicy(FeedPolicyAccessor policyAccessor) {
-        this.policyAccessor = policyAccessor;
-    }
 }

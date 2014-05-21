@@ -39,8 +39,6 @@ public class TestTypedAdaptorFactory implements IFeedAdapterFactory {
 
     private Map<String, String> configuration;
 
-    private FeedPolicyAccessor ingestionPolicy;
-
     @Override
     public SupportedOperation getSupportedOperations() {
         return SupportedOperation.READ;
@@ -81,14 +79,5 @@ public class TestTypedAdaptorFactory implements IFeedAdapterFactory {
     @Override
     public IIntakeProgressTracker createIntakeProgressTracker() {
         return null;
-    }
-
-    @Override
-    public void setIngestionPolicy(FeedPolicyAccessor policyAccessor) {
-        this.ingestionPolicy = policyAccessor;
-    }
-
-    public FeedPolicyAccessor getIngestionPolicy() {
-        return ingestionPolicy;
     }
 }

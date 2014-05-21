@@ -80,7 +80,6 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
         try {
             if (ingestionRuntime == null) {
                 try {
-                    adapterFactory.setIngestionPolicy(policyAccessor);
                     adapter = (IFeedAdapter) adapterFactory.createAdapter(ctx, partition);
                 } catch (Exception e) {
                     LOGGER.severe("Unable to create adapter : " + adapterFactory.getName() + "[" + partition + "]"

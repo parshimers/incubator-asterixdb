@@ -274,7 +274,7 @@ public class FeedJobNotificationHandler implements Runnable {
                 intakeLocations.add(operatorLocations.get(i));
             }
         }
-
+        // intakeLocations is an ordered list; element at position i corresponds to location of i'th instance of operator
         intakeJobInfo.setIntakeLocation(intakeLocations);
         intakeJobInfo.getIntakeFeedJoint().setState(State.ACTIVE);
         intakeJobInfo.setState(FeedJobState.ACTIVE);

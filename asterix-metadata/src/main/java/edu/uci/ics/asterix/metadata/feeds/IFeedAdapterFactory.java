@@ -8,7 +8,5 @@ public interface IFeedAdapterFactory extends IAdapterFactory {
     public boolean isRecordTrackingEnabled();
 
     public IIntakeProgressTracker createIntakeProgressTracker();
-    
-    public void setIngestionPolicy(FeedPolicyAccessor policyAccessor);
 
 }

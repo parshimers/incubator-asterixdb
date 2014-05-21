@@ -3,6 +3,7 @@ package edu.uci.ics.asterix.common.feeds;
 public class FeedConstants {
 
     public static final class StatisticsConstants {
+        public static final String INTAKE_NC_ID = "intake-nc";
         public static final String INTAKE_TIMESTAMP = "intake-timestamp";
         public static final String COMPUTE_TIMESTAMP = "compute-timestamp";
         public static final String STORE_TIMESTAMP = "store-timestamp";
@@ -30,6 +31,7 @@ public class FeedConstants {
         public static final String OPERAND_ID = "operand-id";
         public static final String COMPUTE_PARTITION_RETAIN_LIMIT = "compute-partition-retain-limit";
         public static final String LAST_PERSISTED_TUPLE_INTAKE_TIMESTAMP = "last-persisted-tuple-intake_timestamp";
-
+        public static final String PERSISTENCE_DELAY_WITHIN_LIMIT = "persistence-delay-within-limit";
+        public static final String AVERAGE_PERSISTENCE_DELAY = "average-persistence-delay";
     }
 }

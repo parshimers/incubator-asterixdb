@@ -3,7 +3,7 @@ package edu.uci.ics.asterix.external.library.java;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -67,7 +67,6 @@ import edu.uci.ics.asterix.om.types.BuiltinType;
 import edu.uci.ics.asterix.om.types.EnumDeserializer;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.container.IObjectPool;
-import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 import edu.uci.ics.hyracks.algebricks.common.utils.Triple;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
@@ -422,7 +421,7 @@ public class JObjectAccessors {
             List<IVisitablePointable> fieldNames = recordPointable.getFieldNames();
             JRecord jRecord = null;
             List<IJObject> jObjects = new ArrayList<IJObject>();
-            Map<String, IJObject> openFields = new HashMap<String, IJObject>();
+            Map<String, IJObject> openFields = new LinkedHashMap<String, IJObject>();
             int index = 0;
             boolean closedPart = true;
             try {

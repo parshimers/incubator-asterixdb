@@ -25,6 +25,7 @@ import org.apache.hadoop.mapred.JobConf;
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
 import edu.uci.ics.asterix.external.dataset.adapter.HDFSAdapter;
 import edu.uci.ics.asterix.metadata.feeds.IAdapterFactory;
+import edu.uci.ics.asterix.metadata.utils.GenericTupleParserFactory.InputDataFormat;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
@@ -171,6 +172,11 @@ public class HDFSAdapterFactory extends StreamBasedAdapterFactory implements IAd
     @Override
     public ARecordType getAdapterOutputType() {
         return (ARecordType) atype;
+    }
+
+    @Override
+    public InputDataFormat getInputDataFormat() {
+        return InputDataFormat.UNKNOWN;
     }
 
 }

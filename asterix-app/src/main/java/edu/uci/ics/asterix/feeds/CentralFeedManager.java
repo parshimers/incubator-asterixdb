@@ -74,7 +74,7 @@ public class CentralFeedManager implements ICentralFeedManager {
     @Override
     public void start() throws AsterixException {
         messageListener.start();
-        messageReceiver.start();
+        messageReceiver.start();   
     }
 
     @Override
@@ -94,9 +94,6 @@ public class CentralFeedManager implements ICentralFeedManager {
 
         @Override
         public void processMessage(String message) throws Exception {
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Received message:" + message);
-            }
             JSONObject obj = new JSONObject(message);
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Received message " + obj);

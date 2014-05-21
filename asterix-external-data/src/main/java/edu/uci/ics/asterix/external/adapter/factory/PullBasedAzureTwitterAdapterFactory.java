@@ -10,7 +10,6 @@ import edu.uci.ics.asterix.external.dataset.adapter.PullBasedAzureTwitterAdapter
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
 import edu.uci.ics.asterix.metadata.entities.Datatype;
-import edu.uci.ics.asterix.metadata.feeds.IAdapterFactory.SupportedOperation;
 import edu.uci.ics.asterix.metadata.feeds.IFeedAdapterFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
@@ -151,8 +150,4 @@ public class PullBasedAzureTwitterAdapterFactory implements IFeedAdapterFactory 
         return ingestionPolicy;
     }
 
-    @Override
-    public void setIngestionPolicy(FeedPolicyAccessor policyAccessor) {
-        this.ingestionPolicy = policyAccessor;
-    }
 }
