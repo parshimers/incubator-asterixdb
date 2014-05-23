@@ -308,6 +308,7 @@ public class ApplicationMaster {
         asterixConfLen = Long.parseLong(envs.get(MConstants.CONFLEN));
 
         DFSpathSuffix = envs.get(MConstants.PATHSUFFIX);
+        LOG.info("Path suffix: "+DFSpathSuffix);
         
         localizeDFSResources();
 
@@ -339,6 +340,12 @@ public class ApplicationMaster {
     	return cl;
     }
     /**
+     * 
+     */
+    private String hostFromContainerID(String containerID){
+       return containerID.split("_")[4];
+    }
+    /**
      * Kanged from managix. Splices the cluster config and asterix config parameters together, then puts the product to HDFS.
      * @param cluster
      * @throws JAXBException
@@ -358,7 +365,7 @@ public class ApplicationMaster {
         List<Store> stores = new ArrayList<Store>();
         for (Node node : cluster.getNode()) {
             storeDir = node.getStore() == null ? cluster.getStore() : node.getStore();
-            stores.add(new Store(asterixInstanceName + "_" + node.getId(), storeDir));
+            stores.add(new Store(node.getId(), storeDir));
         }
         configuration.setStore(stores);
 
@@ -368,12 +375,11 @@ public class ApplicationMaster {
         String txnLogDir = null;
         for (Node node : cluster.getNode()) {
             coredumpDir = node.getLogDir() == null ? cluster.getLogDir() : node.getLogDir();
-            coredump.add(new Coredump(asterixInstanceName + "_" + node.getId(), coredumpDir + File.separator
-                    + asterixInstanceName + "_" + node.getId()));
+            coredump.add(new Coredump(node.getId(), coredumpDir +  "coredump"+File.separator));
             txnLogDir = node.getTxnLogDir() == null ? cluster.getTxnLogDir() : node.getTxnLogDir();
-            txnLogDirs.add(new TransactionLogDir(asterixInstanceName + "_" + node.getId(), txnLogDir));
+            txnLogDirs.add(new TransactionLogDir(node.getId(), txnLogDir+"txnLogs"+File.separator));
         }
-        configuration.setMetadataNode(asterixInstanceName + "_" + metadataNodeId);
+        configuration.setMetadataNode(metadataNodeId);
 
         configuration.setCoredump(coredump);
         configuration.setTransactionLogDir(txnLogDirs);
@@ -386,17 +392,23 @@ public class ApplicationMaster {
         os.close();	
         //now put this to HDFS so our NCs and CC can use it. 
         FileSystem fs = FileSystem.get(conf);
-        Path src = new Path(new File("./asterix-server/bin/asterix-configuration.xml").getCanonicalPath());
-        String pathSuffix = DFSpathSuffix + "/asterix-configuration.xml";
+        File srcfile = new File(WORKING_CONF_PATH);
+        Path src = new Path(srcfile.getCanonicalPath());
+        String pathSuffix = DFSpathSuffix + File.separator + "asterix-configuration.xml";
         Path dst = new Path(fs.getHomeDirectory(), pathSuffix);
         fs.copyFromLocalFile(false, true, src, dst);
-        FileStatus destStatus = fs.getFileStatus(dst);
+        URI paramLocation = dst.toUri();
+        FileStatus paramFileStatus = fs.getFileStatus(dst);
+        Long paramLen = paramFileStatus.getLen();
+        Long paramTimestamp = paramFileStatus.getModificationTime();
         LocalResource asterixParamLoc = Records.newRecord(LocalResource.class);
         asterixParamLoc.setType(LocalResourceType.FILE);
         asterixParamLoc.setVisibility(LocalResourceVisibility.PUBLIC);
-        asterixParamLoc.setResource(ConverterUtils.getYarnUrlFromPath(dst));
-        asterixParamLoc.setTimestamp(destStatus.getModificationTime());
+        asterixParamLoc.setResource(ConverterUtils.getYarnUrlFromURI(paramLocation));
+        asterixParamLoc.setTimestamp(paramTimestamp);
+        asterixParamLoc.setSize(paramLen);
         localResources.put("asterix-configuration.xml", asterixParamLoc);
+
     }
     
     private void unTarAsterixConf() throws IOException{
@@ -515,7 +527,7 @@ public class ApplicationMaster {
         LOG.info("IP addr: "+host+" resolved to "+hostIp.getHostName());
         // last flag must be false (relaxLocality)
         //changed for testing?????
-        ContainerRequest request = new ContainerRequest(capability, hosts, null, pri, true);
+        ContainerRequest request = new ContainerRequest(capability, hosts, null, pri, false);
         LOG.info("Requested host ask: " + request.getNodes());
         return request;
     }
@@ -901,6 +913,7 @@ public class ApplicationMaster {
 
             ctx.setEnvironment(env);
             LOG.info(ctx.getEnvironment().toString());
+            /*
             try{
             writeAsterixConfig(clusterDesc);
             }
@@ -909,6 +922,7 @@ public class ApplicationMaster {
             	e.printStackTrace();
             	return;
             }
+            */
             List<String> startCmd = produceStartCmd(container);
             for(String s :startCmd){
             	LOG.info("Command to execute: "+s);
@@ -934,9 +948,10 @@ public class ApplicationMaster {
             //first see if this node is the CC
             if(containerIsCC(container)){
             	LOG.info("CC found on container" + container.getNodeId().getHost());
-                vargs.add("export JAVA_OPTS=-Xmx1024m -DAsterixConfigFileName="+WORKING_CONF_PATH+";");
-                vargs.add(ASTERIX_CC_BIN_PATH+" -cluster-net-ip-address "+ CC.getClusterIp() +
-                		  " -client-net-ip-address "+ CC.getClientIp());
+                vargs.add("JAVA_OPTS=-Xmx768m "+
+                          ASTERIX_CC_BIN_PATH+" -cluster-net-ip-address "+ CC.getClusterIp() +
+                		  " -client-net-ip-address "+ CC.getClientIp()
+                		 );
                 
             }
             //now we need to know what node we are on, so we can apply the correct properties

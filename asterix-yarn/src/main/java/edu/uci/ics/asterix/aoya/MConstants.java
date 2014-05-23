@@ -81,5 +81,5 @@ public class MConstants {
 
   public static final String PARAMLEN = "PARAMLEN";
   
-  public static final String PATHSUFFIX = "";
+  public static final String PATHSUFFIX = "PATHSUFFIX";
 }
