@@ -43,11 +43,7 @@ public class DataBucketPool implements IFeedMemoryComponent {
         this.memoryManager = memoryManager;
         this.pool = new Stack<DataBucket>();
         this.frameSize = frameSize;
-        for (int i = 0; i < size; i++) {
-            DataBucket bucket = new DataBucket(this);
-            pool.add(bucket);
-        }
-        this.totalAllocation += size;
+        expand(size);
     }
 
     public synchronized void returnDataBucket(DataBucket bucket) {

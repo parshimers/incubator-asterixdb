@@ -20,5 +20,5 @@ public interface IMessageReceiver<T> {
 
     public void close(boolean processPending);
 
-    void start();
+    public void start();
 }

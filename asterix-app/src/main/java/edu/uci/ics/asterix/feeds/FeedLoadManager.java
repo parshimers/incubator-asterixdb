@@ -26,14 +26,14 @@ import java.util.logging.Logger;
 import org.json.JSONObject;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
-import edu.uci.ics.asterix.common.feeds.FeedCongestionMessage;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedJobInfo.FeedJobState;
 import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.NodeLoadReport;
-import edu.uci.ics.asterix.common.feeds.ScaleInReportMessage;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLoadManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
+import edu.uci.ics.asterix.common.feeds.message.FeedCongestionMessage;
+import edu.uci.ics.asterix.common.feeds.message.ScaleInReportMessage;
 import edu.uci.ics.asterix.file.FeedOperations;
 import edu.uci.ics.asterix.metadata.feeds.FeedUtil;
 import edu.uci.ics.asterix.metadata.feeds.PrepareStallMessage;
@@ -159,29 +159,24 @@ public class FeedLoadManager implements IFeedLoadManager {
         PrepareStallMessage stallMessage = new PrepareStallMessage(connectionId, computePartitionRetainLimit);
         List<String> intakeLocations = FeedLifecycleListener.INSTANCE.getCollectLocations(connectionId);
         List<String> computeLocations = FeedLifecycleListener.INSTANCE.getComputeLocations(connectionId.getFeedId());
-        String[] storageLocations = FeedLifecycleListener.INSTANCE.getStoreLocations(connectionId);
+        List<String> storageLocations = FeedLifecycleListener.INSTANCE.getStoreLocations(connectionId);
 
         Set<String> operatorLocations = new HashSet<String>();
-        for (String loc : intakeLocations) {
-            operatorLocations.add(loc);
-        }
-        operatorLocations.addAll(computeLocations);
-        for (String loc : storageLocations) {
-            operatorLocations.add(loc);
-        }
 
-        JobSpecification messageJobSpec = FeedOperations.buildPrepareStallMessageJob(stallMessage,
-                operatorLocations.toArray(new String[] {}));
+        operatorLocations.addAll(intakeLocations);
+        operatorLocations.addAll(computeLocations);
+        operatorLocations.addAll(storageLocations);
+
+        JobSpecification messageJobSpec = FeedOperations.buildPrepareStallMessageJob(stallMessage, operatorLocations);
         runJob(messageJobSpec, true);
 
         // Step 2)
         TerminateDataFlowMessage terminateMesg = new TerminateDataFlowMessage(connectionId);
-        messageJobSpec = FeedOperations.buildTerminateFlowMessageJob(terminateMesg,
-                intakeLocations.toArray(new String[] {}));
+        messageJobSpec = FeedOperations.buildTerminateFlowMessageJob(terminateMesg, intakeLocations);
         runJob(messageJobSpec, true);
     }
 
-    private JobId runJob(JobSpecification spec, boolean waitForCompletion) throws Exception {
+    public static JobId runJob(JobSpecification spec, boolean waitForCompletion) throws Exception {
         IHyracksClientConnection hcc = AsterixAppContextInfo.getInstance().getHcc();
         JobId jobId = hcc.startJob(spec);
         if (waitForCompletion) {
@@ -207,6 +202,19 @@ public class FeedLoadManager implements IFeedLoadManager {
             }
         }
         return nodeIds;
+    }
+
+    @Override
+    public synchronized List<String> getNodes(int required) {
+        Iterator<NodeLoadReport> it;
+        List<String> allocated = new ArrayList<String>();
+        while (allocated.size() < required) {
+            it = nodeReports.iterator();
+            while (it.hasNext() && allocated.size() < required) {
+                allocated.add(it.next().getNodeId());
+            }
+        }
+        return allocated;
     }
 
 }

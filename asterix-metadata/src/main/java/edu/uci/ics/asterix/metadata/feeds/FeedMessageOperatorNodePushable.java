@@ -23,7 +23,6 @@ import java.util.logging.Logger;
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
 import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
-import edu.uci.ics.asterix.common.feeds.EndFeedMessage;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedFrameCollector;
 import edu.uci.ics.asterix.common.feeds.FeedFrameCollector.State;
@@ -32,14 +31,18 @@ import edu.uci.ics.asterix.common.feeds.FeedRuntime;
 import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.FeedRuntimeInputHandler;
 import edu.uci.ics.asterix.common.feeds.FeedRuntimeManager;
+import edu.uci.ics.asterix.common.feeds.FeedTupleCommitResponseMessage;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
+import edu.uci.ics.asterix.common.feeds.MonitoredBufferTimerTasks.MonitoredBufferStorageTimerTask;
 import edu.uci.ics.asterix.common.feeds.SubscribableFeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.api.IAdapterRuntimeManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMessage;
+import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
 import edu.uci.ics.asterix.common.feeds.api.ISubscribableRuntime;
+import edu.uci.ics.asterix.common.feeds.message.EndFeedMessage;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -96,6 +99,11 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                     handleTerminateFlowMessage(connectionId);
                     break;
                 }
+                case COMMIT_ACK_RESPONSE: {
+                    FeedTupleCommitResponseMessage commitResponseMessage = (FeedTupleCommitResponseMessage) message;
+                    handleFeedTupleCommitResponseMessage(commitResponseMessage);
+                    break;
+                }
             }
 
         } catch (Exception e) {
@@ -103,6 +111,32 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
             throw new HyracksDataException(e);
         } finally {
             writer.close();
+        }
+    }
+
+    private void handleFeedTupleCommitResponseMessage(FeedTupleCommitResponseMessage commitResponseMessage) {
+        FeedConnectionId connectionId = commitResponseMessage.getConnectionId();
+        FeedRuntimeManager runtimeManager = feedManager.getFeedConnectionManager().getFeedRuntimeManager(connectionId);
+        Set<FeedRuntimeId> runtimes = runtimeManager.getFeedRuntimes();
+        for (FeedRuntimeId runtimeId : runtimes) {
+            if (runtimeId.getFeedRuntimeType().equals(FeedRuntimeType.STORE)) {
+                FeedRuntime runtime = runtimeManager.getFeedRuntime(runtimeId);
+                MonitoredBufferStorageTimerTask sTask = runtime.getInputHandler().getmBuffer()
+                        .getStorageTimeTrackingRateTask();
+                sTask.receiveCommitAckResponse(commitResponseMessage);
+            }
+        }
+
+        commitResponseMessage.getIntakePartition();
+        SubscribableFeedRuntimeId sid = new SubscribableFeedRuntimeId(connectionId.getFeedId(), FeedRuntimeType.INTAKE,
+                partition);
+        IngestionRuntime ingestionRuntime = (IngestionRuntime) feedManager.getFeedSubscriptionManager()
+                .getSubscribableRuntime(sid);
+        if (ingestionRuntime != null) {
+            IIntakeProgressTracker tracker = ingestionRuntime.getAdapterRuntimeManager().getProgressTracker();
+            if (tracker != null) {
+                tracker.notifyIngestedTupleTimestamp(System.currentTimeMillis());
+            }
         }
     }
 

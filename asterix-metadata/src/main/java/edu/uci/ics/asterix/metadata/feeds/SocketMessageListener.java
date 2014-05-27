@@ -22,24 +22,30 @@ import java.nio.CharBuffer;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class MessageListener {
+import edu.uci.ics.asterix.common.feeds.api.IMessageReceiver;
 
-    private static final Logger LOGGER = Logger.getLogger(MessageListener.class.getName());
+/**
+ * Listens for messages at a configured port and redirects them to a
+ * an instance of {@code IMessageReceiver}.
+ * Messages may arrive in parallel from multiple senders. Each sender is handled by
+ * a respective instance of {@code ClientHandler}.
+ */
+public class SocketMessageListener {
+
+    private static final Logger LOGGER = Logger.getLogger(SocketMessageListener.class.getName());
 
     private final int port;
-    private final LinkedBlockingQueue<String> outbox;
+    private final IMessageReceiver<String> messageReceiver;
 
     private ExecutorService executorService = Executors.newFixedThreadPool(10);
-
     private MessageListenerServer listenerServer;
 
-    public MessageListener(int port, LinkedBlockingQueue<String> outbox) {
+    public SocketMessageListener(int port, IMessageReceiver<String> messageReceiver) {
         this.port = port;
-        this.outbox = outbox;
+        this.messageReceiver = messageReceiver;
     }
 
     public void stop() {
@@ -47,6 +53,7 @@ public class MessageListener {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Stopped message service at " + port);
         }
+        messageReceiver.close(false);
         if (!executorService.isShutdown()) {
             executorService.shutdownNow();
         }
@@ -55,7 +62,8 @@ public class MessageListener {
 
     public void start() {
         try {
-            listenerServer = new MessageListenerServer(port, outbox);
+            messageReceiver.start();
+            listenerServer = new MessageListenerServer(port, messageReceiver);
             executorService.execute(listenerServer);
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Starting message service at " + port);
@@ -70,13 +78,13 @@ public class MessageListener {
     private static class MessageListenerServer implements Runnable {
 
         private final int port;
-        private final LinkedBlockingQueue<String> outbox;
+        private final IMessageReceiver<String> messageReceiver;
         private ServerSocket server;
         private final Executor executor;
 
-        public MessageListenerServer(int port, LinkedBlockingQueue<String> outbox) {
+        public MessageListenerServer(int port, IMessageReceiver<String> messageReceiver) {
             this.port = port;
-            this.outbox = outbox;
+            this.messageReceiver = messageReceiver;
             this.executor = Executors.newCachedThreadPool();
         }
 
@@ -95,13 +103,12 @@ public class MessageListener {
                 server = new ServerSocket(port);
                 while (true) {
                     client = server.accept();
-                    ClientHandler handler = new ClientHandler(client, outbox);
+                    ClientHandler handler = new ClientHandler(client, messageReceiver);
                     executor.execute(handler);
                     if (LOGGER.isLoggable(Level.INFO)) {
                         LOGGER.info("Received connection request from " + client);
                     }
                 }
-
             } catch (Exception e) {
                 if (LOGGER.isLoggable(Level.WARNING)) {
                     LOGGER.warning("Unable to start Message listener" + server);
@@ -119,13 +126,14 @@ public class MessageListener {
 
         private static class ClientHandler implements Runnable {
 
-            private final Socket client;
-            private final LinkedBlockingQueue<String> outbox;
-            private static char EOL = (char) "\n".getBytes()[0];
+            private static final char EOL = (char) "\n".getBytes()[0];
 
-            public ClientHandler(Socket client, LinkedBlockingQueue<String> outbox) {
+            private final Socket client;
+            private final IMessageReceiver<String> messageReceiver;
+
+            public ClientHandler(Socket client, IMessageReceiver<String> messageReceiver) {
                 this.client = client;
-                this.outbox = outbox;
+                this.messageReceiver = messageReceiver;
             }
 
             @Override
@@ -145,13 +153,12 @@ public class MessageListener {
                         }
                         buffer.flip();
                         String s = new String(buffer.array(), 0, buffer.limit());
-                        synchronized (outbox) {
-                            outbox.add(s + "\n");
-                        }
+                        messageReceiver.sendMessage(s + "\n");
                         buffer.position(0);
                         buffer.limit(5000);
                     }
                 } catch (Exception e) {
+                    e.printStackTrace();
                     if (LOGGER.isLoggable(Level.WARNING)) {
                         LOGGER.warning("Unable to process mesages from client" + client);
                     }

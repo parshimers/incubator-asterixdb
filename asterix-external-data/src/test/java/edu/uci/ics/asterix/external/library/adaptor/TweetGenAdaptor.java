@@ -21,9 +21,9 @@ import java.util.Map;
 
 import edu.uci.ics.asterix.common.feeds.api.IFeedAdapter;
 import edu.uci.ics.asterix.external.dataset.adapter.StreamBasedAdapter;
+import edu.uci.ics.asterix.metadata.utils.IAsterixTupleParserFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
-import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 
 public class TweetGenAdaptor extends StreamBasedAdapter implements IFeedAdapter {
 
@@ -35,9 +35,9 @@ public class TweetGenAdaptor extends StreamBasedAdapter implements IFeedAdapter 
 
     private Socket socket;
 
-    public TweetGenAdaptor(ITupleParserFactory parserFactory, ARecordType sourceDatatype, IHyracksTaskContext ctx,
-            Map<String, String> configuration) throws IOException {
-        super(parserFactory, sourceDatatype, ctx);
+    public TweetGenAdaptor(IAsterixTupleParserFactory parserFactory, ARecordType sourceDatatype,
+            IHyracksTaskContext ctx, Map<String, String> configuration, int partition) throws IOException {
+        super(parserFactory, sourceDatatype, ctx, partition);
         this.host = configuration.get(TweetGenAdaptorFactory.TWIITER_SERVER_HOST);
         this.port = Integer.parseInt(configuration.get(TweetGenAdaptorFactory.TWIITER_SERVER_PORT));
     }

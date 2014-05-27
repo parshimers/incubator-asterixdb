@@ -12,15 +12,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.asterix.common.feeds;
+package edu.uci.ics.asterix.common.feeds.message;
 
 import edu.uci.ics.asterix.common.feeds.api.IFeedMessage;
+import edu.uci.ics.hyracks.api.dataflow.value.JSONSerializable;
 
 /**
  * A control message that can be sent to the runtime instance of a
  * feed's adapter.
  */
-public abstract class FeedMessage implements IFeedMessage {
+public abstract class FeedMessage implements IFeedMessage, JSONSerializable {
 
     private static final long serialVersionUID = 1L;
 

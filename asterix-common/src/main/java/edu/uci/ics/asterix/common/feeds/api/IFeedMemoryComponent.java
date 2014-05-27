@@ -23,13 +23,14 @@ public interface IFeedMemoryComponent {
 
     public enum Type {
 
-        /** A pool of reusble frames **/
+        /** A pool of reusable frames **/
         POOL,
 
         /** An ordered list of frames **/
         COLLECTION
     }
 
+    /** Returns the unique id associated with the memory component **/
     public int getComponentId();
 
     /** Returns the type associated with the component. **/

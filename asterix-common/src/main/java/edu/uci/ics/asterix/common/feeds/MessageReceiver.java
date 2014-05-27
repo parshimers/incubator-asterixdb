@@ -33,10 +33,6 @@ public abstract class MessageReceiver<T> implements IMessageReceiver<T> {
         inbox = new LinkedBlockingQueue<T>();
     }
 
-    public MessageReceiver(LinkedBlockingQueue<T> inbox) {
-        this.inbox = inbox;
-    }
-
     public abstract void processMessage(T message) throws Exception;
 
     @Override
@@ -46,7 +42,7 @@ public abstract class MessageReceiver<T> implements IMessageReceiver<T> {
     }
 
     @Override
-    public void sendMessage(T message) {
+    public synchronized void sendMessage(T message) {
         inbox.add(message);
     }
 

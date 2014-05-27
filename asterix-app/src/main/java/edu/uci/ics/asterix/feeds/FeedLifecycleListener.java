@@ -44,14 +44,14 @@ import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FeedIntakeInfo;
 import edu.uci.ics.asterix.common.feeds.FeedJobInfo;
-import edu.uci.ics.asterix.common.feeds.StorageReportFeedMessage;
 import edu.uci.ics.asterix.common.feeds.FeedJobInfo.FeedJobState;
 import edu.uci.ics.asterix.common.feeds.FeedJointKey;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
-import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
 import edu.uci.ics.asterix.common.feeds.api.IFeedJoint;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleEventSubscriber;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleListener;
+import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
+import edu.uci.ics.asterix.common.feeds.message.StorageReportFeedMessage;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
 import edu.uci.ics.asterix.metadata.cluster.AddNodeWork;
@@ -403,13 +403,13 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
     }
 
     @Override
-    public String[] getIntakeLocations(FeedId feedId) {
-        return feedJobNotificationHandler.getFeedIntakeLocations(feedId).toArray(new String[] {});
+    public List<String> getIntakeLocations(FeedId feedId) {
+        return feedJobNotificationHandler.getFeedIntakeLocations(feedId);
     }
 
     @Override
-    public String[] getStoreLocations(FeedConnectionId feedConnectionId) {
-        return feedJobNotificationHandler.getFeedStorageLocations(feedConnectionId).toArray(new String[] {});
+    public List<String> getStoreLocations(FeedConnectionId feedConnectionId) {
+        return feedJobNotificationHandler.getFeedStorageLocations(feedConnectionId);
     }
 
     @Override

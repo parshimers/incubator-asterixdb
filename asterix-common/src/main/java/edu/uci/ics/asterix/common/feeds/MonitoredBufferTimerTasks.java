@@ -14,6 +14,10 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.TimerTask;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -23,6 +27,8 @@ import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
 import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback;
 import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback.FrameEvent;
+import edu.uci.ics.asterix.common.feeds.message.ScaleInReportMessage;
+import edu.uci.ics.asterix.common.feeds.message.StorageReportFeedMessage;
 
 public class MonitoredBufferTimerTasks {
 
@@ -35,43 +41,62 @@ public class MonitoredBufferTimerTasks {
         private final int partition;
         private final FeedConnectionId connectionId;
         private final FeedPolicyAccessor policyAccessor;
+        private final StorageFrameHandler storageFromeHandler;
 
+        private Map<Integer, Integer> maxIntakeBaseCovered;
         private int countDelayExceeded = 0;
         private final StorageReportFeedMessage storageReportMessage;
+        private final FeedTupleCommitAckMessage tupleCommitAckMessage;
 
         private static final int PERSISTENCE_DELAY_VIOLATION_MAX = 5;
 
         public MonitoredBufferStorageTimerTask(MonitoredBuffer mBuffer, IFeedManager feedManager,
-                FeedConnectionId connectionId, int partition, FeedPolicyAccessor policyAccessor) {
+                FeedConnectionId connectionId, int partition, FeedPolicyAccessor policyAccessor,
+                StorageFrameHandler storageFromeHandler) {
             this.mBuffer = mBuffer;
             this.feedManager = feedManager;
             this.connectionId = connectionId;
             this.partition = partition;
             this.policyAccessor = policyAccessor;
-            this.storageReportMessage = new StorageReportFeedMessage(this.connectionId, this.partition, 0, false, 0);
+            this.storageFromeHandler = storageFromeHandler;
+            this.storageReportMessage = new StorageReportFeedMessage(this.connectionId, this.partition, 0, false, 0, 0);
+            this.tupleCommitAckMessage = new FeedTupleCommitAckMessage(this.connectionId, 0, 0, null);
+            this.maxIntakeBaseCovered = new HashMap<Integer, Integer>();
         }
 
         @Override
         public void run() {
-            boolean sendReport = false;
-            boolean delayWithinLimit = true;
+            Set<Integer> partitions = storageFromeHandler.getPartitionsWithStats();
+            for (int intakePartition : partitions) {
+                Map<Integer, IntakePartitionStatistics> baseAcks = storageFromeHandler
+                        .getBaseAcksForPartition(intakePartition);
+                for (Entry<Integer, IntakePartitionStatistics> entry : baseAcks.entrySet()) {
+                    int base = entry.getKey();
+                    IntakePartitionStatistics stats = entry.getValue();
+                    if (maxIntakeBaseCovered.get(intakePartition) != null
+                            && maxIntakeBaseCovered.get(intakePartition) < base) {
+                        tupleCommitAckMessage.reset(intakePartition, base, stats.getAckInfo());
+                        feedManager.getFeedMessageService().sendMessage(tupleCommitAckMessage);
+                    }
+                }
+            }
 
-            long timestamp = mBuffer.getLastPersistedTupleIntakeTimestamp();
-            sendReport = timestamp > storageReportMessage.getLastPersistedTupleIntakeTimestamp();
-            if (mBuffer.getAvgDelayRecordPersistence() > policyAccessor.getMaxDelayRecordPersistence()) {
+            long avgDelayPersistence = storageFromeHandler.getAvgDelayPersistence();
+            if (avgDelayPersistence > policyAccessor.getMaxDelayRecordPersistence()) {
                 countDelayExceeded++;
                 if (countDelayExceeded > PERSISTENCE_DELAY_VIOLATION_MAX) {
-                    sendReport = true;
-                    delayWithinLimit = false;
+                    storageReportMessage.reset(0, false, mBuffer.getAvgDelayRecordPersistence());
+                    feedManager.getFeedMessageService().sendMessage(storageReportMessage);
                 }
             } else {
                 countDelayExceeded = 0;
             }
 
-            if (sendReport) {
-                storageReportMessage.reset(timestamp, delayWithinLimit, mBuffer.getAvgDelayRecordPersistence());
-            }
-            feedManager.getFeedMessageService().sendMessage(storageReportMessage);
+        }
+
+        public void receiveCommitAckResponse(FeedTupleCommitResponseMessage message) {
+            System.out.println("Received " + message);
+            maxIntakeBaseCovered.put(message.getIntakePartition(), message.getMaxWindowAcked());
         }
     }
 

@@ -19,7 +19,6 @@ import java.io.InputStream;
 import java.util.Map;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
-import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
 import edu.uci.ics.asterix.external.adapter.factory.HDFSAdapterFactory;
 import edu.uci.ics.asterix.external.adapter.factory.NCFileSystemAdapterFactory;
@@ -27,8 +26,8 @@ import edu.uci.ics.asterix.external.adapter.factory.StreamBasedAdapterFactory;
 import edu.uci.ics.asterix.external.dataset.adapter.FileSystemBasedAdapter;
 import edu.uci.ics.asterix.metadata.feeds.IAdapterFactory;
 import edu.uci.ics.asterix.metadata.feeds.IFeedAdapterFactory;
-import edu.uci.ics.asterix.metadata.utils.GenericTupleParserFactory;
-import edu.uci.ics.asterix.metadata.utils.GenericTupleParserFactory.InputDataFormat;
+import edu.uci.ics.asterix.metadata.utils.AsterixTupleParserFactory;
+import edu.uci.ics.asterix.metadata.utils.AsterixTupleParserFactory.InputDataFormat;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.runtime.operators.file.ADMDataParser;
 import edu.uci.ics.asterix.runtime.operators.file.AbstractTupleParser;
@@ -61,7 +60,6 @@ public class RateControlledFileSystemBasedAdapterFactory extends StreamBasedAdap
 
     private IAdapterFactory adapterFactory;
     private String format;
-    private Map<String, String> configuration;
     private ARecordType atype;
 
     @Override
@@ -112,16 +110,12 @@ public class RateControlledFileSystemBasedAdapterFactory extends StreamBasedAdap
         format = configuration.get(KEY_FORMAT);
         adapterFactory = (IAdapterFactory) Class.forName(adapterFactoryClass).newInstance();
         adapterFactory.configure(configuration, outputType);
-        configureFormat();
+        configureFormat(outputType);
     }
 
     @Override
     public AlgebricksPartitionConstraint getPartitionConstraint() throws Exception {
         return adapterFactory.getPartitionConstraint();
-    }
-
-    private void configureFormat() throws Exception {
-        parserFactory = new GenericTupleParserFactory(configuration, atype, getInputDataFormat());
     }
 
     @Override

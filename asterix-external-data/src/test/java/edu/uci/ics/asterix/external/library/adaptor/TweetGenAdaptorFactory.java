@@ -20,13 +20,13 @@ import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
 import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
 import edu.uci.ics.asterix.external.adapter.factory.StreamBasedAdapterFactory;
 import edu.uci.ics.asterix.metadata.feeds.IFeedAdapterFactory;
-import edu.uci.ics.asterix.metadata.utils.GenericTupleParserFactory;
-import edu.uci.ics.asterix.metadata.utils.GenericTupleParserFactory.InputDataFormat;
+import edu.uci.ics.asterix.metadata.utils.AsterixTupleParserFactory;
+import edu.uci.ics.asterix.metadata.utils.AsterixTupleParserFactory.InputDataFormat;
+import edu.uci.ics.asterix.metadata.utils.IAsterixTupleParserFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksCountPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
-import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 
 public class TweetGenAdaptorFactory extends StreamBasedAdapterFactory implements IFeedAdapterFactory {
 
@@ -58,9 +58,9 @@ public class TweetGenAdaptorFactory extends StreamBasedAdapterFactory implements
 
     @Override
     public IDatasourceAdapter createAdapter(IHyracksTaskContext ctx, int partition) throws Exception {
-        ITupleParserFactory tupleParserFactory = new GenericTupleParserFactory(configuration, outputType,
+        IAsterixTupleParserFactory tupleParserFactory = new AsterixTupleParserFactory(configuration, outputType,
                 getInputDataFormat());
-        return new TweetGenAdaptor(tupleParserFactory, outputType, ctx, configuration);
+        return new TweetGenAdaptor(tupleParserFactory, outputType, ctx, configuration, partition);
     }
 
     @Override

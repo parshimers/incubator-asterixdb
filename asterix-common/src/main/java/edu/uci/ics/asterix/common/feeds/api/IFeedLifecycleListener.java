@@ -37,9 +37,9 @@ public interface IFeedLifecycleListener extends IJobLifecycleListener, IClusterE
 
     public List<String> getComputeLocations(FeedId feedId);
 
-    public String[] getIntakeLocations(FeedId feedId);
+    public List<String> getIntakeLocations(FeedId feedId);
 
-    public String[] getStoreLocations(FeedConnectionId feedId);
+    public List<String> getStoreLocations(FeedConnectionId feedId);
 
     public void registerFeedEventSubscriber(FeedConnectionId connectionId, IFeedLifecycleEventSubscriber subscriber);
 

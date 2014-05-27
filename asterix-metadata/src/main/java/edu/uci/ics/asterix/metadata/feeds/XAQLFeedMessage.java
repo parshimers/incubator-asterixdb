@@ -19,7 +19,7 @@ import org.json.JSONObject;
 
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedConstants;
-import edu.uci.ics.asterix.common.feeds.FeedMessage;
+import edu.uci.ics.asterix.common.feeds.message.FeedMessage;
 
 /**
  * A feed control message indicating the need to execute a give AQL.

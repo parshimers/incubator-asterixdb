@@ -43,7 +43,7 @@ public class FeedManager implements IFeedManager {
 
     private static final Logger LOGGER = Logger.getLogger(FeedManager.class.getName());
 
-    private final IFeedSubscriptionManager feedIngestionManager;
+    private final IFeedSubscriptionManager feedSubscriptionManager;
 
     private final IFeedConnectionManager feedConnectionManager;
 
@@ -63,7 +63,7 @@ public class FeedManager implements IFeedManager {
 
     public FeedManager(String nodeId, AsterixFeedProperties feedProperties, int frameSize) throws AsterixException {
         this.nodeId = nodeId;
-        this.feedIngestionManager = new FeedSubscriptionManager(nodeId);
+        this.feedSubscriptionManager = new FeedSubscriptionManager(nodeId);
         this.feedConnectionManager = new FeedConnectionManager(nodeId);
         this.feedMetadataManager = new FeedMetadataManager(nodeId);
         this.feedMemoryManager = new FeedMemoryManager(nodeId, feedProperties, frameSize);
@@ -86,7 +86,7 @@ public class FeedManager implements IFeedManager {
 
     @Override
     public IFeedSubscriptionManager getFeedSubscriptionManager() {
-        return feedIngestionManager;
+        return feedSubscriptionManager;
     }
 
     @Override
@@ -116,6 +116,11 @@ public class FeedManager implements IFeedManager {
     @Override
     public IFeedMessageService getFeedMessageService() {
         return feedMessageService;
+    }
+
+    @Override
+    public String getNodeId() {
+        return nodeId;
     }
 
     @Override

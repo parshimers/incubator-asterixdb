@@ -24,6 +24,7 @@ import java.util.TimerTask;
 import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMessageService;
 import edu.uci.ics.asterix.common.feeds.api.IFeedService;
+import edu.uci.ics.asterix.common.feeds.message.NodeReportMessage;
 
 public class NodeLoadReportService implements IFeedService {
 

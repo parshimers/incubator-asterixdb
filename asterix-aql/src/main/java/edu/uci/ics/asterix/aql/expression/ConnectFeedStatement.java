@@ -76,6 +76,7 @@ public class ConnectFeedStatement implements Statement {
         this.varCounter = varCounter;
     }
 
+    /*
     public void initialize(MetadataTransactionContext mdTxnCtx, Dataset targetDataset, Feed sourceFeed)
             throws MetadataException {
         query = new Query();
@@ -136,7 +137,7 @@ public class ConnectFeedStatement implements Statement {
             throw new MetadataException(pe);
         }
 
-    }
+    }*/
 
     public Identifier getDataverseName() {
         return dataverseName;

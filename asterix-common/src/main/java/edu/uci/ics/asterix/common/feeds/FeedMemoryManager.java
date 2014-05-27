@@ -26,18 +26,14 @@ import edu.uci.ics.asterix.common.feeds.api.IFeedMemoryManager;
 public class FeedMemoryManager implements IFeedMemoryManager {
 
     private static final Logger LOGGER = Logger.getLogger(FeedMemoryManager.class.getName());
-
     private static final int ALLOCATION_INCREMENT = 10;
 
     private final AtomicInteger componentId = new AtomicInteger(0);
-
     private final String nodeId;
-
-    private int budget;
+    private final int budget;
+    private final int frameSize;
 
     private int committed;
-
-    private final int frameSize;
 
     public FeedMemoryManager(String nodeId, AsterixFeedProperties feedProperties, int frameSize) {
         this.nodeId = nodeId;

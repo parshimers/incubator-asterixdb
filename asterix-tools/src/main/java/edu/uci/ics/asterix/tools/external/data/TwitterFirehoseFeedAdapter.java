@@ -27,10 +27,10 @@ import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.feeds.api.IFeedAdapter;
 import edu.uci.ics.asterix.external.dataset.adapter.StreamBasedAdapter;
+import edu.uci.ics.asterix.metadata.utils.IAsterixTupleParserFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
-import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 
 /**
  * A simulator of the Twitter Firehose. Generates meaningful tweets
@@ -50,9 +50,9 @@ public class TwitterFirehoseFeedAdapter extends StreamBasedAdapter implements IF
 
     private final TwitterServer twitterServer;
 
-    public TwitterFirehoseFeedAdapter(Map<String, String> configuration, ITupleParserFactory parserFactory,
-            ARecordType outputtype, int partition, IHyracksTaskContext ctx) throws Exception {
-        super(parserFactory, outputtype, ctx);
+    public TwitterFirehoseFeedAdapter(Map<String, String> configuration, IAsterixTupleParserFactory parserFactory,
+            ARecordType outputtype, IHyracksTaskContext ctx, int partition) throws Exception {
+        super(parserFactory, outputtype, ctx, partition);
         this.twitterServer = new TwitterServer(configuration, partition, outputtype, outputStream, executorService);
     }
 

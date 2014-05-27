@@ -26,6 +26,7 @@ import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMemoryComponent;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
+import edu.uci.ics.asterix.common.feeds.message.FeedCongestionMessage;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -38,24 +39,24 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
 
     private static Logger LOGGER = Logger.getLogger(FeedRuntimeInputHandler.class.getName());
 
-    private IFrameWriter coreOperator;
     private final FeedConnectionId connectionId;
     private final FeedRuntimeId runtimeId;
     private final FeedPolicyAccessor feedPolicyAccessor;
     private final boolean bufferingEnabled;
     private final IExceptionHandler exceptionHandler;
+    private final FeedFrameDiscarder discarder;
+    private final FeedFrameSpiller spiller;
+    private final FeedPolicyAccessor fpa;
+    private final IFeedManager feedManager;
 
+    private IFrameWriter coreOperator;
     private MonitoredBuffer mBuffer;
     private DataBucketPool pool;
     private FrameCollection frameCollection;
     private Mode mode;
     private Mode lastMode;
-    private final FeedFrameDiscarder discarder;
-    private final FeedFrameSpiller spiller;
     private boolean finished;
     private long nProcessed;
-    private final FeedPolicyAccessor fpa;
-    private final IFeedManager feedManager;
     private FrameEventCallback frameEventCallback;
 
     public FeedRuntimeInputHandler(FeedConnectionId connectionId, FeedRuntimeId runtimeId, IFrameWriter coreOperator,
@@ -379,6 +380,10 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
 
     public IFeedManager getFeedManager() {
         return feedManager;
+    }
+
+    public MonitoredBuffer getmBuffer() {
+        return mBuffer;
     }
 
 }

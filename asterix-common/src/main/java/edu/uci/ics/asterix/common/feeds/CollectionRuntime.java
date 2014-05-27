@@ -43,6 +43,35 @@ public class CollectionRuntime extends FeedRuntime implements ISubscriberRuntime
         this.feedPolicy = feedPolicy;
     }
 
+    public State waitTillCollectionOver() throws InterruptedException {
+        if (!(isCollectionOver())) {
+            synchronized (frameCollector) {
+                while (!isCollectionOver()) {
+                    frameCollector.wait();
+                }
+            }
+        }
+        return frameCollector.getState();
+    }
+
+    private boolean isCollectionOver() {
+        return frameCollector.getState().equals(FeedFrameCollector.State.FINISHED)
+                || frameCollector.getState().equals(FeedFrameCollector.State.HANDOVER);
+    }
+
+    public void setMode(Mode mode) {
+        getInputHandler().setMode(mode);
+    }
+
+    @Override
+    public Map<String, String> getFeedPolicy() {
+        return feedPolicy;
+    }
+
+    public FeedConnectionId getConnectionId() {
+        return connectionId;
+    }
+
     public ISubscribableRuntime getSourceRuntime() {
         return sourceRuntime;
     }
@@ -53,33 +82,6 @@ public class CollectionRuntime extends FeedRuntime implements ISubscriberRuntime
 
     public FeedFrameCollector getFrameCollector() {
         return frameCollector;
-    }
-
-    public State waitTillCollectionOver() throws InterruptedException {
-        if (!(frameCollector.getState().equals(FeedFrameCollector.State.FINISHED) || frameCollector.getState().equals(
-                FeedFrameCollector.State.HANDOVER))) {
-            synchronized (frameCollector) {
-                while (!(frameCollector.getState().equals(FeedFrameCollector.State.FINISHED) || frameCollector
-                        .getState().equals(FeedFrameCollector.State.HANDOVER))) {
-                    frameCollector.wait();
-                }
-            }
-        }
-        return frameCollector.getState();
-    }
-
-    public void setMode(Mode mode) {
-        FeedRuntimeInputHandler inputSideHandler = (FeedRuntimeInputHandler) getInputHandler();
-        inputSideHandler.setMode(mode);
-    }
-
-    @Override
-    public Map<String, String> getFeedPolicy() {
-        return feedPolicy;
-    }
-
-    public FeedConnectionId getConnectionId() {
-        return connectionId;
     }
 
 }

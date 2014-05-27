@@ -12,12 +12,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.asterix.common.feeds;
+package edu.uci.ics.asterix.common.feeds.message;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedConstants;
 import edu.uci.ics.asterix.common.feeds.FeedConstants.MessageConstants;
+import edu.uci.ics.asterix.common.feeds.FeedId;
 
 /**
  * A feed control message sent from a storage runtime of a feed pipeline to report the intake timestamp corresponding
@@ -29,19 +32,21 @@ public class StorageReportFeedMessage extends FeedMessage {
 
     private final FeedConnectionId connectionId;
     private final int partition;
-
     private long lastPersistedTupleIntakeTimestamp;
     private boolean persistenceDelayWithinLimit;
     private long averageDelay;
+    private int intakePartition;
 
     public StorageReportFeedMessage(FeedConnectionId connectionId, int partition,
-            long lastPersistedTupleIntakeTimestamp, boolean persistenceDelayWithinLimit, long averageDelay) {
+            long lastPersistedTupleIntakeTimestamp, boolean persistenceDelayWithinLimit, long averageDelay,
+            int intakePartition) {
         super(MessageType.STORAGE_REPORT);
         this.connectionId = connectionId;
         this.partition = partition;
         this.lastPersistedTupleIntakeTimestamp = lastPersistedTupleIntakeTimestamp;
         this.persistenceDelayWithinLimit = persistenceDelayWithinLimit;
         this.averageDelay = averageDelay;
+        this.intakePartition = intakePartition;
     }
 
     @Override
@@ -77,6 +82,10 @@ public class StorageReportFeedMessage extends FeedMessage {
         this.averageDelay = averageDelay;
     }
 
+    public int getIntakePartition() {
+        return intakePartition;
+    }
+
     @Override
     public JSONObject toJSON() throws JSONException {
         JSONObject obj = new JSONObject();
@@ -88,6 +97,8 @@ public class StorageReportFeedMessage extends FeedMessage {
         obj.put(MessageConstants.PERSISTENCE_DELAY_WITHIN_LIMIT, persistenceDelayWithinLimit);
         obj.put(MessageConstants.AVERAGE_PERSISTENCE_DELAY, averageDelay);
         obj.put(FeedConstants.MessageConstants.PARTITION, partition);
+        obj.put(FeedConstants.MessageConstants.INTAKE_PARTITION, intakePartition);
+
         return obj;
     }
 
@@ -100,8 +111,9 @@ public class StorageReportFeedMessage extends FeedMessage {
         long timestamp = obj.getLong(FeedConstants.MessageConstants.LAST_PERSISTED_TUPLE_INTAKE_TIMESTAMP);
         boolean persistenceDelayWithinLimit = obj.getBoolean(MessageConstants.PERSISTENCE_DELAY_WITHIN_LIMIT);
         long averageDelay = obj.getLong(MessageConstants.AVERAGE_PERSISTENCE_DELAY);
+        int intakePartition = obj.getInt(MessageConstants.INTAKE_PARTITION);
         return new StorageReportFeedMessage(connectionId, partition, timestamp, persistenceDelayWithinLimit,
-                averageDelay);
+                averageDelay, intakePartition);
     }
 
     public void reset(long lastPersistedTupleIntakeTimestamp, boolean delayWithinLimit, long averageDelay) {

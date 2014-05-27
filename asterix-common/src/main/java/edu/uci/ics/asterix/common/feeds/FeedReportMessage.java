@@ -3,8 +3,8 @@ package edu.uci.ics.asterix.common.feeds;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import edu.uci.ics.asterix.common.feeds.api.IFeedMessage;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector.ValueType;
+import edu.uci.ics.asterix.common.feeds.message.FeedMessage;
 
 /*
  * Copyright 2009-2014 by The Regents of the University of California

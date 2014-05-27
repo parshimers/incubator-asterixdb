@@ -16,10 +16,9 @@ package edu.uci.ics.asterix.common.feeds.api;
 
 import java.io.Serializable;
 
-import org.json.JSONException;
-import org.json.JSONObject;
+import edu.uci.ics.hyracks.api.dataflow.value.JSONSerializable;
 
-public interface IFeedMessage extends Serializable {
+public interface IFeedMessage extends Serializable, JSONSerializable {
 
     public enum MessageType {
         END,
@@ -30,11 +29,11 @@ public interface IFeedMessage extends Serializable {
         CONGESTION,
         PREPARE_STALL,
         TERMINATE_FLOW,
-        SCALE_IN_REQUEST
+        SCALE_IN_REQUEST,
+        COMMIT_ACK,
+        COMMIT_ACK_RESPONSE
     }
 
     public MessageType getMessageType();
-
-    public JSONObject toJSON() throws JSONException;
 
 }

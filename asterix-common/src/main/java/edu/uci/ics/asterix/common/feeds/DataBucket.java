@@ -37,11 +37,11 @@ public class DataBucket {
     }
 
     public DataBucket(DataBucketPool pool) {
-        content = ByteBuffer.allocate(pool.getFrameSize());
-        readCount = new AtomicInteger(0);
+        this.content = ByteBuffer.allocate(pool.getFrameSize());
+        this.readCount = new AtomicInteger(0);
         this.pool = pool;
         this.contentType = ContentType.DATA;
-        bucketId = globalBucketId.incrementAndGet();
+        this.bucketId = globalBucketId.incrementAndGet();
     }
 
     public synchronized void reset(ByteBuffer frame) {

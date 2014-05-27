@@ -14,23 +14,29 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 public class NodeLoadReport implements Comparable<NodeLoadReport> {
 
     private final String nodeId;
+    private float cpuLoad;
+    private double usedHeap;
+    private int nRuntimes;
 
-    private final float avgCpuLoad;
-
-    public NodeLoadReport(String nodeId, float avgCpuLoad) {
+    public NodeLoadReport(String nodeId, float cpuLoad, float usedHeap, int nRuntimes) {
         this.nodeId = nodeId;
-        this.avgCpuLoad = avgCpuLoad;
+        this.cpuLoad = cpuLoad;
+        this.usedHeap = usedHeap;
+        this.nRuntimes = nRuntimes;
     }
 
-    public String getNodeId() {
-        return nodeId;
-    }
-
-    public float getAvgCpuLoad() {
-        return avgCpuLoad;
+    public static NodeLoadReport read(JSONObject obj) throws JSONException {
+        NodeLoadReport r = new NodeLoadReport(obj.getString(FeedConstants.MessageConstants.NODE_ID),
+                (float) obj.getDouble(FeedConstants.MessageConstants.CPU_LOAD),
+                (float) obj.getDouble(FeedConstants.MessageConstants.HEAP_USAGE),
+                obj.getInt(FeedConstants.MessageConstants.N_RUNTIMES));
+        return r;
     }
 
     @Override
@@ -51,6 +57,39 @@ public class NodeLoadReport implements Comparable<NodeLoadReport> {
 
     @Override
     public int compareTo(NodeLoadReport o) {
-        return (int) (this.avgCpuLoad - ((NodeLoadReport) o).avgCpuLoad);
+        if (nRuntimes != o.getnRuntimes()) {
+            return nRuntimes - o.getnRuntimes();
+        } else {
+            return (int) (this.cpuLoad - ((NodeLoadReport) o).cpuLoad);
+        }
     }
+
+    public float getCpuLoad() {
+        return cpuLoad;
+    }
+
+    public void setCpuLoad(float cpuLoad) {
+        this.cpuLoad = cpuLoad;
+    }
+
+    public double getUsedHeap() {
+        return usedHeap;
+    }
+
+    public void setUsedHeap(double usedHeap) {
+        this.usedHeap = usedHeap;
+    }
+
+    public int getnRuntimes() {
+        return nRuntimes;
+    }
+
+    public void setnRuntimes(int nRuntimes) {
+        this.nRuntimes = nRuntimes;
+    }
+
+    public String getNodeId() {
+        return nodeId;
+    }
+
 }

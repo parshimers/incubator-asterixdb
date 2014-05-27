@@ -491,7 +491,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
     public Triple<IOperatorDescriptor, AlgebricksPartitionConstraint, IFeedAdapterFactory> buildFeedIntakeRuntime(
             JobSpecification jobSpec, PrimaryFeed primaryFeed, FeedPolicyAccessor policyAccessor) throws Exception {
         Triple<IFeedAdapterFactory, ARecordType, AdapterType> factoryOutput = null;
-        factoryOutput = FeedUtil.getPrimaryFeedFactoryAndOutput(primaryFeed, mdTxnCtx);
+        factoryOutput = FeedUtil.getPrimaryFeedFactoryAndOutput(primaryFeed, policyAccessor, mdTxnCtx);
         IFeedAdapterFactory adapterFactory = factoryOutput.first;
         FeedIntakeOperatorDescriptor feedIngestor = null;
         switch (factoryOutput.third) {

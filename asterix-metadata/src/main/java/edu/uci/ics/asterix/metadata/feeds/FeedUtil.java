@@ -31,6 +31,7 @@ import edu.uci.ics.asterix.common.dataflow.AsterixLSMInvertedIndexInsertDeleteOp
 import edu.uci.ics.asterix.common.dataflow.AsterixLSMTreeInsertDeleteOperatorDescriptor;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.functions.FunctionSignature;
@@ -401,7 +402,8 @@ public class FeedUtil {
     }
 
     public static Triple<IFeedAdapterFactory, ARecordType, AdapterType> getPrimaryFeedFactoryAndOutput(
-            PrimaryFeed feed, MetadataTransactionContext mdTxnCtx) throws AlgebricksException {
+            PrimaryFeed feed, FeedPolicyAccessor policyAccessor, MetadataTransactionContext mdTxnCtx)
+            throws AlgebricksException {
 
         String adapterName = null;
         DatasourceAdapter adapterEntity = null;
@@ -442,6 +444,7 @@ public class FeedUtil {
             }
 
             Map<String, String> configuration = feed.getAdaptorConfiguration();
+            configuration.putAll(policyAccessor.getFeedPolicy());
             adapterOutputType = getOutputType(feed, configuration);
             adapterFactory.configure(configuration, adapterOutputType);
             feedProps = new Triple<IFeedAdapterFactory, ARecordType, AdapterType>(adapterFactory, adapterOutputType,
@@ -495,15 +498,15 @@ public class FeedUtil {
         return outputType;
     }
 
-    public static String getSecondaryFeedOutput(SecondaryFeed feed, MetadataTransactionContext mdTxnCtx)
-            throws AlgebricksException, MetadataException {
+    public static String getSecondaryFeedOutput(SecondaryFeed feed, FeedPolicyAccessor policyAccessor,
+            MetadataTransactionContext mdTxnCtx) throws AlgebricksException, MetadataException {
         String outputType = null;
         String primaryFeedName = feed.getSourceFeedName();
         Feed primaryFeed = MetadataManager.INSTANCE.getFeed(mdTxnCtx, feed.getDataverseName(), primaryFeedName);
         FunctionSignature appliedFunction = primaryFeed.getAppliedFunction();
         if (appliedFunction == null) {
             Triple<IFeedAdapterFactory, ARecordType, AdapterType> result = getPrimaryFeedFactoryAndOutput(
-                    (PrimaryFeed) primaryFeed, mdTxnCtx);
+                    (PrimaryFeed) primaryFeed, policyAccessor, mdTxnCtx);
             outputType = result.second.getTypeName();
         } else {
             Function function = MetadataManager.INSTANCE.getFunction(mdTxnCtx, appliedFunction);

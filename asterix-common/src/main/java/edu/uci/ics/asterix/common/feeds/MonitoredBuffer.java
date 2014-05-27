@@ -14,14 +14,14 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.logging.Level;
 
-import edu.uci.ics.asterix.common.feeds.FeedConstants.StatisticsConstants;
 import edu.uci.ics.asterix.common.feeds.MonitoredBufferTimerTasks.MonitoredBufferProcessRateTimerTask;
+import edu.uci.ics.asterix.common.feeds.MonitoredBufferTimerTasks.MonitoredBufferStorageTimerTask;
 import edu.uci.ics.asterix.common.feeds.api.IExceptionHandler;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector.MetricType;
@@ -62,13 +62,14 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
     private int outflowReportSenderId = -1;
     private TimerTask monitorTask;
     private TimerTask processingRateTask;
-    private TimerTask storageTimeTrackingRateTask;
+    private MonitoredBufferStorageTimerTask storageTimeTrackingRateTask;
+    private StorageFrameHandler storageFromeHandler;
 
     private int processingRate = -1;
     private int frameCount = 0;
-    private long lastPersistedTupleIntakeTimestamp = 0;
     private long avgDelayPersistence = 0;
     private boolean active;
+    private Map<Integer, Long> tupleTimeStats;
 
     public MonitoredBuffer(FeedRuntimeInputHandler inputHandler, IFrameWriter frameWriter, FrameTupleAccessor fta,
             int frameSize, RecordDescriptor recordDesc, IFeedMetricCollector metricCollector,
@@ -86,8 +87,10 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
         this.frameSize = frameSize;
         this.recordDesc = recordDesc;
         this.policyAccessor = policyAccessor;
+
         initializePeriodicMonitoring(connectionId, nPartitions, policyAccessor);
         this.active = true;
+
     }
 
     private void initializePeriodicMonitoring(FeedConnectionId connectionId, int nPartitions,
@@ -99,6 +102,9 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
                 break;
             case STORE:
                 storageTimeTrackingEnabled = policyAccessor.isTimeTrackingEnabled();
+                if (storageTimeTrackingEnabled) {
+                    storageFromeHandler = new StorageFrameHandler();
+                }
             default:
                 break;
         }
@@ -120,7 +126,8 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
 
         if (storageTimeTrackingEnabled) {
             this.storageTimeTrackingRateTask = new MonitoredBufferTimerTasks.MonitoredBufferStorageTimerTask(this,
-                    inputHandler.getFeedManager(), connectionId, runtimeId.getPartition(), policyAccessor);
+                    inputHandler.getFeedManager(), connectionId, runtimeId.getPartition(), policyAccessor,
+                    storageFromeHandler);
             this.timer.scheduleAtFixedRate(storageTimeTrackingRateTask, 0, STORAGE_TIME_TRACKING_FREQUENCY);
         }
     }
@@ -207,8 +214,9 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
                         try {
                             if (runtimeId.getFeedRuntimeType().equals(FeedRuntimeType.STORE)
                                     && storageTimeTrackingEnabled) {
-                                updateTrackingInformation(frame);
-                                //updateStorageTimestamp(frame);
+                                if (storageTimeTrackingEnabled) {
+                                    storageFromeHandler.updateTrackingInformation(frame, inflowFta);
+                                }
                             }
                         } catch (Exception e) {
                             e.printStackTrace();
@@ -253,51 +261,6 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
         }
     }
 
-    private void updateTrackingInformation(ByteBuffer frame) {
-        int nTuples = inflowFta.getTupleCount();
-        long latestIntakeTimestamp = 0;
-        long delay = 0;
-        long intakeTimestamp;
-        long currentTime = System.currentTimeMillis();
-        for (int i = 0; i < nTuples; i++) {
-            int recordStart = inflowFta.getTupleStartOffset(i) + inflowFta.getFieldSlotsLength();
-            int openPartOffsetOrig = frame.getInt(recordStart + 6);
-            int numOpenFields = frame.getInt(recordStart + openPartOffsetOrig);
-            int intakeTimestampValueOffset = openPartOffsetOrig + 4 + 8 * numOpenFields + (18 + 5) + (18 + 1);
-            intakeTimestamp = frame.getLong(recordStart + intakeTimestampValueOffset);
-            if (intakeTimestamp > latestIntakeTimestamp) {
-                latestIntakeTimestamp = intakeTimestamp;
-            }
-            delay += currentTime - intakeTimestamp;
-        }
-        avgDelayPersistence = delay / nTuples;
-        lastPersistedTupleIntakeTimestamp = latestIntakeTimestamp;
-    }
-
-    private void updateStorageTimestamp(ByteBuffer frame) throws IOException {
-        int nTuples = inflowFta.getTupleCount();
-        for (int i = 0; i < nTuples; i++) {
-            int recordStart = inflowFta.getTupleStartOffset(i) + inflowFta.getFieldSlotsLength();
-            int openPartOffsetOrig = frame.getInt(recordStart + 6);
-            int numOpenFields = frame.getInt(openPartOffsetOrig);
-            int storageValueOffset = openPartOffsetOrig + 4 + 8 * numOpenFields + (18 + 5) + (18 + 9) + (17 + 1);
-            frame.putLong(recordStart + storageValueOffset, System.currentTimeMillis());
-        }
-    }
-
-    private void updateComputeTimestamp(ByteBuffer frame) throws IOException {
-        FrameTupleAccessor accessor = new FrameTupleAccessor(frameSize, recordDesc);
-        accessor.reset(frame);
-        int nTuples = accessor.getTupleCount();
-        for (int i = 0; i < nTuples; i++) {
-            int fieldSlotOffset = i == 0 ? 4 : 8;
-            int recordStart = accessor.getTupleStartOffset(i) + fieldSlotOffset;
-            int openPartOffsetOrig = frame.getInt(recordStart + 6);
-            int computeValueOffset = openPartOffsetOrig + 4 + 8 * 3 + (18 + 5) + (18 + 9) + (17 + 9) + (19 + 1);
-            frame.putLong(recordStart + computeValueOffset, System.currentTimeMillis());
-        }
-    }
-
     public Mode getMode() {
         return inputHandler.getMode();
     }
@@ -322,16 +285,16 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
         return processingRate;
     }
 
-    public long getLastPersistedTupleIntakeTimestamp() {
-        return lastPersistedTupleIntakeTimestamp;
-    }
-
-    public void setLastPersistedTupleIntakeTimestamp(long timestamp) {
-        this.lastPersistedTupleIntakeTimestamp = timestamp;
+    public Map<Integer, Long> getTupleTimeStats() {
+        return tupleTimeStats;
     }
 
     public long getAvgDelayRecordPersistence() {
         return avgDelayPersistence;
+    }
+
+    public MonitoredBufferStorageTimerTask getStorageTimeTrackingRateTask() {
+        return storageTimeTrackingRateTask;
     }
 
 }

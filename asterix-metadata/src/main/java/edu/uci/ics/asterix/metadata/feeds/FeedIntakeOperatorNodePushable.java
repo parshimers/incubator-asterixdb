@@ -31,6 +31,7 @@ import edu.uci.ics.asterix.common.feeds.api.IAdapterRuntimeManager;
 import edu.uci.ics.asterix.common.feeds.api.IAdapterRuntimeManager.State;
 import edu.uci.ics.asterix.common.feeds.api.IFeedAdapter;
 import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
+import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.api.IFeedSubscriptionManager;
 import edu.uci.ics.asterix.common.feeds.api.ISubscriberRuntime;
@@ -58,6 +59,7 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
 
     private IngestionRuntime ingestionRuntime;
     private IFeedAdapter adapter;
+    private IIntakeProgressTracker tracker;
     private DistributeFeedFrameWriter feedFrameWriter;
 
     public FeedIntakeOperatorNodePushable(IHyracksTaskContext ctx, FeedId feedId, IFeedAdapterFactory adapterFactory,
@@ -81,6 +83,9 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
             if (ingestionRuntime == null) {
                 try {
                     adapter = (IFeedAdapter) adapterFactory.createAdapter(ctx, partition);
+                    if (adapterFactory.isRecordTrackingEnabled()) {
+                        tracker = adapterFactory.createIntakeProgressTracker();
+                    }
                 } catch (Exception e) {
                     LOGGER.severe("Unable to create adapter : " + adapterFactory.getName() + "[" + partition + "]"
                             + " Exception " + e);
@@ -89,7 +94,7 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                 FrameTupleAccessor fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
                 feedFrameWriter = new DistributeFeedFrameWriter(feedId, writer, FeedRuntimeType.INTAKE, partition, fta,
                         feedManager, ctx.getFrameSize());
-                adapterRuntimeManager = new AdapterRuntimeManager(feedId, adapter, feedFrameWriter, partition);
+                adapterRuntimeManager = new AdapterRuntimeManager(feedId, adapter, tracker, feedFrameWriter, partition);
                 SubscribableFeedRuntimeId runtimeId = new SubscribableFeedRuntimeId(feedId, FeedRuntimeType.INTAKE,
                         partition);
                 ingestionRuntime = new IngestionRuntime(feedId, runtimeId, feedFrameWriter, recordDesc,

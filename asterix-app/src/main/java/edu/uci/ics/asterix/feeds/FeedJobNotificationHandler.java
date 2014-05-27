@@ -31,6 +31,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import edu.uci.ics.asterix.api.common.FeedWorkCollection.SubscribeFeedWork;
 import edu.uci.ics.asterix.common.exceptions.ACIDException;
+import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectJobInfo;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
@@ -40,12 +41,12 @@ import edu.uci.ics.asterix.common.feeds.FeedJobInfo.FeedJobState;
 import edu.uci.ics.asterix.common.feeds.FeedJointKey;
 import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
-import edu.uci.ics.asterix.common.feeds.StorageReportFeedMessage;
-import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
 import edu.uci.ics.asterix.common.feeds.api.IFeedJoint;
 import edu.uci.ics.asterix.common.feeds.api.IFeedJoint.State;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleEventSubscriber;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleEventSubscriber.FeedLifecycleEvent;
+import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
+import edu.uci.ics.asterix.common.feeds.message.StorageReportFeedMessage;
 import edu.uci.ics.asterix.feeds.FeedLifecycleListener.Message;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
@@ -304,7 +305,14 @@ public class FeedJobNotificationHandler implements Runnable {
                 .getConnectionId());
         if (eventSubscribers != null) {
             for (IFeedLifecycleEventSubscriber eventSubscriber : eventSubscribers) {
-                eventSubscriber.handleFeedEvent(FeedLifecycleEvent.FEED_STARTED);
+                try {
+                    eventSubscriber.handleFeedEvent(cInfo, FeedLifecycleEvent.FEED_STARTED);
+                } catch (AsterixException ae) {
+                    if (LOGGER.isLoggable(Level.WARNING)) {
+                        LOGGER.warning("exception in notifying event subscriber " + eventSubscriber + " "
+                                + ae.getMessage());
+                    }
+                }
             }
         }
 
@@ -407,7 +415,7 @@ public class FeedJobNotificationHandler implements Runnable {
                 .getConnectionId());
         if (eventSubscribers != null) {
             for (IFeedLifecycleEventSubscriber eventSubscriber : eventSubscribers) {
-                eventSubscriber.handleFeedEvent(FeedLifecycleEvent.FEED_ENDED);
+                eventSubscriber.handleFeedEvent(cInfo, FeedLifecycleEvent.FEED_ENDED);
             }
         }
         registeredFeedEventSubscribers.remove(cInfo.getConnectionId());

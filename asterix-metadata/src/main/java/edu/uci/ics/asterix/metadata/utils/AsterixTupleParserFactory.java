@@ -27,7 +27,7 @@ import edu.uci.ics.hyracks.dataflow.common.data.parsers.UTF8StringParserFactory;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParser;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 
-public class GenericTupleParserFactory implements ITupleParserFactory {
+public class AsterixTupleParserFactory implements IAsterixTupleParserFactory {
 
     private static final long serialVersionUID = 1L;
 
@@ -62,8 +62,9 @@ public class GenericTupleParserFactory implements ITupleParserFactory {
     private final ARecordType recordType;
     private final Map<String, String> configuration;
     private final InputDataFormat inputDataFormat;
+    private int partition;
 
-    public GenericTupleParserFactory(Map<String, String> configuration, ARecordType recType, InputDataFormat dataFormat) {
+    public AsterixTupleParserFactory(Map<String, String> configuration, ARecordType recType, InputDataFormat dataFormat) {
         this.recordType = recType;
         this.configuration = configuration;
         this.inputDataFormat = dataFormat;
@@ -80,7 +81,7 @@ public class GenericTupleParserFactory implements ITupleParserFactory {
                 tupleParser = parserFactory.createTupleParser(ctx);
             } else {
                 IDataParser dataParser = null;
-                dataParser = createDataParser();
+                dataParser = createDataParser(ctx);
                 tupleParser = new GenericTupleParser(ctx, recordType, dataParser);
             }
         } catch (Exception e) {
@@ -106,14 +107,14 @@ public class GenericTupleParserFactory implements ITupleParserFactory {
 
     }
 
-    private IDataParser createDataParser() throws Exception {
+    private IDataParser createDataParser(IHyracksTaskContext ctx) throws Exception {
         IDataParser dataParser = null;
         switch (inputDataFormat) {
             case ADM:
-                dataParser = configureADMParser();
+                dataParser = configureADMParser(ctx);
                 break;
             case DELIMITED:
-                dataParser = configureDelimitedDataParser();
+                dataParser = configureDelimitedDataParser(ctx);
                 break;
             case UNKNOWN:
                 String specifiedFormat = (String) configuration.get(KEY_FORMAT);
@@ -121,9 +122,9 @@ public class GenericTupleParserFactory implements ITupleParserFactory {
                     throw new IllegalArgumentException(" Unspecified data format");
                 } else {
                     if (FORMAT_ADM.equalsIgnoreCase(specifiedFormat.toUpperCase())) {
-                        dataParser = configureADMParser();
+                        dataParser = configureADMParser(ctx);
                     } else if (FORMAT_DELIMITED_TEXT.equalsIgnoreCase(specifiedFormat.toUpperCase())) {
-                        dataParser = configureDelimitedDataParser();
+                        dataParser = configureDelimitedDataParser(ctx);
                     } else {
                         throw new IllegalArgumentException(" format " + configuration.get(KEY_FORMAT)
                                 + " not supported");
@@ -145,15 +146,15 @@ public class GenericTupleParserFactory implements ITupleParserFactory {
         return false;
     }
 
-    private IDataParser configureADMParser() {
-        return validateTimeTrackingConstraint() ? new TimestampedADMDataParser() : new ADMDataParser();
+    private IDataParser configureADMParser(IHyracksTaskContext ctx) {
+        return validateTimeTrackingConstraint() ? new TimestampedADMDataParser(ctx, partition) : new ADMDataParser();
     }
 
-    private IDataParser configureDelimitedDataParser() throws AsterixException {
+    private IDataParser configureDelimitedDataParser(IHyracksTaskContext ctx) throws AsterixException {
         IValueParserFactory[] valueParserFactories = getValueParserFactories();
         Character delimiter = getDelimiter();
         return validateTimeTrackingConstraint() ? new TimestampedDelimitedDataParser(recordType, valueParserFactories,
-                delimiter) : new DelimitedDataParser(recordType, valueParserFactories, delimiter);
+                delimiter, partition) : new DelimitedDataParser(recordType, valueParserFactories, delimiter);
     }
 
     private static boolean isConditionalPushConfigured(Map<String, String> configuration) {
@@ -198,6 +199,11 @@ public class GenericTupleParserFactory implements ITupleParserFactory {
             fieldParserFactories[i] = vpf;
         }
         return fieldParserFactories;
+    }
+
+    @Override
+    public void initialize(int partition) {
+        this.partition = partition;
     }
 
 }

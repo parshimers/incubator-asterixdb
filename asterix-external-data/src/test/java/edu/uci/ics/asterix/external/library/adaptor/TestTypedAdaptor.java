@@ -24,12 +24,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import edu.uci.ics.asterix.common.feeds.api.IFeedAdapter;
-import edu.uci.ics.asterix.common.feeds.api.IFeedAdapter.DataExchangeMode;
 import edu.uci.ics.asterix.external.dataset.adapter.StreamBasedAdapter;
+import edu.uci.ics.asterix.metadata.utils.IAsterixTupleParserFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
-import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 
 public class TestTypedAdaptor extends StreamBasedAdapter implements IFeedAdapter {
 
@@ -43,9 +42,9 @@ public class TestTypedAdaptor extends StreamBasedAdapter implements IFeedAdapter
 
     private DummyGenerator generator;
 
-    public TestTypedAdaptor(ITupleParserFactory parserFactory, ARecordType sourceDatatype, IHyracksTaskContext ctx,
-            Map<String, String> configuration) throws IOException {
-        super(parserFactory, sourceDatatype, ctx);
+    public TestTypedAdaptor(IAsterixTupleParserFactory parserFactory, ARecordType sourceDatatype,
+            IHyracksTaskContext ctx, Map<String, String> configuration, int partition) throws IOException {
+        super(parserFactory, sourceDatatype, ctx, partition);
         pos = new PipedOutputStream();
         pis = new PipedInputStream(pos);
         this.configuration = configuration;

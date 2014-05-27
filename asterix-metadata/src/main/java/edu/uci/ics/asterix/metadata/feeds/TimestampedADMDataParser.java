@@ -6,22 +6,16 @@ import java.io.IOException;
 import edu.uci.ics.asterix.builders.IARecordBuilder;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedConstants;
-import edu.uci.ics.asterix.common.feeds.FeedConstants.StatisticsConstants;
 import edu.uci.ics.asterix.runtime.operators.file.ADMDataParser;
-import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.data.std.util.ArrayBackedValueStorage;
+import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 
 public class TimestampedADMDataParser extends ADMDataParser {
 
-    private final String nodeId;
-    private final ArrayBackedValueStorage attrNameStorage;
-    private final ArrayBackedValueStorage attrValueStorage;
+    private final FeedFrameTupleDecorator tupleDecorator;
 
-    public TimestampedADMDataParser() {
+    public TimestampedADMDataParser(IHyracksTaskContext ctx, int partition) {
         super();
-        this.nodeId = "";
-        this.attrNameStorage = new ArrayBackedValueStorage();
-        this.attrValueStorage = new ArrayBackedValueStorage();
+        this.tupleDecorator = new FeedFrameTupleDecorator(partition);
     }
 
     protected void writeRecord(IARecordBuilder recordBuilder, DataOutput out, boolean writeTypeTag) throws IOException,
@@ -30,37 +24,12 @@ public class TimestampedADMDataParser extends ADMDataParser {
                 || recordBuilder.getFieldId(FeedConstants.StatisticsConstants.STORE_TIMESTAMP) > 0) {
             super.writeRecord(recordBuilder, out, writeTypeTag);
         } else {
-            long currentTime = System.currentTimeMillis();
-            addStringAttribute(StatisticsConstants.INTAKE_NC_ID, nodeId, recordBuilder);
-            addLongAttribute(StatisticsConstants.INTAKE_TIMESTAMP, currentTime, recordBuilder);
-            addLongAttribute(StatisticsConstants.STORE_TIMESTAMP, currentTime, recordBuilder);
+            tupleDecorator.addTupleId(recordBuilder);
+            tupleDecorator.addIntakePartition(recordBuilder);
+            tupleDecorator.addIntakeTimestamp(recordBuilder);
+            tupleDecorator.addStoreTimestamp(recordBuilder);
             super.writeRecord(recordBuilder, out, writeTypeTag);
         }
     }
 
-    private void addLongAttribute(String attrName, long attrValue, IARecordBuilder recordBuilder)
-            throws HyracksDataException, AsterixException {
-        attrNameStorage.reset();
-        aString.setValue(attrName);
-        stringSerde.serialize(aString, attrNameStorage.getDataOutput());
-
-        attrValueStorage.reset();
-        aInt64.setValue(attrValue);
-        int64Serde.serialize(aInt64, attrValueStorage.getDataOutput());
-
-        recordBuilder.addField(attrNameStorage, attrValueStorage);
-    }
-
-    private void addStringAttribute(String attrName, String attrValue, IARecordBuilder recordBuilder)
-            throws HyracksDataException, AsterixException {
-        attrNameStorage.reset();
-        aString.setValue(attrName);
-        stringSerde.serialize(aString, attrNameStorage.getDataOutput());
-
-        attrValueStorage.reset();
-        aString.setValue(attrValue);
-        stringSerde.serialize(aString, attrValueStorage.getDataOutput());
-
-        recordBuilder.addField(attrNameStorage, attrValueStorage);
-    }
 }

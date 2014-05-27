@@ -17,125 +17,64 @@ package edu.uci.ics.asterix.feeds;
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.util.List;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import org.json.JSONObject;
 
 import edu.uci.ics.asterix.api.common.APIFramework.DisplayFormat;
 import edu.uci.ics.asterix.api.common.SessionConfig;
 import edu.uci.ics.asterix.aql.base.Statement;
 import edu.uci.ics.asterix.aql.parser.AQLParser;
 import edu.uci.ics.asterix.aql.translator.AqlTranslator;
-import edu.uci.ics.asterix.bootstrap.FeedBootstrap;
 import edu.uci.ics.asterix.common.config.AsterixFeedProperties;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
-import edu.uci.ics.asterix.common.feeds.FeedCongestionMessage;
-import edu.uci.ics.asterix.common.feeds.FeedConstants;
-import edu.uci.ics.asterix.common.feeds.MessageReceiver;
-import edu.uci.ics.asterix.common.feeds.NodeLoadReport;
-import edu.uci.ics.asterix.common.feeds.ScaleInReportMessage;
-import edu.uci.ics.asterix.common.feeds.StorageReportFeedMessage;
 import edu.uci.ics.asterix.common.feeds.api.ICentralFeedManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLoadManager;
-import edu.uci.ics.asterix.common.feeds.api.IFeedMessage.MessageType;
-import edu.uci.ics.asterix.metadata.feeds.MessageListener;
+import edu.uci.ics.asterix.common.feeds.api.IFeedTrackingManager;
+import edu.uci.ics.asterix.metadata.feeds.SocketMessageListener;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
+import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
+import edu.uci.ics.hyracks.api.job.JobId;
+import edu.uci.ics.hyracks.api.job.JobSpecification;
 
 public class CentralFeedManager implements ICentralFeedManager {
 
     private static final Logger LOGGER = Logger.getLogger(CentralFeedManager.class.getName());
 
-    private static ICentralFeedManager centralFeedManager = new CentralFeedManager();
-
-    private static IFeedLoadManager feedLoadManager = new FeedLoadManager();
-
-    private static int port;
+    private static final ICentralFeedManager centralFeedManager = new CentralFeedManager();
+    private final IFeedLoadManager feedLoadManager;
+    private final IFeedTrackingManager feedTrackingManager;
 
     public static ICentralFeedManager getInstance() {
         return centralFeedManager;
     }
 
-    private LinkedBlockingQueue<String> inbox = new LinkedBlockingQueue<String>();
-    private final MessageListener messageListener;
-    private final MessageReceiver<String> messageReceiver;
+    private final int port;
+    private final SocketMessageListener messageListener;
 
     private CentralFeedManager() {
         AsterixFeedProperties feedProperties = AsterixAppContextInfo.getInstance().getFeedProperties();
         port = feedProperties.getFeedCentralManagerPort();
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Central Feed Manager will start message service at " + port);
-        }
-        messageListener = new MessageListener(port, inbox);
-        messageReceiver = new FeedMessageReceiver(inbox);
+        feedLoadManager = new FeedLoadManager();
+        feedTrackingManager = new FeedTrackingManager();
+        messageListener = new SocketMessageListener(port, new FeedMessageReceiver(this));
     }
 
     @Override
     public void start() throws AsterixException {
         messageListener.start();
-        messageReceiver.start();   
     }
 
     @Override
     public void stop() throws AsterixException {
         messageListener.stop();
-        messageReceiver.close(false);
     }
 
-    private static class FeedMessageReceiver extends MessageReceiver<String> {
-
-        private static boolean initialized;
-
-        public FeedMessageReceiver(LinkedBlockingQueue<String> inbox) {
-            super(inbox);
-            initialized = false;
+    public static JobId runJob(JobSpecification spec, boolean waitForCompletion) throws Exception {
+        IHyracksClientConnection hcc = AsterixAppContextInfo.getInstance().getHcc();
+        JobId jobId = hcc.startJob(spec);
+        if (waitForCompletion) {
+            hcc.waitForCompletion(jobId);
         }
-
-        @Override
-        public void processMessage(String message) throws Exception {
-            JSONObject obj = new JSONObject(message);
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Received message " + obj);
-            }
-            MessageType messageType = MessageType.valueOf(obj.getString(FeedConstants.MessageConstants.MESSAGE_TYPE));
-            switch (messageType) {
-                case XAQL:
-                    if (!initialized) {
-                        FeedBootstrap.setUpInitialArtifacts();
-                        initialized = true;
-                        if (LOGGER.isLoggable(Level.INFO)) {
-                            LOGGER.info("Created artifacts to store feed failure data");
-                        }
-                    }
-                    String aql = obj.getString(FeedConstants.MessageConstants.AQL);
-                    AQLExecutor.executeAQL(aql);
-                    break;
-                case CONGESTION:
-                    FeedCongestionMessage congestionMessage = FeedCongestionMessage.read(obj);
-                    feedLoadManager.reportCongestion(congestionMessage);
-                    break;
-                case FEED_REPORT:
-                    feedLoadManager.submitFeedRuntimeReport(obj);
-                    break;
-                case NODE_REPORT:
-                    NodeLoadReport r = new NodeLoadReport(obj.getString(FeedConstants.MessageConstants.NODE_ID),
-                            (float) obj.getDouble(FeedConstants.MessageConstants.CPU_LOAD));
-                    feedLoadManager.submitNodeLoadReport(r);
-                    break;
-                case SCALE_IN_REQUEST:
-                    ScaleInReportMessage sm = ScaleInReportMessage.read(obj);
-                    feedLoadManager.submitScaleInPossibleReport(sm);
-                    break;
-                case STORAGE_REPORT:
-                    StorageReportFeedMessage srm = StorageReportFeedMessage.read(obj);
-                    FeedLifecycleListener.INSTANCE.updateTrackingInformation(srm);
-                    break;
-                default:
-                    break;
-            }
-
-        }
+        return jobId;
     }
 
     public static class AQLExecutor {
@@ -152,7 +91,11 @@ public class CentralFeedManager implements ICentralFeedManager {
         }
     }
 
-    public static IFeedLoadManager getFeedLoadManager() {
+    public IFeedLoadManager getFeedLoadManager() {
         return feedLoadManager;
+    }
+
+    public IFeedTrackingManager getFeedTrackingManager() {
+        return feedTrackingManager;
     }
 }

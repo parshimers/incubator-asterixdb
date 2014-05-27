@@ -24,7 +24,7 @@ import edu.uci.ics.asterix.external.dataset.adapter.NCFileSystemAdapter;
 import edu.uci.ics.asterix.external.util.DNSResolverFactory;
 import edu.uci.ics.asterix.external.util.INodeResolver;
 import edu.uci.ics.asterix.external.util.INodeResolverFactory;
-import edu.uci.ics.asterix.metadata.utils.GenericTupleParserFactory.InputDataFormat;
+import edu.uci.ics.asterix.metadata.utils.AsterixTupleParserFactory.InputDataFormat;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;

@@ -131,9 +131,9 @@ public class ExecutionTest {
 
     @Test
     public void test() throws Exception {
-        //   if (tcCtx.getTestCase().getCompilationUnit().get(0).getName().contains("feeds")) {
-        //     System.out.println(" TEST CASE " + tcCtx.getTestCase().getCompilationUnit().get(0).getName());
-        TestsUtils.executeTest(PATH_ACTUAL, tcCtx, null, false);
-        // }
+        if (tcCtx.getTestCase().getCompilationUnit().get(0).getName().contains("feeds")) {
+            System.out.println(" TEST CASE " + tcCtx.getTestCase().getCompilationUnit().get(0).getName());
+            TestsUtils.executeTest(PATH_ACTUAL, tcCtx, null, false);
+        }
     }
 }

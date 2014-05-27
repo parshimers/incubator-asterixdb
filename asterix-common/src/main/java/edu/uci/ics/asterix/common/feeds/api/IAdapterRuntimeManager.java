@@ -70,4 +70,6 @@ public interface IAdapterRuntimeManager {
      */
     public void setState(State state);
 
+    public IIntakeProgressTracker getProgressTracker();
+
 }

@@ -20,7 +20,7 @@ import org.json.JSONObject;
 
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedConstants;
-import edu.uci.ics.asterix.common.feeds.FeedMessage;
+import edu.uci.ics.asterix.common.feeds.message.FeedMessage;
 
 public class TerminateDataFlowMessage extends FeedMessage {
 

@@ -24,6 +24,7 @@ import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.asterix.common.feeds.api.IAdapterRuntimeManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedAdapter;
+import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
 
 public class AdapterRuntimeManager implements IAdapterRuntimeManager {
 
@@ -32,6 +33,8 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
     private final FeedId feedId;
 
     private final IFeedAdapter feedAdapter;
+
+    private final IIntakeProgressTracker tracker;
 
     private final AdapterExecutor adapterExecutor;
 
@@ -43,10 +46,11 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
 
     private State state;
 
-    public AdapterRuntimeManager(FeedId feedId, IFeedAdapter feedAdapter, DistributeFeedFrameWriter writer,
-            int partition) {
+    public AdapterRuntimeManager(FeedId feedId, IFeedAdapter feedAdapter, IIntakeProgressTracker tracker,
+            DistributeFeedFrameWriter writer, int partition) {
         this.feedId = feedId;
         this.feedAdapter = feedAdapter;
+        this.tracker = tracker;
         this.partition = partition;
         this.adapterExecutor = new AdapterExecutor(partition, writer, feedAdapter, this);
         this.executorService = Executors.newSingleThreadExecutor();
@@ -85,6 +89,10 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
 
     public IFeedAdapter getFeedAdapter() {
         return feedAdapter;
+    }
+
+    public IIntakeProgressTracker getTracker() {
+        return tracker;
     }
 
     public static class AdapterExecutor implements Runnable {
@@ -156,6 +164,11 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
 
     public IngestionRuntime getIngestionRuntime() {
         return ingestionRuntime;
+    }
+
+    @Override
+    public IIntakeProgressTracker getProgressTracker() {
+        return tracker;
     }
 
 }

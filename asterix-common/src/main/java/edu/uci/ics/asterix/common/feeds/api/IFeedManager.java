@@ -21,6 +21,8 @@ public interface IFeedManager {
 
     public static final long SOCKET_CONNECT_TIMEOUT = 5000;
 
+    public String getNodeId();
+
     public IFeedSubscriptionManager getFeedSubscriptionManager();
 
     public IFeedConnectionManager getFeedConnectionManager();
@@ -30,7 +32,7 @@ public interface IFeedManager {
     public IFeedMetadataManager getFeedMetadataManager();
 
     public IFeedMetricCollector getFeedMetricCollector();
-    
+
     public IFeedMessageService getFeedMessageService();
 
 }

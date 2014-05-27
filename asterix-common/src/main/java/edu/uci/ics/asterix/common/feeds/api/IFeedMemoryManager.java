@@ -16,7 +16,6 @@ package edu.uci.ics.asterix.common.feeds.api;
 
 import edu.uci.ics.asterix.common.feeds.api.IFeedMemoryComponent.Type;
 
-
 public interface IFeedMemoryManager {
 
     public static final int START_COLLECTION_SIZE = 100;

@@ -25,6 +25,7 @@ import edu.uci.ics.asterix.aql.parser.ParseException;
 import edu.uci.ics.asterix.aql.util.FunctionUtils;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedId;
+import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
 import edu.uci.ics.asterix.common.functions.FunctionSignature;
 import edu.uci.ics.asterix.metadata.MetadataException;
@@ -174,15 +175,18 @@ public class SubscribeFeedStatement implements Statement {
         String outputType = null;
         FeedId feedId = subscriptionRequest.getSubscribingFeedId();
         Feed feed = MetadataManager.INSTANCE.getFeed(mdTxnCtx, feedId.getDataverse(), feedId.getFeedName());
+        FeedPolicyAccessor policyAccessor = new FeedPolicyAccessor(subscriptionRequest.getPolicyParameters());
         try {
             switch (feed.getFeedType()) {
                 case PRIMARY:
                     Triple<IFeedAdapterFactory, ARecordType, AdapterType> factoryOutput = null;
-                    factoryOutput = FeedUtil.getPrimaryFeedFactoryAndOutput((PrimaryFeed) feed, mdTxnCtx);
+
+                    factoryOutput = FeedUtil.getPrimaryFeedFactoryAndOutput((PrimaryFeed) feed, policyAccessor,
+                            mdTxnCtx);
                     outputType = factoryOutput.second.getTypeName();
                     break;
                 case SECONDARY:
-                    outputType = FeedUtil.getSecondaryFeedOutput((SecondaryFeed) feed, mdTxnCtx);
+                    outputType = FeedUtil.getSecondaryFeedOutput((SecondaryFeed) feed, policyAccessor, mdTxnCtx);
                     break;
             }
             return outputType;

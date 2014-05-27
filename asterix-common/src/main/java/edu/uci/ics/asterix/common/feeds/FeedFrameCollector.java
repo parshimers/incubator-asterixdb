@@ -53,8 +53,6 @@ public class FeedFrameCollector extends MessageReceiver<DataBucket> implements I
             ByteBuffer frame = bucket.getContent();
             switch (bucket.getContentType()) {
                 case DATA:
-                    System.out.println("FEED FRAME COLLECTOR SENDING FRAME " + "("
-                            + this.frameDistributor.getFeedRuntimeType() + ")" + " Mode " + state);
                     frameWriter.nextFrame(frame);
                     break;
                 case EOD:

@@ -14,6 +14,7 @@
  */
 package edu.uci.ics.asterix.metadata.feeds;
 
+import edu.uci.ics.asterix.common.feeds.FeedConnectJobInfo;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleEventSubscriber;
 
 public class FeedLifecycleEventSubscriber implements IFeedLifecycleEventSubscriber {
@@ -21,7 +22,7 @@ public class FeedLifecycleEventSubscriber implements IFeedLifecycleEventSubscrib
     private boolean isFeedActive = true;
 
     @Override
-    public void handleFeedEvent(FeedLifecycleEvent event) {
+    public void handleFeedEvent(FeedConnectJobInfo cInfo, FeedLifecycleEvent event) {
         synchronized (this) {
             switch (event) {
                 case FEED_ENDED:

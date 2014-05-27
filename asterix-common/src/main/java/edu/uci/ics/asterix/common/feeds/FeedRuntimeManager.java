@@ -24,7 +24,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.feeds.api.IFeedConnectionManager;
-import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime;
 
 public class FeedRuntimeManager {
 
