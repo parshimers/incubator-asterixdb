@@ -519,7 +519,7 @@ public class ApplicationMaster {
         Priority pri = Records.newRecord(Priority.class);
         pri.setPriority(0);
         Resource capability = Records.newRecord(Resource.class);
-        capability.setMemory(768);
+        capability.setMemory(2048);
         //we dont set anything because we don't care about that
         String[] hosts = new String[1];
         //TODO this is silly
@@ -772,6 +772,8 @@ public class ApplicationMaster {
                 Thread launchThread = new Thread(runnableLaunchContainer);
 
                 // I want to know if this node is the CC, because it must start before the NCs. 
+                LOG.info("Allocated: "+ allocatedContainer.getNodeId().getHost());
+                LOG.info("CC : " + CC.getId());
                 if (allocatedContainer.getNodeId().getHost().equals(CC.getId())) {
                     ccUp.set(true);
                 }
@@ -948,7 +950,7 @@ public class ApplicationMaster {
             //first see if this node is the CC
             if(containerIsCC(container)){
             	LOG.info("CC found on container" + container.getNodeId().getHost());
-                vargs.add("JAVA_OPTS=-Xmx768m "+
+                vargs.add(
                           ASTERIX_CC_BIN_PATH+" -cluster-net-ip-address "+ CC.getClusterIp() +
                 		  " -client-net-ip-address "+ CC.getClientIp()
                 		 );
@@ -960,17 +962,20 @@ public class ApplicationMaster {
             try{
             	local = containerToNode(container, clusterDesc);
                 LOG.info("Attempting to start NC on host " + local.getId());
-                vargs.add("export JAVA_OPTS=-Xmx1536m -DAsterixConfigFileName="+WORKING_CONF_PATH+";");
-                vargs.add(ASTERIX_NC_BIN_PATH+" -node-id "+ local.getId());
+                String iodevice = local.getIodevices();
+                if(iodevice==null){
+                    iodevice = clusterDesc.getIodevices();
+                }
+                vargs.add("JAVA_OPTS=-Xmx1536m "+ASTERIX_NC_BIN_PATH+" -node-id "+ local.getId());
                 vargs.add("-cc-host "+ CC.getClusterIp());
-                vargs.add("-iodevices "+local.getIodevices());
+                vargs.add("-iodevices "+iodevice);
                 vargs.add("-cluster-net-ip-address "+local.getClusterIp());
-                vargs.add("-data-ip-address "+CC.getClusterIp());
-                vargs.add("-result-ip-address "+CC.getClusterIp());
+                vargs.add("-data-ip-address "+local.getClusterIp());
+                vargs.add("-result-ip-address "+local.getClusterIp());
             }
             catch(UnknownHostException e){
             	LOG.error("Unable to find NC configured for host: "+
-            			   container.getId() + e.getStackTrace());
+            			   container.getId() + e);
             }
             
             // Add log redirect params
@@ -994,12 +999,14 @@ public class ApplicationMaster {
         private Node containerToNode(Container c, Cluster cl) throws UnknownHostException{
             String containerHost = c.getNodeId().getHost();
             InetAddress containerIp = InetAddress.getByName(containerHost);
+            LOG.debug("Resolved Container IP: "+ containerIp);
             for (Node node : cl.getNode()) {
             	InetAddress nodeIp = InetAddress.getByName(node.getClusterIp());
-            	if(nodeIp == containerIp) return node;
+            	LOG.debug(nodeIp + "?=" + containerIp);
+            	if(nodeIp.equals(containerIp)) return node;
             }
             //if we find nothing, this is bad...
-            throw new java.net.UnknownHostException("Could not resolve container to node");
+            throw new java.net.UnknownHostException("Could not resolve container"+ containerHost+" to node");
         }
         /**
          * Determines whether or not a container is the one on which the CC should reside
