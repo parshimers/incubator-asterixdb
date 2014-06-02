@@ -67,6 +67,7 @@ import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 
+import edu.uci.ics.asterix.common.config.GlobalConfig;
 import edu.uci.ics.asterix.event.schema.yarnCluster.*;
 
 @InterfaceAudience.Public

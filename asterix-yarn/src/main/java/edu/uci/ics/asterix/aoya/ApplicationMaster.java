@@ -27,6 +27,7 @@ import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
+import java.nio.file.Paths;
 import java.io.FileInputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -99,10 +100,14 @@ import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 
+import edu.uci.ics.asterix.common.config.AsterixExternalProperties;
+import edu.uci.ics.asterix.common.config.AsterixPropertiesAccessor;
+import edu.uci.ics.asterix.common.config.GlobalConfig;
 import edu.uci.ics.asterix.common.configuration.AsterixConfiguration;
 import edu.uci.ics.asterix.common.configuration.Coredump;
 import edu.uci.ics.asterix.common.configuration.Store;
 import edu.uci.ics.asterix.common.configuration.TransactionLogDir;
+import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.event.schema.yarnCluster.*;
 
 @InterfaceAudience.Public
@@ -117,6 +122,7 @@ public class ApplicationMaster {
     private static final String WORKING_CONF_PATH = "asterix-server" + File.separator + "bin" +File.separator+"asterix-configuration.xml";
     private static final String ASTERIX_CC_BIN_PATH = "asterix-server" + File.separator + "bin" + File.separator + "asterixcc";
     private static final String ASTERIX_NC_BIN_PATH = "asterix-server" + File.separator + "bin" + File.separator + "asterixnc";
+    private static final String PWD = Paths.get("").toAbsolutePath().toString();
     // Configuration
     private Configuration conf;
 
@@ -177,7 +183,8 @@ public class ApplicationMaster {
 
     private Cluster clusterDesc = null;
     private MasterNode CC = null;
-
+    private AsterixPropertiesAccessor properties;
+    private AsterixExternalProperties extProperties;
 
     private volatile boolean done;
     private volatile boolean success;
@@ -189,6 +196,8 @@ public class ApplicationMaster {
 
         boolean result = false;
         try {
+                   
+            LOG.debug("config file loc: "+System.getProperty(GlobalConfig.CONFIG_FILE_PROPERTY));
             ApplicationMaster appMaster = new ApplicationMaster();
             LOG.info("Initializing ApplicationMaster");
             boolean doRun = appMaster.init(args);
@@ -244,7 +253,7 @@ public class ApplicationMaster {
         conf = new YarnConfiguration();
     }
 
-    public boolean init(String[] args) throws ParseException, IOException {
+    public boolean init(String[] args) throws ParseException, IOException , AsterixException{
 
         Options opts = new Options();
         opts.addOption("app_attempt_id", true, "App Attempt ID. Not to be used unless for testing purposes");
@@ -294,7 +303,10 @@ public class ApplicationMaster {
         if (!envs.containsKey(Environment.NM_PORT.name())) {
             throw new RuntimeException(Environment.NM_PORT.name() + " not set in the environment");
         }
-
+        System.setProperty(GlobalConfig.CONFIG_FILE_PROPERTY,envs.get("PWD")+File.separator+"bin"+
+                                                             File.separator+"asterix-configuration.xml"
+        );
+        
         LOG.info("Application master for app" + ", appId=" + appAttemptID.getApplicationId().getId()
                 + ", clustertimestamp=" + appAttemptID.getApplicationId().getClusterTimestamp() + ", attemptId="
                 + appAttemptID.getAttemptId());
@@ -316,6 +328,11 @@ public class ApplicationMaster {
         	clusterDesc = parseYarnClusterConfig();
         	CC = clusterDesc.getMasterNode();
         	writeAsterixConfig(clusterDesc);
+        	//now let's read what's in there so we can set the JVM opts right
+        	LOG.debug("config file loc: "+System.getProperty(GlobalConfig.CONFIG_FILE_PROPERTY));
+        	properties = new AsterixPropertiesAccessor();
+        	extProperties = new AsterixExternalProperties(properties);
+        	
         }
         catch(FileNotFoundException | JAXBException e){
         	LOG.error("Could not deserialize Cluster Config from disk- aborting!");
@@ -471,7 +488,7 @@ public class ApplicationMaster {
     private void requestResources(Cluster c)throws YarnException,UnknownHostException{
         //request CC
         int numNodes = 0;
-        ContainerRequest ccAsk = askForHost(CC.getClusterIp());
+        ContainerRequest ccAsk = hostToRequest(CC.getClusterIp());
         resourceManager.addContainerRequest(ccAsk);
         LOG.info("Asked for CC: " + CC.getClusterIp());
         numNodes++;
@@ -499,7 +516,7 @@ public class ApplicationMaster {
         }
         //request NCs
         for (Node n : c.getNode()) {
-            resourceManager.addContainerRequest(askForHost(n.getClusterIp()));
+            resourceManager.addContainerRequest(hostToRequest(n.getClusterIp()));
             LOG.info("Asked for NC: " + n.getClusterIp());
             numNodes++;
         }
@@ -514,7 +531,7 @@ public class ApplicationMaster {
     * @param host The host to request
     * @return A container request that is (hopefully) for the host we asked for. 
     */
-    private ContainerRequest askForHost(String host) throws UnknownHostException {
+    private ContainerRequest hostToRequest(String host) throws UnknownHostException {
     	InetAddress hostIp = InetAddress.getByName(host);
         Priority pri = Records.newRecord(Priority.class);
         pri.setPriority(0);
@@ -950,8 +967,10 @@ public class ApplicationMaster {
             //first see if this node is the CC
             if(containerIsCC(container)){
             	LOG.info("CC found on container" + container.getNodeId().getHost());
+            	//get our java opts
+            	String opts = "JAVA_OPTS="+extProperties.getCCJavaParams() + " ";
                 vargs.add(
-                          ASTERIX_CC_BIN_PATH+" -cluster-net-ip-address "+ CC.getClusterIp() +
+                          opts+ASTERIX_CC_BIN_PATH+" -cluster-net-ip-address "+ CC.getClusterIp() +
                 		  " -client-net-ip-address "+ CC.getClientIp()
                 		 );
                 
@@ -966,7 +985,8 @@ public class ApplicationMaster {
                 if(iodevice==null){
                     iodevice = clusterDesc.getIodevices();
                 }
-                vargs.add("JAVA_OPTS=-Xmx1536m "+ASTERIX_NC_BIN_PATH+" -node-id "+ local.getId());
+                String opts = "JAVA_OPTS="+extProperties.getNCJavaParams() + " ";
+                vargs.add(opts+ASTERIX_NC_BIN_PATH+" -node-id "+ local.getId());
                 vargs.add("-cc-host "+ CC.getClusterIp());
                 vargs.add("-iodevices "+iodevice);
                 vargs.add("-cluster-net-ip-address "+local.getClusterIp());
