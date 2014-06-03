@@ -105,6 +105,7 @@ import edu.uci.ics.asterix.common.config.AsterixPropertiesAccessor;
 import edu.uci.ics.asterix.common.config.GlobalConfig;
 import edu.uci.ics.asterix.common.configuration.AsterixConfiguration;
 import edu.uci.ics.asterix.common.configuration.Coredump;
+import edu.uci.ics.asterix.common.configuration.Property;
 import edu.uci.ics.asterix.common.configuration.Store;
 import edu.uci.ics.asterix.common.configuration.TransactionLogDir;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
@@ -116,13 +117,21 @@ import edu.uci.ics.asterix.event.schema.yarnCluster.*;
 public class ApplicationMaster {
 
     private static final Log LOG = LogFactory.getLog(ApplicationMaster.class);
-    private static final String BASE_CONF_PATH = "asterix-server" + File.separator + "conf"+File.separator+"asterix-configuration.xml";
     private static final String CLUSTER_DESC_PATH = "cluster-config.xml";
     private static final String ASTERIX_TAR_PATH = "asterix-server.tar";
     private static final String WORKING_CONF_PATH = "asterix-server" + File.separator + "bin" +File.separator+"asterix-configuration.xml";
     private static final String ASTERIX_CC_BIN_PATH = "asterix-server" + File.separator + "bin" + File.separator + "asterixcc";
     private static final String ASTERIX_NC_BIN_PATH = "asterix-server" + File.separator + "bin" + File.separator + "asterixnc";
     private static final String PWD = Paths.get("").toAbsolutePath().toString();
+    
+    private Map<String, Property> asterixConfigurationParams;
+    private static final String EXTERNAL_CC_JAVA_OPTS_KEY = "cc.java.opts";
+    private static String EXTERNAL_CC_JAVA_OPTS_DEFAULT = "-Xmx1024m";
+
+    private static final String EXTERNAL_NC_JAVA_OPTS_KEY = "nc.java.opts";
+    private static String EXTERNAL_NC_JAVA_OPTS_DEFAULT = "-Xmx1024m";
+    private String NcJavaOpts= EXTERNAL_NC_JAVA_OPTS_DEFAULT;
+    private String CcJavaOpts= EXTERNAL_NC_JAVA_OPTS_DEFAULT;
     // Configuration
     private Configuration conf;
 
@@ -330,7 +339,7 @@ public class ApplicationMaster {
         	writeAsterixConfig(clusterDesc);
         	//now let's read what's in there so we can set the JVM opts right
         	LOG.debug("config file loc: "+System.getProperty(GlobalConfig.CONFIG_FILE_PROPERTY));
-        	properties = new AsterixPropertiesAccessor();
+        	
         	extProperties = new AsterixExternalProperties(properties);
         	
         }
@@ -377,6 +386,13 @@ public class ApplicationMaster {
         AsterixConfiguration configuration = loadBaseAsterixConfig();
 
         configuration.setInstanceName(asterixInstanceName);
+        
+        asterixConfigurationParams = new HashMap<String, Property>();
+        for (Property p : configuration.getProperty()) {
+            asterixConfigurationParams.put(p.getName(), p);
+        }
+        NcJavaOpts = asterixConfigurationParams.get(EXTERNAL_NC_JAVA_OPTS_KEY).getValue();
+        CcJavaOpts = asterixConfigurationParams.get(EXTERNAL_CC_JAVA_OPTS_KEY).getValue();
 
         String storeDir = null;
         List<Store> stores = new ArrayList<Store>();
@@ -968,7 +984,7 @@ public class ApplicationMaster {
             if(containerIsCC(container)){
             	LOG.info("CC found on container" + container.getNodeId().getHost());
             	//get our java opts
-            	String opts = "JAVA_OPTS="+extProperties.getCCJavaParams() + " ";
+            	String opts = "JAVA_OPTS="+CcJavaOpts+ " ";
                 vargs.add(
                           opts+ASTERIX_CC_BIN_PATH+" -cluster-net-ip-address "+ CC.getClusterIp() +
                 		  " -client-net-ip-address "+ CC.getClientIp()
@@ -985,7 +1001,7 @@ public class ApplicationMaster {
                 if(iodevice==null){
                     iodevice = clusterDesc.getIodevices();
                 }
-                String opts = "JAVA_OPTS="+extProperties.getNCJavaParams() + " ";
+                String opts = "JAVA_OPTS="+NcJavaOpts + " ";
                 vargs.add(opts+ASTERIX_NC_BIN_PATH+" -node-id "+ local.getId());
                 vargs.add("-cc-host "+ CC.getClusterIp());
                 vargs.add("-iodevices "+iodevice);
