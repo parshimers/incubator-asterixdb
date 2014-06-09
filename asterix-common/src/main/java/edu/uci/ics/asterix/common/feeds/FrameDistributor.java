@@ -32,7 +32,7 @@ public class FrameDistributor {
 
     private static final Logger LOGGER = Logger.getLogger(FrameDistributor.class.getName());
 
-    private static final long MEMORY_AVAILABLE_POLL_PERIOD = 1000;
+    private static final long MEMORY_AVAILABLE_POLL_PERIOD = 1000; // 1 second
 
     private final FeedId feedId;
     private final FeedRuntimeType feedRuntimeType;
@@ -41,8 +41,8 @@ public class FrameDistributor {
     private final boolean enableSynchronousTransfer;
     /** A map storing the registered frame readers ({@code FeedFrameCollector}. **/
     private final Map<IFrameWriter, FeedFrameCollector> registeredCollectors;
+    private final FrameTupleAccessor fta;
 
-    private FrameTupleAccessor fta;
     private DataBucketPool pool;
     private DistributionMode distributionMode;
     private boolean spillToDiskRequired = false;
@@ -131,10 +131,7 @@ public class FrameDistributor {
                 registeredCollectors.put(frameCollector.getFrameWriter(), frameCollector);
                 break;
         }
-        // evaluate the need to spill to disk based on the frame collector
-        if (!spillToDiskRequired) {
-            spillToDiskRequired = frameCollector.getFeedPolicyAccessor().spillToDiskOnCongestion();
-        }
+        evaluateIfSpillIsEnabled();
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Switching to " + distributionMode + " mode from " + currentMode + " mode " + " Feed id "
                     + feedId);
@@ -156,16 +153,10 @@ public class FrameDistributor {
                     loneCollector.setState(FeedFrameCollector.State.TRANSITION);
                     loneCollector.closeCollector();
                     memoryManager.releaseMemoryComponent(pool);
-                    spillToDiskRequired = loneCollector.getFeedPolicyAccessor().spillToDiskOnCongestion();
+                    evaluateIfSpillIsEnabled();
                 } else {
                     if (!spillToDiskRequired) {
-                        for (FeedFrameCollector collector : registeredCollectors.values()) {
-                            spillToDiskRequired = spillToDiskRequired
-                                    || collector.getFeedPolicyAccessor().spillToDiskOnCongestion();
-                            if (spillToDiskRequired) {
-                                break;
-                            }
-                        }
+                        evaluateIfSpillIsEnabled();
                     }
                 }
                 break;
@@ -178,6 +169,18 @@ public class FrameDistributor {
         }
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Deregistered frame reader" + frameCollector + " from feed distributor for " + feedId);
+        }
+    }
+
+    public void evaluateIfSpillIsEnabled() {
+        if (!spillToDiskRequired) {
+            for (FeedFrameCollector collector : registeredCollectors.values()) {
+                spillToDiskRequired = spillToDiskRequired
+                        || collector.getFeedPolicyAccessor().spillToDiskOnCongestion();
+                if (spillToDiskRequired) {
+                    break;
+                }
+            }
         }
     }
 

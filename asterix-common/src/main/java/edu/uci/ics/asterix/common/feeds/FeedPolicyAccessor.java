@@ -24,17 +24,40 @@ public class FeedPolicyAccessor implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    // failure configuration
+    /** failure configuration **/
+    /** continue feed ingestion after a soft (runtime) failure **/
     public static final String SOFT_FAILURE_CONTINUE = "soft.failure.continue";
+
+    /** log failed tuple to an asterixdb dataset for future reference **/
     public static final String SOFT_FAILURE_LOG_DATA = "soft.failure.log.data";
+
+    /** continue feed ingestion after loss of one or more machines (hardware failure) **/
     public static final String HARDWARE_FAILURE_CONTINUE = "hardware.failure.continue";
+
+    /** auto-start a loser feed when the asterixdb instance is restarted **/
     public static final String CLUSTER_REBOOT_AUTO_RESTART = "cluster.reboot.auto.restart";
 
-    // flow control configuration
+    /** flow control configuration **/
+
+    /** spill excess tuples to disk if an operator cannot process incoming data at its arrival rate **/
     public static final String SPILL_TO_DISK_ON_CONGESTION = "spill.to.disk.on.congestion";
+
+    /** the maximum size of data (tuples) that can be spilled to disk **/
     public static final String MAX_SPILL_SIZE_ON_DISK = "max.spill.size.on.disk";
+
+    /** discard tuples altogether if an operator cannot process incoming data at its arrival rate **/
+    public static final String DISCARD_ON_CONGESTION = "discard.on.congestion";
+
+    /** maximum fraction of ingested data that can be discarded **/
     public static final String MAX_FRACTION_DISCARD = "max.fraction.discard";
+
+    /** maximum end-to-end delay/latency in persisting a tuple through the feed ingestion pipeline **/
     public static final String MAX_DELAY_RECORD_PERSISTENCE = "max.delay.record.persistence";
+
+    /** rate limit the inflow of tuples in accordance witht the maximum capacity of the pipeline **/
+    public static final String THROTTLING_ENABLED = "throttling.enabled";
+    
+    public static final String PTHROTTLING_ENABLED = "throttling.enabled";
 
     // elasticity
     public static final String ELASTIC = "elastic";

@@ -66,7 +66,7 @@ public class FeedJointKey {
     public boolean equals(Object o) {
         if (this == o)
             return true;
-        if (!(o instanceof FeedJointKey)) {
+        if (o == null || !(o instanceof FeedJointKey)) {
             return false;
         }
         return stringRep.equals(((FeedJointKey) o).stringRep);

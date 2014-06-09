@@ -18,7 +18,7 @@ public class IntakePartitionStatistics {
     public void ackRecordId(int recordId) {
         int posIndexWithinBase = recordId % ACK_WINDOW_SIZE;
         this.bitSet.set(posIndexWithinBase);
-        System.out.println("Received ack for record Id " + recordId);
+        System.out.println("Received ack for record Id " + recordId + " intake partition " + partition);
     }
 
     public byte[] getAckInfo() {

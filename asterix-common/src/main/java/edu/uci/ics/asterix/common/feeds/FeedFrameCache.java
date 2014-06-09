@@ -27,8 +27,19 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 
+/**
+ * Allows caching of feed frames. This class is used in providing upstream backup.
+ * The tuples at the intake layer are held in this cache until these are acked by
+ * the storage layer post their persistence. On receiving an ack, appropriate tuples
+ * (recordsId < ackedRecordId) are dropped from the cache.
+ */
 public class FeedFrameCache extends MessageReceiver<ByteBuffer> {
 
+    /**
+     * Value represents a cache feed frame
+     * Key represents the largest record Id in the frame.
+     * At the intake side, the largest record id corresponds to the last record in the frame
+     **/
     private final Map<Integer, ByteBuffer> orderedCache;
     private final FrameTupleAccessor tupleAccessor;
     private final IFrameWriter frameWriter;
@@ -36,6 +47,7 @@ public class FeedFrameCache extends MessageReceiver<ByteBuffer> {
     public FeedFrameCache(FrameTupleAccessor tupleAccessor, IFrameWriter frameWriter) {
         this.tupleAccessor = tupleAccessor;
         this.frameWriter = frameWriter;
+        /** A LinkedHashMap ensures entries are retrieved in order of their insertion **/
         this.orderedCache = new LinkedHashMap<Integer, ByteBuffer>();
     }
 
@@ -47,16 +59,16 @@ public class FeedFrameCache extends MessageReceiver<ByteBuffer> {
     }
 
     public void dropTillRecordId(int recordId) {
-        List<Integer> recordIds = new ArrayList<Integer>();
+        List<Integer> dropRecordIds = new ArrayList<Integer>();
         for (Entry<Integer, ByteBuffer> entry : orderedCache.entrySet()) {
             int recId = entry.getKey();
             if (recId <= recordId) {
-                recordIds.add(recId);
+                dropRecordIds.add(recId);
             } else {
                 break;
             }
         }
-        for (Integer r : recordIds) {
+        for (Integer r : dropRecordIds) {
             orderedCache.remove(r);
         }
     }
@@ -64,14 +76,15 @@ public class FeedFrameCache extends MessageReceiver<ByteBuffer> {
     public void replayRecords(int startingRecordId) throws HyracksDataException {
         boolean replayPositionReached = false;
         for (Entry<Integer, ByteBuffer> entry : orderedCache.entrySet()) {
+            // the key increases monotonically
             int maxRecordIdInFrame = entry.getKey();
             if (!replayPositionReached) {
-                if (maxRecordIdInFrame > startingRecordId) {
+                if (startingRecordId < maxRecordIdInFrame) {
                     replayFrame(startingRecordId, entry.getValue());
-                    replayPositionReached = true;
+                    break;
+                } else {
+                    continue;
                 }
-            } else {
-                replayFrame(entry.getValue());
             }
         }
     }
@@ -127,7 +140,7 @@ public class FeedFrameCache extends MessageReceiver<ByteBuffer> {
         tupleAccessor.reset(frame);
         int recordStart = tupleAccessor.getTupleStartOffset(tupleIndex) + tupleAccessor.getFieldSlotsLength();
         int openPartOffset = frame.getInt(recordStart + 6);
-        int numOpenFields = frame.getInt(openPartOffset);
+        int numOpenFields = frame.getInt(recordStart + openPartOffset);
         int recordIdOffset = frame.getInt(recordStart + openPartOffset + 4 + numOpenFields * 8
                 + StatisticsConstants.INTAKE_TUPLEID.length() + 2 + 1);
         int lastRecordId = frame.getInt(recordStart + recordIdOffset);
@@ -138,5 +151,12 @@ public class FeedFrameCache extends MessageReceiver<ByteBuffer> {
         ByteBuffer clone = ByteBuffer.allocate(frame.capacity());
         System.arraycopy(frame.array(), 0, clone.array(), 0, frame.limit());
         return clone;
+    }
+
+    public void replayAll() throws HyracksDataException {
+        for (Entry<Integer, ByteBuffer> entry : orderedCache.entrySet()) {
+            ByteBuffer frame = entry.getValue();
+            frameWriter.nextFrame(frame);
+        }
     }
 }

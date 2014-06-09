@@ -20,6 +20,7 @@ import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
 import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
+import edu.uci.ics.asterix.common.feeds.FeedCollectRuntimeInputHandler;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedFrameCollector.State;
 import edu.uci.ics.asterix.common.feeds.FeedId;
@@ -135,8 +136,9 @@ public class FeedCollectOperatorNodePushable extends AbstractUnaryOutputSourceOp
             this.recordDesc = sourceRuntime.getRecordDescriptor();
         }
 
-        inputSideHandler = new FeedRuntimeInputHandler(connectionId, runtimeId, outputSideWriter, policyAccessor,
-                false, ctx.getFrameSize(), new FrameTupleAccessor(ctx.getFrameSize(), recordDesc), recordDesc,
+        FrameTupleAccessor tupleAccessor = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
+        inputSideHandler = new FeedCollectRuntimeInputHandler(connectionId, runtimeId, outputSideWriter, policyAccessor,
+                false, ctx.getFrameSize(), tupleAccessor, recordDesc,
                 feedManager, nPartitions);
 
         collectRuntime = new CollectionRuntime(connectionId, runtimeId, inputSideHandler, outputSideWriter,

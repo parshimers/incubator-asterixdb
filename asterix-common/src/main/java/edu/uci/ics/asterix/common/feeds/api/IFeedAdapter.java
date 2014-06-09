@@ -47,6 +47,10 @@ public interface IFeedAdapter extends IDatasourceAdapter {
      */
     public void stop() throws Exception;
 
+    /**
+     * @param e
+     * @return true if the feed ingestion should continue post the exception else false
+     */
     public boolean handleException(Exception e);
 
 }

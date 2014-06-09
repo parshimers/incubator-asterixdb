@@ -17,8 +17,8 @@ public class FeedJobInfo {
     }
 
     protected final JobId jobId;
-    protected FeedJobState state;
     protected final JobType jobType;
+    protected FeedJobState state;
     protected JobSpecification spec;
 
     public FeedJobInfo(JobId jobId, FeedJobState state, JobType jobType, JobSpecification spec) {

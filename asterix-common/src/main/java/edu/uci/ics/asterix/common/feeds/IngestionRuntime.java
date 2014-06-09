@@ -33,6 +33,7 @@ public class IngestionRuntime extends SubscribableRuntime {
         FeedFrameCollector reader = dWriter.subscribeFeed(fpa, collectionRuntime.getInputHandler(),
                 collectionRuntime.getConnectionId());
         collectionRuntime.setFrameCollector(reader);
+        
         if (dWriter.getDistributionMode().equals(FrameDistributor.DistributionMode.SINGLE)) {
             adapterRuntimeManager.start();
         }

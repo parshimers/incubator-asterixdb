@@ -57,6 +57,7 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
     private Mode lastMode;
     private boolean finished;
     private long nProcessed;
+
     private FrameEventCallback frameEventCallback;
 
     public FeedRuntimeInputHandler(FeedConnectionId connectionId, FeedRuntimeId runtimeId, IFrameWriter coreOperator,
@@ -162,7 +163,7 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
         if (frameCollection == null) {
             discarder.processMessage(frame);
             if (LOGGER.isLoggable(Level.WARNING)) {
-                LOGGER.warning("Running low on memory!!!!!!!!! DISCARDING FRAME ");
+                LOGGER.warning("Running low on memory! DISCARDING FRAME ");
             }
         } else {
             boolean success = frameCollection.addFrame(frame);
@@ -233,7 +234,7 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
         }
     }
 
-    private void process(ByteBuffer frame) throws HyracksDataException {
+    protected void process(ByteBuffer frame) throws HyracksDataException {
         boolean finishedProcessing = false;
         while (!finishedProcessing) {
             try {

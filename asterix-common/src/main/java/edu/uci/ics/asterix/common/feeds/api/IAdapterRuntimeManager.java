@@ -72,4 +72,6 @@ public interface IAdapterRuntimeManager {
 
     public IIntakeProgressTracker getProgressTracker();
 
+    public int getPartition();
+
 }

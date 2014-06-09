@@ -95,57 +95,6 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
         return tracker;
     }
 
-    public static class AdapterExecutor implements Runnable {
-
-        private DistributeFeedFrameWriter writer;
-
-        private IFeedAdapter adapter;
-
-        private AdapterRuntimeManager runtimeManager;
-
-        public AdapterExecutor(int partition, DistributeFeedFrameWriter writer, IFeedAdapter adapter,
-                AdapterRuntimeManager adapterRuntimeMgr) {
-            this.writer = writer;
-            this.adapter = adapter;
-            this.runtimeManager = adapterRuntimeMgr;
-        }
-
-        @Override
-        public void run() {
-            int partition = runtimeManager.getPartition();
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Starting ingestion for partition:" + partition);
-            }
-            boolean continueIngestion = true;
-            while (continueIngestion) {
-                try {
-                    adapter.start(partition, writer);
-                    continueIngestion = false;
-                } catch (Exception e) {
-                    if (LOGGER.isLoggable(Level.SEVERE)) {
-                        LOGGER.severe("Exception during feed ingestion " + e.getMessage());
-                        e.printStackTrace();
-                    }
-                    continueIngestion = adapter.handleException(e);
-                }
-            }
-
-            runtimeManager.setState(State.FINISHED_INGESTION);
-            synchronized (runtimeManager) {
-                runtimeManager.notifyAll();
-            }
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("End of ingestion for feed " + runtimeManager.getFeedId() + "["
-                        + runtimeManager.getPartition() + "]");
-            }
-        }
-
-        public DistributeFeedFrameWriter getWriter() {
-            return writer;
-        }
-
-    }
-
     public synchronized State getState() {
         return state;
     }
@@ -158,6 +107,7 @@ public class AdapterRuntimeManager implements IAdapterRuntimeManager {
         return adapterExecutor;
     }
 
+    @Override
     public int getPartition() {
         return partition;
     }

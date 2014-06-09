@@ -44,7 +44,7 @@ public class FeedId implements Serializable {
         if (o == null || !(o instanceof FeedId)) {
             return false;
         }
-        if (((FeedId) o).getFeedName().equals(feedName) && ((FeedId) o).getDataverse().equals(dataverse)) {
+        if (this == o || ((FeedId) o).getFeedName().equals(feedName) && ((FeedId) o).getDataverse().equals(dataverse)) {
             return true;
         }
         return false;

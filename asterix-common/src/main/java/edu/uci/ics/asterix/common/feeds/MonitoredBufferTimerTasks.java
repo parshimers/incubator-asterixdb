@@ -14,7 +14,9 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -36,19 +38,19 @@ public class MonitoredBufferTimerTasks {
 
     public static class MonitoredBufferStorageTimerTask extends TimerTask {
 
+        private static final int PERSISTENCE_DELAY_VIOLATION_MAX = 5;
+
         private final MonitoredBuffer mBuffer;
         private final IFeedManager feedManager;
         private final int partition;
         private final FeedConnectionId connectionId;
         private final FeedPolicyAccessor policyAccessor;
         private final StorageFrameHandler storageFromeHandler;
-
-        private Map<Integer, Integer> maxIntakeBaseCovered;
-        private int countDelayExceeded = 0;
         private final StorageReportFeedMessage storageReportMessage;
         private final FeedTupleCommitAckMessage tupleCommitAckMessage;
 
-        private static final int PERSISTENCE_DELAY_VIOLATION_MAX = 5;
+        private Map<Integer, Integer> maxIntakeBaseCovered;
+        private int countDelayExceeded = 0;
 
         public MonitoredBufferStorageTimerTask(MonitoredBuffer mBuffer, IFeedManager feedManager,
                 FeedConnectionId connectionId, int partition, FeedPolicyAccessor policyAccessor,
@@ -67,18 +69,25 @@ public class MonitoredBufferTimerTasks {
         @Override
         public void run() {
             Set<Integer> partitions = storageFromeHandler.getPartitionsWithStats();
+            List<Integer> basesCovered = new ArrayList<Integer>();
             for (int intakePartition : partitions) {
                 Map<Integer, IntakePartitionStatistics> baseAcks = storageFromeHandler
                         .getBaseAcksForPartition(intakePartition);
                 for (Entry<Integer, IntakePartitionStatistics> entry : baseAcks.entrySet()) {
                     int base = entry.getKey();
                     IntakePartitionStatistics stats = entry.getValue();
-                    if (maxIntakeBaseCovered.get(intakePartition) != null
-                            && maxIntakeBaseCovered.get(intakePartition) < base) {
+                    Integer maxIntakeBaseForPartition = maxIntakeBaseCovered.get(intakePartition);
+                    if (maxIntakeBaseForPartition == null || maxIntakeBaseForPartition < base) {
                         tupleCommitAckMessage.reset(intakePartition, base, stats.getAckInfo());
                         feedManager.getFeedMessageService().sendMessage(tupleCommitAckMessage);
+                    } else {
+                        basesCovered.add(base);
                     }
                 }
+                for (Integer b : basesCovered) {
+                    baseAcks.remove(b);
+                }
+                basesCovered.clear();
             }
 
             long avgDelayPersistence = storageFromeHandler.getAvgDelayPersistence();

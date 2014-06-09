@@ -23,6 +23,7 @@ import java.util.logging.Logger;
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
 import edu.uci.ics.asterix.common.feeds.CollectionRuntime;
 import edu.uci.ics.asterix.common.feeds.DistributeFeedFrameWriter;
+import edu.uci.ics.asterix.common.feeds.FeedCollectRuntimeInputHandler;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedFrameCollector;
 import edu.uci.ics.asterix.common.feeds.FeedFrameCollector.State;
@@ -33,6 +34,7 @@ import edu.uci.ics.asterix.common.feeds.FeedRuntimeInputHandler;
 import edu.uci.ics.asterix.common.feeds.FeedRuntimeManager;
 import edu.uci.ics.asterix.common.feeds.FeedTupleCommitResponseMessage;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
+import edu.uci.ics.asterix.common.feeds.IntakePartitionStatistics;
 import edu.uci.ics.asterix.common.feeds.MonitoredBufferTimerTasks.MonitoredBufferStorageTimerTask;
 import edu.uci.ics.asterix.common.feeds.SubscribableFeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.api.IAdapterRuntimeManager;
@@ -119,11 +121,19 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
         FeedRuntimeManager runtimeManager = feedManager.getFeedConnectionManager().getFeedRuntimeManager(connectionId);
         Set<FeedRuntimeId> runtimes = runtimeManager.getFeedRuntimes();
         for (FeedRuntimeId runtimeId : runtimes) {
-            if (runtimeId.getFeedRuntimeType().equals(FeedRuntimeType.STORE)) {
-                FeedRuntime runtime = runtimeManager.getFeedRuntime(runtimeId);
-                MonitoredBufferStorageTimerTask sTask = runtime.getInputHandler().getmBuffer()
-                        .getStorageTimeTrackingRateTask();
-                sTask.receiveCommitAckResponse(commitResponseMessage);
+            FeedRuntime runtime = runtimeManager.getFeedRuntime(runtimeId);
+            switch (runtimeId.getFeedRuntimeType()) {
+                case COLLECT:
+                    FeedCollectRuntimeInputHandler inputHandler = (FeedCollectRuntimeInputHandler) runtime
+                            .getInputHandler();
+                    int maxBasePersisted = commitResponseMessage.getMaxWindowAcked();
+                    inputHandler.dropTill(IntakePartitionStatistics.ACK_WINDOW_SIZE * (maxBasePersisted + 1));
+                    break;
+                case STORE:
+                    MonitoredBufferStorageTimerTask sTask = runtime.getInputHandler().getmBuffer()
+                            .getStorageTimeTrackingRateTask();
+                    sTask.receiveCommitAckResponse(commitResponseMessage);
+                    break;
             }
         }
 

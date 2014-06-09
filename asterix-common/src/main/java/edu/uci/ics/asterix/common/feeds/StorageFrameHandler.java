@@ -3,6 +3,7 @@ package edu.uci.ics.asterix.common.feeds;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import edu.uci.ics.asterix.common.feeds.FeedConstants.StatisticsConstants;
@@ -15,9 +16,10 @@ public class StorageFrameHandler {
 
     public StorageFrameHandler() {
         intakeStatistics = new HashMap<Integer, Map<Integer, IntakePartitionStatistics>>();
+        avgDelayPersistence = 0L;
     }
 
-    public void updateTrackingInformation(ByteBuffer frame, FrameTupleAccessor frameAccessor) {
+    public synchronized void updateTrackingInformation(ByteBuffer frame, FrameTupleAccessor frameAccessor) {
         int nTuples = frameAccessor.getTupleCount();
         long delay = 0;
         long intakeTimestamp;
@@ -71,8 +73,12 @@ public class StorageFrameHandler {
         return null;
     }
 
-    public Map<Integer, IntakePartitionStatistics> getBaseAcksForPartition(int partition) {
+    public synchronized Map<Integer, IntakePartitionStatistics> getBaseAcksForPartition(int partition) {
         Map<Integer, IntakePartitionStatistics> intakeStatsForPartition = intakeStatistics.get(partition);
+        Map<Integer, IntakePartitionStatistics> clone = new HashMap<Integer, IntakePartitionStatistics>();
+        for (Entry<Integer, IntakePartitionStatistics> entry : intakeStatsForPartition.entrySet()) {
+            clone.put(entry.getKey(), entry.getValue());
+        }
         return intakeStatsForPartition;
     }
 
