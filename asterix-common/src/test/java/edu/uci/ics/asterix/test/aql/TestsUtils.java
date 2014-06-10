@@ -202,7 +202,7 @@ public class TestsUtils {
             .setScheme("http")
             .setHost("localhost")
             .setPort(19002)
-            .setPath("query")
+            .setPath("/query")
             .setParameter("query", str)
             .build();
 
@@ -240,7 +240,7 @@ public class TestsUtils {
         .setScheme("http")
         .setHost("localhost")
         .setPort(19002)
-        .setPath("update")
+        .setPath("/update")
         .build();
 
         // Create an instance of HttpClient.
@@ -279,7 +279,7 @@ public class TestsUtils {
         .setScheme("http")
         .setHost("localhost")
         .setPort(19002)
-        .setPath("ddl")
+        .setPath("/ddl")
         .build();
         // Create an instance of HttpClient.
         // Provide custom retry handler is necessary
