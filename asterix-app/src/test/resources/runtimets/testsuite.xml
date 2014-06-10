@@ -2330,8 +2330,18 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="index-selection">
+      <compilation-unit name="inverted-index-ngram-edit-distance-word-tokens">
+        <output-dir compare="Text">inverted-index-ngram-edit-distance-word-tokens</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
       <compilation-unit name="inverted-index-ngram-jaccard">
         <output-dir compare="Text">inverted-index-ngram-jaccard</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="inverted-index-ngram-edit-distance-contains">
+        <output-dir compare="Text">inverted-index-ngram-edit-distance-contains</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="index-selection">
@@ -2407,6 +2417,11 @@
     <test-case FilePath="index-selection">
       <compilation-unit name="rtree-secondary-index">
         <output-dir compare="Text">rtree-secondary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="disjunctive-predicate-1">
+        <output-dir compare="Text">disjunctive-predicate-1</output-dir>
       </compilation-unit>
     </test-case>
   </test-group>
@@ -2546,6 +2561,11 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="list">
+      <compilation-unit name="get-item_02">
+        <output-dir compare="Text">get-item_02</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="list">
       <compilation-unit name="len_01">
         <output-dir compare="Text">len_01</output-dir>
       </compilation-unit>
@@ -2661,6 +2681,11 @@
     <test-case FilePath="misc">
       <compilation-unit name="query_issue267">
         <output-dir compare="Text">query_issue267</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="misc">
+      <compilation-unit name="stable_sort">
+        <output-dir compare="Text">stable_sort</output-dir>
       </compilation-unit>
     </test-case>
    <!--
@@ -4267,6 +4292,11 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="tpch">
+      <compilation-unit name="nest_aggregate">
+        <output-dir compare="Text">nest_aggregate</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
       <compilation-unit name="q10_returned_item">
         <output-dir compare="Text">q10_returned_item</output-dir>
       </compilation-unit>
@@ -4309,6 +4339,11 @@
     <test-case FilePath="tpch">
       <compilation-unit name="q17_small_quantity_order_revenue">
         <output-dir compare="Text">q17_small_quantity_order_revenue</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q17_large_gby_variant">
+        <output-dir compare="Text">q17_large_gby_variant</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="tpch">
@@ -4816,11 +4851,13 @@
         <output-dir compare="Text">feeds_05</output-dir>
       </compilation-unit>
     </test-case>
+    <!--Disable it because of sporadic failures. Raman will re-enable it.
     <test-case FilePath="feeds">
       <compilation-unit name="feeds_06">
         <output-dir compare="Text">feeds_06</output-dir>
       </compilation-unit>
     </test-case>
+    -->
     <test-case FilePath="feeds">
       <compilation-unit name="feeds_07">
         <output-dir compare="Text">feeds_07</output-dir>
@@ -4989,6 +5026,38 @@
         <output-dir compare="Text">query_issue285-2</output-dir>
       </compilation-unit>
     </test-case>
+  </test-group>
+    <test-group name="index-leftouterjoin">
+    <test-case FilePath="index-leftouterjoin">
+      <compilation-unit name="probe-pidx-with-join-btree-sidx1">
+        <output-dir compare="Text">probe-pidx-with-join-btree-sidx1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-leftouterjoin">
+      <compilation-unit name="probe-pidx-with-join-btree-sidx2">
+        <output-dir compare="Text">probe-pidx-with-join-btree-sidx2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-leftouterjoin">
+      <compilation-unit name="probe-pidx-with-join-rtree-sidx1">
+        <output-dir compare="Text">probe-pidx-with-join-rtree-sidx1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-leftouterjoin">
+      <compilation-unit name="probe-pidx-with-join-rtree-sidx2">
+        <output-dir compare="Text">probe-pidx-with-join-rtree-sidx2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-leftouterjoin">
+      <compilation-unit name="probe-pidx-with-join-invidx-sidx1">
+        <output-dir compare="Text">probe-pidx-with-join-invidx-sidx1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-leftouterjoin">
+      <compilation-unit name="probe-pidx-with-join-invidx-sidx2">
+        <output-dir compare="Text">probe-pidx-with-join-invidx-sidx2</output-dir>
+      </compilation-unit>
+    </test-case>    
   </test-group>
   <test-group name="distinct">
   	<test-case FilePath="distinct">

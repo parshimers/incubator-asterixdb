@@ -123,11 +123,11 @@ public class AsterixAppRuntimeContext implements IAsterixAppRuntimeContext, IAst
         threadExecutor = new AsterixThreadExecutor(ncApplicationContext.getThreadFactory());
         fileMapManager = new AsterixFileMapManager();
         ICacheMemoryAllocator allocator = new HeapBufferAllocator();
-        IPageReplacementStrategy prs = new ClockPageReplacementStrategy();
         IPageCleanerPolicy pcp = new DelayPageCleanerPolicy(600000);
         ioManager = ncApplicationContext.getRootContext().getIOManager();
-        bufferCache = new BufferCache(ioManager, allocator, prs, pcp, fileMapManager,
-                storageProperties.getBufferCachePageSize(), storageProperties.getBufferCacheNumPages(),
+        IPageReplacementStrategy prs = new ClockPageReplacementStrategy(allocator,
+                storageProperties.getBufferCachePageSize(), storageProperties.getBufferCacheNumPages());
+        bufferCache = new BufferCache(ioManager, prs, pcp, fileMapManager,
                 storageProperties.getBufferCacheMaxOpenFiles(), ncApplicationContext.getThreadFactory());
 
         AsynchronousScheduler.INSTANCE.init(ncApplicationContext.getThreadFactory());
@@ -148,7 +148,8 @@ public class AsterixAppRuntimeContext implements IAsterixAppRuntimeContext, IAst
                 txnProperties);
         isShuttingdown = false;
 
-        feedManager = new FeedManager(ncApplicationContext.getNodeId(), feedProperties, compilerProperties.getFrameSize());
+        feedManager = new FeedManager(ncApplicationContext.getNodeId(), feedProperties,
+                compilerProperties.getFrameSize());
 
         // The order of registration is important. The buffer cache must registered before recovery and transaction managers.
         ILifeCycleComponentManager lccm = ncApplicationContext.getLifeCycleComponentManager();
@@ -264,5 +265,4 @@ public class AsterixAppRuntimeContext implements IAsterixAppRuntimeContext, IAst
     public IFeedManager getFeedManager() {
         return feedManager;
     }
-
 }

@@ -19,11 +19,13 @@ import java.util.LinkedList;
 import java.util.List;
 
 import edu.uci.ics.asterix.optimizer.rules.AsterixInlineVariablesRule;
+import edu.uci.ics.asterix.optimizer.rules.AsterixIntroduceGroupByCombinerRule;
 import edu.uci.ics.asterix.optimizer.rules.ByNameToByIndexFieldAccessRule;
 import edu.uci.ics.asterix.optimizer.rules.CancelUnnestWithNestedListifyRule;
 import edu.uci.ics.asterix.optimizer.rules.CheckFilterExpressionTypeRule;
 import edu.uci.ics.asterix.optimizer.rules.ConstantFoldingRule;
 import edu.uci.ics.asterix.optimizer.rules.CountVarToCountOneRule;
+import edu.uci.ics.asterix.optimizer.rules.DisjunctivePredicateToJoinRule;
 import edu.uci.ics.asterix.optimizer.rules.ExtractDistinctByExpressionsRule;
 import edu.uci.ics.asterix.optimizer.rules.ExtractFunctionsFromJoinConditionRule;
 import edu.uci.ics.asterix.optimizer.rules.ExtractOrderExpressionsRule;
@@ -85,7 +87,6 @@ import edu.uci.ics.hyracks.algebricks.rewriter.rules.InsertProjectBeforeUnionRul
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.IntroHashPartitionMergeExchange;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.IntroJoinInsideSubplanRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.IntroduceAggregateCombinerRule;
-import edu.uci.ics.hyracks.algebricks.rewriter.rules.IntroduceGroupByCombinerRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.IntroduceGroupByForSubplanRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.IntroduceProjectsRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.IsolateHyracksOperatorsRule;
@@ -93,6 +94,7 @@ import edu.uci.ics.hyracks.algebricks.rewriter.rules.LeftOuterJoinToInnerJoinRul
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.PullSelectOutOfEqJoin;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.PushAssignBelowUnionAllRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.PushAssignDownThroughProductRule;
+import edu.uci.ics.hyracks.algebricks.rewriter.rules.PushGroupByIntoSortRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.PushNestedOrderByUnderPreSortedGroupByRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.PushProjectDownRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.PushSelectDownRule;
@@ -159,6 +161,7 @@ public final class RuleCollections {
         condPushDownAndJoinInference.add(new SimpleUnnestToProductRule());
         condPushDownAndJoinInference.add(new ComplexUnnestToProductRule());
         condPushDownAndJoinInference.add(new ComplexJoinInferenceRule());
+        condPushDownAndJoinInference.add(new DisjunctivePredicateToJoinRule());
         condPushDownAndJoinInference.add(new PushSelectIntoJoinRule());
         condPushDownAndJoinInference.add(new IntroJoinInsideSubplanRule());
         condPushDownAndJoinInference.add(new PushAssignDownThroughProductRule());
@@ -212,7 +215,7 @@ public final class RuleCollections {
         consolidation.add(new ConsolidateSelectsRule());
         consolidation.add(new ConsolidateAssignsRule());
         consolidation.add(new InlineAssignIntoAggregateRule());
-        consolidation.add(new IntroduceGroupByCombinerRule());
+        consolidation.add(new AsterixIntroduceGroupByCombinerRule());
         consolidation.add(new IntroduceAggregateCombinerRule());
         consolidation.add(new CountVarToCountOneRule());
         consolidation.add(new RemoveUnusedAssignAndAggregateRule());
@@ -294,6 +297,7 @@ public final class RuleCollections {
         // Re-infer all types, so that, e.g., the effect of not-is-null is
         // propagated.
         prepareForJobGenRewrites.add(new ReinferAllTypesRule());
+        prepareForJobGenRewrites.add(new PushGroupByIntoSortRule());
         prepareForJobGenRewrites.add(new SetExecutionModeRule());
         prepareForJobGenRewrites.add(new SweepIllegalNonfunctionalFunctions());
         return prepareForJobGenRewrites;
