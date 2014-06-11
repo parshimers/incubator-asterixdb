@@ -38,9 +38,9 @@ import edu.uci.ics.asterix.testframework.context.TestCaseContext;
  * Runs the runtime test cases under 'asterix-app/src/test/resources/runtimets'.
  */
 @RunWith(Parameterized.class)
-public class ClusterExecutionTest {
+public class ClusterExecutionIT {
 
-    private static final Logger LOGGER = Logger.getLogger(ClusterExecutionTest.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(ClusterExecutionIT.class.getName());
 
     private static final String PATH_ACTUAL = "ittest" + File.separator;
     private static final String PATH_BASE = StringUtils.join(new String[] { "..", "asterix-app", "src", "test",
@@ -86,7 +86,7 @@ public class ClusterExecutionTest {
 
     private TestCaseContext tcCtx;
 
-    public ClusterExecutionTest(TestCaseContext tcCtx) {
+    public ClusterExecutionIT(TestCaseContext tcCtx) {
         this.tcCtx = tcCtx;
     }
 
