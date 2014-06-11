@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.asterix.test.runtime;
+package edu.uci.ics.asterix.installer.test;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -20,7 +20,6 @@ import java.util.Collection;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -29,32 +28,23 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import edu.uci.ics.asterix.api.common.AsterixHyracksIntegrationUtil;
-import edu.uci.ics.asterix.common.config.AsterixPropertiesAccessor;
-import edu.uci.ics.asterix.common.config.AsterixTransactionProperties;
 import edu.uci.ics.asterix.common.config.GlobalConfig;
-import edu.uci.ics.asterix.common.config.OptimizationConfUtil;
 import edu.uci.ics.asterix.external.dataset.adapter.FileSystemBasedAdapter;
 import edu.uci.ics.asterix.external.util.IdentitiyResolverFactory;
-import edu.uci.ics.asterix.test.aql.TestsUtils;
+import edu.uci.ics.asterix.test.aql.ClusterTestsUtils;
 import edu.uci.ics.asterix.testframework.context.TestCaseContext;
 
 /**
  * Runs the runtime test cases under 'asterix-app/src/test/resources/runtimets'.
  */
 @RunWith(Parameterized.class)
-public class ExecutionTest {
+public class ClusterExecutionTest {
 
-    private static final Logger LOGGER = Logger.getLogger(ExecutionTest.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(ClusterExecutionTest.class.getName());
 
-    private static final String PATH_ACTUAL = "rttest" + File.separator;
-    private static final String PATH_BASE = StringUtils.join(new String[] { "asterix-app", "src", "test", "resources",
-            "runtimets" }, File.separator);
-
-    private static final String TEST_CONFIG_FILE_NAME = "asterix-build-configuration.xml";
-    private static final String[] ASTERIX_DATA_DIRS = new String[] { "nc1data", "nc2data" };
-
-    private static AsterixTransactionProperties txnProperties;
+    private static final String PATH_ACTUAL = "ittest" + File.separator;
+    private static final String PATH_BASE = StringUtils.join(new String[] { "..", "asterix-app", "src", "test",
+            "resources", "runtimets" }, File.separator);
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -62,26 +52,11 @@ public class ExecutionTest {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Starting setup");
         }
-        System.setProperty(GlobalConfig.CONFIG_FILE_PROPERTY, TEST_CONFIG_FILE_NAME);
         System.setProperty(GlobalConfig.WEB_SERVER_PORT_PROPERTY, "19002");
         File outdir = new File(PATH_ACTUAL);
         outdir.mkdirs();
 
-        AsterixPropertiesAccessor apa = new AsterixPropertiesAccessor();
-        txnProperties = new AsterixTransactionProperties(apa);
-
-        deleteTransactionLogs();
-
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("initializing pseudo cluster");
-        }
-        AsterixHyracksIntegrationUtil.init();
-
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("initializing HDFS");
-        }
-
-        HDFSCluster.getInstance().setup();
+        AsterixClusterLifeCycleIT.setUp();
 
         // Set the node resolver to be the identity resolver that expects node names 
         // to be node controller ids; a valid assumption in test environment. 
@@ -91,26 +66,12 @@ public class ExecutionTest {
 
     @AfterClass
     public static void tearDown() throws Exception {
-        AsterixHyracksIntegrationUtil.deinit();
         File outdir = new File(PATH_ACTUAL);
         File[] files = outdir.listFiles();
         if (files == null || files.length == 0) {
             outdir.delete();
         }
-        // clean up the files written by the ASTERIX storage manager
-        for (String d : ASTERIX_DATA_DIRS) {
-            TestsUtils.deleteRec(new File(d));
-        }
-        HDFSCluster.getInstance().cleanup();
-    }
-
-    private static void deleteTransactionLogs() throws Exception {
-        for (String ncId : AsterixHyracksIntegrationUtil.NC_IDS) {
-            File log = new File(txnProperties.getLogDirectory(ncId));
-            if (log.exists()) {
-                FileUtils.deleteDirectory(log);
-            }
-        }
+        AsterixClusterLifeCycleIT.tearDown();
     }
 
     @Parameters
@@ -125,12 +86,12 @@ public class ExecutionTest {
 
     private TestCaseContext tcCtx;
 
-    public ExecutionTest(TestCaseContext tcCtx) {
+    public ClusterExecutionTest(TestCaseContext tcCtx) {
         this.tcCtx = tcCtx;
     }
 
     @Test
     public void test() throws Exception {
-        TestsUtils.executeTest(PATH_ACTUAL, tcCtx, null, false);
+        ClusterTestsUtils.executeTest(PATH_ACTUAL, tcCtx, null, false);
     }
 }
