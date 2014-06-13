@@ -35,10 +35,12 @@ public class BuiltinFeedPolicies {
 
     public static final FeedPolicy ADVANCED_FT_SPILL = initializeAdvancedFTSpillPolicy();
 
+    public static final FeedPolicy ADVANCED_FT_THROTTLE = initializeAdvancedFTThrottlePolicy();
+
     public static final FeedPolicy ELASTIC = initializeAdvancedFTElasticPolicy();
 
     public static final FeedPolicy[] policies = new FeedPolicy[] { BRITTLE, BASIC, BASIC_FT, ADVANCED_FT,
-            ADVANCED_FT_DISCARD, ADVANCED_FT_SPILL, ELASTIC };
+            ADVANCED_FT_DISCARD, ADVANCED_FT_SPILL, ADVANCED_FT_THROTTLE, ELASTIC };
 
     public static final FeedPolicy DEFAULT_POLICY = BASIC_FT;
 
@@ -62,6 +64,7 @@ public class BuiltinFeedPolicies {
         policyParams.put(FeedPolicyAccessor.CLUSTER_REBOOT_AUTO_RESTART, "false");
         policyParams.put(FeedPolicyAccessor.ELASTIC, "false");
         policyParams.put(FeedPolicyAccessor.TIME_TRACKING, "false");
+        policyParams.put(FeedPolicyAccessor.AT_LEAST_ONE_SEMANTICS, "false");
 
         String description = "Brittle";
         return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "Brittle", description, policyParams);
@@ -75,6 +78,7 @@ public class BuiltinFeedPolicies {
         policyParams.put(FeedPolicyAccessor.CLUSTER_REBOOT_AUTO_RESTART, "true");
         policyParams.put(FeedPolicyAccessor.ELASTIC, "false");
         policyParams.put(FeedPolicyAccessor.TIME_TRACKING, "false");
+        policyParams.put(FeedPolicyAccessor.AT_LEAST_ONE_SEMANTICS, "false");
 
         String description = "Basic";
         return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "Basic", description, policyParams);
@@ -91,6 +95,8 @@ public class BuiltinFeedPolicies {
         policyParams.put(FeedPolicyAccessor.SPILL_TO_DISK_ON_CONGESTION, "false");
         policyParams.put(FeedPolicyAccessor.MAX_FRACTION_DISCARD, "1");
         policyParams.put(FeedPolicyAccessor.TIME_TRACKING, "false");
+        policyParams.put(FeedPolicyAccessor.AT_LEAST_ONE_SEMANTICS, "false");
+        policyParams.put(FeedPolicyAccessor.THROTTLING_ENABLED, "false");
 
         String description = "Basic Monitored Fault-Tolerant";
         return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "BasicFT", description, policyParams);
@@ -104,9 +110,10 @@ public class BuiltinFeedPolicies {
         policyParams.put(FeedPolicyAccessor.HARDWARE_FAILURE_CONTINUE, "true");
         policyParams.put(FeedPolicyAccessor.CLUSTER_REBOOT_AUTO_RESTART, "true");
         policyParams.put(FeedPolicyAccessor.ELASTIC, "false");
-        policyParams.put(FeedPolicyAccessor.TIME_TRACKING, "false");
+        policyParams.put(FeedPolicyAccessor.TIME_TRACKING, "true");
+        policyParams.put(FeedPolicyAccessor.AT_LEAST_ONE_SEMANTICS, "true");
 
-        String description = "Basic Monitored Fault-Tolerant";
+        String description = "Basic Monitored Fault-Tolerant with at least once semantics";
         return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "AdvancedFT", description, policyParams);
     }
 
@@ -141,6 +148,24 @@ public class BuiltinFeedPolicies {
 
         String description = "AdvancedFT 100% Discard during congestion";
         return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "AdvancedFT_Spill", description, policyParams);
+    }
+
+    // AdvancedFT_Spill
+    private static FeedPolicy initializeAdvancedFTThrottlePolicy() {
+        Map<String, String> policyParams = new HashMap<String, String>();
+        policyParams.put(FeedPolicyAccessor.SOFT_FAILURE_CONTINUE, "true");
+        policyParams.put(FeedPolicyAccessor.SOFT_FAILURE_LOG_DATA, "true");
+        policyParams.put(FeedPolicyAccessor.HARDWARE_FAILURE_CONTINUE, "true");
+        policyParams.put(FeedPolicyAccessor.CLUSTER_REBOOT_AUTO_RESTART, "true");
+        policyParams.put(FeedPolicyAccessor.ELASTIC, "false");
+        policyParams.put(FeedPolicyAccessor.SPILL_TO_DISK_ON_CONGESTION, "" + Boolean.FALSE);
+        policyParams.put(FeedPolicyAccessor.MAX_FRACTION_DISCARD, "" + 0);
+        policyParams.put(FeedPolicyAccessor.TIME_TRACKING, "false");
+        policyParams.put(FeedPolicyAccessor.THROTTLING_ENABLED, "true");
+
+        String description = "AdvancedFT Throttle during congestion";
+        return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "AdvancedFT_Throttle", description,
+                policyParams);
     }
 
     // AdvancedFT_Elastic

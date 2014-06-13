@@ -57,6 +57,7 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
     private Mode lastMode;
     private boolean finished;
     private long nProcessed;
+    private boolean throttlingEnabled;
 
     private FrameEventCallback frameEventCallback;
 
@@ -81,10 +82,11 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
         this.frameCollection = (FrameCollection) feedManager.getFeedMemoryManager().getMemoryComponent(
                 IFeedMemoryComponent.Type.COLLECTION);
         this.frameEventCallback = new FrameEventCallback(fpa, this, coreOperator);
-        this.mBuffer = new MonitoredBuffer(this, coreOperator, fta, frameSize, recordDesc,
+        this.mBuffer = MonitoredBuffer.getMonitoredBuffer(this, coreOperator, fta, frameSize, recordDesc,
                 feedManager.getFeedMetricCollector(), connectionId, runtimeId, exceptionHandler, frameEventCallback,
                 nPartitions, fpa);
         this.mBuffer.start();
+        this.throttlingEnabled = false;
     }
 
     public synchronized void nextFrame(ByteBuffer frame) throws HyracksDataException {
@@ -106,24 +108,17 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
                     }
                     process(frame);
                     break;
-
                 case PROCESS_BACKLOG:
                 case PROCESS_SPILL:
                     process(frame);
                     break;
-                case SPILL: {
-                    if (!spill(frame)) {
-                        reportUnresolvableCongestion();
-                    }
+                case SPILL:
+                    spill(frame);
                     break;
-                }
                 case DISCARD:
                 case POST_SPILL_DISCARD:
-                    if (!discarder.processMessage(frame)) {
-                        reportUnresolvableCongestion();
-                    }
+                    discard(frame);
                     break;
-
                 case STALL:
                     switch (runtimeId.getFeedRuntimeType()) {
                         case COLLECT:
@@ -182,11 +177,14 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
     private void reportUnresolvableCongestion() throws HyracksDataException {
         if (this.runtimeId.getFeedRuntimeType().equals(FeedRuntimeType.COMPUTE)) {
             FeedCongestionMessage congestionReport = new FeedCongestionMessage(connectionId, runtimeId,
-                    mBuffer.getInflowRate(), mBuffer.getOutflowRate());
+                    mBuffer.getInflowRate(), mBuffer.getOutflowRate(), mode);
             feedManager.getFeedMessageService().sendMessage(congestionReport);
-        } else {
             if (LOGGER.isLoggable(Level.WARNING)) {
                 LOGGER.warning("Congestion reported " + this.connectionId + " " + this.runtimeId);
+            }
+        } else {
+            if (LOGGER.isLoggable(Level.WARNING)) {
+                LOGGER.warning("Unresolvable congestion at " + this.connectionId + " " + this.runtimeId);
             }
         }
     }
@@ -235,8 +233,8 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
     }
 
     protected void process(ByteBuffer frame) throws HyracksDataException {
-        boolean finishedProcessing = false;
-        while (!finishedProcessing) {
+        boolean frameProcessed = false;
+        while (!frameProcessed) {
             try {
                 if (!bufferingEnabled) {
                     coreOperator.nextFrame(frame);
@@ -255,23 +253,33 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
                     } else {
                         if (fpa.spillToDiskOnCongestion()) {
                             if (frame != null) {
-                                spiller.processMessage(frame);
-                                setMode(Mode.SPILL);
-                            } // TODO handle the else case
-                        } else {
-                            discarder.processMessage(frame);
-                            setMode(Mode.DISCARD);
+                                boolean spilled = spiller.processMessage(frame);
+                                if (spilled) {
+                                    setMode(Mode.SPILL);
+                                } else {
+                                    reportUnresolvableCongestion();
+                                }
+                            }
+                        } else if (fpa.discardOnCongestion()) {
+                            boolean discarded = discarder.processMessage(frame);
+                            if (discarded) {
+                                setMode(Mode.DISCARD);
+                            } else {
+                                reportUnresolvableCongestion();
+                            }
+                        } else if (fpa.throttlingEnabled()) {
+                            setThrottlingEnabled(true);
                         }
 
                     }
                 }
-                finishedProcessing = true;
+                frameProcessed = true;
             } catch (Exception e) {
                 e.printStackTrace();
                 if (feedPolicyAccessor.continueOnSoftFailure()) {
                     frame = exceptionHandler.handleException(e, frame);
                     if (frame == null) {
-                        finishedProcessing = true;
+                        frameProcessed = true;
                         if (LOGGER.isLoggable(Level.WARNING)) {
                             LOGGER.warning("Encountered exception! " + e.getMessage()
                                     + "Insufficient information, Cannot extract failing tuple");
@@ -288,13 +296,20 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
         }
     }
 
-    private boolean spill(ByteBuffer frame) throws Exception {
+    private void spill(ByteBuffer frame) throws Exception {
         boolean success = spiller.processMessage(frame);
         if (!success) {
             // limit reached
             setMode(Mode.POST_SPILL_DISCARD);
+            reportUnresolvableCongestion();
         }
-        return success;
+    }
+
+    private void discard(ByteBuffer frame) throws Exception {
+        boolean success = discarder.processMessage(frame);
+        if (!success) { // limit reached
+            reportUnresolvableCongestion();
+        }
     }
 
     public Mode getMode() {
@@ -387,4 +402,17 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
         return mBuffer;
     }
 
+    public boolean isThrottlingEnabled() {
+        return throttlingEnabled;
+    }
+
+    public void setThrottlingEnabled(boolean throttlingEnabled) {
+        if (this.throttlingEnabled != throttlingEnabled) {
+            this.throttlingEnabled = throttlingEnabled;
+            feedManager.getFeedMessageService().sendMessage(congestionReport);
+            if (LOGGER.isLoggable(Level.WARNING)) {
+                LOGGER.warning("Throttling " + throttlingEnabled + " for " + this.connectionId + "[" + runtimeId + "]");
+            }
+        }
+    }
 }

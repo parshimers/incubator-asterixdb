@@ -15,6 +15,7 @@ import edu.uci.ics.asterix.common.feeds.api.IFeedTrackingManager;
 import edu.uci.ics.asterix.common.feeds.message.FeedCongestionMessage;
 import edu.uci.ics.asterix.common.feeds.message.ScaleInReportMessage;
 import edu.uci.ics.asterix.common.feeds.message.StorageReportFeedMessage;
+import edu.uci.ics.asterix.common.feeds.message.ThrottlingEnabledFeedMessage;
 import edu.uci.ics.asterix.feeds.CentralFeedManager.AQLExecutor;
 
 public class FeedMessageReceiver extends MessageReceiver<String> {
@@ -62,6 +63,8 @@ public class FeedMessageReceiver extends MessageReceiver<String> {
             case COMMIT_ACK:
                 feedTrackingManager.submitAckReport(FeedTupleCommitAckMessage.read(obj));
                 break;
+            case THROTTLING_ENABLED:
+                feedLoadManager.reportThrottlingEnabled(ThrottlingEnabledFeedMessage.read(obj));
             default:
                 break;
         }

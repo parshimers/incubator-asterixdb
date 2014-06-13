@@ -14,6 +14,7 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
+import java.awt.im.InputSubset;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -49,8 +50,10 @@ public class FrameEventCallback implements IFrameEventCallback {
             case PENDING_WORK_THRESHOLD_REACHED:
                 if (fpa.spillToDiskOnCongestion()) {
                     inputSideHandler.setMode(Mode.SPILL);
-                } else {
+                } else if (fpa.discardOnCongestion()) {
                     inputSideHandler.setMode(Mode.DISCARD);
+                } else if (fpa.throttlingEnabled()) {
+                    inputSideHandler.setThrottlingEnabled(true);
                 }
                 break;
             case FINISHED_PROCESSING:

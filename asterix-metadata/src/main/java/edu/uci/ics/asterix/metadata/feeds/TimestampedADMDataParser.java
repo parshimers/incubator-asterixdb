@@ -12,10 +12,15 @@ import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 public class TimestampedADMDataParser extends ADMDataParser {
 
     private final FeedFrameTupleDecorator tupleDecorator;
+    private final boolean injectRecordId;
+    private final boolean injectTimestamps;
 
-    public TimestampedADMDataParser(IHyracksTaskContext ctx, int partition) {
+    public TimestampedADMDataParser(IHyracksTaskContext ctx, int partition, boolean injectRecordId,
+            boolean injectTimestamps) {
         super();
         this.tupleDecorator = new FeedFrameTupleDecorator(partition);
+        this.injectRecordId = injectRecordId;
+        this.injectTimestamps = injectTimestamps;
     }
 
     protected void writeRecord(IARecordBuilder recordBuilder, DataOutput out, boolean writeTypeTag) throws IOException,
@@ -24,10 +29,14 @@ public class TimestampedADMDataParser extends ADMDataParser {
                 || recordBuilder.getFieldId(FeedConstants.StatisticsConstants.STORE_TIMESTAMP) > 0) {
             super.writeRecord(recordBuilder, out, writeTypeTag);
         } else {
-            tupleDecorator.addTupleId(recordBuilder);
-            tupleDecorator.addIntakePartition(recordBuilder);
-            tupleDecorator.addIntakeTimestamp(recordBuilder);
-            tupleDecorator.addStoreTimestamp(recordBuilder);
+            if (injectRecordId) {
+                tupleDecorator.addTupleId(recordBuilder);
+            }
+            if (injectTimestamps) {
+                tupleDecorator.addIntakePartition(recordBuilder);
+                tupleDecorator.addIntakeTimestamp(recordBuilder);
+                tupleDecorator.addStoreTimestamp(recordBuilder);
+            }
             super.writeRecord(recordBuilder, out, writeTypeTag);
         }
     }

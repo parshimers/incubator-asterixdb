@@ -26,7 +26,6 @@ import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
-import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.ByteBufferInputStream;
 
 public class FeedExceptionHandler implements IExceptionHandler {
@@ -59,15 +58,7 @@ public class FeedExceptionHandler implements IExceptionHandler {
                 logExceptionCausingTuple(tupleIndex, e);
 
                 // slicing
-                FrameTupleAppender appender = new FrameTupleAppender(frameSize);
-                ByteBuffer slicedFrame = ByteBuffer.allocate(frameSize);
-                appender.reset(slicedFrame, true);
-                int startTupleIndex = tupleIndex + 1;
-                int totalTuples = fta.getTupleCount();
-                for (int ti = startTupleIndex; ti < totalTuples; ti++) {
-                    appender.append(fta, ti);
-                }
-                return slicedFrame;
+                return FeedFrameUtil.getSlicedFrame(frameSize, tupleIndex, fta);
             } else {
                 return null;
             }

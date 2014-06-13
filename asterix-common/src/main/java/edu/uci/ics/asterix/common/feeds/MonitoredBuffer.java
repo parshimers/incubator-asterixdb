@@ -24,9 +24,6 @@ import edu.uci.ics.asterix.common.feeds.MonitoredBufferTimerTasks.MonitoredBuffe
 import edu.uci.ics.asterix.common.feeds.MonitoredBufferTimerTasks.MonitoredBufferStorageTimerTask;
 import edu.uci.ics.asterix.common.feeds.api.IExceptionHandler;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector;
-import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector.MetricType;
-import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector.ValueType;
-import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
 import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback;
 import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback.FrameEvent;
@@ -34,47 +31,68 @@ import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 
-public class MonitoredBuffer extends MessageReceiver<DataBucket> {
+public abstract class MonitoredBuffer extends MessageReceiver<DataBucket> {
 
-    private static final long MONITOR_FREQUENCY = 2000; // 2 seconds
-    private static final long PROCESSING_RATE_MEASURE_FREQUENCY = 10000; // 10 seconds
-    private static final long STORAGE_TIME_TRACKING_FREQUENCY = 5000; // 10 seconds
+    protected static final long MONITOR_FREQUENCY = 2000; // 2 seconds
+    protected static final long PROCESSING_RATE_MEASURE_FREQUENCY = 10000; // 10 seconds
 
-    private static final int PROCESS_RATE_REFRESH = 2; // refresh processing rate every 10th frame
+    protected static final int PROCESS_RATE_REFRESH = 2; // refresh processing rate every 10th frame
 
-    private final FeedRuntimeId runtimeId;
-    private final FrameTupleAccessor inflowFta;
-    private final FrameTupleAccessor outflowFta;
-    private final FeedRuntimeInputHandler inputHandler;
-    private final IFrameEventCallback callback;
-    private final Timer timer;
+    protected final FeedConnectionId connectionId;
+    protected final FeedRuntimeId runtimeId;
+    protected final FrameTupleAccessor inflowFta;
+    protected final FrameTupleAccessor outflowFta;
+    protected final FeedRuntimeInputHandler inputHandler;
+    protected final IFrameEventCallback callback;
+    protected final Timer timer;
     private final int frameSize;
     private final RecordDescriptor recordDesc;
     private final IExceptionHandler exceptionHandler;
-    private final FeedPolicyAccessor policyAccessor;
+    protected final FeedPolicyAccessor policyAccessor;
+    protected int nPartitions;
 
     private IFrameWriter frameWriter;
-    private IFeedMetricCollector metricCollector;
-    private boolean processingRateEnabled = false;
-    private boolean trackDataMovementRate = false;
-    private boolean storageTimeTrackingEnabled = false;
-    private int inflowReportSenderId = -1;
-    private int outflowReportSenderId = -1;
-    private TimerTask monitorTask;
-    private TimerTask processingRateTask;
-    private MonitoredBufferStorageTimerTask storageTimeTrackingRateTask;
-    private StorageFrameHandler storageFromeHandler;
+    protected IFeedMetricCollector metricCollector;
+    protected boolean processingRateEnabled = false;
+    protected boolean trackDataMovementRate = false;
+    protected int inflowReportSenderId = -1;
+    protected int outflowReportSenderId = -1;
+    protected TimerTask monitorTask;
+    protected TimerTask processingRateTask;
+    protected MonitoredBufferStorageTimerTask storageTimeTrackingRateTask;
+    protected StorageFrameHandler storageFromeHandler;
 
-    private int processingRate = -1;
-    private int frameCount = 0;
+    protected int processingRate = -1;
+    protected int frameCount = 0;
     private long avgDelayPersistence = 0;
     private boolean active;
     private Map<Integer, Long> tupleTimeStats;
 
-    public MonitoredBuffer(FeedRuntimeInputHandler inputHandler, IFrameWriter frameWriter, FrameTupleAccessor fta,
+    public static MonitoredBuffer getMonitoredBuffer(FeedRuntimeInputHandler inputHandler, IFrameWriter frameWriter,
+            FrameTupleAccessor fta, int frameSize, RecordDescriptor recordDesc, IFeedMetricCollector metricCollector,
+            FeedConnectionId connectionId, FeedRuntimeId runtimeId, IExceptionHandler exceptionHandler,
+            IFrameEventCallback callback, int nPartitions, FeedPolicyAccessor policyAccessor) {
+        switch (runtimeId.getFeedRuntimeType()) {
+            case COMPUTE:
+                return new ComputeSideMonitoredBuffer(inputHandler, frameWriter, fta, frameSize, recordDesc,
+                        metricCollector, connectionId, runtimeId, exceptionHandler, callback, nPartitions,
+                        policyAccessor);
+            case STORE:
+                return new StorageSideMonitoredBuffer(inputHandler, frameWriter, fta, frameSize, recordDesc,
+                        metricCollector, connectionId, runtimeId, exceptionHandler, callback, nPartitions,
+                        policyAccessor);
+
+            default:
+                return new BasicMonitoredBuffer(inputHandler, frameWriter, fta, frameSize, recordDesc, metricCollector,
+                        connectionId, runtimeId, exceptionHandler, callback, nPartitions, policyAccessor);
+        }
+    }
+
+    protected MonitoredBuffer(FeedRuntimeInputHandler inputHandler, IFrameWriter frameWriter, FrameTupleAccessor fta,
             int frameSize, RecordDescriptor recordDesc, IFeedMetricCollector metricCollector,
             FeedConnectionId connectionId, FeedRuntimeId runtimeId, IExceptionHandler exceptionHandler,
             IFrameEventCallback callback, int nPartitions, FeedPolicyAccessor policyAccessor) {
+        this.connectionId = connectionId;
         this.frameWriter = frameWriter;
         this.inflowFta = new FrameTupleAccessor(frameSize, recordDesc);
         this.outflowFta = new FrameTupleAccessor(frameSize, recordDesc);
@@ -87,60 +105,25 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
         this.frameSize = frameSize;
         this.recordDesc = recordDesc;
         this.policyAccessor = policyAccessor;
-
-        initializePeriodicMonitoring(connectionId, nPartitions, policyAccessor);
+        this.nPartitions = nPartitions;
         this.active = true;
-
+        initializeMonitoring();
     }
 
-    private void initializePeriodicMonitoring(FeedConnectionId connectionId, int nPartitions,
-            FeedPolicyAccessor policyAccessor) {
-        switch (runtimeId.getFeedRuntimeType()) {
-            case COMPUTE:
-                processingRateEnabled = true;
-                trackDataMovementRate = true;
-                break;
-            case STORE:
-                storageTimeTrackingEnabled = policyAccessor.isTimeTrackingEnabled();
-                if (storageTimeTrackingEnabled) {
-                    storageFromeHandler = new StorageFrameHandler();
-                }
-            default:
-                break;
-        }
-        if (trackDataMovementRate) {
-            this.monitorTask = new MonitoredBufferTimerTasks.MonitoredBufferDataFlowRateMeasureTimerTask(this, callback);
-            this.timer.scheduleAtFixedRate(monitorTask, 0, MONITOR_FREQUENCY);
-        }
-        if (processingRateEnabled) {
-            this.processingRateTask = new MonitoredBufferTimerTasks.MonitoredBufferProcessRateTimerTask(this,
-                    inputHandler.getFeedManager(), connectionId, nPartitions);
-            this.timer.scheduleAtFixedRate(processingRateTask, 0, PROCESSING_RATE_MEASURE_FREQUENCY);
-        }
-        if (trackDataMovementRate || processingRateEnabled) {
-            this.inflowReportSenderId = metricCollector.createReportSender(connectionId, runtimeId,
-                    ValueType.INFLOW_RATE, MetricType.RATE);
-            this.outflowReportSenderId = metricCollector.createReportSender(connectionId, runtimeId,
-                    ValueType.OUTFLOW_RATE, MetricType.RATE);
-        }
+    protected abstract void initializeMonitoring();
 
-        if (storageTimeTrackingEnabled) {
-            this.storageTimeTrackingRateTask = new MonitoredBufferTimerTasks.MonitoredBufferStorageTimerTask(this,
-                    inputHandler.getFeedManager(), connectionId, runtimeId.getPartition(), policyAccessor,
-                    storageFromeHandler);
-            this.timer.scheduleAtFixedRate(storageTimeTrackingRateTask, 0, STORAGE_TIME_TRACKING_FREQUENCY);
-        }
-    }
+    protected abstract void deinitializeMonitoring();
+
+    protected abstract void postMessage(DataBucket message);
+
+    protected abstract void preProcessFrame(ByteBuffer frame);
+
+    protected abstract void postProcessFrame(long startTime, ByteBuffer frame);
 
     @Override
     public void sendMessage(DataBucket message) {
         inbox.add(message);
-        if (trackDataMovementRate
-                && !(inputHandler.getMode().equals(Mode.PROCESS_BACKLOG) || inputHandler.getMode().equals(
-                        Mode.PROCESS_SPILL))) {
-            inflowFta.reset(message.getContent());
-            metricCollector.sendReport(inflowReportSenderId, inflowFta.getTupleCount());
-        }
+        postMessage(message);
     }
 
     /** return rate in terms of tuples/sec **/
@@ -168,27 +151,14 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
         }
     }
 
+    public FeedRuntimeInputHandler getInputHandler() {
+        return inputHandler;
+    }
+
     public synchronized void close(boolean processPending, boolean disableMonitoring) {
         super.close(processPending);
         if (disableMonitoring) {
-            if (monitorTask != null) {
-                monitorTask.cancel();
-            }
-            if (processingRateTask != null) {
-                processingRateTask.cancel();
-            }
-
-            if (storageTimeTrackingRateTask != null) {
-                storageTimeTrackingRateTask.cancel();
-            }
-
-            if (trackDataMovementRate || processingRateEnabled) {
-                metricCollector.removeReportSender(inflowReportSenderId);
-                metricCollector.removeReportSender(outflowReportSenderId);
-            }
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Disabled monitoring for " + this.runtimeId);
-            }
+            deinitializeMonitoring();
         }
         active = false;
     }
@@ -203,40 +173,25 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
             case DATA:
                 boolean finishedProcessing = false;
                 ByteBuffer frame = message.getContent();
+                if (inputHandler.isThrottlingEnabled()) {
+                    inflowFta.reset(frame);
+                    int pRate = getProcessingRate();
+                    int inflowRate = getInflowRate();
+                    double retainFraction = (pRate * 1.0 / inflowRate);
+                    if(LOGGER.isLoggable(Level.INFO)){
+                        LOGGER.info("Throttling at fraction " + retainFraction);
+                    }
+                    frame = throttleFrame(inflowFta, retainFraction);
+                }
                 outflowFta.reset(frame);
                 long startTime = 0;
-                long endTime = 0;
                 while (!finishedProcessing) {
                     try {
                         inflowFta.reset(frame);
                         startTime = System.currentTimeMillis();
-
-                        try {
-                            if (runtimeId.getFeedRuntimeType().equals(FeedRuntimeType.STORE)
-                                    && storageTimeTrackingEnabled) {
-                                if (storageTimeTrackingEnabled) {
-                                    storageFromeHandler.updateTrackingInformation(frame, inflowFta);
-                                }
-                            }
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-
+                        preProcessFrame(frame);
                         frameWriter.nextFrame(frame);
-                        if (processingRateEnabled) {
-                            frameCount++;
-                            if (frameCount % PROCESS_RATE_REFRESH == 0) {
-                                endTime = System.currentTimeMillis();
-                                processingRate = (int) ((double) outflowFta.getTupleCount() * 1000 / (endTime - startTime));
-                                if (LOGGER.isLoggable(Level.INFO)) {
-                                    LOGGER.info("Processing Rate :" + processingRate + " tuples/sec");
-                                }
-                                frameCount = 0;
-                            }
-                        }
-                        if (trackDataMovementRate) {
-                            metricCollector.sendReport(outflowReportSenderId, outflowFta.getTupleCount());
-                        }
+                        postProcessFrame(startTime, frame);
                         finishedProcessing = true;
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -259,6 +214,11 @@ public class MonitoredBuffer extends MessageReceiver<DataBucket> {
                 break;
 
         }
+    }
+
+    private ByteBuffer throttleFrame(FrameTupleAccessor fta, double retainFraction) {
+        int desiredTuples = (int) (fta.getTupleCount() * retainFraction);
+        return FeedFrameUtil.getSampledFrame(fta, desiredTuples, frameSize);
     }
 
     public Mode getMode() {

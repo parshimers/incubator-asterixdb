@@ -37,48 +37,64 @@ public class FeedTrackingManager implements IFeedTrackingManager {
 
     private final BitSet allOnes;
 
-    private Map<AckId, BitSet> ackHistory;
-    private Map<AckId, Integer> maxBaseAcked;
+    private Map<FeedConnectionId, Map<AckId, BitSet>> ackHistory;
+    private Map<FeedConnectionId, Map<AckId, Integer>> maxBaseAcked;
 
     public FeedTrackingManager() {
         byte[] allOneBytes = new byte[128];
         Arrays.fill(allOneBytes, (byte) 0xff);
         allOnes = BitSet.valueOf(allOneBytes);
-        ackHistory = new HashMap<AckId, BitSet>();
-        maxBaseAcked = new HashMap<AckId, Integer>();
+        ackHistory = new HashMap<FeedConnectionId, Map<AckId, BitSet>>();
+        maxBaseAcked = new HashMap<FeedConnectionId, Map<AckId, Integer>>();
     }
 
     @Override
     public synchronized void submitAckReport(FeedTupleCommitAckMessage ackMessage) {
 
         AckId ackId = getAckId(ackMessage);
-        BitSet currentAcks = ackHistory.get(ackId);
-        if (currentAcks == null) {
-            ackHistory.put(ackId, BitSet.valueOf(ackMessage.getCommitAcks()));
-        } else {
-            currentAcks.or(BitSet.valueOf(ackMessage.getCommitAcks()));
-            if (Arrays.equals(currentAcks.toByteArray(), allOnes.toByteArray())) {
-                System.out.println("Yay!! [" + ackMessage.getIntakePartition() + " (" + ackMessage.getBase() + ")"
-                        + " IS COVERED");
-                Integer maxBaseAckedValue = maxBaseAcked.get(ackId);
-                if (maxBaseAckedValue == null) {
-                    maxBaseAckedValue = ackMessage.getBase();
-                    maxBaseAcked.put(ackId, ackMessage.getBase());
-                    sendCommitResponseMessage(ackMessage.getConnectionId(), ackMessage.getIntakePartition(),
-                            ackMessage.getBase());
-                } else if (ackMessage.getBase() == maxBaseAckedValue + 1) {
-                    maxBaseAcked.put(ackId, ackMessage.getBase());
-                    sendCommitResponseMessage(ackMessage.getConnectionId(), ackMessage.getIntakePartition(),
-                            ackMessage.getBase());
-                } else {
-                    System.out.println("Ignoring discountiuous acked base " + ackMessage.getBase() + " for " + ackId);
-                }
-
+        Map<AckId, BitSet> acksForConnection = ackHistory.get(ackMessage.getConnectionId());
+        if (acksForConnection == null) {
+            acksForConnection = new HashMap<AckId, BitSet>();
+            acksForConnection.put(ackId, BitSet.valueOf(ackMessage.getCommitAcks()));
+            ackHistory.put(ackMessage.getConnectionId(), acksForConnection);
+        }
+        BitSet currentAcks = acksForConnection.get(ackId);
+        currentAcks.or(BitSet.valueOf(ackMessage.getCommitAcks()));
+        if (Arrays.equals(currentAcks.toByteArray(), allOnes.toByteArray())) {
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info(ackMessage.getIntakePartition() + " (" + ackMessage.getBase() + ")" + " is convered");
+            }
+            Map<AckId, Integer> maxBaseAckedForConnection = maxBaseAcked.get(ackMessage.getConnectionId());
+            if (maxBaseAckedForConnection == null) {
+                maxBaseAckedForConnection = new HashMap<AckId, Integer>();
+                maxBaseAcked.put(ackMessage.getConnectionId(), maxBaseAckedForConnection);
+            }
+            Integer maxBaseAckedValue = maxBaseAckedForConnection.get(ackId);
+            if (maxBaseAckedValue == null) {
+                maxBaseAckedValue = ackMessage.getBase();
+                maxBaseAckedForConnection.put(ackId, ackMessage.getBase());
+                sendCommitResponseMessage(ackMessage.getConnectionId(), ackMessage.getIntakePartition(),
+                        ackMessage.getBase());
+            } else if (ackMessage.getBase() == maxBaseAckedValue + 1) {
+                maxBaseAckedForConnection.put(ackId, ackMessage.getBase());
+                sendCommitResponseMessage(ackMessage.getConnectionId(), ackMessage.getIntakePartition(),
+                        ackMessage.getBase());
             } else {
-                System.out.println("AckId " + ackId + " pending number of acks "
-                        + (128 * 8 - currentAcks.cardinality()));
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("Ignoring discountiuous acked base " + ackMessage.getBase() + " for " + ackId);
+                }
+            }
+
+        } else {
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("AckId " + ackId + " pending number of acks " + (128 * 8 - currentAcks.cardinality()));
             }
         }
+    }
+
+    public synchronized void disableTracking(FeedConnectionId connectionId) {
+        ackHistory.remove(connectionId);
+        maxBaseAcked.remove(connectionId);
     }
 
     private void sendCommitResponseMessage(FeedConnectionId connectionId, int partition, int base) {

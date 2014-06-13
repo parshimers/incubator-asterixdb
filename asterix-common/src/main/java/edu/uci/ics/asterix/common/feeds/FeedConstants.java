@@ -23,6 +23,7 @@ public class FeedConstants {
         public static final String INTAKE_PARTITION = "intake-partition";
         public static final String INFLOW_RATE = "inflow-rate";
         public static final String OUTFLOW_RATE = "outflow-rate";
+        public static final String MODE = "mode";
         public static final String CURRENT_CARDINALITY = "current-cardinality";
         public static final String REDUCED_CARDINALITY = "reduced-cardinality";
         public static final String VALUE_TYPE = "value-type";

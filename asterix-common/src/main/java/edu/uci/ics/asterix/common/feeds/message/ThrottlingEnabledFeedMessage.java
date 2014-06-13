@@ -19,30 +19,31 @@ import org.json.JSONObject;
 
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedConstants;
-import edu.uci.ics.asterix.common.feeds.FeedConstants.MessageConstants;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
-import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
 
-public class FeedCongestionMessage extends FeedMessage {
+/**
+ * A feed control message indicating the need to end the feed. This message is dispatched
+ * to all locations that host an operator involved in the feed pipeline.
+ */
+public class ThrottlingEnabledFeedMessage extends FeedMessage {
 
     private static final long serialVersionUID = 1L;
 
     private final FeedConnectionId connectionId;
-    private final FeedRuntimeId runtimeId;
-    private int inflowRate;
-    private int outflowRate;
-    private Mode mode;
 
-    public FeedCongestionMessage(FeedConnectionId connectionId, FeedRuntimeId runtimeId, int inflowRate,
-            int outflowRate, Mode mode) {
-        super(MessageType.CONGESTION);
+    private final FeedRuntimeId runtimeId;
+
+    public ThrottlingEnabledFeedMessage(FeedConnectionId connectionId, FeedRuntimeId runtimeId) {
+        super(MessageType.THROTTLING_ENABLED);
         this.connectionId = connectionId;
         this.runtimeId = runtimeId;
-        this.inflowRate = inflowRate;
-        this.outflowRate = outflowRate;
-        this.mode = mode;
+    }
+
+    @Override
+    public String toString() {
+        return MessageType.END.name() + "  " + connectionId + " [" + runtimeId + "] ";
     }
 
     @Override
@@ -55,25 +56,18 @@ public class FeedCongestionMessage extends FeedMessage {
         obj.put(FeedConstants.MessageConstants.RUNTIME_TYPE, runtimeId.getFeedRuntimeType());
         obj.put(FeedConstants.MessageConstants.OPERAND_ID, runtimeId.getOperandId());
         obj.put(FeedConstants.MessageConstants.PARTITION, runtimeId.getPartition());
-        obj.put(FeedConstants.MessageConstants.INFLOW_RATE, inflowRate);
-        obj.put(FeedConstants.MessageConstants.OUTFLOW_RATE, outflowRate);
-        obj.put(FeedConstants.MessageConstants.MODE, mode);
         return obj;
     }
 
-    public FeedRuntimeId getRuntimeId() {
+    public FeedConnectionId getConnectionId() {
+        return connectionId;
+    }
+
+    public FeedRuntimeId getFeedRuntimeId() {
         return runtimeId;
     }
 
-    public int getInflowRate() {
-        return inflowRate;
-    }
-
-    public int getOutflowRate() {
-        return outflowRate;
-    }
-
-    public static FeedCongestionMessage read(JSONObject obj) throws JSONException {
+    public static ThrottlingEnabledFeedMessage read(JSONObject obj) throws JSONException {
         FeedId feedId = new FeedId(obj.getString(FeedConstants.MessageConstants.DATAVERSE),
                 obj.getString(FeedConstants.MessageConstants.FEED));
         FeedConnectionId connectionId = new FeedConnectionId(feedId,
@@ -82,18 +76,7 @@ public class FeedCongestionMessage extends FeedMessage {
                 .getString(FeedConstants.MessageConstants.RUNTIME_TYPE)),
                 obj.getInt(FeedConstants.MessageConstants.PARTITION),
                 obj.getString(FeedConstants.MessageConstants.OPERAND_ID));
-        Mode mode = Mode.valueOf(obj.getString(MessageConstants.MODE));
-        return new FeedCongestionMessage(connectionId, runtimeId,
-                obj.getInt(FeedConstants.MessageConstants.INFLOW_RATE),
-                obj.getInt(FeedConstants.MessageConstants.OUTFLOW_RATE), mode);
-    }
-
-    public FeedConnectionId getConnectionId() {
-        return connectionId;
-    }
-
-    public Mode getMode() {
-        return mode;
+        return new ThrottlingEnabledFeedMessage(connectionId, runtimeId);
     }
 
 }

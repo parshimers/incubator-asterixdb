@@ -32,6 +32,7 @@ import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.NodeLoadReport;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLoadManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
+import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
 import edu.uci.ics.asterix.common.feeds.message.FeedCongestionMessage;
 import edu.uci.ics.asterix.common.feeds.message.ScaleInReportMessage;
 import edu.uci.ics.asterix.file.FeedOperations;
@@ -76,6 +77,8 @@ public class FeedLoadManager implements IFeedLoadManager {
             }
             return;
         } else {
+            Mode mode = message.getMode();
+
             try {
                 FeedLifecycleListener.INSTANCE.setJobState(message.getConnectionId(), FeedJobState.UNDER_RECOVERY);
                 int inflowRate = message.getInflowRate();

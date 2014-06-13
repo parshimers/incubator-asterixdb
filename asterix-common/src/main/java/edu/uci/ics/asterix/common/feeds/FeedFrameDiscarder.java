@@ -26,17 +26,20 @@ public class FeedFrameDiscarder {
     }
 
     public boolean processMessage(ByteBuffer message) {
-        long nProcessed = inputHandler.getProcessed();
-        long discardLimit = (long) (nProcessed * maxFractionDiscard);
-        if (nDiscarded >= discardLimit) {
-            return false;
+        if (policyAccessor.getMaxFractionDiscard() != 0) {
+            long nProcessed = inputHandler.getProcessed();
+            long discardLimit = (long) (nProcessed * maxFractionDiscard);
+            if (nDiscarded >= discardLimit) {
+                return false;
+            }
+            nDiscarded++;
+            if (LOGGER.isLoggable(Level.WARNING)) {
+                LOGGER.warning("Discarded frame by " + connectionId + " (" + runtimeId + ")" + " count so far  ("
+                        + nDiscarded + ") Limit [" + discardLimit + "]");
+            }
+            return true;
         }
-        nDiscarded++;
-        if (LOGGER.isLoggable(Level.WARNING)) {
-            LOGGER.warning("Discarded frame by " + runtimeId + " count so far  (" + nDiscarded + ") Limit ["
-                    + discardLimit + "]");
-        }
-        return true;
+        return false;
     }
 
 }

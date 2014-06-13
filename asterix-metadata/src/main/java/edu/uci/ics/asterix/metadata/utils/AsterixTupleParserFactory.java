@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
+import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.metadata.feeds.TimestampedADMDataParser;
 import edu.uci.ics.asterix.metadata.feeds.TimestampedDelimitedDataParser;
 import edu.uci.ics.asterix.om.types.ARecordType;
@@ -46,6 +47,7 @@ public class AsterixTupleParserFactory implements IAsterixTupleParserFactory {
     public static final String KEY_DELIMITER = "delimiter";
     public static final String KEY_PARSER_FACTORY = "parser";
     public static final String TIME_TRACKING = "time.tracking";
+    public static final String AT_LEAST_ONE_SEMANTICS = FeedPolicyAccessor.AT_LEAST_ONE_SEMANTICS;
 
     private static Map<ATypeTag, IValueParserFactory> valueParserFactoryMap = initializeValueParserFactoryMap();
 
@@ -147,7 +149,14 @@ public class AsterixTupleParserFactory implements IAsterixTupleParserFactory {
     }
 
     private IDataParser configureADMParser(IHyracksTaskContext ctx) {
-        return validateTimeTrackingConstraint() ? new TimestampedADMDataParser(ctx, partition) : new ADMDataParser();
+        boolean injectTimestamps = validateTimeTrackingConstraint();
+        boolean injectRecordId = configuration.get(AT_LEAST_ONE_SEMANTICS) == null ? false : Boolean
+                .getBoolean(configuration.get(AT_LEAST_ONE_SEMANTICS));
+        if (injectRecordId || injectTimestamps) {
+            return new TimestampedADMDataParser(ctx, partition, injectRecordId, injectTimestamps);
+        } else {
+            return new ADMDataParser();
+        }
     }
 
     private IDataParser configureDelimitedDataParser(IHyracksTaskContext ctx) throws AsterixException {

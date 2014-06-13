@@ -40,7 +40,7 @@ public class MonitoredBufferTimerTasks {
 
         private static final int PERSISTENCE_DELAY_VIOLATION_MAX = 5;
 
-        private final MonitoredBuffer mBuffer;
+        private final StorageSideMonitoredBuffer mBuffer;
         private final IFeedManager feedManager;
         private final int partition;
         private final FeedConnectionId connectionId;
@@ -52,7 +52,7 @@ public class MonitoredBufferTimerTasks {
         private Map<Integer, Integer> maxIntakeBaseCovered;
         private int countDelayExceeded = 0;
 
-        public MonitoredBufferStorageTimerTask(MonitoredBuffer mBuffer, IFeedManager feedManager,
+        public MonitoredBufferStorageTimerTask(StorageSideMonitoredBuffer mBuffer, IFeedManager feedManager,
                 FeedConnectionId connectionId, int partition, FeedPolicyAccessor policyAccessor,
                 StorageFrameHandler storageFromeHandler) {
             this.mBuffer = mBuffer;
@@ -68,6 +68,15 @@ public class MonitoredBufferTimerTasks {
 
         @Override
         public void run() {
+            if(mBuffer.isAckingEnabled() && !mBuffer.getInputHandler().isThrottlingEnabled()) {
+                ackRecords();
+            }
+            if (mBuffer.isTimeTrackingEnabled()) {
+                checkLatencyViolation();
+            }
+        }
+
+        private void ackRecords() {
             Set<Integer> partitions = storageFromeHandler.getPartitionsWithStats();
             List<Integer> basesCovered = new ArrayList<Integer>();
             for (int intakePartition : partitions) {
@@ -89,7 +98,9 @@ public class MonitoredBufferTimerTasks {
                 }
                 basesCovered.clear();
             }
+        }
 
+        private void checkLatencyViolation() {
             long avgDelayPersistence = storageFromeHandler.getAvgDelayPersistence();
             if (avgDelayPersistence > policyAccessor.getMaxDelayRecordPersistence()) {
                 countDelayExceeded++;
@@ -100,7 +111,6 @@ public class MonitoredBufferTimerTasks {
             } else {
                 countDelayExceeded = 0;
             }
-
         }
 
         public void receiveCommitAckResponse(FeedTupleCommitResponseMessage message) {
@@ -218,7 +228,7 @@ public class MonitoredBufferTimerTasks {
                         }
                     } else {
                         if (LOGGER.isLoggable(Level.INFO)) {
-                            LOGGER.info("Processing Rate exceeds Inflow Rate");
+                            LOGGER.info("Inflow Rate exceeds Processing Rate");
                         }
                     }
                 }

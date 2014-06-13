@@ -51,11 +51,10 @@ public class CentralFeedManager implements ICentralFeedManager {
     private final SocketMessageListener messageListener;
 
     private CentralFeedManager() {
-        AsterixFeedProperties feedProperties = AsterixAppContextInfo.getInstance().getFeedProperties();
-        port = feedProperties.getFeedCentralManagerPort();
-        feedLoadManager = new FeedLoadManager();
-        feedTrackingManager = new FeedTrackingManager();
-        messageListener = new SocketMessageListener(port, new FeedMessageReceiver(this));
+        this.port = AsterixAppContextInfo.getInstance().getFeedProperties().getFeedCentralManagerPort();
+        this.feedLoadManager = new FeedLoadManager();
+        this.feedTrackingManager = new FeedTrackingManager();
+        this.messageListener = new SocketMessageListener(port, new FeedMessageReceiver(this));
     }
 
     @Override

@@ -37,8 +37,10 @@ public class FeedPolicyAccessor implements Serializable {
     /** auto-start a loser feed when the asterixdb instance is restarted **/
     public static final String CLUSTER_REBOOT_AUTO_RESTART = "cluster.reboot.auto.restart";
 
-    /** flow control configuration **/
+    /** framework provides guarantee that each received feed record will be processed through the ingestion pipeline at least once **/
+    public static final String AT_LEAST_ONE_SEMANTICS = "atleast.once.semantics";
 
+    /** flow control configuration **/
     /** spill excess tuples to disk if an operator cannot process incoming data at its arrival rate **/
     public static final String SPILL_TO_DISK_ON_CONGESTION = "spill.to.disk.on.congestion";
 
@@ -54,15 +56,13 @@ public class FeedPolicyAccessor implements Serializable {
     /** maximum end-to-end delay/latency in persisting a tuple through the feed ingestion pipeline **/
     public static final String MAX_DELAY_RECORD_PERSISTENCE = "max.delay.record.persistence";
 
-    /** rate limit the inflow of tuples in accordance witht the maximum capacity of the pipeline **/
+    /** rate limit the inflow of tuples in accordance with the maximum capacity of the pipeline **/
     public static final String THROTTLING_ENABLED = "throttling.enabled";
-    
-    public static final String PTHROTTLING_ENABLED = "throttling.enabled";
 
-    // elasticity
+    /** elasticity **/
     public static final String ELASTIC = "elastic";
 
-    // statistics
+    /** statistics **/
     public static final String TIME_TRACKING = "time.tracking";
 
     public static final long NO_LIMIT = -1;
@@ -99,9 +99,21 @@ public class FeedPolicyAccessor implements Serializable {
         return getBooleanPropertyValue(CLUSTER_REBOOT_AUTO_RESTART, false);
     }
 
+    public boolean atleastOnceSemantics() {
+        return getBooleanPropertyValue(AT_LEAST_ONE_SEMANTICS, false);
+    }
+
     /** flow control **/
     public boolean spillToDiskOnCongestion() {
         return getBooleanPropertyValue(SPILL_TO_DISK_ON_CONGESTION, false);
+    }
+
+    public boolean discardOnCongestion() {
+        return getMaxFractionDiscard() > 0;
+    }
+
+    public boolean throttlingEnabled() {
+        return getBooleanPropertyValue(THROTTLING_ENABLED, false);
     }
 
     public long getMaxSpillOnDisk() {
@@ -109,7 +121,7 @@ public class FeedPolicyAccessor implements Serializable {
     }
 
     public float getMaxFractionDiscard() {
-        return getFloatPropertyValue(MAX_FRACTION_DISCARD, 1);
+        return getFloatPropertyValue(MAX_FRACTION_DISCARD, 0);
     }
 
     public long getMaxDelayRecordPersistence() {

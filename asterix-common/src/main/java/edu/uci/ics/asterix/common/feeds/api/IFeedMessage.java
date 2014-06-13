@@ -31,7 +31,8 @@ public interface IFeedMessage extends Serializable, JSONSerializable {
         TERMINATE_FLOW,
         SCALE_IN_REQUEST,
         COMMIT_ACK,
-        COMMIT_ACK_RESPONSE
+        COMMIT_ACK_RESPONSE,
+        THROTTLING_ENABLED
     }
 
     public MessageType getMessageType();
