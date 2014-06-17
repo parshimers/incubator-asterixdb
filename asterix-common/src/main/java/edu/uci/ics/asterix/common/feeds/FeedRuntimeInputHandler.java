@@ -24,9 +24,11 @@ import edu.uci.ics.asterix.common.feeds.DataBucket.ContentType;
 import edu.uci.ics.asterix.common.feeds.api.IExceptionHandler;
 import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMemoryComponent;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMessage;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
 import edu.uci.ics.asterix.common.feeds.message.FeedCongestionMessage;
+import edu.uci.ics.asterix.common.feeds.message.ThrottlingEnabledFeedMessage;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -409,7 +411,8 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
     public void setThrottlingEnabled(boolean throttlingEnabled) {
         if (this.throttlingEnabled != throttlingEnabled) {
             this.throttlingEnabled = throttlingEnabled;
-            feedManager.getFeedMessageService().sendMessage(congestionReport);
+            IFeedMessage throttlingEnabledMesg = new ThrottlingEnabledFeedMessage(connectionId, runtimeId);
+            feedManager.getFeedMessageService().sendMessage(throttlingEnabledMesg);
             if (LOGGER.isLoggable(Level.WARNING)) {
                 LOGGER.warning("Throttling " + throttlingEnabled + " for " + this.connectionId + "[" + runtimeId + "]");
             }

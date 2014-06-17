@@ -20,10 +20,14 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.logging.Level;
 
-import edu.uci.ics.asterix.common.feeds.MonitoredBufferTimerTasks.MonitoredBufferProcessRateTimerTask;
+import edu.uci.ics.asterix.common.feeds.MonitoredBufferTimerTasks.LogInputOutputRateTask;
+import edu.uci.ics.asterix.common.feeds.MonitoredBufferTimerTasks.MonitorInputQueueLengthTimerTask;
+import edu.uci.ics.asterix.common.feeds.MonitoredBufferTimerTasks.MonitoreProcessRateTimerTask;
 import edu.uci.ics.asterix.common.feeds.MonitoredBufferTimerTasks.MonitoredBufferStorageTimerTask;
 import edu.uci.ics.asterix.common.feeds.api.IExceptionHandler;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector.MetricType;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector.ValueType;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
 import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback;
 import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback.FrameEvent;
@@ -33,7 +37,8 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 
 public abstract class MonitoredBuffer extends MessageReceiver<DataBucket> {
 
-    protected static final long MONITOR_FREQUENCY = 2000; // 2 seconds
+    protected static final long LOG_INPUT_OUTPUT_RATE_FREQUENCY = 2000; // 2 seconds
+    protected static final long INPUT_QUEUE_MEASURE_FREQUENCY = 2000; // 2 seconds
     protected static final long PROCESSING_RATE_MEASURE_FREQUENCY = 10000; // 10 seconds
 
     protected static final int PROCESS_RATE_REFRESH = 2; // refresh processing rate every 10th frame
@@ -53,12 +58,15 @@ public abstract class MonitoredBuffer extends MessageReceiver<DataBucket> {
 
     private IFrameWriter frameWriter;
     protected IFeedMetricCollector metricCollector;
-    protected boolean processingRateEnabled = false;
-    protected boolean trackDataMovementRate = false;
+    protected boolean monitorProcessingRate = false;
+    protected boolean monitorInputQueueLength = false;
+    protected boolean logInflowOutflowRate = false;
+
     protected int inflowReportSenderId = -1;
     protected int outflowReportSenderId = -1;
-    protected TimerTask monitorTask;
+    protected TimerTask monitorInputQueueLengthTask;
     protected TimerTask processingRateTask;
+    protected TimerTask logInflowOutflowRateTask;
     protected MonitoredBufferStorageTimerTask storageTimeTrackingRateTask;
     protected StorageFrameHandler storageFromeHandler;
 
@@ -110,20 +118,94 @@ public abstract class MonitoredBuffer extends MessageReceiver<DataBucket> {
         initializeMonitoring();
     }
 
-    protected abstract void initializeMonitoring();
+    protected abstract boolean monitorProcessingRate();
 
-    protected abstract void deinitializeMonitoring();
+    protected abstract boolean logInflowOutflowRate();
 
-    protected abstract void postMessage(DataBucket message);
+    protected abstract boolean monitorInputQueueLength();
 
-    protected abstract void preProcessFrame(ByteBuffer frame);
+    protected abstract IFramePreprocessor getFramePreProcessor();
 
-    protected abstract void postProcessFrame(long startTime, ByteBuffer frame);
+    protected abstract IFramePostProcessor getFramePostProcessor();
+
+    protected void initializeMonitoring() {
+        monitorProcessingRate = monitorProcessingRate();
+        monitorInputQueueLength = monitorInputQueueLength();
+        logInflowOutflowRate = logInflowOutflowRate();
+
+        if (monitorProcessingRate) {
+            this.processingRateTask = new MonitoreProcessRateTimerTask(this, inputHandler.getFeedManager(),
+                    connectionId, nPartitions);
+            this.timer.scheduleAtFixedRate(processingRateTask, 0, PROCESSING_RATE_MEASURE_FREQUENCY);
+        }
+
+        if (monitorInputQueueLength) {
+            this.monitorInputQueueLengthTask = new MonitorInputQueueLengthTimerTask(this, callback);
+            this.timer.scheduleAtFixedRate(monitorInputQueueLengthTask, 0, INPUT_QUEUE_MEASURE_FREQUENCY);
+        }
+
+        if (logInflowOutflowRate) {
+            this.logInflowOutflowRateTask = new LogInputOutputRateTask(this);
+            this.timer.scheduleAtFixedRate(logInflowOutflowRateTask, 0, LOG_INPUT_OUTPUT_RATE_FREQUENCY);
+            this.inflowReportSenderId = metricCollector.createReportSender(connectionId, runtimeId,
+                    ValueType.INFLOW_RATE, MetricType.RATE);
+            this.outflowReportSenderId = metricCollector.createReportSender(connectionId, runtimeId,
+                    ValueType.OUTFLOW_RATE, MetricType.RATE);
+        }
+    }
+
+    protected void deinitializeMonitoring() {
+        if (monitorInputQueueLengthTask != null) {
+            monitorInputQueueLengthTask.cancel();
+        }
+        if (processingRateTask != null) {
+            processingRateTask.cancel();
+        }
+
+        if (logInflowOutflowRate) {
+            metricCollector.removeReportSender(inflowReportSenderId);
+            metricCollector.removeReportSender(outflowReportSenderId);
+        }
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Disabled monitoring for " + this.runtimeId);
+        }
+    }
+
+    protected void postProcessFrame(long startTime, ByteBuffer frame) {
+        if (monitorProcessingRate) {
+            frameCount++;
+            if (frameCount % PROCESS_RATE_REFRESH == 0) {
+                long endTime = System.currentTimeMillis();
+                processingRate = (int) ((double) outflowFta.getTupleCount() * 1000 / (endTime - startTime));
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("Processing Rate :" + processingRate + " tuples/sec");
+                }
+                frameCount = 0;
+            }
+        }
+
+        if (logInflowOutflowRate) {
+            metricCollector.sendReport(outflowReportSenderId, outflowFta.getTupleCount());
+        }
+
+    }
+
+    protected void preProcessFrame(ByteBuffer frame) throws Exception {
+        IFramePreprocessor preProcessor = getFramePreProcessor();
+        if (preProcessor != null) {
+            preProcessor.preProcess(frame);
+        }
+    }
 
     @Override
     public void sendMessage(DataBucket message) {
         inbox.add(message);
-        postMessage(message);
+        if (logInflowOutflowRate
+                && !(inputHandler.getMode().equals(Mode.PROCESS_BACKLOG) || inputHandler.getMode().equals(
+                        Mode.PROCESS_SPILL))) {
+            inflowFta.reset(message.getContent());
+            metricCollector.sendReport(inflowReportSenderId, inflowFta.getTupleCount());
+        }
     }
 
     /** return rate in terms of tuples/sec **/
@@ -144,9 +226,9 @@ public abstract class MonitoredBuffer extends MessageReceiver<DataBucket> {
     /** reset the number of partitions (cardinality) for the runtime **/
     public void setNumberOfPartitions(int nPartitions) {
         if (processingRateTask != null) {
-            int currentPartitions = ((MonitoredBufferProcessRateTimerTask) processingRateTask).getNumberOfPartitions();
+            int currentPartitions = ((MonitoreProcessRateTimerTask) processingRateTask).getNumberOfPartitions();
             if (currentPartitions != nPartitions) {
-                ((MonitoredBufferProcessRateTimerTask) processingRateTask).setNumberOfPartitions(nPartitions);
+                ((MonitoreProcessRateTimerTask) processingRateTask).setNumberOfPartitions(nPartitions);
             }
         }
     }
@@ -178,7 +260,7 @@ public abstract class MonitoredBuffer extends MessageReceiver<DataBucket> {
                     int pRate = getProcessingRate();
                     int inflowRate = getInflowRate();
                     double retainFraction = (pRate * 1.0 / inflowRate);
-                    if(LOGGER.isLoggable(Level.INFO)){
+                    if (LOGGER.isLoggable(Level.INFO)) {
                         LOGGER.info("Throttling at fraction " + retainFraction);
                     }
                     frame = throttleFrame(inflowFta, retainFraction);
@@ -235,7 +317,7 @@ public abstract class MonitoredBuffer extends MessageReceiver<DataBucket> {
 
     public void reset() {
         active = true;
-        if (trackDataMovementRate || processingRateEnabled) {
+        if (logInflowOutflowRate) {
             metricCollector.resetReportSender(inflowReportSenderId);
             metricCollector.resetReportSender(outflowReportSenderId);
         }

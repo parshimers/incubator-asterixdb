@@ -1,7 +1,6 @@
 package edu.uci.ics.asterix.common.feeds;
 
 import java.nio.ByteBuffer;
-import java.util.logging.Level;
 
 import edu.uci.ics.asterix.common.feeds.api.IExceptionHandler;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector;
@@ -25,10 +24,6 @@ public class StorageSideMonitoredBuffer extends MonitoredBuffer {
                 exceptionHandler, callback, nPartitions, policyAccessor);
         timeTrackingEnabled = policyAccessor.isTimeTrackingEnabled();
         ackingEnabled = policyAccessor.atleastOnceSemantics();
-    }
-
-    @Override
-    protected void initializeMonitoring() {
         if (ackingEnabled || timeTrackingEnabled) {
             storageFromeHandler = new StorageFrameHandler();
             this.storageTimeTrackingRateTask = new MonitoredBufferTimerTasks.MonitoredBufferStorageTimerTask(this,
@@ -39,41 +34,34 @@ public class StorageSideMonitoredBuffer extends MonitoredBuffer {
     }
 
     @Override
-    protected void postMessage(DataBucket message) {
+    protected boolean monitorProcessingRate() {
+        return false;
+    }
 
+    protected boolean logInflowOutflowRate() {
+        return true;
     }
 
     @Override
-    protected void deinitializeMonitoring() {
-        if (monitorTask != null) {
-            monitorTask.cancel();
-        }
+    public IFramePreprocessor getFramePreProcessor() {
+        return new IFramePreprocessor() {
 
-        if (storageTimeTrackingRateTask != null) {
-            storageTimeTrackingRateTask.cancel();
-        }
-
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Disabled monitoring for " + this.runtimeId);
-        }
-
-    }
-
-    @Override
-    protected void preProcessFrame(ByteBuffer frame) {
-        try {
-            if (ackingEnabled || timeTrackingEnabled) {
-                storageFromeHandler.updateTrackingInformation(frame, inflowFta);
+            @Override
+            public void preProcess(ByteBuffer frame) {
+                try {
+                    if (ackingEnabled || timeTrackingEnabled) {
+                        storageFromeHandler.updateTrackingInformation(frame, inflowFta);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        };
     }
 
     @Override
-    protected void postProcessFrame(long startTime, ByteBuffer frame) {
-        // TODO Auto-generated method stub
-
+    protected IFramePostProcessor getFramePostProcessor() {
+        return null;
     }
 
     public boolean isAckingEnabled() {
@@ -82,6 +70,11 @@ public class StorageSideMonitoredBuffer extends MonitoredBuffer {
 
     public boolean isTimeTrackingEnabled() {
         return timeTrackingEnabled;
+    }
+
+    @Override
+    protected boolean monitorInputQueueLength() {
+        return true;
     }
 
 }

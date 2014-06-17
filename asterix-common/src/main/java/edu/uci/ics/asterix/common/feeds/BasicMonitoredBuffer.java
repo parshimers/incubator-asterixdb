@@ -1,7 +1,5 @@
 package edu.uci.ics.asterix.common.feeds;
 
-import java.nio.ByteBuffer;
-
 import edu.uci.ics.asterix.common.feeds.api.IExceptionHandler;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector;
 import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback;
@@ -20,28 +18,28 @@ public class BasicMonitoredBuffer extends MonitoredBuffer {
     }
 
     @Override
-    protected void initializeMonitoring() {
+    protected boolean monitorProcessingRate() {
+        return false;
     }
 
     @Override
-    protected void postMessage(DataBucket message) {
-
+    protected boolean logInflowOutflowRate() {
+        return false;
     }
 
     @Override
-    protected void deinitializeMonitoring() {
-        if (monitorTask != null) {
-            monitorTask.cancel();
-        }
+    protected IFramePreprocessor getFramePreProcessor() {
+        return null;
     }
 
     @Override
-    protected void preProcessFrame(ByteBuffer frame) {
+    protected IFramePostProcessor getFramePostProcessor() {
+        return null;
     }
 
     @Override
-    protected void postProcessFrame(long startTime, ByteBuffer frame) {
-
+    protected boolean monitorInputQueueLength() {
+        return false;
     }
 
 }

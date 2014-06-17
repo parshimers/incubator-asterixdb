@@ -35,6 +35,7 @@ import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
 import edu.uci.ics.asterix.common.feeds.message.FeedCongestionMessage;
 import edu.uci.ics.asterix.common.feeds.message.ScaleInReportMessage;
+import edu.uci.ics.asterix.common.feeds.message.ThrottlingEnabledFeedMessage;
 import edu.uci.ics.asterix.file.FeedOperations;
 import edu.uci.ics.asterix.metadata.feeds.FeedUtil;
 import edu.uci.ics.asterix.metadata.feeds.PrepareStallMessage;
@@ -220,4 +221,8 @@ public class FeedLoadManager implements IFeedLoadManager {
         return allocated;
     }
 
+    @Override
+    public void reportThrottlingEnabled(ThrottlingEnabledFeedMessage mesg) {
+        System.out.println("Throttling Enabled for " + mesg.getConnectionId() + " " + mesg.getFeedRuntimeId());
+    }
 }

@@ -34,7 +34,7 @@ import edu.uci.ics.asterix.common.feeds.message.StorageReportFeedMessage;
 
 public class MonitoredBufferTimerTasks {
 
-    private static final Logger LOGGER = Logger.getLogger(MonitoredBufferDataFlowRateMeasureTimerTask.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(MonitorInputQueueLengthTimerTask.class.getName());
 
     public static class MonitoredBufferStorageTimerTask extends TimerTask {
 
@@ -68,7 +68,7 @@ public class MonitoredBufferTimerTasks {
 
         @Override
         public void run() {
-            if(mBuffer.isAckingEnabled() && !mBuffer.getInputHandler().isThrottlingEnabled()) {
+            if (mBuffer.isAckingEnabled() && !mBuffer.getInputHandler().isThrottlingEnabled()) {
                 ackRecords();
             }
             if (mBuffer.isTimeTrackingEnabled()) {
@@ -114,12 +114,34 @@ public class MonitoredBufferTimerTasks {
         }
 
         public void receiveCommitAckResponse(FeedTupleCommitResponseMessage message) {
-            System.out.println("Received " + message);
             maxIntakeBaseCovered.put(message.getIntakePartition(), message.getMaxWindowAcked());
         }
     }
 
-    public static class MonitoredBufferDataFlowRateMeasureTimerTask extends TimerTask {
+    public static class LogInputOutputRateTask extends TimerTask {
+
+        private final MonitoredBuffer mBuffer;
+
+        public LogInputOutputRateTask(MonitoredBuffer mBuffer) {
+            this.mBuffer = mBuffer;
+        }
+
+        @Override
+        public void run() {
+            int pendingWork = mBuffer.getWorkSize();
+            if (LOGGER.isLoggable(Level.INFO)) {
+                int outflowRate = mBuffer.getOutflowRate();
+                int inflowRate = mBuffer.getInflowRate();
+                LOGGER.info(mBuffer.getRuntimeId() + " " + "Inflow rate:" + inflowRate + " Outflow Rate:" + outflowRate
+                        + " Pending Work " + pendingWork);
+
+            }
+
+        }
+
+    }
+
+    public static class MonitorInputQueueLengthTimerTask extends TimerTask {
 
         private static final int PENDING_WORK_THRESHOLD = 10;
 
@@ -130,7 +152,7 @@ public class MonitoredBufferTimerTasks {
         private final IFrameEventCallback callback;
         private FrameEvent lastEvent = FrameEvent.NO_OP;
 
-        public MonitoredBufferDataFlowRateMeasureTimerTask(MonitoredBuffer mBuffer, IFrameEventCallback callback) {
+        public MonitorInputQueueLengthTimerTask(MonitoredBuffer mBuffer, IFrameEventCallback callback) {
             this.mBuffer = mBuffer;
             this.callback = callback;
         }
@@ -140,14 +162,6 @@ public class MonitoredBufferTimerTasks {
             int pendingWork = mBuffer.getWorkSize();
             if (mBuffer.getMode().equals(Mode.PROCESS_SPILL) || mBuffer.getMode().equals(Mode.PROCESS_BACKLOG)) {
                 return;
-            }
-
-            if (LOGGER.isLoggable(Level.INFO)) {
-                int outflowRate = mBuffer.getOutflowRate();
-                int inflowRate = mBuffer.getInflowRate();
-                LOGGER.info(mBuffer.getRuntimeId() + " " + "Inflow rate:" + inflowRate + " Outflow Rate:" + outflowRate
-                        + " Pending Work " + pendingWork);
-
             }
 
             switch (lastEvent) {
@@ -181,7 +195,7 @@ public class MonitoredBufferTimerTasks {
      * to look for possibility to scale-in, that is reduce the degree of cardinality
      * of the compute operator.
      */
-    public static class MonitoredBufferProcessRateTimerTask extends TimerTask {
+    public static class MonitoreProcessRateTimerTask extends TimerTask {
 
         private final MonitoredBuffer mBuffer;
         private final IFeedManager feedManager;
@@ -189,7 +203,7 @@ public class MonitoredBufferTimerTasks {
         private ScaleInReportMessage sMessage;
         private boolean proposedChange;
 
-        public MonitoredBufferProcessRateTimerTask(MonitoredBuffer mBuffer, IFeedManager feedManager,
+        public MonitoreProcessRateTimerTask(MonitoredBuffer mBuffer, IFeedManager feedManager,
                 FeedConnectionId connectionId, int nPartitions) {
             this.mBuffer = mBuffer;
             this.feedManager = feedManager;

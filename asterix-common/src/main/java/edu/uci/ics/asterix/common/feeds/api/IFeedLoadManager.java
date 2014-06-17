@@ -9,6 +9,7 @@ import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.NodeLoadReport;
 import edu.uci.ics.asterix.common.feeds.message.FeedCongestionMessage;
 import edu.uci.ics.asterix.common.feeds.message.ScaleInReportMessage;
+import edu.uci.ics.asterix.common.feeds.message.ThrottlingEnabledFeedMessage;
 
 public interface IFeedLoadManager {
 
@@ -21,5 +22,7 @@ public interface IFeedLoadManager {
     public void submitScaleInPossibleReport(ScaleInReportMessage sm) throws AsterixException, Exception;
 
     public List<String> getNodes(int n);
+
+    public void reportThrottlingEnabled(ThrottlingEnabledFeedMessage mesg);
 
 }
