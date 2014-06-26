@@ -1,5 +1,5 @@
 { "nation_key": 1, "name": "ARGENTINA", "aggregates": [ { "order_date": "1997-08-14", "sum_price": 16763.95d }, { "order_date": "1997-11-26", "sum_price": 18653.09d }, { "order_date": "1998-04-20", "sum_price": 24637.96d } ] }
-{ "nation_key": 2, "name": "BRAZIL", "aggregates": [  ] }
+{ "nation_key": 2, "name": "BRAZIL", "aggregates": [ { "order_date": "1993-03-05", "sum_price": 8225.96d }, { "order_date": "1994-08-31", "sum_price": 19056.99d }, { "order_date": "1997-05-04", "sum_price": 23984.88d } ] }
 { "nation_key": 19, "name": "ROMANIA", "aggregates": [  ] }
 { "nation_key": 21, "name": "VIETNAM", "aggregates": [  ] }
 { "nation_key": 3, "name": "CANADA", "aggregates": [ { "order_date": "1992-02-22", "sum_price": 1084.38d }, { "order_date": "1992-11-28", "sum_price": 4766.19d }, { "order_date": "1995-02-17", "sum_price": 4913.06d } ] }
