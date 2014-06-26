@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.io.IFilePath;
 import edu.uci.ics.hyracks.api.io.FileReference;
 import edu.uci.ics.hyracks.storage.common.file.IFileMapManager;
 
@@ -40,7 +41,7 @@ public class AsterixFileMapManager implements IFileMapManager {
 
     @Override
     public int lookupFileId(FileReference fileRef) throws HyracksDataException {
-        String fileName = fileRef.getFile().getAbsolutePath();
+        String fileName = fileRef.getFile().getAbsoluteFilePath();
         Integer fileId = name2IdMap.get(fileName);
         if (fileId == null) {
             throw new HyracksDataException("No mapping found for name: " + fileName);
@@ -50,7 +51,7 @@ public class AsterixFileMapManager implements IFileMapManager {
 
     @Override
     public boolean isMapped(FileReference fileRef) {
-        String fileName = fileRef.getFile().getAbsolutePath();
+        String fileName = fileRef.getFile().getAbsoluteFilePath();
         return name2IdMap.containsKey(fileName);
     }
 
@@ -68,8 +69,38 @@ public class AsterixFileMapManager implements IFileMapManager {
     @Override
     public void registerFile(FileReference fileRef) throws HyracksDataException {
         Integer fileId = idCounter++;
-        String fileName = fileRef.getFile().getAbsolutePath();
+        String fileName = fileRef.getFile().getAbsoluteFilePath();
         id2nameMap.put(fileId, fileName);
         name2IdMap.put(fileName, fileId);
+    }
+
+    @Override
+    public boolean isMapped(edu.uci.ics.hyracks.api.io.IFilePath p) {
+        // TODO Auto-generated method stub
+        return false;
+    }
+
+    @Override
+    public int lookupFileID(edu.uci.ics.hyracks.api.io.IFilePath p) throws HyracksDataException {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+    @Override
+    public void registerDFSFile(edu.uci.ics.hyracks.api.io.IFilePath p) {
+        // TODO Auto-generated method stub
+        
+    }
+
+    @Override
+    public void unregisterDFSFile(edu.uci.ics.hyracks.api.io.IFilePath p) {
+        // TODO Auto-generated method stub
+        
+    }
+
+    @Override
+    public IFilePath lookupFilePath(int fileId) throws HyracksDataException {
+        // TODO Auto-generated method stub
+        return null;
     }
 }
