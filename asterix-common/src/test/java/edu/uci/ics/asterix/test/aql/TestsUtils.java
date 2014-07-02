@@ -94,7 +94,7 @@ public class TestsUtils {
                             + "\n> ");
                 }
 
-                if (!equalStrings(lineExpected.split("Timestamp")[0], lineActual.split("Timestamp")[0])) {
+                if (!equalStrings(lineExpected.split("Time")[0], lineActual.split("Time")[0])) {
                     fail("Result for " + scriptFile + " changed at line " + num + ":\n< " + lineExpected + "\n> "
                             + lineActual);
                 }
@@ -437,11 +437,11 @@ public class TestsUtils {
                             qarFile.getParentFile().mkdirs();
                             TestsUtils.writeResultsToFile(qarFile, resultStream);
 
-                            TestsUtils.runScriptAndCompareWithResult(testFile, new PrintWriter(System.err),
-                                    qbcFile, qarFile);
+                            TestsUtils.runScriptAndCompareWithResult(testFile, new PrintWriter(System.err), qbcFile,
+                                    qarFile);
 
-                            LOGGER.info("[TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/"
-                                    + cUnit.getName() + " PASSED ");
+                            LOGGER.info("[TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName()
+                                    + " PASSED ");
                             break;
                         case "txneu": //eu represents erroneous update
                             try {
