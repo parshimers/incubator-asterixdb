@@ -20,6 +20,7 @@ import java.util.List;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.storage.am.btree.impls.BTree;
 import edu.uci.ics.hyracks.storage.am.lsm.btree.impls.LSMBTreeDiskComponent;
+import edu.uci.ics.hyracks.storage.am.lsm.btree.impls.SequentialBTree;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import edu.uci.ics.hyracks.storage.am.lsm.common.impls.LSMOperationType;
 
@@ -51,7 +52,7 @@ public class LSMBTreeIOOperationCallback extends AbstractLSMIOOperationCallback 
         // Get max LSN from the diskComponents. Implies a merge IO operation or Recovery operation.
         long maxLSN = -1;
         for (ILSMComponent c : diskComponents) {
-            BTree btree = ((LSMBTreeDiskComponent) c).getBTree();
+            SequentialBTree btree = ((LSMBTreeDiskComponent) c).getBTree();
             maxLSN = Math.max(getTreeIndexLSN(btree), maxLSN);
         }
         return maxLSN;

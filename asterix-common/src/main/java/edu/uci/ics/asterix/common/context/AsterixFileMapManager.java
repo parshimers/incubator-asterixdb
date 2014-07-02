@@ -41,7 +41,7 @@ public class AsterixFileMapManager implements IFileMapManager {
 
     @Override
     public int lookupFileId(FileReference fileRef) throws HyracksDataException {
-        String fileName = fileRef.getFile().getAbsoluteFilePath();
+        String fileName = fileRef.getFile().getAbsolutePath();
         Integer fileId = name2IdMap.get(fileName);
         if (fileId == null) {
             throw new HyracksDataException("No mapping found for name: " + fileName);
@@ -51,7 +51,7 @@ public class AsterixFileMapManager implements IFileMapManager {
 
     @Override
     public boolean isMapped(FileReference fileRef) {
-        String fileName = fileRef.getFile().getAbsoluteFilePath();
+        String fileName = fileRef.getFile().getAbsolutePath();
         return name2IdMap.containsKey(fileName);
     }
 
@@ -69,21 +69,20 @@ public class AsterixFileMapManager implements IFileMapManager {
     @Override
     public void registerFile(FileReference fileRef) throws HyracksDataException {
         Integer fileId = idCounter++;
-        String fileName = fileRef.getFile().getAbsoluteFilePath();
+        String fileName = fileRef.getFile().getAbsolutePath();
         id2nameMap.put(fileId, fileName);
         name2IdMap.put(fileName, fileId);
+    }
+    public int registerMemoryFile() {
+        Integer fileId = idCounter++;
+        id2nameMap.put(fileId,null);
+        return fileId;
     }
 
     @Override
     public boolean isMapped(edu.uci.ics.hyracks.api.io.IFilePath p) {
         // TODO Auto-generated method stub
         return false;
-    }
-
-    @Override
-    public int lookupFileID(edu.uci.ics.hyracks.api.io.IFilePath p) throws HyracksDataException {
-        // TODO Auto-generated method stub
-        return 0;
     }
 
     @Override
@@ -102,5 +101,11 @@ public class AsterixFileMapManager implements IFileMapManager {
     public IFilePath lookupFilePath(int fileId) throws HyracksDataException {
         // TODO Auto-generated method stub
         return null;
+    }
+
+    @Override
+    public int lookupFileId(IFilePath p) throws HyracksDataException {
+        // TODO Auto-generated method stub
+        return 0;
     }
 }
