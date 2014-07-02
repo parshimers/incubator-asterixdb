@@ -41,9 +41,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.ApplicationConstants.Environment;
-import org.apache.hadoop.yarn.api.ApplicationClientProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
-import org.apache.hadoop.yarn.api.protocolrecords.KillApplicationRequest;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
@@ -52,23 +50,15 @@ import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
-import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.api.records.Priority;
-import org.apache.hadoop.yarn.api.records.QueueACL;
-import org.apache.hadoop.yarn.api.records.QueueInfo;
-import org.apache.hadoop.yarn.api.records.QueueUserACLInfo;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
-import org.apache.hadoop.yarn.api.records.YarnClusterMetrics;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.client.api.YarnClientApplication;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
-
-import edu.uci.ics.asterix.common.config.GlobalConfig;
-import edu.uci.ics.asterix.event.schema.yarnCluster.*;
 
 @InterfaceAudience.Public
 @InterfaceStability.Unstable
@@ -99,8 +89,6 @@ public class Client {
     // Location of cluster configuration
     private String asterixConf = "";
 
-    // Env variables to be setup for the shell command
-    private Map<String, String> shellEnv = new HashMap<String, String>();
     // Shell Command Container priority
     private int moyaPriority = 0;
 
@@ -117,40 +105,61 @@ public class Client {
     // Debug flag
     boolean debugFlag = false;
 
+    ApplicationId appId;
+
     // Command line options
     private Options opts;
-
 
     /**
      * @param args
      *            Command line arguments
      */
     public static void main(String[] args) {
-        boolean result = false;
         try {
             Client client = new Client();
-            LOG.info("Initializing Client");
             try {
-                boolean doRun = client.init(args);
-                if (!doRun) {
-                    System.exit(0);
+                List<String> clientVerb = client.init(args);
+                if (clientVerb == null || clientVerb.size() != 1) {
+                    LOG.fatal("Too many arguments.");
+                    throw new Exception();
+                }
+                String verb = clientVerb.get(0);
+                switch (verb) {
+                    case "start":
+                        break;
+                    case "stop":
+                        break;
+                    case "install":
+                        try {
+                            LOG.info("Asterix deployed and running with ID: " + client.deployAM().toString());
+                        } catch (YarnException | IOException e) {
+                            LOG.error("Asterix failed to deploy on to cluster");
+                            throw e;
+                        }
+                        break;
+                    case "status":
+                        client.monitorApplication();
+                        break;
+                    case "library_install":
+                        break;
+                    case "destroy":
+                        break;
+                    default:
+                        LOG.fatal("Unknown action. Known actions are: start, stop, install, status, library_install, kill");
+                        client.printUsage();
+                        System.exit(-1);
                 }
             } catch (IllegalArgumentException e) {
                 System.err.println(e.getLocalizedMessage());
                 client.printUsage();
                 System.exit(-1);
             }
-            result = client.run();
         } catch (Throwable t) {
-            LOG.fatal("Error running CLient", t);
+            LOG.fatal("Error running client. Exiting...");
             System.exit(1);
         }
-        if (result) {
-            LOG.info("Application completed successfully");
-            System.exit(0);
-        }
-        LOG.error("Application failed to complete successfully");
-        System.exit(2);
+        LOG.info("Command executed successfully.");
+        System.exit(0);
     }
 
     public Client(Configuration conf) throws Exception {
@@ -169,6 +178,7 @@ public class Client {
         //new
         opts.addOption("asterixTar", true, "tarball with Asterix inside");
         opts.addOption("asterixConf", true, "Asterix cluster config");
+        opts.addOption("appId", false, "ApplicationID to monitor if running client in status monitor mode");
         opts.addOption("debug", false, "Dump out debug information");
         opts.addOption("help", false, "Print usage");
     }
@@ -183,18 +193,18 @@ public class Client {
      * Helper function to print out usage
      */
     private void printUsage() {
-        new HelpFormatter().printHelp("Client", opts);
+        new HelpFormatter().printHelp("Asterix YARN client. Usage: ./asterix [mode] [options]", opts);
     }
 
     /**
      * Parse command line options
-     *
+     * 
      * @param args
      *            Parsed command line options
      * @return Whether the init was successful to run the client
      * @throws ParseException
      */
-    public boolean init(String[] args) throws ParseException {
+    public List<String> init(String[] args) throws ParseException {
 
         CommandLine cliParser = new GnuParser().parse(opts, args);
 
@@ -204,12 +214,11 @@ public class Client {
 
         if (cliParser.hasOption("help")) {
             printUsage();
-            return false;
+            System.exit(1);
         }
 
         if (cliParser.hasOption("debug")) {
             debugFlag = true;
-
         }
 
         appName = cliParser.getOptionValue("appname", "Asterix");
@@ -229,73 +238,42 @@ public class Client {
         appMasterJar = cliParser.getOptionValue("jar");
 
         if (!cliParser.hasOption("asterixTar")) {
-            throw new IllegalArgumentException("The deployable Asterix tar file");
+            throw new IllegalArgumentException("You must include an Asterix TAR to distribute!");
         }
         asterixTar = cliParser.getOptionValue("asterixTar");
+        if (!cliParser.hasOption("asterixTar")) {
+            throw new IllegalArgumentException("You must specify a cluster configuration");
+        }
         asterixConf = cliParser.getOptionValue("asterixConf");
-
         moyaPriority = Integer.parseInt(cliParser.getOptionValue("moya_priority", "0"));
-
         containerMemory = Integer.parseInt(cliParser.getOptionValue("container_memory", "128"));
-        numContainers = Integer.parseInt(cliParser.getOptionValue("num_containers", "4"));
-
         if (containerMemory < 0 || numContainers < 1) {
             throw new IllegalArgumentException("Invalid no. of containers or container memory specified, exiting."
                     + " Specified containerMemory=" + containerMemory + ", numContainer=" + numContainers);
         }
-
         log4jPropFile = cliParser.getOptionValue("log_properties", "");
+        if (cliParser.hasOption("appId")) {
+            appId = ConverterUtils.toApplicationId(cliParser.getOptionValue("appId"));
+        }
 
-        return true;
+        return cliParser.getArgList();
     }
 
     /**
      * Main run function for the client
-     *
+     * 
      * @return true if application completed successfully
      * @throws IOException
      * @throws YarnException
      */
-    public boolean run() throws IOException, YarnException {
+    public ApplicationId deployAM() throws IOException, YarnException {
 
-        LOG.info("Running Client");
+        LOG.info("Running Deployment");
         yarnClient.start();
-
-        YarnClusterMetrics clusterMetrics = yarnClient.getYarnClusterMetrics();
-        LOG.info("Got Cluster metric info from ASM" + ", numNodeManagers=" + clusterMetrics.getNumNodeManagers());
-
-        List<NodeReport> clusterNodeReports = yarnClient.getNodeReports();
-        LOG.info("Got Cluster node info from ASM");
-        for (NodeReport node : clusterNodeReports) {
-            LOG.info("Got node report from ASM for" + ", nodeId=" + node.getNodeId() + ", nodeAddress"
-                    + node.getHttpAddress() + ", nodeRackName" + node.getRackName() + ", nodeNumContainers"
-                    + node.getNumContainers());
-        }
-
-        QueueInfo queueInfo = yarnClient.getQueueInfo(this.amQueue);
-        LOG.info("Queue info" + ", queueName=" + queueInfo.getQueueName() + ", queueCurrentCapacity="
-                + queueInfo.getCurrentCapacity() + ", queueMaxCapacity=" + queueInfo.getMaximumCapacity()
-                + ", queueApplicationCount=" + queueInfo.getApplications().size() + ", queueChildQueueCount="
-                + queueInfo.getChildQueues().size());
-
-        List<QueueUserACLInfo> listAclInfo = yarnClient.getQueueAclsInfo();
-        for (QueueUserACLInfo aclInfo : listAclInfo) {
-            for (QueueACL userAcl : aclInfo.getUserAcls()) {
-                LOG.info("User ACL Info for Queue" + ", queueName=" + aclInfo.getQueueName() + ", userAcl="
-                        + userAcl.name());
-            }
-        }
 
         // Get a new application id
         YarnClientApplication app = yarnClient.createApplication();
         GetNewApplicationResponse appResponse = app.getNewApplicationResponse();
-        // TODO get min/max resource capabilities from RM and change memory ask
-        // if needed
-        // If we do not have min/max, we may not be able to correctly request
-        // the required resources from the RM for the app master
-        // Memory ask has to be a multiple of min and less than max.
-        // Dump out information about cluster capability as seen by the resource
-        // manager
         int maxMem = appResponse.getMaximumResourceCapability().getMemory();
         LOG.info("Max mem capabililty of resources in this cluster " + maxMem);
 
@@ -396,7 +374,7 @@ public class Client {
         asterixConfLoc.setResource(ConverterUtils.getYarnUrlFromPath(dst));
         asterixConfLoc.setTimestamp(destStatus.getModificationTime());
         localResources.put("cluster-config.xml", asterixConfLoc);
-        
+
         // Setup confg file Constants
         String confLocation = "";
         long confLen = 0;
@@ -443,13 +421,13 @@ public class Client {
         env.put(MConstants.TARLOCATION, tarLocation);
         env.put(MConstants.TARTIMESTAMP, Long.toString(tarTimestamp));
         env.put(MConstants.TARLEN, Long.toString(tarLen));
-        
+
         env.put(MConstants.CONFLOCATION, confLocation);
         env.put(MConstants.CONFTIMESTAMP, Long.toString(confTimestamp));
         env.put(MConstants.CONFLEN, Long.toString(confLen));
 
         env.put(MConstants.PATHSUFFIX, appName + "/" + appId.getId());
-        
+
         // Add AppMaster.jar location to classpath
         // At some point we should not be required to add
         // the hadoop specific classpaths to the env.
@@ -540,21 +518,21 @@ public class Client {
         // app submission failure?
 
         // Monitor the application
-        return monitorApplication(appId);
+        return appId;
 
     }
 
     /**
      * Monitor the submitted application for completion. Kill application if
      * time expires.
-     *
+     * 
      * @param appId
      *            Application Id of application to be monitored
      * @return true if application completed successfully
      * @throws YarnException
      * @throws IOException
      */
-    private boolean monitorApplication(ApplicationId appId) throws YarnException, IOException {
+    private boolean monitorApplication() throws YarnException, IOException {
 
         while (true) {
 

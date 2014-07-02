@@ -653,10 +653,15 @@ public class AsterixBuiltinFunctions {
     public static final FunctionIdentifier NUMERIC_ADD = AlgebricksBuiltinFunctions.NUMERIC_ADD;
     public static final FunctionIdentifier IS_NULL = AlgebricksBuiltinFunctions.IS_NULL;
 
+    public static final FunctionIdentifier IS_SYSTEM_NULL = new FunctionIdentifier(FunctionConstants.ASTERIX_NS,
+            "is-system-null", 1);;
     public static final FunctionIdentifier NOT_NULL = new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "not-null",
             1);
     public static final FunctionIdentifier COLLECTION_TO_SEQUENCE = new FunctionIdentifier(
             FunctionConstants.ASTERIX_NS, "" + "collection-to-sequence", 1);
+
+    public static final FunctionIdentifier EXTERNAL_LOOKUP = new FunctionIdentifier(FunctionConstants.ASTERIX_NS,
+            "external-lookup", FunctionIdentifier.VARARGS);
 
     public static IFunctionInfo getAsterixFunctionInfo(FunctionIdentifier fid) {
         return registeredFunctions.get(fid);
@@ -670,6 +675,7 @@ public class AsterixBuiltinFunctions {
 
         // first, take care of Algebricks builtin functions
         addFunction(IS_NULL, ABooleanTypeComputer.INSTANCE, true);
+        addFunction(IS_SYSTEM_NULL, ABooleanTypeComputer.INSTANCE, true);
         addFunction(NOT, UnaryBooleanOrNullFunctionTypeComputer.INSTANCE, true);
 
         addPrivateFunction(EQ, BinaryBooleanOrNullFunctionTypeComputer.INSTANCE, true);
@@ -987,6 +993,18 @@ public class AsterixBuiltinFunctions {
         addFunction(INTERVAL_CONSTRUCTOR_START_FROM_TIME, OptionalAIntervalTypeComputer.INSTANCE, true);
 
         addPrivateFunction(COLLECTION_TO_SEQUENCE, CollectionToSequenceTypeComputer.INSTANCE, true);
+
+        // external lookup
+        addPrivateFunction(EXTERNAL_LOOKUP, new IResultTypeComputer() {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public IAType computeType(ILogicalExpression expression, IVariableTypeEnvironment env,
+                    IMetadataProvider<?, ?> mp) throws AlgebricksException {
+                return BuiltinType.ANY;
+            }
+        }, false);
 
         String metadataFunctionLoaderClassName = "edu.uci.ics.asterix.metadata.functions.MetadataBuiltinFunctions";
         try {
