@@ -40,13 +40,13 @@ public class ExternalRTreeLocalResourceMetadata extends LSMRTreeLocalResourceMet
 
     private static final long serialVersionUID = 1L;
 
-    public ExternalRTreeLocalResourceMetadata(ITypeTraits[] typeTraits,
-            IBinaryComparatorFactory[] rtreeCmpFactories, IBinaryComparatorFactory[] btreeCmpFactories,
-            IPrimitiveValueProviderFactory[] valueProviderFactories, RTreePolicyType rtreePolicyType,
-            ILinearizeComparatorFactory linearizeCmpFactory, int datasetID, ILSMMergePolicyFactory mergePolicyFactory,
-            Map<String, String> mergePolicyProperties, int[] btreeFields) {
+    public ExternalRTreeLocalResourceMetadata(ITypeTraits[] typeTraits, IBinaryComparatorFactory[] rtreeCmpFactories,
+            IBinaryComparatorFactory[] btreeCmpFactories, IPrimitiveValueProviderFactory[] valueProviderFactories,
+            RTreePolicyType rtreePolicyType, ILinearizeComparatorFactory linearizeCmpFactory, int datasetID,
+            ILSMMergePolicyFactory mergePolicyFactory, Map<String, String> mergePolicyProperties, int[] btreeFields) {
         super(typeTraits, rtreeCmpFactories, btreeCmpFactories, valueProviderFactories, rtreePolicyType,
-                linearizeCmpFactory, datasetID, mergePolicyFactory, mergePolicyProperties, btreeFields);
+                linearizeCmpFactory, datasetID, mergePolicyFactory, mergePolicyProperties, null, null, null,
+                btreeFields, null);
     }
 
     @Override
@@ -57,7 +57,8 @@ public class ExternalRTreeLocalResourceMetadata extends LSMRTreeLocalResourceMet
             return LSMRTreeUtils.createExternalRTree(file, runtimeContextProvider.getBufferCache(),
                     runtimeContextProvider.getFileMapManager(), typeTraits, rtreeCmpFactories, btreeCmpFactories,
                     valueProviderFactories, rtreePolicyType, runtimeContextProvider.getBloomFilterFalsePositiveRate(),
-                    mergePolicyFactory.createMergePolicy(mergePolicyProperties), new BaseOperationTracker(
+                    mergePolicyFactory.createMergePolicy(mergePolicyProperties,
+                            runtimeContextProvider.getIndexLifecycleManager()), new BaseOperationTracker(
                             (DatasetLifecycleManager) runtimeContextProvider.getIndexLifecycleManager(), datasetID),
                     runtimeContextProvider.getLSMIOScheduler(), LSMRTreeIOOperationCallbackFactory.INSTANCE
                             .createIOOperationCallback(), linearizeCmpFactory, btreeFields, -1);

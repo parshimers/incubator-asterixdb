@@ -409,6 +409,44 @@ public class ARecordType extends AbstractComplexType {
         }
     }
 
+    /**
+     * Validates the field that will be used as filter for the components of an LSM index.
+     * 
+     * @param keyFieldNames
+     *            a list of key fields that will be validated
+     * @param indexType
+     *            the type of the index that its key fields is being validated
+     * @throws AlgebricksException
+     *             (if the validation failed), IOException
+     */
+    public void validateFilterField(String filterField) throws AlgebricksException, IOException {
+        IAType fieldType = getFieldType(filterField);
+        if (fieldType == null) {
+            throw new AlgebricksException("A field with this name  \"" + filterField + "\" could not be found.");
+        }
+        switch (fieldType.getTypeTag()) {
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+            case FLOAT:
+            case DOUBLE:
+            case STRING:
+            case DATE:
+            case TIME:
+            case DATETIME:
+            case UUID:
+            case YEARMONTHDURATION:
+            case DAYTIMEDURATION:
+                break;
+            case UNION:
+                throw new AlgebricksException("The filter field \"" + filterField + "\" cannot be nullable");
+            default:
+                throw new AlgebricksException("The field \"" + filterField + "\" which is of type "
+                        + fieldType.getTypeTag() + " cannot be used as a filter for a dataset.");
+        }
+    }
+
     public boolean doesFieldExist(String fieldName) {
         for (String f : fieldNames) {
             if (f.compareTo(fieldName) == 0) {
