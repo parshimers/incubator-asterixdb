@@ -88,6 +88,8 @@ public class Client {
     private String asterixTar = "";
     // Location of cluster configuration
     private String asterixConf = "";
+    // Location of optional external libraries
+    private String extLibs = "";
 
     // Shell Command Container priority
     private int moyaPriority = 0;
@@ -119,15 +121,20 @@ public class Client {
             Client client = new Client();
             try {
                 List<String> clientVerb = client.init(args);
-                if (clientVerb == null || clientVerb.size() != 1) {
+                if (clientVerb == null || clientVerb.size() <= 1) {
+                    LOG.fatal("Too few arguments.");
+                    throw new IllegalArgumentException();
+                }
+                if (clientVerb.size() >= 1) {
                     LOG.fatal("Too many arguments.");
-                    throw new Exception();
+                    throw new IllegalArgumentException();
                 }
                 String verb = clientVerb.get(0);
                 switch (verb) {
                     case "start":
                         break;
-                    case "stop":
+                    case "kill":
+                        client.killApplication();
                         break;
                     case "install":
                         try {
@@ -140,12 +147,10 @@ public class Client {
                     case "status":
                         client.monitorApplication();
                         break;
-                    case "library_install":
-                        break;
                     case "destroy":
                         break;
                     default:
-                        LOG.fatal("Unknown action. Known actions are: start, stop, install, status, library_install, kill");
+                        LOG.fatal("Unknown action. Known actions are: start, stop, install, status, kill");
                         client.printUsage();
                         System.exit(-1);
                 }
@@ -155,7 +160,7 @@ public class Client {
                 System.exit(-1);
             }
         } catch (Throwable t) {
-            LOG.fatal("Error running client. Exiting...");
+            LOG.fatal("Error running client", t);
             System.exit(1);
         }
         LOG.info("Command executed successfully.");
@@ -166,6 +171,11 @@ public class Client {
 
         this.conf = conf;
         yarnClient = YarnClient.createYarnClient();
+        //If the HDFS jars aren't on the classpath this won't be set 
+        if (conf.get("fs.hdfs.impl", null) == conf.get("fs.file.impl", null)) { //only would happen if both are null
+            conf.set("fs.hdfs.impl", "org.apache.hadoop.hdfs.DistributedFileSystem");
+            conf.set("fs.file.impl", "org.apache.hadoop.fs.LocalFileSystem");
+        }
         yarnClient.init(conf);
         opts = new Options();
         opts.addOption("appname", true, "Application Name. Default value - Asterix");
@@ -173,12 +183,11 @@ public class Client {
         opts.addOption("queue", true, "RM Queue in which this application is to be submitted");
         opts.addOption("master_memory", true, "Amount of memory in MB to be requested to run the application master");
         opts.addOption("jar", true, "Jar file containing the application master");
-
         opts.addOption("log_properties", true, "log4j.properties file");
-        //new
         opts.addOption("asterixTar", true, "tarball with Asterix inside");
         opts.addOption("asterixConf", true, "Asterix cluster config");
-        opts.addOption("appId", false, "ApplicationID to monitor if running client in status monitor mode");
+        opts.addOption("externalLibs", true, "Libraries to deploy along with Asterix instance");
+        opts.addOption("appId", true, "ApplicationID to monitor if running client in status monitor mode");
         opts.addOption("debug", false, "Dump out debug information");
         opts.addOption("help", false, "Print usage");
     }
@@ -214,11 +223,18 @@ public class Client {
 
         if (cliParser.hasOption("help")) {
             printUsage();
-            System.exit(1);
+            return new ArrayList<String>();
         }
 
         if (cliParser.hasOption("debug")) {
             debugFlag = true;
+        }
+
+        if (cliParser.hasOption("appId")) {
+            LOG.info(cliParser.getOptionValue("appId"));
+            appId = ConverterUtils.toApplicationId(cliParser.getOptionValue("appId"));
+            //we do not care about any of the other stuff that is more for the installation
+            return cliParser.getArgList();
         }
 
         appName = cliParser.getOptionValue("appname", "Asterix");
@@ -245,6 +261,8 @@ public class Client {
             throw new IllegalArgumentException("You must specify a cluster configuration");
         }
         asterixConf = cliParser.getOptionValue("asterixConf");
+        extLibs = cliParser.getOptionValue("externalLibs");
+
         moyaPriority = Integer.parseInt(cliParser.getOptionValue("moya_priority", "0"));
         containerMemory = Integer.parseInt(cliParser.getOptionValue("container_memory", "128"));
         if (containerMemory < 0 || numContainers < 1) {
@@ -252,9 +270,6 @@ public class Client {
                     + " Specified containerMemory=" + containerMemory + ", numContainer=" + numContainers);
         }
         log4jPropFile = cliParser.getOptionValue("log_properties", "");
-        if (cliParser.hasOption("appId")) {
-            appId = ConverterUtils.toApplicationId(cliParser.getOptionValue("appId"));
-        }
 
         return cliParser.getArgList();
     }
@@ -298,7 +313,6 @@ public class Client {
         // the local resources
         Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
 
-        LOG.info("Copy App Master jar from local filesystem and add to local environment");
         // Copy the application master jar to the filesystem
         // Create a local resource to point to the destination jar path
         FileSystem fs = FileSystem.get(conf);
@@ -342,6 +356,7 @@ public class Client {
         src = new Path(asterixTar);
         pathSuffix = appName + "/" + appId.getId() + "/asterix-server.tar";
         dst = new Path(fs.getHomeDirectory(), pathSuffix);
+        LOG.info("Copying Asterix distributable to DFS");
         fs.copyFromLocalFile(false, true, src, dst);
         destStatus = fs.getFileStatus(dst);
         LocalResource asterixTarLoc = Records.newRecord(LocalResource.class);
@@ -361,6 +376,31 @@ public class Client {
         FileStatus tarFileStatus = fs.getFileStatus(dst);
         tarLen = tarFileStatus.getLen();
         tarTimestamp = tarFileStatus.getModificationTime();
+
+        // Copy external function to HDFS for AM if present
+        String extLocation = "";
+        long extLen = 0;
+        long extTimestamp = 0;
+        if (!extLibs.equals("")) {
+
+            src = new Path(extLibs);
+            pathSuffix = appName + "/" + appId.getId() + src.getName();
+            dst = new Path(fs.getHomeDirectory(), pathSuffix + "libraries");
+            LOG.info("Copying Asterix external libraries to DFS");
+            fs.copyFromLocalFile(false, true, src, dst);
+            destStatus = fs.getFileStatus(dst);
+            LocalResource asterixExtLoc = Records.newRecord(LocalResource.class);
+            asterixTarLoc.setType(LocalResourceType.FILE);
+            asterixTarLoc.setVisibility(LocalResourceVisibility.PUBLIC);
+            asterixTarLoc.setResource(ConverterUtils.getYarnUrlFromPath(dst));
+            asterixTarLoc.setTimestamp(destStatus.getModificationTime());
+            localResources.put(src.getName(), asterixExtLoc);
+            
+            extLocation = dst.toUri().toString();
+            FileStatus extFileStatus = fs.getFileStatus(dst);
+            extLen = extFileStatus.getLen();
+            extTimestamp = extFileStatus.getModificationTime();
+        }
 
         //and finally, add the config too so the AM can see it 
         src = new Path(asterixConf);
@@ -417,6 +457,11 @@ public class Client {
         env.put(MConstants.APPLICATIONMASTERJARLOCATION, amJarLocation);
         env.put(MConstants.APPLICATIONMASTERJARTIMESTAMP, Long.toString(amJarTimestamp));
         env.put(MConstants.APPLICATIONMASTERJARLEN, Long.toString(amJarLen));
+        if (!extLibs.equals("")) {
+            env.put(MConstants.EXTLOCATION, extLocation);
+            env.put(MConstants.EXTTIMESTAMP, Long.toString(extTimestamp));
+            env.put(MConstants.EXTLEN, Long.toString(extLen));
+        }
 
         env.put(MConstants.TARLOCATION, tarLocation);
         env.put(MConstants.TARTIMESTAMP, Long.toString(tarTimestamp));
@@ -571,6 +616,21 @@ public class Client {
                 return false;
             }
         }
+
+    }
+
+    private void killApplication() throws YarnException, IOException {
+        if (appId == null) {
+            throw new YarnException("No Application given to kill");
+        }
+        ApplicationReport rep = yarnClient.getApplicationReport(appId);
+        YarnApplicationState st = rep.getYarnApplicationState();
+        if (st == YarnApplicationState.FINISHED || st == YarnApplicationState.KILLED
+                || st == YarnApplicationState.FAILED) {
+            throw new YarnException("Application has already exited");
+        }
+        LOG.info("Killing applicaiton with ID: " + appId);
+        yarnClient.killApplication(appId);
 
     }
 }

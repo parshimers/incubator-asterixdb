@@ -15,6 +15,7 @@
 <assembly>
   <id>binary-assembly</id>
   <formats>
+    <format>tar</format>
     <format>zip</format>
     <format>dir</format>
   </formats>
@@ -43,5 +44,11 @@
       <outputDirectory>bin</outputDirectory>
       <fileMode>0755</fileMode>
     </fileSet>
+        <fileSet>
+      <directory>src/main/resources</directory>
+      <outputDirectory>bin</outputDirectory>
+      <fileMode>0755</fileMode>
+    </fileSet>
+    
   </fileSets>
 </assembly>
