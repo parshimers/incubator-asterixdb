@@ -33,7 +33,7 @@ import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
 import edu.uci.ics.hyracks.api.dataset.IHyracksDataset;
 import edu.uci.ics.hyracks.client.dataset.HyracksDataset;
 
-public class AdminAPIServlet extends HttpServlet{
+public class ShutdownAPIServlet extends HttpServlet{
     private static final long serialVersionUID = 1L;
 
     private static final String HYRACKS_CONNECTION_ATTR = "edu.uci.ics.asterix.HYRACKS_CONNECTION";
@@ -65,6 +65,7 @@ public class AdminAPIServlet extends HttpServlet{
             synchronized (context) {
                 hcc = (IHyracksClientConnection) context.getAttribute(HYRACKS_CONNECTION_ATTR);
                 hcc.stopCluster();
+                response.setStatus(HttpServletResponse.SC_ACCEPTED);
             }
         } catch (Exception e) {
             GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, e.getMessage(), e);

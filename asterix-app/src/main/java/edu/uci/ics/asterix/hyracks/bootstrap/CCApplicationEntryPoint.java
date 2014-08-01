@@ -23,7 +23,7 @@ import org.eclipse.jetty.servlet.ServletHolder;
 
 import edu.uci.ics.asterix.api.http.servlet.APIServlet;
 import edu.uci.ics.asterix.api.http.servlet.AQLAPIServlet;
-import edu.uci.ics.asterix.api.http.servlet.AdminAPIServlet;
+import edu.uci.ics.asterix.api.http.servlet.ShutdownAPIServlet;
 import edu.uci.ics.asterix.api.http.servlet.DDLAPIServlet;
 import edu.uci.ics.asterix.api.http.servlet.FeedDashboardServlet;
 import edu.uci.ics.asterix.api.http.servlet.FeedDataProviderServlet;
@@ -158,7 +158,7 @@ public class CCApplicationEntryPoint implements ICCApplicationEntryPoint {
 		context.addServlet(new ServletHolder(new UpdateAPIServlet()), "/update");
 		context.addServlet(new ServletHolder(new DDLAPIServlet()), "/ddl");
 		context.addServlet(new ServletHolder(new AQLAPIServlet()), "/aql");
-		context.addServlet(new ServletHolder(new AdminAPIServlet()), "/admin");
+		context.addServlet(new ServletHolder(new ShutdownAPIServlet()), "/admin/shutdown");
 	}
 
 	private void setupFeedServer(AsterixExternalProperties externalProperties)

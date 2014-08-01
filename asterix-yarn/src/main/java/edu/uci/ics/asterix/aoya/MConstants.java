@@ -43,23 +43,6 @@ public class MConstants {
     public static final String TARLEN = "TARLEN";
 
     /**
-     * Environment key name pointing to the Asterix distributable external libraries
-     */
-    public static final String EXTLOCATION = "EXTLOCATION";
-
-    /**
-     * Environment key name denoting the file timestamp for the Asterix external libraries.
-     * Used to validate the local resource.
-     */
-    public static final String EXTTIMESTAMP = "EXTTIMESTAMP";
-
-    /**
-     * Environment key name denoting the file content length for the Asterix external libraries.
-     * Used to validate the local resource.
-     */
-    public static final String EXTLEN = "EXTLEN";
-
-    /**
      * Environment key name pointing to the Asterix cluster configuration file
      */
     public static final String CONFLOCATION = "CONFLOCATION";
@@ -99,4 +82,6 @@ public class MConstants {
     public static final String PARAMLEN = "PARAMLEN";
 
     public static final String PATHSUFFIX = "PATHSUFFIX";
+    
+    public static final String INSTANCESTORE = "INSTANCESTORE";
 }

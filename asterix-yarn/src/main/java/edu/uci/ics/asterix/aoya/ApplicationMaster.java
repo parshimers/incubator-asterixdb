@@ -128,7 +128,6 @@ public class ApplicationMaster {
             + "asterixcc";
     private static final String ASTERIX_NC_BIN_PATH = "asterix-server" + File.separator + "bin" + File.separator
             + "asterixnc";
-    private static final String PWD = Paths.get("").toAbsolutePath().toString();
 
     private Map<String, Property> asterixConfigurationParams;
     private static final String EXTERNAL_CC_JAVA_OPTS_KEY = "cc.java.opts";
@@ -182,19 +181,14 @@ public class ApplicationMaster {
     // File length needed for local resource
     private long asterixTarLen = 0;
 
-    //External library path, if present
-    private String asterixExtPath = "";
-    // Timestamp needed for creating a local resource
-    private long asterixExtTimestamp = 0;
-    // File length needed for local resource
-    private long asterixExtLen = 0;
-
     //HDFS path to Asterix distributable tarball
     private String asterixConfPath = "";
     // Timestamp needed for creating a local resource
     private long asterixConfTimestamp = 0;
     // File length needed for local resource
     private long asterixConfLen = 0;
+
+    private String instanceConfPath = "";
 
     private int numTotalContainers = 0;
 
@@ -212,8 +206,6 @@ public class ApplicationMaster {
     private volatile boolean success;
 
     private boolean instanceExists = false;
-
-    private Server ClientAMServer;
 
     // Launch threads
     private List<Thread> launchThreads = new ArrayList<Thread>();
@@ -344,13 +336,8 @@ public class ApplicationMaster {
         asterixConfTimestamp = Long.parseLong(envs.get(MConstants.CONFTIMESTAMP));
         asterixConfLen = Long.parseLong(envs.get(MConstants.CONFLEN));
 
-        if (envs.containsKey(MConstants.EXTLOCATION)) {
-            asterixExtPath = envs.get(MConstants.EXTLOCATION);
-            asterixExtTimestamp = Long.parseLong(envs.get(MConstants.EXTTIMESTAMP));
-            asterixExtLen = Long.parseLong(envs.get(MConstants.EXTLEN));
-        }
-
         DFSpathSuffix = envs.get(MConstants.PATHSUFFIX);
+        instanceConfPath = envs.get(MConstants.INSTANCESTORE);
         LOG.info("Path suffix: " + DFSpathSuffix);
 
         localizeDFSResources();
@@ -601,10 +588,12 @@ public class ApplicationMaster {
      */
 
     /**
-     * Here I am just moving all of the resources from HDFS to the local
+     * Here I am just pointing the Containers to the exisiting HDFS resources given by the Client
      * filesystem of the nodes.
+     * 
+     * @throws IOException
      */
-    private void localizeDFSResources() {
+    private void localizeDFSResources() throws IOException {
 
         LocalResource asterixTar = Records.newRecord(LocalResource.class);
 
@@ -627,29 +616,6 @@ public class ApplicationMaster {
         asterixTar.setSize(asterixTarLen);
         localResources.put("asterix-server", asterixTar);
 
-        //if external libraries exist, localize those too.
-        if (!asterixExtPath.equals("")) {
-            LocalResource asterixExt = Records.newRecord(LocalResource.class);
-
-            //this un-tar's the asterix distribution
-            asterixExt.setType(LocalResourceType.ARCHIVE);
-
-            // Set visibility of the resource
-            // Setting to most private option
-            asterixExt.setVisibility(LocalResourceVisibility.APPLICATION);
-            // Set the resource to be copied over
-            try {
-                asterixExt.setResource(ConverterUtils.getYarnUrlFromURI(new URI(asterixExtPath)));
-
-            } catch (URISyntaxException e) {
-                LOG.error("Error locating Asterix tarball" + " in env, path=" + asterixExtPath);
-                e.printStackTrace();
-            }
-
-            asterixExt.setTimestamp(asterixExtTimestamp);
-            asterixExt.setSize(asterixExtLen);
-            localResources.put("libraries", asterixExt);
-        }
         //now let's do the same for the cluster description XML
         LocalResource asterixConf = Records.newRecord(LocalResource.class);
         asterixConf.setType(LocalResourceType.FILE);
@@ -662,9 +628,38 @@ public class ApplicationMaster {
             LOG.error("Error locating Asterix config" + " in env, path=" + asterixConfPath);
             e.printStackTrace();
         }
+        //TODO: I could avoid localizing this everywhere by only calling this block on the metadata node. 
         asterixConf.setTimestamp(asterixConfTimestamp);
         asterixConf.setSize(asterixConfLen);
         localResources.put("cluster-config.xml", asterixConf);
+        //now add the libraries if there are any
+        try {
+            FileSystem fs = FileSystem.get(conf);
+            Path p = new Path(instanceConfPath + "library/");
+            if (fs.exists(p)) {
+                FileStatus[] dataverses = fs.listStatus(p);
+                for (FileStatus d : dataverses) {
+                    if (!d.isDirectory())
+                        throw new IOException("Library configuration directory structure is incorrect");
+                    FileStatus[] libraries = fs.listStatus(d.getPath());
+                    for (FileStatus l : libraries) {
+                        if (l.isDirectory())
+                            throw new IOException("Library configuration directory structure is incorrect");
+                        LocalResource lr = Records.newRecord(LocalResource.class);
+                        lr.setResource(ConverterUtils.getYarnUrlFromURI(l.getPath().toUri()));
+                        lr.setSize(l.getLen());
+                        lr.setTimestamp(l.getModificationTime());
+                        lr.setType(LocalResourceType.ARCHIVE);
+                        lr.setVisibility(LocalResourceVisibility.APPLICATION);
+                        localResources.put(l.getPath().getName(), lr);
+                    }
+                }
+            }
+        } catch (FileNotFoundException e) {
+            //do nothing, it just means there aren't libraries. that is possible and ok
+            // it should be handled by the fs.exists(p) check though.
+        }
+
     }
 
     private void printUsage(Options opts) {
@@ -698,12 +693,6 @@ public class ApplicationMaster {
         } catch (java.net.UnknownHostException uhe) {
             appMasterHostname = uhe.toString();
         }
-        //Initialize Client RPC
-        RPC.Builder rpcBuilder = new RPC.Builder(conf);
-        rpcBuilder.setBindAddress(appMasterHostname);
-        //TODO: no magic numbers!
-        rpcBuilder.setPort(19020);
-        ClientAMServer = rpcBuilder.build();
         RegisterApplicationMasterResponse response = resourceManager.registerApplicationMaster(appMasterHostname,
                 appMasterRpcPort, appMasterTrackingUrl);
 
@@ -818,7 +807,8 @@ public class ApplicationMaster {
                 }
             }
             //stop infinite looping of run()
-            done = true;
+            if (numCompletedContainers.get() + numFailedContainers.get() == numAllocatedContainers.get())
+                done = true;
         }
 
         public void onContainersAllocated(List<Container> allocatedContainers) {
@@ -833,7 +823,7 @@ public class ApplicationMaster {
 
                 LaunchAsterixContainer runnableLaunchContainer = new LaunchAsterixContainer(allocatedContainer,
                         containerListener);
-                Thread launchThread = new Thread(runnableLaunchContainer);
+                Thread launchThread = new Thread(runnableLaunchContainer, "Asterix CC/NC");
 
                 // I want to know if this node is the CC, because it must start before the NCs. 
                 LOG.info("Allocated: " + allocatedContainer.getNodeId().getHost());

@@ -19,6 +19,7 @@
 package edu.uci.ics.asterix.aoya;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,6 +32,7 @@ import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -65,6 +67,8 @@ import org.apache.hadoop.yarn.util.Records;
 public class Client {
 
     private static final Log LOG = LogFactory.getLog(Client.class);
+    private static final String CONF_DIR_REL = ".asterix/";
+    private static String mode;
 
     // Configuration
     private Configuration conf;
@@ -84,12 +88,16 @@ public class Client {
     // Main class to invoke application master
     private final String appMasterMainClass = "edu.uci.ics.asterix.aoya.ApplicationMaster";
 
+    //instance name
+    private String instanceName = "";
     //location of distributable asterix tarfile
     private String asterixTar = "";
     // Location of cluster configuration
     private String asterixConf = "";
     // Location of optional external libraries
     private String extLibs = "";
+
+    private String instanceFolder = "";
 
     // Shell Command Container priority
     private int moyaPriority = 0;
@@ -111,6 +119,7 @@ public class Client {
 
     // Command line options
     private Options opts;
+    private String libDataverse;
 
     /**
      * @param args
@@ -120,34 +129,41 @@ public class Client {
         try {
             Client client = new Client();
             try {
-                List<String> clientVerb = client.init(args);
-                if (clientVerb == null || clientVerb.size() <= 1) {
-                    LOG.fatal("Too few arguments.");
-                    throw new IllegalArgumentException();
-                }
-                if (clientVerb.size() >= 1) {
-                    LOG.fatal("Too many arguments.");
-                    throw new IllegalArgumentException();
-                }
-                String verb = clientVerb.get(0);
+                String verb = client.init(args);
                 switch (verb) {
                     case "start":
+                        YarnClientApplication app = client.makeApplicationContext();
+                        List<DFSResourceCoordinate> res = client.deployConfig();
+                        res.addAll(client.distributeBinaries());
+                        LOG.info("Asterix deployed and running with ID: " + client.deployAM(app, res).toString());
                         break;
                     case "kill":
                         client.killApplication();
                         break;
+                    case "describe":
+                        break;
                     case "install":
                         try {
-                            LOG.info("Asterix deployed and running with ID: " + client.deployAM().toString());
+                            app = client.makeApplicationContext();
+                            client.installConfig();
+                            res = client.deployConfig();
+                            res.addAll(client.distributeBinaries());
+                            LOG.info("Asterix deployed and running with ID: " + client.deployAM(app, res).toString());
                         } catch (YarnException | IOException e) {
                             LOG.error("Asterix failed to deploy on to cluster");
                             throw e;
                         }
                         break;
+                    case "libinstall":
+                        client.installLibs();
+                        break;
+                    case "alter":
+                        break;
                     case "status":
                         client.monitorApplication();
                         break;
                     case "destroy":
+                        client.removeInstance();
                         break;
                     default:
                         LOG.fatal("Unknown action. Known actions are: start, stop, install, status, kill");
@@ -156,6 +172,7 @@ public class Client {
                 }
             } catch (IllegalArgumentException e) {
                 System.err.println(e.getLocalizedMessage());
+                e.printStackTrace();
                 client.printUsage();
                 System.exit(-1);
             }
@@ -184,9 +201,11 @@ public class Client {
         opts.addOption("master_memory", true, "Amount of memory in MB to be requested to run the application master");
         opts.addOption("jar", true, "Jar file containing the application master");
         opts.addOption("log_properties", true, "log4j.properties file");
+        opts.addOption("name", true, "Asterix instance name (required)");
         opts.addOption("asterixTar", true, "tarball with Asterix inside");
         opts.addOption("asterixConf", true, "Asterix cluster config");
         opts.addOption("externalLibs", true, "Libraries to deploy along with Asterix instance");
+        opts.addOption("libDataverse", true, "Dataverse to deploy external libraries to");
         opts.addOption("appId", true, "ApplicationID to monitor if running client in status monitor mode");
         opts.addOption("debug", false, "Dump out debug information");
         opts.addOption("help", false, "Print usage");
@@ -213,7 +232,7 @@ public class Client {
      * @return Whether the init was successful to run the client
      * @throws ParseException
      */
-    public List<String> init(String[] args) throws ParseException {
+    public String init(String[] args) throws ParseException {
 
         CommandLine cliParser = new GnuParser().parse(opts, args);
 
@@ -221,9 +240,20 @@ public class Client {
             throw new IllegalArgumentException("No args specified for client to initialize");
         }
 
+        List<String> clientVerb = cliParser.getArgList();
+        if (clientVerb == null || clientVerb.size() < 1) {
+            LOG.fatal("Too few arguments.");
+            throw new IllegalArgumentException();
+        }
+        if (clientVerb.size() > 1) {
+            LOG.fatal("Too many arguments.");
+            throw new IllegalArgumentException();
+        }
+        mode = clientVerb.get(0);
+
         if (cliParser.hasOption("help")) {
             printUsage();
-            return new ArrayList<String>();
+            return new String();
         }
 
         if (cliParser.hasOption("debug")) {
@@ -234,7 +264,7 @@ public class Client {
             LOG.info(cliParser.getOptionValue("appId"));
             appId = ConverterUtils.toApplicationId(cliParser.getOptionValue("appId"));
             //we do not care about any of the other stuff that is more for the installation
-            return cliParser.getArgList();
+            return mode;
         }
 
         appName = cliParser.getOptionValue("appname", "Asterix");
@@ -253,6 +283,14 @@ public class Client {
 
         appMasterJar = cliParser.getOptionValue("jar");
 
+        if (!cliParser.hasOption("name")) {
+            throw new IllegalArgumentException("You must give a name for the instance to be deployed/altered");
+        }
+        instanceName = cliParser.getOptionValue("name");
+        instanceFolder = instanceName + '/';
+
+        appName = appName + '-' + instanceName;
+
         if (!cliParser.hasOption("asterixTar")) {
             throw new IllegalArgumentException("You must include an Asterix TAR to distribute!");
         }
@@ -261,9 +299,12 @@ public class Client {
             throw new IllegalArgumentException("You must specify a cluster configuration");
         }
         asterixConf = cliParser.getOptionValue("asterixConf");
-        extLibs = cliParser.getOptionValue("externalLibs");
-
-        moyaPriority = Integer.parseInt(cliParser.getOptionValue("moya_priority", "0"));
+        if (cliParser.hasOption("externalLibs")) {
+            extLibs = cliParser.getOptionValue("externalLibs");
+            if (cliParser.hasOption("libDataverse")) {
+                libDataverse = cliParser.getOptionValue("libDataverse");
+            }
+        }
         containerMemory = Integer.parseInt(cliParser.getOptionValue("container_memory", "128"));
         if (containerMemory < 0 || numContainers < 1) {
             throw new IllegalArgumentException("Invalid no. of containers or container memory specified, exiting."
@@ -271,7 +312,7 @@ public class Client {
         }
         log4jPropFile = cliParser.getOptionValue("log_properties", "");
 
-        return cliParser.getArgList();
+        return mode;
     }
 
     /**
@@ -281,7 +322,7 @@ public class Client {
      * @throws IOException
      * @throws YarnException
      */
-    public ApplicationId deployAM() throws IOException, YarnException {
+    public YarnClientApplication makeApplicationContext() throws IOException, YarnException {
 
         LOG.info("Running Deployment");
         yarnClient.start();
@@ -301,18 +342,85 @@ public class Client {
 
         // set the application name
         ApplicationSubmissionContext appContext = app.getApplicationSubmissionContext();
-        ApplicationId appId = appContext.getApplicationId();
+        appId = appContext.getApplicationId();
         appContext.setApplicationName(appName);
 
-        // Set up the container launch context for the application master
-        ContainerLaunchContext amContainer = Records.newRecord(ContainerLaunchContext.class);
+        return app;
+    }
 
-        // set local resources for the application master
-        // local files or archives as needed
-        // In this scenario, the jar file for the application master is part of
-        // the local resources
-        Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
+    private List<DFSResourceCoordinate> deployConfig() throws YarnException, IOException {
 
+        FileSystem fs = FileSystem.get(conf);
+        List<DFSResourceCoordinate> resources = new ArrayList<DFSResourceCoordinate>(2);
+
+        String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
+        Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
+        FileStatus destStatus;
+        try {
+            destStatus = fs.getFileStatus(dstConf);
+        } catch (IOException e) {
+            throw new YarnException("Error placing or locating config file in DFS- exiting");
+        }
+        LocalResource asterixConfLoc = Records.newRecord(LocalResource.class);
+        asterixConfLoc.setType(LocalResourceType.FILE);
+        asterixConfLoc.setVisibility(LocalResourceVisibility.PUBLIC);
+        asterixConfLoc.setResource(ConverterUtils.getYarnUrlFromPath(dstConf));
+        asterixConfLoc.setTimestamp(destStatus.getModificationTime());
+
+        DFSResourceCoordinate conf = new DFSResourceCoordinate();
+        conf.envs.put(dstConf.toUri().toString(), MConstants.CONFLOCATION);
+        conf.envs.put(Long.toString(asterixConfLoc.getSize()), MConstants.CONFLEN);
+        conf.envs.put(Long.toString(asterixConfLoc.getTimestamp()), MConstants.CONFTIMESTAMP);
+        conf.name = "cluster-config.xml";
+        conf.res = asterixConfLoc;
+        resources.add(conf);
+
+        return resources;
+
+    }
+
+    private void installConfig() throws YarnException, IOException {
+        FileSystem fs = FileSystem.get(conf);
+        String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
+        Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
+        boolean existing = false;
+        try {
+            FileStatus st = fs.getFileStatus(dstConf);
+            if (mode.equals("install")) {
+                throw new IllegalStateException("Instance with this name already exists.");
+            }
+        } catch (FileNotFoundException e) {
+            if (mode.equals("start")) {
+                throw new IllegalStateException("Instance does not exist for this user");
+            }
+        }
+        if (mode.equals("install")) {
+            Path src = new Path(asterixConf);
+            fs.copyFromLocalFile(false, true, src, dstConf);
+            existing = true;
+        }
+
+    }
+
+    private void installLibs() throws IllegalStateException, IOException {
+        FileSystem fs = FileSystem.get(conf);
+        String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
+        Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
+        if (!fs.exists(dstConf)) {
+            throw new IllegalStateException("Could not find existing asterix instance in DFS");
+        }
+        String libPathSuffix = CONF_DIR_REL + instanceFolder + "library/" + libDataverse + '/';
+        Path libDst = new Path(fs.getHomeDirectory(), libPathSuffix);
+        Path src = new Path(extLibs);
+        String fullLibPath = libPathSuffix + src.getName();
+        Path libFilePath = new Path(fs.getHomeDirectory(), fullLibPath);
+        LOG.info("Copying Asterix external library to DFS");
+        fs.copyFromLocalFile(false, true, src, libFilePath);
+    }
+
+    public List<DFSResourceCoordinate> distributeBinaries() throws IOException, YarnException {
+
+        List<DFSResourceCoordinate> resources = new ArrayList<DFSResourceCoordinate>(2);
         // Copy the application master jar to the filesystem
         // Create a local resource to point to the destination jar path
         FileSystem fs = FileSystem.get(conf);
@@ -338,18 +446,16 @@ public class Client {
         // resource the client intended to use with the application
         amJarRsrc.setTimestamp(destStatus.getModificationTime());
         amJarRsrc.setSize(destStatus.getLen());
-        localResources.put("AppMaster.jar", amJarRsrc);
-
-        // Setup App Master Constants
-        String amJarLocation = "";
-        long amJarLen = 0;
-        long amJarTimestamp = 0;
 
         // adding info so we can add the jar to the App master container path
-        amJarLocation = dst.toUri().toString();
-        FileStatus shellFileStatus = fs.getFileStatus(dst);
-        amJarLen = shellFileStatus.getLen();
-        amJarTimestamp = shellFileStatus.getModificationTime();
+        DFSResourceCoordinate am = new DFSResourceCoordinate();
+        am.envs.put(dst.toUri().toString(), MConstants.APPLICATIONMASTERJARLOCATION);
+        FileStatus amFileStatus = fs.getFileStatus(dst);
+        am.envs.put(Long.toString(amJarRsrc.getSize()), MConstants.APPLICATIONMASTERJARLEN);
+        am.envs.put(Long.toString(amJarRsrc.getTimestamp()), MConstants.APPLICATIONMASTERJARTIMESTAMP);
+        am.res = amJarRsrc;
+        am.name = "AppMaster.jar";
+        resources.add(am);
 
         // Add the asterix tarfile to HDFS for easy distribution
         // Keep it all archived for now so add it as a file...
@@ -361,70 +467,18 @@ public class Client {
         destStatus = fs.getFileStatus(dst);
         LocalResource asterixTarLoc = Records.newRecord(LocalResource.class);
         asterixTarLoc.setType(LocalResourceType.FILE);
-        asterixTarLoc.setVisibility(LocalResourceVisibility.PUBLIC);
+        asterixTarLoc.setVisibility(LocalResourceVisibility.APPLICATION);
         asterixTarLoc.setResource(ConverterUtils.getYarnUrlFromPath(dst));
         asterixTarLoc.setTimestamp(destStatus.getModificationTime());
-        localResources.put("asterix-server.tar", asterixTarLoc);
-
-        // Setup tarball Constants
-        String tarLocation = "";
-        long tarLen = 0;
-        long tarTimestamp = 0;
 
         // adding info so we can add the tarball to the App master container path
-        tarLocation = dst.toUri().toString();
-        FileStatus tarFileStatus = fs.getFileStatus(dst);
-        tarLen = tarFileStatus.getLen();
-        tarTimestamp = tarFileStatus.getModificationTime();
-
-        // Copy external function to HDFS for AM if present
-        String extLocation = "";
-        long extLen = 0;
-        long extTimestamp = 0;
-        if (!extLibs.equals("")) {
-
-            src = new Path(extLibs);
-            pathSuffix = appName + "/" + appId.getId() + src.getName();
-            dst = new Path(fs.getHomeDirectory(), pathSuffix + "libraries");
-            LOG.info("Copying Asterix external libraries to DFS");
-            fs.copyFromLocalFile(false, true, src, dst);
-            destStatus = fs.getFileStatus(dst);
-            LocalResource asterixExtLoc = Records.newRecord(LocalResource.class);
-            asterixTarLoc.setType(LocalResourceType.FILE);
-            asterixTarLoc.setVisibility(LocalResourceVisibility.PUBLIC);
-            asterixTarLoc.setResource(ConverterUtils.getYarnUrlFromPath(dst));
-            asterixTarLoc.setTimestamp(destStatus.getModificationTime());
-            localResources.put(src.getName(), asterixExtLoc);
-            
-            extLocation = dst.toUri().toString();
-            FileStatus extFileStatus = fs.getFileStatus(dst);
-            extLen = extFileStatus.getLen();
-            extTimestamp = extFileStatus.getModificationTime();
-        }
-
-        //and finally, add the config too so the AM can see it 
-        src = new Path(asterixConf);
-        pathSuffix = appName + "/" + appId.getId() + "/cluster-config.xml";
-        dst = new Path(fs.getHomeDirectory(), pathSuffix);
-        fs.copyFromLocalFile(false, true, src, dst);
-        destStatus = fs.getFileStatus(dst);
-        LocalResource asterixConfLoc = Records.newRecord(LocalResource.class);
-        asterixConfLoc.setType(LocalResourceType.FILE);
-        asterixConfLoc.setVisibility(LocalResourceVisibility.PUBLIC);
-        asterixConfLoc.setResource(ConverterUtils.getYarnUrlFromPath(dst));
-        asterixConfLoc.setTimestamp(destStatus.getModificationTime());
-        localResources.put("cluster-config.xml", asterixConfLoc);
-
-        // Setup confg file Constants
-        String confLocation = "";
-        long confLen = 0;
-        long confTimestamp = 0;
-
-        // adding info so we can add the jar to the App master container path
-        confLocation = dst.toUri().toString();
-        FileStatus confFileStatus = fs.getFileStatus(dst);
-        confLen = confFileStatus.getLen();
-        confTimestamp = confFileStatus.getModificationTime();
+        DFSResourceCoordinate tar = new DFSResourceCoordinate();
+        tar.envs.put(dst.toUri().toString(), MConstants.TARLOCATION);
+        tar.envs.put(Long.toString(asterixTarLoc.getSize()), MConstants.TARLEN);
+        tar.envs.put(Long.toString(asterixTarLoc.getTimestamp()), MConstants.TARTIMESTAMP);
+        tar.res = asterixTarLoc;
+        tar.name = "asterix-server.tar";
+        resources.add(tar);
 
         // Set the log4j properties if needed
         if (!log4jPropFile.isEmpty()) {
@@ -438,40 +492,48 @@ public class Client {
             log4jRsrc.setResource(ConverterUtils.getYarnUrlFromURI(log4jDst.toUri()));
             log4jRsrc.setTimestamp(log4jFileStatus.getModificationTime());
             log4jRsrc.setSize(log4jFileStatus.getLen());
-            localResources.put("log4j.properties", log4jRsrc);
+            DFSResourceCoordinate l4j = new DFSResourceCoordinate();
+            tar.res = log4jRsrc;
+            tar.name = "log4j.properties";
+            resources.add(l4j);
         }
 
-        // Set local resource info into app master container launch context
-        amContainer.setLocalResources(localResources);
+        return resources;
+    }
 
+    public ApplicationId deployAM(YarnClientApplication app, List<DFSResourceCoordinate> resources) throws IOException,
+            YarnException {
+
+        // Set up the container launch context for the application master
+        ContainerLaunchContext amContainer = Records.newRecord(ContainerLaunchContext.class);
+
+        ApplicationSubmissionContext appContext = app.getApplicationSubmissionContext();
+
+        // Set local resource info into app master container launch context
+        Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
+        for (DFSResourceCoordinate res : resources) {
+            localResources.put(res.name, res.res);
+        }
+        amContainer.setLocalResources(localResources);
         // Set the env variables to be setup in the env where the application
         // master will be run
         LOG.info("Set the environment for the application master");
         Map<String, String> env = new HashMap<String, String>();
 
-        // put the AM jar into env and MOYA Runnable
         // using the env info, the application master will create the correct
         // local resource for the
         // eventual containers that will be launched to execute the shell
         // scripts
-        env.put(MConstants.APPLICATIONMASTERJARLOCATION, amJarLocation);
-        env.put(MConstants.APPLICATIONMASTERJARTIMESTAMP, Long.toString(amJarTimestamp));
-        env.put(MConstants.APPLICATIONMASTERJARLEN, Long.toString(amJarLen));
-        if (!extLibs.equals("")) {
-            env.put(MConstants.EXTLOCATION, extLocation);
-            env.put(MConstants.EXTTIMESTAMP, Long.toString(extTimestamp));
-            env.put(MConstants.EXTLEN, Long.toString(extLen));
+        for (DFSResourceCoordinate res : resources) {
+            if (res.envs == null) //some entries may not have environment variables.
+                continue;
+            for (Map.Entry<String, String> e : res.envs.entrySet()) {
+                env.put(e.getValue(), e.getKey());
+            }
         }
-
-        env.put(MConstants.TARLOCATION, tarLocation);
-        env.put(MConstants.TARTIMESTAMP, Long.toString(tarTimestamp));
-        env.put(MConstants.TARLEN, Long.toString(tarLen));
-
-        env.put(MConstants.CONFLOCATION, confLocation);
-        env.put(MConstants.CONFTIMESTAMP, Long.toString(confTimestamp));
-        env.put(MConstants.CONFLEN, Long.toString(confLen));
-
+        ///add miscellaneous environment variables.
         env.put(MConstants.PATHSUFFIX, appName + "/" + appId.getId());
+        env.put(MConstants.INSTANCESTORE, CONF_DIR_REL + instanceFolder);
 
         // Add AppMaster.jar location to classpath
         // At some point we should not be required to add
@@ -632,5 +694,26 @@ public class Client {
         LOG.info("Killing applicaiton with ID: " + appId);
         yarnClient.killApplication(appId);
 
+    }
+
+    /**
+     * Removes the configs. Eventually should run a YARN job to remove all tree artifacts.
+     * 
+     * @throws IOException
+     * @throws IllegalArgumentException
+     */
+    private void removeInstance() throws IllegalArgumentException, IOException {
+        FileSystem fs = FileSystem.get(conf);
+        fs.delete(new Path(CONF_DIR_REL + instanceFolder), true);
+    }
+
+    private class DFSResourceCoordinate {
+        String name;
+        LocalResource res;
+        Map<String, String> envs;
+
+        public DFSResourceCoordinate() {
+            envs = new HashMap<String, String>(3);
+        }
     }
 }
