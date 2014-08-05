@@ -635,7 +635,7 @@ public class ApplicationMaster {
         //now add the libraries if there are any
         try {
             FileSystem fs = FileSystem.get(conf);
-            Path p = new Path(instanceConfPath + "library/");
+            Path p = new Path(fs.getHomeDirectory(),instanceConfPath + "library/");
             if (fs.exists(p)) {
                 FileStatus[] dataverses = fs.listStatus(p);
                 for (FileStatus d : dataverses) {
@@ -651,14 +651,18 @@ public class ApplicationMaster {
                         lr.setTimestamp(l.getModificationTime());
                         lr.setType(LocalResourceType.ARCHIVE);
                         lr.setVisibility(LocalResourceVisibility.APPLICATION);
-                        localResources.put(l.getPath().getName(), lr);
+                        localResources.put("library/"+d.getPath().getName()+"/"+l.getPath().getName().split("\\.")[0], lr);
+                        LOG.info("Found library: "+l.getPath().toString());
+                        LOG.info(l.getPath().getName());
                     }
                 }
             }
         } catch (FileNotFoundException e) {
+            LOG.info("No external libraries present");
             //do nothing, it just means there aren't libraries. that is possible and ok
             // it should be handled by the fs.exists(p) check though.
         }
+        LOG.info(localResources.values());
 
     }
 
