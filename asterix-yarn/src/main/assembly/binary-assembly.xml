@@ -21,13 +21,6 @@
 	</formats>
 	<includeBaseDirectory>false</includeBaseDirectory>
 	<fileSets>
-		<fileSet>
-			<directory>target/</directory>
-            <includes>
-                <include>asterix-yarn*-jar-with-dependencies.jar</include>
-            </includes>
-			<outputDirectory>lib</outputDirectory>
-		</fileSet>
         <fileSet>
             <directory>src/main/resources/scripts</directory>
             <fileMode>0755</fileMode>
@@ -41,6 +34,26 @@
         <dependencySet>
             <includes>
                 <include>edu.uci.ics.asterix:asterix-yarn</include>
+                <include>edu.uci.ics.asterix:asterix-common</include>
+                <include>log4j:log4j</include>
+                <include>org.slf4j:slf4j-api</include>
+                <include>commons-io:commons-io</include>
+                <include>commons-cli:commons-cli</include>
+                <include>commons-configuration:commons-configuration</include>
+                <include>commons-logging:commons-logging</include>
+                <include>commons-codec:commons-codec</include>
+                <include>commons-lang:commons-lang</include>
+                <include>org.apache.hadoop:hadoop-common</include>
+                <include>org.apache.hadoop:hadoop-hdfs</include>
+                <include>org.apache.hadoop:hadoop-auth</include>
+                <include>org.apache.hadoop:hadoop-yarn-client</include>
+                <include>org.apache.hadoop:hadoop-yarn-common</include>
+                <include>org.apache.hadoop:hadoop-yarn-api</include>
+                <include>org.apache.httpcomponents:httpcore</include>
+                <include>org.apache.httpcomponents:httpclient</include>
+                <include>commons-httpclient:commons-httpclient</include>
+                <include>com.google.guava:guava</include>
+                <include>com.google.protobuf:protobuf-java</include>
             </includes>
             <outputDirectory>lib</outputDirectory>
         </dependencySet>
