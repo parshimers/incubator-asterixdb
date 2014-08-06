@@ -220,6 +220,8 @@ public class AsterixBuiltinFunctions {
             FunctionConstants.ASTERIX_NS, "matches", 3);
     public final static FunctionIdentifier STRING_LOWERCASE = new FunctionIdentifier(FunctionConstants.ASTERIX_NS,
             "lowercase", 1);
+    public final static FunctionIdentifier STRING_UPPERCASE = new FunctionIdentifier(FunctionConstants.ASTERIX_NS,
+            "uppercase", 1);
     public final static FunctionIdentifier STRING_REPLACE = new FunctionIdentifier(FunctionConstants.ASTERIX_NS,
             "replace", 3);
     public final static FunctionIdentifier STRING_REPLACE_WITH_FLAG = new FunctionIdentifier(
@@ -660,6 +662,9 @@ public class AsterixBuiltinFunctions {
     public static final FunctionIdentifier COLLECTION_TO_SEQUENCE = new FunctionIdentifier(
             FunctionConstants.ASTERIX_NS, "" + "collection-to-sequence", 1);
 
+    public static final FunctionIdentifier EXTERNAL_LOOKUP = new FunctionIdentifier(FunctionConstants.ASTERIX_NS,
+            "external-lookup", FunctionIdentifier.VARARGS);
+
     public static IFunctionInfo getAsterixFunctionInfo(FunctionIdentifier fid) {
         return registeredFunctions.get(fid);
     }
@@ -785,6 +790,7 @@ public class AsterixBuiltinFunctions {
         addFunction(SUBSTRING2, Substring2TypeComputer.INSTANCE, true);
         addFunction(STRING_LENGTH, UnaryStringInt32OrNullTypeComputer.INSTANCE, true);
         addFunction(STRING_LOWERCASE, UnaryStringOrNullTypeComputer.INSTANCE, true);
+        addFunction(STRING_UPPERCASE, UnaryStringOrNullTypeComputer.INSTANCE, true);
         addFunction(STRING_START_WITH, BinaryStringBoolOrNullTypeComputer.INSTANCE, true);
         addFunction(STRING_END_WITH, BinaryStringBoolOrNullTypeComputer.INSTANCE, true);
         addFunction(STRING_MATCHES, BinaryStringBoolOrNullTypeComputer.INSTANCE, true);
@@ -990,6 +996,18 @@ public class AsterixBuiltinFunctions {
         addFunction(INTERVAL_CONSTRUCTOR_START_FROM_TIME, OptionalAIntervalTypeComputer.INSTANCE, true);
 
         addPrivateFunction(COLLECTION_TO_SEQUENCE, CollectionToSequenceTypeComputer.INSTANCE, true);
+
+        // external lookup
+        addPrivateFunction(EXTERNAL_LOOKUP, new IResultTypeComputer() {
+
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public IAType computeType(ILogicalExpression expression, IVariableTypeEnvironment env,
+                    IMetadataProvider<?, ?> mp) throws AlgebricksException {
+                return BuiltinType.ANY;
+            }
+        }, false);
 
         String metadataFunctionLoaderClassName = "edu.uci.ics.asterix.metadata.functions.MetadataBuiltinFunctions";
         try {

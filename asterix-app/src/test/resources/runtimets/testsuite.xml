@@ -1322,6 +1322,16 @@
       </compilation-unit>
      </test-case>
      <test-case FilePath="dml">
+      <compilation-unit name="using-correlated-prefix-merge-policy">
+        <output-dir compare="Text">using-correlated-prefix-merge-policy</output-dir>
+      </compilation-unit>
+     </test-case>
+     <test-case FilePath="dml">
+      <compilation-unit name="using-no-merge-policy">
+        <output-dir compare="Text">using-no-merge-policy</output-dir>
+      </compilation-unit>
+     </test-case>
+     <test-case FilePath="dml">
       <compilation-unit name="query-issue382">
         <output-dir compare="Text">query-issue382</output-dir>
       </compilation-unit>
@@ -2420,6 +2430,11 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="index-selection">
+      <compilation-unit name="rtree-secondary-index-circular-query">
+        <output-dir compare="Text">rtree-secondary-index-circular-query</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
       <compilation-unit name="disjunctive-predicate-1">
         <output-dir compare="Text">disjunctive-predicate-1</output-dir>
       </compilation-unit>
@@ -2705,6 +2720,11 @@
     <test-case FilePath="misc">
       <compilation-unit name="year_01">
         <output-dir compare="Text">year_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="misc">
+      <compilation-unit name="string_eq_01">
+        <output-dir compare="Text">string_eq_01</output-dir>
       </compilation-unit>
     </test-case>
   </test-group>
@@ -3864,6 +3884,16 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="string">
+      <compilation-unit name="escapes01">
+        <output-dir compare="Text">escapes01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="string">
+      <compilation-unit name="escapes02">
+        <output-dir compare="Text">escapes02</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="string">
       <compilation-unit name="length_01">
         <output-dir compare="Text">length_01</output-dir>
       </compilation-unit>
@@ -4193,6 +4223,11 @@
     <test-case FilePath="string">
       <compilation-unit name="toLowerCase04">
         <output-dir compare="Text">toLowerCase04</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="string">
+      <compilation-unit name="uppercase">
+        <output-dir compare="Text">uppercase</output-dir>
       </compilation-unit>
     </test-case>
   </test-group>
@@ -4781,8 +4816,13 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="load">
-      <compilation-unit name="escapes">
-        <output-dir compare="Text">escapes</output-dir>
+      <compilation-unit name="escapes01">
+        <output-dir compare="Text">escapes01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="load">
+      <compilation-unit name="escapes02">
+        <output-dir compare="Text">escapes02</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="load">
@@ -4893,6 +4933,38 @@
     <test-case FilePath="hdfs">
       <compilation-unit name="hdfs_03">
         <output-dir compare="Text">hdfs_03</output-dir>
+      </compilation-unit>
+    </test-case>
+  </test-group>
+  <test-group name="external-indexing">
+  	<test-case FilePath="external-indexing">
+      <compilation-unit name="text-format">
+        <output-dir compare="Text">text-format</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="external-indexing">
+      <compilation-unit name="sequence-format">
+        <output-dir compare="Text">sequence-format</output-dir>
+      </compilation-unit>
+    </test-case>
+  	<test-case FilePath="external-indexing">
+      <compilation-unit name="rc-format">
+        <output-dir compare="Text">rc-format</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="external-indexing">
+      <compilation-unit name="rtree-index">
+        <output-dir compare="Text">rtree-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="external-indexing">
+      <compilation-unit name="leftouterjoin">
+        <output-dir compare="Text">leftouterjoin</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="external-indexing">
+      <compilation-unit name="leftouterjoin-rtree">
+        <output-dir compare="Text">leftouterjoin-rtree</output-dir>
       </compilation-unit>
     </test-case>
   </test-group>
@@ -5085,4 +5157,68 @@
       </compilation-unit>
     </test-case>
   </test-group>
+  <test-group name="filters">
+  		<test-case FilePath="filters">
+			<compilation-unit name="equality-predicate">
+				<output-dir compare="Text">equality-predicate</output-dir>
+			</compilation-unit>
+		</test-case>
+		<test-case FilePath="filters">
+			<compilation-unit name="load">
+				<output-dir compare="Text">load</output-dir>
+			</compilation-unit>
+		</test-case>
+		<test-case FilePath="filters">
+			<compilation-unit name="load-with-secondary-btree">
+				<output-dir compare="Text">load-with-secondary-btree</output-dir>
+			</compilation-unit>
+		</test-case>
+		<test-case FilePath="filters">
+			<compilation-unit name="load-with-secondary-inverted-ngram">
+				<output-dir compare="Text">load-with-secondary-inverted-ngram</output-dir>
+			</compilation-unit>
+		</test-case>
+		<test-case FilePath="filters">
+			<compilation-unit name="load-with-secondary-inverted-word">
+				<output-dir compare="Text">load-with-secondary-inverted-word</output-dir>
+			</compilation-unit>
+		</test-case>
+		<test-case FilePath="filters">
+			<compilation-unit name="load-with-secondary-rtree">
+				<output-dir compare="Text">load-with-secondary-rtree</output-dir>
+			</compilation-unit>
+		</test-case>
+		<test-case FilePath="filters">
+			<compilation-unit name="insert">
+				<output-dir compare="Text">insert</output-dir>
+			</compilation-unit>
+		</test-case>
+		<test-case FilePath="filters">
+			<compilation-unit name="insert-with-secondary-btree">
+				<output-dir compare="Text">insert-with-secondary-btree</output-dir>
+			</compilation-unit>
+		</test-case>
+		<test-case FilePath="filters">
+			<compilation-unit name="insert-with-secondary-inverted-ngram">
+				<output-dir compare="Text">insert-with-secondary-inverted-ngram</output-dir>
+			</compilation-unit>
+		</test-case>
+		<test-case FilePath="filters">
+			<compilation-unit name="insert-with-secondary-inverted-word">
+				<output-dir compare="Text">insert-with-secondary-inverted-word</output-dir>
+			</compilation-unit>
+		</test-case>
+		<test-case FilePath="filters">
+			<compilation-unit name="insert-with-secondary-rtree">
+				<output-dir compare="Text">insert-with-secondary-rtree</output-dir>
+			</compilation-unit>
+		</test-case>
+	</test-group>
+    <test-group name="json">
+		<test-case FilePath="json">
+			<compilation-unit name="int01">
+				<output-dir compare="JSON">int01</output-dir>
+			</compilation-unit>
+		</test-case>
+    </test-group>
 </test-suite>

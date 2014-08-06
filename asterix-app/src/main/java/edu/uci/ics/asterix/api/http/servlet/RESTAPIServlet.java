@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -76,14 +76,14 @@ abstract class RESTAPIServlet extends HttpServlet {
 
         PrintWriter out = response.getWriter();
         DisplayFormat format = DisplayFormat.HTML;
-        String contentType = request.getContentType();
-        if ((contentType == null) || (contentType.equals("text/plain"))) {
+        String accept = request.getHeader("Accept");
+        if ((accept == null) || (accept.contains("text/plain"))) {
             format = DisplayFormat.TEXT;
-        } else if (contentType.equals("application/json")) {
+        } else if (accept.contains("application/json")) {
             format = DisplayFormat.JSON;
         }
 
-        boolean asyncResults = isAsync(request);
+        AqlTranslator.ResultDelivery resultDelivery = whichResultDelivery(request);
 
         ServletContext context = getServletContext();
         IHyracksClientConnection hcc;
@@ -100,13 +100,13 @@ abstract class RESTAPIServlet extends HttpServlet {
             }
 
             AQLParser parser = new AQLParser(query);
-            List<Statement> aqlStatements = parser.Statement();
+            List<Statement> aqlStatements = parser.parse();
             if (!containsForbiddenStatements(aqlStatements)) {
                 SessionConfig sessionConfig = new SessionConfig(true, false, false, false, false, false, true, true,
                         false);
                 MetadataManager.INSTANCE.init();
                 AqlTranslator aqlTranslator = new AqlTranslator(aqlStatements, out, sessionConfig, format);
-                aqlTranslator.compileAndExecute(hcc, hds, asyncResults);
+                aqlTranslator.compileAndExecute(hcc, hds, resultDelivery);
             }
         } catch (ParseException | TokenMgrError | edu.uci.ics.asterix.aqlplus.parser.TokenMgrError pe) {
             GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, pe.getMessage(), pe);
@@ -130,13 +130,16 @@ abstract class RESTAPIServlet extends HttpServlet {
         return false;
     }
 
-    protected boolean isAsync(HttpServletRequest request) {
+    protected AqlTranslator.ResultDelivery whichResultDelivery(HttpServletRequest request) {
         String mode = request.getParameter("mode");
-        boolean asyncResults = false;
-        if (mode != null && mode.equals("asynchronous")) {
-            asyncResults = true;
+        if (mode != null) {
+            if (mode.equals("asynchronous")) {
+                return AqlTranslator.ResultDelivery.ASYNC;
+            } else if (mode.equals("asynchronous-deferred")) {
+                return AqlTranslator.ResultDelivery.ASYNC_DEFERRED;
+            }
         }
-        return asyncResults;
+        return AqlTranslator.ResultDelivery.SYNC;
     }
 
     protected abstract String getQueryParameter(HttpServletRequest request);

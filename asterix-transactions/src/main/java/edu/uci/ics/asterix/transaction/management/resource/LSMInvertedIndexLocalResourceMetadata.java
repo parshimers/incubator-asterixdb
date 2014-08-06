@@ -43,13 +43,18 @@ public class LSMInvertedIndexLocalResourceMetadata extends AbstractLSMLocalResou
     private final boolean isPartitioned;
     private final ILSMMergePolicyFactory mergePolicyFactory;
     private final Map<String, String> mergePolicyProperties;
+    private final int[] invertedIndexFields;
+    private final int[] filterFieldsForNonBulkLoadOps;
+    private final int[] invertedIndexFieldsForNonBulkLoadOps;
 
     public LSMInvertedIndexLocalResourceMetadata(ITypeTraits[] invListTypeTraits,
             IBinaryComparatorFactory[] invListCmpFactories, ITypeTraits[] tokenTypeTraits,
             IBinaryComparatorFactory[] tokenCmpFactories, IBinaryTokenizerFactory tokenizerFactory,
             boolean isPartitioned, int datasetID, ILSMMergePolicyFactory mergePolicyFactory,
-            Map<String, String> mergePolicyProperties) {
-        super(datasetID);
+            Map<String, String> mergePolicyProperties, ITypeTraits[] filterTypeTraits,
+            IBinaryComparatorFactory[] filterCmpFactories, int[] invertedIndexFields, int[] filterFields,
+            int[] filterFieldsForNonBulkLoadOps, int[] invertedIndexFieldsForNonBulkLoadOps) {
+        super(datasetID, filterTypeTraits, filterCmpFactories, filterFields);
         this.invListTypeTraits = invListTypeTraits;
         this.invListCmpFactories = invListCmpFactories;
         this.tokenTypeTraits = tokenTypeTraits;
@@ -58,6 +63,9 @@ public class LSMInvertedIndexLocalResourceMetadata extends AbstractLSMLocalResou
         this.isPartitioned = isPartitioned;
         this.mergePolicyFactory = mergePolicyFactory;
         this.mergePolicyProperties = mergePolicyProperties;
+        this.invertedIndexFields = invertedIndexFields;
+        this.filterFieldsForNonBulkLoadOps = filterFieldsForNonBulkLoadOps;
+        this.invertedIndexFieldsForNonBulkLoadOps = invertedIndexFieldsForNonBulkLoadOps;
     }
 
     @Override
@@ -77,10 +85,13 @@ public class LSMInvertedIndexLocalResourceMetadata extends AbstractLSMLocalResou
                         runtimeContextProvider.getBufferCache(),
                         filePath,
                         runtimeContextProvider.getBloomFilterFalsePositiveRate(),
-                        mergePolicyFactory.createMergePolicy(mergePolicyProperties),
+                        mergePolicyFactory.createMergePolicy(mergePolicyProperties,
+                                runtimeContextProvider.getIndexLifecycleManager()),
                         new BaseOperationTracker((DatasetLifecycleManager) runtimeContextProvider
                                 .getIndexLifecycleManager(), datasetID), runtimeContextProvider.getLSMIOScheduler(),
-                        LSMInvertedIndexIOOperationCallbackFactory.INSTANCE.createIOOperationCallback());
+                        LSMInvertedIndexIOOperationCallbackFactory.INSTANCE.createIOOperationCallback(),
+                        invertedIndexFields, filterTypeTraits, filterCmpFactories, filterFields,
+                        filterFieldsForNonBulkLoadOps, invertedIndexFieldsForNonBulkLoadOps);
             } else {
                 return InvertedIndexUtils.createLSMInvertedIndex(
                         virtualBufferCaches,
@@ -93,10 +104,13 @@ public class LSMInvertedIndexLocalResourceMetadata extends AbstractLSMLocalResou
                         runtimeContextProvider.getBufferCache(),
                         filePath,
                         runtimeContextProvider.getBloomFilterFalsePositiveRate(),
-                        mergePolicyFactory.createMergePolicy(mergePolicyProperties),
+                        mergePolicyFactory.createMergePolicy(mergePolicyProperties,
+                                runtimeContextProvider.getIndexLifecycleManager()),
                         new BaseOperationTracker((DatasetLifecycleManager) runtimeContextProvider
                                 .getIndexLifecycleManager(), datasetID), runtimeContextProvider.getLSMIOScheduler(),
-                        LSMInvertedIndexIOOperationCallbackFactory.INSTANCE.createIOOperationCallback());
+                        LSMInvertedIndexIOOperationCallbackFactory.INSTANCE.createIOOperationCallback(),
+                        invertedIndexFields, filterTypeTraits, filterCmpFactories, filterFields,
+                        filterFieldsForNonBulkLoadOps, invertedIndexFieldsForNonBulkLoadOps);
             }
         } catch (IndexException e) {
             throw new HyracksDataException(e);

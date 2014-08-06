@@ -19,8 +19,10 @@ import java.io.PrintWriter;
 import java.nio.ByteBuffer;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -61,12 +63,16 @@ import edu.uci.ics.asterix.aql.expression.LoadStatement;
 import edu.uci.ics.asterix.aql.expression.NodeGroupDropStatement;
 import edu.uci.ics.asterix.aql.expression.NodegroupDecl;
 import edu.uci.ics.asterix.aql.expression.Query;
+import edu.uci.ics.asterix.aql.expression.RefreshExternalDatasetStatement;
 import edu.uci.ics.asterix.aql.expression.SetStatement;
 import edu.uci.ics.asterix.aql.expression.TypeDecl;
 import edu.uci.ics.asterix.aql.expression.TypeDropStatement;
 import edu.uci.ics.asterix.aql.expression.WriteStatement;
 import edu.uci.ics.asterix.aql.util.FunctionUtils;
 import edu.uci.ics.asterix.common.config.DatasetConfig.DatasetType;
+import edu.uci.ics.asterix.common.config.DatasetConfig.ExternalDatasetTransactionState;
+import edu.uci.ics.asterix.common.config.DatasetConfig.ExternalFilePendingOp;
+import edu.uci.ics.asterix.common.config.DatasetConfig.IndexType;
 import edu.uci.ics.asterix.common.config.GlobalConfig;
 import edu.uci.ics.asterix.common.config.OptimizationConfUtil;
 import edu.uci.ics.asterix.common.exceptions.ACIDException;
@@ -75,6 +81,7 @@ import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.functions.FunctionSignature;
 import edu.uci.ics.asterix.file.DatasetOperations;
 import edu.uci.ics.asterix.file.DataverseOperations;
+import edu.uci.ics.asterix.file.ExternalIndexingOperations;
 import edu.uci.ics.asterix.file.FeedOperations;
 import edu.uci.ics.asterix.file.IndexOperations;
 import edu.uci.ics.asterix.formats.base.IDataFormat;
@@ -92,6 +99,7 @@ import edu.uci.ics.asterix.metadata.entities.Dataset;
 import edu.uci.ics.asterix.metadata.entities.Datatype;
 import edu.uci.ics.asterix.metadata.entities.Dataverse;
 import edu.uci.ics.asterix.metadata.entities.ExternalDatasetDetails;
+import edu.uci.ics.asterix.metadata.entities.ExternalFile;
 import edu.uci.ics.asterix.metadata.entities.Feed;
 import edu.uci.ics.asterix.metadata.entities.FeedActivity;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
@@ -101,6 +109,8 @@ import edu.uci.ics.asterix.metadata.entities.InternalDatasetDetails;
 import edu.uci.ics.asterix.metadata.entities.NodeGroup;
 import edu.uci.ics.asterix.metadata.feeds.BuiltinFeedPolicies;
 import edu.uci.ics.asterix.metadata.feeds.FeedUtil;
+import edu.uci.ics.asterix.metadata.utils.ExternalDatasetsRegistry;
+import edu.uci.ics.asterix.metadata.utils.MetadataLockManager;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.IAType;
@@ -149,6 +159,12 @@ public class AqlTranslator extends AbstractAqlTranslator {
         ADDED_PENDINGOP_RECORD_TO_METADATA
     }
 
+    public static enum ResultDelivery {
+        SYNC,
+        ASYNC,
+        ASYNC_DEFERRED
+    }
+
     public static final boolean IS_DEBUG_MODE = false;//true
     private final List<Statement> aqlStatements;
     private final PrintWriter out;
@@ -183,13 +199,13 @@ public class AqlTranslator extends AbstractAqlTranslator {
      *            A Hyracks client connection that is used to submit a jobspec to Hyracks.
      * @param hdc
      *            A Hyracks dataset client object that is used to read the results.
-     * @param asyncResults
+     * @param resultDelivery
      *            True if the results should be read asynchronously or false if we should wait for results to be read.
      * @return A List<QueryResult> containing a QueryResult instance corresponding to each submitted query.
      * @throws Exception
      */
-    public List<QueryResult> compileAndExecute(IHyracksClientConnection hcc, IHyracksDataset hdc, boolean asyncResults)
-            throws Exception {
+    public List<QueryResult> compileAndExecute(IHyracksClientConnection hcc, IHyracksDataset hdc,
+            ResultDelivery resultDelivery) throws Exception {
         int resultSetIdCounter = 0;
         List<QueryResult> executionResult = new ArrayList<QueryResult>();
         FileSplit outputFile = null;
@@ -298,13 +314,19 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
                 case QUERY: {
                     metadataProvider.setResultSetId(new ResultSetId(resultSetIdCounter++));
-                    metadataProvider.setResultAsyncMode(asyncResults);
-                    executionResult.add(handleQuery(metadataProvider, (Query) stmt, hcc, hdc, asyncResults));
+                    metadataProvider.setResultAsyncMode(resultDelivery == ResultDelivery.ASYNC
+                            || resultDelivery == ResultDelivery.ASYNC_DEFERRED);
+                    executionResult.add(handleQuery(metadataProvider, (Query) stmt, hcc, hdc, resultDelivery));
                     break;
                 }
 
                 case COMPACT: {
                     handleCompactStatement(metadataProvider, stmt, hcc);
+                    break;
+                }
+
+                case EXTERNAL_DATASET_REFRESH: {
+                    handleExternalDatasetRefreshStatement(metadataProvider, stmt, hcc);
                     break;
                 }
 
@@ -343,14 +365,12 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
     private Dataverse handleUseDataverseStatement(AqlMetadataProvider metadataProvider, Statement stmt)
             throws Exception {
-
+        DataverseDecl dvd = (DataverseDecl) stmt;
+        String dvName = dvd.getDataverseName().getValue();
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireReadLatch();
-
+        MetadataLockManager.INSTANCE.acquireDataverseReadLock(dvName);
         try {
-            DataverseDecl dvd = (DataverseDecl) stmt;
-            String dvName = dvd.getDataverseName().getValue();
             Dataverse dv = MetadataManager.INSTANCE.getDataverse(metadataProvider.getMetadataTxnContext(), dvName);
             if (dv == null) {
                 throw new MetadataException("Unknown dataverse " + dvName);
@@ -361,19 +381,19 @@ public class AqlTranslator extends AbstractAqlTranslator {
             abort(e, e, mdTxnCtx);
             throw new MetadataException(e);
         } finally {
-            releaseReadLatch();
+            MetadataLockManager.INSTANCE.releaseDataverseReadLock(dvName);
         }
     }
 
     private void handleCreateDataverseStatement(AqlMetadataProvider metadataProvider, Statement stmt) throws Exception {
 
+        CreateDataverseStatement stmtCreateDataverse = (CreateDataverseStatement) stmt;
+        String dvName = stmtCreateDataverse.getDataverseName().getValue();
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireWriteLatch();
 
+        MetadataLockManager.INSTANCE.acquireDataverseReadLock(dvName);
         try {
-            CreateDataverseStatement stmtCreateDataverse = (CreateDataverseStatement) stmt;
-            String dvName = stmtCreateDataverse.getDataverseName().getValue();
             Dataverse dv = MetadataManager.INSTANCE.getDataverse(metadataProvider.getMetadataTxnContext(), dvName);
             if (dv != null) {
                 if (stmtCreateDataverse.getIfNotExists()) {
@@ -390,23 +410,37 @@ public class AqlTranslator extends AbstractAqlTranslator {
             abort(e, e, mdTxnCtx);
             throw e;
         } finally {
-            releaseWriteLatch();
+            MetadataLockManager.INSTANCE.releaseDataverseReadLock(dvName);
         }
     }
 
     private void validateCompactionPolicy(String compactionPolicy, Map<String, String> compactionPolicyProperties,
-            MetadataTransactionContext mdTxnCtx) throws AsterixException, Exception {
+            MetadataTransactionContext mdTxnCtx, boolean isExternalDataset) throws AsterixException, Exception {
         CompactionPolicy compactionPolicyEntity = MetadataManager.INSTANCE.getCompactionPolicy(mdTxnCtx,
                 MetadataConstants.METADATA_DATAVERSE_NAME, compactionPolicy);
         if (compactionPolicyEntity == null) {
-            throw new AsterixException("Unknown compaction policy :" + compactionPolicy);
+            throw new AsterixException("Unknown compaction policy: " + compactionPolicy);
         }
         String compactionPolicyFactoryClassName = compactionPolicyEntity.getClassName();
         ILSMMergePolicyFactory mergePolicyFactory = (ILSMMergePolicyFactory) Class.forName(
                 compactionPolicyFactoryClassName).newInstance();
-        for (Map.Entry<String, String> entry : compactionPolicyProperties.entrySet()) {
-            if (!mergePolicyFactory.getPropertiesNames().contains(entry.getKey())) {
-                throw new AsterixException("Invalid compaction policy property :" + entry.getKey());
+        if (isExternalDataset && mergePolicyFactory.getName().compareTo("correlated-prefix") == 0) {
+            throw new AsterixException("The correlated-prefix merge policy cannot be used with external dataset.");
+        }
+        if (compactionPolicyProperties == null) {
+            if (mergePolicyFactory.getName().compareTo("no-merge") != 0) {
+                throw new AsterixException("Compaction policy properties are missing.");
+            }
+        } else {
+            for (Map.Entry<String, String> entry : compactionPolicyProperties.entrySet()) {
+                if (!mergePolicyFactory.getPropertiesNames().contains(entry.getKey())) {
+                    throw new AsterixException("Invalid compaction policy property: " + entry.getKey());
+                }
+            }
+            for (String p : mergePolicyFactory.getPropertiesNames()) {
+                if (!compactionPolicyProperties.containsKey(p)) {
+                    throw new AsterixException("Missing compaction policy property: " + p);
+                }
             }
         }
     }
@@ -415,21 +449,25 @@ public class AqlTranslator extends AbstractAqlTranslator {
             IHyracksClientConnection hcc) throws AsterixException, Exception {
 
         ProgressState progress = ProgressState.NO_PROGRESS;
+        DatasetDecl dd = (DatasetDecl) stmt;
+        String dataverseName = getActiveDataverseName(dd.getDataverse());
+        String datasetName = dd.getName().getValue();
+        DatasetType dsType = dd.getDatasetType();
+        String itemTypeName = dd.getItemTypeName().getValue();
+        Identifier ngNameId = dd.getDatasetDetailsDecl().getNodegroupName();
+        String nodegroupName = getNodeGroupName(ngNameId, dd, dataverseName);
+        String compactionPolicy = dd.getDatasetDetailsDecl().getCompactionPolicy();
+        Map<String, String> compactionPolicyProperties = dd.getDatasetDetailsDecl().getCompactionPolicyProperties();
+        boolean defaultCompactionPolicy = (compactionPolicy == null);
+
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         boolean bActiveTxn = true;
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireWriteLatch();
 
-        String dataverseName = null;
-        String datasetName = null;
+        MetadataLockManager.INSTANCE.createDatasetBegin(dataverseName, dataverseName + "." + itemTypeName,
+                nodegroupName, compactionPolicy, dataverseName + "." + datasetName, defaultCompactionPolicy);
         Dataset dataset = null;
         try {
-            DatasetDecl dd = (DatasetDecl) stmt;
-            dataverseName = getActiveDataverseName(dd.getDataverse());
-            datasetName = dd.getName().getValue();
-
-            DatasetType dsType = dd.getDatasetType();
-            String itemTypeName = dd.getItemTypeName().getValue();
 
             IDatasetDetails datasetDetails = null;
             Dataset ds = MetadataManager.INSTANCE.getDataset(metadataProvider.getMetadataTxnContext(), dataverseName,
@@ -459,28 +497,37 @@ public class AqlTranslator extends AbstractAqlTranslator {
                     ARecordType aRecordType = (ARecordType) itemType;
                     aRecordType.validatePartitioningExpressions(partitioningExprs, autogenerated);
 
-                    Identifier ngNameId = ((InternalDetailsDecl) dd.getDatasetDetailsDecl()).getNodegroupName();
                     String ngName = ngNameId != null ? ngNameId.getValue() : configureNodegroupForDataset(dd,
                             dataverseName, mdTxnCtx);
-
-                    String compactionPolicy = ((InternalDetailsDecl) dd.getDatasetDetailsDecl()).getCompactionPolicy();
-                    Map<String, String> compactionPolicyProperties = ((InternalDetailsDecl) dd.getDatasetDetailsDecl())
-                            .getCompactionPolicyProperties();
                     if (compactionPolicy == null) {
                         compactionPolicy = GlobalConfig.DEFAULT_COMPACTION_POLICY_NAME;
                         compactionPolicyProperties = GlobalConfig.DEFAULT_COMPACTION_POLICY_PROPERTIES;
                     } else {
-                        validateCompactionPolicy(compactionPolicy, compactionPolicyProperties, mdTxnCtx);
+                        validateCompactionPolicy(compactionPolicy, compactionPolicyProperties, mdTxnCtx, false);
+                    }
+                    String filterField = ((InternalDetailsDecl) dd.getDatasetDetailsDecl()).getFilterField();
+                    if (filterField != null) {
+                        aRecordType.validateFilterField(filterField);
                     }
                     datasetDetails = new InternalDatasetDetails(InternalDatasetDetails.FileStructure.BTREE,
                             InternalDatasetDetails.PartitioningStrategy.HASH, partitioningExprs, partitioningExprs,
-                            ngName, autogenerated, compactionPolicy, compactionPolicyProperties);
+                            ngName, autogenerated, compactionPolicy, compactionPolicyProperties, filterField);
                     break;
                 }
                 case EXTERNAL: {
                     String adapter = ((ExternalDetailsDecl) dd.getDatasetDetailsDecl()).getAdapter();
                     Map<String, String> properties = ((ExternalDetailsDecl) dd.getDatasetDetailsDecl()).getProperties();
-                    datasetDetails = new ExternalDatasetDetails(adapter, properties);
+
+                    String ngName = ngNameId != null ? ngNameId.getValue() : configureNodegroupForDataset(dd,
+                            dataverseName, mdTxnCtx);
+                    if (compactionPolicy == null) {
+                        compactionPolicy = GlobalConfig.DEFAULT_COMPACTION_POLICY_NAME;
+                        compactionPolicyProperties = GlobalConfig.DEFAULT_COMPACTION_POLICY_PROPERTIES;
+                    } else {
+                        validateCompactionPolicy(compactionPolicy, compactionPolicyProperties, mdTxnCtx, true);
+                    }
+                    datasetDetails = new ExternalDatasetDetails(adapter, properties, ngName, new Date(),
+                            ExternalDatasetTransactionState.COMMIT, compactionPolicy, compactionPolicyProperties);
                     break;
                 }
 
@@ -567,7 +614,20 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
             throw e;
         } finally {
-            releaseWriteLatch();
+            MetadataLockManager.INSTANCE.createDatasetEnd(dataverseName, dataverseName + "." + itemTypeName,
+                    nodegroupName, compactionPolicy, dataverseName + "." + datasetName, defaultCompactionPolicy);
+        }
+    }
+
+    private String getNodeGroupName(Identifier ngNameId, DatasetDecl dd, String dataverse) {
+        if (ngNameId != null) {
+            return ngNameId.getValue();
+        }
+        String hintValue = dd.getHints().get(DatasetNodegroupCardinalityHint.NAME);
+        if (hintValue == null) {
+            return MetadataConstants.METADATA_DEFAULT_NODEGROUP_NAME;
+        } else {
+            return (dataverse + ":" + dd.getName().getValue());
         }
     }
 
@@ -625,22 +685,27 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
     private void handleCreateIndexStatement(AqlMetadataProvider metadataProvider, Statement stmt,
             IHyracksClientConnection hcc) throws Exception {
-
         ProgressState progress = ProgressState.NO_PROGRESS;
+        CreateIndexStatement stmtCreateIndex = (CreateIndexStatement) stmt;
+        String dataverseName = getActiveDataverseName(stmtCreateIndex.getDataverseName());
+        String datasetName = stmtCreateIndex.getDatasetName().getValue();
+
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         boolean bActiveTxn = true;
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireWriteLatch();
 
-        String dataverseName = null;
-        String datasetName = null;
+        MetadataLockManager.INSTANCE.createIndexBegin(dataverseName, dataverseName + "." + datasetName);
+
         String indexName = null;
         JobSpecification spec = null;
         Dataset ds = null;
+        // For external datasets
+        ArrayList<ExternalFile> externalFilesSnapshot = null;
+        boolean firstExternalDatasetIndex = false;
+        boolean filesIndexReplicated = false;
+        Index filesIndex = null;
+        boolean datasetLocked = false;
         try {
-            CreateIndexStatement stmtCreateIndex = (CreateIndexStatement) stmt;
-            dataverseName = getActiveDataverseName(stmtCreateIndex.getDataverseName());
-            datasetName = stmtCreateIndex.getDatasetName().getValue();
 
             ds = MetadataManager.INSTANCE.getDataset(metadataProvider.getMetadataTxnContext(), dataverseName,
                     datasetName);
@@ -669,17 +734,72 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 }
             }
 
-            List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getActiveFeeds(mdTxnCtx, dataverseName,
-                    datasetName);
-            if (feedActivities != null && !feedActivities.isEmpty()) {
-                StringBuilder builder = new StringBuilder();
+            if (ds.getDatasetType() == DatasetType.INTERNAL) {
+                List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getActiveFeeds(mdTxnCtx, dataverseName,
+                        datasetName);
+                if (feedActivities != null && !feedActivities.isEmpty()) {
+                    StringBuilder builder = new StringBuilder();
 
-                for (FeedActivity fa : feedActivities) {
-                    builder.append(fa + "\n");
+                    for (FeedActivity fa : feedActivities) {
+                        builder.append(fa + "\n");
+                    }
+                    throw new AsterixException("Dataset" + datasetName
+                            + " is currently being fed into by the following feeds " + "." + builder.toString()
+                            + "\nOperation not supported.");
                 }
-                throw new AsterixException("Dataset" + datasetName
-                        + " is currently being fed into by the following feeds " + "." + builder.toString()
-                        + "\nOperation not supported.");
+
+            } else {
+                // External dataset
+                // Check if the dataset is indexible
+                if (!ExternalIndexingOperations.isIndexible((ExternalDatasetDetails) ds.getDatasetDetails())) {
+                    throw new AlgebricksException("dataset using "
+                            + ((ExternalDatasetDetails) ds.getDatasetDetails()).getAdapter()
+                            + " Adapter can't be indexed");
+                }
+                // check if the name of the index is valid
+                if (!ExternalIndexingOperations.isValidIndexName(datasetName, indexName)) {
+                    throw new AlgebricksException("external dataset index name is invalid");
+                }
+
+                // Check if the files index exist
+                filesIndex = MetadataManager.INSTANCE.getIndex(metadataProvider.getMetadataTxnContext(), dataverseName,
+                        datasetName, ExternalIndexingOperations.getFilesIndexName(datasetName));
+                firstExternalDatasetIndex = (filesIndex == null);
+                // lock external dataset
+                ExternalDatasetsRegistry.INSTANCE.buildIndexBegin(ds, firstExternalDatasetIndex);
+                datasetLocked = true;
+                if (firstExternalDatasetIndex) {
+                    // verify that no one has created an index before we acquire the lock
+                    filesIndex = MetadataManager.INSTANCE.getIndex(metadataProvider.getMetadataTxnContext(),
+                            dataverseName, datasetName, ExternalIndexingOperations.getFilesIndexName(datasetName));
+                    if (filesIndex != null) {
+                        ExternalDatasetsRegistry.INSTANCE.buildIndexEnd(ds, firstExternalDatasetIndex);
+                        firstExternalDatasetIndex = false;
+                        ExternalDatasetsRegistry.INSTANCE.buildIndexBegin(ds, firstExternalDatasetIndex);
+                    }
+                }
+                if (firstExternalDatasetIndex) {
+                    // Get snapshot from External File System
+                    externalFilesSnapshot = ExternalIndexingOperations.getSnapshotFromExternalFileSystem(ds);
+                    // Add an entry for the files index
+                    filesIndex = new Index(dataverseName, datasetName,
+                            ExternalIndexingOperations.getFilesIndexName(datasetName), IndexType.BTREE,
+                            ExternalIndexingOperations.FILE_INDEX_FIELDS, false, IMetadataEntity.PENDING_ADD_OP);
+                    MetadataManager.INSTANCE.addIndex(metadataProvider.getMetadataTxnContext(), filesIndex);
+                    // Add files to the external files index
+                    for (ExternalFile file : externalFilesSnapshot) {
+                        MetadataManager.INSTANCE.addExternalFile(mdTxnCtx, file);
+                    }
+                    // This is the first index for the external dataset, replicate the files index
+                    spec = ExternalIndexingOperations.buildFilesIndexReplicationJobSpec(ds, externalFilesSnapshot,
+                            metadataProvider, true);
+                    if (spec == null) {
+                        throw new AsterixException(
+                                "Failed to create job spec for replicating Files Index For external dataset");
+                    }
+                    filesIndexReplicated = true;
+                    runJob(hcc, spec, true);
+                }
             }
 
             //#. add a new index with PendingAddOp
@@ -726,11 +846,40 @@ public class AqlTranslator extends AbstractAqlTranslator {
                     indexName);
             index.setPendingOp(IMetadataEntity.PENDING_NO_OP);
             MetadataManager.INSTANCE.addIndex(metadataProvider.getMetadataTxnContext(), index);
+            // add another new files index with PendingNoOp after deleting the index with PendingAddOp
+            if (firstExternalDatasetIndex) {
+                MetadataManager.INSTANCE.dropIndex(metadataProvider.getMetadataTxnContext(), dataverseName,
+                        datasetName, filesIndex.getIndexName());
+                filesIndex.setPendingOp(IMetadataEntity.PENDING_NO_OP);
+                MetadataManager.INSTANCE.addIndex(metadataProvider.getMetadataTxnContext(), filesIndex);
+                // update transaction timestamp
+                ((ExternalDatasetDetails) ds.getDatasetDetails()).setRefreshTimestamp(new Date());
+                MetadataManager.INSTANCE.updateDataset(mdTxnCtx, ds);
+            }
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
 
         } catch (Exception e) {
             if (bActiveTxn) {
                 abort(e, e, mdTxnCtx);
+            }
+            // If files index was replicated for external dataset, it should be cleaned up on NC side
+            if (filesIndexReplicated) {
+                mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+                bActiveTxn = true;
+                CompiledIndexDropStatement cds = new CompiledIndexDropStatement(dataverseName, datasetName,
+                        ExternalIndexingOperations.getFilesIndexName(datasetName));
+                try {
+                    JobSpecification jobSpec = ExternalIndexingOperations.buildDropFilesIndexJobSpec(cds,
+                            metadataProvider, ds);
+                    MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+                    bActiveTxn = false;
+                    runJob(hcc, jobSpec, true);
+                } catch (Exception e2) {
+                    e.addSuppressed(e2);
+                    if (bActiveTxn) {
+                        abort(e, e2, mdTxnCtx);
+                    }
+                }
             }
 
             if (progress == ProgressState.ADDED_PENDINGOP_RECORD_TO_METADATA) {
@@ -754,7 +903,35 @@ public class AqlTranslator extends AbstractAqlTranslator {
                     }
                 }
 
-                //   remove the record from the metadata.
+                if (firstExternalDatasetIndex) {
+                    mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+                    metadataProvider.setMetadataTxnContext(mdTxnCtx);
+                    try {
+                        // Drop External Files from metadata
+                        MetadataManager.INSTANCE.dropDatasetExternalFiles(mdTxnCtx, ds);
+                        MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+                    } catch (Exception e2) {
+                        e.addSuppressed(e2);
+                        abort(e, e2, mdTxnCtx);
+                        throw new IllegalStateException("System is inconsistent state: pending files for("
+                                + dataverseName + "." + datasetName + ") couldn't be removed from the metadata", e);
+                    }
+                    mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+                    metadataProvider.setMetadataTxnContext(mdTxnCtx);
+                    try {
+                        // Drop the files index from metadata
+                        MetadataManager.INSTANCE.dropIndex(metadataProvider.getMetadataTxnContext(), dataverseName,
+                                datasetName, ExternalIndexingOperations.getFilesIndexName(datasetName));
+                        MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+                    } catch (Exception e2) {
+                        e.addSuppressed(e2);
+                        abort(e, e2, mdTxnCtx);
+                        throw new IllegalStateException("System is inconsistent state: pending index(" + dataverseName
+                                + "." + datasetName + "." + ExternalIndexingOperations.getFilesIndexName(datasetName)
+                                + ") couldn't be removed from the metadata", e);
+                    }
+                }
+                // remove the record from the metadata.
                 mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
                 metadataProvider.setMetadataTxnContext(mdTxnCtx);
                 try {
@@ -764,26 +941,28 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 } catch (Exception e2) {
                     e.addSuppressed(e2);
                     abort(e, e2, mdTxnCtx);
-                    throw new IllegalStateException("System is inconsistent state: pending index(" + dataverseName
+                    throw new IllegalStateException("System is in inconsistent state: pending index(" + dataverseName
                             + "." + datasetName + "." + indexName + ") couldn't be removed from the metadata", e);
                 }
             }
             throw e;
         } finally {
-            releaseWriteLatch();
+            MetadataLockManager.INSTANCE.createIndexEnd(dataverseName, dataverseName + "." + datasetName);
+            if (datasetLocked) {
+                ExternalDatasetsRegistry.INSTANCE.buildIndexEnd(ds, firstExternalDatasetIndex);
+            }
         }
     }
 
     private void handleCreateTypeStatement(AqlMetadataProvider metadataProvider, Statement stmt) throws Exception {
-
+        TypeDecl stmtCreateType = (TypeDecl) stmt;
+        String dataverseName = getActiveDataverseName(stmtCreateType.getDataverseName());
+        String typeName = stmtCreateType.getIdent().getValue();
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireWriteLatch();
-
+        MetadataLockManager.INSTANCE.createTypeBegin(dataverseName, dataverseName + "." + typeName);
         try {
-            TypeDecl stmtCreateType = (TypeDecl) stmt;
-            String dataverseName = getActiveDataverseName(stmtCreateType.getDataverseName());
-            String typeName = stmtCreateType.getIdent().getValue();
+
             Dataverse dv = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverseName);
             if (dv == null) {
                 throw new AlgebricksException("Unknown dataverse " + dataverseName);
@@ -809,24 +988,22 @@ public class AqlTranslator extends AbstractAqlTranslator {
             abort(e, e, mdTxnCtx);
             throw e;
         } finally {
-            releaseWriteLatch();
+            MetadataLockManager.INSTANCE.createTypeEnd(dataverseName, dataverseName + "." + typeName);
         }
     }
 
     private void handleDataverseDropStatement(AqlMetadataProvider metadataProvider, Statement stmt,
             IHyracksClientConnection hcc) throws Exception {
+        DataverseDropStatement stmtDelete = (DataverseDropStatement) stmt;
+        String dataverseName = stmtDelete.getDataverseName().getValue();
 
         ProgressState progress = ProgressState.NO_PROGRESS;
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         boolean bActiveTxn = true;
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireWriteLatch();
-
-        String dataverseName = null;
+        MetadataLockManager.INSTANCE.acquireDataverseWriteLock(dataverseName);
         List<JobSpecification> jobsToExecute = new ArrayList<JobSpecification>();
         try {
-            DataverseDropStatement stmtDelete = (DataverseDropStatement) stmt;
-            dataverseName = stmtDelete.getDataverseName().getValue();
 
             Dataverse dv = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverseName);
             if (dv == null) {
@@ -864,7 +1041,6 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 String datasetName = datasets.get(j).getDatasetName();
                 DatasetType dsType = datasets.get(j).getDatasetType();
                 if (dsType == DatasetType.INTERNAL) {
-
                     List<Index> indexes = MetadataManager.INSTANCE.getDatasetIndexes(mdTxnCtx, dataverseName,
                             datasetName);
                     for (int k = 0; k < indexes.size(); k++) {
@@ -878,6 +1054,24 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
                     CompiledDatasetDropStatement cds = new CompiledDatasetDropStatement(dataverseName, datasetName);
                     jobsToExecute.add(DatasetOperations.createDropDatasetJobSpec(cds, metadataProvider));
+                } else {
+                    // External dataset
+                    List<Index> indexes = MetadataManager.INSTANCE.getDatasetIndexes(mdTxnCtx, dataverseName,
+                            datasetName);
+                    for (int k = 0; k < indexes.size(); k++) {
+                        if (ExternalIndexingOperations.isFileIndex(indexes.get(k))) {
+                            CompiledIndexDropStatement cds = new CompiledIndexDropStatement(dataverseName, datasetName,
+                                    indexes.get(k).getIndexName());
+                            jobsToExecute.add(ExternalIndexingOperations.buildDropFilesIndexJobSpec(cds,
+                                    metadataProvider, datasets.get(j)));
+                        } else {
+                            CompiledIndexDropStatement cds = new CompiledIndexDropStatement(dataverseName, datasetName,
+                                    indexes.get(k).getIndexName());
+                            jobsToExecute.add(IndexOperations.buildDropSecondaryIndexJobSpec(cds, metadataProvider,
+                                    datasets.get(j)));
+                        }
+                    }
+                    ExternalDatasetsRegistry.INSTANCE.removeDatasetInfo(datasets.get(j));
                 }
             }
             jobsToExecute.add(DataverseOperations.createDropDataverseJobSpec(dv, metadataProvider));
@@ -906,7 +1100,6 @@ public class AqlTranslator extends AbstractAqlTranslator {
             if (activeDefaultDataverse != null && activeDefaultDataverse.getDataverseName() == dataverseName) {
                 activeDefaultDataverse = null;
             }
-
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
         } catch (Exception e) {
             if (bActiveTxn) {
@@ -944,26 +1137,24 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
             throw e;
         } finally {
-            releaseWriteLatch();
+            MetadataLockManager.INSTANCE.releaseDataverseWriteLock(dataverseName);
         }
     }
 
     private void handleDatasetDropStatement(AqlMetadataProvider metadataProvider, Statement stmt,
             IHyracksClientConnection hcc) throws Exception {
+        DropStatement stmtDelete = (DropStatement) stmt;
+        String dataverseName = getActiveDataverseName(stmtDelete.getDataverseName());
+        String datasetName = stmtDelete.getDatasetName().getValue();
 
         ProgressState progress = ProgressState.NO_PROGRESS;
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         boolean bActiveTxn = true;
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireWriteLatch();
 
-        String dataverseName = null;
-        String datasetName = null;
+        MetadataLockManager.INSTANCE.dropDatasetBegin(dataverseName, dataverseName + "." + datasetName);
         List<JobSpecification> jobsToExecute = new ArrayList<JobSpecification>();
         try {
-            DropStatement stmtDelete = (DropStatement) stmt;
-            dataverseName = getActiveDataverseName(stmtDelete.getDataverseName());
-            datasetName = stmtDelete.getDatasetName().getValue();
 
             Dataset ds = MetadataManager.INSTANCE.getDataset(mdTxnCtx, dataverseName, datasetName);
             if (ds == null) {
@@ -1029,16 +1220,53 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
                 bActiveTxn = true;
                 metadataProvider.setMetadataTxnContext(mdTxnCtx);
+            } else {
+                // External dataset
+                ExternalDatasetsRegistry.INSTANCE.removeDatasetInfo(ds);
+                //#. prepare jobs to drop the datatset and the indexes in NC
+                List<Index> indexes = MetadataManager.INSTANCE.getDatasetIndexes(mdTxnCtx, dataverseName, datasetName);
+                for (int j = 0; j < indexes.size(); j++) {
+                    if (ExternalIndexingOperations.isFileIndex(indexes.get(j))) {
+                        CompiledIndexDropStatement cds = new CompiledIndexDropStatement(dataverseName, datasetName,
+                                indexes.get(j).getIndexName());
+                        jobsToExecute.add(IndexOperations.buildDropSecondaryIndexJobSpec(cds, metadataProvider, ds));
+                    } else {
+                        CompiledIndexDropStatement cds = new CompiledIndexDropStatement(dataverseName, datasetName,
+                                indexes.get(j).getIndexName());
+                        jobsToExecute.add(ExternalIndexingOperations.buildDropFilesIndexJobSpec(cds, metadataProvider,
+                                ds));
+                    }
+                }
+
+                //#. mark the existing dataset as PendingDropOp
+                MetadataManager.INSTANCE.dropDataset(mdTxnCtx, dataverseName, datasetName);
+                MetadataManager.INSTANCE.addDataset(
+                        mdTxnCtx,
+                        new Dataset(dataverseName, datasetName, ds.getItemTypeName(), ds.getDatasetDetails(), ds
+                                .getHints(), ds.getDatasetType(), ds.getDatasetId(), IMetadataEntity.PENDING_DROP_OP));
+
+                MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+                bActiveTxn = false;
+                progress = ProgressState.ADDED_PENDINGOP_RECORD_TO_METADATA;
+
+                //#. run the jobs
+                for (JobSpecification jobSpec : jobsToExecute) {
+                    runJob(hcc, jobSpec, true);
+                }
+                if (indexes.size() > 0) {
+                    ExternalDatasetsRegistry.INSTANCE.removeDatasetInfo(ds);
+                }
+                mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+                bActiveTxn = true;
+                metadataProvider.setMetadataTxnContext(mdTxnCtx);
             }
 
             //#. finally, delete the dataset.
             MetadataManager.INSTANCE.dropDataset(mdTxnCtx, dataverseName, datasetName);
             // Drop the associated nodegroup
-            if (ds.getDatasetType() == DatasetType.INTERNAL) {
-                String nodegroup = ((InternalDatasetDetails) ds.getDatasetDetails()).getNodeGroupName();
-                if (!nodegroup.equalsIgnoreCase(MetadataConstants.METADATA_DEFAULT_NODEGROUP_NAME)) {
-                    MetadataManager.INSTANCE.dropNodegroup(mdTxnCtx, dataverseName + ":" + datasetName);
-                }
+            String nodegroup = ds.getDatasetDetails().getNodeGroupName();
+            if (!nodegroup.equalsIgnoreCase(MetadataConstants.METADATA_DEFAULT_NODEGROUP_NAME)) {
+                MetadataManager.INSTANCE.dropNodegroup(mdTxnCtx, dataverseName + ":" + datasetName);
             }
 
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
@@ -1076,27 +1304,28 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
             throw e;
         } finally {
-            releaseWriteLatch();
+            MetadataLockManager.INSTANCE.dropDatasetEnd(dataverseName, dataverseName + "." + datasetName);
         }
     }
 
     private void handleIndexDropStatement(AqlMetadataProvider metadataProvider, Statement stmt,
             IHyracksClientConnection hcc) throws Exception {
 
+        IndexDropStatement stmtIndexDrop = (IndexDropStatement) stmt;
+        String datasetName = stmtIndexDrop.getDatasetName().getValue();
+        String dataverseName = getActiveDataverseName(stmtIndexDrop.getDataverseName());
         ProgressState progress = ProgressState.NO_PROGRESS;
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         boolean bActiveTxn = true;
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireWriteLatch();
 
-        String dataverseName = null;
-        String datasetName = null;
+        MetadataLockManager.INSTANCE.dropIndexBegin(dataverseName, dataverseName + "." + datasetName);
+
         String indexName = null;
+        // For external index
+        boolean dropFilesIndex = false;
         List<JobSpecification> jobsToExecute = new ArrayList<JobSpecification>();
         try {
-            IndexDropStatement stmtIndexDrop = (IndexDropStatement) stmt;
-            datasetName = stmtIndexDrop.getDatasetName().getValue();
-            dataverseName = getActiveDataverseName(stmtIndexDrop.getDataverseName());
 
             Dataset ds = MetadataManager.INSTANCE.getDataset(mdTxnCtx, dataverseName, datasetName);
             if (ds == null) {
@@ -1155,8 +1384,74 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 //#. finally, delete the existing index
                 MetadataManager.INSTANCE.dropIndex(mdTxnCtx, dataverseName, datasetName, indexName);
             } else {
-                throw new AlgebricksException(datasetName
-                        + " is an external dataset. Indexes are not maintained for external datasets.");
+                // External dataset
+                indexName = stmtIndexDrop.getIndexName().getValue();
+                Index index = MetadataManager.INSTANCE.getIndex(mdTxnCtx, dataverseName, datasetName, indexName);
+                if (index == null) {
+                    if (stmtIndexDrop.getIfExists()) {
+                        MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+                        return;
+                    } else {
+                        throw new AlgebricksException("There is no index with this name " + indexName + ".");
+                    }
+                } else if (ExternalIndexingOperations.isFileIndex(index)) {
+                    throw new AlgebricksException("Dropping a dataset's files index is not allowed.");
+                }
+                //#. prepare a job to drop the index in NC.
+                CompiledIndexDropStatement cds = new CompiledIndexDropStatement(dataverseName, datasetName, indexName);
+                jobsToExecute.add(IndexOperations.buildDropSecondaryIndexJobSpec(cds, metadataProvider, ds));
+                List<Index> datasetIndexes = MetadataManager.INSTANCE.getDatasetIndexes(mdTxnCtx, dataverseName,
+                        datasetName);
+                if (datasetIndexes.size() == 2) {
+                    dropFilesIndex = true;
+                    // only one index + the files index, we need to delete both of the indexes
+                    for (Index externalIndex : datasetIndexes) {
+                        if (ExternalIndexingOperations.isFileIndex(externalIndex)) {
+                            cds = new CompiledIndexDropStatement(dataverseName, datasetName,
+                                    externalIndex.getIndexName());
+                            jobsToExecute.add(ExternalIndexingOperations.buildDropFilesIndexJobSpec(cds,
+                                    metadataProvider, ds));
+                            //#. mark PendingDropOp on the existing files index
+                            MetadataManager.INSTANCE.dropIndex(mdTxnCtx, dataverseName, datasetName,
+                                    externalIndex.getIndexName());
+                            MetadataManager.INSTANCE.addIndex(
+                                    mdTxnCtx,
+                                    new Index(dataverseName, datasetName, externalIndex.getIndexName(), externalIndex
+                                            .getIndexType(), externalIndex.getKeyFieldNames(), externalIndex
+                                            .isPrimaryIndex(), IMetadataEntity.PENDING_DROP_OP));
+                        }
+                    }
+                }
+
+                //#. mark PendingDropOp on the existing index
+                MetadataManager.INSTANCE.dropIndex(mdTxnCtx, dataverseName, datasetName, indexName);
+                MetadataManager.INSTANCE.addIndex(mdTxnCtx,
+                        new Index(dataverseName, datasetName, indexName, index.getIndexType(),
+                                index.getKeyFieldNames(), index.isPrimaryIndex(), IMetadataEntity.PENDING_DROP_OP));
+
+                //#. commit the existing transaction before calling runJob. 
+                MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+                bActiveTxn = false;
+                progress = ProgressState.ADDED_PENDINGOP_RECORD_TO_METADATA;
+
+                for (JobSpecification jobSpec : jobsToExecute) {
+                    runJob(hcc, jobSpec, true);
+                }
+
+                //#. begin a new transaction
+                mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+                bActiveTxn = true;
+                metadataProvider.setMetadataTxnContext(mdTxnCtx);
+
+                //#. finally, delete the existing index
+                MetadataManager.INSTANCE.dropIndex(mdTxnCtx, dataverseName, datasetName, indexName);
+                if (dropFilesIndex) {
+                    // delete the files index too
+                    MetadataManager.INSTANCE.dropIndex(mdTxnCtx, dataverseName, datasetName,
+                            ExternalIndexingOperations.getFilesIndexName(datasetName));
+                    MetadataManager.INSTANCE.dropDatasetExternalFiles(mdTxnCtx, ds);
+                    ExternalDatasetsRegistry.INSTANCE.removeDatasetInfo(ds);
+                }
             }
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
 
@@ -1183,6 +1478,10 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 try {
                     MetadataManager.INSTANCE.dropIndex(metadataProvider.getMetadataTxnContext(), dataverseName,
                             datasetName, indexName);
+                    if (dropFilesIndex) {
+                        MetadataManager.INSTANCE.dropIndex(metadataProvider.getMetadataTxnContext(), dataverseName,
+                                datasetName, ExternalIndexingOperations.getFilesIndexName(datasetName));
+                    }
                     MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
                 } catch (Exception e2) {
                     e.addSuppressed(e2);
@@ -1195,20 +1494,21 @@ public class AqlTranslator extends AbstractAqlTranslator {
             throw e;
 
         } finally {
-            releaseWriteLatch();
+            MetadataLockManager.INSTANCE.dropIndexEnd(dataverseName, dataverseName + "." + datasetName);
         }
     }
 
     private void handleTypeDropStatement(AqlMetadataProvider metadataProvider, Statement stmt) throws Exception {
 
+        TypeDropStatement stmtTypeDrop = (TypeDropStatement) stmt;
+        String dataverseName = getActiveDataverseName(stmtTypeDrop.getDataverseName());
+        String typeName = stmtTypeDrop.getTypeName().getValue();
+
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireWriteLatch();
+        MetadataLockManager.INSTANCE.dropTypeBegin(dataverseName, dataverseName + "." + typeName);
 
         try {
-            TypeDropStatement stmtTypeDrop = (TypeDropStatement) stmt;
-            String dataverseName = getActiveDataverseName(stmtTypeDrop.getDataverseName());
-            String typeName = stmtTypeDrop.getTypeName().getValue();
             Datatype dt = MetadataManager.INSTANCE.getDatatype(mdTxnCtx, dataverseName, typeName);
             if (dt == null) {
                 if (!stmtTypeDrop.getIfExists())
@@ -1221,19 +1521,18 @@ public class AqlTranslator extends AbstractAqlTranslator {
             abort(e, e, mdTxnCtx);
             throw e;
         } finally {
-            releaseWriteLatch();
+            MetadataLockManager.INSTANCE.dropTypeEnd(dataverseName, dataverseName + "." + typeName);
         }
     }
 
     private void handleNodegroupDropStatement(AqlMetadataProvider metadataProvider, Statement stmt) throws Exception {
 
+        NodeGroupDropStatement stmtDelete = (NodeGroupDropStatement) stmt;
+        String nodegroupName = stmtDelete.getNodeGroupName().getValue();
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireWriteLatch();
-
+        MetadataLockManager.INSTANCE.acquireNodeGroupWriteLock(nodegroupName);
         try {
-            NodeGroupDropStatement stmtDelete = (NodeGroupDropStatement) stmt;
-            String nodegroupName = stmtDelete.getNodeGroupName().getValue();
             NodeGroup ng = MetadataManager.INSTANCE.getNodegroup(mdTxnCtx, nodegroupName);
             if (ng == null) {
                 if (!stmtDelete.getIfExists())
@@ -1247,25 +1546,27 @@ public class AqlTranslator extends AbstractAqlTranslator {
             abort(e, e, mdTxnCtx);
             throw e;
         } finally {
-            releaseWriteLatch();
+            MetadataLockManager.INSTANCE.releaseNodeGroupWriteLock(nodegroupName);
         }
     }
 
     private void handleCreateFunctionStatement(AqlMetadataProvider metadataProvider, Statement stmt) throws Exception {
+        CreateFunctionStatement cfs = (CreateFunctionStatement) stmt;
+        String dataverse = getActiveDataverseName(cfs.getSignature().getNamespace());
+        String functionName = cfs.getaAterixFunction().getName();
+
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireWriteLatch();
-
+        MetadataLockManager.INSTANCE.functionStatementBegin(dataverse, dataverse + "." + functionName);
         try {
-            CreateFunctionStatement cfs = (CreateFunctionStatement) stmt;
-            String dataverse = getActiveDataverseName(cfs.getSignature().getNamespace());
+
             Dataverse dv = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverse);
             if (dv == null) {
                 throw new AlgebricksException("There is no dataverse with this name " + dataverse + ".");
             }
-            Function function = new Function(dataverse, cfs.getaAterixFunction().getName(), cfs.getaAterixFunction()
-                    .getArity(), cfs.getParamList(), Function.RETURNTYPE_VOID, cfs.getFunctionBody(),
-                    Function.LANGUAGE_AQL, FunctionKind.SCALAR.toString());
+            Function function = new Function(dataverse, functionName, cfs.getaAterixFunction().getArity(),
+                    cfs.getParamList(), Function.RETURNTYPE_VOID, cfs.getFunctionBody(), Function.LANGUAGE_AQL,
+                    FunctionKind.SCALAR.toString());
             MetadataManager.INSTANCE.addFunction(mdTxnCtx, function);
 
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
@@ -1273,18 +1574,18 @@ public class AqlTranslator extends AbstractAqlTranslator {
             abort(e, e, mdTxnCtx);
             throw e;
         } finally {
-            releaseWriteLatch();
+            MetadataLockManager.INSTANCE.functionStatementEnd(dataverse, dataverse + "." + functionName);
         }
     }
 
     private void handleFunctionDropStatement(AqlMetadataProvider metadataProvider, Statement stmt) throws Exception {
+        FunctionDropStatement stmtDropFunction = (FunctionDropStatement) stmt;
+        FunctionSignature signature = stmtDropFunction.getFunctionSignature();
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireWriteLatch();
-
+        MetadataLockManager.INSTANCE.functionStatementBegin(signature.getNamespace(), signature.getNamespace() + "."
+                + signature.getName());
         try {
-            FunctionDropStatement stmtDropFunction = (FunctionDropStatement) stmt;
-            FunctionSignature signature = stmtDropFunction.getFunctionSignature();
             Function function = MetadataManager.INSTANCE.getFunction(mdTxnCtx, signature);
             if (function == null) {
                 if (!stmtDropFunction.getIfExists())
@@ -1297,24 +1598,25 @@ public class AqlTranslator extends AbstractAqlTranslator {
             abort(e, e, mdTxnCtx);
             throw e;
         } finally {
-            releaseWriteLatch();
+            MetadataLockManager.INSTANCE.functionStatementEnd(signature.getNamespace(), signature.getNamespace() + "."
+                    + signature.getName());
         }
     }
 
     private void handleLoadStatement(AqlMetadataProvider metadataProvider, Statement stmt, IHyracksClientConnection hcc)
             throws Exception {
 
+        LoadStatement loadStmt = (LoadStatement) stmt;
+        String dataverseName = getActiveDataverseName(loadStmt.getDataverseName());
+        String datasetName = loadStmt.getDatasetName().getValue();
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         boolean bActiveTxn = true;
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireReadLatch();
+        MetadataLockManager.INSTANCE.modifyDatasetBegin(dataverseName, dataverseName + "." + datasetName);
         List<JobSpecification> jobsToExecute = new ArrayList<JobSpecification>();
         try {
-            LoadStatement loadStmt = (LoadStatement) stmt;
-            String dataverseName = getActiveDataverseName(loadStmt.getDataverseName());
-            CompiledLoadFromFileStatement cls = new CompiledLoadFromFileStatement(dataverseName, loadStmt
-                    .getDatasetName().getValue(), loadStmt.getAdapter(), loadStmt.getProperties(),
-                    loadStmt.dataIsAlreadySorted());
+            CompiledLoadFromFileStatement cls = new CompiledLoadFromFileStatement(dataverseName, datasetName,
+                    loadStmt.getAdapter(), loadStmt.getProperties(), loadStmt.dataIsAlreadySorted());
 
             IDataFormat format = getDataFormat(metadataProvider.getMetadataTxnContext(), dataverseName);
             Job job = DatasetOperations.createLoadDatasetJobSpec(metadataProvider, cls, format);
@@ -1345,25 +1647,27 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
             throw e;
         } finally {
-            releaseReadLatch();
+            MetadataLockManager.INSTANCE.modifyDatasetEnd(dataverseName, dataverseName + "." + datasetName);
         }
     }
 
     private void handleInsertStatement(AqlMetadataProvider metadataProvider, Statement stmt,
             IHyracksClientConnection hcc) throws Exception {
 
+        InsertStatement stmtInsert = (InsertStatement) stmt;
+        String dataverseName = getActiveDataverseName(stmtInsert.getDataverseName());
+        Query query = stmtInsert.getQuery();
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         boolean bActiveTxn = true;
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireReadLatch();
+        MetadataLockManager.INSTANCE.insertDeleteBegin(dataverseName,
+                dataverseName + "." + stmtInsert.getDatasetName(), query.getDataverses(), query.getDatasets());
 
         try {
             metadataProvider.setWriteTransaction(true);
-            InsertStatement stmtInsert = (InsertStatement) stmt;
-            String dataverseName = getActiveDataverseName(stmtInsert.getDataverseName());
             CompiledInsertStatement clfrqs = new CompiledInsertStatement(dataverseName, stmtInsert.getDatasetName()
-                    .getValue(), stmtInsert.getQuery(), stmtInsert.getVarCounter());
-            JobSpecification compiled = rewriteCompileQuery(metadataProvider, clfrqs.getQuery(), clfrqs);
+                    .getValue(), query, stmtInsert.getVarCounter());
+            JobSpecification compiled = rewriteCompileQuery(metadataProvider, query, clfrqs);
 
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             bActiveTxn = false;
@@ -1378,22 +1682,25 @@ public class AqlTranslator extends AbstractAqlTranslator {
             }
             throw e;
         } finally {
-            releaseReadLatch();
+            MetadataLockManager.INSTANCE.insertDeleteEnd(dataverseName,
+                    dataverseName + "." + stmtInsert.getDatasetName(), query.getDataverses(), query.getDatasets());
         }
     }
 
     private void handleDeleteStatement(AqlMetadataProvider metadataProvider, Statement stmt,
             IHyracksClientConnection hcc) throws Exception {
 
+        DeleteStatement stmtDelete = (DeleteStatement) stmt;
+        String dataverseName = getActiveDataverseName(stmtDelete.getDataverseName());
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         boolean bActiveTxn = true;
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireReadLatch();
+        MetadataLockManager.INSTANCE
+                .insertDeleteBegin(dataverseName, dataverseName + "." + stmtDelete.getDatasetName(),
+                        stmtDelete.getDataverses(), stmtDelete.getDatasets());
 
         try {
             metadataProvider.setWriteTransaction(true);
-            DeleteStatement stmtDelete = (DeleteStatement) stmt;
-            String dataverseName = getActiveDataverseName(stmtDelete.getDataverseName());
             CompiledDeleteStatement clfrqs = new CompiledDeleteStatement(stmtDelete.getVariableExpr(), dataverseName,
                     stmtDelete.getDatasetName().getValue(), stmtDelete.getCondition(), stmtDelete.getVarCounter(),
                     metadataProvider);
@@ -1412,7 +1719,9 @@ public class AqlTranslator extends AbstractAqlTranslator {
             }
             throw e;
         } finally {
-            releaseReadLatch();
+            MetadataLockManager.INSTANCE.insertDeleteEnd(dataverseName,
+                    dataverseName + "." + stmtDelete.getDatasetName(), stmtDelete.getDataverses(),
+                    stmtDelete.getDatasets());
         }
     }
 
@@ -1436,18 +1745,16 @@ public class AqlTranslator extends AbstractAqlTranslator {
     private void handleCreateFeedStatement(AqlMetadataProvider metadataProvider, Statement stmt,
             IHyracksClientConnection hcc) throws Exception {
 
+        CreateFeedStatement cfs = (CreateFeedStatement) stmt;
+        String dataverseName = getActiveDataverseName(cfs.getDataverseName());
+        String feedName = cfs.getFeedName().getValue();
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireWriteLatch();
+        MetadataLockManager.INSTANCE.createFeedBegin(dataverseName, dataverseName + "." + feedName);
 
-        String dataverseName = null;
-        String feedName = null;
         String adaptorName = null;
         Feed feed = null;
         try {
-            CreateFeedStatement cfs = (CreateFeedStatement) stmt;
-            dataverseName = getActiveDataverseName(cfs.getDataverseName());
-            feedName = cfs.getFeedName().getValue();
             adaptorName = cfs.getAdaptorName();
 
             feed = MetadataManager.INSTANCE.getFeed(metadataProvider.getMetadataTxnContext(), dataverseName, feedName);
@@ -1468,20 +1775,20 @@ public class AqlTranslator extends AbstractAqlTranslator {
             abort(e, e, mdTxnCtx);
             throw e;
         } finally {
-            releaseWriteLatch();
+            MetadataLockManager.INSTANCE.createFeedEnd(dataverseName, dataverseName + "." + feedName);
         }
     }
 
     private void handleDropFeedStatement(AqlMetadataProvider metadataProvider, Statement stmt,
             IHyracksClientConnection hcc) throws Exception {
+        FeedDropStatement stmtFeedDrop = (FeedDropStatement) stmt;
+        String dataverseName = getActiveDataverseName(stmtFeedDrop.getDataverseName());
+        String feedName = stmtFeedDrop.getFeedName().getValue();
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireWriteLatch();
+        MetadataLockManager.INSTANCE.dropFeedBegin(dataverseName, dataverseName + "." + feedName);
 
         try {
-            FeedDropStatement stmtFeedDrop = (FeedDropStatement) stmt;
-            String dataverseName = getActiveDataverseName(stmtFeedDrop.getDataverseName());
-            String feedName = stmtFeedDrop.getFeedName().getValue();
             Feed feed = MetadataManager.INSTANCE.getFeed(mdTxnCtx, dataverseName, feedName);
             if (feed == null) {
                 if (!stmtFeedDrop.getIfExists()) {
@@ -1515,21 +1822,26 @@ public class AqlTranslator extends AbstractAqlTranslator {
             abort(e, e, mdTxnCtx);
             throw e;
         } finally {
-            releaseWriteLatch();
+            MetadataLockManager.INSTANCE.dropFeedEnd(dataverseName, dataverseName + "." + feedName);
         }
     }
 
     private void handleConnectFeedStatement(AqlMetadataProvider metadataProvider, Statement stmt,
             IHyracksClientConnection hcc) throws Exception {
 
+        ConnectFeedStatement cfs = (ConnectFeedStatement) stmt;
+        String dataverseName = getActiveDataverseName(cfs.getDataverseName());
+        String feedName = cfs.getFeedName();
+        String datasetName = cfs.getDatasetName().getValue();
+
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         boolean bActiveTxn = true;
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireReadLatch();
+        MetadataLockManager.INSTANCE.connectFeedBegin(dataverseName, dataverseName + "." + datasetName, dataverseName
+                + "." + feedName);
         boolean readLatchAcquired = true;
         try {
-            ConnectFeedStatement cfs = (ConnectFeedStatement) stmt;
-            String dataverseName = getActiveDataverseName(cfs.getDataverseName());
+
             metadataProvider.setWriteTransaction(true);
 
             CompiledConnectFeedStatement cbfs = new CompiledConnectFeedStatement(dataverseName, cfs.getFeedName(), cfs
@@ -1589,7 +1901,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
             boolean waitForCompletion = waitForCompletionParam == null ? false : Boolean
                     .valueOf(waitForCompletionParam);
             if (waitForCompletion) {
-                releaseReadLatch();
+                MetadataLockManager.INSTANCE.connectFeedEnd(dataverseName, dataverseName + "." + datasetName,
+                        dataverseName + "." + feedName);
                 readLatchAcquired = false;
             }
             runJob(hcc, newJobSpec, waitForCompletion);
@@ -1600,23 +1913,24 @@ public class AqlTranslator extends AbstractAqlTranslator {
             throw e;
         } finally {
             if (readLatchAcquired) {
-                releaseReadLatch();
+                MetadataLockManager.INSTANCE.connectFeedEnd(dataverseName, dataverseName + "." + datasetName,
+                        dataverseName + "." + feedName);
             }
         }
     }
 
     private void handleDisconnectFeedStatement(AqlMetadataProvider metadataProvider, Statement stmt,
             IHyracksClientConnection hcc) throws Exception {
+        DisconnectFeedStatement cfs = (DisconnectFeedStatement) stmt;
+        String dataverseName = getActiveDataverseName(cfs.getDataverseName());
+        String datasetName = cfs.getDatasetName().getValue();
+
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         boolean bActiveTxn = true;
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireReadLatch();
-
+        MetadataLockManager.INSTANCE.disconnectFeedBegin(dataverseName, dataverseName + "." + datasetName,
+                dataverseName + "." + cfs.getFeedName());
         try {
-            DisconnectFeedStatement cfs = (DisconnectFeedStatement) stmt;
-            String dataverseName = getActiveDataverseName(cfs.getDataverseName());
-
-            String datasetName = cfs.getDatasetName().getValue();
             Dataset dataset = MetadataManager.INSTANCE.getDataset(metadataProvider.getMetadataTxnContext(),
                     dataverseName, cfs.getDatasetName().getValue());
             if (dataset == null) {
@@ -1655,47 +1969,58 @@ public class AqlTranslator extends AbstractAqlTranslator {
             }
             throw e;
         } finally {
-            releaseReadLatch();
+            MetadataLockManager.INSTANCE.disconnectFeedEnd(dataverseName, dataverseName + "." + datasetName,
+                    dataverseName + "." + cfs.getFeedName());
         }
     }
 
     private void handleCompactStatement(AqlMetadataProvider metadataProvider, Statement stmt,
             IHyracksClientConnection hcc) throws Exception {
+        CompactStatement compactStatement = (CompactStatement) stmt;
+        String dataverseName = getActiveDataverseName(compactStatement.getDataverseName());
+        String datasetName = compactStatement.getDatasetName().getValue();
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         boolean bActiveTxn = true;
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireReadLatch();
+        MetadataLockManager.INSTANCE.compactBegin(dataverseName, dataverseName + "." + datasetName);
 
-        String dataverseName = null;
-        String datasetName = null;
         List<JobSpecification> jobsToExecute = new ArrayList<JobSpecification>();
         try {
-            CompactStatement compactStatement = (CompactStatement) stmt;
-            dataverseName = getActiveDataverseName(compactStatement.getDataverseName());
-            datasetName = compactStatement.getDatasetName().getValue();
-
             Dataset ds = MetadataManager.INSTANCE.getDataset(mdTxnCtx, dataverseName, datasetName);
             if (ds == null) {
                 throw new AlgebricksException("There is no dataset with this name " + datasetName + " in dataverse "
                         + dataverseName + ".");
-            } else if (ds.getDatasetType() != DatasetType.INTERNAL) {
-                throw new AlgebricksException("Cannot compact the extrenal dataset " + datasetName + ".");
             }
-
-            // Prepare jobs to compact the datatset and its indexes
             List<Index> indexes = MetadataManager.INSTANCE.getDatasetIndexes(mdTxnCtx, dataverseName, datasetName);
-            for (int j = 0; j < indexes.size(); j++) {
-                if (indexes.get(j).isSecondaryIndex()) {
-                    CompiledIndexCompactStatement cics = new CompiledIndexCompactStatement(dataverseName, datasetName,
-                            indexes.get(j).getIndexName(), indexes.get(j).getKeyFieldNames(), indexes.get(j)
-                                    .getGramLength(), indexes.get(j).getIndexType());
-                    jobsToExecute.add(IndexOperations.buildSecondaryIndexCompactJobSpec(cics, metadataProvider, ds));
-                }
+            if (indexes.size() == 0) {
+                throw new AlgebricksException("Cannot compact the extrenal dataset " + datasetName
+                        + " because it has no indexes");
             }
-            Dataverse dataverse = MetadataManager.INSTANCE.getDataverse(metadataProvider.getMetadataTxnContext(),
-                    dataverseName);
-            jobsToExecute.add(DatasetOperations.compactDatasetJobSpec(dataverse, datasetName, metadataProvider));
-
+            if (ds.getDatasetType() == DatasetType.INTERNAL) {
+                for (int j = 0; j < indexes.size(); j++) {
+                    if (indexes.get(j).isSecondaryIndex()) {
+                        CompiledIndexCompactStatement cics = new CompiledIndexCompactStatement(dataverseName,
+                                datasetName, indexes.get(j).getIndexName(), indexes.get(j).getKeyFieldNames(), indexes
+                                        .get(j).getGramLength(), indexes.get(j).getIndexType());
+                        jobsToExecute
+                                .add(IndexOperations.buildSecondaryIndexCompactJobSpec(cics, metadataProvider, ds));
+                    }
+                }
+                Dataverse dataverse = MetadataManager.INSTANCE.getDataverse(metadataProvider.getMetadataTxnContext(),
+                        dataverseName);
+                jobsToExecute.add(DatasetOperations.compactDatasetJobSpec(dataverse, datasetName, metadataProvider));
+            } else {
+                for (int j = 0; j < indexes.size(); j++) {
+                    if (!ExternalIndexingOperations.isFileIndex(indexes.get(j))) {
+                        CompiledIndexCompactStatement cics = new CompiledIndexCompactStatement(dataverseName,
+                                datasetName, indexes.get(j).getIndexName(), indexes.get(j).getKeyFieldNames(), indexes
+                                        .get(j).getGramLength(), indexes.get(j).getIndexType());
+                        jobsToExecute
+                                .add(IndexOperations.buildSecondaryIndexCompactJobSpec(cics, metadataProvider, ds));
+                    }
+                }
+                jobsToExecute.add(ExternalIndexingOperations.compactFilesIndexJobSpec(ds, metadataProvider));
+            }
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             bActiveTxn = false;
 
@@ -1709,20 +2034,20 @@ public class AqlTranslator extends AbstractAqlTranslator {
             }
             throw e;
         } finally {
-            releaseReadLatch();
+            MetadataLockManager.INSTANCE.compactEnd(dataverseName, dataverseName + "." + datasetName);
         }
     }
 
     private QueryResult handleQuery(AqlMetadataProvider metadataProvider, Query query, IHyracksClientConnection hcc,
-            IHyracksDataset hdc, boolean asyncResults) throws Exception {
+            IHyracksDataset hdc, ResultDelivery resultDelivery) throws Exception {
 
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         boolean bActiveTxn = true;
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireReadLatch();
-
+        MetadataLockManager.INSTANCE.queryBegin(activeDefaultDataverse, query.getDataverses(), query.getDatasets());
+        JobSpecification compiled = null;
         try {
-            JobSpecification compiled = rewriteCompileQuery(metadataProvider, query, null);
+            compiled = rewriteCompileQuery(metadataProvider, query, null);
 
             QueryResult queryResult = new QueryResult(query, metadataProvider.getResultSetId());
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
@@ -1733,48 +2058,64 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 JobId jobId = runJob(hcc, compiled, false);
 
                 JSONObject response = new JSONObject();
-                if (asyncResults) {
-                    JSONArray handle = new JSONArray();
-                    handle.put(jobId.getId());
-                    handle.put(metadataProvider.getResultSetId().getId());
-                    response.put("handle", handle);
-                    out.print(response);
-                    out.flush();
-                } else {
-                    if (pdf == DisplayFormat.HTML) {
-                        out.println("<h4>Results:</h4>");
-                        out.println("<pre>");
-                    }
+                switch (resultDelivery) {
+                    case ASYNC:
+                        JSONArray handle = new JSONArray();
+                        handle.put(jobId.getId());
+                        handle.put(metadataProvider.getResultSetId().getId());
+                        response.put("handle", handle);
+                        out.print(response);
+                        out.flush();
+                        hcc.waitForCompletion(jobId);
+                        break;
+                    case SYNC:
+                        if (pdf == DisplayFormat.HTML) {
+                            out.println("<h4>Results:</h4>");
+                            out.println("<pre>");
+                        }
 
-                    ByteBuffer buffer = ByteBuffer.allocate(ResultReader.FRAME_SIZE);
-                    ResultReader resultReader = new ResultReader(hcc, hdc);
-                    resultReader.open(jobId, metadataProvider.getResultSetId());
-                    buffer.clear();
-
-                    JSONArray results = new JSONArray();
-                    while (resultReader.read(buffer) > 0) {
-                        ResultUtils.getJSONFromBuffer(buffer, resultReader.getFrameTupleAccessor(), results);
+                        ByteBuffer buffer = ByteBuffer.allocate(ResultReader.FRAME_SIZE);
+                        ResultReader resultReader = new ResultReader(hcc, hdc);
+                        resultReader.open(jobId, metadataProvider.getResultSetId());
                         buffer.clear();
-                    }
 
-                    response.put("results", results);
-                    switch (pdf) {
-                        case HTML:
-                            ResultUtils.prettyPrintHTML(out, response);
-                            break;
-                        case TEXT:
-                        case JSON:
-                            out.print(response);
-                            break;
-                    }
-                    out.flush();
+                        JSONArray results = new JSONArray();
+                        while (resultReader.read(buffer) > 0) {
+                            ResultUtils.getJSONFromBuffer(buffer, resultReader.getFrameTupleAccessor(), results);
+                            buffer.clear();
+                        }
 
-                    if (pdf == DisplayFormat.HTML) {
-                        out.println("</pre>");
-                    }
+                        response.put("results", results);
+                        switch (pdf) {
+                            case HTML:
+                                ResultUtils.prettyPrintHTML(out, response);
+                                break;
+                            case TEXT:
+                            case JSON:
+                                out.print(response);
+                                break;
+                        }
+                        out.flush();
+
+                        if (pdf == DisplayFormat.HTML) {
+                            out.println("</pre>");
+                        }
+                        hcc.waitForCompletion(jobId);
+                        break;
+                    case ASYNC_DEFERRED:
+                        handle = new JSONArray();
+                        handle.put(jobId.getId());
+                        handle.put(metadataProvider.getResultSetId().getId());
+                        response.put("handle", handle);
+                        hcc.waitForCompletion(jobId);
+                        out.print(response);
+                        out.flush();
+                        break;
+                    default:
+                        break;
 
                 }
-                hcc.waitForCompletion(jobId);
+
             }
 
             return queryResult;
@@ -1785,19 +2126,22 @@ public class AqlTranslator extends AbstractAqlTranslator {
             }
             throw e;
         } finally {
-            releaseReadLatch();
+            MetadataLockManager.INSTANCE.queryEnd(query.getDataverses(), query.getDatasets());
+            // release external datasets' locks acquired during compilation of the query
+            ExternalDatasetsRegistry.INSTANCE.releaseAcquiredLocks(metadataProvider);
         }
     }
 
     private void handleCreateNodeGroupStatement(AqlMetadataProvider metadataProvider, Statement stmt) throws Exception {
 
+        NodegroupDecl stmtCreateNodegroup = (NodegroupDecl) stmt;
+        String ngName = stmtCreateNodegroup.getNodegroupName().getValue();
+
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        acquireWriteLatch();
+        MetadataLockManager.INSTANCE.acquireNodeGroupWriteLock(ngName);
 
         try {
-            NodegroupDecl stmtCreateNodegroup = (NodegroupDecl) stmt;
-            String ngName = stmtCreateNodegroup.getNodegroupName().getValue();
             NodeGroup ng = MetadataManager.INSTANCE.getNodegroup(mdTxnCtx, ngName);
             if (ng != null) {
                 if (!stmtCreateNodegroup.getIfNotExists())
@@ -1815,7 +2159,231 @@ public class AqlTranslator extends AbstractAqlTranslator {
             abort(e, e, mdTxnCtx);
             throw e;
         } finally {
-            releaseWriteLatch();
+            MetadataLockManager.INSTANCE.releaseNodeGroupWriteLock(ngName);
+        }
+    }
+
+    private void handleExternalDatasetRefreshStatement(AqlMetadataProvider metadataProvider, Statement stmt,
+            IHyracksClientConnection hcc) throws Exception {
+        RefreshExternalDatasetStatement stmtRefresh = (RefreshExternalDatasetStatement) stmt;
+        String dataverseName = getActiveDataverseName(stmtRefresh.getDataverseName());
+        String datasetName = stmtRefresh.getDatasetName().getValue();
+        ExternalDatasetTransactionState transactionState = ExternalDatasetTransactionState.COMMIT;
+        MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+        MetadataLockManager.INSTANCE.refreshDatasetBegin(dataverseName, dataverseName + "." + datasetName);
+        boolean bActiveTxn = true;
+        metadataProvider.setMetadataTxnContext(mdTxnCtx);
+        JobSpecification spec = null;
+        Dataset ds = null;
+        List<ExternalFile> metadataFiles = null;
+        List<ExternalFile> deletedFiles = null;
+        List<ExternalFile> addedFiles = null;
+        List<ExternalFile> appendedFiles = null;
+        List<Index> indexes = null;
+        Dataset transactionDataset = null;
+        boolean lockAquired = false;
+        boolean success = false;
+        try {
+            ds = MetadataManager.INSTANCE.getDataset(metadataProvider.getMetadataTxnContext(), dataverseName,
+                    datasetName);
+
+            // Dataset exists ?
+            if (ds == null) {
+                throw new AlgebricksException("There is no dataset with this name " + datasetName + " in dataverse "
+                        + dataverseName);
+            }
+            // Dataset external ?
+            if (ds.getDatasetType() != DatasetType.EXTERNAL) {
+                throw new AlgebricksException("dataset " + datasetName + " in dataverse " + dataverseName
+                        + " is not an external dataset");
+            }
+            // Dataset has indexes ?
+            indexes = MetadataManager.INSTANCE.getDatasetIndexes(mdTxnCtx, dataverseName, datasetName);
+            if (indexes.size() == 0) {
+                throw new AlgebricksException("External dataset " + datasetName + " in dataverse " + dataverseName
+                        + " doesn't have any index");
+            }
+
+            // Record transaction time
+            Date txnTime = new Date();
+
+            // refresh lock here
+            ExternalDatasetsRegistry.INSTANCE.refreshBegin(ds);
+            lockAquired = true;
+
+            // Get internal files
+            metadataFiles = MetadataManager.INSTANCE.getDatasetExternalFiles(mdTxnCtx, ds);
+            deletedFiles = new ArrayList<ExternalFile>();
+            addedFiles = new ArrayList<ExternalFile>();
+            appendedFiles = new ArrayList<ExternalFile>();
+
+            // Compute delta
+            // Now we compare snapshot with external file system
+            if (ExternalIndexingOperations
+                    .isDatasetUptodate(ds, metadataFiles, addedFiles, deletedFiles, appendedFiles)) {
+                ((ExternalDatasetDetails) ds.getDatasetDetails()).setRefreshTimestamp(txnTime);
+                MetadataManager.INSTANCE.updateDataset(mdTxnCtx, ds);
+                MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+                // latch will be released in the finally clause
+                return;
+            }
+
+            // At this point, we know data has changed in the external file system, record transaction in metadata and start            
+            transactionDataset = ExternalIndexingOperations.createTransactionDataset(ds);
+            /*
+             * Remove old dataset record and replace it with a new one
+             */
+            MetadataManager.INSTANCE.updateDataset(mdTxnCtx, transactionDataset);
+
+            // Add delta files to the metadata
+            for (ExternalFile file : addedFiles) {
+                MetadataManager.INSTANCE.addExternalFile(mdTxnCtx, file);
+            }
+            for (ExternalFile file : appendedFiles) {
+                MetadataManager.INSTANCE.addExternalFile(mdTxnCtx, file);
+            }
+            for (ExternalFile file : deletedFiles) {
+                MetadataManager.INSTANCE.addExternalFile(mdTxnCtx, file);
+            }
+
+            // Create the files index update job
+            spec = ExternalIndexingOperations.buildFilesIndexUpdateOp(ds, metadataFiles, deletedFiles, addedFiles,
+                    appendedFiles, metadataProvider);
+
+            MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+            bActiveTxn = false;
+            transactionState = ExternalDatasetTransactionState.BEGIN;
+
+            //run the files update job
+            runJob(hcc, spec, true);
+
+            for (Index index : indexes) {
+                if (!ExternalIndexingOperations.isFileIndex(index)) {
+                    spec = ExternalIndexingOperations.buildIndexUpdateOp(ds, index, metadataFiles, deletedFiles,
+                            addedFiles, appendedFiles, metadataProvider);
+                    //run the files update job
+                    runJob(hcc, spec, true);
+                }
+            }
+
+            // all index updates has completed successfully, record transaction state
+            spec = ExternalIndexingOperations.buildCommitJob(ds, indexes, metadataProvider);
+
+            // Aquire write latch again -> start a transaction and record the decision to commit
+            mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+            metadataProvider.setMetadataTxnContext(mdTxnCtx);
+            bActiveTxn = true;
+            ((ExternalDatasetDetails) transactionDataset.getDatasetDetails())
+                    .setState(ExternalDatasetTransactionState.READY_TO_COMMIT);
+            ((ExternalDatasetDetails) transactionDataset.getDatasetDetails()).setRefreshTimestamp(txnTime);
+            MetadataManager.INSTANCE.updateDataset(mdTxnCtx, transactionDataset);
+            MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+            bActiveTxn = false;
+            transactionState = ExternalDatasetTransactionState.READY_TO_COMMIT;
+            // We don't release the latch since this job is expected to be quick
+            runJob(hcc, spec, true);
+            // Start a new metadata transaction to record the final state of the transaction
+            mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+            metadataProvider.setMetadataTxnContext(mdTxnCtx);
+            bActiveTxn = true;
+
+            for (ExternalFile file : metadataFiles) {
+                if (file.getPendingOp() == ExternalFilePendingOp.PENDING_DROP_OP) {
+                    MetadataManager.INSTANCE.dropExternalFile(mdTxnCtx, file);
+                } else if (file.getPendingOp() == ExternalFilePendingOp.PENDING_NO_OP) {
+                    Iterator<ExternalFile> iterator = appendedFiles.iterator();
+                    while (iterator.hasNext()) {
+                        ExternalFile appendedFile = iterator.next();
+                        if (file.getFileName().equals(appendedFile.getFileName())) {
+                            // delete existing file
+                            MetadataManager.INSTANCE.dropExternalFile(mdTxnCtx, file);
+                            // delete existing appended file
+                            MetadataManager.INSTANCE.dropExternalFile(mdTxnCtx, appendedFile);
+                            // add the original file with appended information
+                            appendedFile.setFileNumber(file.getFileNumber());
+                            appendedFile.setPendingOp(ExternalFilePendingOp.PENDING_NO_OP);
+                            MetadataManager.INSTANCE.addExternalFile(mdTxnCtx, appendedFile);
+                            iterator.remove();
+                        }
+                    }
+                }
+            }
+
+            // remove the deleted files delta
+            for (ExternalFile file : deletedFiles) {
+                MetadataManager.INSTANCE.dropExternalFile(mdTxnCtx, file);
+            }
+
+            // insert new files
+            for (ExternalFile file : addedFiles) {
+                MetadataManager.INSTANCE.dropExternalFile(mdTxnCtx, file);
+                file.setPendingOp(ExternalFilePendingOp.PENDING_NO_OP);
+                MetadataManager.INSTANCE.addExternalFile(mdTxnCtx, file);
+            }
+
+            // mark the transaction as complete
+            ((ExternalDatasetDetails) transactionDataset.getDatasetDetails())
+                    .setState(ExternalDatasetTransactionState.COMMIT);
+            MetadataManager.INSTANCE.updateDataset(mdTxnCtx, transactionDataset);
+
+            // commit metadata transaction
+            MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+            success = true;
+        } catch (Exception e) {
+            if (bActiveTxn) {
+                abort(e, e, mdTxnCtx);
+            }
+            if (transactionState == ExternalDatasetTransactionState.READY_TO_COMMIT) {
+                throw new IllegalStateException("System is inconsistent state: commit of (" + dataverseName + "."
+                        + datasetName + ") refresh couldn't carry out the commit phase", e);
+            }
+            if (transactionState == ExternalDatasetTransactionState.COMMIT) {
+                // Nothing to do , everything should be clean
+                throw e;
+            }
+            if (transactionState == ExternalDatasetTransactionState.BEGIN) {
+                // transaction failed, need to do the following
+                // clean NCs removing transaction components
+                mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+                bActiveTxn = true;
+                metadataProvider.setMetadataTxnContext(mdTxnCtx);
+                spec = ExternalIndexingOperations.buildAbortOp(ds, indexes, metadataProvider);
+                MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+                bActiveTxn = false;
+                try {
+                    runJob(hcc, spec, true);
+                } catch (Exception e2) {
+                    // This should never happen -- fix throw illegal
+                    e.addSuppressed(e2);
+                    throw new IllegalStateException("System is in inconsistent state. Failed to abort refresh", e);
+                }
+                // remove the delta of files
+                // return the state of the dataset to committed
+                try {
+                    mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+                    for (ExternalFile file : deletedFiles) {
+                        MetadataManager.INSTANCE.dropExternalFile(mdTxnCtx, file);
+                    }
+                    for (ExternalFile file : addedFiles) {
+                        MetadataManager.INSTANCE.dropExternalFile(mdTxnCtx, file);
+                    }
+                    for (ExternalFile file : appendedFiles) {
+                        MetadataManager.INSTANCE.dropExternalFile(mdTxnCtx, file);
+                    }
+                    MetadataManager.INSTANCE.updateDataset(mdTxnCtx, ds);
+                    // commit metadata transaction
+                    MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+                } catch (Exception e2) {
+                    abort(e, e2, mdTxnCtx);
+                    e.addSuppressed(e2);
+                    throw new IllegalStateException("System is in inconsistent state. Failed to drop delta files", e);
+                }
+            }
+        } finally {
+            if (lockAquired) {
+                ExternalDatasetsRegistry.INSTANCE.refreshEnd(ds, success);
+            }
+            MetadataLockManager.INSTANCE.refreshDatasetEnd(dataverseName, dataverseName + "." + datasetName);
         }
     }
 
@@ -1865,22 +2433,6 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
     private String getActiveDataverseName(Identifier dataverse) throws AlgebricksException {
         return getActiveDataverseName(dataverse != null ? dataverse.getValue() : null);
-    }
-
-    private void acquireWriteLatch() {
-        MetadataManager.INSTANCE.acquireWriteLatch();
-    }
-
-    private void releaseWriteLatch() {
-        MetadataManager.INSTANCE.releaseWriteLatch();
-    }
-
-    private void acquireReadLatch() {
-        MetadataManager.INSTANCE.acquireReadLatch();
-    }
-
-    private void releaseReadLatch() {
-        MetadataManager.INSTANCE.releaseReadLatch();
     }
 
     private void abort(Exception rootE, Exception parentE, MetadataTransactionContext mdTxnCtx) {
