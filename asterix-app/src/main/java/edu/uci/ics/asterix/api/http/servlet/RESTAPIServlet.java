@@ -114,12 +114,11 @@ abstract class RESTAPIServlet extends HttpServlet {
             JSONObject errorResp = ResultUtils.getErrorResponse(2, errorMessage, "", "");
             out.write(errorResp.toString());
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-        }
-        /*catch (Exception e) {
+        } catch (Exception e) {
             GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, e.getMessage(), e);
             ResultUtils.apiErrorHandler(out, e);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-        }*/
+        }
     }
 
     private boolean containsForbiddenStatements(List<Statement> aqlStatements) throws AsterixException {
