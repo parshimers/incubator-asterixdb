@@ -217,24 +217,6 @@ public class DateTimeFormatUtils {
         return beginWith;
     }
 
-    private Comparator<byte[]> byteArrayComparator = new Comparator<byte[]>() {
-        @Override
-        public int compare(byte[] o1, byte[] o2) {
-            int i = 0;
-            for (; i < o1.length && i < o2.length; i++) {
-                if (o1[i] != o2[i]) {
-                    return o1[i] - o2[i];
-                }
-            }
-            if (i < o1.length) {
-                return -1;
-            } else if (i < o2.length) {
-                return 1;
-            }
-            return 0;
-        }
-    };
-
     private int monthIDSearch(byte[] barray, int start, int length) {
         for (int i = 0; i < MONTH_NAMES.length; i++) {
             if (byteArrayEqualToString(barray, start, length, MONTH_NAMES[i])) {
