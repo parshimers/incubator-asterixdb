@@ -143,7 +143,6 @@ public class DateTimeFormatUtils {
 
     private final byte[][] TIMEZONE_IDS = new byte[TZ_IDS.length][];
     {
-        Arrays.sort(TZ_IDS);
         for (int i = 0; i < TIMEZONE_IDS.length; i++) {
             TIMEZONE_IDS[i] = TZ_IDS[i].getBytes();
         }
@@ -623,8 +622,8 @@ public class DateTimeFormatUtils {
                             timezone = TIMEZONE_OFFSETS[searchIdx];
                         } else {
                             throw new AsterixTemporalTypeParseException("Unexpected timezone string: "
-                                    + new String(Arrays.copyOfRange(data, dataStart + dataStringPointer,
-                                            timezoneEndField - dataStringPointer)));
+                                    + new String(Arrays.copyOfRange(data, dataStart + dataStringPointer, dataStart
+                                            + timezoneEndField)));
                         }
                         dataStringPointer = timezoneEndField;
                     }
