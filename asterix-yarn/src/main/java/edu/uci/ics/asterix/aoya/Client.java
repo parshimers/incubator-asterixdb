@@ -154,7 +154,7 @@ public class Client {
                         YarnClientApplication app = client.makeApplicationContext();
                         List<DFSResourceCoordinate> res = client.deployConfig();
                         res.addAll(client.distributeBinaries());
-                        LOG.info("Asterix deployed and running with ID: " + client.deployAM(app, res).toString());
+                        LOG.info("Asterix deployed and running with ID: " + client.deployAM(app, res, false).toString());
                         break;
                     case "stop":
                         client.stopInstance();
@@ -170,7 +170,8 @@ public class Client {
                             client.installConfig();
                             res = client.deployConfig();
                             res.addAll(client.distributeBinaries());
-                            LOG.info("Asterix deployed and running with ID: " + client.deployAM(app, res).toString());
+                            LOG.info("Asterix deployed and running with ID: "
+                                    + client.deployAM(app, res, false).toString());
                         } catch (YarnException | IOException e) {
                             LOG.error("Asterix failed to deploy on to cluster");
                             throw e;
@@ -182,10 +183,18 @@ public class Client {
                     case "alter":
                         break;
                     case "status":
-                        client.monitorApplication();
+                        client.monitorApplication(client.appId, true);
                         break;
                     case "destroy":
-                        client.removeInstance();
+                        try {
+                            app = client.makeApplicationContext();
+                            res = client.deployConfig();
+                            res.addAll(client.distributeBinaries());
+                            client.removeInstance(app, res);
+                        } catch (YarnException | IOException e) {
+                            LOG.error("Asterix failed to deploy on to cluster");
+                            throw e;
+                        }
                         break;
                     default:
                         LOG.fatal("Unknown action. Known actions are: start, stop, install, status, kill");
@@ -245,7 +254,7 @@ public class Client {
      * Helper function to print out usage
      */
     private void printUsage() {
-        new HelpFormatter().printHelp("Asterix YARN client. Usage: ./asterix [mode] [options]", opts);
+        new HelpFormatter().printHelp("Asterix YARN client. Usage: asterix [mode] [options]", opts);
     }
 
     /**
@@ -565,8 +574,8 @@ public class Client {
         return resources;
     }
 
-    public ApplicationId deployAM(YarnClientApplication app, List<DFSResourceCoordinate> resources) throws IOException,
-            YarnException {
+    public ApplicationId deployAM(YarnClientApplication app, List<DFSResourceCoordinate> resources, boolean obliterate)
+            throws IOException, YarnException {
 
         // Set up the container launch context for the application master
         ContainerLaunchContext amContainer = Records.newRecord(ContainerLaunchContext.class);
@@ -597,7 +606,7 @@ public class Client {
             }
         }
         ///add miscellaneous environment variables.
-        env.put(MConstants.PATHSUFFIX, appName + "/" + appId.getId());
+        env.put(MConstants.PATHSUFFIX, appName + File.separator + appId.getId());
         env.put(MConstants.INSTANCESTORE, CONF_DIR_REL + instanceFolder);
 
         // Add AppMaster.jar location to classpath
@@ -613,7 +622,7 @@ public class Client {
             classPathEnv.append(File.pathSeparatorChar);
             classPathEnv.append(c.trim());
         }
-        classPathEnv.append(File.pathSeparatorChar).append("./log4j.properties");
+        classPathEnv.append(File.pathSeparatorChar).append("." + File.separator + "log4j.properties");
 
         // add the runtime classpath needed for tests to work
         if (conf.getBoolean(YarnConfiguration.IS_MINI_YARN_CLUSTER, false)) {
@@ -630,7 +639,7 @@ public class Client {
 
         // Set java executable command
         LOG.info("Setting up app master command");
-        vargs.add(Environment.JAVA_HOME.$() + "/bin/java");
+        vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
         // Set class name
         vargs.add(appMasterMainClass);
         // Set params for Application Master
@@ -638,8 +647,11 @@ public class Client {
         if (debugFlag) {
             vargs.add("-debug");
         }
-        vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/AppMaster.stdout");
-        vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/AppMaster.stderr");
+        if (obliterate) {
+            vargs.add("-obliterate");
+        }
+        vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + File.separator + "AppMaster.stdout");
+        vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + File.separator + "AppMaster.stderr");
         // Get final commmand
         StringBuilder command = new StringBuilder();
         for (CharSequence str : vargs) {
@@ -713,7 +725,7 @@ public class Client {
      * @throws YarnException
      * @throws IOException
      */
-    private boolean monitorApplication() throws YarnException, IOException {
+    private boolean monitorApplication(ApplicationId appId, boolean print) throws YarnException, IOException {
 
         while (true) {
 
@@ -727,28 +739,36 @@ public class Client {
             // Get application report for the appId we are interested in
             ApplicationReport report = yarnClient.getApplicationReport(appId);
 
-            LOG.info("Got application report from ASM for" + ", appId=" + appId.getId() + ", clientToAMToken="
-                    + report.getClientToAMToken() + ", appDiagnostics=" + report.getDiagnostics() + ", appMasterHost="
-                    + report.getHost() + ", appQueue=" + report.getQueue() + ", appMasterRpcPort="
-                    + report.getRpcPort() + ", appStartTime=" + report.getStartTime() + ", yarnAppState="
-                    + report.getYarnApplicationState().toString() + ", distributedFinalState="
-                    + report.getFinalApplicationStatus().toString() + ", appTrackingUrl=" + report.getTrackingUrl()
-                    + ", appUser=" + report.getUser());
+            if (print) {
+                LOG.info("Got application report from ASM for" + ", appId=" + appId.getId() + ", clientToAMToken="
+                        + report.getClientToAMToken() + ", appDiagnostics=" + report.getDiagnostics()
+                        + ", appMasterHost=" + report.getHost() + ", appQueue=" + report.getQueue()
+                        + ", appMasterRpcPort=" + report.getRpcPort() + ", appStartTime=" + report.getStartTime()
+                        + ", yarnAppState=" + report.getYarnApplicationState().toString() + ", distributedFinalState="
+                        + report.getFinalApplicationStatus().toString() + ", appTrackingUrl=" + report.getTrackingUrl()
+                        + ", appUser=" + report.getUser());
+            }
 
             YarnApplicationState state = report.getYarnApplicationState();
             FinalApplicationStatus dsStatus = report.getFinalApplicationStatus();
             if (YarnApplicationState.FINISHED == state) {
                 if (FinalApplicationStatus.SUCCEEDED == dsStatus) {
-                    LOG.info("Application has completed successfully. Breaking monitoring loop");
+                    if (print) {
+                        LOG.info("Application has completed successfully. Breaking monitoring loop");
+                    }
                     return true;
                 } else {
-                    LOG.info("Application did finished unsuccessfully." + " YarnState=" + state.toString()
-                            + ", DSFinalStatus=" + dsStatus.toString() + ". Breaking monitoring loop");
+                    if (print) {
+                        LOG.info("Application did finished unsuccessfully." + " YarnState=" + state.toString()
+                                + ", DSFinalStatus=" + dsStatus.toString() + ". Breaking monitoring loop");
+                    }
                     return false;
                 }
             } else if (YarnApplicationState.KILLED == state || YarnApplicationState.FAILED == state) {
-                LOG.info("Application did not finish." + " YarnState=" + state.toString() + ", DSFinalStatus="
-                        + dsStatus.toString() + ". Breaking monitoring loop");
+                if (print) {
+                    LOG.info("Application did not finish." + " YarnState=" + state.toString() + ", DSFinalStatus="
+                            + dsStatus.toString() + ". Breaking monitoring loop");
+                }
                 return false;
             }
         }
@@ -779,10 +799,35 @@ public class Client {
      * 
      * @throws IOException
      * @throws IllegalArgumentException
+     * @throws YarnException
      */
-    private void removeInstance() throws IllegalArgumentException, IOException {
+    private void removeInstance(YarnClientApplication app, List<DFSResourceCoordinate> resources)
+            throws IllegalArgumentException, IOException, YarnException {
         FileSystem fs = FileSystem.get(conf);
-        fs.delete(new Path(CONF_DIR_REL + instanceFolder), true);
+        String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
+        Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
+        //if the instance is up, fix that
+        if (fs.exists(dstConf)) {
+            try {
+                this.stopInstance();
+            } catch (IOException | JAXBException e) {
+                LOG.info("Instance failed to stop gracefully, now killing it");
+                try {
+                    this.killApplication();
+                } catch (YarnException e1) {
+                    LOG.fatal("Could not stop nor kill instance gracefully.");
+                }
+            }
+        }
+        //now try deleting all of the on-disk artifacts on the cluster
+        ApplicationId deleter = deployAM(app, resources, true);
+        boolean deleted = monitorApplication(deleter, false);
+        if (!deleted) {
+            LOG.fatal("Cleanup of on-disk persistent resources failed.");
+        } else {
+            fs.delete(new Path(CONF_DIR_REL + instanceFolder), true);
+        }
+
     }
 
     /**

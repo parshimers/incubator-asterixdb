@@ -20,28 +20,26 @@ package edu.uci.ics.asterix.aoya;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
-import java.nio.file.Paths;
-import java.io.FileInputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
@@ -53,31 +51,21 @@ import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.apache.commons.compress.archivers.ArchiveException;
-import org.apache.commons.compress.archivers.ArchiveStreamFactory;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.ipc.Server;
-import org.apache.hadoop.ipc.RPC;
-import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.ApplicationConstants.Environment;
-import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;
 import org.apache.hadoop.yarn.api.ContainerManagementProtocol;
-import org.apache.hadoop.yarn.api.protocolrecords.AllocateRequest;
-import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
-import org.apache.hadoop.yarn.api.protocolrecords.FinishApplicationMasterRequest;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
-import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerExitStatus;
@@ -92,7 +80,6 @@ import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
-import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
@@ -111,8 +98,9 @@ import edu.uci.ics.asterix.common.configuration.Property;
 import edu.uci.ics.asterix.common.configuration.Store;
 import edu.uci.ics.asterix.common.configuration.TransactionLogDir;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
-import edu.uci.ics.asterix.event.schema.yarnCluster.*;
-import edu.uci.ics.asterix.aoya.MConstants;
+import edu.uci.ics.asterix.event.schema.yarnCluster.Cluster;
+import edu.uci.ics.asterix.event.schema.yarnCluster.MasterNode;
+import edu.uci.ics.asterix.event.schema.yarnCluster.Node;
 
 @InterfaceAudience.Public
 @InterfaceStability.Unstable
@@ -137,6 +125,8 @@ public class ApplicationMaster {
     private static String EXTERNAL_NC_JAVA_OPTS_DEFAULT = "-Xmx1024m";
     private String NcJavaOpts = EXTERNAL_NC_JAVA_OPTS_DEFAULT;
     private String CcJavaOpts = EXTERNAL_NC_JAVA_OPTS_DEFAULT;
+    private static final String OBLITERATOR_CLASSNAME = "edu.uci.ics.asterix.aoya.Deleter";
+
     // Configuration
     private Configuration conf;
 
@@ -206,6 +196,8 @@ public class ApplicationMaster {
     private volatile boolean success;
 
     private boolean instanceExists = false;
+    private boolean obliterate = false;
+    private Path AppMasterJar = null;
 
     // Launch threads
     private List<Thread> launchThreads = new ArrayList<Thread>();
@@ -218,7 +210,8 @@ public class ApplicationMaster {
             LOG.debug("config file loc: " + System.getProperty(GlobalConfig.CONFIG_FILE_PROPERTY));
             ApplicationMaster appMaster = new ApplicationMaster();
             LOG.info("Initializing ApplicationMaster");
-            boolean doRun = appMaster.init(args);
+            appMaster.setEnvs(appMaster.setArgs(args));
+            boolean doRun = appMaster.init();
             if (!doRun) {
                 System.exit(0);
             }
@@ -271,14 +264,14 @@ public class ApplicationMaster {
         conf = new YarnConfiguration();
     }
 
-    public boolean init(String[] args) throws ParseException, IOException, AsterixException {
-
+    public CommandLine setArgs(String[] args) throws ParseException {
         Options opts = new Options();
         opts.addOption("app_attempt_id", true, "App Attempt ID. Not to be used unless for testing purposes");
         opts.addOption("priority", true, "Application Priority. Default 0");
         opts.addOption("debug", false, "Dump out debug information");
         opts.addOption("help", false, "Print usage");
         opts.addOption("existing", false, "Initialize existing Asterix instance.");
+        opts.addOption("obliterate", false, "Delete asterix instance completely.");
         CommandLine cliParser = new GnuParser().parse(opts, args);
 
         if (args.length == 0) {
@@ -288,13 +281,19 @@ public class ApplicationMaster {
 
         if (cliParser.hasOption("help")) {
             printUsage(opts);
-            return false;
         }
 
         if (cliParser.hasOption("debug")) {
             dumpOutDebugInfo();
         }
 
+        if (cliParser.hasOption("obliterate")) {
+            obliterate = true;
+        }
+        return cliParser;
+    }
+
+    public void setEnvs(CommandLine cliParser) {
         Map<String, String> envs = System.getenv();
 
         if (!envs.containsKey(Environment.CONTAINER_ID.name())) {
@@ -338,11 +337,14 @@ public class ApplicationMaster {
 
         DFSpathSuffix = envs.get(MConstants.PATHSUFFIX);
         instanceConfPath = envs.get(MConstants.INSTANCESTORE);
+        AppMasterJar = new Path(envs.get(MConstants.APPLICATIONMASTERJARLOCATION));
+
         LOG.info("Path suffix: " + DFSpathSuffix);
+    }
 
-        localizeDFSResources();
-
+    public boolean init() throws ParseException, IOException, AsterixException {
         try {
+            localizeDFSResources();
             clusterDesc = parseYarnClusterConfig();
             CC = clusterDesc.getMasterNode();
             if (!instanceExists) {
@@ -594,6 +596,18 @@ public class ApplicationMaster {
      * @throws IOException
      */
     private void localizeDFSResources() throws IOException {
+        //if obliterating skip a lot of this.
+        if (obliterate) {
+            FileSystem fs = FileSystem.get(conf);
+            FileStatus appMasterJarStatus = fs.getFileStatus(AppMasterJar);
+            LocalResource obliteratorJar = Records.newRecord(LocalResource.class);
+            obliteratorJar.setType(LocalResourceType.FILE);
+            obliteratorJar.setVisibility(LocalResourceVisibility.APPLICATION);
+            obliteratorJar.setResource(ConverterUtils.getYarnUrlFromPath(AppMasterJar));
+            obliteratorJar.setTimestamp(appMasterJarStatus.getModificationTime());
+            obliteratorJar.setSize(appMasterJarStatus.getLen());
+            return;
+        }
 
         LocalResource asterixTar = Records.newRecord(LocalResource.class);
 
@@ -635,7 +649,7 @@ public class ApplicationMaster {
         //now add the libraries if there are any
         try {
             FileSystem fs = FileSystem.get(conf);
-            Path p = new Path(fs.getHomeDirectory(),instanceConfPath + "library/");
+            Path p = new Path(fs.getHomeDirectory(), instanceConfPath + "library/");
             if (fs.exists(p)) {
                 FileStatus[] dataverses = fs.listStatus(p);
                 for (FileStatus d : dataverses) {
@@ -651,8 +665,9 @@ public class ApplicationMaster {
                         lr.setTimestamp(l.getModificationTime());
                         lr.setType(LocalResourceType.ARCHIVE);
                         lr.setVisibility(LocalResourceVisibility.APPLICATION);
-                        localResources.put("library/"+d.getPath().getName()+"/"+l.getPath().getName().split("\\.")[0], lr);
-                        LOG.info("Found library: "+l.getPath().toString());
+                        localResources.put("library/" + d.getPath().getName() + "/"
+                                + l.getPath().getName().split("\\.")[0], lr);
+                        LOG.info("Found library: " + l.getPath().toString());
                         LOG.info(l.getPath().getName());
                     }
                 }
@@ -984,7 +999,12 @@ public class ApplicationMaster {
             	return;
             }
             */
-            List<String> startCmd = produceStartCmd(container);
+            List<String> startCmd = null;
+            if (obliterate) {
+                startCmd = produceObliterateCommand(container);
+            } else {
+                startCmd = produceStartCmd(container);
+            }
             for (String s : startCmd) {
                 LOG.info("Command to execute: " + s);
             }
@@ -1050,6 +1070,26 @@ public class ApplicationMaster {
             return commands;
         }
 
+        private List<String> produceObliterateCommand(Container container) {
+            Node local;
+            String iodevice = null;
+            try {
+                local = containerToNode(container, clusterDesc);
+                iodevice = local.getIodevices();
+            } catch (UnknownHostException e) {
+                LOG.error("Unable to find NC configured for host: " + container.getId() + e);
+            }
+            if (iodevice == null) {
+                iodevice = clusterDesc.getIodevices();
+            }
+            List<String> commands = new ArrayList<String>();
+            Vector<CharSequence> vargs = new Vector<CharSequence>(5);
+            vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
+            vargs.add(OBLITERATOR_CLASSNAME);
+            vargs.add(iodevice);
+            return commands;
+        }
+
         /**
          * Attempts to find the Node in the Cluster Description that matches this container
          * 
@@ -1089,10 +1129,6 @@ public class ApplicationMaster {
             } catch (UnknownHostException e) {
                 return false;
             }
-        }
-
-        private void probeMetadata(Cluster clusterDesc) {
-
         }
 
     }
