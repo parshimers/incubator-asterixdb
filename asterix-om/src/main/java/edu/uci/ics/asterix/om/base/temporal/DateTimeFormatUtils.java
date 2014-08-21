@@ -123,7 +123,7 @@ public class DateTimeFormatUtils {
     private final byte TO_LOWER_OFFSET = 'A' - 'a';
 
     private final String[] TZ_IDS = TimeZone.getAvailableIDs();
-    
+
     private final Charset ENCODING = Charset.forName("UTF-8");
 
     private Comparator<byte[]> byteArrayComparator = new Comparator<byte[]>() {
