@@ -17,7 +17,7 @@
 	<parent>
 		<artifactId>asterix</artifactId>
 		<groupId>edu.uci.ics.asterix</groupId>
-		<version>0.8.4-SNAPSHOT</version>
+		<version>0.8.6-SNAPSHOT</version>
 	</parent>
 	<artifactId>asterix-experiments</artifactId>
 
@@ -88,25 +88,25 @@
 		<dependency>
 			<groupId>edu.uci.ics.asterix</groupId>
 			<artifactId>asterix-aql</artifactId>
-			<version>0.8.4-SNAPSHOT</version>
+			<version>0.8.6-SNAPSHOT</version>
 			<scope>compile</scope>
 		</dependency>
 		<dependency>
 			<groupId>edu.uci.ics.asterix</groupId>
 			<artifactId>asterix-algebra</artifactId>
-			<version>0.8.4-SNAPSHOT</version>
+			<version>0.8.6-SNAPSHOT</version>
 			<scope>compile</scope>
 		</dependency>
 		<dependency>
 			<groupId>edu.uci.ics.asterix</groupId>
 			<artifactId>asterix-external-data</artifactId>
-			<version>0.8.4-SNAPSHOT</version>
+			<version>0.8.6-SNAPSHOT</version>
 			<scope>compile</scope>
 		</dependency>
 		<dependency>
 			<groupId>edu.uci.ics.asterix</groupId>
 			<artifactId>asterix-metadata</artifactId>
-			<version>0.8.4-SNAPSHOT</version>
+			<version>0.8.6-SNAPSHOT</version>
 			<scope>compile</scope>
 		</dependency>
 		<dependency>
@@ -138,7 +138,7 @@
 		<dependency>
 			<groupId>edu.uci.ics.asterix</groupId>
 			<artifactId>asterix-app</artifactId>
-			<version>0.8.4-SNAPSHOT</version>
+			<version>0.8.6-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>net.schmizz</groupId>
