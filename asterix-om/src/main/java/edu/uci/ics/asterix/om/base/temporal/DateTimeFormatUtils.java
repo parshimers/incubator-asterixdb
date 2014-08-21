@@ -124,7 +124,7 @@ public class DateTimeFormatUtils {
 
     private final String[] TZ_IDS = TimeZone.getAvailableIDs();
     
-    private final Charset encoding = Charset.forName("UTF-8");
+    private final Charset ENCODING = Charset.forName("UTF-8");
 
     private Comparator<byte[]> byteArrayComparator = new Comparator<byte[]>() {
         @Override
@@ -147,7 +147,7 @@ public class DateTimeFormatUtils {
     private final byte[][] TIMEZONE_IDS = new byte[TZ_IDS.length][];
     {
         for (int i = 0; i < TIMEZONE_IDS.length; i++) {
-            TIMEZONE_IDS[i] = TZ_IDS[i].getBytes(encoding);
+            TIMEZONE_IDS[i] = TZ_IDS[i].getBytes(ENCODING);
         }
         Arrays.sort(TIMEZONE_IDS, byteArrayComparator);
     }
@@ -155,7 +155,7 @@ public class DateTimeFormatUtils {
     private final int[] TIMEZONE_OFFSETS = new int[TIMEZONE_IDS.length];
     {
         for (int i = 0; i < TIMEZONE_IDS.length; i++) {
-            TIMEZONE_OFFSETS[i] = TimeZone.getTimeZone(new String(TIMEZONE_IDS[i], encoding)).getRawOffset();
+            TIMEZONE_OFFSETS[i] = TimeZone.getTimeZone(new String(TIMEZONE_IDS[i], ENCODING)).getRawOffset();
         }
     }
 
