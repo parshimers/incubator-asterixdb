@@ -91,7 +91,6 @@ public abstract class AbstractHDFSReader extends InputStream{
             public void progress(){
             }
 
-            @Override
             public float getProgress() {
                 return 0.0f;
             }

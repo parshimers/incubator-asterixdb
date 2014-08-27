@@ -20,21 +20,24 @@ package edu.uci.ics.asterix.aoya;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -51,9 +54,6 @@ import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -68,7 +68,6 @@ import org.apache.hadoop.yarn.api.ContainerManagementProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.Container;
-import org.apache.hadoop.yarn.api.records.ContainerExitStatus;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.ContainerState;
@@ -104,28 +103,29 @@ import edu.uci.ics.asterix.event.schema.yarnCluster.Node;
 
 @InterfaceAudience.Public
 @InterfaceStability.Unstable
-//TODO: this entire file is in danger of falling victim to the 'big ball of mud' antipattern.
 public class ApplicationMaster {
 
     private static final Log LOG = LogFactory.getLog(ApplicationMaster.class);
     private static final String CLUSTER_DESC_PATH = "cluster-config.xml";
-    private static final String ASTERIX_TAR_PATH = "asterix-server.tar";
-    private static final String WORKING_CONF_PATH = "asterix-server" + File.separator + "bin" + File.separator
+    private static final String WORKING_CONF_PATH = "asterix-server.zip" + File.separator + "bin" + File.separator
             + "asterix-configuration.xml";
-    private static final String ASTERIX_CC_BIN_PATH = "asterix-server" + File.separator + "bin" + File.separator
+    private static final String ASTERIX_CC_BIN_PATH = "asterix-server.zip" + File.separator + "bin" + File.separator
             + "asterixcc";
-    private static final String ASTERIX_NC_BIN_PATH = "asterix-server" + File.separator + "bin" + File.separator
+    private static final String ASTERIX_NC_BIN_PATH = "asterix-server.zip" + File.separator + "bin" + File.separator
             + "asterixnc";
 
     private Map<String, Property> asterixConfigurationParams;
+    private static final int CC_MEMORY_MBS_DEFAULT = 512;
+    private static final int NC_MEMORY_MBS_DEFAULT = 2048;
     private static final String EXTERNAL_CC_JAVA_OPTS_KEY = "cc.java.opts";
-    private static String EXTERNAL_CC_JAVA_OPTS_DEFAULT = "-Xmx1024m";
+    private static String EXTERNAL_CC_JAVA_OPTS_DEFAULT = "-Xmx" + CC_MEMORY_MBS_DEFAULT + "m";
 
     private static final String EXTERNAL_NC_JAVA_OPTS_KEY = "nc.java.opts";
-    private static String EXTERNAL_NC_JAVA_OPTS_DEFAULT = "-Xmx1024m";
+    private static String EXTERNAL_NC_JAVA_OPTS_DEFAULT = "-Xmx" + NC_MEMORY_MBS_DEFAULT + "m";
     private String NcJavaOpts = EXTERNAL_NC_JAVA_OPTS_DEFAULT;
     private String CcJavaOpts = EXTERNAL_NC_JAVA_OPTS_DEFAULT;
     private static final String OBLITERATOR_CLASSNAME = "edu.uci.ics.asterix.aoya.Deleter";
+    private static boolean doneAllocating = false;
 
     // Configuration
     private Configuration conf;
@@ -182,8 +182,6 @@ public class ApplicationMaster {
 
     private int numTotalContainers = 0;
 
-    private String DFSpathSuffix = "";
-
     // Set the local resources
     private Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
 
@@ -198,6 +196,7 @@ public class ApplicationMaster {
     private boolean instanceExists = false;
     private boolean obliterate = false;
     private Path AppMasterJar = null;
+    private boolean refresh = false;
 
     // Launch threads
     private List<Thread> launchThreads = new ArrayList<Thread>();
@@ -238,7 +237,7 @@ public class ApplicationMaster {
             System.out.println("System env: key=" + env.getKey() + ", val=" + env.getValue());
         }
 
-        String cmd = "ls -al";
+        String cmd = "ls -alhLR";
         Runtime run = Runtime.getRuntime();
         Process pr = null;
         try {
@@ -272,6 +271,7 @@ public class ApplicationMaster {
         opts.addOption("help", false, "Print usage");
         opts.addOption("existing", false, "Initialize existing Asterix instance.");
         opts.addOption("obliterate", false, "Delete asterix instance completely.");
+        opts.addOption("refresh", false, "Refresh all resources");
         CommandLine cliParser = new GnuParser().parse(opts, args);
 
         if (args.length == 0) {
@@ -289,6 +289,10 @@ public class ApplicationMaster {
 
         if (cliParser.hasOption("obliterate")) {
             obliterate = true;
+        }
+
+        if (cliParser.hasOption("refresh")) {
+            refresh = true;
         }
         return cliParser;
     }
@@ -335,23 +339,21 @@ public class ApplicationMaster {
         asterixConfTimestamp = Long.parseLong(envs.get(MConstants.CONFTIMESTAMP));
         asterixConfLen = Long.parseLong(envs.get(MConstants.CONFLEN));
 
-        DFSpathSuffix = envs.get(MConstants.PATHSUFFIX);
         instanceConfPath = envs.get(MConstants.INSTANCESTORE);
         AppMasterJar = new Path(envs.get(MConstants.APPLICATIONMASTERJARLOCATION));
 
-        LOG.info("Path suffix: " + DFSpathSuffix);
+        LOG.info("Path suffix: " + instanceConfPath);
     }
 
-    public boolean init() throws ParseException, IOException, AsterixException {
+    public boolean init() throws ParseException, IOException, AsterixException, JAXBException {
         try {
             localizeDFSResources();
             clusterDesc = parseYarnClusterConfig();
             CC = clusterDesc.getMasterNode();
-            if (!instanceExists) {
-                writeAsterixConfig(clusterDesc);
-            } else {
+            if (!instanceExists || refresh) {
                 writeAsterixConfig(clusterDesc);
             }
+            distributeAsterixConfig();
             //now let's read what's in there so we can set the JVM opts right
             LOG.debug("config file loc: " + System.getProperty(GlobalConfig.CONFIG_FILE_PROPERTY));
 
@@ -360,7 +362,7 @@ public class ApplicationMaster {
         } catch (FileNotFoundException | JAXBException | IllegalStateException e) {
             LOG.error("Could not deserialize Cluster Config from disk- aborting!");
             LOG.error(e);
-            return false;
+            throw e;
         }
 
         return true;
@@ -432,14 +434,21 @@ public class ApplicationMaster {
         JAXBContext ctx = JAXBContext.newInstance(AsterixConfiguration.class);
         Marshaller marshaller = ctx.createMarshaller();
         marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
+        //make config writeable
+        Set<PosixFilePermission> perms = new HashSet(Arrays.asList(new PosixFilePermission[] {
+                PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE, PosixFilePermission.OWNER_WRITE }));
+        Files.setPosixFilePermissions(java.nio.file.Paths.get(WORKING_CONF_PATH), perms);
         FileOutputStream os = new FileOutputStream(WORKING_CONF_PATH);
         marshaller.marshal(configuration, os);
         os.close();
         //now put this to HDFS so our NCs and CC can use it. 
+    }
+
+    private void distributeAsterixConfig() throws IOException {
         FileSystem fs = FileSystem.get(conf);
         File srcfile = new File(WORKING_CONF_PATH);
         Path src = new Path(srcfile.getCanonicalPath());
-        String pathSuffix = DFSpathSuffix + File.separator + "asterix-configuration.xml";
+        String pathSuffix = instanceConfPath + File.separator + "asterix-configuration.xml";
         Path dst = new Path(fs.getHomeDirectory(), pathSuffix);
         fs.copyFromLocalFile(false, true, src, dst);
         URI paramLocation = dst.toUri();
@@ -456,43 +465,6 @@ public class ApplicationMaster {
 
     }
 
-    private void unTarAsterixConf() throws IOException {
-        LOG.info("Untarring " + ASTERIX_TAR_PATH);
-        File tarball = new File(ASTERIX_TAR_PATH);
-        if (!tarball.isFile()) {
-            LOG.error("Tar not found!");
-            return;
-        }
-        TarArchiveInputStream tar = new TarArchiveInputStream(new FileInputStream(tarball));
-        TarArchiveEntry current = tar.getNextTarEntry();
-        //make the extraction dir...
-        new File("asterix-server/").mkdir();
-        while (current != null) {
-            LOG.info("Extracting File: " + current.getName());
-            File output = new File(new File("./asterix-server").getCanonicalPath() + File.separator + current.getName());
-            if (output.exists()) {
-                LOG.info("File exists: " + output.getName());
-                current = tar.getNextTarEntry();
-                continue;
-            }
-            //decide if we want to write this or not...
-            if (current.isDirectory()) {
-                if (!output.mkdirs())
-                    LOG.info("Couldn't make directory: " + output.getCanonicalPath());;
-                current = tar.getNextTarEntry();
-                continue;
-            }
-            if (!output.getParentFile().exists())
-                output.getParentFile().mkdirs();
-            OutputStream os = new FileOutputStream(output);
-            IOUtils.copy(tar, os);
-            LOG.info("Untarred " + output.getName());
-            os.close();
-            current = tar.getNextTarEntry();
-        }
-        tar.close();
-    }
-
     /**
      * Loads the basic Asterix configuration file that is embedded in the
      * distributable tar file
@@ -503,7 +475,6 @@ public class ApplicationMaster {
     private AsterixConfiguration loadBaseAsterixConfig() throws IOException, JAXBException {
         //now oddly enough, at the AM, we won't have this file un-tarred even though i said it was an archive (go figure)
         //so let's do that 
-        unTarAsterixConf();
         File f = new File(WORKING_CONF_PATH);
         JAXBContext configCtx = JAXBContext.newInstance(AsterixConfiguration.class);
         Unmarshaller unmarshaller = configCtx.createUnmarshaller();
@@ -519,7 +490,7 @@ public class ApplicationMaster {
     private void requestResources(Cluster c) throws YarnException, UnknownHostException {
         //request CC
         int numNodes = 0;
-        ContainerRequest ccAsk = hostToRequest(CC.getClusterIp());
+        ContainerRequest ccAsk = hostToRequest(CC.getClusterIp(), true);
         resourceManager.addContainerRequest(ccAsk);
         LOG.info("Asked for CC: " + CC.getClusterIp());
         numNodes++;
@@ -546,13 +517,14 @@ public class ApplicationMaster {
         }
         //request NCs
         for (Node n : c.getNode()) {
-            resourceManager.addContainerRequest(hostToRequest(n.getClusterIp()));
+            resourceManager.addContainerRequest(hostToRequest(n.getClusterIp(), false));
             LOG.info("Asked for NC: " + n.getClusterIp());
             numNodes++;
         }
         LOG.info("Requested all NCs and CCs. Wait for things to settle!");
         numRequestedContainers.set(numNodes);
         numTotalContainers = numNodes;
+        doneAllocating = true;
 
     }
 
@@ -561,21 +533,25 @@ public class ApplicationMaster {
      * 
      * @param host
      *            The host to request
+     * @param cc
+     *            Whether or not the host is the CC
      * @return A container request that is (hopefully) for the host we asked for.
      */
-    private ContainerRequest hostToRequest(String host) throws UnknownHostException {
+    private ContainerRequest hostToRequest(String host, boolean cc) throws UnknownHostException {
         InetAddress hostIp = InetAddress.getByName(host);
         Priority pri = Records.newRecord(Priority.class);
         pri.setPriority(0);
         Resource capability = Records.newRecord(Resource.class);
-        capability.setMemory(2048);
-        //we dont set anything because we don't care about that
+        if (cc) {
+            capability.setMemory(CC_MEMORY_MBS_DEFAULT);
+        } else {
+            capability.setMemory(NC_MEMORY_MBS_DEFAULT);
+        }
+        //we dont set anything else because we don't care about that and yarn doesn't honor it yet
         String[] hosts = new String[1];
         //TODO this is silly
         hosts[0] = hostIp.getHostName().split("\\.")[0];
         LOG.info("IP addr: " + host + " resolved to " + hostIp.getHostName());
-        // last flag must be false (relaxLocality)
-        //changed for testing?????
         ContainerRequest request = new ContainerRequest(capability, hosts, null, pri, false);
         LOG.info("Requested host ask: " + request.getNodes());
         return request;
@@ -606,6 +582,8 @@ public class ApplicationMaster {
             obliteratorJar.setResource(ConverterUtils.getYarnUrlFromPath(AppMasterJar));
             obliteratorJar.setTimestamp(appMasterJarStatus.getModificationTime());
             obliteratorJar.setSize(appMasterJarStatus.getLen());
+            localResources.put("asterix-yarn.jar", obliteratorJar);
+            LOG.info(localResources.values());
             return;
         }
 
@@ -628,7 +606,7 @@ public class ApplicationMaster {
 
         asterixTar.setTimestamp(asterixTarTimestamp);
         asterixTar.setSize(asterixTarLen);
-        localResources.put("asterix-server", asterixTar);
+        localResources.put("asterix-server.zip", asterixTar);
 
         //now let's do the same for the cluster description XML
         LocalResource asterixConf = Records.newRecord(LocalResource.class);
@@ -805,19 +783,8 @@ public class ApplicationMaster {
                 int exitStatus = containerStatus.getExitStatus();
                 if (0 != exitStatus) {
                     // container failed
-                    if (ContainerExitStatus.ABORTED != exitStatus) {
-                        // shell script failed
-                        // counts as completed
-                        numCompletedContainers.incrementAndGet();
-                        numFailedContainers.incrementAndGet();
-                    } else {
-                        // container was killed by framework, possibly preempted
-                        // we should re-try as the container was lost for some reason
-                        numAllocatedContainers.decrementAndGet();
-                        numRequestedContainers.decrementAndGet();
-                        // we do not need to release the container as it would be done
-                        // by the RM
-                    }
+                    numCompletedContainers.incrementAndGet();
+                    numFailedContainers.incrementAndGet();
                 } else {
                     // nothing to do
                     // container completed successfully
@@ -826,7 +793,8 @@ public class ApplicationMaster {
                 }
             }
             //stop infinite looping of run()
-            if (numCompletedContainers.get() + numFailedContainers.get() == numAllocatedContainers.get())
+            if (numCompletedContainers.get() + numFailedContainers.get() == numAllocatedContainers.get()
+                    && doneAllocating)
                 done = true;
         }
 
@@ -872,6 +840,9 @@ public class ApplicationMaster {
 
         public float getProgress() {
             //return half way because progress is basically meaningless for us
+            if (!doneAllocating) {
+                return 0.0f;
+            }
             return (float) 0.5;
         }
 
@@ -1082,11 +1053,30 @@ public class ApplicationMaster {
             if (iodevice == null) {
                 iodevice = clusterDesc.getIodevices();
             }
+            StringBuilder classPathEnv = new StringBuilder("").append("./*");
+            for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH,
+                    YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH)) {
+                classPathEnv.append(File.pathSeparatorChar);
+                classPathEnv.append(c.trim());
+            }
+            classPathEnv.append(File.pathSeparatorChar).append("." + File.separator + "log4j.properties");
+
             List<String> commands = new ArrayList<String>();
             Vector<CharSequence> vargs = new Vector<CharSequence>(5);
             vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
+            vargs.add("-cp " + classPathEnv.toString());
             vargs.add(OBLITERATOR_CLASSNAME);
             vargs.add(iodevice);
+            LOG.debug("Deleting: " + iodevice);
+            vargs.add(clusterDesc.getTxnLogDir() + "txnLogs" + File.separator);
+            LOG.debug("Deleting " + clusterDesc.getTxnLogDir() + "txnLogs" + File.separator);
+            vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout");
+            vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr");
+            StringBuilder command = new StringBuilder();
+            for (CharSequence str : vargs) {
+                command.append(str).append(" ");
+            }
+            commands.add(command.toString());
             return commands;
         }
 

@@ -110,6 +110,11 @@ public class HDFSAdapter extends FileSystemBasedAdapter {
         return reporter;
     }
 
+    /*
+     * The method below was modified to take care of the following
+     * 1. when target files are not null, it generates a file aware input stream that validate against the files
+     * 2. if the data is binary, it returns a generic reader
+     */
     @Override
     public InputStream getInputStream(int partition) throws IOException {
         if ((conf.getInputFormat() instanceof TextInputFormat || conf.getInputFormat() instanceof SequenceFileInputFormat)

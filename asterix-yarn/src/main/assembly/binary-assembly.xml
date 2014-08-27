@@ -16,7 +16,6 @@
 	<id>binary-assembly</id>
 	<formats>
         <format>jar</format>
-        <format>tar</format>
         <format>dir</format>
 	</formats>
 	<includeBaseDirectory>false</includeBaseDirectory>

@@ -1,12 +1,26 @@
 package edu.uci.ics.asterix.aoya;
 
 import java.io.File;
+import java.io.IOException;
+import java.util.Arrays;
+
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 public class Deleter {
-    public static void main(String[] args) {
-        for (int i = 1; i < args.length; i++) {
+    private static final Log LOG = LogFactory.getLog(Deleter.class);
+
+    public static void main(String[] args) throws IOException {
+        LOG.info("Obliterator args: " + Arrays.toString(args));
+        for (int i = 0; i < args.length; i++) {
             File f = new File(args[i]);
-            f.delete();
+            if (f.exists()) {
+                LOG.info("Deleting: " + f.getPath());
+                FileUtils.deleteDirectory(f);
+            } else {
+                LOG.error("Could not find file to delete: " + f.getPath());
+            }
         }
     }
 }
