@@ -49,6 +49,8 @@ public class DateTimeFormatUtils {
 
     private final GregorianCalendarSystem CAL = GregorianCalendarSystem.getInstance();
 
+    private final Charset ENCODING = Charset.forName("UTF-8");
+
     // For time
     private final char HOUR_CHAR = 'h';
     private final char MINUTE_CHAR = 'm';
@@ -91,19 +93,20 @@ public class DateTimeFormatUtils {
     private final int MAX_DAY_CHARS = 2;
     private final int MAX_WEEKDAY_CHAR = 1;
 
-    private final byte[][] MONTH_NAMES = new byte[][] { "jan".getBytes(), "feb".getBytes(), "mar".getBytes(),
-            "apr".getBytes(), "may".getBytes(), "jun".getBytes(), "jul".getBytes(), "aug".getBytes(), "sep".getBytes(),
-            "oct".getBytes(), "nov".getBytes(), "dec".getBytes() };
+    private final byte[][] MONTH_NAMES = new byte[][] { "jan".getBytes(ENCODING), "feb".getBytes(ENCODING),
+            "mar".getBytes(ENCODING), "apr".getBytes(ENCODING), "may".getBytes(ENCODING), "jun".getBytes(ENCODING),
+            "jul".getBytes(ENCODING), "aug".getBytes(ENCODING), "sep".getBytes(ENCODING), "oct".getBytes(ENCODING),
+            "nov".getBytes(ENCODING), "dec".getBytes(ENCODING) };
 
-    private final byte[][] WEEKDAY_FULL_NAMES = new byte[][] { "monday".getBytes(), "tuesday".getBytes(),
-            "wednesday".getBytes(), "thursday".getBytes(), "friday".getBytes(), "saturday".getBytes(),
-            "sunday".getBytes() };
+    private final byte[][] WEEKDAY_FULL_NAMES = new byte[][] { "monday".getBytes(ENCODING),
+            "tuesday".getBytes(ENCODING), "wednesday".getBytes(ENCODING), "thursday".getBytes(ENCODING),
+            "friday".getBytes(ENCODING), "saturday".getBytes(ENCODING), "sunday".getBytes(ENCODING) };
 
-    private final byte[] UTC_BYTEARRAY = "utc".getBytes();
-    private final byte[] GMT_BYTEARRAY = "gmt".getBytes();
+    private final byte[] UTC_BYTEARRAY = "utc".getBytes(ENCODING);
+    private final byte[] GMT_BYTEARRAY = "gmt".getBytes(ENCODING);
 
-    private final byte[] AM_BYTEARRAY = "am".getBytes();
-    private final byte[] PM_BYTEARRAY = "pm".getBytes();
+    private final byte[] AM_BYTEARRAY = "am".getBytes(ENCODING);
+    private final byte[] PM_BYTEARRAY = "pm".getBytes(ENCODING);
 
     // Separators, for both time and date
     private final char HYPHEN_CHAR = '-';
@@ -124,7 +127,6 @@ public class DateTimeFormatUtils {
 
     private final String[] TZ_IDS = TimeZone.getAvailableIDs();
 
-    private final Charset ENCODING = Charset.forName("UTF-8");
 
     private Comparator<byte[]> byteArrayComparator = new Comparator<byte[]>() {
         @Override
