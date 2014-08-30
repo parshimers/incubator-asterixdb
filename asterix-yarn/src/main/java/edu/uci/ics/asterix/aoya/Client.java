@@ -69,16 +69,45 @@ import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 
+import com.google.common.collect.ImmutableMap;
+
 import edu.uci.ics.asterix.event.schema.yarnCluster.Cluster;
 
 @InterfaceAudience.Public
 @InterfaceStability.Unstable
 public class Client {
 
+    public static enum Mode {
+        INSTALL("install"),
+        START("start"),
+        STOP("stop"),
+        KILL("kill"),
+        DESTROY("destroy"),
+        ALTER("alter"),
+        LIBINSTALL("libinstall"),
+        DESCRIBE("describe"),
+        BACKUP("backup"),
+        RESTORE("restore");
+
+        public final String alias;
+        public static final Map<String, Client.Mode> STRING_TO_MODE = ImmutableMap.<String, Client.Mode> builder()
+                .put(INSTALL.alias, INSTALL).put(START.alias, START).put(STOP.alias, STOP).put(KILL.alias, KILL)
+                .put(DESTROY.alias, DESTROY).put(ALTER.alias, ALTER).put(LIBINSTALL.alias, LIBINSTALL)
+                .put(DESCRIBE.alias, DESCRIBE).put(BACKUP.alias, BACKUP).put(RESTORE.alias, RESTORE).build();
+
+        Mode(String alias) {
+            this.alias = alias;
+        }
+
+        public static Mode fromAlias(String a) {
+            return STRING_TO_MODE.get(a.toLowerCase());
+        }
+    }
+
     private static final Log LOG = LogFactory.getLog(Client.class);
     private static final String CONF_DIR_REL = ".asterix" + File.separator;
     private static final String instanceLock = "instance";
-    private static String mode;
+    private static Mode mode;
 
     // Configuration
     private Configuration conf;
@@ -138,13 +167,13 @@ public class Client {
         try {
             Client client = new Client();
             try {
-                String verb = client.init(args);
-                switch (verb) {
-                    case "start":
+                client.init(args);
+                switch (mode) {
+                    case START:
                         YarnClientApplication app = client.makeApplicationContext();
                         List<DFSResourceCoordinate> res = client.deployConfig();
                         res.addAll(client.distributeBinaries());
-                        ApplicationId appId = client.deployAM(app, res, false);
+                        ApplicationId appId = client.deployAM(app, res, mode);
                         LOG.info("Asterix started up with Application ID: " + appId.toString());
                         if (client.waitForLiveness(appId, true, "Waiting for AsterixDB instance to resume ")) {
                             System.out.println("Asterix successfully deployed and is now running.");
@@ -153,23 +182,24 @@ public class Client {
                             System.exit(1);
                         }
                         break;
-                    case "stop":
+                    case STOP:
                         client.stopInstance();
                         break;
-                    case "kill":
-                        client.killApplication();
+                    case KILL:
+                        Utils.confirmAction("Are you sure you want to kill this instance? In-progress tasks will be aborted");
+                        Client.killApplication(client.getLockFile(), client.yarnClient);
                         break;
-                    case "describe":
-                        Client.listInstances(client.conf);
+                    case DESCRIBE:
+                        Utils.listInstances(client.conf, CONF_DIR_REL);
                         break;
-                    case "install":
+                    case INSTALL:
                         try {
                             app = client.makeApplicationContext();
                             client.installConfig();
                             res = client.deployConfig();
                             res.addAll(client.distributeBinaries());
 
-                            appId = client.deployAM(app, res, false);
+                            appId = client.deployAM(app, res, mode);
                             LOG.info("Asterix started up with Application ID: " + appId.toString());
                             if (client.waitForLiveness(appId, true, "Waiting for new AsterixDB Instance to start ")) {
                                 System.out.println("Asterix successfully deployed and is now running.");
@@ -182,13 +212,14 @@ public class Client {
                             throw e;
                         }
                         break;
-                    case "libinstall":
+                    case LIBINSTALL:
                         client.installExtLibs();
                         break;
-                    case "alter":
+                    case ALTER:
                         break;
-                    case "destroy":
+                    case DESTROY:
                         try {
+                            Utils.confirmAction("Are you really sure you want to obliterate this instance? This action cannot be undone!");
                             app = client.makeApplicationContext();
                             res = client.deployConfig();
                             res.addAll(client.distributeBinaries());
@@ -197,6 +228,20 @@ public class Client {
                             LOG.error("Asterix failed to deploy on to cluster");
                             throw e;
                         }
+                        break;
+                    case BACKUP:
+                        Utils.confirmAction("Performing a backup will stop a running instance.");
+                        app = client.makeApplicationContext();
+                        res = client.deployConfig();
+                        res.addAll(client.distributeBinaries());
+                        client.backupInstance(app, res);
+                        break;
+                    case RESTORE:
+                        Utils.confirmAction("Performing a restore will stop a running instance.");
+                        app = client.makeApplicationContext();
+                        res = client.deployConfig();
+                        res.addAll(client.distributeBinaries());
+                        client.restoreInstance(app, res);
                         break;
                     default:
                         LOG.fatal("Unknown action. Known actions are: start, stop, install, status, kill");
@@ -268,7 +313,7 @@ public class Client {
      * @return Whether the init was successful to run the client
      * @throws ParseException
      */
-    public String init(String[] args) throws ParseException {
+    public Mode init(String[] args) throws ParseException {
 
         CommandLine cliParser = new GnuParser().parse(opts, args);
 
@@ -285,11 +330,11 @@ public class Client {
             LOG.fatal("Too many arguments.");
             throw new IllegalArgumentException();
         }
-        mode = clientVerb.get(0);
+        mode = Mode.fromAlias(clientVerb.get(0));
 
         if (cliParser.hasOption("help")) {
             printUsage();
-            return new String();
+            return null;
         }
 
         if (cliParser.hasOption("debug")) {
@@ -312,7 +357,7 @@ public class Client {
 
         appMasterJar = cliParser.getOptionValue("jar");
 
-        if (!cliParser.hasOption("name") && !mode.equals("describe")) {
+        if (!cliParser.hasOption("name") && mode != Mode.DESCRIBE) {
             throw new IllegalArgumentException("You must give a name for the instance to be deployed/altered");
         }
         instanceName = cliParser.getOptionValue("name");
@@ -320,7 +365,7 @@ public class Client {
 
         appName = appName + '-' + instanceName;
 
-        if (!cliParser.hasOption("asterixTar") && (mode.equals("install") || cliParser.hasOption("refresh"))) {
+        if (!cliParser.hasOption("asterixTar") && (mode != Mode.INSTALL || cliParser.hasOption("refresh"))) {
             throw new IllegalArgumentException("You must include an Asterix TAR to distribute!");
         }
         asterixTar = cliParser.getOptionValue("asterixTar");
@@ -340,9 +385,9 @@ public class Client {
                     + " Specified containerMemory=" + containerMemory + ", numContainer=" + numContainers);
         }
         log4jPropFile = cliParser.getOptionValue("log_properties", "");
-        if (cliParser.hasOption("refresh") && mode.equals("start")) {
+        if (cliParser.hasOption("refresh") && mode == Mode.INSTALL) {
             refresh = true;
-        } else if (cliParser.hasOption("refresh") && !mode.equals("start")) {
+        } else if (cliParser.hasOption("refresh") && mode != Mode.START) {
             throw new IllegalArgumentException("Cannot specify refresh in any mode besides start, mode is: " + mode);
         }
         return mode;
@@ -367,9 +412,9 @@ public class Client {
             ApplicationReport previousAppReport = yarnClient.getApplicationReport(lockAppId);
             YarnApplicationState prevStatus = previousAppReport.getYarnApplicationState();
             if (!(prevStatus == YarnApplicationState.FAILED || prevStatus == YarnApplicationState.KILLED || prevStatus == YarnApplicationState.FINISHED)
-                    && !mode.equals("destroy")) {
+                    && mode != Mode.DESTROY) {
                 throw new IllegalStateException("Instance is already running in: " + lockAppId);
-            } else if (!mode.equals("destroy")) {
+            } else if (mode != Mode.DESTROY) {
                 //stale lock file
                 LOG.warn("Stale lockfile detected. Instance attempt " + lockAppId + " may have exited abnormally");
                 deleteLockFile();
@@ -434,15 +479,15 @@ public class Client {
         Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
         try {
             FileStatus st = fs.getFileStatus(dstConf);
-            if (mode.equals("install")) {
+            if (mode == Mode.INSTALL) {
                 throw new IllegalStateException("Instance with this name already exists.");
             }
         } catch (FileNotFoundException e) {
-            if (mode.equals("start")) {
+            if (mode == Mode.START) {
                 throw new IllegalStateException("Instance does not exist for this user");
             }
         }
-        if (mode.equals("install")) {
+        if (mode == Mode.INSTALL) {
             Path src = new Path(asterixConf);
             fs.copyFromLocalFile(false, true, src, dstConf);
         }
@@ -603,7 +648,7 @@ public class Client {
         return resources;
     }
 
-    public ApplicationId deployAM(YarnClientApplication app, List<DFSResourceCoordinate> resources, boolean obliterate)
+    public ApplicationId deployAM(YarnClientApplication app, List<DFSResourceCoordinate> resources, Mode mode)
             throws IOException, YarnException {
 
         // Set up the container launch context for the application master
@@ -674,8 +719,14 @@ public class Client {
         if (debugFlag) {
             vargs.add("-debug");
         }
-        if (obliterate) {
+        if (mode == Mode.DESTROY) {
             vargs.add("-obliterate");
+        }
+        if (mode == Mode.BACKUP) {
+            vargs.add("-backup");
+        }
+        if (mode == Mode.RESTORE) {
+            vargs.add("-restore");
         }
         if (refresh) {
             vargs.add("-refresh");
@@ -729,7 +780,7 @@ public class Client {
         yarnClient.submitApplication(appContext);
 
         //now write the instance lock
-        if (!obliterate) {
+        if (mode == Mode.INSTALL || mode == mode.START) {
             FileSystem fs = FileSystem.get(conf);
             Path lock = new Path(fs.getHomeDirectory(), CONF_DIR_REL + instanceFolder + instanceLock);
             if (fs.exists(lock)) {
@@ -747,8 +798,7 @@ public class Client {
 
     }
 
-    private void killApplication() throws YarnException, IOException {
-        ApplicationId appId = getLockFile();
+    public static void killApplication(ApplicationId appId, YarnClient yarnClient) throws YarnException, IOException {
         if (appId == null) {
             throw new YarnException("No Application given to kill");
         }
@@ -790,7 +840,7 @@ public class Client {
             throw new IllegalArgumentException("No instance configured with that name exists");
         }
         //now try deleting all of the on-disk artifacts on the cluster
-        ApplicationId deleter = deployAM(app, resources, true);
+        ApplicationId deleter = deployAM(app, resources, Mode.DESTROY);
         boolean delete_start = waitForLiveness(deleter, false, "Waiting for deletion to start");
         if (!delete_start) {
             LOG.fatal("Cleanup of on-disk persistient resources failed.");
@@ -804,6 +854,64 @@ public class Client {
         }
         System.out.println("Deletion of instance succeeded.");
 
+    }
+
+    private void backupInstance(YarnClientApplication app, List<DFSResourceCoordinate> resources) throws IOException,
+            YarnException, JAXBException {
+        FileSystem fs = FileSystem.get(conf);
+        String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
+        Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
+        //if the instance is up, fix that
+        if (isRunning()) {
+            try {
+                this.stopInstance();
+            } catch (IOException | JAXBException e) {
+                LOG.fatal("Could not stop nor kill instance gracefully.- instance lockfile may be stale");
+            }
+        } else if (!fs.exists(dstConf)) {
+            throw new IllegalArgumentException("No instance configured with that name exists");
+        }
+        //now try deleting all of the on-disk artifacts on the cluster
+        ApplicationId backerUpper = deployAM(app, resources, Mode.BACKUP);
+        boolean backupStart = waitForLiveness(backerUpper, false, "Waiting for backup to start");
+        if (!backupStart) {
+            LOG.fatal("Backup failed to start");
+            throw new YarnException();
+        }
+        boolean complete = waitForCompletion(backerUpper, "Backup in progress");
+        if (!complete) {
+            LOG.fatal("Backup failed.");
+        }
+        System.out.println("Backup of instance succeeded.");
+    }
+
+    private void restoreInstance(YarnClientApplication app, List<DFSResourceCoordinate> resources) throws IOException,
+            YarnException, JAXBException {
+        FileSystem fs = FileSystem.get(conf);
+        String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
+        Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
+        //if the instance is up, fix that
+        if (isRunning()) {
+            try {
+                this.stopInstance();
+            } catch (IOException | JAXBException e) {
+                LOG.fatal("Could not stop nor kill instance gracefully.- instance lockfile may be stale");
+            }
+        } else if (!fs.exists(dstConf)) {
+            throw new IllegalArgumentException("No instance configured with that name exists");
+        }
+        //now try deleting all of the on-disk artifacts on the cluster
+        ApplicationId restorer = deployAM(app, resources, Mode.BACKUP);
+        boolean restoreStart = waitForLiveness(restorer, false, "Waiting for restore to start");
+        if (!restoreStart) {
+            LOG.fatal("Restore failed to start");
+            throw new YarnException();
+        }
+        boolean complete = waitForCompletion(restorer, "Restore in progress");
+        if (!complete) {
+            LOG.fatal("Restore failed.");
+        }
+        System.out.println("Restoration of instance succeeded.");
     }
 
     /**
@@ -833,7 +941,7 @@ public class Client {
         } catch (IOException | JAXBException e) {
             LOG.warn("Instance failed to stop gracefully, now killing it");
             try {
-                this.killApplication();
+                Client.killApplication(appId, yarnClient);
             } catch (YarnException e1) {
                 LOG.fatal("Could not stop nor kill instance gracefully.");
                 return;
@@ -845,7 +953,7 @@ public class Client {
         if (!completed) {
             LOG.warn("Instance failed to stop gracefully, now killing it");
             try {
-                this.killApplication();
+                Client.killApplication(appId, yarnClient);
             } catch (YarnException e1) {
                 LOG.fatal("Could not stop nor kill instance gracefully.");
                 return;
@@ -893,7 +1001,7 @@ public class Client {
         return ConverterUtils.toApplicationId(lockAppId);
     }
 
-    private static ApplicationId getLockFile(String instanceName, Configuration conf) throws IOException {
+    public static ApplicationId getLockFile(String instanceName, Configuration conf) throws IOException {
         if (instanceName == "") {
             throw new IllegalStateException("Instance name not given.");
         }
@@ -921,27 +1029,6 @@ public class Client {
         Cluster cl = (Cluster) unm.unmarshal(tmp);
         String ccIp = cl.getMasterNode().getClientIp();
         return ccIp;
-    }
-
-    private static void listInstances(Configuration conf) throws IOException {
-        FileSystem fs = FileSystem.get(conf);
-        Path instanceFolder = new Path(fs.getHomeDirectory(), CONF_DIR_REL);
-        FileStatus[] instances = fs.listStatus(instanceFolder);
-        if (instances.length != 0) {
-            System.out.println("Existing Asterix instances: ");
-        } else {
-            System.out.println("No running or stopped Asterix instances exist in this cluster");
-        }
-        for (int i = 0; i < instances.length; i++) {
-            FileStatus st = instances[i];
-            String name = st.getPath().getName();
-            ApplicationId lockFile = Client.getLockFile(name, conf);
-            if (lockFile != null) {
-                System.out.println("Instance " + name + " is running with Application ID: " + lockFile.toString());
-            } else {
-                System.out.println("Instance " + name + " is stopped");
-            }
-        }
     }
 
     private boolean waitForLiveness(ApplicationId appId, boolean probe, String message) throws YarnException,

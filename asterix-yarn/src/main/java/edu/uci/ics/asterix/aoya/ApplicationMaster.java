@@ -125,6 +125,8 @@ public class ApplicationMaster {
     private String NcJavaOpts = EXTERNAL_NC_JAVA_OPTS_DEFAULT;
     private String CcJavaOpts = EXTERNAL_NC_JAVA_OPTS_DEFAULT;
     private static final String OBLITERATOR_CLASSNAME = "edu.uci.ics.asterix.aoya.Deleter";
+    private static final String HDFS_BACKUP_CLASSNAME = "edu.uci.ics.asterix.aoya.HDFSBackup";
+    private static final String LOCAL_BACKUP_CLASSNAME = "edu.uci.ics.asterix.aoya.LocalBackup";
     private static boolean doneAllocating = false;
 
     // Configuration
@@ -165,11 +167,11 @@ public class ApplicationMaster {
     private AtomicBoolean ccUp = new AtomicBoolean();
 
     //HDFS path to Asterix distributable tarball
-    private String asterixTarPath = "";
+    private String asterixZipPath = "";
     // Timestamp needed for creating a local resource
-    private long asterixTarTimestamp = 0;
+    private long asterixZipTimestamp = 0;
     // File length needed for local resource
-    private long asterixTarLen = 0;
+    private long asterixZipLen = 0;
 
     //HDFS path to Asterix distributable tarball
     private String asterixConfPath = "";
@@ -197,6 +199,8 @@ public class ApplicationMaster {
     private boolean obliterate = false;
     private Path AppMasterJar = null;
     private boolean refresh = false;
+    private boolean backup = false;
+    private boolean restore = false;
 
     // Launch threads
     private List<Thread> launchThreads = new ArrayList<Thread>();
@@ -271,6 +275,8 @@ public class ApplicationMaster {
         opts.addOption("help", false, "Print usage");
         opts.addOption("existing", false, "Initialize existing Asterix instance.");
         opts.addOption("obliterate", false, "Delete asterix instance completely.");
+        opts.addOption("backup", false, "Back up AsterixDB instance");
+        opts.addOption("restore", false, "Restore an AsterixDB instance");
         opts.addOption("refresh", false, "Refresh all resources");
         CommandLine cliParser = new GnuParser().parse(opts, args);
 
@@ -293,6 +299,13 @@ public class ApplicationMaster {
 
         if (cliParser.hasOption("refresh")) {
             refresh = true;
+        }
+
+        if (cliParser.hasOption("backup")) {
+            backup = true;
+        }
+        if (cliParser.hasOption("restore")) {
+            restore = true;
         }
         return cliParser;
     }
@@ -331,9 +344,9 @@ public class ApplicationMaster {
                 + ", clustertimestamp=" + appAttemptID.getApplicationId().getClusterTimestamp() + ", attemptId="
                 + appAttemptID.getAttemptId());
 
-        asterixTarPath = envs.get(MConstants.TARLOCATION);
-        asterixTarTimestamp = Long.parseLong(envs.get(MConstants.TARTIMESTAMP));
-        asterixTarLen = Long.parseLong(envs.get(MConstants.TARLEN));
+        asterixZipPath = envs.get(MConstants.TARLOCATION);
+        asterixZipTimestamp = Long.parseLong(envs.get(MConstants.TARTIMESTAMP));
+        asterixZipLen = Long.parseLong(envs.get(MConstants.TARLEN));
 
         asterixConfPath = envs.get(MConstants.CONFLOCATION);
         asterixConfTimestamp = Long.parseLong(envs.get(MConstants.CONFTIMESTAMP));
@@ -573,7 +586,7 @@ public class ApplicationMaster {
      */
     private void localizeDFSResources() throws IOException {
         //if obliterating skip a lot of this.
-        if (obliterate) {
+        if (obliterate || backup || restore) {
             FileSystem fs = FileSystem.get(conf);
             FileStatus appMasterJarStatus = fs.getFileStatus(AppMasterJar);
             LocalResource obliteratorJar = Records.newRecord(LocalResource.class);
@@ -587,26 +600,26 @@ public class ApplicationMaster {
             return;
         }
 
-        LocalResource asterixTar = Records.newRecord(LocalResource.class);
+        LocalResource asterixZip = Records.newRecord(LocalResource.class);
 
         //this un-tar's the asterix distribution
-        asterixTar.setType(LocalResourceType.ARCHIVE);
+        asterixZip.setType(LocalResourceType.ARCHIVE);
 
         // Set visibility of the resource
         // Setting to most private option
-        asterixTar.setVisibility(LocalResourceVisibility.APPLICATION);
+        asterixZip.setVisibility(LocalResourceVisibility.APPLICATION);
         // Set the resource to be copied over
         try {
-            asterixTar.setResource(ConverterUtils.getYarnUrlFromURI(new URI(asterixTarPath)));
+            asterixZip.setResource(ConverterUtils.getYarnUrlFromURI(new URI(asterixZipPath)));
 
         } catch (URISyntaxException e) {
-            LOG.error("Error locating Asterix tarball" + " in env, path=" + asterixTarPath);
+            LOG.error("Error locating Asterix tarball" + " in env, path=" + asterixZipPath);
             e.printStackTrace();
         }
 
-        asterixTar.setTimestamp(asterixTarTimestamp);
-        asterixTar.setSize(asterixTarLen);
-        localResources.put("asterix-server.zip", asterixTar);
+        asterixZip.setTimestamp(asterixZipTimestamp);
+        asterixZip.setSize(asterixZipLen);
+        localResources.put("asterix-server.zip", asterixZip);
 
         //now let's do the same for the cluster description XML
         LocalResource asterixConf = Records.newRecord(LocalResource.class);
@@ -973,6 +986,10 @@ public class ApplicationMaster {
             List<String> startCmd = null;
             if (obliterate) {
                 startCmd = produceObliterateCommand(container);
+            } else if (backup) {
+                startCmd = produceBackupCommand(container);
+            } else if (restore) {
+                startCmd = produceRestoreCommand(container);
             } else {
                 startCmd = produceStartCmd(container);
             }
@@ -1042,16 +1059,16 @@ public class ApplicationMaster {
         }
 
         private List<String> produceObliterateCommand(Container container) {
-            Node local;
-            String iodevice = null;
+            Node local = null;
+            List<String> iodevices = null;
             try {
                 local = containerToNode(container, clusterDesc);
-                iodevice = local.getIodevices();
+                iodevices = Arrays.asList(local.getIodevices().split(","));
             } catch (UnknownHostException e) {
                 LOG.error("Unable to find NC configured for host: " + container.getId() + e);
             }
-            if (iodevice == null) {
-                iodevice = clusterDesc.getIodevices();
+            if (iodevices == null) {
+                iodevices = Arrays.asList(clusterDesc.getIodevices().split(","));
             }
             StringBuilder classPathEnv = new StringBuilder("").append("./*");
             for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH,
@@ -1066,10 +1083,135 @@ public class ApplicationMaster {
             vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
             vargs.add("-cp " + classPathEnv.toString());
             vargs.add(OBLITERATOR_CLASSNAME);
-            vargs.add(iodevice);
-            LOG.debug("Deleting: " + iodevice);
-            vargs.add(clusterDesc.getTxnLogDir() + "txnLogs" + File.separator);
-            LOG.debug("Deleting " + clusterDesc.getTxnLogDir() + "txnLogs" + File.separator);
+            for (String s : iodevices) {
+                vargs.add(s + clusterDesc.getStore());
+                LOG.debug("Deleting from: " + s);
+                //logs only exist on 1st iodevice
+                if (iodevices.indexOf(s) == 0) {
+                    vargs.add(clusterDesc.getTxnLogDir() + "txnLogs" + File.separator);
+                    LOG.debug("Deleting logs from: " + clusterDesc.getTxnLogDir());
+                    vargs.add(s + "asterix_root_metadata");
+                }
+            }
+            vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout");
+            vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr");
+            StringBuilder command = new StringBuilder();
+            for (CharSequence str : vargs) {
+                command.append(str).append(" ");
+            }
+            commands.add(command.toString());
+            return commands;
+        }
+
+        private List<String> produceBackupCommand(Container container) {
+            Node local = null;
+            List<String> iodevices = null;
+            try {
+                local = containerToNode(container, clusterDesc);
+                iodevices = Arrays.asList(local.getIodevices().split(",", -1));
+            } catch (UnknownHostException e) {
+                LOG.error("Unable to find NC configured for host: " + container.getId() + e);
+                List<String> al = new ArrayList<String>();
+                al.add("");
+                return al;
+            }
+            if (iodevices == null) {
+                iodevices = Arrays.asList(clusterDesc.getIodevices().split(",", -1));
+            }
+            StringBuilder classPathEnv = new StringBuilder("").append("./*");
+            for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH,
+                    YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH)) {
+                classPathEnv.append(File.pathSeparatorChar);
+                classPathEnv.append(c.trim());
+            }
+            classPathEnv.append(File.pathSeparatorChar).append("." + File.separator + "log4j.properties");
+
+            List<String> commands = new ArrayList<String>();
+            Vector<CharSequence> vargs = new Vector<CharSequence>(5);
+            vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
+            vargs.add("-cp " + classPathEnv.toString());
+            vargs.add(HDFS_BACKUP_CLASSNAME);
+            String dstBase = instanceConfPath + "backups" + "/" + local.getId();
+            for (String s : iodevices) {
+                List<String> ioComponents = Arrays.asList(s.split("\\"));
+                StringBuilder dst = new StringBuilder().append(dstBase);
+                for (String io : ioComponents) {
+                    dst.append(s);
+                    if (ioComponents.indexOf(s) != ioComponents.size() - 1) {
+                        dst.append("_");
+                    }
+                }
+                dst.append("/");
+                vargs.add(s + clusterDesc.getStore() + "," + dst);
+                LOG.debug("Backing up from: " + s);
+                //logs only exist on 1st iodevice
+                if (iodevices.indexOf(s) == 0) {
+                    vargs.add(clusterDesc.getTxnLogDir() + "txnLogs" + File.separator + "," + dst);
+
+                    LOG.debug("Backing up logs from: " + clusterDesc.getTxnLogDir());
+                    vargs.add(s + "asterix_root_metadata" + "," + dst);
+                }
+            }
+            LOG.debug("Backing up to: " + instanceConfPath + "backups" + "/" + local.getId());
+
+            vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout");
+            vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr");
+            StringBuilder command = new StringBuilder();
+            for (CharSequence str : vargs) {
+                command.append(str).append(" ");
+            }
+            commands.add(command.toString());
+            return commands;
+        }
+
+        private List<String> produceRestoreCommand(Container container) {
+            Node local = null;
+            List<String> iodevices = null;
+            try {
+                local = containerToNode(container, clusterDesc);
+                iodevices = Arrays.asList(local.getIodevices().split(",", -1));
+            } catch (UnknownHostException e) {
+                LOG.error("Unable to find NC configured for host: " + container.getId() + e);
+            }
+            if (iodevices == null) {
+                iodevices = Arrays.asList(clusterDesc.getIodevices().split(",", -1));
+            }
+            StringBuilder classPathEnv = new StringBuilder("").append("./*");
+            for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH,
+                    YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH)) {
+                classPathEnv.append(File.pathSeparatorChar);
+                classPathEnv.append(c.trim());
+            }
+            classPathEnv.append(File.pathSeparatorChar).append("." + File.separator + "log4j.properties");
+
+            List<String> commands = new ArrayList<String>();
+            Vector<CharSequence> vargs = new Vector<CharSequence>(5);
+            vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
+            vargs.add("-cp " + classPathEnv.toString());
+            vargs.add(HDFS_BACKUP_CLASSNAME);
+            String srcBase = instanceConfPath + "backups" + "/" + local.getId();
+            for (String s : iodevices) {
+                List<String> ioComponents = Arrays.asList(s.split("\\"));
+                StringBuilder src = new StringBuilder().append(srcBase);
+                for (String io : ioComponents) {
+                    src.append(s);
+                    if (ioComponents.indexOf(s) != ioComponents.size() - 1) {
+                        src.append("_");
+                    }
+                }
+                src.append("/");
+                vargs.add(src + "," + s + clusterDesc.getStore());
+                LOG.debug("Backing up from: " + s);
+                //logs only exist on 1st iodevice
+                if (iodevices.indexOf(s) == 0) {
+                    vargs.add(src + "," + clusterDesc.getTxnLogDir() + "txnLogs" + File.separator);
+
+                    LOG.debug("Backing up logs from: " + clusterDesc.getTxnLogDir());
+                    vargs.add(src + "," + s + "asterix_root_metadata");
+                }
+            }
+            LOG.debug("Backing up to: " + instanceConfPath + "backups" + "/" + local.getId());
+
             vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout");
             vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr");
             StringBuilder command = new StringBuilder();

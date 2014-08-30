@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.ConnectException;
+import java.util.Scanner;
 
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpException;
@@ -15,6 +16,11 @@ import org.apache.commons.httpclient.NoHttpResponseException;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.commons.httpclient.params.HttpMethodParams;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.yarn.api.records.ApplicationId;
 
 import edu.uci.ics.asterix.event.schema.yarnCluster.Cluster;
 import edu.uci.ics.asterix.event.schema.yarnCluster.Node;
@@ -91,5 +97,46 @@ public class Utils {
         char[] dots = { ' ', ' ', ' ' };
         dots[pos] = '.';
         return new String(dots);
+    }
+
+    public static boolean confirmAction(String warning) {
+        System.out.println(warning);
+        System.out.print("Are you sure you want to do this? (yes/no): ");
+        Scanner in = new Scanner(System.in);
+        while (true) {
+            try {
+                String input = in.nextLine();
+                if (input.equals("yes")) {
+                    return true;
+                } else if (input.equals("no")) {
+                    return false;
+                } else {
+                    System.out.println("Please type yes or no");
+                }
+            } finally {
+                in.close();
+            }
+        }
+    }
+
+    public static void listInstances(Configuration conf, String CONF_DIR_REL) throws IOException {
+        FileSystem fs = FileSystem.get(conf);
+        Path instanceFolder = new Path(fs.getHomeDirectory(), CONF_DIR_REL);
+        FileStatus[] instances = fs.listStatus(instanceFolder);
+        if (instances.length != 0) {
+            System.out.println("Existing Asterix instances: ");
+        } else {
+            System.out.println("No running or stopped Asterix instances exist in this cluster");
+        }
+        for (int i = 0; i < instances.length; i++) {
+            FileStatus st = instances[i];
+            String name = st.getPath().getName();
+            ApplicationId lockFile = Client.getLockFile(name, conf);
+            if (lockFile != null) {
+                System.out.println("Instance " + name + " is running with Application ID: " + lockFile.toString());
+            } else {
+                System.out.println("Instance " + name + " is stopped");
+            }
+        }
     }
 }
