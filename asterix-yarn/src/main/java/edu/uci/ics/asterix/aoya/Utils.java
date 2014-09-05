@@ -139,4 +139,20 @@ public class Utils {
             }
         }
     }
+
+    public static void listBackups(Configuration conf, String CONF_DIR_REL, String instance) throws IOException {
+        FileSystem fs = FileSystem.get(conf);
+        Path backupFolder = new Path(fs.getHomeDirectory(), CONF_DIR_REL + "/" + instance + "/" + "backups");
+        FileStatus[] backups = fs.listStatus(backupFolder);
+        if (backups.length != 0) {
+            System.out.println("Backups for instance " + instance + ": ");
+        }
+        else{
+            System.out.println("No backups found for instance " + instance + ".");
+        }
+        for(FileStatus f: backups){
+            String name = f.getPath().getName();
+            System.out.println("Backup: " + name);
+        }
+    }
 }

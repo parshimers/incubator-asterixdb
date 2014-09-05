@@ -88,7 +88,6 @@ import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 
-import edu.uci.ics.asterix.common.config.AsterixExternalProperties;
 import edu.uci.ics.asterix.common.config.AsterixPropertiesAccessor;
 import edu.uci.ics.asterix.common.config.GlobalConfig;
 import edu.uci.ics.asterix.common.configuration.AsterixConfiguration;
@@ -190,8 +189,6 @@ public class ApplicationMaster {
     private Cluster clusterDesc = null;
     private MasterNode CC = null;
     private AsterixPropertiesAccessor properties;
-    private AsterixExternalProperties extProperties;
-
     private volatile boolean done;
     private volatile boolean success;
 
@@ -200,6 +197,8 @@ public class ApplicationMaster {
     private Path AppMasterJar = null;
     private boolean refresh = false;
     private boolean backup = false;
+    long backupTimestamp;
+    String snapName;
     private boolean restore = false;
 
     // Launch threads
@@ -276,7 +275,7 @@ public class ApplicationMaster {
         opts.addOption("existing", false, "Initialize existing Asterix instance.");
         opts.addOption("obliterate", false, "Delete asterix instance completely.");
         opts.addOption("backup", false, "Back up AsterixDB instance");
-        opts.addOption("restore", false, "Restore an AsterixDB instance");
+        opts.addOption("restore", true, "Restore an AsterixDB instance");
         opts.addOption("refresh", false, "Refresh all resources");
         CommandLine cliParser = new GnuParser().parse(opts, args);
 
@@ -303,9 +302,12 @@ public class ApplicationMaster {
 
         if (cliParser.hasOption("backup")) {
             backup = true;
+            backupTimestamp = System.currentTimeMillis();
         }
         if (cliParser.hasOption("restore")) {
             restore = true;
+            snapName = cliParser.getOptionValue("restore");
+            LOG.info(snapName);
         }
         return cliParser;
     }
@@ -369,9 +371,6 @@ public class ApplicationMaster {
             distributeAsterixConfig();
             //now let's read what's in there so we can set the JVM opts right
             LOG.debug("config file loc: " + System.getProperty(GlobalConfig.CONFIG_FILE_PROPERTY));
-
-            extProperties = new AsterixExternalProperties(properties);
-
         } catch (FileNotFoundException | JAXBException | IllegalStateException e) {
             LOG.error("Could not deserialize Cluster Config from disk- aborting!");
             LOG.error(e);
@@ -1059,16 +1058,22 @@ public class ApplicationMaster {
         }
 
         private List<String> produceObliterateCommand(Container container) {
+            if (containerIsCC(container)) {
+                List<String> blank = new ArrayList<String>();
+                blank.add("");
+                return blank;
+            }
             Node local = null;
             List<String> iodevices = null;
             try {
                 local = containerToNode(container, clusterDesc);
-                iodevices = Arrays.asList(local.getIodevices().split(","));
+                if (local.getIodevices() == null) {
+                    iodevices = Arrays.asList(clusterDesc.getIodevices().split(",", -1));
+                } else {
+                    iodevices = Arrays.asList(local.getIodevices().split(",", -1));
+                }
             } catch (UnknownHostException e) {
                 LOG.error("Unable to find NC configured for host: " + container.getId() + e);
-            }
-            if (iodevices == null) {
-                iodevices = Arrays.asList(clusterDesc.getIodevices().split(","));
             }
             StringBuilder classPathEnv = new StringBuilder("").append("./*");
             for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH,
@@ -1104,19 +1109,25 @@ public class ApplicationMaster {
         }
 
         private List<String> produceBackupCommand(Container container) {
+            if (containerIsCC(container)) {
+                List<String> blank = new ArrayList<String>();
+                blank.add("");
+                return blank;
+            }
             Node local = null;
             List<String> iodevices = null;
             try {
                 local = containerToNode(container, clusterDesc);
-                iodevices = Arrays.asList(local.getIodevices().split(",", -1));
+                if (local.getIodevices() == null) {
+                    iodevices = Arrays.asList(clusterDesc.getIodevices().split(",", -1));
+                } else {
+                    iodevices = Arrays.asList(local.getIodevices().split(",", -1));
+                }
             } catch (UnknownHostException e) {
                 LOG.error("Unable to find NC configured for host: " + container.getId() + e);
                 List<String> al = new ArrayList<String>();
                 al.add("");
                 return al;
-            }
-            if (iodevices == null) {
-                iodevices = Arrays.asList(clusterDesc.getIodevices().split(",", -1));
             }
             StringBuilder classPathEnv = new StringBuilder("").append("./*");
             for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH,
@@ -1131,13 +1142,14 @@ public class ApplicationMaster {
             vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
             vargs.add("-cp " + classPathEnv.toString());
             vargs.add(HDFS_BACKUP_CLASSNAME);
-            String dstBase = instanceConfPath + "backups" + "/" + local.getId();
+            vargs.add("-backup");
+            String dstBase = instanceConfPath + "backups" + "/" + backupTimestamp + "/" + local.getId();
             for (String s : iodevices) {
-                List<String> ioComponents = Arrays.asList(s.split("\\"));
+                List<String> ioComponents = Arrays.asList(s.split("\\/"));
                 StringBuilder dst = new StringBuilder().append(dstBase);
                 for (String io : ioComponents) {
-                    dst.append(s);
-                    if (ioComponents.indexOf(s) != ioComponents.size() - 1) {
+                    dst.append(io);
+                    if (ioComponents.indexOf(io) != ioComponents.size() - 1) {
                         dst.append("_");
                     }
                 }
@@ -1165,16 +1177,22 @@ public class ApplicationMaster {
         }
 
         private List<String> produceRestoreCommand(Container container) {
+            if (containerIsCC(container)) {
+                List<String> blank = new ArrayList<String>();
+                blank.add("");
+                return blank;
+            }
             Node local = null;
             List<String> iodevices = null;
             try {
                 local = containerToNode(container, clusterDesc);
-                iodevices = Arrays.asList(local.getIodevices().split(",", -1));
+                if (local.getIodevices() == null) {
+                    iodevices = Arrays.asList(clusterDesc.getIodevices().split(",", -1));
+                } else {
+                    iodevices = Arrays.asList(local.getIodevices().split(",", -1));
+                }
             } catch (UnknownHostException e) {
                 LOG.error("Unable to find NC configured for host: " + container.getId() + e);
-            }
-            if (iodevices == null) {
-                iodevices = Arrays.asList(clusterDesc.getIodevices().split(",", -1));
             }
             StringBuilder classPathEnv = new StringBuilder("").append("./*");
             for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH,
@@ -1189,28 +1207,41 @@ public class ApplicationMaster {
             vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
             vargs.add("-cp " + classPathEnv.toString());
             vargs.add(HDFS_BACKUP_CLASSNAME);
-            String srcBase = instanceConfPath + "backups" + "/" + local.getId();
+            vargs.add("-restore");
+            String srcBase = instanceConfPath + "backups" + "/" + Long.parseLong(snapName) + "/" + local.getId();
             for (String s : iodevices) {
-                List<String> ioComponents = Arrays.asList(s.split("\\"));
+                List<String> ioComponents = Arrays.asList(s.split("\\/"));
                 StringBuilder src = new StringBuilder().append(srcBase);
                 for (String io : ioComponents) {
-                    src.append(s);
-                    if (ioComponents.indexOf(s) != ioComponents.size() - 1) {
+                    src.append(io);
+                    if (ioComponents.indexOf(io) != ioComponents.size() - 1) {
                         src.append("_");
                     }
                 }
                 src.append("/");
+                try {
+                    FileSystem fs = FileSystem.get(conf);
+                    FileStatus[] backups = fs.listStatus(new Path(src.toString()));
+                    for (FileStatus b : backups) {
+                        if (!b.getPath().toString().contains("txnLogs")
+                                && !b.getPath().toString().contains("asterix_root_metadata")) {
+                            vargs.add(b.getPath() + "," + s + clusterDesc.getStore());
+                        }
+                    }
+                } catch (IOException e) {
+                    LOG.error("Could not stat backup directory in DFS");
+                }
                 vargs.add(src + "," + s + clusterDesc.getStore());
-                LOG.debug("Backing up from: " + s);
+                LOG.debug("Restoring from: " + s);
                 //logs only exist on 1st iodevice
                 if (iodevices.indexOf(s) == 0) {
-                    vargs.add(src + "," + clusterDesc.getTxnLogDir() + "txnLogs" + File.separator);
+                    vargs.add(src + "txnLogs/" + "," + clusterDesc.getTxnLogDir() + File.separator);
 
-                    LOG.debug("Backing up logs from: " + clusterDesc.getTxnLogDir());
-                    vargs.add(src + "," + s + "asterix_root_metadata");
+                    LOG.debug("Restoring logs from: " + clusterDesc.getTxnLogDir());
+                    vargs.add(src + "asterix_root_metadata" + "," + s);
                 }
             }
-            LOG.debug("Backing up to: " + instanceConfPath + "backups" + "/" + local.getId());
+            LOG.debug("Restoring to: " + instanceConfPath + "backups" + "/" + local.getId());
 
             vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout");
             vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr");

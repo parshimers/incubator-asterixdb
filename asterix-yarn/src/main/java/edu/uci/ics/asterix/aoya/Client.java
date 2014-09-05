@@ -87,13 +87,15 @@ public class Client {
         LIBINSTALL("libinstall"),
         DESCRIBE("describe"),
         BACKUP("backup"),
+        LSBACKUP("lsbackups"),
         RESTORE("restore");
 
         public final String alias;
         public static final Map<String, Client.Mode> STRING_TO_MODE = ImmutableMap.<String, Client.Mode> builder()
                 .put(INSTALL.alias, INSTALL).put(START.alias, START).put(STOP.alias, STOP).put(KILL.alias, KILL)
                 .put(DESTROY.alias, DESTROY).put(ALTER.alias, ALTER).put(LIBINSTALL.alias, LIBINSTALL)
-                .put(DESCRIBE.alias, DESCRIBE).put(BACKUP.alias, BACKUP).put(RESTORE.alias, RESTORE).build();
+                .put(DESCRIBE.alias, DESCRIBE).put(BACKUP.alias, BACKUP).put(LSBACKUP.alias, LSBACKUP)
+                .put(RESTORE.alias, RESTORE).build();
 
         Mode(String alias) {
             this.alias = alias;
@@ -158,6 +160,7 @@ public class Client {
     // Command line options
     private Options opts;
     private String libDataverse;
+    private String snapName = "";
 
     /**
      * @param args
@@ -219,29 +222,36 @@ public class Client {
                         break;
                     case DESTROY:
                         try {
-                            Utils.confirmAction("Are you really sure you want to obliterate this instance? This action cannot be undone!");
-                            app = client.makeApplicationContext();
-                            res = client.deployConfig();
-                            res.addAll(client.distributeBinaries());
-                            client.removeInstance(app, res);
+                            if (Utils
+                                    .confirmAction("Are you really sure you want to obliterate this instance? This action cannot be undone!")) {
+                                app = client.makeApplicationContext();
+                                res = client.deployConfig();
+                                res.addAll(client.distributeBinaries());
+                                client.removeInstance(app, res);
+                            }
                         } catch (YarnException | IOException e) {
                             LOG.error("Asterix failed to deploy on to cluster");
                             throw e;
                         }
                         break;
                     case BACKUP:
-                        Utils.confirmAction("Performing a backup will stop a running instance.");
-                        app = client.makeApplicationContext();
-                        res = client.deployConfig();
-                        res.addAll(client.distributeBinaries());
-                        client.backupInstance(app, res);
+                        if (Utils.confirmAction("Performing a backup will stop a running instance.")) {
+                            app = client.makeApplicationContext();
+                            res = client.deployConfig();
+                            res.addAll(client.distributeBinaries());
+                            client.backupInstance(app, res);
+                        }
+                        break;
+                    case LSBACKUP:
+                        Utils.listBackups(client.conf, CONF_DIR_REL, client.instanceName);
                         break;
                     case RESTORE:
-                        Utils.confirmAction("Performing a restore will stop a running instance.");
-                        app = client.makeApplicationContext();
-                        res = client.deployConfig();
-                        res.addAll(client.distributeBinaries());
-                        client.restoreInstance(app, res);
+                        if (Utils.confirmAction("Performing a restore will stop a running instance.")) {
+                            app = client.makeApplicationContext();
+                            res = client.deployConfig();
+                            res.addAll(client.distributeBinaries());
+                            client.restoreInstance(app, res);
+                        }
                         break;
                     default:
                         LOG.fatal("Unknown action. Known actions are: start, stop, install, status, kill");
@@ -288,6 +298,7 @@ public class Client {
                 "If starting an existing instance, this will replace them with the local copy on startup");
         opts.addOption("appId", true, "ApplicationID to monitor if running client in status monitor mode");
         opts.addOption("masterLibsDir", true, "Directory that contains the JARs needed to run the AM");
+        opts.addOption("snapshot", true, "Backup to restore");
         opts.addOption("debug", false, "Dump out debug information");
         opts.addOption("help", false, "Print usage");
     }
@@ -385,10 +396,16 @@ public class Client {
                     + " Specified containerMemory=" + containerMemory + ", numContainer=" + numContainers);
         }
         log4jPropFile = cliParser.getOptionValue("log_properties", "");
-        if (cliParser.hasOption("refresh") && mode == Mode.INSTALL) {
+        if (cliParser.hasOption("refresh") && mode == Mode.START) {
             refresh = true;
         } else if (cliParser.hasOption("refresh") && mode != Mode.START) {
             throw new IllegalArgumentException("Cannot specify refresh in any mode besides start, mode is: " + mode);
+        }
+        if (cliParser.hasOption("snapshot") && mode == Mode.RESTORE) {
+            snapName = cliParser.getOptionValue("snapshot");
+        } else if (cliParser.hasOption("snapshot") && mode != Mode.RESTORE) {
+            throw new IllegalArgumentException(
+                    "Cannot specify a snapshot to restore in any mode besides restore, mode is: " + mode);
         }
         return mode;
     }
@@ -412,9 +429,9 @@ public class Client {
             ApplicationReport previousAppReport = yarnClient.getApplicationReport(lockAppId);
             YarnApplicationState prevStatus = previousAppReport.getYarnApplicationState();
             if (!(prevStatus == YarnApplicationState.FAILED || prevStatus == YarnApplicationState.KILLED || prevStatus == YarnApplicationState.FINISHED)
-                    && mode != Mode.DESTROY) {
+                    && mode != Mode.DESTROY && mode != Mode.BACKUP && mode != Mode.RESTORE) {
                 throw new IllegalStateException("Instance is already running in: " + lockAppId);
-            } else if (mode != Mode.DESTROY) {
+            } else if (mode != Mode.DESTROY && mode != Mode.BACKUP && mode != Mode.RESTORE) {
                 //stale lock file
                 LOG.warn("Stale lockfile detected. Instance attempt " + lockAppId + " may have exited abnormally");
                 deleteLockFile();
@@ -531,7 +548,7 @@ public class Client {
                 LOG.info("Loading JAR: " + j);
                 File f = new File(j);
                 Path dst = new Path(fs.getHomeDirectory(), fullLibPath + f.getName());
-                if (!fs.exists(dst) || !refresh) {
+                if (!fs.exists(dst) || refresh) {
                     fs.copyFromLocalFile(false, true, new Path(f.getAbsolutePath()), dst);
                 }
                 FileStatus dstSt = fs.getFileStatus(dst);
@@ -726,7 +743,7 @@ public class Client {
             vargs.add("-backup");
         }
         if (mode == Mode.RESTORE) {
-            vargs.add("-restore");
+            vargs.add("-restore " + snapName);
         }
         if (refresh) {
             vargs.add("-refresh");
@@ -851,6 +868,7 @@ public class Client {
             LOG.fatal("Cleanup of on-disk persistent resources failed.");
         } else {
             fs.delete(new Path(CONF_DIR_REL + instanceFolder), true);
+            return;
         }
         System.out.println("Deletion of instance succeeded.");
 
@@ -880,7 +898,8 @@ public class Client {
         }
         boolean complete = waitForCompletion(backerUpper, "Backup in progress");
         if (!complete) {
-            LOG.fatal("Backup failed.");
+            LOG.fatal("Backup failed- timeout waiting for completion");
+            return;
         }
         System.out.println("Backup of instance succeeded.");
     }
@@ -901,7 +920,7 @@ public class Client {
             throw new IllegalArgumentException("No instance configured with that name exists");
         }
         //now try deleting all of the on-disk artifacts on the cluster
-        ApplicationId restorer = deployAM(app, resources, Mode.BACKUP);
+        ApplicationId restorer = deployAM(app, resources, Mode.RESTORE);
         boolean restoreStart = waitForLiveness(restorer, false, "Waiting for restore to start");
         if (!restoreStart) {
             LOG.fatal("Restore failed to start");
@@ -909,7 +928,8 @@ public class Client {
         }
         boolean complete = waitForCompletion(restorer, "Restore in progress");
         if (!complete) {
-            LOG.fatal("Restore failed.");
+            LOG.fatal("Restore failed- timeout waiting for completion");
+            return;
         }
         System.out.println("Restoration of instance succeeded.");
     }
@@ -980,7 +1000,6 @@ public class Client {
         if (fs.exists(dstConf)) {
             Path lock = new Path(fs.getHomeDirectory(), CONF_DIR_REL + instanceFolder + instanceLock);
             return fs.exists(lock);
-
         } else {
             return false;
         }
@@ -1072,7 +1091,7 @@ public class Client {
     private boolean waitForCompletion(ApplicationId appId, String message) throws YarnException, IOException {
         ApplicationReport report = yarnClient.getApplicationReport(appId);
         YarnApplicationState st = report.getYarnApplicationState();
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 500; i++) {
             if (!(st == YarnApplicationState.FINISHED || st == YarnApplicationState.KILLED || st == YarnApplicationState.FAILED)) {
                 report = yarnClient.getApplicationReport(appId);
                 st = report.getYarnApplicationState();
