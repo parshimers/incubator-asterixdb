@@ -88,6 +88,7 @@ public class Client {
         DESCRIBE("describe"),
         BACKUP("backup"),
         LSBACKUP("lsbackups"),
+        RMBACKUP("rmbackup"),
         RESTORE("restore");
 
         public final String alias;
@@ -95,7 +96,7 @@ public class Client {
                 .put(INSTALL.alias, INSTALL).put(START.alias, START).put(STOP.alias, STOP).put(KILL.alias, KILL)
                 .put(DESTROY.alias, DESTROY).put(ALTER.alias, ALTER).put(LIBINSTALL.alias, LIBINSTALL)
                 .put(DESCRIBE.alias, DESCRIBE).put(BACKUP.alias, BACKUP).put(LSBACKUP.alias, LSBACKUP)
-                .put(RESTORE.alias, RESTORE).build();
+                .put(RMBACKUP.alias, RMBACKUP).put(RESTORE.alias, RESTORE).build();
 
         Mode(String alias) {
             this.alias = alias;
@@ -109,7 +110,7 @@ public class Client {
     private static final Log LOG = LogFactory.getLog(Client.class);
     private static final String CONF_DIR_REL = ".asterix" + File.separator;
     private static final String instanceLock = "instance";
-    private static Mode mode;
+    private Mode mode;
 
     // Configuration
     private Configuration conf;
@@ -171,12 +172,12 @@ public class Client {
             Client client = new Client();
             try {
                 client.init(args);
-                switch (mode) {
+                switch (client.mode) {
                     case START:
                         YarnClientApplication app = client.makeApplicationContext();
                         List<DFSResourceCoordinate> res = client.deployConfig();
                         res.addAll(client.distributeBinaries());
-                        ApplicationId appId = client.deployAM(app, res, mode);
+                        ApplicationId appId = client.deployAM(app, res, client.mode);
                         LOG.info("Asterix started up with Application ID: " + appId.toString());
                         if (client.waitForLiveness(appId, true, "Waiting for AsterixDB instance to resume ")) {
                             System.out.println("Asterix successfully deployed and is now running.");
@@ -202,7 +203,7 @@ public class Client {
                             res = client.deployConfig();
                             res.addAll(client.distributeBinaries());
 
-                            appId = client.deployAM(app, res, mode);
+                            appId = client.deployAM(app, res, client.mode);
                             LOG.info("Asterix started up with Application ID: " + appId.toString());
                             if (client.waitForLiveness(appId, true, "Waiting for new AsterixDB Instance to start ")) {
                                 System.out.println("Asterix successfully deployed and is now running.");
@@ -244,6 +245,9 @@ public class Client {
                         break;
                     case LSBACKUP:
                         Utils.listBackups(client.conf, CONF_DIR_REL, client.instanceName);
+                        break;
+                    case RMBACKUP:
+                        Utils.rmBackup(client.conf, CONF_DIR_REL, client.instanceName, Long.parseLong(client.snapName));
                         break;
                     case RESTORE:
                         if (Utils.confirmAction("Performing a restore will stop a running instance.")) {
@@ -298,7 +302,7 @@ public class Client {
                 "If starting an existing instance, this will replace them with the local copy on startup");
         opts.addOption("appId", true, "ApplicationID to monitor if running client in status monitor mode");
         opts.addOption("masterLibsDir", true, "Directory that contains the JARs needed to run the AM");
-        opts.addOption("snapshot", true, "Backup to restore");
+        opts.addOption("snapshot", true, "Backup timestamp for arguments requiring a specific backup (rm, restore)");
         opts.addOption("debug", false, "Dump out debug information");
         opts.addOption("help", false, "Print usage");
     }
@@ -324,7 +328,7 @@ public class Client {
      * @return Whether the init was successful to run the client
      * @throws ParseException
      */
-    public Mode init(String[] args) throws ParseException {
+    public void init(String[] args) throws ParseException {
 
         CommandLine cliParser = new GnuParser().parse(opts, args);
 
@@ -345,7 +349,7 @@ public class Client {
 
         if (cliParser.hasOption("help")) {
             printUsage();
-            return null;
+            return;
         }
 
         if (cliParser.hasOption("debug")) {
@@ -401,13 +405,12 @@ public class Client {
         } else if (cliParser.hasOption("refresh") && mode != Mode.START) {
             throw new IllegalArgumentException("Cannot specify refresh in any mode besides start, mode is: " + mode);
         }
-        if (cliParser.hasOption("snapshot") && mode == Mode.RESTORE) {
+        if (cliParser.hasOption("snapshot") && (mode == Mode.RESTORE || mode == Mode.RMBACKUP)) {
             snapName = cliParser.getOptionValue("snapshot");
-        } else if (cliParser.hasOption("snapshot") && mode != Mode.RESTORE) {
+        } else if (cliParser.hasOption("snapshot") && !(mode == Mode.RESTORE || mode == Mode.RMBACKUP)) {
             throw new IllegalArgumentException(
                     "Cannot specify a snapshot to restore in any mode besides restore, mode is: " + mode);
         }
-        return mode;
     }
 
     /**

@@ -146,13 +146,39 @@ public class Utils {
         FileStatus[] backups = fs.listStatus(backupFolder);
         if (backups.length != 0) {
             System.out.println("Backups for instance " + instance + ": ");
-        }
-        else{
+        } else {
             System.out.println("No backups found for instance " + instance + ".");
         }
-        for(FileStatus f: backups){
+        for (FileStatus f : backups) {
             String name = f.getPath().getName();
             System.out.println("Backup: " + name);
         }
+    }
+
+    public static void rmBackup(Configuration conf, String CONF_DIR_REL, String instance, long timestamp)
+            throws IOException {
+        FileSystem fs = FileSystem.get(conf);
+        Path backupFolder = new Path(fs.getHomeDirectory(), CONF_DIR_REL + "/" + instance + "/" + "backups");
+        FileStatus[] backups = fs.listStatus(backupFolder);
+        if (backups.length != 0) {
+            System.out.println("Backups for instance " + instance + ": ");
+        } else {
+            System.out.println("No backups found for instance " + instance + ".");
+        }
+        for (FileStatus f : backups) {
+            String name = f.getPath().getName();
+            long file_ts = Long.parseLong(name);
+            if (file_ts == timestamp) {
+                System.out.println("Deleting backup " + timestamp);
+                if (!fs.delete(f.getPath(), true)) {
+                    System.out.println("Backup could not be deleted");
+                    return;
+                } else {
+                    return;
+                }
+            }
+        }
+        System.out.println("No backup found with specified timestamp");
+
     }
 }
