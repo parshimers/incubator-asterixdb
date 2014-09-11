@@ -7,6 +7,7 @@
 
 
 	<xs:element name="instanceName" type="xs:string" />
+	<xs:element name="version" type="xs:string"/>
 	<xs:element name="metadataNode" type="xs:string" />
 	<xs:element name="coredumpPath" type="xs:string" />
 	<xs:element name="storeDirs" type="xs:string" />

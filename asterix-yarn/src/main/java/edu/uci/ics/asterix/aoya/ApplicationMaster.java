@@ -21,7 +21,6 @@ package edu.uci.ics.asterix.aoya;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetAddress;
@@ -29,25 +28,18 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
-import java.nio.file.Files;
-import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
-import javax.xml.bind.Marshaller;
-import javax.xml.bind.Unmarshaller;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.GnuParser;
@@ -91,10 +83,7 @@ import org.apache.hadoop.yarn.util.Records;
 import edu.uci.ics.asterix.common.config.AsterixPropertiesAccessor;
 import edu.uci.ics.asterix.common.config.GlobalConfig;
 import edu.uci.ics.asterix.common.configuration.AsterixConfiguration;
-import edu.uci.ics.asterix.common.configuration.Coredump;
 import edu.uci.ics.asterix.common.configuration.Property;
-import edu.uci.ics.asterix.common.configuration.Store;
-import edu.uci.ics.asterix.common.configuration.TransactionLogDir;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.event.schema.yarnCluster.Cluster;
 import edu.uci.ics.asterix.event.schema.yarnCluster.MasterNode;
@@ -117,16 +106,16 @@ public class ApplicationMaster {
     private static final int CC_MEMORY_MBS_DEFAULT = 512;
     private static final int NC_MEMORY_MBS_DEFAULT = 2048;
     private static final String EXTERNAL_CC_JAVA_OPTS_KEY = "cc.java.opts";
-    private static String EXTERNAL_CC_JAVA_OPTS_DEFAULT = "-Xmx" + CC_MEMORY_MBS_DEFAULT + "m";
+    private static final String EXTERNAL_CC_JAVA_OPTS_DEFAULT = "-Xmx" + CC_MEMORY_MBS_DEFAULT + "m";
 
     private static final String EXTERNAL_NC_JAVA_OPTS_KEY = "nc.java.opts";
-    private static String EXTERNAL_NC_JAVA_OPTS_DEFAULT = "-Xmx" + NC_MEMORY_MBS_DEFAULT + "m";
+    private static final String EXTERNAL_NC_JAVA_OPTS_DEFAULT = "-Xmx" + NC_MEMORY_MBS_DEFAULT + "m";
     private String NcJavaOpts = EXTERNAL_NC_JAVA_OPTS_DEFAULT;
-    private String CcJavaOpts = EXTERNAL_NC_JAVA_OPTS_DEFAULT;
+    private String CcJavaOpts = EXTERNAL_CC_JAVA_OPTS_DEFAULT;
     private static final String OBLITERATOR_CLASSNAME = "edu.uci.ics.asterix.aoya.Deleter";
     private static final String HDFS_BACKUP_CLASSNAME = "edu.uci.ics.asterix.aoya.HDFSBackup";
     private static final String LOCAL_BACKUP_CLASSNAME = "edu.uci.ics.asterix.aoya.LocalBackup";
-    private static boolean doneAllocating = false;
+    private boolean doneAllocating = false;
 
     // Configuration
     private Configuration conf;
@@ -363,11 +352,8 @@ public class ApplicationMaster {
     public boolean init() throws ParseException, IOException, AsterixException, JAXBException {
         try {
             localizeDFSResources();
-            clusterDesc = parseYarnClusterConfig();
+            clusterDesc = Utils.parseYarnClusterConfig(CLUSTER_DESC_PATH);
             CC = clusterDesc.getMasterNode();
-            if (!instanceExists || refresh) {
-                writeAsterixConfig(clusterDesc);
-            }
             distributeAsterixConfig();
             //now let's read what's in there so we can set the JVM opts right
             LOG.debug("config file loc: " + System.getProperty(GlobalConfig.CONFIG_FILE_PROPERTY));
@@ -380,21 +366,6 @@ public class ApplicationMaster {
         return true;
     }
 
-    /**
-     * Simply parses out the YARN cluster config and instantiates it into a nice object.
-     * 
-     * @return The object representing the configuration
-     * @throws FileNotFoundException
-     * @throws JAXBException
-     */
-    private Cluster parseYarnClusterConfig() throws FileNotFoundException, JAXBException {
-        //this method just hides away the deserialization silliness
-        File f = new File(CLUSTER_DESC_PATH);
-        JAXBContext configCtx = JAXBContext.newInstance(Cluster.class);
-        Unmarshaller unmarshaller = configCtx.createUnmarshaller();
-        Cluster cl = (Cluster) unmarshaller.unmarshal(f);
-        return cl;
-    }
 
     /**
      * Kanged from managix. Splices the cluster config and asterix config parameters together, then puts the product to HDFS.
@@ -404,65 +375,20 @@ public class ApplicationMaster {
      * @throws FileNotFoundException
      * @throws IOException
      */
-    private void writeAsterixConfig(Cluster cluster) throws JAXBException, FileNotFoundException, IOException {
-        String metadataNodeId = Utils.getMetadataNode(cluster).getId();
-        String asterixInstanceName = appAttemptID.toString();
 
-        //this is the "base" config that is inside the tarball, we start here
-        AsterixConfiguration configuration = loadBaseAsterixConfig();
-
-        configuration.setInstanceName(asterixInstanceName);
-
+    private void getOptsFromAsterixConfig(AsterixConfiguration configuration) {
         asterixConfigurationParams = new HashMap<String, Property>();
         for (Property p : configuration.getProperty()) {
             asterixConfigurationParams.put(p.getName(), p);
         }
         NcJavaOpts = asterixConfigurationParams.get(EXTERNAL_NC_JAVA_OPTS_KEY).getValue();
         CcJavaOpts = asterixConfigurationParams.get(EXTERNAL_CC_JAVA_OPTS_KEY).getValue();
-
-        String storeDir = null;
-        List<Store> stores = new ArrayList<Store>();
-        for (Node node : cluster.getNode()) {
-            storeDir = node.getStore() == null ? cluster.getStore() : node.getStore();
-            stores.add(new Store(node.getId(), storeDir));
-        }
-        configuration.setStore(stores);
-
-        List<Coredump> coredump = new ArrayList<Coredump>();
-        String coredumpDir = null;
-        List<TransactionLogDir> txnLogDirs = new ArrayList<TransactionLogDir>();
-        String txnLogDir = null;
-        for (Node node : cluster.getNode()) {
-            coredumpDir = node.getLogDir() == null ? cluster.getLogDir() : node.getLogDir();
-            coredump.add(new Coredump(node.getId(), coredumpDir + "coredump" + File.separator));
-            txnLogDir = node.getTxnLogDir() == null ? cluster.getTxnLogDir() : node.getTxnLogDir();
-            txnLogDirs.add(new TransactionLogDir(node.getId(), txnLogDir + "txnLogs" + File.separator));
-        }
-        configuration.setMetadataNode(metadataNodeId);
-
-        configuration.setCoredump(coredump);
-        configuration.setTransactionLogDir(txnLogDirs);
-
-        JAXBContext ctx = JAXBContext.newInstance(AsterixConfiguration.class);
-        Marshaller marshaller = ctx.createMarshaller();
-        marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
-        //make config writeable
-        Set<PosixFilePermission> perms = new HashSet(Arrays.asList(new PosixFilePermission[] {
-                PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE, PosixFilePermission.OWNER_WRITE }));
-        Files.setPosixFilePermissions(java.nio.file.Paths.get(WORKING_CONF_PATH), perms);
-        FileOutputStream os = new FileOutputStream(WORKING_CONF_PATH);
-        marshaller.marshal(configuration, os);
-        os.close();
-        //now put this to HDFS so our NCs and CC can use it. 
     }
 
     private void distributeAsterixConfig() throws IOException {
         FileSystem fs = FileSystem.get(conf);
-        File srcfile = new File(WORKING_CONF_PATH);
-        Path src = new Path(srcfile.getCanonicalPath());
         String pathSuffix = instanceConfPath + File.separator + "asterix-configuration.xml";
         Path dst = new Path(fs.getHomeDirectory(), pathSuffix);
-        fs.copyFromLocalFile(false, true, src, dst);
         URI paramLocation = dst.toUri();
         FileStatus paramFileStatus = fs.getFileStatus(dst);
         Long paramLen = paramFileStatus.getLen();
@@ -475,23 +401,6 @@ public class ApplicationMaster {
         asterixParamLoc.setSize(paramLen);
         localResources.put("asterix-configuration.xml", asterixParamLoc);
 
-    }
-
-    /**
-     * Loads the basic Asterix configuration file that is embedded in the
-     * distributable tar file
-     * 
-     * @return A skeleton Asterix configuration
-     */
-
-    private AsterixConfiguration loadBaseAsterixConfig() throws IOException, JAXBException {
-        //now oddly enough, at the AM, we won't have this file un-tarred even though i said it was an archive (go figure)
-        //so let's do that 
-        File f = new File(WORKING_CONF_PATH);
-        JAXBContext configCtx = JAXBContext.newInstance(AsterixConfiguration.class);
-        Unmarshaller unmarshaller = configCtx.createUnmarshaller();
-        AsterixConfiguration conf = (AsterixConfiguration) unmarshaller.unmarshal(f);
-        return conf;
     }
 
     /**

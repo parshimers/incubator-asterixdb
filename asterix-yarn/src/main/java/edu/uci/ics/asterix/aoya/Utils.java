@@ -1,11 +1,17 @@
 package edu.uci.ics.asterix.aoya;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.ConnectException;
 import java.util.Scanner;
+
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Unmarshaller;
 
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpException;
@@ -180,5 +186,21 @@ public class Utils {
         }
         System.out.println("No backup found with specified timestamp");
 
+    }
+
+    /**
+     * Simply parses out the YARN cluster config and instantiates it into a nice object.
+     * 
+     * @return The object representing the configuration
+     * @throws FileNotFoundException
+     * @throws JAXBException
+     */
+    public static Cluster parseYarnClusterConfig(String path) throws FileNotFoundException, JAXBException {
+        //this method just hides away the deserialization silliness
+        File f = new File(path);
+        JAXBContext configCtx = JAXBContext.newInstance(Cluster.class);
+        Unmarshaller unmarshaller = configCtx.createUnmarshaller();
+        Cluster cl = (Cluster) unmarshaller.unmarshal(f);
+        return cl;
     }
 }

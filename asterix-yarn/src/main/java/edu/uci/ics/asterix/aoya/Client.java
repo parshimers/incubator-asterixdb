@@ -22,6 +22,7 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -33,6 +34,7 @@ import java.util.Vector;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
+import javax.xml.bind.Marshaller;
 import javax.xml.bind.Unmarshaller;
 
 import org.apache.commons.cli.CommandLine;
@@ -71,7 +73,12 @@ import org.apache.hadoop.yarn.util.Records;
 
 import com.google.common.collect.ImmutableMap;
 
+import edu.uci.ics.asterix.common.configuration.AsterixConfiguration;
+import edu.uci.ics.asterix.common.configuration.Coredump;
+import edu.uci.ics.asterix.common.configuration.Store;
+import edu.uci.ics.asterix.common.configuration.TransactionLogDir;
 import edu.uci.ics.asterix.event.schema.yarnCluster.Cluster;
+import edu.uci.ics.asterix.event.schema.yarnCluster.Node;
 
 @InterfaceAudience.Public
 @InterfaceStability.Unstable
@@ -110,6 +117,10 @@ public class Client {
     private static final Log LOG = LogFactory.getLog(Client.class);
     private static final String CONF_DIR_REL = ".asterix" + File.separator;
     private static final String instanceLock = "instance";
+    private static final String DEFAULT_PARAMETERS_PATH = "conf" + File.separator
+            + "base-asterix-configuration.xml";
+    private static final String MERGED_PARAMETERS_PATH = "conf" + File.separator
+            + "asterix-configuration.xml";
     private Mode mode;
 
     // Configuration
@@ -157,6 +168,7 @@ public class Client {
     // Debug flag
     boolean debugFlag = false;
     private boolean refresh = false;
+    private boolean force = false;
 
     // Command line options
     private Options opts;
@@ -190,7 +202,9 @@ public class Client {
                         client.stopInstance();
                         break;
                     case KILL:
-                        Utils.confirmAction("Are you sure you want to kill this instance? In-progress tasks will be aborted");
+                        if (client.isRunning()) {
+                            Utils.confirmAction("Are you sure you want to kill this instance? In-progress tasks will be aborted");
+                        }
                         Client.killApplication(client.getLockFile(), client.yarnClient);
                         break;
                     case DESCRIBE:
@@ -200,6 +214,8 @@ public class Client {
                         try {
                             app = client.makeApplicationContext();
                             client.installConfig();
+                            client.writeAsterixConfig(Utils.parseYarnClusterConfig(client.asterixConf));
+                            client.installAsterixConfig();
                             res = client.deployConfig();
                             res.addAll(client.distributeBinaries());
 
@@ -220,6 +236,8 @@ public class Client {
                         client.installExtLibs();
                         break;
                     case ALTER:
+                        client.writeAsterixConfig(Utils.parseYarnClusterConfig(client.asterixConf));
+                        client.installAsterixConfig();
                         break;
                     case DESTROY:
                         try {
@@ -305,6 +323,7 @@ public class Client {
         opts.addOption("snapshot", true, "Backup timestamp for arguments requiring a specific backup (rm, restore)");
         opts.addOption("debug", false, "Dump out debug information");
         opts.addOption("help", false, "Print usage");
+        opts.addOption("force", false, "Execute this command as fully as possible, disregarding any caution");
     }
 
     /**
@@ -354,6 +373,9 @@ public class Client {
 
         if (cliParser.hasOption("debug")) {
             debugFlag = true;
+        }
+        if (cliParser.hasOption("force")) {
+            force = true;
         }
 
         appName = cliParser.getOptionValue("appname", "Asterix");
@@ -516,18 +538,14 @@ public class Client {
 
     private void installExtLibs() throws IllegalStateException, IOException {
         FileSystem fs = FileSystem.get(conf);
-        String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
-        Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
-        if (!fs.exists(dstConf)) {
-            throw new IllegalStateException("Could not find existing asterix instance in DFS");
+        if (!instanceExists()) {
+            throw new IllegalStateException("No instance by name " + instanceName + " found.");
         }
-        Path running = new Path(fs.getHomeDirectory(), CONF_DIR_REL + instanceFolder + instanceLock);
-        if (fs.exists(running)) {
-            throw new IllegalStateException(
-                    "Asterix instance already running. Please shut down before library install.");
+        if (isRunning()) {
+            throw new IllegalStateException("Instance " + instanceName
+                    + " is running. Please stop it before installing any libraries.");
         }
         String libPathSuffix = CONF_DIR_REL + instanceFolder + "library/" + libDataverse + '/';
-        Path libDst = new Path(fs.getHomeDirectory(), libPathSuffix);
         Path src = new Path(extLibs);
         String fullLibPath = libPathSuffix + src.getName();
         Path libFilePath = new Path(fs.getHomeDirectory(), fullLibPath);
@@ -539,7 +557,6 @@ public class Client {
         List<DFSResourceCoordinate> resources = new ArrayList<DFSResourceCoordinate>(2);
         FileSystem fs = FileSystem.get(conf);
         String fullLibPath = CONF_DIR_REL + instanceFolder + "am_jars/";
-        Path libDst = new Path(fs.getHomeDirectory(), fullLibPath);
         String[] cp = System.getProperty("java.class.path").split(System.getProperty("path.separator"));
         String asterixJarPattern = "^(asterix).*(jar)$"; //starts with asterix,ends with jar
         LOG.info(File.separator);
@@ -568,6 +585,18 @@ public class Client {
             }
         }
         return resources;
+    }
+
+    private void installAsterixConfig() throws IOException {
+        if (!instanceExists()) {
+
+        }
+        FileSystem fs = FileSystem.get(conf);
+        File srcfile = new File(MERGED_PARAMETERS_PATH);
+        Path src = new Path(srcfile.getCanonicalPath());
+        String pathSuffix = CONF_DIR_REL + instanceFolder + File.separator + "asterix-configuration.xml";
+        Path dst = new Path(fs.getHomeDirectory(), pathSuffix);
+        fs.copyFromLocalFile(false, true, src, dst);
     }
 
     public List<DFSResourceCoordinate> distributeBinaries() throws IOException, YarnException {
@@ -863,15 +892,19 @@ public class Client {
         ApplicationId deleter = deployAM(app, resources, Mode.DESTROY);
         boolean delete_start = waitForLiveness(deleter, false, "Waiting for deletion to start");
         if (!delete_start) {
-            LOG.fatal("Cleanup of on-disk persistient resources failed.");
+            if (force) {
+                fs.delete(new Path(CONF_DIR_REL + instanceFolder), true);
+                LOG.error("Forcing deletion of HDFS resources");
+            }
+            LOG.fatal(" of on-disk persistient resources on individual nodes failed.");
             throw new YarnException();
         }
         boolean deleted = waitForCompletion(deleter, "Deletion in progress");
-        if (!deleted) {
+        if (!(deleted || force)) {
             LOG.fatal("Cleanup of on-disk persistent resources failed.");
+            return;
         } else {
             fs.delete(new Path(CONF_DIR_REL + instanceFolder), true);
-            return;
         }
         System.out.println("Deletion of instance succeeded.");
 
@@ -894,7 +927,8 @@ public class Client {
         }
         //now try deleting all of the on-disk artifacts on the cluster
         ApplicationId backerUpper = deployAM(app, resources, Mode.BACKUP);
-        boolean backupStart = waitForLiveness(backerUpper, false, "Waiting for backup to start");
+        boolean backupStart = waitForLiveness(backerUpper, false, "Waiting for backup " + backerUpper.toString()
+                + "to start");
         if (!backupStart) {
             LOG.fatal("Backup failed to start");
             throw new YarnException();
@@ -996,6 +1030,13 @@ public class Client {
         }
     }
 
+    private boolean instanceExists() throws IOException {
+        FileSystem fs = FileSystem.get(conf);
+        String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
+        Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
+        return fs.exists(dstConf);
+    }
+
     private boolean isRunning() throws IOException {
         FileSystem fs = FileSystem.get(conf);
         String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
@@ -1051,6 +1092,56 @@ public class Client {
         Cluster cl = (Cluster) unm.unmarshal(tmp);
         String ccIp = cl.getMasterNode().getClientIp();
         return ccIp;
+    }
+
+    private void writeAsterixConfig(Cluster cluster) throws JAXBException, FileNotFoundException, IOException {
+        String metadataNodeId = Utils.getMetadataNode(cluster).getId();
+        String asterixInstanceName = instanceName;
+
+        //this is the "base" config that is inside the tarball, we start here
+        AsterixConfiguration configuration = loadAsterixConfig(DEFAULT_PARAMETERS_PATH);
+
+        configuration.setInstanceName(asterixInstanceName);
+        String storeDir = null;
+        List<Store> stores = new ArrayList<Store>();
+        for (Node node : cluster.getNode()) {
+            storeDir = node.getStore() == null ? cluster.getStore() : node.getStore();
+            stores.add(new Store(node.getId(), storeDir));
+        }
+        configuration.setStore(stores);
+
+        List<Coredump> coredump = new ArrayList<Coredump>();
+        String coredumpDir = null;
+        List<TransactionLogDir> txnLogDirs = new ArrayList<TransactionLogDir>();
+        String txnLogDir = null;
+        for (Node node : cluster.getNode()) {
+            coredumpDir = node.getLogDir() == null ? cluster.getLogDir() : node.getLogDir();
+            coredump.add(new Coredump(node.getId(), coredumpDir + "coredump" + File.separator));
+            txnLogDir = node.getTxnLogDir() == null ? cluster.getTxnLogDir() : node.getTxnLogDir();
+            txnLogDirs.add(new TransactionLogDir(node.getId(), txnLogDir + "txnLogs" + File.separator));
+        }
+        configuration.setMetadataNode(metadataNodeId);
+
+        configuration.setCoredump(coredump);
+        configuration.setTransactionLogDir(txnLogDirs);
+
+        JAXBContext ctx = JAXBContext.newInstance(AsterixConfiguration.class);
+        Marshaller marshaller = ctx.createMarshaller();
+        marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
+        String cwd = new File(".").getAbsolutePath() + "/";
+        FileOutputStream os = new FileOutputStream(cwd + MERGED_PARAMETERS_PATH);
+        marshaller.marshal(configuration, os);
+        os.close();
+    }
+
+    private AsterixConfiguration loadAsterixConfig(String path) throws IOException, JAXBException {
+        //now oddly enough, at the AM, we won't have this file un-tarred even though i said it was an archive (go figure)
+        //so let's do that 
+        File f = new File(path);
+        JAXBContext configCtx = JAXBContext.newInstance(AsterixConfiguration.class);
+        Unmarshaller unmarshaller = configCtx.createUnmarshaller();
+        AsterixConfiguration conf = (AsterixConfiguration) unmarshaller.unmarshal(f);
+        return conf;
     }
 
     private boolean waitForLiveness(ApplicationId appId, boolean probe, String message) throws YarnException,
