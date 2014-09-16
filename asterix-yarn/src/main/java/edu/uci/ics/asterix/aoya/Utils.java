@@ -27,11 +27,17 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
+import org.apache.hadoop.yarn.api.records.ApplicationReport;
+import org.apache.hadoop.yarn.api.records.YarnApplicationState;
+import org.apache.hadoop.yarn.client.api.YarnClient;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 
 import edu.uci.ics.asterix.event.schema.yarnCluster.Cluster;
 import edu.uci.ics.asterix.event.schema.yarnCluster.Node;
 
 public class Utils {
+
+    private static final String CONF_DIR_REL = Client.CONF_DIR_REL;
 
     public static String hostFromContainerID(String containerID) {
         return containerID.split("_")[4];
@@ -196,11 +202,108 @@ public class Utils {
      * @throws JAXBException
      */
     public static Cluster parseYarnClusterConfig(String path) throws FileNotFoundException, JAXBException {
-        //this method just hides away the deserialization silliness
         File f = new File(path);
         JAXBContext configCtx = JAXBContext.newInstance(Cluster.class);
         Unmarshaller unmarshaller = configCtx.createUnmarshaller();
         Cluster cl = (Cluster) unmarshaller.unmarshal(f);
         return cl;
+    }
+
+    public static String getAsterixVersionFromClasspath() {
+        String[] cp = System.getProperty("java.class.path").split(System.getProperty("path.separator"));
+        String asterixJarPattern = "^(asterix).*(jar)$"; //starts with asterix,ends with jar
+        for (String j : cp) {
+            String[] pathComponents = j.split(File.separator);
+            if (pathComponents[pathComponents.length - 1].matches(asterixJarPattern)) {
+                String[] byDash = pathComponents[pathComponents.length - 1].split("-");
+                String version = byDash[2];
+                //SNAPSHOT suffix
+                if (byDash.length == 4) {
+                    return version + '-' + byDash[3];
+                }
+                //stable version
+                return version;
+            }
+        }
+        return null;
+    }
+
+    public static boolean waitForLiveness(ApplicationId appId, boolean probe, boolean print, String message,
+            YarnClient yarnClient, String instanceName, Configuration conf) throws YarnException, IOException,
+            JAXBException {
+        ApplicationReport report = yarnClient.getApplicationReport(appId);
+        YarnApplicationState st = report.getYarnApplicationState();
+        for (int i = 0; i < 120; i++) {
+            if (st != YarnApplicationState.RUNNING || report.getProgress() != 0.5f) {
+                try {
+                    report = yarnClient.getApplicationReport(appId);
+                    st = report.getYarnApplicationState();
+                    if (print) {
+                        System.out.print(message + Utils.makeDots(i) + "\r");
+                    }
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            } else if (probe) {
+                String host = getCCHostname(instanceName, conf);
+                for (int j = 0; j < 60; j++) {
+                    if (!Utils.probeLiveness(host)) {
+                        try {
+                            if (print) {
+                                System.out.print(message + Utils.makeDots(i) + "\r");
+                            }
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    } else {
+                        if (print) {
+                            System.out.println("");
+                        }
+                        return true;
+                    }
+                }
+            } else {
+                if (print) {
+                    System.out.println("");
+                }
+                return true;
+            }
+        }
+        if (print) {
+            System.out.println("");
+        }
+        return false;
+    }
+
+    public static boolean waitForLiveness(ApplicationId appId, String message, YarnClient yarnClient,
+            String instanceName, Configuration conf) throws YarnException, IOException, JAXBException {
+        return waitForLiveness(appId, true, true, message, yarnClient, instanceName, conf);
+    }
+
+    public static boolean waitForApplication(ApplicationId appId, YarnClient yarnClient, String message)
+            throws YarnException, IOException, JAXBException {
+        return waitForLiveness(appId, false, true, message, yarnClient, "", null);
+    }
+
+    public static boolean waitForApplication(ApplicationId appId, YarnClient yarnClient) throws YarnException,
+            IOException, JAXBException {
+        return waitForLiveness(appId, false, false, "", yarnClient, "", null);
+    }
+
+    public static String getCCHostname(String instanceName, Configuration conf) throws IOException, JAXBException {
+        FileSystem fs = FileSystem.get(conf);
+        String instanceFolder = instanceName + "/";
+        String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
+        Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
+        File tmp = File.createTempFile("cluster-config", "xml");
+        tmp.deleteOnExit();
+        fs.copyToLocalFile(dstConf, new Path(tmp.getPath()));
+        JAXBContext clusterConf = JAXBContext.newInstance(Cluster.class);
+        Unmarshaller unm = clusterConf.createUnmarshaller();
+        Cluster cl = (Cluster) unm.unmarshal(tmp);
+        String ccIp = cl.getMasterNode().getClientIp();
+        return ccIp;
     }
 }

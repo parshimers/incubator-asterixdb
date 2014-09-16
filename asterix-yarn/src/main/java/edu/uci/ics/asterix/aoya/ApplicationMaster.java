@@ -153,6 +153,7 @@ public class ApplicationMaster {
     private AtomicInteger numRequestedContainers = new AtomicInteger();
     //Tells us whether the Cluster Controller is up so we can safely start some Node Controllers
     private AtomicBoolean ccUp = new AtomicBoolean();
+    private AtomicBoolean ccStarted = new AtomicBoolean();
 
     //HDFS path to Asterix distributable tarball
     private String asterixZipPath = "";
@@ -366,7 +367,6 @@ public class ApplicationMaster {
         return true;
     }
 
-
     /**
      * Kanged from managix. Splices the cluster config and asterix config parameters together, then puts the product to HDFS.
      * 
@@ -413,7 +413,7 @@ public class ApplicationMaster {
         int numNodes = 0;
         ContainerRequest ccAsk = hostToRequest(CC.getClusterIp(), true);
         resourceManager.addContainerRequest(ccAsk);
-        LOG.info("Asked for CC: " + CC.getClusterIp());
+        LOG.info("Asked for CC: " + Arrays.toString(ccAsk.getNodes().toArray()));
         numNodes++;
         //now we wait to be given the CC before starting the NCs...
         //we will wait a minute. 
@@ -471,11 +471,24 @@ public class ApplicationMaster {
         //we dont set anything else because we don't care about that and yarn doesn't honor it yet
         String[] hosts = new String[1];
         //TODO this is silly
-        hosts[0] = hostIp.getHostName().split("\\.")[0];
+        hosts[0] = hostIp.getHostName();
         LOG.info("IP addr: " + host + " resolved to " + hostIp.getHostName());
         ContainerRequest request = new ContainerRequest(capability, hosts, null, pri, false);
         LOG.info("Requested host ask: " + request.getNodes());
         return request;
+    }
+
+    boolean containerIsCC(Container c) {
+        String containerHost = c.getNodeId().getHost();
+        try {
+            InetAddress containerIp = InetAddress.getByName(containerHost);
+            LOG.info(containerIp.getCanonicalHostName());
+            InetAddress ccIp = InetAddress.getByName(CC.getClusterIp());
+            LOG.info(ccIp.getCanonicalHostName());
+            return containerIp.getCanonicalHostName().equals(ccIp.getCanonicalHostName());
+        } catch (UnknownHostException e) {
+            return false;
+        }
     }
 
     /**
@@ -624,6 +637,7 @@ public class ApplicationMaster {
         } catch (YarnException e) {
             LOG.error("Could not allocate resources properly:" + e.getMessage());
             done = true;
+            throw e;
         }
         //now we just sit and listen for messages from the RM
 
@@ -736,7 +750,8 @@ public class ApplicationMaster {
                 // I want to know if this node is the CC, because it must start before the NCs. 
                 LOG.info("Allocated: " + allocatedContainer.getNodeId().getHost());
                 LOG.info("CC : " + CC.getId());
-                if (allocatedContainer.getNodeId().getHost().equals(CC.getId())) {
+
+                if (containerIsCC(allocatedContainer)) {
                     ccUp.set(true);
                 }
                 // launch and start the container on a separate thread to keep
@@ -924,33 +939,35 @@ public class ApplicationMaster {
             Vector<CharSequence> vargs = new Vector<CharSequence>(5);
 
             //first see if this node is the CC
-            if (containerIsCC(container)) {
+            if (containerIsCC(container) && (ccStarted.get() == false)) {
                 LOG.info("CC found on container" + container.getNodeId().getHost());
                 //get our java opts
                 String opts = "JAVA_OPTS=" + CcJavaOpts + " ";
                 vargs.add(opts + ASTERIX_CC_BIN_PATH + " -cluster-net-ip-address " + CC.getClusterIp()
                         + " -client-net-ip-address " + CC.getClientIp());
+                ccStarted.set(true);
 
-            }
-            //now we need to know what node we are on, so we can apply the correct properties
+            } else {
+                //now we need to know what node we are on, so we can apply the correct properties
 
-            Node local;
-            try {
-                local = containerToNode(container, clusterDesc);
-                LOG.info("Attempting to start NC on host " + local.getId());
-                String iodevice = local.getIodevices();
-                if (iodevice == null) {
-                    iodevice = clusterDesc.getIodevices();
+                Node local;
+                try {
+                    local = containerToNode(container, clusterDesc);
+                    LOG.info("Attempting to start NC on host " + local.getId());
+                    String iodevice = local.getIodevices();
+                    if (iodevice == null) {
+                        iodevice = clusterDesc.getIodevices();
+                    }
+                    String opts = "JAVA_OPTS=" + NcJavaOpts + " ";
+                    vargs.add(opts + ASTERIX_NC_BIN_PATH + " -node-id " + local.getId());
+                    vargs.add("-cc-host " + CC.getClusterIp());
+                    vargs.add("-iodevices " + iodevice);
+                    vargs.add("-cluster-net-ip-address " + local.getClusterIp());
+                    vargs.add("-data-ip-address " + local.getClusterIp());
+                    vargs.add("-result-ip-address " + local.getClusterIp());
+                } catch (UnknownHostException e) {
+                    LOG.error("Unable to find NC configured for host: " + container.getId() + e);
                 }
-                String opts = "JAVA_OPTS=" + NcJavaOpts + " ";
-                vargs.add(opts + ASTERIX_NC_BIN_PATH + " -node-id " + local.getId());
-                vargs.add("-cc-host " + CC.getClusterIp());
-                vargs.add("-iodevices " + iodevice);
-                vargs.add("-cluster-net-ip-address " + local.getClusterIp());
-                vargs.add("-data-ip-address " + local.getClusterIp());
-                vargs.add("-result-ip-address " + local.getClusterIp());
-            } catch (UnknownHostException e) {
-                LOG.error("Unable to find NC configured for host: " + container.getId() + e);
             }
 
             // Add log redirect params
@@ -1192,16 +1209,6 @@ public class ApplicationMaster {
          *            The container in question
          * @return True if the container should have the CC process on it, false otherwise.
          */
-        private boolean containerIsCC(Container c) {
-            String containerHost = c.getNodeId().getHost();
-            try {
-                InetAddress containerIp = InetAddress.getByName(containerHost);
-                InetAddress ccIp = InetAddress.getByName(CC.getClusterIp());
-                return containerIp.equals(ccIp);
-            } catch (UnknownHostException e) {
-                return false;
-            }
-        }
 
     }
 }

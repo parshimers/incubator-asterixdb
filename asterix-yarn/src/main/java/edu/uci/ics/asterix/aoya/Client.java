@@ -67,6 +67,7 @@ import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.client.api.YarnClientApplication;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
+import org.apache.hadoop.yarn.exceptions.ApplicationNotFoundException;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
@@ -99,11 +100,6 @@ public class Client {
         RESTORE("restore");
 
         public final String alias;
-        public static final Map<String, Client.Mode> STRING_TO_MODE = ImmutableMap.<String, Client.Mode> builder()
-                .put(INSTALL.alias, INSTALL).put(START.alias, START).put(STOP.alias, STOP).put(KILL.alias, KILL)
-                .put(DESTROY.alias, DESTROY).put(ALTER.alias, ALTER).put(LIBINSTALL.alias, LIBINSTALL)
-                .put(DESCRIBE.alias, DESCRIBE).put(BACKUP.alias, BACKUP).put(LSBACKUP.alias, LSBACKUP)
-                .put(RMBACKUP.alias, RMBACKUP).put(RESTORE.alias, RESTORE).build();
 
         Mode(String alias) {
             this.alias = alias;
@@ -114,13 +110,17 @@ public class Client {
         }
     }
 
+    public static final Map<String, Client.Mode> STRING_TO_MODE = ImmutableMap.<String, Client.Mode> builder()
+            .put(Mode.INSTALL.alias, Mode.INSTALL).put(Mode.START.alias, Mode.START).put(Mode.STOP.alias, Mode.STOP)
+            .put(Mode.KILL.alias, Mode.KILL).put(Mode.DESTROY.alias, Mode.DESTROY).put(Mode.ALTER.alias, Mode.ALTER)
+            .put(Mode.LIBINSTALL.alias, Mode.LIBINSTALL).put(Mode.DESCRIBE.alias, Mode.DESCRIBE)
+            .put(Mode.BACKUP.alias, Mode.BACKUP).put(Mode.LSBACKUP.alias, Mode.LSBACKUP)
+            .put(Mode.RMBACKUP.alias, Mode.RMBACKUP).put(Mode.RESTORE.alias, Mode.RESTORE).build();
     private static final Log LOG = LogFactory.getLog(Client.class);
-    private static final String CONF_DIR_REL = ".asterix" + File.separator;
+    static final String CONF_DIR_REL = ".asterix" + File.separator;
     private static final String instanceLock = "instance";
-    private static final String DEFAULT_PARAMETERS_PATH = "conf" + File.separator
-            + "base-asterix-configuration.xml";
-    private static final String MERGED_PARAMETERS_PATH = "conf" + File.separator
-            + "asterix-configuration.xml";
+    private static final String DEFAULT_PARAMETERS_PATH = "conf" + File.separator + "base-asterix-configuration.xml";
+    private static final String MERGED_PARAMETERS_PATH = "conf" + File.separator + "asterix-configuration.xml";
     private Mode mode;
 
     // Configuration
@@ -191,7 +191,8 @@ public class Client {
                         res.addAll(client.distributeBinaries());
                         ApplicationId appId = client.deployAM(app, res, client.mode);
                         LOG.info("Asterix started up with Application ID: " + appId.toString());
-                        if (client.waitForLiveness(appId, true, "Waiting for AsterixDB instance to resume ")) {
+                        if (Utils.waitForLiveness(appId, "Waiting for AsterixDB instance to resume ",
+                                client.yarnClient, client.instanceName, client.conf)) {
                             System.out.println("Asterix successfully deployed and is now running.");
                         } else {
                             LOG.fatal("AsterixDB appears to have failed to install and start");
@@ -199,13 +200,23 @@ public class Client {
                         }
                         break;
                     case STOP:
-                        client.stopInstance();
+                        try {
+                            client.stopInstance();
+                        } catch (ApplicationNotFoundException e) {
+                            System.out.println("Asterix instance by that name already exited or was never started");
+                            client.deleteLockFile();
+                        }
                         break;
                     case KILL:
                         if (client.isRunning()) {
                             Utils.confirmAction("Are you sure you want to kill this instance? In-progress tasks will be aborted");
                         }
-                        Client.killApplication(client.getLockFile(), client.yarnClient);
+                        try {
+                            Client.killApplication(client.getLockFile(), client.yarnClient);
+                        } catch (ApplicationNotFoundException e) {
+                            System.out.println("Asterix instance by that name already exited or was never started");
+                            client.deleteLockFile();
+                        }
                         break;
                     case DESCRIBE:
                         Utils.listInstances(client.conf, CONF_DIR_REL);
@@ -221,7 +232,8 @@ public class Client {
 
                             appId = client.deployAM(app, res, client.mode);
                             LOG.info("Asterix started up with Application ID: " + appId.toString());
-                            if (client.waitForLiveness(appId, true, "Waiting for new AsterixDB Instance to start ")) {
+                            if (Utils.waitForLiveness(appId, "Waiting for new AsterixDB Instance to start ",
+                                    client.yarnClient, client.instanceName, client.conf)) {
                                 System.out.println("Asterix successfully deployed and is now running.");
                             } else {
                                 LOG.fatal("AsterixDB appears to have failed to install and start");
@@ -238,6 +250,7 @@ public class Client {
                     case ALTER:
                         client.writeAsterixConfig(Utils.parseYarnClusterConfig(client.asterixConf));
                         client.installAsterixConfig();
+                        System.out.println("Configuration successfully modified");
                         break;
                     case DESTROY:
                         try {
@@ -854,11 +867,12 @@ public class Client {
         if (yarnClient.isInState(STATE.INITED)) {
             yarnClient.start();
         }
+        YarnApplicationState st;
         ApplicationReport rep = yarnClient.getApplicationReport(appId);
-        YarnApplicationState st = rep.getYarnApplicationState();
+        st = rep.getYarnApplicationState();
         if (st == YarnApplicationState.FINISHED || st == YarnApplicationState.KILLED
                 || st == YarnApplicationState.FAILED) {
-            throw new YarnException("Application has already exited");
+            throw new ApplicationNotFoundException("Application has already exited");
         }
         LOG.info("Killing applicaiton with ID: " + appId);
         yarnClient.killApplication(appId);
@@ -890,7 +904,7 @@ public class Client {
         }
         //now try deleting all of the on-disk artifacts on the cluster
         ApplicationId deleter = deployAM(app, resources, Mode.DESTROY);
-        boolean delete_start = waitForLiveness(deleter, false, "Waiting for deletion to start");
+        boolean delete_start = Utils.waitForApplication(deleter, yarnClient, "Waiting for deletion to start");
         if (!delete_start) {
             if (force) {
                 fs.delete(new Path(CONF_DIR_REL + instanceFolder), true);
@@ -927,8 +941,8 @@ public class Client {
         }
         //now try deleting all of the on-disk artifacts on the cluster
         ApplicationId backerUpper = deployAM(app, resources, Mode.BACKUP);
-        boolean backupStart = waitForLiveness(backerUpper, false, "Waiting for backup " + backerUpper.toString()
-                + "to start");
+        boolean backupStart = Utils.waitForApplication(backerUpper, yarnClient,
+                "Waiting for backup " + backerUpper.toString() + "to start");
         if (!backupStart) {
             LOG.fatal("Backup failed to start");
             throw new YarnException();
@@ -958,7 +972,7 @@ public class Client {
         }
         //now try deleting all of the on-disk artifacts on the cluster
         ApplicationId restorer = deployAM(app, resources, Mode.RESTORE);
-        boolean restoreStart = waitForLiveness(restorer, false, "Waiting for restore to start");
+        boolean restoreStart = Utils.waitForApplication(restorer, yarnClient, "Waiting for restore to start");
         if (!restoreStart) {
             LOG.fatal("Restore failed to start");
             throw new YarnException();
@@ -981,9 +995,6 @@ public class Client {
 
     private void stopInstance() throws IOException, JAXBException, YarnException {
         ApplicationId appId = getLockFile();
-        if (appId == null) {
-            throw new YarnException("AsterixDB already apears to be stopped. If it isn't, try using kill");
-        }
         if (yarnClient.isInState(STATE.INITED)) {
             yarnClient.start();
         }
@@ -993,21 +1004,23 @@ public class Client {
             return;
         }
         try {
-            String ccIp = getCCHostname(instanceName, conf);
+            String ccIp = Utils.getCCHostname(instanceName, conf);
             Utils.sendShutdownCall(ccIp);
         } catch (IOException | JAXBException e) {
-            LOG.warn("Instance failed to stop gracefully, now killing it");
-            try {
-                Client.killApplication(appId, yarnClient);
-            } catch (YarnException e1) {
-                LOG.fatal("Could not stop nor kill instance gracefully.");
-                return;
+            if (force) {
+                LOG.warn("Instance failed to stop gracefully, now killing it");
+                try {
+                    Client.killApplication(appId, yarnClient);
+                } catch (YarnException e1) {
+                    LOG.fatal("Could not stop nor kill instance gracefully.");
+                    return;
+                }
             }
         }
         //now make sure it is actually gone and not "stuck"
         String message = "Waiting for AsterixDB to shut down";
         boolean completed = waitForCompletion(appId, message);
-        if (!completed) {
+        if (!completed && force) {
             LOG.warn("Instance failed to stop gracefully, now killing it");
             try {
                 Client.killApplication(appId, yarnClient);
@@ -1020,11 +1033,11 @@ public class Client {
     }
 
     private void deleteLockFile() throws IOException {
-        if (instanceFolder == "") {
+        if (instanceName == null || instanceName == "") {
             return;
         }
         FileSystem fs = FileSystem.get(conf);
-        Path lockPath = new Path(fs.getHomeDirectory(), CONF_DIR_REL + instanceFolder + instanceLock);
+        Path lockPath = new Path(fs.getHomeDirectory(), CONF_DIR_REL + instanceName + '/' + instanceLock);
         if (fs.exists(lockPath)) {
             fs.delete(lockPath, false);
         }
@@ -1049,14 +1062,14 @@ public class Client {
         }
     }
 
-    private ApplicationId getLockFile() throws IOException {
+    private ApplicationId getLockFile() throws IOException, YarnException {
         if (instanceFolder == "") {
             throw new IllegalStateException("Instance name not given.");
         }
         FileSystem fs = FileSystem.get(conf);
         Path lockPath = new Path(fs.getHomeDirectory(), CONF_DIR_REL + instanceFolder + instanceLock);
         if (!fs.exists(lockPath)) {
-            return null;
+            throw new YarnException("Instance appears to not be running. If you know it is, try using kill");
         }
         BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(lockPath)));
         String lockAppId = br.readLine();
@@ -1077,21 +1090,6 @@ public class Client {
         String lockAppId = br.readLine();
         br.close();
         return ConverterUtils.toApplicationId(lockAppId);
-    }
-
-    private static String getCCHostname(String instanceName, Configuration conf) throws IOException, JAXBException {
-        FileSystem fs = FileSystem.get(conf);
-        String instanceFolder = instanceName + "/";
-        String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
-        Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
-        File tmp = File.createTempFile("cluster-config", "xml");
-        tmp.deleteOnExit();
-        fs.copyToLocalFile(dstConf, new Path(tmp.getPath()));
-        JAXBContext clusterConf = JAXBContext.newInstance(Cluster.class);
-        Unmarshaller unm = clusterConf.createUnmarshaller();
-        Cluster cl = (Cluster) unm.unmarshal(tmp);
-        String ccIp = cl.getMasterNode().getClientIp();
-        return ccIp;
     }
 
     private void writeAsterixConfig(Cluster cluster) throws JAXBException, FileNotFoundException, IOException {
@@ -1135,8 +1133,6 @@ public class Client {
     }
 
     private AsterixConfiguration loadAsterixConfig(String path) throws IOException, JAXBException {
-        //now oddly enough, at the AM, we won't have this file un-tarred even though i said it was an archive (go figure)
-        //so let's do that 
         File f = new File(path);
         JAXBContext configCtx = JAXBContext.newInstance(AsterixConfiguration.class);
         Unmarshaller unmarshaller = configCtx.createUnmarshaller();
@@ -1144,66 +1140,9 @@ public class Client {
         return conf;
     }
 
-    private boolean waitForLiveness(ApplicationId appId, boolean probe, String message) throws YarnException,
-            IOException, JAXBException {
-        ApplicationReport report = yarnClient.getApplicationReport(appId);
-        YarnApplicationState st = report.getYarnApplicationState();
-        for (int i = 0; i < 120; i++) {
-            if (st != YarnApplicationState.RUNNING || report.getProgress() != 0.5f) {
-                try {
-                    report = yarnClient.getApplicationReport(appId);
-                    st = report.getYarnApplicationState();
-                    System.out.print(message + Utils.makeDots(i) + "\r");
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            } else if (probe) {
-                String host = getCCHostname(instanceName, conf);
-                for (int j = 0; j < 60; j++) {
-                    if (!Utils.probeLiveness(host)) {
-                        try {
-                            System.out.print(message + Utils.makeDots(i) + "\r");
-                            Thread.sleep(1000);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                        }
-                    } else {
-                        System.out.println("");
-                        return true;
-                    }
-                }
-            } else {
-                System.out.println("");
-                return true;
-            }
-        }
-        System.out.println("");
-        return false;
-    }
-
-    private boolean waitForCompletion(ApplicationId appId, String message) throws YarnException, IOException {
-        ApplicationReport report = yarnClient.getApplicationReport(appId);
-        YarnApplicationState st = report.getYarnApplicationState();
-        for (int i = 0; i < 500; i++) {
-            if (!(st == YarnApplicationState.FINISHED || st == YarnApplicationState.KILLED || st == YarnApplicationState.FAILED)) {
-                report = yarnClient.getApplicationReport(appId);
-                st = report.getYarnApplicationState();
-                if (i % 10 == 0) {
-                    System.out.print(message + Utils.makeDots(i) + "\r");
-                }
-            } else {
-                System.out.println("");
-                return true;
-            }
-            try {
-                Thread.sleep(50);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
-        System.out.println("");
-        return false;
+    private boolean waitForCompletion(ApplicationId appId, String message) throws YarnException, IOException,
+            JAXBException {
+        return Utils.waitForApplication(appId, yarnClient, message);
     }
 
     private class DFSResourceCoordinate {
