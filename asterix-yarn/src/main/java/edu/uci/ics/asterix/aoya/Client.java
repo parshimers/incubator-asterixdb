@@ -939,7 +939,6 @@ public class Client {
         } else if (!fs.exists(dstConf)) {
             throw new IllegalArgumentException("No instance configured with that name exists");
         }
-        //now try deleting all of the on-disk artifacts on the cluster
         ApplicationId backerUpper = deployAM(app, resources, Mode.BACKUP);
         boolean backupStart = Utils.waitForApplication(backerUpper, yarnClient,
                 "Waiting for backup " + backerUpper.toString() + "to start");
@@ -1098,6 +1097,8 @@ public class Client {
 
         //this is the "base" config that is inside the tarball, we start here
         AsterixConfiguration configuration = loadAsterixConfig(DEFAULT_PARAMETERS_PATH);
+        String version = Utils.getAsterixVersionFromClasspath();
+        configuration.setVersion(version);
 
         configuration.setInstanceName(asterixInstanceName);
         String storeDir = null;
