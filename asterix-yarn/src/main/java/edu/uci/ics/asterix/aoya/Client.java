@@ -64,6 +64,7 @@ import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
+import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.client.api.YarnClientApplication;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
@@ -125,6 +126,7 @@ public class Client {
 
     // Configuration
     private Configuration conf;
+    private Cluster axCluster;
     private YarnClient yarnClient;
     // Application master specific info to register a new Application with
     // RM/ASM
@@ -132,7 +134,7 @@ public class Client {
     // App master priority
     private int amPriority = 0;
     // Queue for App master
-    private String amQueue = "";
+    private String amQueue = "default";
     // Amt. of memory resource to request for to run the App Master
     private int amMemory = 64;
 
@@ -321,8 +323,6 @@ public class Client {
         opts.addOption("appname", true, "Application Name. Default value - Asterix");
         opts.addOption("priority", true, "Application Priority. Default 0");
         opts.addOption("queue", true, "RM Queue in which this application is to be submitted");
-        opts.addOption("master_memory", true, "Amount of memory in MB to be requested to run the application master");
-        opts.addOption("jar", true, "Jar file containing the application master");
         opts.addOption("log_properties", true, "log4j.properties file");
         opts.addOption("name", true, "Asterix instance name (required)");
         opts.addOption("asterixTar", true, "tarball with Asterix inside");
@@ -359,8 +359,10 @@ public class Client {
      *            Parsed command line options
      * @return Whether the init was successful to run the client
      * @throws ParseException
+     * @throws JAXBException
+     * @throws IOException
      */
-    public void init(String[] args) throws ParseException {
+    public void init(String[] args) throws ParseException, IOException, JAXBException {
 
         CommandLine cliParser = new GnuParser().parse(opts, args);
 
@@ -392,20 +394,6 @@ public class Client {
         }
 
         appName = cliParser.getOptionValue("appname", "Asterix");
-        amPriority = Integer.parseInt(cliParser.getOptionValue("priority", "0"));
-        amQueue = cliParser.getOptionValue("queue", "default");
-        amMemory = Integer.parseInt(cliParser.getOptionValue("master_memory", "10"));
-
-        if (amMemory < 0) {
-            throw new IllegalArgumentException("Invalid memory specified for application master, exiting."
-                    + " Specified memory=" + amMemory);
-        }
-
-        if (!cliParser.hasOption("jar")) {
-            throw new IllegalArgumentException("No jar file specified for application master");
-        }
-
-        appMasterJar = cliParser.getOptionValue("jar");
 
         if (!cliParser.hasOption("name") && mode != Mode.DESCRIBE) {
             throw new IllegalArgumentException("You must give a name for the instance to be deployed/altered");
@@ -446,6 +434,7 @@ public class Client {
             throw new IllegalArgumentException(
                     "Cannot specify a snapshot to restore in any mode besides restore, mode is: " + mode);
         }
+        axCluster = Utils.parseYarnClusterConfig(asterixConf);
     }
 
     /**
@@ -510,17 +499,39 @@ public class Client {
         } catch (IOException e) {
             throw new YarnException("Asterix instance by that name does not appear to exist in DFS");
         }
+        LocalResource clusterConfLoc = Records.newRecord(LocalResource.class);
+        clusterConfLoc.setType(LocalResourceType.FILE);
+        clusterConfLoc.setVisibility(LocalResourceVisibility.PUBLIC);
+        clusterConfLoc.setResource(ConverterUtils.getYarnUrlFromPath(dstConf));
+        clusterConfLoc.setTimestamp(destStatus.getModificationTime());
+
+        DFSResourceCoordinate conf = new DFSResourceCoordinate();
+        conf.envs.put(dstConf.toUri().toString(), MConstants.CONFLOCATION);
+        conf.envs.put(Long.toString(clusterConfLoc.getSize()), MConstants.CONFLEN);
+        conf.envs.put(Long.toString(clusterConfLoc.getTimestamp()), MConstants.CONFTIMESTAMP);
+        conf.name = "cluster-config.xml";
+        conf.res = clusterConfLoc;
+        resources.add(conf);
+
+        pathSuffix = CONF_DIR_REL + instanceFolder + "asterix-configuration.xml";
+        dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
+        try {
+            destStatus = fs.getFileStatus(dstConf);
+        } catch (IOException e) {
+            throw new YarnException("Asterix instance by that name does not appear to exist in DFS");
+        }
+
         LocalResource asterixConfLoc = Records.newRecord(LocalResource.class);
         asterixConfLoc.setType(LocalResourceType.FILE);
         asterixConfLoc.setVisibility(LocalResourceVisibility.PUBLIC);
         asterixConfLoc.setResource(ConverterUtils.getYarnUrlFromPath(dstConf));
         asterixConfLoc.setTimestamp(destStatus.getModificationTime());
 
-        DFSResourceCoordinate conf = new DFSResourceCoordinate();
+        conf = new DFSResourceCoordinate();
         conf.envs.put(dstConf.toUri().toString(), MConstants.CONFLOCATION);
         conf.envs.put(Long.toString(asterixConfLoc.getSize()), MConstants.CONFLEN);
         conf.envs.put(Long.toString(asterixConfLoc.getTimestamp()), MConstants.CONFTIMESTAMP);
-        conf.name = "cluster-config.xml";
+        conf.name = "asterix-configuration.xml";
         conf.res = asterixConfLoc;
         resources.add(conf);
 
@@ -572,6 +583,7 @@ public class Client {
         String fullLibPath = CONF_DIR_REL + instanceFolder + "am_jars/";
         String[] cp = System.getProperty("java.class.path").split(System.getProperty("path.separator"));
         String asterixJarPattern = "^(asterix).*(jar)$"; //starts with asterix,ends with jar
+
         LOG.info(File.separator);
         for (String j : cp) {
             String[] pathComponents = j.split(File.separator);
@@ -601,9 +613,6 @@ public class Client {
     }
 
     private void installAsterixConfig() throws IOException {
-        if (!instanceExists()) {
-
-        }
         FileSystem fs = FileSystem.get(conf);
         File srcfile = new File(MERGED_PARAMETERS_PATH);
         Path src = new Path(srcfile.getCanonicalPath());
@@ -618,45 +627,11 @@ public class Client {
         // Copy the application master jar to the filesystem
         // Create a local resource to point to the destination jar path
         FileSystem fs = FileSystem.get(conf);
-        Path src = new Path(appMasterJar);
-        String pathSuffix = CONF_DIR_REL + instanceFolder + "AppMaster.jar";
-        Path dst = new Path(fs.getHomeDirectory(), pathSuffix);
-        if (refresh) {
-            if (fs.exists(dst)) {
-                fs.delete(dst, false);
-            }
-        }
-        if (!fs.exists(dst)) {
-            fs.copyFromLocalFile(false, true, src, dst);
-        }
-        FileStatus destStatus = fs.getFileStatus(dst);
+        Path src;
+        String pathSuffix;
+        Path dst;
+        FileStatus destStatus;
         LocalResource amJarRsrc = Records.newRecord(LocalResource.class);
-
-        // Set the type of resource - file or archive
-        // archives are untarred at destination
-        // we don't need the jar file to be untarred
-        amJarRsrc.setType(LocalResourceType.FILE);
-        // Set visibility of the resource
-        // Setting to most private option
-        amJarRsrc.setVisibility(LocalResourceVisibility.APPLICATION);
-        // Set the resource to be copied over
-        amJarRsrc.setResource(ConverterUtils.getYarnUrlFromPath(dst));
-        // Set timestamp and length of file so that the framework
-        // can do basic sanity checks for the local resource
-        // after it has been copied over to ensure it is the same
-        // resource the client intended to use with the application
-        amJarRsrc.setTimestamp(destStatus.getModificationTime());
-        amJarRsrc.setSize(destStatus.getLen());
-
-        // adding info so we can add the jar to the App master container path
-        DFSResourceCoordinate am = new DFSResourceCoordinate();
-        am.envs.put(dst.toUri().toString(), MConstants.APPLICATIONMASTERJARLOCATION);
-        FileStatus amFileStatus = fs.getFileStatus(dst);
-        am.envs.put(Long.toString(amJarRsrc.getSize()), MConstants.APPLICATIONMASTERJARLEN);
-        am.envs.put(Long.toString(amJarRsrc.getTimestamp()), MConstants.APPLICATIONMASTERJARTIMESTAMP);
-        am.res = amJarRsrc;
-        am.name = "AppMaster.jar";
-        resources.add(am);
 
         // Add the asterix tarfile to HDFS for easy distribution
         // Keep it all archived for now so add it as a file...
@@ -713,7 +688,10 @@ public class Client {
     public ApplicationId deployAM(YarnClientApplication app, List<DFSResourceCoordinate> resources, Mode mode)
             throws IOException, YarnException {
 
+
+
         // Set up the container launch context for the application master
+        ContainerRequest ctrReq = Utils.hostToRequest(axCluster.getMasterNode().getClusterIp(), 512);
         ContainerLaunchContext amContainer = Records.newRecord(ContainerLaunchContext.class);
 
         ApplicationSubmissionContext appContext = app.getApplicationSubmissionContext();
@@ -750,13 +728,15 @@ public class Client {
         // It should be provided out of the box.
         // For now setting all required classpaths including
         // the classpath to "." for the application jar
-        StringBuilder classPathEnv = new StringBuilder("").append("./*");
+        StringBuilder classPathEnv = new StringBuilder("").append("." + File.separator + "*");
         for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH,
                 YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH)) {
             classPathEnv.append(File.pathSeparatorChar);
             classPathEnv.append(c.trim());
         }
         classPathEnv.append(File.pathSeparatorChar).append("." + File.separator + "log4j.properties");
+        classPathEnv.append(File.pathSeparatorChar).append(
+                "." + File.separator + "asterix-server.zip" + File.separator + "repo" + File.separator + "*");
 
         // add the runtime classpath needed for tests to work
         if (conf.getBoolean(YarnConfiguration.IS_MINI_YARN_CLUSTER, false)) {
@@ -821,6 +801,7 @@ public class Client {
         // amContainer.setContainerId(containerId);
 
         appContext.setAMContainerSpec(amContainer);
+
 
         // Set the priority for the application master
         Priority pri = Records.newRecord(Priority.class);

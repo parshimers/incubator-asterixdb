@@ -47,8 +47,6 @@ import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -72,9 +70,6 @@ import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.NodeReport;
-import org.apache.hadoop.yarn.api.records.Priority;
-import org.apache.hadoop.yarn.api.records.Resource;
-import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.impl.NMClientAsyncImpl;
@@ -82,6 +77,8 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
 
 import edu.uci.ics.asterix.common.config.AsterixPropertiesAccessor;
 import edu.uci.ics.asterix.common.config.GlobalConfig;
@@ -91,6 +88,9 @@ import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.event.schema.yarnCluster.Cluster;
 import edu.uci.ics.asterix.event.schema.yarnCluster.MasterNode;
 import edu.uci.ics.asterix.event.schema.yarnCluster.Node;
+import edu.uci.ics.hyracks.control.cc.ClusterControllerService;
+import edu.uci.ics.hyracks.control.cc.application.CCApplicationContext;
+import edu.uci.ics.hyracks.control.common.controllers.CCConfig;
 
 @InterfaceAudience.Public
 @InterfaceStability.Unstable
@@ -187,7 +187,6 @@ public class ApplicationMaster {
 
     private boolean instanceExists = false;
     private boolean obliterate = false;
-    private Path AppMasterJar = null;
     private boolean refresh = false;
     private boolean backup = false;
     long backupTimestamp;
@@ -196,8 +195,11 @@ public class ApplicationMaster {
 
     // Launch threads
     private List<Thread> launchThreads = new ArrayList<Thread>();
-    private List<Pair<Boolean, ContainerId>> containers = Collections
-            .synchronizedList(new ArrayList<Pair<Boolean, ContainerId>>());
+    private Thread CCThread;
+    private CCApplicationContext CCContext;
+    private YarnClusterLifecycleListener ccNotifications;
+    private Map<String, ContainerId> nodeIdContainerMap = Collections
+            .synchronizedMap(new HashMap<String, ContainerId>());
 
     public static void main(String[] args) {
 
@@ -350,8 +352,6 @@ public class ApplicationMaster {
         asterixConfLen = Long.parseLong(envs.get(MConstants.CONFLEN));
 
         instanceConfPath = envs.get(MConstants.INSTANCESTORE);
-        AppMasterJar = new Path(envs.get(MConstants.APPLICATIONMASTERJARLOCATION));
-
         LOG.info("Path suffix: " + instanceConfPath);
     }
 
@@ -413,37 +413,11 @@ public class ApplicationMaster {
      *            The cluster exception to attempt to alocate with the RM
      * @throws YarnException
      */
-    private void requestResources(Cluster c) throws YarnException, UnknownHostException {
-        //request CC
+    private void requestIntialResources(Cluster c) throws YarnException, UnknownHostException {
         int numNodes = 0;
-        ContainerRequest ccAsk = hostToRequest(CC.getClusterIp(), true);
-        resourceManager.addContainerRequest(ccAsk);
-        LOG.info("Asked for CC: " + Arrays.toString(ccAsk.getNodes().toArray()));
-        numNodes++;
-        //now we wait to be given the CC before starting the NCs...
-        //we will wait a minute. 
-        int death_clock = 60;
-        while (ccUp.get() == false && death_clock > 0) {
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException ex) {
-
-            }
-            --death_clock;
-        }
-        if (death_clock == 0 && ccUp.get() == false) {
-            throw new YarnException("Couldn't allocate container for CC. Abort!");
-        }
-        LOG.info("Waiting for CC process to start");
-        //TODO: inspect for actual liveness instead of waiting.
-        // is there a good way to do this? maybe try opening a socket to it...
-        try {
-            Thread.sleep(10000);
-        } catch (InterruptedException ex) {
-        }
         //request NCs
         for (Node n : c.getNode()) {
-            resourceManager.addContainerRequest(hostToRequest(n.getClusterIp(), false));
+            resourceManager.addContainerRequest(Utils.hostToRequest(n.getClusterIp(), NC_MEMORY_MBS_DEFAULT));
             LOG.info("Asked for NC: " + n.getClusterIp());
             numNodes++;
         }
@@ -463,38 +437,6 @@ public class ApplicationMaster {
      *            Whether or not the host is the CC
      * @return A container request that is (hopefully) for the host we asked for.
      */
-    private ContainerRequest hostToRequest(String host, boolean cc) throws UnknownHostException {
-        InetAddress hostIp = InetAddress.getByName(host);
-        Priority pri = Records.newRecord(Priority.class);
-        pri.setPriority(0);
-        Resource capability = Records.newRecord(Resource.class);
-        if (cc) {
-            capability.setMemory(CC_MEMORY_MBS_DEFAULT);
-        } else {
-            capability.setMemory(NC_MEMORY_MBS_DEFAULT);
-        }
-        //we dont set anything else because we don't care about that and yarn doesn't honor it yet
-        String[] hosts = new String[1];
-        //TODO this is silly
-        hosts[0] = hostIp.getHostName();
-        LOG.info("IP addr: " + host + " resolved to " + hostIp.getHostName());
-        ContainerRequest request = new ContainerRequest(capability, hosts, null, pri, false);
-        LOG.info("Requested host ask: " + request.getNodes());
-        return request;
-    }
-
-    boolean containerIsCC(Container c) {
-        String containerHost = c.getNodeId().getHost();
-        try {
-            InetAddress containerIp = InetAddress.getByName(containerHost);
-            LOG.info(containerIp.getCanonicalHostName());
-            InetAddress ccIp = InetAddress.getByName(CC.getClusterIp());
-            LOG.info(ccIp.getCanonicalHostName());
-            return containerIp.getCanonicalHostName().equals(ccIp.getCanonicalHostName());
-        } catch (UnknownHostException e) {
-            return false;
-        }
-    }
 
     /**
      * Writes an Asterix configuration based on the data inside the cluster description
@@ -512,15 +454,12 @@ public class ApplicationMaster {
      */
     private void localizeDFSResources() throws IOException {
         //if obliterating skip a lot of this.
+        //FIXME
         if (obliterate || backup || restore) {
             FileSystem fs = FileSystem.get(conf);
-            FileStatus appMasterJarStatus = fs.getFileStatus(AppMasterJar);
             LocalResource obliteratorJar = Records.newRecord(LocalResource.class);
             obliteratorJar.setType(LocalResourceType.FILE);
             obliteratorJar.setVisibility(LocalResourceVisibility.APPLICATION);
-            obliteratorJar.setResource(ConverterUtils.getYarnUrlFromPath(AppMasterJar));
-            obliteratorJar.setTimestamp(appMasterJarStatus.getModificationTime());
-            obliteratorJar.setSize(appMasterJarStatus.getLen());
             localResources.put("asterix-yarn.jar", obliteratorJar);
             LOG.info(localResources.values());
             return;
@@ -602,6 +541,17 @@ public class ApplicationMaster {
         new HelpFormatter().printHelp("ApplicationMaster", opts);
     }
 
+    @SuppressWarnings("unchecked")
+    public void notifyDeadNode(String nodeId) throws UnknownHostException {
+        ContainerId cont = nodeIdContainerMap.get(nodeId);
+        nmClientAsync.stopContainerAsync(cont, containerListener.containers.get(cont).getNodeId());
+        for (Node n : clusterDesc.getNode()) {
+            if (n.getId().equals(nodeId)) {
+                resourceManager.addContainerRequest(Utils.hostToRequest(n.getClusterIp(), NC_MEMORY_MBS_DEFAULT));
+            }
+        }
+    }
+
     @SuppressWarnings({ "unchecked" })
     /**
      * Start the AM and request all necessary resources. 
@@ -638,7 +588,15 @@ public class ApplicationMaster {
         LOG.info("Max mem capabililty of resources in this cluster " + maxMem);
 
         try {
-            requestResources(clusterDesc);
+            String[] args = new String[] { ASTERIX_CC_BIN_PATH, "-cluster-net-ip-address",
+                    InetAddress.getLocalHost().getHostAddress(), "-client-net-ip-address",
+                    InetAddress.getLocalHost().getHostAddress(), "-app-cc-main-class",
+                    "edu.uci.ics.asterix.hyracks.bootstrap.CCApplicationEntryPoint" };
+            CCThread = new Thread(new LaunchCC(args), "CC Thread");
+            ccNotifications = new YarnClusterLifecycleListener(this);
+            CCThread.start();
+           
+            requestIntialResources(clusterDesc);
         } catch (YarnException e) {
             LOG.error("Could not allocate resources properly:" + e.getMessage());
             done = true;
@@ -652,7 +610,7 @@ public class ApplicationMaster {
             } catch (InterruptedException ex) {
             }
         }
-        finish();
+        //finish();
         return success;
     }
 
@@ -699,7 +657,7 @@ public class ApplicationMaster {
         } catch (IOException e) {
             LOG.error("Failed to unregister application", e);
         }
-        done = true;
+        //done = true;
         resourceManager.stop();
     }
 
@@ -733,9 +691,9 @@ public class ApplicationMaster {
                 }
             }
             //stop infinite looping of run()
-            if (numCompletedContainers.get() + numFailedContainers.get() == numAllocatedContainers.get()
-                    && doneAllocating)
-                done = true;
+            //if (numCompletedContainers.get() + numFailedContainers.get() == numAllocatedContainers.get()
+            //        && doneAllocating)
+                //done = true;
         }
 
         public void onContainersAllocated(List<Container> allocatedContainers) {
@@ -754,11 +712,6 @@ public class ApplicationMaster {
 
                 // I want to know if this node is the CC, because it must start before the NCs. 
                 LOG.info("Allocated: " + allocatedContainer.getNodeId().getHost());
-                LOG.info("CC : " + CC.getId());
-
-                if (containerIsCC(allocatedContainer)) {
-                    ccUp.set(true);
-                }
                 // launch and start the container on a separate thread to keep
                 // the main thread unblocked
                 // as all containers may not be allocated at one go.
@@ -772,7 +725,7 @@ public class ApplicationMaster {
          */
         public void onShutdownRequest() {
             LOG.info("AM shutting down per request");
-            done = true;
+            //done = true;
         }
 
         public void onNodesUpdated(List<NodeReport> updatedNodes) {
@@ -789,7 +742,7 @@ public class ApplicationMaster {
 
         public void onError(Throwable arg0) {
             LOG.error("Fatal Error recieved by AM: " + arg0);
-            done = true;
+            //done = true;
         }
     }
 
@@ -843,6 +796,42 @@ public class ApplicationMaster {
      * Thread to connect to the {@link ContainerManagementProtocol} and launch the container
      * that will execute the shell command.
      */
+    private class LaunchCC implements Runnable {
+        private String[] args;
+
+        public LaunchCC(String[] args) {
+            this.args = args;
+        }
+
+        public void run() {
+            CCConfig ccConfig = new CCConfig();
+            CmdLineParser cp = new CmdLineParser(ccConfig);
+            try {
+                cp.parseArgument(args);
+            } catch (CmdLineException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+            ClusterControllerService ccService;
+            try {
+                ccService = new ClusterControllerService(ccConfig);
+                ccService.start();
+                CCContext = ccService.getApplicationContext();
+                CCContext.addClusterLifecycleListener(ccNotifications);
+                while (!done) {
+                    Thread.sleep(200);
+                }
+            } catch (InterruptedException e) {
+
+            } catch (Exception e) {
+                //not much to do?
+                LOG.fatal("Could not start CC", e);
+                //done = true;
+                System.exit(-1);
+            }
+        }
+    }
+
     private class LaunchAsterixContainer implements Runnable {
 
         // Allocated container
@@ -927,6 +916,11 @@ public class ApplicationMaster {
             ctx.setCommands(startCmd);
             containerListener.addContainer(container.getId(), container);
             //finally start the container!?
+            try {
+                nodeIdContainerMap.put(containerToNode(container, clusterDesc).getId(), container.getId());
+                //FIXME
+            } catch (UnknownHostException e) {
+            }
             nmClientAsync.startContainerAsync(container, ctx);
         }
 
@@ -944,37 +938,25 @@ public class ApplicationMaster {
             Vector<CharSequence> vargs = new Vector<CharSequence>(5);
 
             //first see if this node is the CC
-            if (containerIsCC(container) && (ccStarted.get() == false)) {
-                LOG.info("CC found on container" + container.getNodeId().getHost());
-                //get our java opts
-                String opts = "JAVA_OPTS=" + CcJavaOpts + " ";
-                vargs.add(opts + ASTERIX_CC_BIN_PATH + " -cluster-net-ip-address " + CC.getClusterIp()
-                        + " -client-net-ip-address " + CC.getClientIp());
-                ccStarted.set(true);
-                containers.add(new ImmutablePair<Boolean, ContainerId>(true, container.getId()));
+            //now we need to know what node we are on, so we can apply the correct properties
 
-            } else {
-                //now we need to know what node we are on, so we can apply the correct properties
-
-                Node local;
-                try {
-                    local = containerToNode(container, clusterDesc);
-                    LOG.info("Attempting to start NC on host " + local.getId());
-                    String iodevice = local.getIodevices();
-                    if (iodevice == null) {
-                        iodevice = clusterDesc.getIodevices();
-                    }
-                    String opts = "JAVA_OPTS=" + NcJavaOpts + " ";
-                    vargs.add(opts + ASTERIX_NC_BIN_PATH + " -node-id " + local.getId());
-                    vargs.add("-cc-host " + CC.getClusterIp());
-                    vargs.add("-iodevices " + iodevice);
-                    vargs.add("-cluster-net-ip-address " + local.getClusterIp());
-                    vargs.add("-data-ip-address " + local.getClusterIp());
-                    vargs.add("-result-ip-address " + local.getClusterIp());
-                    containers.add(new ImmutablePair<Boolean, ContainerId>(false, container.getId()));
-                } catch (UnknownHostException e) {
-                    LOG.error("Unable to find NC configured for host: " + container.getId() + e);
+            Node local;
+            try {
+                local = containerToNode(container, clusterDesc);
+                LOG.info("Attempting to start NC on host " + local.getId());
+                String iodevice = local.getIodevices();
+                if (iodevice == null) {
+                    iodevice = clusterDesc.getIodevices();
                 }
+                String opts = "JAVA_OPTS=" + NcJavaOpts + " ";
+                vargs.add(opts + ASTERIX_NC_BIN_PATH + " -node-id " + local.getId());
+                vargs.add("-cc-host " + InetAddress.getLocalHost().getHostAddress());
+                vargs.add("-iodevices " + iodevice);
+                vargs.add("-cluster-net-ip-address " + local.getClusterIp());
+                vargs.add("-data-ip-address " + local.getClusterIp());
+                vargs.add("-result-ip-address " + local.getClusterIp());
+            } catch (UnknownHostException e) {
+                LOG.error("Unable to find NC configured for host: " + container.getId() + e);
             }
 
             // Add log redirect params
@@ -991,11 +973,6 @@ public class ApplicationMaster {
         }
 
         private List<String> produceObliterateCommand(Container container) {
-            if (containerIsCC(container)) {
-                List<String> blank = new ArrayList<String>();
-                blank.add("");
-                return blank;
-            }
             Node local = null;
             List<String> iodevices = null;
             try {
@@ -1042,11 +1019,6 @@ public class ApplicationMaster {
         }
 
         private List<String> produceBackupCommand(Container container) {
-            if (containerIsCC(container)) {
-                List<String> blank = new ArrayList<String>();
-                blank.add("");
-                return blank;
-            }
             Node local = null;
             List<String> iodevices = null;
             try {
@@ -1110,11 +1082,6 @@ public class ApplicationMaster {
         }
 
         private List<String> produceRestoreCommand(Container container) {
-            if (containerIsCC(container)) {
-                List<String> blank = new ArrayList<String>();
-                blank.add("");
-                return blank;
-            }
             Node local = null;
             List<String> iodevices = null;
             try {

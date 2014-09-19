@@ -78,7 +78,7 @@ public class AsterixClusterProperties {
     private State state = State.UNUSABLE;
 
     public synchronized void removeNCConfiguration(String nodeId) {
-        // state = State.UNUSABLE;
+        state = State.UNUSABLE;
         ncConfiguration.remove(nodeId);
         resetClusterPartitionConstraint();
     }

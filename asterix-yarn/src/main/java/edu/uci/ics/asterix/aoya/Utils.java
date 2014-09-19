@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.ConnectException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.Scanner;
 
 import javax.xml.bind.JAXBContext;
@@ -28,9 +30,13 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
+import org.apache.hadoop.yarn.api.records.Priority;
+import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
+import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.hadoop.yarn.util.Records;
 
 import edu.uci.ics.asterix.event.schema.yarnCluster.Cluster;
 import edu.uci.ics.asterix.event.schema.yarnCluster.Node;
@@ -305,5 +311,19 @@ public class Utils {
         Cluster cl = (Cluster) unm.unmarshal(tmp);
         String ccIp = cl.getMasterNode().getClientIp();
         return ccIp;
+    }
+
+    public static ContainerRequest hostToRequest(String host, int mem) throws UnknownHostException {
+        InetAddress hostIp = InetAddress.getByName(host);
+        Priority pri = Records.newRecord(Priority.class);
+        pri.setPriority(0);
+        Resource capability = Records.newRecord(Resource.class);
+        capability.setMemory(mem);
+        //we dont set anything else because we don't care about that and yarn doesn't honor it yet
+        String[] hosts = new String[1];
+        //TODO this is silly
+        hosts[0] = hostIp.getHostName();
+        ContainerRequest request = new ContainerRequest(capability, hosts, null, pri, false);
+        return request;
     }
 }
