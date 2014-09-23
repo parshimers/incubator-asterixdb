@@ -176,7 +176,7 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
         }
     }
 
-    private void reportUnresolvableCongestion() throws HyracksDataException {
+    public void reportUnresolvableCongestion() throws HyracksDataException {
         if (this.runtimeId.getFeedRuntimeType().equals(FeedRuntimeType.COMPUTE)) {
             FeedCongestionMessage congestionReport = new FeedCongestionMessage(connectionId, runtimeId,
                     mBuffer.getInflowRate(), mBuffer.getOutflowRate(), mode);
@@ -264,13 +264,13 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
                             }
                         } else if (fpa.discardOnCongestion()) {
                             boolean discarded = discarder.processMessage(frame);
-                            if (discarded) {
-                                setMode(Mode.DISCARD);
-                            } else {
+                            if (!discarded) {
                                 reportUnresolvableCongestion();
                             }
                         } else if (fpa.throttlingEnabled()) {
                             setThrottlingEnabled(true);
+                        } else {
+                            reportUnresolvableCongestion();
                         }
 
                     }

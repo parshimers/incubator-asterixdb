@@ -149,6 +149,9 @@ public class FeedFrameSpiller {
         //  file.delete();
         fileCreated = false;
         bos = null;
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Resetted the FrameSpiller!");
+        }
     }
 
     public void close() {

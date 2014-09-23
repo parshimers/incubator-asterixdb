@@ -19,34 +19,31 @@ import edu.uci.ics.asterix.external.library.java.JObjects.JRecord;
 
 public class EchoDelayFunction implements IExternalScalarFunction {
 
-    public static final String DELAY_RPOPERTY = "feeds.function.delay";
-    private static final long DEAULT_DELAY = 10;
+	public static final String DELAY_RPOPERTY = "feeds.function.delay";
+	private static final long DEAULT_DELAY = 10;
 
-    private long sleepInterval;
-    private JLong timestamp;
+	private long sleepInterval;
+	private JLong timestamp;
 
-    @Override
-    public void initialize(IFunctionHelper functionHelper) {
-        String v = System.getProperty(DELAY_RPOPERTY);
-        if (v != null) {
-            sleepInterval = Integer.parseInt(v);
-        } else {
-            sleepInterval = DEAULT_DELAY;
-        }
-        timestamp = new JLong(0);
-    }
+	@Override
+	public void initialize(IFunctionHelper functionHelper) {
+		String v = System.getProperty(DELAY_RPOPERTY);
+		if (v != null) {
+			sleepInterval = Integer.parseInt(v);
+		} else {
+			sleepInterval = DEAULT_DELAY;
+		}
+		timestamp = new JLong(0);
+	}
 
-    @Override
-    public void deinitialize() {
-    }
+	@Override
+	public void deinitialize() {
+	}
 
-    @Override
-    public void evaluate(IFunctionHelper functionHelper) throws Exception {
-        JRecord inputRecord = (JRecord) functionHelper.getArgument(0);
-        Thread.sleep(sleepInterval);
-        timestamp.setValue(System.currentTimeMillis());
-        //      inputRecord.addField("compute-timestamp", timestamp);
-        //      inputRecord.addField("storage-timestamp", timestamp);
-        functionHelper.setResult(inputRecord);
-    }
+	@Override
+	public void evaluate(IFunctionHelper functionHelper) throws Exception {
+		JRecord inputRecord = (JRecord) functionHelper.getArgument(0);
+		Thread.sleep(sleepInterval);
+		functionHelper.setResult(inputRecord);
+	}
 }

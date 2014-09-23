@@ -24,6 +24,7 @@ import java.util.TimerTask;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import edu.uci.ics.asterix.common.config.AsterixFeedProperties;
 import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
@@ -143,18 +144,23 @@ public class MonitoredBufferTimerTasks {
 
     public static class MonitorInputQueueLengthTimerTask extends TimerTask {
 
-        private static final int PENDING_WORK_THRESHOLD = 10;
-
-        private static final int MAX_SUCCESSIVE_THRESHOLD_PERIODS = 2;
-
         private final MonitoredBuffer mBuffer;
         private int pendingWorkExceedCount = 0;
         private final IFrameEventCallback callback;
         private FrameEvent lastEvent = FrameEvent.NO_OP;
+        private final int pendingWorkThreshold;
+        private final int maxSuccessiveThresholdPeriods;
 
         public MonitorInputQueueLengthTimerTask(MonitoredBuffer mBuffer, IFrameEventCallback callback) {
             this.mBuffer = mBuffer;
             this.callback = callback;
+            AsterixFeedProperties props = mBuffer.getInputHandler().getFeedManager().getAsterixFeedProperties();
+            pendingWorkThreshold = props.getPendingWorkThreshold();
+            maxSuccessiveThresholdPeriods = props.getMaxSuccessiveThresholdPeriod();
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info(" Pending Threshold Period: " + pendingWorkThreshold + "\n"
+                        + "Max Successive Threshold Periods: " + maxSuccessiveThresholdPeriods);
+            }
         }
 
         @Override
@@ -168,17 +174,20 @@ public class MonitoredBufferTimerTasks {
                 case NO_OP:
                 case PENDING_WORK_DONE:
                 case FINISHED_PROCESSING_SPILLAGE:
-                    if (pendingWork > PENDING_WORK_THRESHOLD) {
+                    if (pendingWork > pendingWorkThreshold) {
                         pendingWorkExceedCount++;
-                        if (pendingWorkExceedCount > MAX_SUCCESSIVE_THRESHOLD_PERIODS) {
+                        if (pendingWorkExceedCount > maxSuccessiveThresholdPeriods) {
                             pendingWorkExceedCount = 0;
                             lastEvent = FrameEvent.PENDING_WORK_THRESHOLD_REACHED;
                             callback.frameEvent(lastEvent);
                         }
+                    } else if (pendingWork == 0 && mBuffer.getMode().equals(Mode.SPILL)) {
+                        lastEvent = FrameEvent.PENDING_WORK_DONE;
+                        callback.frameEvent(lastEvent);
                     }
                     break;
                 case PENDING_WORK_THRESHOLD_REACHED:
-                    if (pendingWork == 0) {
+                    if (pendingWork == 0 || (((pendingWork * 1.0) / pendingWorkThreshold) <= 0.5)) {
                         lastEvent = FrameEvent.PENDING_WORK_DONE;
                         callback.frameEvent(lastEvent);
                     }
@@ -232,7 +241,8 @@ public class MonitoredBufferTimerTasks {
                 if (inflowRate > 0 && procRate > 0) {
                     if (inflowRate < procRate) {
                         int possibleCardinality = (int) Math.ceil(nPartitions * inflowRate / (double) procRate);
-                        if (possibleCardinality < nPartitions) {
+                        if (possibleCardinality < nPartitions
+                                && ((((nPartitions - possibleCardinality) * 1.0) / nPartitions) > 0.5)) {
                             sMessage.reset(nPartitions, possibleCardinality);
                             feedManager.getFeedMessageService().sendMessage(sMessage);
                             proposedChange = true;

@@ -14,6 +14,8 @@
  */
 package edu.uci.ics.asterix.common.feeds.api;
 
+import edu.uci.ics.asterix.common.config.AsterixFeedProperties;
+
 /**
  * Handle (de)registration of feeds for delivery of control messages.
  */
@@ -34,5 +36,7 @@ public interface IFeedManager {
     public IFeedMetricCollector getFeedMetricCollector();
 
     public IFeedMessageService getFeedMessageService();
+
+    public AsterixFeedProperties getAsterixFeedProperties();
 
 }

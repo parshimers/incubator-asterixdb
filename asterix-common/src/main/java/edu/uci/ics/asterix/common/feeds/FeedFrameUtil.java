@@ -33,6 +33,8 @@ public class FeedFrameUtil {
         }
         return sampledFrame;
     }
+    
+  
 
     private static class NChooseKIterator {
 
@@ -56,17 +58,21 @@ public class FeedFrameUtil {
         }
 
         public int next() {
-            traversed++;
-            int startOffset = random.nextInt(n);
-            int pos = -1;
-            while (pos < 0) {
-                pos = bSet.nextSetBit(startOffset);
-                if (pos < 0) {
-                    startOffset = (startOffset + 1) % n;
+            if (hasNext()) {
+                traversed++;
+                int startOffset = random.nextInt(n);
+                int pos = -1;
+                while (pos < 0) {
+                    pos = bSet.nextSetBit(startOffset);
+                    if (pos < 0) {
+                        startOffset = 0;
+                    }
                 }
+                bSet.clear(pos);
+                return pos;
+            } else {
+                return -1;
             }
-            bSet.clear(pos);
-            return pos;
         }
 
     }

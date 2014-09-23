@@ -2158,7 +2158,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
     private JobId runJob(IHyracksClientConnection hcc, JobSpecification spec, boolean waitForCompletion)
             throws Exception {
-        spec.setFrameSize(OptimizationConfUtil.getPhysicalOptimizationConfig().getFrameSize());
+        spec.setFrameSize(AsterixAppContextInfo.getInstance().getCompilerProperties().getFrameSize());
+                //OptimizationConfUtil.getPhysicalOptimizationConfig().getFrameSize());
         JobId[] jobIds = executeJobArray(hcc, new Job[] { new Job(spec) }, out, pdf, waitForCompletion);
         return jobIds[0];
     }

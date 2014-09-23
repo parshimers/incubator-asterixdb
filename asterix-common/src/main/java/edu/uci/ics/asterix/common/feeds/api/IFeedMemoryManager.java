@@ -18,8 +18,8 @@ import edu.uci.ics.asterix.common.feeds.api.IFeedMemoryComponent.Type;
 
 public interface IFeedMemoryManager {
 
-    public static final int START_COLLECTION_SIZE = 100;
-    public static final int START_POOL_SIZE = 25;
+    public static final int START_COLLECTION_SIZE = 20;
+    public static final int START_POOL_SIZE = 10;
 
     public IFeedMemoryComponent getMemoryComponent(Type type);
 

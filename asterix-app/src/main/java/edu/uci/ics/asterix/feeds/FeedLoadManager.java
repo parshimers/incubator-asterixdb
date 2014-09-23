@@ -33,6 +33,7 @@ import edu.uci.ics.asterix.common.feeds.NodeLoadReport;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLoadManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
+import edu.uci.ics.asterix.common.feeds.api.IFeedTrackingManager;
 import edu.uci.ics.asterix.common.feeds.message.FeedCongestionMessage;
 import edu.uci.ics.asterix.common.feeds.message.ScaleInReportMessage;
 import edu.uci.ics.asterix.common.feeds.message.ThrottlingEnabledFeedMessage;
@@ -49,7 +50,7 @@ public class FeedLoadManager implements IFeedLoadManager {
 
     private static final Logger LOGGER = Logger.getLogger(FeedLoadManager.class.getName());
 
-    private static final long MIN_MODIFICATION_INTERVAL = 10000; // 10 seconds
+    private static final long MIN_MODIFICATION_INTERVAL = 180000; // 10 seconds
     private final TreeSet<NodeLoadReport> nodeReports;
 
     private FeedConnectionId lastModified;
@@ -78,8 +79,6 @@ public class FeedLoadManager implements IFeedLoadManager {
             }
             return;
         } else {
-            Mode mode = message.getMode();
-
             try {
                 FeedLifecycleListener.INSTANCE.setJobState(message.getConnectionId(), FeedJobState.UNDER_RECOVERY);
                 int inflowRate = message.getInflowRate();
@@ -89,8 +88,13 @@ public class FeedLoadManager implements IFeedLoadManager {
                         .getConnectionId().getFeedId()));
                 int computeCardinality = currentComputeLocations.size();
                 int requiredCardinality = (int) Math
-                        .ceil((double) ((computeCardinality * inflowRate) / (double) outflowRate)) + 1;
+                        .ceil((double) ((computeCardinality * inflowRate) / (double) outflowRate)) + 5;
                 int additionalComputeNodes = requiredCardinality - computeCardinality;
+                if (LOGGER.isLoggable(Level.WARNING)) {
+                    LOGGER.warning("INCREASING COMPUTE CARDINALITY from " + computeCardinality + " by "
+                            + additionalComputeNodes);
+                }
+
                 List<String> helperComputeNodes = getNodeForSubstitution(additionalComputeNodes);
 
                 // Step 1) Alter the original feed job to adjust the cardinality
@@ -222,7 +226,22 @@ public class FeedLoadManager implements IFeedLoadManager {
     }
 
     @Override
-    public void reportThrottlingEnabled(ThrottlingEnabledFeedMessage mesg) {
+    public void reportThrottlingEnabled(ThrottlingEnabledFeedMessage mesg) throws AsterixException, Exception {
         System.out.println("Throttling Enabled for " + mesg.getConnectionId() + " " + mesg.getFeedRuntimeId());
+        FeedConnectionId connectionId = mesg.getConnectionId();
+        List<String> destinationLocations = new ArrayList<String>();
+        List<String> storageLocations = FeedLifecycleListener.INSTANCE.getStoreLocations(connectionId);
+        List<String> collectLocations = FeedLifecycleListener.INSTANCE.getCollectLocations(connectionId);
+
+        destinationLocations.addAll(storageLocations);
+        destinationLocations.addAll(collectLocations);
+        JobSpecification messageJobSpec = FeedOperations.buildNotifyThrottlingEnabledMessageJob(mesg,
+                destinationLocations);
+        runJob(messageJobSpec, true);
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.warning("Acking disabled for " + mesg.getConnectionId() + " in view of activated throttling");
+        }
+        IFeedTrackingManager trackingManager = CentralFeedManager.getInstance().getFeedTrackingManager();
+        trackingManager.disableAcking(connectionId);
     }
 }

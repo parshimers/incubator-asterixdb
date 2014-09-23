@@ -33,6 +33,7 @@ public class TimestampedADMDataParser extends ADMDataParser {
                 tupleDecorator.addTupleId(recordBuilder);
             }
             if (injectTimestamps) {
+                tupleDecorator.addTupleId(recordBuilder);
                 tupleDecorator.addIntakePartition(recordBuilder);
                 tupleDecorator.addIntakeTimestamp(recordBuilder);
                 tupleDecorator.addStoreTimestamp(recordBuilder);

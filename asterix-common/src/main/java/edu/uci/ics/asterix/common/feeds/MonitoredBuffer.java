@@ -37,8 +37,8 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 
 public abstract class MonitoredBuffer extends MessageReceiver<DataBucket> {
 
-    protected static final long LOG_INPUT_OUTPUT_RATE_FREQUENCY = 2000; // 2 seconds
-    protected static final long INPUT_QUEUE_MEASURE_FREQUENCY = 2000; // 2 seconds
+    protected static final long LOG_INPUT_OUTPUT_RATE_FREQUENCY = 1000; // 1 second
+    protected static final long INPUT_QUEUE_MEASURE_FREQUENCY = 1000; // 1 second
     protected static final long PROCESSING_RATE_MEASURE_FREQUENCY = 10000; // 10 seconds
 
     protected static final int PROCESS_RATE_REFRESH = 2; // refresh processing rate every 10th frame
@@ -75,6 +75,8 @@ public abstract class MonitoredBuffer extends MessageReceiver<DataBucket> {
     private long avgDelayPersistence = 0;
     private boolean active;
     private Map<Integer, Long> tupleTimeStats;
+    IFramePostProcessor postProcessor = null;
+    IFramePreprocessor preProcessor = null;
 
     public static MonitoredBuffer getMonitoredBuffer(FeedRuntimeInputHandler inputHandler, IFrameWriter frameWriter,
             FrameTupleAccessor fta, int frameSize, RecordDescriptor recordDesc, IFeedMetricCollector metricCollector,
@@ -133,13 +135,15 @@ public abstract class MonitoredBuffer extends MessageReceiver<DataBucket> {
         monitorInputQueueLength = monitorInputQueueLength();
         logInflowOutflowRate = logInflowOutflowRate();
 
-        if (monitorProcessingRate) {
+        if (monitorProcessingRate && policyAccessor.isElastic()) { // check posibilty to scale in
             this.processingRateTask = new MonitoreProcessRateTimerTask(this, inputHandler.getFeedManager(),
                     connectionId, nPartitions);
             this.timer.scheduleAtFixedRate(processingRateTask, 0, PROCESSING_RATE_MEASURE_FREQUENCY);
         }
 
-        if (monitorInputQueueLength) {
+        if (monitorInputQueueLength
+                && (policyAccessor.isElastic() || policyAccessor.throttlingEnabled()
+                        || policyAccessor.spillToDiskOnCongestion() || policyAccessor.discardOnCongestion())) {
             this.monitorInputQueueLengthTask = new MonitorInputQueueLengthTimerTask(this, callback);
             this.timer.scheduleAtFixedRate(monitorInputQueueLengthTask, 0, INPUT_QUEUE_MEASURE_FREQUENCY);
         }
@@ -171,7 +175,7 @@ public abstract class MonitoredBuffer extends MessageReceiver<DataBucket> {
         }
     }
 
-    protected void postProcessFrame(long startTime, ByteBuffer frame) {
+    protected void postProcessFrame(long startTime, ByteBuffer frame) throws Exception {
         if (monitorProcessingRate) {
             frameCount++;
             if (frameCount % PROCESS_RATE_REFRESH == 0) {
@@ -188,12 +192,26 @@ public abstract class MonitoredBuffer extends MessageReceiver<DataBucket> {
             metricCollector.sendReport(outflowReportSenderId, outflowFta.getTupleCount());
         }
 
+        postProcessFrame(frame);
+
     }
 
     protected void preProcessFrame(ByteBuffer frame) throws Exception {
-        IFramePreprocessor preProcessor = getFramePreProcessor();
+        if (postProcessor == null) {
+            preProcessor = getFramePreProcessor();
+        }
         if (preProcessor != null) {
             preProcessor.preProcess(frame);
+        }
+    }
+
+    protected void postProcessFrame(ByteBuffer frame) throws Exception {
+        if (postProcessor == null) {
+            postProcessor = getFramePostProcessor();
+        }
+        if (postProcessor != null) {
+            outflowFta.reset(frame);
+            postProcessor.postProcessFrame(frame, outflowFta);
         }
     }
 
@@ -254,30 +272,41 @@ public abstract class MonitoredBuffer extends MessageReceiver<DataBucket> {
         switch (message.getContentType()) {
             case DATA:
                 boolean finishedProcessing = false;
-                ByteBuffer frame = message.getContent();
+                ByteBuffer frameReceived = message.getContent();
+                ByteBuffer frameToProcess = null;
                 if (inputHandler.isThrottlingEnabled()) {
-                    inflowFta.reset(frame);
+                    inflowFta.reset(frameReceived);
                     int pRate = getProcessingRate();
                     int inflowRate = getInflowRate();
-                    double retainFraction = (pRate * 1.0 / inflowRate);
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("Throttling at fraction " + retainFraction);
+                    if (inflowRate > pRate) {
+                        double retainFraction = (pRate * 0.8 / inflowRate);
+                        frameToProcess = throttleFrame(inflowFta, retainFraction);
+                        inflowFta.reset(frameToProcess);
+                        if (LOGGER.isLoggable(Level.INFO)) {
+                            LOGGER.info("Throttling at fraction " + retainFraction + " no of tuples remaining "
+                                    + inflowFta.getTupleCount());
+
+                        }
+                    } else {
+                        frameToProcess = frameReceived;
                     }
-                    frame = throttleFrame(inflowFta, retainFraction);
+                } else {
+                    frameToProcess = frameReceived;
                 }
-                outflowFta.reset(frame);
+                outflowFta.reset(frameToProcess);
                 long startTime = 0;
                 while (!finishedProcessing) {
                     try {
-                        inflowFta.reset(frame);
+                        inflowFta.reset(frameToProcess);
                         startTime = System.currentTimeMillis();
-                        preProcessFrame(frame);
-                        frameWriter.nextFrame(frame);
-                        postProcessFrame(startTime, frame);
+                        preProcessFrame(frameToProcess);
+                        frameWriter.nextFrame(frameToProcess);
+                        postProcessFrame(startTime, frameToProcess);
                         finishedProcessing = true;
                     } catch (Exception e) {
                         e.printStackTrace();
-                        frame = exceptionHandler.handleException(e, frame);
+                        frameToProcess = exceptionHandler.handleException(e, frameToProcess);
+                        finishedProcessing = true;
                     }
                 }
                 message.doneReading();
@@ -300,7 +329,10 @@ public abstract class MonitoredBuffer extends MessageReceiver<DataBucket> {
 
     private ByteBuffer throttleFrame(FrameTupleAccessor fta, double retainFraction) {
         int desiredTuples = (int) (fta.getTupleCount() * retainFraction);
-        return FeedFrameUtil.getSampledFrame(fta, desiredTuples, frameSize);
+        int startTupleIndex = fta.getTupleCount() - desiredTuples;
+        //return FeedFrameUtil.getSampledFrame(fta, desiredTuples, frameSize);
+        return FeedFrameUtil.getSlicedFrame(frameSize, startTupleIndex, fta);
+
     }
 
     public Mode getMode() {

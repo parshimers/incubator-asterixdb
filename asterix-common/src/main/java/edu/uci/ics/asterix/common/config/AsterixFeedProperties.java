@@ -25,6 +25,12 @@ public class AsterixFeedProperties extends AbstractAsterixProperties {
     private static final String FEED_MEMORY_AVAILABLE_WAIT_TIMEOUT_KEY = "feed.memory.available.wait.timeout";
     private static final long FEED_MEMORY_AVAILABLE_WAIT_TIMEOUT_DEFAULT = 10; // 10 seconds
 
+    private static final String FEED_PENDING_WORK_THRESHOLD_KEY = "feed.pending.work.threshold";
+    private static final int FEED_PENDING_WORK_THRESHOLD_DEFAULT = 50; // 64MB or 2048 frames (assuming 32768 as frame size)
+
+    private static final String FEED_MAX_SUCCESSIVE_THRESHOLD_PERIOD_KEY = "feed.max.threshold.period";
+    private static final int FEED_MAX_SUCCESSIVE_THRESHOLD_PERIOD_DEFAULT = 5; // 64MB or 2048 frames (assuming 32768 as frame size)
+
     public AsterixFeedProperties(AsterixPropertiesAccessor accessor) {
         super(accessor);
     }
@@ -44,4 +50,13 @@ public class AsterixFeedProperties extends AbstractAsterixProperties {
                 PropertyInterpreters.getIntegerPropertyInterpreter());
     }
 
+    public int getPendingWorkThreshold() {
+        return accessor.getProperty(FEED_PENDING_WORK_THRESHOLD_KEY, FEED_PENDING_WORK_THRESHOLD_DEFAULT,
+                PropertyInterpreters.getIntegerPropertyInterpreter());
+    }
+
+    public int getMaxSuccessiveThresholdPeriod() {
+        return accessor.getProperty(FEED_MAX_SUCCESSIVE_THRESHOLD_PERIOD_KEY,
+                FEED_MAX_SUCCESSIVE_THRESHOLD_PERIOD_DEFAULT, PropertyInterpreters.getIntegerPropertyInterpreter());
+    }
 }

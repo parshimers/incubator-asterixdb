@@ -14,9 +14,13 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
+import java.io.Serializable;
+
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 
-public class FeedRuntimeId{
+public class FeedRuntimeId implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     public static final String DEFAULT_OPERAND_ID = "N/A";
 

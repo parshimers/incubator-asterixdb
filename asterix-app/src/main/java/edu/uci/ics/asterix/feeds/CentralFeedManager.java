@@ -24,7 +24,6 @@ import edu.uci.ics.asterix.api.common.SessionConfig;
 import edu.uci.ics.asterix.aql.base.Statement;
 import edu.uci.ics.asterix.aql.parser.AQLParser;
 import edu.uci.ics.asterix.aql.translator.AqlTranslator;
-import edu.uci.ics.asterix.common.config.AsterixFeedProperties;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.api.ICentralFeedManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLoadManager;
@@ -40,13 +39,13 @@ public class CentralFeedManager implements ICentralFeedManager {
     private static final Logger LOGGER = Logger.getLogger(CentralFeedManager.class.getName());
 
     private static final ICentralFeedManager centralFeedManager = new CentralFeedManager();
-    private final IFeedLoadManager feedLoadManager;
-    private final IFeedTrackingManager feedTrackingManager;
 
     public static ICentralFeedManager getInstance() {
         return centralFeedManager;
     }
 
+    private final IFeedLoadManager feedLoadManager;
+    private final IFeedTrackingManager feedTrackingManager;
     private final int port;
     private final SocketMessageListener messageListener;
 
@@ -76,6 +75,16 @@ public class CentralFeedManager implements ICentralFeedManager {
         return jobId;
     }
 
+    @Override
+    public IFeedLoadManager getFeedLoadManager() {
+        return feedLoadManager;
+    }
+
+    @Override
+    public IFeedTrackingManager getFeedTrackingManager() {
+        return feedTrackingManager;
+    }
+
     public static class AQLExecutor {
 
         private static final PrintWriter out = new PrintWriter(System.out, true);
@@ -90,11 +99,4 @@ public class CentralFeedManager implements ICentralFeedManager {
         }
     }
 
-    public IFeedLoadManager getFeedLoadManager() {
-        return feedLoadManager;
-    }
-
-    public IFeedTrackingManager getFeedTrackingManager() {
-        return feedTrackingManager;
-    }
 }

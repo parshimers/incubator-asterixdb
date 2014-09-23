@@ -45,6 +45,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.WriteResult
 import edu.uci.ics.hyracks.algebricks.core.algebra.visitors.ILogicalOperatorVisitor;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.AbstractExtractExprRule;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExternalDataLookupOperator;
 
 public class SweepIllegalNonfunctionalFunctions extends AbstractExtractExprRule implements IAlgebraicRewriteRule {
 
@@ -256,6 +257,12 @@ public class SweepIllegalNonfunctionalFunctions extends AbstractExtractExprRule 
 
         @Override
         public Void visitIndexInsertDeleteOperator(IndexInsertDeleteOperator op, Void tag) throws AlgebricksException {
+            return null;
+        }
+
+        @Override
+        public Void visitExternalDataLookupOperator(ExternalDataLookupOperator op, Void arg) throws AlgebricksException {
+            // TODO Auto-generated method stub
             return null;
         }
 

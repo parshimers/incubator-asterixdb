@@ -63,6 +63,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.WriteOperat
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.WriteResultOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.plan.ALogicalPlanImpl;
 import edu.uci.ics.hyracks.algebricks.core.algebra.properties.FunctionalDependency;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExternalDataLookupOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.visitors.ILogicalOperatorVisitor;
 
 public class LogicalOperatorDeepCopyVisitor implements ILogicalOperatorVisitor<ILogicalOperator, ILogicalOperator> {
@@ -445,5 +446,12 @@ public class LogicalOperatorDeepCopyVisitor implements ILogicalOperatorVisitor<I
 
     public Map<LogicalVariable, LogicalVariable> getVariableMapping() {
         return outVarMapping;
+    }
+
+    @Override
+    public ILogicalOperator visitExternalDataLookupOperator(ExternalDataLookupOperator op, ILogicalOperator arg)
+            throws AlgebricksException {
+        // TODO Auto-generated method stub
+        return null;
     }
 }

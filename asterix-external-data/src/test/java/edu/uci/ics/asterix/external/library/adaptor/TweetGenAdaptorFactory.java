@@ -53,7 +53,8 @@ public class TweetGenAdaptorFactory extends StreamBasedAdapterFactory implements
 
     @Override
     public AlgebricksPartitionConstraint getPartitionConstraint() throws Exception {
-        return new AlgebricksCountPartitionConstraint(1);
+        int count = configuration.get(TweetGenAdaptorFactory.TWIITER_SERVER_HOST).split(",").length;
+        return new AlgebricksCountPartitionConstraint(count);
     }
 
     @Override

@@ -144,7 +144,7 @@ public class BuiltinFeedPolicies {
         policyParams.put(FeedPolicyAccessor.ELASTIC, "false");
         policyParams.put(FeedPolicyAccessor.SPILL_TO_DISK_ON_CONGESTION, "" + Boolean.TRUE);
         policyParams.put(FeedPolicyAccessor.MAX_SPILL_SIZE_ON_DISK, "" + FeedPolicyAccessor.NO_LIMIT);
-        policyParams.put(FeedPolicyAccessor.TIME_TRACKING, "false");
+        policyParams.put(FeedPolicyAccessor.TIME_TRACKING, "true");
 
         String description = "AdvancedFT 100% Discard during congestion";
         return new FeedPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, "AdvancedFT_Spill", description, policyParams);

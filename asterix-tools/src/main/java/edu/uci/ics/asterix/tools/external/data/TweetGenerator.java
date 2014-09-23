@@ -17,8 +17,6 @@ package edu.uci.ics.asterix.tools.external.data;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -31,12 +29,13 @@ public class TweetGenerator {
 
     private static Logger LOGGER = Logger.getLogger(TweetGenerator.class.getName());
 
-    public static final String NUM_KEY_SPACES = "num-key-spaces";
     public static final String KEY_DURATION = "duration";
     public static final String KEY_TPS = "tps";
     public static final String KEY_VERBOSE = "verbose";
+    public static final String KEY_FIELDS = "fields";
 
-    private static final int DEFAULT_DURATION = 60;
+    public static final int INFINITY = 0;
+    private static final int DEFAULT_DURATION = INFINITY;
 
     private int duration;
     private TweetMessageIterator tweetIterator = null;
@@ -50,7 +49,6 @@ public class TweetGenerator {
     private String[] fields;
     private boolean verbose;
     private long timestamp;
-    private List<String> stringifiedTweets = new ArrayList<String>();
 
     public long getTweetCount() {
         return tweetCount;
@@ -65,10 +63,12 @@ public class TweetGenerator {
         this.os = os;
         this.verbose = configuration.get(KEY_VERBOSE) != null ? Boolean.parseBoolean(configuration.get(KEY_VERBOSE))
                 : false;
+        this.fields = configuration.get(KEY_FIELDS) != null ? configuration.get(KEY_FIELDS).split(",") : null;
         this.timestamp = System.currentTimeMillis();
     }
 
     private void writeTweetString(TweetMessage tweetMessage) throws IOException {
+        System.out.println("Writing tweet  " + tweetMessage);
         String tweet = fields == null ? tweetMessage + "\n" : tweetMessage.getAdmEquivalent(fields) + "\n";
         tweetCount++;
         if (verbose && tweetCount % 1000 == 0) {
@@ -86,20 +86,6 @@ public class TweetGenerator {
             outputBuffer.put(b);
         }
         frameTweetCount++;
-    }
-
-    private List<String> timestampCollectedTweets() {
-        List<String> results = new ArrayList<String>();
-        long t = System.currentTimeMillis();
-        String prefix = "\"generation-timestamp\":";
-        for (String tweet : stringifiedTweets) {
-            int breakBegin = tweet.indexOf(prefix);
-            String s1 = tweet.substring(0, breakBegin - 1);
-            String s2 = tweet.substring(breakBegin + prefix.length() + 13);
-            String result = s1 + prefix + t + s2;
-            results.add(result);
-        }
-        return results;
     }
 
     public int getNumFlushedTweets() {

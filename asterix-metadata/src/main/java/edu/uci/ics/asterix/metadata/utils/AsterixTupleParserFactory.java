@@ -151,7 +151,7 @@ public class AsterixTupleParserFactory implements IAsterixTupleParserFactory {
     private IDataParser configureADMParser(IHyracksTaskContext ctx) {
         boolean injectTimestamps = validateTimeTrackingConstraint();
         boolean injectRecordId = configuration.get(AT_LEAST_ONE_SEMANTICS) == null ? false : Boolean
-                .getBoolean(configuration.get(AT_LEAST_ONE_SEMANTICS));
+                .valueOf(configuration.get(AT_LEAST_ONE_SEMANTICS));
         if (injectRecordId || injectTimestamps) {
             return new TimestampedADMDataParser(ctx, partition, injectRecordId, injectTimestamps);
         } else {

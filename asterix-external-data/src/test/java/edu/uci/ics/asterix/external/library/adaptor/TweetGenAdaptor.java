@@ -38,7 +38,8 @@ public class TweetGenAdaptor extends StreamBasedAdapter implements IFeedAdapter 
     public TweetGenAdaptor(IAsterixTupleParserFactory parserFactory, ARecordType sourceDatatype,
             IHyracksTaskContext ctx, Map<String, String> configuration, int partition) throws IOException {
         super(parserFactory, sourceDatatype, ctx, partition);
-        this.host = configuration.get(TweetGenAdaptorFactory.TWIITER_SERVER_HOST);
+        String hostArray = configuration.get(TweetGenAdaptorFactory.TWIITER_SERVER_HOST);
+        this.host = hostArray.split(",")[partition];
         this.port = Integer.parseInt(configuration.get(TweetGenAdaptorFactory.TWIITER_SERVER_PORT));
     }
 

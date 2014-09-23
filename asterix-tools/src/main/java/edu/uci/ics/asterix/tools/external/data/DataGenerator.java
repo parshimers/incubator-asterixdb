@@ -48,7 +48,7 @@ public class DataGenerator {
 
         @Override
         public boolean hasNext() {
-            if (duration == 0) {
+            if (duration == TweetGenerator.INFINITY) {
                 return true;
             }
             return System.currentTimeMillis() - startTime <= duration * 1000;

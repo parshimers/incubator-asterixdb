@@ -14,13 +14,13 @@
  */
 package edu.uci.ics.asterix.common.feeds;
 
-import java.awt.im.InputSubset;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
 import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
 public class FrameEventCallback implements IFrameEventCallback {
 
@@ -54,11 +54,18 @@ public class FrameEventCallback implements IFrameEventCallback {
                     inputSideHandler.setMode(Mode.DISCARD);
                 } else if (fpa.throttlingEnabled()) {
                     inputSideHandler.setThrottlingEnabled(true);
+                } else {
+                    try {
+                        inputSideHandler.reportUnresolvableCongestion();
+                    } catch (HyracksDataException e) {
+                        if (LOGGER.isLoggable(Level.WARNING)) {
+                            LOGGER.warning("Unable to report congestion!!!");
+                        }
+                    }
                 }
                 break;
             case FINISHED_PROCESSING:
                 inputSideHandler.setFinished(true);
-                System.out.println("WILL CALL NOTIFY ON " + coreOperator);
                 synchronized (coreOperator) {
                     coreOperator.notifyAll();
                 }

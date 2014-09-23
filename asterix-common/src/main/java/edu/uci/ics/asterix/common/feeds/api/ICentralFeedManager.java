@@ -8,4 +8,7 @@ public interface ICentralFeedManager {
 
     public void stop() throws AsterixException;
 
+    public IFeedTrackingManager getFeedTrackingManager();
+
+    public IFeedLoadManager getFeedLoadManager();
 }

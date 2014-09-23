@@ -57,6 +57,8 @@ public class FeedManager implements IFeedManager {
 
     private final NodeLoadReportService nodeLoadReportService;
 
+    private final AsterixFeedProperties asterixFeedProperties;
+
     private final String nodeId;
 
     private final int frameSize;
@@ -82,6 +84,7 @@ public class FeedManager implements IFeedManager {
         }
         this.feedMetricCollector = new FeedMetricCollector(nodeId);
         this.frameSize = frameSize;
+        this.asterixFeedProperties = feedProperties;
     }
 
     @Override
@@ -126,6 +129,11 @@ public class FeedManager implements IFeedManager {
     @Override
     public String toString() {
         return "FeedManager " + "[" + nodeId + "]";
+    }
+
+    @Override
+    public AsterixFeedProperties getAsterixFeedProperties() {
+        return asterixFeedProperties;
     }
 
 }

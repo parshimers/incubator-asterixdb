@@ -35,6 +35,7 @@ import edu.uci.ics.asterix.common.feeds.FeedRuntimeManager;
 import edu.uci.ics.asterix.common.feeds.FeedTupleCommitResponseMessage;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.asterix.common.feeds.IntakePartitionStatistics;
+import edu.uci.ics.asterix.common.feeds.StorageSideMonitoredBuffer;
 import edu.uci.ics.asterix.common.feeds.MonitoredBufferTimerTasks.MonitoredBufferStorageTimerTask;
 import edu.uci.ics.asterix.common.feeds.SubscribableFeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.api.IAdapterRuntimeManager;
@@ -45,6 +46,7 @@ import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
 import edu.uci.ics.asterix.common.feeds.api.ISubscribableRuntime;
 import edu.uci.ics.asterix.common.feeds.message.EndFeedMessage;
+import edu.uci.ics.asterix.common.feeds.message.ThrottlingEnabledFeedMessage;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -106,6 +108,12 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                     handleFeedTupleCommitResponseMessage(commitResponseMessage);
                     break;
                 }
+                case THROTTLING_ENABLED: {
+                    ThrottlingEnabledFeedMessage mesg = (ThrottlingEnabledFeedMessage) message;
+                    handleThrottlingEnabledMessage(mesg);
+                    break;
+                }
+
             }
 
         } catch (Exception e) {
@@ -113,6 +121,22 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
             throw new HyracksDataException(e);
         } finally {
             writer.close();
+        }
+    }
+
+    private void handleThrottlingEnabledMessage(ThrottlingEnabledFeedMessage throttlingMessage) {
+        FeedConnectionId connectionId = throttlingMessage.getConnectionId();
+        FeedRuntimeManager runtimeManager = feedManager.getFeedConnectionManager().getFeedRuntimeManager(connectionId);
+        Set<FeedRuntimeId> runtimes = runtimeManager.getFeedRuntimes();
+        for (FeedRuntimeId runtimeId : runtimes) {
+            if (runtimeId.getFeedRuntimeType().equals(FeedRuntimeType.STORE)) {
+                FeedRuntime storeRuntime = runtimeManager.getFeedRuntime(runtimeId);
+                ((StorageSideMonitoredBuffer) (storeRuntime.getInputHandler().getmBuffer())).setAcking(false);
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("Acking Disabled in view of throttling that has been activted upfron in the pipeline "
+                            + connectionId);
+                }
+            }
         }
     }
 

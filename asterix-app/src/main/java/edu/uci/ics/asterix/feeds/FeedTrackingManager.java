@@ -50,7 +50,6 @@ public class FeedTrackingManager implements IFeedTrackingManager {
 
     @Override
     public synchronized void submitAckReport(FeedTupleCommitAckMessage ackMessage) {
-
         AckId ackId = getAckId(ackMessage);
         Map<AckId, BitSet> acksForConnection = ackHistory.get(ackMessage.getConnectionId());
         if (acksForConnection == null) {
@@ -59,7 +58,12 @@ public class FeedTrackingManager implements IFeedTrackingManager {
             ackHistory.put(ackMessage.getConnectionId(), acksForConnection);
         }
         BitSet currentAcks = acksForConnection.get(ackId);
-        currentAcks.or(BitSet.valueOf(ackMessage.getCommitAcks()));
+        if (currentAcks == null) {
+            currentAcks = BitSet.valueOf(ackMessage.getCommitAcks());
+            acksForConnection.put(ackId, currentAcks);
+        } else {
+            currentAcks.or(BitSet.valueOf(ackMessage.getCommitAcks()));
+        }
         if (Arrays.equals(currentAcks.toByteArray(), allOnes.toByteArray())) {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info(ackMessage.getIntakePartition() + " (" + ackMessage.getBase() + ")" + " is convered");
@@ -166,6 +170,15 @@ public class FeedTrackingManager implements IFeedTrackingManager {
             return base;
         }
 
+    }
+
+    @Override
+    public void disableAcking(FeedConnectionId connectionId) {
+        ackHistory.remove(connectionId);
+        maxBaseAcked.remove(connectionId);
+        if (LOGGER.isLoggable(Level.WARNING)) {
+            LOGGER.warning("Acking disabled for " + connectionId);
+        }
     }
 
 }

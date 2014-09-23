@@ -42,6 +42,10 @@ public class StorageFrameHandler {
             int intakeTimestampValueOffset = partitionOffset + 4 + (StatisticsConstants.INTAKE_TIMESTAMP.length() + 2)
                     + 1;
             intakeTimestamp = frame.getLong(recordStart + intakeTimestampValueOffset);
+
+            int storeTimestampValueOffset = intakeTimestampValueOffset + 8
+                    + (StatisticsConstants.STORE_TIMESTAMP.length() + 2) + 1;
+            frame.putLong(recordStart + storeTimestampValueOffset, System.currentTimeMillis());
             delay += currentTime - intakeTimestamp;
         }
         avgDelayPersistence = delay / nTuples;

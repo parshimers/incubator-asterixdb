@@ -23,6 +23,6 @@ public interface IFeedLoadManager {
 
     public List<String> getNodes(int n);
 
-    public void reportThrottlingEnabled(ThrottlingEnabledFeedMessage mesg);
+    public void reportThrottlingEnabled(ThrottlingEnabledFeedMessage mesg) throws AsterixException, Exception;
 
 }

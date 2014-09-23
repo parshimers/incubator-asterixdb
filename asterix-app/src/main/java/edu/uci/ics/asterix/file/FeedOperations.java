@@ -27,6 +27,7 @@ import edu.uci.ics.asterix.common.feeds.api.IFeedJoint;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMessage;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.message.EndFeedMessage;
+import edu.uci.ics.asterix.common.feeds.message.ThrottlingEnabledFeedMessage;
 import edu.uci.ics.asterix.feeds.FeedLifecycleListener;
 import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
 import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
@@ -164,6 +165,19 @@ public class FeedOperations {
         try {
             Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p = FeedOperations.buildSendFeedMessageRuntime(
                     messageJobSpec, stallMessage.getConnectionId(), stallMessage, collectLocations);
+            buildSendFeedMessageJobSpec(p.first, p.second, messageJobSpec);
+        } catch (AlgebricksException ae) {
+            throw new AsterixException(ae);
+        }
+        return messageJobSpec;
+    }
+
+    public static JobSpecification buildNotifyThrottlingEnabledMessageJob(
+            ThrottlingEnabledFeedMessage throttlingEnabledMesg, Collection<String> locations) throws AsterixException {
+        JobSpecification messageJobSpec = JobSpecificationUtils.createJobSpecification();
+        try {
+            Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p = FeedOperations.buildSendFeedMessageRuntime(
+                    messageJobSpec, throttlingEnabledMesg.getConnectionId(), throttlingEnabledMesg, locations);
             buildSendFeedMessageJobSpec(p.first, p.second, messageJobSpec);
         } catch (AlgebricksException ae) {
             throw new AsterixException(ae);
