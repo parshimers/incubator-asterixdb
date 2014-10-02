@@ -30,7 +30,6 @@ import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,8 +46,6 @@ import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -196,8 +193,6 @@ public class ApplicationMaster {
 
     // Launch threads
     private List<Thread> launchThreads = new ArrayList<Thread>();
-    private List<Pair<Boolean, ContainerId>> containers = Collections
-            .synchronizedList(new ArrayList<Pair<Boolean, ContainerId>>());
 
     public static void main(String[] args) {
 
@@ -951,7 +946,6 @@ public class ApplicationMaster {
                 vargs.add(opts + ASTERIX_CC_BIN_PATH + " -cluster-net-ip-address " + CC.getClusterIp()
                         + " -client-net-ip-address " + CC.getClientIp());
                 ccStarted.set(true);
-                containers.add(new ImmutablePair<Boolean, ContainerId>(true, container.getId()));
 
             } else {
                 //now we need to know what node we are on, so we can apply the correct properties
@@ -971,7 +965,6 @@ public class ApplicationMaster {
                     vargs.add("-cluster-net-ip-address " + local.getClusterIp());
                     vargs.add("-data-ip-address " + local.getClusterIp());
                     vargs.add("-result-ip-address " + local.getClusterIp());
-                    containers.add(new ImmutablePair<Boolean, ContainerId>(false, container.getId()));
                 } catch (UnknownHostException e) {
                     LOG.error("Unable to find NC configured for host: " + container.getId() + e);
                 }

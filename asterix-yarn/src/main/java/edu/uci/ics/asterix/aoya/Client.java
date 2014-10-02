@@ -40,6 +40,7 @@ import javax.xml.bind.Unmarshaller;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.logging.Log;
@@ -134,7 +135,7 @@ public class Client {
     // Queue for App master
     private String amQueue = "";
     // Amt. of memory resource to request for to run the App Master
-    private int amMemory = 64;
+    private int amMemory = 1000;
 
     // Application master jar file
     private String appMasterJar = "";
@@ -317,26 +318,34 @@ public class Client {
             conf.set("fs.file.impl", "org.apache.hadoop.fs.LocalFileSystem");
         }
         yarnClient.init(conf);
-        opts = new Options();
-        opts.addOption("appname", true, "Application Name. Default value - Asterix");
-        opts.addOption("priority", true, "Application Priority. Default 0");
-        opts.addOption("queue", true, "RM Queue in which this application is to be submitted");
-        opts.addOption("master_memory", true, "Amount of memory in MB to be requested to run the application master");
-        opts.addOption("jar", true, "Jar file containing the application master");
-        opts.addOption("log_properties", true, "log4j.properties file");
-        opts.addOption("name", true, "Asterix instance name (required)");
-        opts.addOption("asterixTar", true, "tarball with Asterix inside");
-        opts.addOption("asterixConf", true, "Asterix cluster config");
-        opts.addOption("externalLibs", true, "Libraries to deploy along with Asterix instance");
-        opts.addOption("libDataverse", true, "Dataverse to deploy external libraries to");
-        opts.addOption("refresh", false,
-                "If starting an existing instance, this will replace them with the local copy on startup");
-        opts.addOption("appId", true, "ApplicationID to monitor if running client in status monitor mode");
-        opts.addOption("masterLibsDir", true, "Directory that contains the JARs needed to run the AM");
-        opts.addOption("snapshot", true, "Backup timestamp for arguments requiring a specific backup (rm, restore)");
-        opts.addOption("debug", false, "Dump out debug information");
-        opts.addOption("help", false, "Print usage");
-        opts.addOption("force", false, "Execute this command as fully as possible, disregarding any caution");
+        opts = parseConf(conf);
+    }
+
+    private static Options parseConf(Configuration conf) {
+        Options opts = new Options();
+        opts.addOption(new Option("appname", true, "Application Name. Default value - Asterix"));
+        opts.addOption(new Option("priority", true, "Application Priority. Default 0"));
+        opts.addOption(new Option("queue", true, "RM Queue in which this application is to be submitted"));
+        opts.addOption(new Option("master_memory", true,
+                "Amount of memory in MB to be requested to run the application master"));
+        opts.addOption(new Option("jar", true, "Jar file containing the application master"));
+        opts.addOption(new Option("log_properties", true, "log4j.properties file"));
+        opts.addOption(new Option("n", "name", true, "Asterix instance name (required)"));
+        opts.addOption(new Option("asterixTar", true, "tarball with Asterix inside"));
+        opts.addOption(new Option("c", "asterixConf", true, "Asterix cluster config"));
+        opts.addOption(new Option("l", "externalLibs", true, "Libraries to deploy along with Asterix instance"));
+        opts.addOption(new Option("libDataverse", true, "Dataverse to deploy external libraries to"));
+        opts.addOption(new Option("r", "refresh", false,
+                "If starting an existing instance, this will replace them with the local copy on startup"));
+        opts.addOption(new Option("appId", true, "ApplicationID to monitor if running client in status monitor mode"));
+        opts.addOption(new Option("masterLibsDir", true, "Directory that contains the JARs needed to run the AM"));
+        opts.addOption(new Option("snapshot", true,
+                "Backup timestamp for arguments requiring a specific backup (rm, restore)"));
+        opts.addOption(new Option("debug", false, "Dump out debug information"));
+        opts.addOption(new Option("help", false, "Print usage"));
+        opts.addOption(new Option("f", "force", false,
+                "Execute this command as fully as possible, disregarding any caution"));
+        return opts;
     }
 
     /**
@@ -349,7 +358,7 @@ public class Client {
      * Helper function to print out usage
      */
     private void printUsage() {
-        new HelpFormatter().printHelp("Asterix YARN client. Usage: asterix [mode] [options]", opts);
+        new HelpFormatter().printHelp("Asterix YARN client. Usage: asterix [options] [mode]", opts);
     }
 
     /**
@@ -464,17 +473,21 @@ public class Client {
         yarnClient.start();
         if (fs.exists(lock)) {
             ApplicationId lockAppId = getLockFile();
-            ApplicationReport previousAppReport = yarnClient.getApplicationReport(lockAppId);
-            YarnApplicationState prevStatus = previousAppReport.getYarnApplicationState();
-            if (!(prevStatus == YarnApplicationState.FAILED || prevStatus == YarnApplicationState.KILLED || prevStatus == YarnApplicationState.FINISHED)
-                    && mode != Mode.DESTROY && mode != Mode.BACKUP && mode != Mode.RESTORE) {
-                throw new IllegalStateException("Instance is already running in: " + lockAppId);
-            } else if (mode != Mode.DESTROY && mode != Mode.BACKUP && mode != Mode.RESTORE) {
-                //stale lock file
-                LOG.warn("Stale lockfile detected. Instance attempt " + lockAppId + " may have exited abnormally");
+            try {
+                ApplicationReport previousAppReport = yarnClient.getApplicationReport(lockAppId);
+                YarnApplicationState prevStatus = previousAppReport.getYarnApplicationState();
+                if (!(prevStatus == YarnApplicationState.FAILED || prevStatus == YarnApplicationState.KILLED || prevStatus == YarnApplicationState.FINISHED)
+                        && mode != Mode.DESTROY && mode != Mode.BACKUP && mode != Mode.RESTORE) {
+                    throw new IllegalStateException("Instance is already running in: " + lockAppId);
+                } else if (mode != Mode.DESTROY && mode != Mode.BACKUP && mode != Mode.RESTORE) {
+                    //stale lock file
+                    LOG.warn("Stale lockfile detected. Instance attempt " + lockAppId + " may have exited abnormally");
+                    deleteLockFile();
+                }
+            } catch (YarnException e) {
+                LOG.warn("Stale lockfile detected, but the RM has no record of this application's last run. This is normal if the cluster was restarted.");
                 deleteLockFile();
             }
-
         }
 
         // Get a new application id
@@ -572,12 +585,15 @@ public class Client {
         String fullLibPath = CONF_DIR_REL + instanceFolder + "am_jars/";
         String[] cp = System.getProperty("java.class.path").split(System.getProperty("path.separator"));
         String asterixJarPattern = "^(asterix).*(jar)$"; //starts with asterix,ends with jar
+        String commonsJarPattern = "^(commons).*(jar)$";
+
         LOG.info(File.separator);
         for (String j : cp) {
             String[] pathComponents = j.split(File.separator);
             LOG.info(j);
             LOG.info(pathComponents[pathComponents.length - 1]);
-            if (pathComponents[pathComponents.length - 1].matches(asterixJarPattern)) {
+            if (pathComponents[pathComponents.length - 1].matches(asterixJarPattern)
+                    || pathComponents[pathComponents.length - 1].matches(commonsJarPattern)) {
                 LOG.info("Loading JAR: " + j);
                 File f = new File(j);
                 Path dst = new Path(fs.getHomeDirectory(), fullLibPath + f.getName());

@@ -73,7 +73,7 @@ public class Utils {
         } catch (ConnectException e) {
             return;
         }
-        throw new IOException("Instance did not shut down- you may need to run kill");
+        throw new IOException("Instance did not shut down cleanly.");
     }
 
     public static boolean probeLiveness(String host) throws IOException {
