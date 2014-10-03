@@ -20,5 +20,5 @@ ASTERIX_CLASSPATH=$ASTERIX_CLASSPATH:$ASTERIX_HOME/conf/log4j.properties
 ASTERIX_CLASSPATH=$ASTERIX_CLASSPATH:$YARN_CONF_DIR:$HADOOP_CONF_DIR:$HADOOP_CONF_PATH
 pushd $(dirname $0) > /dev/null
 cd $ASTERIX_HOME
-java $JAVA_OPTS -cp $ASTERIX_CLASSPATH edu.uci.ics.asterix.aoya.Client -asterixTar $ASTERIX_HOME/asterix/asterix*.zip -jar $ASTERIX_HOME/lib/asterix-yarn*.jar $@
+java $JAVA_OPTS -cp $ASTERIX_CLASSPATH edu.uci.ics.asterix.aoya.Client $@
 popd > /dev/null

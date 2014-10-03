@@ -21,6 +21,7 @@ package edu.uci.ics.asterix.aoya;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileFilter;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -43,6 +44,7 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -137,8 +139,6 @@ public class Client {
     // Amt. of memory resource to request for to run the App Master
     private int amMemory = 1000;
 
-    // Application master jar file
-    private String appMasterJar = "";
     // Main class to invoke application master
     private final String appMasterMainClass = "edu.uci.ics.asterix.aoya.ApplicationMaster";
 
@@ -227,7 +227,7 @@ public class Client {
                             app = client.makeApplicationContext();
                             client.installConfig();
                             client.writeAsterixConfig(Utils.parseYarnClusterConfig(client.asterixConf));
-                            client.installAsterixConfig();
+                            client.installAsterixConfig(false);
                             res = client.deployConfig();
                             res.addAll(client.distributeBinaries());
 
@@ -250,7 +250,7 @@ public class Client {
                         break;
                     case ALTER:
                         client.writeAsterixConfig(Utils.parseYarnClusterConfig(client.asterixConf));
-                        client.installAsterixConfig();
+                        client.installAsterixConfig(true);
                         System.out.println("Configuration successfully modified");
                         break;
                     case DESTROY:
@@ -328,20 +328,19 @@ public class Client {
         opts.addOption(new Option("queue", true, "RM Queue in which this application is to be submitted"));
         opts.addOption(new Option("master_memory", true,
                 "Amount of memory in MB to be requested to run the application master"));
-        opts.addOption(new Option("jar", true, "Jar file containing the application master"));
         opts.addOption(new Option("log_properties", true, "log4j.properties file"));
         opts.addOption(new Option("n", "name", true, "Asterix instance name (required)"));
-        opts.addOption(new Option("asterixTar", true, "tarball with Asterix inside"));
+        opts.addOption(new Option("tar", "asterixTar", true, "tarball with Asterix inside"));
         opts.addOption(new Option("c", "asterixConf", true, "Asterix cluster config"));
         opts.addOption(new Option("l", "externalLibs", true, "Libraries to deploy along with Asterix instance"));
-        opts.addOption(new Option("libDataverse", true, "Dataverse to deploy external libraries to"));
+        opts.addOption(new Option("ld", "libDataverse", true, "Dataverse to deploy external libraries to"));
         opts.addOption(new Option("r", "refresh", false,
                 "If starting an existing instance, this will replace them with the local copy on startup"));
         opts.addOption(new Option("appId", true, "ApplicationID to monitor if running client in status monitor mode"));
         opts.addOption(new Option("masterLibsDir", true, "Directory that contains the JARs needed to run the AM"));
         opts.addOption(new Option("snapshot", true,
                 "Backup timestamp for arguments requiring a specific backup (rm, restore)"));
-        opts.addOption(new Option("debug", false, "Dump out debug information"));
+        opts.addOption(new Option("v", "debug", false, "Dump out debug information"));
         opts.addOption(new Option("help", false, "Print usage"));
         opts.addOption(new Option("f", "force", false,
                 "Execute this command as fully as possible, disregarding any caution"));
@@ -372,20 +371,9 @@ public class Client {
     public void init(String[] args) throws ParseException {
 
         CommandLine cliParser = new GnuParser().parse(opts, args);
-
-        if (args.length == 0) {
-            throw new IllegalArgumentException("No args specified for client to initialize");
-        }
+        checkConf(args, cliParser);
 
         List<String> clientVerb = cliParser.getArgList();
-        if (clientVerb == null || clientVerb.size() < 1) {
-            LOG.fatal("Too few arguments.");
-            throw new IllegalArgumentException();
-        }
-        if (clientVerb.size() > 1) {
-            LOG.fatal("Too many arguments.");
-            throw new IllegalArgumentException();
-        }
         mode = Mode.fromAlias(clientVerb.get(0));
 
         if (cliParser.hasOption("help")) {
@@ -400,21 +388,10 @@ public class Client {
             force = true;
         }
 
-        appName = cliParser.getOptionValue("appname", "Asterix");
+        appName = cliParser.getOptionValue("appname", "AsterixDB");
         amPriority = Integer.parseInt(cliParser.getOptionValue("priority", "0"));
         amQueue = cliParser.getOptionValue("queue", "default");
         amMemory = Integer.parseInt(cliParser.getOptionValue("master_memory", "10"));
-
-        if (amMemory < 0) {
-            throw new IllegalArgumentException("Invalid memory specified for application master, exiting."
-                    + " Specified memory=" + amMemory);
-        }
-
-        if (!cliParser.hasOption("jar")) {
-            throw new IllegalArgumentException("No jar file specified for application master");
-        }
-
-        appMasterJar = cliParser.getOptionValue("jar");
 
         if (!cliParser.hasOption("name") && mode != Mode.DESCRIBE) {
             throw new IllegalArgumentException("You must give a name for the instance to be deployed/altered");
@@ -422,16 +399,31 @@ public class Client {
         instanceName = cliParser.getOptionValue("name");
         instanceFolder = instanceName + '/';
 
-        appName = appName + '-' + instanceName;
-
-        if (!cliParser.hasOption("asterixTar") && (mode != Mode.INSTALL || cliParser.hasOption("refresh"))) {
-            throw new IllegalArgumentException("You must include an Asterix TAR to distribute!");
-        }
-        asterixTar = cliParser.getOptionValue("asterixTar");
+        appName = appName + ": " + instanceName;
+        File defaultTar = null;
         if (!cliParser.hasOption("asterixTar")) {
-            throw new IllegalArgumentException("You must specify a cluster configuration");
+            if (!cliParser.hasOption("asterixTar")) {
+                File tarDir = new File("./asterix");
+                if (!tarDir.exists()) {
+                    throw new IllegalArgumentException(
+                            "Default directory structure not in use- please specify an asterix zip file to distribute");
+                }
+                FileFilter tarFilter = new WildcardFileFilter("asterix-server*.zip");
+                File[] tarFiles = tarDir.listFiles(tarFilter);
+                if (tarFiles.length != 1) {
+                    throw new IllegalArgumentException(
+                            "There is more than one canonically named asterix distributable in the default directory. Please leave only one there.");
+                }
+                defaultTar = tarFiles[0];
+                System.out.println(defaultTar.getAbsolutePath());
+            }
         }
-        asterixConf = cliParser.getOptionValue("asterixConf");
+        if (defaultTar != null) {
+            asterixTar = cliParser.getOptionValue("asterixTar", defaultTar.getAbsolutePath());
+        } else {
+            asterixTar = cliParser.getOptionValue("asterixTar");
+        }
+
         if (cliParser.hasOption("externalLibs")) {
             extLibs = cliParser.getOptionValue("externalLibs");
             if (cliParser.hasOption("libDataverse")) {
@@ -444,6 +436,12 @@ public class Client {
                     + " Specified containerMemory=" + containerMemory + ", numContainer=" + numContainers);
         }
         log4jPropFile = cliParser.getOptionValue("log_properties", "");
+        if (mode == Mode.INSTALL && !cliParser.hasOption("asterixConf")) {
+            throw new IllegalStateException(
+                    "No Configuration XML given. Please specify a config for cluster installation");
+        } else if (mode == Mode.INSTALL) {
+            asterixConf = cliParser.getOptionValue("asterixConf");
+        }
         if (cliParser.hasOption("refresh") && mode == Mode.START) {
             refresh = true;
         } else if (cliParser.hasOption("refresh") && mode != Mode.START) {
@@ -454,6 +452,27 @@ public class Client {
         } else if (cliParser.hasOption("snapshot") && !(mode == Mode.RESTORE || mode == Mode.RMBACKUP)) {
             throw new IllegalArgumentException(
                     "Cannot specify a snapshot to restore in any mode besides restore, mode is: " + mode);
+        }
+    }
+
+    private void checkConf(String[] args, CommandLine cliParser) {
+        //Sanity check for no args 
+        if (args.length == 0) {
+            throw new IllegalArgumentException("No args specified for client to initialize");
+        }
+        //Now check if there is a verb
+        List<String> clientVerb = cliParser.getArgList();
+        if (clientVerb == null || clientVerb.size() < 1) {
+            LOG.fatal("You must specify an action.");
+            throw new IllegalArgumentException();
+        }
+        if (clientVerb.size() > 1) {
+            LOG.fatal("Trailing arguments, or too many arguments. Only one action may be performed at a time.");
+            throw new IllegalArgumentException();
+        }
+        if (amMemory < 0) {
+            throw new IllegalArgumentException("Invalid memory specified for application master, exiting."
+                    + " Specified memory=" + amMemory);
         }
     }
 
@@ -610,21 +629,29 @@ public class Client {
                 DFSResourceCoordinate amLibCoord = new DFSResourceCoordinate();
                 amLibCoord.res = amLib;
                 amLibCoord.name = f.getName();
+                if (f.getName().contains("asterix-yarn")) {
+                    amLibCoord.envs.put(dst.toUri().toString(), MConstants.APPLICATIONMASTERJARLOCATION);
+                    amLibCoord.envs.put(Long.toString(dstSt.getLen()), MConstants.APPLICATIONMASTERJARLEN);
+                    amLibCoord.envs.put(Long.toString(dstSt.getModificationTime()),
+                            MConstants.APPLICATIONMASTERJARTIMESTAMP);
+                }
                 resources.add(amLibCoord);
             }
         }
         return resources;
     }
 
-    private void installAsterixConfig() throws IOException {
-        if (!instanceExists()) {
-
-        }
+    private void installAsterixConfig(boolean overwrite) throws IllegalStateException, IOException {
         FileSystem fs = FileSystem.get(conf);
         File srcfile = new File(MERGED_PARAMETERS_PATH);
         Path src = new Path(srcfile.getCanonicalPath());
         String pathSuffix = CONF_DIR_REL + instanceFolder + File.separator + "asterix-configuration.xml";
         Path dst = new Path(fs.getHomeDirectory(), pathSuffix);
+        if (fs.exists(dst) && !overwrite) {
+
+            throw new IllegalStateException(
+                    "Instance exists. Please delete an existing instance before trying to overwrite");
+        }
         fs.copyFromLocalFile(false, true, src, dst);
     }
 
@@ -634,45 +661,11 @@ public class Client {
         // Copy the application master jar to the filesystem
         // Create a local resource to point to the destination jar path
         FileSystem fs = FileSystem.get(conf);
-        Path src = new Path(appMasterJar);
-        String pathSuffix = CONF_DIR_REL + instanceFolder + "AppMaster.jar";
-        Path dst = new Path(fs.getHomeDirectory(), pathSuffix);
-        if (refresh) {
-            if (fs.exists(dst)) {
-                fs.delete(dst, false);
-            }
-        }
-        if (!fs.exists(dst)) {
-            fs.copyFromLocalFile(false, true, src, dst);
-        }
-        FileStatus destStatus = fs.getFileStatus(dst);
-        LocalResource amJarRsrc = Records.newRecord(LocalResource.class);
-
-        // Set the type of resource - file or archive
-        // archives are untarred at destination
-        // we don't need the jar file to be untarred
-        amJarRsrc.setType(LocalResourceType.FILE);
-        // Set visibility of the resource
-        // Setting to most private option
-        amJarRsrc.setVisibility(LocalResourceVisibility.APPLICATION);
-        // Set the resource to be copied over
-        amJarRsrc.setResource(ConverterUtils.getYarnUrlFromPath(dst));
-        // Set timestamp and length of file so that the framework
-        // can do basic sanity checks for the local resource
-        // after it has been copied over to ensure it is the same
-        // resource the client intended to use with the application
-        amJarRsrc.setTimestamp(destStatus.getModificationTime());
-        amJarRsrc.setSize(destStatus.getLen());
+        Path src, dst;
+        FileStatus destStatus;
+        String pathSuffix;
 
         // adding info so we can add the jar to the App master container path
-        DFSResourceCoordinate am = new DFSResourceCoordinate();
-        am.envs.put(dst.toUri().toString(), MConstants.APPLICATIONMASTERJARLOCATION);
-        FileStatus amFileStatus = fs.getFileStatus(dst);
-        am.envs.put(Long.toString(amJarRsrc.getSize()), MConstants.APPLICATIONMASTERJARLEN);
-        am.envs.put(Long.toString(amJarRsrc.getTimestamp()), MConstants.APPLICATIONMASTERJARTIMESTAMP);
-        am.res = amJarRsrc;
-        am.name = "AppMaster.jar";
-        resources.add(am);
 
         // Add the asterix tarfile to HDFS for easy distribution
         // Keep it all archived for now so add it as a file...

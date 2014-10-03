@@ -1001,7 +1001,7 @@ public class ApplicationMaster {
             } catch (UnknownHostException e) {
                 LOG.error("Unable to find NC configured for host: " + container.getId() + e);
             }
-            StringBuilder classPathEnv = new StringBuilder("").append("./*");
+            StringBuilder classPathEnv = new StringBuilder("").append("." + File.separator + "*");
             for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH,
                     YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH)) {
                 classPathEnv.append(File.pathSeparatorChar);
@@ -1021,7 +1021,7 @@ public class ApplicationMaster {
                 if (iodevices.indexOf(s) == 0) {
                     vargs.add(clusterDesc.getTxnLogDir() + "txnLogs" + File.separator);
                     LOG.debug("Deleting logs from: " + clusterDesc.getTxnLogDir());
-                    vargs.add(s + "asterix_root_metadata");
+                    vargs.add(s + ".asterix_root_metadata");
                 }
             }
             vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout");
