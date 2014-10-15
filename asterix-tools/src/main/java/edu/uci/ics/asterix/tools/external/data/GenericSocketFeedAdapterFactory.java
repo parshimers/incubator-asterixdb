@@ -23,6 +23,7 @@ import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
+import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
 import edu.uci.ics.asterix.external.adapter.factory.StreamBasedAdapterFactory;
 import edu.uci.ics.asterix.metadata.feeds.IFeedAdapterFactory;
 import edu.uci.ics.asterix.metadata.utils.AsterixTupleParserFactory.InputDataFormat;
@@ -148,5 +149,13 @@ public class GenericSocketFeedAdapterFactory extends StreamBasedAdapterFactory i
     @Override
     public InputDataFormat getInputDataFormat() {
         return InputDataFormat.UNKNOWN;
+    }
+
+    public boolean isRecordTrackingEnabled() {
+        return false;
+    }
+
+    public IIntakeProgressTracker createIntakeProgressTracker() {
+        throw new UnsupportedOperationException("Tracking of ingested records not enabled");
     }
 }

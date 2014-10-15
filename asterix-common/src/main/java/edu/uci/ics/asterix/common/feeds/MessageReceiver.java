@@ -93,7 +93,8 @@ public abstract class MessageReceiver<T> implements IMessageReceiver<T> {
                 message = inbox.take();
                 processMessage(message);
             } catch (InterruptedException ie) {
-                // ignore
+                // ignore exception but break from the loop
+                break;
             } catch (Exception e) {
                 e.printStackTrace();
                 if (LOGGER.isLoggable(Level.WARNING)) {

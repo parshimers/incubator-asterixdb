@@ -17,7 +17,7 @@ package edu.uci.ics.asterix.common.feeds;
 import java.io.Serializable;
 
 /**
- * A unique identifier for an instance of a data feed that is flowing into a dataset.
+ * A unique identifier for a feed connection. A feed connection is an instance of a data feed that is flowing into a dataset.
  */
 public class FeedConnectionId implements Serializable {
 

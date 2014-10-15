@@ -1,13 +1,3 @@
-package edu.uci.ics.asterix.common.feeds.message;
-
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
-import edu.uci.ics.asterix.common.feeds.FeedConstants;
-import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
-import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector.ValueType;
-
 /*
  * Copyright 2009-2014 by The Regents of the University of California
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,6 +12,16 @@ import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector.ValueType;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+package edu.uci.ics.asterix.common.feeds.message;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedConstants;
+import edu.uci.ics.asterix.common.feeds.FeedRuntimeId;
+import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector.ValueType;
 
 public class FeedReportMessage extends FeedMessage {
 

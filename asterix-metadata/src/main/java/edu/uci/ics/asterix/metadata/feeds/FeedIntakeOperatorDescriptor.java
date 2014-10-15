@@ -35,7 +35,8 @@ import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 
 /**
- * Sends a control message to the registered message queue for feed specified by its feedId.
+ * An operator responsible for establishing connection with external data source and parsing,
+ * translating the received content.It uses an instance of feed adaptor to perform these functions.
  */
 public class FeedIntakeOperatorDescriptor extends AbstractSingleActivityOperatorDescriptor {
 
@@ -43,12 +44,13 @@ public class FeedIntakeOperatorDescriptor extends AbstractSingleActivityOperator
 
     private static final Logger LOGGER = Logger.getLogger(FeedIntakeOperatorDescriptor.class.getName());
 
+    /** The unique identifier of the feed that is being ingested. **/
     private final FeedId feedId;
 
     private final FeedPolicyAccessor policyAccessor;
 
     /** The adaptor factory that is used to create an instance of the feed adaptor **/
-    private IFeedAdapterFactory adapterFactory;
+    private IFeedAdapterFactory adaptorFactory;
 
     /** The library that contains the adapter in use. **/
     private String adaptorLibraryName;
@@ -57,10 +59,10 @@ public class FeedIntakeOperatorDescriptor extends AbstractSingleActivityOperator
      * The adapter factory class that is used to create an instance of the feed adapter.
      * This value is used only in the case of external adapters.
      **/
-    private String adapterFactoryClassName;
+    private String adaptorFactoryClassName;
 
     /** The configuration parameters associated with the adapter. **/
-    private Map<String, String> adapterConfiguration;
+    private Map<String, String> adaptorConfiguration;
 
     private ARecordType adapterOutputType;
 
@@ -68,7 +70,7 @@ public class FeedIntakeOperatorDescriptor extends AbstractSingleActivityOperator
             IFeedAdapterFactory adapterFactory, ARecordType adapterOutputType, FeedPolicyAccessor policyAccessor) {
         super(spec, 0, 1);
         this.feedId = new FeedId(primaryFeed.getDataverseName(), primaryFeed.getFeedName());
-        this.adapterFactory = adapterFactory;
+        this.adaptorFactory = adapterFactory;
         this.adapterOutputType = adapterOutputType;
         this.policyAccessor = policyAccessor;
     }
@@ -77,9 +79,9 @@ public class FeedIntakeOperatorDescriptor extends AbstractSingleActivityOperator
             String adapterFactoryClassName, ARecordType adapterOutputType, FeedPolicyAccessor policyAccessor) {
         super(spec, 0, 1);
         this.feedId = new FeedId(primaryFeed.getDataverseName(), primaryFeed.getFeedName());
-        this.adapterFactoryClassName = adapterFactoryClassName;
+        this.adaptorFactoryClassName = adapterFactoryClassName;
         this.adaptorLibraryName = adapterLibraryName;
-        this.adapterConfiguration = primaryFeed.getAdaptorConfiguration();
+        this.adaptorConfiguration = primaryFeed.getAdaptorConfiguration();
         this.adapterOutputType = adapterOutputType;
         this.policyAccessor = policyAccessor;
     }
@@ -94,28 +96,24 @@ public class FeedIntakeOperatorDescriptor extends AbstractSingleActivityOperator
                 partition);
         IngestionRuntime ingestionRuntime = (IngestionRuntime) feedSubscriptionManager
                 .getSubscribableRuntime(feedIngestionId);
-        if (adapterFactory == null) {
+        if (adaptorFactory == null) {
             try {
-                adapterFactory = createAdapterFactory(ctx, partition);
+                adaptorFactory = createExtenralAdapterFactory(ctx, partition);
             } catch (Exception exception) {
                 throw new HyracksDataException(exception);
             }
         }
-        return new FeedIntakeOperatorNodePushable(ctx, feedId, adapterFactory, partition, ingestionRuntime,
+        return new FeedIntakeOperatorNodePushable(ctx, feedId, adaptorFactory, partition, ingestionRuntime,
                 policyAccessor);
     }
 
-    public FeedId getFeedId() {
-        return feedId;
-    }
-
-    private IFeedAdapterFactory createAdapterFactory(IHyracksTaskContext ctx, int partition) throws Exception {
+    private IFeedAdapterFactory createExtenralAdapterFactory(IHyracksTaskContext ctx, int partition) throws Exception {
         IFeedAdapterFactory adapterFactory = null;
         ClassLoader classLoader = ExternalLibraryManager.getLibraryClassLoader(feedId.getDataverse(),
                 adaptorLibraryName);
         if (classLoader != null) {
-            adapterFactory = ((IFeedAdapterFactory) (classLoader.loadClass(adapterFactoryClassName).newInstance()));
-            adapterFactory.configure(adapterConfiguration, adapterOutputType);
+            adapterFactory = ((IFeedAdapterFactory) (classLoader.loadClass(adaptorFactoryClassName).newInstance()));
+            adapterFactory.configure(adaptorConfiguration, adapterOutputType);
         } else {
             String message = "Unable to create adapter as class loader not configured for library "
                     + adaptorLibraryName + " in dataverse " + feedId.getDataverse();
@@ -124,4 +122,9 @@ public class FeedIntakeOperatorDescriptor extends AbstractSingleActivityOperator
         }
         return adapterFactory;
     }
+
+    public FeedId getFeedId() {
+        return feedId;
+    }
+
 }

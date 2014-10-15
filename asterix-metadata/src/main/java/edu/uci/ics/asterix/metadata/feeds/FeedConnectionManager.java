@@ -52,26 +52,14 @@ public class FeedConnectionManager implements IFeedConnectionManager {
     public void deregisterFeed(FeedConnectionId feedId) {
         try {
             FeedRuntimeManager mgr = feedRuntimeManagers.get(feedId);
-            if (mgr == null) {
-                if (LOGGER.isLoggable(Level.WARNING)) {
-                    LOGGER.warning("Unknown feed id: " + feedId);
-                }
-            } else {
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Closing feed runtime manager: " + mgr);
-                }
+            if (mgr != null) {
                 mgr.close();
+                feedRuntimeManagers.remove(feedId);
             }
         } catch (Exception e) {
             if (LOGGER.isLoggable(Level.WARNING)) {
                 LOGGER.warning("Exception in closing feed runtime" + e.getMessage());
             }
-            e.printStackTrace();
-        }
-
-        feedRuntimeManagers.remove(feedId);
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("De-registered feed " + feedId);
         }
 
     }
@@ -85,9 +73,6 @@ public class FeedConnectionManager implements IFeedConnectionManager {
             feedRuntimeManagers.put(connectionId, runtimeMgr);
         }
         runtimeMgr.registerFeedRuntime(feedRuntime.getRuntimeId(), feedRuntime);
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Registered runtime " + feedRuntime + " for feed connection " + connectionId);
-        }
     }
 
     @Override
@@ -95,9 +80,6 @@ public class FeedConnectionManager implements IFeedConnectionManager {
         FeedRuntimeManager runtimeMgr = feedRuntimeManagers.get(connectionId);
         if (runtimeMgr != null) {
             runtimeMgr.deregisterFeedRuntime(feedRuntimeId);
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Deregistered Feed Runtime " + feedRuntimeId);
-            }
         }
     }
 

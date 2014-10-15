@@ -17,31 +17,31 @@ package edu.uci.ics.asterix.metadata.feeds;
 import java.io.Serializable;
 
 /**
- * A unique identifier for a datasource adapter.
+ * A unique identifier for a data source adapter.
  */
 public class AdapterIdentifier implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     private final String namespace;
-    private final String adapterName;
+    private final String name;
 
-    public AdapterIdentifier(String namespace, String adapterName) {
+    public AdapterIdentifier(String namespace, String name) {
         this.namespace = namespace;
-        this.adapterName = adapterName;
+        this.name = name;
     }
 
     public String getNamespace() {
         return namespace;
     }
 
-    public String getAdapterName() {
-        return adapterName;
+    public String getName() {
+        return name;
     }
 
     @Override
     public int hashCode() {
-        return (namespace + "@" + adapterName).hashCode();
+        return (namespace + "@" + name).hashCode();
 
     }
 
@@ -57,6 +57,6 @@ public class AdapterIdentifier implements Serializable {
             return false;
         }
         return namespace.equals(((AdapterIdentifier) o).getNamespace())
-                && adapterName.equals(((AdapterIdentifier) o).getAdapterName());
+                && name.equals(((AdapterIdentifier) o).getName());
     }
 }

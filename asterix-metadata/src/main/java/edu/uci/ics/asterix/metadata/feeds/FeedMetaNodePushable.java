@@ -52,6 +52,7 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
      **/
     private int partition;
 
+    /** Total number of partitions available **/
     private int nPartitions;
 
     /** Type associated with the core feed operator **/
@@ -66,6 +67,7 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
 
     private final String operandId;
 
+    /** The pre-processor associated with this runtime **/
     private FeedRuntimeInputHandler inputSideHandler;
 
     public FeedMetaNodePushable(IHyracksTaskContext ctx, IRecordDescriptorProvider recordDescProvider, int partition,
@@ -104,9 +106,6 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
     }
 
     private void initializeNewFeedRuntime(FeedRuntimeId runtimeId) throws Exception {
-        if (LOGGER.isLoggable(Level.WARNING)) {
-            LOGGER.warning("Runtime not found for  " + runtimeId + " connection id " + connectionId);
-        }
         this.fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
         this.inputSideHandler = new FeedRuntimeInputHandler(connectionId, runtimeId, coreOperator,
                 policyEnforcer.getFeedPolicyAccessor(), false, ctx.getFrameSize(), fta, recordDesc, feedManager,
@@ -151,7 +150,6 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
 
     @Override
     public void close() throws HyracksDataException {
-        System.out.println("CLOSE CALLED FOR " + this.feedRuntime.getRuntimeId());
         try {
             coreOperator.close();
         } catch (Exception e) {

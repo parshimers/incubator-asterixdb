@@ -39,14 +39,12 @@ public class ConditionalPushTupleParserFactory implements ITupleParserFactory {
 
     private final ARecordType outputType;
     private final Map<String, String> configuration;
-    private final FeedPolicyAccessor policyAccessor;
     private final IDataParser dataParser;
 
     public ConditionalPushTupleParserFactory(ARecordType outputType, Map<String, String> configuration,
             FeedPolicyAccessor policyAccessor, IDataParser dataParser) {
         this.outputType = outputType;
         this.configuration = configuration;
-        this.policyAccessor = policyAccessor;
         this.dataParser = dataParser;
     }
 
@@ -143,16 +141,11 @@ class ConditionalPushTupleParser extends AbstractTupleParser {
     protected void addTupleToFrame(IFrameWriter writer) throws HyracksDataException {
         if (tuplesInFrame == batchSize || !appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
             FrameUtils.flushFrame(frame, writer);
+            tuplesInFrame = 0;
             appender.reset(frame, true);
             if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
                 throw new IllegalStateException();
             }
-            if (tuplesInFrame == batchSize) {
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Batch size exceeded! flushing frame " + "(" + tuplesInFrame + ")");
-                }
-            }
-            tuplesInFrame = 0;
         }
         tuplesInFrame++;
     }

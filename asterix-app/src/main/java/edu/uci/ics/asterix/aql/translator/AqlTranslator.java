@@ -1720,22 +1720,11 @@ public class AqlTranslator extends AbstractAqlTranslator {
             CompiledConnectFeedStatement cbfs = new CompiledConnectFeedStatement(dataverseName, cfs.getFeedName(), cfs
                     .getDatasetName().getValue(), cfs.getPolicy(), cfs.getQuery(), cfs.getVarCounter());
 
-            Dataset dataset = MetadataManager.INSTANCE.getDataset(metadataProvider.getMetadataTxnContext(),
-                    dataverseName, cfs.getDatasetName().getValue());
-            if (dataset == null) {
-                throw new AsterixException("Unknown target dataset :" + cfs.getDatasetName().getValue());
-            }
+            FeedUtil.validateIfDatasetExists(dataverseName, cfs.getDatasetName().getValue(),
+                    metadataProvider.getMetadataTxnContext());
 
-            if (!dataset.getDatasetType().equals(DatasetType.INTERNAL)) {
-                throw new AsterixException("Statement not applicable. Dataset " + cfs.getDatasetName().getValue()
-                        + " is not of required type " + DatasetType.INTERNAL);
-            }
-
-            Feed feed = MetadataManager.INSTANCE.getFeed(metadataProvider.getMetadataTxnContext(), dataverseName,
-                    cfs.getFeedName());
-            if (feed == null) {
-                throw new AsterixException("Unknown source feed: " + cfs.getFeedName());
-            }
+            Feed feed = FeedUtil.validateIfFeedExists(dataverseName, cfs.getFeedName(),
+                    metadataProvider.getMetadataTxnContext());
 
             FeedConnectionId feedConnId = new FeedConnectionId(dataverseName, cfs.getFeedName(), cfs.getDatasetName()
                     .getValue());
@@ -1745,15 +1734,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
                         + " is currently ACTIVE. Operation not supported");
             }
 
-            FeedPolicy feedPolicy = MetadataManager.INSTANCE.getFeedPolicy(mdTxnCtx, dataverseName,
-                    cbfs.getPolicyName());
-            if (feedPolicy == null) {
-                feedPolicy = MetadataManager.INSTANCE.getFeedPolicy(mdTxnCtx,
-                        MetadataConstants.METADATA_DATAVERSE_NAME, cbfs.getPolicyName());
-                if (feedPolicy == null) {
-                    throw new AsterixException("Unknown feed policy" + cbfs.getPolicyName());
-                }
-            }
+            FeedPolicy feedPolicy = FeedUtil.validateIfPolicyExists(dataverseName, cbfs.getPolicyName(), mdTxnCtx);
+
             // All Metadata checks have passed. Feed connect request is valid. //
 
             FeedPolicyAccessor policyAccessor = new FeedPolicyAccessor(feedPolicy.getProperties());
@@ -1808,32 +1790,32 @@ public class AqlTranslator extends AbstractAqlTranslator {
      */
     private Pair<FeedSubscriptionRequest, Boolean> getFeedSubscriptionRequest(String dataverse, Feed feed,
             String dataset, FeedPolicy feedPolicy, MetadataTransactionContext mdTxnCtx) throws MetadataException {
-        IFeedJoint sourceFeedPoint = null;
+        IFeedJoint sourceFeedJoint = null;
         FeedSubscriptionRequest request = null;
-        boolean needIntakeJob = false;
         List<String> functionsToApply = new ArrayList<String>();
         SubscriptionLocation subscriptionLocation = null;
-        FeedJointKey feedPointKey = getFeedPointKey(feed, mdTxnCtx);
-        boolean isFeedPointAvailable = FeedLifecycleListener.INSTANCE.isFeedJointAvailable(feedPointKey);
+        FeedJointKey feedJointKey = getFeedJointKey(feed, mdTxnCtx);
+        boolean isFeedJointAvailable = FeedLifecycleListener.INSTANCE.isFeedJointAvailable(feedJointKey);
+        boolean needIntakeJob = false;
         List<IFeedJoint> jointsToRegister = new ArrayList<IFeedJoint>();
         FeedConnectionId connectionId = new FeedConnectionId(feed.getFeedId(), dataset);
-        if (!isFeedPointAvailable) { // feed point is not available
-            sourceFeedPoint = FeedLifecycleListener.INSTANCE.getAvailableFeedJoint(feedPointKey);
-            if (sourceFeedPoint == null) { // the feed is currently not being ingested, that is it is unavailable.
+        if (!isFeedJointAvailable) { // feed point is not available
+            sourceFeedJoint = FeedLifecycleListener.INSTANCE.getAvailableFeedJoint(feedJointKey);
+            if (sourceFeedJoint == null) { // the feed is currently not being ingested, that is it is unavailable.
                 subscriptionLocation = SubscriptionLocation.SOURCE_FEED_INTAKE;
-                FeedId sourceFeedId = feedPointKey.getFeedId(); // the root/primary feedId 
+                FeedId sourceFeedId = feedJointKey.getFeedId(); // the root/primary feedId 
                 Feed primaryFeed = MetadataManager.INSTANCE.getFeed(mdTxnCtx, dataverse, sourceFeedId.getFeedName());
-                FeedJointKey intakeFeedPointKey = new FeedJointKey(sourceFeedId, new ArrayList<String>());
-                sourceFeedPoint = new FeedJoint(intakeFeedPointKey, primaryFeed.getFeedId(), subscriptionLocation,
+                FeedJointKey intakeFeedJointKey = new FeedJointKey(sourceFeedId, new ArrayList<String>());
+                sourceFeedJoint = new FeedJoint(intakeFeedJointKey, primaryFeed.getFeedId(), subscriptionLocation,
                         Type.INTAKE, connectionId);
-                jointsToRegister.add(sourceFeedPoint);
+                jointsToRegister.add(sourceFeedJoint);
                 needIntakeJob = true;
             } else {
-                subscriptionLocation = sourceFeedPoint.getSubscriptionLocation();
+                subscriptionLocation = sourceFeedJoint.getSubscriptionLocation();
             }
 
-            String functionComponent = feedPointKey.getStringRep().substring(
-                    sourceFeedPoint.getFeedJointKey().getStringRep().length());
+            String functionComponent = feedJointKey.getStringRep().substring(
+                    sourceFeedJoint.getFeedJointKey().getStringRep().length());
             String[] functions = functionComponent.trim().split(":");
             for (String f : functions) {
                 if (f.trim().length() > 0) {
@@ -1852,28 +1834,25 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 FeedLifecycleListener.INSTANCE.registerFeedJoint(joint);
             }
         } else {
-            sourceFeedPoint = FeedLifecycleListener.INSTANCE.getFeedJoint(feedPointKey);
-            subscriptionLocation = sourceFeedPoint.getSubscriptionLocation();
+            sourceFeedJoint = FeedLifecycleListener.INSTANCE.getFeedJoint(feedJointKey);
+            subscriptionLocation = sourceFeedJoint.getSubscriptionLocation();
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Feed point " + sourceFeedPoint + " is available! need not apply any further computation");
+                LOGGER.info("Feed joint " + sourceFeedJoint + " is available! need not apply any further computation");
             }
         }
 
-        request = new FeedSubscriptionRequest(sourceFeedPoint.getFeedJointKey(), subscriptionLocation,
+        request = new FeedSubscriptionRequest(sourceFeedJoint.getFeedJointKey(), subscriptionLocation,
                 functionsToApply, dataset, feedPolicy.getPolicyName(), feedPolicy.getProperties(), feed.getFeedId());
 
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Generated Subscription Request" + request);
-        }
-        sourceFeedPoint.addSubscriptionRequest(request);
+        sourceFeedJoint.addSubscriptionRequest(request);
         return new Pair<FeedSubscriptionRequest, Boolean>(request, needIntakeJob);
     }
 
     /*
-     * returns the feed joint corresponding to the feed definition. Tuples constituting the feed are 
+     * Gets the feed joint corresponding to the feed definition. Tuples constituting the feed are 
      * available at this feed joint.
      */
-    private FeedJointKey getFeedPointKey(Feed feed, MetadataTransactionContext ctx) throws MetadataException {
+    private FeedJointKey getFeedJointKey(Feed feed, MetadataTransactionContext ctx) throws MetadataException {
         Feed sourceFeed = feed;
         List<String> appliedFunctions = new ArrayList<String>();
         while (sourceFeed.getFeedType().equals(FeedType.SECONDARY)) {
@@ -1903,21 +1882,10 @@ public class AqlTranslator extends AbstractAqlTranslator {
             DisconnectFeedStatement cfs = (DisconnectFeedStatement) stmt;
             String dataverseName = getActiveDataverse(cfs.getDataverseName());
 
-            String datasetName = cfs.getDatasetName().getValue();
-            Dataset dataset = MetadataManager.INSTANCE.getDataset(metadataProvider.getMetadataTxnContext(),
-                    dataverseName, cfs.getDatasetName().getValue());
-            if (dataset == null) {
-                throw new AsterixException("Unknown dataset :" + cfs.getDatasetName().getValue() + " in dataverse "
-                        + dataverseName);
-            }
+            FeedUtil.validateIfDatasetExists(dataverseName, cfs.getDatasetName().getValue(), mdTxnCtx);
+            Feed feed = FeedUtil.validateIfFeedExists(dataverseName, cfs.getFeedName().getValue(), mdTxnCtx);
 
-            Feed feed = MetadataManager.INSTANCE.getFeed(metadataProvider.getMetadataTxnContext(), dataverseName, cfs
-                    .getFeedName().getValue());
-            if (feed == null) {
-                throw new AsterixException("Unknown source feed :" + cfs.getFeedName());
-            }
-
-            FeedConnectionId connectionId = new FeedConnectionId(feed.getFeedId(), datasetName);
+            FeedConnectionId connectionId = new FeedConnectionId(feed.getFeedId(), cfs.getDatasetName().getValue());
             boolean isFeedConnectionActive = FeedLifecycleListener.INSTANCE.isFeedConnectionActive(connectionId);
             if (!isFeedConnectionActive) {
                 throw new AsterixException("Feed " + feed.getFeedId().getFeedName() + " is currently not connected to "
@@ -2159,7 +2127,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
     private JobId runJob(IHyracksClientConnection hcc, JobSpecification spec, boolean waitForCompletion)
             throws Exception {
         spec.setFrameSize(AsterixAppContextInfo.getInstance().getCompilerProperties().getFrameSize());
-                //OptimizationConfUtil.getPhysicalOptimizationConfig().getFrameSize());
+        //OptimizationConfUtil.getPhysicalOptimizationConfig().getFrameSize());
         JobId[] jobIds = executeJobArray(hcc, new Job[] { new Job(spec) }, out, pdf, waitForCompletion);
         return jobIds[0];
     }

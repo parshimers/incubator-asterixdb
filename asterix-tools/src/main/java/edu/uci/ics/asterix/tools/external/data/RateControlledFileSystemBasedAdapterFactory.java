@@ -20,6 +20,7 @@ import java.util.Map;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
+import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
 import edu.uci.ics.asterix.external.adapter.factory.HDFSAdapterFactory;
 import edu.uci.ics.asterix.external.adapter.factory.NCFileSystemAdapterFactory;
 import edu.uci.ics.asterix.external.adapter.factory.StreamBasedAdapterFactory;
@@ -126,6 +127,14 @@ public class RateControlledFileSystemBasedAdapterFactory extends StreamBasedAdap
     @Override
     public InputDataFormat getInputDataFormat() {
         return InputDataFormat.UNKNOWN;
+    }
+
+    public boolean isRecordTrackingEnabled() {
+        return false;
+    }
+
+    public IIntakeProgressTracker createIntakeProgressTracker() {
+        throw new UnsupportedOperationException("Tracking of ingested records not enabled");
     }
 
 }

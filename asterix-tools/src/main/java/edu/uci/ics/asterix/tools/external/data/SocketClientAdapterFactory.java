@@ -16,7 +16,6 @@ package edu.uci.ics.asterix.tools.external.data;
 
 import java.util.Map;
 
-import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
 import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
 import edu.uci.ics.asterix.metadata.feeds.IFeedAdapterFactory;

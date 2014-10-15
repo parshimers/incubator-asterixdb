@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
+import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
 import edu.uci.ics.asterix.external.adapter.factory.StreamBasedAdapterFactory;
 import edu.uci.ics.asterix.metadata.feeds.IFeedAdapterFactory;
 import edu.uci.ics.asterix.metadata.utils.AsterixTupleParserFactory.InputDataFormat;
@@ -39,12 +40,12 @@ public class TwitterFirehoseFeedAdapterFactory extends StreamBasedAdapterFactory
 
     /**
      * Degree of parallelism for feed ingestion activity. Defaults to 1.
-     * This builds up the count constraint for the ingestion operator.
+     * This determines the count constraint for the ingestion operator.
      **/
     private static final String KEY_INGESTION_CARDINALITY = "ingestion-cardinality";
 
     /**
-     * The absolute locations where ingestion operator instances will be places.
+     * The absolute locations where ingestion operator instances will be placed.
      **/
     private static final String KEY_INGESTION_LOCATIONS = "ingestion-location";
 
@@ -103,6 +104,14 @@ public class TwitterFirehoseFeedAdapterFactory extends StreamBasedAdapterFactory
     @Override
     public InputDataFormat getInputDataFormat() {
         return InputDataFormat.ADM;
+    }
+
+    public boolean isRecordTrackingEnabled() {
+        return false;
+    }
+
+    public IIntakeProgressTracker createIntakeProgressTracker() {
+        throw new UnsupportedOperationException("Tracking of ingested records not enabled");
     }
 
 }

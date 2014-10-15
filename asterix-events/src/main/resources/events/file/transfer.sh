@@ -20,6 +20,8 @@ POST_ACTION=$5
 ssh -l $USERNAME $DEST_HOST "mkdir -p $DEST_DIR"
 echo "scp $FILE_TO_TRANSFER $USERNAME@$DEST_HOST:$DEST_DIR/" 
 scp $FILE_TO_TRANSFER $USERNAME@$DEST_HOST:$DEST_DIR/
+if [[ -n $POST_ACTION ]]
+then
 if [ $POST_ACTION == "unpack" ]
  then 
  filename=`echo ${FILE_TO_TRANSFER##*/}`
@@ -35,4 +37,5 @@ if [ $POST_ACTION == "unpack" ]
      ssh -l $USERNAME $DEST_HOST "chmod -R 755  $DEST_DIR"
    fi 
  fi
+fi
 fi

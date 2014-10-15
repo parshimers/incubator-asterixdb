@@ -35,6 +35,7 @@ import edu.uci.ics.asterix.common.dataflow.AsterixLSMInvertedIndexInsertDeleteOp
 import edu.uci.ics.asterix.common.dataflow.AsterixLSMTreeInsertDeleteOperatorDescriptor;
 import edu.uci.ics.asterix.common.dataflow.IAsterixApplicationContextInfo;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedConstants;
 import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.ioopcallbacks.LSMBTreeIOOperationCallbackFactory;
 import edu.uci.ics.asterix.common.ioopcallbacks.LSMInvertedIndexIOOperationCallbackFactory;
@@ -500,7 +501,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                         factoryOutput.second, policyAccessor);
                 break;
             case EXTERNAL:
-                String libraryName = primaryFeed.getAdaptorName().trim().split("#")[0];
+                String libraryName = primaryFeed.getAdaptorName().trim()
+                        .split(FeedConstants.NamingConstants.LIBRARY_NAME_SEPARATOR)[0];
                 feedIngestor = new FeedIntakeOperatorDescriptor(jobSpec, primaryFeed, libraryName, adapterFactory
                         .getClass().getName(), factoryOutput.second, policyAccessor);
                 break;

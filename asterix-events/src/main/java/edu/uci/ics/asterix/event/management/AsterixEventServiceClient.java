@@ -199,8 +199,9 @@ public class AsterixEventServiceClient {
         if (!cluster.getWorkingDir().isNFS()) {
             List<Pattern> patternList = new ArrayList<Pattern>();
             Patterns patterns = new Patterns(patternList);
+            String username = cluster.getUsername() == null ? System.getProperty("user.name") : cluster.getUsername();
             for (Node node : cluster.getNode()) {
-                Pattern p = getDirectoryTransferPattern(cluster.getUsername(), eventsDir, nodeid, node.getClusterIp(),
+                Pattern p = getDirectoryTransferPattern(username, eventsDir, nodeid, node.getClusterIp(),
                         workingDir);
                 patternList.add(p);
                 submit(patterns);

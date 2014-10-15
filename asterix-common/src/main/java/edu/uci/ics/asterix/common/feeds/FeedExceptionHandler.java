@@ -65,7 +65,7 @@ public class FeedExceptionHandler implements IExceptionHandler {
         } catch (Exception exception) {
             exception.printStackTrace();
             if (LOGGER.isLoggable(Level.WARNING)) {
-                LOGGER.warning("Unable to handle (log + continue) post exception " + exception.getMessage());
+                LOGGER.warning("Unable to handle exception " + exception.getMessage());
             }
             exception.addSuppressed(e);
             return null;

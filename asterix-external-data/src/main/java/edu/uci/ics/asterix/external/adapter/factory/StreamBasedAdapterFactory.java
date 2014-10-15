@@ -17,7 +17,6 @@ package edu.uci.ics.asterix.external.adapter.factory;
 import java.util.Map;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
 import edu.uci.ics.asterix.external.util.INodeResolver;
 import edu.uci.ics.asterix.metadata.feeds.IAdapterFactory;
 import edu.uci.ics.asterix.metadata.utils.AsterixTupleParserFactory;
@@ -51,14 +50,6 @@ public abstract class StreamBasedAdapterFactory implements IAdapterFactory {
 
     protected void configureFormat(IAType sourceDatatype) throws Exception {
         parserFactory = new AsterixTupleParserFactory(configuration, (ARecordType) sourceDatatype, getInputDataFormat());
-    }
-
-    public boolean isRecordTrackingEnabled() {
-        return false;
-    }
-
-    public IIntakeProgressTracker createIntakeProgressTracker() {
-        throw new UnsupportedOperationException("Tracking of ingested records not enabled");
     }
 
 }

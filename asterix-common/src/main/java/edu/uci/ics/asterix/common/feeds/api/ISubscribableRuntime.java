@@ -22,7 +22,7 @@ import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 
 /**
- * Represent a feed runtime the output of which can be subscribed.
+ * Represent a feed runtime whose output can be routed along other parallel path(s).
  */
 public interface ISubscribableRuntime extends IFeedRuntime {
 

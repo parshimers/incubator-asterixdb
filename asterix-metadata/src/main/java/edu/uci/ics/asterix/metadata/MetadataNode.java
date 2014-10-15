@@ -354,7 +354,7 @@ public class MetadataNode implements IMetadataNode {
             if (dataverseAdapters != null && dataverseAdapters.size() > 0) {
                 // Drop all functions in this dataverse.
                 for (DatasourceAdapter adapter : dataverseAdapters) {
-                    dropAdapter(jobId, dataverseName, adapter.getAdapterIdentifier().getAdapterName());
+                    dropAdapter(jobId, dataverseName, adapter.getAdapterIdentifier().getName());
                 }
             }
 
@@ -1141,7 +1141,7 @@ public class MetadataNode implements IMetadataNode {
             insertTupleIntoIndex(jobId, MetadataPrimaryIndexes.DATASOURCE_ADAPTER_DATASET, adapterTuple);
 
         } catch (TreeIndexDuplicateKeyException e) {
-            throw new MetadataException("A adapter with this name " + adapter.getAdapterIdentifier().getAdapterName()
+            throw new MetadataException("A adapter with this name " + adapter.getAdapterIdentifier().getName()
                     + " already exists in dataverse '" + adapter.getAdapterIdentifier().getNamespace() + "'.", e);
         } catch (Exception e) {
             throw new MetadataException(e);

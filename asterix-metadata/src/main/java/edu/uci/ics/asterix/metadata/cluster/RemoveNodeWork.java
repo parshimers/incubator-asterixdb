@@ -3,7 +3,6 @@ package edu.uci.ics.asterix.metadata.cluster;
 import java.util.Set;
 
 import edu.uci.ics.asterix.common.api.IClusterEventsSubscriber;
-import edu.uci.ics.asterix.common.api.IClusterManagementWork.WorkType;
 
 public class RemoveNodeWork extends AbstractClusterManagementWork {
 

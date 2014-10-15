@@ -1,7 +1,6 @@
 package edu.uci.ics.asterix.metadata.feeds;
 
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 import edu.uci.ics.asterix.builders.IARecordBuilder;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;

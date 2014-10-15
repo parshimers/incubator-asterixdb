@@ -31,7 +31,7 @@ import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParser;
 
 /**
- * An Abstract class implementation for ITupleParser. It provides common
+ * An abstract class implementation for ITupleParser. It provides common
  * functionality involved in parsing data in an external format and packing
  * frames with formed tuples.
  */
@@ -57,7 +57,6 @@ public abstract class AbstractTupleParser implements ITupleParser {
 
     @Override
     public void parse(InputStream in, IFrameWriter writer) throws HyracksDataException {
-
         appender.reset(frame, true);
         IDataParser parser = getDataParser();
         try {
@@ -71,7 +70,6 @@ public abstract class AbstractTupleParser implements ITupleParser {
                 addTupleToFrame(writer);
             }
             if (appender.getTupleCount() > 0) {
-
                 FrameUtils.flushFrame(frame, writer);
             }
         } catch (AsterixException ae) {
@@ -82,14 +80,15 @@ public abstract class AbstractTupleParser implements ITupleParser {
     }
 
     protected void addTupleToFrame(IFrameWriter writer) throws HyracksDataException {
-        if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
+        boolean success = appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize());
+        if (!success) {
             FrameUtils.flushFrame(frame, writer);
             appender.reset(frame, true);
-            if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
+            success = appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize());
+            if (!success) {
                 throw new IllegalStateException();
             }
         }
-
     }
 
 }

@@ -18,6 +18,9 @@ import java.io.Serializable;
 
 import edu.uci.ics.hyracks.api.dataflow.value.JSONSerializable;
 
+/**
+ * A control message exchanged between {@Link IFeedManager} and {@Link CentralFeedManager} that requests for an action or reporting of an event
+ */
 public interface IFeedMessage extends Serializable, JSONSerializable {
 
     public enum MessageType {
@@ -35,6 +38,11 @@ public interface IFeedMessage extends Serializable, JSONSerializable {
         THROTTLING_ENABLED
     }
 
+    /**
+     * Gets the type associated with this message
+     * 
+     * @return MessageType type associated with this message
+     */
     public MessageType getMessageType();
 
 }

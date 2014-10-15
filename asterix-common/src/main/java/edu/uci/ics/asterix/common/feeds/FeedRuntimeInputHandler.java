@@ -99,11 +99,11 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
                         case SPILL:
                         case POST_SPILL_DISCARD:
                             setMode(Mode.PROCESS_SPILL);
-                            processSpilledBacklog(); // non blocking call
+                            processSpilledBacklog();
                             break;
                         case STALL:
                             setMode(Mode.PROCESS_BACKLOG);
-                            processBufferredBacklog(); // non-blocking call
+                            processBufferredBacklog();
                             break;
                         default:
                             break;
@@ -239,7 +239,7 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
         while (!frameProcessed) {
             try {
                 if (!bufferingEnabled) {
-                    coreOperator.nextFrame(frame);
+                    coreOperator.nextFrame(frame); // synchronous
                 } else {
                     DataBucket bucket = pool.getDataBucket();
                     if (bucket != null) {
@@ -277,7 +277,6 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
                 }
                 frameProcessed = true;
             } catch (Exception e) {
-                e.printStackTrace();
                 if (feedPolicyAccessor.continueOnSoftFailure()) {
                     frame = exceptionHandler.handleException(e, frame);
                     if (frame == null) {

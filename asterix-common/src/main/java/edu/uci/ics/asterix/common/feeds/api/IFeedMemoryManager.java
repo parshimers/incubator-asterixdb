@@ -16,15 +16,39 @@ package edu.uci.ics.asterix.common.feeds.api;
 
 import edu.uci.ics.asterix.common.feeds.api.IFeedMemoryComponent.Type;
 
+/**
+ * Provides management of memory allocated for handling feed data flow through the node controller
+ */
 public interface IFeedMemoryManager {
 
     public static final int START_COLLECTION_SIZE = 20;
     public static final int START_POOL_SIZE = 10;
 
+    /**
+     * Gets a memory component allocated from the feed memory budget
+     * 
+     * @param type
+     *            the kind of memory component that needs to be allocated
+     * @return
+     * @see Type
+     */
     public IFeedMemoryComponent getMemoryComponent(Type type);
 
+    /**
+     * Expand a memory component by the default increment
+     * 
+     * @param memoryComponent
+     * @return true if the expansion succeeded
+     *         false if the requested expansion violates the configured budget
+     */
     public boolean expandMemoryComponent(IFeedMemoryComponent memoryComponent);
 
+    /**
+     * Releases the given memory component to reclaim the memory allocated for the component
+     * 
+     * @param memoryComponent
+     *            the memory component that is being reclaimed/released
+     */
     public void releaseMemoryComponent(IFeedMemoryComponent memoryComponent);
 
 }

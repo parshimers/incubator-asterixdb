@@ -17,26 +17,71 @@ package edu.uci.ics.asterix.common.feeds.api;
 import edu.uci.ics.asterix.common.config.AsterixFeedProperties;
 
 /**
- * Handle (de)registration of feeds for delivery of control messages.
+ * Provides access to services related to feed management within a node controller
  */
 public interface IFeedManager {
 
-    public static final long SOCKET_CONNECT_TIMEOUT = 5000;
-
+    /**
+     * gets the nodeId associated with the host node controller
+     * 
+     * @return the nodeId associated with the host node controller
+     */
     public String getNodeId();
 
+    /**
+     * gets the handle to the singleton instance of subscription manager
+     * 
+     * @return the singleton instance of subscription manager
+     * @see IFeedSubscriptionManager
+     */
     public IFeedSubscriptionManager getFeedSubscriptionManager();
 
+    /**
+     * gets the handle to the singleton instance of connection manager
+     * 
+     * @return the singleton instance of connection manager
+     * @see IFeedConnectionManager
+     */
     public IFeedConnectionManager getFeedConnectionManager();
 
+    /**
+     * gets the handle to the singleton instance of memory manager
+     * 
+     * @return the singleton instance of memory manager
+     * @see IFeedMemoryManager
+     */
     public IFeedMemoryManager getFeedMemoryManager();
 
+    /**
+     * gets the handle to the singleton instance of feed metadata manager
+     * 
+     * @return the singleton instance of feed metadata manager
+     * @see IFeedMetadataManager
+     */
     public IFeedMetadataManager getFeedMetadataManager();
 
+    /**
+     * gets the handle to the singleton instance of feed metric collector
+     * 
+     * @return the singleton instance of feed metric collector
+     * @see IFeedMetricCollector
+     */
     public IFeedMetricCollector getFeedMetricCollector();
 
+    /**
+     * gets the handle to the singleton instance of feed message service
+     * 
+     * @return the singleton instance of feed message service
+     * @see IFeedMessageService
+     */
     public IFeedMessageService getFeedMessageService();
 
+    /**
+     * gets the asterix configuration
+     * 
+     * @return asterix configuration
+     * @see AsterixFeedProperties
+     */
     public AsterixFeedProperties getAsterixFeedProperties();
 
 }

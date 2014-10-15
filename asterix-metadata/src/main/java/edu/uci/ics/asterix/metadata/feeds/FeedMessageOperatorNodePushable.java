@@ -35,15 +35,15 @@ import edu.uci.ics.asterix.common.feeds.FeedRuntimeManager;
 import edu.uci.ics.asterix.common.feeds.FeedTupleCommitResponseMessage;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.asterix.common.feeds.IntakePartitionStatistics;
-import edu.uci.ics.asterix.common.feeds.StorageSideMonitoredBuffer;
 import edu.uci.ics.asterix.common.feeds.MonitoredBufferTimerTasks.MonitoredBufferStorageTimerTask;
+import edu.uci.ics.asterix.common.feeds.StorageSideMonitoredBuffer;
 import edu.uci.ics.asterix.common.feeds.SubscribableFeedRuntimeId;
 import edu.uci.ics.asterix.common.feeds.api.IAdapterRuntimeManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedManager;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMessage;
-import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.Mode;
+import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
 import edu.uci.ics.asterix.common.feeds.api.ISubscribableRuntime;
 import edu.uci.ics.asterix.common.feeds.message.EndFeedMessage;
 import edu.uci.ics.asterix.common.feeds.message.ThrottlingEnabledFeedMessage;
@@ -53,7 +53,12 @@ import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
 
 /**
- * Runtime for the @see{FeedMessageOperatorDescriptor}
+ * Runtime for the FeedMessageOpertorDescriptor. This operator is responsible for communicating
+ * a feed message to the local feed manager on the host node controller.
+ * 
+ * @see FeedMessageOperatorDescriptor
+ *      IFeedMessage
+ *      IFeedManager
  */
 public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOperatorNodePushable {
 
@@ -61,16 +66,14 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
 
     private final FeedConnectionId connectionId;
     private final IFeedMessage message;
-    private final int partition;
-    private final IHyracksTaskContext ctx;
     private final IFeedManager feedManager;
+    private final int partition;
 
     public FeedMessageOperatorNodePushable(IHyracksTaskContext ctx, FeedConnectionId connectionId,
             IFeedMessage feedMessage, int partition, int nPartitions) {
         this.connectionId = connectionId;
         this.message = feedMessage;
         this.partition = partition;
-        this.ctx = ctx;
         IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject();
         this.feedManager = runtimeCtx.getFeedManager();
@@ -93,31 +96,28 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                     }
                     break;
                 case PREPARE_STALL: {
-                    PrepareStallMessage prepareStallMessage = (PrepareStallMessage) message;
-                    handlePrepareStallMessage(prepareStallMessage);
+                    handlePrepareStallMessage((PrepareStallMessage) message);
                     break;
                 }
                 case TERMINATE_FLOW: {
-                    TerminateDataFlowMessage terminateMessage = (TerminateDataFlowMessage) message;
-                    FeedConnectionId connectionId = terminateMessage.getConnectionId();
+                    FeedConnectionId connectionId = ((TerminateDataFlowMessage) message).getConnectionId();
                     handleTerminateFlowMessage(connectionId);
                     break;
                 }
                 case COMMIT_ACK_RESPONSE: {
-                    FeedTupleCommitResponseMessage commitResponseMessage = (FeedTupleCommitResponseMessage) message;
-                    handleFeedTupleCommitResponseMessage(commitResponseMessage);
+                    handleFeedTupleCommitResponseMessage((FeedTupleCommitResponseMessage) message);
                     break;
                 }
                 case THROTTLING_ENABLED: {
-                    ThrottlingEnabledFeedMessage mesg = (ThrottlingEnabledFeedMessage) message;
-                    handleThrottlingEnabledMessage(mesg);
+                    handleThrottlingEnabledMessage((ThrottlingEnabledFeedMessage) message);
                     break;
                 }
+                default:
+                    break;
 
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
             throw new HyracksDataException(e);
         } finally {
             writer.close();
@@ -232,35 +232,34 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
             LOGGER.info("Ending feed:" + endFeedMessage.getFeedConnectionId());
         }
         FeedRuntimeId runtimeId = null;
-        FeedRuntimeType subscribaleRuntimeType = ((EndFeedMessage) message).getSourceRuntimeType();
+        FeedRuntimeType subscribableRuntimeType = ((EndFeedMessage) message).getSourceRuntimeType();
         if (endFeedMessage.isCompleteDisconnection()) {
-            // subscribableRuntimeType represents the location at which it receives data
-            switch (subscribaleRuntimeType) {
+            // subscribableRuntimeType represents the location at which the feed connection receives data
+            FeedRuntimeType runtimeType = null;
+            switch (subscribableRuntimeType) {
                 case INTAKE:
-                case COMPUTE:
-                    FeedRuntime feedRuntime = null;
-                    runtimeId = new FeedRuntimeId(FeedRuntimeType.COMPUTE_COLLECT, partition,
-                            FeedRuntimeId.DEFAULT_OPERAND_ID);
-                    feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(connectionId, runtimeId);
-                    if (feedRuntime == null) {
-                        runtimeId = new FeedRuntimeId(FeedRuntimeType.COLLECT, partition,
-                                FeedRuntimeId.DEFAULT_OPERAND_ID);
-                        feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(connectionId, runtimeId);
-                    }
-                    feedRuntime = feedManager.getFeedConnectionManager().getFeedRuntime(connectionId, runtimeId);
-                    ((CollectionRuntime) feedRuntime).getSourceRuntime().unsubscribeFeed(
-                            (CollectionRuntime) feedRuntime);
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("COMPLETE UNSUBSCRIPTION of " + endFeedMessage.getFeedConnectionId());
-                    }
+                    runtimeType = FeedRuntimeType.COLLECT;
                     break;
+                case COMPUTE:
+                    runtimeType = FeedRuntimeType.COMPUTE_COLLECT;
+                    break;
+                default:
+                    throw new IllegalStateException("Invalid subscribable runtime type " + subscribableRuntimeType);
+            }
+
+            runtimeId = new FeedRuntimeId(runtimeType, partition, FeedRuntimeId.DEFAULT_OPERAND_ID);
+            CollectionRuntime feedRuntime = (CollectionRuntime) feedManager.getFeedConnectionManager().getFeedRuntime(
+                    connectionId, runtimeId);
+            feedRuntime.getSourceRuntime().unsubscribeFeed(feedRuntime);
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Complete Unsubscription of " + endFeedMessage.getFeedConnectionId());
             }
         } else {
             // subscribaleRuntimeType represents the location for data hand-off in presence of subscribers
-            switch (subscribaleRuntimeType) {
+            switch (subscribableRuntimeType) {
                 case INTAKE:
-                    // illegal state as data hand-off from one feed to another does not happen at ingest
-                    throw new IllegalStateException("Illegal State, invalid runtime type  " + subscribaleRuntimeType);
+                    // illegal state as data hand-off from one feed to another does not happen at intake
+                    throw new IllegalStateException("Illegal State, invalid runtime type  " + subscribableRuntimeType);
                 case COMPUTE:
                     // feed could be primary or secondary, doesn't matter
                     SubscribableFeedRuntimeId feedSubscribableRuntimeId = new SubscribableFeedRuntimeId(
@@ -278,7 +277,7 @@ public class FeedMessageOperatorNodePushable extends AbstractUnaryOutputSourceOp
                             unsubscribingWriter = feedFrameWriter;
                             dWriter.unsubscribeFeed(unsubscribingWriter);
                             if (LOGGER.isLoggable(Level.INFO)) {
-                                LOGGER.info("PARTIAL UNSUBSCRIPTION of " + unsubscribingWriter);
+                                LOGGER.info("Partial Unsubscription of " + unsubscribingWriter);
                             }
                             break;
                         }

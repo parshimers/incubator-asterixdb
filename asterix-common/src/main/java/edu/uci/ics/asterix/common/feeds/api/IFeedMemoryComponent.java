@@ -16,7 +16,7 @@ package edu.uci.ics.asterix.common.feeds.api;
 
 /**
  * Represents an in-memory components required for storing frames that contain feed tuples.
- * The component's memory footprint is meaasured and regulated by the {@link IFeedMemoryManager}.
+ * The component's memory footprint is measured and regulated by the {@link IFeedMemoryManager}.
  * Any expansion in size is accounted and can be restricted by the {@link IFeedMemoryManager}
  **/
 public interface IFeedMemoryComponent {
@@ -30,19 +30,25 @@ public interface IFeedMemoryComponent {
         COLLECTION
     }
 
-    /** Returns the unique id associated with the memory component **/
+    /** Gets the unique id associated with the memory component **/
     public int getComponentId();
 
-    /** Returns the type associated with the component. **/
+    /** Gets the type associated with the component. **/
     public Type getType();
 
-    /** Returns the current size (number of allocated frames) of the component. **/
+    /** Gets the current size (number of allocated frames) of the component. **/
     public int getTotalAllocation();
 
-    /** Expand the component with allocation of delta frames **/
+    /**
+     * Expands this memory component by the speficied number of frames
+     * 
+     * @param delta
+     *            the amount (measured in number of frames) by which this memory component
+     *            should be expanded
+     */
     public void expand(int delta);
 
-    /** Clear the allocated frames as a step to reclaim the memory **/
+    /** Clears the allocated frames as a step to reclaim the memory **/
     public void reset();
 
 }

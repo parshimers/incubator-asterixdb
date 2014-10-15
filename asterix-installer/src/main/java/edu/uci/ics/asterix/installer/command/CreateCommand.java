@@ -25,6 +25,7 @@ import edu.uci.ics.asterix.event.management.EventUtil;
 import edu.uci.ics.asterix.event.model.AsterixInstance;
 import edu.uci.ics.asterix.event.model.AsterixRuntimeState;
 import edu.uci.ics.asterix.event.schema.cluster.Cluster;
+import edu.uci.ics.asterix.event.schema.cluster.Node;
 import edu.uci.ics.asterix.event.schema.pattern.Patterns;
 import edu.uci.ics.asterix.event.service.AsterixEventService;
 import edu.uci.ics.asterix.event.service.AsterixEventServiceUtil;
@@ -61,9 +62,16 @@ public class CreateCommand extends AbstractCommand {
         AsterixEventServiceClient eventrixClient = AsterixEventService.getAsterixEventServiceClient(cluster, true,
                 false);
 
-        Patterns asterixBinarytrasnferPattern = PatternCreator.INSTANCE.getAsterixBinaryTransferPattern(
-                asterixInstanceName, cluster);
-        eventrixClient.submit(asterixBinarytrasnferPattern);
+        if (cluster.getWorkingDir().isNFS()) {
+            Patterns asterixBinaryTrasnferPatternToNC = PatternCreator.INSTANCE.getAsterixBinaryTransferPattern(
+                    asterixInstanceName, cluster);
+            eventrixClient.submit(asterixBinaryTrasnferPatternToNC);
+        } else {
+            for (Node node : cluster.getNode()) {
+                Patterns asterixBinaryTrasnferPatternToNC = PatternCreator.INSTANCE.getAsterixBinaryTransferPatternToNC(asterixInstanceName, cluster, node);
+                eventrixClient.submit(asterixBinaryTrasnferPatternToNC);
+            }
+        }
 
         Patterns patterns = PatternCreator.INSTANCE.getStartAsterixPattern(asterixInstanceName, cluster);
         eventrixClient.submit(patterns);

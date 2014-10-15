@@ -36,6 +36,7 @@ public class DataBucketPool implements IFeedMemoryComponent {
     /** The total number of data buckets {@link DataBucket} allocated **/
     private int totalAllocation;
 
+    /** The fixed frame size as configured for the asterix runtime **/
     private final int frameSize;
 
     public DataBucketPool(int componentId, IFeedMemoryManager memoryManager, int size, int frameSize) {

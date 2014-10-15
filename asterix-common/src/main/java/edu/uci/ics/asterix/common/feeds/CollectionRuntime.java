@@ -24,7 +24,7 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 
 /**
  * Represents the feed runtime that collects feed tuples from another feed.
- * In case of a primary feed, the collect runtime collects tuples from the feed
+ * In case of a primary feed, the CollectionRuntime collects tuples from the feed
  * intake job. For a secondary feed, tuples are collected from the intake/compute
  * runtime associated with the source feed.
  */

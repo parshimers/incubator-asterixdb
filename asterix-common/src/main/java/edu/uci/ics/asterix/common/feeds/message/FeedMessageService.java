@@ -50,7 +50,6 @@ public class FeedMessageService implements IFeedMessageService {
     }
 
     public void start() throws Exception {
-
         executor.execute(mesgHandler);
     }
 

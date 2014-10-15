@@ -20,8 +20,6 @@ import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 
 public interface IFeedRuntime {
 
-    public static final String TARGET_DATASET_NA = "N/A";
-
     public enum FeedRuntimeType {
         INTAKE,
         COLLECT,

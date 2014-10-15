@@ -40,4 +40,8 @@ public class FeedConstants {
         public static final String MAX_WINDOW_ACKED = "max-window-acked";
         public static final String BASE = "base";
     }
+
+    public static final class NamingConstants {
+        public static final String LIBRARY_NAME_SEPARATOR = "#";
+    }
 }

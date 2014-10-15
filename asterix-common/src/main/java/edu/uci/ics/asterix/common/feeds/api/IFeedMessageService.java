@@ -20,7 +20,7 @@ package edu.uci.ics.asterix.common.feeds.api;
 public interface IFeedMessageService extends IFeedService {
 
     /**
-     * Send a message ({@code IFeedMessage} to the {@code CentralFeedManager} running at CC
+     * Sends a message ({@code IFeedMessage} to the {@code CentralFeedManager} running at the CC
      * The message is sent asynchronously.
      * 
      * @param message

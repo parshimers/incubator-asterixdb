@@ -83,7 +83,7 @@ public class SocketClientAdapter implements IFeedAdapter {
                 socket = new Socket(LOCALHOST, port);
             } catch (Exception e) {
                 if (LOGGER.isLoggable(Level.WARNING)) {
-                    LOGGER.warning("Receiver not reader, would wait for " + (RECONNECT_PERIOD / 1000)
+                    LOGGER.warning("Receiver not ready, would wait for " + (RECONNECT_PERIOD / 1000)
                             + " seconds before reconnecting");
                 }
                 Thread.sleep(RECONNECT_PERIOD);

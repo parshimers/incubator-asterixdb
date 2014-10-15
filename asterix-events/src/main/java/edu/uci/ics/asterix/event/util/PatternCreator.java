@@ -79,6 +79,17 @@ public class PatternCreator {
         return patterns;
     }
 
+    public Patterns getAsterixBinaryTransferPatternToNC(String asterixInstanceName, Cluster cluster, Node node)
+            throws Exception {
+        String destDir = cluster.getWorkingDir().getDir() + File.separator + "asterix";
+        List<Pattern> ps = new ArrayList<Pattern>();
+        Pattern copyHyracksForNC = createCopyHyracksPattern(asterixInstanceName, cluster, node.getClusterIp(), destDir);
+        ps.add(copyHyracksForNC);
+        ps.addAll(createHadoopLibraryTransferPattern(cluster).getPattern());
+        Patterns patterns = new Patterns(ps);
+        return patterns;
+    }
+
     public Patterns getStartAsterixPattern(String asterixInstanceName, Cluster cluster) throws Exception {
         String ccLocationId = cluster.getMasterNode().getId();
         List<Pattern> ps = new ArrayList<Pattern>();

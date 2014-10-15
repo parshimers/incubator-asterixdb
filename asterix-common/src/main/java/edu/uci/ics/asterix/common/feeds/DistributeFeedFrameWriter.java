@@ -50,7 +50,7 @@ public class DistributeFeedFrameWriter implements IFrameWriter {
     /** The feed operation whose output is being distributed by the DistributeFeedFrameWriter **/
     private final FeedRuntimeType feedRuntimeType;
 
-    /** The value of the partition 'i' if this is the i'th instance **/
+    /** The value of the partition 'i' if this is the i'th instance of the associated operator **/
     private final int partition;
 
     public DistributeFeedFrameWriter(FeedId feedId, IFrameWriter writer, FeedRuntimeType feedRuntimeType,

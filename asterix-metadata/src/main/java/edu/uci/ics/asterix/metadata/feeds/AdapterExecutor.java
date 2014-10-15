@@ -11,22 +11,23 @@ import edu.uci.ics.asterix.common.feeds.api.IFeedAdapter;
 public class AdapterExecutor implements Runnable {
 
     private static final Logger LOGGER = Logger.getLogger(AdapterExecutor.class.getName());
-    private DistributeFeedFrameWriter writer;
 
-    private IFeedAdapter adapter;
+    private final DistributeFeedFrameWriter writer;
 
-    private IAdapterRuntimeManager runtimeManager;
+    private final IFeedAdapter adapter;
+
+    private final IAdapterRuntimeManager adapterManager;
 
     public AdapterExecutor(int partition, DistributeFeedFrameWriter writer, IFeedAdapter adapter,
-            IAdapterRuntimeManager adapterRuntimeMgr) {
+            IAdapterRuntimeManager adapterManager) {
         this.writer = writer;
         this.adapter = adapter;
-        this.runtimeManager = adapterRuntimeMgr;
+        this.adapterManager = adapterManager;
     }
 
     @Override
     public void run() {
-        int partition = runtimeManager.getPartition();
+        int partition = adapterManager.getPartition();
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Starting ingestion for partition:" + partition);
         }
@@ -44,14 +45,10 @@ public class AdapterExecutor implements Runnable {
             }
         }
 
-        runtimeManager.setState(State.FINISHED_INGESTION);
-        synchronized (runtimeManager) {
-            runtimeManager.notifyAll();
+        adapterManager.setState(State.FINISHED_INGESTION);
+        synchronized (adapterManager) {
+            adapterManager.notifyAll();
         }
-    }
-
-    public DistributeFeedFrameWriter getWriter() {
-        return writer;
     }
 
 }

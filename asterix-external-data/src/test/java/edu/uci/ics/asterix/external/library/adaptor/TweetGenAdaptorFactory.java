@@ -15,6 +15,8 @@
 package edu.uci.ics.asterix.external.library.adaptor;
 
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
 import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
@@ -29,6 +31,8 @@ import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionCons
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 
 public class TweetGenAdaptorFactory extends StreamBasedAdapterFactory implements IFeedAdapterFactory {
+
+    private static final Logger LOGGER = Logger.getLogger(TweetGenAdaptorFactory.class.getName());
 
     private static final long serialVersionUID = 1L;
 
@@ -53,7 +57,7 @@ public class TweetGenAdaptorFactory extends StreamBasedAdapterFactory implements
 
     @Override
     public AlgebricksPartitionConstraint getPartitionConstraint() throws Exception {
-        int count = configuration.get(TweetGenAdaptorFactory.TWIITER_SERVER_HOST).split(",").length;
+        int count = configuration.get(TweetGenAdaptorFactory.TWIITER_SERVER_HOST).trim().split(",").length;
         return new AlgebricksCountPartitionConstraint(count);
     }
 
@@ -100,7 +104,9 @@ public class TweetGenAdaptorFactory extends StreamBasedAdapterFactory implements
 
         @Override
         public void notifyIngestedTupleTimestamp(long timestamp) {
-            System.out.println(" LAST PERSISTED TUPLE TIMESTAMP " + timestamp);
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("Last persisted tuple timestamp " + timestamp);
+            }
         }
 
     }

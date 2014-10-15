@@ -26,6 +26,7 @@ public class FeedRuntime implements IFeedRuntime {
     /** The output frame writer associated with the runtime **/
     protected IFrameWriter frameWriter;
 
+    /** The pre-processor associated with the runtime **/
     protected FeedRuntimeInputHandler inputHandler;
 
     public FeedRuntime(FeedRuntimeId runtimeId, FeedRuntimeInputHandler inputHandler, IFrameWriter frameWriter) {

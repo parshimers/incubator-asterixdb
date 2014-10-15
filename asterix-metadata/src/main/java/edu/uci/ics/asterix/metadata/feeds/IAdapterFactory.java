@@ -55,7 +55,7 @@ public interface IAdapterFactory extends Serializable {
     public String getName();
 
     /**
-     * Returns a list of partition constraints. A partition constraint can be a
+     * Gets a list of partition constraints. A partition constraint can be a
      * requirement to execute at a particular location or could be cardinality
      * constraints indicating the number of instances that need to run in
      * parallel. example, a IDatasourceAdapter implementation written for data
@@ -85,6 +85,8 @@ public interface IAdapterFactory extends Serializable {
     public void configure(Map<String, String> configuration, ARecordType outputType) throws Exception;
 
     /**
+     * Gets the record type associated with the output of the adapter
+     * 
      * @return
      */
     public ARecordType getAdapterOutputType();
