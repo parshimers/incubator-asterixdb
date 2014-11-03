@@ -209,6 +209,11 @@ public class TextualFullScanDataReader extends InputStream{
             public float getProgress() {
                 return 0.0f;
             }
+
+            @Override
+            public float getProgress() {
+                return 0.0f;
+            }
         };
 
         return reporter;

@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -47,7 +47,7 @@ public class ConditionalPushTupleParserFactory implements ITupleParserFactory {
                 dataParser = new ADMDataParser();
                 break;
             case DELIMITED_DATA:
-                dataParser = new DelimitedDataParser(recordType, valueParserFactories, delimiter);
+                dataParser = new DelimitedDataParser(recordType, valueParserFactories, delimiter, quote, false, -1, null);
                 break;
         }
         return new ConditionalPushTupleParser(ctx, recordType, dataParser, configuration);
@@ -57,6 +57,7 @@ public class ConditionalPushTupleParserFactory implements ITupleParserFactory {
     private final Map<String, String> configuration;
     private IValueParserFactory[] valueParserFactories;
     private char delimiter;
+    private char quote;
     private final ParserType parserType;
 
     public enum ParserType {
@@ -65,10 +66,11 @@ public class ConditionalPushTupleParserFactory implements ITupleParserFactory {
     }
 
     public ConditionalPushTupleParserFactory(ARecordType recordType, IValueParserFactory[] valueParserFactories,
-            char fieldDelimiter, Map<String, String> configuration) {
+            char fieldDelimiter, char quote, Map<String, String> configuration) {
         this.recordType = recordType;
         this.valueParserFactories = valueParserFactories;
         this.delimiter = fieldDelimiter;
+        this.quote = quote;
         this.configuration = configuration;
         this.parserType = ParserType.DELIMITED_DATA;
 
@@ -99,7 +101,7 @@ class ConditionalPushTupleParser extends AbstractTupleParser {
 
     public ConditionalPushTupleParser(IHyracksTaskContext ctx, ARecordType recType, IDataParser dataParser,
             Map<String, String> configuration) throws HyracksDataException {
-        super(ctx, recType);
+        super(ctx, recType, false, -1, null);
         this.dataParser = dataParser;
         String propValue = (String) configuration.get(BATCH_SIZE);
         batchSize = propValue != null ? Integer.parseInt(propValue) : Integer.MAX_VALUE;

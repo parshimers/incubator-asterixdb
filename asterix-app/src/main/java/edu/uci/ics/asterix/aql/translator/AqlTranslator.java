@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -34,7 +34,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import edu.uci.ics.asterix.api.common.APIFramework;
-import edu.uci.ics.asterix.api.common.APIFramework.DisplayFormat;
+import edu.uci.ics.asterix.api.common.APIFramework.OutputFormat;
 import edu.uci.ics.asterix.api.common.Job;
 import edu.uci.ics.asterix.api.common.SessionConfig;
 import edu.uci.ics.asterix.aql.base.Statement;
@@ -73,7 +73,6 @@ import edu.uci.ics.asterix.common.config.DatasetConfig.ExternalDatasetTransactio
 import edu.uci.ics.asterix.common.config.DatasetConfig.ExternalFilePendingOp;
 import edu.uci.ics.asterix.common.config.DatasetConfig.IndexType;
 import edu.uci.ics.asterix.common.config.GlobalConfig;
-import edu.uci.ics.asterix.common.config.OptimizationConfUtil;
 import edu.uci.ics.asterix.common.exceptions.ACIDException;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
@@ -83,7 +82,6 @@ import edu.uci.ics.asterix.file.DataverseOperations;
 import edu.uci.ics.asterix.file.ExternalIndexingOperations;
 import edu.uci.ics.asterix.file.FeedOperations;
 import edu.uci.ics.asterix.file.IndexOperations;
-import edu.uci.ics.asterix.formats.base.IDataFormat;
 import edu.uci.ics.asterix.metadata.IDatasetDetails;
 import edu.uci.ics.asterix.metadata.MetadataException;
 import edu.uci.ics.asterix.metadata.MetadataManager;
@@ -168,11 +166,11 @@ public class AqlTranslator extends AbstractAqlTranslator {
     private final List<Statement> aqlStatements;
     private final PrintWriter out;
     private final SessionConfig sessionConfig;
-    private final DisplayFormat pdf;
+    private final OutputFormat pdf;
     private Dataverse activeDefaultDataverse;
     private List<FunctionDecl> declaredFunctions;
 
-    public AqlTranslator(List<Statement> aqlStatements, PrintWriter out, SessionConfig pc, DisplayFormat pdf)
+    public AqlTranslator(List<Statement> aqlStatements, PrintWriter out, SessionConfig pc, APIFramework.OutputFormat pdf)
             throws MetadataException, AsterixException {
         this.aqlStatements = aqlStatements;
         this.out = out;
@@ -193,7 +191,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
     /**
      * Compiles and submits for execution a list of AQL statements.
-     * 
+     *
      * @param hcc
      *            A Hyracks client connection that is used to submit a jobspec to Hyracks.
      * @param hdc
@@ -203,10 +201,9 @@ public class AqlTranslator extends AbstractAqlTranslator {
      * @return A List<QueryResult> containing a QueryResult instance corresponding to each submitted query.
      * @throws Exception
      */
-    public List<QueryResult> compileAndExecute(IHyracksClientConnection hcc, IHyracksDataset hdc,
+    public void compileAndExecute(IHyracksClientConnection hcc, IHyracksDataset hdc,
             ResultDelivery resultDelivery) throws Exception {
         int resultSetIdCounter = 0;
-        List<QueryResult> executionResult = new ArrayList<QueryResult>();
         FileSplit outputFile = null;
         IAWriterFactory writerFactory = PrinterBasedWriterFactory.INSTANCE;
         IResultSerializerFactoryProvider resultSerializerFactoryProvider = ResultSerializerFactoryProvider.INSTANCE;
@@ -315,7 +312,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                     metadataProvider.setResultSetId(new ResultSetId(resultSetIdCounter++));
                     metadataProvider.setResultAsyncMode(resultDelivery == ResultDelivery.ASYNC
                             || resultDelivery == ResultDelivery.ASYNC_DEFERRED);
-                    executionResult.add(handleQuery(metadataProvider, (Query) stmt, hcc, hdc, resultDelivery));
+                    handleQuery(metadataProvider, (Query) stmt, hcc, hdc, resultDelivery);
                     break;
                 }
 
@@ -339,7 +336,6 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 }
             }
         }
-        return executionResult;
     }
 
     private void handleSetStatement(AqlMetadataProvider metadataProvider, Statement stmt, Map<String, String> config)
@@ -577,7 +573,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 //#. execute compensation operations
                 //   remove the index in NC
                 //   [Notice]
-                //   As long as we updated(and committed) metadata, we should remove any effect of the job 
+                //   As long as we updated(and committed) metadata, we should remove any effect of the job
                 //   because an exception occurs during runJob.
                 mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
                 bActiveTxn = true;
@@ -1034,7 +1030,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 }
             }
 
-            //#. prepare jobs which will drop corresponding datasets with indexes. 
+            //#. prepare jobs which will drop corresponding datasets with indexes.
             List<Dataset> datasets = MetadataManager.INSTANCE.getDataverseDatasets(mdTxnCtx, dataverseName);
             for (int j = 0; j < datasets.size(); j++) {
                 String datasetName = datasets.get(j).getDatasetName();
@@ -1075,7 +1071,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
             }
             jobsToExecute.add(DataverseOperations.createDropDataverseJobSpec(dv, metadataProvider));
 
-            //#. mark PendingDropOp on the dataverse record by 
+            //#. mark PendingDropOp on the dataverse record by
             //   first, deleting the dataverse record from the DATAVERSE_DATASET
             //   second, inserting the dataverse record with the PendingDropOp value into the DATAVERSE_DATASET
             MetadataManager.INSTANCE.dropDataverse(mdTxnCtx, dataverseName);
@@ -1117,7 +1113,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                         runJob(hcc, jobSpec, true);
                     }
                 } catch (Exception e2) {
-                    //do no throw exception since still the metadata needs to be compensated. 
+                    //do no throw exception since still the metadata needs to be compensated.
                     e.addSuppressed(e2);
                 }
 
@@ -1282,7 +1278,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                         runJob(hcc, jobSpec, true);
                     }
                 } catch (Exception e2) {
-                    //do no throw exception since still the metadata needs to be compensated. 
+                    //do no throw exception since still the metadata needs to be compensated.
                     e.addSuppressed(e2);
                 }
 
@@ -1366,7 +1362,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                         new Index(dataverseName, datasetName, indexName, index.getIndexType(),
                                 index.getKeyFieldNames(), index.isPrimaryIndex(), IMetadataEntity.PENDING_DROP_OP));
 
-                //#. commit the existing transaction before calling runJob. 
+                //#. commit the existing transaction before calling runJob.
                 MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
                 bActiveTxn = false;
                 progress = ProgressState.ADDED_PENDINGOP_RECORD_TO_METADATA;
@@ -1428,7 +1424,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                         new Index(dataverseName, datasetName, indexName, index.getIndexType(),
                                 index.getKeyFieldNames(), index.isPrimaryIndex(), IMetadataEntity.PENDING_DROP_OP));
 
-                //#. commit the existing transaction before calling runJob. 
+                //#. commit the existing transaction before calling runJob.
                 MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
                 bActiveTxn = false;
                 progress = ProgressState.ADDED_PENDINGOP_RECORD_TO_METADATA;
@@ -1604,49 +1600,30 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
     private void handleLoadStatement(AqlMetadataProvider metadataProvider, Statement stmt, IHyracksClientConnection hcc)
             throws Exception {
-
-        LoadStatement loadStmt = (LoadStatement) stmt;
-        String dataverseName = getActiveDataverseName(loadStmt.getDataverseName());
-        String datasetName = loadStmt.getDatasetName().getValue();
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         boolean bActiveTxn = true;
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
-        MetadataLockManager.INSTANCE.modifyDatasetBegin(dataverseName, dataverseName + "." + datasetName);
-        List<JobSpecification> jobsToExecute = new ArrayList<JobSpecification>();
+        acquireReadLatch();
         try {
-            CompiledLoadFromFileStatement cls = new CompiledLoadFromFileStatement(dataverseName, datasetName,
-                    loadStmt.getAdapter(), loadStmt.getProperties(), loadStmt.dataIsAlreadySorted());
-
-            IDataFormat format = getDataFormat(metadataProvider.getMetadataTxnContext(), dataverseName);
-            Job job = DatasetOperations.createLoadDatasetJobSpec(metadataProvider, cls, format);
-            jobsToExecute.add(job.getJobSpec());
-            // Also load the dataset's secondary indexes.
-            List<Index> datasetIndexes = MetadataManager.INSTANCE.getDatasetIndexes(mdTxnCtx, dataverseName, loadStmt
-                    .getDatasetName().getValue());
-            for (Index index : datasetIndexes) {
-                if (!index.isSecondaryIndex()) {
-                    continue;
-                }
-                // Create CompiledCreateIndexStatement from metadata entity 'index'.
-                CompiledCreateIndexStatement cis = new CompiledCreateIndexStatement(index.getIndexName(),
-                        dataverseName, index.getDatasetName(), index.getKeyFieldNames(), index.getGramLength(),
-                        index.getIndexType());
-                jobsToExecute.add(IndexOperations.buildSecondaryIndexLoadingJobSpec(cis, metadataProvider));
-            }
+            LoadStatement loadStmt = (LoadStatement) stmt;
+            String dataverseName = getActiveDataverseName(loadStmt.getDataverseName());
+            CompiledLoadFromFileStatement cls = new CompiledLoadFromFileStatement(dataverseName, loadStmt
+                    .getDatasetName().getValue(), loadStmt.getAdapter(), loadStmt.getProperties(),
+                    loadStmt.dataIsAlreadySorted());
+            JobSpecification spec = APIFramework.compileQuery(null, metadataProvider, null, 0, null, sessionConfig,
+                    out, pdf, cls);
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             bActiveTxn = false;
-
-            for (JobSpecification jobspec : jobsToExecute) {
-                runJob(hcc, jobspec, true);
+            if (spec != null) {
+                runJob(hcc, spec, true);
             }
         } catch (Exception e) {
             if (bActiveTxn) {
                 abort(e, e, mdTxnCtx);
             }
-
             throw e;
         } finally {
-            MetadataLockManager.INSTANCE.modifyDatasetEnd(dataverseName, dataverseName + "." + datasetName);
+            releaseReadLatch();
         }
     }
 
@@ -1751,10 +1728,10 @@ public class AqlTranslator extends AbstractAqlTranslator {
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
         MetadataLockManager.INSTANCE.createFeedBegin(dataverseName, dataverseName + "." + feedName);
 
-        String adaptorName = null;
+        String adapterName = null;
         Feed feed = null;
         try {
-            adaptorName = cfs.getAdaptorName();
+            adapterName = cfs.getAdapterName();
 
             feed = MetadataManager.INSTANCE.getFeed(metadataProvider.getMetadataTxnContext(), dataverseName, feedName);
             if (feed != null) {
@@ -1762,11 +1739,11 @@ public class AqlTranslator extends AbstractAqlTranslator {
                     MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
                     return;
                 } else {
-                    throw new AlgebricksException("A feed with this name " + adaptorName + " already exists.");
+                    throw new AlgebricksException("A feed with this name " + adapterName + " already exists.");
                 }
             }
 
-            feed = new Feed(dataverseName, feedName, adaptorName, cfs.getAdaptorConfiguration(),
+            feed = new Feed(dataverseName, feedName, adapterName, cfs.getAdapterConfiguration(),
                     cfs.getAppliedFunction());
             MetadataManager.INSTANCE.addFeed(metadataProvider.getMetadataTxnContext(), feed);
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
@@ -2037,7 +2014,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
         }
     }
 
-    private QueryResult handleQuery(AqlMetadataProvider metadataProvider, Query query, IHyracksClientConnection hcc,
+    private void handleQuery(AqlMetadataProvider metadataProvider, Query query, IHyracksClientConnection hcc,
             IHyracksDataset hdc, ResultDelivery resultDelivery) throws Exception {
 
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
@@ -2048,7 +2025,6 @@ public class AqlTranslator extends AbstractAqlTranslator {
         try {
             compiled = rewriteCompileQuery(metadataProvider, query, null);
 
-            QueryResult queryResult = new QueryResult(query, metadataProvider.getResultSetId());
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             bActiveTxn = false;
 
@@ -2091,10 +2067,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                         break;
 
                 }
-
             }
-
-            return queryResult;
         } catch (Exception e) {
             e.printStackTrace();
             if (bActiveTxn) {
@@ -2204,7 +2177,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 return;
             }
 
-            // At this point, we know data has changed in the external file system, record transaction in metadata and start            
+            // At this point, we know data has changed in the external file system, record transaction in metadata and start
             transactionDataset = ExternalIndexingOperations.createTransactionDataset(ds);
             /*
              * Remove old dataset record and replace it with a new one
@@ -2365,11 +2338,11 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
     private JobId runJob(IHyracksClientConnection hcc, JobSpecification spec, boolean waitForCompletion)
             throws Exception {
-        JobId[] jobIds = executeJobArray(hcc, new Job[] { new Job(spec) }, out, pdf, waitForCompletion);
+        JobId[] jobIds = executeJobArray(hcc, new Job[] { new Job(spec) }, out, waitForCompletion);
         return jobIds[0];
     }
 
-    public JobId[] executeJobArray(IHyracksClientConnection hcc, Job[] jobs, PrintWriter out, DisplayFormat pdf,
+    public JobId[] executeJobArray(IHyracksClientConnection hcc, Job[] jobs, PrintWriter out,
             boolean waitForCompletion) throws Exception {
         JobId[] startedJobIds = new JobId[jobs.length];
         for (int i = 0; i < jobs.length; i++) {
@@ -2382,18 +2355,6 @@ public class AqlTranslator extends AbstractAqlTranslator {
             }
         }
         return startedJobIds;
-    }
-
-    private static IDataFormat getDataFormat(MetadataTransactionContext mdTxnCtx, String dataverseName)
-            throws AsterixException {
-        Dataverse dataverse = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverseName);
-        IDataFormat format;
-        try {
-            format = (IDataFormat) Class.forName(dataverse.getDataFormat()).newInstance();
-        } catch (Exception e) {
-            throw new AsterixException(e);
-        }
-        return format;
     }
 
     private String getActiveDataverseName(String dataverse) throws AlgebricksException {
@@ -2410,6 +2371,14 @@ public class AqlTranslator extends AbstractAqlTranslator {
         return getActiveDataverseName(dataverse != null ? dataverse.getValue() : null);
     }
 
+    private void acquireReadLatch() {
+        MetadataManager.INSTANCE.acquireReadLatch();
+    }
+
+    private void releaseReadLatch() {
+        MetadataManager.INSTANCE.releaseReadLatch();
+    }
+
     private void abort(Exception rootE, Exception parentE, MetadataTransactionContext mdTxnCtx) {
         try {
             if (IS_DEBUG_MODE) {
@@ -2421,4 +2390,5 @@ public class AqlTranslator extends AbstractAqlTranslator {
             throw new IllegalStateException(rootE);
         }
     }
+
 }

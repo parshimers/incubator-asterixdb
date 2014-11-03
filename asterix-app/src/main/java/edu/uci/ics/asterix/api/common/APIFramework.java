@@ -22,6 +22,7 @@ import java.util.List;
 import org.json.JSONException;
 
 import edu.uci.ics.asterix.api.common.Job.SubmissionMode;
+import edu.uci.ics.asterix.aql.base.Statement.Kind;
 import edu.uci.ics.asterix.aql.expression.FunctionDecl;
 import edu.uci.ics.asterix.aql.expression.Query;
 import edu.uci.ics.asterix.aql.expression.visitor.AQLPrintVisitor;
@@ -152,14 +153,19 @@ public class APIFramework {
 
     }
 
-    public enum DisplayFormat {
-        TEXT,
+    /**
+     * Used to select the output from the various servlets. Note: "HTML" is
+     * primarily intended for use by the built-in web interface. It produces
+     * ADM output with various HTML wrappers.
+     */
+    public enum OutputFormat {
+        ADM,
         HTML,
         JSON
     }
 
     public static Pair<Query, Integer> reWriteQuery(List<FunctionDecl> declaredFunctions,
-            AqlMetadataProvider metadataProvider, Query q, SessionConfig pc, PrintWriter out, DisplayFormat pdf)
+            AqlMetadataProvider metadataProvider, Query q, SessionConfig pc, PrintWriter out, OutputFormat pdf)
             throws AsterixException {
 
         if (!pc.isPrintPhysicalOpsOnly() && pc.isPrintExprParam()) {
@@ -170,7 +176,7 @@ public class APIFramework {
                     out.println("<pre>");
                     break;
                 }
-                case TEXT: {
+                default: {
                     out.println("----------Expression tree:");
                     break;
                 }
@@ -193,7 +199,7 @@ public class APIFramework {
 
     public static JobSpecification compileQuery(List<FunctionDecl> declaredFunctions,
             AqlMetadataProvider queryMetadataProvider, Query rwQ, int varCounter, String outputDatasetName,
-            SessionConfig pc, PrintWriter out, DisplayFormat pdf, ICompiledDmlStatement statement)
+            SessionConfig pc, PrintWriter out, OutputFormat pdf, ICompiledDmlStatement statement)
             throws AsterixException, AlgebricksException, JSONException, RemoteException, ACIDException {
 
         if (!pc.isPrintPhysicalOpsOnly() && pc.isPrintRewrittenExprParam()) {
@@ -205,7 +211,7 @@ public class APIFramework {
                     out.println("<pre>");
                     break;
                 }
-                case TEXT: {
+                default: {
                     out.println("----------Rewritten expression:");
                     break;
                 }
@@ -229,7 +235,13 @@ public class APIFramework {
         AqlExpressionToPlanTranslator t = new AqlExpressionToPlanTranslator(queryMetadataProvider, varCounter,
                 outputDatasetName, statement);
 
-        ILogicalPlan plan = t.translate(rwQ);
+        ILogicalPlan plan;
+        // statement = null when it's a query
+        if (statement == null || statement.getKind() != Kind.LOAD) {
+            plan = t.translate(rwQ);
+        } else {
+            plan = t.translateLoad();
+        }
         boolean isWriteTransaction = queryMetadataProvider.isWriteTransaction();
 
         LogicalOperatorPrettyPrintVisitor pvisitor = new LogicalOperatorPrettyPrintVisitor();
@@ -241,13 +253,13 @@ public class APIFramework {
                     out.println("<pre>");
                     break;
                 }
-                case TEXT: {
+                default: {
                     out.println("----------Logical plan:");
                     break;
                 }
             }
 
-            if (rwQ != null) {
+            if (rwQ != null || statement.getKind() == Kind.LOAD) {
                 StringBuilder buffer = new StringBuilder();
                 PlanPrettyPrinter.printPlan(plan, buffer, pvisitor, 0);
                 out.print(buffer);
@@ -310,12 +322,12 @@ public class APIFramework {
                             out.println("<pre>");
                             break;
                         }
-                        case TEXT: {
-                            out.println("----------Optimized plan ");
+                        default: {
+                            out.println("----------Optimized logical plan:");
                             break;
                         }
                     }
-                    if (rwQ != null) {
+                    if (rwQ != null || statement.getKind() == Kind.LOAD) {
                         StringBuilder buffer = new StringBuilder();
                         PlanPrettyPrinter.printPlan(plan, buffer, pvisitor, 0);
                         out.print(buffer);
@@ -370,7 +382,7 @@ public class APIFramework {
                     out.println("<pre>");
                     break;
                 }
-                case TEXT: {
+                default: {
                     out.println("----------Hyracks job:");
                     break;
                 }
@@ -390,7 +402,7 @@ public class APIFramework {
     }
 
     public static void executeJobArray(IHyracksClientConnection hcc, JobSpecification[] specs, PrintWriter out,
-            DisplayFormat pdf) throws Exception {
+            OutputFormat pdf) throws Exception {
         for (int i = 0; i < specs.length; i++) {
             specs[i].setMaxReattempts(0);
             JobId jobId = hcc.startJob(specs[i]);
@@ -403,7 +415,7 @@ public class APIFramework {
 
     }
 
-    public static void executeJobArray(IHyracksClientConnection hcc, Job[] jobs, PrintWriter out, DisplayFormat pdf)
+    public static void executeJobArray(IHyracksClientConnection hcc, Job[] jobs, PrintWriter out, OutputFormat pdf)
             throws Exception {
         for (int i = 0; i < jobs.length; i++) {
             jobs[i].getJobSpec().setMaxReattempts(0);

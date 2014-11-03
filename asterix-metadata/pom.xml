@@ -79,5 +79,6 @@
                         <artifactId>hyracks-hdfs-core</artifactId>
                         <version>${hyracks.version}</version>
                 </dependency>
+
 	</dependencies>
 </project>
