@@ -49,6 +49,11 @@
         <output-dir compare="Text">at06</output-dir>
       </compilation-unit>
     </test-case>
+    <test-case FilePath="flwor">
+      <compilation-unit name="query-issue550">
+        <output-dir compare="Text">query-issue550</output-dir>
+      </compilation-unit>
+    </test-case>
   </test-group>
   <test-case FilePath="flwor">
       <compilation-unit name="let33">
@@ -1452,6 +1457,12 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="dml">
+      <compilation-unit name="insert-duplicated-keys">
+        <output-dir compare="Text">insert-duplicated-keys</output-dir>
+        <expected-error>edu.uci.ics.hyracks.storage.am.common.exceptions.TreeIndexDuplicateKeyException</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
       <compilation-unit name="insert_less_nc">
         <output-dir compare="Text">insert_less_nc</output-dir>
       </compilation-unit>
@@ -2751,6 +2762,11 @@
     <test-case FilePath="misc">
       <compilation-unit name="string_eq_01">
         <output-dir compare="Text">string_eq_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="misc">
+      <compilation-unit name="prefix-search">
+        <output-dir compare="Text">prefix-search</output-dir>
       </compilation-unit>
     </test-case>
   </test-group>
@@ -4355,6 +4371,31 @@
     <test-case FilePath="tpch">
       <compilation-unit name="nest_aggregate">
         <output-dir compare="Text">nest_aggregate</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="query-issue638">
+        <output-dir compare="Text">query-issue638</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="query-issue785">
+        <output-dir compare="Text">query-issue785</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="query-issue785-2">
+        <output-dir compare="Text">query-issue785-2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="query-issue786">
+        <output-dir compare="Text">query-issue786</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="query-issue601">
+        <output-dir compare="Text">query-issue601</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="tpch">

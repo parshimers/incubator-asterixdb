@@ -34,7 +34,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import edu.uci.ics.asterix.api.common.APIFramework;
-import edu.uci.ics.asterix.api.common.APIFramework.DisplayFormat;
+import edu.uci.ics.asterix.api.common.APIFramework.OutputFormat;
 import edu.uci.ics.asterix.api.common.Job;
 import edu.uci.ics.asterix.api.common.SessionConfig;
 import edu.uci.ics.asterix.aql.base.Statement;
@@ -73,7 +73,6 @@ import edu.uci.ics.asterix.common.config.DatasetConfig.ExternalDatasetTransactio
 import edu.uci.ics.asterix.common.config.DatasetConfig.ExternalFilePendingOp;
 import edu.uci.ics.asterix.common.config.DatasetConfig.IndexType;
 import edu.uci.ics.asterix.common.config.GlobalConfig;
-import edu.uci.ics.asterix.common.config.OptimizationConfUtil;
 import edu.uci.ics.asterix.common.exceptions.ACIDException;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
@@ -167,11 +166,11 @@ public class AqlTranslator extends AbstractAqlTranslator {
     private final List<Statement> aqlStatements;
     private final PrintWriter out;
     private final SessionConfig sessionConfig;
-    private final DisplayFormat pdf;
+    private final OutputFormat pdf;
     private Dataverse activeDefaultDataverse;
     private List<FunctionDecl> declaredFunctions;
 
-    public AqlTranslator(List<Statement> aqlStatements, PrintWriter out, SessionConfig pc, DisplayFormat pdf)
+    public AqlTranslator(List<Statement> aqlStatements, PrintWriter out, SessionConfig pc, APIFramework.OutputFormat pdf)
             throws MetadataException, AsterixException {
         this.aqlStatements = aqlStatements;
         this.out = out;
@@ -202,10 +201,9 @@ public class AqlTranslator extends AbstractAqlTranslator {
      * @return A List<QueryResult> containing a QueryResult instance corresponding to each submitted query.
      * @throws Exception
      */
-    public List<QueryResult> compileAndExecute(IHyracksClientConnection hcc, IHyracksDataset hdc,
+    public void compileAndExecute(IHyracksClientConnection hcc, IHyracksDataset hdc,
             ResultDelivery resultDelivery) throws Exception {
         int resultSetIdCounter = 0;
-        List<QueryResult> executionResult = new ArrayList<QueryResult>();
         FileSplit outputFile = null;
         IAWriterFactory writerFactory = PrinterBasedWriterFactory.INSTANCE;
         IResultSerializerFactoryProvider resultSerializerFactoryProvider = ResultSerializerFactoryProvider.INSTANCE;
@@ -314,7 +312,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                     metadataProvider.setResultSetId(new ResultSetId(resultSetIdCounter++));
                     metadataProvider.setResultAsyncMode(resultDelivery == ResultDelivery.ASYNC
                             || resultDelivery == ResultDelivery.ASYNC_DEFERRED);
-                    executionResult.add(handleQuery(metadataProvider, (Query) stmt, hcc, hdc, resultDelivery));
+                    handleQuery(metadataProvider, (Query) stmt, hcc, hdc, resultDelivery);
                     break;
                 }
 
@@ -338,7 +336,6 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 }
             }
         }
-        return executionResult;
     }
 
     private void handleSetStatement(AqlMetadataProvider metadataProvider, Statement stmt, Map<String, String> config)
@@ -1731,10 +1728,10 @@ public class AqlTranslator extends AbstractAqlTranslator {
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
         MetadataLockManager.INSTANCE.createFeedBegin(dataverseName, dataverseName + "." + feedName);
 
-        String adaptorName = null;
+        String adapterName = null;
         Feed feed = null;
         try {
-            adaptorName = cfs.getAdaptorName();
+            adapterName = cfs.getAdapterName();
 
             feed = MetadataManager.INSTANCE.getFeed(metadataProvider.getMetadataTxnContext(), dataverseName, feedName);
             if (feed != null) {
@@ -1742,11 +1739,11 @@ public class AqlTranslator extends AbstractAqlTranslator {
                     MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
                     return;
                 } else {
-                    throw new AlgebricksException("A feed with this name " + adaptorName + " already exists.");
+                    throw new AlgebricksException("A feed with this name " + adapterName + " already exists.");
                 }
             }
 
-            feed = new Feed(dataverseName, feedName, adaptorName, cfs.getAdaptorConfiguration(),
+            feed = new Feed(dataverseName, feedName, adapterName, cfs.getAdapterConfiguration(),
                     cfs.getAppliedFunction());
             MetadataManager.INSTANCE.addFeed(metadataProvider.getMetadataTxnContext(), feed);
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
@@ -2017,7 +2014,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
         }
     }
 
-    private QueryResult handleQuery(AqlMetadataProvider metadataProvider, Query query, IHyracksClientConnection hcc,
+    private void handleQuery(AqlMetadataProvider metadataProvider, Query query, IHyracksClientConnection hcc,
             IHyracksDataset hdc, ResultDelivery resultDelivery) throws Exception {
 
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
@@ -2028,7 +2025,6 @@ public class AqlTranslator extends AbstractAqlTranslator {
         try {
             compiled = rewriteCompileQuery(metadataProvider, query, null);
 
-            QueryResult queryResult = new QueryResult(query, metadataProvider.getResultSetId());
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             bActiveTxn = false;
 
@@ -2071,10 +2067,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                         break;
 
                 }
-
             }
-
-            return queryResult;
         } catch (Exception e) {
             e.printStackTrace();
             if (bActiveTxn) {
@@ -2345,11 +2338,11 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
     private JobId runJob(IHyracksClientConnection hcc, JobSpecification spec, boolean waitForCompletion)
             throws Exception {
-        JobId[] jobIds = executeJobArray(hcc, new Job[] { new Job(spec) }, out, pdf, waitForCompletion);
+        JobId[] jobIds = executeJobArray(hcc, new Job[] { new Job(spec) }, out, waitForCompletion);
         return jobIds[0];
     }
 
-    public JobId[] executeJobArray(IHyracksClientConnection hcc, Job[] jobs, PrintWriter out, DisplayFormat pdf,
+    public JobId[] executeJobArray(IHyracksClientConnection hcc, Job[] jobs, PrintWriter out,
             boolean waitForCompletion) throws Exception {
         JobId[] startedJobIds = new JobId[jobs.length];
         for (int i = 0; i < jobs.length; i++) {
