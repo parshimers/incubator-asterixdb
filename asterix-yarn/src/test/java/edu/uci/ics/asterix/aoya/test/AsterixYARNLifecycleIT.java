@@ -15,6 +15,7 @@
 package edu.uci.ics.asterix.aoya.test;
 
 import java.io.File;
+import java.io.FilenameFilter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -46,12 +47,35 @@ public class AsterixYARNLifecycleIT {
     private static final String PATH_BASE = "src/test/resources/integrationts/lifecycle";
     private static final String PATH_ACTUAL = "ittest/";
     private static final Logger LOGGER = Logger.getLogger(AsterixYARNLifecycleIT.class.getName());
+    private static final String INSTANCE_NAME = "asterix-integration-test";
     private static List<TestCaseContext> testCaseCollection;
     private static MiniYARNCluster miniCluster;
-    private static Client aoyaClient;
+    private static YarnConfiguration appConf;
+    private static String aoyaHome;
+    private static String configPath;
+
 
     @BeforeClass
     public static void setUp() throws Exception {
+        File asterixProjectDir = new File(System.getProperty("user.dir"));
+
+        File installerTargetDir = new File(asterixProjectDir, "target");
+        
+        String aoyaHomeDirName;
+        String [] dirsInTarget = installerTargetDir.list(new FilenameFilter() {
+            @Override
+            public boolean accept(File dir, String name) {
+                return new File(dir, name).isDirectory() && name.startsWith("asterix-yarn")
+                        && name.endsWith("binary-assembly");
+            }
+
+        });
+        if(dirsInTarget.length != 1){
+            throw new IllegalStateException("Could not find binary to run YARN integration test with");
+        }
+        aoyaHome= dirsInTarget[0];
+        configPath = aoyaHome + File.separator + "configs" + File.separator + "local-sample.xml";
+
         Configuration conf = new YarnConfiguration();
         conf.setInt(YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB, 64);
         conf.setClass(YarnConfiguration.RM_SCHEDULER, FifoScheduler.class, ResourceScheduler.class);
@@ -61,9 +85,8 @@ public class AsterixYARNLifecycleIT {
 
         //once the cluster is created, you can get its configuration
         //with the binding details to the cluster added from the minicluster
-        YarnConfiguration appConf = new YarnConfiguration(miniCluster.getConfig());
+        appConf = new YarnConfiguration(miniCluster.getConfig());
 
-        aoyaClient = new Client(appConf);
         TestCaseContext.Builder b = new TestCaseContext.Builder();
         testCaseCollection = b.build(new File(PATH_BASE));
         File outdir = new File(PATH_ACTUAL);
@@ -89,52 +112,33 @@ public class AsterixYARNLifecycleIT {
 
     @Test
     public void testStopActiveInstance() throws Exception {
-        try {
-            AsterixInstallerIntegrationUtil.transformIntoRequiredState(State.ACTIVE);
-            String command = "stop -n " + AsterixInstallerIntegrationUtil.ASTERIX_INSTANCE_NAME;
-            //cmdHandler.processCommand(command.split(" "));
-            AsterixInstance instance = ServiceProvider.INSTANCE.getLookupService().getAsterixInstance(
-                    AsterixInstallerIntegrationUtil.ASTERIX_INSTANCE_NAME);
-            AsterixRuntimeState state = VerificationUtil.getAsterixRuntimeState(instance);
-            assert (state.getFailedNCs().size() == NUM_NC && !state.isCcRunning());
-            LOGGER.info("Test stop active instance PASSED");
-        } catch (Exception e) {
-            throw new Exception("Test configure installer " + "\" FAILED!", e);
-        }
+        String command = "asterix " + "-n " + INSTANCE_NAME + " stop";
+        Client aoyaClient = new Client(appConf);
+        aoyaClient.init(command.split(" "));
+        Client.execute(aoyaClient);
     }
 
     @Test
     public void testStartActiveInstance() throws Exception {
-        try {
-            AsterixInstallerIntegrationUtil.transformIntoRequiredState(State.INACTIVE);
-            String command = "start -n " + AsterixInstallerIntegrationUtil.ASTERIX_INSTANCE_NAME;
-            //cmdHandler.processCommand(command.split(" "));
-            AsterixInstance instance = ServiceProvider.INSTANCE.getLookupService().getAsterixInstance(
-                    AsterixInstallerIntegrationUtil.ASTERIX_INSTANCE_NAME);
-            AsterixRuntimeState state = VerificationUtil.getAsterixRuntimeState(instance);
-            assert (state.getFailedNCs().size() == 0 && state.isCcRunning());
-            LOGGER.info("Test start active instance PASSED");
-        } catch (Exception e) {
-            throw new Exception("Test configure installer " + "\" FAILED!", e);
-        }
+        String command = "asterix " + "-n " + INSTANCE_NAME + " start";
+        Client aoyaClient = new Client(appConf);
+        aoyaClient.init(command.split(" "));
+        Client.execute(aoyaClient);
     }
 
     @Test
+    public void testInstallActiveInstance() throws Exception {
+        String command = "asterix " + "-n " + INSTANCE_NAME + " -c " + configPath + " install";
+        Client aoyaClient = new Client(appConf);
+        aoyaClient.init(command.split(" "));
+        Client.execute(aoyaClient);
+    }
+    @Test
     public void testDeleteActiveInstance() throws Exception {
-        try {
-            AsterixInstallerIntegrationUtil.transformIntoRequiredState(State.INACTIVE);
-            String command = "delete -n " + AsterixInstallerIntegrationUtil.ASTERIX_INSTANCE_NAME;
-            //cmdHandler.processCommand(command.split(" "));
-            AsterixInstance instance = ServiceProvider.INSTANCE.getLookupService().getAsterixInstance(
-                    AsterixInstallerIntegrationUtil.ASTERIX_INSTANCE_NAME);
-            assert (instance == null);
-            LOGGER.info("Test delete active instance PASSED");
-        } catch (Exception e) {
-            throw new Exception("Test delete active instance " + "\" FAILED!", e);
-        } finally {
-            // recreate instance
-            AsterixInstallerIntegrationUtil.createInstance();
-        }
+        String command = "asterix " + "-n " + INSTANCE_NAME + " delete";
+        Client aoyaClient = new Client(appConf);
+        aoyaClient.init(command.split(" "));
+        Client.execute(aoyaClient);
     }
 
     @Test

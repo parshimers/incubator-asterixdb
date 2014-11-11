@@ -185,115 +185,7 @@ public class Client {
             Client client = new Client();
             try {
                 client.init(args);
-                switch (client.mode) {
-                    case START:
-                        YarnClientApplication app = client.makeApplicationContext();
-                        List<DFSResourceCoordinate> res = client.deployConfig();
-                        res.addAll(client.distributeBinaries());
-                        ApplicationId appId = client.deployAM(app, res, client.mode);
-                        LOG.info("Asterix started up with Application ID: " + appId.toString());
-                        if (Utils.waitForLiveness(appId, "Waiting for AsterixDB instance to resume ",
-                                client.yarnClient, client.instanceName, client.conf)) {
-                            System.out.println("Asterix successfully deployed and is now running.");
-                        } else {
-                            LOG.fatal("AsterixDB appears to have failed to install and start");
-                            System.exit(1);
-                        }
-                        break;
-                    case STOP:
-                        try {
-                            client.stopInstance();
-                        } catch (ApplicationNotFoundException e) {
-                            System.out.println("Asterix instance by that name already exited or was never started");
-                            client.deleteLockFile();
-                        }
-                        break;
-                    case KILL:
-                        if (client.isRunning()) {
-                            Utils.confirmAction("Are you sure you want to kill this instance? In-progress tasks will be aborted");
-                        }
-                        try {
-                            Client.killApplication(client.getLockFile(), client.yarnClient);
-                        } catch (ApplicationNotFoundException e) {
-                            System.out.println("Asterix instance by that name already exited or was never started");
-                            client.deleteLockFile();
-                        }
-                        break;
-                    case DESCRIBE:
-                        Utils.listInstances(client.conf, CONF_DIR_REL);
-                        break;
-                    case INSTALL:
-                        try {
-                            app = client.makeApplicationContext();
-                            client.installConfig();
-                            client.writeAsterixConfig(Utils.parseYarnClusterConfig(client.asterixConf));
-                            client.installAsterixConfig(false);
-                            res = client.deployConfig();
-                            res.addAll(client.distributeBinaries());
-
-                            appId = client.deployAM(app, res, client.mode);
-                            LOG.info("Asterix started up with Application ID: " + appId.toString());
-                            if (Utils.waitForLiveness(appId, "Waiting for new AsterixDB Instance to start ",
-                                    client.yarnClient, client.instanceName, client.conf)) {
-                                System.out.println("Asterix successfully deployed and is now running.");
-                            } else {
-                                LOG.fatal("AsterixDB appears to have failed to install and start");
-                                System.exit(1);
-                            }
-                        } catch (YarnException | IOException e) {
-                            LOG.error("Asterix failed to deploy on to cluster");
-                            throw e;
-                        }
-                        break;
-                    case LIBINSTALL:
-                        client.installExtLibs();
-                        break;
-                    case ALTER:
-                        client.writeAsterixConfig(Utils.parseYarnClusterConfig(client.asterixConf));
-                        client.installAsterixConfig(true);
-                        System.out.println("Configuration successfully modified");
-                        break;
-                    case DESTROY:
-                        try {
-                            if (Utils
-                                    .confirmAction("Are you really sure you want to obliterate this instance? This action cannot be undone!")) {
-                                app = client.makeApplicationContext();
-                                res = client.deployConfig();
-                                res.addAll(client.distributeBinaries());
-                                client.removeInstance(app, res);
-                            }
-                        } catch (YarnException | IOException e) {
-                            LOG.error("Asterix failed to deploy on to cluster");
-                            throw e;
-                        }
-                        break;
-                    case BACKUP:
-                        if (Utils.confirmAction("Performing a backup will stop a running instance.")) {
-                            app = client.makeApplicationContext();
-                            res = client.deployConfig();
-                            res.addAll(client.distributeBinaries());
-                            client.backupInstance(app, res);
-                        }
-                        break;
-                    case LSBACKUP:
-                        Utils.listBackups(client.conf, CONF_DIR_REL, client.instanceName);
-                        break;
-                    case RMBACKUP:
-                        Utils.rmBackup(client.conf, CONF_DIR_REL, client.instanceName, Long.parseLong(client.snapName));
-                        break;
-                    case RESTORE:
-                        if (Utils.confirmAction("Performing a restore will stop a running instance.")) {
-                            app = client.makeApplicationContext();
-                            res = client.deployConfig();
-                            res.addAll(client.distributeBinaries());
-                            client.restoreInstance(app, res);
-                        }
-                        break;
-                    default:
-                        LOG.fatal("Unknown action. Known actions are: start, stop, install, status, kill");
-                        client.printUsage();
-                        System.exit(-1);
-                }
+                Client.execute(client);
             } catch (IllegalArgumentException e) {
                 System.err.println(e.getLocalizedMessage());
                 e.printStackTrace();
@@ -306,6 +198,117 @@ public class Client {
         }
         LOG.info("Command executed successfully.");
         System.exit(0);
+    }
+    public static void execute(Client client) throws Exception{
+        switch (client.mode) {
+        case START:
+            YarnClientApplication app = client.makeApplicationContext();
+            List<DFSResourceCoordinate> res = client.deployConfig();
+            res.addAll(client.distributeBinaries());
+            ApplicationId appId = client.deployAM(app, res, client.mode);
+            LOG.info("Asterix started up with Application ID: " + appId.toString());
+            if (Utils.waitForLiveness(appId, "Waiting for AsterixDB instance to resume ",
+                    client.yarnClient, client.instanceName, client.conf)) {
+                System.out.println("Asterix successfully deployed and is now running.");
+            } else {
+                LOG.fatal("AsterixDB appears to have failed to install and start");
+                System.exit(1);
+            }
+            break;
+        case STOP:
+            try {
+                client.stopInstance();
+            } catch (ApplicationNotFoundException e) {
+                System.out.println("Asterix instance by that name already exited or was never started");
+                client.deleteLockFile();
+            }
+            break;
+        case KILL:
+            if (client.isRunning()) {
+                Utils.confirmAction("Are you sure you want to kill this instance? In-progress tasks will be aborted");
+            }
+            try {
+                Client.killApplication(client.getLockFile(), client.yarnClient);
+            } catch (ApplicationNotFoundException e) {
+                System.out.println("Asterix instance by that name already exited or was never started");
+                client.deleteLockFile();
+            }
+            break;
+        case DESCRIBE:
+            Utils.listInstances(client.conf, CONF_DIR_REL);
+            break;
+        case INSTALL:
+            try {
+                app = client.makeApplicationContext();
+                client.installConfig();
+                client.writeAsterixConfig(Utils.parseYarnClusterConfig(client.asterixConf));
+                client.installAsterixConfig(false);
+                res = client.deployConfig();
+                res.addAll(client.distributeBinaries());
+
+                appId = client.deployAM(app, res, client.mode);
+                LOG.info("Asterix started up with Application ID: " + appId.toString());
+                if (Utils.waitForLiveness(appId, "Waiting for new AsterixDB Instance to start ",
+                        client.yarnClient, client.instanceName, client.conf)) {
+                    System.out.println("Asterix successfully deployed and is now running.");
+                } else {
+                    LOG.fatal("AsterixDB appears to have failed to install and start");
+                    System.exit(1);
+                }
+            } catch (YarnException | IOException e) {
+                LOG.error("Asterix failed to deploy on to cluster");
+                throw e;
+            }
+            break;
+        case LIBINSTALL:
+            client.installExtLibs();
+            break;
+        case ALTER:
+            client.writeAsterixConfig(Utils.parseYarnClusterConfig(client.asterixConf));
+            client.installAsterixConfig(true);
+            System.out.println("Configuration successfully modified");
+            break;
+        case DESTROY:
+            try {
+                if (Utils
+                        .confirmAction("Are you really sure you want to obliterate this instance? This action cannot be undone!")) {
+                    app = client.makeApplicationContext();
+                    res = client.deployConfig();
+                    res.addAll(client.distributeBinaries());
+                    client.removeInstance(app, res);
+                }
+            } catch (YarnException | IOException e) {
+                LOG.error("Asterix failed to deploy on to cluster");
+                throw e;
+            }
+            break;
+        case BACKUP:
+            if (Utils.confirmAction("Performing a backup will stop a running instance.")) {
+                app = client.makeApplicationContext();
+                res = client.deployConfig();
+                res.addAll(client.distributeBinaries());
+                client.backupInstance(app, res);
+            }
+            break;
+        case LSBACKUP:
+            Utils.listBackups(client.conf, CONF_DIR_REL, client.instanceName);
+            break;
+        case RMBACKUP:
+            Utils.rmBackup(client.conf, CONF_DIR_REL, client.instanceName, Long.parseLong(client.snapName));
+            break;
+        case RESTORE:
+            if (Utils.confirmAction("Performing a restore will stop a running instance.")) {
+                app = client.makeApplicationContext();
+                res = client.deployConfig();
+                res.addAll(client.distributeBinaries());
+                client.restoreInstance(app, res);
+            }
+            break;
+        default:
+            LOG.fatal("Unknown action. Known actions are: start, stop, install, status, kill");
+            client.printUsage();
+            System.exit(-1);
+       }
     }
 
     public Client(Configuration conf) throws Exception {
