@@ -14,7 +14,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.IOUtils;
 
-import edu.uci.ics.asterix.api.common.APIFramework.DisplayFormat;
+import edu.uci.ics.asterix.api.common.APIFramework.OutputFormat;
 import edu.uci.ics.asterix.common.config.GlobalConfig;
 import edu.uci.ics.asterix.result.ResultUtils;
 import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
@@ -34,12 +34,12 @@ public class ShutdownAPIServlet extends HttpServlet {
         response.setCharacterEncoding("utf-8");
 
         PrintWriter out = response.getWriter();
-        DisplayFormat format = DisplayFormat.HTML;
+        OutputFormat format = OutputFormat.HTML;
         String accept = request.getHeader("Accept");
-        if ((accept == null) || (accept.contains("text/plain"))) {
-            format = DisplayFormat.TEXT;
+        if ((accept == null) || (accept.contains("application/x-adm"))) {
+            format = OutputFormat.ADM;
         } else if (accept.contains("application/json")) {
-            format = DisplayFormat.JSON;
+            format = OutputFormat.JSON;
         }
         StringWriter sw = new StringWriter();
         IOUtils.copy(request.getInputStream(), sw, StandardCharsets.UTF_8.name());

@@ -110,13 +110,20 @@
 			<groupId>edu.uci.ics.asterix</groupId>
 			<artifactId>asterix-events</artifactId>
 			<version>0.8.7-SNAPSHOT</version>
-			<scope>compile</scope>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>edu.uci.ics.asterix</groupId>
+			<artifactId>asterix-common</artifactId>
+			<version>0.8.7-SNAPSHOT</version>
+			<type>test-jar</type>
+			<scope>test</scope>
 		</dependency>
 				<dependency>
 			<groupId>edu.uci.ics.asterix</groupId>
 			<artifactId>asterix-test-framework</artifactId>
 			<version>0.8.7-SNAPSHOT</version>
-			<scope>compile</scope>
+			<scope>test</scope>
 		</dependency>
         <dependency>
             <groupId>edu.uci.ics.asterix</groupId>

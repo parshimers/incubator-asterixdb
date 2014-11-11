@@ -95,7 +95,6 @@ public class AsterixYARNLifecycleIT {
 
     @AfterClass
     public static void tearDown() throws Exception {
-        AsterixInstallerIntegrationUtil.deinit();
         miniCluster.close();
         File outdir = new File(PATH_ACTUAL);
         File[] files = outdir.listFiles();
@@ -140,14 +139,13 @@ public class AsterixYARNLifecycleIT {
         aoyaClient.init(command.split(" "));
         Client.execute(aoyaClient);
     }
-
     @Test
     public void test() throws Exception {
         for (TestCaseContext testCaseCtx : testCaseCollection) {
             TestsUtils.executeTest(PATH_ACTUAL, testCaseCtx, null, false);
         }
-    }
-
+    } 
+    
     public static void main(String[] args) throws Exception {
         try {
             setUp();
