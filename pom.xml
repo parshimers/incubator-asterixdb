@@ -40,6 +40,8 @@
     <commons.io.version>2.4</commons.io.version>
     <servlet.api.version>2.5</servlet.api.version>
     <json.version>20090211</json.version>
+    <xerces.version>2.9.1</xerces.version>
+    <xalan.version>2.7.1</xalan.version>
   </properties>
 
 	<build>
@@ -365,6 +367,16 @@
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
             <version>${commons.io.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>xerces</groupId>
+            <artifactId>xercesImpl</artifactId>
+            <version>${xerces.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>xalan</groupId>
+            <artifactId>xalan</artifactId>
+            <version>${xalan.version}</version>
         </dependency>
     	</dependencies>
     </dependencyManagement>

@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -120,7 +121,7 @@ public class Client {
             .put(Mode.BACKUP.alias, Mode.BACKUP).put(Mode.LSBACKUP.alias, Mode.LSBACKUP)
             .put(Mode.RMBACKUP.alias, Mode.RMBACKUP).put(Mode.RESTORE.alias, Mode.RESTORE).build();
     private static final Log LOG = LogFactory.getLog(Client.class);
-    static final String CONF_DIR_REL = ".asterix" + File.separator;
+    public static final String CONF_DIR_REL = ".asterix" + File.separator;
     private static final String instanceLock = "instance";
     private static final String DEFAULT_PARAMETERS_PATH = "conf" + File.separator + "base-asterix-configuration.xml";
     private static final String MERGED_PARAMETERS_PATH = "conf" + File.separator + "asterix-configuration.xml";
@@ -175,6 +176,7 @@ public class Client {
     private Options opts;
     private String libDataverse;
     private String snapName = "";
+    private String baseConfig = ".";
 
     /**
      * @param args
@@ -333,8 +335,9 @@ public class Client {
                 "Amount of memory in MB to be requested to run the application master"));
         opts.addOption(new Option("log_properties", true, "log4j.properties file"));
         opts.addOption(new Option("n", "name", true, "Asterix instance name (required)"));
-        opts.addOption(new Option("tar", "asterixTar", true, "tarball with Asterix inside"));
-        opts.addOption(new Option("c", "asterixConf", true, "Asterix cluster config"));
+        opts.addOption(new Option("tar", "asterixTar", true, "tarball with Asterix inside- if in non-default location"));
+        opts.addOption(new Option("bc", "baseConfig", true, "base Asterix parameters configuration file if not in default position"));
+        opts.addOption(new Option("c", "asterixConf", true, "Asterix cluster config (required on install)"));
         opts.addOption(new Option("l", "externalLibs", true, "Libraries to deploy along with Asterix instance"));
         opts.addOption(new Option("ld", "libDataverse", true, "Dataverse to deploy external libraries to"));
         opts.addOption(new Option("r", "refresh", false,
@@ -404,12 +407,11 @@ public class Client {
 
         appName = appName + ": " + instanceName;
         File defaultTar = null;
-        if (!cliParser.hasOption("asterixTar")) {
-            if (!cliParser.hasOption("asterixTar")) {
+        if (!cliParser.hasOption("asterixTar") && (mode == Mode.INSTALL || mode == Mode.ALTER || mode == Mode.DESTROY || mode == Mode.BACKUP) ) {
                 File tarDir = new File("./asterix");
                 if (!tarDir.exists()) {
                     throw new IllegalArgumentException(
-                            "Default directory structure not in use- please specify an asterix zip file to distribute");
+                            "Default directory structure not in use- please specify an asterix zip and base config file to distribute");
                 }
                 FileFilter tarFilter = new WildcardFileFilter("asterix-server*.zip");
                 File[] tarFiles = tarDir.listFiles(tarFilter);
@@ -419,12 +421,14 @@ public class Client {
                 }
                 defaultTar = tarFiles[0];
                 System.out.println(defaultTar.getAbsolutePath());
-            }
         }
         if (defaultTar != null) {
             asterixTar = cliParser.getOptionValue("asterixTar", defaultTar.getAbsolutePath());
         } else {
             asterixTar = cliParser.getOptionValue("asterixTar");
+        }
+        if(cliParser.hasOption("baseConfig")){
+            baseConfig = cliParser.getOptionValue("baseConfig");
         }
 
         if (cliParser.hasOption("externalLibs")) {
@@ -460,11 +464,13 @@ public class Client {
 
     private void checkConf(String[] args, CommandLine cliParser) {
         //Sanity check for no args 
+        System.out.println(Arrays.toString(args));
         if (args.length == 0) {
             throw new IllegalArgumentException("No args specified for client to initialize");
         }
         //Now check if there is a verb
         List<String> clientVerb = cliParser.getArgList();
+        System.out.println(Arrays.toString(clientVerb.toArray()));
         if (clientVerb == null || clientVerb.size() < 1) {
             LOG.fatal("You must specify an action.");
             throw new IllegalArgumentException();
@@ -567,8 +573,10 @@ public class Client {
         FileSystem fs = FileSystem.get(conf);
         String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
         Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
+        System.out.println(dstConf);
         try {
             FileStatus st = fs.getFileStatus(dstConf);
+
             if (mode == Mode.INSTALL) {
                 throw new IllegalStateException("Instance with this name already exists.");
             }
@@ -1108,7 +1116,12 @@ public class Client {
         String asterixInstanceName = instanceName;
 
         //this is the "base" config that is inside the tarball, we start here
-        AsterixConfiguration configuration = loadAsterixConfig(DEFAULT_PARAMETERS_PATH);
+        AsterixConfiguration configuration;
+        if(baseConfig != "."){
+         configuration = loadAsterixConfig(baseConfig);
+        }else{
+         configuration = loadAsterixConfig(DEFAULT_PARAMETERS_PATH);
+        }
         String version = Utils.getAsterixVersionFromClasspath();
         configuration.setVersion(version);
 
