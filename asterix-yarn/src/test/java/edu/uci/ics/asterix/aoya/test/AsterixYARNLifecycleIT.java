@@ -57,6 +57,8 @@ public class AsterixYARNLifecycleIT {
     private static String configPath;
     private static String aoyaServerPath;
     private static String parameterPath;
+=======
+    private static Client aoyaClient;
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -108,6 +110,9 @@ public class AsterixYARNLifecycleIT {
 
         //TestCaseContext.Builder b = new TestCaseContext.Builder();
         //testCaseCollection = b.build(new File(PATH_BASE));
+        aoyaClient = new Client(appConf);
+        TestCaseContext.Builder b = new TestCaseContext.Builder();
+        testCaseCollection = b.build(new File(PATH_BASE));
         File outdir = new File(PATH_ACTUAL);
         outdir.mkdirs();
     }
