@@ -1,13 +1,11 @@
 package edu.uci.ics.asterix.common.feeds;
 
 import java.nio.ByteBuffer;
-import java.util.Map;
 
 import edu.uci.ics.asterix.common.feeds.FeedConstants.StatisticsConstants;
 import edu.uci.ics.asterix.common.feeds.api.IExceptionHandler;
 import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector;
 import edu.uci.ics.asterix.common.feeds.api.IFrameEventCallback;
-import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
@@ -83,40 +81,42 @@ public class StorageSideMonitoredBuffer extends MonitoredBuffer {
 
             @Override
             public void postProcessFrame(ByteBuffer frame, FrameTupleAccessor frameAccessor) {
-                int nTuples = frameAccessor.getTupleCount();
-                long intakeTimestamp;
-                long currentTime = System.currentTimeMillis();
-                int partition = 0;
-                int recordId = 0;
-                for (int i = 0; i < nTuples; i++) {
-                    int recordStart = frameAccessor.getTupleStartOffset(i) + frameAccessor.getFieldSlotsLength();
-                    int openPartOffsetOrig = frame.getInt(recordStart + 6);
-                    int numOpenFields = frame.getInt(recordStart + openPartOffsetOrig);
+                if (ackingEnabled || timeTrackingEnabled) {
+                    int nTuples = frameAccessor.getTupleCount();
+                    long intakeTimestamp;
+                    long currentTime = System.currentTimeMillis();
+                    int partition = 0;
+                    int recordId = 0;
+                    for (int i = 0; i < nTuples; i++) {
+                        int recordStart = frameAccessor.getTupleStartOffset(i) + frameAccessor.getFieldSlotsLength();
+                        int openPartOffsetOrig = frame.getInt(recordStart + 6);
+                        int numOpenFields = frame.getInt(recordStart + openPartOffsetOrig);
 
-                    int recordIdOffset = openPartOffsetOrig + 4 + 8 * numOpenFields
-                            + (StatisticsConstants.INTAKE_TUPLEID.length() + 2) + 1;
-                    recordId = frame.getInt(recordStart + recordIdOffset);
+                        int recordIdOffset = openPartOffsetOrig + 4 + 8 * numOpenFields
+                                + (StatisticsConstants.INTAKE_TUPLEID.length() + 2) + 1;
+                        recordId = frame.getInt(recordStart + recordIdOffset);
 
-                    int partitionOffset = recordIdOffset + 4 + (StatisticsConstants.INTAKE_PARTITION.length() + 2) + 1;
-                    partition = frame.getInt(recordStart + partitionOffset);
+                        int partitionOffset = recordIdOffset + 4 + (StatisticsConstants.INTAKE_PARTITION.length() + 2)
+                                + 1;
+                        partition = frame.getInt(recordStart + partitionOffset);
 
-                    int intakeTimestampValueOffset = partitionOffset + 4
-                            + (StatisticsConstants.INTAKE_TIMESTAMP.length() + 2) + 1;
-                    intakeTimestamp = frame.getLong(recordStart + intakeTimestampValueOffset);
-                    if (beginIntakeTimestamp == 0) {
-                        beginIntakeTimestamp = intakeTimestamp;
-                        LOGGER.warning("Begin Timestamp: " + beginIntakeTimestamp);
+                        int intakeTimestampValueOffset = partitionOffset + 4
+                                + (StatisticsConstants.INTAKE_TIMESTAMP.length() + 2) + 1;
+                        intakeTimestamp = frame.getLong(recordStart + intakeTimestampValueOffset);
+                        if (beginIntakeTimestamp == 0) {
+                            beginIntakeTimestamp = intakeTimestamp;
+                            LOGGER.warning("Begin Timestamp: " + beginIntakeTimestamp);
+                        }
+
+                        updateRunningAvg(intakeTimestamp, currentTime);
+
+                        int storeTimestampValueOffset = intakeTimestampValueOffset + 8
+                                + (StatisticsConstants.STORE_TIMESTAMP.length() + 2) + 1;
+                        frame.putLong(recordStart + storeTimestampValueOffset, System.currentTimeMillis());
                     }
-
-                    updateRunningAvg(intakeTimestamp, currentTime);
-
-                    int storeTimestampValueOffset = intakeTimestampValueOffset + 8
-                            + (StatisticsConstants.STORE_TIMESTAMP.length() + 2) + 1;
-                    frame.putLong(recordStart + storeTimestampValueOffset, System.currentTimeMillis());
+                    logRunningAvg();
+                    resetRunningAvg();
                 }
-                logRunningAvg();
-                resetRunningAvg();
-
             }
 
             private void updateRunningAvg(long intakeTimestamp, long currentTime) {

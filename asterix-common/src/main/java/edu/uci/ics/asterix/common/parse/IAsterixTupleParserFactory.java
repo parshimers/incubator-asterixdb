@@ -1,4 +1,4 @@
-package edu.uci.ics.asterix.metadata.utils;
+package edu.uci.ics.asterix.common.parse;
 
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 

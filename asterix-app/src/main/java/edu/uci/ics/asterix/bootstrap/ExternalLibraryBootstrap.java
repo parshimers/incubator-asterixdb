@@ -125,8 +125,7 @@ public class ExternalLibraryBootstrap {
                     .getDataverseAdapters(mdTxnCtx, dataverse);
             for (edu.uci.ics.asterix.metadata.entities.DatasourceAdapter adapter : adapters) {
                 if (adapter.getAdapterIdentifier().getName().startsWith(libraryName + "#")) {
-                    MetadataManager.INSTANCE.dropAdapter(mdTxnCtx, dataverse, adapter.getAdapterIdentifier()
-                            .getName());
+                    MetadataManager.INSTANCE.dropAdapter(mdTxnCtx, dataverse, adapter.getAdapterIdentifier().getName());
                 }
             }
 

@@ -49,7 +49,7 @@ public class RateControlledFileSystemBasedAdapter extends FileSystemBasedAdapter
 
     @Override
     public void stop() {
-        ((RateControlledTupleParser) tupleParser).stop();
+       // ((RateControlledTupleParser) tupleParser).stop();
     }
 
     @Override

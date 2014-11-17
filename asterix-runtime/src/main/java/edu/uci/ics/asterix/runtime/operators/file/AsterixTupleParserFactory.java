@@ -1,4 +1,4 @@
-package edu.uci.ics.asterix.metadata.utils;
+package edu.uci.ics.asterix.runtime.operators.file;
 
 import java.util.HashMap;
 import java.util.List;
@@ -6,16 +6,13 @@ import java.util.Map;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
-import edu.uci.ics.asterix.metadata.feeds.TimestampedADMDataParser;
-import edu.uci.ics.asterix.metadata.feeds.TimestampedDelimitedDataParser;
+import edu.uci.ics.asterix.common.parse.IAsterixTupleParserFactory;
+import edu.uci.ics.asterix.common.parse.ITupleParserPolicy;
+import edu.uci.ics.asterix.common.parse.ITupleParserPolicy.TupleParserPolicyType;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.AUnionType;
 import edu.uci.ics.asterix.om.types.IAType;
-import edu.uci.ics.asterix.runtime.operators.file.ADMDataParser;
-import edu.uci.ics.asterix.runtime.operators.file.AbstractTupleParser;
-import edu.uci.ics.asterix.runtime.operators.file.DelimitedDataParser;
-import edu.uci.ics.asterix.runtime.operators.file.IDataParser;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.NotImplementedException;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -41,13 +38,14 @@ public class AsterixTupleParserFactory implements IAsterixTupleParserFactory {
     public static final String KEY_FORMAT = "format";
     public static final String FORMAT_ADM = "adm";
     public static final String FORMAT_DELIMITED_TEXT = "delimited-text";
-
-    public static final String BATCH_SIZE = "batch-size";
-    public static final String BATCH_INTERVAL = "batch-interval";
+    public static final String KEY_PATH = "path";
+    public static final String KEY_SOURCE_DATATYPE = "type-name";
+    public static final String PARSER_POLICY = "parser-policy";
     public static final String KEY_DELIMITER = "delimiter";
     public static final String KEY_PARSER_FACTORY = "parser";
     public static final String TIME_TRACKING = "time.tracking";
     public static final String AT_LEAST_ONE_SEMANTICS = FeedPolicyAccessor.AT_LEAST_ONE_SEMANTICS;
+    public static final String NODE_RESOLVER_FACTORY_PROPERTY = "node.Resolver";
 
     private static Map<ATypeTag, IValueParserFactory> valueParserFactoryMap = initializeValueParserFactoryMap();
 
@@ -84,7 +82,9 @@ public class AsterixTupleParserFactory implements IAsterixTupleParserFactory {
             } else {
                 IDataParser dataParser = null;
                 dataParser = createDataParser(ctx);
-                tupleParser = new GenericTupleParser(ctx, recordType, dataParser);
+                ITupleParserPolicy policy = getTupleParserPolicy();
+                policy.configure(configuration);
+                tupleParser = new GenericTupleParser(ctx, recordType, dataParser, policy);
             }
         } catch (Exception e) {
             throw new HyracksDataException(e);
@@ -96,15 +96,23 @@ public class AsterixTupleParserFactory implements IAsterixTupleParserFactory {
 
         private final IDataParser dataParser;
 
-        public GenericTupleParser(IHyracksTaskContext ctx, ARecordType recType, IDataParser dataParser)
-                throws HyracksDataException {
+        private final ITupleParserPolicy policy;
+
+        public GenericTupleParser(IHyracksTaskContext ctx, ARecordType recType, IDataParser dataParser,
+                ITupleParserPolicy policy) throws HyracksDataException {
             super(ctx, recType);
             this.dataParser = dataParser;
+            this.policy = policy;
         }
 
         @Override
         public IDataParser getDataParser() {
             return dataParser;
+        }
+
+        @Override
+        public ITupleParserPolicy getTupleParserPolicy() {
+            return policy;
         }
 
     }
@@ -113,7 +121,7 @@ public class AsterixTupleParserFactory implements IAsterixTupleParserFactory {
         IDataParser dataParser = null;
         switch (inputDataFormat) {
             case ADM:
-                dataParser = configureADMParser(ctx);
+                dataParser = new ADMDataParser();
                 break;
             case DELIMITED:
                 dataParser = configureDelimitedDataParser(ctx);
@@ -124,7 +132,7 @@ public class AsterixTupleParserFactory implements IAsterixTupleParserFactory {
                     throw new IllegalArgumentException(" Unspecified data format");
                 } else {
                     if (FORMAT_ADM.equalsIgnoreCase(specifiedFormat.toUpperCase())) {
-                        dataParser = configureADMParser(ctx);
+                        dataParser = new ADMDataParser();
                     } else if (FORMAT_DELIMITED_TEXT.equalsIgnoreCase(specifiedFormat.toUpperCase())) {
                         dataParser = configureDelimitedDataParser(ctx);
                     } else {
@@ -136,43 +144,33 @@ public class AsterixTupleParserFactory implements IAsterixTupleParserFactory {
         return dataParser;
     }
 
-    private boolean validateTimeTrackingConstraint() {
-        boolean timeTrackingEnabled = configuration.get(TIME_TRACKING) == null ? false : Boolean.valueOf(configuration
-                .get(TIME_TRACKING));
-        if (timeTrackingEnabled) {
-            if (!recordType.isOpen()) {
-                throw new IllegalArgumentException("Cannot enabled time tracking as open record type");
-            }
-            return true;
-        }
-        return false;
-    }
-
-    private IDataParser configureADMParser(IHyracksTaskContext ctx) {
-        boolean injectTimestamps = validateTimeTrackingConstraint();
-        boolean injectRecordId = configuration.get(AT_LEAST_ONE_SEMANTICS) == null ? false : Boolean
-                .valueOf(configuration.get(AT_LEAST_ONE_SEMANTICS));
-        if (injectRecordId || injectTimestamps) {
-            return new TimestampedADMDataParser(ctx, partition, injectRecordId, injectTimestamps);
+    private ITupleParserPolicy getTupleParserPolicy() {
+        ITupleParserPolicy policy = null;
+        ITupleParserPolicy.TupleParserPolicyType policyType = null;
+        String propValue = configuration.get(PARSER_POLICY);
+        if (propValue == null) {
+            policyType = TupleParserPolicyType.FRAME_FULL;
         } else {
-            return new ADMDataParser();
+            policyType = TupleParserPolicyType.valueOf(propValue.trim().toUpperCase());
         }
+        switch (policyType) {
+            case FRAME_FULL:
+                policy = new FrameFullTupleParserPolicy();
+                break;
+            case COUNTER_TIMER_EXPIRED:
+                policy = new CounterTimerTupleParserPolicy();
+                break;
+            case RATE_CONTROLLED:
+                policy = new RateControlledTupleParserPolicy();
+                break;
+        }
+        return policy;
     }
 
     private IDataParser configureDelimitedDataParser(IHyracksTaskContext ctx) throws AsterixException {
         IValueParserFactory[] valueParserFactories = getValueParserFactories();
         Character delimiter = getDelimiter();
-        return validateTimeTrackingConstraint() ? new TimestampedDelimitedDataParser(recordType, valueParserFactories,
-                delimiter, partition) : new DelimitedDataParser(recordType, valueParserFactories, delimiter);
-    }
-
-    private static boolean isConditionalPushConfigured(Map<String, String> configuration) {
-        String propValue = (String) configuration.get(BATCH_SIZE);
-        int batchSize = propValue != null ? Integer.parseInt(propValue) : -1;
-        propValue = (String) configuration.get(BATCH_INTERVAL);
-        long batchInterval = propValue != null ? Long.parseLong(propValue) : -1;
-        boolean conditionalPush = batchSize > 0 || batchInterval > 0;
-        return conditionalPush;
+        return new DelimitedDataParser(recordType, valueParserFactories, delimiter);
     }
 
     private Character getDelimiter() throws AsterixException {

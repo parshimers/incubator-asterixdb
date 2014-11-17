@@ -6,7 +6,7 @@ import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
-import edu.uci.ics.asterix.metadata.utils.IAsterixTupleParserFactory;
+import edu.uci.ics.asterix.common.parse.IAsterixTupleParserFactory;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;

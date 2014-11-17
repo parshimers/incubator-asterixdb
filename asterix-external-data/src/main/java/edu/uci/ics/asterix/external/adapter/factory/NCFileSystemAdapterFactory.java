@@ -24,9 +24,10 @@ import edu.uci.ics.asterix.external.dataset.adapter.NCFileSystemAdapter;
 import edu.uci.ics.asterix.external.util.DNSResolverFactory;
 import edu.uci.ics.asterix.external.util.INodeResolver;
 import edu.uci.ics.asterix.external.util.INodeResolverFactory;
-import edu.uci.ics.asterix.metadata.utils.AsterixTupleParserFactory.InputDataFormat;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.IAType;
+import edu.uci.ics.asterix.runtime.operators.file.AsterixTupleParserFactory;
+import edu.uci.ics.asterix.runtime.operators.file.AsterixTupleParserFactory.InputDataFormat;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
@@ -70,7 +71,7 @@ public class NCFileSystemAdapterFactory extends StreamBasedAdapterFactory {
     public void configure(Map<String, String> configuration, ARecordType outputType) throws Exception {
         this.configuration = configuration;
         this.outputType = outputType;
-        String[] splits = ((String) configuration.get(KEY_PATH)).split(",");
+        String[] splits = ((String) configuration.get(AsterixTupleParserFactory.KEY_PATH)).split(",");
         IAType sourceDatatype = (IAType) outputType;
         configureFileSplits(splits);
         configureFormat(sourceDatatype);
@@ -122,7 +123,7 @@ public class NCFileSystemAdapterFactory extends StreamBasedAdapterFactory {
 
     private static INodeResolver initializeNodeResolver() {
         INodeResolver nodeResolver = null;
-        String configuredNodeResolverFactory = System.getProperty(NODE_RESOLVER_FACTORY_PROPERTY);
+        String configuredNodeResolverFactory = System.getProperty(AsterixTupleParserFactory.NODE_RESOLVER_FACTORY_PROPERTY);
         if (configuredNodeResolverFactory != null) {
             try {
                 nodeResolver = ((INodeResolverFactory) (Class.forName(configuredNodeResolverFactory).newInstance()))

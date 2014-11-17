@@ -22,25 +22,27 @@ import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
 import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
 import edu.uci.ics.asterix.external.adapter.factory.StreamBasedAdapterFactory;
 import edu.uci.ics.asterix.metadata.feeds.IFeedAdapterFactory;
-import edu.uci.ics.asterix.metadata.utils.AsterixTupleParserFactory.InputDataFormat;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.util.AsterixClusterProperties;
+import edu.uci.ics.asterix.runtime.operators.file.AsterixTupleParserFactory;
+import edu.uci.ics.asterix.runtime.operators.file.AsterixTupleParserFactory.InputDataFormat;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 
 /**
- * Factory class for creating @see{TwitterFirehoseFeedAdapter}.
- * The adapter simulates a twitter firehose with tweets being "pushed" into Asterix at a configurable rate
- * measured in terms of TPS (tweets/second). The stream of tweets lasts for a configurable duration (measured in seconds).
+ * Factory class for creating @see{TwitterFirehoseFeedAdapter}. The adapter
+ * simulates a twitter firehose with tweets being "pushed" into Asterix at a
+ * configurable rate measured in terms of TPS (tweets/second). The stream of
+ * tweets lasts for a configurable duration (measured in seconds).
  */
 public class TwitterFirehoseFeedAdapterFactory extends StreamBasedAdapterFactory implements IFeedAdapterFactory {
 
     private static final long serialVersionUID = 1L;
 
     /**
-     * Degree of parallelism for feed ingestion activity. Defaults to 1.
-     * This determines the count constraint for the ingestion operator.
+     * Degree of parallelism for feed ingestion activity. Defaults to 1. This
+     * determines the count constraint for the ingestion operator.
      **/
     private static final String KEY_INGESTION_CARDINALITY = "ingestion-cardinality";
 
@@ -63,7 +65,7 @@ public class TwitterFirehoseFeedAdapterFactory extends StreamBasedAdapterFactory
 
     @Override
     public void configure(Map<String, String> configuration, ARecordType outputType) throws Exception {
-        configuration.put(KEY_FORMAT, FORMAT_ADM);
+        configuration.put(AsterixTupleParserFactory.KEY_FORMAT, AsterixTupleParserFactory.FORMAT_ADM);
         this.configuration = configuration;
         this.outputType = outputType;
         this.configureFormat(outputType);
