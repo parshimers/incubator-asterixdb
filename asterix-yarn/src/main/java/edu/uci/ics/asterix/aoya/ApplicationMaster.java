@@ -199,7 +199,7 @@ public class ApplicationMaster {
         boolean result = false;
         try {
 
-            LOG.debug("config file loc: " + System.getProperty(GlobalConfig.CONFIG_FILE_PROPERTY));
+            LOG.info("config file loc: " + System.getProperty(GlobalConfig.CONFIG_FILE_PROPERTY));
             ApplicationMaster appMaster = new ApplicationMaster();
             LOG.info("Initializing ApplicationMaster");
             appMaster.setEnvs(appMaster.setArgs(args));
@@ -304,7 +304,7 @@ public class ApplicationMaster {
 
     public void setEnvs(CommandLine cliParser) {
         Map<String, String> envs = System.getenv();
-
+        System.out.println(envs);
         if (!envs.containsKey(Environment.CONTAINER_ID.name())) {
             if (cliParser.hasOption("app_attempt_id")) {
                 String appIdStr = cliParser.getOptionValue("app_attempt_id", "");

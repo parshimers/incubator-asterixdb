@@ -123,8 +123,8 @@ public class Client {
     private static final Log LOG = LogFactory.getLog(Client.class);
     public static final String CONF_DIR_REL = ".asterix" + File.separator;
     private static final String instanceLock = "instance";
-    private static final String DEFAULT_PARAMETERS_PATH = "conf" + File.separator + "base-asterix-configuration.xml";
-    private static final String MERGED_PARAMETERS_PATH = "conf" + File.separator + "asterix-configuration.xml";
+    private static String DEFAULT_PARAMETERS_PATH = "conf" + File.separator + "base-asterix-configuration.xml";
+    private static String MERGED_PARAMETERS_PATH = "conf" + File.separator + "asterix-configuration.xml";
     private Mode mode;
 
     // Configuration
@@ -201,116 +201,117 @@ public class Client {
         LOG.info("Command executed successfully.");
         System.exit(0);
     }
-    public static void execute(Client client) throws Exception{
-        switch (client.mode) {
-        case START:
-            YarnClientApplication app = client.makeApplicationContext();
-            List<DFSResourceCoordinate> res = client.deployConfig();
-            res.addAll(client.distributeBinaries());
-            ApplicationId appId = client.deployAM(app, res, client.mode);
-            LOG.info("Asterix started up with Application ID: " + appId.toString());
-            if (Utils.waitForLiveness(appId, "Waiting for AsterixDB instance to resume ",
-                    client.yarnClient, client.instanceName, client.conf)) {
-                System.out.println("Asterix successfully deployed and is now running.");
-            } else {
-                LOG.fatal("AsterixDB appears to have failed to install and start");
-                System.exit(1);
-            }
-            break;
-        case STOP:
-            try {
-                client.stopInstance();
-            } catch (ApplicationNotFoundException e) {
-                System.out.println("Asterix instance by that name already exited or was never started");
-                client.deleteLockFile();
-            }
-            break;
-        case KILL:
-            if (client.isRunning()) {
-                Utils.confirmAction("Are you sure you want to kill this instance? In-progress tasks will be aborted");
-            }
-            try {
-                Client.killApplication(client.getLockFile(), client.yarnClient);
-            } catch (ApplicationNotFoundException e) {
-                System.out.println("Asterix instance by that name already exited or was never started");
-                client.deleteLockFile();
-            }
-            break;
-        case DESCRIBE:
-            Utils.listInstances(client.conf, CONF_DIR_REL);
-            break;
-        case INSTALL:
-            try {
-                app = client.makeApplicationContext();
-                client.installConfig();
-                client.writeAsterixConfig(Utils.parseYarnClusterConfig(client.asterixConf));
-                client.installAsterixConfig(false);
-                res = client.deployConfig();
-                res.addAll(client.distributeBinaries());
 
-                appId = client.deployAM(app, res, client.mode);
+    public static void execute(Client client) throws Exception {
+        switch (client.mode) {
+            case START:
+                YarnClientApplication app = client.makeApplicationContext();
+                List<DFSResourceCoordinate> res = client.deployConfig();
+                res.addAll(client.distributeBinaries());
+                ApplicationId appId = client.deployAM(app, res, client.mode);
                 LOG.info("Asterix started up with Application ID: " + appId.toString());
-                if (Utils.waitForLiveness(appId, "Waiting for new AsterixDB Instance to start ",
-                        client.yarnClient, client.instanceName, client.conf)) {
+                if (Utils.waitForLiveness(appId, "Waiting for AsterixDB instance to resume ", client.yarnClient,
+                        client.instanceName, client.conf)) {
                     System.out.println("Asterix successfully deployed and is now running.");
                 } else {
                     LOG.fatal("AsterixDB appears to have failed to install and start");
                     System.exit(1);
                 }
-            } catch (YarnException | IOException e) {
-                LOG.error("Asterix failed to deploy on to cluster");
-                throw e;
-            }
-            break;
-        case LIBINSTALL:
-            client.installExtLibs();
-            break;
-        case ALTER:
-            client.writeAsterixConfig(Utils.parseYarnClusterConfig(client.asterixConf));
-            client.installAsterixConfig(true);
-            System.out.println("Configuration successfully modified");
-            break;
-        case DESTROY:
-            try {
-                if (Utils
-                        .confirmAction("Are you really sure you want to obliterate this instance? This action cannot be undone!")) {
+                break;
+            case STOP:
+                try {
+                    client.stopInstance();
+                } catch (ApplicationNotFoundException e) {
+                    System.out.println("Asterix instance by that name already exited or was never started");
+                    client.deleteLockFile();
+                }
+                break;
+            case KILL:
+                if (client.isRunning()) {
+                    Utils.confirmAction("Are you sure you want to kill this instance? In-progress tasks will be aborted");
+                }
+                try {
+                    Client.killApplication(client.getLockFile(), client.yarnClient);
+                } catch (ApplicationNotFoundException e) {
+                    System.out.println("Asterix instance by that name already exited or was never started");
+                    client.deleteLockFile();
+                }
+                break;
+            case DESCRIBE:
+                Utils.listInstances(client.conf, CONF_DIR_REL);
+                break;
+            case INSTALL:
+                try {
+                    app = client.makeApplicationContext();
+                    client.installConfig();
+                    client.writeAsterixConfig(Utils.parseYarnClusterConfig(client.asterixConf));
+                    client.installAsterixConfig(false);
+                    res = client.deployConfig();
+                    res.addAll(client.distributeBinaries());
+
+                    appId = client.deployAM(app, res, client.mode);
+                    LOG.info("Asterix started up with Application ID: " + appId.toString());
+                    if (Utils.waitForLiveness(appId, "Waiting for new AsterixDB Instance to start ", client.yarnClient,
+                            client.instanceName, client.conf)) {
+                        System.out.println("Asterix successfully deployed and is now running.");
+                    } else {
+                        LOG.fatal("AsterixDB appears to have failed to install and start");
+                        System.exit(1);
+                    }
+                } catch (YarnException | IOException e) {
+                    LOG.error("Asterix failed to deploy on to cluster");
+                    throw e;
+                }
+                break;
+            case LIBINSTALL:
+                client.installExtLibs();
+                break;
+            case ALTER:
+                client.writeAsterixConfig(Utils.parseYarnClusterConfig(client.asterixConf));
+                client.installAsterixConfig(true);
+                System.out.println("Configuration successfully modified");
+                break;
+            case DESTROY:
+                try {
+                    if (Utils
+                            .confirmAction("Are you really sure you want to obliterate this instance? This action cannot be undone!")) {
+                        app = client.makeApplicationContext();
+                        res = client.deployConfig();
+                        res.addAll(client.distributeBinaries());
+                        client.removeInstance(app, res);
+                    }
+                } catch (YarnException | IOException e) {
+                    LOG.error("Asterix failed to deploy on to cluster");
+                    throw e;
+                }
+                break;
+            case BACKUP:
+                if (Utils.confirmAction("Performing a backup will stop a running instance.")) {
                     app = client.makeApplicationContext();
                     res = client.deployConfig();
                     res.addAll(client.distributeBinaries());
-                    client.removeInstance(app, res);
+                    client.backupInstance(app, res);
                 }
-            } catch (YarnException | IOException e) {
-                LOG.error("Asterix failed to deploy on to cluster");
-                throw e;
-            }
-            break;
-        case BACKUP:
-            if (Utils.confirmAction("Performing a backup will stop a running instance.")) {
-                app = client.makeApplicationContext();
-                res = client.deployConfig();
-                res.addAll(client.distributeBinaries());
-                client.backupInstance(app, res);
-            }
-            break;
-        case LSBACKUP:
-            Utils.listBackups(client.conf, CONF_DIR_REL, client.instanceName);
-            break;
-        case RMBACKUP:
-            Utils.rmBackup(client.conf, CONF_DIR_REL, client.instanceName, Long.parseLong(client.snapName));
-            break;
-        case RESTORE:
-            if (Utils.confirmAction("Performing a restore will stop a running instance.")) {
-                app = client.makeApplicationContext();
-                res = client.deployConfig();
-                res.addAll(client.distributeBinaries());
-                client.restoreInstance(app, res);
-            }
-            break;
-        default:
-            LOG.fatal("Unknown action. Known actions are: start, stop, install, status, kill");
-            client.printUsage();
-            System.exit(-1);
-       }
+                break;
+            case LSBACKUP:
+                Utils.listBackups(client.conf, CONF_DIR_REL, client.instanceName);
+                break;
+            case RMBACKUP:
+                Utils.rmBackup(client.conf, CONF_DIR_REL, client.instanceName, Long.parseLong(client.snapName));
+                break;
+            case RESTORE:
+                if (Utils.confirmAction("Performing a restore will stop a running instance.")) {
+                    app = client.makeApplicationContext();
+                    res = client.deployConfig();
+                    res.addAll(client.distributeBinaries());
+                    client.restoreInstance(app, res);
+                }
+                break;
+            default:
+                LOG.fatal("Unknown action. Known actions are: start, stop, install, status, kill");
+                client.printUsage();
+                System.exit(-1);
+        }
     }
 
     public Client(Configuration conf) throws Exception {
@@ -336,7 +337,8 @@ public class Client {
         opts.addOption(new Option("log_properties", true, "log4j.properties file"));
         opts.addOption(new Option("n", "name", true, "Asterix instance name (required)"));
         opts.addOption(new Option("tar", "asterixTar", true, "tarball with Asterix inside- if in non-default location"));
-        opts.addOption(new Option("bc", "baseConfig", true, "base Asterix parameters configuration file if not in default position"));
+        opts.addOption(new Option("bc", "baseConfig", true,
+                "base Asterix parameters configuration file if not in default position"));
         opts.addOption(new Option("c", "asterixConf", true, "Asterix cluster config (required on install)"));
         opts.addOption(new Option("l", "externalLibs", true, "Libraries to deploy along with Asterix instance"));
         opts.addOption(new Option("ld", "libDataverse", true, "Dataverse to deploy external libraries to"));
@@ -407,27 +409,28 @@ public class Client {
 
         appName = appName + ": " + instanceName;
         File defaultTar = null;
-        if (!cliParser.hasOption("asterixTar") && (mode == Mode.INSTALL || mode == Mode.ALTER || mode == Mode.DESTROY || mode == Mode.BACKUP) ) {
-                File tarDir = new File("./asterix");
-                if (!tarDir.exists()) {
-                    throw new IllegalArgumentException(
-                            "Default directory structure not in use- please specify an asterix zip and base config file to distribute");
-                }
-                FileFilter tarFilter = new WildcardFileFilter("asterix-server*.zip");
-                File[] tarFiles = tarDir.listFiles(tarFilter);
-                if (tarFiles.length != 1) {
-                    throw new IllegalArgumentException(
-                            "There is more than one canonically named asterix distributable in the default directory. Please leave only one there.");
-                }
-                defaultTar = tarFiles[0];
-                System.out.println(defaultTar.getAbsolutePath());
+        if (!cliParser.hasOption("asterixTar")
+                && (mode == Mode.INSTALL || mode == Mode.ALTER || mode == Mode.DESTROY || mode == Mode.BACKUP)) {
+            File tarDir = new File("./asterix");
+            if (!tarDir.exists()) {
+                throw new IllegalArgumentException(
+                        "Default directory structure not in use- please specify an asterix zip and base config file to distribute");
+            }
+            FileFilter tarFilter = new WildcardFileFilter("asterix-server*.zip");
+            File[] tarFiles = tarDir.listFiles(tarFilter);
+            if (tarFiles.length != 1) {
+                throw new IllegalArgumentException(
+                        "There is more than one canonically named asterix distributable in the default directory. Please leave only one there.");
+            }
+            defaultTar = tarFiles[0];
+            System.out.println(defaultTar.getAbsolutePath());
         }
         if (defaultTar != null) {
             asterixTar = cliParser.getOptionValue("asterixTar", defaultTar.getAbsolutePath());
         } else {
             asterixTar = cliParser.getOptionValue("asterixTar");
         }
-        if(cliParser.hasOption("baseConfig")){
+        if (cliParser.hasOption("baseConfig")) {
             baseConfig = cliParser.getOptionValue("baseConfig");
         }
 
@@ -616,14 +619,17 @@ public class Client {
         String[] cp = System.getProperty("java.class.path").split(System.getProperty("path.separator"));
         String asterixJarPattern = "^(asterix).*(jar)$"; //starts with asterix,ends with jar
         String commonsJarPattern = "^(commons).*(jar)$";
+        String surefireJarPattern = "^(surefire).*(jar)$"; //for tests
 
         LOG.info(File.separator);
         for (String j : cp) {
+            System.out.println("Classpath entry: " + j);
             String[] pathComponents = j.split(File.separator);
             LOG.info(j);
             LOG.info(pathComponents[pathComponents.length - 1]);
             if (pathComponents[pathComponents.length - 1].matches(asterixJarPattern)
-                    || pathComponents[pathComponents.length - 1].matches(commonsJarPattern)) {
+                    || pathComponents[pathComponents.length - 1].matches(commonsJarPattern)
+                    || pathComponents[pathComponents.length - 1].matches(surefireJarPattern)) {
                 LOG.info("Loading JAR: " + j);
                 File f = new File(j);
                 Path dst = new Path(fs.getHomeDirectory(), fullLibPath + f.getName());
@@ -640,7 +646,9 @@ public class Client {
                 DFSResourceCoordinate amLibCoord = new DFSResourceCoordinate();
                 amLibCoord.res = amLib;
                 amLibCoord.name = f.getName();
-                if (f.getName().contains("asterix-yarn")) {
+                System.out.println("Name satisifes match: "
+                        + (f.getName().contains("asterix-yarn") || f.getName().contains("surefire")));
+                if (f.getName().contains("asterix-yarn") || f.getName().contains("surefire")) {
                     amLibCoord.envs.put(dst.toUri().toString(), MConstants.APPLICATIONMASTERJARLOCATION);
                     amLibCoord.envs.put(Long.toString(dstSt.getLen()), MConstants.APPLICATIONMASTERJARLEN);
                     amLibCoord.envs.put(Long.toString(dstSt.getModificationTime()),
@@ -648,6 +656,9 @@ public class Client {
                 }
                 resources.add(amLibCoord);
             }
+        }
+        if (resources.size() == 0) {
+            throw new IOException("Required JARs are missing. Please check your directory structure");
         }
         return resources;
     }
@@ -1117,11 +1128,15 @@ public class Client {
 
         //this is the "base" config that is inside the tarball, we start here
         AsterixConfiguration configuration;
-        if(baseConfig != "."){
-         configuration = loadAsterixConfig(baseConfig);
-        }else{
-         configuration = loadAsterixConfig(DEFAULT_PARAMETERS_PATH);
+        String configPathBase = MERGED_PARAMETERS_PATH;
+        if (baseConfig != ".") {
+            configuration = loadAsterixConfig(baseConfig);
+            configPathBase = new File(baseConfig).getParentFile().getAbsolutePath() + "asterix-configuration.xml";
+            MERGED_PARAMETERS_PATH = configPathBase;
+        } else {
+            configuration = loadAsterixConfig(DEFAULT_PARAMETERS_PATH);
         }
+
         String version = Utils.getAsterixVersionFromClasspath();
         configuration.setVersion(version);
 
@@ -1152,8 +1167,7 @@ public class Client {
         JAXBContext ctx = JAXBContext.newInstance(AsterixConfiguration.class);
         Marshaller marshaller = ctx.createMarshaller();
         marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
-        String cwd = new File(".").getAbsolutePath() + "/";
-        FileOutputStream os = new FileOutputStream(cwd + MERGED_PARAMETERS_PATH);
+        FileOutputStream os = new FileOutputStream(MERGED_PARAMETERS_PATH);
         marshaller.marshal(configuration, os);
         os.close();
     }

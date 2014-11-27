@@ -41,6 +41,7 @@ import edu.uci.ics.asterix.event.model.AsterixInstance.State;
 import edu.uci.ics.asterix.event.model.AsterixRuntimeState;
 import edu.uci.ics.asterix.event.service.ServiceProvider;
 import edu.uci.ics.asterix.test.aql.TestsUtils;
+import edu.uci.ics.asterix.aoya.test.YARNCluster;
 import edu.uci.ics.asterix.testframework.context.TestCaseContext;
 
 public class AsterixYARNLifecycleIT {
@@ -57,7 +58,6 @@ public class AsterixYARNLifecycleIT {
     private static String configPath;
     private static String aoyaServerPath;
     private static String parameterPath;
-=======
     private static Client aoyaClient;
 
     @BeforeClass
@@ -91,12 +91,8 @@ public class AsterixYARNLifecycleIT {
         aoyaServerPath = asterixServerInstallerDir.getAbsolutePath() + File.separator + zipsInFolder[0];
         configPath = aoyaHome + File.separator + "configs" + File.separator + "local.xml";
         parameterPath = aoyaHome + File.separator + "conf" + File.separator + "base-asterix-configuration.xml";
-
-        Configuration conf = new YarnConfiguration();
-        conf.setInt(YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB, 64);
-        conf.setClass(YarnConfiguration.RM_SCHEDULER, FifoScheduler.class, ResourceScheduler.class);
-        miniCluster = new MiniYARNCluster("Asterix - testing", NUM_NC, 1, 1);
-        miniCluster.init(conf);
+        YARNCluster.getInstance().setup();
+        miniCluster = YARNCluster.getInstance().getCluster();
         miniCluster.start();
 
         //once the cluster is created, you can get its configuration
@@ -112,7 +108,7 @@ public class AsterixYARNLifecycleIT {
         //testCaseCollection = b.build(new File(PATH_BASE));
         aoyaClient = new Client(appConf);
         TestCaseContext.Builder b = new TestCaseContext.Builder();
-        testCaseCollection = b.build(new File(PATH_BASE));
+        //List<TestCaseContext> testCaseCollection = b.build(new File(PATH_BASE));
         File outdir = new File(PATH_ACTUAL);
         outdir.mkdirs();
     }
@@ -166,14 +162,6 @@ public class AsterixYARNLifecycleIT {
         Client.execute(aoyaClient);
     }
 
-    /*
-    @Test
-    public void test() throws Exception {
-        for (TestCaseContext testCaseCtx : testCaseCollection) {
-            TestsUtils.executeTest(PATH_ACTUAL, testCaseCtx, null, false);
-        }
-    } 
-    */
     public static void main(String[] args) throws Exception {
         try {
             setUp();
