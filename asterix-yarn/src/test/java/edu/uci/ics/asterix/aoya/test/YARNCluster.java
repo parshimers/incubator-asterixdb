@@ -45,7 +45,7 @@ public class YARNCluster {
     private static final String HDFS_PATH = "/asterix";
     private static final YARNCluster INSTANCE = new YARNCluster();
 
-    private MiniLocalYARNCluster miniCluster;
+    private MiniYARNCluster miniCluster;
     private int numDataNodes = 2;
     private Configuration conf = new YarnConfiguration();
     private FileSystem dfs;
@@ -73,12 +73,12 @@ public class YARNCluster {
         cleanupLocal();
         //this constructor is deprecated in hadoop 2x 
         //dfsCluster = new MiniDFSCluster(nameNodePort, conf, numDataNodes, true, true, StartupOption.REGULAR, null);
-        miniCluster = new MiniLocalYARNCluster("Asterix_testing", numDataNodes, 1, 1);
+        miniCluster = new MiniYARNCluster("Asterix_testing", numDataNodes, 1, 1);
         miniCluster.init(conf);
         dfs = FileSystem.get(conf);
     }
     
-    public MiniLocalYARNCluster getCluster(){
+    public MiniYARNCluster getCluster(){
         return miniCluster;
     }
 
