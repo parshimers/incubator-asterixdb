@@ -177,6 +177,7 @@
         <module>asterix-events</module>
         <module>asterix-doc</module>
         <module>asterix-fuzzyjoin</module>
+        <module>asterix-yarn</module>
     </modules>
 
     <repositories>
