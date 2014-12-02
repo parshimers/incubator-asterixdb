@@ -8,7 +8,7 @@ import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 
 public interface IFeedClientFactory {
 
-    public IPullBasedFeedClient createFeedClient(IHyracksTaskContext ctx, Map<String, String> configuration)
+    public IFeedClient createFeedClient(IHyracksTaskContext ctx, Map<String, String> configuration)
             throws Exception;
 
     public ARecordType getRecordType() throws AsterixException;

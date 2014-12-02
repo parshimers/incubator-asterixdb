@@ -70,7 +70,7 @@ public class IntroduceRandomPartitioningFeedComputationRule implements IAlgebrai
 
             @Override
             public Integer cardinality() {
-                return feedDataSource.getComputeCardinality();
+                return 1;//feedDataSource.getComputeCardinality();
             }
         };
 

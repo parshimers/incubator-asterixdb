@@ -16,6 +16,8 @@ package edu.uci.ics.asterix.aql.expression;
 
 import java.io.StringReader;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.aql.base.Statement;
 import edu.uci.ics.asterix.aql.expression.visitor.IAqlExpressionVisitor;
@@ -24,9 +26,9 @@ import edu.uci.ics.asterix.aql.parser.AQLParser;
 import edu.uci.ics.asterix.aql.parser.ParseException;
 import edu.uci.ics.asterix.aql.util.FunctionUtils;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
+import edu.uci.ics.asterix.common.feeds.FeedConnectionRequest;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
-import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
 import edu.uci.ics.asterix.common.functions.FunctionSignature;
 import edu.uci.ics.asterix.metadata.MetadataException;
 import edu.uci.ics.asterix.metadata.MetadataManager;
@@ -49,24 +51,25 @@ import edu.uci.ics.hyracks.algebricks.common.utils.Triple;
  */
 public class SubscribeFeedStatement implements Statement {
 
-    private final FeedSubscriptionRequest subscriptionRequest;
+    private static final Logger LOGGER = Logger.getLogger(SubscribeFeedStatement.class.getName());
+    private final FeedConnectionRequest connectionRequest;
     private Query query;
     private int varCounter;
     private final String[] locations;
 
     public static final String WAIT_FOR_COMPLETION = "wait-for-completion-feed";
 
-    public SubscribeFeedStatement(String[] locations, FeedSubscriptionRequest subscriptionRequest) {
-        this.subscriptionRequest = subscriptionRequest;
+    public SubscribeFeedStatement(String[] locations, FeedConnectionRequest subscriptionRequest) {
+        this.connectionRequest = subscriptionRequest;
         this.varCounter = 0;
         this.locations = locations;
     }
 
     public void initialize(MetadataTransactionContext mdTxnCtx) throws MetadataException {
         this.query = new Query();
-        FeedId sourceFeedId = subscriptionRequest.getFeedJointKey().getFeedId();
-        Feed subscriberFeed = MetadataManager.INSTANCE.getFeed(mdTxnCtx, subscriptionRequest.getSubscribingFeedId()
-                .getDataverse(), subscriptionRequest.getSubscribingFeedId().getFeedName());
+        FeedId sourceFeedId = connectionRequest.getFeedJointKey().getFeedId();
+        Feed subscriberFeed = MetadataManager.INSTANCE.getFeed(mdTxnCtx, connectionRequest.getReceivingFeedId()
+                .getDataverse(), connectionRequest.getReceivingFeedId().getFeedName());
         if (subscriberFeed == null) {
             throw new IllegalStateException(" Subscriber feed " + subscriberFeed + " not found.");
         }
@@ -88,16 +91,15 @@ public class SubscribeFeedStatement implements Statement {
         builder.append("use dataverse " + sourceFeedId.getDataverse() + ";\n");
         builder.append("set" + " " + FunctionUtils.IMPORT_PRIVATE_FUNCTIONS + " " + "'" + Boolean.TRUE + "'" + ";\n");
         builder.append("set" + " " + FeedActivity.FeedActivityDetails.FEED_POLICY_NAME + " " + "'"
-                + subscriptionRequest.getPolicy() + "'" + ";\n");
+                + connectionRequest.getPolicy() + "'" + ";\n");
 
-        builder.append("insert into dataset " + subscriptionRequest.getTargetDataset() + " ");
+        builder.append("insert into dataset " + connectionRequest.getTargetDataset() + " ");
         builder.append(" (" + " for $x in feed-collect ('" + sourceFeedId.getDataverse() + "'" + "," + "'"
-                + sourceFeedId.getFeedName() + "'" + "," + "'"
-                + subscriptionRequest.getSubscribingFeedId().getFeedName() + "'" + "," + "'"
-                + subscriptionRequest.getSubscriptionLocation().name() + "'" + "," + "'"
-                + subscriptionRequest.getTargetDataset() + "'" + "," + "'" + feedOutputType + "'" + ")");
+                + sourceFeedId.getFeedName() + "'" + "," + "'" + connectionRequest.getReceivingFeedId().getFeedName()
+                + "'" + "," + "'" + connectionRequest.getSubscriptionLocation().name() + "'" + "," + "'"
+                + connectionRequest.getTargetDataset() + "'" + "," + "'" + feedOutputType + "'" + ")");
 
-        List<String> functionsToApply = subscriptionRequest.getFunctionsToApply();
+        List<String> functionsToApply = connectionRequest.getFunctionsToApply();
         if (functionsToApply != null && functionsToApply.isEmpty()) {
             builder.append(" return $x");
         } else {
@@ -125,6 +127,9 @@ public class SubscribeFeedStatement implements Statement {
         }
         builder.append(")");
         builder.append(";");
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Connect feed statement translated to\n" + builder.toString());
+        }
         AQLParser parser = new AQLParser(new StringReader(builder.toString()));
 
         List<Statement> statements;
@@ -151,11 +156,11 @@ public class SubscribeFeedStatement implements Statement {
     }
 
     public String getPolicy() {
-        return subscriptionRequest.getPolicy();
+        return connectionRequest.getPolicy();
     }
 
-    public FeedSubscriptionRequest getSubscriptionRequest() {
-        return subscriptionRequest;
+    public FeedConnectionRequest getSubscriptionRequest() {
+        return connectionRequest;
     }
 
     @Override
@@ -168,14 +173,14 @@ public class SubscribeFeedStatement implements Statement {
     }
 
     public String getDataverseName() {
-        return subscriptionRequest.getSubscribingFeedId().getDataverse();
+        return connectionRequest.getReceivingFeedId().getDataverse();
     }
 
     private String getOutputType(MetadataTransactionContext mdTxnCtx) throws MetadataException {
         String outputType = null;
-        FeedId feedId = subscriptionRequest.getSubscribingFeedId();
+        FeedId feedId = connectionRequest.getReceivingFeedId();
         Feed feed = MetadataManager.INSTANCE.getFeed(mdTxnCtx, feedId.getDataverse(), feedId.getFeedName());
-        FeedPolicyAccessor policyAccessor = new FeedPolicyAccessor(subscriptionRequest.getPolicyParameters());
+        FeedPolicyAccessor policyAccessor = new FeedPolicyAccessor(connectionRequest.getPolicyParameters());
         try {
             switch (feed.getFeedType()) {
                 case PRIMARY:

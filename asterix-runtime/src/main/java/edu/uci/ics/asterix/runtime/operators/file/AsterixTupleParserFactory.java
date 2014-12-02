@@ -6,9 +6,8 @@ import java.util.Map;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
-import edu.uci.ics.asterix.common.parse.IAsterixTupleParserFactory;
-import edu.uci.ics.asterix.common.parse.ITupleParserPolicy;
-import edu.uci.ics.asterix.common.parse.ITupleParserPolicy.TupleParserPolicyType;
+import edu.uci.ics.asterix.common.parse.ITupleForwardPolicy;
+import edu.uci.ics.asterix.common.parse.ITupleForwardPolicy.TupleForwardPolicyType;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.AUnionType;
@@ -25,7 +24,7 @@ import edu.uci.ics.hyracks.dataflow.common.data.parsers.UTF8StringParserFactory;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParser;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 
-public class AsterixTupleParserFactory implements IAsterixTupleParserFactory {
+public class AsterixTupleParserFactory implements ITupleParserFactory {
 
     private static final long serialVersionUID = 1L;
 
@@ -40,7 +39,6 @@ public class AsterixTupleParserFactory implements IAsterixTupleParserFactory {
     public static final String FORMAT_DELIMITED_TEXT = "delimited-text";
     public static final String KEY_PATH = "path";
     public static final String KEY_SOURCE_DATATYPE = "type-name";
-    public static final String PARSER_POLICY = "parser-policy";
     public static final String KEY_DELIMITER = "delimiter";
     public static final String KEY_PARSER_FACTORY = "parser";
     public static final String TIME_TRACKING = "time.tracking";
@@ -62,7 +60,6 @@ public class AsterixTupleParserFactory implements IAsterixTupleParserFactory {
     private final ARecordType recordType;
     private final Map<String, String> configuration;
     private final InputDataFormat inputDataFormat;
-    private int partition;
 
     public AsterixTupleParserFactory(Map<String, String> configuration, ARecordType recType, InputDataFormat dataFormat) {
         this.recordType = recType;
@@ -82,7 +79,7 @@ public class AsterixTupleParserFactory implements IAsterixTupleParserFactory {
             } else {
                 IDataParser dataParser = null;
                 dataParser = createDataParser(ctx);
-                ITupleParserPolicy policy = getTupleParserPolicy();
+                ITupleForwardPolicy policy = getTupleParserPolicy(configuration);
                 policy.configure(configuration);
                 tupleParser = new GenericTupleParser(ctx, recordType, dataParser, policy);
             }
@@ -96,10 +93,10 @@ public class AsterixTupleParserFactory implements IAsterixTupleParserFactory {
 
         private final IDataParser dataParser;
 
-        private final ITupleParserPolicy policy;
+        private final ITupleForwardPolicy policy;
 
         public GenericTupleParser(IHyracksTaskContext ctx, ARecordType recType, IDataParser dataParser,
-                ITupleParserPolicy policy) throws HyracksDataException {
+                ITupleForwardPolicy policy) throws HyracksDataException {
             super(ctx, recType);
             this.dataParser = dataParser;
             this.policy = policy;
@@ -111,7 +108,7 @@ public class AsterixTupleParserFactory implements IAsterixTupleParserFactory {
         }
 
         @Override
-        public ITupleParserPolicy getTupleParserPolicy() {
+        public ITupleForwardPolicy getTupleParserPolicy() {
             return policy;
         }
 
@@ -144,24 +141,24 @@ public class AsterixTupleParserFactory implements IAsterixTupleParserFactory {
         return dataParser;
     }
 
-    private ITupleParserPolicy getTupleParserPolicy() {
-        ITupleParserPolicy policy = null;
-        ITupleParserPolicy.TupleParserPolicyType policyType = null;
-        String propValue = configuration.get(PARSER_POLICY);
+    public static ITupleForwardPolicy getTupleParserPolicy(Map<String, String> configuration) {
+        ITupleForwardPolicy policy = null;
+        ITupleForwardPolicy.TupleForwardPolicyType policyType = null;
+        String propValue = configuration.get(ITupleForwardPolicy.PARSER_POLICY);
         if (propValue == null) {
-            policyType = TupleParserPolicyType.FRAME_FULL;
+            policyType = TupleForwardPolicyType.FRAME_FULL;
         } else {
-            policyType = TupleParserPolicyType.valueOf(propValue.trim().toUpperCase());
+            policyType = TupleForwardPolicyType.valueOf(propValue.trim().toUpperCase());
         }
         switch (policyType) {
             case FRAME_FULL:
-                policy = new FrameFullTupleParserPolicy();
+                policy = new FrameFullTupleForwardPolicy();
                 break;
             case COUNTER_TIMER_EXPIRED:
-                policy = new CounterTimerTupleParserPolicy();
+                policy = new CounterTimerTupleForwardPolicy();
                 break;
             case RATE_CONTROLLED:
-                policy = new RateControlledTupleParserPolicy();
+                policy = new RateControlledTupleForwardPolicy();
                 break;
         }
         return policy;
@@ -206,11 +203,6 @@ public class AsterixTupleParserFactory implements IAsterixTupleParserFactory {
             fieldParserFactories[i] = vpf;
         }
         return fieldParserFactories;
-    }
-
-    @Override
-    public void initialize(int partition) {
-        this.partition = partition;
     }
 
 }

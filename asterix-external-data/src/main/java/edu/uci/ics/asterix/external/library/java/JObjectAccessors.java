@@ -2,6 +2,7 @@ package edu.uci.ics.asterix.external.library.java;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -49,6 +50,7 @@ import edu.uci.ics.asterix.external.library.java.JObjects.JRectangle;
 import edu.uci.ics.asterix.external.library.java.JObjects.JString;
 import edu.uci.ics.asterix.external.library.java.JObjects.JTime;
 import edu.uci.ics.asterix.external.library.java.JObjects.JUnorderedList;
+import edu.uci.ics.asterix.external.util.TweetProcessor;
 import edu.uci.ics.asterix.om.base.ACircle;
 import edu.uci.ics.asterix.om.base.ADuration;
 import edu.uci.ics.asterix.om.base.ALine;
@@ -214,10 +216,21 @@ public class JObjectAccessors {
             byte[] b = pointable.getByteArray();
             int s = pointable.getStartOffset();
             int l = pointable.getLength();
+
+            String v = null;
+            try {
+                v = new String(b, s, l, "UTF-8");
+            } catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
+                throw new HyracksDataException(e);
+            }
+            TweetProcessor.getNormalizedString(v);
+            /*
             String v = AStringSerializerDeserializer.INSTANCE.deserialize(
-                    new DataInputStream(new ByteArrayInputStream(b, s + 1, l - 1))).getStringValue();
+                    new DataInputStream(new ByteArrayInputStream(b, s+1, l-1))).getStringValue();
+            */
             IJObject jObject = objectPool.allocate(BuiltinType.ASTRING);
-            ((JString) jObject).setValue(v);
+            ((JString) jObject).setValue(TweetProcessor.getNormalizedString(v));
             return jObject;
         }
     }

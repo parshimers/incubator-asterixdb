@@ -95,6 +95,7 @@ import edu.uci.ics.asterix.transaction.management.opcallbacks.SecondaryIndexModi
 import edu.uci.ics.asterix.transaction.management.opcallbacks.SecondaryIndexOperationTrackerProvider;
 import edu.uci.ics.asterix.transaction.management.opcallbacks.SecondaryIndexSearchOperationCallbackFactory;
 import edu.uci.ics.asterix.transaction.management.service.transaction.AsterixRuntimeComponentsProvider;
+import edu.uci.ics.asterix.transaction.management.service.transaction.JobIdFactory;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
@@ -437,7 +438,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             switch (feedDataSource.getSourceFeedType()) {
                 case PRIMARY:
                     switch (feedDataSource.getLocation()) {
-                        case SOURCE_FEED_COMPUTE:
+                        case SOURCE_FEED_COMPUTE_STAGE:
                             if (feedDataSource.getFeed().getFeedId().equals(feedDataSource.getSourceFeedId())) {
                                 locationArray = feedDataSource.getLocations();
                             } else {
@@ -449,7 +450,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                                 locationArray = locations.split(",");
                             }
                             break;
-                        case SOURCE_FEED_INTAKE:
+                        case SOURCE_FEED_INTAKE_STAGE:
                             locationArray = feedDataSource.getLocations();
                             break;
                     }
@@ -458,11 +459,11 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                     List<FeedActivity> feedActivities = MetadataManager.INSTANCE.getFeedActivity(mdTxnCtx,
                             feedDataSource.getSourceFeedId());
                     switch (feedDataSource.getLocation()) {
-                        case SOURCE_FEED_INTAKE:
+                        case SOURCE_FEED_INTAKE_STAGE:
                             locations = feedActivities.get(0).getFeedActivityDetails()
                                     .get(FeedActivityDetails.COLLECT_LOCATIONS);
                             break;
-                        case SOURCE_FEED_COMPUTE:
+                        case SOURCE_FEED_COMPUTE_STAGE:
                             locations = feedActivities.get(0).getFeedActivityDetails()
                                     .get(FeedActivityDetails.COMPUTE_LOCATIONS);
                             break;
@@ -568,7 +569,13 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             if (isSecondary) {
                 searchCallbackFactory = new SecondaryIndexSearchOperationCallbackFactory();
             } else {
-                JobId jobId = ((JobEventListenerFactory) jobSpec.getJobletEventListenerFactory()).getJobId();
+                JobId jobId = null;
+                if (jobSpec.getJobletEventListenerFactory() == null) {
+                    jobId = JobIdFactory.generateJobId();
+                    JobEventListenerFactory factory = new JobEventListenerFactory(jobId, false);
+                } else {
+                    jobId = ((JobEventListenerFactory) jobSpec.getJobletEventListenerFactory()).getJobId();
+                }
                 int datasetId = dataset.getDatasetId();
                 int[] primaryKeyFields = new int[numPrimaryKeys];
                 for (int i = 0; i < numPrimaryKeys; i++) {

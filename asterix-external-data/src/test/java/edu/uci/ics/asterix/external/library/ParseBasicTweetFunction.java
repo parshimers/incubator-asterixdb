@@ -16,16 +16,12 @@ package edu.uci.ics.asterix.external.library;
 
 import edu.uci.ics.asterix.external.library.java.JObjects.JRecord;
 import edu.uci.ics.asterix.external.library.java.JObjects.JString;
-import edu.uci.ics.asterix.external.library.java.JObjects.JUnorderedList;
-import edu.uci.ics.asterix.external.library.java.JTypeTag;
 
-public class ParseRichTweetFunction implements IExternalScalarFunction {
+public class ParseBasicTweetFunction implements IExternalScalarFunction {
 
-    private JUnorderedList list = null;
 
     @Override
     public void initialize(IFunctionHelper functionHelper) {
-        list = new JUnorderedList(functionHelper.getObject(JTypeTag.STRING));
     }
 
     @Override
@@ -34,19 +30,9 @@ public class ParseRichTweetFunction implements IExternalScalarFunction {
 
     @Override
     public void evaluate(IFunctionHelper functionHelper) throws Exception {
-        list.clear();
         JRecord inputRecord = (JRecord) functionHelper.getArgument(0);
         JString text = (JString) inputRecord.getValueByName("message-text");
-
-        String[] tokens = text.getValue().split(" ");
-        for (String tk : tokens) {
-            if (tk.startsWith("#")) {
-                JString newField = (JString) functionHelper.getObject(JTypeTag.STRING);
-                newField.setValue(tk);
-                list.add(newField);
-            }
-        }
-        inputRecord.addField("topics", list);
+        text.setValue(text.getValue().toUpperCase());
         functionHelper.setResult(inputRecord);
     }
 

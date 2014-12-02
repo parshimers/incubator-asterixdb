@@ -8,11 +8,11 @@ import java.util.logging.Level;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.api.IFeedAdapter;
-import edu.uci.ics.asterix.common.parse.IAsterixTupleParserFactory;
 import edu.uci.ics.asterix.external.dataset.adapter.StreamBasedAdapter;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
+import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 
 public class GenericSocketFeedAdapter extends StreamBasedAdapter implements IFeedAdapter {
 
@@ -21,7 +21,7 @@ public class GenericSocketFeedAdapter extends StreamBasedAdapter implements IFee
     private final int port;
     private SocketFeedServer socketFeedServer;
 
-    public GenericSocketFeedAdapter(IAsterixTupleParserFactory parserFactory, ARecordType outputType, int port,
+    public GenericSocketFeedAdapter(ITupleParserFactory parserFactory, ARecordType outputType, int port,
             IHyracksTaskContext ctx, int partition) throws AsterixException, IOException {
         super(parserFactory, outputType, ctx, partition);
         this.port = port;

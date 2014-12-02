@@ -55,8 +55,14 @@ public class FeedExceptionHandler implements IExceptionHandler {
                 int tupleIndex = fde.getTupleIndex();
 
                 // logging 
-                logExceptionCausingTuple(tupleIndex, e);
-
+                try {
+                    logExceptionCausingTuple(tupleIndex, e);
+                } catch (Exception ex) {
+                    ex.addSuppressed(e);
+                    if (LOGGER.isLoggable(Level.WARNING)) {
+                        LOGGER.warning("Unable to log exception causing tuple due to..." + ex.getMessage());
+                    }
+                }
                 // slicing
                 return FeedFrameUtil.getSlicedFrame(frameSize, tupleIndex, fta);
             } else {
@@ -67,7 +73,6 @@ public class FeedExceptionHandler implements IExceptionHandler {
             if (LOGGER.isLoggable(Level.WARNING)) {
                 LOGGER.warning("Unable to handle exception " + exception.getMessage());
             }
-            exception.addSuppressed(e);
             return null;
         }
     }

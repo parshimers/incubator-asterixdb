@@ -133,7 +133,7 @@ public abstract class MonitoredBuffer extends MessageReceiver<DataBucket> {
     protected void initializeMonitoring() {
         monitorProcessingRate = monitorProcessingRate();
         monitorInputQueueLength = monitorInputQueueLength();
-        logInflowOutflowRate = logInflowOutflowRate();
+        logInflowOutflowRate = policyAccessor.isLoggingStatisticsEnabled() && logInflowOutflowRate();
 
         if (monitorProcessingRate && policyAccessor.isElastic()) { // check posibilty to scale in
             this.processingRateTask = new MonitoreProcessRateTimerTask(this, inputHandler.getFeedManager(),

@@ -44,9 +44,9 @@ import edu.uci.ics.asterix.om.types.BuiltinType;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.data.std.util.ArrayBackedValueStorage;
 
-public abstract class PullBasedFeedClient implements IPullBasedFeedClient {
+public abstract class FeedClient implements IFeedClient {
 
-    protected static final Logger LOGGER = Logger.getLogger(PullBasedFeedClient.class.getName());
+    protected static final Logger LOGGER = Logger.getLogger(FeedClient.class.getName());
 
     protected ARecordSerializerDeserializer recordSerDe;
     protected AMutableRecord mutableRecord;
@@ -69,7 +69,7 @@ public abstract class PullBasedFeedClient implements IPullBasedFeedClient {
     protected ISerializerDeserializer<AInt32> int32Serde = AqlSerializerDeserializerProvider.INSTANCE
             .getSerializerDeserializer(BuiltinType.AINT32);
 
-    public abstract InflowState setNextRecord() throws Exception;
+    public abstract InflowState retrieveNextRecord() throws Exception;
 
     @Override
     public InflowState nextTuple(DataOutput dataOutput, int timeout) throws AsterixException {
@@ -78,14 +78,9 @@ public abstract class PullBasedFeedClient implements IPullBasedFeedClient {
             int waitCount = 0;
             boolean continueWait = true;
             while ((state == null || state.equals(InflowState.DATA_NOT_AVAILABLE)) && continueWait) {
-                state = setNextRecord();
+                state = retrieveNextRecord();
                 switch (state) {
                     case DATA_AVAILABLE:
-                        /*
-                        IAType t = mutableRecord.getType();
-                        ATypeTag tag = t.getTypeTag();
-                        dataOutput.writeByte(tag.serialize());
-                        */
                         recordBuilder.reset(mutableRecord.getType());
                         recordBuilder.init();
                         writeRecord(mutableRecord, dataOutput, recordBuilder);

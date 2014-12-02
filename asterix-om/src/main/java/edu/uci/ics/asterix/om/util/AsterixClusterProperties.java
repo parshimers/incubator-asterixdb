@@ -74,6 +74,9 @@ public class AsterixClusterProperties {
     public synchronized void removeNCConfiguration(String nodeId) {
         // state = State.UNUSABLE;
         ncConfiguration.remove(nodeId);
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info(" Removed configuration parameters for node id " + nodeId);
+        }
         resetClusterPartitionConstraint();
     }
 
@@ -84,7 +87,8 @@ public class AsterixClusterProperties {
             state = ClusterState.ACTIVE;
         }
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info(" Registering configuration parameters for node id " + nodeId);
+            LOGGER.info(" Registering configuration parameters for node id " + nodeId + " configuration "
+                    + ncConfiguration);
         }
         resetClusterPartitionConstraint();
     }

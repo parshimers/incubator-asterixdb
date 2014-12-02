@@ -10,10 +10,12 @@ import com.microsoft.windowsazure.services.core.storage.CloudStorageAccount;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.api.IFeedAdapter;
+import edu.uci.ics.asterix.common.parse.ITupleForwardPolicy;
 import edu.uci.ics.asterix.om.types.ARecordType;
+import edu.uci.ics.asterix.runtime.operators.file.AsterixTupleParserFactory;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 
-public class PullBasedAzureTwitterAdapter extends PullBasedAdapter implements IFeedAdapter {
+public class PullBasedAzureTwitterAdapter extends ClientBasedFeedAdapter implements IFeedAdapter {
     private static final Logger LOGGER = Logger.getLogger(PullBasedAzureTwitterAdapter.class.getName());
 
     private static final long serialVersionUID = 1L;
@@ -66,7 +68,7 @@ public class PullBasedAzureTwitterAdapter extends PullBasedAdapter implements IF
     }
 
     @Override
-    public IPullBasedFeedClient getFeedClient(int partition) throws Exception {
+    public IFeedClient getFeedClient(int partition) throws Exception {
         if (partitioned) {
             return new PullBasedAzureFeedClient(csa, outputType, tableName, lowKeys[partition], highKeys[partition]);
         }
@@ -81,5 +83,10 @@ public class PullBasedAzureTwitterAdapter extends PullBasedAdapter implements IF
     @Override
     public boolean handleException(Exception e) {
         return false;
+    }
+    
+    @Override
+    public ITupleForwardPolicy getTupleParserPolicy() {
+        return AsterixTupleParserFactory.getTupleParserPolicy(configuration);
     }
 }

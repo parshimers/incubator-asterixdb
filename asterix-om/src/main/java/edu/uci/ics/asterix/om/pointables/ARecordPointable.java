@@ -219,7 +219,11 @@ public class ARecordPointable extends AbstractVisitablePointable {
                     // set field value (including the type tag)
                     int fstart = dataBos.size();
                     dataDos.writeByte(typeTag.serialize());
+                    try{
                     dataDos.write(b, fieldOffsets[fieldNumber], fieldValueLength);
+                    } catch (Exception e){
+                        e.printStackTrace();
+                    }
                     int fend = dataBos.size();
                     IVisitablePointable fieldValue = allocator.allocateFieldValue(fieldType);
                     fieldValue.set(dataBos.getByteArray(), fstart, fend - fstart);
@@ -260,6 +264,7 @@ public class ARecordPointable extends AbstractVisitablePointable {
                 }
             }
         } catch (Exception e) {
+            e.printStackTrace();
             throw new IllegalStateException(e);
         }
     }

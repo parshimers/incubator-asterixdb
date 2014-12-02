@@ -65,6 +65,9 @@ public class FeedPolicyAccessor implements Serializable {
     /** statistics **/
     public static final String TIME_TRACKING = "time.tracking";
 
+    /** logging of statistics **/
+    public static final String LOGGING_STATISTICS = "logging.statistics";
+
     public static final long NO_LIMIT = -1;
 
     private Map<String, String> feedPolicy;
@@ -136,6 +139,11 @@ public class FeedPolicyAccessor implements Serializable {
     /** Statistics **/
     public boolean isTimeTrackingEnabled() {
         return getBooleanPropertyValue(TIME_TRACKING, false);
+    }
+
+    /** Logging of statistics **/
+    public boolean isLoggingStatisticsEnabled() {
+        return getBooleanPropertyValue(LOGGING_STATISTICS, false);
     }
 
     private boolean getBooleanPropertyValue(String key, boolean defValue) {

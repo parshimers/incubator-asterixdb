@@ -15,7 +15,7 @@
 package edu.uci.ics.asterix.metadata.declared;
 
 import edu.uci.ics.asterix.common.feeds.FeedId;
-import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleListener.SubscriptionLocation;
+import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleListener.ConnectionLocation;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
 import edu.uci.ics.asterix.metadata.entities.Dataset;
@@ -34,13 +34,13 @@ public class FeedDataSource extends AqlDataSource {
     private Feed feed;
     private FeedId sourceFeedId;
     private final FeedType sourceFeedType;
-    private final SubscriptionLocation location;
+    private final ConnectionLocation location;
     private final String targetDataset;
     private final String[] locations;
     private int computeCardinality;
 
     public FeedDataSource(AqlSourceId id, String targetDataset, IAType itemType, AqlDataSourceType dataSourceType,
-            FeedId sourceFeedId, FeedType sourceFeedType, SubscriptionLocation location, String[] locations)
+            FeedId sourceFeedId, FeedType sourceFeedType, ConnectionLocation location, String[] locations)
             throws AlgebricksException {
         super(id, id.getDataverseName(), id.getDatasourceName(), itemType, dataSourceType);
         this.targetDataset = targetDataset;
@@ -102,7 +102,7 @@ public class FeedDataSource extends AqlDataSource {
         return sourceFeedId;
     }
 
-    public SubscriptionLocation getLocation() {
+    public ConnectionLocation getLocation() {
         return location;
     }
 

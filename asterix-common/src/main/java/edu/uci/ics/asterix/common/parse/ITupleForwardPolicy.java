@@ -7,9 +7,11 @@ import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 
-public interface ITupleParserPolicy {
+public interface ITupleForwardPolicy {
 
-    public enum TupleParserPolicyType {
+    public static final String PARSER_POLICY = "parser-policy";
+    
+    public enum TupleForwardPolicyType {
         FRAME_FULL,
         COUNTER_TIMER_EXPIRED,
         RATE_CONTROLLED
@@ -19,7 +21,7 @@ public interface ITupleParserPolicy {
 
     public void initialize(IHyracksTaskContext ctx, IFrameWriter frameWriter) throws HyracksDataException;
 
-    public TupleParserPolicyType getType();
+    public TupleForwardPolicyType getType();
 
     public void addTuple(ArrayTupleBuilder tb) throws HyracksDataException;
 

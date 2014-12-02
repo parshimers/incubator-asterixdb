@@ -107,9 +107,11 @@ public class FeedMetaNodePushable extends AbstractUnaryInputUnaryOutputOperatorN
 
     private void initializeNewFeedRuntime(FeedRuntimeId runtimeId) throws Exception {
         this.fta = new FrameTupleAccessor(ctx.getFrameSize(), recordDesc);
-        this.inputSideHandler = new FeedRuntimeInputHandler(connectionId, runtimeId, coreOperator,
+        this.inputSideHandler = new FeedRuntimeInputHandler(connectionId, runtimeId,
+                (AbstractUnaryInputUnaryOutputOperatorNodePushable) coreOperator,
                 policyEnforcer.getFeedPolicyAccessor(), false, ctx.getFrameSize(), fta, recordDesc, feedManager,
                 nPartitions);
+
         setupBasicRuntime(inputSideHandler);
     }
 

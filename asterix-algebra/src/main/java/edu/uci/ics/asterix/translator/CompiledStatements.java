@@ -34,7 +34,7 @@ import edu.uci.ics.asterix.aql.expression.VariableExpr;
 import edu.uci.ics.asterix.aql.expression.WhereClause;
 import edu.uci.ics.asterix.aql.literal.StringLiteral;
 import edu.uci.ics.asterix.common.config.DatasetConfig.IndexType;
-import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
+import edu.uci.ics.asterix.common.feeds.FeedConnectionRequest;
 import edu.uci.ics.asterix.common.functions.FunctionConstants;
 import edu.uci.ics.asterix.common.functions.FunctionSignature;
 import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
@@ -377,11 +377,11 @@ public class CompiledStatements {
 
     public static class CompiledSubscribeFeedStatement implements ICompiledDmlStatement {
 
-        private final FeedSubscriptionRequest request;
+        private final FeedConnectionRequest request;
         private Query query;
         private final int varCounter;
 
-        public CompiledSubscribeFeedStatement(FeedSubscriptionRequest request, Query query, int varCounter) {
+        public CompiledSubscribeFeedStatement(FeedConnectionRequest request, Query query, int varCounter) {
             this.request = request;
             this.query = query;
             this.varCounter = varCounter;
@@ -389,7 +389,7 @@ public class CompiledStatements {
 
         @Override
         public String getDataverseName() {
-            return request.getSubscribingFeedId().getDataverse();
+            return request.getReceivingFeedId().getDataverse();
         }
 
         @Override

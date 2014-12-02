@@ -46,7 +46,7 @@ import edu.uci.ics.asterix.common.feeds.FeedIntakeInfo;
 import edu.uci.ics.asterix.common.feeds.FeedJobInfo;
 import edu.uci.ics.asterix.common.feeds.FeedJobInfo.FeedJobState;
 import edu.uci.ics.asterix.common.feeds.FeedJointKey;
-import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
+import edu.uci.ics.asterix.common.feeds.FeedConnectionRequest;
 import edu.uci.ics.asterix.common.feeds.api.IFeedJoint;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleEventSubscriber;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleListener;
@@ -376,9 +376,9 @@ public class FeedLifecycleListener implements IFeedLifecycleListener {
         }
     }
 
-    public void submitFeedSubscriptionRequest(IFeedJoint feedPoint, FeedSubscriptionRequest subscriptionRequest)
+    public void submitFeedConnectionRequest(IFeedJoint feedPoint, FeedConnectionRequest subscriptionRequest)
             throws Exception {
-        feedJobNotificationHandler.submitFeedSubscriptionRequest(feedPoint, subscriptionRequest);
+        feedJobNotificationHandler.submitFeedConnectionRequest(feedPoint, subscriptionRequest);
     }
 
     @Override

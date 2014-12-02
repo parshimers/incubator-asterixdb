@@ -26,7 +26,9 @@ public interface IFeedRuntime {
         COMPUTE_COLLECT,
         COMPUTE,
         STORE,
-        OTHER
+        OTHER,
+        ETS,
+        JOIN
     }
 
     public enum Mode {

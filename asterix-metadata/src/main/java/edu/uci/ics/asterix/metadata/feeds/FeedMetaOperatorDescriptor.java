@@ -18,6 +18,7 @@ import java.util.Map;
 
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
+import edu.uci.ics.hyracks.algebricks.runtime.operators.meta.AlgebricksMetaOperatorDescriptor;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorNodePushable;
@@ -44,8 +45,8 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
     private static final long serialVersionUID = 1L;
 
     /**
-     * The actual (Hyracks) operator that is wrapped around by the Metafeed
-     * Adaptor
+     * The actual (Hyracks) operator that is wrapped around by the MetaFeed
+     * operator.
      **/
     private IOperatorDescriptor coreOperator;
 
@@ -98,6 +99,12 @@ public class FeedMetaOperatorDescriptor extends AbstractSingleActivityOperatorDe
             case OTHER:
                 nodePushable = new FeedMetaNodePushable(ctx, recordDescProvider, partition, nPartitions, coreOperator,
                         feedConnectionId, feedPolicyProperties, operandId);
+                break;
+            case ETS:
+                nodePushable = ((AlgebricksMetaOperatorDescriptor) coreOperator).createPushRuntime(ctx,
+                        recordDescProvider, partition, nPartitions);
+                break;
+            case JOIN:
                 break;
             default:
                 throw new HyracksDataException(new IllegalArgumentException("Invalid feed runtime: " + runtimeType));

@@ -1,3 +1,17 @@
+/*
+ * Copyright 2009-2014 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package edu.uci.ics.asterix.common.feeds.api;
 
 import java.util.List;
@@ -5,21 +19,21 @@ import java.util.List;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FeedJointKey;
-import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
-import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleListener.SubscriptionLocation;
+import edu.uci.ics.asterix.common.feeds.FeedConnectionRequest;
+import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleListener.ConnectionLocation;
 
 public interface IFeedJoint {
 
-    public enum Type {
-        /** Feed Joint is located on the ingestion path of a primary feed **/
+    public enum FeedJointType {
+        /** Feed Joint is located at the intake stage of a primary feed **/
         INTAKE,
 
-        /** Feed Joint is located on the ingestion path of a secondary feed **/
+        /** Feed Joint is located at the compute stage of a primary/secondary feed **/
         COMPUTE
     }
 
     public enum State {
-        /** Initial state of a feed joint post creation. **/
+        /** Initial state of a feed joint post creation but prior to scheduling of corresponding Hyracks job. **/
         CREATED,
 
         /** State acquired post creation of Hyracks job and known physical locations of the joint **/
@@ -35,25 +49,25 @@ public interface IFeedJoint {
     public State getState();
 
     /**
-     * @return the {@link Type} associated with the FeedJoint
+     * @return the {@link FeedJointType} associated with the FeedJoint
      */
-    public Type getType();
+    public FeedJointType getType();
 
     /**
-     * @return the list of subscribers {@link FeedSubscriber} that have
-     *         subscribed to data flowing through the FeedJoint
+     * @return the list of data receivers that are
+     *         receiving the data flowing through this FeedJoint
      */
-    public List<FeedConnectionId> getSubscribers();
+    public List<FeedConnectionId> getReceivers();
 
     /**
-     * @return the list of pending subscription request {@link FeedSubscriptionRequest} submitted for data flowing through the FeedJoint
+     * @return the list of pending subscription request {@link FeedConnectionRequest} submitted for data flowing through the FeedJoint
      */
-    public List<FeedSubscriptionRequest> getSubscriptionRequests();
+    public List<FeedConnectionRequest> getConnectionRequests();
 
     /**
-     * @return the subscription location {@link SubscriptionLocation} associated with the FeedJoint
+     * @return the subscription location {@link ConnectionLocation} associated with the FeedJoint
      */
-    public SubscriptionLocation getSubscriptionLocation();
+    public ConnectionLocation getConnectionLocation();
 
     /**
      * @return the unique {@link FeedJointKey} associated with the FeedJoint
@@ -67,7 +81,7 @@ public interface IFeedJoint {
      *            the unique id of a feed connection
      * @return an instance of feedConnectionId {@link FeedConnectionId}
      */
-    public FeedConnectionId getSubscriber(FeedConnectionId feedConnectionId);
+    public FeedConnectionId getReceiver(FeedConnectionId feedConnectionId);
 
     /**
      * @param active
@@ -80,7 +94,7 @@ public interface IFeedJoint {
      * @param connectionId
      *            the connectionId that needs to be removed
      */
-    public void removeSubscriber(FeedConnectionId connectionId);
+    public void removeReceiver(FeedConnectionId connectionId);
 
     public FeedId getOwnerFeedId();
 
@@ -89,14 +103,14 @@ public interface IFeedJoint {
      * 
      * @param connectionId
      */
-    public void addSubscriber(FeedConnectionId connectionId);
+    public void addReceiver(FeedConnectionId connectionId);
 
     /**
-     * Add a feed subscription request {@link FeedSubscriptionRequest} for the FeedJoint
+     * Add a feed subscription request {@link FeedConnectionRequest} for the FeedJoint
      * 
      * @param request
      */
-    public void addSubscriptionRequest(FeedSubscriptionRequest request);
+    public void addConnectionRequest(FeedConnectionRequest request);
 
     public FeedConnectionId getProvider();
 

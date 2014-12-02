@@ -157,8 +157,8 @@ public class MonitoredBufferTimerTasks {
             AsterixFeedProperties props = mBuffer.getInputHandler().getFeedManager().getAsterixFeedProperties();
             pendingWorkThreshold = props.getPendingWorkThreshold();
             maxSuccessiveThresholdPeriods = props.getMaxSuccessiveThresholdPeriod();
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info(" Pending Threshold Period: " + pendingWorkThreshold + "\n"
+            if (LOGGER.isLoggable(Level.FINE)) {
+                LOGGER.fine(" Pending Threshold Period: " + pendingWorkThreshold + "\n"
                         + "Max Successive Threshold Periods: " + maxSuccessiveThresholdPeriods);
             }
         }

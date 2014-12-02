@@ -22,9 +22,9 @@ import java.util.logging.Logger;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FeedJointKey;
-import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
+import edu.uci.ics.asterix.common.feeds.FeedConnectionRequest;
 import edu.uci.ics.asterix.common.feeds.api.IFeedJoint;
-import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleListener.SubscriptionLocation;
+import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleListener.ConnectionLocation;
 
 public class FeedJoint implements IFeedJoint {
 
@@ -37,29 +37,29 @@ public class FeedJoint implements IFeedJoint {
     private State state;
 
     /** A list of subscribers that receive data from this FeedJoint **/
-    private final List<FeedConnectionId> subscribers;
+    private final List<FeedConnectionId> receivers;
 
     /** The feedId on which the feedPoint resides **/
     private final FeedId ownerFeedId;
 
     /** A list of feed subscription requests submitted for subscribing to the FeedPoint's data **/
-    private final List<FeedSubscriptionRequest> subscriptionRequests;
+    private final List<FeedConnectionRequest> connectionRequests;
 
-    private final SubscriptionLocation subscriptionLocation;
+    private final ConnectionLocation connectionLocation;
 
-    private final Type type;
+    private final FeedJointType type;
 
     private FeedConnectionId provider;
 
-    public FeedJoint(FeedJointKey key, FeedId ownerFeedId, SubscriptionLocation subscriptionLocation, Type type,
+    public FeedJoint(FeedJointKey key, FeedId ownerFeedId, ConnectionLocation subscriptionLocation, FeedJointType type,
             FeedConnectionId provider) {
         this.key = key;
         this.ownerFeedId = ownerFeedId;
         this.type = type;
-        this.subscribers = new ArrayList<FeedConnectionId>();
+        this.receivers = new ArrayList<FeedConnectionId>();
         this.state = State.CREATED;
-        this.subscriptionLocation = subscriptionLocation;
-        this.subscriptionRequests = new ArrayList<FeedSubscriptionRequest>();
+        this.connectionLocation = subscriptionLocation;
+        this.connectionRequests = new ArrayList<FeedConnectionRequest>();
         this.provider = provider;
     }
 
@@ -68,18 +68,18 @@ public class FeedJoint implements IFeedJoint {
         return key.hashCode();
     }
 
-    public void addSubscriber(FeedConnectionId connectionId) {
-        subscribers.add(connectionId);
+    public void addReceiver(FeedConnectionId connectionId) {
+        receivers.add(connectionId);
     }
 
-    public void removeSubscriber(FeedConnectionId connectionId) {
-        subscribers.remove(connectionId);
+    public void removeReceiver(FeedConnectionId connectionId) {
+        receivers.remove(connectionId);
     }
 
-    public synchronized void addSubscriptionRequest(FeedSubscriptionRequest request) {
-        subscriptionRequests.add(request);
+    public synchronized void addConnectionRequest(FeedConnectionRequest request) {
+        connectionRequests.add(request);
         if (state.equals(State.ACTIVE)) {
-            handlePendingSubscriptionRequest();
+            handlePendingConnectionRequest();
         }
     }
 
@@ -92,33 +92,33 @@ public class FeedJoint implements IFeedJoint {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Feed joint " + this + " is now " + State.ACTIVE);
             }
-            handlePendingSubscriptionRequest();
+            handlePendingConnectionRequest();
         }
     }
 
-    private void handlePendingSubscriptionRequest() {
-        for (FeedSubscriptionRequest subscriptionRequest : subscriptionRequests) {
-            FeedConnectionId connectionId = new FeedConnectionId(subscriptionRequest.getSubscribingFeedId(),
-                    subscriptionRequest.getTargetDataset());
+    private void handlePendingConnectionRequest() {
+        for (FeedConnectionRequest connectionRequest : connectionRequests) {
+            FeedConnectionId connectionId = new FeedConnectionId(connectionRequest.getReceivingFeedId(),
+                    connectionRequest.getTargetDataset());
             try {
-                FeedLifecycleListener.INSTANCE.submitFeedSubscriptionRequest(this, subscriptionRequest);
+                FeedLifecycleListener.INSTANCE.submitFeedConnectionRequest(this, connectionRequest);
                 if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Submitted feed subscription request " + subscriptionRequest + " at feed joint " + this);
+                    LOGGER.info("Submitted feed connection request " + connectionRequest + " at feed joint " + this);
                 }
-                addSubscriber(connectionId);
+                addReceiver(connectionId);
             } catch (Exception e) {
                 if (LOGGER.isLoggable(Level.WARNING)) {
-                    LOGGER.warning("Unsuccessful attempt at submitting subscription request " + subscriptionRequest
-                            + " at feed point " + this + ". Message " + e.getMessage());
+                    LOGGER.warning("Unsuccessful attempt at submitting connection request " + connectionRequest
+                            + " at feed joint " + this + ". Message " + e.getMessage());
                 }
                 e.printStackTrace();
             }
         }
-        subscriptionRequests.clear();
+        connectionRequests.clear();
     }
 
-    public FeedConnectionId getSubscriber(FeedConnectionId connectionId) {
-        for (FeedConnectionId cid : subscribers) {
+    public FeedConnectionId getReceiver(FeedConnectionId connectionId) {
+        for (FeedConnectionId cid : receivers) {
             if (cid.equals(connectionId)) {
                 return cid;
             }
@@ -128,7 +128,7 @@ public class FeedJoint implements IFeedJoint {
 
     @Override
     public String toString() {
-        return key.toString() + " [" + subscriptionLocation + "]" + "[" + state + "]";
+        return key.toString() + " [" + connectionLocation + "]" + "[" + state + "]";
     }
 
     @Override
@@ -149,15 +149,15 @@ public class FeedJoint implements IFeedJoint {
         return ownerFeedId;
     }
 
-    public List<FeedSubscriptionRequest> getSubscriptionRequests() {
-        return subscriptionRequests;
+    public List<FeedConnectionRequest> getConnectionRequests() {
+        return connectionRequests;
     }
 
-    public SubscriptionLocation getSubscriptionLocation() {
-        return subscriptionLocation;
+    public ConnectionLocation getConnectionLocation() {
+        return connectionLocation;
     }
 
-    public Type getType() {
+    public FeedJointType getType() {
         return type;
     }
 
@@ -166,8 +166,8 @@ public class FeedJoint implements IFeedJoint {
         return provider;
     }
 
-    public List<FeedConnectionId> getSubscribers() {
-        return subscribers;
+    public List<FeedConnectionId> getReceivers() {
+        return receivers;
     }
 
     public FeedJointKey getKey() {

@@ -149,5 +149,7 @@ public class PullBasedAzureTwitterAdapterFactory implements IFeedAdapterFactory 
     public FeedPolicyAccessor getIngestionPolicy() {
         return ingestionPolicy;
     }
+    
+    
 
 }

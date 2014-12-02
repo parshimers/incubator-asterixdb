@@ -23,7 +23,7 @@ import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.IngestionRuntime;
 import edu.uci.ics.asterix.common.feeds.SubscribableFeedRuntimeId;
-import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleListener.SubscriptionLocation;
+import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleListener.ConnectionLocation;
 import edu.uci.ics.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
 import edu.uci.ics.asterix.common.feeds.api.IFeedSubscriptionManager;
 import edu.uci.ics.asterix.common.feeds.api.ISubscribableRuntime;
@@ -63,11 +63,11 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
     private final FeedId sourceFeedId;
 
     /** The subscription location at which the recipient feed receives tuples from the source feed **/
-    private final SubscriptionLocation subscriptionLocation;
+    private final ConnectionLocation subscriptionLocation;
 
     public FeedCollectOperatorDescriptor(JobSpecification spec, FeedConnectionId feedConnectionId, FeedId sourceFeedId,
             ARecordType atype, RecordDescriptor rDesc, Map<String, String> feedPolicyProperties,
-            SubscriptionLocation subscriptionLocation) {
+            ConnectionLocation subscriptionLocation) {
         super(spec, 0, 1);
         recordDescriptors[0] = rDesc;
         this.outputType = atype;
@@ -86,13 +86,13 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
         ISubscribableRuntime sourceRuntime = null;
         IOperatorNodePushable nodePushable = null;
         switch (subscriptionLocation) {
-            case SOURCE_FEED_INTAKE:
+            case SOURCE_FEED_INTAKE_STAGE:
                 try {
                     SubscribableFeedRuntimeId feedSubscribableRuntimeId = new SubscribableFeedRuntimeId(sourceFeedId,
                             FeedRuntimeType.INTAKE, partition);
-                    sourceRuntime = getIngestionRuntime(feedSubscribableRuntimeId);
+                    sourceRuntime = getIntakeRuntime(feedSubscribableRuntimeId);
                     if (sourceRuntime == null) {
-                        throw new HyracksDataException("Source ingestion task not found for source feed id "
+                        throw new HyracksDataException("Source intake task not found for source feed id "
                                 + sourceFeedId);
                     }
                     nodePushable = new FeedCollectOperatorNodePushable(ctx, sourceFeedId, connectionId,
@@ -105,7 +105,7 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
                     throw new HyracksDataException("Initialization of the feed adapter failed", exception);
                 }
                 break;
-            case SOURCE_FEED_COMPUTE:
+            case SOURCE_FEED_COMPUTE_STAGE:
                 SubscribableFeedRuntimeId feedSubscribableRuntimeId = new SubscribableFeedRuntimeId(sourceFeedId,
                         FeedRuntimeType.COMPUTE, partition);
                 sourceRuntime = (ISubscribableRuntime) subscriptionManager
@@ -141,7 +141,7 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
         return sourceFeedId;
     }
 
-    private IngestionRuntime getIngestionRuntime(SubscribableFeedRuntimeId subscribableRuntimeId) {
+    private IngestionRuntime getIntakeRuntime(SubscribableFeedRuntimeId subscribableRuntimeId) {
         int waitCycleCount = 0;
         ISubscribableRuntime ingestionRuntime = subscriptionManager.getSubscribableRuntime(subscribableRuntimeId);
         while (ingestionRuntime == null && waitCycleCount < 10) {
@@ -160,7 +160,7 @@ public class FeedCollectOperatorDescriptor extends AbstractSingleActivityOperato
         return (IngestionRuntime) ingestionRuntime;
     }
 
-    public SubscriptionLocation getSubscriptionLocation() {
+    public ConnectionLocation getSubscriptionLocation() {
         return subscriptionLocation;
     }
 }

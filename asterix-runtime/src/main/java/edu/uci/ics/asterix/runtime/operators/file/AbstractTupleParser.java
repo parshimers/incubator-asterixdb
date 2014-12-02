@@ -20,7 +20,7 @@ import java.io.InputStream;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
-import edu.uci.ics.asterix.common.parse.ITupleParserPolicy;
+import edu.uci.ics.asterix.common.parse.ITupleForwardPolicy;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
@@ -49,12 +49,12 @@ public abstract class AbstractTupleParser implements ITupleParser {
 
     public abstract IDataParser getDataParser();
 
-    public abstract ITupleParserPolicy getTupleParserPolicy();
+    public abstract ITupleForwardPolicy getTupleParserPolicy();
 
     @Override
     public void parse(InputStream in, IFrameWriter writer) throws HyracksDataException {
         IDataParser parser = getDataParser();
-        ITupleParserPolicy policy = getTupleParserPolicy();
+        ITupleForwardPolicy policy = getTupleParserPolicy();
         try {
             parser.initialize(in, recType, true);
             policy.initialize(ctx, writer);

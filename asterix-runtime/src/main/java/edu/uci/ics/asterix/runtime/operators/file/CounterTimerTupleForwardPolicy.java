@@ -7,7 +7,7 @@ import java.util.TimerTask;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.parse.ITupleParserPolicy;
+import edu.uci.ics.asterix.common.parse.ITupleForwardPolicy;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -15,12 +15,13 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 
-public class CounterTimerTupleParserPolicy implements ITupleParserPolicy {
+public class CounterTimerTupleForwardPolicy implements ITupleForwardPolicy {
 
     public static final String BATCH_SIZE = "batch-size";
     public static final String BATCH_INTERVAL = "batch-interval";
 
-    private static final Logger LOGGER = Logger.getLogger(CounterTimerTupleParserPolicy.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(CounterTimerTupleForwardPolicy.class.getName());
+   
     private FrameTupleAppender appender;
     private ByteBuffer frame;
     private IFrameWriter writer;
@@ -36,6 +37,8 @@ public class CounterTimerTupleParserPolicy implements ITupleParserPolicy {
         String propValue = (String) configuration.get(BATCH_SIZE);
         if (propValue != null) {
             batchSize = Integer.parseInt(propValue);
+        } else {
+            batchSize = -1;
         }
 
         propValue = (String) configuration.get(BATCH_INTERVAL);
@@ -71,7 +74,7 @@ public class CounterTimerTupleParserPolicy implements ITupleParserPolicy {
     private void addTupleToFrame(ArrayTupleBuilder tb) throws HyracksDataException {
         if (tuplesInFrame == batchSize || !appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Flushing frame containing " + tuplesInFrame + " tuples");
+                LOGGER.info("flushing frame containg (" + tuplesInFrame + ") tuples");
             }
             FrameUtils.flushFrame(frame, writer);
             tuplesInFrame = 0;
@@ -116,11 +119,9 @@ public class CounterTimerTupleParserPolicy implements ITupleParserPolicy {
                         LOGGER.info("TTL expired flushing frame (" + tuplesInFrame + ")");
                     }
                     synchronized (lock) {
-                        if (appender.getTupleCount() > 0) {
-                            FrameUtils.flushFrame(frame, writer);
-                            appender.reset(frame, true);
-                            tuplesInFrame = 0;
-                        }
+                        FrameUtils.flushFrame(frame, writer);
+                        appender.reset(frame, true);
+                        tuplesInFrame = 0;
                     }
                 }
             } catch (HyracksDataException e) {
@@ -131,8 +132,8 @@ public class CounterTimerTupleParserPolicy implements ITupleParserPolicy {
     }
 
     @Override
-    public TupleParserPolicyType getType() {
-        return TupleParserPolicyType.COUNTER_TIMER_EXPIRED;
+    public TupleForwardPolicyType getType() {
+        return TupleForwardPolicyType.COUNTER_TIMER_EXPIRED;
     }
 
 }

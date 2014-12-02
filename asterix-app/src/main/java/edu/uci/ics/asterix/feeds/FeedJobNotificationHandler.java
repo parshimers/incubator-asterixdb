@@ -40,7 +40,7 @@ import edu.uci.ics.asterix.common.feeds.FeedJobInfo;
 import edu.uci.ics.asterix.common.feeds.FeedJobInfo.FeedJobState;
 import edu.uci.ics.asterix.common.feeds.FeedJointKey;
 import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
-import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
+import edu.uci.ics.asterix.common.feeds.FeedConnectionRequest;
 import edu.uci.ics.asterix.common.feeds.api.IFeedJoint;
 import edu.uci.ics.asterix.common.feeds.api.IFeedJoint.State;
 import edu.uci.ics.asterix.common.feeds.api.IFeedLifecycleEventSubscriber;
@@ -149,7 +149,7 @@ public class FeedJobNotificationHandler implements Runnable {
         List<IFeedJoint> joints = feedPipeline.get(feedId);
         IFeedJoint intakeJoint = null;
         for (IFeedJoint joint : joints) {
-            if (joint.getType().equals(IFeedJoint.Type.INTAKE)) {
+            if (joint.getType().equals(IFeedJoint.FeedJointType.INTAKE)) {
                 intakeJoint = joint;
                 break;
             }
@@ -180,7 +180,7 @@ public class FeedJobNotificationHandler implements Runnable {
         FeedConnectionId cid = null;
         IFeedJoint sourceFeedJoint = null;
         for (IFeedJoint joint : feedJoints) {
-            cid = joint.getSubscriber(connectionId);
+            cid = joint.getReceiver(connectionId);
             if (cid != null) {
                 sourceFeedJoint = joint;
                 break;
@@ -290,7 +290,7 @@ public class FeedJobNotificationHandler implements Runnable {
         for (IFeedJoint joint : joints) {
             if (joint.getProvider().equals(cInfo.getConnectionId())) {
                 joint.setState(State.ACTIVE);
-                if (joint.getType().equals(IFeedJoint.Type.COMPUTE)) {
+                if (joint.getType().equals(IFeedJoint.FeedJointType.COMPUTE)) {
                     cInfo.setComputeFeedJoint(joint);
                 }
             }
@@ -318,7 +318,7 @@ public class FeedJobNotificationHandler implements Runnable {
 
     }
 
-    public synchronized void submitFeedSubscriptionRequest(IFeedJoint feedJoint, final FeedSubscriptionRequest request)
+    public synchronized void submitFeedConnectionRequest(IFeedJoint feedJoint, final FeedConnectionRequest request)
             throws Exception {
         List<String> locations = null;
         switch (feedJoint.getType()) {
@@ -396,7 +396,7 @@ public class FeedJobNotificationHandler implements Runnable {
 
         if (removeSubsription) {
             IFeedJoint feedJoint = cInfo.getSourceFeedJoint();
-            feedJoint.removeSubscriber(connectionId);
+            feedJoint.removeReceiver(connectionId);
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Subscription " + cInfo.getConnectionId() + " completed successfully. Removed subscription");
             }
@@ -423,12 +423,27 @@ public class FeedJobNotificationHandler implements Runnable {
 
     private void registerFeedActivity(FeedConnectJobInfo cInfo) {
         Map<String, String> feedActivityDetails = new HashMap<String, String>();
-        feedActivityDetails.put(FeedActivity.FeedActivityDetails.INTAKE_LOCATIONS,
-                StringUtils.join(cInfo.getCollectLocations().iterator(), ','));
-        feedActivityDetails.put(FeedActivity.FeedActivityDetails.COMPUTE_LOCATIONS,
-                StringUtils.join(cInfo.getComputeLocations().iterator(), ','));
-        feedActivityDetails.put(FeedActivity.FeedActivityDetails.STORAGE_LOCATIONS,
-                StringUtils.join(cInfo.getStorageLocations().iterator(), ','));
+
+        cInfo.setCollectLocations(new ArrayList<String>());
+        cInfo.getCollectLocations().add("a1_node1");
+        if (cInfo.getCollectLocations() != null) {
+            feedActivityDetails.put(FeedActivity.FeedActivityDetails.INTAKE_LOCATIONS,
+                    StringUtils.join(cInfo.getCollectLocations().iterator(), ','));
+        }
+
+        cInfo.setComputeLocations(new ArrayList<String>());
+        cInfo.getComputeLocations().add("a1_node1");
+        if (cInfo.getComputeLocations() != null) {
+            feedActivityDetails.put(FeedActivity.FeedActivityDetails.COMPUTE_LOCATIONS,
+                    StringUtils.join(cInfo.getComputeLocations().iterator(), ','));
+        }
+
+        cInfo.setStorageLocations(new ArrayList<String>());
+        cInfo.getStorageLocations().add("a1_node1");
+        if (cInfo.getStorageLocations() != null) {
+            feedActivityDetails.put(FeedActivity.FeedActivityDetails.STORAGE_LOCATIONS,
+                    StringUtils.join(cInfo.getStorageLocations().iterator(), ','));
+        }
 
         String policyName = cInfo.getFeedPolicy().get(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY);
         feedActivityDetails.put(FeedActivity.FeedActivityDetails.FEED_POLICY_NAME, policyName);
@@ -491,14 +506,14 @@ public class FeedJobNotificationHandler implements Runnable {
         List<IFeedJoint> feedJoints = feedPipeline.get(connectionId.getFeedId());
 
         IFeedJoint sourceJoint = cInfo.getSourceFeedJoint();
-        List<FeedConnectionId> all = sourceJoint.getSubscribers();
+        List<FeedConnectionId> all = sourceJoint.getReceivers();
         boolean removeSourceJoint = all.size() < 2;
         if (removeSourceJoint) {
             feedJoints.remove(sourceJoint);
         }
 
         IFeedJoint computeJoint = cInfo.getComputeFeedJoint();
-        if (computeJoint != null && computeJoint.getSubscribers().size() < 2) {
+        if (computeJoint != null && computeJoint.getReceivers().size() < 2) {
             feedJoints.remove(computeJoint);
         }
     }
@@ -611,7 +626,7 @@ public class FeedJobNotificationHandler implements Runnable {
         return connectJobInfos.get(connectionId).getSpec();
     }
 
-    public IFeedJoint getFeedPoint(FeedId sourceFeedId, IFeedJoint.Type type) {
+    public IFeedJoint getFeedPoint(FeedId sourceFeedId, IFeedJoint.FeedJointType type) {
         List<IFeedJoint> joints = feedPipeline.get(sourceFeedId);
         for (IFeedJoint joint : joints) {
             if (joint.getType().equals(type)) {
@@ -712,6 +727,9 @@ public class FeedJobNotificationHandler implements Runnable {
             List<String> storageLocations = new ArrayList<String>();
             for (OperatorDescriptorId storageOpId : storageOperatorIds) {
                 Map<Integer, String> operatorLocations = info.getOperatorLocations().get(storageOpId);
+                if (operatorLocations == null) {
+                    continue;
+                }
                 int nOperatorInstances = operatorLocations.size();
                 for (int i = 0; i < nOperatorInstances; i++) {
                     storageLocations.add(operatorLocations.get(i));

@@ -28,8 +28,8 @@ import edu.uci.ics.asterix.aql.expression.Identifier;
 import edu.uci.ics.asterix.aql.expression.SubscribeFeedStatement;
 import edu.uci.ics.asterix.aql.translator.AqlTranslator;
 import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
-import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest;
-import edu.uci.ics.asterix.common.feeds.FeedSubscriptionRequest.SubscriptionStatus;
+import edu.uci.ics.asterix.common.feeds.FeedConnectionRequest;
+import edu.uci.ics.asterix.common.feeds.FeedConnectionRequest.ConnectionStatus;
 import edu.uci.ics.asterix.common.feeds.api.IFeedWork;
 import edu.uci.ics.asterix.common.feeds.api.IFeedWorkEventListener;
 import edu.uci.ics.asterix.feeds.FeedCollectInfo;
@@ -56,24 +56,24 @@ public class FeedWorkCollection {
 
         private final Runnable runnable;
 
-        private final FeedSubscriptionRequest request;
+        private final FeedConnectionRequest request;
 
         @Override
         public Runnable getRunnable() {
             return runnable;
         }
 
-        public SubscribeFeedWork(String[] locations, FeedSubscriptionRequest request) {
+        public SubscribeFeedWork(String[] locations, FeedConnectionRequest request) {
             this.runnable = new SubscribeFeedWorkRunnable(locations, request);
             this.request = request;
         }
 
         private static class SubscribeFeedWorkRunnable implements Runnable {
 
-            private final FeedSubscriptionRequest request;
+            private final FeedConnectionRequest request;
             private final String[] locations;
 
-            public SubscribeFeedWorkRunnable(String[] locations, FeedSubscriptionRequest request) {
+            public SubscribeFeedWorkRunnable(String[] locations, FeedConnectionRequest request) {
                 this.request = request;
                 this.locations = locations;
             }
@@ -83,7 +83,7 @@ public class FeedWorkCollection {
                 try {
                     PrintWriter writer = new PrintWriter(System.out, true);
                     SessionConfig pc = new SessionConfig(true, false, false, false, false, false, true, true, false);
-                    DataverseDecl dataverseDecl = new DataverseDecl(new Identifier(request.getSubscribingFeedId()
+                    DataverseDecl dataverseDecl = new DataverseDecl(new Identifier(request.getReceivingFeedId()
                             .getDataverse()));
                     SubscribeFeedStatement subscribeStmt = new SubscribeFeedStatement(locations, request);
                     List<Statement> statements = new ArrayList<Statement>();
@@ -92,7 +92,7 @@ public class FeedWorkCollection {
                     AqlTranslator translator = new AqlTranslator(statements, writer, pc, DisplayFormat.TEXT);
                     translator.compileAndExecute(AsterixAppContextInfo.getInstance().getHcc(), null, false);
                     if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("Submitted subscribed feed stmt for execution: " + request);
+                        LOGGER.info("Submitted connection requests for execution: " + request);
                     }
                 } catch (Exception e) {
                     if (LOGGER.isLoggable(Level.SEVERE)) {
@@ -115,7 +115,7 @@ public class FeedWorkCollection {
 
             @Override
             public void workCompleted(IFeedWork work) {
-                ((SubscribeFeedWork) work).request.setSubscriptionStatus(SubscriptionStatus.ACTIVE);
+                ((SubscribeFeedWork) work).request.setSubscriptionStatus(ConnectionStatus.ACTIVE);
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.warning(" Feed subscription request " + ((SubscribeFeedWork) work).request + " completed ");
                 }
@@ -123,7 +123,7 @@ public class FeedWorkCollection {
 
         }
 
-        public FeedSubscriptionRequest getRequest() {
+        public FeedConnectionRequest getRequest() {
             return request;
         }
 

@@ -18,7 +18,7 @@ import java.io.DataOutput;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 
-public interface IPullBasedFeedClient {
+public interface IFeedClient {
 
     public enum InflowState {
         NO_MORE_DATA,

@@ -20,6 +20,8 @@ import java.util.List;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.feeds.FeedConnectJobInfo;
 import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
+import edu.uci.ics.asterix.common.feeds.FeedConnectionRequest;
+import edu.uci.ics.asterix.common.feeds.FeedConstants;
 import edu.uci.ics.asterix.common.feeds.FeedId;
 import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.FeedTupleCommitResponseMessage;
@@ -63,6 +65,7 @@ public class FeedOperations {
             AqlMetadataProvider metadataProvider, FeedPolicyAccessor policyAccessor) throws Exception {
 
         JobSpecification spec = JobSpecificationUtils.createJobSpecification();
+        spec.setFrameSize(FeedConstants.JobConstants.DEFAULT_FRAME_SIZE);
         IFeedAdapterFactory adapterFactory = null;
         IOperatorDescriptor feedIngestor;
         AlgebricksPartitionConstraint ingesterPc;
@@ -127,21 +130,19 @@ public class FeedOperations {
             IFeedJoint sourceFeedJoint = cInfo.getSourceFeedJoint();
             IFeedJoint computeFeedJoint = cInfo.getComputeFeedJoint();
 
-            boolean terminateIntakeJob = sourceFeedJoint.getSubscribers().size() == 1
-                    || (computeFeedJoint != null && computeFeedJoint.getSubscribers().isEmpty());
-            if (computeFeedJoint == null || computeFeedJoint.getSubscribers().isEmpty()) {
-                locations = cInfo.getCollectLocations();
+            boolean terminateIntakeJob = false;
+            boolean completeDisconnect = computeFeedJoint == null || computeFeedJoint.getReceivers().isEmpty();
+            if (completeDisconnect) {
                 sourceRuntimeType = FeedRuntimeType.INTAKE;
-            } else if (computeFeedJoint.getSubscribers().isEmpty()) {
                 locations = cInfo.getCollectLocations();
-                sourceRuntimeType = FeedRuntimeType.INTAKE;
+                terminateIntakeJob = sourceFeedJoint.getReceivers().size() == 1;
             } else {
                 locations = cInfo.getComputeLocations();
                 sourceRuntimeType = FeedRuntimeType.COMPUTE;
             }
 
             Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> p = buildDisconnectFeedMessengerRuntime(spec,
-                    connectionId, locations, sourceRuntimeType, terminateIntakeJob, sourceFeedJoint.getOwnerFeedId());
+                    connectionId, locations, sourceRuntimeType, completeDisconnect, sourceFeedJoint.getOwnerFeedId());
 
             feedMessenger = p.first;
             messengerPc = p.second;

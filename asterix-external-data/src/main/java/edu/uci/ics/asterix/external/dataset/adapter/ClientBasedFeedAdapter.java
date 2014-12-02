@@ -19,30 +19,29 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.external.dataset.adapter.IPullBasedFeedClient.InflowState;
+import edu.uci.ics.asterix.common.feeds.api.IFeedAdapter;
+import edu.uci.ics.asterix.common.parse.ITupleForwardPolicy;
+import edu.uci.ics.asterix.external.dataset.adapter.IFeedClient.InflowState;
 import edu.uci.ics.asterix.metadata.feeds.FeedPolicyEnforcer;
-import edu.uci.ics.asterix.metadata.feeds.IPullBasedFeedAdapter;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
-import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
-import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 
 /**
  * Acts as an abstract class for all pull-based external data adapters. Captures
  * the common logic for obtaining bytes from an external source and packing them
  * into frames as tuples.
  */
-public abstract class PullBasedAdapter implements IPullBasedFeedAdapter {
+public abstract class ClientBasedFeedAdapter implements IFeedAdapter {
 
     private static final long serialVersionUID = 1L;
-    private static final Logger LOGGER = Logger.getLogger(PullBasedAdapter.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(ClientBasedFeedAdapter.class.getName());
     private static final int timeout = 5; // seconds
 
     protected ArrayTupleBuilder tupleBuilder = new ArrayTupleBuilder(1);
-    protected IPullBasedFeedClient pullBasedFeedClient;
+    protected IFeedClient pullBasedFeedClient;
     protected ARecordType adapterOutputType;
     protected boolean continueIngestion = true;
     protected Map<String, String> configuration;
@@ -63,9 +62,11 @@ public abstract class PullBasedAdapter implements IPullBasedFeedAdapter {
         this.policyEnforcer = policyEnforcer;
     }
 
-    public abstract IPullBasedFeedClient getFeedClient(int partition) throws Exception;
+    public abstract IFeedClient getFeedClient(int partition) throws Exception;
 
-    public PullBasedAdapter(Map<String, String> configuration, IHyracksTaskContext ctx) {
+    public abstract ITupleForwardPolicy getTupleParserPolicy();
+
+    public ClientBasedFeedAdapter(Map<String, String> configuration, IHyracksTaskContext ctx) {
         this.ctx = ctx;
         this.configuration = configuration;
     }
@@ -79,10 +80,11 @@ public abstract class PullBasedAdapter implements IPullBasedFeedAdapter {
         appender = new FrameTupleAppender(ctx.getFrameSize());
         frame = ctx.allocateFrame();
         appender.reset(frame, true);
-
+        ITupleForwardPolicy policy = getTupleParserPolicy();
+        policy.configure(configuration);
         pullBasedFeedClient = getFeedClient(partition);
         InflowState inflowState = null;
-
+        policy.initialize(ctx, writer);
         while (continueIngestion) {
             tupleBuilder.reset();
             try {
@@ -90,24 +92,19 @@ public abstract class PullBasedAdapter implements IPullBasedFeedAdapter {
                 switch (inflowState) {
                     case DATA_AVAILABLE:
                         tupleBuilder.addFieldEndOffset();
-                        appendTupleToFrame(writer);
+                        policy.addTuple(tupleBuilder);
                         frameTupleCount++;
                         break;
                     case NO_MORE_DATA:
                         if (LOGGER.isLoggable(Level.INFO)) {
                             LOGGER.info("Reached end of feed");
                         }
-                        FrameUtils.flushFrame(frame, writer);
+                        policy.close();
                         tupleCount += frameTupleCount;
                         frameTupleCount = 0;
                         continueIngestion = false;
                         break;
                     case DATA_NOT_AVAILABLE:
-                        if (frameTupleCount > 0) {
-                            FrameUtils.flushFrame(frame, writer);
-                            tupleCount += frameTupleCount;
-                            frameTupleCount = 0;
-                        }
                         if (LOGGER.isLoggable(Level.WARNING)) {
                             LOGGER.warning("Timed out on obtaining data from pull based adaptor. Trying again!");
                         }
@@ -131,17 +128,6 @@ public abstract class PullBasedAdapter implements IPullBasedFeedAdapter {
         }
     }
 
-    private void appendTupleToFrame(IFrameWriter writer) throws HyracksDataException {
-        if (!appender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(), 0, tupleBuilder.getSize())) {
-            FrameUtils.flushFrame(frame, writer);
-            appender.reset(frame, true);
-            if (!appender.append(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray(), 0,
-                    tupleBuilder.getSize())) {
-                throw new IllegalStateException();
-            }
-        }
-    }
-
     /**
      * Discontinue the ingestion of data and end the feed.
      * 
@@ -153,6 +139,11 @@ public abstract class PullBasedAdapter implements IPullBasedFeedAdapter {
 
     public Map<String, String> getConfiguration() {
         return configuration;
+    }
+
+    @Override
+    public boolean handleException(Exception e) {
+        return false;
     }
 
 }

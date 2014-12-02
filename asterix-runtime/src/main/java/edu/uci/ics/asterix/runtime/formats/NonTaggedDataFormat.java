@@ -350,7 +350,7 @@ public class NonTaggedDataFormat implements IDataFormat {
         typeToValueParserFactMap.put(ATypeTag.STRING, UTF8StringParserFactory.INSTANCE);
     }
 
-    public NonTaggedDataFormat() {
+    public NonTaggedDataFormat() {     
     }
 
     public void registerRuntimeFunctions() throws AlgebricksException {

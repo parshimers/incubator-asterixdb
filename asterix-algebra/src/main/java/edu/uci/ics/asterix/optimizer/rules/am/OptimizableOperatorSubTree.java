@@ -20,6 +20,8 @@ import java.util.List;
 import org.apache.commons.lang3.mutable.Mutable;
 
 import edu.uci.ics.asterix.common.config.DatasetConfig.DatasetType;
+import edu.uci.ics.asterix.metadata.declared.AqlDataSource;
+import edu.uci.ics.asterix.metadata.declared.AqlDataSource.AqlDataSourceType;
 import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
 import edu.uci.ics.asterix.metadata.entities.Dataset;
 import edu.uci.ics.asterix.metadata.utils.DatasetUtils;
@@ -41,8 +43,9 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DataSourceS
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.UnnestMapOperator;
 
 /**
- * Operator subtree that matches the following patterns, and provides convenient access to its nodes:
- * (select)? <-- (assign | unnest)* <-- (datasource scan | unnest-map)
+ * Operator subtree that matches the following patterns, and provides convenient
+ * access to its nodes: (select)? <-- (assign | unnest)* <-- (datasource scan |
+ * unnest-map)
  */
 public class OptimizableOperatorSubTree {
 
@@ -74,8 +77,10 @@ public class OptimizableOperatorSubTree {
             subTreeOp = (AbstractLogicalOperator) subTreeOpRef.getValue();
         }
         // Check primary-index pattern.
-        if (subTreeOp.getOperatorTag() != LogicalOperatorTag.ASSIGN && subTreeOp.getOperatorTag() != LogicalOperatorTag.UNNEST) {
-            // Pattern may still match if we are looking for primary index matches as well.
+        if (subTreeOp.getOperatorTag() != LogicalOperatorTag.ASSIGN
+                && subTreeOp.getOperatorTag() != LogicalOperatorTag.UNNEST) {
+            // Pattern may still match if we are looking for primary index
+            // matches as well.
             return initializeDataSource(subTreeOpRef);
         }
         // Match (assign | unnest)+.
@@ -85,7 +90,8 @@ public class OptimizableOperatorSubTree {
 
             subTreeOpRef = subTreeOp.getInputs().get(0);
             subTreeOp = (AbstractLogicalOperator) subTreeOpRef.getValue();
-        } while (subTreeOp.getOperatorTag() == LogicalOperatorTag.ASSIGN || subTreeOp.getOperatorTag() == LogicalOperatorTag.UNNEST);
+        } while (subTreeOp.getOperatorTag() == LogicalOperatorTag.ASSIGN
+                || subTreeOp.getOperatorTag() == LogicalOperatorTag.UNNEST);
 
         // Match data source (datasource scan or primary index search).
         return initializeDataSource(subTreeOpRef);
@@ -105,7 +111,7 @@ public class OptimizableOperatorSubTree {
                 if (f.getFunctionIdentifier().equals(AsterixBuiltinFunctions.INDEX_SEARCH)) {
                     AccessMethodJobGenParams jobGenParams = new AccessMethodJobGenParams();
                     jobGenParams.readFromFuncArgs(f.getArguments());
-                    if(jobGenParams.isPrimaryIndex()) {
+                    if (jobGenParams.isPrimaryIndex()) {
                         dataSourceType = DataSourceType.PRIMARY_INDEX_LOOKUP;
                         dataSourceRef = subTreeOpRef;
                         return true;
@@ -146,6 +152,12 @@ public class OptimizableOperatorSubTree {
         if (dataverseName == null || datasetName == null) {
             return false;
         }
+
+        AqlDataSource dataSource = (AqlDataSource) ((DataSourceScanOperator) dataSourceRef.getValue()).getDataSource();
+        if (dataSource.getDatasourceType().equals(AqlDataSourceType.FEED)) {
+            return false;
+        }
+
         // Find the dataset corresponding to the datasource in the metadata.
         dataset = metadataProvider.findDataset(dataverseName, datasetName);
         if (dataset == null) {
@@ -182,8 +194,7 @@ public class OptimizableOperatorSubTree {
         recordType = null;
     }
 
-    public void getPrimaryKeyVars(List<LogicalVariable> target)
-            throws AlgebricksException {
+    public void getPrimaryKeyVars(List<LogicalVariable> target) throws AlgebricksException {
         switch (dataSourceType) {
             case DATASOURCE_SCAN:
                 DataSourceScanOperator dataSourceScan = (DataSourceScanOperator) dataSourceRef.getValue();

@@ -56,7 +56,7 @@ class ExternalScalarFunction extends ExternalFunction implements IExternalScalar
             evaluate(functionHelper);
         } catch (Exception e) {
             e.printStackTrace();
-            throw new AlgebricksException(e);
+            //throw new AlgebricksException(e);
         }
     }
 

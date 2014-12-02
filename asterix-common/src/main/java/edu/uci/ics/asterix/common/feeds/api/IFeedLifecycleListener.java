@@ -24,14 +24,14 @@ import edu.uci.ics.hyracks.api.job.IJobLifecycleListener;
 
 public interface IFeedLifecycleListener extends IJobLifecycleListener, IClusterEventsSubscriber {
 
-    public enum SubscriptionLocation {
-        SOURCE_FEED_INTAKE,
-        SOURCE_FEED_COMPUTE
+    public enum ConnectionLocation {
+        SOURCE_FEED_INTAKE_STAGE,
+        SOURCE_FEED_COMPUTE_STAGE
     }
 
-    public IFeedJoint getAvailableFeedJoint(FeedJointKey feedPointKey);
+    public IFeedJoint getAvailableFeedJoint(FeedJointKey feedJoinKey);
 
-    public boolean isFeedJointAvailable(FeedJointKey feedPointKey);
+    public boolean isFeedJointAvailable(FeedJointKey feedJoinKey);
 
     public List<FeedConnectionId> getActiveFeedConnections(FeedId feedId);
 

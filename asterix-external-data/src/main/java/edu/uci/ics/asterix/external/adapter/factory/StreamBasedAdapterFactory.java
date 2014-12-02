@@ -17,13 +17,13 @@ package edu.uci.ics.asterix.external.adapter.factory;
 import java.util.Map;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.parse.IAsterixTupleParserFactory;
 import edu.uci.ics.asterix.external.util.INodeResolver;
 import edu.uci.ics.asterix.metadata.feeds.IAdapterFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.runtime.operators.file.AsterixTupleParserFactory;
 import edu.uci.ics.asterix.runtime.operators.file.AsterixTupleParserFactory.InputDataFormat;
+import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 
 public abstract class StreamBasedAdapterFactory implements IAdapterFactory {
 
@@ -33,7 +33,7 @@ public abstract class StreamBasedAdapterFactory implements IAdapterFactory {
     protected static INodeResolver nodeResolver;
 
     protected Map<String, String> configuration;
-    protected IAsterixTupleParserFactory parserFactory;
+    protected ITupleParserFactory parserFactory;
 
     public abstract InputDataFormat getInputDataFormat();
 

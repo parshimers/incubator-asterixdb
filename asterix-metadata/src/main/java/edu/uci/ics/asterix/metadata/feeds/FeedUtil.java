@@ -50,10 +50,6 @@ import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
 import edu.uci.ics.asterix.metadata.entities.Function;
 import edu.uci.ics.asterix.metadata.entities.PrimaryFeed;
 import edu.uci.ics.asterix.metadata.entities.SecondaryFeed;
-import edu.uci.ics.asterix.metadata.feeds.FeedCollectOperatorDescriptor;
-import edu.uci.ics.asterix.metadata.feeds.FeedMetaOperatorDescriptor;
-import edu.uci.ics.asterix.metadata.feeds.IAdapterFactory;
-import edu.uci.ics.asterix.metadata.feeds.IFeedAdapterFactory;
 import edu.uci.ics.asterix.metadata.functions.ExternalLibraryManager;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
@@ -64,7 +60,7 @@ import edu.uci.ics.hyracks.algebricks.common.utils.Triple;
 import edu.uci.ics.hyracks.algebricks.runtime.base.IPushRuntimeFactory;
 import edu.uci.ics.hyracks.algebricks.runtime.operators.meta.AlgebricksMetaOperatorDescriptor;
 import edu.uci.ics.hyracks.algebricks.runtime.operators.std.AssignRuntimeFactory;
-import edu.uci.ics.hyracks.algebricks.runtime.operators.std.StreamProjectRuntimeFactory;
+import edu.uci.ics.hyracks.algebricks.runtime.operators.std.EmptyTupleSourceRuntimeFactory;
 import edu.uci.ics.hyracks.api.constraints.Constraint;
 import edu.uci.ics.hyracks.api.constraints.PartitionConstraintHelper;
 import edu.uci.ics.hyracks.api.constraints.expressions.ConstantExpression;
@@ -79,6 +75,7 @@ import edu.uci.ics.hyracks.api.dataflow.OperatorDescriptorId;
 import edu.uci.ics.hyracks.api.dataflow.value.ITuplePartitionComputerFactory;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.common.data.partition.RandomPartitionComputerFactory;
+import edu.uci.ics.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.MToNPartitioningConnectorDescriptor;
 
 /**
@@ -145,6 +142,10 @@ public class FeedUtil {
     public static JobSpecification alterJobSpecificationForFeed(JobSpecification spec,
             FeedConnectionId feedConnectionId, Map<String, String> feedPolicyProperties) {
 
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Original Job Spec:" + spec);
+        }
+
         JobSpecification altered = new JobSpecification(spec.getFrameSize());
         Map<OperatorDescriptorId, IOperatorDescriptor> operatorMap = spec.getOperatorMap();
         boolean preProcessingRequired = preProcessingRequired(feedConnectionId);
@@ -175,6 +176,8 @@ public class FeedUtil {
             } else {
                 FeedRuntimeType runtimeType = null;
                 boolean enableSubscriptionMode = false;
+                boolean createMetaOp = true;
+                OperatorDescriptorId opId = null;
                 if (opDesc instanceof AlgebricksMetaOperatorDescriptor) {
                     IPushRuntimeFactory runtimeFactory = ((AlgebricksMetaOperatorDescriptor) opDesc).getPipeline()
                             .getRuntimeFactories()[0];
@@ -188,14 +191,25 @@ public class FeedUtil {
                         } else {
                             runtimeType = FeedRuntimeType.OTHER;
                         }
-                    } else if (runtimeFactory instanceof StreamProjectRuntimeFactory) {
+                    } else if (runtimeFactory instanceof EmptyTupleSourceRuntimeFactory) {
+                        runtimeType = FeedRuntimeType.ETS;
+                    } else {
                         runtimeType = FeedRuntimeType.OTHER;
                     }
+                } else {
+                    if (opDesc instanceof AbstractSingleActivityOperatorDescriptor) {
+                        runtimeType = FeedRuntimeType.OTHER;
+                    } else {
+                        opId = altered.createOperatorDescriptorId(opDesc);
+                        createMetaOp = false;
+                    }
                 }
-                metaOp = new FeedMetaOperatorDescriptor(altered, feedConnectionId, opDesc, feedPolicyProperties,
-                        runtimeType, enableSubscriptionMode, operandId);
-
-                oldNewOID.put(opDesc.getOperatorId(), metaOp.getOperatorId());
+                if (createMetaOp) {
+                    metaOp = new FeedMetaOperatorDescriptor(altered, feedConnectionId, opDesc, feedPolicyProperties,
+                            runtimeType, enableSubscriptionMode, operandId);
+                    opId = metaOp.getOperatorId();
+                }
+                oldNewOID.put(opDesc.getOperatorId(), opId);
             }
         }
 

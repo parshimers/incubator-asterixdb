@@ -3,7 +3,7 @@ package edu.uci.ics.asterix.runtime.operators.file;
 import java.nio.ByteBuffer;
 import java.util.Map;
 
-import edu.uci.ics.asterix.common.parse.ITupleParserPolicy;
+import edu.uci.ics.asterix.common.parse.ITupleForwardPolicy;
 import edu.uci.ics.hyracks.api.comm.IFrameWriter;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -11,7 +11,7 @@ import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 
-public class RateControlledTupleParserPolicy implements ITupleParserPolicy {
+public class RateControlledTupleForwardPolicy implements ITupleForwardPolicy {
 
     private FrameTupleAppender appender;
     private ByteBuffer frame;
@@ -63,7 +63,7 @@ public class RateControlledTupleParserPolicy implements ITupleParserPolicy {
     }
 
     @Override
-    public TupleParserPolicyType getType() {
-        return TupleParserPolicyType.RATE_CONTROLLED;
+    public TupleForwardPolicyType getType() {
+        return TupleForwardPolicyType.RATE_CONTROLLED;
     }
 }

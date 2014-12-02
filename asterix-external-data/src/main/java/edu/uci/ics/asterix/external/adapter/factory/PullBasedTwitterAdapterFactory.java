@@ -14,9 +14,7 @@
  */
 package edu.uci.ics.asterix.external.adapter.factory;
 
-import java.io.InputStream;
 import java.util.Map;
-import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -25,6 +23,8 @@ import edu.uci.ics.asterix.common.feeds.FeedPolicyAccessor;
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
 import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
 import edu.uci.ics.asterix.external.dataset.adapter.PullBasedTwitterAdapter;
+import edu.uci.ics.asterix.external.util.TwitterUtil;
+import edu.uci.ics.asterix.external.util.TwitterUtil.SearchAPIConstants;
 import edu.uci.ics.asterix.metadata.feeds.IFeedAdapterFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksCountPartitionConstraint;
@@ -42,29 +42,12 @@ public class PullBasedTwitterAdapterFactory implements IFeedAdapterFactory {
 
     public static final String PULL_BASED_TWITTER_ADAPTER_NAME = "pull_twitter";
 
-    // configuration parameters
-    public static final String QUERY = "query";
-    public static final String INTERVAL = "interval";
-    public static final String OAUTH_CONSUMER_KEY = "consumer.key";
-    public static final String OAUTH_CONSUMER_SECRET = "consumer.secret";
-    public static final String OAUTH_ACCESS_TOKEN = "access.token";
-    public static final String OAUTH_ACCESS_TOKEN_SECRET = "access.token.secret";
-    public static final String OAUTH_AUTHENTICATION_FILE = "authentication.file";
-    public static final String AUTHENTICATION_MODE = "authentication.mode";
-    public static final String OUTPUT_TYPE_NAME = "output.type.name";
-
-    public static final String AUTHENTICATION_MODE_FILE = "file";
-    public static final String AUTHENTICATION_MODE_EXPLICIT = "explicit";
-
     private static final String DEFAULT_INTERVAL = "10"; // 10 seconds
-    private static final String DEFAULT_AUTH_FILE = "/feed/twitter/auth.properties"; // default authentication file
     private static final int INTAKE_CARDINALITY = 1; // degree of parallelism at intake stage 
 
     private ARecordType outputType;
 
     private Map<String, String> configuration;
-
-    private FeedPolicyAccessor ingestionPolicy;
 
     @Override
     public IDatasourceAdapter createAdapter(IHyracksTaskContext ctx, int partition) throws Exception {
@@ -85,49 +68,26 @@ public class PullBasedTwitterAdapterFactory implements IFeedAdapterFactory {
     public void configure(Map<String, String> configuration, ARecordType outputType) throws Exception {
         this.outputType = outputType;
         this.configuration = configuration;
-        String authMode = configuration.get(AUTHENTICATION_MODE);
-        if (authMode == null) {
-            authMode = AUTHENTICATION_MODE_FILE;
-        }
-        try {
-            switch (authMode) {
-                case AUTHENTICATION_MODE_FILE:
-                    Properties prop = new Properties();
-                    String authFile = configuration.get(OAUTH_AUTHENTICATION_FILE);
-                    if (authFile == null) {
-                        authFile = DEFAULT_AUTH_FILE;
-                    }
-                    InputStream in = getClass().getResourceAsStream(authFile);
-                    prop.load(in);
-                    in.close();
-                    configuration.put(OAUTH_CONSUMER_KEY, prop.getProperty(OAUTH_CONSUMER_KEY));
-                    configuration.put(OAUTH_CONSUMER_SECRET, prop.getProperty(OAUTH_CONSUMER_SECRET));
-                    configuration.put(OAUTH_ACCESS_TOKEN, prop.getProperty(OAUTH_ACCESS_TOKEN));
-                    configuration.put(OAUTH_ACCESS_TOKEN_SECRET, prop.getProperty(OAUTH_ACCESS_TOKEN_SECRET));
-                    break;
-                case AUTHENTICATION_MODE_EXPLICIT:
-                    break;
-            }
-        } catch (Exception e) {
-            throw new AsterixException("Incorrect configuration! unable to load authentication credentials "
-                    + e.getMessage());
+        TwitterUtil.initializeConfigurationWithAuthInfo(configuration);
+
+        if (configuration.get(SearchAPIConstants.QUERY) == null) {
+            throw new AsterixException("parameter " + SearchAPIConstants.QUERY
+                    + " not specified as part of adaptor configuration");
         }
 
-        if (configuration.get(QUERY) == null) {
-            throw new AsterixException("parameter " + QUERY + " not specified as part of adaptor configuration");
-        }
-        String interval = configuration.get(INTERVAL);
+        String interval = configuration.get(SearchAPIConstants.INTERVAL);
         if (interval != null) {
             try {
                 Integer.parseInt(interval);
             } catch (NumberFormatException nfe) {
-                throw new IllegalArgumentException("parameter " + INTERVAL
+                throw new IllegalArgumentException("parameter " + SearchAPIConstants.INTERVAL
                         + " is defined incorrectly, expecting a number");
             }
         } else {
-            configuration.put(INTERVAL, DEFAULT_INTERVAL);
+            configuration.put(SearchAPIConstants.INTERVAL, DEFAULT_INTERVAL);
             if (LOGGER.isLoggable(Level.WARNING)) {
-                LOGGER.warning(" Parameter " + INTERVAL + " not defined, using default (" + DEFAULT_INTERVAL + ")");
+                LOGGER.warning(" Parameter " + SearchAPIConstants.INTERVAL + " not defined, using default ("
+                        + DEFAULT_INTERVAL + ")");
             }
         }
 
@@ -151,10 +111,6 @@ public class PullBasedTwitterAdapterFactory implements IFeedAdapterFactory {
     @Override
     public ARecordType getAdapterOutputType() {
         return outputType;
-    }
-
-    public FeedPolicyAccessor getIngestionPolicy() {
-        return ingestionPolicy;
     }
 
 }

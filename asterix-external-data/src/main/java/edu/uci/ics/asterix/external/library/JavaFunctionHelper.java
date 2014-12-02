@@ -20,8 +20,6 @@ import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.external.library.java.IJObject;
 import edu.uci.ics.asterix.external.library.java.JObjectPointableVisitor;
 import edu.uci.ics.asterix.external.library.java.JTypeTag;
-import edu.uci.ics.asterix.external.library.java.JObjects.JLong;
-import edu.uci.ics.asterix.external.library.java.JObjects.JRecord;
 import edu.uci.ics.asterix.om.functions.IExternalFunctionInfo;
 import edu.uci.ics.asterix.om.pointables.AFlatValuePointable;
 import edu.uci.ics.asterix.om.pointables.AListPointable;
@@ -49,8 +47,6 @@ public class JavaFunctionHelper implements IFunctionHelper {
             JTypeObjectFactory.INSTANCE);
     private final JObjectPointableVisitor pointableVisitor;
     private final PointableAllocator pointableAllocator;
-    private JLong computeTimestamp = new JLong(0);
-    private JLong storageTimestamp = new JLong(0);
 
     public JavaFunctionHelper(IExternalFunctionInfo finfo, IDataOutputProvider outputProvider)
             throws AlgebricksException {
@@ -74,19 +70,11 @@ public class JavaFunctionHelper implements IFunctionHelper {
     @Override
     public void setResult(IJObject result) throws IOException, AsterixException {
         try {
-            if (result.getTypeTag().equals(ATypeTag.RECORD)) {
-                computeTimestamp.setValue(System.currentTimeMillis());
-                ((JRecord) result).addField("compute-timestamp", computeTimestamp);
-            }
             result.serialize(outputProvider.getDataOutput(), true);
+            result.reset();
         } catch (IOException e) {
             throw new HyracksDataException(e);
         }
-    }
-
-    private void reset() {
-        resultHolder.reset();
-        objectPool.reset();
     }
 
     public void setArgument(int index, IValueReference valueReference) throws IOException, AsterixException {
@@ -111,7 +99,7 @@ public class JavaFunctionHelper implements IFunctionHelper {
                                 objectPool, type, type.getTypeTag()));
                 break;
             case ANY:
-                throw new IllegalStateException("Cannot handle  as function argument of type " + type.getTypeTag());
+                throw new IllegalStateException("Cannot handle a function argument of type " + type.getTypeTag());
 
             default:
                 pointable = pointableAllocator.allocateFieldValue(type.getTypeTag());

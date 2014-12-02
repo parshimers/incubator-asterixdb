@@ -20,7 +20,6 @@ import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.feeds.api.IDatasourceAdapter;
 import edu.uci.ics.asterix.common.feeds.api.IIntakeProgressTracker;
-import edu.uci.ics.asterix.common.parse.IAsterixTupleParserFactory;
 import edu.uci.ics.asterix.external.adapter.factory.StreamBasedAdapterFactory;
 import edu.uci.ics.asterix.metadata.feeds.IFeedAdapterFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
@@ -29,6 +28,7 @@ import edu.uci.ics.asterix.runtime.operators.file.AsterixTupleParserFactory.Inpu
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksCountPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
+import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 
 public class TweetGenAdaptorFactory extends StreamBasedAdapterFactory implements IFeedAdapterFactory {
 
@@ -63,7 +63,7 @@ public class TweetGenAdaptorFactory extends StreamBasedAdapterFactory implements
 
     @Override
     public IDatasourceAdapter createAdapter(IHyracksTaskContext ctx, int partition) throws Exception {
-        IAsterixTupleParserFactory tupleParserFactory = new AsterixTupleParserFactory(configuration, outputType,
+        ITupleParserFactory tupleParserFactory = new AsterixTupleParserFactory(configuration, outputType,
                 getInputDataFormat());
         return new TweetGenAdaptor(tupleParserFactory, outputType, ctx, configuration, partition);
     }

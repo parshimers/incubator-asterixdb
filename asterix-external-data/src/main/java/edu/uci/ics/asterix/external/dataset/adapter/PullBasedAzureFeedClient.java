@@ -28,7 +28,7 @@ import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.util.ResettableByteArrayOutputStream;
 import edu.uci.ics.asterix.runtime.operators.file.ADMDataParser;
 
-public class PullBasedAzureFeedClient implements IPullBasedFeedClient {
+public class PullBasedAzureFeedClient implements IFeedClient {
     private static final Logger LOGGER = Logger.getLogger(PullBasedAzureFeedClient.class.getName());
 
     private final String tableName;

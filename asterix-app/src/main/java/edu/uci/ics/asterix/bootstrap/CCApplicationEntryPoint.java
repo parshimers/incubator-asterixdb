@@ -37,10 +37,12 @@ import edu.uci.ics.asterix.common.config.AsterixMetadataProperties;
 import edu.uci.ics.asterix.common.feeds.api.ICentralFeedManager;
 import edu.uci.ics.asterix.feeds.CentralFeedManager;
 import edu.uci.ics.asterix.feeds.FeedLifecycleListener;
+import edu.uci.ics.asterix.formats.base.IDataFormat;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.api.IAsterixStateProxy;
 import edu.uci.ics.asterix.metadata.bootstrap.AsterixStateProxy;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
+import edu.uci.ics.asterix.runtime.formats.FormatUtils;
 import edu.uci.ics.hyracks.api.application.ICCApplicationContext;
 import edu.uci.ics.hyracks.api.application.ICCApplicationEntryPoint;
 import edu.uci.ics.hyracks.api.client.HyracksConnection;
@@ -94,6 +96,12 @@ public class CCApplicationEntryPoint implements ICCApplicationEntryPoint {
         centralFeedManager.start();
 
         ccAppCtx.addClusterLifecycleListener(ClusterLifecycleListener.INSTANCE);
+
+        IDataFormat format = FormatUtils.getDefaultFormat();
+        format.registerRuntimeFunctions();
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Registered Runtime Functions");
+        }
     }
 
     @Override

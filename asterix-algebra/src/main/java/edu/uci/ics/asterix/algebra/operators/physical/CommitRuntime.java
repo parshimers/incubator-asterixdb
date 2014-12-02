@@ -16,14 +16,10 @@
 package edu.uci.ics.asterix.algebra.operators.physical;
 
 import java.nio.ByteBuffer;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
 import edu.uci.ics.asterix.common.exceptions.ACIDException;
-import edu.uci.ics.asterix.common.feeds.FeedConstants.StatisticsConstants;
 import edu.uci.ics.asterix.common.transactions.ILogManager;
 import edu.uci.ics.asterix.common.transactions.ITransactionContext;
 import edu.uci.ics.asterix.common.transactions.ITransactionManager;
@@ -43,8 +39,6 @@ public class CommitRuntime implements IPushRuntime {
 
     private final static long SEED = 0L;
 
-    private static final Logger LOGGER = Logger.getLogger(CommitRuntime.class.getName());
-
     private final IHyracksTaskContext hyracksTaskCtx;
     private final ITransactionManager transactionManager;
     private final ILogManager logMgr;
@@ -60,12 +54,8 @@ public class CommitRuntime implements IPushRuntime {
     private FrameTupleAccessor frameTupleAccessor;
     private FrameTupleReference frameTupleReference;
 
-    private final Timer timer = new Timer();
-    private final TimerTask task;
     private AtomicInteger count = new AtomicInteger();
-    private static final long DEFAULT_THROUGHPUT_PERIOD = 2000; // 2 seconds
-    private long throughputPeriod = DEFAULT_THROUGHPUT_PERIOD;
-
+   
     public CommitRuntime(IHyracksTaskContext ctx, JobId jobId, int datasetId, int[] primaryKeyFields,
             boolean isWriteTransaction) {
         this.hyracksTaskCtx = ctx;
@@ -80,11 +70,6 @@ public class CommitRuntime implements IPushRuntime {
         this.isWriteTransaction = isWriteTransaction;
         this.longHashes = new long[2];
         this.logRecord = new LogRecord();
-        String propVal = System.getProperty("commit.throughput.period");
-        if (propVal != null) {
-            throughputPeriod = Long.parseLong(propVal);
-        }
-        this.task = new ThroughputLogger(count, throughputPeriod);
     }
 
     @Override
@@ -92,7 +77,6 @@ public class CommitRuntime implements IPushRuntime {
         try {
             transactionContext = transactionManager.getTransactionContext(jobId, false);
             transactionContext.setWriteTxn(isWriteTransaction);
-            timer.scheduleAtFixedRate(task, 0, throughputPeriod);
         } catch (ACIDException e) {
             throw new HyracksDataException(e);
         }
@@ -123,25 +107,7 @@ public class CommitRuntime implements IPushRuntime {
         return Math.abs((int) longHashes[0]);
     }
 
-    private static class ThroughputLogger extends TimerTask {
-
-        private final AtomicInteger count;
-        private int prevValue = 0;
-        private long throughputPeriod;
-
-        public ThroughputLogger(AtomicInteger count, long throughputPeriod) {
-            this.count = count;
-            this.throughputPeriod = throughputPeriod;
-        }
-
-        @Override
-        public void run() {
-            int currentValue = count.get();
-            LOGGER.warning("THROUGHPUT:" + (currentValue - prevValue) * 1000 / (throughputPeriod));
-            prevValue = currentValue;
-        }
-    }
-
+   
     @Override
     public void fail() throws HyracksDataException {
         // TODO Auto-generated method stub
@@ -151,8 +117,6 @@ public class CommitRuntime implements IPushRuntime {
     @Override
     public void close() throws HyracksDataException {
         // TODO Auto-generated method stub
-        System.out.println("Commit close called");
-        timer.cancel();
     }
 
     @Override
