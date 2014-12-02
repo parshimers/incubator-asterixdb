@@ -15,6 +15,7 @@
 package edu.uci.ics.asterix.aoya.test;
 
 import java.io.File;
+
 import java.io.FilenameFilter;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -33,16 +34,24 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runners.Parameterized.Parameters;
+import org.junit.FixMethodOrder;
+import org.junit.runners.MethodSorters;
 
 import edu.uci.ics.asterix.aoya.Client;
+import edu.uci.ics.asterix.aoya.Utils;
 import edu.uci.ics.asterix.event.error.VerificationUtil;
 import edu.uci.ics.asterix.event.model.AsterixInstance;
 import edu.uci.ics.asterix.event.model.AsterixInstance.State;
 import edu.uci.ics.asterix.event.model.AsterixRuntimeState;
+import edu.uci.ics.asterix.event.schema.yarnCluster.Cluster;
+import edu.uci.ics.asterix.event.schema.yarnCluster.Node;
 import edu.uci.ics.asterix.event.service.ServiceProvider;
 import edu.uci.ics.asterix.test.aql.TestsUtils;
 import edu.uci.ics.asterix.aoya.test.YARNCluster;
+import edu.uci.ics.asterix.common.configuration.AsterixConfiguration;
 import edu.uci.ics.asterix.testframework.context.TestCaseContext;
+
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 
 public class AsterixYARNLifecycleIT {
 
@@ -90,9 +99,17 @@ public class AsterixYARNLifecycleIT {
         }
         aoyaServerPath = asterixServerInstallerDir.getAbsolutePath() + File.separator + zipsInFolder[0];
         configPath = aoyaHome + File.separator + "configs" + File.separator + "local.xml";
+
         parameterPath = aoyaHome + File.separator + "conf" + File.separator + "base-asterix-configuration.xml";
         YARNCluster.getInstance().setup();
         miniCluster = YARNCluster.getInstance().getCluster();
+        Cluster defaultConfig = Utils.parseYarnClusterConfig(configPath);
+        for(Node n: defaultConfig.getNode()){
+            n.setClusterIp(MiniYARNCluster.getHostname());
+        }
+        defaultConfig.getMasterNode().setClusterIp(MiniYARNCluster.getHostname());
+        configPath = "target" + File.separator + "localized-aoya-config.xml";
+        Utils.writeYarnClusterConfig(configPath, defaultConfig);
         miniCluster.start();
 
         //once the cluster is created, you can get its configuration
@@ -130,7 +147,7 @@ public class AsterixYARNLifecycleIT {
     }
 
     @Test
-    public void testInstallActiveInstance() throws Exception {
+    public void test_1_InstallActiveInstance() throws Exception {
         String command ="-n " + INSTANCE_NAME + " -c " + configPath + " -bc " + parameterPath +" -tar " + aoyaServerPath + " install";
 
         Client aoyaClient = new Client(appConf);
@@ -139,7 +156,7 @@ public class AsterixYARNLifecycleIT {
     }
 
     @Test
-    public void testStopActiveInstance() throws Exception {
+    public void test_2_StopActiveInstance() throws Exception {
         String command = "-n " + INSTANCE_NAME + " stop";
         Client aoyaClient = new Client(appConf);
         aoyaClient.init(command.split(" "));
@@ -147,7 +164,7 @@ public class AsterixYARNLifecycleIT {
     }
 
     @Test
-    public void testStartActiveInstance() throws Exception {
+    public void test_3_StartActiveInstance() throws Exception {
         String command = "-n " + INSTANCE_NAME + " start";
         Client aoyaClient = new Client(appConf);
         aoyaClient.init(command.split(" "));
@@ -155,8 +172,8 @@ public class AsterixYARNLifecycleIT {
     }
 
     @Test
-    public void testDeleteActiveInstance() throws Exception {
-        String command = "-n " + INSTANCE_NAME + " delete";
+    public void test_4_DeleteActiveInstance() throws Exception {
+        String command = "-n " + INSTANCE_NAME +" -tar " + aoyaServerPath  +" -f" + " destroy";
         Client aoyaClient = new Client(appConf);
         aoyaClient.init(command.split(" "));
         Client.execute(aoyaClient);

@@ -11,6 +11,7 @@ import java.util.Scanner;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
+import javax.xml.bind.Marshaller;
 import javax.xml.bind.Unmarshaller;
 
 import org.apache.commons.httpclient.HttpClient;
@@ -32,6 +33,7 @@ import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 
+import edu.uci.ics.asterix.common.configuration.AsterixConfiguration;
 import edu.uci.ics.asterix.event.schema.yarnCluster.Cluster;
 import edu.uci.ics.asterix.event.schema.yarnCluster.Node;
 
@@ -208,6 +210,13 @@ public class Utils {
         Cluster cl = (Cluster) unmarshaller.unmarshal(f);
         return cl;
     }
+    
+    public static void writeYarnClusterConfig(String path, Cluster cl) throws FileNotFoundException, JAXBException{
+        File f = new File(path);
+        JAXBContext configCtx = JAXBContext.newInstance(Cluster.class);
+        Marshaller marhsaller = configCtx.createMarshaller();
+        marhsaller.marshal(cl, f);
+    }
 
     public static String getAsterixVersionFromClasspath() {
         String[] cp = System.getProperty("java.class.path").split(System.getProperty("path.separator"));
@@ -306,4 +315,12 @@ public class Utils {
         String ccIp = cl.getMasterNode().getClientIp();
         return ccIp;
     }
+    public static AsterixConfiguration loadAsterixConfig(String path) throws IOException, JAXBException {
+        File f = new File(path);
+        JAXBContext configCtx = JAXBContext.newInstance(AsterixConfiguration.class);
+        Unmarshaller unmarshaller = configCtx.createUnmarshaller();
+        AsterixConfiguration conf = (AsterixConfiguration) unmarshaller.unmarshal(f);
+        return conf;
+    }
+
 }

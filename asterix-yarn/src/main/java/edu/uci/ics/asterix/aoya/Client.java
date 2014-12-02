@@ -273,8 +273,8 @@ public class Client {
                 break;
             case DESTROY:
                 try {
-                    if (Utils
-                            .confirmAction("Are you really sure you want to obliterate this instance? This action cannot be undone!")) {
+                    if (client.force
+                            || Utils.confirmAction("Are you really sure you want to obliterate this instance? This action cannot be undone!")) {
                         app = client.makeApplicationContext();
                         res = client.deployConfig();
                         res.addAll(client.distributeBinaries());
@@ -286,7 +286,7 @@ public class Client {
                 }
                 break;
             case BACKUP:
-                if (Utils.confirmAction("Performing a backup will stop a running instance.")) {
+                if (client.force || Utils.confirmAction("Performing a backup will stop a running instance.")) {
                     app = client.makeApplicationContext();
                     res = client.deployConfig();
                     res.addAll(client.distributeBinaries());
@@ -300,7 +300,7 @@ public class Client {
                 Utils.rmBackup(client.conf, CONF_DIR_REL, client.instanceName, Long.parseLong(client.snapName));
                 break;
             case RESTORE:
-                if (Utils.confirmAction("Performing a restore will stop a running instance.")) {
+                if (client.force || Utils.confirmAction("Performing a restore will stop a running instance.")) {
                     app = client.makeApplicationContext();
                     res = client.deployConfig();
                     res.addAll(client.distributeBinaries());
@@ -653,6 +653,9 @@ public class Client {
                     amLibCoord.envs.put(Long.toString(dstSt.getLen()), MConstants.APPLICATIONMASTERJARLEN);
                     amLibCoord.envs.put(Long.toString(dstSt.getModificationTime()),
                             MConstants.APPLICATIONMASTERJARTIMESTAMP);
+                    amLibCoord.envs.put(conf.get("yarn.resourcemanager.address"), MConstants.RMADDRESS);
+                    amLibCoord.envs.put(conf.get("yarn.resourcemanager.scheduler.address"),
+                            MConstants.RMSCHEDULERADDRESS);
                 }
                 resources.add(amLibCoord);
             }
@@ -691,7 +694,7 @@ public class Client {
 
         // Add the asterix tarfile to HDFS for easy distribution
         // Keep it all archived for now so add it as a file...
-        src = new Path(asterixTar);
+
         pathSuffix = CONF_DIR_REL + instanceFolder + "asterix-server.zip";
         dst = new Path(fs.getHomeDirectory(), pathSuffix);
         if (refresh) {
@@ -700,6 +703,7 @@ public class Client {
             }
         }
         if (!fs.exists(dst)) {
+            src = new Path(asterixTar);
             LOG.info("Copying Asterix distributable to DFS");
             fs.copyFromLocalFile(false, true, src, dst);
         }
@@ -1130,11 +1134,11 @@ public class Client {
         AsterixConfiguration configuration;
         String configPathBase = MERGED_PARAMETERS_PATH;
         if (baseConfig != ".") {
-            configuration = loadAsterixConfig(baseConfig);
+            configuration = Utils.loadAsterixConfig(baseConfig);
             configPathBase = new File(baseConfig).getParentFile().getAbsolutePath() + "asterix-configuration.xml";
             MERGED_PARAMETERS_PATH = configPathBase;
         } else {
-            configuration = loadAsterixConfig(DEFAULT_PARAMETERS_PATH);
+            configuration = Utils.loadAsterixConfig(DEFAULT_PARAMETERS_PATH);
         }
 
         String version = Utils.getAsterixVersionFromClasspath();
@@ -1170,14 +1174,6 @@ public class Client {
         FileOutputStream os = new FileOutputStream(MERGED_PARAMETERS_PATH);
         marshaller.marshal(configuration, os);
         os.close();
-    }
-
-    private AsterixConfiguration loadAsterixConfig(String path) throws IOException, JAXBException {
-        File f = new File(path);
-        JAXBContext configCtx = JAXBContext.newInstance(AsterixConfiguration.class);
-        Unmarshaller unmarshaller = configCtx.createUnmarshaller();
-        AsterixConfiguration conf = (AsterixConfiguration) unmarshaller.unmarshal(f);
-        return conf;
     }
 
     private boolean waitForCompletion(ApplicationId appId, String message) throws YarnException, IOException,

@@ -346,6 +346,11 @@ public class ApplicationMaster {
 
         instanceConfPath = envs.get(MConstants.INSTANCESTORE);
         AppMasterJar = new Path(envs.get(MConstants.APPLICATIONMASTERJARLOCATION));
+        //If the NM has an odd environment where the proper hadoop XML configs dont get imported, we can end up not being able to talk to the RM
+        // this solves that!
+        conf.set("yarn.resourcemanager.address", envs.get(MConstants.RMADDRESS));
+        conf.set("yarn.resourcemanager.scheduler.address", envs.get(MConstants.RMSCHEDULERADDRESS));
+        LOG.info("RM Address: " + envs.get(MConstants.RMADDRESS));
 
         LOG.info("Path suffix: " + instanceConfPath);
     }
@@ -896,16 +901,6 @@ public class ApplicationMaster {
 
             ctx.setEnvironment(env);
             LOG.info(ctx.getEnvironment().toString());
-            /*
-            try{
-            writeAsterixConfig(clusterDesc);
-            }
-            catch (JAXBException | IOException e){
-            	LOG.error("Couldn't write properites config file to disk.");
-            	e.printStackTrace();
-            	return;
-            }
-            */
             List<String> startCmd = null;
             if (obliterate) {
                 startCmd = produceObliterateCommand(container);
@@ -916,6 +911,12 @@ public class ApplicationMaster {
             } else {
                 startCmd = produceStartCmd(container);
             }
+
+            if(startCmd == null || startCmd.size() == 0){
+                LOG.fatal("Could not map one or more NCs to NM container hosts- aborting!");
+                return;
+            }
+        
             for (String s : startCmd) {
                 LOG.info("Command to execute: " + s);
             }
@@ -966,7 +967,7 @@ public class ApplicationMaster {
                     vargs.add("-data-ip-address " + local.getClusterIp());
                     vargs.add("-result-ip-address " + local.getClusterIp());
                 } catch (UnknownHostException e) {
-                    LOG.error("Unable to find NC configured for host: " + container.getId() + e);
+                    LOG.error("Unable to find NC or CC configured for host: " + container.getId()+ " "+ e);
                 }
             }
 
@@ -1191,10 +1192,10 @@ public class ApplicationMaster {
         private Node containerToNode(Container c, Cluster cl) throws UnknownHostException {
             String containerHost = c.getNodeId().getHost();
             InetAddress containerIp = InetAddress.getByName(containerHost);
-            LOG.debug("Resolved Container IP: " + containerIp);
+            LOG.info("Resolved Container IP: " + containerIp);
             for (Node node : cl.getNode()) {
                 InetAddress nodeIp = InetAddress.getByName(node.getClusterIp());
-                LOG.debug(nodeIp + "?=" + containerIp);
+                LOG.info(nodeIp + "?=" + containerIp);
                 if (nodeIp.equals(containerIp))
                     return node;
             }

@@ -82,6 +82,11 @@ public class MConstants {
     public static final String PARAMLEN = "PARAMLEN";
 
     public static final String PATHSUFFIX = "PATHSUFFIX";
-    
+
     public static final String INSTANCESTORE = "INSTANCESTORE";
+
+    public static final String RMADDRESS = "RMADDRESS";
+
+    public static final String RMSCHEDULERADDRESS = "RMSCHEDULERADDRESS";
+
 }
