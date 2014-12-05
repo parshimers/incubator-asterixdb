@@ -219,8 +219,8 @@ public class ResultUtils {
     private static String extractErrorMessage(Throwable e) {
         Throwable cause = getRootCause(e);
 
-        String exceptionClassName = "";
         String[] messageSplits = cause.toString().split(":");
+        String exceptionClassName = messageSplits[0];
         if (messageSplits.length > 1) {
             String fullyQualifiedExceptionClassName = messageSplits[0];
             System.out.println(fullyQualifiedExceptionClassName);
@@ -229,7 +229,11 @@ public class ResultUtils {
                 exceptionClassName = hierarchySplits[hierarchySplits.length - 1];
             }
         }
-        return cause.getLocalizedMessage() + " [" + exceptionClassName + "]";
+        String localizedMessage = cause.getLocalizedMessage();
+        if(localizedMessage == null){
+            localizedMessage = "Guru meditation error. Please check CC and NC logs for stacktraces";
+        }
+        return localizedMessage + " [" + exceptionClassName + "]";
     }
 
     /**

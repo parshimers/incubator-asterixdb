@@ -2121,10 +2121,10 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
         try {
             type = MetadataManager.INSTANCE.getDatatype(mdTxnCtx, dataverse, typeName);
         } catch (Exception e) {
-            throw new IllegalStateException();
+            throw new IllegalStateException(e);
         }
         if (type == null) {
-            throw new IllegalStateException();
+            throw new IllegalStateException("Could not find type in metadata");
         }
         return type.getDatatype();
     }
