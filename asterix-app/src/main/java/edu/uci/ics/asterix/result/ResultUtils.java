@@ -231,7 +231,7 @@ public class ResultUtils {
         }
         String localizedMessage = cause.getLocalizedMessage();
         if(localizedMessage == null){
-            localizedMessage = "Guru meditation error. Please check CC and NC logs for stacktraces";
+            localizedMessage = "Internal error. Please check instance logs for further details.";
         }
         return localizedMessage + " [" + exceptionClassName + "]";
     }
