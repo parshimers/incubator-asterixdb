@@ -4556,6 +4556,16 @@
                 <output-dir compare="Text">query-issue810-3</output-dir>
             </compilation-unit>
         </test-case>
+        <test-case FilePath="tpch">
+            <compilation-unit name="query-issue827">
+                <output-dir compare="Text">query-issue827</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="tpch">
+            <compilation-unit name="query-issue827-2">
+                <output-dir compare="Text">query-issue827-2</output-dir>
+            </compilation-unit>
+        </test-case>
     </test-group>
     <test-group name="tpch-sql-like">
         <test-case FilePath="tpch-sql-like">
@@ -5510,6 +5520,13 @@
         <test-case FilePath="json">
             <compilation-unit name="int01">
                 <output-dir compare="JSON">int01</output-dir>
+            </compilation-unit>
+        </test-case>
+    </test-group>
+    <test-group name="csv">
+        <test-case FilePath="csv">
+            <compilation-unit name="basic-types">
+                <output-dir compare="CSV">basic-types</output-dir>
             </compilation-unit>
         </test-case>
     </test-group>
