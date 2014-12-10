@@ -278,6 +278,26 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
         return resultSerializerFactoryProvider;
     }
 
+    /**
+     * Retrieve the Output RecordType, as defined by "set outputRecordType".
+     */
+    public ARecordType findOutputRecordType() throws AlgebricksException {
+        String outputRecordType = getPropertyValue("outputRecordType");
+        if (outputRecordType == null) {
+            return null;
+        }
+        String dataverse = getDefaultDataverseName();
+        if (dataverse == null) {
+            throw new AlgebricksException("Cannot declare outputRecordType with no dataverse!");
+        }
+        IAType type = findType(dataverse, outputRecordType);
+        if (!(type instanceof ARecordType)) {
+            throw new AlgebricksException
+                ("Type " + outputRecordType + " is not a record type!");
+        }
+        return (ARecordType) type;
+    }
+
     @Override
     public AqlDataSource findDataSource(AqlSourceId id) throws AlgebricksException {
         AqlSourceId aqlId = (AqlSourceId) id;
@@ -2116,7 +2136,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
         }
     }
 
-    public IAType findType(String dataverse, String typeName) {
+    public IAType findType(String dataverse, String typeName) throws AlgebricksException {
         Datatype type;
         try {
             type = MetadataManager.INSTANCE.getDatatype(mdTxnCtx, dataverse, typeName);
