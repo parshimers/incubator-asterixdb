@@ -26,10 +26,12 @@ For this tutorial it will be assumed that we have a YARN cluster with the proper
 
 To deploy AsterixDB onto a YARN cluster, we need to construct a configuration file that describes the resources that will be requested from YARN for AsterixDB. 
 
-<figure>
+<div class="source">
+<pre>
 <img src="images/yarn_clust.png" alt="Illustration of a simple YARN cluster with AsterixDB processes."/>
-<figcaption><em>Fig. 1</em>:  Illustration of a simple YARN cluster with AsterixDB processes and their locations</figcaption>
-</figure>
+<em>Fig. 1</em>:  Illustration of a simple YARN cluster with AsterixDB processes and their locations
+</pre>
+</div>
 
 This AsterixDB cluster description file corresponds to the above deployed scenario.
 
@@ -70,32 +72,41 @@ With this configuration in hand, the YARN client can be used to deploy AsterixDB
         Asterix successfully deployed and is now running.
 
 The instance will be visible in the YARN RM similar to the below image
-
-<figure>
+<div class="source">
+<pre>
 <img src="images/running_inst.png" alt="Illustration of a simple YARN cluster with AsterixDB processes."/>
-<figcaption><em>Fig. 2</em>:  Hadoop YARN Resource Manager dashboard with running AsterixDB instance</figcaption>
-</figure>
+<em>Fig. 2</em>:  Hadoop YARN Resource Manager dashboard with running AsterixDB instance
+</pre>
+</div>
 
 Once the client returns success, the instance is now ready to be used. We can now use the asterix instance at the CC's IP (10.10.0.2), on the default port (19001).
 
 
-<figure>
-<img src="images/asterix_webui.png" alt="Illustration of a simple YARN cluster with AsterixDB processes."/>
-<figcaption><em>Fig. 3</em>:  AsterixDB Web User Interface</figcaption>
-</figure>
+<div class="source">
+<pre>
+<img src="images/asterix_webui.png" alt="Illustration of a simple YARN cluster with AsterixDB processes." />
+<i>Fig. 3</i>:  AsterixDB Web User Interface
+</pre>
+</div>
 
-To stop the instance that was just deployed, the 'stop' command is used:
+To stop the instance that was just deployed, the `stop` command is used:
 
         [vagrant@cc asterix-yarn]$ bin/asterix -n my_awesome_instance stop
         Stopping instance my_awesome_instance
 
-This attempts a graceful shutdown of the instance. If for some reason this does not succeed, the 'kill' command can be used to force shutdown in a similar fashion:
+This attempts a graceful shutdown of the instance. If for some reason this does not succeed, the `kill` action can be used to force shutdown in a similar fashion:
 
         [vagrant@cc asterix-yarn]$ bin/asterix -n my_awesome_instance kill
         Are you sure you want to kill this instance? In-progress tasks will be aborted
         Are you sure you want to do this? (yes/no): yes
 
-After stopping the instance no containers on any YARN NodeManagers are allocated. However, the state of the instance is still persisted on HDFS and on the local disks of each machine where a Node Controller was deployed. To start the instance back up once more, the start command is used:
+After stopping the instance no containers on any YARN NodeManagers are allocated. However, the state of the instance is still persisted on HDFS and on the local disks of each machine where a Node Controller was deployed. Every instance, running or not can be viewed via the `describe` action:
+
+        [vagrant@cc asterix-yarn]$ bin/asterix describe
+        Existing AsterixDB instances:
+        Instance my_awesome_instance is stopped
+
+To start the instance back up once more, the `start` action is used:
 
         [vagrant@cc asterix-yarn]$ bin/asterix -n my_awesome_instance start
         Waiting for AsterixDB instance to resume .
