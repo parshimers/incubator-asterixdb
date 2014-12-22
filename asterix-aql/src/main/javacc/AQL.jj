@@ -213,6 +213,7 @@ Statement SingleStatement() throws ParseException:
     | stmt = CompactStatement()
     | stmt = Query()
     | stmt = RefreshExternalDatasetStatement()
+    | stmt = RunStatement()
   )
   {
     return stmt;
@@ -398,6 +399,27 @@ RefreshExternalDatasetStatement RefreshExternalDatasetStatement() throws ParseEx
 	}
 }
 
+RunStatement RunStatement() throws ParseException:
+{
+  String system = null;
+  String tmp;
+  ArrayList<String> parameters = new  ArrayList<String>();
+  Pair<Identifier,Identifier> nameComponentsFrom = null;
+  Pair<Identifier,Identifier> nameComponentsTo = null;
+}
+{
+  "run" system = Identifier()<LEFTPAREN> ( tmp = Identifier() [<COMMA>]
+    {
+      parameters.add(tmp);
+    }
+  )*<RIGHTPAREN>
+  <FROM> <DATASET> nameComponentsFrom  = QualifiedName()
+  "to" <DATASET> nameComponentsTo  = QualifiedName() 
+    {
+      return new RunStatement(system, parameters, nameComponentsFrom.first, nameComponentsFrom.second, nameComponentsTo.first, nameComponentsTo.second);
+    }
+}
+
 CreateIndexStatement IndexSpecification() throws ParseException:
 {
   CreateIndexStatement cis = new CreateIndexStatement();
@@ -528,6 +550,7 @@ CreateFunctionStatement FunctionSpecification() throws ParseException:
       // TODO use fctName.library
       signature = new FunctionSignature(fctName.dataverse, fctName.function, paramList.size());
       getCurrentScope().addFunctionDescriptor(signature, false);
+      removeCurrentScope();
       return new CreateFunctionStatement(signature, paramList, functionBody, ifNotExists);
     }
 }
