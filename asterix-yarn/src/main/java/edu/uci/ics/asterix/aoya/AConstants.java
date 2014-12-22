@@ -6,9 +6,9 @@ import org.apache.hadoop.classification.InterfaceStability;
 /**
  * Constants used in both Client and Application Master
  */
-@InterfaceAudience.Public
+@InterfaceAudience.LimitedPrivate(value = { "For simplicity between Client and AM." })
 @InterfaceStability.Unstable
-public class MConstants {
+public class AConstants {
     /**
      * Environment key name pointing to the the app master jar location
      */

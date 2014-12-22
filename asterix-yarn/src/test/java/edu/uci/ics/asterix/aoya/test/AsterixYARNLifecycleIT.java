@@ -37,7 +37,7 @@ import org.junit.runners.Parameterized.Parameters;
 import org.junit.FixMethodOrder;
 import org.junit.runners.MethodSorters;
 
-import edu.uci.ics.asterix.aoya.Client;
+import edu.uci.ics.asterix.aoya.AsterixYARNClient;
 import edu.uci.ics.asterix.aoya.Utils;
 import edu.uci.ics.asterix.event.error.VerificationUtil;
 import edu.uci.ics.asterix.event.model.AsterixInstance;
@@ -67,7 +67,7 @@ public class AsterixYARNLifecycleIT {
     private static String configPath;
     private static String aoyaServerPath;
     private static String parameterPath;
-    private static Client aoyaClient;
+    private static AsterixYARNClient aoyaClient;
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -116,14 +116,14 @@ public class AsterixYARNLifecycleIT {
         //with the binding details to the cluster added from the minicluster
         appConf = new YarnConfiguration(miniCluster.getConfig());
         FileSystem fs = FileSystem.get(appConf);
-        Path instanceState = new Path(Client.CONF_DIR_REL + INSTANCE_NAME + "/");
+        Path instanceState = new Path(AsterixYARNClient.CONF_DIR_REL + INSTANCE_NAME + "/");
         System.out.println(instanceState);
         fs.delete(instanceState, true);
         Assert.assertFalse(fs.exists(instanceState));
 
         //TestCaseContext.Builder b = new TestCaseContext.Builder();
         //testCaseCollection = b.build(new File(PATH_BASE));
-        aoyaClient = new Client(appConf);
+        aoyaClient = new AsterixYARNClient(appConf);
         TestCaseContext.Builder b = new TestCaseContext.Builder();
         //List<TestCaseContext> testCaseCollection = b.build(new File(PATH_BASE));
         File outdir = new File(PATH_ACTUAL);
@@ -150,33 +150,33 @@ public class AsterixYARNLifecycleIT {
     public void test_1_InstallActiveInstance() throws Exception {
         String command ="-n " + INSTANCE_NAME + " -c " + configPath + " -bc " + parameterPath +" -tar " + aoyaServerPath + " install";
 
-        Client aoyaClient = new Client(appConf);
+        AsterixYARNClient aoyaClient = new AsterixYARNClient(appConf);
         aoyaClient.init(command.split(" "));
-        Client.execute(aoyaClient);
+        AsterixYARNClient.execute(aoyaClient);
     }
 
     @Test
     public void test_2_StopActiveInstance() throws Exception {
         String command = "-n " + INSTANCE_NAME + " stop";
-        Client aoyaClient = new Client(appConf);
+        AsterixYARNClient aoyaClient = new AsterixYARNClient(appConf);
         aoyaClient.init(command.split(" "));
-        Client.execute(aoyaClient);
+        AsterixYARNClient.execute(aoyaClient);
     }
 
     @Test
     public void test_3_StartActiveInstance() throws Exception {
         String command = "-n " + INSTANCE_NAME + " start";
-        Client aoyaClient = new Client(appConf);
+        AsterixYARNClient aoyaClient = new AsterixYARNClient(appConf);
         aoyaClient.init(command.split(" "));
-        Client.execute(aoyaClient);
+        AsterixYARNClient.execute(aoyaClient);
     }
 
     @Test
     public void test_4_DeleteActiveInstance() throws Exception {
         String command = "-n " + INSTANCE_NAME +" -tar " + aoyaServerPath  +" -f" + " destroy";
-        Client aoyaClient = new Client(appConf);
+        AsterixYARNClient aoyaClient = new AsterixYARNClient(appConf);
         aoyaClient.init(command.split(" "));
-        Client.execute(aoyaClient);
+        AsterixYARNClient.execute(aoyaClient);
     }
 
     public static void main(String[] args) throws Exception {

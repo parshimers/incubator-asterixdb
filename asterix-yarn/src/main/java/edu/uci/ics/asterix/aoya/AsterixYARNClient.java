@@ -87,7 +87,7 @@ import edu.uci.ics.asterix.event.schema.yarnCluster.Node;
 
 @InterfaceAudience.Public
 @InterfaceStability.Unstable
-public class Client {
+public class AsterixYARNClient {
 
     public static enum Mode {
         INSTALL("install"),
@@ -101,7 +101,8 @@ public class Client {
         BACKUP("backup"),
         LSBACKUP("lsbackups"),
         RMBACKUP("rmbackup"),
-        RESTORE("restore");
+        RESTORE("restore"),
+        NOOP("");
 
         public final String alias;
 
@@ -114,18 +115,18 @@ public class Client {
         }
     }
 
-    public static final Map<String, Client.Mode> STRING_TO_MODE = ImmutableMap.<String, Client.Mode> builder()
+    public static final Map<String, AsterixYARNClient.Mode> STRING_TO_MODE = ImmutableMap.<String, AsterixYARNClient.Mode> builder()
             .put(Mode.INSTALL.alias, Mode.INSTALL).put(Mode.START.alias, Mode.START).put(Mode.STOP.alias, Mode.STOP)
             .put(Mode.KILL.alias, Mode.KILL).put(Mode.DESTROY.alias, Mode.DESTROY).put(Mode.ALTER.alias, Mode.ALTER)
             .put(Mode.LIBINSTALL.alias, Mode.LIBINSTALL).put(Mode.DESCRIBE.alias, Mode.DESCRIBE)
             .put(Mode.BACKUP.alias, Mode.BACKUP).put(Mode.LSBACKUP.alias, Mode.LSBACKUP)
             .put(Mode.RMBACKUP.alias, Mode.RMBACKUP).put(Mode.RESTORE.alias, Mode.RESTORE).build();
-    private static final Log LOG = LogFactory.getLog(Client.class);
+    private static final Log LOG = LogFactory.getLog(AsterixYARNClient.class);
     public static final String CONF_DIR_REL = ".asterix" + File.separator;
     private static final String instanceLock = "instance";
     private static String DEFAULT_PARAMETERS_PATH = "conf" + File.separator + "base-asterix-configuration.xml";
     private static String MERGED_PARAMETERS_PATH = "conf" + File.separator + "asterix-configuration.xml";
-    private Mode mode;
+    private Mode mode = Mode.NOOP;
 
     // Configuration
     private Configuration conf;
@@ -141,7 +142,7 @@ public class Client {
     private int amMemory = 1000;
 
     // Main class to invoke application master
-    private final String appMasterMainClass = "edu.uci.ics.asterix.aoya.ApplicationMaster";
+    private final String appMasterMainClass = "edu.uci.ics.asterix.aoya.AsterixApplicationMaster";
 
     //instance name
     private String instanceName = "";
@@ -184,10 +185,10 @@ public class Client {
      */
     public static void main(String[] args) {
         try {
-            Client client = new Client();
+            AsterixYARNClient client = new AsterixYARNClient();
             try {
                 client.init(args);
-                Client.execute(client);
+                AsterixYARNClient.execute(client);
             } catch (IllegalArgumentException e) {
                 System.err.println(e.getLocalizedMessage());
                 e.printStackTrace();
@@ -202,7 +203,7 @@ public class Client {
         System.exit(0);
     }
 
-    public static void execute(Client client) throws Exception {
+    public static void execute(AsterixYARNClient client) throws Exception {
         switch (client.mode) {
             case START:
                 YarnClientApplication app = client.makeApplicationContext();
@@ -231,7 +232,7 @@ public class Client {
                     Utils.confirmAction("Are you sure you want to kill this instance? In-progress tasks will be aborted");
                 }
                 try {
-                    Client.killApplication(client.getLockFile(), client.yarnClient);
+                    AsterixYARNClient.killApplication(client.getLockFile(), client.yarnClient);
                 } catch (ApplicationNotFoundException e) {
                     System.out.println("Asterix instance by that name already exited or was never started");
                     client.deleteLockFile();
@@ -314,7 +315,7 @@ public class Client {
         }
     }
 
-    public Client(Configuration conf) throws Exception {
+    public AsterixYARNClient(Configuration conf) throws Exception {
 
         this.conf = conf;
         yarnClient = YarnClient.createYarnClient();
@@ -357,7 +358,7 @@ public class Client {
 
     /**
    */
-    public Client() throws Exception {
+    public AsterixYARNClient() throws Exception {
         this(new YarnConfiguration());
     }
 
@@ -383,6 +384,9 @@ public class Client {
 
         List<String> clientVerb = cliParser.getArgList();
         mode = Mode.fromAlias(clientVerb.get(0));
+        if(mode == null){
+            mode = Mode.NOOP;
+        }
 
         if (cliParser.hasOption("help")) {
             printUsage();
@@ -467,13 +471,11 @@ public class Client {
 
     private void checkConf(String[] args, CommandLine cliParser) {
         //Sanity check for no args 
-        System.out.println(Arrays.toString(args));
         if (args.length == 0) {
             throw new IllegalArgumentException("No args specified for client to initialize");
         }
         //Now check if there is a verb
         List<String> clientVerb = cliParser.getArgList();
-        System.out.println(Arrays.toString(clientVerb.toArray()));
         if (clientVerb == null || clientVerb.size() < 1) {
             LOG.fatal("You must specify an action.");
             throw new IllegalArgumentException();
@@ -561,9 +563,9 @@ public class Client {
         asterixConfLoc.setTimestamp(destStatus.getModificationTime());
 
         DFSResourceCoordinate conf = new DFSResourceCoordinate();
-        conf.envs.put(dstConf.toUri().toString(), MConstants.CONFLOCATION);
-        conf.envs.put(Long.toString(asterixConfLoc.getSize()), MConstants.CONFLEN);
-        conf.envs.put(Long.toString(asterixConfLoc.getTimestamp()), MConstants.CONFTIMESTAMP);
+        conf.envs.put(dstConf.toUri().toString(), AConstants.CONFLOCATION);
+        conf.envs.put(Long.toString(asterixConfLoc.getSize()), AConstants.CONFLEN);
+        conf.envs.put(Long.toString(asterixConfLoc.getTimestamp()), AConstants.CONFTIMESTAMP);
         conf.name = "cluster-config.xml";
         conf.res = asterixConfLoc;
         resources.add(conf);
@@ -623,7 +625,6 @@ public class Client {
 
         LOG.info(File.separator);
         for (String j : cp) {
-            System.out.println("Classpath entry: " + j);
             String[] pathComponents = j.split(File.separator);
             LOG.info(j);
             LOG.info(pathComponents[pathComponents.length - 1]);
@@ -646,16 +647,14 @@ public class Client {
                 DFSResourceCoordinate amLibCoord = new DFSResourceCoordinate();
                 amLibCoord.res = amLib;
                 amLibCoord.name = f.getName();
-                System.out.println("Name satisifes match: "
-                        + (f.getName().contains("asterix-yarn") || f.getName().contains("surefire")));
                 if (f.getName().contains("asterix-yarn") || f.getName().contains("surefire")) {
-                    amLibCoord.envs.put(dst.toUri().toString(), MConstants.APPLICATIONMASTERJARLOCATION);
-                    amLibCoord.envs.put(Long.toString(dstSt.getLen()), MConstants.APPLICATIONMASTERJARLEN);
+                    amLibCoord.envs.put(dst.toUri().toString(), AConstants.APPLICATIONMASTERJARLOCATION);
+                    amLibCoord.envs.put(Long.toString(dstSt.getLen()), AConstants.APPLICATIONMASTERJARLEN);
                     amLibCoord.envs.put(Long.toString(dstSt.getModificationTime()),
-                            MConstants.APPLICATIONMASTERJARTIMESTAMP);
-                    amLibCoord.envs.put(conf.get("yarn.resourcemanager.address"), MConstants.RMADDRESS);
+                            AConstants.APPLICATIONMASTERJARTIMESTAMP);
+                    amLibCoord.envs.put(conf.get("yarn.resourcemanager.address"), AConstants.RMADDRESS);
                     amLibCoord.envs.put(conf.get("yarn.resourcemanager.scheduler.address"),
-                            MConstants.RMSCHEDULERADDRESS);
+                            AConstants.RMSCHEDULERADDRESS);
                 }
                 resources.add(amLibCoord);
             }
@@ -716,9 +715,9 @@ public class Client {
 
         // adding info so we can add the tarball to the App master container path
         DFSResourceCoordinate tar = new DFSResourceCoordinate();
-        tar.envs.put(dst.toUri().toString(), MConstants.TARLOCATION);
-        tar.envs.put(Long.toString(asterixTarLoc.getSize()), MConstants.TARLEN);
-        tar.envs.put(Long.toString(asterixTarLoc.getTimestamp()), MConstants.TARTIMESTAMP);
+        tar.envs.put(dst.toUri().toString(), AConstants.TARLOCATION);
+        tar.envs.put(Long.toString(asterixTarLoc.getSize()), AConstants.TARLEN);
+        tar.envs.put(Long.toString(asterixTarLoc.getTimestamp()), AConstants.TARTIMESTAMP);
         tar.res = asterixTarLoc;
         tar.name = "asterix-server.zip";
         resources.add(tar);
@@ -777,7 +776,7 @@ public class Client {
             }
         }
         ///add miscellaneous environment variables.
-        env.put(MConstants.INSTANCESTORE, CONF_DIR_REL + instanceFolder);
+        env.put(AConstants.INSTANCESTORE, CONF_DIR_REL + instanceFolder);
 
         // Add AppMaster.jar location to classpath
         // At some point we should not be required to add
@@ -1044,7 +1043,7 @@ public class Client {
             if (force) {
                 LOG.warn("Instance failed to stop gracefully, now killing it");
                 try {
-                    Client.killApplication(appId, yarnClient);
+                    AsterixYARNClient.killApplication(appId, yarnClient);
                 } catch (YarnException e1) {
                     LOG.fatal("Could not stop nor kill instance gracefully.");
                     return;
@@ -1057,7 +1056,7 @@ public class Client {
         if (!completed && force) {
             LOG.warn("Instance failed to stop gracefully, now killing it");
             try {
-                Client.killApplication(appId, yarnClient);
+                AsterixYARNClient.killApplication(appId, yarnClient);
             } catch (YarnException e1) {
                 LOG.fatal("Could not stop nor kill instance gracefully.");
                 return;
@@ -1160,8 +1159,10 @@ public class Client {
         for (Node node : cluster.getNode()) {
             coredumpDir = node.getLogDir() == null ? cluster.getLogDir() : node.getLogDir();
             coredump.add(new Coredump(node.getId(), coredumpDir + "coredump" + File.separator));
-            txnLogDir = node.getTxnLogDir() == null ? cluster.getTxnLogDir() : node.getTxnLogDir();
-            txnLogDirs.add(new TransactionLogDir(node.getId(), txnLogDir + "txnLogs" + File.separator));
+            txnLogDir = node.getTxnLogDir() == null ? cluster.getTxnLogDir() : node.getTxnLogDir(); //node or cluster-wide
+            txnLogDirs.add(new TransactionLogDir(node.getId(), txnLogDir
+                    + (txnLogDir.charAt(txnLogDir.length() - 1) == File.separatorChar ? File.separator : "") + "txnLogs" //if the string doesn't have a trailing / add one
+                    + File.separator));
         }
         configuration.setMetadataNode(metadataNodeId);
 

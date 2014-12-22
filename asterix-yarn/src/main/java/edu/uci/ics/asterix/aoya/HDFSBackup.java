@@ -19,7 +19,7 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
 
 public class HDFSBackup {
     Configuration conf = new YarnConfiguration();
-    private static final Log LOG = LogFactory.getLog(ApplicationMaster.class);
+    private static final Log LOG = LogFactory.getLog(AsterixApplicationMaster.class);
     boolean restore = false;
     boolean backup = false;
 

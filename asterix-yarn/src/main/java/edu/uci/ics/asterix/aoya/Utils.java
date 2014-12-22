@@ -39,12 +39,19 @@ import edu.uci.ics.asterix.event.schema.yarnCluster.Node;
 
 public class Utils {
 
-    private static final String CONF_DIR_REL = Client.CONF_DIR_REL;
+    private static final String CONF_DIR_REL = AsterixYARNClient.CONF_DIR_REL;
 
     public static String hostFromContainerID(String containerID) {
         return containerID.split("_")[4];
     }
 
+    /**
+     * Gets the metadata node from an AsterixDB cluster description file
+     * 
+     * @param cluster
+     *            The cluster description in question.
+     * @return
+     */
     public static Node getMetadataNode(Cluster cluster) {
         Node metadataNode = null;
         if (cluster.getMetadataNode() != null) {
@@ -60,6 +67,14 @@ public class Utils {
         }
         return metadataNode;
     }
+
+    /**
+     * Sends a "poison pill" message to an AsterixDB instance for it to shut down safely.
+     * 
+     * @param host
+     *            The host to shut down.
+     * @throws IOException
+     */
 
     public static void sendShutdownCall(String host) throws IOException {
         final String url = "http://" + host + ":19002/admin/shutdown";
@@ -78,6 +93,16 @@ public class Utils {
         throw new IOException("Instance did not shut down cleanly.");
     }
 
+    /**
+     * Simple test via the AsterixDB Javascript API to determine if an instance is truly live or not.
+     * Runs the query "1+1" and returns true if the query completes successfully, false otherwise.
+     * 
+     * @param host
+     *            The host to run the query against
+     * @return
+     *         True if the instance is OK, false otherwise.
+     * @throws IOException
+     */
     public static boolean probeLiveness(String host) throws IOException {
         final String url = "http://" + host + ":19002/query";
         final String test = "1+1";
@@ -106,6 +131,8 @@ public class Utils {
         return method.getResponseBodyAsStream();
     }
 
+    //**
+
     public static String makeDots(int iter) {
         int pos = iter % 3;
         char[] dots = { ' ', ' ', ' ' };
@@ -133,19 +160,33 @@ public class Utils {
         }
     }
 
+    /**
+     * Lists the deployed instances of AsterixDB on a YARN cluster
+     * 
+     * @param conf
+     *            Hadoop configuration object
+     * @param CONF_DIR_REL
+     *            Relative AsterixDB configuration path for DFS
+     * @throws IOException
+     */
+
     public static void listInstances(Configuration conf, String CONF_DIR_REL) throws IOException {
         FileSystem fs = FileSystem.get(conf);
         Path instanceFolder = new Path(fs.getHomeDirectory(), CONF_DIR_REL);
+        if (!fs.exists(instanceFolder)) {
+            System.out.println("No running or stopped AsterixDB instances exist in this cluster.");
+            return;
+        }
         FileStatus[] instances = fs.listStatus(instanceFolder);
         if (instances.length != 0) {
-            System.out.println("Existing Asterix instances: ");
+            System.out.println("Existing AsterixDB instances: ");
         } else {
-            System.out.println("No running or stopped Asterix instances exist in this cluster");
+            System.out.println("No running or stopped AsterixDB instances exist in this cluster");
         }
         for (int i = 0; i < instances.length; i++) {
             FileStatus st = instances[i];
             String name = st.getPath().getName();
-            ApplicationId lockFile = Client.getLockFile(name, conf);
+            ApplicationId lockFile = AsterixYARNClient.getLockFile(name, conf);
             if (lockFile != null) {
                 System.out.println("Instance " + name + " is running with Application ID: " + lockFile.toString());
             } else {
@@ -154,6 +195,17 @@ public class Utils {
         }
     }
 
+    /**
+     * Lists the backups in the DFS.
+     * 
+     * @param conf
+     *            YARN configuration
+     * @param CONF_DIR_REL
+     *            Relative config path
+     * @param instance
+     *            Instance name
+     * @throws IOException
+     */
     public static void listBackups(Configuration conf, String CONF_DIR_REL, String instance) throws IOException {
         FileSystem fs = FileSystem.get(conf);
         Path backupFolder = new Path(fs.getHomeDirectory(), CONF_DIR_REL + "/" + instance + "/" + "backups");
@@ -169,6 +221,19 @@ public class Utils {
         }
     }
 
+    /**
+     * Removes backup snapshots from the DFS
+     * 
+     * @param conf
+     *            DFS Configuration
+     * @param CONF_DIR_REL
+     *            Configuration relative directory
+     * @param instance
+     *            The asterix instance name
+     * @param timestamp
+     *            The snapshot timestap (ID)
+     * @throws IOException
+     */
     public static void rmBackup(Configuration conf, String CONF_DIR_REL, String instance, long timestamp)
             throws IOException {
         FileSystem fs = FileSystem.get(conf);
@@ -210,25 +275,35 @@ public class Utils {
         Cluster cl = (Cluster) unmarshaller.unmarshal(f);
         return cl;
     }
-    
-    public static void writeYarnClusterConfig(String path, Cluster cl) throws FileNotFoundException, JAXBException{
+
+    public static void writeYarnClusterConfig(String path, Cluster cl) throws FileNotFoundException, JAXBException {
         File f = new File(path);
         JAXBContext configCtx = JAXBContext.newInstance(Cluster.class);
         Marshaller marhsaller = configCtx.createMarshaller();
         marhsaller.marshal(cl, f);
     }
 
+    /**
+     * Looks in the current class path for AsterixDB libraries and gets the version number from the name of the first match.
+     * 
+     * @return The version found, as a string.
+     */
+
     public static String getAsterixVersionFromClasspath() {
         String[] cp = System.getProperty("java.class.path").split(System.getProperty("path.separator"));
         String asterixJarPattern = "^(asterix).*(jar)$"; //starts with asterix,ends with jar
+
         for (String j : cp) {
             String[] pathComponents = j.split(File.separator);
             if (pathComponents[pathComponents.length - 1].matches(asterixJarPattern)) {
+                //get components of maven version
                 String[] byDash = pathComponents[pathComponents.length - 1].split("-");
-                String version = byDash[2];
+                //get the version number but remove the possible '.jar' tailing it
+                String version = (byDash[2].split("\\."))[0];
                 //SNAPSHOT suffix
                 if (byDash.length == 4) {
-                    return version + '-' + byDash[3];
+                    //do the same if it's a snapshot suffix
+                    return version + '-' + (byDash[3].split("\\."))[0];
                 }
                 //stable version
                 return version;
@@ -243,7 +318,7 @@ public class Utils {
         ApplicationReport report = yarnClient.getApplicationReport(appId);
         YarnApplicationState st = report.getYarnApplicationState();
         for (int i = 0; i < 120; i++) {
-            if (st != YarnApplicationState.RUNNING || report.getProgress() != 0.5f) {
+            if ((st != YarnApplicationState.RUNNING || report.getProgress() != 0.5f)) {
                 try {
                     report = yarnClient.getApplicationReport(appId);
                     st = report.getYarnApplicationState();
@@ -254,6 +329,10 @@ public class Utils {
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
+            } else if (st == YarnApplicationState.FAILED || st == YarnApplicationState.FINISHED
+                    || st == YarnApplicationState.KILLED) {
+                return false;
+
             } else if (probe) {
                 String host = getCCHostname(instanceName, conf);
                 for (int j = 0; j < 60; j++) {
@@ -315,6 +394,7 @@ public class Utils {
         String ccIp = cl.getMasterNode().getClientIp();
         return ccIp;
     }
+
     public static AsterixConfiguration loadAsterixConfig(String path) throws IOException, JAXBException {
         File f = new File(path);
         JAXBContext configCtx = JAXBContext.newInstance(AsterixConfiguration.class);

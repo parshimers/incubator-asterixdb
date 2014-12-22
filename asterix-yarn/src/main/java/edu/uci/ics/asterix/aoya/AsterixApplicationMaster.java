@@ -91,9 +91,9 @@ import edu.uci.ics.asterix.event.schema.yarnCluster.Node;
 
 @InterfaceAudience.Public
 @InterfaceStability.Unstable
-public class ApplicationMaster {
+public class AsterixApplicationMaster {
 
-    private static final Log LOG = LogFactory.getLog(ApplicationMaster.class);
+    private static final Log LOG = LogFactory.getLog(AsterixApplicationMaster.class);
     private static final String CLUSTER_DESC_PATH = "cluster-config.xml";
     private static final String WORKING_CONF_PATH = "asterix-server.zip" + File.separator + "bin" + File.separator
             + "asterix-configuration.xml";
@@ -200,7 +200,7 @@ public class ApplicationMaster {
         try {
 
             LOG.info("config file loc: " + System.getProperty(GlobalConfig.CONFIG_FILE_PROPERTY));
-            ApplicationMaster appMaster = new ApplicationMaster();
+            AsterixApplicationMaster appMaster = new AsterixApplicationMaster();
             LOG.info("Initializing ApplicationMaster");
             appMaster.setEnvs(appMaster.setArgs(args));
             boolean doRun = appMaster.init();
@@ -251,7 +251,7 @@ public class ApplicationMaster {
         }
     }
 
-    public ApplicationMaster() throws Exception {
+    public AsterixApplicationMaster() throws Exception {
         // Set up the configuration and RPC
         conf = new YarnConfiguration();
     }
@@ -336,21 +336,21 @@ public class ApplicationMaster {
                 + ", clustertimestamp=" + appAttemptID.getApplicationId().getClusterTimestamp() + ", attemptId="
                 + appAttemptID.getAttemptId());
 
-        asterixZipPath = envs.get(MConstants.TARLOCATION);
-        asterixZipTimestamp = Long.parseLong(envs.get(MConstants.TARTIMESTAMP));
-        asterixZipLen = Long.parseLong(envs.get(MConstants.TARLEN));
+        asterixZipPath = envs.get(AConstants.TARLOCATION);
+        asterixZipTimestamp = Long.parseLong(envs.get(AConstants.TARTIMESTAMP));
+        asterixZipLen = Long.parseLong(envs.get(AConstants.TARLEN));
 
-        asterixConfPath = envs.get(MConstants.CONFLOCATION);
-        asterixConfTimestamp = Long.parseLong(envs.get(MConstants.CONFTIMESTAMP));
-        asterixConfLen = Long.parseLong(envs.get(MConstants.CONFLEN));
+        asterixConfPath = envs.get(AConstants.CONFLOCATION);
+        asterixConfTimestamp = Long.parseLong(envs.get(AConstants.CONFTIMESTAMP));
+        asterixConfLen = Long.parseLong(envs.get(AConstants.CONFLEN));
 
-        instanceConfPath = envs.get(MConstants.INSTANCESTORE);
-        AppMasterJar = new Path(envs.get(MConstants.APPLICATIONMASTERJARLOCATION));
+        instanceConfPath = envs.get(AConstants.INSTANCESTORE);
+        AppMasterJar = new Path(envs.get(AConstants.APPLICATIONMASTERJARLOCATION));
         //If the NM has an odd environment where the proper hadoop XML configs dont get imported, we can end up not being able to talk to the RM
         // this solves that!
-        conf.set("yarn.resourcemanager.address", envs.get(MConstants.RMADDRESS));
-        conf.set("yarn.resourcemanager.scheduler.address", envs.get(MConstants.RMSCHEDULERADDRESS));
-        LOG.info("RM Address: " + envs.get(MConstants.RMADDRESS));
+        conf.set("yarn.resourcemanager.address", envs.get(AConstants.RMADDRESS));
+        conf.set("yarn.resourcemanager.scheduler.address", envs.get(AConstants.RMSCHEDULERADDRESS));
+        LOG.info("RM Address: " + envs.get(AConstants.RMADDRESS));
 
         LOG.info("Path suffix: " + instanceConfPath);
     }
@@ -360,6 +360,7 @@ public class ApplicationMaster {
             localizeDFSResources();
             clusterDesc = Utils.parseYarnClusterConfig(CLUSTER_DESC_PATH);
             CC = clusterDesc.getMasterNode();
+            appMasterTrackingUrl = "http://" + CC.getClientIp() + ":" + CC.getClientPort() + "/";
             distributeAsterixConfig();
             //now let's read what's in there so we can set the JVM opts right
             LOG.debug("config file loc: " + System.getProperty(GlobalConfig.CONFIG_FILE_PROPERTY));
@@ -373,7 +374,7 @@ public class ApplicationMaster {
     }
 
     /**
-     * Kanged from managix. Splices the cluster config and asterix config parameters together, then puts the product to HDFS.
+     * From managix. Splices the cluster config and asterix config parameters together, then puts the product to HDFS.
      * 
      * @param cluster
      * @throws JAXBException
@@ -390,6 +391,11 @@ public class ApplicationMaster {
         CcJavaOpts = asterixConfigurationParams.get(EXTERNAL_CC_JAVA_OPTS_KEY).getValue();
     }
 
+    /**
+     * Sets up the parameters for the Asterix config.
+     * 
+     * @throws IOException
+     */
     private void distributeAsterixConfig() throws IOException {
         FileSystem fs = FileSystem.get(conf);
         String pathSuffix = instanceConfPath + File.separator + "asterix-configuration.xml";
@@ -483,6 +489,12 @@ public class ApplicationMaster {
         return request;
     }
 
+    /**
+     * Determines if a container that was given is the one we wish to run the Asterix CC on
+     * 
+     * @param c
+     * @return
+     */
     boolean containerIsCC(Container c) {
         String containerHost = c.getNodeId().getHost();
         try {
@@ -496,13 +508,6 @@ public class ApplicationMaster {
         }
     }
 
-    /**
-     * Writes an Asterix configuration based on the data inside the cluster description
-     * 
-     * @param cluster
-     * @throws JAXBException
-     * @throws FileNotFoundException
-     */
 
     /**
      * Here I am just pointing the Containers to the exisiting HDFS resources given by the Client
@@ -912,11 +917,11 @@ public class ApplicationMaster {
                 startCmd = produceStartCmd(container);
             }
 
-            if(startCmd == null || startCmd.size() == 0){
+            if (startCmd == null || startCmd.size() == 0) {
                 LOG.fatal("Could not map one or more NCs to NM container hosts- aborting!");
                 return;
             }
-        
+
             for (String s : startCmd) {
                 LOG.info("Command to execute: " + s);
             }
@@ -967,7 +972,7 @@ public class ApplicationMaster {
                     vargs.add("-data-ip-address " + local.getClusterIp());
                     vargs.add("-result-ip-address " + local.getClusterIp());
                 } catch (UnknownHostException e) {
-                    LOG.error("Unable to find NC or CC configured for host: " + container.getId()+ " "+ e);
+                    LOG.error("Unable to find NC or CC configured for host: " + container.getId() + " " + e);
                 }
             }
 
