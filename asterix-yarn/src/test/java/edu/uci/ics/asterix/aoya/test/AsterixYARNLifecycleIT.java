@@ -60,7 +60,6 @@ public class AsterixYARNLifecycleIT {
     private static final String PATH_ACTUAL = "ittest/";
     private static final Logger LOGGER = Logger.getLogger(AsterixYARNLifecycleIT.class.getName());
     private static final String INSTANCE_NAME = "asterix-integration-test";
-    //private static List<TestCaseContext> testCaseCollection;
     private static MiniYARNCluster miniCluster;
     private static YarnConfiguration appConf;
     private static String aoyaHome;
@@ -116,22 +115,21 @@ public class AsterixYARNLifecycleIT {
         //with the binding details to the cluster added from the minicluster
         appConf = new YarnConfiguration(miniCluster.getConfig());
         FileSystem fs = FileSystem.get(appConf);
-        Path instanceState = new Path(AsterixYARNClient.CONF_DIR_REL + INSTANCE_NAME + "/");
-        System.out.println(instanceState);
+        Path instanceState = new Path(fs.getHomeDirectory(), AsterixYARNClient.CONF_DIR_REL + INSTANCE_NAME + "/");
         fs.delete(instanceState, true);
         Assert.assertFalse(fs.exists(instanceState));
 
-        //TestCaseContext.Builder b = new TestCaseContext.Builder();
-        //testCaseCollection = b.build(new File(PATH_BASE));
         aoyaClient = new AsterixYARNClient(appConf);
         TestCaseContext.Builder b = new TestCaseContext.Builder();
-        //List<TestCaseContext> testCaseCollection = b.build(new File(PATH_BASE));
         File outdir = new File(PATH_ACTUAL);
         outdir.mkdirs();
     }
 
     @AfterClass
     public static void tearDown() throws Exception {
+        FileSystem fs = FileSystem.get(appConf);
+        Path instance = new Path(fs.getHomeDirectory(), AsterixYARNClient.CONF_DIR_REL + "/");
+        fs.delete(instance, true);
         miniCluster.close();
         File outdir = new File(PATH_ACTUAL);
         File[] files = outdir.listFiles();
