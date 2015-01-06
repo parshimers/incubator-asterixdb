@@ -329,10 +329,11 @@ public class Utils {
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
-            } else if (st == YarnApplicationState.FAILED || st == YarnApplicationState.FINISHED
-                    || st == YarnApplicationState.KILLED) {
-                return false;
+                if (st == YarnApplicationState.FAILED || st == YarnApplicationState.FINISHED
+                        || st == YarnApplicationState.KILLED) {
+                    return false;
 
+                }
             } else if (probe) {
                 String host = getCCHostname(instanceName, conf);
                 for (int j = 0; j < 60; j++) {

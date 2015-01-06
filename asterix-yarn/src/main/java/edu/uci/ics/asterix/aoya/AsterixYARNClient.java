@@ -427,7 +427,6 @@ public class AsterixYARNClient {
                         "There is more than one canonically named asterix distributable in the default directory. Please leave only one there.");
             }
             defaultTar = tarFiles[0];
-            System.out.println(defaultTar.getAbsolutePath());
         }
         if (defaultTar != null) {
             asterixTar = cliParser.getOptionValue("asterixTar", defaultTar.getAbsolutePath());
@@ -578,7 +577,6 @@ public class AsterixYARNClient {
         FileSystem fs = FileSystem.get(conf);
         String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
         Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
-        System.out.println(dstConf);
         try {
             FileStatus st = fs.getFileStatus(dstConf);
 
@@ -777,6 +775,7 @@ public class AsterixYARNClient {
         }
         ///add miscellaneous environment variables.
         env.put(AConstants.INSTANCESTORE, CONF_DIR_REL + instanceFolder);
+        env.put(AConstants.DFS_BASE, FileSystem.get(conf).getHomeDirectory().toUri().toString());
 
         // Add AppMaster.jar location to classpath
         // At some point we should not be required to add
@@ -808,6 +807,8 @@ public class AsterixYARNClient {
         // Set java executable command
         LOG.info("Setting up app master command");
         vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
+        //add log4j stuff 
+        vargs.add("-Dlog4j.configuration=container-log4j.properties");
         // Set class name
         vargs.add(appMasterMainClass);
         //Set params for Application Master
@@ -1129,7 +1130,7 @@ public class AsterixYARNClient {
         String metadataNodeId = Utils.getMetadataNode(cluster).getId();
         String asterixInstanceName = instanceName;
 
-        //this is the "base" config that is inside the tarball, we start here
+        //this is the "base" config that is inside the zip, we start here
         AsterixConfiguration configuration;
         String configPathBase = MERGED_PARAMETERS_PATH;
         if (baseConfig != ".") {

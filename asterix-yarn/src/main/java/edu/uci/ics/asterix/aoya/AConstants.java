@@ -89,4 +89,6 @@ public class AConstants {
 
     public static final String RMSCHEDULERADDRESS = "RMSCHEDULERADDRESS";
 
+    public static final String DFS_BASE = "DFSBASE";
+
 }

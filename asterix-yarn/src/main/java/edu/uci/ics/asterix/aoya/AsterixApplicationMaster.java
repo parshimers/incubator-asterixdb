@@ -23,6 +23,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -79,6 +81,8 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
+import org.apache.log4j.Level;
+import org.apache.log4j.LogManager;
 
 import edu.uci.ics.asterix.common.config.AsterixPropertiesAccessor;
 import edu.uci.ics.asterix.common.config.GlobalConfig;
@@ -155,14 +159,14 @@ public class AsterixApplicationMaster {
     private AtomicBoolean ccUp = new AtomicBoolean();
     private AtomicBoolean ccStarted = new AtomicBoolean();
 
-    //HDFS path to Asterix distributable tarball
+    //HDFS path to Asterix distributable zip
     private String asterixZipPath = "";
     // Timestamp needed for creating a local resource
     private long asterixZipTimestamp = 0;
     // File length needed for local resource
     private long asterixZipLen = 0;
 
-    //HDFS path to Asterix distributable tarball
+    //HDFS path to Asterix distributable zip
     private String asterixConfPath = "";
     // Timestamp needed for creating a local resource
     private long asterixConfTimestamp = 0;
@@ -170,6 +174,9 @@ public class AsterixApplicationMaster {
     private long asterixConfLen = 0;
 
     private String instanceConfPath = "";
+    
+    //base dir under which all configs and binaries lie
+    private String dfsBasePath;
 
     private int numTotalContainers = 0;
 
@@ -196,6 +203,7 @@ public class AsterixApplicationMaster {
 
     public static void main(String[] args) {
 
+        LogManager.getRootLogger().setLevel(Level.DEBUG);
         boolean result = false;
         try {
 
@@ -210,6 +218,10 @@ public class AsterixApplicationMaster {
             result = appMaster.run();
         } catch (Throwable t) {
             LOG.fatal("Error running ApplicationMaster", t);
+           //DEBUG. from https://stackoverflow.com/questions/1149703/how-can-i-convert-a-stack-trace-to-a-string
+            StringWriter sw = new StringWriter();
+            t.printStackTrace(new PrintWriter(sw));
+            System.out.println(sw.toString());
             System.exit(1);
         }
         if (result) {
@@ -304,7 +316,6 @@ public class AsterixApplicationMaster {
 
     public void setEnvs(CommandLine cliParser) {
         Map<String, String> envs = System.getenv();
-        System.out.println(envs);
         if (!envs.containsKey(Environment.CONTAINER_ID.name())) {
             if (cliParser.hasOption("app_attempt_id")) {
                 String appIdStr = cliParser.getOptionValue("app_attempt_id", "");
@@ -346,6 +357,7 @@ public class AsterixApplicationMaster {
 
         instanceConfPath = envs.get(AConstants.INSTANCESTORE);
         AppMasterJar = new Path(envs.get(AConstants.APPLICATIONMASTERJARLOCATION));
+        dfsBasePath = envs.get(AConstants.DFS_BASE);
         //If the NM has an odd environment where the proper hadoop XML configs dont get imported, we can end up not being able to talk to the RM
         // this solves that!
         conf.set("yarn.resourcemanager.address", envs.get(AConstants.RMADDRESS));
@@ -399,7 +411,7 @@ public class AsterixApplicationMaster {
     private void distributeAsterixConfig() throws IOException {
         FileSystem fs = FileSystem.get(conf);
         String pathSuffix = instanceConfPath + File.separator + "asterix-configuration.xml";
-        Path dst = new Path(fs.getHomeDirectory(), pathSuffix);
+        Path dst = new Path(dfsBasePath, pathSuffix);
         URI paramLocation = dst.toUri();
         FileStatus paramFileStatus = fs.getFileStatus(dst);
         Long paramLen = paramFileStatus.getLen();
@@ -508,7 +520,6 @@ public class AsterixApplicationMaster {
         }
     }
 
-
     /**
      * Here I am just pointing the Containers to the exisiting HDFS resources given by the Client
      * filesystem of the nodes.
@@ -544,7 +555,7 @@ public class AsterixApplicationMaster {
             asterixZip.setResource(ConverterUtils.getYarnUrlFromURI(new URI(asterixZipPath)));
 
         } catch (URISyntaxException e) {
-            LOG.error("Error locating Asterix tarball" + " in env, path=" + asterixZipPath);
+            LOG.error("Error locating Asterix zip" + " in env, path=" + asterixZipPath);
             e.printStackTrace();
         }
 
@@ -571,7 +582,7 @@ public class AsterixApplicationMaster {
         //now add the libraries if there are any
         try {
             FileSystem fs = FileSystem.get(conf);
-            Path p = new Path(fs.getHomeDirectory(), instanceConfPath + "library/");
+            Path p = new Path(dfsBasePath, instanceConfPath + "library/");
             if (fs.exists(p)) {
                 FileStatus[] dataverses = fs.listStatus(p);
                 for (FileStatus d : dataverses) {
