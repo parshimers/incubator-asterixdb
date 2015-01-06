@@ -1,6 +1,6 @@
-#Introduction#
+#Introduction
 
-##<a id="toc">Table of Contents</a> ##
+##<a id="toc">Table of Contents</a>
 * [Architecture Overview](#arch)
 * [Prerequisites](#prereq)
 * [Tutorial Installation](#tut)
@@ -10,17 +10,17 @@
 This is a guide describing how to deploy AsterixDB onto a YARN-based environment.
 
 
-##<a id="arch">Architecture Overview</a>##
+##<a id="arch">Architecture Overview</a>
 
 AsterixDB uses a shared-nothing architecture and local file-based storage- not HDFS. Hence we are reliant on the local storage on each node. 
 This is somewhat different than other applications that run on YARN. This is the main reason why in the configuration file you must select a set of nodes to store your data on. However once an instance is started, it will remember the set of nodes it was started on each time it is started up again and will persist data on these nodes.
 
 AsterixDB is somewhat unusual among YARN-enabled applications in that it stores persistient state on a fixed set of nodes, outside of the life of a single container instance. Therefore keep in mind that the number of nodes chosen for an instance cannot be changed at a later date, and that data is not currently replicated or stored redundantly within AsterixDB.
 
-##<a id="prereq">Prerequisites</a>##
+##<a id="prereq">Prerequisites</a>
 For this tutorial it will be assumed that we have a YARN cluster with the proper environment variables set. To test this, try running the DistributedShell example that is distributed as part of Apache Hadoop. If that sample application can be run successfully then the environment should be acceptable for launching AsterixDB on to your YARN-enabled cluster.
 
-###Vagrant and Puppet Virtualized cluster for Tutorial###
+###Vagrant and Puppet Virtualized cluster for Tutorial
 
 For the purposes of this tutorial, a virtualized cluster that matches all of the tutorial configurations can be found at https://github.com/parshimers/yarn-sample-cluster. To start with this cluster, first clone the repository:
 
@@ -39,12 +39,30 @@ If the 'hostmanager' plugin for Vagrant isn't already installed, install it like
         Installing the 'vagrant-hostmanager' plugin. This can take a few minutes...
         Installed the plugin 'vagrant-hostmanager (1.5.0)'!
 
-Then start the tutorial cluster
+Then start the tutorial cluster. The hostmanger plugin may ask for sudo at some point, because it updates your hosts file to include the virtual machines.
+
+        ↪ vagrant up
+        Bringing machine 'nc2' up with 'virtualbox' provider...
+        Bringing machine 'nc1' up with 'virtualbox' provider...
+        Bringing machine 'cc' up with 'virtualbox' provider...
+        ...
+
+Once vagrant returns, the environment will be ready. The working directory with the Vagrantfile is also visible to each of the virtual machines (in the /vagrant directory), so we will unzip the Asterix binaries here as well for easy access.
+
+    ↪ unzip -d asterix-yarn/ asterix-yarn-binary-assembly.zip
+    ...
+
+To log into the node from which we will run the rest of the tutorial, use 'vagrant ssh' to get to the CC node and move to the YARN client's location:
+
+        ↪ vagrant ssh cc
+        [vagrant@cc ~]$
+        [vagrant@cc ~]$ cd /vagrant/asterix-yarn
+        [vagrant@cc asterix-yarn]$ 
 
 
-#<a id="tut">Tutorial installation</a>#
+#<a id="tut">Tutorial installation</a>
 
-##Configuration ##
+##Configuration
 
 To deploy AsterixDB onto a YARN cluster, we need to construct a configuration file that describes the resources that will be requested from YARN for AsterixDB. 
 
@@ -59,8 +77,8 @@ This AsterixDB cluster description file corresponds to the above deployed scenar
 
         <cluster xmlns="yarn_cluster">
             <name>my_awesome_instance</name>
-            <txn_log_dir>/home/vagrant/</txn_log_dir>
-            <iodevices>/home/vagrant/</iodevices>
+            <txn_log_dir>/home/yarn/</txn_log_dir>
+            <iodevices>/home/yarn/</iodevices>
             <store>asterix-data</store>
             <master_node>
                 <id>cc</id>
@@ -85,12 +103,12 @@ This AsterixDB cluster description file corresponds to the above deployed scenar
             <metadata_node>nc1</metadata_node>
         </cluster>
 
-In this example we have 3 NCs and one CC. Each node is defined by a unique name (not necessarily hostname) and an IP on which AsterixDB nodes will listen and communicate with eachother. This is the 'cluster_ip' parameter. The 'client_ip' parameter is the interface on which client-facing services are presented, for example the web interface.
+In this example we have 3 NCs and one CC. Each node is defined by a unique name (not necessarily hostname) and an IP on which AsterixDB nodes will listen and communicate with eachother. This is the 'cluster_ip' parameter. The 'client_ip' parameter is the interface on which client-facing services are presented, for example the web interface. For the next step this file will be saved as 'my_awesome_cluster_desc.xml' in the configs directory.
 
-##Installing and starting the instance##
+##Installing and starting the instance
 With this configuration in hand, the YARN client can be used to deploy AsterixDB onto the cluster:
 
-        [vagrant@cc asterix-yarn]$ bin/asterix -n my_awesome_instance -c /vagrant/my_awesome_cluster_desc.xml install
+        [vagrant@cc asterix-yarn]$ bin/asterix -n my_awesome_instance -c configs/my_awesome_cluster_desc.xml install
         Waiting for new AsterixDB Instance to start  .
         Asterix successfully deployed and is now running.
 
@@ -112,8 +130,9 @@ Once the client returns success, the instance is now ready to be used. We can no
 </pre>
 </div>
 
+From here, to try things out we could run the ADM & AQL 101 tutorial or any other sample workload.
 
-##Stopping the instance##
+##Stopping the instance
 
 To stop the instance that was just deployed, the `stop` command is used:
 
@@ -127,15 +146,15 @@ This attempts a graceful shutdown of the instance. If for some reason this does 
         Are you sure you want to do this? (yes/no): yes
 
 
-##Managing stopped instances##
+##Managing stopped instances
 
-After stopping the instance no containers on any YARN NodeManagers are allocated. However, the state of the instance is still persisted on HDFS and on the local disks of each machine where a Node Controller was deployed. Every instance, running or not can be viewed via the `describe` action:
+After stopping the instance no containers on any YARN NodeManagers are allocated. However, the state of the instance is still persisted on the local disks (and to a lesser extent, HDFS) of each machine where a Node Controller was deployed, in the iodevices and transaction log folders. Every instance, running or not can be viewed via the `describe` action:
 
         [vagrant@cc asterix-yarn]$ bin/asterix describe
         Existing AsterixDB instances:
         Instance my_awesome_instance is stopped
 
-##Starting inactive instances##
+##Starting inactive instances
 
 To start the instance back up once more, the `start` action is used:
 
@@ -144,21 +163,21 @@ To start the instance back up once more, the `start` action is used:
         Asterix successfully deployed and is now running.
 
 
-#<a id="detail">Listing of Commands and Options</a>#
+#<a id="detail">Listing of Commands and Options</a>
 
-##Overview##
+##Overview
 
 All commands take the format
 
         asterix [action-specific option] [action]
 
-###Technical details###
+###Technical details
 
 AsterixDB's YARN client is based on static allocation of containers within Node Managers based on IP. The AM and CC processes are currently not integrated in any fashion.
 
 The `asterix` command itself is simply a wrapper/launcher around the AsterixClient java class, that provides time-saving default parameters. It is possible to run the client directly with `java -jar` given the correct options as well.
 
-##Actions##
+##Actions
 
 Below is a description of the various actions available via the AsterixDB YARN client
 
@@ -175,7 +194,7 @@ Below is a description of the various actions available via the AsterixDB YARN c
 | `lsbackup` | Lists the stored snapshots from an instance                                                                                   |
 | `rmbackup` | Removes a snapshot from HDFS                                                                                                  |
 
-##Options##
+##Options
 Below are all availabe options, and which actions they can be applied to
 
 | Option                      | Long Form       | Short Form | Usage                                                                                        | Applicability                                                                                                                                                                                                                                                                                       |
@@ -191,9 +210,9 @@ Below are all availabe options, and which actions they can be applied to
 | Snapshot ID                 | `-snapshot`     | [none]     | `-snapshot [backup timestamp/ID]`                                                            | Used with `rmbackup` and `restore` to specify which backup to perform the respective operation on.                                                                                                                                                                                                  |
 
 
-#<a id="faq">Frequently Asked Questions and Common Issues</a>#
+#<a id="faq">Frequently Asked Questions and Common Issues</a>
 
-###Q: Where are the AsterixDB logs located? ###
+###Q: Where are the AsterixDB logs located? 
 A: YARN manages the logs for each container. They are visible in the YARN Resource Manager's web interface or through the hadoop command line utilities ( see http://hortonworks.com/blog/simplifying-user-logs-management-and-access-in-yarn/ for more details). 
 
 ###Q: Why does AsterixDB fail to start, and the logs contain errors like 'Container is running beyond virtual memory limits.' ?

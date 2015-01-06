@@ -115,9 +115,10 @@ public class AsterixYARNClient {
         }
     }
 
-    public static final Map<String, AsterixYARNClient.Mode> STRING_TO_MODE = ImmutableMap.<String, AsterixYARNClient.Mode> builder()
-            .put(Mode.INSTALL.alias, Mode.INSTALL).put(Mode.START.alias, Mode.START).put(Mode.STOP.alias, Mode.STOP)
-            .put(Mode.KILL.alias, Mode.KILL).put(Mode.DESTROY.alias, Mode.DESTROY).put(Mode.ALTER.alias, Mode.ALTER)
+    public static final Map<String, AsterixYARNClient.Mode> STRING_TO_MODE = ImmutableMap
+            .<String, AsterixYARNClient.Mode> builder().put(Mode.INSTALL.alias, Mode.INSTALL)
+            .put(Mode.START.alias, Mode.START).put(Mode.STOP.alias, Mode.STOP).put(Mode.KILL.alias, Mode.KILL)
+            .put(Mode.DESTROY.alias, Mode.DESTROY).put(Mode.ALTER.alias, Mode.ALTER)
             .put(Mode.LIBINSTALL.alias, Mode.LIBINSTALL).put(Mode.DESCRIBE.alias, Mode.DESCRIBE)
             .put(Mode.BACKUP.alias, Mode.BACKUP).put(Mode.LSBACKUP.alias, Mode.LSBACKUP)
             .put(Mode.RMBACKUP.alias, Mode.RMBACKUP).put(Mode.RESTORE.alias, Mode.RESTORE).build();
@@ -147,7 +148,7 @@ public class AsterixYARNClient {
     //instance name
     private String instanceName = "";
     //location of distributable asterix tarfile
-    private String asterixTar = "";
+    private String asterixZip = "";
     // Location of cluster configuration
     private String asterixConf = "";
     // Location of optional external libraries
@@ -309,7 +310,7 @@ public class AsterixYARNClient {
                 }
                 break;
             default:
-                LOG.fatal("Unknown action. Known actions are: start, stop, install, status, kill");
+                LOG.fatal("Unknown mode. Known client modes are: start, stop, install, describe, kill, destroy, describe, backup, restore, lsbackup, rmbackup");
                 client.printUsage();
                 System.exit(-1);
         }
@@ -337,7 +338,7 @@ public class AsterixYARNClient {
                 "Amount of memory in MB to be requested to run the application master"));
         opts.addOption(new Option("log_properties", true, "log4j.properties file"));
         opts.addOption(new Option("n", "name", true, "Asterix instance name (required)"));
-        opts.addOption(new Option("tar", "asterixTar", true, "tarball with Asterix inside- if in non-default location"));
+        opts.addOption(new Option("zip", "asterixZip", true, "zip file with AsterixDB inside- if in non-default location"));
         opts.addOption(new Option("bc", "baseConfig", true,
                 "base Asterix parameters configuration file if not in default position"));
         opts.addOption(new Option("c", "asterixConf", true, "Asterix cluster config (required on install)"));
@@ -384,7 +385,7 @@ public class AsterixYARNClient {
 
         List<String> clientVerb = cliParser.getArgList();
         mode = Mode.fromAlias(clientVerb.get(0));
-        if(mode == null){
+        if (mode == null) {
             mode = Mode.NOOP;
         }
 
@@ -413,7 +414,7 @@ public class AsterixYARNClient {
 
         appName = appName + ": " + instanceName;
         File defaultTar = null;
-        if (!cliParser.hasOption("asterixTar")
+        if (!cliParser.hasOption("asterixZip")
                 && (mode == Mode.INSTALL || mode == Mode.ALTER || mode == Mode.DESTROY || mode == Mode.BACKUP)) {
             File tarDir = new File("./asterix");
             if (!tarDir.exists()) {
@@ -429,9 +430,9 @@ public class AsterixYARNClient {
             defaultTar = tarFiles[0];
         }
         if (defaultTar != null) {
-            asterixTar = cliParser.getOptionValue("asterixTar", defaultTar.getAbsolutePath());
+            asterixZip = cliParser.getOptionValue("asterixZip", defaultTar.getAbsolutePath());
         } else {
-            asterixTar = cliParser.getOptionValue("asterixTar");
+            asterixZip = cliParser.getOptionValue("asterixZip");
         }
         if (cliParser.hasOption("baseConfig")) {
             baseConfig = cliParser.getOptionValue("baseConfig");
@@ -700,7 +701,7 @@ public class AsterixYARNClient {
             }
         }
         if (!fs.exists(dst)) {
-            src = new Path(asterixTar);
+            src = new Path(asterixZip);
             LOG.info("Copying Asterix distributable to DFS");
             fs.copyFromLocalFile(false, true, src, dst);
         }
@@ -1162,7 +1163,8 @@ public class AsterixYARNClient {
             coredump.add(new Coredump(node.getId(), coredumpDir + "coredump" + File.separator));
             txnLogDir = node.getTxnLogDir() == null ? cluster.getTxnLogDir() : node.getTxnLogDir(); //node or cluster-wide
             txnLogDirs.add(new TransactionLogDir(node.getId(), txnLogDir
-                    + (txnLogDir.charAt(txnLogDir.length() - 1) == File.separatorChar ? File.separator : "") + "txnLogs" //if the string doesn't have a trailing / add one
+                    + (txnLogDir.charAt(txnLogDir.length() - 1) == File.separatorChar ? File.separator : "")
+                    + "txnLogs" //if the string doesn't have a trailing / add one
                     + File.separator));
         }
         configuration.setMetadataNode(metadataNodeId);
