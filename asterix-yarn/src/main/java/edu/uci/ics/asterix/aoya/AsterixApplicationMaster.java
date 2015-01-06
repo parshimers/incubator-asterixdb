@@ -203,7 +203,6 @@ public class AsterixApplicationMaster {
 
     public static void main(String[] args) {
 
-        LogManager.getRootLogger().setLevel(Level.DEBUG);
         boolean result = false;
         try {
 

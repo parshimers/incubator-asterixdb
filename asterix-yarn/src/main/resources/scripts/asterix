@@ -17,9 +17,9 @@ for jar in `ls $ASTERIX_HOME/lib/*.jar`
   fi
 done
 
-ASTERIX_CLASSPATH=$ASTERIX_CLASSPATH:$ASTERIX_HOME/conf/log4j.properties
+ASTERIX_CLASSPATH=$ASTERIX_CLASSPATH:
 ASTERIX_CLASSPATH=$ASTERIX_CLASSPATH:$YARN_CONF_DIR:$HADOOP_CONF_DIR:$HADOOP_CONF_PATH
 pushd $(dirname $0) > /dev/null
 cd $ASTERIX_HOME
-java $JAVA_OPTS -cp $ASTERIX_CLASSPATH edu.uci.ics.asterix.aoya.AsterixYARNClient $@
+java $JAVA_OPTS -cp $ASTERIX_CLASSPATH -Dlog4j.configuration=file://$ASTERIX_HOME/conf/asterix-client-log4j.properties edu.uci.ics.asterix.aoya.AsterixYARNClient $@
 popd > /dev/null

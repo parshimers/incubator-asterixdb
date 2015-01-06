@@ -44,6 +44,14 @@
             </includes>
             <outputDirectory>conf</outputDirectory>
         </fileSet>
+        <fileSet>
+            <directory>src/main/resources/configs</directory>
+            <fileMode>0755</fileMode>
+            <includes>
+                <include>asterix-client-log4j.properties</include>
+            </includes>
+            <outputDirectory>conf</outputDirectory>
+        </fileSet>
 	</fileSets>
     <dependencySets>
         <dependencySet>
@@ -52,6 +60,7 @@
                 <include>edu.uci.ics.asterix:asterix-common</include>
                 <include>log4j:log4j</include>
                 <include>org.slf4j:slf4j-api</include>
+                <include>org.slf4j:slf4j-simple</include>
                 <include>commons-io:commons-io</include>
                 <include>commons-cli:commons-cli</include>
                 <include>commons-configuration:commons-configuration</include>
