@@ -146,7 +146,7 @@ public class AsterixYARNLifecycleIT {
 
     @Test
     public void test_1_InstallActiveInstance() throws Exception {
-        String command ="-n " + INSTANCE_NAME + " -c " + configPath + " -bc " + parameterPath +" -tar " + aoyaServerPath + " install";
+        String command ="-n " + INSTANCE_NAME + " -c " + configPath + " -bc " + parameterPath +" -zip " + aoyaServerPath + " install";
 
         AsterixYARNClient aoyaClient = new AsterixYARNClient(appConf);
         aoyaClient.init(command.split(" "));
@@ -171,7 +171,7 @@ public class AsterixYARNLifecycleIT {
 
     @Test
     public void test_4_DeleteActiveInstance() throws Exception {
-        String command = "-n " + INSTANCE_NAME +" -tar " + aoyaServerPath  +" -f" + " destroy";
+        String command = "-n " + INSTANCE_NAME +" -zip " + aoyaServerPath  +" -f" + " destroy";
         AsterixYARNClient aoyaClient = new AsterixYARNClient(appConf);
         aoyaClient.init(command.split(" "));
         AsterixYARNClient.execute(aoyaClient);
