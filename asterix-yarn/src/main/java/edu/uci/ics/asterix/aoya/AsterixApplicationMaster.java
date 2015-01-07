@@ -119,6 +119,8 @@ public class AsterixApplicationMaster {
     private static final String OBLITERATOR_CLASSNAME = "edu.uci.ics.asterix.aoya.Deleter";
     private static final String HDFS_BACKUP_CLASSNAME = "edu.uci.ics.asterix.aoya.HDFSBackup";
     private static final String LOCAL_BACKUP_CLASSNAME = "edu.uci.ics.asterix.aoya.LocalBackup";
+    private static final String NC_CLASSNAME = "edu.uci.ics.hyracks.control.nc.NCDriver";
+    private static final String CC_CLASSNAME = "edu.uci.ics.hyracks.control.cc.CCDriver";
     private boolean doneAllocating = false;
 
     // Configuration
@@ -958,9 +960,14 @@ public class AsterixApplicationMaster {
             if (containerIsCC(container) && (ccStarted.get() == false)) {
                 LOG.info("CC found on container" + container.getNodeId().getHost());
                 //get our java opts
-                String opts = "JAVA_OPTS=" + CcJavaOpts + " ";
-                vargs.add(opts + ASTERIX_CC_BIN_PATH + " -cluster-net-ip-address " + CC.getClusterIp()
-                        + " -client-net-ip-address " + CC.getClientIp());
+                vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
+                vargs.add("-classpath './asterix-server.zip/repo/*'");
+                vargs.add("-Dapp.repo=./asterix-server.zip/repo/");
+                vargs.add(CcJavaOpts  + " ");
+                vargs.add(CC_CLASSNAME);
+                vargs.add("-app-cc-main-class edu.uci.ics.asterix.hyracks.bootstrap.CCApplicationEntryPoint");
+                vargs.add("-cluster-net-ip-address " + CC.getClusterIp());
+                vargs.add("-client-net-ip-address " + CC.getClientIp());
                 ccStarted.set(true);
 
             } else {
@@ -974,8 +981,15 @@ public class AsterixApplicationMaster {
                     if (iodevice == null) {
                         iodevice = clusterDesc.getIodevices();
                     }
-                    String opts = "JAVA_OPTS=" + NcJavaOpts + " ";
-                    vargs.add(opts + ASTERIX_NC_BIN_PATH + " -node-id " + local.getId());
+                    //append the existing classpath
+
+                    vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
+                    vargs.add("-classpath './asterix-server.zip/repo/*'");
+                    vargs.add(NcJavaOpts  + " ");
+                    vargs.add("-Dapp.repo=./asterix-server.zip/repo/");
+                    vargs.add(NC_CLASSNAME);
+                    vargs.add("-app-nc-main-class edu.uci.ics.asterix.hyracks.bootstrap.NCApplicationEntryPoint");
+                    vargs.add("-node-id " + local.getId());
                     vargs.add("-cc-host " + CC.getClusterIp());
                     vargs.add("-iodevices " + iodevice);
                     vargs.add("-cluster-net-ip-address " + local.getClusterIp());
