@@ -956,13 +956,13 @@ public class AsterixApplicationMaster {
             // Set the necessary command to execute on the allocated container
             Vector<CharSequence> vargs = new Vector<CharSequence>(5);
 
+            vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
+            vargs.add("-classpath '."+File.separator+"asterix-server.zip"+File.separator+"repo*'");
+            vargs.add("-Dapp.repo=."+File.separator+"asterix-server.zip"+File.separator+"repo"+File.separator);
             //first see if this node is the CC
             if (containerIsCC(container) && (ccStarted.get() == false)) {
                 LOG.info("CC found on container" + container.getNodeId().getHost());
                 //get our java opts
-                vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
-                vargs.add("-classpath './asterix-server.zip/repo/*'");
-                vargs.add("-Dapp.repo=./asterix-server.zip/repo/");
                 vargs.add(CcJavaOpts  + " ");
                 vargs.add(CC_CLASSNAME);
                 vargs.add("-app-cc-main-class edu.uci.ics.asterix.hyracks.bootstrap.CCApplicationEntryPoint");
@@ -983,10 +983,7 @@ public class AsterixApplicationMaster {
                     }
                     //append the existing classpath
 
-                    vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
-                    vargs.add("-classpath './asterix-server.zip/repo/*'");
                     vargs.add(NcJavaOpts  + " ");
-                    vargs.add("-Dapp.repo=./asterix-server.zip/repo/");
                     vargs.add(NC_CLASSNAME);
                     vargs.add("-app-nc-main-class edu.uci.ics.asterix.hyracks.bootstrap.NCApplicationEntryPoint");
                     vargs.add("-node-id " + local.getId());
@@ -1001,8 +998,8 @@ public class AsterixApplicationMaster {
             }
 
             // Add log redirect params
-            vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout");
-            vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr");
+            vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + File.separator + "stdout");
+            vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + File.separator + "stderr");
 
             // Get final commmand
             StringBuilder command = new StringBuilder();
@@ -1054,8 +1051,8 @@ public class AsterixApplicationMaster {
                     vargs.add(s + ".asterix_root_metadata");
                 }
             }
-            vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout");
-            vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr");
+            vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + File.separator + "stdout");
+            vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + File.separator + "stderr");
             StringBuilder command = new StringBuilder();
             for (CharSequence str : vargs) {
                 command.append(str).append(" ");
@@ -1085,7 +1082,7 @@ public class AsterixApplicationMaster {
                 al.add("");
                 return al;
             }
-            StringBuilder classPathEnv = new StringBuilder("").append("./*");
+            StringBuilder classPathEnv = new StringBuilder("").append("."+File.separator+"*");
             for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH,
                     YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH)) {
                 classPathEnv.append(File.pathSeparatorChar);
@@ -1122,8 +1119,8 @@ public class AsterixApplicationMaster {
             }
             LOG.debug("Backing up to: " + instanceConfPath + "backups" + "/" + local.getId());
 
-            vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout");
-            vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr");
+            vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + File.separator + "stdout");
+            vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + File.separator +"stderr");
             StringBuilder command = new StringBuilder();
             for (CharSequence str : vargs) {
                 command.append(str).append(" ");
@@ -1150,7 +1147,7 @@ public class AsterixApplicationMaster {
             } catch (UnknownHostException e) {
                 LOG.error("Unable to find NC configured for host: " + container.getId() + e);
             }
-            StringBuilder classPathEnv = new StringBuilder("").append("./*");
+            StringBuilder classPathEnv = new StringBuilder("").append("."+File.separator+"*");
             for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH,
                     YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH)) {
                 classPathEnv.append(File.pathSeparatorChar);
@@ -1191,7 +1188,7 @@ public class AsterixApplicationMaster {
                 LOG.debug("Restoring from: " + s);
                 //logs only exist on 1st iodevice
                 if (iodevices.indexOf(s) == 0) {
-                    vargs.add(src + "txnLogs/" + "," + clusterDesc.getTxnLogDir() + File.separator);
+                    vargs.add(src + "txnLogs"+File.separator + "," + clusterDesc.getTxnLogDir() + File.separator);
 
                     LOG.debug("Restoring logs from: " + clusterDesc.getTxnLogDir());
                     vargs.add(src + "asterix_root_metadata" + "," + s);
@@ -1199,8 +1196,8 @@ public class AsterixApplicationMaster {
             }
             LOG.debug("Restoring to: " + instanceConfPath + "backups" + "/" + local.getId());
 
-            vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stdout");
-            vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/stderr");
+            vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + File.separator + "stdout");
+            vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + File.separator + "stderr");
             StringBuilder command = new StringBuilder();
             for (CharSequence str : vargs) {
                 command.append(str).append(" ");
