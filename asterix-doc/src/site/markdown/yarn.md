@@ -10,19 +10,23 @@
 This is a guide describing how to deploy AsterixDB onto a YARN-based environment.
 
 
-##<a id="arch">Architecture Overview</a>
+##<a id="arch">AsterixDB and the YARN environment</a>
 
-AsterixDB uses a shared-nothing architecture and local file-based storage- not HDFS. Hence we are reliant on the local storage on each node. 
-This is somewhat different than other applications that run on YARN. This is the main reason why in the configuration file you must select a set of nodes to store your data on. However once an instance is started, it will remember the set of nodes it was started on each time it is started up again and will persist data on these nodes.
+AsterixDB uses a shared-nothing architecture and local file-based storage- not HDFS. Hence we are reliant on the local storage on each node ('iodevices' in AsterixDB ). In YARN there are 3 main types of storage available: 
 
-AsterixDB is somewhat unusual among YARN-enabled applications in that it stores persistient state on a fixed set of nodes, outside of the life of a single container instance. Therefore keep in mind that the number of nodes chosen for an instance cannot be changed at a later date, and that data is not currently replicated or stored redundantly within AsterixDB.
+    - HDFS file storage (only suitable for long-lived artifacts, can be slower than local disk)
+    - Ephemeral container storage that is cleaned by YARN after a container exits (unsuitable except for transient artifacts)
+    - Node-local destinations not managed by YARN, but which are accesable by the container and live beyond its termination.
+
+AsterixDB uses only the last type of storage, which is available with both the DefaultContainerExecutor and LinuxContainerExecutor. However keep in mind that with the DefaultContainerExecutor, the directory must be accessable by the same process that the YARN NodeManager is running as, while with the LinuxContainerExecutor it must be accessable by the unix user who is running the job.
+
 
 ##<a id="prereq">Prerequisites</a>
 For this tutorial it will be assumed that we have a YARN cluster with the proper environment variables set. To test this, try running the DistributedShell example that is distributed as part of Apache Hadoop. If that sample application can be run successfully then the environment should be acceptable for launching AsterixDB on to your YARN-enabled cluster.
 
 ###Vagrant and Puppet Virtualized cluster for Tutorial
 
-For the purposes of this tutorial, a virtualized cluster that matches all of the tutorial configurations can be found at https://github.com/parshimers/yarn-sample-cluster. To start with this cluster, first clone the repository:
+For the purposes of this tutorial, a virtualized cluster that matches all of the tutorial configurations can be found at https://github.com/parshimers/yarn-sample-cluster. It requires a machine with about 4-8GB of RAM to run. To start with this cluster, first clone the repository:
 
         ↪ git clone https://github.com/parshimers/yarn-sample-cluster.git
         Cloning into 'yarn-sample-cluster'...
@@ -161,6 +165,12 @@ To start the instance back up once more, the `start` action is used:
         [vagrant@cc asterix-yarn]$ bin/asterix -n my_awesome_instance start
         Waiting for AsterixDB instance to resume .
         Asterix successfully deployed and is now running.
+
+##Shutting down vagrant
+
+To stop the virtual machines, issue the vagrant halt command from the host machine in the folder containing the Vagrantfile:
+
+        ↪ vagrant halt
 
 
 #<a id="detail">Listing of Commands and Options</a>
