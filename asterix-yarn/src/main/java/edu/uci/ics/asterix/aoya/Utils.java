@@ -8,6 +8,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.ConnectException;
 import java.util.Scanner;
+import java.util.regex.Pattern;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
@@ -295,7 +296,7 @@ public class Utils {
 
         for (String j : cp) {
             //escape backslashes for windows
-            String[] pathComponents = j.split(File.separator == "\\" ? "\\\\" : File.separator);
+            String[] pathComponents = j.split(Pattern.quote(File.separator));
             if (pathComponents[pathComponents.length - 1].matches(asterixJarPattern)) {
                 //get components of maven version
                 String[] byDash = pathComponents[pathComponents.length - 1].split("-");

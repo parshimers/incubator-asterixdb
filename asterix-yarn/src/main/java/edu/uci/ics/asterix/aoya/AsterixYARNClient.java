@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
+import java.util.regex.Pattern;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
@@ -624,7 +625,7 @@ public class AsterixYARNClient {
 
         LOG.info(File.separator);
         for (String j : cp) {
-            String[] pathComponents =j.split(File.separator == "\\" ? "\\\\" : File.separator);
+            String[] pathComponents =j.split(Pattern.quote(File.separator));
             LOG.info(j);
             LOG.info(pathComponents[pathComponents.length - 1]);
             if (pathComponents[pathComponents.length - 1].matches(asterixJarPattern)
