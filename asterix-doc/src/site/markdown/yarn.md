@@ -14,9 +14,9 @@ This is a guide describing how to deploy AsterixDB onto a YARN-based environment
 
 AsterixDB uses a shared-nothing architecture and local file-based storage- not HDFS. Hence we are reliant on the local storage on each node ('iodevices' in AsterixDB ). In YARN there are 3 main types of storage available: 
 
-    - HDFS file storage (only suitable for long-lived artifacts, can be slower than local disk)
-    - Ephemeral container storage that is cleaned by YARN after a container exits (unsuitable except for transient artifacts)
-    - Node-local destinations not managed by YARN, but which are accesable by the container and live beyond its termination.
++   HDFS file storage (only suitable for long-lived artifacts, can be slower than local disk)
++   Ephemeral container storage that is cleaned by YARN after a container exits (unsuitable except for transient artifacts)
++   Node-local destinations not managed by YARN, but which are accesable by the container and live beyond its termination.
 
 AsterixDB uses only the last type of storage, which is available with both the DefaultContainerExecutor and LinuxContainerExecutor. However keep in mind that with the DefaultContainerExecutor, the directory must be accessable by the same process that the YARN NodeManager is running as, while with the LinuxContainerExecutor it must be accessable by the unix user who is running the job.
 
