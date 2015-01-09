@@ -624,7 +624,7 @@ public class AsterixYARNClient {
 
         LOG.info(File.separator);
         for (String j : cp) {
-            String[] pathComponents = j.split(File.separator);
+            String[] pathComponents =j.split(File.separator == "\\" ? "\\\\" : File.separator);
             LOG.info(j);
             LOG.info(pathComponents[pathComponents.length - 1]);
             if (pathComponents[pathComponents.length - 1].matches(asterixJarPattern)
