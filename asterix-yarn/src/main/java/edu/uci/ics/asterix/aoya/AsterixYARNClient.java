@@ -559,7 +559,7 @@ public class AsterixYARNClient {
         }
         LocalResource asterixConfLoc = Records.newRecord(LocalResource.class);
         asterixConfLoc.setType(LocalResourceType.FILE);
-        asterixConfLoc.setVisibility(LocalResourceVisibility.PUBLIC);
+        asterixConfLoc.setVisibility(LocalResourceVisibility.APPLICATION);
         asterixConfLoc.setResource(ConverterUtils.getYarnUrlFromPath(dstConf));
         asterixConfLoc.setTimestamp(destStatus.getModificationTime());
 
@@ -709,7 +709,7 @@ public class AsterixYARNClient {
         destStatus = fs.getFileStatus(dst);
         LocalResource asterixTarLoc = Records.newRecord(LocalResource.class);
         asterixTarLoc.setType(LocalResourceType.ARCHIVE);
-        asterixTarLoc.setVisibility(LocalResourceVisibility.PUBLIC);
+        asterixTarLoc.setVisibility(LocalResourceVisibility.APPLICATION);
         asterixTarLoc.setResource(ConverterUtils.getYarnUrlFromPath(dst));
         asterixTarLoc.setTimestamp(destStatus.getModificationTime());
 
@@ -795,7 +795,7 @@ public class AsterixYARNClient {
 
         // add the runtime classpath needed for tests to work
         if (conf.getBoolean(YarnConfiguration.IS_MINI_YARN_CLUSTER, false)) {
-            classPathEnv.append(':');
+            classPathEnv.append(System.getProperty("path.separator"));
             classPathEnv.append(System.getProperty("java.class.path"));
         }
         LOG.debug("AM Classpath:" + classPathEnv.toString());
