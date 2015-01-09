@@ -1137,7 +1137,7 @@ public class AsterixYARNClient {
         String configPathBase = MERGED_PARAMETERS_PATH;
         if (baseConfig != ".") {
             configuration = Utils.loadAsterixConfig(baseConfig);
-            configPathBase = new File(baseConfig).getParentFile().getAbsolutePath() + "asterix-configuration.xml";
+            configPathBase = new File(baseConfig).getParentFile().getAbsolutePath() + File.separator + "asterix-configuration.xml";
             MERGED_PARAMETERS_PATH = configPathBase;
         } else {
             configuration = Utils.loadAsterixConfig(DEFAULT_PARAMETERS_PATH);
