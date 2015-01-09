@@ -294,7 +294,8 @@ public class Utils {
         String asterixJarPattern = "^(asterix).*(jar)$"; //starts with asterix,ends with jar
 
         for (String j : cp) {
-            String[] pathComponents = j.split(File.separator);
+            //escape backslashes for windows
+            String[] pathComponents = j.split(File.separator == "\\" ? "\\\\" : File.separator);
             if (pathComponents[pathComponents.length - 1].matches(asterixJarPattern)) {
                 //get components of maven version
                 String[] byDash = pathComponents[pathComponents.length - 1].split("-");
