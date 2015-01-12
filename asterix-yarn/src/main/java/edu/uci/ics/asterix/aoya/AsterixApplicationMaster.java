@@ -900,13 +900,13 @@ public class AsterixApplicationMaster {
             // For now setting all required classpaths including
             // the classpath to "." for the application jar
             StringBuilder classPathEnv = new StringBuilder(Environment.CLASSPATH.$()).append(File.pathSeparatorChar)
-                    .append("./*");
+                    .append("."+File.pathSeparatorChar+"*");
             for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH,
                     YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH)) {
                 classPathEnv.append(File.pathSeparatorChar);
                 classPathEnv.append(c.trim());
             }
-            classPathEnv.append(File.pathSeparatorChar).append("./log4j.properties");
+            classPathEnv.append('.').append(File.pathSeparatorChar).append("log4j.properties");
 
             // add the runtime classpath needed for tests to work
             if (conf.getBoolean(YarnConfiguration.IS_MINI_YARN_CLUSTER, false)) {
@@ -957,7 +957,7 @@ public class AsterixApplicationMaster {
             Vector<CharSequence> vargs = new Vector<CharSequence>(5);
 
             vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
-            vargs.add("-classpath '."+File.separator+"asterix-server.zip"+File.separator+"repo*'");
+            vargs.add("-classpath '."+File.separator+"asterix-server.zip"+File.separator+"repo"+File.separator+"*'");
             vargs.add("-Dapp.repo=."+File.separator+"asterix-server.zip"+File.separator+"repo"+File.separator);
             //first see if this node is the CC
             if (containerIsCC(container) && (ccStarted.get() == false)) {
@@ -981,8 +981,6 @@ public class AsterixApplicationMaster {
                     if (iodevice == null) {
                         iodevice = clusterDesc.getIodevices();
                     }
-                    //append the existing classpath
-
                     vargs.add(NcJavaOpts  + " ");
                     vargs.add(NC_CLASSNAME);
                     vargs.add("-app-nc-main-class edu.uci.ics.asterix.hyracks.bootstrap.NCApplicationEntryPoint");

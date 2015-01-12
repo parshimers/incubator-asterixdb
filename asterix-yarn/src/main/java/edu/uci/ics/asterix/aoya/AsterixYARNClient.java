@@ -809,8 +809,6 @@ public class AsterixYARNClient {
         // Set java executable command
         LOG.info("Setting up app master command");
         vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
-        //add log4j stuff 
-        vargs.add("-Dlog4j.configuration=container-log4j.properties");
         // Set class name
         vargs.add(appMasterMainClass);
         //Set params for Application Master
