@@ -185,6 +185,7 @@
         <module>asterix-installer</module>
         <module>asterix-events</module>
         <module>asterix-doc</module>
+        <module>asterix-experiments</module>
         <module>asterix-fuzzyjoin</module>
     </modules>
 

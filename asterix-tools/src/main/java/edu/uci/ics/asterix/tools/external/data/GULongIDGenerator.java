@@ -43,4 +43,11 @@ public class GULongIDGenerator {
         return partition;
     }
 
+    public static void main(String[] args) {
+        GULongIDGenerator g = new GULongIDGenerator(0, (byte) 1);
+        for (int i = 0; i < 10; ++i) {
+            System.out.println(g.getNextULong());
+        }
+    }
+
 }

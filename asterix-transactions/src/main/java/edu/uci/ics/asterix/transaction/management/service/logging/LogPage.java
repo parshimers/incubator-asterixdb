@@ -19,6 +19,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 import edu.uci.ics.asterix.common.context.PrimaryIndexOperationTracker;
@@ -36,6 +37,8 @@ import edu.uci.ics.asterix.transaction.management.service.transaction.Transactio
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
 public class LogPage implements ILogPage {
+
+    public static final AtomicInteger count = new AtomicInteger(0);
 
     public static final boolean IS_DEBUG_MODE = false;//true
     private static final Logger LOGGER = Logger.getLogger(LogPage.class.getName());
@@ -215,6 +218,7 @@ public class LogPage implements ILogPage {
             LogRecord logRecord = logPageReader.next();
             while (logRecord != null) {
                 if (logRecord.getLogType() == LogType.ENTITY_COMMIT) {
+                    count.incrementAndGet();
                     reusableJobId.setId(logRecord.getJobId());
                     txnCtx = txnSubsystem.getTransactionManager().getTransactionContext(reusableJobId, false);
                     reusableDsId.setId(logRecord.getDatasetId());

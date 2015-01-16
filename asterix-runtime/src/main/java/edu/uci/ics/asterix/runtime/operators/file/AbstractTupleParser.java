@@ -68,12 +68,17 @@ public abstract class AbstractTupleParser implements ITupleParser {
 
     public abstract IDataParser getDataParser();
 
+    protected void postParserInitHook() {
+
+    }
+
     @Override
     public void parse(InputStream in, IFrameWriter writer) throws HyracksDataException {
         appender.reset(frame, true);
         IDataParser parser = getDataParser();
         try {
             parser.initialize(in, recType, true);
+            postParserInitHook();
             while (true) {
                 tb.reset();
                 if (!parser.parse(tb.getDataOutput())) {

@@ -50,13 +50,13 @@ public class TweetGenerator {
     private DataGenerator dataGenerator = null;
     private ByteBuffer outputBuffer = ByteBuffer.allocate(32 * 1024);
     private GULongIDGenerator uidGenerator;
+    private long flushedDataSize;
 
     public int getTweetCount() {
         return tweetCount;
     }
 
-    public TweetGenerator(Map<String, String> configuration, int partition, String format, OutputStream os)
-            throws Exception {
+    public TweetGenerator(Map<String, String> configuration, int partition, OutputStream os) throws Exception {
         this.partition = partition;
         String value = configuration.get(KEY_DURATION);
         this.duration = value != null ? Integer.parseInt(value) : DEFAULT_DURATION;
@@ -66,6 +66,7 @@ public class TweetGenerator {
         dataGenerator = new DataGenerator(new InitializationInfo());
         tweetIterator = dataGenerator.new TweetMessageIterator(duration, uidGenerator);
         this.os = os;
+        flushedDataSize = 0;
     }
 
     private void writeTweetString(TweetMessage tweetMessage) throws IOException {
@@ -87,9 +88,14 @@ public class TweetGenerator {
         return numFlushedTweets;
     }
 
+    public long getFlushedDataSize() {
+        return flushedDataSize;
+    }
+
     private void flush() throws IOException {
         outputBuffer.flip();
         os.write(outputBuffer.array(), 0, outputBuffer.limit());
+        flushedDataSize += outputBuffer.limit();
         outputBuffer.position(0);
         outputBuffer.limit(32 * 1024);
     }

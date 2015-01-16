@@ -116,8 +116,8 @@ public class GenericSocketFeedAdapterFactory extends StreamBasedAdapterFactory i
         Random random = new Random();
         for (String socket : socketsArray) {
             String[] socketTokens = socket.split(":");
-            String host = socketTokens[0];
-            int port = Integer.parseInt(socketTokens[1]);
+            String host = socketTokens[0].trim();
+            int port = Integer.parseInt(socketTokens[1].trim());
             Pair<String, Integer> p = null;
             switch (mode) {
                 case IP:

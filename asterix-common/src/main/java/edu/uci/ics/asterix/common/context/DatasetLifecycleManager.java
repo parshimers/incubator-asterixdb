@@ -584,4 +584,25 @@ public class DatasetLifecycleManager implements IIndexLifecycleManager, ILifeCyc
 
         outputStream.write(sb.toString().getBytes());
     }
+
+    public synchronized void waitForIO() throws HyracksDataException {
+        boolean shouldWait = true;
+        while (shouldWait) {
+            shouldWait = false;
+            for (DatasetInfo di : datasetInfos.values()) {
+                if (di.numActiveIOOps > 0) {
+                    shouldWait = true;
+                    break;
+                }
+            }
+            if (shouldWait) {
+                try {
+                    wait();
+                } catch (InterruptedException e) {
+                    throw new HyracksDataException(e);
+                }
+                continue;
+            }
+        }
+    }
 }

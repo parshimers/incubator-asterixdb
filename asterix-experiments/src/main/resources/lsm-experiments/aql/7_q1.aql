@@ -1,0 +1,5 @@
+use dataverse experiments;
+
+for $t in dataset Tweets
+where $t.tweetid = 1
+return $t

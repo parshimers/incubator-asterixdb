@@ -119,6 +119,14 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
         }
     }
 
+    public void resetCount() {
+        LogPage.count.set(0);
+    }
+
+    public int getCount() {
+        return LogPage.count.get();
+    }
+
     private synchronized void syncLog(ILogRecord logRecord) throws ACIDException {
         ITransactionContext txnCtx = null;
         

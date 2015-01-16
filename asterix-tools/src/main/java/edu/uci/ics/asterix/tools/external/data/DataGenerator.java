@@ -23,6 +23,8 @@ import java.util.Random;
 
 public class DataGenerator {
 
+    private static final String DUMMY_SIZE_ADJUSTER = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
     private RandomDateGenerator randDateGen;
 
     private RandomNameGenerator randNameGen;
@@ -55,6 +57,9 @@ public class DataGenerator {
 
         @Override
         public boolean hasNext() {
+            if (duration == 0) {
+                return true;
+            }
             return System.currentTimeMillis() - startTime <= duration * 1000;
         }
 
@@ -65,7 +70,12 @@ public class DataGenerator {
             Message message = randMessageGen.getNextRandomMessage();
             Point location = randLocationGen.getRandomPoint();
             DateTime sendTime = randDateGen.getNextRandomDatetime();
-            twMessage.reset(idGen.getNextULong(), twUser, location, sendTime, message.getReferredTopics(), message);
+            int btreeExtraFieldKey = random.nextInt();
+            if (btreeExtraFieldKey == Integer.MIN_VALUE) {
+                btreeExtraFieldKey = Integer.MIN_VALUE + 1;
+            }
+            twMessage.reset(idGen.getNextULong(), twUser, location, sendTime, message.getReferredTopics(), message,
+                    btreeExtraFieldKey, DUMMY_SIZE_ADJUSTER);
             msg = twMessage;
             return msg;
         }
@@ -475,34 +485,50 @@ public class DataGenerator {
 
     public static class TweetMessage {
 
+        private static int NUM_BTREE_EXTRA_FIELDS = 8;
+
         private long tweetid;
         private TwitterUser user;
         private Point senderLocation;
         private DateTime sendTime;
         private List<String> referredTopics;
         private Message messageText;
+        private int[] btreeExtraFields;
+        private String dummySizeAdjuster;
 
         public TweetMessage() {
+            this.btreeExtraFields = new int[NUM_BTREE_EXTRA_FIELDS];
         }
 
         public TweetMessage(long tweetid, TwitterUser user, Point senderLocation, DateTime sendTime,
-                List<String> referredTopics, Message messageText) {
+                List<String> referredTopics, Message messageText, int btreeExtraField, String dummySizeAdjuster) {
             this.tweetid = tweetid;
             this.user = user;
             this.senderLocation = senderLocation;
             this.sendTime = sendTime;
             this.referredTopics = referredTopics;
             this.messageText = messageText;
+            this.btreeExtraFields = new int[NUM_BTREE_EXTRA_FIELDS];
+            setBtreeExtraFields(btreeExtraField);
+            this.dummySizeAdjuster = dummySizeAdjuster;
+        }
+
+        private void setBtreeExtraFields(int fVal) {
+            for (int i = 0; i < btreeExtraFields.length; ++i) {
+                btreeExtraFields[i] = fVal;
+            }
         }
 
         public void reset(long tweetid, TwitterUser user, Point senderLocation, DateTime sendTime,
-                List<String> referredTopics, Message messageText) {
+                List<String> referredTopics, Message messageText, int btreeExtraField, String dummySizeAdjuster) {
             this.tweetid = tweetid;
             this.user = user;
             this.senderLocation = senderLocation;
             this.sendTime = sendTime;
             this.referredTopics = referredTopics;
             this.messageText = messageText;
+            setBtreeExtraFields(btreeExtraField);
+            this.dummySizeAdjuster = dummySizeAdjuster;
         }
 
         public String toString() {
@@ -536,6 +562,19 @@ public class DataGenerator {
             for (int i = 0; i < messageText.getLength(); i++) {
                 builder.append(messageText.charAt(i));
             }
+            builder.append("\"");
+            builder.append(",");
+            for (int i = 0; i < btreeExtraFields.length; ++i) {
+                builder.append("\"btree-extra-field" + (i + 1) + "\":");
+                builder.append(btreeExtraFields[i]);
+                if (i != btreeExtraFields.length - 1) {
+                    builder.append(",");
+                }
+            }
+            builder.append(",");
+            builder.append("\"dummy-size-adjuster\":");
+            builder.append("\"");
+            builder.append(dummySizeAdjuster);
             builder.append("\"");
             builder.append("}");
             return new String(builder);
@@ -1159,4 +1198,20 @@ public class DataGenerator {
             "Medflex", "Dancode", "Roundhex", "Labzatron", "Newhotplus", "Sancone", "Ronholdings", "Quoline",
             "zoomplus", "Fix-touch", "Codetechno", "Tanzumbam", "Indiex", "Canline" };
 
+    public static void main(String[] args) throws Exception {
+        DataGenerator dg = new DataGenerator(new InitializationInfo());
+        TweetMessageIterator tmi = dg.new TweetMessageIterator(1, new GULongIDGenerator(0, (byte) 0));
+        int len = 0;
+        int count = 0;
+        while (tmi.hasNext()) {
+            String tm = tmi.next().toString();
+            System.out.println(tm);
+            len += tm.length();
+            ++count;
+        }
+        System.out.println(DataGenerator.DUMMY_SIZE_ADJUSTER.length());
+        System.out.println(len);
+        System.out.println(count);
+        System.out.println(len / count);
+    }
 }

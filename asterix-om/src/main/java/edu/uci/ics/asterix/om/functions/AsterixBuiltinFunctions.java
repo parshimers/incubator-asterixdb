@@ -767,7 +767,7 @@ public class AsterixBuiltinFunctions {
         addPrivateFunction(GET_ITEM, NonTaggedGetItemResultType.INSTANCE, true);
         addPrivateFunction(GET_DATA, null, true); // TODO
         addPrivateFunction(GLOBAL_AVG, OptionalADoubleTypeComputer.INSTANCE, true);
-        addPrivateFunction(GRAM_TOKENS, OrderedListOfAStringTypeComputer.INSTANCE, true);
+        addFunction(GRAM_TOKENS, OrderedListOfAStringTypeComputer.INSTANCE, true);
         addFunction(GLOBAL_AVG, OptionalADoubleTypeComputer.INSTANCE, true);
         addPrivateFunction(HASHED_GRAM_TOKENS, OrderedListOfAInt32TypeComputer.INSTANCE, true);
         addPrivateFunction(HASHED_WORD_TOKENS, OrderedListOfAInt32TypeComputer.INSTANCE, true);
