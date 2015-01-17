@@ -14,7 +14,9 @@
  */
 package edu.uci.ics.asterix.aql.translator;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
@@ -54,6 +56,7 @@ import edu.uci.ics.asterix.aql.expression.ExternalDetailsDecl;
 import edu.uci.ics.asterix.aql.expression.FeedDropStatement;
 import edu.uci.ics.asterix.aql.expression.FunctionDecl;
 import edu.uci.ics.asterix.aql.expression.FunctionDropStatement;
+import edu.uci.ics.asterix.aql.expression.IDatasetDetailsDecl;
 import edu.uci.ics.asterix.aql.expression.Identifier;
 import edu.uci.ics.asterix.aql.expression.IndexDropStatement;
 import edu.uci.ics.asterix.aql.expression.InsertStatement;
@@ -61,13 +64,17 @@ import edu.uci.ics.asterix.aql.expression.InternalDetailsDecl;
 import edu.uci.ics.asterix.aql.expression.LoadStatement;
 import edu.uci.ics.asterix.aql.expression.NodeGroupDropStatement;
 import edu.uci.ics.asterix.aql.expression.NodegroupDecl;
+import edu.uci.ics.asterix.aql.expression.RunStatement;
 import edu.uci.ics.asterix.aql.expression.Query;
 import edu.uci.ics.asterix.aql.expression.RefreshExternalDatasetStatement;
 import edu.uci.ics.asterix.aql.expression.SetStatement;
 import edu.uci.ics.asterix.aql.expression.TypeDecl;
 import edu.uci.ics.asterix.aql.expression.TypeDropStatement;
+import edu.uci.ics.asterix.aql.expression.VarIdentifier;
+import edu.uci.ics.asterix.aql.expression.VariableExpr;
 import edu.uci.ics.asterix.aql.expression.WriteStatement;
 import edu.uci.ics.asterix.aql.util.FunctionUtils;
+import edu.uci.ics.asterix.common.config.AsterixCompilerProperties;
 import edu.uci.ics.asterix.common.config.DatasetConfig.DatasetType;
 import edu.uci.ics.asterix.common.config.DatasetConfig.ExternalDatasetTransactionState;
 import edu.uci.ics.asterix.common.config.DatasetConfig.ExternalFilePendingOp;
@@ -115,7 +122,10 @@ import edu.uci.ics.asterix.om.types.TypeSignature;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
 import edu.uci.ics.asterix.result.ResultReader;
 import edu.uci.ics.asterix.result.ResultUtils;
+import edu.uci.ics.asterix.runtime.job.listener.JobEventListenerFactory;
+import edu.uci.ics.asterix.runtime.operators.std.FlushDatasetOperatorDescriptor;
 import edu.uci.ics.asterix.transaction.management.service.transaction.DatasetIdFactory;
+import edu.uci.ics.asterix.transaction.management.service.transaction.JobIdFactory;
 import edu.uci.ics.asterix.translator.AbstractAqlTranslator;
 import edu.uci.ics.asterix.translator.CompiledStatements.CompiledConnectFeedStatement;
 import edu.uci.ics.asterix.translator.CompiledStatements.CompiledCreateIndexStatement;
@@ -127,20 +137,30 @@ import edu.uci.ics.asterix.translator.CompiledStatements.CompiledInsertStatement
 import edu.uci.ics.asterix.translator.CompiledStatements.CompiledLoadFromFileStatement;
 import edu.uci.ics.asterix.translator.CompiledStatements.ICompiledDmlStatement;
 import edu.uci.ics.asterix.translator.TypeTranslator;
+import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
+import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraintHelper;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression.FunctionKind;
 import edu.uci.ics.hyracks.algebricks.data.IAWriterFactory;
 import edu.uci.ics.hyracks.algebricks.data.IResultSerializerFactoryProvider;
+import edu.uci.ics.hyracks.algebricks.runtime.base.IPushRuntimeFactory;
+import edu.uci.ics.hyracks.algebricks.runtime.operators.meta.AlgebricksMetaOperatorDescriptor;
+import edu.uci.ics.hyracks.algebricks.runtime.operators.std.EmptyTupleSourceRuntimeFactory;
 import edu.uci.ics.hyracks.algebricks.runtime.serializer.ResultSerializerFactoryProvider;
 import edu.uci.ics.hyracks.algebricks.runtime.writers.PrinterBasedWriterFactory;
 import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
+import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
+import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.dataset.IHyracksDataset;
 import edu.uci.ics.hyracks.api.dataset.ResultSetId;
 import edu.uci.ics.hyracks.api.io.FileReference;
+import edu.uci.ics.hyracks.api.job.IJobletEventListenerFactory;
 import edu.uci.ics.hyracks.api.job.JobId;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
+import edu.uci.ics.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.file.FileSplit;
+import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMMergePolicyFactory;
 
 /*
@@ -168,7 +188,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
     private final SessionConfig sessionConfig;
     private final OutputFormat pdf;
     private Dataverse activeDefaultDataverse;
-    private List<FunctionDecl> declaredFunctions;
+    private final List<FunctionDecl> declaredFunctions;
 
     public AqlTranslator(List<Statement> aqlStatements, PrintWriter out, SessionConfig pc, APIFramework.OutputFormat pdf)
             throws MetadataException, AsterixException {
@@ -191,7 +211,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
     /**
      * Compiles and submits for execution a list of AQL statements.
-     *
+     * 
      * @param hcc
      *            A Hyracks client connection that is used to submit a jobspec to Hyracks.
      * @param hdc
@@ -201,10 +221,9 @@ public class AqlTranslator extends AbstractAqlTranslator {
      * @return A List<QueryResult> containing a QueryResult instance corresponding to each submitted query.
      * @throws Exception
      */
-    public List<QueryResult> compileAndExecute(IHyracksClientConnection hcc, IHyracksDataset hdc,
-            ResultDelivery resultDelivery) throws Exception {
+    public void compileAndExecute(IHyracksClientConnection hcc, IHyracksDataset hdc, ResultDelivery resultDelivery)
+            throws Exception {
         int resultSetIdCounter = 0;
-        List<QueryResult> executionResult = new ArrayList<QueryResult>();
         FileSplit outputFile = null;
         IAWriterFactory writerFactory = PrinterBasedWriterFactory.INSTANCE;
         IResultSerializerFactoryProvider resultSerializerFactoryProvider = ResultSerializerFactoryProvider.INSTANCE;
@@ -313,7 +332,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                     metadataProvider.setResultSetId(new ResultSetId(resultSetIdCounter++));
                     metadataProvider.setResultAsyncMode(resultDelivery == ResultDelivery.ASYNC
                             || resultDelivery == ResultDelivery.ASYNC_DEFERRED);
-                    executionResult.add(handleQuery(metadataProvider, (Query) stmt, hcc, hdc, resultDelivery));
+                    handleQuery(metadataProvider, (Query) stmt, hcc, hdc, resultDelivery);
                     break;
                 }
 
@@ -335,9 +354,13 @@ public class AqlTranslator extends AbstractAqlTranslator {
                     outputFile = result.second;
                     break;
                 }
+
+                case RUN: {
+                    handleRunStatement(metadataProvider, stmt, hcc);
+                    break;
+                }
             }
         }
-        return executionResult;
     }
 
     private void handleSetStatement(AqlMetadataProvider metadataProvider, Statement stmt, Map<String, String> config)
@@ -496,13 +519,20 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
                     String ngName = ngNameId != null ? ngNameId.getValue() : configureNodegroupForDataset(dd,
                             dataverseName, mdTxnCtx);
+                    String filterField = ((InternalDetailsDecl) dd.getDatasetDetailsDecl()).getFilterField();
                     if (compactionPolicy == null) {
-                        compactionPolicy = GlobalConfig.DEFAULT_COMPACTION_POLICY_NAME;
-                        compactionPolicyProperties = GlobalConfig.DEFAULT_COMPACTION_POLICY_PROPERTIES;
+                        if (filterField != null) {
+                            // If the dataset has a filter and the user didn't specify a merge policy, then we will pick the
+                            // correlated-prefix as the default merge policy.
+                            compactionPolicy = GlobalConfig.DEFAULT_FILTERED_DATASET_COMPACTION_POLICY_NAME;
+                            compactionPolicyProperties = GlobalConfig.DEFAULT_COMPACTION_POLICY_PROPERTIES;
+                        } else {
+                            compactionPolicy = GlobalConfig.DEFAULT_COMPACTION_POLICY_NAME;
+                            compactionPolicyProperties = GlobalConfig.DEFAULT_COMPACTION_POLICY_PROPERTIES;
+                        }
                     } else {
                         validateCompactionPolicy(compactionPolicy, compactionPolicyProperties, mdTxnCtx, false);
                     }
-                    String filterField = ((InternalDetailsDecl) dd.getDatasetDetailsDecl()).getFilterField();
                     if (filterField != null) {
                         aRecordType.validateFilterField(filterField);
                     }
@@ -1730,10 +1760,10 @@ public class AqlTranslator extends AbstractAqlTranslator {
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
         MetadataLockManager.INSTANCE.createFeedBegin(dataverseName, dataverseName + "." + feedName);
 
-        String adaptorName = null;
+        String adapterName = null;
         Feed feed = null;
         try {
-            adaptorName = cfs.getAdaptorName();
+            adapterName = cfs.getAdapterName();
 
             feed = MetadataManager.INSTANCE.getFeed(metadataProvider.getMetadataTxnContext(), dataverseName, feedName);
             if (feed != null) {
@@ -1741,11 +1771,11 @@ public class AqlTranslator extends AbstractAqlTranslator {
                     MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
                     return;
                 } else {
-                    throw new AlgebricksException("A feed with this name " + adaptorName + " already exists.");
+                    throw new AlgebricksException("A feed with this name " + adapterName + " already exists.");
                 }
             }
 
-            feed = new Feed(dataverseName, feedName, adaptorName, cfs.getAdaptorConfiguration(),
+            feed = new Feed(dataverseName, feedName, adapterName, cfs.getAdapterConfiguration(),
                     cfs.getAppliedFunction());
             MetadataManager.INSTANCE.addFeed(metadataProvider.getMetadataTxnContext(), feed);
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
@@ -2016,7 +2046,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
         }
     }
 
-    private QueryResult handleQuery(AqlMetadataProvider metadataProvider, Query query, IHyracksClientConnection hcc,
+    private void handleQuery(AqlMetadataProvider metadataProvider, Query query, IHyracksClientConnection hcc,
             IHyracksDataset hdc, ResultDelivery resultDelivery) throws Exception {
 
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
@@ -2027,7 +2057,6 @@ public class AqlTranslator extends AbstractAqlTranslator {
         try {
             compiled = rewriteCompileQuery(metadataProvider, query, null);
 
-            QueryResult queryResult = new QueryResult(query, metadataProvider.getResultSetId());
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             bActiveTxn = false;
 
@@ -2053,6 +2082,9 @@ public class AqlTranslator extends AbstractAqlTranslator {
                         // In this case (the normal case), we don't use the
                         // "response" JSONObject - just stream the results
                         // to the "out" PrintWriter
+                        if (pdf == OutputFormat.CSV) {
+                            ResultUtils.displayCSVHeader(metadataProvider.findOutputRecordType(), out);
+                        }
                         ResultUtils.displayResults(resultReader, out, pdf);
 
                         hcc.waitForCompletion(jobId);
@@ -2070,10 +2102,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                         break;
 
                 }
-
             }
-
-            return queryResult;
         } catch (Exception e) {
             e.printStackTrace();
             if (bActiveTxn) {
@@ -2341,15 +2370,241 @@ public class AqlTranslator extends AbstractAqlTranslator {
             MetadataLockManager.INSTANCE.refreshDatasetEnd(dataverseName, dataverseName + "." + datasetName);
         }
     }
+    
+    private void handleRunStatement(AqlMetadataProvider metadataProvider, Statement stmt,
+            IHyracksClientConnection hcc) throws AsterixException, Exception {
+        RunStatement runStmt = (RunStatement) stmt;
+        switch(runStmt.getSystem()) {
+            case "pregel":
+            case "pregelix":
+                handlePregelixStatement(metadataProvider, runStmt, hcc);
+                break;
+            default:
+                throw new AlgebricksException("The system \""+runStmt.getSystem()+"\" specified in your run statement is not supported.");
+        }
+        
+    }
+
+    private void handlePregelixStatement(AqlMetadataProvider metadataProvider, Statement stmt,
+            IHyracksClientConnection hcc) throws AsterixException, Exception {
+
+        RunStatement pregelixStmt = (RunStatement) stmt;
+        boolean bActiveTxn = true;
+
+        String dataverseNameFrom = getActiveDataverseName(pregelixStmt.getDataverseNameFrom());
+        String dataverseNameTo = getActiveDataverseName(pregelixStmt.getDataverseNameTo());
+        String datasetNameFrom = pregelixStmt.getDatasetNameFrom().getValue();
+        String datasetNameTo = pregelixStmt.getDatasetNameTo().getValue();
+        
+        if(dataverseNameFrom != dataverseNameTo) {
+            throw new AlgebricksException("Pregelix statements across different dataverses are not supported.");
+        }
+
+        MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+        metadataProvider.setMetadataTxnContext(mdTxnCtx);
+
+        MetadataLockManager.INSTANCE.pregelixBegin(dataverseNameFrom, datasetNameFrom, datasetNameTo);
+
+        try {
+
+            // construct input paths
+            Index fromIndex = null;
+            List<Index> indexes = MetadataManager.INSTANCE.getDatasetIndexes(mdTxnCtx, dataverseNameFrom, pregelixStmt
+                    .getDatasetNameFrom().getValue());
+            for (Index ind : indexes) {
+                if (ind.isPrimaryIndex())
+                    fromIndex = ind;
+            }
+
+            if (fromIndex == null) {
+                throw new AlgebricksException("Tried to access non-existing dataset: " + datasetNameFrom);
+            }
+
+            IFileSplitProvider fromSplits = metadataProvider.splitProviderAndPartitionConstraintsForDataset(
+                    dataverseNameFrom, datasetNameFrom, fromIndex.getIndexName()).first;
+            StringBuilder fromSplitsPaths = new StringBuilder();
+
+            for (FileSplit f : fromSplits.getFileSplits()) {
+                fromSplitsPaths.append("asterix://" + f.getNodeName() + f.getLocalFile().getFile().getAbsolutePath());
+                fromSplitsPaths.append(",");
+            }
+            fromSplitsPaths.setLength(fromSplitsPaths.length() - 1);
+
+            // Construct output paths
+            Index toIndex = null;
+            indexes = MetadataManager.INSTANCE.getDatasetIndexes(mdTxnCtx, dataverseNameTo, pregelixStmt
+                    .getDatasetNameTo().getValue());
+            for (Index ind : indexes) {
+                if (ind.isPrimaryIndex())
+                    toIndex = ind;
+            }
+
+            if (toIndex == null) {
+                throw new AlgebricksException("Tried to access non-existing dataset: " + datasetNameTo);
+            }
+
+            IFileSplitProvider toSplits = metadataProvider.splitProviderAndPartitionConstraintsForDataset(
+                    dataverseNameTo, datasetNameTo, toIndex.getIndexName()).first;
+            StringBuilder toSplitsPaths = new StringBuilder();
+
+            for (FileSplit f : toSplits.getFileSplits()) {
+                toSplitsPaths.append("asterix://" + f.getNodeName() + f.getLocalFile().getFile().getAbsolutePath());
+                toSplitsPaths.append(",");
+            }
+            toSplitsPaths.setLength(toSplitsPaths.length() - 1);
+
+            try {
+                Dataset toDataset = MetadataManager.INSTANCE.getDataset(mdTxnCtx, dataverseNameTo, datasetNameTo);
+                DropStatement dropStmt = new DropStatement(new Identifier(dataverseNameTo),
+                        pregelixStmt.getDatasetNameTo(), true);
+                this.handleDatasetDropStatement(metadataProvider, dropStmt, hcc);
+
+                IDatasetDetailsDecl idd = new InternalDetailsDecl(new Identifier(toDataset.getDatasetDetails()
+                        .getNodeGroupName()), toIndex.getKeyFieldNames(), false, toDataset.getDatasetDetails()
+                        .getCompactionPolicy(), toDataset.getDatasetDetails().getCompactionPolicyProperties(), null);
+                DatasetDecl createToDataset = new DatasetDecl(new Identifier(dataverseNameTo),
+                        pregelixStmt.getDatasetNameTo(), new Identifier(toDataset.getItemTypeName()),
+                        toDataset.getHints(), toDataset.getDatasetType(), idd, false);
+                this.handleCreateDatasetStatement(metadataProvider, createToDataset, hcc);
+            } catch (Exception e) {
+                e.printStackTrace();
+                throw new AlgebricksException("Error cleaning the result dataset. This should not happen.");
+            }
+
+            // Flush source dataset
+            flushDataset(hcc, metadataProvider, mdTxnCtx, dataverseNameFrom, datasetNameFrom, fromIndex.getIndexName());
+
+            // call Pregelix
+            String pregelix_home = System.getenv("PREGELIX_HOME");
+            if (pregelix_home == null) {
+                throw new AlgebricksException("PREGELIX_HOME is not defined!");
+            }
+
+            // construct command
+            ArrayList<String> cmd = new ArrayList<String>();
+            cmd.add("bin/pregelix");
+            cmd.add(pregelixStmt.getParameters().get(0)); // jar
+            cmd.add(pregelixStmt.getParameters().get(1)); // class
+            for (String s : pregelixStmt.getParameters().get(2).split(" ")) {
+                cmd.add(s);
+            }
+            cmd.add("-inputpaths");
+            cmd.add(fromSplitsPaths.toString());
+            cmd.add("-outputpath");
+            cmd.add(toSplitsPaths.toString());
+
+            StringBuilder command = new StringBuilder();
+            for (String s : cmd) {
+                command.append(s);
+                command.append(" ");
+            }
+            LOGGER.info("Running Pregelix Command: " + command.toString());
+
+            ProcessBuilder pb = new ProcessBuilder(cmd);
+            pb.directory(new File(pregelix_home));
+            pb.redirectErrorStream(true);
+
+            MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+            bActiveTxn = false;
+
+            Process pr = pb.start();
+
+            int resultState = 0;
+
+            BufferedReader in = new BufferedReader(new InputStreamReader(pr.getInputStream()));
+            String line;
+            while ((line = in.readLine()) != null) {
+                System.out.println(line);
+                if (line.contains("job finished")) {
+                    resultState = 1;
+                }
+                if (line.contains("Exception") || line.contains("Error")) {
+
+                    if (line.contains("Connection refused")) {
+                        throw new AlgebricksException(
+                                "The connection to your Pregelix cluster was refused. Is it running? Is the port in the query correct?");
+                    }
+
+                    if (line.contains("Could not find or load main class")) {
+                        throw new AlgebricksException(
+                                "The main class of your Pregelix query was not found. Is the path to your .jar file correct?");
+                    }
+
+                    if (line.contains("ClassNotFoundException")) {
+                        throw new AlgebricksException(
+                                "The vertex class of your Pregelix query was not found. Does it exist? Is the spelling correct?");
+                    }
+
+                    if (line.contains("HyracksException")) {
+                        throw new AlgebricksException(
+                                "Something went wrong executing your Pregelix Job (HyracksException). Check the configuration of STORAGE_BUFFERCACHE_PAGESIZE and STORAGE_MEMORYCOMPONENT_PAGESIZE."
+                                        + "It must match the one of Asterix. You can use managix describe -admin to find out the right configuration. "
+                                        + "Check also if your datatypes in Pregelix and Asterix are matching.");
+                    }
+
+                    throw new AlgebricksException(
+                            "Something went wrong executing your Pregelix Job. Perhaps the Pregelix cluster needs to be restartet. "
+                                    + "Check the following things: Are the datatypes of Asterix and Pregelix matching? "
+                                    + "Is the server configuration correct (node names, buffer sizes, framesize)? Check the logfiles for more details.");
+                }
+            }
+            pr.waitFor();
+            in.close();
+
+            if (resultState != 1) {
+                throw new AlgebricksException(
+                        "Something went wrong executing your Pregelix Job. Perhaps the Pregelix cluster needs to be restartet. "
+                                + "Check the following things: Are the datatypes of Asterix and Pregelix matching? "
+                                + "Is the server configuration correct (node names, buffer sizes, framesize)? Check the logfiles for more details.");
+            }
+        } catch (Exception e) {
+            if (bActiveTxn) {
+                abort(e, e, mdTxnCtx);
+            }
+            throw e;
+        } finally {
+            MetadataLockManager.INSTANCE
+                    .pregelixEnd(dataverseNameFrom, datasetNameFrom, datasetNameTo);
+        }
+    }
+
+    private void flushDataset(IHyracksClientConnection hcc, AqlMetadataProvider metadataProvider,
+            MetadataTransactionContext mdTxnCtx, String dataverseName, String datasetName, String indexName)
+            throws Exception {
+        AsterixCompilerProperties compilerProperties = AsterixAppContextInfo.getInstance().getCompilerProperties();
+        int frameSize = compilerProperties.getFrameSize();
+        JobSpecification spec = new JobSpecification(frameSize);
+
+        RecordDescriptor[] rDescs = new RecordDescriptor[] { new RecordDescriptor(new ISerializerDeserializer[] {}) };
+        AlgebricksMetaOperatorDescriptor emptySource = new AlgebricksMetaOperatorDescriptor(spec, 0, 1,
+                new IPushRuntimeFactory[] { new EmptyTupleSourceRuntimeFactory() }, rDescs);
+
+        edu.uci.ics.asterix.common.transactions.JobId jobId = JobIdFactory.generateJobId();
+        FlushDatasetOperatorDescriptor flushOperator = new FlushDatasetOperatorDescriptor(spec, jobId,
+                MetadataManager.INSTANCE.getDataset(mdTxnCtx, dataverseName, datasetName).getDatasetId());
+
+        spec.connect(new OneToOneConnectorDescriptor(spec), emptySource, 0, flushOperator, 0);
+
+        Pair<IFileSplitProvider, AlgebricksPartitionConstraint> primarySplitsAndConstraint = metadataProvider
+                .splitProviderAndPartitionConstraintsForDataset(dataverseName, datasetName, indexName);
+        AlgebricksPartitionConstraint primaryPartitionConstraint = primarySplitsAndConstraint.second;
+
+        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, emptySource,
+                primaryPartitionConstraint);
+
+        IJobletEventListenerFactory jobEventListenerFactory = new JobEventListenerFactory(jobId, false);
+        spec.setJobletEventListenerFactory(jobEventListenerFactory);
+        runJob(hcc, spec, true);
+    }
 
     private JobId runJob(IHyracksClientConnection hcc, JobSpecification spec, boolean waitForCompletion)
             throws Exception {
-        JobId[] jobIds = executeJobArray(hcc, new Job[] { new Job(spec) }, out, pdf, waitForCompletion);
+        JobId[] jobIds = executeJobArray(hcc, new Job[] { new Job(spec) }, out, waitForCompletion);
         return jobIds[0];
     }
 
-    public JobId[] executeJobArray(IHyracksClientConnection hcc, Job[] jobs, PrintWriter out, APIFramework.OutputFormat pdf,
-            boolean waitForCompletion) throws Exception {
+    public JobId[] executeJobArray(IHyracksClientConnection hcc, Job[] jobs, PrintWriter out, boolean waitForCompletion)
+            throws Exception {
         JobId[] startedJobIds = new JobId[jobs.length];
         for (int i = 0; i < jobs.length; i++) {
             JobSpecification spec = jobs[i].getJobSpec();

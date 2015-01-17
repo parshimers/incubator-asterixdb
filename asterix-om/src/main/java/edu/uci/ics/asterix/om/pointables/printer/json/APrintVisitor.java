@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
+import edu.uci.ics.asterix.dataflow.data.nontagged.printers.ABinaryHexPrinter;
 import edu.uci.ics.asterix.dataflow.data.nontagged.printers.AUUIDPrinter;
 import edu.uci.ics.asterix.dataflow.data.nontagged.printers.ShortWithoutTypeInfoPrinter;
 import edu.uci.ics.asterix.dataflow.data.nontagged.printers.json.ABooleanPrinter;
@@ -55,7 +56,7 @@ import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 /**
  * This class is a IVisitablePointableVisitor implementation which recursively
  * visit a given record, list or flat value of a given type, and print it to a
- * PrintStream in adm format.
+ * PrintStream in JSON format.
  */
 public class APrintVisitor implements IVisitablePointableVisitor<Void, Pair<PrintStream, ATypeTag>> {
 
@@ -175,6 +176,10 @@ public class APrintVisitor implements IVisitablePointableVisitor<Void, Pair<Prin
                 }
                 case STRING: {
                     AStringPrinter.INSTANCE.print(b, s, l, ps);
+                    break;
+                }
+                case BINARY: {
+                    ABinaryHexPrinter.INSTANCE.print(b, s, l, ps);
                     break;
                 }
                 case YEARMONTHDURATION: {
