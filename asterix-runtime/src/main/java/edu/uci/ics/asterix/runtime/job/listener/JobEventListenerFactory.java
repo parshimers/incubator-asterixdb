@@ -14,9 +14,6 @@
  */
 package edu.uci.ics.asterix.runtime.job.listener;
 
-import java.util.Map;
-import java.util.logging.Logger;
-
 import edu.uci.ics.asterix.common.api.IAsterixAppRuntimeContext;
 import edu.uci.ics.asterix.common.exceptions.ACIDException;
 import edu.uci.ics.asterix.common.transactions.DatasetId;
@@ -27,8 +24,6 @@ import edu.uci.ics.hyracks.api.context.IHyracksJobletContext;
 import edu.uci.ics.hyracks.api.job.IJobletEventListener;
 import edu.uci.ics.hyracks.api.job.IJobletEventListenerFactory;
 import edu.uci.ics.hyracks.api.job.JobStatus;
-import edu.uci.ics.hyracks.storage.common.buffercache.BufferCache;
-import edu.uci.ics.hyracks.storage.common.file.BufferedFileHandle;
 
 public class JobEventListenerFactory implements IJobletEventListenerFactory {
 
@@ -45,8 +40,6 @@ public class JobEventListenerFactory implements IJobletEventListenerFactory {
         return jobId;
     }
 
-    private static final Logger LOGGER = Logger.getLogger(JobEventListenerFactory.class.getName());
-
     @Override
     public IJobletEventListener createListener(final IHyracksJobletContext jobletContext) {
 
@@ -54,18 +47,6 @@ public class JobEventListenerFactory implements IJobletEventListenerFactory {
             @Override
             public void jobletFinish(JobStatus jobStatus) {
                 try {
-                    if (!transactionalWrite) {
-                        BufferCache.numAccessors.decrementAndGet();
-
-                        BufferedFileHandle fInfo = null;
-                        for (Map.Entry<Integer, Integer> entry : BufferCache.IOCounts.entrySet()) {
-                            int fileId = entry.getKey();
-                            String fileName = BufferCache.getFileName(fileId);
-                            LOGGER.severe("Number of IO for file: " + fileName + " is: " + entry.getValue());
-                        }
-
-                        BufferCache.IOCounts.clear();
-                    }
                     ITransactionManager txnManager = ((IAsterixAppRuntimeContext) jobletContext.getApplicationContext()
                             .getApplicationObject()).getTransactionSubsystem().getTransactionManager();
                     ITransactionContext txnContext = txnManager.getTransactionContext(jobId, false);
@@ -80,9 +61,6 @@ public class JobEventListenerFactory implements IJobletEventListenerFactory {
             @Override
             public void jobletStart() {
                 try {
-                    if (!transactionalWrite) {
-                        BufferCache.numAccessors.incrementAndGet();
-                    }
                     ((IAsterixAppRuntimeContext) jobletContext.getApplicationContext().getApplicationObject())
                             .getTransactionSubsystem().getTransactionManager().getTransactionContext(jobId, true);
                 } catch (ACIDException e) {
