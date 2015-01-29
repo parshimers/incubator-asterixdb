@@ -213,6 +213,7 @@ Statement SingleStatement() throws ParseException:
     | stmt = CompactStatement()
     | stmt = Query()
     | stmt = RefreshExternalDatasetStatement()
+    | stmt = RunStatement()
   )
   {
     return stmt;
@@ -398,6 +399,27 @@ RefreshExternalDatasetStatement RefreshExternalDatasetStatement() throws ParseEx
 	}
 }
 
+RunStatement RunStatement() throws ParseException:
+{
+  String system = null;
+  String tmp;
+  ArrayList<String> parameters = new  ArrayList<String>();
+  Pair<Identifier,Identifier> nameComponentsFrom = null;
+  Pair<Identifier,Identifier> nameComponentsTo = null;
+}
+{
+  "run" system = Identifier()<LEFTPAREN> ( tmp = Identifier() [<COMMA>]
+    {
+      parameters.add(tmp);
+    }
+  )*<RIGHTPAREN>
+  <FROM> <DATASET> nameComponentsFrom  = QualifiedName()
+  "to" <DATASET> nameComponentsTo  = QualifiedName() 
+    {
+      return new RunStatement(system, parameters, nameComponentsFrom.first, nameComponentsFrom.second, nameComponentsTo.first, nameComponentsTo.second);
+    }
+}
+
 CreateIndexStatement IndexSpecification() throws ParseException:
 {
   CreateIndexStatement cis = new CreateIndexStatement();
@@ -528,6 +550,7 @@ CreateFunctionStatement FunctionSpecification() throws ParseException:
       // TODO use fctName.library
       signature = new FunctionSignature(fctName.dataverse, fctName.function, paramList.size());
       getCurrentScope().addFunctionDescriptor(signature, false);
+      removeCurrentScope();
       return new CreateFunctionStatement(signature, paramList, functionBody, ifNotExists);
     }
 }
@@ -536,7 +559,7 @@ CreateFeedStatement FeedSpecification() throws ParseException:
 {
   Pair<Identifier,Identifier> nameComponents = null;  
   boolean ifNotExists = false;
-  String adaptorName = null;
+  String adapterName = null;
   Map<String,String> properties = null;
   FunctionSignature appliedFunction = null;
   CreateFeedStatement cfs = null;
@@ -545,11 +568,11 @@ CreateFeedStatement FeedSpecification() throws ParseException:
   (
     "feed"  nameComponents = QualifiedName()
     ifNotExists = IfNotExists()
-    "using" adaptorName = AdapterName() properties = Configuration()
+    "using" adapterName = AdapterName() properties = Configuration()
     (appliedFunction = ApplyFunction())?
       {
         cfs = new CreateFeedStatement(nameComponents.first,
-                                   nameComponents.second, adaptorName, properties, appliedFunction, ifNotExists);
+                                   nameComponents.second, adapterName, properties, appliedFunction, ifNotExists);
       } 
       
   )
@@ -751,7 +774,7 @@ DeleteStatement DeleteStatement() throws ParseException:
     {
       getCurrentScope().addNewVarSymbolToScope(var.getVar());
     }
-  "from" <DATASET> nameComponents  = QualifiedName() 
+  <FROM> <DATASET> nameComponents  = QualifiedName() 
   (<WHERE> condition = Expression())?
     {
       // First we get the dataverses and datasets that we want to lock
@@ -910,7 +933,7 @@ Statement FeedStatement() throws ParseException:
       {
         stmt = new ConnectFeedStatement(feedNameComponents, datasetNameComponents, policy, getVarCounter());
       }
-    | "disconnect" "feed" feedNameComponents = QualifiedName() "from" <DATASET> datasetNameComponents = QualifiedName()
+    | "disconnect" "feed" feedNameComponents = QualifiedName() <FROM> <DATASET> datasetNameComponents = QualifiedName()
       {
         stmt = new DisconnectFeedStatement(feedNameComponents, datasetNameComponents);
       }
@@ -1919,7 +1942,7 @@ Expression  FLWOGR() throws ParseException:
 }
 {
      (tmp = ForClause()  {clauseList.add(tmp);} | tmp = LetClause() {clauseList.add(tmp);})
-      (tmp = Clause() {clauseList.add(tmp);})* <RETURN> returnExpr = Expression()
+      (tmp = Clause() {clauseList.add(tmp);})* (<RETURN>|<SELECT>) returnExpr = Expression()
 
      {
        flworg.setClauseList(clauseList);
@@ -1957,7 +1980,7 @@ Clause ForClause()throws ParseException :
 	extendCurrentScope();
 }
 {
-    <FOR> varExp = Variable() (<AT> varPos = Variable())?  <IN> ( inExp = Expression() )
+    (<FOR>|<FROM>) varExp = Variable() (<AT> varPos = Variable())?  <IN> ( inExp = Expression() )
     {
       fc.setVarExpr(varExp);
       getCurrentScope().addNewVarSymbolToScope(varExp.getVar());
@@ -1978,7 +2001,7 @@ Clause LetClause() throws ParseException:
 	extendCurrentScope();
 }
 {
-    <LET> varExp = Variable() <ASSIGN> beExp = Expression()
+    (<LET>|<WITH>) varExp = Variable() <ASSIGN> beExp = Expression()
     {
       getCurrentScope().addNewVarSymbolToScope(varExp.getVar());
       lc.setVarExpr(varExp);
@@ -2242,6 +2265,7 @@ TOKEN :
   | <ELSE : "else">
   | <EVERY : "every">
   | <FOR : "for">
+  | <FROM : "from">
   | <GROUP : "group">
   | <IF : "if">
   | <IN : "in">
@@ -2251,6 +2275,7 @@ TOKEN :
   | <ORDER : "order">
   | <RETURN : "return">
   | <SATISFIES : "satisfies">
+  | <SELECT : "select">
   | <SOME : "some">
   | <THEN : "then">
   | <UNION : "union">

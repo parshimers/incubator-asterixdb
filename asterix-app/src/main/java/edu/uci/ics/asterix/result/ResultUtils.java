@@ -27,13 +27,14 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.http.ParseException;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import org.apache.http.ParseException;
 import edu.uci.ics.asterix.api.common.APIFramework;
 import edu.uci.ics.asterix.api.http.servlet.APIServlet;
+import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -60,20 +61,41 @@ public class ResultUtils {
         return s;
     }
 
+    public static void displayCSVHeader(ARecordType recordType, PrintWriter out) {
+        String[] fieldNames = recordType.getFieldNames();
+        boolean notfirst = false;
+        for (String name : fieldNames) {
+            if (notfirst) {
+                out.print(',');
+            }
+            notfirst = true;
+            out.print('"');
+            out.print(name.replace("\"", "\"\""));
+            out.print('"');
+        }
+        out.print("\r\n");
+    }
+
     public static void displayResults(ResultReader resultReader, PrintWriter out, APIFramework.OutputFormat pdf)
             throws HyracksDataException {
-        ByteBufferInputStream bbis = new ByteBufferInputStream();
         IFrameTupleAccessor fta = resultReader.getFrameTupleAccessor();
 
         ByteBuffer buffer = ByteBuffer.allocate(ResultReader.FRAME_SIZE);
         buffer.clear();
+        int bytesRead = resultReader.read(buffer);
+        ByteBufferInputStream bbis = new ByteBufferInputStream();
 
+        // Whether we need to separate top-level ADM instances with commas
         boolean need_commas = true;
+        // Whether this is the first instance being output
         boolean notfirst = false;
+
         switch (pdf) {
             case HTML:
                 out.println("<h4>Results:</h4>");
                 out.println("<pre>");
+                // Fall through
+            case CSV:
                 need_commas = false;
                 break;
             case JSON:
@@ -85,32 +107,42 @@ public class ResultUtils {
                 break;
         }
 
-        while (resultReader.read(buffer) > 0) {
-            try {
-                fta.reset(buffer);
-                int last = fta.getTupleCount();
-                String result;
-                for (int tIndex = 0; tIndex < last; tIndex++) {
-                    int start = fta.getTupleStartOffset(tIndex);
-                    int length = fta.getTupleEndOffset(tIndex) - start;
-                    bbis.setByteBuffer(buffer, start);
-                    byte[] recordBytes = new byte[length];
-                    bbis.read(recordBytes, 0, length);
-                    result = new String(recordBytes, 0, length, UTF_8);
-                    if (need_commas && notfirst) {
-                        out.print(", ");
-                    }
-                    notfirst = true;
-                    out.print(result);
-                }
-                buffer.clear();
-            } finally {
+        if (bytesRead > 0) {
+            do {
                 try {
-                    bbis.close();
-                } catch (IOException e) {
-                    throw new HyracksDataException(e);
+                    fta.reset(buffer);
+                    int last = fta.getTupleCount();
+                    String result;
+                    for (int tIndex = 0; tIndex < last; tIndex++) {
+                        int start = fta.getTupleStartOffset(tIndex);
+                        int length = fta.getTupleEndOffset(tIndex) - start;
+                        bbis.setByteBuffer(buffer, start);
+                        byte[] recordBytes = new byte[length];
+                        int numread = bbis.read(recordBytes, 0, length);
+                        if (pdf == APIFramework.OutputFormat.CSV) {
+                            if ( (numread > 0) && (recordBytes[numread-1] == '\n') ) {
+                                numread--;
+                            }
+                        }
+                        result = new String(recordBytes, 0, numread, UTF_8);
+                        if (need_commas && notfirst) {
+                            out.print(", ");
+                        }
+                        notfirst = true;
+                        out.print(result);
+                        if (pdf == APIFramework.OutputFormat.CSV) {
+                            out.print("\r\n");
+                        }
+                    }
+                    buffer.clear();
+                } finally {
+                    try {
+                        bbis.close();
+                    } catch (IOException e) {
+                        throw new HyracksDataException(e);
+                    }
                 }
-            }
+            } while (resultReader.read(buffer) > 0);
         }
 
         out.flush();
@@ -123,7 +155,11 @@ public class ResultUtils {
             case ADM:
                 out.println(" ]");
                 break;
+            case CSV:
+                // Nothing to do
+                break;
         }
+
     }
 
     public static JSONObject getErrorResponse(int errorCode, String errorMessage, String errorSummary,
@@ -215,18 +251,15 @@ public class ResultUtils {
      */
     private static String extractErrorMessage(Throwable e) {
         Throwable cause = getRootCause(e);
-
-        String exceptionClassName = "";
-        String[] messageSplits = cause.toString().split(":");
-        if (messageSplits.length > 1) {
-            String fullyQualifiedExceptionClassName = messageSplits[0];
-            System.out.println(fullyQualifiedExceptionClassName);
-            String[] hierarchySplits = fullyQualifiedExceptionClassName.split("\\.");
-            if (hierarchySplits.length > 0) {
-                exceptionClassName = hierarchySplits[hierarchySplits.length - 1];
-            }
+        String fullyQualifiedExceptionClassName = cause.getClass().getName();
+        String[] hierarchySplits = fullyQualifiedExceptionClassName.split("\\.");
+        //try returning the class without package qualification
+        String exceptionClassName = hierarchySplits[hierarchySplits.length - 1];
+        String localizedMessage = cause.getLocalizedMessage();
+        if(localizedMessage == null){
+            localizedMessage = "Internal error. Please check instance logs for further details.";
         }
-        return cause.getLocalizedMessage() + " [" + exceptionClassName + "]";
+        return localizedMessage + " [" + exceptionClassName + "]";
     }
 
     /**

@@ -33,6 +33,7 @@ import edu.uci.ics.asterix.formats.nontagged.AqlBinaryComparatorFactoryProvider;
 import edu.uci.ics.asterix.formats.nontagged.AqlBinaryHashFunctionFactoryProvider;
 import edu.uci.ics.asterix.formats.nontagged.AqlBinaryHashFunctionFamilyProvider;
 import edu.uci.ics.asterix.formats.nontagged.AqlBinaryIntegerInspector;
+import edu.uci.ics.asterix.formats.nontagged.AqlCSVPrinterFactoryProvider;
 import edu.uci.ics.asterix.formats.nontagged.AqlJSONPrinterFactoryProvider;
 import edu.uci.ics.asterix.formats.nontagged.AqlNormalizedKeyComputerFactoryProvider;
 import edu.uci.ics.asterix.formats.nontagged.AqlPredicateEvaluatorFactoryProvider;
@@ -60,6 +61,7 @@ import edu.uci.ics.asterix.om.types.AUnorderedListType;
 import edu.uci.ics.asterix.om.types.AbstractCollectionType;
 import edu.uci.ics.asterix.om.types.BuiltinType;
 import edu.uci.ics.asterix.om.types.IAType;
+import edu.uci.ics.asterix.om.util.NonTaggedFormatUtil;
 import edu.uci.ics.asterix.runtime.aggregates.collections.ListifyAggregateDescriptor;
 import edu.uci.ics.asterix.runtime.aggregates.scalar.ScalarAvgAggregateDescriptor;
 import edu.uci.ics.asterix.runtime.aggregates.scalar.ScalarCountAggregateDescriptor;
@@ -126,6 +128,8 @@ import edu.uci.ics.asterix.runtime.evaluators.accessors.TemporalYearAccessor;
 import edu.uci.ics.asterix.runtime.evaluators.common.CreateMBREvalFactory;
 import edu.uci.ics.asterix.runtime.evaluators.common.FieldAccessByIndexEvalFactory;
 import edu.uci.ics.asterix.runtime.evaluators.common.FunctionManagerImpl;
+import edu.uci.ics.asterix.runtime.evaluators.constructors.ABinaryBase64StringConstructorDescriptor;
+import edu.uci.ics.asterix.runtime.evaluators.constructors.ABinaryHexStringConstructorDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.constructors.ABooleanConstructorDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.constructors.ACircleConstructorDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.constructors.ADateConstructorDescriptor;
@@ -241,6 +245,14 @@ import edu.uci.ics.asterix.runtime.evaluators.functions.SubstringDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.SwitchCaseDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.UnorderedListConstructorDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.WordTokensDescriptor;
+import edu.uci.ics.asterix.runtime.evaluators.functions.binary.BinaryConcatDescriptor;
+import edu.uci.ics.asterix.runtime.evaluators.functions.binary.BinaryLengthDescriptor;
+import edu.uci.ics.asterix.runtime.evaluators.functions.binary.FindBinaryDescriptor;
+import edu.uci.ics.asterix.runtime.evaluators.functions.binary.FindBinaryFromDescriptor;
+import edu.uci.ics.asterix.runtime.evaluators.functions.binary.ParseBinaryDescriptor;
+import edu.uci.ics.asterix.runtime.evaluators.functions.binary.PrintBinaryDescriptor;
+import edu.uci.ics.asterix.runtime.evaluators.functions.binary.SubBinaryFromDescriptor;
+import edu.uci.ics.asterix.runtime.evaluators.functions.binary.SubBinaryFromToDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.temporal.AdjustDateTimeForTimeZoneDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.temporal.AdjustTimeForTimeZoneDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.temporal.CalendarDuartionFromDateDescriptor;
@@ -409,6 +421,17 @@ public class NonTaggedDataFormat implements IDataFormat {
         temp.add(NumericRoundDescriptor.FACTORY);
         temp.add(NumericRoundHalfToEvenDescriptor.FACTORY);
         temp.add(NumericRoundHalfToEven2Descriptor.FACTORY);
+
+        // Binary functions
+        temp.add(BinaryLengthDescriptor.FACTORY);
+        temp.add(ParseBinaryDescriptor.FACTORY);
+        temp.add(PrintBinaryDescriptor.FACTORY);
+        temp.add(BinaryConcatDescriptor.FACTORY);
+        temp.add(SubBinaryFromDescriptor.FACTORY);
+        temp.add(SubBinaryFromToDescriptor.FACTORY);
+        temp.add(FindBinaryDescriptor.FACTORY);
+        temp.add(FindBinaryFromDescriptor.FACTORY);
+
         // String functions
         temp.add(StringEqualDescriptor.FACTORY);
         temp.add(StringStartWithDescrtiptor.FACTORY);
@@ -490,6 +513,8 @@ public class NonTaggedDataFormat implements IDataFormat {
         // new functions - constructors
         temp.add(ABooleanConstructorDescriptor.FACTORY);
         temp.add(ANullConstructorDescriptor.FACTORY);
+        temp.add(ABinaryHexStringConstructorDescriptor.FACTORY);
+        temp.add(ABinaryBase64StringConstructorDescriptor.FACTORY);
         temp.add(AStringConstructorDescriptor.FACTORY);
         temp.add(AInt8ConstructorDescriptor.FACTORY);
         temp.add(AInt16ConstructorDescriptor.FACTORY);
@@ -788,9 +813,13 @@ public class NonTaggedDataFormat implements IDataFormat {
                 ((ListifyAggregateDescriptor) fd).reset(new AOrderedListType(null, null));
             } else {
                 IAType itemType = (IAType) context.getType(f.getArguments().get(0).getValue());
-                // Convert UNION types into ANY.
                 if (itemType instanceof AUnionType) {
-                    itemType = BuiltinType.ANY;
+                    if (((AUnionType) itemType).isNullableType())
+                        itemType = ((AUnionType) itemType).getUnionList().get(
+                                NonTaggedFormatUtil.OPTIONAL_TYPE_INDEX_IN_UNION_LIST);
+                    else
+                        // Convert UNION types into ANY.
+                        itemType = BuiltinType.ANY;
                 }
                 ((ListifyAggregateDescriptor) fd).reset(new AOrderedListType(itemType, null));
             }
@@ -899,6 +928,11 @@ public class NonTaggedDataFormat implements IDataFormat {
         return AqlJSONPrinterFactoryProvider.INSTANCE;
     }
 
+    @Override
+    public IPrinterFactoryProvider getCSVPrinterFactoryProvider() {
+        return AqlCSVPrinterFactoryProvider.INSTANCE;
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public ICopyEvaluatorFactory getConstantEvalFactory(IAlgebricksConstantValue value) throws AlgebricksException {
@@ -934,7 +968,8 @@ public class NonTaggedDataFormat implements IDataFormat {
     }
 
     @Override
-    public ITupleParserFactory createTupleParser(ARecordType recType, boolean delimitedFormat, char delimiter, char quote) {
+    public ITupleParserFactory createTupleParser(ARecordType recType, boolean delimitedFormat, char delimiter,
+            char quote) {
         if (delimitedFormat) {
             int n = recType.getFieldTypes().length;
             IValueParserFactory[] fieldParserFactories = new IValueParserFactory[n];
@@ -946,7 +981,8 @@ public class NonTaggedDataFormat implements IDataFormat {
                 }
                 fieldParserFactories[i] = vpf;
             }
-            return new NtDelimitedDataTupleParserFactory(recType, fieldParserFactories, delimiter, quote, false, -1, null);
+            return new NtDelimitedDataTupleParserFactory(recType, fieldParserFactories, delimiter, quote, false, -1,
+                    null);
         } else {
             return new AdmSchemafullRecordParserFactory(recType, false, -1, null);
         }
