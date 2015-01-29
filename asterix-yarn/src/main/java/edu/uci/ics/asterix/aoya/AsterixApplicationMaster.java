@@ -267,6 +267,7 @@ public class AsterixApplicationMaster {
     public AsterixApplicationMaster() throws Exception {
         // Set up the configuration and RPC
         conf = new YarnConfiguration();
+    	LogManager.getRootLogger().setLevel(Level.DEBUG);
     }
 
     public CommandLine setArgs(String[] args) throws ParseException {
@@ -419,7 +420,7 @@ public class AsterixApplicationMaster {
         Long paramTimestamp = paramFileStatus.getModificationTime();
         LocalResource asterixParamLoc = Records.newRecord(LocalResource.class);
         asterixParamLoc.setType(LocalResourceType.FILE);
-        asterixParamLoc.setVisibility(LocalResourceVisibility.PUBLIC);
+        asterixParamLoc.setVisibility(LocalResourceVisibility.PRIVATE);
         asterixParamLoc.setResource(ConverterUtils.getYarnUrlFromURI(paramLocation));
         asterixParamLoc.setTimestamp(paramTimestamp);
         asterixParamLoc.setSize(paramLen);
@@ -528,13 +529,13 @@ public class AsterixApplicationMaster {
      * @throws IOException
      */
     private void localizeDFSResources() throws IOException {
-        //if obliterating skip a lot of this.
+        //if performing an 'offline' task, skip a lot of resource distribution
         if (obliterate || backup || restore) {
             FileSystem fs = FileSystem.get(conf);
             FileStatus appMasterJarStatus = fs.getFileStatus(AppMasterJar);
             LocalResource obliteratorJar = Records.newRecord(LocalResource.class);
             obliteratorJar.setType(LocalResourceType.FILE);
-            obliteratorJar.setVisibility(LocalResourceVisibility.APPLICATION);
+            obliteratorJar.setVisibility(LocalResourceVisibility.PRIVATE);
             obliteratorJar.setResource(ConverterUtils.getYarnUrlFromPath(AppMasterJar));
             obliteratorJar.setTimestamp(appMasterJarStatus.getModificationTime());
             obliteratorJar.setSize(appMasterJarStatus.getLen());
@@ -542,16 +543,14 @@ public class AsterixApplicationMaster {
             LOG.info(localResources.values());
             return;
         }
+	//otherwise, distribute evertything to start up asterix
 
         LocalResource asterixZip = Records.newRecord(LocalResource.class);
 
         //this un-tar's the asterix distribution
         asterixZip.setType(LocalResourceType.ARCHIVE);
 
-        // Set visibility of the resource
-        // Setting to most private option
-        asterixZip.setVisibility(LocalResourceVisibility.APPLICATION);
-        // Set the resource to be copied over
+        asterixZip.setVisibility(LocalResourceVisibility.PRIVATE);
         try {
             asterixZip.setResource(ConverterUtils.getYarnUrlFromURI(new URI(asterixZipPath)));
 
@@ -568,7 +567,7 @@ public class AsterixApplicationMaster {
         LocalResource asterixConf = Records.newRecord(LocalResource.class);
         asterixConf.setType(LocalResourceType.FILE);
 
-        asterixConf.setVisibility(LocalResourceVisibility.APPLICATION);
+        asterixConf.setVisibility(LocalResourceVisibility.PRIVATE);
         try {
             asterixConf.setResource(ConverterUtils.getYarnUrlFromURI(new URI(asterixConfPath)));
 
@@ -598,7 +597,7 @@ public class AsterixApplicationMaster {
                         lr.setSize(l.getLen());
                         lr.setTimestamp(l.getModificationTime());
                         lr.setType(LocalResourceType.ARCHIVE);
-                        lr.setVisibility(LocalResourceVisibility.APPLICATION);
+                        lr.setVisibility(LocalResourceVisibility.PRIVATE);
                         localResources.put("library/" + d.getPath().getName() + "/"
                                 + l.getPath().getName().split("\\.")[0], lr);
                         LOG.info("Found library: " + l.getPath().toString());
@@ -920,11 +919,14 @@ public class AsterixApplicationMaster {
             LOG.info(ctx.getEnvironment().toString());
             List<String> startCmd = null;
             if (obliterate) {
+		LOG.debug("AM in obliterate mode");
                 startCmd = produceObliterateCommand(container);
             } else if (backup) {
                 startCmd = produceBackupCommand(container);
+		LOG.debug("AM in backup mode");
             } else if (restore) {
                 startCmd = produceRestoreCommand(container);
+		LOG.debug("AM in restore mode");
             } else {
                 startCmd = produceStartCmd(container);
             }
@@ -957,13 +959,13 @@ public class AsterixApplicationMaster {
             Vector<CharSequence> vargs = new Vector<CharSequence>(5);
 
             vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
-            vargs.add("-classpath '."+File.separator+"asterix-server.zip"+File.separator+"repo"+File.separator+"*'");
-            vargs.add("-Dapp.repo=."+File.separator+"asterix-server.zip"+File.separator+"repo"+File.separator);
+            vargs.add("-classpath " + "\"asterix-server.zip"+File.separator+"repo"+File.separator+"*\"");
+            vargs.add("-Dapp.repo="+"asterix-server.zip"+File.separator+"repo"+File.separator);
             //first see if this node is the CC
             if (containerIsCC(container) && (ccStarted.get() == false)) {
                 LOG.info("CC found on container" + container.getNodeId().getHost());
                 //get our java opts
-                vargs.add(CcJavaOpts  + " ");
+                vargs.add(CcJavaOpts);
                 vargs.add(CC_CLASSNAME);
                 vargs.add("-app-cc-main-class edu.uci.ics.asterix.hyracks.bootstrap.CCApplicationEntryPoint");
                 vargs.add("-cluster-net-ip-address " + CC.getClusterIp());
@@ -981,7 +983,7 @@ public class AsterixApplicationMaster {
                     if (iodevice == null) {
                         iodevice = clusterDesc.getIodevices();
                     }
-                    vargs.add(NcJavaOpts  + " ");
+                    vargs.add(NcJavaOpts);
                     vargs.add(NC_CLASSNAME);
                     vargs.add("-app-nc-main-class edu.uci.ics.asterix.hyracks.bootstrap.NCApplicationEntryPoint");
                     vargs.add("-node-id " + local.getId());
@@ -1009,11 +1011,7 @@ public class AsterixApplicationMaster {
         }
 
         private List<String> produceObliterateCommand(Container container) {
-            if (containerIsCC(container)) {
-                List<String> blank = new ArrayList<String>();
-                blank.add("");
-                return blank;
-            }
+	    //if this container has no NCs on it, nothing will be there to delete. 
             Node local = null;
             List<String> iodevices = null;
             try {
@@ -1024,15 +1022,16 @@ public class AsterixApplicationMaster {
                     iodevices = Arrays.asList(local.getIodevices().split(",", -1));
                 }
             } catch (UnknownHostException e) {
-                LOG.error("Unable to find NC configured for host: " + container.getId() + e);
+		//we expect this may happen for the CC if it isn't colocated with an NC. otherwise it is not suppose to happen.
+            	if (!containerIsCC(container)) {
+                   LOG.error("Unable to find NC configured for host: " + container.getId() + e);
+            	}
+		List<String> blank = new ArrayList<String>();
+		blank.add("");
+		return blank;
             }
-            StringBuilder classPathEnv = new StringBuilder("").append("." + File.separator + "*");
-            for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH,
-                    YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH)) {
-                classPathEnv.append(File.pathSeparatorChar);
-                classPathEnv.append(c.trim());
-            }
-            classPathEnv.append(File.pathSeparatorChar).append("." + File.separator + "log4j.properties");
+            StringBuilder classPathEnv = new StringBuilder("").append("*");
+            classPathEnv.append(File.pathSeparatorChar).append("log4j.properties");
 
             List<String> commands = new ArrayList<String>();
             Vector<CharSequence> vargs = new Vector<CharSequence>(5);
@@ -1046,7 +1045,7 @@ public class AsterixApplicationMaster {
                 if (iodevices.indexOf(s) == 0) {
                     vargs.add(clusterDesc.getTxnLogDir() + "txnLogs" + File.separator);
                     LOG.debug("Deleting logs from: " + clusterDesc.getTxnLogDir());
-                    vargs.add(s + ".asterix_root_metadata");
+                    vargs.add(s + "asterix_root_metadata");
                 }
             }
             vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + File.separator + "stdout");
@@ -1060,11 +1059,6 @@ public class AsterixApplicationMaster {
         }
 
         private List<String> produceBackupCommand(Container container) {
-            if (containerIsCC(container)) {
-                List<String> blank = new ArrayList<String>();
-                blank.add("");
-                return blank;
-            }
             Node local = null;
             List<String> iodevices = null;
             try {
@@ -1075,10 +1069,13 @@ public class AsterixApplicationMaster {
                     iodevices = Arrays.asList(local.getIodevices().split(",", -1));
                 }
             } catch (UnknownHostException e) {
-                LOG.error("Unable to find NC configured for host: " + container.getId() + e);
-                List<String> al = new ArrayList<String>();
-                al.add("");
-                return al;
+		//we expect this may happen for the CC if it isn't colocated with an NC. otherwise it is not suppose to happen.
+            	if (!containerIsCC(container)) {
+                   LOG.error("Unable to find NC configured for host: " + container.getId() + e);
+            	}
+		List<String> blank = new ArrayList<String>();
+		blank.add("");
+		return blank;
             }
             StringBuilder classPathEnv = new StringBuilder("").append("."+File.separator+"*");
             for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH,
@@ -1143,7 +1140,13 @@ public class AsterixApplicationMaster {
                     iodevices = Arrays.asList(local.getIodevices().split(",", -1));
                 }
             } catch (UnknownHostException e) {
-                LOG.error("Unable to find NC configured for host: " + container.getId() + e);
+		//we expect this may happen for the CC if it isn't colocated with an NC. otherwise it is not suppose to happen.
+            	if (!containerIsCC(container)) {
+                   LOG.error("Unable to find NC configured for host: " + container.getId() + e);
+            	}
+		List<String> blank = new ArrayList<String>();
+		blank.add("");
+		return blank;
             }
             StringBuilder classPathEnv = new StringBuilder("").append("."+File.separator+"*");
             for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH,

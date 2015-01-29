@@ -559,7 +559,7 @@ public class AsterixYARNClient {
         }
         LocalResource asterixConfLoc = Records.newRecord(LocalResource.class);
         asterixConfLoc.setType(LocalResourceType.FILE);
-        asterixConfLoc.setVisibility(LocalResourceVisibility.APPLICATION);
+        asterixConfLoc.setVisibility(LocalResourceVisibility.PRIVATE);
         asterixConfLoc.setResource(ConverterUtils.getYarnUrlFromPath(dstConf));
         asterixConfLoc.setTimestamp(destStatus.getModificationTime());
 
@@ -640,7 +640,7 @@ public class AsterixYARNClient {
                 FileStatus dstSt = fs.getFileStatus(dst);
                 LocalResource amLib = Records.newRecord(LocalResource.class);
                 amLib.setType(LocalResourceType.FILE);
-                amLib.setVisibility(LocalResourceVisibility.APPLICATION);
+                amLib.setVisibility(LocalResourceVisibility.PRIVATE);
                 amLib.setResource(ConverterUtils.getYarnUrlFromPath(dst));
                 amLib.setTimestamp(dstSt.getModificationTime());
                 amLib.setSize(dstSt.getLen());
@@ -709,7 +709,7 @@ public class AsterixYARNClient {
         destStatus = fs.getFileStatus(dst);
         LocalResource asterixTarLoc = Records.newRecord(LocalResource.class);
         asterixTarLoc.setType(LocalResourceType.ARCHIVE);
-        asterixTarLoc.setVisibility(LocalResourceVisibility.APPLICATION);
+        asterixTarLoc.setVisibility(LocalResourceVisibility.PRIVATE);
         asterixTarLoc.setResource(ConverterUtils.getYarnUrlFromPath(dst));
         asterixTarLoc.setTimestamp(destStatus.getModificationTime());
 
@@ -730,7 +730,7 @@ public class AsterixYARNClient {
             FileStatus log4jFileStatus = fs.getFileStatus(log4jDst);
             LocalResource log4jRsrc = Records.newRecord(LocalResource.class);
             log4jRsrc.setType(LocalResourceType.FILE);
-            log4jRsrc.setVisibility(LocalResourceVisibility.APPLICATION);
+            log4jRsrc.setVisibility(LocalResourceVisibility.PRIVATE);
             log4jRsrc.setResource(ConverterUtils.getYarnUrlFromURI(log4jDst.toUri()));
             log4jRsrc.setTimestamp(log4jFileStatus.getModificationTime());
             log4jRsrc.setSize(log4jFileStatus.getLen());
