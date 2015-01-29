@@ -14,6 +14,7 @@
  */
 package edu.uci.ics.asterix.external.util;
 
+import java.net.InetAddress;
 import java.util.Random;
 import java.util.Set;
 
@@ -30,8 +31,8 @@ public class DNSResolver implements INodeResolver {
     @Override
     public String resolveNode(String value) throws AsterixException {
         try {
-            String ipAddress = AsterixRuntimeUtil.getIPAddress(value);
-            Set<String> nodeControllers = AsterixRuntimeUtil.getNodeControllersOnIP(ipAddress);
+            InetAddress ipAddress = InetAddress.getByName(value);
+            Set<String> nodeControllers = AsterixRuntimeUtil.getNodeControllersOnIP(ipAddress.toString());
             if (nodeControllers == null || nodeControllers.isEmpty()) {
                 throw new AsterixException(" No node controllers found at the address: " + value);
             }

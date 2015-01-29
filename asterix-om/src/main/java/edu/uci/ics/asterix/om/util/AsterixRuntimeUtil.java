@@ -49,12 +49,4 @@ public class AsterixRuntimeUtil {
         AsterixAppContextInfo.getInstance().getCCApplicationContext().getCCContext().getIPAddressNodeMap(map);
         return map;
     }
-
-    public static String getIPAddress(String hostname) throws UnknownHostException {
-        String address = InetAddress.getByName(hostname).getHostAddress();
-        if (address.equals("127.0.1.1")) {
-            address = "127.0.0.1";
-        }
-        return address;
-    }
 }
