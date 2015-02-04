@@ -28,7 +28,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +37,6 @@ import java.util.regex.Pattern;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
-import javax.xml.bind.Unmarshaller;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.GnuParser;
@@ -182,21 +180,20 @@ public class AsterixYARNClient {
             try {
                 client.init(args);
                 AsterixYARNClient.execute(client);
-            } catch (IllegalArgumentException e) {
-                System.err.println(e.getLocalizedMessage());
-                e.printStackTrace();
+            } catch (ParseException | ApplicationNotFoundException e) {
+                LOG.fatal(e);
                 client.printUsage();
                 System.exit(-1);
             }
-        } catch (Throwable t) {
-            LOG.fatal("Error running client", t);
+        } catch (Exception e) {
+            LOG.fatal("Error running client", e);
             System.exit(1);
         }
         LOG.info("Command executed successfully.");
         System.exit(0);
     }
 
-    public static void execute(AsterixYARNClient client) throws Exception {
+    public static void execute(AsterixYARNClient client) throws IOException, YarnException {
         YarnClientApplication app;
         List<DFSResourceCoordinate> res;
         ApplicationId appId;
@@ -255,16 +252,21 @@ public class AsterixYARNClient {
                         LOG.fatal("AsterixDB appears to have failed to install and start");
                         System.exit(1);
                     }
-                } catch (YarnException | IOException e) {
+                } catch (YarnException | IOException |JAXBException e) {
                     LOG.error("Asterix failed to deploy on to cluster");
-                    throw e;
+                    throw new YarnException(e);
                 }
                 break;
             case LIBINSTALL:
                 client.installExtLibs();
                 break;
             case ALTER:
+                try{
                 client.writeAsterixConfig(Utils.parseYarnClusterConfig(client.asterixConf));
+                }
+                catch(JAXBException e){
+                    throw new YarnException(e);
+                }
                 client.installAsterixConfig(true);
                 System.out.println("Configuration successfully modified");
                 break;
@@ -929,16 +931,8 @@ public class AsterixYARNClient {
 
     }
 
-    /**
-     * Removes the configs. Eventually should run a YARN job to remove all tree artifacts.
-     * 
-     * @throws IOException
-     * @throws IllegalArgumentException
-     * @throws YarnException
-     * @throws JAXBException
-     */
-    private void removeInstance(YarnClientApplication app, List<DFSResourceCoordinate> resources)
-            throws IllegalArgumentException, IOException, YarnException, JAXBException {
+    private void stopInstanceIfRunning(YarnClientApplication app, List<DFSResourceCoordinate> resources)
+            throws IOException, YarnException {
         FileSystem fs = FileSystem.get(conf);
         String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
         Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
@@ -946,12 +940,19 @@ public class AsterixYARNClient {
         if (isRunning()) {
             try {
                 this.stopInstance();
-            } catch (IOException | JAXBException e) {
-                LOG.fatal("Could not stop nor kill instance gracefully.- instance lockfile may be stale");
+            } catch (IOException e) {
+                throw new YarnException(e);
             }
         } else if (!fs.exists(dstConf)) {
-            throw new IllegalArgumentException("No instance configured with that name exists");
+            throw new YarnException("No instance configured with that name exists");
         }
+    }
+
+    private void removeInstance(YarnClientApplication app, List<DFSResourceCoordinate> resources) throws IOException,
+            YarnException {
+        FileSystem fs = FileSystem.get(conf);
+        //if the instance is up, fix that
+        stopInstanceIfRunning(app, resources);
         //now try deleting all of the on-disk artifacts on the cluster
         ApplicationId deleter = deployAM(app, resources, Mode.DESTROY);
         boolean delete_start = Utils.waitForApplication(deleter, yarnClient, "Waiting for deletion to start");
@@ -975,28 +976,18 @@ public class AsterixYARNClient {
     }
 
     private void backupInstance(YarnClientApplication app, List<DFSResourceCoordinate> resources) throws IOException,
-            YarnException, JAXBException {
-        FileSystem fs = FileSystem.get(conf);
-        String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
-        Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
-        //if the instance is up, fix that
-        if (isRunning()) {
-            try {
-                this.stopInstance();
-            } catch (IOException | JAXBException e) {
-                LOG.fatal("Could not stop nor kill instance gracefully.- instance lockfile may be stale");
-            }
-        } else if (!fs.exists(dstConf)) {
-            throw new IllegalArgumentException("No instance configured with that name exists");
-        }
+            YarnException {
+        stopInstanceIfRunning(app, resources);
         ApplicationId backerUpper = deployAM(app, resources, Mode.BACKUP);
-        boolean backupStart = Utils.waitForApplication(backerUpper, yarnClient,
-                "Waiting for backup " + backerUpper.toString() + "to start");
+        boolean backupStart;
+        backupStart = Utils.waitForApplication(backerUpper, yarnClient, "Waiting for backup " + backerUpper.toString()
+                + "to start");
         if (!backupStart) {
             LOG.fatal("Backup failed to start");
             throw new YarnException();
         }
-        boolean complete = waitForCompletion(backerUpper, "Backup in progress");
+        boolean complete;
+        complete = waitForCompletion(backerUpper, "Backup in progress");
         if (!complete) {
             LOG.fatal("Backup failed- timeout waiting for completion");
             return;
@@ -1005,21 +996,8 @@ public class AsterixYARNClient {
     }
 
     private void restoreInstance(YarnClientApplication app, List<DFSResourceCoordinate> resources) throws IOException,
-            YarnException, JAXBException {
-        FileSystem fs = FileSystem.get(conf);
-        String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
-        Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
-        //if the instance is up, fix that
-        if (isRunning()) {
-            try {
-                this.stopInstance();
-            } catch (IOException | JAXBException e) {
-                LOG.fatal("Could not stop nor kill instance gracefully.- instance lockfile may be stale");
-            }
-        } else if (!fs.exists(dstConf)) {
-            throw new IllegalArgumentException("No instance configured with that name exists");
-        }
-        //now try deleting all of the on-disk artifacts on the cluster
+            YarnException {
+        stopInstanceIfRunning(app, resources);
         ApplicationId restorer = deployAM(app, resources, Mode.RESTORE);
         boolean restoreStart = Utils.waitForApplication(restorer, yarnClient, "Waiting for restore to start");
         if (!restoreStart) {
@@ -1042,7 +1020,7 @@ public class AsterixYARNClient {
      * @throws YarnException
      */
 
-    private void stopInstance() throws IOException, JAXBException, YarnException {
+    private void stopInstance() throws IOException, YarnException {
         ApplicationId appId = getLockFile();
         if (yarnClient.isInState(STATE.INITED)) {
             yarnClient.start();
@@ -1078,7 +1056,9 @@ public class AsterixYARNClient {
                 return;
             }
         }
-        deleteLockFile();
+        if (completed) {
+            deleteLockFile();
+        }
     }
 
     private void deleteLockFile() throws IOException {
@@ -1141,7 +1121,7 @@ public class AsterixYARNClient {
         return ConverterUtils.toApplicationId(lockAppId);
     }
 
-    private void writeAsterixConfig(Cluster cluster) throws JAXBException, FileNotFoundException, IOException {
+    private void writeAsterixConfig(Cluster cluster) throws FileNotFoundException, IOException {
         String metadataNodeId = Utils.getMetadataNode(cluster).getId();
         String asterixInstanceName = instanceName;
 
@@ -1186,17 +1166,21 @@ public class AsterixYARNClient {
 
         configuration.setCoredump(coredump);
         configuration.setTransactionLogDir(txnLogDirs);
-
-        JAXBContext ctx = JAXBContext.newInstance(AsterixConfiguration.class);
-        Marshaller marshaller = ctx.createMarshaller();
-        marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
         FileOutputStream os = new FileOutputStream(MERGED_PARAMETERS_PATH);
-        marshaller.marshal(configuration, os);
-        os.close();
+        try {
+            JAXBContext ctx = JAXBContext.newInstance(AsterixConfiguration.class);
+            Marshaller marshaller = ctx.createMarshaller();
+            marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
+
+            marshaller.marshal(configuration, os);
+        } catch (JAXBException e) {
+            throw new IOException(e);
+        } finally {
+            os.close();
+        }
     }
 
-    private boolean waitForCompletion(ApplicationId appId, String message) throws YarnException, IOException,
-            JAXBException {
+    private boolean waitForCompletion(ApplicationId appId, String message) throws YarnException, IOException {
         return Utils.waitForApplication(appId, yarnClient, message);
     }
 

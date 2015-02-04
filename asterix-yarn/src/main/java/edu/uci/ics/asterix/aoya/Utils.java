@@ -315,8 +315,7 @@ public class Utils {
     }
 
     public static boolean waitForLiveness(ApplicationId appId, boolean probe, boolean print, String message,
-            YarnClient yarnClient, String instanceName, Configuration conf) throws YarnException, IOException,
-            JAXBException {
+            YarnClient yarnClient, String instanceName, Configuration conf) throws YarnException, IOException {
         ApplicationReport report = yarnClient.getApplicationReport(appId);
         YarnApplicationState st = report.getYarnApplicationState();
         for (int i = 0; i < 120; i++) {
@@ -337,7 +336,12 @@ public class Utils {
 
                 }
             } else if (probe) {
-                String host = getCCHostname(instanceName, conf);
+                String host;
+                try {
+                    host = getCCHostname(instanceName, conf);
+                } catch (JAXBException e1) {
+                    throw new IOException(e1);
+                }
                 for (int j = 0; j < 60; j++) {
                     if (!Utils.probeLiveness(host)) {
                         try {
@@ -369,12 +373,12 @@ public class Utils {
     }
 
     public static boolean waitForLiveness(ApplicationId appId, String message, YarnClient yarnClient,
-            String instanceName, Configuration conf) throws YarnException, IOException, JAXBException {
+            String instanceName, Configuration conf) throws YarnException, IOException {
         return waitForLiveness(appId, true, true, message, yarnClient, instanceName, conf);
     }
 
     public static boolean waitForApplication(ApplicationId appId, YarnClient yarnClient, String message)
-            throws YarnException, IOException, JAXBException {
+            throws YarnException, IOException {
         return waitForLiveness(appId, false, true, message, yarnClient, "", null);
     }
 
@@ -398,12 +402,16 @@ public class Utils {
         return ccIp;
     }
 
-    public static AsterixConfiguration loadAsterixConfig(String path) throws IOException, JAXBException {
+    public static AsterixConfiguration loadAsterixConfig(String path) throws IOException {
         File f = new File(path);
-        JAXBContext configCtx = JAXBContext.newInstance(AsterixConfiguration.class);
-        Unmarshaller unmarshaller = configCtx.createUnmarshaller();
-        AsterixConfiguration conf = (AsterixConfiguration) unmarshaller.unmarshal(f);
-        return conf;
+        try {
+            JAXBContext configCtx = JAXBContext.newInstance(AsterixConfiguration.class);
+            Unmarshaller unmarshaller = configCtx.createUnmarshaller();
+            AsterixConfiguration conf = (AsterixConfiguration) unmarshaller.unmarshal(f);
+            return conf;
+        } catch (JAXBException e) {
+            throw new IOException(e);
+        }
     }
 
 }
