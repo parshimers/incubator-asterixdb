@@ -99,12 +99,8 @@ public class AsterixApplicationMaster {
 
     private static final Log LOG = LogFactory.getLog(AsterixApplicationMaster.class);
     private static final String CLUSTER_DESC_PATH = "cluster-config.xml";
-    private static final String WORKING_CONF_PATH = "asterix-server.zip" + File.separator + "bin" + File.separator
-            + "asterix-configuration.xml";
-    private static final String ASTERIX_CC_BIN_PATH = "asterix-server.zip" + File.separator + "bin" + File.separator
-            + "asterixcc";
-    private static final String ASTERIX_NC_BIN_PATH = "asterix-server.zip" + File.separator + "bin" + File.separator
-            + "asterixnc";
+    private static final String ASTERIX_CONF_NAME = "asterix-configuration.xml";
+    private static final String ASTERIX_ZIP_NAME = "asterix-server.zip";
 
     private Map<String, Property> asterixConfigurationParams;
     private static final int CC_MEMORY_MBS_DEFAULT = 512;
@@ -118,7 +114,6 @@ public class AsterixApplicationMaster {
     private String CcJavaOpts = EXTERNAL_CC_JAVA_OPTS_DEFAULT;
     private static final String OBLITERATOR_CLASSNAME = "edu.uci.ics.asterix.aoya.Deleter";
     private static final String HDFS_BACKUP_CLASSNAME = "edu.uci.ics.asterix.aoya.HDFSBackup";
-    private static final String LOCAL_BACKUP_CLASSNAME = "edu.uci.ics.asterix.aoya.LocalBackup";
     private static final String NC_CLASSNAME = "edu.uci.ics.hyracks.control.nc.NCDriver";
     private static final String CC_CLASSNAME = "edu.uci.ics.hyracks.control.cc.CCDriver";
     private boolean doneAllocating = false;
@@ -176,7 +171,7 @@ public class AsterixApplicationMaster {
     private long asterixConfLen = 0;
 
     private String instanceConfPath = "";
-    
+
     //base dir under which all configs and binaries lie
     private String dfsBasePath;
 
@@ -186,15 +181,12 @@ public class AsterixApplicationMaster {
     private Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
 
     private Cluster clusterDesc = null;
-    private MasterNode CC = null;
-    private AsterixPropertiesAccessor properties;
+    private MasterNode cC = null;
     private volatile boolean done;
     private volatile boolean success;
 
-    private boolean instanceExists = false;
     private boolean obliterate = false;
-    private Path AppMasterJar = null;
-    private boolean refresh = false;
+    private Path appMasterJar = null;
     private boolean backup = false;
     long backupTimestamp;
     String snapName;
@@ -217,12 +209,8 @@ public class AsterixApplicationMaster {
                 System.exit(0);
             }
             result = appMaster.run();
-        } catch (Throwable t) {
-            LOG.fatal("Error running ApplicationMaster", t);
-           //DEBUG. from https://stackoverflow.com/questions/1149703/how-can-i-convert-a-stack-trace-to-a-string
-            StringWriter sw = new StringWriter();
-            t.printStackTrace(new PrintWriter(sw));
-            System.out.println(sw.toString());
+        } catch (Exception e) {
+            LOG.fatal("Error running ApplicationMaster", e);
             System.exit(1);
         }
         if (result) {
@@ -258,16 +246,15 @@ public class AsterixApplicationMaster {
             }
             buf.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            LOG.info(e);
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            LOG.info(e);
         }
     }
 
-    public AsterixApplicationMaster() throws Exception {
+    public AsterixApplicationMaster() {
         // Set up the configuration and RPC
         conf = new YarnConfiguration();
-    	LogManager.getRootLogger().setLevel(Level.DEBUG);
     }
 
     public CommandLine setArgs(String[] args) throws ParseException {
@@ -280,7 +267,6 @@ public class AsterixApplicationMaster {
         opts.addOption("obliterate", false, "Delete asterix instance completely.");
         opts.addOption("backup", false, "Back up AsterixDB instance");
         opts.addOption("restore", true, "Restore an AsterixDB instance");
-        opts.addOption("refresh", false, "Refresh all resources");
         CommandLine cliParser = new GnuParser().parse(opts, args);
 
         if (args.length == 0) {
@@ -300,10 +286,6 @@ public class AsterixApplicationMaster {
             obliterate = true;
         }
 
-        if (cliParser.hasOption("refresh")) {
-            refresh = true;
-        }
-
         if (cliParser.hasOption("backup")) {
             backup = true;
             backupTimestamp = System.currentTimeMillis();
@@ -318,32 +300,29 @@ public class AsterixApplicationMaster {
 
     public void setEnvs(CommandLine cliParser) {
         Map<String, String> envs = System.getenv();
+        //the containerID might be in the arguments or the environment
         if (!envs.containsKey(Environment.CONTAINER_ID.name())) {
             if (cliParser.hasOption("app_attempt_id")) {
                 String appIdStr = cliParser.getOptionValue("app_attempt_id", "");
                 appAttemptID = ConverterUtils.toApplicationAttemptId(appIdStr);
             } else {
-                throw new IllegalArgumentException("Application Attempt Id not set in the environment");
+
+                throw new IllegalArgumentException(
+                        "Environment is not set correctly- please check client submission settings");
             }
         } else {
             ContainerId containerId = ConverterUtils.toContainerId(envs.get(Environment.CONTAINER_ID.name()));
             appAttemptID = containerId.getApplicationAttemptId();
         }
 
-        if (!envs.containsKey(ApplicationConstants.APP_SUBMIT_TIME_ENV)) {
-            throw new RuntimeException(ApplicationConstants.APP_SUBMIT_TIME_ENV + " not set in the environment");
-        }
-        if (!envs.containsKey(Environment.NM_HOST.name())) {
-            throw new RuntimeException(Environment.NM_HOST.name() + " not set in the environment");
-        }
-        if (!envs.containsKey(Environment.NM_HTTP_PORT.name())) {
-            throw new RuntimeException(Environment.NM_HTTP_PORT + " not set in the environment");
-        }
-        if (!envs.containsKey(Environment.NM_PORT.name())) {
-            throw new RuntimeException(Environment.NM_PORT.name() + " not set in the environment");
+        if (!envs.containsKey(ApplicationConstants.APP_SUBMIT_TIME_ENV)
+                || !envs.containsKey(Environment.NM_HOST.name()) || !envs.containsKey(Environment.NM_HTTP_PORT.name())
+                || !envs.containsKey(Environment.NM_PORT.name())) {
+            throw new IllegalArgumentException(
+                    "Environment is not set correctly- please check client submission settings");
         }
         System.setProperty(GlobalConfig.CONFIG_FILE_PROPERTY, envs.get("PWD") + File.separator + "bin" + File.separator
-                + "asterix-configuration.xml");
+                + ASTERIX_CONF_NAME);
 
         LOG.info("Application master for app" + ", appId=" + appAttemptID.getApplicationId().getId()
                 + ", clustertimestamp=" + appAttemptID.getApplicationId().getClusterTimestamp() + ", attemptId="
@@ -358,7 +337,7 @@ public class AsterixApplicationMaster {
         asterixConfLen = Long.parseLong(envs.get(AConstants.CONFLEN));
 
         instanceConfPath = envs.get(AConstants.INSTANCESTORE);
-        AppMasterJar = new Path(envs.get(AConstants.APPLICATIONMASTERJARLOCATION));
+        appMasterJar = new Path(envs.get(AConstants.APPLICATIONMASTERJARLOCATION));
         dfsBasePath = envs.get(AConstants.DFS_BASE);
         //If the NM has an odd environment where the proper hadoop XML configs dont get imported, we can end up not being able to talk to the RM
         // this solves that!
@@ -373,8 +352,8 @@ public class AsterixApplicationMaster {
         try {
             localizeDFSResources();
             clusterDesc = Utils.parseYarnClusterConfig(CLUSTER_DESC_PATH);
-            CC = clusterDesc.getMasterNode();
-            appMasterTrackingUrl = "http://" + CC.getClientIp() + ":" + CC.getClientPort() + "/";
+            cC = clusterDesc.getMasterNode();
+            appMasterTrackingUrl = "http://" + cC.getClientIp() + ":" + cC.getClientPort() + "/";
             distributeAsterixConfig();
             //now let's read what's in there so we can set the JVM opts right
             LOG.debug("config file loc: " + System.getProperty(GlobalConfig.CONFIG_FILE_PROPERTY));
@@ -412,7 +391,7 @@ public class AsterixApplicationMaster {
      */
     private void distributeAsterixConfig() throws IOException {
         FileSystem fs = FileSystem.get(conf);
-        String pathSuffix = instanceConfPath + File.separator + "asterix-configuration.xml";
+        String pathSuffix = instanceConfPath + File.separator + ASTERIX_CONF_NAME;
         Path dst = new Path(dfsBasePath, pathSuffix);
         URI paramLocation = dst.toUri();
         FileStatus paramFileStatus = fs.getFileStatus(dst);
@@ -424,7 +403,7 @@ public class AsterixApplicationMaster {
         asterixParamLoc.setResource(ConverterUtils.getYarnUrlFromURI(paramLocation));
         asterixParamLoc.setTimestamp(paramTimestamp);
         asterixParamLoc.setSize(paramLen);
-        localResources.put("asterix-configuration.xml", asterixParamLoc);
+        localResources.put(ASTERIX_CONF_NAME, asterixParamLoc);
 
     }
 
@@ -436,7 +415,7 @@ public class AsterixApplicationMaster {
     private void requestResources(Cluster c) throws YarnException, UnknownHostException {
         //request CC
         int numNodes = 0;
-        ContainerRequest ccAsk = hostToRequest(CC.getClusterIp(), true);
+        ContainerRequest ccAsk = hostToRequest(cC.getClusterIp(), true);
         resourceManager.addContainerRequest(ccAsk);
         LOG.info("Asked for CC: " + Arrays.toString(ccAsk.getNodes().toArray()));
         numNodes++;
@@ -514,7 +493,7 @@ public class AsterixApplicationMaster {
         try {
             InetAddress containerIp = InetAddress.getByName(containerHost);
             LOG.info(containerIp.getCanonicalHostName());
-            InetAddress ccIp = InetAddress.getByName(CC.getClusterIp());
+            InetAddress ccIp = InetAddress.getByName(cC.getClusterIp());
             LOG.info(ccIp.getCanonicalHostName());
             return containerIp.getCanonicalHostName().equals(ccIp.getCanonicalHostName());
         } catch (UnknownHostException e) {
@@ -532,18 +511,18 @@ public class AsterixApplicationMaster {
         //if performing an 'offline' task, skip a lot of resource distribution
         if (obliterate || backup || restore) {
             FileSystem fs = FileSystem.get(conf);
-            FileStatus appMasterJarStatus = fs.getFileStatus(AppMasterJar);
+            FileStatus appMasterJarStatus = fs.getFileStatus(appMasterJar);
             LocalResource obliteratorJar = Records.newRecord(LocalResource.class);
             obliteratorJar.setType(LocalResourceType.FILE);
             obliteratorJar.setVisibility(LocalResourceVisibility.PRIVATE);
-            obliteratorJar.setResource(ConverterUtils.getYarnUrlFromPath(AppMasterJar));
+            obliteratorJar.setResource(ConverterUtils.getYarnUrlFromPath(appMasterJar));
             obliteratorJar.setTimestamp(appMasterJarStatus.getModificationTime());
             obliteratorJar.setSize(appMasterJarStatus.getLen());
             localResources.put("asterix-yarn.jar", obliteratorJar);
             LOG.info(localResources.values());
             return;
         }
-	//otherwise, distribute evertything to start up asterix
+        //otherwise, distribute evertything to start up asterix
 
         LocalResource asterixZip = Records.newRecord(LocalResource.class);
 
@@ -561,7 +540,7 @@ public class AsterixApplicationMaster {
 
         asterixZip.setTimestamp(asterixZipTimestamp);
         asterixZip.setSize(asterixZipLen);
-        localResources.put("asterix-server.zip", asterixZip);
+        localResources.put(ASTERIX_ZIP_NAME, asterixZip);
 
         //now let's do the same for the cluster description XML
         LocalResource asterixConf = Records.newRecord(LocalResource.class);
@@ -770,7 +749,7 @@ public class AsterixApplicationMaster {
 
                 // I want to know if this node is the CC, because it must start before the NCs. 
                 LOG.info("Allocated: " + allocatedContainer.getNodeId().getHost());
-                LOG.info("CC : " + CC.getId());
+                LOG.info("CC : " + cC.getId());
 
                 if (containerIsCC(allocatedContainer)) {
                     ccUp.set(true);
@@ -899,7 +878,7 @@ public class AsterixApplicationMaster {
             // For now setting all required classpaths including
             // the classpath to "." for the application jar
             StringBuilder classPathEnv = new StringBuilder(Environment.CLASSPATH.$()).append(File.pathSeparatorChar)
-                    .append("."+File.pathSeparatorChar+"*");
+                    .append("." + File.pathSeparatorChar + "*");
             for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH,
                     YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH)) {
                 classPathEnv.append(File.pathSeparatorChar);
@@ -919,14 +898,14 @@ public class AsterixApplicationMaster {
             LOG.info(ctx.getEnvironment().toString());
             List<String> startCmd = null;
             if (obliterate) {
-		LOG.debug("AM in obliterate mode");
+                LOG.debug("AM in obliterate mode");
                 startCmd = produceObliterateCommand(container);
             } else if (backup) {
                 startCmd = produceBackupCommand(container);
-		LOG.debug("AM in backup mode");
+                LOG.debug("AM in backup mode");
             } else if (restore) {
                 startCmd = produceRestoreCommand(container);
-		LOG.debug("AM in restore mode");
+                LOG.debug("AM in restore mode");
             } else {
                 startCmd = produceStartCmd(container);
             }
@@ -959,8 +938,8 @@ public class AsterixApplicationMaster {
             Vector<CharSequence> vargs = new Vector<CharSequence>(5);
 
             vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
-            vargs.add("-classpath " + "\"asterix-server.zip"+File.separator+"repo"+File.separator+"*\"");
-            vargs.add("-Dapp.repo="+"asterix-server.zip"+File.separator+"repo"+File.separator);
+            vargs.add("-classpath " + "\"" + ASTERIX_ZIP_NAME + File.separator + "repo" + File.separator + "*\"");
+            vargs.add("-Dapp.repo=" + ASTERIX_ZIP_NAME + File.separator + "repo" + File.separator);
             //first see if this node is the CC
             if (containerIsCC(container) && (ccStarted.get() == false)) {
                 LOG.info("CC found on container" + container.getNodeId().getHost());
@@ -968,8 +947,8 @@ public class AsterixApplicationMaster {
                 vargs.add(CcJavaOpts);
                 vargs.add(CC_CLASSNAME);
                 vargs.add("-app-cc-main-class edu.uci.ics.asterix.hyracks.bootstrap.CCApplicationEntryPoint");
-                vargs.add("-cluster-net-ip-address " + CC.getClusterIp());
-                vargs.add("-client-net-ip-address " + CC.getClientIp());
+                vargs.add("-cluster-net-ip-address " + cC.getClusterIp());
+                vargs.add("-client-net-ip-address " + cC.getClientIp());
                 ccStarted.set(true);
 
             } else {
@@ -987,7 +966,7 @@ public class AsterixApplicationMaster {
                     vargs.add(NC_CLASSNAME);
                     vargs.add("-app-nc-main-class edu.uci.ics.asterix.hyracks.bootstrap.NCApplicationEntryPoint");
                     vargs.add("-node-id " + local.getId());
-                    vargs.add("-cc-host " + CC.getClusterIp());
+                    vargs.add("-cc-host " + cC.getClusterIp());
                     vargs.add("-iodevices " + iodevice);
                     vargs.add("-cluster-net-ip-address " + local.getClusterIp());
                     vargs.add("-data-ip-address " + local.getClusterIp());
@@ -1011,7 +990,7 @@ public class AsterixApplicationMaster {
         }
 
         private List<String> produceObliterateCommand(Container container) {
-	    //if this container has no NCs on it, nothing will be there to delete. 
+            //if this container has no NCs on it, nothing will be there to delete. 
             Node local = null;
             List<String> iodevices = null;
             try {
@@ -1022,13 +1001,13 @@ public class AsterixApplicationMaster {
                     iodevices = Arrays.asList(local.getIodevices().split(",", -1));
                 }
             } catch (UnknownHostException e) {
-		//we expect this may happen for the CC if it isn't colocated with an NC. otherwise it is not suppose to happen.
-            	if (!containerIsCC(container)) {
-                   LOG.error("Unable to find NC configured for host: " + container.getId() + e);
-            	}
-		List<String> blank = new ArrayList<String>();
-		blank.add("");
-		return blank;
+                //we expect this may happen for the CC if it isn't colocated with an NC. otherwise it is not suppose to happen.
+                if (!containerIsCC(container)) {
+                    LOG.error("Unable to find NC configured for host: " + container.getId() + e);
+                }
+                List<String> blank = new ArrayList<String>();
+                blank.add("");
+                return blank;
             }
             StringBuilder classPathEnv = new StringBuilder("").append("*");
             classPathEnv.append(File.pathSeparatorChar).append("log4j.properties");
@@ -1069,15 +1048,15 @@ public class AsterixApplicationMaster {
                     iodevices = Arrays.asList(local.getIodevices().split(",", -1));
                 }
             } catch (UnknownHostException e) {
-		//we expect this may happen for the CC if it isn't colocated with an NC. otherwise it is not suppose to happen.
-            	if (!containerIsCC(container)) {
-                   LOG.error("Unable to find NC configured for host: " + container.getId() + e);
-            	}
-		List<String> blank = new ArrayList<String>();
-		blank.add("");
-		return blank;
+                //we expect this may happen for the CC if it isn't colocated with an NC. otherwise it is not suppose to happen.
+                if (!containerIsCC(container)) {
+                    LOG.error("Unable to find NC configured for host: " + container.getId() + e);
+                }
+                List<String> blank = new ArrayList<String>();
+                blank.add("");
+                return blank;
             }
-            StringBuilder classPathEnv = new StringBuilder("").append("."+File.separator+"*");
+            StringBuilder classPathEnv = new StringBuilder("").append("." + File.separator + "*");
             for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH,
                     YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH)) {
                 classPathEnv.append(File.pathSeparatorChar);
@@ -1115,7 +1094,7 @@ public class AsterixApplicationMaster {
             LOG.debug("Backing up to: " + instanceConfPath + "backups" + "/" + local.getId());
 
             vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + File.separator + "stdout");
-            vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + File.separator +"stderr");
+            vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + File.separator + "stderr");
             StringBuilder command = new StringBuilder();
             for (CharSequence str : vargs) {
                 command.append(str).append(" ");
@@ -1140,15 +1119,15 @@ public class AsterixApplicationMaster {
                     iodevices = Arrays.asList(local.getIodevices().split(",", -1));
                 }
             } catch (UnknownHostException e) {
-		//we expect this may happen for the CC if it isn't colocated with an NC. otherwise it is not suppose to happen.
-            	if (!containerIsCC(container)) {
-                   LOG.error("Unable to find NC configured for host: " + container.getId() + e);
-            	}
-		List<String> blank = new ArrayList<String>();
-		blank.add("");
-		return blank;
+                //we expect this may happen for the CC if it isn't colocated with an NC. otherwise it is not suppose to happen.
+                if (!containerIsCC(container)) {
+                    LOG.error("Unable to find NC configured for host: " + container.getId() + e);
+                }
+                List<String> blank = new ArrayList<String>();
+                blank.add("");
+                return blank;
             }
-            StringBuilder classPathEnv = new StringBuilder("").append("."+File.separator+"*");
+            StringBuilder classPathEnv = new StringBuilder("").append("." + File.separator + "*");
             for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH,
                     YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH)) {
                 classPathEnv.append(File.pathSeparatorChar);
@@ -1189,7 +1168,7 @@ public class AsterixApplicationMaster {
                 LOG.debug("Restoring from: " + s);
                 //logs only exist on 1st iodevice
                 if (iodevices.indexOf(s) == 0) {
-                    vargs.add(src + "txnLogs"+File.separator + "," + clusterDesc.getTxnLogDir() + File.separator);
+                    vargs.add(src + "txnLogs" + File.separator + "," + clusterDesc.getTxnLogDir() + File.separator);
 
                     LOG.debug("Restoring logs from: " + clusterDesc.getTxnLogDir());
                     vargs.add(src + "asterix_root_metadata" + "," + s);

@@ -28,7 +28,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +37,6 @@ import java.util.regex.Pattern;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
-import javax.xml.bind.Unmarshaller;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.GnuParser;
@@ -157,15 +155,6 @@ public class AsterixYARNClient {
 
     private String instanceFolder = "";
 
-    // Shell Command Container priority
-    private int moyaPriority = 0;
-
-    // Amt of memory to request for container in which shell script will be
-    // executed
-    private int containerMemory = 256;
-    // No. of containers in which the shell script needs to be executed
-    private int numContainers = 1;
-
     // log4j.properties file
     // if available, add to local resources and set into classpath
     private String log4jPropFile = "";
@@ -191,27 +180,29 @@ public class AsterixYARNClient {
             try {
                 client.init(args);
                 AsterixYARNClient.execute(client);
-            } catch (IllegalArgumentException e) {
-                System.err.println(e.getLocalizedMessage());
-                e.printStackTrace();
+            } catch (ParseException | ApplicationNotFoundException e) {
+                LOG.fatal(e);
                 client.printUsage();
                 System.exit(-1);
             }
-        } catch (Throwable t) {
-            LOG.fatal("Error running client", t);
+        } catch (Exception e) {
+            LOG.fatal("Error running client", e);
             System.exit(1);
         }
         LOG.info("Command executed successfully.");
         System.exit(0);
     }
 
-    public static void execute(AsterixYARNClient client) throws Exception {
+    public static void execute(AsterixYARNClient client) throws IOException, YarnException {
+        YarnClientApplication app;
+        List<DFSResourceCoordinate> res;
+        ApplicationId appId;
         switch (client.mode) {
             case START:
-                YarnClientApplication app = client.makeApplicationContext();
-                List<DFSResourceCoordinate> res = client.deployConfig();
+                app = client.makeApplicationContext();
+                res = client.deployConfig();
                 res.addAll(client.distributeBinaries());
-                ApplicationId appId = client.deployAM(app, res, client.mode);
+                appId = client.deployAM(app, res, client.mode);
                 LOG.info("Asterix started up with Application ID: " + appId.toString());
                 if (Utils.waitForLiveness(appId, "Waiting for AsterixDB instance to resume ", client.yarnClient,
                         client.instanceName, client.conf)) {
@@ -261,16 +252,21 @@ public class AsterixYARNClient {
                         LOG.fatal("AsterixDB appears to have failed to install and start");
                         System.exit(1);
                     }
-                } catch (YarnException | IOException e) {
+                } catch (YarnException | IOException |JAXBException e) {
                     LOG.error("Asterix failed to deploy on to cluster");
-                    throw e;
+                    throw new YarnException(e);
                 }
                 break;
             case LIBINSTALL:
                 client.installExtLibs();
                 break;
             case ALTER:
+                try{
                 client.writeAsterixConfig(Utils.parseYarnClusterConfig(client.asterixConf));
+                }
+                catch(JAXBException e){
+                    throw new YarnException(e);
+                }
                 client.installAsterixConfig(true);
                 System.out.println("Configuration successfully modified");
                 break;
@@ -339,7 +335,8 @@ public class AsterixYARNClient {
                 "Amount of memory in MB to be requested to run the application master"));
         opts.addOption(new Option("log_properties", true, "log4j.properties file"));
         opts.addOption(new Option("n", "name", true, "Asterix instance name (required)"));
-        opts.addOption(new Option("zip", "asterixZip", true, "zip file with AsterixDB inside- if in non-default location"));
+        opts.addOption(new Option("zip", "asterixZip", true,
+                "zip file with AsterixDB inside- if in non-default location"));
         opts.addOption(new Option("bc", "baseConfig", true,
                 "base Asterix parameters configuration file if not in default position"));
         opts.addOption(new Option("c", "asterixConf", true, "Asterix cluster config (required on install)"));
@@ -382,113 +379,134 @@ public class AsterixYARNClient {
     public void init(String[] args) throws ParseException {
 
         CommandLine cliParser = new GnuParser().parse(opts, args);
-        checkConf(args, cliParser);
-
-        List<String> clientVerb = cliParser.getArgList();
-        mode = Mode.fromAlias(clientVerb.get(0));
-        if (mode == null) {
-            mode = Mode.NOOP;
-        }
-
         if (cliParser.hasOption("help")) {
             printUsage();
             return;
         }
-
-        if (cliParser.hasOption("debug")) {
-            debugFlag = true;
-        }
-        if (cliParser.hasOption("force")) {
-            force = true;
-        }
+        //initialize most things
+        debugFlag = cliParser.hasOption("debug");
+        force = cliParser.hasOption("force");
+        baseConfig = cliParser.getOptionValue("baseConfig");
+        extLibs = cliParser.getOptionValue("externalLibs");
+        libDataverse = cliParser.getOptionValue("libDataverse");
 
         appName = cliParser.getOptionValue("appname", "AsterixDB");
         amPriority = Integer.parseInt(cliParser.getOptionValue("priority", "0"));
         amQueue = cliParser.getOptionValue("queue", "default");
         amMemory = Integer.parseInt(cliParser.getOptionValue("master_memory", "10"));
 
-        if (!cliParser.hasOption("name") && mode != Mode.DESCRIBE) {
-            throw new IllegalArgumentException("You must give a name for the instance to be deployed/altered");
-        }
         instanceName = cliParser.getOptionValue("name");
         instanceFolder = instanceName + '/';
-
         appName = appName + ": " + instanceName;
-        File defaultTar = null;
+
+        asterixConf = cliParser.getOptionValue("asterixConf");
+
+        log4jPropFile = cliParser.getOptionValue("log_properties", "");
+
+        //see if the given argument values are sane in general
+        checkConfSanity(args, cliParser);
+
+        //intialize the mode, see if it is a valid one.
+        initMode(args, cliParser);
+
+        //now check the validity of the arguments given the mode
+        checkModeSanity(args, cliParser);
+
+        //if we are going to refresh the binaries, find that out
+        refresh = cliParser.hasOption("refresh");
+        //same goes for snapshot restoration/removal
+        snapName = cliParser.getOptionValue("snapshot");
+
         if (!cliParser.hasOption("asterixZip")
                 && (mode == Mode.INSTALL || mode == Mode.ALTER || mode == Mode.DESTROY || mode == Mode.BACKUP)) {
-            File tarDir = new File("./asterix");
-            if (!tarDir.exists()) {
-                throw new IllegalArgumentException(
-                        "Default directory structure not in use- please specify an asterix zip and base config file to distribute");
-            }
-            FileFilter tarFilter = new WildcardFileFilter("asterix-server*.zip");
-            File[] tarFiles = tarDir.listFiles(tarFilter);
-            if (tarFiles.length != 1) {
-                throw new IllegalArgumentException(
-                        "There is more than one canonically named asterix distributable in the default directory. Please leave only one there.");
-            }
-            defaultTar = tarFiles[0];
-        }
-        if (defaultTar != null) {
-            asterixZip = cliParser.getOptionValue("asterixZip", defaultTar.getAbsolutePath());
+
+            asterixZip = cliParser.getOptionValue("asterixZip", getAsterixDistributableLocation().getAbsolutePath());
         } else {
             asterixZip = cliParser.getOptionValue("asterixZip");
         }
-        if (cliParser.hasOption("baseConfig")) {
-            baseConfig = cliParser.getOptionValue("baseConfig");
-        }
 
-        if (cliParser.hasOption("externalLibs")) {
-            extLibs = cliParser.getOptionValue("externalLibs");
-            if (cliParser.hasOption("libDataverse")) {
-                libDataverse = cliParser.getOptionValue("libDataverse");
-            }
+    }
+
+    private void checkConfSanity(String[] args, CommandLine cliParser) throws ParseException {
+        String message = null;
+
+        //Sanity check for no args 
+        if (args.length == 0) {
+            message = "No args specified for client to initialize";
         }
-        containerMemory = Integer.parseInt(cliParser.getOptionValue("container_memory", "128"));
-        if (containerMemory < 0 || numContainers < 1) {
-            throw new IllegalArgumentException("Invalid no. of containers or container memory specified, exiting."
-                    + " Specified containerMemory=" + containerMemory + ", numContainer=" + numContainers);
+        //AM memory should be a sane value
+        else if (amMemory < 0) {
+            message = "Invalid memory specified for application master, exiting." + " Specified memory=" + amMemory;
         }
-        log4jPropFile = cliParser.getOptionValue("log_properties", "");
-        if (mode == Mode.INSTALL && !cliParser.hasOption("asterixConf")) {
-            throw new IllegalStateException(
-                    "No Configuration XML given. Please specify a config for cluster installation");
-        } else if (mode == Mode.INSTALL) {
-            asterixConf = cliParser.getOptionValue("asterixConf");
+        //we're good!
+        else {
+            return;
         }
-        if (cliParser.hasOption("refresh") && mode == Mode.START) {
-            refresh = true;
-        } else if (cliParser.hasOption("refresh") && mode != Mode.START) {
-            throw new IllegalArgumentException("Cannot specify refresh in any mode besides start, mode is: " + mode);
+        //default:
+        throw new ParseException(message);
+
+    }
+
+    private void initMode(String[] args, CommandLine cliParser) throws ParseException {
+        List<String> clientVerb = cliParser.getArgList();
+        String message = null;
+        //Now check if there is a mode
+        if (clientVerb == null || clientVerb.size() < 1) {
+            message = "You must specify an action.";
         }
-        if (cliParser.hasOption("snapshot") && (mode == Mode.RESTORE || mode == Mode.RMBACKUP)) {
-            snapName = cliParser.getOptionValue("snapshot");
-        } else if (cliParser.hasOption("snapshot") && !(mode == Mode.RESTORE || mode == Mode.RMBACKUP)) {
-            throw new IllegalArgumentException(
-                    "Cannot specify a snapshot to restore in any mode besides restore, mode is: " + mode);
+        //But there can only be one mode...
+        else if (clientVerb.size() > 1) {
+            message = "Trailing arguments, or too many arguments. Only one action may be performed at a time.";
+        }
+        if (message != null) {
+            throw new ParseException(message);
+        }
+        //Now we can initialize the mode and check it against parameters
+        Mode mode = Mode.fromAlias(clientVerb.get(0));
+        if (mode == null) {
+            mode = Mode.NOOP;
         }
     }
 
-    private void checkConf(String[] args, CommandLine cliParser) {
-        //Sanity check for no args 
-        if (args.length == 0) {
-            throw new IllegalArgumentException("No args specified for client to initialize");
+    private void checkModeSanity(String[] args, CommandLine cliParser) throws ParseException {
+
+        String message = null;
+        //The only time you can use the client without specifiying an instance, is to list all of the instances it sees.
+        if (!cliParser.hasOption("name") && mode != Mode.DESCRIBE) {
+            message = "You must give a name for the instance to be acted upon";
+        } else if (mode == Mode.INSTALL && !cliParser.hasOption("asterixConf")) {
+            message = "No Configuration XML given. Please specify a config for cluster installation";
+        } else if (mode != Mode.START && cliParser.hasOption("refresh")) {
+            message = "Cannot specify refresh in any mode besides start, mode is: " + mode;
+        } else if (cliParser.hasOption("snapshot") && !(mode == Mode.RESTORE || mode == Mode.RMBACKUP)) {
+            message = "Cannot specify a snapshot to restore in any mode besides restore or rmbackup, mode is: " + mode;
+        } else if ((mode == Mode.ALTER || mode == Mode.INSTALL) && baseConfig == null
+                && !(new File(DEFAULT_PARAMETERS_PATH).exists())) {
+            message = "Default asterix parameters file is not in the default location, and no custom location is specified";
         }
-        //Now check if there is a verb
-        List<String> clientVerb = cliParser.getArgList();
-        if (clientVerb == null || clientVerb.size() < 1) {
-            LOG.fatal("You must specify an action.");
-            throw new IllegalArgumentException();
+        //nothing is wrong, so exit
+        else {
+            return;
         }
-        if (clientVerb.size() > 1) {
-            LOG.fatal("Trailing arguments, or too many arguments. Only one action may be performed at a time.");
-            throw new IllegalArgumentException();
+        //otherwise, something is bad.
+        throw new ParseException(message);
+
+    }
+
+    private File getAsterixDistributableLocation() {
+        //Look in the PWD for the "asterix" folder
+        File tarDir = new File("asterix");
+        if (!tarDir.exists()) {
+            throw new IllegalArgumentException(
+                    "Default directory structure not in use- please specify an asterix zip and base config file to distribute");
         }
-        if (amMemory < 0) {
-            throw new IllegalArgumentException("Invalid memory specified for application master, exiting."
-                    + " Specified memory=" + amMemory);
+        FileFilter tarFilter = new WildcardFileFilter("asterix-server*.zip");
+        File[] tarFiles = tarDir.listFiles(tarFilter);
+        if (tarFiles.length != 1) {
+            throw new IllegalArgumentException(
+                    "There is more than one canonically named asterix distributable in the default directory. Please leave only one there.");
         }
+        return tarFiles[0];
     }
 
     /**
@@ -625,7 +643,7 @@ public class AsterixYARNClient {
 
         LOG.info(File.separator);
         for (String j : cp) {
-            String[] pathComponents =j.split(Pattern.quote(File.separator));
+            String[] pathComponents = j.split(Pattern.quote(File.separator));
             LOG.info(j);
             LOG.info(pathComponents[pathComponents.length - 1]);
             if (pathComponents[pathComponents.length - 1].matches(asterixJarPattern)
@@ -812,7 +830,6 @@ public class AsterixYARNClient {
         // Set class name
         vargs.add(appMasterMainClass);
         //Set params for Application Master
-        vargs.add("-priority " + String.valueOf(moyaPriority));
         if (debugFlag) {
             vargs.add("-debug");
         }
@@ -914,16 +931,8 @@ public class AsterixYARNClient {
 
     }
 
-    /**
-     * Removes the configs. Eventually should run a YARN job to remove all tree artifacts.
-     * 
-     * @throws IOException
-     * @throws IllegalArgumentException
-     * @throws YarnException
-     * @throws JAXBException
-     */
-    private void removeInstance(YarnClientApplication app, List<DFSResourceCoordinate> resources)
-            throws IllegalArgumentException, IOException, YarnException, JAXBException {
+    private void stopInstanceIfRunning(YarnClientApplication app, List<DFSResourceCoordinate> resources)
+            throws IOException, YarnException {
         FileSystem fs = FileSystem.get(conf);
         String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
         Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
@@ -931,12 +940,19 @@ public class AsterixYARNClient {
         if (isRunning()) {
             try {
                 this.stopInstance();
-            } catch (IOException | JAXBException e) {
-                LOG.fatal("Could not stop nor kill instance gracefully.- instance lockfile may be stale");
+            } catch (IOException e) {
+                throw new YarnException(e);
             }
         } else if (!fs.exists(dstConf)) {
-            throw new IllegalArgumentException("No instance configured with that name exists");
+            throw new YarnException("No instance configured with that name exists");
         }
+    }
+
+    private void removeInstance(YarnClientApplication app, List<DFSResourceCoordinate> resources) throws IOException,
+            YarnException {
+        FileSystem fs = FileSystem.get(conf);
+        //if the instance is up, fix that
+        stopInstanceIfRunning(app, resources);
         //now try deleting all of the on-disk artifacts on the cluster
         ApplicationId deleter = deployAM(app, resources, Mode.DESTROY);
         boolean delete_start = Utils.waitForApplication(deleter, yarnClient, "Waiting for deletion to start");
@@ -960,28 +976,18 @@ public class AsterixYARNClient {
     }
 
     private void backupInstance(YarnClientApplication app, List<DFSResourceCoordinate> resources) throws IOException,
-            YarnException, JAXBException {
-        FileSystem fs = FileSystem.get(conf);
-        String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
-        Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
-        //if the instance is up, fix that
-        if (isRunning()) {
-            try {
-                this.stopInstance();
-            } catch (IOException | JAXBException e) {
-                LOG.fatal("Could not stop nor kill instance gracefully.- instance lockfile may be stale");
-            }
-        } else if (!fs.exists(dstConf)) {
-            throw new IllegalArgumentException("No instance configured with that name exists");
-        }
+            YarnException {
+        stopInstanceIfRunning(app, resources);
         ApplicationId backerUpper = deployAM(app, resources, Mode.BACKUP);
-        boolean backupStart = Utils.waitForApplication(backerUpper, yarnClient,
-                "Waiting for backup " + backerUpper.toString() + "to start");
+        boolean backupStart;
+        backupStart = Utils.waitForApplication(backerUpper, yarnClient, "Waiting for backup " + backerUpper.toString()
+                + "to start");
         if (!backupStart) {
             LOG.fatal("Backup failed to start");
             throw new YarnException();
         }
-        boolean complete = waitForCompletion(backerUpper, "Backup in progress");
+        boolean complete;
+        complete = waitForCompletion(backerUpper, "Backup in progress");
         if (!complete) {
             LOG.fatal("Backup failed- timeout waiting for completion");
             return;
@@ -990,21 +996,8 @@ public class AsterixYARNClient {
     }
 
     private void restoreInstance(YarnClientApplication app, List<DFSResourceCoordinate> resources) throws IOException,
-            YarnException, JAXBException {
-        FileSystem fs = FileSystem.get(conf);
-        String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
-        Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
-        //if the instance is up, fix that
-        if (isRunning()) {
-            try {
-                this.stopInstance();
-            } catch (IOException | JAXBException e) {
-                LOG.fatal("Could not stop nor kill instance gracefully.- instance lockfile may be stale");
-            }
-        } else if (!fs.exists(dstConf)) {
-            throw new IllegalArgumentException("No instance configured with that name exists");
-        }
-        //now try deleting all of the on-disk artifacts on the cluster
+            YarnException {
+        stopInstanceIfRunning(app, resources);
         ApplicationId restorer = deployAM(app, resources, Mode.RESTORE);
         boolean restoreStart = Utils.waitForApplication(restorer, yarnClient, "Waiting for restore to start");
         if (!restoreStart) {
@@ -1027,7 +1020,7 @@ public class AsterixYARNClient {
      * @throws YarnException
      */
 
-    private void stopInstance() throws IOException, JAXBException, YarnException {
+    private void stopInstance() throws IOException, YarnException {
         ApplicationId appId = getLockFile();
         if (yarnClient.isInState(STATE.INITED)) {
             yarnClient.start();
@@ -1063,7 +1056,9 @@ public class AsterixYARNClient {
                 return;
             }
         }
-        deleteLockFile();
+        if (completed) {
+            deleteLockFile();
+        }
     }
 
     private void deleteLockFile() throws IOException {
@@ -1126,16 +1121,17 @@ public class AsterixYARNClient {
         return ConverterUtils.toApplicationId(lockAppId);
     }
 
-    private void writeAsterixConfig(Cluster cluster) throws JAXBException, FileNotFoundException, IOException {
+    private void writeAsterixConfig(Cluster cluster) throws FileNotFoundException, IOException {
         String metadataNodeId = Utils.getMetadataNode(cluster).getId();
         String asterixInstanceName = instanceName;
 
         //this is the "base" config that is inside the zip, we start here
         AsterixConfiguration configuration;
         String configPathBase = MERGED_PARAMETERS_PATH;
-        if (baseConfig != ".") {
+        if (baseConfig != null) {
             configuration = Utils.loadAsterixConfig(baseConfig);
-            configPathBase = new File(baseConfig).getParentFile().getAbsolutePath() + File.separator + "asterix-configuration.xml";
+            configPathBase = new File(baseConfig).getParentFile().getAbsolutePath() + File.separator
+                    + "asterix-configuration.xml";
             MERGED_PARAMETERS_PATH = configPathBase;
         } else {
             configuration = Utils.loadAsterixConfig(DEFAULT_PARAMETERS_PATH);
@@ -1170,17 +1166,21 @@ public class AsterixYARNClient {
 
         configuration.setCoredump(coredump);
         configuration.setTransactionLogDir(txnLogDirs);
-
-        JAXBContext ctx = JAXBContext.newInstance(AsterixConfiguration.class);
-        Marshaller marshaller = ctx.createMarshaller();
-        marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
         FileOutputStream os = new FileOutputStream(MERGED_PARAMETERS_PATH);
-        marshaller.marshal(configuration, os);
-        os.close();
+        try {
+            JAXBContext ctx = JAXBContext.newInstance(AsterixConfiguration.class);
+            Marshaller marshaller = ctx.createMarshaller();
+            marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
+
+            marshaller.marshal(configuration, os);
+        } catch (JAXBException e) {
+            throw new IOException(e);
+        } finally {
+            os.close();
+        }
     }
 
-    private boolean waitForCompletion(ApplicationId appId, String message) throws YarnException, IOException,
-            JAXBException {
+    private boolean waitForCompletion(ApplicationId appId, String message) throws YarnException, IOException {
         return Utils.waitForApplication(appId, yarnClient, message);
     }
 
