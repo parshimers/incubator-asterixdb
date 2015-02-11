@@ -40,6 +40,10 @@ import edu.uci.ics.asterix.event.schema.yarnCluster.Node;
 
 public class Utils {
 
+    private Utils() {
+
+    }
+
     private static final String CONF_DIR_REL = AsterixYARNClient.CONF_DIR_REL;
 
     public static String hostFromContainerID(String containerID) {
@@ -128,7 +132,6 @@ public class Utils {
             }
         };
         client.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, noop);
-        status = client.executeMethod(method);
         return method.getResponseBodyAsStream();
     }
 
@@ -148,9 +151,9 @@ public class Utils {
         while (true) {
             try {
                 String input = in.nextLine();
-                if (input.equals("yes")) {
+                if ("yes".equals(input)) {
                     return true;
-                } else if (input.equals("no")) {
+                } else if ("no".equals(input)) {
                     return false;
                 } else {
                     System.out.println("Please type yes or no");
@@ -166,14 +169,14 @@ public class Utils {
      * 
      * @param conf
      *            Hadoop configuration object
-     * @param CONF_DIR_REL
+     * @param confDirRel
      *            Relative AsterixDB configuration path for DFS
      * @throws IOException
      */
 
-    public static void listInstances(Configuration conf, String CONF_DIR_REL) throws IOException {
+    public static void listInstances(Configuration conf, String confDirRel) throws IOException {
         FileSystem fs = FileSystem.get(conf);
-        Path instanceFolder = new Path(fs.getHomeDirectory(), CONF_DIR_REL);
+        Path instanceFolder = new Path(fs.getHomeDirectory(), confDirRel);
         if (!fs.exists(instanceFolder)) {
             System.out.println("No running or stopped AsterixDB instances exist in this cluster.");
             return;
@@ -201,15 +204,15 @@ public class Utils {
      * 
      * @param conf
      *            YARN configuration
-     * @param CONF_DIR_REL
+     * @param confDirRel
      *            Relative config path
      * @param instance
      *            Instance name
      * @throws IOException
      */
-    public static void listBackups(Configuration conf, String CONF_DIR_REL, String instance) throws IOException {
+    public static void listBackups(Configuration conf, String confDirRel, String instance) throws IOException {
         FileSystem fs = FileSystem.get(conf);
-        Path backupFolder = new Path(fs.getHomeDirectory(), CONF_DIR_REL + "/" + instance + "/" + "backups");
+        Path backupFolder = new Path(fs.getHomeDirectory(), confDirRel + "/" + instance + "/" + "backups");
         FileStatus[] backups = fs.listStatus(backupFolder);
         if (backups.length != 0) {
             System.out.println("Backups for instance " + instance + ": ");
@@ -227,7 +230,7 @@ public class Utils {
      * 
      * @param conf
      *            DFS Configuration
-     * @param CONF_DIR_REL
+     * @param confDirRel
      *            Configuration relative directory
      * @param instance
      *            The asterix instance name
@@ -235,10 +238,10 @@ public class Utils {
      *            The snapshot timestap (ID)
      * @throws IOException
      */
-    public static void rmBackup(Configuration conf, String CONF_DIR_REL, String instance, long timestamp)
+    public static void rmBackup(Configuration conf, String confDirRel, String instance, long timestamp)
             throws IOException {
         FileSystem fs = FileSystem.get(conf);
-        Path backupFolder = new Path(fs.getHomeDirectory(), CONF_DIR_REL + "/" + instance + "/" + "backups");
+        Path backupFolder = new Path(fs.getHomeDirectory(), confDirRel + "/" + instance + "/" + "backups");
         FileStatus[] backups = fs.listStatus(backupFolder);
         if (backups.length != 0) {
             System.out.println("Backups for instance " + instance + ": ");
@@ -269,19 +272,27 @@ public class Utils {
      * @throws FileNotFoundException
      * @throws JAXBException
      */
-    public static Cluster parseYarnClusterConfig(String path) throws FileNotFoundException, JAXBException {
-        File f = new File(path);
-        JAXBContext configCtx = JAXBContext.newInstance(Cluster.class);
-        Unmarshaller unmarshaller = configCtx.createUnmarshaller();
-        Cluster cl = (Cluster) unmarshaller.unmarshal(f);
-        return cl;
+    public static Cluster parseYarnClusterConfig(String path) throws YarnException {
+        try {
+            File f = new File(path);
+            JAXBContext configCtx = JAXBContext.newInstance(Cluster.class);
+            Unmarshaller unmarshaller = configCtx.createUnmarshaller();
+            Cluster cl = (Cluster) unmarshaller.unmarshal(f);
+            return cl;
+        } catch (JAXBException e) {
+            throw new YarnException(e);
+        }
     }
 
-    public static void writeYarnClusterConfig(String path, Cluster cl) throws FileNotFoundException, JAXBException {
-        File f = new File(path);
-        JAXBContext configCtx = JAXBContext.newInstance(Cluster.class);
-        Marshaller marhsaller = configCtx.createMarshaller();
-        marhsaller.marshal(cl, f);
+    public static void writeYarnClusterConfig(String path, Cluster cl) throws YarnException {
+        try {
+            File f = new File(path);
+            JAXBContext configCtx = JAXBContext.newInstance(Cluster.class);
+            Marshaller marhsaller = configCtx.createMarshaller();
+            marhsaller.marshal(cl, f);
+        } catch (JAXBException e) {
+            throw new YarnException(e);
+        }
     }
 
     /**
@@ -315,11 +326,16 @@ public class Utils {
     }
 
     public static boolean waitForLiveness(ApplicationId appId, boolean probe, boolean print, String message,
-            YarnClient yarnClient, String instanceName, Configuration conf) throws YarnException, IOException {
-        ApplicationReport report = yarnClient.getApplicationReport(appId);
+            YarnClient yarnClient, String instanceName, Configuration conf) throws YarnException {
+        ApplicationReport report;
+        try {
+            report = yarnClient.getApplicationReport(appId);
+        } catch (IOException e) {
+            throw new YarnException(e);
+        }
         YarnApplicationState st = report.getYarnApplicationState();
         for (int i = 0; i < 120; i++) {
-            if ((st != YarnApplicationState.RUNNING || report.getProgress() != 0.5f)) {
+            if (st != YarnApplicationState.RUNNING || report.getProgress() != 0.5f) {
                 try {
                     report = yarnClient.getApplicationReport(appId);
                     st = report.getYarnApplicationState();
@@ -329,6 +345,8 @@ public class Utils {
                     Thread.sleep(1000);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
+                } catch (IOException e) {
+                    throw new YarnException(e);
                 }
                 if (st == YarnApplicationState.FAILED || st == YarnApplicationState.FINISHED
                         || st == YarnApplicationState.KILLED) {
@@ -337,26 +355,26 @@ public class Utils {
                 }
             } else if (probe) {
                 String host;
-                try {
-                    host = getCCHostname(instanceName, conf);
-                } catch (JAXBException e1) {
-                    throw new IOException(e1);
-                }
+                host = getCCHostname(instanceName, conf);
                 for (int j = 0; j < 60; j++) {
-                    if (!Utils.probeLiveness(host)) {
-                        try {
-                            if (print) {
-                                System.out.print(message + Utils.makeDots(i) + "\r");
+                    try {
+                        if (!Utils.probeLiveness(host)) {
+                            try {
+                                if (print) {
+                                    System.out.print(message + Utils.makeDots(i) + "\r");
+                                }
+                                Thread.sleep(1000);
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
                             }
-                            Thread.sleep(1000);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
+                        } else {
+                            if (print) {
+                                System.out.println("");
+                            }
+                            return true;
                         }
-                    } else {
-                        if (print) {
-                            System.out.println("");
-                        }
-                        return true;
+                    } catch (IOException e) {
+                        throw new YarnException(e);
                     }
                 }
             } else {
@@ -387,7 +405,8 @@ public class Utils {
         return waitForLiveness(appId, false, false, "", yarnClient, "", null);
     }
 
-    public static String getCCHostname(String instanceName, Configuration conf) throws IOException, JAXBException {
+    public static String getCCHostname(String instanceName, Configuration conf) throws YarnException{
+        try{
         FileSystem fs = FileSystem.get(conf);
         String instanceFolder = instanceName + "/";
         String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
@@ -400,6 +419,10 @@ public class Utils {
         Cluster cl = (Cluster) unm.unmarshal(tmp);
         String ccIp = cl.getMasterNode().getClientIp();
         return ccIp;
+        }
+        catch (IOException | JAXBException e){
+            throw new YarnException(e);
+        }
     }
 
     public static AsterixConfiguration loadAsterixConfig(String path) throws IOException {

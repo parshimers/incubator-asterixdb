@@ -196,26 +196,15 @@ public class AsterixYARNClient {
     public static void execute(AsterixYARNClient client) throws IOException, YarnException {
         YarnClientApplication app;
         List<DFSResourceCoordinate> res;
-        ApplicationId appId;
         switch (client.mode) {
             case START:
-                app = client.makeApplicationContext();
-                res = client.deployConfig();
-                res.addAll(client.distributeBinaries());
-                appId = client.deployAM(app, res, client.mode);
-                LOG.info("Asterix started up with Application ID: " + appId.toString());
-                if (Utils.waitForLiveness(appId, "Waiting for AsterixDB instance to resume ", client.yarnClient,
-                        client.instanceName, client.conf)) {
-                    System.out.println("Asterix successfully deployed and is now running.");
-                } else {
-                    LOG.fatal("AsterixDB appears to have failed to install and start");
-                    System.exit(1);
-                }
+                startAction(client);
                 break;
             case STOP:
                 try {
                     client.stopInstance();
                 } catch (ApplicationNotFoundException e) {
+                    LOG.info(e);
                     System.out.println("Asterix instance by that name already exited or was never started");
                     client.deleteLockFile();
                 }
@@ -227,6 +216,7 @@ public class AsterixYARNClient {
                 try {
                     AsterixYARNClient.killApplication(client.getLockFile(), client.yarnClient);
                 } catch (ApplicationNotFoundException e) {
+                    LOG.info(e);
                     System.out.println("Asterix instance by that name already exited or was never started");
                     client.deleteLockFile();
                 }
@@ -235,38 +225,13 @@ public class AsterixYARNClient {
                 Utils.listInstances(client.conf, CONF_DIR_REL);
                 break;
             case INSTALL:
-                try {
-                    app = client.makeApplicationContext();
-                    client.installConfig();
-                    client.writeAsterixConfig(Utils.parseYarnClusterConfig(client.asterixConf));
-                    client.installAsterixConfig(false);
-                    res = client.deployConfig();
-                    res.addAll(client.distributeBinaries());
-
-                    appId = client.deployAM(app, res, client.mode);
-                    LOG.info("Asterix started up with Application ID: " + appId.toString());
-                    if (Utils.waitForLiveness(appId, "Waiting for new AsterixDB Instance to start ", client.yarnClient,
-                            client.instanceName, client.conf)) {
-                        System.out.println("Asterix successfully deployed and is now running.");
-                    } else {
-                        LOG.fatal("AsterixDB appears to have failed to install and start");
-                        System.exit(1);
-                    }
-                } catch (YarnException | IOException |JAXBException e) {
-                    LOG.error("Asterix failed to deploy on to cluster");
-                    throw new YarnException(e);
-                }
+                installAction(client);
                 break;
             case LIBINSTALL:
                 client.installExtLibs();
                 break;
             case ALTER:
-                try{
                 client.writeAsterixConfig(Utils.parseYarnClusterConfig(client.asterixConf));
-                }
-                catch(JAXBException e){
-                    throw new YarnException(e);
-                }
                 client.installAsterixConfig(true);
                 System.out.println("Configuration successfully modified");
                 break;
@@ -310,6 +275,55 @@ public class AsterixYARNClient {
                 LOG.fatal("Unknown mode. Known client modes are: start, stop, install, describe, kill, destroy, describe, backup, restore, lsbackup, rmbackup");
                 client.printUsage();
                 System.exit(-1);
+        }
+    }
+
+    private static void startAction(AsterixYARNClient client) throws YarnException {
+        YarnClientApplication app;
+        List<DFSResourceCoordinate> res;
+        ApplicationId appId;
+        try {
+            app = client.makeApplicationContext();
+            res = client.deployConfig();
+            res.addAll(client.distributeBinaries());
+            appId = client.deployAM(app, res, client.mode);
+            LOG.info("Asterix started up with Application ID: " + appId.toString());
+            if (Utils.waitForLiveness(appId, "Waiting for AsterixDB instance to resume ", client.yarnClient,
+                    client.instanceName, client.conf)) {
+                System.out.println("Asterix successfully deployed and is now running.");
+            } else {
+                LOG.fatal("AsterixDB appears to have failed to install and start");
+                throw new YarnException("AsterixDB appears to have failed to install and start");
+            }
+        } catch (IOException e) {
+            throw new YarnException(e);
+        }
+    }
+
+    private static void installAction(AsterixYARNClient client) throws YarnException {
+        YarnClientApplication app;
+        List<DFSResourceCoordinate> res;
+        ApplicationId appId;
+        try {
+            app = client.makeApplicationContext();
+            client.installConfig();
+            client.writeAsterixConfig(Utils.parseYarnClusterConfig(client.asterixConf));
+            client.installAsterixConfig(false);
+            res = client.deployConfig();
+            res.addAll(client.distributeBinaries());
+
+            appId = client.deployAM(app, res, client.mode);
+            LOG.info("Asterix started up with Application ID: " + appId.toString());
+            if (Utils.waitForLiveness(appId, "Waiting for new AsterixDB Instance to start ", client.yarnClient,
+                    client.instanceName, client.conf)) {
+                System.out.println("Asterix successfully deployed and is now running.");
+            } else {
+                LOG.fatal("AsterixDB appears to have failed to install and start");
+                throw new YarnException("AsterixDB appears to have failed to install and start");
+            }
+        } catch (IOException e) {
+            LOG.fatal("Asterix failed to deploy on to cluster");
+            throw new YarnException(e);
         }
     }
 
@@ -448,6 +462,7 @@ public class AsterixYARNClient {
     }
 
     private void initMode(String[] args, CommandLine cliParser) throws ParseException {
+        @SuppressWarnings("unchecked")
         List<String> clientVerb = cliParser.getArgList();
         String message = null;
         //Now check if there is a mode
@@ -462,7 +477,7 @@ public class AsterixYARNClient {
             throw new ParseException(message);
         }
         //Now we can initialize the mode and check it against parameters
-        Mode mode = Mode.fromAlias(clientVerb.get(0));
+        mode = Mode.fromAlias(clientVerb.get(0));
         if (mode == null) {
             mode = Mode.NOOP;
         }
@@ -598,14 +613,13 @@ public class AsterixYARNClient {
         String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
         Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
         try {
-            FileStatus st = fs.getFileStatus(dstConf);
-
+            fs.getFileStatus(dstConf);
             if (mode == Mode.INSTALL) {
                 throw new IllegalStateException("Instance with this name already exists.");
             }
         } catch (FileNotFoundException e) {
             if (mode == Mode.START) {
-                throw new IllegalStateException("Instance does not exist for this user");
+                throw new IllegalStateException("Instance does not exist for this user",e);
             }
         }
         if (mode == Mode.INSTALL) {
@@ -894,7 +908,7 @@ public class AsterixYARNClient {
         yarnClient.submitApplication(appContext);
 
         //now write the instance lock
-        if (mode == Mode.INSTALL || mode == mode.START) {
+        if (mode == Mode.INSTALL || mode == Mode.START) {
             FileSystem fs = FileSystem.get(conf);
             Path lock = new Path(fs.getHomeDirectory(), CONF_DIR_REL + instanceFolder + instanceLock);
             if (fs.exists(lock)) {
@@ -1033,7 +1047,7 @@ public class AsterixYARNClient {
         try {
             String ccIp = Utils.getCCHostname(instanceName, conf);
             Utils.sendShutdownCall(ccIp);
-        } catch (IOException | JAXBException e) {
+        } catch (IOException e) {
             if (force) {
                 LOG.warn("Instance failed to stop gracefully, now killing it");
                 try {

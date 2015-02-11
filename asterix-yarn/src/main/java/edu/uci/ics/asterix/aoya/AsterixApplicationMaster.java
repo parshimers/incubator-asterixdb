@@ -41,8 +41,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.xml.bind.JAXBException;
-
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.HelpFormatter;
@@ -81,13 +79,8 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
-import org.apache.log4j.Level;
-import org.apache.log4j.LogManager;
 
-import edu.uci.ics.asterix.common.config.AsterixPropertiesAccessor;
 import edu.uci.ics.asterix.common.config.GlobalConfig;
-import edu.uci.ics.asterix.common.configuration.AsterixConfiguration;
-import edu.uci.ics.asterix.common.configuration.Property;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.event.schema.yarnCluster.Cluster;
 import edu.uci.ics.asterix.event.schema.yarnCluster.MasterNode;
@@ -102,13 +95,10 @@ public class AsterixApplicationMaster {
     private static final String ASTERIX_CONF_NAME = "asterix-configuration.xml";
     private static final String ASTERIX_ZIP_NAME = "asterix-server.zip";
 
-    private Map<String, Property> asterixConfigurationParams;
     private static final int CC_MEMORY_MBS_DEFAULT = 512;
     private static final int NC_MEMORY_MBS_DEFAULT = 2048;
-    private static final String EXTERNAL_CC_JAVA_OPTS_KEY = "cc.java.opts";
     private static final String EXTERNAL_CC_JAVA_OPTS_DEFAULT = "-Xmx" + CC_MEMORY_MBS_DEFAULT + "m";
 
-    private static final String EXTERNAL_NC_JAVA_OPTS_KEY = "nc.java.opts";
     private static final String EXTERNAL_NC_JAVA_OPTS_DEFAULT = "-Xmx" + NC_MEMORY_MBS_DEFAULT + "m";
     private String NcJavaOpts = EXTERNAL_NC_JAVA_OPTS_DEFAULT;
     private String CcJavaOpts = EXTERNAL_CC_JAVA_OPTS_DEFAULT;
@@ -122,8 +112,7 @@ public class AsterixApplicationMaster {
     private Configuration conf;
 
     // Handle to communicate with the Resource Manager
-    @SuppressWarnings("rawtypes")
-    private AMRMClientAsync resourceManager;
+    private AMRMClientAsync<ContainerRequest> resourceManager;
 
     // Handle to communicate with the Node Manager
     private NMClientAsync nmClientAsync;
@@ -200,7 +189,6 @@ public class AsterixApplicationMaster {
         boolean result = false;
         try {
 
-            LOG.info("config file loc: " + System.getProperty(GlobalConfig.CONFIG_FILE_PROPERTY));
             AsterixApplicationMaster appMaster = new AsterixApplicationMaster();
             LOG.info("Initializing ApplicationMaster");
             appMaster.setEnvs(appMaster.setArgs(args));
@@ -267,12 +255,8 @@ public class AsterixApplicationMaster {
         opts.addOption("obliterate", false, "Delete asterix instance completely.");
         opts.addOption("backup", false, "Back up AsterixDB instance");
         opts.addOption("restore", true, "Restore an AsterixDB instance");
-        CommandLine cliParser = new GnuParser().parse(opts, args);
 
-        if (args.length == 0) {
-            printUsage(opts);
-            throw new IllegalArgumentException("No args specified for application master to initialize");
-        }
+        CommandLine cliParser = new GnuParser().parse(opts, args);
 
         if (cliParser.hasOption("help")) {
             printUsage(opts);
@@ -348,7 +332,7 @@ public class AsterixApplicationMaster {
         LOG.info("Path suffix: " + instanceConfPath);
     }
 
-    public boolean init() throws ParseException, IOException, AsterixException, JAXBException {
+    public boolean init() throws ParseException, IOException, AsterixException, YarnException {
         try {
             localizeDFSResources();
             clusterDesc = Utils.parseYarnClusterConfig(CLUSTER_DESC_PATH);
@@ -357,31 +341,13 @@ public class AsterixApplicationMaster {
             distributeAsterixConfig();
             //now let's read what's in there so we can set the JVM opts right
             LOG.debug("config file loc: " + System.getProperty(GlobalConfig.CONFIG_FILE_PROPERTY));
-        } catch (FileNotFoundException | JAXBException | IllegalStateException e) {
+        } catch (FileNotFoundException | IllegalStateException e) {
             LOG.error("Could not deserialize Cluster Config from disk- aborting!");
             LOG.error(e);
             throw e;
         }
 
         return true;
-    }
-
-    /**
-     * From managix. Splices the cluster config and asterix config parameters together, then puts the product to HDFS.
-     * 
-     * @param cluster
-     * @throws JAXBException
-     * @throws FileNotFoundException
-     * @throws IOException
-     */
-
-    private void getOptsFromAsterixConfig(AsterixConfiguration configuration) {
-        asterixConfigurationParams = new HashMap<String, Property>();
-        for (Property p : configuration.getProperty()) {
-            asterixConfigurationParams.put(p.getName(), p);
-        }
-        NcJavaOpts = asterixConfigurationParams.get(EXTERNAL_NC_JAVA_OPTS_KEY).getValue();
-        CcJavaOpts = asterixConfigurationParams.get(EXTERNAL_CC_JAVA_OPTS_KEY).getValue();
     }
 
     /**
@@ -535,7 +501,7 @@ public class AsterixApplicationMaster {
 
         } catch (URISyntaxException e) {
             LOG.error("Error locating Asterix zip" + " in env, path=" + asterixZipPath);
-            e.printStackTrace();
+            throw new IOException(e);
         }
 
         asterixZip.setTimestamp(asterixZipTimestamp);
@@ -549,10 +515,9 @@ public class AsterixApplicationMaster {
         asterixConf.setVisibility(LocalResourceVisibility.PRIVATE);
         try {
             asterixConf.setResource(ConverterUtils.getYarnUrlFromURI(new URI(asterixConfPath)));
-
         } catch (URISyntaxException e) {
             LOG.error("Error locating Asterix config" + " in env, path=" + asterixConfPath);
-            e.printStackTrace();
+            throw new IOException(e);
         }
         //TODO: I could avoid localizing this everywhere by only calling this block on the metadata node. 
         asterixConf.setTimestamp(asterixConfTimestamp);
@@ -597,7 +562,6 @@ public class AsterixApplicationMaster {
         new HelpFormatter().printHelp("ApplicationMaster", opts);
     }
 
-    @SuppressWarnings({ "unchecked" })
     /**
      * Start the AM and request all necessary resources. 
      * @return True if the run fully succeeded, false otherwise. 
@@ -663,7 +627,10 @@ public class AsterixApplicationMaster {
                 launchThread.join(10000);
             } catch (InterruptedException e) {
                 LOG.info("Exception thrown in thread join: " + e.getMessage());
-                e.printStackTrace();
+                //from https://stackoverflow.com/questions/4812570/how-to-store-printstacktrace-into-a-string
+                StringWriter errors = new StringWriter();
+                e.printStackTrace(new PrintWriter(errors));
+                LOG.error(errors.toString());
             }
         }
 
@@ -703,7 +670,6 @@ public class AsterixApplicationMaster {
      * is running.
      */
     private class RMCallbackHandler implements AMRMClientAsync.CallbackHandler {
-        @SuppressWarnings("unchecked")
         public void onContainersCompleted(List<ContainerStatus> completedContainers) {
             LOG.info("Got response from RM for container ask, completedCnt=" + completedContainers.size());
             for (ContainerStatus containerStatus : completedContainers) {
@@ -938,7 +904,7 @@ public class AsterixApplicationMaster {
             Vector<CharSequence> vargs = new Vector<CharSequence>(5);
 
             vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
-            vargs.add("-classpath " + "\"" + ASTERIX_ZIP_NAME + File.separator + "repo" + File.separator + "*\"");
+            vargs.add("-classpath " + '\'' + ASTERIX_ZIP_NAME + File.separator + "repo" + File.separator + "*\'");
             vargs.add("-Dapp.repo=" + ASTERIX_ZIP_NAME + File.separator + "repo" + File.separator);
             //first see if this node is the CC
             if (containerIsCC(container) && (ccStarted.get() == false)) {
@@ -986,6 +952,7 @@ public class AsterixApplicationMaster {
                 command.append(str).append(" ");
             }
             commands.add(command.toString());
+            LOG.error(Arrays.toString(commands.toArray()));
             return commands;
         }
 
