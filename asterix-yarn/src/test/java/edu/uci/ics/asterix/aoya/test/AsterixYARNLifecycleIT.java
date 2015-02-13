@@ -15,7 +15,6 @@
 package edu.uci.ics.asterix.aoya.test;
 
 import java.io.File;
-
 import java.io.FilenameFilter;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -25,6 +24,8 @@ import java.util.logging.Logger;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.yarn.api.ApplicationConstants;
+import org.apache.hadoop.yarn.api.ApplicationConstants.Environment;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.server.MiniYARNCluster;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.ResourceScheduler;

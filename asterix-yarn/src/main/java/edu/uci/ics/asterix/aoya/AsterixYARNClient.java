@@ -126,6 +126,7 @@ public class AsterixYARNClient {
     private static final String instanceLock = "instance";
     private static String DEFAULT_PARAMETERS_PATH = "conf" + File.separator + "base-asterix-configuration.xml";
     private static String MERGED_PARAMETERS_PATH = "conf" + File.separator + "asterix-configuration.xml";
+    private static final String JAVA_HOME = System.getProperty("java.home");
     private Mode mode = Mode.NOOP;
 
     // Configuration
@@ -175,6 +176,7 @@ public class AsterixYARNClient {
      *            Command line arguments
      */
     public static void main(String[] args) {
+
         try {
             AsterixYARNClient client = new AsterixYARNClient();
             try {
@@ -196,6 +198,8 @@ public class AsterixYARNClient {
     public static void execute(AsterixYARNClient client) throws IOException, YarnException {
         YarnClientApplication app;
         List<DFSResourceCoordinate> res;
+
+        System.out.println("JAVA HOME: "+JAVA_HOME);
         switch (client.mode) {
             case START:
                 startAction(client);
@@ -619,7 +623,7 @@ public class AsterixYARNClient {
             }
         } catch (FileNotFoundException e) {
             if (mode == Mode.START) {
-                throw new IllegalStateException("Instance does not exist for this user",e);
+                throw new IllegalStateException("Instance does not exist for this user", e);
             }
         }
         if (mode == Mode.INSTALL) {
@@ -840,7 +844,7 @@ public class AsterixYARNClient {
 
         // Set java executable command
         LOG.info("Setting up app master command");
-        vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
+        vargs.add(JAVA_HOME + File.separator + "bin" + File.separator + "java");
         // Set class name
         vargs.add(appMasterMainClass);
         //Set params for Application Master

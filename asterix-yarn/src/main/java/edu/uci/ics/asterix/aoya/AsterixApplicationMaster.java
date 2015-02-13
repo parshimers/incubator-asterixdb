@@ -106,6 +106,7 @@ public class AsterixApplicationMaster {
     private static final String HDFS_BACKUP_CLASSNAME = "edu.uci.ics.asterix.aoya.HDFSBackup";
     private static final String NC_CLASSNAME = "edu.uci.ics.hyracks.control.nc.NCDriver";
     private static final String CC_CLASSNAME = "edu.uci.ics.hyracks.control.cc.CCDriver";
+    private static final String JAVA_HOME = System.getProperty("java.home");
     private boolean doneAllocating = false;
 
     // Configuration
@@ -563,8 +564,9 @@ public class AsterixApplicationMaster {
     }
 
     /**
-     * Start the AM and request all necessary resources. 
-     * @return True if the run fully succeeded, false otherwise. 
+     * Start the AM and request all necessary resources.
+     * 
+     * @return True if the run fully succeeded, false otherwise.
      * @throws YarnException
      * @throws IOException
      */
@@ -903,7 +905,7 @@ public class AsterixApplicationMaster {
             // Set the necessary command to execute on the allocated container
             Vector<CharSequence> vargs = new Vector<CharSequence>(5);
 
-            vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
+            vargs.add(JAVA_HOME + File.separator + "bin" + File.separator + "java");
             vargs.add("-classpath " + '\'' + ASTERIX_ZIP_NAME + File.separator + "repo" + File.separator + "*\'");
             vargs.add("-Dapp.repo=" + ASTERIX_ZIP_NAME + File.separator + "repo" + File.separator);
             //first see if this node is the CC
@@ -981,7 +983,7 @@ public class AsterixApplicationMaster {
 
             List<String> commands = new ArrayList<String>();
             Vector<CharSequence> vargs = new Vector<CharSequence>(5);
-            vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
+            vargs.add(JAVA_HOME + File.separator + "bin" + File.separator + "java");
             vargs.add("-cp " + classPathEnv.toString());
             vargs.add(OBLITERATOR_CLASSNAME);
             for (String s : iodevices) {
@@ -1033,7 +1035,7 @@ public class AsterixApplicationMaster {
 
             List<String> commands = new ArrayList<String>();
             Vector<CharSequence> vargs = new Vector<CharSequence>(5);
-            vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
+            vargs.add(JAVA_HOME + File.separator + "bin" + File.separator + "java");
             vargs.add("-cp " + classPathEnv.toString());
             vargs.add(HDFS_BACKUP_CLASSNAME);
             vargs.add("-backup");
@@ -1104,7 +1106,7 @@ public class AsterixApplicationMaster {
 
             List<String> commands = new ArrayList<String>();
             Vector<CharSequence> vargs = new Vector<CharSequence>(5);
-            vargs.add(Environment.JAVA_HOME.$() + File.separator + "bin" + File.separator + "java");
+            vargs.add(JAVA_HOME + File.separator + "bin" + File.separator + "java");
             vargs.add("-cp " + classPathEnv.toString());
             vargs.add(HDFS_BACKUP_CLASSNAME);
             vargs.add("-restore");

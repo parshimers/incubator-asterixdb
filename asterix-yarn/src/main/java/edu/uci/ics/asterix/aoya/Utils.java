@@ -115,6 +115,9 @@ public class Utils {
         method.setQueryString(new NameValuePair[] { new NameValuePair("query", test) });
         int status = 0;
         InputStream response = executeHTTPCall(method, status);
+        if (response == null) {
+            return false;
+        }
         BufferedReader br = new BufferedReader(new InputStreamReader(response));
         String result = br.readLine();
         if (result == null) {
@@ -132,6 +135,7 @@ public class Utils {
             }
         };
         client.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, noop);
+        client.executeMethod(method);
         return method.getResponseBodyAsStream();
     }
 
@@ -335,7 +339,7 @@ public class Utils {
         }
         YarnApplicationState st = report.getYarnApplicationState();
         for (int i = 0; i < 120; i++) {
-            if (st != YarnApplicationState.RUNNING || report.getProgress() != 0.5f) {
+            if (st != YarnApplicationState.RUNNING) {
                 try {
                     report = yarnClient.getApplicationReport(appId);
                     st = report.getYarnApplicationState();
@@ -343,28 +347,27 @@ public class Utils {
                         System.out.print(message + Utils.makeDots(i) + "\r");
                     }
                     Thread.sleep(1000);
-                } catch (InterruptedException e) {
+                } catch (InterruptedException e1) {
                     Thread.currentThread().interrupt();
-                } catch (IOException e) {
-                    throw new YarnException(e);
+                } catch (IOException e1) {
+                    throw new YarnException(e1);
                 }
                 if (st == YarnApplicationState.FAILED || st == YarnApplicationState.FINISHED
                         || st == YarnApplicationState.KILLED) {
                     return false;
-
                 }
             } else if (probe) {
                 String host;
                 host = getCCHostname(instanceName, conf);
-                for (int j = 0; j < 60; j++) {
-                    try {
+                try {
+                    for (int j = 0; j < 60; j++) {
                         if (!Utils.probeLiveness(host)) {
                             try {
                                 if (print) {
                                     System.out.print(message + Utils.makeDots(i) + "\r");
                                 }
                                 Thread.sleep(1000);
-                            } catch (InterruptedException e) {
+                            } catch (InterruptedException e2) {
                                 Thread.currentThread().interrupt();
                             }
                         } else {
@@ -373,9 +376,9 @@ public class Utils {
                             }
                             return true;
                         }
-                    } catch (IOException e) {
-                        throw new YarnException(e);
                     }
+                } catch (IOException e1) {
+                    throw new YarnException(e1);
                 }
             } else {
                 if (print) {
@@ -405,22 +408,21 @@ public class Utils {
         return waitForLiveness(appId, false, false, "", yarnClient, "", null);
     }
 
-    public static String getCCHostname(String instanceName, Configuration conf) throws YarnException{
-        try{
-        FileSystem fs = FileSystem.get(conf);
-        String instanceFolder = instanceName + "/";
-        String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
-        Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
-        File tmp = File.createTempFile("cluster-config", "xml");
-        tmp.deleteOnExit();
-        fs.copyToLocalFile(dstConf, new Path(tmp.getPath()));
-        JAXBContext clusterConf = JAXBContext.newInstance(Cluster.class);
-        Unmarshaller unm = clusterConf.createUnmarshaller();
-        Cluster cl = (Cluster) unm.unmarshal(tmp);
-        String ccIp = cl.getMasterNode().getClientIp();
-        return ccIp;
-        }
-        catch (IOException | JAXBException e){
+    public static String getCCHostname(String instanceName, Configuration conf) throws YarnException {
+        try {
+            FileSystem fs = FileSystem.get(conf);
+            String instanceFolder = instanceName + "/";
+            String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
+            Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
+            File tmp = File.createTempFile("cluster-config", "xml");
+            tmp.deleteOnExit();
+            fs.copyToLocalFile(dstConf, new Path(tmp.getPath()));
+            JAXBContext clusterConf = JAXBContext.newInstance(Cluster.class);
+            Unmarshaller unm = clusterConf.createUnmarshaller();
+            Cluster cl = (Cluster) unm.unmarshal(tmp);
+            String ccIp = cl.getMasterNode().getClientIp();
+            return ccIp;
+        } catch (IOException | JAXBException e) {
             throw new YarnException(e);
         }
     }
