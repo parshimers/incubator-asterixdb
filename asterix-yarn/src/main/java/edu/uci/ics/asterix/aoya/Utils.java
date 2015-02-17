@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.ConnectException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 import java.util.regex.Pattern;
 
@@ -114,7 +116,12 @@ public class Utils {
         GetMethod method = new GetMethod(url);
         method.setQueryString(new NameValuePair[] { new NameValuePair("query", test) });
         int status = 0;
-        InputStream response = executeHTTPCall(method, status);
+        InputStream response;
+        try {
+            response = executeHTTPCall(method, status);
+        } catch (ConnectException e) {
+            return false;
+        }
         if (response == null) {
             return false;
         }
@@ -215,18 +222,33 @@ public class Utils {
      * @throws IOException
      */
     public static void listBackups(Configuration conf, String confDirRel, String instance) throws IOException {
-        FileSystem fs = FileSystem.get(conf);
-        Path backupFolder = new Path(fs.getHomeDirectory(), confDirRel + "/" + instance + "/" + "backups");
-        FileStatus[] backups = fs.listStatus(backupFolder);
-        if (backups.length != 0) {
+        List<String> backups = getBackups(conf,confDirRel,instance);
+        if (backups.size() != 0) {
             System.out.println("Backups for instance " + instance + ": ");
         } else {
             System.out.println("No backups found for instance " + instance + ".");
         }
-        for (FileStatus f : backups) {
-            String name = f.getPath().getName();
+        for (String name : backups) {
             System.out.println("Backup: " + name);
         }
+    }
+   /**
+    * Return the available snapshot names 
+    * @param conf 
+    * @param confDirRel
+    * @param instance
+    * @return
+    * @throws IOException
+    */
+    public static List<String> getBackups(Configuration conf, String confDirRel, String instance) throws IOException{
+        FileSystem fs = FileSystem.get(conf);
+        Path backupFolder = new Path(fs.getHomeDirectory(), confDirRel + "/" + instance + "/" + "backups");
+        FileStatus[] backups = fs.listStatus(backupFolder);
+        List<String> backupNames = new ArrayList<String>();
+        for(FileStatus f: backups){
+            backupNames.add(f.getPath().getName());
+        }
+        return backupNames;
     }
 
     /**

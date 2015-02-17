@@ -322,13 +322,22 @@ public class AsterixApplicationMaster {
         asterixConfLen = Long.parseLong(envs.get(AConstants.CONFLEN));
 
         instanceConfPath = envs.get(AConstants.INSTANCESTORE);
-        appMasterJar = new Path(envs.get(AConstants.APPLICATIONMASTERJARLOCATION));
+        //the only time this is null is during testing, when asterix-yarn isn't packaged in a JAR yet. 
+        appMasterJar = envs.get(AConstants.APPLICATIONMASTERJARLOCATION) != null ? new Path(
+                envs.get(AConstants.APPLICATIONMASTERJARLOCATION)) : null;
+
+        //appMasterJar = new Path(envs.get(AConstants.APPLICATIONMASTERJARLOCATION));
         dfsBasePath = envs.get(AConstants.DFS_BASE);
         //If the NM has an odd environment where the proper hadoop XML configs dont get imported, we can end up not being able to talk to the RM
         // this solves that!
-        conf.set("yarn.resourcemanager.address", envs.get(AConstants.RMADDRESS));
-        conf.set("yarn.resourcemanager.scheduler.address", envs.get(AConstants.RMSCHEDULERADDRESS));
-        LOG.info("RM Address: " + envs.get(AConstants.RMADDRESS));
+        //in a testing environment these can be null however. 
+        if (envs.get(AConstants.RMADDRESS) != null) {
+            conf.set("yarn.resourcemanager.address", envs.get(AConstants.RMADDRESS));
+            LOG.info("RM Address: " + envs.get(AConstants.RMADDRESS));
+        }
+        if (envs.get(AConstants.RMADDRESS) != null) {
+            conf.set("yarn.resourcemanager.scheduler.address", envs.get(AConstants.RMSCHEDULERADDRESS));
+        }
 
         LOG.info("Path suffix: " + instanceConfPath);
     }
@@ -338,7 +347,7 @@ public class AsterixApplicationMaster {
             localizeDFSResources();
             clusterDesc = Utils.parseYarnClusterConfig(CLUSTER_DESC_PATH);
             cC = clusterDesc.getMasterNode();
-            appMasterTrackingUrl = "http://" + cC.getClientIp() + ":" + cC.getClientPort() + "/";
+            appMasterTrackingUrl = "http://" + cC.getClientIp() + ":" + cC.getClientPort() + Path.SEPARATOR;
             distributeAsterixConfig();
             //now let's read what's in there so we can set the JVM opts right
             LOG.debug("config file loc: " + System.getProperty(GlobalConfig.CONFIG_FILE_PROPERTY));
@@ -477,6 +486,10 @@ public class AsterixApplicationMaster {
     private void localizeDFSResources() throws IOException {
         //if performing an 'offline' task, skip a lot of resource distribution
         if (obliterate || backup || restore) {
+            //this can happen in a jUnit testing environment. we don't need to set it there. 
+            if (appMasterJar == null || ("").equals(appMasterJar)) {
+                return;
+            }
             FileSystem fs = FileSystem.get(conf);
             FileStatus appMasterJarStatus = fs.getFileStatus(appMasterJar);
             LocalResource obliteratorJar = Records.newRecord(LocalResource.class);
@@ -527,7 +540,7 @@ public class AsterixApplicationMaster {
         //now add the libraries if there are any
         try {
             FileSystem fs = FileSystem.get(conf);
-            Path p = new Path(dfsBasePath, instanceConfPath + "library/");
+            Path p = new Path(dfsBasePath, instanceConfPath + "library" + Path.SEPARATOR);
             if (fs.exists(p)) {
                 FileStatus[] dataverses = fs.listStatus(p);
                 for (FileStatus d : dataverses) {
@@ -543,7 +556,7 @@ public class AsterixApplicationMaster {
                         lr.setTimestamp(l.getModificationTime());
                         lr.setType(LocalResourceType.ARCHIVE);
                         lr.setVisibility(LocalResourceVisibility.PRIVATE);
-                        localResources.put("library/" + d.getPath().getName() + "/"
+                        localResources.put("library" + Path.SEPARATOR + d.getPath().getName() + Path.SEPARATOR
                                 + l.getPath().getName().split("\\.")[0], lr);
                         LOG.info("Found library: " + l.getPath().toString());
                         LOG.info(l.getPath().getName());
@@ -987,13 +1000,13 @@ public class AsterixApplicationMaster {
             vargs.add("-cp " + classPathEnv.toString());
             vargs.add(OBLITERATOR_CLASSNAME);
             for (String s : iodevices) {
-                vargs.add(s + clusterDesc.getStore());
+                vargs.add(s + File.separator + clusterDesc.getStore());
                 LOG.debug("Deleting from: " + s);
                 //logs only exist on 1st iodevice
                 if (iodevices.indexOf(s) == 0) {
                     vargs.add(clusterDesc.getTxnLogDir() + "txnLogs" + File.separator);
                     LOG.debug("Deleting logs from: " + clusterDesc.getTxnLogDir());
-                    vargs.add(s + "asterix_root_metadata");
+                    vargs.add(s + File.separator + "asterix_root_metadata");
                 }
             }
             vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + File.separator + "stdout");
@@ -1039,7 +1052,15 @@ public class AsterixApplicationMaster {
             vargs.add("-cp " + classPathEnv.toString());
             vargs.add(HDFS_BACKUP_CLASSNAME);
             vargs.add("-backup");
-            String dstBase = instanceConfPath + "backups" + "/" + backupTimestamp + "/" + local.getId();
+
+            String dstBase = instanceConfPath + "backups" + Path.SEPARATOR + backupTimestamp + Path.SEPARATOR
+                    + local.getId();
+            try {
+                createBackupFolder(dstBase);
+            } catch (IOException e) {
+                //something very bad happened- return null to cause attempt to abort
+                return null;
+            }
             for (String s : iodevices) {
                 List<String> ioComponents = Arrays.asList(s.split("\\/"));
                 StringBuilder dst = new StringBuilder().append(dstBase);
@@ -1049,18 +1070,18 @@ public class AsterixApplicationMaster {
                         dst.append("_");
                     }
                 }
-                dst.append("/");
-                vargs.add(s + clusterDesc.getStore() + "," + dst);
+                dst.append(Path.SEPARATOR);
+                vargs.add(s + File.separator + clusterDesc.getStore() + "," + dst);
                 LOG.debug("Backing up from: " + s);
                 //logs only exist on 1st iodevice
                 if (iodevices.indexOf(s) == 0) {
                     vargs.add(clusterDesc.getTxnLogDir() + "txnLogs" + File.separator + "," + dst);
 
                     LOG.debug("Backing up logs from: " + clusterDesc.getTxnLogDir());
-                    vargs.add(s + "asterix_root_metadata" + "," + dst);
+                    vargs.add(s + File.separator + "asterix_root_metadata" + "," + dst);
                 }
             }
-            LOG.debug("Backing up to: " + instanceConfPath + "backups" + "/" + local.getId());
+            LOG.debug("Backing up to: " + instanceConfPath + "backups" + Path.SEPARATOR + local.getId());
 
             vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + File.separator + "stdout");
             vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + File.separator + "stderr");
@@ -1070,6 +1091,12 @@ public class AsterixApplicationMaster {
             }
             commands.add(command.toString());
             return commands;
+        }
+
+        private void createBackupFolder(String path) throws IOException {
+            FileSystem fs = FileSystem.get(conf);
+            Path backupFolder = new Path(path);
+            fs.mkdirs(backupFolder);
         }
 
         private List<String> produceRestoreCommand(Container container) {
@@ -1110,7 +1137,8 @@ public class AsterixApplicationMaster {
             vargs.add("-cp " + classPathEnv.toString());
             vargs.add(HDFS_BACKUP_CLASSNAME);
             vargs.add("-restore");
-            String srcBase = instanceConfPath + "backups" + "/" + Long.parseLong(snapName) + "/" + local.getId();
+            String srcBase = instanceConfPath + "backups" + Path.SEPARATOR + Long.parseLong(snapName) + Path.SEPARATOR
+                    + local.getId();
             for (String s : iodevices) {
                 List<String> ioComponents = Arrays.asList(s.split("\\/"));
                 StringBuilder src = new StringBuilder().append(srcBase);
@@ -1120,14 +1148,14 @@ public class AsterixApplicationMaster {
                         src.append("_");
                     }
                 }
-                src.append("/");
+                src.append(Path.SEPARATOR);
                 try {
                     FileSystem fs = FileSystem.get(conf);
                     FileStatus[] backups = fs.listStatus(new Path(src.toString()));
                     for (FileStatus b : backups) {
                         if (!b.getPath().toString().contains("txnLogs")
                                 && !b.getPath().toString().contains("asterix_root_metadata")) {
-                            vargs.add(b.getPath() + "," + s + clusterDesc.getStore());
+                            vargs.add(b.getPath() + "," + s + File.separator + clusterDesc.getStore());
                         }
                     }
                 } catch (IOException e) {
@@ -1140,10 +1168,10 @@ public class AsterixApplicationMaster {
                     vargs.add(src + "txnLogs" + File.separator + "," + clusterDesc.getTxnLogDir() + File.separator);
 
                     LOG.debug("Restoring logs from: " + clusterDesc.getTxnLogDir());
-                    vargs.add(src + "asterix_root_metadata" + "," + s);
+                    vargs.add(src + "asterix_root_metadata" + "," + s + File.separator);
                 }
             }
-            LOG.debug("Restoring to: " + instanceConfPath + "backups" + "/" + local.getId());
+            LOG.debug("Restoring to: " + instanceConfPath + "backups" + Path.SEPARATOR + local.getId());
 
             vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + File.separator + "stdout");
             vargs.add("2>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + File.separator + "stderr");

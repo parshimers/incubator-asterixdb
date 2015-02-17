@@ -129,7 +129,7 @@ public class AsterixYARNClient {
     private static final String JAVA_HOME = System.getProperty("java.home");
     private Mode mode = Mode.NOOP;
 
-    // Configuration
+    // Hadoop Configuration
     private Configuration conf;
     private YarnClient yarnClient;
     // Application master specific info to register a new Application with
@@ -199,7 +199,7 @@ public class AsterixYARNClient {
         YarnClientApplication app;
         List<DFSResourceCoordinate> res;
 
-        System.out.println("JAVA HOME: "+JAVA_HOME);
+        System.out.println("JAVA HOME: " + JAVA_HOME);
         switch (client.mode) {
             case START:
                 startAction(client);
@@ -364,7 +364,7 @@ public class AsterixYARNClient {
                 "If starting an existing instance, this will replace them with the local copy on startup"));
         opts.addOption(new Option("appId", true, "ApplicationID to monitor if running client in status monitor mode"));
         opts.addOption(new Option("masterLibsDir", true, "Directory that contains the JARs needed to run the AM"));
-        opts.addOption(new Option("snapshot", true,
+        opts.addOption(new Option("s", "snapshot", true,
                 "Backup timestamp for arguments requiring a specific backup (rm, restore)"));
         opts.addOption(new Option("v", "debug", false, "Dump out debug information"));
         opts.addOption(new Option("help", false, "Print usage"));
@@ -387,11 +387,10 @@ public class AsterixYARNClient {
     }
 
     /**
-     * Parse command line options
+     * Initialize the client's arguments and parameters before execution.
      * 
      * @param args
-     *            Parsed command line options
-     * @return Whether the init was successful to run the client
+     *            - Standard command-line arguments.
      * @throws ParseException
      */
     public void init(String[] args) throws ParseException {
@@ -445,6 +444,14 @@ public class AsterixYARNClient {
 
     }
 
+    /**
+     * Cursory sanity checks for argument sanity, without considering the mode of the client
+     * 
+     * @param args
+     * @param cliParser
+     *            The parsed arguments.
+     * @throws ParseException
+     */
     private void checkConfSanity(String[] args, CommandLine cliParser) throws ParseException {
         String message = null;
 
@@ -465,6 +472,13 @@ public class AsterixYARNClient {
 
     }
 
+    /**
+     * Initialize the mode of the client from the arguments.
+     * 
+     * @param args
+     * @param cliParser
+     * @throws ParseException
+     */
     private void initMode(String[] args, CommandLine cliParser) throws ParseException {
         @SuppressWarnings("unchecked")
         List<String> clientVerb = cliParser.getArgList();
@@ -486,6 +500,16 @@ public class AsterixYARNClient {
             mode = Mode.NOOP;
         }
     }
+
+    /**
+     * Determine if the command line arguments are sufficient for the requested client mode.
+     * 
+     * @param args
+     *            The command line arguments.
+     * @param cliParser
+     *            Parsed command line arguments.
+     * @throws ParseException
+     */
 
     private void checkModeSanity(String[] args, CommandLine cliParser) throws ParseException {
 
@@ -512,6 +536,11 @@ public class AsterixYARNClient {
 
     }
 
+    /**
+     * Find the distributable asterix bundle, be it in the default location or in a user-specified location.
+     * 
+     * @return
+     */
     private File getAsterixDistributableLocation() {
         //Look in the PWD for the "asterix" folder
         File tarDir = new File("asterix");
@@ -529,9 +558,9 @@ public class AsterixYARNClient {
     }
 
     /**
-     * Main run function for the client
+     * Initialize and register the application attempt with the YARN ResourceManager.
      * 
-     * @return true if application completed successfully
+     * @return
      * @throws IOException
      * @throws YarnException
      */
@@ -581,6 +610,13 @@ public class AsterixYARNClient {
         return app;
     }
 
+    /**
+     * Upload the Asterix cluster description on to the DFS. This will persist the state of the instance.
+     * 
+     * @return
+     * @throws YarnException
+     * @throws IOException
+     */
     private List<DFSResourceCoordinate> deployConfig() throws YarnException, IOException {
 
         FileSystem fs = FileSystem.get(conf);
@@ -612,6 +648,12 @@ public class AsterixYARNClient {
 
     }
 
+    /**
+     * Install the current Asterix parameters to the DFS. This can be modified via alter.
+     * 
+     * @throws YarnException
+     * @throws IOException
+     */
     private void installConfig() throws YarnException, IOException {
         FileSystem fs = FileSystem.get(conf);
         String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
@@ -642,7 +684,8 @@ public class AsterixYARNClient {
             throw new IllegalStateException("Instance " + instanceName
                     + " is running. Please stop it before installing any libraries.");
         }
-        String libPathSuffix = CONF_DIR_REL + instanceFolder + "library/" + libDataverse + '/';
+        String libPathSuffix = CONF_DIR_REL + instanceFolder + "library" + Path.SEPARATOR + libDataverse
+                + Path.SEPARATOR;
         Path src = new Path(extLibs);
         String fullLibPath = libPathSuffix + src.getName();
         Path libFilePath = new Path(fs.getHomeDirectory(), fullLibPath);
@@ -653,11 +696,12 @@ public class AsterixYARNClient {
     private List<DFSResourceCoordinate> installAmLibs() throws IllegalStateException, IOException {
         List<DFSResourceCoordinate> resources = new ArrayList<DFSResourceCoordinate>(2);
         FileSystem fs = FileSystem.get(conf);
-        String fullLibPath = CONF_DIR_REL + instanceFolder + "am_jars/";
+        String fullLibPath = CONF_DIR_REL + instanceFolder + "am_jars" + Path.SEPARATOR;
         String[] cp = System.getProperty("java.class.path").split(System.getProperty("path.separator"));
         String asterixJarPattern = "^(asterix).*(jar)$"; //starts with asterix,ends with jar
         String commonsJarPattern = "^(commons).*(jar)$";
-        String surefireJarPattern = "^(surefire).*(jar)$"; //for tests
+        String surefireJarPattern = "^(surefire).*(jar)$"; //for maven tests
+        String jUnitTestPattern = "^(asterix-yarn" + File.separator + "target)$";
 
         LOG.info(File.separator);
         for (String j : cp) {
@@ -667,7 +711,7 @@ public class AsterixYARNClient {
             if (pathComponents[pathComponents.length - 1].matches(asterixJarPattern)
                     || pathComponents[pathComponents.length - 1].matches(commonsJarPattern)
                     || pathComponents[pathComponents.length - 1].matches(surefireJarPattern)) {
-                LOG.info("Loading JAR: " + j);
+                LOG.info("Loading JAR/classpath: " + j);
                 File f = new File(j);
                 Path dst = new Path(fs.getHomeDirectory(), fullLibPath + f.getName());
                 if (!fs.exists(dst) || refresh) {
@@ -688,12 +732,10 @@ public class AsterixYARNClient {
                     amLibCoord.envs.put(Long.toString(dstSt.getLen()), AConstants.APPLICATIONMASTERJARLEN);
                     amLibCoord.envs.put(Long.toString(dstSt.getModificationTime()),
                             AConstants.APPLICATIONMASTERJARTIMESTAMP);
-                    amLibCoord.envs.put(conf.get("yarn.resourcemanager.address"), AConstants.RMADDRESS);
-                    amLibCoord.envs.put(conf.get("yarn.resourcemanager.scheduler.address"),
-                            AConstants.RMSCHEDULERADDRESS);
                 }
                 resources.add(amLibCoord);
             }
+
         }
         if (resources.size() == 0) {
             throw new IOException("Required JARs are missing. Please check your directory structure");
@@ -780,6 +822,20 @@ public class AsterixYARNClient {
         return resources;
     }
 
+    /**
+     * Submits the request to start the AsterixApplicationMaster to the YARN ResourceManager.
+     * 
+     * @param app
+     *            The application attempt handle.
+     * @param resources
+     *            Resources to be distributed as part of the container launch
+     * @param mode
+     *            The mode of the ApplicationMaster
+     * @return The application ID of the new Asterix instance.
+     * @throws IOException
+     * @throws YarnException
+     */
+
     public ApplicationId deployAM(YarnClientApplication app, List<DFSResourceCoordinate> resources, Mode mode)
             throws IOException, YarnException {
 
@@ -811,6 +867,9 @@ public class AsterixYARNClient {
                 env.put(e.getValue(), e.getKey());
             }
         }
+        //this is needed for when the RM address isn't known from the environment of the AM
+        env.put(AConstants.RMADDRESS, conf.get("yarn.resourcemanager.address"));
+        env.put(AConstants.RMSCHEDULERADDRESS, conf.get("yarn.resourcemanager.scheduler.address"));
         ///add miscellaneous environment variables.
         env.put(AConstants.INSTANCESTORE, CONF_DIR_REL + instanceFolder);
         env.put(AConstants.DFS_BASE, FileSystem.get(conf).getHomeDirectory().toUri().toString());

@@ -53,7 +53,6 @@ import edu.uci.ics.asterix.common.configuration.AsterixConfiguration;
 import edu.uci.ics.asterix.testframework.context.TestCaseContext;
 
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
-
 public class AsterixYARNLifecycleIT {
 
     private static final int NUM_NC = 1;
@@ -104,7 +103,7 @@ public class AsterixYARNLifecycleIT {
         YARNCluster.getInstance().setup();
         miniCluster = YARNCluster.getInstance().getCluster();
         Cluster defaultConfig = Utils.parseYarnClusterConfig(configPath);
-        for(Node n: defaultConfig.getNode()){
+        for (Node n : defaultConfig.getNode()) {
             n.setClusterIp(MiniYARNCluster.getHostname());
         }
         defaultConfig.getMasterNode().setClusterIp(MiniYARNCluster.getHostname());
@@ -147,7 +146,8 @@ public class AsterixYARNLifecycleIT {
 
     @Test
     public void test_1_InstallActiveInstance() throws Exception {
-        String command ="-n " + INSTANCE_NAME + " -c " + configPath + " -bc " + parameterPath +" -zip " + aoyaServerPath + " install";
+        String command = "-n " + INSTANCE_NAME + " -c " + configPath + " -bc " + parameterPath + " -zip "
+                + aoyaServerPath + " install";
 
         AsterixYARNClient aoyaClient = new AsterixYARNClient(appConf);
         aoyaClient.init(command.split(" "));
@@ -161,18 +161,55 @@ public class AsterixYARNLifecycleIT {
         aoyaClient.init(command.split(" "));
         AsterixYARNClient.execute(aoyaClient);
     }
+//FIXME: Issue with Hadoop Config not being propagated right. DFS assumes root is PWD for some reason. 
+//    @Test
+//    public void test_3_BackupInActiveInstance() throws Exception {
+//        String command = "-n " + INSTANCE_NAME + " -zip " + aoyaServerPath + " -f" + " backup";
+//        AsterixYARNClient aoyaClient = new AsterixYARNClient(appConf);
+//        aoyaClient.init(command.split(" "));
+//        AsterixYARNClient.execute(aoyaClient);
+//    }
 
     @Test
-    public void test_3_StartActiveInstance() throws Exception {
+    public void test_4_StartActiveInstance() throws Exception {
         String command = "-n " + INSTANCE_NAME + " start";
         AsterixYARNClient aoyaClient = new AsterixYARNClient(appConf);
         aoyaClient.init(command.split(" "));
         AsterixYARNClient.execute(aoyaClient);
     }
 
+//    @Test
+//    public void test_5_KillActiveInstance() throws Exception {
+//        String command = "-n " + INSTANCE_NAME + " -f" + " strap";
+//        AsterixYARNClient aoyaClient = new AsterixYARNClient(appConf);
+//        aoyaClient.init(command.split(" "));
+//        AsterixYARNClient.execute(aoyaClient);
+//    }
+//FIXME: see line 164.
+//    @Test
+//    public void test_6_RestoreInActiveInstance() throws Exception {
+//        List<String> backupNames = Utils.getBackups(appConf, ".asterix" + File.separator, INSTANCE_NAME);
+//        if (backupNames.size() != 1) {
+//            throw new IllegalStateException();
+//        }
+//        String command = "-n " + INSTANCE_NAME + " -zip " + aoyaServerPath + " -s" + backupNames.get(0) + " -f"
+//                + " restore";
+//        AsterixYARNClient aoyaClient = new AsterixYARNClient(appConf);
+//        aoyaClient.init(command.split(" "));
+//        AsterixYARNClient.execute(aoyaClient);
+//    }
+
+//    @Test
+//    public void test_7_StartRestoredInstance() throws Exception {
+//        String command = "-n " + INSTANCE_NAME + " start";
+//        AsterixYARNClient aoyaClient = new AsterixYARNClient(appConf);
+//        aoyaClient.init(command.split(" "));
+//        AsterixYARNClient.execute(aoyaClient);
+//    }
+
     @Test
-    public void test_4_DeleteActiveInstance() throws Exception {
-        String command = "-n " + INSTANCE_NAME +" -zip " + aoyaServerPath  +" -f" + " destroy";
+    public void test_8_DeleteActiveInstance() throws Exception {
+        String command = "-n " + INSTANCE_NAME + " -zip " + aoyaServerPath + " -f" + " destroy";
         AsterixYARNClient aoyaClient = new AsterixYARNClient(appConf);
         aoyaClient.init(command.split(" "));
         AsterixYARNClient.execute(aoyaClient);
