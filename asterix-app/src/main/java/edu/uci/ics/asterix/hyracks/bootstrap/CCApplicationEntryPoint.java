@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,10 +20,10 @@ import java.util.logging.Logger;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.util.component.AbstractLifeCycle;
 
 import edu.uci.ics.asterix.api.http.servlet.APIServlet;
 import edu.uci.ics.asterix.api.http.servlet.AQLAPIServlet;
-import edu.uci.ics.asterix.api.http.servlet.ShutdownAPIServlet;
 import edu.uci.ics.asterix.api.http.servlet.DDLAPIServlet;
 import edu.uci.ics.asterix.api.http.servlet.FeedDashboardServlet;
 import edu.uci.ics.asterix.api.http.servlet.FeedDataProviderServlet;
@@ -47,138 +47,131 @@ import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
 import edu.uci.ics.hyracks.api.lifecycle.LifeCycleComponentManager;
 
 public class CCApplicationEntryPoint implements ICCApplicationEntryPoint {
-	private static final Logger LOGGER = Logger
-			.getLogger(CCApplicationEntryPoint.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(CCApplicationEntryPoint.class.getName());
 
-	private static final String HYRACKS_CONNECTION_ATTR = "edu.uci.ics.asterix.HYRACKS_CONNECTION";
+    private static final String HYRACKS_CONNECTION_ATTR = "edu.uci.ics.asterix.HYRACKS_CONNECTION";
 
-	private Server webServer;
-	private Server jsonAPIServer;
-	private Server feedServer;
+    private Server webServer;
+    private Server jsonAPIServer;
+    private Server feedServer;
 
-	private static IAsterixStateProxy proxy;
-	private ICCApplicationContext appCtx;
+    private static IAsterixStateProxy proxy;
+    private ICCApplicationContext appCtx;
 
-	@Override
-	public void start(ICCApplicationContext ccAppCtx, String[] args)
-			throws Exception {
-		this.appCtx = ccAppCtx;
+    @Override
+    public void start(ICCApplicationContext ccAppCtx, String[] args) throws Exception {
+        this.appCtx = ccAppCtx;
 
-		if (LOGGER.isLoggable(Level.INFO)) {
-			LOGGER.info("Starting Asterix cluster controller");
-		}
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Starting Asterix cluster controller");
+        }
 
-		appCtx.setThreadFactory(new AsterixThreadFactory(
-				new LifeCycleComponentManager()));
-		AsterixAppContextInfo.initialize(appCtx,
-				getNewHyracksClientConnection());
+        appCtx.setThreadFactory(new AsterixThreadFactory(new LifeCycleComponentManager()));
+        AsterixAppContextInfo.initialize(appCtx, getNewHyracksClientConnection());
 
-		proxy = AsterixStateProxy.registerRemoteObject();
-		appCtx.setDistributedState(proxy);
+        proxy = AsterixStateProxy.registerRemoteObject();
+        appCtx.setDistributedState(proxy);
 
-		AsterixMetadataProperties metadataProperties = AsterixAppContextInfo
-				.getInstance().getMetadataProperties();
-		MetadataManager.INSTANCE = new MetadataManager(proxy,
-				metadataProperties);
+        AsterixMetadataProperties metadataProperties = AsterixAppContextInfo.getInstance().getMetadataProperties();
+        MetadataManager.INSTANCE = new MetadataManager(proxy, metadataProperties);
 
-		AsterixAppContextInfo.getInstance().getCCApplicationContext()
-				.addJobLifecycleListener(FeedLifecycleListener.INSTANCE);
+        AsterixAppContextInfo.getInstance().getCCApplicationContext()
+                .addJobLifecycleListener(FeedLifecycleListener.INSTANCE);
 
-		AsterixExternalProperties externalProperties = AsterixAppContextInfo
-				.getInstance().getExternalProperties();
-		setupWebServer(externalProperties);
-		webServer.start();
+        AsterixExternalProperties externalProperties = AsterixAppContextInfo.getInstance().getExternalProperties();
+        setupWebServer(externalProperties);
+        webServer.start();
 
-		setupJSONAPIServer(externalProperties);
-		jsonAPIServer.start();
-		ExternalLibraryBootstrap.setUpExternaLibraries(false);
+        setupJSONAPIServer(externalProperties);
+        jsonAPIServer.start();
+        ExternalLibraryBootstrap.setUpExternaLibraries(false);
 
-		setupFeedServer(externalProperties);
-		feedServer.start();
+        setupFeedServer(externalProperties);
+        feedServer.start();
+        
+        waitUntilServerStart(webServer);
+        waitUntilServerStart(jsonAPIServer);
+        waitUntilServerStart(feedServer);
 
-		AsterixGlobalRecoveryManager.INSTANCE = new AsterixGlobalRecoveryManager((HyracksConnection) getNewHyracksClientConnection());
-		ClusterManager.INSTANCE.registerSubscriber(AsterixGlobalRecoveryManager.INSTANCE);
-		
-		ccAppCtx.addClusterLifecycleListener(ClusterLifecycleListener.INSTANCE);
-	}
+        AsterixGlobalRecoveryManager.INSTANCE = new AsterixGlobalRecoveryManager(
+                (HyracksConnection) getNewHyracksClientConnection());
+        ClusterManager.INSTANCE.registerSubscriber(AsterixGlobalRecoveryManager.INSTANCE);
 
-	@Override
-	public void stop() throws Exception {
-		if (LOGGER.isLoggable(Level.INFO)) {
-			LOGGER.info("Stopping Asterix cluster controller");
-		}
-		AsterixStateProxy.unregisterRemoteObject();
+        ccAppCtx.addClusterLifecycleListener(ClusterLifecycleListener.INSTANCE);
+    }
 
-		webServer.stop();
-		jsonAPIServer.stop();
-	}
+    private void waitUntilServerStart(AbstractLifeCycle webServer) throws Exception{
+        while(!webServer.isStarted()){
+            if(webServer.isFailed()){
+                throw new Exception("Server failed to start");
+            }
+            wait(1000);
+        }
+    }
 
-	private IHyracksClientConnection getNewHyracksClientConnection()
-			throws Exception {
-		String strIP = appCtx.getCCContext().getClusterControllerInfo()
-				.getClientNetAddress();
-		int port = appCtx.getCCContext().getClusterControllerInfo()
-				.getClientNetPort();
-		return new HyracksConnection(strIP, port);
-	}
+    @Override
+    public void stop() throws Exception {
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Stopping Asterix cluster controller");
+        }
+        AsterixStateProxy.unregisterRemoteObject();
 
-	private void setupWebServer(AsterixExternalProperties externalProperties)
-			throws Exception {
+        webServer.stop();
+        jsonAPIServer.stop();
+    }
 
-		webServer = new Server(externalProperties.getWebInterfacePort());
+    private IHyracksClientConnection getNewHyracksClientConnection() throws Exception {
+        String strIP = appCtx.getCCContext().getClusterControllerInfo().getClientNetAddress();
+        int port = appCtx.getCCContext().getClusterControllerInfo().getClientNetPort();
+        return new HyracksConnection(strIP, port);
+    }
 
-		ServletContextHandler context = new ServletContextHandler(
-				ServletContextHandler.SESSIONS);
-		context.setContextPath("/");
+    private void setupWebServer(AsterixExternalProperties externalProperties) throws Exception {
 
-		IHyracksClientConnection hcc = getNewHyracksClientConnection();
-		context.setAttribute(HYRACKS_CONNECTION_ATTR, hcc);
+        webServer = new Server(externalProperties.getWebInterfacePort());
 
-		webServer.setHandler(context);
-		context.addServlet(new ServletHolder(new APIServlet()), "/*");
-	}
+        ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
+        context.setContextPath("/");
 
-	private void setupJSONAPIServer(AsterixExternalProperties externalProperties)
-			throws Exception {
-		jsonAPIServer = new Server(externalProperties.getAPIServerPort());
+        IHyracksClientConnection hcc = getNewHyracksClientConnection();
+        context.setAttribute(HYRACKS_CONNECTION_ATTR, hcc);
 
-		ServletContextHandler context = new ServletContextHandler(
-				ServletContextHandler.SESSIONS);
-		context.setContextPath("/");
+        webServer.setHandler(context);
+        context.addServlet(new ServletHolder(new APIServlet()), "/*");
+    }
 
-		IHyracksClientConnection hcc = getNewHyracksClientConnection();
-		context.setAttribute(HYRACKS_CONNECTION_ATTR, hcc);
+    private void setupJSONAPIServer(AsterixExternalProperties externalProperties) throws Exception {
+        jsonAPIServer = new Server(externalProperties.getAPIServerPort());
 
-		jsonAPIServer.setHandler(context);
-		context.addServlet(new ServletHolder(new QueryAPIServlet()), "/query");
-		context.addServlet(new ServletHolder(new QueryStatusAPIServlet()),
-				"/query/status");
-		context.addServlet(new ServletHolder(new QueryResultAPIServlet()),
-				"/query/result");
-		context.addServlet(new ServletHolder(new UpdateAPIServlet()), "/update");
-		context.addServlet(new ServletHolder(new DDLAPIServlet()), "/ddl");
-		context.addServlet(new ServletHolder(new AQLAPIServlet()), "/aql");
-		context.addServlet(new ServletHolder(new ShutdownAPIServlet()), "/admin/shutdown");
-	}
+        ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
+        context.setContextPath("/");
 
-	private void setupFeedServer(AsterixExternalProperties externalProperties)
-			throws Exception {
-		feedServer = new Server(externalProperties.getFeedServerPort());
+        IHyracksClientConnection hcc = getNewHyracksClientConnection();
+        context.setAttribute(HYRACKS_CONNECTION_ATTR, hcc);
 
-		ServletContextHandler context = new ServletContextHandler(
-				ServletContextHandler.SESSIONS);
-		context.setContextPath("/");
+        jsonAPIServer.setHandler(context);
+        context.addServlet(new ServletHolder(new QueryAPIServlet()), "/query");
+        context.addServlet(new ServletHolder(new QueryStatusAPIServlet()), "/query/status");
+        context.addServlet(new ServletHolder(new QueryResultAPIServlet()), "/query/result");
+        context.addServlet(new ServletHolder(new UpdateAPIServlet()), "/update");
+        context.addServlet(new ServletHolder(new DDLAPIServlet()), "/ddl");
+        context.addServlet(new ServletHolder(new AQLAPIServlet()), "/aql");
+    }
 
-		IHyracksClientConnection hcc = getNewHyracksClientConnection();
-		context.setAttribute(HYRACKS_CONNECTION_ATTR, hcc);
+    private void setupFeedServer(AsterixExternalProperties externalProperties) throws Exception {
+        feedServer = new Server(externalProperties.getFeedServerPort());
 
-		feedServer.setHandler(context);
-		context.addServlet(new ServletHolder(new FeedServlet()), "/");
-		context.addServlet(new ServletHolder(new FeedDashboardServlet()),
-				"/feed/dashboard");
-		context.addServlet(new ServletHolder(new FeedDataProviderServlet()),
-				"/feed/data");
+        ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
+        context.setContextPath("/");
 
-		// add paths here
-	}
+        IHyracksClientConnection hcc = getNewHyracksClientConnection();
+        context.setAttribute(HYRACKS_CONNECTION_ATTR, hcc);
+
+        feedServer.setHandler(context);
+        context.addServlet(new ServletHolder(new FeedServlet()), "/");
+        context.addServlet(new ServletHolder(new FeedDashboardServlet()), "/feed/dashboard");
+        context.addServlet(new ServletHolder(new FeedDataProviderServlet()), "/feed/data");
+
+        // add paths here
+    }
 }

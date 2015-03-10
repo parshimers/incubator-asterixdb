@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -86,6 +86,7 @@ import edu.uci.ics.asterix.om.typecomputer.impl.OptionalATimeTypeComputer;
 import edu.uci.ics.asterix.om.typecomputer.impl.OptionalAYearMonthDurationTypeComputer;
 import edu.uci.ics.asterix.om.typecomputer.impl.OrderedListConstructorResultType;
 import edu.uci.ics.asterix.om.typecomputer.impl.OrderedListOfAInt32TypeComputer;
+import edu.uci.ics.asterix.om.typecomputer.impl.OrderedListOfAInt64TypeComputer;
 import edu.uci.ics.asterix.om.typecomputer.impl.OrderedListOfAPointTypeComputer;
 import edu.uci.ics.asterix.om.typecomputer.impl.OrderedListOfAStringTypeComputer;
 import edu.uci.ics.asterix.om.typecomputer.impl.OrderedListOfAnyTypeComputer;
@@ -96,9 +97,9 @@ import edu.uci.ics.asterix.om.typecomputer.impl.Substring2TypeComputer;
 import edu.uci.ics.asterix.om.typecomputer.impl.SubstringTypeComputer;
 import edu.uci.ics.asterix.om.typecomputer.impl.TripleStringBoolOrNullTypeComputer;
 import edu.uci.ics.asterix.om.typecomputer.impl.TripleStringStringOrNullTypeComputer;
-import edu.uci.ics.asterix.om.typecomputer.impl.UnaryBinaryInt32OrNullTypeComputer;
+import edu.uci.ics.asterix.om.typecomputer.impl.UnaryBinaryInt64OrNullTypeComputer;
 import edu.uci.ics.asterix.om.typecomputer.impl.UnaryBooleanOrNullFunctionTypeComputer;
-import edu.uci.ics.asterix.om.typecomputer.impl.UnaryStringInt32OrNullTypeComputer;
+import edu.uci.ics.asterix.om.typecomputer.impl.UnaryStringInt64OrNullTypeComputer;
 import edu.uci.ics.asterix.om.typecomputer.impl.UnaryStringOrNullTypeComputer;
 import edu.uci.ics.asterix.om.typecomputer.impl.UnorderedListConstructorResultType;
 import edu.uci.ics.asterix.om.types.AOrderedListType;
@@ -632,6 +633,8 @@ public class AsterixBuiltinFunctions {
             "get-time-from-datetime", 1);
     public final static FunctionIdentifier DATETIME_FROM_UNIX_TIME_IN_MS = new FunctionIdentifier(
             FunctionConstants.ASTERIX_NS, "datetime-from-unix-time-in-ms", 1);
+    public final static FunctionIdentifier DATETIME_FROM_UNIX_TIME_IN_SECS = new FunctionIdentifier(
+            FunctionConstants.ASTERIX_NS, "datetime-from-unix-time-in-secs", 1);
     public final static FunctionIdentifier DATETIME_FROM_DATE_TIME = new FunctionIdentifier(
             FunctionConstants.ASTERIX_NS, "datetime-from-date-time", 2);
     public final static FunctionIdentifier CALENDAR_DURATION_FROM_DATETIME = new FunctionIdentifier(
@@ -745,7 +748,7 @@ public class AsterixBuiltinFunctions {
         addFunction(DURATION_CONSTRUCTOR, OptionalADurationTypeComputer.INSTANCE, true);
         addFunction(YEAR_MONTH_DURATION_CONSTRUCTOR, OptionalAYearMonthDurationTypeComputer.INSTANCE, true);
         addFunction(DAY_TIME_DURATION_CONSTRUCTOR, OptionalADayTimeDurationTypeComputer.INSTANCE, true);
-        addFunction(EDIT_DISTANCE, AInt32TypeComputer.INSTANCE, true);
+        addFunction(EDIT_DISTANCE, AInt64TypeComputer.INSTANCE, true);
         addFunction(EDIT_DISTANCE_CHECK, OrderedListOfAnyTypeComputer.INSTANCE, true);
         addPrivateFunction(EDIT_DISTANCE_STRING_IS_FILTERABLE, ABooleanTypeComputer.INSTANCE, true);
         addPrivateFunction(EDIT_DISTANCE_LIST_IS_FILTERABLE, ABooleanTypeComputer.INSTANCE, true);
@@ -782,7 +785,7 @@ public class AsterixBuiltinFunctions {
         addFunction(INT16_CONSTRUCTOR, OptionalAInt16TypeComputer.INSTANCE, true);
         addFunction(INT32_CONSTRUCTOR, OptionalAInt32TypeComputer.INSTANCE, true);
         addFunction(INT64_CONSTRUCTOR, OptionalAInt64TypeComputer.INSTANCE, true);
-        addFunction(LEN, OptionalAInt32TypeComputer.INSTANCE, true);
+        addFunction(LEN, OptionalAInt64TypeComputer.INSTANCE, true);
         addFunction(LIKE, BinaryBooleanOrNullFunctionTypeComputer.INSTANCE, true);
         addFunction(LINE_CONSTRUCTOR, OptionalALineTypeComputer.INSTANCE, true);
         addPrivateFunction(LISTIFY, OrderedListConstructorResultType.INSTANCE, true);
@@ -800,7 +803,7 @@ public class AsterixBuiltinFunctions {
         addPrivateFunction(NUMERIC_MULTIPLY, NonTaggedNumericAddSubMulDivTypeComputer.INSTANCE, true);
         addPrivateFunction(NUMERIC_DIVIDE, NonTaggedNumericAddSubMulDivTypeComputer.INSTANCE, true);
         addPrivateFunction(NUMERIC_MOD, NonTaggedNumericAddSubMulDivTypeComputer.INSTANCE, true);
-        addPrivateFunction(NUMERIC_IDIV, AInt32TypeComputer.INSTANCE, true);
+        addPrivateFunction(NUMERIC_IDIV, AInt64TypeComputer.INSTANCE, true);
 
         addFunction(NUMERIC_ABS, NonTaggedNumericUnaryFunctionTypeComputer.INSTANCE, true);
         addFunction(NUMERIC_CEILING, NonTaggedNumericUnaryFunctionTypeComputer.INSTANCE, true);
@@ -809,20 +812,20 @@ public class AsterixBuiltinFunctions {
         addFunction(NUMERIC_ROUND_HALF_TO_EVEN, NonTaggedNumericUnaryFunctionTypeComputer.INSTANCE, true);
         addFunction(NUMERIC_ROUND_HALF_TO_EVEN2, NonTaggedNumericRoundHalfToEven2TypeComputer.INSTANCE, true);
 
-        addFunction(BINARY_LENGTH, UnaryBinaryInt32OrNullTypeComputer.INSTANCE, true);
+        addFunction(BINARY_LENGTH, UnaryBinaryInt64OrNullTypeComputer.INSTANCE, true);
         addFunction(PARSE_BINARY, OptionalABinaryTypeComputer.INSTANCE, true);
         addFunction(PRINT_BINARY, OptionalAStringTypeComputer.INSTANCE, true);
         addFunction(BINARY_CONCAT, OptionalABinaryTypeComputer.INSTANCE, true);
         addFunction(SUBBINARY_FROM, OptionalABinaryTypeComputer.INSTANCE, true);
         addFunction(SUBBINARY_FROM_TO, OptionalABinaryTypeComputer.INSTANCE, true);
-        addFunction(FIND_BINARY, OptionalAInt32TypeComputer.INSTANCE, true);
-        addFunction(FIND_BINARY_FROM, OptionalAInt32TypeComputer.INSTANCE, true);
+        addFunction(FIND_BINARY, OptionalAInt64TypeComputer.INSTANCE, true);
+        addFunction(FIND_BINARY_FROM, OptionalAInt64TypeComputer.INSTANCE, true);
 
-        addFunction(STRING_TO_CODEPOINT, OrderedListOfAInt32TypeComputer.INSTANCE, true);
+        addFunction(STRING_TO_CODEPOINT, OrderedListOfAInt64TypeComputer.INSTANCE, true);
         addFunction(CODEPOINT_TO_STRING, AStringTypeComputer.INSTANCE, true);
         addFunction(STRING_CONCAT, OptionalAStringTypeComputer.INSTANCE, true);
         addFunction(SUBSTRING2, Substring2TypeComputer.INSTANCE, true);
-        addFunction(STRING_LENGTH, UnaryStringInt32OrNullTypeComputer.INSTANCE, true);
+        addFunction(STRING_LENGTH, UnaryStringInt64OrNullTypeComputer.INSTANCE, true);
         addFunction(STRING_LOWERCASE, UnaryStringOrNullTypeComputer.INSTANCE, true);
         addFunction(STRING_UPPERCASE, UnaryStringOrNullTypeComputer.INSTANCE, true);
         addFunction(STRING_START_WITH, BinaryStringBoolOrNullTypeComputer.INSTANCE, true);
@@ -842,7 +845,7 @@ public class AsterixBuiltinFunctions {
         addFunction(POINT3D_CONSTRUCTOR, OptionalAPoint3DTypeComputer.INSTANCE, true);
         addFunction(POLYGON_CONSTRUCTOR, OptionalAPolygonTypeComputer.INSTANCE, true);
         addPrivateFunction(PREFIX_LEN_JACCARD, AInt32TypeComputer.INSTANCE, true);
-        addFunction(RANGE, AInt32TypeComputer.INSTANCE, true);
+        addFunction(RANGE, AInt64TypeComputer.INSTANCE, true);
         addFunction(RECTANGLE_CONSTRUCTOR, OptionalARectangleTypeComputer.INSTANCE, true);
 
         // SQL Aggregate Functions
@@ -953,7 +956,7 @@ public class AsterixBuiltinFunctions {
         addPrivateFunction(CAST_RECORD, CastRecordResultTypeComputer.INSTANCE, true);
         addPrivateFunction(CAST_LIST, CastListResultTypeComputer.INSTANCE, true);
 
-        addFunction(TID, AInt32TypeComputer.INSTANCE, true);
+        addFunction(TID, AInt64TypeComputer.INSTANCE, true);
         addFunction(TIME_CONSTRUCTOR, OptionalATimeTypeComputer.INSTANCE, true);
         addPrivateFunction(TYPE_OF, null, true);
         addPrivateFunction(UNORDERED_LIST_CONSTRUCTOR, UnorderedListConstructorResultType.INSTANCE, true);
@@ -966,13 +969,13 @@ public class AsterixBuiltinFunctions {
         }, true);
 
         // temporal type accessors
-        addFunction(ACCESSOR_TEMPORAL_YEAR, OptionalAInt32TypeComputer.INSTANCE, true);
-        addFunction(ACCESSOR_TEMPORAL_MONTH, OptionalAInt32TypeComputer.INSTANCE, true);
-        addFunction(ACCESSOR_TEMPORAL_DAY, OptionalAInt32TypeComputer.INSTANCE, true);
-        addFunction(ACCESSOR_TEMPORAL_HOUR, OptionalAInt32TypeComputer.INSTANCE, true);
-        addFunction(ACCESSOR_TEMPORAL_MIN, OptionalAInt32TypeComputer.INSTANCE, true);
-        addFunction(ACCESSOR_TEMPORAL_SEC, OptionalAInt32TypeComputer.INSTANCE, true);
-        addFunction(ACCESSOR_TEMPORAL_MILLISEC, OptionalAInt32TypeComputer.INSTANCE, true);
+        addFunction(ACCESSOR_TEMPORAL_YEAR, OptionalAInt64TypeComputer.INSTANCE, true);
+        addFunction(ACCESSOR_TEMPORAL_MONTH, OptionalAInt64TypeComputer.INSTANCE, true);
+        addFunction(ACCESSOR_TEMPORAL_DAY, OptionalAInt64TypeComputer.INSTANCE, true);
+        addFunction(ACCESSOR_TEMPORAL_HOUR, OptionalAInt64TypeComputer.INSTANCE, true);
+        addFunction(ACCESSOR_TEMPORAL_MIN, OptionalAInt64TypeComputer.INSTANCE, true);
+        addFunction(ACCESSOR_TEMPORAL_SEC, OptionalAInt64TypeComputer.INSTANCE, true);
+        addFunction(ACCESSOR_TEMPORAL_MILLISEC, OptionalAInt64TypeComputer.INSTANCE, true);
         addFunction(ACCESSOR_TEMPORAL_INTERVAL_START, OptionalATemporalInstanceTypeComputer.INSTANCE, true);
         addFunction(ACCESSOR_TEMPORAL_INTERVAL_END, OptionalATemporalInstanceTypeComputer.INSTANCE, true);
 
@@ -983,6 +986,7 @@ public class AsterixBuiltinFunctions {
         addFunction(TIME_FROM_DATETIME, OptionalATimeTypeComputer.INSTANCE, true);
         addFunction(DATETIME_FROM_DATE_TIME, OptionalADateTimeTypeComputer.INSTANCE, true);
         addFunction(DATETIME_FROM_UNIX_TIME_IN_MS, OptionalADateTimeTypeComputer.INSTANCE, true);
+        addFunction(DATETIME_FROM_UNIX_TIME_IN_SECS, OptionalADateTimeTypeComputer.INSTANCE, true);
         addFunction(CALENDAR_DURATION_FROM_DATETIME, OptionalADurationTypeComputer.INSTANCE, true);
         addFunction(CALENDAR_DURATION_FROM_DATE, OptionalADurationTypeComputer.INSTANCE, true);
         addFunction(ADJUST_DATETIME_FOR_TIMEZONE, OptionalAStringTypeComputer.INSTANCE, true);
@@ -1010,12 +1014,12 @@ public class AsterixBuiltinFunctions {
         addPrivateFunction(DURATION_EQUAL, OptionalABooleanTypeComputer.INSTANCE, true);
         addFunction(DURATION_FROM_MONTHS, OptionalADurationTypeComputer.INSTANCE, true);
         addFunction(DURATION_FROM_MILLISECONDS, OptionalADurationTypeComputer.INSTANCE, true);
-        addFunction(MONTHS_FROM_YEAR_MONTH_DURATION, OptionalAInt32TypeComputer.INSTANCE, true);
+        addFunction(MONTHS_FROM_YEAR_MONTH_DURATION, OptionalAInt64TypeComputer.INSTANCE, true);
         addFunction(MILLISECONDS_FROM_DAY_TIME_DURATION, OptionalAInt64TypeComputer.INSTANCE, true);
         addFunction(GET_DAY_TIME_DURATION, OptionalADayTimeDurationTypeComputer.INSTANCE, true);
         addFunction(GET_YEAR_MONTH_DURATION, OptionalAYearMonthDurationTypeComputer.INSTANCE, true);
         addFunction(INTERVAL_BIN, OptionalAIntervalTypeComputer.INSTANCE, true);
-        addFunction(DAY_OF_WEEK, OptionalAInt32TypeComputer.INSTANCE, true);
+        addFunction(DAY_OF_WEEK, OptionalAInt64TypeComputer.INSTANCE, true);
         addFunction(PARSE_DATE, OptionalADateTypeComputer.INSTANCE, true);
         addFunction(PARSE_TIME, OptionalATimeTypeComputer.INSTANCE, true);
         addFunction(PARSE_DATETIME, OptionalADateTimeTypeComputer.INSTANCE, true);

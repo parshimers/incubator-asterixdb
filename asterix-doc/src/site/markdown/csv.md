@@ -57,9 +57,6 @@ that we have stored locally on the NC into our example dataset:
     (("path"="127.0.0.1:///tmp/my_sample.csv"),
      ("format"="delimited-text"));
 
-**Note:** Currently the CSV input parser only supports CSV data
-without headers.
-
 So, if the file `/tmp/my_sample.csv` contained
 
     1,18.50,"Peter Krabnitz"
@@ -67,8 +64,24 @@ So, if the file `/tmp/my_sample.csv` contained
 
 then the preceding query would load it into the dataset `csv_set`.
 
-CSV data may also be loaded from HDFS; see
-[Accessing External Data](aql/externaldata.html) for details.
+If your CSV file has a header (that is, the first line contains a set
+of field names, rather than actual data), you can instruct Asterix to
+ignore this header by adding the parameter `"header"="true"`, eg.
+
+    load dataset "csv_set" using localfs
+    (("path"="127.0.0.1:///tmp/my_header_sample.csv"),
+     ("format"="delimited-text"),
+     ("header"="true"));
+
+This is useful when the CSV file was produced from an earlier
+AsterixDB operation, as AsterixDB's CSV output always has a header
+line.
+
+CSV data may also be loaded from HDFS; see [Accessing External
+Data](aql/externaldata.html) for details.  However please note that
+CSV files on HDFS cannot have headers; attempting to specify
+"header"="true" when reading from HDFS could result in non-header
+lines of data being skipped as well.
 
 ## CSV Output
 

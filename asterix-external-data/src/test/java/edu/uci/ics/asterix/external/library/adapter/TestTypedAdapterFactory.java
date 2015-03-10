@@ -26,9 +26,15 @@ import edu.uci.ics.asterix.runtime.operators.file.AdmSchemafullRecordParserFacto
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksCountPartitionConstraint;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
 
 public class TestTypedAdapterFactory implements ITypedAdapterFactory {
+
+    /**
+     * 
+     */
+    private static final long serialVersionUID = 1L;
 
     public static final String NAME = "test_typed_adapter";
 
@@ -49,7 +55,7 @@ public class TestTypedAdapterFactory implements ITypedAdapterFactory {
         ARecordType outputType = null;
         try {
             outputType = new ARecordType("TestTypedAdapterOutputType", fieldNames, fieldTypes, false);
-        } catch (AsterixException exception) {
+        } catch (AsterixException | HyracksDataException exception) {
             throw new IllegalStateException("Unable to create output type for adapter " + NAME);
         }
         return outputType;
@@ -72,7 +78,7 @@ public class TestTypedAdapterFactory implements ITypedAdapterFactory {
 
     @Override
     public IDatasourceAdapter createAdapter(IHyracksTaskContext ctx, int partition) throws Exception {
-        ITupleParserFactory tupleParserFactory = new AdmSchemafullRecordParserFactory(adapterOutputType, false, -1, null);
+        ITupleParserFactory tupleParserFactory = new AdmSchemafullRecordParserFactory(adapterOutputType);
         return new TestTypedAdapter(tupleParserFactory, adapterOutputType, ctx, configuration);
     }
 
