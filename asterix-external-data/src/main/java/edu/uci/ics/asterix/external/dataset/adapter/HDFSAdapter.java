@@ -19,12 +19,8 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.Counters.Counter;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.RecordReader;
-import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.SequenceFileInputFormat;
 import org.apache.hadoop.mapred.TextInputFormat;
 import edu.uci.ics.asterix.external.adapter.factory.HDFSAdapterFactory;
@@ -34,7 +30,6 @@ import edu.uci.ics.asterix.external.indexing.input.TextualDataReader;
 import edu.uci.ics.asterix.external.indexing.input.TextualFullScanDataReader;
 import edu.uci.ics.asterix.metadata.entities.ExternalFile;
 import edu.uci.ics.asterix.om.types.IAType;
-import edu.uci.ics.hyracks.algebricks.common.exceptions.NotImplementedException;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
@@ -66,48 +61,6 @@ public class HDFSAdapter extends FileSystemBasedAdapter {
         this.nodeName = nodeName;
         this.files = files;
         this.configuration = configuration;
-    }
-
-    private Reporter getReporter() {
-        Reporter reporter = new Reporter() {
-
-            @Override
-            public Counter getCounter(Enum<?> arg0) {
-                return null;
-            }
-
-            @Override
-            public Counter getCounter(String arg0, String arg1) {
-                return null;
-            }
-
-            @Override
-            public InputSplit getInputSplit() throws UnsupportedOperationException {
-                return null;
-            }
-
-            @Override
-            public void incrCounter(Enum<?> arg0, long arg1) {
-            }
-
-            @Override
-            public void incrCounter(String arg0, String arg1, long arg2) {
-            }
-
-            @Override
-            public void setStatus(String arg0) {
-            }
-
-            @Override
-            public void progress() {
-            }
-            public float getProgress(){ 
-            	return 0.0f/0.0f;
-            }
-            
-        };
-
-        return reporter;
     }
 
     /*
