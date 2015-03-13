@@ -488,7 +488,7 @@ public class AsterixApplicationMaster {
         if (obliterate || backup || restore) {
             //this can happen in a jUnit testing environment. we don't need to set it there. 
             if (appMasterJar == null || ("").equals(appMasterJar)) {
-                return;
+                throw new IllegalStateException("AM jar not provided in environment.");
             }
             FileSystem fs = FileSystem.get(conf);
             FileStatus appMasterJarStatus = fs.getFileStatus(appMasterJar);
@@ -943,12 +943,14 @@ public class AsterixApplicationMaster {
                     if (iodevice == null) {
                         iodevice = clusterDesc.getIodevices();
                     }
+                    String storageSuffix = local.getStore() == null ? clusterDesc.getStore() : local.getStore();
+                    String storagePath = iodevice + File.separator + storageSuffix;
                     vargs.add(NcJavaOpts);
                     vargs.add(NC_CLASSNAME);
                     vargs.add("-app-nc-main-class edu.uci.ics.asterix.hyracks.bootstrap.NCApplicationEntryPoint");
                     vargs.add("-node-id " + local.getId());
                     vargs.add("-cc-host " + cC.getClusterIp());
-                    vargs.add("-iodevices " + iodevice);
+                    vargs.add("-iodevices " + storagePath);
                     vargs.add("-cluster-net-ip-address " + local.getClusterIp());
                     vargs.add("-data-ip-address " + local.getClusterIp());
                     vargs.add("-result-ip-address " + local.getClusterIp());
@@ -1006,7 +1008,6 @@ public class AsterixApplicationMaster {
                 if (iodevices.indexOf(s) == 0) {
                     vargs.add(clusterDesc.getTxnLogDir() + "txnLogs" + File.separator);
                     LOG.debug("Deleting logs from: " + clusterDesc.getTxnLogDir());
-                    vargs.add(s + File.separator + "asterix_root_metadata");
                 }
             }
             vargs.add("1>" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + File.separator + "stdout");
@@ -1075,10 +1076,8 @@ public class AsterixApplicationMaster {
                 LOG.debug("Backing up from: " + s);
                 //logs only exist on 1st iodevice
                 if (iodevices.indexOf(s) == 0) {
-                    vargs.add(clusterDesc.getTxnLogDir() + "txnLogs" + File.separator + "," + dst);
-
                     LOG.debug("Backing up logs from: " + clusterDesc.getTxnLogDir());
-                    vargs.add(s + File.separator + "asterix_root_metadata" + "," + dst);
+                    vargs.add(clusterDesc.getTxnLogDir() + "txnLogs" + File.separator + "," + dst);
                 }
             }
             LOG.debug("Backing up to: " + instanceConfPath + "backups" + Path.SEPARATOR + local.getId());
@@ -1154,7 +1153,7 @@ public class AsterixApplicationMaster {
                     FileStatus[] backups = fs.listStatus(new Path(src.toString()));
                     for (FileStatus b : backups) {
                         if (!b.getPath().toString().contains("txnLogs")
-                                && !b.getPath().toString().contains("asterix_root_metadata")) {
+                                && !b.getPath().toString().contains(File.separator + "asterix_root_metadata")) {
                             vargs.add(b.getPath() + "," + s + File.separator + clusterDesc.getStore());
                         }
                     }
@@ -1168,7 +1167,6 @@ public class AsterixApplicationMaster {
                     vargs.add(src + "txnLogs" + File.separator + "," + clusterDesc.getTxnLogDir() + File.separator);
 
                     LOG.debug("Restoring logs from: " + clusterDesc.getTxnLogDir());
-                    vargs.add(src + "asterix_root_metadata" + "," + s + File.separator);
                 }
             }
             LOG.debug("Restoring to: " + instanceConfPath + "backups" + Path.SEPARATOR + local.getId());

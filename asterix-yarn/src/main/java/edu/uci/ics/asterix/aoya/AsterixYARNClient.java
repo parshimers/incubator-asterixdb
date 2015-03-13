@@ -710,7 +710,8 @@ public class AsterixYARNClient {
             LOG.info(pathComponents[pathComponents.length - 1]);
             if (pathComponents[pathComponents.length - 1].matches(asterixJarPattern)
                     || pathComponents[pathComponents.length - 1].matches(commonsJarPattern)
-                    || pathComponents[pathComponents.length - 1].matches(surefireJarPattern)) {
+                    || pathComponents[pathComponents.length - 1].matches(surefireJarPattern)
+                    || pathComponents[pathComponents.length - 1].matches(jUnitTestPattern)){
                 LOG.info("Loading JAR/classpath: " + j);
                 File f = new File(j);
                 Path dst = new Path(fs.getHomeDirectory(), fullLibPath + f.getName());

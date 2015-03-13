@@ -161,14 +161,13 @@ public class AsterixYARNLifecycleIT {
         aoyaClient.init(command.split(" "));
         AsterixYARNClient.execute(aoyaClient);
     }
-//FIXME: Issue with Hadoop Config not being propagated right. DFS assumes root is PWD for some reason. 
-//    @Test
-//    public void test_3_BackupInActiveInstance() throws Exception {
-//        String command = "-n " + INSTANCE_NAME + " -zip " + aoyaServerPath + " -f" + " backup";
-//        AsterixYARNClient aoyaClient = new AsterixYARNClient(appConf);
-//        aoyaClient.init(command.split(" "));
-//        AsterixYARNClient.execute(aoyaClient);
-//    }
+    @Test
+    public void test_3_BackupInActiveInstance() throws Exception {
+        String command = "-n " + INSTANCE_NAME + " -zip " + aoyaServerPath + " -f" + " backup";
+        AsterixYARNClient aoyaClient = new AsterixYARNClient(appConf);
+        aoyaClient.init(command.split(" "));
+        AsterixYARNClient.execute(aoyaClient);
+    }
 
     @Test
     public void test_4_StartActiveInstance() throws Exception {
@@ -178,34 +177,33 @@ public class AsterixYARNLifecycleIT {
         AsterixYARNClient.execute(aoyaClient);
     }
 
-//    @Test
-//    public void test_5_KillActiveInstance() throws Exception {
-//        String command = "-n " + INSTANCE_NAME + " -f" + " strap";
-//        AsterixYARNClient aoyaClient = new AsterixYARNClient(appConf);
-//        aoyaClient.init(command.split(" "));
-//        AsterixYARNClient.execute(aoyaClient);
-//    }
-//FIXME: see line 164.
-//    @Test
-//    public void test_6_RestoreInActiveInstance() throws Exception {
-//        List<String> backupNames = Utils.getBackups(appConf, ".asterix" + File.separator, INSTANCE_NAME);
-//        if (backupNames.size() != 1) {
-//            throw new IllegalStateException();
-//        }
-//        String command = "-n " + INSTANCE_NAME + " -zip " + aoyaServerPath + " -s" + backupNames.get(0) + " -f"
-//                + " restore";
-//        AsterixYARNClient aoyaClient = new AsterixYARNClient(appConf);
-//        aoyaClient.init(command.split(" "));
-//        AsterixYARNClient.execute(aoyaClient);
-//    }
+    @Test
+    public void test_5_KillActiveInstance() throws Exception {
+        String command = "-n " + INSTANCE_NAME + " -f" + " stop";
+        AsterixYARNClient aoyaClient = new AsterixYARNClient(appConf);
+        aoyaClient.init(command.split(" "));
+        AsterixYARNClient.execute(aoyaClient);
+    }
+    @Test
+    public void test_6_RestoreInActiveInstance() throws Exception {
+        List<String> backupNames = Utils.getBackups(appConf, ".asterix" + File.separator, INSTANCE_NAME);
+        if (backupNames.size() != 1) {
+            throw new IllegalStateException();
+        }
+        String command = "-n " + INSTANCE_NAME + " -zip " + aoyaServerPath + " -s" + backupNames.get(0) + " -f"
+                + " restore";
+        AsterixYARNClient aoyaClient = new AsterixYARNClient(appConf);
+        aoyaClient.init(command.split(" "));
+        AsterixYARNClient.execute(aoyaClient);
+    }
 
-//    @Test
-//    public void test_7_StartRestoredInstance() throws Exception {
-//        String command = "-n " + INSTANCE_NAME + " start";
-//        AsterixYARNClient aoyaClient = new AsterixYARNClient(appConf);
-//        aoyaClient.init(command.split(" "));
-//        AsterixYARNClient.execute(aoyaClient);
-//    }
+    @Test
+    public void test_7_StartRestoredInstance() throws Exception {
+        String command = "-n " + INSTANCE_NAME + " start";
+        AsterixYARNClient aoyaClient = new AsterixYARNClient(appConf);
+        aoyaClient.init(command.split(" "));
+        AsterixYARNClient.execute(aoyaClient);
+    }
 
     @Test
     public void test_8_DeleteActiveInstance() throws Exception {
