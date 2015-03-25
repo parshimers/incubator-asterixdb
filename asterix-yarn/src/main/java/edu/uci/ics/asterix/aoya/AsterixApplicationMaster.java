@@ -95,8 +95,8 @@ public class AsterixApplicationMaster {
     private static final String ASTERIX_CONF_NAME = "asterix-configuration.xml";
     private static final String ASTERIX_ZIP_NAME = "asterix-server.zip";
 
-    private static final int CC_MEMORY_MBS_DEFAULT = 512;
-    private static final int NC_MEMORY_MBS_DEFAULT = 2048;
+    private static final int CC_MEMORY_MBS_DEFAULT = 1024;
+    private static final int NC_MEMORY_MBS_DEFAULT = 14336;
     private static final String EXTERNAL_CC_JAVA_OPTS_DEFAULT = "-Xmx" + CC_MEMORY_MBS_DEFAULT + "m";
 
     private static final String EXTERNAL_NC_JAVA_OPTS_DEFAULT = "-Xmx" + NC_MEMORY_MBS_DEFAULT + "m";
