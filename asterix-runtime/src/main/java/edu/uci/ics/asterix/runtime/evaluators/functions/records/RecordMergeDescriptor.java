@@ -1,4 +1,4 @@
-package edu.uci.ics.asterix.runtime.evaluators.functions;
+package edu.uci.ics.asterix.runtime.evaluators.functions.records;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;

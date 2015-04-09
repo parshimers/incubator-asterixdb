@@ -12,41 +12,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.asterix.runtime.evaluators.functions;
+package edu.uci.ics.asterix.runtime.evaluators.functions.records;
 
 import edu.uci.ics.asterix.om.functions.AsterixBuiltinFunctions;
 import edu.uci.ics.asterix.om.functions.IFunctionDescriptor;
 import edu.uci.ics.asterix.om.functions.IFunctionDescriptorFactory;
-import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.runtime.evaluators.base.AbstractScalarFunctionDynamicDescriptor;
-import edu.uci.ics.asterix.runtime.evaluators.common.ClosedRecordConstructorEvalFactory;
 import edu.uci.ics.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import edu.uci.ics.hyracks.algebricks.runtime.base.ICopyEvaluatorFactory;
 
-public class ClosedRecordConstructorDescriptor extends AbstractScalarFunctionDynamicDescriptor {
+public class FieldAccessByNameDescriptor extends AbstractScalarFunctionDynamicDescriptor {
 
+    private static final long serialVersionUID = 1L;
     public static final IFunctionDescriptorFactory FACTORY = new IFunctionDescriptorFactory() {
         public IFunctionDescriptor createFunctionDescriptor() {
-            return new ClosedRecordConstructorDescriptor();
+            return new FieldAccessByNameDescriptor();
         }
     };
 
-    private static final long serialVersionUID = 1L;
-
-    private ARecordType recType;
-
-    public void reset(ARecordType recType) {
-        this.recType = recType;
-    }
-
     @Override
     public FunctionIdentifier getIdentifier() {
-        return AsterixBuiltinFunctions.CLOSED_RECORD_CONSTRUCTOR;
+        return AsterixBuiltinFunctions.FIELD_ACCESS_BY_NAME;
     }
 
     @Override
-    public ICopyEvaluatorFactory createEvaluatorFactory(final ICopyEvaluatorFactory[] args) {
-        return new ClosedRecordConstructorEvalFactory(args, recType);
+    public ICopyEvaluatorFactory createEvaluatorFactory(ICopyEvaluatorFactory[] args) {
+        return new FieldAccessByNameEvalFactory(args[0], args[1]);
     }
 
 }

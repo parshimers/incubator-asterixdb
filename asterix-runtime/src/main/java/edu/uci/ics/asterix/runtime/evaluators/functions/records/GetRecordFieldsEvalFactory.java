@@ -1,4 +1,18 @@
-package edu.uci.ics.asterix.runtime.evaluators.common;
+/*
+ * Copyright 2009-2013 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package edu.uci.ics.asterix.runtime.evaluators.functions.records;
 
 import java.io.DataOutput;
 import java.io.IOException;
@@ -28,22 +42,20 @@ import edu.uci.ics.hyracks.data.std.util.ArrayBackedValueStorage;
 import edu.uci.ics.hyracks.data.std.util.ByteArrayAccessibleOutputStream;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 
-public class FieldAccessNestedEvalFactory implements ICopyEvaluatorFactory {
+public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
 
     private static final long serialVersionUID = 1L;
 
     private ICopyEvaluatorFactory recordEvalFactory;
-    private ICopyEvaluatorFactory fldNameEvalFactory;
     private ARecordType recordType;
     private List<String> fieldPath;
 
     private final static byte SER_NULL_TYPE_TAG = ATypeTag.NULL.serialize();
     private final static byte SER_RECORD_TYPE_TAG = ATypeTag.RECORD.serialize();
 
-    public FieldAccessNestedEvalFactory(ICopyEvaluatorFactory recordEvalFactory,
-            ICopyEvaluatorFactory fldNameEvalFactory, ARecordType recordType, List<String> fldName) {
+    public GetRecordFieldsEvalFactory(ICopyEvaluatorFactory recordEvalFactory, ARecordType recordType,
+            List<String> fldName) {
         this.recordEvalFactory = recordEvalFactory;
-        this.fldNameEvalFactory = fldNameEvalFactory;
         this.recordType = recordType;
         this.fieldPath = fldName;
 
@@ -56,10 +68,8 @@ public class FieldAccessNestedEvalFactory implements ICopyEvaluatorFactory {
             private DataOutput out = output.getDataOutput();
 
             private ArrayBackedValueStorage outInput0 = new ArrayBackedValueStorage();
-            private ArrayBackedValueStorage outInput1 = new ArrayBackedValueStorage();
             private ByteArrayAccessibleOutputStream subRecordTmpStream = new ByteArrayAccessibleOutputStream();
             private ICopyEvaluator eval0 = recordEvalFactory.createEvaluator(outInput0);
-            private ICopyEvaluator eval1 = fldNameEvalFactory.createEvaluator(outInput1);
             @SuppressWarnings("unchecked")
             private ISerializerDeserializer<ANull> nullSerde = AqlSerializerDeserializerProvider.INSTANCE
                     .getSerializerDeserializer(BuiltinType.ANULL);
@@ -106,8 +116,6 @@ public class FieldAccessNestedEvalFactory implements ICopyEvaluatorFactory {
                 try {
                     outInput0.reset();
                     eval0.evaluate(tuple);
-                    outInput1.reset();
-                    eval1.evaluate(tuple);
 
                     int subFieldIndex = -1;
                     int subFieldOffset = -1;
