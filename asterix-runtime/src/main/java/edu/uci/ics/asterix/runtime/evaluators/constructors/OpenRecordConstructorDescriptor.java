@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-package edu.uci.ics.asterix.runtime.evaluators.functions;
+package edu.uci.ics.asterix.runtime.evaluators.constructors;
 
 import java.io.DataOutput;
 import java.io.IOException;
