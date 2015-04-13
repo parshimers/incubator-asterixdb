@@ -59,6 +59,13 @@
             </compilation-unit>
         </test-case>
     </test-group>
+    <test-group name="union">
+        <test-case FilePath="union">
+            <compilation-unit name="union">
+                <output-dir compare="Text">union</output-dir>
+            </compilation-unit>
+        </test-case>
+    </test-group>
     <test-case FilePath="flwor">
         <compilation-unit name="let33">
             <output-dir compare="Text">let33</output-dir>
@@ -2769,16 +2776,17 @@
                 <output-dir compare="Text">scan-collection_01</output-dir>
             </compilation-unit>
         </test-case>
-        <test-case FilePath="list">
-            <compilation-unit name="union_01">
-                <output-dir compare="Text">union_01</output-dir>
-            </compilation-unit>
+<!--         <test-case FilePath="list">	 
+            <compilation-unit name="union_01">		
+                <output-dir compare="Text">union_01</output-dir>		
+            </compilation-unit>		
+        </test-case>		
+        <test-case FilePath="list">		
+            <compilation-unit name="union_02">		
+                <output-dir compare="Text">union_02</output-dir>		
+            </compilation-unit>		
         </test-case>
-        <test-case FilePath="list">
-            <compilation-unit name="union_02">
-                <output-dir compare="Text">union_02</output-dir>
-            </compilation-unit>
-        </test-case>
+ -->
         <test-case FilePath="list">
             <compilation-unit name="unordered-list-constructor_01">
                 <output-dir compare="Text">unordered-list-constructor_01</output-dir>
@@ -6127,6 +6135,41 @@
     </test-group>
     <test-group name="temporal">
         <test-case FilePath="temporal">
+            <compilation-unit name="overlap_bins_gby_3">
+                <output-dir compare="Text">overlap_bins_gby_3</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="temporal">
+            <compilation-unit name="agg_01">
+                <output-dir compare="Text">agg_01</output-dir>
+            </compilation-unit>
+        </test-case>
+       <test-case FilePath="temporal">
+            <compilation-unit name="overlap_bins_gby_1">
+                <output-dir compare="Text">overlap_bins_gby_1</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="temporal">
+            <compilation-unit name="duration_functions">
+                <output-dir compare="Text">duration_functions</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="temporal">
+            <compilation-unit name="overlap_bins_gby_0">
+                <output-dir compare="Text">overlap_bins_gby_0</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="temporal">
+            <compilation-unit name="get_overlapping_interval">
+                <output-dir compare="Text">get_overlapping_interval</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="temporal">
+            <compilation-unit name="overlap_bins">
+                <output-dir compare="Text">overlap_bins</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="temporal">
             <compilation-unit name="parse_02">
                 <output-dir compare="Text">parse_02</output-dir>
             </compilation-unit>
@@ -6561,6 +6604,11 @@
                 <output-dir compare="CSV">basic-types</output-dir>
             </compilation-unit>
         </test-case>
+        <test-case FilePath="csv">
+            <compilation-unit name="basic-types">
+                <output-dir compare="CSV_Header">basic-types-header</output-dir>
+            </compilation-unit>
+        </test-case>
     </test-group>
     <test-group name="binary">
         <test-case FilePath="binary">
@@ -6614,5 +6662,4 @@
             </compilation-unit>
         </test-case>
     </test-group>
-
 </test-suite>

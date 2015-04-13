@@ -42,6 +42,7 @@ import edu.uci.ics.asterix.optimizer.rules.IntroduceMaterializationForInsertWith
 import edu.uci.ics.asterix.optimizer.rules.IntroduceRapidFrameFlushProjectAssignRule;
 import edu.uci.ics.asterix.optimizer.rules.IntroduceSecondaryIndexInsertDeleteRule;
 import edu.uci.ics.asterix.optimizer.rules.IntroduceStaticTypeCastForInsertRule;
+import edu.uci.ics.asterix.optimizer.rules.IntroduceUnionRule;
 import edu.uci.ics.asterix.optimizer.rules.IntroduceUnnestForCollectionToSequenceRule;
 import edu.uci.ics.asterix.optimizer.rules.LoadRecordFieldsRule;
 import edu.uci.ics.asterix.optimizer.rules.NestGroupByRule;
@@ -64,6 +65,7 @@ import edu.uci.ics.asterix.optimizer.rules.UnnestToDataScanRule;
 import edu.uci.ics.asterix.optimizer.rules.am.IntroduceJoinAccessMethodRule;
 import edu.uci.ics.asterix.optimizer.rules.am.IntroduceLSMComponentFilterRule;
 import edu.uci.ics.asterix.optimizer.rules.am.IntroduceSelectAccessMethodRule;
+import edu.uci.ics.asterix.optimizer.rules.temporal.TranslateIntervalExpressionRule;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.HeuristicOptimizer;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.BreakSelectIntoConjunctsRule;
@@ -104,6 +106,7 @@ import edu.uci.ics.hyracks.algebricks.rewriter.rules.PushSelectDownRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.PushSelectIntoJoinRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.PushSubplanIntoGroupByRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.PushSubplanWithAggregateDownThroughProductRule;
+import edu.uci.ics.hyracks.algebricks.rewriter.rules.PushUnnestDownThroughUnionRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.ReinferAllTypesRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.RemoveRedundantGroupByDecorVars;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.RemoveRedundantVariablesRule;
@@ -114,6 +117,12 @@ import edu.uci.ics.hyracks.algebricks.rewriter.rules.SimpleUnnestToProductRule;
 import edu.uci.ics.hyracks.algebricks.rewriter.rules.SubplanOutOfGroupRule;
 
 public final class RuleCollections {
+
+    public final static List<IAlgebraicRewriteRule> buildInitialTranslationRuleCollection() {
+        List<IAlgebraicRewriteRule> typeInfer = new LinkedList<IAlgebraicRewriteRule>();
+        typeInfer.add(new TranslateIntervalExpressionRule());
+        return typeInfer;
+    }
 
     public final static List<IAlgebraicRewriteRule> buildTypeInferenceRuleCollection() {
         List<IAlgebraicRewriteRule> typeInfer = new LinkedList<IAlgebraicRewriteRule>();
@@ -228,6 +237,11 @@ public final class RuleCollections {
         consolidation.add(new RemoveUnusedAssignAndAggregateRule());
         consolidation.add(new RemoveRedundantGroupByDecorVars());
         consolidation.add(new NestedSubplanToJoinRule());
+        //unionRule => PushUnnestDownUnion => RemoveRedundantListifyRule cause these rules are correlated
+        consolidation.add(new IntroduceUnionRule());
+        consolidation.add(new PushUnnestDownThroughUnionRule());
+        consolidation.add(new RemoveRedundantListifyRule());
+
         return consolidation;
     }
 
@@ -310,5 +324,4 @@ public final class RuleCollections {
         prepareForJobGenRewrites.add(new SweepIllegalNonfunctionalFunctions());
         return prepareForJobGenRewrites;
     }
-
 }
