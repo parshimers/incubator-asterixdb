@@ -100,8 +100,8 @@ public class AsterixApplicationMaster {
     private static final String EXTERNAL_CC_JAVA_OPTS_DEFAULT = "-Xmx" + CC_MEMORY_MBS_DEFAULT + "m";
 
     private static final String EXTERNAL_NC_JAVA_OPTS_DEFAULT = "-Xmx" + NC_MEMORY_MBS_DEFAULT + "m";
-    private String NcJavaOpts = EXTERNAL_NC_JAVA_OPTS_DEFAULT;
-    private String CcJavaOpts = EXTERNAL_CC_JAVA_OPTS_DEFAULT;
+    private String NcJavaOpts;
+    private String CcJavaOpts;
     private static final String OBLITERATOR_CLASSNAME = "edu.uci.ics.asterix.aoya.Deleter";
     private static final String HDFS_BACKUP_CLASSNAME = "edu.uci.ics.asterix.aoya.HDFSBackup";
     private static final String NC_CLASSNAME = "edu.uci.ics.hyracks.control.nc.NCDriver";
@@ -256,6 +256,8 @@ public class AsterixApplicationMaster {
         opts.addOption("obliterate", false, "Delete asterix instance completely.");
         opts.addOption("backup", false, "Back up AsterixDB instance");
         opts.addOption("restore", true, "Restore an AsterixDB instance");
+        opts.addOption("ccOpts", true, "CC Java options");
+        opts.addOption("ncOpts", true, "NC Java options");
 
         CommandLine cliParser = new GnuParser().parse(opts, args);
 
@@ -280,6 +282,8 @@ public class AsterixApplicationMaster {
             snapName = cliParser.getOptionValue("restore");
             LOG.info(snapName);
         }
+        CcJavaOpts = cliParser.getOptionValue("ccOpts") == null ? cliParser.getOptionValue("ccOpts") : EXTERNAL_CC_JAVA_OPTS_DEFAULT;
+        NcJavaOpts = cliParser.getOptionValue("ncOpts") == null ? cliParser.getOptionValue("ncOpts") : EXTERNAL_NC_JAVA_OPTS_DEFAULT;
         return cliParser;
     }
 

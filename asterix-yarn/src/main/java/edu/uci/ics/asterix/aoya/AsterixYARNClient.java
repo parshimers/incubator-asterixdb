@@ -94,7 +94,8 @@ public class AsterixYARNClient {
         STOP("stop"),
         KILL("kill"),
         DESTROY("destroy"),
-        ALTER("alter"),
+        ALTER("alter"),    public static final String NC_JAVA_OPTS = "nc.java.opts";
+        public static final String CC_JAVA_OPTS = "cc.java.opts";
         LIBINSTALL("libinstall"),
         DESCRIBE("describe"),
         BACKUP("backup"),
@@ -128,6 +129,8 @@ public class AsterixYARNClient {
     private static String MERGED_PARAMETERS_PATH = "conf" + File.separator + "asterix-configuration.xml";
     private static final String JAVA_HOME = System.getProperty("java.home");
     private Mode mode = Mode.NOOP;
+    public static final String NC_JAVA_OPTS_KEY = "nc.java.opts";
+    public static final String CC_JAVA_OPTS_KEY = "cc.java.opts";
 
     // Hadoop Configuration
     private Configuration conf;
@@ -1213,6 +1216,15 @@ public class AsterixYARNClient {
             MERGED_PARAMETERS_PATH = configPathBase;
         } else {
             configuration = Utils.loadAsterixConfig(DEFAULT_PARAMETERS_PATH);
+        }
+        String ccJavaOpts;
+        String ncJavaOpts;
+        for (edu.uci.ics.asterix.common.configuration.Property property : configuration.getProperty()) {
+            if (property.getName().equalsIgnoreCase(CC_JAVA_OPTS_KEY)) {
+                ccJavaOpts = property.getValue();
+            } else if (property.getName().equalsIgnoreCase(NC_JAVA_OPTS_KEY)) {
+                ncJavaOpts = property.getValue();
+            }
         }
 
         String version = Utils.getAsterixVersionFromClasspath();
