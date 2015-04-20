@@ -14,7 +14,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.IOUtils;
 
-import edu.uci.ics.asterix.api.common.APIFramework.OutputFormat;
+import edu.uci.ics.asterix.api.common.SessionConfig.OutputFormat;
 import edu.uci.ics.asterix.common.config.GlobalConfig;
 import edu.uci.ics.asterix.result.ResultUtils;
 import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
@@ -34,7 +34,7 @@ public class ShutdownAPIServlet extends HttpServlet {
         response.setCharacterEncoding("utf-8");
 
         PrintWriter out = response.getWriter();
-        OutputFormat format = OutputFormat.HTML;
+        OutputFormat format = OutputFormat.JSON;
         String accept = request.getHeader("Accept");
         if ((accept == null) || (accept.contains("application/x-adm"))) {
             format = OutputFormat.ADM;
@@ -43,7 +43,6 @@ public class ShutdownAPIServlet extends HttpServlet {
         }
         StringWriter sw = new StringWriter();
         IOUtils.copy(request.getInputStream(), sw, StandardCharsets.UTF_8.name());
-        String query = sw.toString();
 
         ServletContext context = getServletContext();
         IHyracksClientConnection hcc;
