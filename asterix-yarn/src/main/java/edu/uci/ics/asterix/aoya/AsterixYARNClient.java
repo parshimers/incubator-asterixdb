@@ -94,8 +94,7 @@ public class AsterixYARNClient {
         STOP("stop"),
         KILL("kill"),
         DESTROY("destroy"),
-        ALTER("alter"),    public static final String NC_JAVA_OPTS = "nc.java.opts";
-        public static final String CC_JAVA_OPTS = "cc.java.opts";
+        ALTER("alter"),    
         LIBINSTALL("libinstall"),
         DESCRIBE("describe"),
         BACKUP("backup"),
@@ -128,9 +127,9 @@ public class AsterixYARNClient {
     private static String DEFAULT_PARAMETERS_PATH = "conf" + File.separator + "base-asterix-configuration.xml";
     private static String MERGED_PARAMETERS_PATH = "conf" + File.separator + "asterix-configuration.xml";
     private static final String JAVA_HOME = System.getProperty("java.home");
-    private Mode mode = Mode.NOOP;
     public static final String NC_JAVA_OPTS_KEY = "nc.java.opts";
     public static final String CC_JAVA_OPTS_KEY = "cc.java.opts";
+    private Mode mode = Mode.NOOP;
 
     // Hadoop Configuration
     private Configuration conf;
@@ -173,6 +172,8 @@ public class AsterixYARNClient {
     private String libDataverse;
     private String snapName = "";
     private String baseConfig = ".";
+    private String ccJavaOpts = "";
+    private String ncJavaOpts = "";
 
     /**
      * @param args
@@ -877,6 +878,8 @@ public class AsterixYARNClient {
         ///add miscellaneous environment variables.
         env.put(AConstants.INSTANCESTORE, CONF_DIR_REL + instanceFolder);
         env.put(AConstants.DFS_BASE, FileSystem.get(conf).getHomeDirectory().toUri().toString());
+        env.put(AConstants.CC_JAVA_OPTS, ccJavaOpts);
+        env.put(AConstants.NC_JAVA_OPTS, ncJavaOpts);
 
         // Add AppMaster.jar location to classpath
         // At some point we should not be required to add
@@ -1217,8 +1220,6 @@ public class AsterixYARNClient {
         } else {
             configuration = Utils.loadAsterixConfig(DEFAULT_PARAMETERS_PATH);
         }
-        String ccJavaOpts;
-        String ncJavaOpts;
         for (edu.uci.ics.asterix.common.configuration.Property property : configuration.getProperty()) {
             if (property.getName().equalsIgnoreCase(CC_JAVA_OPTS_KEY)) {
                 ccJavaOpts = property.getValue();

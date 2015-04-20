@@ -98,10 +98,7 @@ public class AsterixApplicationMaster {
     private static final int CC_MEMORY_MBS_DEFAULT = 1024;
     private static final int NC_MEMORY_MBS_DEFAULT = 14336;
     private static final String EXTERNAL_CC_JAVA_OPTS_DEFAULT = "-Xmx" + CC_MEMORY_MBS_DEFAULT + "m";
-
     private static final String EXTERNAL_NC_JAVA_OPTS_DEFAULT = "-Xmx" + NC_MEMORY_MBS_DEFAULT + "m";
-    private String NcJavaOpts;
-    private String CcJavaOpts;
     private static final String OBLITERATOR_CLASSNAME = "edu.uci.ics.asterix.aoya.Deleter";
     private static final String HDFS_BACKUP_CLASSNAME = "edu.uci.ics.asterix.aoya.HDFSBackup";
     private static final String NC_CLASSNAME = "edu.uci.ics.hyracks.control.nc.NCDriver";
@@ -172,6 +169,8 @@ public class AsterixApplicationMaster {
 
     private Cluster clusterDesc = null;
     private MasterNode cC = null;
+    private String ccJavaOpts = null;
+    private String ncJavaOpts = null;
     private volatile boolean done;
     private volatile boolean success;
 
@@ -256,8 +255,6 @@ public class AsterixApplicationMaster {
         opts.addOption("obliterate", false, "Delete asterix instance completely.");
         opts.addOption("backup", false, "Back up AsterixDB instance");
         opts.addOption("restore", true, "Restore an AsterixDB instance");
-        opts.addOption("ccOpts", true, "CC Java options");
-        opts.addOption("ncOpts", true, "NC Java options");
 
         CommandLine cliParser = new GnuParser().parse(opts, args);
 
@@ -282,8 +279,6 @@ public class AsterixApplicationMaster {
             snapName = cliParser.getOptionValue("restore");
             LOG.info(snapName);
         }
-        CcJavaOpts = cliParser.getOptionValue("ccOpts") == null ? cliParser.getOptionValue("ccOpts") : EXTERNAL_CC_JAVA_OPTS_DEFAULT;
-        NcJavaOpts = cliParser.getOptionValue("ncOpts") == null ? cliParser.getOptionValue("ncOpts") : EXTERNAL_NC_JAVA_OPTS_DEFAULT;
         return cliParser;
     }
 
@@ -341,6 +336,15 @@ public class AsterixApplicationMaster {
         }
         if (envs.get(AConstants.RMADDRESS) != null) {
             conf.set("yarn.resourcemanager.scheduler.address", envs.get(AConstants.RMSCHEDULERADDRESS));
+        }
+        ccJavaOpts = envs.get(AConstants.CC_JAVA_OPTS);
+        //set defaults if no special given options
+        if(ccJavaOpts == null){
+           ccJavaOpts = EXTERNAL_CC_JAVA_OPTS_DEFAULT;
+        }
+        ncJavaOpts = envs.get(AConstants.NC_JAVA_OPTS);
+        if(ncJavaOpts == null){
+           ncJavaOpts = EXTERNAL_NC_JAVA_OPTS_DEFAULT;
         }
 
         LOG.info("Path suffix: " + instanceConfPath);
@@ -929,7 +933,7 @@ public class AsterixApplicationMaster {
             if (containerIsCC(container) && (ccStarted.get() == false)) {
                 LOG.info("CC found on container" + container.getNodeId().getHost());
                 //get our java opts
-                vargs.add(CcJavaOpts);
+                vargs.add(ccJavaOpts);
                 vargs.add(CC_CLASSNAME);
                 vargs.add("-app-cc-main-class edu.uci.ics.asterix.hyracks.bootstrap.CCApplicationEntryPoint");
                 vargs.add("-cluster-net-ip-address " + cC.getClusterIp());
@@ -949,7 +953,7 @@ public class AsterixApplicationMaster {
                     }
                     String storageSuffix = local.getStore() == null ? clusterDesc.getStore() : local.getStore();
                     String storagePath = iodevice + File.separator + storageSuffix;
-                    vargs.add(NcJavaOpts);
+                    vargs.add(ncJavaOpts);
                     vargs.add(NC_CLASSNAME);
                     vargs.add("-app-nc-main-class edu.uci.ics.asterix.hyracks.bootstrap.NCApplicationEntryPoint");
                     vargs.add("-node-id " + local.getId());

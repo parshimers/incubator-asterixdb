@@ -161,6 +161,7 @@ public class AsterixYARNLifecycleIT {
         aoyaClient.init(command.split(" "));
         AsterixYARNClient.execute(aoyaClient);
     }
+
     @Test
     public void test_3_BackupInActiveInstance() throws Exception {
         String command = "-n " + INSTANCE_NAME + " -zip " + aoyaServerPath + " -f" + " backup";
@@ -184,9 +185,11 @@ public class AsterixYARNLifecycleIT {
         aoyaClient.init(command.split(" "));
         AsterixYARNClient.execute(aoyaClient);
     }
+
     @Test
     public void test_6_RestoreInActiveInstance() throws Exception {
-        List<String> backupNames = Utils.getBackups(appConf, ".asterix" + File.separator, INSTANCE_NAME);
+        List<String> backupNames = Utils.getBackups(appConf, aoyaHome + File.separator + ".asterix" + File.separator,
+                INSTANCE_NAME);
         if (backupNames.size() != 1) {
             throw new IllegalStateException();
         }

@@ -91,4 +91,8 @@ public class AConstants {
 
     public static final String DFS_BASE = "DFSBASE";
 
+    public static final String NC_JAVA_OPTS = "NCJAVAOPTS";
+
+    public static final String CC_JAVA_OPTS = "CCJAVAOPTS";
+
 }
