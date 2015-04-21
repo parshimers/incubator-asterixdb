@@ -20,6 +20,8 @@
 	<xs:element name="http_port" type="xs:integer" />
 	<xs:element name="debug_port" type="xs:integer" />
 	<xs:element name="metadata_node" type="xs:string" />
+	<xs:element name="cc_container_mem" type="xs:string" />
+	<xs:element name="nc_container_mem" type="xs:string" />
 	
 
 	<!-- definition of complex elements -->
@@ -83,6 +85,8 @@
 			<xs:sequence>
 				<xs:element ref="cl:instance_name" />
 				<xs:element ref="cl:cluster_name" />
+				<xs:element ref="cl:cc_container_mem" minOccurs="0" />
+				<xs:element ref="cl:nc_container_mem" minOccurs="0" />
 				<xs:element ref="cl:env" minOccurs="0" />
 				<xs:element ref="cl:log_dir" minOccurs="0" />
 				<xs:element ref="cl:txn_log_dir" minOccurs="0" />

@@ -95,4 +95,8 @@ public class AConstants {
 
     public static final String CC_JAVA_OPTS = "CCJAVAOPTS";
 
+    public static final String NC_CONTAINER_MEM = "NC_CONTAINER_MEM";
+
+    public static final String CC_CONTAINER_MEM = "CC_CONTAINER_MEM";
+
 }

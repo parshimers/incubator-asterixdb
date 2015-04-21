@@ -96,7 +96,7 @@ public class AsterixApplicationMaster {
     private static final String ASTERIX_ZIP_NAME = "asterix-server.zip";
 
     private static final int CC_MEMORY_MBS_DEFAULT = 1024;
-    private static final int NC_MEMORY_MBS_DEFAULT = 14336;
+    private static final int NC_MEMORY_MBS_DEFAULT = 1536;
     private static final String EXTERNAL_CC_JAVA_OPTS_DEFAULT = "-Xmx" + CC_MEMORY_MBS_DEFAULT + "m";
     private static final String EXTERNAL_NC_JAVA_OPTS_DEFAULT = "-Xmx" + NC_MEMORY_MBS_DEFAULT + "m";
     private static final String OBLITERATOR_CLASSNAME = "edu.uci.ics.asterix.aoya.Deleter";
@@ -170,7 +170,9 @@ public class AsterixApplicationMaster {
     private Cluster clusterDesc = null;
     private MasterNode cC = null;
     private String ccJavaOpts = null;
+    private int ccMem = 0;
     private String ncJavaOpts = null;
+    private int ncMem = 0;
     private volatile boolean done;
     private volatile boolean success;
 
@@ -397,6 +399,17 @@ public class AsterixApplicationMaster {
      * @throws YarnException
      */
     private void requestResources(Cluster c) throws YarnException, UnknownHostException {
+        //set memory
+        if(c.getCcContainerMem() != null){
+            ccMem = Integer.parseInt(c.getCcContainerMem());
+        }else{
+            ccMem = CC_MEMORY_MBS_DEFAULT;
+        }
+        if(c.getNcContainerMem() != null){
+            ncMem = Integer.parseInt(c.getNcContainerMem());
+        }else{
+            ncMem = CC_MEMORY_MBS_DEFAULT;
+        }
         //request CC
         int numNodes = 0;
         ContainerRequest ccAsk = hostToRequest(cC.getClusterIp(), true);
@@ -452,9 +465,9 @@ public class AsterixApplicationMaster {
         pri.setPriority(0);
         Resource capability = Records.newRecord(Resource.class);
         if (cc) {
-            capability.setMemory(CC_MEMORY_MBS_DEFAULT);
+            capability.setMemory(ccMem);
         } else {
-            capability.setMemory(NC_MEMORY_MBS_DEFAULT);
+            capability.setMemory(ncMem);
         }
         //we dont set anything else because we don't care about that and yarn doesn't honor it yet
         String[] hosts = new String[1];
