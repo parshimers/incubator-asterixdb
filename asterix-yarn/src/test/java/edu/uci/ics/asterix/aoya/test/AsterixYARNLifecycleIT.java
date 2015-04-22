@@ -15,6 +15,7 @@
 package edu.uci.ics.asterix.aoya.test;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,7 +24,9 @@ import java.util.logging.Logger;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.ApplicationConstants.Environment;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
@@ -101,7 +104,15 @@ public class AsterixYARNLifecycleIT {
 
         parameterPath = aoyaHome + File.separator + "conf" + File.separator + "base-asterix-configuration.xml";
         YARNCluster.getInstance().setup();
+        appConf = new YarnConfiguration();
+        File baseDir = new File("./target/hdfs/").getAbsoluteFile();
+        FileUtil.fullyDelete(baseDir);
+        appConf.set(MiniDFSCluster.HDFS_MINIDFS_BASEDIR, baseDir.getAbsolutePath());
+        MiniDFSCluster.Builder builder = new MiniDFSCluster.Builder(appConf);
+        MiniDFSCluster hdfsCluster = builder.build();
         miniCluster = YARNCluster.getInstance().getCluster();
+        appConf.set("fs.defaultFS", "hdfs://localhost:" + hdfsCluster.getNameNodePort());
+        miniCluster.init(appConf);
         Cluster defaultConfig = Utils.parseYarnClusterConfig(configPath);
         for (Node n : defaultConfig.getNode()) {
             n.setClusterIp(MiniYARNCluster.getHostname());
@@ -110,10 +121,15 @@ public class AsterixYARNLifecycleIT {
         configPath = "target" + File.separator + "localized-aoya-config.xml";
         Utils.writeYarnClusterConfig(configPath, defaultConfig);
         miniCluster.start();
+        appConf = new YarnConfiguration(miniCluster.getConfig());
+        appConf.set("fs.defaultFS", "hdfs://localhost:" + hdfsCluster.getNameNodePort());
+        appConf.set("fs.default.name", "hdfs://localhost:" + hdfsCluster.getNameNodePort());
+        //TODO:why must I do this!? what is not being passed properly via environment variables???
+        appConf.writeXml(new FileOutputStream("target" + File.separator + "test-classes" + File.separator + "hadoop"
+                + File.separator + "conf" + File.separator + "yarn-site.xml"));
 
         //once the cluster is created, you can get its configuration
         //with the binding details to the cluster added from the minicluster
-        appConf = new YarnConfiguration(miniCluster.getConfig());
         FileSystem fs = FileSystem.get(appConf);
         Path instanceState = new Path(fs.getHomeDirectory(), AsterixYARNClient.CONF_DIR_REL + INSTANCE_NAME + "/");
         fs.delete(instanceState, true);
@@ -188,8 +204,7 @@ public class AsterixYARNLifecycleIT {
 
     @Test
     public void test_6_RestoreInActiveInstance() throws Exception {
-        List<String> backupNames = Utils.getBackups(appConf, aoyaHome + File.separator + ".asterix" + File.separator,
-                INSTANCE_NAME);
+        List<String> backupNames = Utils.getBackups(appConf, ".asterix" + File.separator, INSTANCE_NAME);
         if (backupNames.size() != 1) {
             throw new IllegalStateException();
         }

@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.GnuParser;
@@ -24,7 +25,19 @@ public class HDFSBackup {
     boolean backup = false;
 
     public static void main(String[] args) throws ParseException, IllegalArgumentException, IOException {
+
         HDFSBackup back = new HDFSBackup();
+        Map<String, String> envs = System.getenv();
+        if(envs.containsKey("HADOOP_CONF_DIR")){
+            File hadoopConfDir = new File(envs.get("HADOOP_CONF_DIR"));
+            if(hadoopConfDir.isDirectory()){
+               for(File config: hadoopConfDir.listFiles()){
+                   if(config.getName().matches("^.*(xml)$")){
+                       back.conf.addResource(new Path(config.getAbsolutePath()));
+                   }
+               }
+            }
+        }
         Options opts = new Options();
         opts.addOption("restore", false, "");
         opts.addOption("backup", false, "");

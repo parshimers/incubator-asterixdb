@@ -94,7 +94,7 @@ public class AsterixYARNClient {
         STOP("stop"),
         KILL("kill"),
         DESTROY("destroy"),
-        ALTER("alter"),    
+        ALTER("alter"),
         LIBINSTALL("libinstall"),
         DESCRIBE("describe"),
         BACKUP("backup"),
@@ -715,7 +715,7 @@ public class AsterixYARNClient {
             if (pathComponents[pathComponents.length - 1].matches(asterixJarPattern)
                     || pathComponents[pathComponents.length - 1].matches(commonsJarPattern)
                     || pathComponents[pathComponents.length - 1].matches(surefireJarPattern)
-                    || pathComponents[pathComponents.length - 1].matches(jUnitTestPattern)){
+                    || pathComponents[pathComponents.length - 1].matches(jUnitTestPattern)) {
                 LOG.info("Loading JAR/classpath: " + j);
                 File f = new File(j);
                 Path dst = new Path(fs.getHomeDirectory(), fullLibPath + f.getName());
@@ -897,10 +897,13 @@ public class AsterixYARNClient {
 
         // add the runtime classpath needed for tests to work
         if (conf.getBoolean(YarnConfiguration.IS_MINI_YARN_CLUSTER, false)) {
+            LOG.info("In YARN MiniCluster");
             classPathEnv.append(System.getProperty("path.separator"));
             classPathEnv.append(System.getProperty("java.class.path"));
+            env.put("HADOOP_CONF_DIR", System.getProperty("user.dir") + File.separator + "target" + File.separator
+                    + "test-classes" + File.separator + "hadoop" + File.separator + "conf" + File.separator);
         }
-        LOG.debug("AM Classpath:" + classPathEnv.toString());
+        LOG.info("AM Classpath:" + classPathEnv.toString());
         env.put("CLASSPATH", classPathEnv.toString());
 
         amContainer.setEnvironment(env);

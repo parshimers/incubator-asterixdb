@@ -245,6 +245,7 @@ public class AsterixApplicationMaster {
     public AsterixApplicationMaster() {
         // Set up the configuration and RPC
         conf = new YarnConfiguration();
+        
     }
 
     public CommandLine setArgs(String[] args) throws ParseException {
@@ -286,6 +287,16 @@ public class AsterixApplicationMaster {
 
     public void setEnvs(CommandLine cliParser) {
         Map<String, String> envs = System.getenv();
+        if(envs.containsKey("HADOOP_CONF_DIR")){
+            File hadoopConfDir = new File(envs.get("HADOOP_CONF_DIR"));
+            if(hadoopConfDir.isDirectory()){
+               for(File config: hadoopConfDir.listFiles()){
+                   if(config.getName().matches("^.*(xml)$")){
+                       conf.addResource(new Path(config.getAbsolutePath()));
+                   }
+               }
+            }
+        }
         //the containerID might be in the arguments or the environment
         if (!envs.containsKey(Environment.CONTAINER_ID.name())) {
             if (cliParser.hasOption("app_attempt_id")) {
@@ -892,6 +903,8 @@ public class AsterixApplicationMaster {
             if (conf.getBoolean(YarnConfiguration.IS_MINI_YARN_CLUSTER, false)) {
                 classPathEnv.append(System.getProperty("path.separator"));
                 classPathEnv.append(System.getProperty("java.class.path"));
+                env.put("HADOOP_CONF_DIR", System.getProperty("user.dir") + File.separator + "target" + File.separator
+                        + "test-classes" + File.separator + "hadoop" + File.separator + "conf" + File.separator);
             }
 
             env.put("CLASSPATH", classPathEnv.toString());
