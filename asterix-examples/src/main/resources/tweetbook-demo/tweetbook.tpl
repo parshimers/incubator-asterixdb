@@ -66,49 +66,15 @@
       </div>
       <div class="navbar-collapse collapse">
         <ul class="nav navbar-nav" id="mode-tabs">
-          <li id="about-active"><a data-toggle="tab" id="about-mode" href="#about-tab">About</a></li>
           <li id="explore-active" class="active"><a data-toggle="tab" id="explore-mode" href="#demo-tab">Explore</a></li>
           <li id="review-active"><a data-toggle="tab" id="review-mode" href="#demo-tab">Review</a></li>
+          <li id="about-active"><a data-toggle="tab" id="about-mode" href="#about-tab">Tutorial</a></li>
         </ul>
       </div>
     </div>
   </div><!-- /Nav -->
 
   <div class="tab-content">
-
-    <!-- Begin About Tab -->
-    <div class="tab-pane" id="about-tab">
-      <div class="container">
-        <!-- Welcome Message -->
-        <div class="row">
-          <p>Welcome to the top-level page of the Tweetbook Demo of AsterixDB.  The purpose of this demo is to illustrate how a "cool application" can be built using the JavaScript SDK of AsterixDB and to exercise all of the AsterixDB HTTP APIs.  If you are building an app of your own, reading the code for this app is a great way to get acquainted with what you'll need to know.</p>
-
-          <p>In this demo, which is based on spatial analysis of Tweets, you will see how to formulate aggregate queries and drill-down queries using the query door of the AsterixDB API.  You will see how to do this either synchronously or asynchronously (for larger queries whose results may take a while to cook).  You will also see how to create and drop datasets (to manage Tweetbooks, notebooks with user commentary on Tweets) and how to perform inserts and deletes (to add/remove Tweetbook entries). Let's walk through the demo.</p>
-        </div>
-        
-        <hr/>
-
-        <!-- Tutorial Part 1: Overview -->
-        <div style="margin-bottom: 2em; text-align: center;">
-          <img src="static/img/Tutorial1.png" style="max-width:100%;">
-        </div><hr/>
-
-        <!-- Tutorial Part 2: Location Search -->
-        <div style="margin-bottom: 2em; text-align: center;">
-          <img src="static/img/Tutorial2.png" style="max-width:100%;">
-        </div><hr/>
-
-        <!-- Tutorial Part 3: Search Results, Drilling Down, Saving Comments -->
-        <div style="margin-bottom: 2em; text-align: center;">
-          <img src="static/img/Tutorial3.png" style="max-width:100%;">
-        </div><hr/>
-
-        <!-- Tutorial Part 4: Review Mode -->
-        <div style="margin-bottom: 2em; text-align: center;">
-          <img src="static/img/Tutorial4.png" style="max-width:100%;">
-        </div> 
-      </div>
-    </div><!-- End About Tab -->
 
     <!-- Begin Main Demo Tab -->
     <div class="tab-pane active" id="demo-tab">
@@ -166,6 +132,7 @@
                   <!-- Submission Buttons -->
                   <li class="list-group-item">
                     <button class="btn btn-primary" type="button" id="submit-button">Submit</button>
+                    <button class="btn btn-primary" type="button" id="show-query-button">Show Query</button>
                     <button class="btn btn-primary" type="button" id="clear-button">Clear</button><br/>
                     <input type="checkbox" value="Submit Asynchronously" name="async" id="asbox" />
                     Submit asynchronously?
@@ -293,6 +260,40 @@
         </div><!-- Modal -->     
       </div><!-- End Container -->
     </div><!-- End Main Demo Tab -->
+
+        <!-- Begin About Tab -->
+    <div class="tab-pane" id="about-tab">
+      <div class="container">
+        <!-- Welcome Message -->
+        <div class="row">
+          <p>Welcome to the top-level page of the Tweetbook Demo of AsterixDB.  The purpose of this demo is to illustrate how a "cool application" can be built using the JavaScript SDK of AsterixDB and to exercise all of the AsterixDB HTTP APIs.  If you are building an app of your own, reading the code for this app is a great way to get acquainted with what you'll need to know.</p>
+
+          <p>In this demo, which is based on spatial analysis of Tweets, you will see how to formulate aggregate queries and drill-down queries using the query door of the AsterixDB API.  You will see how to do this either synchronously or asynchronously (for larger queries whose results may take a while to cook).  You will also see how to create and drop datasets (to manage Tweetbooks, notebooks with user commentary on Tweets) and how to perform inserts and deletes (to add/remove Tweetbook entries). Let's walk through the demo.</p>
+        </div>
+        
+        <hr/>
+
+        <!-- Tutorial Part 1: Overview -->
+        <div style="margin-bottom: 2em; text-align: center;">
+          <img src="static/img/Tutorial1.png" style="max-width:100%;">
+        </div><hr/>
+
+        <!-- Tutorial Part 2: Location Search -->
+        <div style="margin-bottom: 2em; text-align: center;">
+          <img src="static/img/Tutorial2.png" style="max-width:100%;">
+        </div><hr/>
+
+        <!-- Tutorial Part 3: Search Results, Drilling Down, Saving Comments -->
+        <div style="margin-bottom: 2em; text-align: center;">
+          <img src="static/img/Tutorial3.png" style="max-width:100%;">
+        </div><hr/>
+
+        <!-- Tutorial Part 4: Review Mode -->
+        <div style="margin-bottom: 2em; text-align: center;">
+          <img src="static/img/Tutorial4.png" style="max-width:100%;">
+        </div> 
+      </div>
+    </div><!-- End About Tab -->
 
   </div><!-- End tab list -->
 </body>

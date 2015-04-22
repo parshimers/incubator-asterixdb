@@ -1,12 +1,14 @@
 import tweetbook_bootstrap
-from urllib2 import URLError, urlopen
-from urllib import urlencode
-from json import loads, dumps
+import json
+
 from bottle import route, run, template, static_file, request
+
+import requests
+from requests import ConnectionError, HTTPError
 
 # Core Routing
 @route('/')
-def jsontest():
+def demo():
     return template('tweetbook')
 
 @route('/static/<filename:path>')
@@ -17,36 +19,17 @@ def send_static(filename):
 def build_response(endpoint, data):
     api_endpoint = "http://localhost:19002/" + endpoint
 
+    http_header = {
+        'Accept': 'application/json'
+    }
+   
     try:
-        # Encode data into url string
-        urlresponse = urlopen(api_endpoint + '?' + urlencode(data))
-
-        # There are some weird bits passed in from the Asterix JSON. 
-        # We will remove them here before we pass the result string 
-        # back to the frontend.
-        urlresult = ""
-        CHUNK = 16 * 1024
-        while True:
-            chunk = urlresponse.read(CHUNK)
-            if not chunk: break
-            urlresult += chunk
-
-        # Create JSON dump of resulting response
-        return loads(urlresult)
-
-    except ValueError, e:
-        pass
-
-    except URLError, e:
-
-        # Here we report possible errors in request fulfillment.
-        if hasattr(e, 'reason'):
-            print 'Failed to reach a server.'
-            print 'Reason: ', e.reason
-
-        elif hasattr(e, 'code'):
-            print 'The server couldn\'t fulfill the request.'
-            print 'Error code: ', e.code
+        response = requests.get(api_endpoint, params=data, headers=http_header)
+        return json.dumps({'results' : response.json()})
+    except (ConnectionError, HTTPError):
+        # This exception will stop the server. Not optimal behavior.
+        print "Encountered connection error; stopping execution"
+        sys.exit(1)
 
 # API Endpoints    
 @route('/query')

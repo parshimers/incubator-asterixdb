@@ -46,6 +46,12 @@ $(function() {
         asynchronousQueryGetInterval()
     );
 
+    // Query tracker
+    last_query_submitted = {
+        "time": null,
+        "query": null
+    };
+
     // Legend Container
     // Create a rainbow from a pretty color scheme.
     // http://www.colourlovers.com/palette/292482/Terra
@@ -53,7 +59,7 @@ $(function() {
     rainbow.setSpectrum("#E8DDCB", "#CDB380", "#036564", "#033649", "#031634");
     buildLegend();
 
-    // Initialization of UI Tabas
+    // Initialization of UI Tabs
     initDemoPrepareTabs();
 
     // UI Elements - Creates Map, Location Auto-Complete, Selection Rectangle
@@ -192,6 +198,28 @@ function initDemoUIButtonControls() {
         $('#new-tweetbook-entry').attr("placeholder", "Name a new tweetbook");
     });
 
+    // Explore Mode - Show Query Button
+    $("#show-query-button").click(function() {
+	var show_query_content, query_text, timestamp;
+
+	query_text = last_query_submitted.query;
+	timestamp = last_query_submitted.time;
+
+	$("#show-query-blob").remove();
+
+	if (last_query_submitted.query) {
+	    show_query_content = "Last query submitted at " + timestamp + ":<br/>" + query_text;
+	} else {
+	    show_query_content = "No recent queries to show."
+	}
+
+        $('<div/>')
+            .attr("class", "alert alert-success")
+            .attr("id", "show-query-blob")   
+            .html('<button type="button" class="close" data-dismiss="alert">&times;</button>' + show_query_content)
+            .appendTo('#explore-well');
+    });
+
     // Explore Mode - Clear Button
     $("#clear-button").click(mapWidgetResetMap);
 
@@ -245,6 +273,11 @@ function initDemoUIButtonControls() {
             "query" : "use dataverse twitter;\n" + f.val(),
             "data" : formData
         };
+
+	last_query_submitted = {
+	    "query": APIqueryTracker.query,
+	    "time": new Date()
+	};
 
         if (build_tweetbook_mode == "synchronous") {
             A.query(f.val(), tweetbookQuerySyncCallback, build_tweetbook_mode);
@@ -342,10 +375,10 @@ function getAllDataverseTweetbooks(fn_tweetbooks) {
     // In this case, we want to parse out the results object from the Asterix
     // REST API response.
     var tweetbooksSuccess = function(r) {
-        // Parse tweetbook metadata results
-        $.each(r.results, function(i, data) {
-            if ($.parseJSON(data)["DataTypeName"] == "TweetbookEntry") {
-                review_mode_tweetbooks.push($.parseJSON(data)["DatasetName"]);
+        // Parse tweetbook metadata results        
+        $.each(r.results, function(i, dataset) {
+            if (dataset.DataTypeName == "TweetbookEntry") {
+                review_mode_tweetbooks.push(dataset.DatasetName);
             }
         });
 
@@ -493,7 +526,7 @@ function tweetbookQueryAsyncCallback(res) {
 */
 function tweetbookQuerySyncCallback(res) {
     // First, we check if any results came back in.
-    // If they didn't, return.
+    // If they didn't, return. TODO check for empty list here too...
     if (!res.hasOwnProperty("results")) {
         reportUserMessage("Oops, no results found for those parameters.", false, "report-message");
         return;
@@ -501,45 +534,43 @@ function tweetbookQuerySyncCallback(res) {
 
     // Initialize coordinates and weights, to store
     // coordinates of map cells and their weights
-    var coordinates = [];
-    var maxWeight = 0;
-    var minWeight = Number.MAX_VALUE;
+    var rectangles = [];
+    var maxCount = 0;
+    var minCount = Number.MAX_VALUE;
 
     // Parse resulting JSON objects. Here is an example record:
-    // { "cell": rectangle("21.5,-98.5 24.5,-95.5"), "count": 78i64 }
+    // {
+    //   "cell": {
+    //     "rectangle": [
+    //       {"point": [21.5, -98.5]},
+    //       {"point": [24.5, -95.5]}
+    //     ]
+    //   },
+    //   "count": {
+    //     "int64": 11
+    //   }
+    // }
     $.each(res.results, function(i, data) {
+        var rectangle = {
+            "bottom_left" : data.cell.rectangle[0].point,
+            "top_right" : data.cell.rectangle[1].point,
+            "count": data.count.int64,
 
-        // We need to clean the JSON a bit to parse it properly in javascript
-        var cleanRecord = $.parseJSON(data
-                            .replace('rectangle(', '')
-                            .replace(')', '')
-                            .replace('i64', ''));
-
-        var recordCount = cleanRecord["count"];
-        var rectangle = cleanRecord["cell"]
-                            .replace(' ', ',')
-                            .split(',')
-                            .map( parseFloat );
-
-        // Now, using the record count and coordinates, we can create a
-        // coordinate system for this spatial cell.
-        var coordinate = {
-            "latSW"     : rectangle[0],
-            "lngSW"     : rectangle[1],
-            "latNE"     : rectangle[2],
-            "lngNE"     : rectangle[3],
-            "weight"    : recordCount
+            // Lat/Lng, for ease of use later...
+            "latSW" : data.cell.rectangle[0].point[0],
+            "lngSW" : data.cell.rectangle[0].point[1],
+            "latNE" : data.cell.rectangle[1].point[0],
+            "lngNE" : data.cell.rectangle[1].point[1]
         };
+        
+        rectangles.push(rectangle);
 
-        // We track the minimum and maximum weight to support our legend.
-        maxWeight = Math.max(coordinate["weight"], maxWeight);
-        minWeight = Math.min(coordinate["weight"], minWeight);
-
-        // Save completed coordinate and move to next one.
-        coordinates.push(coordinate);
+        // We track the minimum and maximum weight for the legend.
+        maxCount = Math.max(rectangle["count"], maxCount);
+        minCount = Math.min(rectangle["count"], minCount);
     });
 
-    triggerUIUpdate(coordinates, maxWeight, minWeight);
+    triggerUIUpdate(rectangles, maxCount, minCount);
 }
 
 /**
@@ -554,26 +585,39 @@ function triggerUIUpdate(mapPlotData, maxWeight, minWeight) {
     // Initialize info windows.
     map_info_windows = {};
 
-    $.each(mapPlotData, function (m) {
+    // mapPlotData is a list of rectangle objects, such as this:
+    // {
+    //   "bottom_left": [21.5, -98.5],
+    //   "top_right": [24.5, -95.5],
+    //   "count": 11
+    // }
+    //
+    // In longitude/latitude terms, this translates as follows:
+    // {
+    //   "bottom_left": [latitude SW, longitude SW],
+    //   "top_right": [latitude NE, longitude NE],
+    //   "count": 11
+    // }
+    $.each(mapPlotData, function (m, rectangle) {
 
-        var point_center = new google.maps.LatLng(
-            (mapPlotData[m].latSW + mapPlotData[m].latNE)/2.0,
-            (mapPlotData[m].lngSW + mapPlotData[m].lngNE)/2.0);
+        // Calculate map points
+        var point_center = new google.maps.LatLng((rectangle.latSW + rectangle.latNE)/2.0, (rectangle.lngSW + rectangle.lngNE)/2.0);
 
         var map_circle_options = {
             center: point_center,
             anchorPoint: point_center,
-            radius: mapWidgetComputeCircleRadius(mapPlotData[m], maxWeight),
+            radius: mapWidgetComputeCircleRadius(rectangle, maxWeight),
             map: map,
             fillOpacity: 0.85,
-            fillColor: "#" + rainbow.colourAt(Math.ceil(100 * (mapPlotData[m].weight / maxWeight))),
+            fillColor: "#" + rainbow.colourAt(Math.ceil(100 * (rectangle.count / maxWeight))),
             clickable: true
         };
         var map_circle = new google.maps.Circle(map_circle_options);
-        map_circle.val = mapPlotData[m];
+        map_circle.val = rectangle;
+        map_circle.index = m;
 
         map_info_windows[m] = new google.maps.InfoWindow({
-            content: mapPlotData[m].weight + " tweets",
+            content: rectangle.count + " tweets",
             position: point_center
         });
 
@@ -587,14 +631,14 @@ function triggerUIUpdate(mapPlotData, maxWeight, minWeight) {
         });
 
         google.maps.event.addListener(map_circle, 'mouseover', function(event) {
-            if (!map_info_windows[m].getMap()) {
-                map_info_windows[m].setPosition(map_circle.center);
-                map_info_windows[m].open(map);
+            $.each(map_info_windows, function(i) {
+                map_info_windows[i].close();
+            });
+            var circle_position = map_circle.index;
+            if (!map_info_windows[circle_position].getMap()) {
+                map_info_windows[circle_position].setPosition(map_circle.center);
+                map_info_windows[circle_position].open(map);
             }
-        });
-        google.maps.event.addListener(map, 'mousemove', function(event) {
-            map_info_windows[m].close();
-
         });
 
         // Add this marker to global marker cells
@@ -613,7 +657,8 @@ function triggerUIUpdate(mapPlotData, maxWeight, minWeight) {
 * @params {object} marker_borders a set of bounds for a region from a previous api result
 */
 function onMapPointDrillDown(marker_borders) {
-
+    
+    mapWidgetClearMap();
     var zoneData = APIqueryTracker["data"];
 
     var zswBounds = new google.maps.LatLng(marker_borders.latSW, marker_borders.lngSW);
@@ -635,7 +680,6 @@ function onMapPointDrillDown(marker_borders) {
         }
     };
 
-    mapWidgetClearMap();
 
     var customBounds = new google.maps.LatLngBounds();
     var zoomSWBounds = new google.maps.LatLng(zoneData["swLat"], zoneData["swLng"]);
@@ -645,7 +689,7 @@ function onMapPointDrillDown(marker_borders) {
     map.fitBounds(customBounds);
 
     var df = getDrillDownQuery(zoneData, zB);
-
+    
     APIqueryTracker = {
         "query_string" : "use dataverse twitter;\n" + df.val(),
         "marker_path" : "static/img/mobile2.png"
@@ -918,39 +962,30 @@ function onTweetbookQuerySuccessPlot (res) {
 
     // Parse out tweet Ids, texts, and locations
     var tweets = [];
-    var al = 1;
-
-    $.each(res.results, function(i, data) {
-
-        // First, clean up the data
-        //{ "tweetId": "100293", "tweetText": " like at&t the touch-screen is amazing", "tweetLoc": point("31.59,-84.23") }
-        // We need to turn the point object at the end into a string
-        var json = $.parseJSON(data
-                                .replace(': point(',': ')
-                                .replace(') }', ' }'));
-
-        // Now, we construct a tweet object
+    $.each(res.results, function(i, tweet) {
+        // Construct a tweet object
         var tweetData = {
-            "tweetEntryId" : parseInt(json.tweetId),
-            "tweetText" : json.tweetText,
-            "tweetLat" : json.tweetLoc.split(",")[0],
-            "tweetLng" : json.tweetLoc.split(",")[1]
+            "tweetEntryId" : parseInt(tweet.tweetId),
+            "tweetText" : tweet.tweetText,
+            "tweetLat" : tweet.tweetLoc.point[0],
+            "tweetLng" : tweet.tweetLoc.point[1],
         };
+        tweetData["position"] = new google.maps.LatLng(tweetData["tweetLat"], tweetData["tweetLng"]);      
 
         // If we are parsing out tweetbook data with comments, we need to check
         // for those here as well.
-        if (json.hasOwnProperty("tweetCom")) {
-            tweetData["tweetComment"] = json.tweetCom;
+        if (tweet.hasOwnProperty("tweetCom")) {
+            tweetData["tweetComment"] = tweet.tweetCom;
         }
 
-        tweets.push(tweetData)
+        tweets.push(tweetData);
     });
 
     // Create a marker for each tweet
     $.each(tweets, function(i, t) {
         // Create a phone marker at tweet's position
         var map_tweet_m = new google.maps.Marker({
-            position: new google.maps.LatLng(tweets[i]["tweetLat"], tweets[i]["tweetLng"]),
+            position: t["position"],
             map: map,
             icon: APIqueryTracker["marker_path"],
             clickable: true,
@@ -959,7 +994,7 @@ function onTweetbookQuerySuccessPlot (res) {
 
         // Open Tweet exploration window on click
         google.maps.event.addListener(map_tweet_m, 'click', function (event) {
-            onClickTweetbookMapMarker(map_tweet_markers[i]["test"]);
+            onClickTweetbookMapMarker(map_tweet_m["test"]);
         });
 
         // Add marker to index of tweets
@@ -1149,18 +1184,19 @@ function buildLegend() {
 
 /**
 * Computes radius for a given data point from a spatial cell
-* @param    {Object}    keys => ["latSW" "lngSW" "latNE" "lngNE" "weight"]
+* @param    {Object}    keys => ["bottom_left", "top_right", "count", "latSW", "latNE", "lngSW", "lngNE"]
+* @param    {Number}    wLimit
 * @returns  {number}    radius between 2 points in metres
 */
-function mapWidgetComputeCircleRadius(spatialCell, wLimit) {
+function mapWidgetComputeCircleRadius(rectangle, wLimit) {
 
     // Define Boundary Points
-    var point_center = new google.maps.LatLng((spatialCell.latSW + spatialCell.latNE)/2.0, (spatialCell.lngSW + spatialCell.lngNE)/2.0);
-    var point_left = new google.maps.LatLng((spatialCell.latSW + spatialCell.latNE)/2.0, spatialCell.lngSW);
-    var point_top = new google.maps.LatLng(spatialCell.latNE, (spatialCell.lngSW + spatialCell.lngNE)/2.0);
+    var point_center = new google.maps.LatLng((rectangle.latSW + rectangle.latNE)/2.0, (rectangle.lngSW + rectangle.lngNE)/2.0);
+    var point_left = new google.maps.LatLng((rectangle.latSW + rectangle.latNE)/2.0, rectangle.lngSW);
+    var point_top = new google.maps.LatLng(rectangle.latNE, (rectangle.lngSW + rectangle.lngNE)/2.0);
 
     // Circle scale modifier =
-    var scale = 425 + 425*(spatialCell.weight / wLimit);
+    var scale = 425 + 425*(rectangle.count / wLimit);
 
     // Return proportionate value so that circles mostly line up.
     return scale * Math.min(distanceBetweenPoints(point_center, point_left), distanceBetweenPoints(point_center, point_top));
