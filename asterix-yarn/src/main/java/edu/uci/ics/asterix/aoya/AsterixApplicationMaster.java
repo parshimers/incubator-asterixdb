@@ -245,7 +245,7 @@ public class AsterixApplicationMaster {
     public AsterixApplicationMaster() {
         // Set up the configuration and RPC
         conf = new YarnConfiguration();
-        
+
     }
 
     public CommandLine setArgs(String[] args) throws ParseException {
@@ -287,14 +287,14 @@ public class AsterixApplicationMaster {
 
     public void setEnvs(CommandLine cliParser) {
         Map<String, String> envs = System.getenv();
-        if(envs.containsKey("HADOOP_CONF_DIR")){
+        if (envs.containsKey("HADOOP_CONF_DIR")) {
             File hadoopConfDir = new File(envs.get("HADOOP_CONF_DIR"));
-            if(hadoopConfDir.isDirectory()){
-               for(File config: hadoopConfDir.listFiles()){
-                   if(config.getName().matches("^.*(xml)$")){
-                       conf.addResource(new Path(config.getAbsolutePath()));
-                   }
-               }
+            if (hadoopConfDir.isDirectory()) {
+                for (File config : hadoopConfDir.listFiles()) {
+                    if (config.getName().matches("^.*(xml)$")) {
+                        conf.addResource(new Path(config.getAbsolutePath()));
+                    }
+                }
             }
         }
         //the containerID might be in the arguments or the environment
@@ -352,12 +352,12 @@ public class AsterixApplicationMaster {
         }
         ccJavaOpts = envs.get(AConstants.CC_JAVA_OPTS);
         //set defaults if no special given options
-        if(ccJavaOpts == null){
-           ccJavaOpts = EXTERNAL_CC_JAVA_OPTS_DEFAULT;
+        if (ccJavaOpts == null) {
+            ccJavaOpts = EXTERNAL_CC_JAVA_OPTS_DEFAULT;
         }
         ncJavaOpts = envs.get(AConstants.NC_JAVA_OPTS);
-        if(ncJavaOpts == null){
-           ncJavaOpts = EXTERNAL_NC_JAVA_OPTS_DEFAULT;
+        if (ncJavaOpts == null) {
+            ncJavaOpts = EXTERNAL_NC_JAVA_OPTS_DEFAULT;
         }
 
         LOG.info("Path suffix: " + instanceConfPath);
@@ -411,14 +411,14 @@ public class AsterixApplicationMaster {
      */
     private void requestResources(Cluster c) throws YarnException, UnknownHostException {
         //set memory
-        if(c.getCcContainerMem() != null){
+        if (c.getCcContainerMem() != null) {
             ccMem = Integer.parseInt(c.getCcContainerMem());
-        }else{
+        } else {
             ccMem = CC_MEMORY_MBS_DEFAULT;
         }
-        if(c.getNcContainerMem() != null){
+        if (c.getNcContainerMem() != null) {
             ncMem = Integer.parseInt(c.getNcContainerMem());
-        }else{
+        } else {
             ncMem = CC_MEMORY_MBS_DEFAULT;
         }
         //request CC
@@ -518,9 +518,13 @@ public class AsterixApplicationMaster {
     private void localizeDFSResources() throws IOException {
         //if performing an 'offline' task, skip a lot of resource distribution
         if (obliterate || backup || restore) {
-            //this can happen in a jUnit testing environment. we don't need to set it there. 
             if (appMasterJar == null || ("").equals(appMasterJar)) {
-                throw new IllegalStateException("AM jar not provided in environment.");
+                //this can happen in a jUnit testing environment. we don't need to set it there. 
+                if (!conf.getBoolean(YarnConfiguration.IS_MINI_YARN_CLUSTER, false)) {
+                    throw new IllegalStateException("AM jar not provided in environment.");
+                } else {
+                    return;
+                }
             }
             FileSystem fs = FileSystem.get(conf);
             FileStatus appMasterJarStatus = fs.getFileStatus(appMasterJar);
