@@ -907,8 +907,7 @@ public class AsterixApplicationMaster {
             if (conf.getBoolean(YarnConfiguration.IS_MINI_YARN_CLUSTER, false)) {
                 classPathEnv.append(System.getProperty("path.separator"));
                 classPathEnv.append(System.getProperty("java.class.path"));
-                env.put("HADOOP_CONF_DIR", System.getProperty("user.dir") + File.separator + "target" + File.separator
-                        + "test-classes" + File.separator + "hadoop" + File.separator + "conf" + File.separator);
+                env.put("HADOOP_CONF_DIR", System.getProperty("user.dir") + File.separator + "target" + File.separator);
             }
 
             env.put("CLASSPATH", classPathEnv.toString());

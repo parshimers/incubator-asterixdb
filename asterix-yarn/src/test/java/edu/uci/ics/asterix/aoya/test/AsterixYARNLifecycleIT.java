@@ -125,8 +125,7 @@ public class AsterixYARNLifecycleIT {
         appConf.set("fs.defaultFS", "hdfs://localhost:" + hdfsCluster.getNameNodePort());
         appConf.set("fs.default.name", "hdfs://localhost:" + hdfsCluster.getNameNodePort());
         //TODO:why must I do this!? what is not being passed properly via environment variables???
-        appConf.writeXml(new FileOutputStream("target" + File.separator + "test-classes" + File.separator + "hadoop"
-                + File.separator + "conf" + File.separator + "yarn-site.xml"));
+        appConf.writeXml(new FileOutputStream("target" + File.separator + "yarn-site.xml"));
 
         //once the cluster is created, you can get its configuration
         //with the binding details to the cluster added from the minicluster

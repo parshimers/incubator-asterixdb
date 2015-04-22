@@ -900,8 +900,7 @@ public class AsterixYARNClient {
             LOG.info("In YARN MiniCluster");
             classPathEnv.append(System.getProperty("path.separator"));
             classPathEnv.append(System.getProperty("java.class.path"));
-            env.put("HADOOP_CONF_DIR", System.getProperty("user.dir") + File.separator + "target" + File.separator
-                    + "test-classes" + File.separator + "hadoop" + File.separator + "conf" + File.separator);
+            env.put("HADOOP_CONF_DIR", System.getProperty("user.dir") + File.separator + "target" + File.separator);
         }
         LOG.info("AM Classpath:" + classPathEnv.toString());
         env.put("CLASSPATH", classPathEnv.toString());
