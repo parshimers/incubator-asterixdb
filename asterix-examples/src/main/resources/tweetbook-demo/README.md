@@ -12,3 +12,5 @@ Author: Eugenia Gabrielova (genia.likes.science@gmail.com)
         $ python run_tweetbook_demo.py
 
 1. Visit http://localhost:8080/ in your browser.
+
+2. The demo is built on bottle.py, a prototyping server. If you run this in production, you are probably going to have a bad time.

@@ -30,13 +30,8 @@ function AsterixDBConnection(configuration) {
     //                                  "error" : function(data) {
     //                                              // override here...
     //                                  });
-    // and similarly for ajax_error, just pass in the configuration as a json object.
     this._properties["error"] = function(data) {
         alert("Asterix REST API Error:\n" + data["error-code"][0] + "\n" + data["error-code"][1]);
-    };
-    
-    this._properties["ajax_error"] = function(message) {
-        alert("[Ajax Error]\n" + message);
     };
 
     // This is the default path to the local Asterix REST API. Can be overwritten for remote configurations
@@ -230,102 +225,24 @@ AsterixDBConnection.prototype.meta = function(statements, successFn) {
 *
 * This is treated as an internal method for making the actual call to the API.
 */
-AsterixDBConnection.prototype._api = function(json, onSuccess, endpoint) {
+AsterixDBConnection.prototype._api = function(data, onSuccess, endpoint) {
+    var errorFn = this._properties["error"];
+    var endpoint_url = this._properties["endpoint_root"] + endpoint;
+    var xhr = new XMLHttpRequest();
 
-    // The success function is called if the response is successful and returns data,
-    // or is just OK.
-    var success_fn = onSuccess;
-    
-    // This is the error function. Called if something breaks either on the Asterix side
-    // or in the Ajax call.
-    var error_fn = this._properties["error"];
-    var ajax_error_fn = this._properties["ajax_error"];
-    
-    // This is the target endpoint from the REST api, called as a string.
-    var endpoint_url = this._properties["endpoint_root"] + endpoint;    
+    xhr.open('POST', endpoint_url);    
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState == 4 && xhr.status == 200) {
+            onSuccess(JSON.parse(xhr.responseText));
+        }
+    };
+    xhr.onerror = function() {
+        // Network level failure. 
+        // alert("Error sending request to AsterixDB.");
+    };
+    xhr.send(JSON.stringify(data));
 
-    // This SDK does not rely on jQuery, but utilizes its Ajax capabilities when present.
-    if (window.jQuery) {
-        $.ajax({
-        
-            // The Asterix API does not accept post requests.
-            type        : 'GET',
-            
-            // This is the endpoint url provided by combining the default
-            // or reconfigured endpoint root along with the appropriate api endpoint
-            // such as "query" or "update".
-            url         : endpoint_url,
-            
-            // This is the data in the format specified on the API documentation.
-            data        : json,
-            
-            // We send out the json datatype to make sure our data is parsed correctly. 
-            dataType    : "json",
-            
-            // The success option calls a function on success, which in this case means
-            // something was returned from the API. However, this does not mean the call succeeded
-            // on the REST API side, it just means we got something back. This also contains the
-            // error return codes, which need to be handled before we call th success function.
-            success     : function(data) {
-
-                // Check Asterix Response for errors
-                // See http://asterix.ics.uci.edu/documentation/api.html#ErrorCodes
-                if (data["error-code"]) { 
-                    error_fn(data);
-                    
-                // Otherwise, run our provided success function
-                } else {
-                    success_fn(data);
-                }
-            },
-            
-            // This is the function that gets called if there is an ajax-related (non-Asterix)
-            // error. Network errors, empty response bodies, syntax errors, and a number of others
-            // can pop up. 
-            error       : function(data) {
-
-                // Some of the Asterix API endpoints return empty responses on success.
-                // However, the ajax function treats these as errors while reporting a
-                // 200 OK code with no payload. So we will check for that, otherwise 
-                // alert of an error. An example response is as follows:
-                // {"readyState":4,"responseText":"","status":200,"statusText":"OK"}
-                if (data["status"] == 200 && data["responseText"] == "") {
-                    success_fn(data);
-                } else {
-                    alert("[Ajax Error]\n" + JSON.stringify(data));
-                }
-            }
-        });
-        
-    } else {
-    
-        // NOTE: This section is in progress; currently API requires jQuery.
-    
-        // First, we encode the parameters of the query to create a new url.
-        api_endpoint = endpoint_url + "?" + Object.keys(json).map(function(k) {
-            return encodeURIComponent(k) + '=' + encodeURIComponent(json[k])
-        }).join('&');
-       
-        // Now, create an XMLHttp object to carry our request. We will call the
-        // UI callback function on ready.
-        var xmlhttp;
-        xmlhttp = new XMLHttpRequest();
-        xmlhttp.open("GET", endpoint_url, true);
-        xmlhttp.send(null);
-        
-        xmlhttp.onreadystatechange = function(){
-            if (xmlhttp.readyState == 4) {
-                if (xmlhttp.status === 200) {
-                    alert(xmlhttp.responseText);
-                    //success.call(null, xmlHttp.responseText);
-                } else {
-                    //error.call(null, xmlHttp.responseText);
-                }
-            } else {
-                // Still processing
-            }
-        };
-    }
     return this;
 };
 

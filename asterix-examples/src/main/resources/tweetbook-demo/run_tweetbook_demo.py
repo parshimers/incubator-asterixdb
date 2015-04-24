@@ -24,33 +24,33 @@ def build_response(endpoint, data):
     }
    
     try:
-        response = requests.get(api_endpoint, params=data, headers=http_header)
+        response = requests.get(api_endpoint, params=data.json, headers=http_header)
         return json.dumps({'results' : response.json()})
     except (ConnectionError, HTTPError):
         # This exception will stop the server. Not optimal behavior.
         print "Encountered connection error; stopping execution"
         sys.exit(1)
 
-# API Endpoints    
-@route('/query')
+# API Endpoints
+@route('/query', method='POST')
 def run_asterix_query():
-    return (build_response("query", dict(request.query)))
+    return (build_response("query", request))
     
-@route('/query/status')
+@route('/query/status', method='POST')
 def run_asterix_query_status():
-    return (build_response("query/status", dict(request.query)))
+    return (build_response("query/status", request))
 
-@route('/query/result')
+@route('/query/result', method='POST')
 def run_asterix_query_result():
-    return (build_response("query/result", dict(request.query)))
+    return (build_response("query/result", request))
 
-@route('/ddl')
+@route('/ddl', method='POST')
 def run_asterix_ddl():
-    return (build_response("ddl", dict(request.query)))
+    return (build_response("ddl", request))
 
-@route('/update')
+@route('/update', method='POST')
 def run_asterix_update():
-    return (build_response("update", dict(request.query)))
+    return (build_response("update", query))
     
 res = tweetbook_bootstrap.bootstrap()
 run(host='localhost', port=8080, debug=True)

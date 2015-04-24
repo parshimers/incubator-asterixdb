@@ -895,7 +895,7 @@ class BaseRequest(object):
     __slots__ = ('environ')
 
     #: Maximum size of memory buffer for :attr:`body` in bytes.
-    MEMFILE_MAX = 2000000000
+    MEMFILE_MAX = 1073741824 # 1 GB
     #: Maximum number pr GET or POST parameters per request
     MAX_PARAMS  = 100
 
