@@ -52,30 +52,24 @@ $(function() {
         "query": null
     };
 
-    // Legend Container
-    // Create a rainbow from a pretty color scheme.
-    // http://www.colourlovers.com/palette/292482/Terra
     rainbow = new Rainbow();
-    rainbow.setSpectrum("#E8DDCB", "#CDB380", "#036564", "#033649", "#031634");
-    buildLegend();
 
     // Initialization of UI Tabs
     initDemoPrepareTabs();
 
-    // UI Elements - Creates Map, Location Auto-Complete, Selection Rectangle
-    var mapOptions = {
-        center: new google.maps.LatLng(38.89, -77.03),
+    map = new GMaps({
+        div: '#map',
+        lat: 38.89,
+        lng: -77.03,
         zoom: 4,
-        mapTypeId: google.maps.MapTypeId.ROADMAP,
-        streetViewControl: false,
-        draggable : false,
-        mapTypeControl: false
-    };
-    map = new google.maps.Map(document.getElementById('map'), mapOptions);
+        draggable: false,
+    });
+    drawings = [];
+    rainbow = new Rainbow();
 
     var input = document.getElementById('location-text-box');
     var autocomplete = new google.maps.places.Autocomplete(input);
-    autocomplete.bindTo('bounds', map);
+    autocomplete.bindTo('bounds', map.map);
 
     google.maps.event.addListener(autocomplete, 'place_changed', function() {
         var place = autocomplete.getPlace();
@@ -107,7 +101,7 @@ $(function() {
             zIndex: 1
         }
     });
-    rectangleManager.setMap(map);
+    rectangleManager.setMap(map.map);
     selectionRectangle = null;
 
     // Drawing Manager: Just one editable rectangle!
@@ -119,19 +113,10 @@ $(function() {
     // Initialize data structures
     APIqueryTracker = {};
     asyncQueryManager = {};
-    map_cells = [];
-    map_tweet_markers = [];
-    map_info_windows = {};
     review_mode_tweetbooks = [];
 
     getAllDataverseTweetbooks();
     initDemoUIButtonControls();
-
-    google.maps.event.addListenerOnce(map, 'idle', function(){
-        // Show tutorial tab only the first time the map is loaded
-        $('#mode-tabs a:first').tab('show');
-    });
-
 });
 
 function initDemoUIButtonControls() {
@@ -172,9 +157,9 @@ function initDemoUIButtonControls() {
     end_dp.val(dateOptions.defaultDate);
 
     // Explore Mode: Toggle Selection/Location Search
-    $('#selection-button').on('change', function (e) {
+    $('#selection-button').on('click', function (e) {
         $("#location-text-box").attr("disabled", "disabled");
-        rectangleManager.setMap(map);
+        rectangleManager.setMap(map.map);
         if (selectionRectangle) {
             selectionRectangle.setMap(null);
             selectionRectangle = null;
@@ -184,11 +169,12 @@ function initDemoUIButtonControls() {
     });
     $('#location-button').on('change', function (e) {
         $("#location-text-box").removeAttr("disabled");
-        selectionRectangle.setMap(null);
+        if (selectionRectangle) {
+            selectionRectangle.setMap(null);
+        }        
         rectangleManager.setMap(null);
         rectangleManager.setDrawingMode(google.maps.drawing.OverlayType.RECTANGLE);
     });
-    $("#selection-button").trigger("click");
 
     // Review Mode: New Tweetbook
     $('#new-tweetbook-button').on('click', function (e) {
@@ -221,7 +207,7 @@ function initDemoUIButtonControls() {
     });
 
     // Explore Mode - Clear Button
-    $("#clear-button").click(mapWidgetResetMap);
+    $("#clear-button").click(resetMap);
 
     // Explore Mode: Query Submission
     $("#submit-button").on("click", function () {
@@ -280,8 +266,10 @@ function initDemoUIButtonControls() {
 	};
 
         if (build_tweetbook_mode == "synchronous") {
+            // TODO show query here
             A.query(f.val(), tweetbookQuerySyncCallback, build_tweetbook_mode);
         } else {
+            // TODO show query here
             A.query(f.val(), tweetbookQueryAsyncCallback, build_tweetbook_mode);
         }
 
@@ -420,6 +408,7 @@ function asynchronousQueryGetInterval() {
 */
 function asynchronousQueryGetAPIQueryStatus (handle, handle_id) {
 
+    // TODO show query here
     A.query_status(
         {
             "handle" : JSON.stringify(handle)
@@ -481,7 +470,7 @@ function tweetbookQueryAsyncCallback(res) {
             };
 
             if (!asyncQueryManager[handle_id].hasOwnProperty("result")) {
-                // Generate new Asterix Core API Query
+                // TODO show query here
                 A.query_result(
                     { "handle" : JSON.stringify(asyncQueryManager[handle_id]["handle"]) },
                     function(res) {
@@ -569,7 +558,7 @@ function tweetbookQuerySyncCallback(res) {
         maxCount = Math.max(rectangle["count"], maxCount);
         minCount = Math.min(rectangle["count"], minCount);
     });
-
+    
     triggerUIUpdate(rectangles, maxCount, minCount);
 }
 
@@ -579,11 +568,8 @@ function tweetbookQuerySyncCallback(res) {
 * @param    [Array]     plotWeights, a list of weights of the spatial cells - e.g., number of tweets
 */
 function triggerUIUpdate(mapPlotData, maxWeight, minWeight) {
-    /** Clear anything currently on the map **/
-    mapWidgetClearMap();
-
-    // Initialize info windows.
-    map_info_windows = {};
+    resetMap();
+    rectangleManager.setMap(null);
 
     // mapPlotData is a list of rectangle objects, such as this:
     // {
@@ -599,56 +585,58 @@ function triggerUIUpdate(mapPlotData, maxWeight, minWeight) {
     //   "count": 11
     // }
     $.each(mapPlotData, function (m, rectangle) {
+        var drawing = map.drawCircle({
+            lat: (rectangle.latSW + rectangle.latNE)/2.0,
+            lng: (rectangle.lngSW + rectangle.lngNE)/2.0,
+            click: function(e) {
+                onMapPointDrillDown(this.get('val'));
+            },
+            mouseover: function(e) {
+                this.getMap().getDiv().setAttribute('title',this.get('val').count + ' tweets');
+            },
+            mouseout: function(e) {
+                this.getMap().getDiv().removeAttribute('title');
+            },
 
-        // Calculate map points
-        var point_center = new google.maps.LatLng((rectangle.latSW + rectangle.latNE)/2.0, (rectangle.lngSW + rectangle.lngNE)/2.0);
-
-        var map_circle_options = {
-            center: point_center,
-            anchorPoint: point_center,
-            radius: mapWidgetComputeCircleRadius(rectangle, maxWeight),
-            map: map,
+            // Extra options for demo
             fillOpacity: 0.85,
             fillColor: "#" + rainbow.colourAt(Math.ceil(100 * (rectangle.count / maxWeight))),
-            clickable: true
-        };
-        var map_circle = new google.maps.Circle(map_circle_options);
-        map_circle.val = rectangle;
-        map_circle.index = m;
-
-        map_info_windows[m] = new google.maps.InfoWindow({
-            content: rectangle.count + " tweets",
-            position: point_center
+            radius: computeCircleMarkerRadius(rectangle, maxWeight),
+            val: rectangle
         });
-
-        // Clicking on a circle drills down map to that value, hovering over it displays a count
-        // of tweets at that location.
-        google.maps.event.addListener(map_circle, 'click', function (event) {
-            $.each(map_info_windows, function(i) {
-                map_info_windows[i].close();
-            });
-            onMapPointDrillDown(map_circle.val);
-        });
-
-        google.maps.event.addListener(map_circle, 'mouseover', function(event) {
-            $.each(map_info_windows, function(i) {
-                map_info_windows[i].close();
-            });
-            var circle_position = map_circle.index;
-            if (!map_info_windows[circle_position].getMap()) {
-                map_info_windows[circle_position].setPosition(map_circle.center);
-                map_info_windows[circle_position].open(map);
-            }
-        });
-
-        // Add this marker to global marker cells
-        map_cells.push(map_circle);
-
-        // Show legend
-        $("#legend-min").html(minWeight);
-        $("#legend-max").html(maxWeight);
-        $("#rainbow-legend-container").show();
+        drawings.push(drawing);
     });
+
+    // Show legend
+    $("#legend-min").html(minWeight);
+    $("#legend-max").html(maxWeight);
+    $("#rainbow-legend-container").show();
+
+    $("#submit-button").attr("disabled", false);
+}
+
+/**
+* Computes radius for a given data point from a spatial cell
+* @param    {Object}    keys => ["bottom_left", "top_right", "count", "latSW", "latNE", "lngSW", "lngNE"]
+* @param    {Number}    tweetLimit
+* @returns  {number}    radius between 2 points in metres
+*/
+function computeCircleMarkerRadius(rectangle, tweetLimit) {
+    // Define Boundary Points
+    var point_center = new google.maps.LatLng((rectangle.latSW + rectangle.latNE)/2.0, (rectangle.lngSW + rectangle.lngNE)/2.0);
+    var point_left = new google.maps.LatLng((rectangle.latSW + rectangle.latNE)/2.0, rectangle.lngSW);
+    var point_top = new google.maps.LatLng(rectangle.latNE, (rectangle.lngSW + rectangle.lngNE)/2.0);
+
+    // Circle scale modifier =
+    var scale = 425 + 425*(rectangle.count / tweetLimit);
+
+    // Calculates the distance between two latlng locations in km, using Google Geometry API.
+    var distanceBetweenPoints = function(p1, p2) {
+        return 0.001 * google.maps.geometry.spherical.computeDistanceBetween(p1, p2);
+    };
+
+    // Return proportionate value so that circles mostly line up.
+    return scale * Math.min(distanceBetweenPoints(point_center, point_left), distanceBetweenPoints(point_center, point_top));
 }
 
 /**
@@ -656,45 +644,24 @@ function triggerUIUpdate(mapPlotData, maxWeight, minWeight) {
 *
 * @params {object} marker_borders a set of bounds for a region from a previous api result
 */
-function onMapPointDrillDown(marker_borders) {
-    
-    mapWidgetClearMap();
+function onMapPointDrillDown(tweet_borders) {
+    resetMapDrawings();
+
+    // Zoom in on boundaries of rectangle containing tweets
+    var drilldown_bounds = [];
+    drilldown_bounds.push(new google.maps.LatLng(tweet_borders.latSW, tweet_borders.lngSW));
+    drilldown_bounds.push(new google.maps.LatLng(tweet_borders.latNE, tweet_borders.lngNE));
+    map.fitLatLngBounds(drilldown_bounds)
+
     var zoneData = APIqueryTracker["data"];
-
-    var zswBounds = new google.maps.LatLng(marker_borders.latSW, marker_borders.lngSW);
-    var zneBounds = new google.maps.LatLng(marker_borders.latNE, marker_borders.lngNE);
-
-    var zoneBounds = new google.maps.LatLngBounds(zswBounds, zneBounds);
-    zoneData["swLat"] = zoneBounds.getSouthWest().lat();
-    zoneData["swLng"] = zoneBounds.getSouthWest().lng();
-    zoneData["neLat"] = zoneBounds.getNorthEast().lat();
-    zoneData["neLng"] = zoneBounds.getNorthEast().lng();
-    var zB = {
-        "sw" : {
-            "lat" : zoneBounds.getSouthWest().lat(),
-            "lng" : zoneBounds.getSouthWest().lng()
-        },
-        "ne" : {
-            "lat" : zoneBounds.getNorthEast().lat(),
-            "lng" : zoneBounds.getNorthEast().lng()
-        }
-    };
-
-
-    var customBounds = new google.maps.LatLngBounds();
-    var zoomSWBounds = new google.maps.LatLng(zoneData["swLat"], zoneData["swLng"]);
-    var zoomNEBounds = new google.maps.LatLng(zoneData["neLat"], zoneData["neLng"]);
-    customBounds.extend(zoomSWBounds);
-    customBounds.extend(zoomNEBounds);
-    map.fitBounds(customBounds);
-
-    var df = getDrillDownQuery(zoneData, zB);
+    var df = getDrillDownQuery(zoneData, tweet_borders);
     
     APIqueryTracker = {
         "query_string" : "use dataverse twitter;\n" + df.val(),
         "marker_path" : "static/img/mobile2.png"
     };
 
+    // TODO show query here
     A.query(df.val(), onTweetbookQuerySuccessPlot);
 }
 
@@ -704,10 +671,9 @@ function onMapPointDrillDown(marker_borders) {
 * @param bounds, the bounds of the zone to zoom in on.
 */
 function getDrillDownQuery(parameters, bounds) {
-
     var zoomRectangle = new FunctionExpression("create-rectangle",
-        new FunctionExpression("create-point", bounds["sw"]["lat"], bounds["sw"]["lng"]),
-        new FunctionExpression("create-point", bounds["ne"]["lat"], bounds["ne"]["lng"]));
+        new FunctionExpression("create-point", bounds.latSW, bounds.lngSW),
+        new FunctionExpression("create-point", bounds.latNE, bounds.lngNE));
 
     var drillDown = new FLWOGRExpression()
         .ForClause("$t", new AExpression("dataset TweetMessagesShifted"))
@@ -780,6 +746,7 @@ function onDrillDownAtLocation(tO) {
                 APIqueryTracker["active_tweetbook"],
                 new AExpression("$mt.tweetid = " + deleteTweetCommentOnId.toString())
             );
+            // TODO show query here
             A.update(
                 toDelete.val()
             );
@@ -829,6 +796,7 @@ function onDrillDownAtLocation(tO) {
                     }
                 );
 
+                // TODO show query here
                 A.update(toInsert.val(), function () {
                     var successMessage = "Saved comment on <b>Tweet #" + tweetId +
                         "</b> in dataset <b>" + save_metacomment_target_tweetbook + "</b>.";
@@ -853,6 +821,7 @@ function onCreateNewTweetBook(tweetbook_title) {
 
     var tweetbook_title = tweetbook_title.split(' ').join('_');
 
+    // TODO show query here
     A.ddl(
         "create dataset " + tweetbook_title + "(TweetbookEntry) primary key tweetid;",
         function () {}
@@ -870,7 +839,7 @@ function onCreateNewTweetBook(tweetbook_title) {
 */
 function onDropTweetBook(tweetbook_title) {
 
-    // AQL Call
+    // TODO show query here
     A.ddl(
         "drop dataset " + tweetbook_title + " if exists;",
         function () {}
@@ -924,7 +893,7 @@ function addTweetBookDropdownItem(tweetbook) {
 function onPlotTweetbook(tweetbook) {
 
     // Clear map for this one
-    mapWidgetClearMap();
+    map.removeMarkers();
 
     var plotTweetQuery = new FLWOGRExpression()
         .ForClause("$t", new AExpression("dataset TweetMessagesShifted"))
@@ -943,6 +912,7 @@ function onPlotTweetbook(tweetbook) {
         "active_tweetbook" : tweetbook
     };
 
+    // TODO show query here
     A.query(plotTweetQuery.val(), onTweetbookQuerySuccessPlot);
 }
 
@@ -967,10 +937,9 @@ function onTweetbookQuerySuccessPlot (res) {
         var tweetData = {
             "tweetEntryId" : parseInt(tweet.tweetId),
             "tweetText" : tweet.tweetText,
-            "tweetLat" : tweet.tweetLoc.point[0],
-            "tweetLng" : tweet.tweetLoc.point[1],
-        };
-        tweetData["position"] = new google.maps.LatLng(tweetData["tweetLat"], tweetData["tweetLng"]);      
+            "lat" : tweet.tweetLoc.point[0],
+            "lng" : tweet.tweetLoc.point[1],
+        };    
 
         // If we are parsing out tweetbook data with comments, we need to check
         // for those here as well.
@@ -982,23 +951,18 @@ function onTweetbookQuerySuccessPlot (res) {
     });
 
     // Create a marker for each tweet
-    $.each(tweets, function(i, t) {
+    $.each(tweets, function(i, tweet) {
         // Create a phone marker at tweet's position
-        var map_tweet_m = new google.maps.Marker({
-            position: t["position"],
-            map: map,
+        var tweet_marker = map.addMarker({
+            lat: tweet.lat,
+            lng: tweet.lng,
             icon: APIqueryTracker["marker_path"],
-            clickable: true,
+            val: tweet,
+            click: function(e) {
+                onClickTweetbookMapMarker(this.get('val'));
+            },
         });
-        map_tweet_m["test"] = t;
-
-        // Open Tweet exploration window on click
-        google.maps.event.addListener(map_tweet_m, 'click', function (event) {
-            onClickTweetbookMapMarker(map_tweet_m["test"]);
-        });
-
-        // Add marker to index of tweets
-        map_tweet_markers.push(map_tweet_m);
+        drawings.push(tweet_marker);
     });
 }
 
@@ -1054,16 +1018,16 @@ function initDemoPrepareTabs() {
     $('#explore-mode').click(function(e) {
         $('#review-well').hide();
         $('#explore-well').show();
-        rectangleManager.setMap(map);
+        rectangleManager.setMap(map.map);
         rectangleManager.setDrawingMode(google.maps.drawing.OverlayType.RECTANGLE);
-        mapWidgetResetMap();
+        resetMap();
     });
 
     // Review mode should show review well and hide explore well
     $('#review-mode').click(function(e) {
         $('#explore-well').hide();
         $('#review-well').show();
-        mapWidgetResetMap();
+        resetMap();
         rectangleManager.setMap(null);
         rectangleManager.setDrawingMode(null);
     });
@@ -1111,59 +1075,33 @@ function reportUserMessage(message, isPositiveMessage, target) {
 }
 
 /**
-* mapWidgetResetMap
-*
-* [No Parameters]
+* resetMap
 *
 * Clears ALL map elements - plotted items, overlays, then resets position
 */
-function mapWidgetResetMap() {
-
-    mapWidgetClearMap();
-
+function resetMap() {
+    // Remove markers and legend    
+    resetMapDrawings();
+    $("#rainbow-legend-container").hide();
+    $("#submit-button").attr("disabled", false);
+ 
     // Reset map center and zoom
-    map.setCenter(new google.maps.LatLng(38.89, -77.03));
+    map.setCenter(38.89, -77.03, function () {});
     map.setZoom(4);
 
-    // Selection button
-    $("#selection-button").trigger("click");
-    rectangleManager.setMap(map);
-    rectangleManager.setDrawingMode(google.maps.drawing.OverlayType.RECTANGLE);
-}
-
-/**
-* mapWidgetClearMap
-* Removes data/markers
-*/
-function mapWidgetClearMap() {
-
-    // Remove previously plotted data/markers
-    for (c in map_cells) {
-        map_cells[c].setMap(null);
-    }
-    map_cells = [];
-
-    $.each(map_info_windows, function(i) {
-        map_info_windows[i].close();
-    });
-    map_info_windows = {};
-
-    for (m in map_tweet_markers) {
-        map_tweet_markers[m].setMap(null);
-    }
-    map_tweet_markers = [];
-
-    // Hide legend
-    $("#rainbow-legend-container").hide();
-
-    // Reenable submit button
-    $("#submit-button").attr("disabled", false);
-
-    // Hide selection rectangle
+    // Reset rectangle drawing
     if (selectionRectangle) {
         selectionRectangle.setMap(null);
         selectionRectangle = null;
     }
+    rectangleManager.setMap(map.map);
+    rectangleManager.setDrawingMode(google.maps.drawing.OverlayType.RECTANGLE);
+}
+
+function resetMapDrawings() {
+  for (var i = 0; i < drawings.length; i++) {
+    drawings[i].setMap(null);
+  }
 }
 
 /**
@@ -1172,37 +1110,12 @@ function mapWidgetClearMap() {
 * Generates gradient, button action for legend bar
 */
 function buildLegend() {
+    // Create a rainbow from a pretty color scheme.
+    // http://www.colourlovers.com/palette/292482/Terra
+    rainbow.setSpectrum("#E8DDCB", "#CDB380", "#036564", "#033649", "#031634");
 
-    // Fill in legend area with colors
-    var gradientColor;
-
+    // Add blocks to gradient because I'm useless at fancy css
     for (i = 0; i<100; i++) {
-        //$("#rainbow-legend-container").append("" + rainbow.colourAt(i));
         $("#legend-gradient").append('<div style="display:inline-block; max-width:2px; background-color:#' + rainbow.colourAt(i) +';">&nbsp;</div>');
     }
-}
-
-/**
-* Computes radius for a given data point from a spatial cell
-* @param    {Object}    keys => ["bottom_left", "top_right", "count", "latSW", "latNE", "lngSW", "lngNE"]
-* @param    {Number}    wLimit
-* @returns  {number}    radius between 2 points in metres
-*/
-function mapWidgetComputeCircleRadius(rectangle, wLimit) {
-
-    // Define Boundary Points
-    var point_center = new google.maps.LatLng((rectangle.latSW + rectangle.latNE)/2.0, (rectangle.lngSW + rectangle.lngNE)/2.0);
-    var point_left = new google.maps.LatLng((rectangle.latSW + rectangle.latNE)/2.0, rectangle.lngSW);
-    var point_top = new google.maps.LatLng(rectangle.latNE, (rectangle.lngSW + rectangle.lngNE)/2.0);
-
-    // Circle scale modifier =
-    var scale = 425 + 425*(rectangle.count / wLimit);
-
-    // Calculates the distance between two latlng locations in km, using Google Geometry API.
-    var distanceBetweenPoints = function(p1, p2) {
-        return 0.001 * google.maps.geometry.spherical.computeDistanceBetween(p1, p2);
-    };
-
-    // Return proportionate value so that circles mostly line up.
-    return scale * Math.min(distanceBetweenPoints(point_center, point_left), distanceBetweenPoints(point_center, point_top));
 }
