@@ -71,7 +71,7 @@ $(function() {
         draggable : false,
         mapTypeControl: false
     };
-    map = new google.maps.Map(document.getElementById('map_canvas'), mapOptions);
+    map = new google.maps.Map(document.getElementById('map'), mapOptions);
 
     var input = document.getElementById('location-text-box');
     var autocomplete = new google.maps.places.Autocomplete(input);
@@ -1029,8 +1029,8 @@ function onClickTweetbookMapMarker(t) {
 function onOpenExploreMap () {
     var explore_column_height = $('#explore-well').height();
     var right_column_width = $('#right-col').width();
-    $('#map_canvas').height(explore_column_height + "px");
-    $('#map_canvas').width(right_column_width + "px");
+    $('#map').height(explore_column_height + "px");
+    $('#map').width(right_column_width + "px");
 
     $('#review-well').height(explore_column_height + "px");
     $('#review-well').css('max-height', explore_column_height + "px");
@@ -1198,15 +1198,11 @@ function mapWidgetComputeCircleRadius(rectangle, wLimit) {
     // Circle scale modifier =
     var scale = 425 + 425*(rectangle.count / wLimit);
 
+    // Calculates the distance between two latlng locations in km, using Google Geometry API.
+    var distanceBetweenPoints = function(p1, p2) {
+        return 0.001 * google.maps.geometry.spherical.computeDistanceBetween(p1, p2);
+    };
+
     // Return proportionate value so that circles mostly line up.
     return scale * Math.min(distanceBetweenPoints(point_center, point_left), distanceBetweenPoints(point_center, point_top));
 }
-
-/**
-* Calculates the distance between two latlng locations in km, using Google Geometry API.
-* @param p1, a LatLng
-* @param p2, a LatLng
-*/
-function distanceBetweenPoints (p1, p2) {
-  return 0.001 * google.maps.geometry.spherical.computeDistanceBetween(p1, p2);
-};

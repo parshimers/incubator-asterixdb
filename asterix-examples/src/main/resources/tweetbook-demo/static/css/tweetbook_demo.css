@@ -1,0 +1,25 @@
+.tab-content {
+  clear: none;
+}
+
+#map img {
+  max-width: none;
+}
+
+.panel-primary {
+  border-color: #273f93;
+}
+
+.panel-primary .panel-heading {
+  color: white;
+  background-color: #273f93;
+  border-color: #273f93;
+}
+
+#start-date, #end-date {
+  position: relative; z-index:100;
+}
+
+#keyword-textbox, #location-text-box {
+  width: 100%;
+}

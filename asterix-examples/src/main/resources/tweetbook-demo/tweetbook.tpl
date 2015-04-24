@@ -6,49 +6,27 @@
 
   <link rel="shortcut icon" type="image/png" href="static/img/hyrax.png">
 
-  <!-- Bootstrap & jQuery Styles -->
+  <!-- Stylesheets -->
   <link href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/themes/base/jquery-ui.css" rel="stylesheet" type="text/css"/>
   <link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+  <link href="static/css/tweetbook_demo.css" rel="stylesheet" type="text/css">
 
-  <!-- Bootstrap Javascript -->
-  <script src="http://maps.googleapis.com/maps/api/js?sensor=false&libraries=places,drawing,geometry" type="text/javascript"></script>
-
+  <!-- Bootstrap & jQuery JS -->
   <script src="http://code.jquery.com/jquery.min.js"></script>
   <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/jquery-ui.min.js"></script>
   <script src="static/js/bootstrap.min.js"></script>
-  <script src="static/js/asterix-sdk-stable.js"></script>
+
+  <!-- Map & Legend -->
+  <script src="http://maps.google.com/maps/api/js?sensor=true&libraries=places,drawing,geometry" type="text/javascript"></script>
+  <script src="static/js/gmaps.js"></script>
   <script src="static/js/rainbowvis.js"></script>
+
+  <!-- Demo code -->
+  <
+  <script src="static/js/asterix-sdk-stable.js"></script>
   <script src="static/js/tweetbook.js"></script>
-
-  <style type="text/css">
-
-  .tab-content {
-    clear: none;
-  }
-
-  #map_canvas img {
-    max-width: none;
-  }
-
-  .panel-primary {
-    border-color: #273f93;
-  }
-
-  .panel-primary .panel-heading {
-    color: white;
-    background-color: #273f93;
-    border-color: #273f93;
-  }
-
-  #start-date, #end-date {
-    position: relative; z-index:100;
-  }
-
-  #keyword-textbox, #location-text-box {
-    width: 100%;
-  }
-  </style>
 </head>
+
 <body style="width: 100%; height: 100%;">
 
   <!-- Nav -->
@@ -183,7 +161,7 @@
           <div class="col-md-7">
           <!-- Map Container -->
           <div class="container well" id="right-col">
-            <div id="map_canvas" style="max-width: 100%; height: auto;"></div>
+            <div id="map" style="max-width: 100%; height: auto;"></div>
           </div> 
 
           <!-- Legend Container -->
