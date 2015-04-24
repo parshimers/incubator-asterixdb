@@ -22,6 +22,7 @@
 		<fileSet>
 			<directory>src/main/resources/admaql101-demo</directory>
 			<fileMode>0755</fileMode>
+			<outputDirectory>/</outputDirectory>
 		</fileSet>
 	</fileSets>
  </assembly>
