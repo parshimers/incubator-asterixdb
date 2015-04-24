@@ -1,40 +1,40 @@
 $(function() {
 
-	// Initialize connection to AsterixDB. Just one connection is needed and contains
-	// logic for connecting to each API endpoint. This object A is reused throughout the
-	// code but does not store information about any individual API call.
-	A = new AsterixDBConnection({
+    // Initialize connection to AsterixDB. Just one connection is needed and contains
+    // logic for connecting to each API endpoint. This object A is reused throughout the
+    // code but does not store information about any individual API call.
+    A = new AsterixDBConnection({
 
-	    // We will be using the twitter dataverse, which we can configure either like this
-	    // or by following our AsterixDBConnection with a dataverse call, like so:
-	    // A = new AsterixDBConnection().dataverse("twitter");
-	    "dataverse" : "twitter",
+        // We will be using the twitter dataverse, which we can configure either like this
+        // or by following our AsterixDBConnection with a dataverse call, like so:
+        // A = new AsterixDBConnection().dataverse("twitter");
+        "dataverse" : "twitter",
 
-	    // Due to the setup of this demo using the Bottle server, it is necessary to change the
-	    // default endpoint of API calls. The proxy server handles the call to http://localhost:19002
-	    // for us, and we reconfigure this connection to connect to the proxy server.
-	    "endpoint_root" : "/",
+        // Due to the setup of this demo using the Bottle server, it is necessary to change the
+        // default endpoint of API calls. The proxy server handles the call to http://localhost:19002
+        // for us, and we reconfigure this connection to connect to the proxy server.
+        "endpoint_root" : "/",
 
-	    // Finally, we want to make our error function nicer so that we show errors with a call to the
-	    // reportUserMessage function. Update the "error" property to do that.
-	    "error" : function(data) {
-	                // For an error, data will look like this:
-	                // {
-	                //     "error-code" : [error-number, error-text]
-	                //     "stacktrace" : ...stack trace...
-	                //     "summary"    : ...summary of error...
-	                // }
-	                // We will report this as an Asterix REST API Error, an error code, and a reason message.
-	                // Note the method signature: reportUserMessage(message, isPositiveMessage, target). We will provide
-	                // an error message to display, a positivity value (false in this case, errors are bad), and a
-	                // target html element in which to report the message.
-	                var showErrorMessage = "Asterix Error #" + data["error-code"][0] + ": " + data["error-code"][1];
-	                var isPositive = false;
-	                var showReportAt = "report-message";
+        // Finally, we want to make our error function nicer so that we show errors with a call to the
+        // reportUserMessage function. Update the "error" property to do that.
+        "error" : function(data) {
+                    // For an error, data will look like this:
+                    // {
+                    //     "error-code" : [error-number, error-text]
+                    //     "stacktrace" : ...stack trace...
+                    //     "summary"    : ...summary of error...
+                    // }
+                    // We will report this as an Asterix REST API Error, an error code, and a reason message.
+                    // Note the method signature: reportUserMessage(message, isPositiveMessage, target). We will provide
+                    // an error message to display, a positivity value (false in this case, errors are bad), and a
+                    // target html element in which to report the message.
+                    var showErrorMessage = "Asterix Error #" + data["error-code"][0] + ": " + data["error-code"][1];
+                    var isPositive = false;
+                    var showReportAt = "report-message";
 
-	                reportUserMessage(showErrorMessage, isPositive, showReportAt);
-	              }
-	});
+                    reportUserMessage(showErrorMessage, isPositive, showReportAt);
+                  }
+    });
 
     // This little bit of code manages period checks of the asynchronous query manager,
     // which holds onto handles asynchornously received. We can set the handle update
@@ -186,18 +186,18 @@ function initDemoUIButtonControls() {
 
     // Explore Mode - Show Query Button
     $("#show-query-button").click(function() {
-	var show_query_content, query_text, timestamp;
+        var show_query_content, query_text, timestamp;
 
-	query_text = last_query_submitted.query;
-	timestamp = last_query_submitted.time;
+        query_text = last_query_submitted.query;
+        timestamp = last_query_submitted.time;
 
-	$("#show-query-blob").remove();
+        $("#show-query-blob").remove();
 
-	if (last_query_submitted.query) {
-	    show_query_content = "Last query submitted at " + timestamp + ":<br/>" + query_text;
-	} else {
-	    show_query_content = "No recent queries to show."
-	}
+        if (last_query_submitted.query) {
+            show_query_content = "Last query submitted at " + timestamp + ":<br/>" + query_text;
+        } else {
+            show_query_content = "No recent queries to show."
+        }
 
         $('<div/>')
             .attr("class", "alert alert-success")
@@ -260,10 +260,10 @@ function initDemoUIButtonControls() {
             "data" : formData
         };
 
-	last_query_submitted = {
-	    "query": APIqueryTracker.query,
-	    "time": new Date()
-	};
+        last_query_submitted = {
+            "query": APIqueryTracker.query,
+            "time": new Date()
+        };
 
         if (build_tweetbook_mode == "synchronous") {
             // TODO show query here
@@ -288,7 +288,7 @@ function buildAQLQueryFromForm(parameters) {
 
     var bounds = {
         "ne" : { "lat" : parameters["neLat"], "lng" : -1*parameters["neLng"]},
-		"sw" : { "lat" : parameters["swLat"], "lng" : -1*parameters["swLng"]}
+        "sw" : { "lat" : parameters["swLat"], "lng" : -1*parameters["swLng"]}
     };
 
     var rectangle =
