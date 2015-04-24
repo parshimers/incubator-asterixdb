@@ -266,10 +266,8 @@ function initDemoUIButtonControls() {
         };
 
         if (build_tweetbook_mode == "synchronous") {
-            // TODO show query here
             A.query(f.val(), tweetbookQuerySyncCallback, build_tweetbook_mode);
         } else {
-            // TODO show query here
             A.query(f.val(), tweetbookQueryAsyncCallback, build_tweetbook_mode);
         }
 
@@ -408,7 +406,12 @@ function asynchronousQueryGetInterval() {
 */
 function asynchronousQueryGetAPIQueryStatus (handle, handle_id) {
 
-    // TODO show query here
+
+    // TODO
+    // last_query_submitted = {
+    //      "query": APIqueryTracker.query,
+    //      "time": new Date()
+    // };    
     A.query_status(
         {
             "handle" : JSON.stringify(handle)
@@ -470,7 +473,12 @@ function tweetbookQueryAsyncCallback(res) {
             };
 
             if (!asyncQueryManager[handle_id].hasOwnProperty("result")) {
-                // TODO show query here
+                
+                // TODO
+                // last_query_submitted = {
+                //      "query": APIqueryTracker.query,
+                //      "time": new Date()
+                // };
                 A.query_result(
                     { "handle" : JSON.stringify(asyncQueryManager[handle_id]["handle"]) },
                     function(res) {
@@ -661,7 +669,10 @@ function onMapPointDrillDown(tweet_borders) {
         "marker_path" : "static/img/mobile2.png"
     };
 
-    // TODO show query here
+    last_query_submitted = {
+        "query": APIqueryTracker.query_string,
+        "time": new Date()
+    };
     A.query(df.val(), onTweetbookQuerySuccessPlot);
 }
 
@@ -746,7 +757,12 @@ function onDrillDownAtLocation(tO) {
                 APIqueryTracker["active_tweetbook"],
                 new AExpression("$mt.tweetid = " + deleteTweetCommentOnId.toString())
             );
-            // TODO show query here
+            
+            // TODO
+            // last_query_submitted = {
+            //      "query": ???,
+            //      "time": new Date()
+            // };
             A.update(
                 toDelete.val()
             );
@@ -796,7 +812,11 @@ function onDrillDownAtLocation(tO) {
                     }
                 );
 
-                // TODO show query here
+                // TODO
+                // last_query_submitted = {
+                //      "query": ???,
+                //      "time": new Date()
+                // };
                 A.update(toInsert.val(), function () {
                     var successMessage = "Saved comment on <b>Tweet #" + tweetId +
                         "</b> in dataset <b>" + save_metacomment_target_tweetbook + "</b>.";
@@ -821,7 +841,11 @@ function onCreateNewTweetBook(tweetbook_title) {
 
     var tweetbook_title = tweetbook_title.split(' ').join('_');
 
-    // TODO show query here
+    // TODO
+    // last_query_submitted = {
+    //      "query": ???,
+    //      "time": new Date()
+    // };
     A.ddl(
         "create dataset " + tweetbook_title + "(TweetbookEntry) primary key tweetid;",
         function () {}
@@ -839,7 +863,11 @@ function onCreateNewTweetBook(tweetbook_title) {
 */
 function onDropTweetBook(tweetbook_title) {
 
-    // TODO show query here
+    // TODO
+    // last_query_submitted = {
+    //      "query": ???,
+    //      "time": new Date()
+    // };
     A.ddl(
         "drop dataset " + tweetbook_title + " if exists;",
         function () {}
@@ -912,7 +940,10 @@ function onPlotTweetbook(tweetbook) {
         "active_tweetbook" : tweetbook
     };
 
-    // TODO show query here
+    last_query_submitted = {
+        "query": APIqueryTracker.query_string,
+        "time": new Date()
+    };
     A.query(plotTweetQuery.val(), onTweetbookQuerySuccessPlot);
 }
 
