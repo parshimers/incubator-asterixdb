@@ -18,4 +18,4 @@ create dataset TweetsTestAdapter(TestTypedAdapterOutputType)
 primary key tweetid;
 
 create feed TestTypedAdapterFeed
-using "testlib#test_typed_adapter" (("num_output_records"="5"),("type-name"="TestTypedAdapterOutputType"));
+using "testlib-zip-binary-assembly#test_typed_adapter" (("num_output_records"="5"),("type-name"="TestTypedAdapterOutputType"));

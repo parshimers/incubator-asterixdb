@@ -46,7 +46,7 @@ public class AsterixYARNLibraryTestIT {
 
         String asterixExternalLibraryPath = new File(System.getProperty("user.dir")).getParentFile().getAbsolutePath()
                 + File.separator + LIBRARY_PATH;
-        command = "-n " + INSTANCE_NAME + "-l " + asterixExternalLibraryPath + "-ld " + LIBRARY_DATAVERSE + " libinstall";
+        command = "-n " + INSTANCE_NAME + " -l " + asterixExternalLibraryPath + " -ld " + LIBRARY_DATAVERSE + " libinstall";
         executeAoyaCommand(command);
 
         command = "-n " + INSTANCE_NAME + " start";

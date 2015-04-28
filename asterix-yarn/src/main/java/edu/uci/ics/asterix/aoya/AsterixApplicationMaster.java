@@ -35,9 +35,11 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -142,6 +144,7 @@ public class AsterixApplicationMaster {
     //Tells us whether the Cluster Controller is up so we can safely start some Node Controllers
     private AtomicBoolean ccUp = new AtomicBoolean();
     private AtomicBoolean ccStarted = new AtomicBoolean();
+    private Queue<Node> ncStarted = new LinkedBlockingQueue<Node>();
 
     //HDFS path to Asterix distributable zip
     private String asterixZipPath = "";
@@ -453,6 +456,7 @@ public class AsterixApplicationMaster {
             resourceManager.addContainerRequest(hostToRequest(n.getClusterIp(), false));
             LOG.info("Asked for NC: " + n.getClusterIp());
             numNodes++;
+            ncStarted.add(n);
         }
         LOG.info("Requested all NCs and CCs. Wait for things to settle!");
         numRequestedContainers.set(numNodes);
@@ -491,10 +495,11 @@ public class AsterixApplicationMaster {
     }
 
     /**
-     * Determines if a container that was given is the one we wish to run the Asterix CC on
+     * Determines whether or not a container is the one on which the CC should reside
      * 
      * @param c
-     * @return
+     *            The container in question
+     * @return True if the container should have the CC process on it, false otherwise.
      */
     boolean containerIsCC(Container c) {
         String containerHost = c.getNodeId().getHost();
@@ -507,6 +512,29 @@ public class AsterixApplicationMaster {
         } catch (UnknownHostException e) {
             return false;
         }
+    }
+
+    /**
+     * Attempts to find the Node in the Cluster Description that matches this container
+     * 
+     * @param c
+     *            The container to resolve
+     * @return The node this container corresponds to
+     * @throws java.net.UnknownHostException
+     *             if the container isn't present in the description
+     */
+    Node containerToNode(Container c, Cluster cl) throws UnknownHostException {
+        String containerHost = c.getNodeId().getHost();
+        InetAddress containerIp = InetAddress.getByName(containerHost);
+        LOG.info("Resolved Container IP: " + containerIp);
+        for (Node node : cl.getNode()) {
+            InetAddress nodeIp = InetAddress.getByName(node.getClusterIp());
+            LOG.info(nodeIp + "?=" + containerIp);
+            if (nodeIp.equals(containerIp))
+                return node;
+        }
+        //if we find nothing, this is bad...
+        throw new java.net.UnknownHostException("Could not resolve container" + containerHost + " to node");
     }
 
     /**
@@ -754,6 +782,13 @@ public class AsterixApplicationMaster {
             LOG.info("Got response from RM for container ask, allocatedCnt=" + allocatedContainers.size());
             numAllocatedContainers.addAndGet(allocatedContainers.size());
             for (Container allocatedContainer : allocatedContainers) {
+                try {
+                    if (!ncStarted.contains(containerToNode(allocatedContainer, clusterDesc)) && ccUp.get()) {
+                        continue;
+                    }
+                } catch (UnknownHostException e) {
+                    continue;
+                }
                 LOG.info("Launching shell command on a new container." + ", containerId=" + allocatedContainer.getId()
                         + ", containerNode=" + allocatedContainer.getNodeId().getHost() + ":"
                         + allocatedContainer.getNodeId().getPort() + ", containerNodeURI="
@@ -767,6 +802,15 @@ public class AsterixApplicationMaster {
                 // I want to know if this node is the CC, because it must start before the NCs. 
                 LOG.info("Allocated: " + allocatedContainer.getNodeId().getHost());
                 LOG.info("CC : " + cC.getId());
+
+                try {
+                    if (ccUp.get()) {
+                        ncStarted.remove(containerToNode(allocatedContainer, clusterDesc));
+                    }
+                } catch (UnknownHostException e) {
+                    //wont happen!
+                    continue;
+                }
 
                 if (containerIsCC(allocatedContainer)) {
                     ccUp.set(true);
@@ -1217,37 +1261,6 @@ public class AsterixApplicationMaster {
             commands.add(command.toString());
             return commands;
         }
-
-        /**
-         * Attempts to find the Node in the Cluster Description that matches this container
-         * 
-         * @param c
-         *            The container to resolve
-         * @return The node this container corresponds to
-         * @throws java.net.UnknownHostException
-         *             if the container isn't present in the description
-         */
-        private Node containerToNode(Container c, Cluster cl) throws UnknownHostException {
-            String containerHost = c.getNodeId().getHost();
-            InetAddress containerIp = InetAddress.getByName(containerHost);
-            LOG.info("Resolved Container IP: " + containerIp);
-            for (Node node : cl.getNode()) {
-                InetAddress nodeIp = InetAddress.getByName(node.getClusterIp());
-                LOG.info(nodeIp + "?=" + containerIp);
-                if (nodeIp.equals(containerIp))
-                    return node;
-            }
-            //if we find nothing, this is bad...
-            throw new java.net.UnknownHostException("Could not resolve container" + containerHost + " to node");
-        }
-
-        /**
-         * Determines whether or not a container is the one on which the CC should reside
-         * 
-         * @param c
-         *            The container in question
-         * @return True if the container should have the CC process on it, false otherwise.
-         */
 
     }
 }
