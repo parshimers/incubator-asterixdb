@@ -30,9 +30,11 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -42,6 +44,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.GnuParser;
@@ -144,7 +148,8 @@ public class AsterixApplicationMaster {
     //Tells us whether the Cluster Controller is up so we can safely start some Node Controllers
     private AtomicBoolean ccUp = new AtomicBoolean();
     private AtomicBoolean ccStarted = new AtomicBoolean();
-    private Queue<Node> ncStarted = new LinkedBlockingQueue<Node>();
+    private Lock ncStartedLock = new ReentrantLock();
+    private Queue<Node> ncStarted = new ArrayDeque<Node>();
 
     //HDFS path to Asterix distributable zip
     private String asterixZipPath = "";
@@ -456,7 +461,12 @@ public class AsterixApplicationMaster {
             resourceManager.addContainerRequest(hostToRequest(n.getClusterIp(), false));
             LOG.info("Asked for NC: " + n.getClusterIp());
             numNodes++;
-            ncStarted.add(n);
+            try {
+                ncStartedLock.lock();
+                ncStarted.add(n);
+            } finally {
+                ncStartedLock.unlock();
+            }
         }
         LOG.info("Requested all NCs and CCs. Wait for things to settle!");
         numRequestedContainers.set(numNodes);
@@ -783,11 +793,14 @@ public class AsterixApplicationMaster {
             numAllocatedContainers.addAndGet(allocatedContainers.size());
             for (Container allocatedContainer : allocatedContainers) {
                 try {
+                    ncStartedLock.lock();
                     if (!ncStarted.contains(containerToNode(allocatedContainer, clusterDesc)) && ccUp.get()) {
                         continue;
                     }
                 } catch (UnknownHostException e) {
                     continue;
+                } finally {
+                    ncStartedLock.unlock();
                 }
                 LOG.info("Launching shell command on a new container." + ", containerId=" + allocatedContainer.getId()
                         + ", containerNode=" + allocatedContainer.getNodeId().getHost() + ":"
@@ -804,12 +817,15 @@ public class AsterixApplicationMaster {
                 LOG.info("CC : " + cC.getId());
 
                 try {
+                    ncStartedLock.lock();
                     if (ccUp.get()) {
                         ncStarted.remove(containerToNode(allocatedContainer, clusterDesc));
                     }
                 } catch (UnknownHostException e) {
                     //wont happen!
                     continue;
+                } finally {
+                    ncStartedLock.unlock();
                 }
 
                 if (containerIsCC(allocatedContainer)) {
