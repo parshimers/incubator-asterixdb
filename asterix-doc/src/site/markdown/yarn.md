@@ -94,14 +94,10 @@ This AsterixDB cluster description file corresponds to the above deployed scenar
             </master_node>
             <node>
                 <id>nc1</id>
-                <cluster_ip>10.10.0.2</cluster_ip>
-            </node>
-            <node>
-                <id>nc2</id>
                 <cluster_ip>10.10.0.3</cluster_ip>
             </node>
             <node>
-                <id>nc3</id>
+                <id>nc2</id>
                 <cluster_ip>10.10.0.4</cluster_ip>
             </node>
             <metadata_node>nc1</metadata_node>
