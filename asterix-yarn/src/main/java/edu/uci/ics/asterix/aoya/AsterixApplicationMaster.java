@@ -34,14 +34,12 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
@@ -795,10 +793,11 @@ public class AsterixApplicationMaster {
                 try {
                     ncStartedLock.lock();
                     if (!ncStarted.contains(containerToNode(allocatedContainer, clusterDesc)) && ccUp.get()) {
+                        nmClientAsync.stopContainerAsync(allocatedContainer.getId(),allocatedContainer.getNodeId());
                         continue;
+                        
                     }
                 } catch (UnknownHostException e) {
-                    continue;
                 } finally {
                     ncStartedLock.unlock();
                 }
@@ -822,8 +821,6 @@ public class AsterixApplicationMaster {
                         ncStarted.remove(containerToNode(allocatedContainer, clusterDesc));
                     }
                 } catch (UnknownHostException e) {
-                    //wont happen!
-                    continue;
                 } finally {
                     ncStartedLock.unlock();
                 }
