@@ -80,9 +80,6 @@ AsterixDBConnection.prototype.query = function(statements, successFn, mode) {
     }
     
     var m = typeof mode ? mode : "synchronous";
-    
-    // DEBUG
-    //alert(statements.join("\n"));
      
     var query = "use dataverse " + this._properties["dataverse"] + ";\n" + statements.join("\n");
     

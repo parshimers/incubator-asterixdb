@@ -24,8 +24,10 @@ def build_response(endpoint, data):
     }
    
     try:
-        response = requests.get(api_endpoint, params=data.json, headers=http_header)
+        response = requests.get(api_endpoint, params=data.json, headers=http_header)       
         return json.dumps({'results' : response.json()})
+    except (ValueError):
+        return json.dumps({})
     except (ConnectionError, HTTPError):
         # This exception will stop the server. Not optimal behavior.
         print "Encountered connection error; stopping execution"
@@ -50,7 +52,7 @@ def run_asterix_ddl():
 
 @route('/update', method='POST')
 def run_asterix_update():
-    return (build_response("update", query))
+    return (build_response("update", request))
     
 res = tweetbook_bootstrap.bootstrap()
 run(host='localhost', port=8080, debug=True)

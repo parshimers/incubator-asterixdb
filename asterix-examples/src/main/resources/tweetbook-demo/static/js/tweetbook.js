@@ -41,7 +41,7 @@ $(function() {
     // frequency using seconds, and it will let us know when it is ready.
     var intervalID = setInterval(
         function() {
-            asynchronousQueryIntervalUpdate();
+            asynchronousQueryStatusCheck();
         },
         asynchronousQueryGetInterval()
     );
@@ -51,8 +51,6 @@ $(function() {
         "time": null,
         "query": null
     };
-
-    rainbow = new Rainbow();
 
     // Initialization of UI Tabs
     initDemoPrepareTabs();
@@ -66,6 +64,7 @@ $(function() {
     });
     drawings = [];
     rainbow = new Rainbow();
+    buildLegend();    
 
     var input = document.getElementById('location-text-box');
     var autocomplete = new google.maps.places.Autocomplete(input);
@@ -382,10 +381,34 @@ function getAllDataverseTweetbooks(fn_tweetbooks) {
 /**
 * Checks through each asynchronous query to see if they are ready yet
 */
-function asynchronousQueryIntervalUpdate() {
+function asynchronousQueryStatusCheck() {
     for (var handle_key in asyncQueryManager) {
         if (!asyncQueryManager[handle_key].hasOwnProperty("ready")) {
-            asynchronousQueryGetAPIQueryStatus( asyncQueryManager[handle_key]["handle"], handle_key );
+            
+            // TODO
+            // last_query_submitted = {
+            //      "query": APIqueryTracker.query,
+            //      "time": new Date()
+            // };    
+
+            A.query_status(
+                {
+                    "handle" : asyncQueryManager[handle_key].handle,
+                },
+                function (res) {
+                    alert(JSON.stringify(res));
+                    if (res.results.status == "SUCCESS") {
+                        // We don't need to check if this one is ready again, it's not going anywhere...
+                        // Unless the life cycle of handles has changed drastically
+                        asyncQueryManager[handle_key]["ready"] = true;
+
+                        $('#handle_' + handle_key)
+                            .removeClass("btn-disabled")
+                            .prop('disabled', false)
+                            .addClass("btn-success");
+                    }
+                }
+            );
         }
     }
 }
@@ -400,49 +423,22 @@ function asynchronousQueryGetInterval() {
 }
 
 /**
-* Retrieves status of an asynchronous query, using an opaque result handle from API
-* @param    {Object}    handle, an object previously returned from an async call
-* @param    {number}    handle_id, the integer ID parsed from the handle object
-*/
-function asynchronousQueryGetAPIQueryStatus (handle, handle_id) {
-
-
-    // TODO
-    // last_query_submitted = {
-    //      "query": APIqueryTracker.query,
-    //      "time": new Date()
-    // };    
-    A.query_status(
-        {
-            "handle" : JSON.stringify(handle)
-        },
-        function (res) {
-            if (res["status"] == "SUCCESS") {
-                // We don't need to check if this one is ready again, it's not going anywhere...
-                // Unless the life cycle of handles has changed drastically
-                asyncQueryManager[handle_id]["ready"] = true;
-
-                // Indicate success.
-                $('#handle_' + handle_id).removeClass("btn-disabled").prop('disabled', false).addClass("btn-success");
-            }
-        }
-     );
-}
-
-/**
 * On-success callback after async API query
 * @param    {object}    res, a result object containing an opaque result handle to Asterix
 */
 function tweetbookQueryAsyncCallback(res) {
+    
+    if (!res.results || !res.results.handle) {
+        // TODO I can't replicate this situation.
+        return;
+    }
 
-    // Parse handle, handle id and query from async call result
     var handle_query = APIqueryTracker["query"];
-    var handle = res;
-    var handle_id = res["handle"].toString().split(',')[0];
-
+    var handle_id = res.results.handle[0];
+    
     // Add to stored map of existing handles
     asyncQueryManager[handle_id] = {
-        "handle" : handle,
+        "handle" : JSON.stringify(res.results),
         "query" : handle_query, // This will show up when query control button is clicked.
         "data" : APIqueryTracker["data"]
     };
@@ -459,6 +455,7 @@ function tweetbookQueryAsyncCallback(res) {
         .appendTo("#async-handle-controls");
 
     // Adds the main button for this async handle
+    
     var handle_action_button = '<button class="btn btn-disabled" id="handle_' + handle_id + '">Handle ' + handle_id + '</button>';
     $('#async_container_' + handle_id).append(handle_action_button);
     $('#handle_' + handle_id).prop('disabled', true);
@@ -480,19 +477,18 @@ function tweetbookQueryAsyncCallback(res) {
                 //      "time": new Date()
                 // };
                 A.query_result(
-                    { "handle" : JSON.stringify(asyncQueryManager[handle_id]["handle"]) },
+                    { "handle" : asyncQueryManager[handle_id]["handle"] },
                     function(res) {
                         asyncQueryManager[handle_id]["result"] = res;
 
                         var resultTransform = {
                             "results" : res.results
                         };
-
                         tweetbookQuerySyncCallback(resultTransform);
                     }
                 );
             } else {
-
+                // todo qol
                 var resultTransform = {
                     "results" : asyncQueryManager[handle_id]["result"].results
                 };
@@ -723,6 +719,8 @@ function getDrillDownQuery(parameters, bounds) {
 * @param t0, a tweetobject that has a location, text, id, and optionally a comment.
 */
 function onDrillDownAtLocation(tO) {
+
+    // TODO bug map zooming when you click on a tweetbook
 
     var tweetId = tO["tweetEntryId"];
     var tweetText = tO["tweetText"];
@@ -1143,7 +1141,7 @@ function resetMapDrawings() {
 function buildLegend() {
     // Create a rainbow from a pretty color scheme.
     // http://www.colourlovers.com/palette/292482/Terra
-    rainbow.setSpectrum("#E8DDCB", "#CDB380", "#036564", "#033649", "#031634");
+    rainbow.setSpectrum("#E8DDCB", "#CDB380", "#036564", "#033649", "#031634");    
 
     // Add blocks to gradient because I'm useless at fancy css
     for (i = 0; i<100; i++) {

@@ -22,7 +22,6 @@
   <script src="static/js/rainbowvis.js"></script>
 
   <!-- Demo code -->
-  <
   <script src="static/js/asterix-sdk-stable.js"></script>
   <script src="static/js/tweetbook.js"></script>
 </head>
