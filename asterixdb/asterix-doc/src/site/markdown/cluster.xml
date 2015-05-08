@@ -1,0 +1,49 @@
+    <cluster xmlns="yarn_cluster">
+
+      <!-- Name of the cluster -->
+      <name>localtest</name>
+
+      <!-- username, which should be valid for all the three machines -->
+
+      <!-- The working directory of Managix. It is recommended for the working
+      directory to be on a network file system (NFS) that can accessed by
+      all machines. 
+      Managix creates the directory if it it doesn't exist. -->
+
+      <!-- Directory for Asterix to store log information for each machine.
+	Needs to be on the local file system of each machine.
+	Managix creates the directory if it doesn't exist. 
+        This property can be overriden for a node by redefining at the node level. -->
+      <txn_log_dir>/home/vagrant/</txn_log_dir>
+
+      <!-- Mount point of an iodevice. Use a comma separated list for a machine that
+                      has multiple iodevices (disks).
+                                 This property can be overriden for a node by redefining at the node level. -->
+      <iodevices>/home/vagrant/</iodevices>
+
+      <!-- Path on each iodevice where Asterix will store its data -->
+      <store>asterix-data</store>
+
+       <!-- IP addresses of the master machine A -->
+      <master_node>
+          <id>cc</id>
+	      <client_ip>10.10.0.2</client_ip>
+	      <cluster_ip>10.10.0.2</cluster_ip>
+	      <client_port>1098</client_port>
+	      <cluster_port>1099</cluster_port>
+	      <http_port>8888</http_port>
+      </master_node>
+      <node>
+      	      <id>cc</id>
+      	      <cluster_ip>10.10.0.2</cluster_ip>
+      </node>
+      <node>
+      	      <id>nc1</id>
+      	      <cluster_ip>10.10.0.3</cluster_ip>
+      </node>
+      <node>
+      	      <id>nc2</id>
+      	      <cluster_ip>10.10.0.4</cluster_ip>
+      </node>
+     <metadata_node>nc1</metadata_node>
+</cluster>
