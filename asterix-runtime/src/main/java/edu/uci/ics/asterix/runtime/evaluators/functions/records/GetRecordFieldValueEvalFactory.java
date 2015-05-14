@@ -16,14 +16,15 @@ package edu.uci.ics.asterix.runtime.evaluators.functions.records;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInput;
+import java.io.DataInputStream;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import edu.uci.ics.asterix.dataflow.data.nontagged.serde.AStringSerializerDeserializer;
 import edu.uci.ics.asterix.formats.nontagged.AqlSerializerDeserializerProvider;
 import edu.uci.ics.asterix.om.base.ANull;
+import edu.uci.ics.asterix.om.base.AString;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.BuiltinType;
@@ -42,15 +43,15 @@ public class GetRecordFieldValueEvalFactory implements ICopyEvaluatorFactory {
 
     private ICopyEvaluatorFactory recordEvalFactory;
     private ICopyEvaluatorFactory fldNameEvalFactory;
+    private ARecordType recType;
 
-    //    private final static byte SER_NULL_TYPE_TAG = ATypeTag.NULL.serialize();
-    //    private final static byte SER_RECORD_TYPE_TAG = ATypeTag.RECORD.serialize();
     private final static byte SER_STRING_TYPE_TAG = ATypeTag.STRING.serialize();
 
     public GetRecordFieldValueEvalFactory(ICopyEvaluatorFactory recordEvalFactory,
-            ICopyEvaluatorFactory fldNameEvalFactory) {
+            ICopyEvaluatorFactory fldNameEvalFactory, ARecordType recType) {
         this.recordEvalFactory = recordEvalFactory;
         this.fldNameEvalFactory = fldNameEvalFactory;
+        this.recType = recType;
     }
 
     @Override
@@ -63,14 +64,23 @@ public class GetRecordFieldValueEvalFactory implements ICopyEvaluatorFactory {
             private ICopyEvaluator eval0 = recordEvalFactory.createEvaluator(outInput0);
             private ICopyEvaluator eval1 = fldNameEvalFactory.createEvaluator(outInput1);
 
+            int size = 1;
             private DataOutput out = output.getDataOutput();
             private ByteArrayAccessibleOutputStream subRecordTmpStream = new ByteArrayAccessibleOutputStream();
-            private ArrayBackedValueStorage[] abvs = new ArrayBackedValueStorage[1];
-            private DataOutput[] dos = new DataOutput[1];
+            private ArrayBackedValueStorage[] abvs = new ArrayBackedValueStorage[size];
+            private DataOutput[] dos = new DataOutput[size];
+
+            private ByteArrayInputStream stream;
+            private DataInput in;
+            private AString fieldName;
+            private List<String> fieldList = new ArrayList<String>();
 
             @SuppressWarnings("unchecked")
             private ISerializerDeserializer<ANull> nullSerde = AqlSerializerDeserializerProvider.INSTANCE
                     .getSerializerDeserializer(BuiltinType.ANULL);
+            @SuppressWarnings("unchecked")
+            private ISerializerDeserializer<AString> stringSerDes = AqlSerializerDeserializerProvider.INSTANCE
+                    .getSerializerDeserializer(BuiltinType.ASTRING);
 
             @Override
             public void evaluate(IFrameTupleReference tuple) throws AlgebricksException {
@@ -79,24 +89,25 @@ public class GetRecordFieldValueEvalFactory implements ICopyEvaluatorFactory {
                     eval1.evaluate(tuple);
 
                     byte[] serFldName = outInput1.getByteArray();
-                    if (serFldName[0] == SER_STRING_TYPE_TAG) {
+                    if (serFldName[0] != SER_STRING_TYPE_TAG) {
                         nullSerde.serialize(ANull.NULL, out);
                         return;
                     }
-                    List<String> fieldList = new ArrayList<String>();
-                    fieldList.add(AStringSerializerDeserializer.INSTANCE.deserialize(
-                            (DataInput) new ByteArrayInputStream(serFldName)).getStringValue());
 
-                    ARecordType recordType; // TODO get record type...
+                    stream = new ByteArrayInputStream(serFldName, 0, serFldName.length);
+                    in = new DataInputStream(stream);
+                    fieldName = (AString) stringSerDes.deserialize(in);
+                    fieldList.clear();
+                    fieldList.add(fieldName.getStringValue());
+
                     if (first) {
-                        FieldAccessUtil.init(eval0, abvs, dos, recordType, fieldList);
+                        FieldAccessUtil.init(eval0, abvs, dos, recType, fieldList);
                         first = false;
                     } else {
-                        FieldAccessUtil.reset(eval0, abvs, dos, recordType, fieldList);
+                        FieldAccessUtil.reset(eval0, abvs, dos, recType, fieldList);
                     }
-                    FieldAccessUtil.evaluate(tuple, out, eval0, abvs, outInput0, subRecordTmpStream, recordType,
-                            fieldList);
-
+                    FieldAccessUtil
+                            .evaluate(tuple, out, eval0, abvs, outInput0, subRecordTmpStream, recType, fieldList);
                 } catch (IOException e) {
                     throw new AlgebricksException(e);
                 }
