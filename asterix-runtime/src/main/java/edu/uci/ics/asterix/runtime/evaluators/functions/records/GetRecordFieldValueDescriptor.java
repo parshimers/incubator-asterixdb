@@ -17,6 +17,7 @@ package edu.uci.ics.asterix.runtime.evaluators.functions.records;
 import edu.uci.ics.asterix.om.functions.AsterixBuiltinFunctions;
 import edu.uci.ics.asterix.om.functions.IFunctionDescriptor;
 import edu.uci.ics.asterix.om.functions.IFunctionDescriptorFactory;
+import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.runtime.evaluators.base.AbstractScalarFunctionDynamicDescriptor;
 import edu.uci.ics.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import edu.uci.ics.hyracks.algebricks.runtime.base.ICopyEvaluatorFactory;
@@ -30,6 +31,12 @@ public class GetRecordFieldValueDescriptor extends AbstractScalarFunctionDynamic
         }
     };
 
+    private ARecordType recType;
+
+    public void reset(ARecordType recType) {
+        this.recType = recType;
+    }
+
     @Override
     public FunctionIdentifier getIdentifier() {
         return AsterixBuiltinFunctions.GET_RECORD_FIELD_VALUE;
@@ -37,7 +44,7 @@ public class GetRecordFieldValueDescriptor extends AbstractScalarFunctionDynamic
 
     @Override
     public ICopyEvaluatorFactory createEvaluatorFactory(ICopyEvaluatorFactory[] args) {
-        return new GetRecordFieldValueEvalFactory(args[0], args[1]);
+        return new GetRecordFieldValueEvalFactory(args[0], args[1], recType);
     }
 
 }

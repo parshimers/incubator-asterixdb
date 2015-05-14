@@ -49,8 +49,8 @@ import edu.uci.ics.asterix.om.typecomputer.impl.CollectionToSequenceTypeComputer
 import edu.uci.ics.asterix.om.typecomputer.impl.ConcatNonNullTypeComputer;
 import edu.uci.ics.asterix.om.typecomputer.impl.FieldAccessByIndexResultType;
 import edu.uci.ics.asterix.om.typecomputer.impl.FieldAccessNestedResultType;
-import edu.uci.ics.asterix.om.typecomputer.impl.GetRecordFieldsTypeComputer;
 import edu.uci.ics.asterix.om.typecomputer.impl.GetOverlappingInvervalTypeComputer;
+import edu.uci.ics.asterix.om.typecomputer.impl.GetRecordFieldsTypeComputer;
 import edu.uci.ics.asterix.om.typecomputer.impl.InjectFailureTypeComputer;
 import edu.uci.ics.asterix.om.typecomputer.impl.NonTaggedCollectionMemberResultType;
 import edu.uci.ics.asterix.om.typecomputer.impl.NonTaggedFieldAccessByNameResultType;
@@ -108,22 +108,12 @@ import edu.uci.ics.asterix.om.typecomputer.impl.UnaryBooleanOrNullFunctionTypeCo
 import edu.uci.ics.asterix.om.typecomputer.impl.UnaryStringInt64OrNullTypeComputer;
 import edu.uci.ics.asterix.om.typecomputer.impl.UnaryStringOrNullTypeComputer;
 import edu.uci.ics.asterix.om.typecomputer.impl.UnorderedListConstructorResultType;
-import edu.uci.ics.asterix.om.types.AOrderedListType;
-import edu.uci.ics.asterix.om.types.ATypeTag;
-import edu.uci.ics.asterix.om.types.AUnionType;
-import edu.uci.ics.asterix.om.types.AbstractCollectionType;
-import edu.uci.ics.asterix.om.types.BuiltinType;
-import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.types.hierachy.ATypeHierarchy;
-import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
-import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.AggregateFunctionCallExpression;
-import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IVariableTypeEnvironment;
 import edu.uci.ics.hyracks.algebricks.core.algebra.functions.AlgebricksBuiltinFunctions;
 import edu.uci.ics.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import edu.uci.ics.hyracks.algebricks.core.algebra.functions.IFunctionInfo;
-import edu.uci.ics.hyracks.algebricks.core.algebra.metadata.IMetadataProvider;
 
 public class AsterixBuiltinFunctions {
 
@@ -952,7 +942,7 @@ public class AsterixBuiltinFunctions {
         addPrivateFunction(FIELD_ACCESS_BY_INDEX, FieldAccessByIndexResultType.INSTANCE, true);
         addPrivateFunction(FIELD_ACCESS_NESTED, FieldAccessNestedResultType.INSTANCE, true);
         addPrivateFunction(FIELD_ACCESS_BY_NAME, NonTaggedFieldAccessByNameResultType.INSTANCE, true);
-        addFunction(GET_RECORD_FIELDS, GetRecordFieldsTypeComputer.INSTANCE, true);
+        addFunction(GET_RECORD_FIELDS, FieldAccessNestedResultType.INSTANCE, true);
         addFunction(GET_RECORD_FIELD_VALUE, AnyTypeComputer.INSTANCE, true);
 
         // temporal type accessors

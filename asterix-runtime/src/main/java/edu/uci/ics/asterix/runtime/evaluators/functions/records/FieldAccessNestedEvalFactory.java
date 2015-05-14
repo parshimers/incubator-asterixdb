@@ -17,7 +17,6 @@ package edu.uci.ics.asterix.runtime.evaluators.functions.records;
 import java.io.DataOutput;
 import java.util.List;
 
-import edu.uci.ics.asterix.om.base.AString;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.runtime.base.ICopyEvaluator;

@@ -134,7 +134,7 @@ public class FieldAccessUtil {
                     }
 
                 }
-                subFieldIndex = ((ARecordType) subType).findFieldPosition(as.get(i).fieldPath.get(i));
+                subFieldIndex = ((ARecordType) subType).findFieldPosition(fieldPath.get(i));
                 if (subFieldIndex == -1) {
                     break;
                 }

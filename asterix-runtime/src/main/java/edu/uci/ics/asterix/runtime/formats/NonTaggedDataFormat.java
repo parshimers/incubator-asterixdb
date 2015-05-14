@@ -262,6 +262,8 @@ import edu.uci.ics.asterix.runtime.evaluators.functions.records.FieldAccessByInd
 import edu.uci.ics.asterix.runtime.evaluators.functions.records.FieldAccessByNameDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.records.FieldAccessNestedDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.records.FieldAccessNestedEvalFactory;
+import edu.uci.ics.asterix.runtime.evaluators.functions.records.GetRecordFieldValueDescriptor;
+import edu.uci.ics.asterix.runtime.evaluators.functions.records.GetRecordFieldsDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.records.RecordMergeDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.temporal.AdjustDateTimeForTimeZoneDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.temporal.AdjustTimeForTimeZoneDescriptor;
@@ -409,6 +411,9 @@ public class NonTaggedDataFormat implements IDataFormat {
         temp.add(FieldAccessByIndexDescriptor.FACTORY);
         temp.add(FieldAccessByNameDescriptor.FACTORY);
         temp.add(FieldAccessNestedDescriptor.FACTORY);
+        temp.add(GetRecordFieldsDescriptor.FACTORY);
+        temp.add(GetRecordFieldValueDescriptor.FACTORY);
+        temp.add(FieldAccessByNameDescriptor.FACTORY);
         temp.add(GetItemDescriptor.FACTORY);
         temp.add(NumericUnaryMinusDescriptor.FACTORY);
         temp.add(OpenRecordConstructorDescriptor.FACTORY);
@@ -995,6 +1000,20 @@ public class NonTaggedDataFormat implements IDataFormat {
                 }
                 default: {
                     throw new NotImplementedException("field-access-nested for data of type " + t);
+                }
+            }
+        }
+        if (fd.getIdentifier().equals(AsterixBuiltinFunctions.GET_RECORD_FIELD_VALUE)) {
+            AbstractFunctionCallExpression fce = (AbstractFunctionCallExpression) expr;
+            IAType t = (IAType) context.getType(fce.getArguments().get(0).getValue());
+            switch (t.getTypeTag()) {
+                case RECORD: {
+                    ARecordType recType = (ARecordType) t;
+                    ((GetRecordFieldValueDescriptor) fd).reset(recType);
+                    break;
+                }
+                default: {
+                    throw new NotImplementedException("get-record-field-value for data of type " + t);
                 }
             }
         }
