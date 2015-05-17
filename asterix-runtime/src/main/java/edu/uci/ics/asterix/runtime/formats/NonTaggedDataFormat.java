@@ -1003,18 +1003,24 @@ public class NonTaggedDataFormat implements IDataFormat {
                 }
             }
         }
+        if (fd.getIdentifier().equals(AsterixBuiltinFunctions.GET_RECORD_FIELDS)) {
+            AbstractFunctionCallExpression fce = (AbstractFunctionCallExpression) expr;
+            IAType t = (IAType) context.getType(fce.getArguments().get(0).getValue());
+            if (t.getTypeTag().equals(ATypeTag.RECORD)) {
+                ARecordType recType = (ARecordType) t;
+                ((GetRecordFieldsDescriptor) fd).reset(recType);
+            } else {
+                throw new NotImplementedException("get-record-fields for data of type " + t);
+            }
+        }
         if (fd.getIdentifier().equals(AsterixBuiltinFunctions.GET_RECORD_FIELD_VALUE)) {
             AbstractFunctionCallExpression fce = (AbstractFunctionCallExpression) expr;
             IAType t = (IAType) context.getType(fce.getArguments().get(0).getValue());
-            switch (t.getTypeTag()) {
-                case RECORD: {
-                    ARecordType recType = (ARecordType) t;
-                    ((GetRecordFieldValueDescriptor) fd).reset(recType);
-                    break;
-                }
-                default: {
-                    throw new NotImplementedException("get-record-field-value for data of type " + t);
-                }
+            if (t.getTypeTag().equals(ATypeTag.RECORD)) {
+                ARecordType recType = (ARecordType) t;
+                ((GetRecordFieldValueDescriptor) fd).reset(recType);
+            } else {
+                throw new NotImplementedException("get-record-field-value for data of type " + t);
             }
         }
     }

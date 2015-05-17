@@ -33,6 +33,6 @@ public class GetRecordFieldsTypeComputer implements IResultTypeComputer {
     @Override
     public IAType computeType(ILogicalExpression expression, IVariableTypeEnvironment env,
             IMetadataProvider<?, ?> metadataProvider) throws AlgebricksException {
-        return new AOrderedListType(new AOrderedListType(BuiltinType.ANY, null), null);
+        return new AOrderedListType(BuiltinType.ANY, null);
     }
 }
