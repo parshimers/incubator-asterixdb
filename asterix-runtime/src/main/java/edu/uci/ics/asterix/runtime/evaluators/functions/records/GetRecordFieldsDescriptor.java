@@ -14,8 +14,6 @@
  */
 package edu.uci.ics.asterix.runtime.evaluators.functions.records;
 
-import java.util.List;
-
 import edu.uci.ics.asterix.om.functions.AsterixBuiltinFunctions;
 import edu.uci.ics.asterix.om.functions.IFunctionDescriptor;
 import edu.uci.ics.asterix.om.functions.IFunctionDescriptorFactory;
@@ -34,11 +32,9 @@ public class GetRecordFieldsDescriptor extends AbstractScalarFunctionDynamicDesc
     };
 
     private ARecordType recType;
-    private List<String> fldName;
 
-    public void reset(ARecordType recType, List<String> fldName) {
+    public void reset(ARecordType recType) {
         this.recType = recType;
-        this.fldName = fldName;
     }
 
     @Override
@@ -48,7 +44,7 @@ public class GetRecordFieldsDescriptor extends AbstractScalarFunctionDynamicDesc
 
     @Override
     public ICopyEvaluatorFactory createEvaluatorFactory(ICopyEvaluatorFactory[] args) {
-        return new GetRecordFieldsEvalFactory(args[0], recType, fldName);
+        return new GetRecordFieldsEvalFactory(args[0], recType);
     }
 
 }

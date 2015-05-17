@@ -51,7 +51,6 @@ public class ExecutionTest {
             File.separator);
 
     private static final String TEST_CONFIG_FILE_NAME = "asterix-build-configuration.xml";
-    private static final String[] ASTERIX_DATA_DIRS = new String[] { "nc1data", "nc2data" };
 
     private static AsterixTransactionProperties txnProperties;
 
@@ -96,14 +95,14 @@ public class ExecutionTest {
             outdir.delete();
         }
         // clean up the files written by the ASTERIX storage manager
-        for (String d : ASTERIX_DATA_DIRS) {
+        for (String d : AsterixHyracksIntegrationUtil.getDataDirs()) {
             TestsUtils.deleteRec(new File(d));
         }
         HDFSCluster.getInstance().cleanup();
     }
 
     private static void deleteTransactionLogs() throws Exception {
-        for (String ncId : AsterixHyracksIntegrationUtil.NC_IDS) {
+        for (String ncId : AsterixHyracksIntegrationUtil.getNcNames()) {
             File log = new File(txnProperties.getLogDirectory(ncId));
             if (log.exists()) {
                 FileUtils.deleteDirectory(log);

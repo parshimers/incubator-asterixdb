@@ -942,7 +942,7 @@ public class AsterixBuiltinFunctions {
         addPrivateFunction(FIELD_ACCESS_BY_INDEX, FieldAccessByIndexResultType.INSTANCE, true);
         addPrivateFunction(FIELD_ACCESS_NESTED, FieldAccessNestedResultType.INSTANCE, true);
         addPrivateFunction(FIELD_ACCESS_BY_NAME, NonTaggedFieldAccessByNameResultType.INSTANCE, true);
-        addFunction(GET_RECORD_FIELDS, FieldAccessNestedResultType.INSTANCE, true);
+        addFunction(GET_RECORD_FIELDS, OrderedListOfAnyTypeComputer.INSTANCE, true);
         addFunction(GET_RECORD_FIELD_VALUE, AnyTypeComputer.INSTANCE, true);
 
         // temporal type accessors

@@ -43,15 +43,15 @@ public class GetRecordFieldValueEvalFactory implements ICopyEvaluatorFactory {
 
     private ICopyEvaluatorFactory recordEvalFactory;
     private ICopyEvaluatorFactory fldNameEvalFactory;
-    private ARecordType recType;
+    private ARecordType recordType;
 
     private final static byte SER_STRING_TYPE_TAG = ATypeTag.STRING.serialize();
 
     public GetRecordFieldValueEvalFactory(ICopyEvaluatorFactory recordEvalFactory,
-            ICopyEvaluatorFactory fldNameEvalFactory, ARecordType recType) {
+            ICopyEvaluatorFactory fldNameEvalFactory, ARecordType recordType) {
         this.recordEvalFactory = recordEvalFactory;
         this.fldNameEvalFactory = fldNameEvalFactory;
-        this.recType = recType;
+        this.recordType = recordType;
     }
 
     @Override
@@ -82,6 +82,10 @@ public class GetRecordFieldValueEvalFactory implements ICopyEvaluatorFactory {
             private ISerializerDeserializer<AString> stringSerDes = AqlSerializerDeserializerProvider.INSTANCE
                     .getSerializerDeserializer(BuiltinType.ASTRING);
 
+            {
+                recordType = recordType.deepCopy(recordType);
+            }
+
             @Override
             public void evaluate(IFrameTupleReference tuple) throws AlgebricksException {
                 try {
@@ -101,13 +105,13 @@ public class GetRecordFieldValueEvalFactory implements ICopyEvaluatorFactory {
                     fieldList.add(fieldName.getStringValue());
 
                     if (first) {
-                        FieldAccessUtil.init(eval0, abvs, dos, recType, fieldList);
+                        FieldAccessUtil.init(eval0, abvs, dos, recordType, fieldList);
                         first = false;
                     } else {
-                        FieldAccessUtil.reset(eval0, abvs, dos, recType, fieldList);
+                        FieldAccessUtil.reset(eval0, abvs, dos, recordType, fieldList);
                     }
                     FieldAccessUtil
-                            .evaluate(tuple, out, eval0, abvs, outInput0, subRecordTmpStream, recType, fieldList);
+                            .evaluate(tuple, out, eval0, abvs, outInput0, subRecordTmpStream, recordType, fieldList);
                 } catch (IOException e) {
                     throw new AlgebricksException(e);
                 }
