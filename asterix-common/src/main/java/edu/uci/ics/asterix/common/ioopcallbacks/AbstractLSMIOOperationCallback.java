@@ -20,13 +20,9 @@ import java.util.List;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndex;
-import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexMetaDataFrame;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIOOperationCallback;
 import edu.uci.ics.hyracks.storage.am.lsm.common.impls.LSMOperationType;
-import edu.uci.ics.hyracks.storage.common.buffercache.IBufferCache;
-import edu.uci.ics.hyracks.storage.common.buffercache.ICachedPage;
-import edu.uci.ics.hyracks.storage.common.file.BufferedFileHandle;
 
 // A single LSMIOOperationCallback per LSM index used to perform actions around Flush and Merge operations
 public abstract class AbstractLSMIOOperationCallback implements ILSMIOOperationCallback {
@@ -92,11 +88,11 @@ public abstract class AbstractLSMIOOperationCallback implements ILSMIOOperationC
     protected void putLSNIntoMetadata(ITreeIndex treeIndex, List<ILSMComponent> oldComponents)
             throws HyracksDataException {
         long componentLSN = getComponentLSN(oldComponents);
-        treeIndex.getFreePageManager().setLSN(componentLSN);
+        treeIndex.getMetaManager().setLSN(componentLSN);
     }
 
     protected long getTreeIndexLSN(ITreeIndex treeIndex) throws HyracksDataException {
-        return treeIndex.getFreePageManager().getLSN();
+        return treeIndex.getMetaManager().getLSN();
     }
 
     public void updateLastLSN(long lastLSN) {
