@@ -24,7 +24,8 @@ def build_response(endpoint, data):
     }
    
     try:
-        response = requests.get(api_endpoint, params=data.json, headers=http_header)       
+        response = requests.get(api_endpoint, params=data.json, headers=http_header)
+        print response.content 
         return json.dumps({'results' : response.json()})
     except (ValueError):
         return json.dumps({})

@@ -396,7 +396,6 @@ function asynchronousQueryStatusCheck() {
                     "handle" : asyncQueryManager[handle_key].handle,
                 },
                 function (res) {
-                    alert(JSON.stringify(res));
                     if (res.results.status == "SUCCESS") {
                         // We don't need to check if this one is ready again, it's not going anywhere...
                         // Unless the life cycle of handles has changed drastically
