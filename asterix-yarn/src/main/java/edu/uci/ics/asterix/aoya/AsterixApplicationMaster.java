@@ -38,8 +38,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Vector;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
@@ -128,7 +130,7 @@ public class AsterixApplicationMaster {
     // Hostname of the container
     private String appMasterHostname = "";
     // Port on which the app master listens for status updates from clients
-    private int appMasterRpcPort = 19020;
+    private int appMasterRpcPort = new Random().nextInt(65535-49152);
     // Tracking url to which app master publishes info for clients to monitor
     private String appMasterTrackingUrl = "";
 
@@ -146,17 +148,16 @@ public class AsterixApplicationMaster {
     //Tells us whether the Cluster Controller is up so we can safely start some Node Controllers
     private AtomicBoolean ccUp = new AtomicBoolean();
     private AtomicBoolean ccStarted = new AtomicBoolean();
-    private Lock ncStartedLock = new ReentrantLock();
     private Queue<Node> ncStarted = new ArrayDeque<Node>();
 
-    //HDFS path to Asterix distributable zip
+    //HDFS path to AsterixDB distributable zip
     private String asterixZipPath = "";
     // Timestamp needed for creating a local resource
     private long asterixZipTimestamp = 0;
     // File length needed for local resource
     private long asterixZipLen = 0;
 
-    //HDFS path to Asterix distributable zip
+    //HDFS path to AsterixDB cluster description
     private String asterixConfPath = "";
     // Timestamp needed for creating a local resource
     private long asterixConfTimestamp = 0;
@@ -188,9 +189,10 @@ public class AsterixApplicationMaster {
     long backupTimestamp;
     String snapName;
     private boolean restore = false;
+    private boolean initial = false;
 
     // Launch threads
-    private List<Thread> launchThreads = new ArrayList<Thread>();
+    private List<Thread> launchThreads = new CopyOnWriteArrayList<Thread>();
 
     public static void main(String[] args) {
 
@@ -260,7 +262,7 @@ public class AsterixApplicationMaster {
         opts.addOption("priority", true, "Application Priority. Default 0");
         opts.addOption("debug", false, "Dump out debug information");
         opts.addOption("help", false, "Print usage");
-        opts.addOption("existing", false, "Initialize existing Asterix instance.");
+        opts.addOption("initial", false, "Initialize existing Asterix instance.");
         opts.addOption("obliterate", false, "Delete asterix instance completely.");
         opts.addOption("backup", false, "Back up AsterixDB instance");
         opts.addOption("restore", true, "Restore an AsterixDB instance");
@@ -277,6 +279,9 @@ public class AsterixApplicationMaster {
 
         if (cliParser.hasOption("obliterate")) {
             obliterate = true;
+        }
+        if(cliParser.hasOption("initial")){
+            initial = true;
         }
 
         if (cliParser.hasOption("backup")) {
@@ -340,11 +345,15 @@ public class AsterixApplicationMaster {
         asterixConfLen = Long.parseLong(envs.get(AConstants.CONFLEN));
 
         instanceConfPath = envs.get(AConstants.INSTANCESTORE);
-        //the only time this is null is during testing, when asterix-yarn isn't packaged in a JAR yet. 
-        appMasterJar = envs.get(AConstants.APPLICATIONMASTERJARLOCATION) != null ? new Path(
-                envs.get(AConstants.APPLICATIONMASTERJARLOCATION)) : null;
+        //the only time this is null is during testing, when asterix-yarn isn't packaged in a JAR yet.
+        if(AConstants.APPLICATIONMASTERJARLOCATION != null
+                && !AConstants.APPLICATIONMASTERJARLOCATION.endsWith(File.separator)){
+            appMasterJar = new Path(AConstants.APPLICATIONMASTERJARLOCATION);
+        }
+        else{
+            appMasterJar = null;
+        }
 
-        //appMasterJar = new Path(envs.get(AConstants.APPLICATIONMASTERJARLOCATION));
         dfsBasePath = envs.get(AConstants.DFS_BASE);
         //If the NM has an odd environment where the proper hadoop XML configs dont get imported, we can end up not being able to talk to the RM
         // this solves that!
@@ -435,16 +444,16 @@ public class AsterixApplicationMaster {
         numNodes++;
         //now we wait to be given the CC before starting the NCs...
         //we will wait a minute. 
-        int death_clock = 60;
-        while (ccUp.get() == false && death_clock > 0) {
+        int deathClock = 60;
+        while (ccUp.get() == false && deathClock > 0) {
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException ex) {
-
+                LOG.debug(ex);
             }
-            --death_clock;
+            --deathClock;
         }
-        if (death_clock == 0 && ccUp.get() == false) {
+        if (deathClock == 0 && ccUp.get() == false) {
             throw new YarnException("Couldn't allocate container for CC. Abort!");
         }
         LOG.info("Waiting for CC process to start");
@@ -453,17 +462,15 @@ public class AsterixApplicationMaster {
         try {
             Thread.sleep(10000);
         } catch (InterruptedException ex) {
+            LOG.debug(ex);
         }
         //request NCs
         for (Node n : c.getNode()) {
             resourceManager.addContainerRequest(hostToRequest(n.getClusterIp(), false));
             LOG.info("Asked for NC: " + n.getClusterIp());
             numNodes++;
-            try {
-                ncStartedLock.lock();
+            synchronized(ncStarted){
                 ncStarted.add(n);
-            } finally {
-                ncStartedLock.unlock();
             }
         }
         LOG.info("Requested all NCs and CCs. Wait for things to settle!");
@@ -612,7 +619,7 @@ public class AsterixApplicationMaster {
         //now add the libraries if there are any
         try {
             FileSystem fs = FileSystem.get(conf);
-            Path p = new Path(dfsBasePath, instanceConfPath + "library" + Path.SEPARATOR);
+            Path p = new Path(dfsBasePath, instanceConfPath + File.separator + "library" + Path.SEPARATOR);
             if (fs.exists(p)) {
                 FileStatus[] dataverses = fs.listStatus(p);
                 for (FileStatus d : dataverses) {
@@ -765,7 +772,9 @@ public class AsterixApplicationMaster {
                         + ", diagnostics=" + containerStatus.getDiagnostics());
 
                 // non complete containers should not be here
-                assert (containerStatus.getState() == ContainerState.COMPLETE);
+                if(containerStatus.getState() != ContainerState.COMPLETE){
+                    throw new IllegalStateException("Non-completed container given as completed by RM.");
+                }
 
                 // increment counters for completed/failed containers
                 int exitStatus = containerStatus.getExitStatus();
@@ -790,16 +799,15 @@ public class AsterixApplicationMaster {
             LOG.info("Got response from RM for container ask, allocatedCnt=" + allocatedContainers.size());
             numAllocatedContainers.addAndGet(allocatedContainers.size());
             for (Container allocatedContainer : allocatedContainers) {
-                try {
-                    ncStartedLock.lock();
-                    if (!ncStarted.contains(containerToNode(allocatedContainer, clusterDesc)) && ccUp.get()) {
-                        nmClientAsync.stopContainerAsync(allocatedContainer.getId(),allocatedContainer.getNodeId());
-                        continue;
-                        
+                synchronized(ncStarted){
+                    try {
+                        if (!ncStarted.contains(containerToNode(allocatedContainer, clusterDesc)) && ccUp.get()) {
+                            nmClientAsync.stopContainerAsync(allocatedContainer.getId(), allocatedContainer.getNodeId());
+                            continue;
+                        }
+                    } catch(UnknownHostException ex){
+                        LOG.error("Unknown host allocated for us by RM- this shouldn't happen.", ex);
                     }
-                } catch (UnknownHostException e) {
-                } finally {
-                    ncStartedLock.unlock();
                 }
                 LOG.info("Launching shell command on a new container." + ", containerId=" + allocatedContainer.getId()
                         + ", containerNode=" + allocatedContainer.getNodeId().getHost() + ":"
@@ -814,15 +822,14 @@ public class AsterixApplicationMaster {
                 // I want to know if this node is the CC, because it must start before the NCs. 
                 LOG.info("Allocated: " + allocatedContainer.getNodeId().getHost());
                 LOG.info("CC : " + cC.getId());
-
-                try {
-                    ncStartedLock.lock();
-                    if (ccUp.get()) {
-                        ncStarted.remove(containerToNode(allocatedContainer, clusterDesc));
+                synchronized(ncStarted){
+                    try {
+                        if (ccUp.get()) {
+                            ncStarted.remove(containerToNode(allocatedContainer, clusterDesc));
+                        }
+                    } catch(UnknownHostException ex){
+                        LOG.error("Unknown host allocated for us by RM- this shouldn't happen.", ex);
                     }
-                } catch (UnknownHostException e) {
-                } finally {
-                    ncStartedLock.unlock();
                 }
 
                 if (containerIsCC(allocatedContainer)) {
@@ -915,9 +922,9 @@ public class AsterixApplicationMaster {
     private class LaunchAsterixContainer implements Runnable {
 
         // Allocated container
-        Container container;
+        final Container container;
 
-        NMCallbackHandler containerListener;
+        final NMCallbackHandler containerListener;
 
         /**
          * @param lcontainer
@@ -1010,7 +1017,7 @@ public class AsterixApplicationMaster {
         private List<String> produceStartCmd(Container container) {
             List<String> commands = new ArrayList<String>();
             // Set the necessary command to execute on the allocated container
-            Vector<CharSequence> vargs = new Vector<CharSequence>(5);
+            List<CharSequence> vargs = new ArrayList<CharSequence>(5);
 
             vargs.add(JAVA_HOME + File.separator + "bin" + File.separator + "java");
             vargs.add("-classpath " + '\'' + ASTERIX_ZIP_NAME + File.separator + "repo" + File.separator + "*\'");
@@ -1048,6 +1055,9 @@ public class AsterixApplicationMaster {
                     vargs.add("-cluster-net-ip-address " + local.getClusterIp());
                     vargs.add("-data-ip-address " + local.getClusterIp());
                     vargs.add("-result-ip-address " + local.getClusterIp());
+                    if(initial){
+                        vargs.add("-initial-run ");
+                    }
                 } catch (UnknownHostException e) {
                     LOG.error("Unable to find NC or CC configured for host: " + container.getId() + " " + e);
                 }
@@ -1082,10 +1092,11 @@ public class AsterixApplicationMaster {
                 //we expect this may happen for the CC if it isn't colocated with an NC. otherwise it is not suppose to happen.
                 if (!containerIsCC(container)) {
                     LOG.error("Unable to find NC configured for host: " + container.getId() + e);
+                    return null;
                 }
-                List<String> blank = new ArrayList<String>();
-                blank.add("");
-                return blank;
+                else {
+                    return Arrays.asList("");
+                }
             }
             StringBuilder classPathEnv = new StringBuilder("").append("*");
             classPathEnv.append(File.pathSeparatorChar).append("log4j.properties");
@@ -1128,10 +1139,10 @@ public class AsterixApplicationMaster {
                 //we expect this may happen for the CC if it isn't colocated with an NC. otherwise it is not suppose to happen.
                 if (!containerIsCC(container)) {
                     LOG.error("Unable to find NC configured for host: " + container.getId() + e);
+                    return null;
+                }else {
+                    return Arrays.asList("");
                 }
-                List<String> blank = new ArrayList<String>();
-                blank.add("");
-                return blank;
             }
             StringBuilder classPathEnv = new StringBuilder("").append("." + File.separator + "*");
             for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH,
@@ -1211,10 +1222,10 @@ public class AsterixApplicationMaster {
                 //we expect this may happen for the CC if it isn't colocated with an NC. otherwise it is not suppose to happen.
                 if (!containerIsCC(container)) {
                     LOG.error("Unable to find NC configured for host: " + container.getId() + e);
+                    return null;
+                } else {
+                    return Arrays.asList("");
                 }
-                List<String> blank = new ArrayList<String>();
-                blank.add("");
-                return blank;
             }
             StringBuilder classPathEnv = new StringBuilder("").append("." + File.separator + "*");
             for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH,

@@ -83,8 +83,8 @@ public class Utils {
      * @throws IOException
      */
 
-    public static void sendShutdownCall(String host) throws IOException {
-        final String url = "http://" + host + ":19002/admin/shutdown";
+    public static void sendShutdownCall(String host, int port) throws IOException {
+        final String url = "http://" + host + ":" + port + "/admin/shutdown";
         PostMethod method = new PostMethod(url);
         try {
             executeHTTPCall(method, 1);
@@ -102,7 +102,7 @@ public class Utils {
 
     /**
      * Simple test via the AsterixDB Javascript API to determine if an instance is truly live or not.
-     * Runs the query "1+1" and returns true if the query completes successfully, false otherwise.
+     * Queries the Metadata dataset and returns true if the query completes successfully, false otherwise.
      * 
      * @param host
      *            The host to run the query against
@@ -110,9 +110,9 @@ public class Utils {
      *         True if the instance is OK, false otherwise.
      * @throws IOException
      */
-    public static boolean probeLiveness(String host) throws IOException {
-        final String url = "http://" + host + ":19002/query";
-        final String test = "1+1";
+    public static boolean probeLiveness(String host, int port) throws IOException {
+        final String url = "http://" + host + ":" + port + "/query";
+        final String test = "for $x in dataset Metadata.Dataset return $x;";
         GetMethod method = new GetMethod(url);
         method.setQueryString(new NameValuePair[] { new NameValuePair("query", test) });
         int status = 0;
@@ -195,18 +195,18 @@ public class Utils {
         FileStatus[] instances = fs.listStatus(instanceFolder);
         if (instances.length != 0) {
             System.out.println("Existing AsterixDB instances: ");
+            for (int i = 0; i < instances.length; i++) {
+                FileStatus st = instances[i];
+                String name = st.getPath().getName();
+                ApplicationId lockFile = AsterixYARNClient.getLockFile(name, conf);
+                if (lockFile != null) {
+                    System.out.println("Instance " + name + " is running with Application ID: " + lockFile.toString());
+                } else {
+                    System.out.println("Instance " + name + " is stopped");
+                }
+            }
         } else {
             System.out.println("No running or stopped AsterixDB instances exist in this cluster");
-        }
-        for (int i = 0; i < instances.length; i++) {
-            FileStatus st = instances[i];
-            String name = st.getPath().getName();
-            ApplicationId lockFile = AsterixYARNClient.getLockFile(name, conf);
-            if (lockFile != null) {
-                System.out.println("Instance " + name + " is running with Application ID: " + lockFile.toString());
-            } else {
-                System.out.println("Instance " + name + " is stopped");
-            }
         }
     }
 
@@ -225,11 +225,11 @@ public class Utils {
         List<String> backups = getBackups(conf,confDirRel,instance);
         if (backups.size() != 0) {
             System.out.println("Backups for instance " + instance + ": ");
+            for (String name : backups) {
+                System.out.println("Backup: " + name);
+            }
         } else {
             System.out.println("No backups found for instance " + instance + ".");
-        }
-        for (String name : backups) {
-            System.out.println("Backup: " + name);
         }
     }
    /**
@@ -352,7 +352,7 @@ public class Utils {
     }
 
     public static boolean waitForLiveness(ApplicationId appId, boolean probe, boolean print, String message,
-            YarnClient yarnClient, String instanceName, Configuration conf) throws YarnException {
+            YarnClient yarnClient, String instanceName, Configuration conf, int port) throws YarnException {
         ApplicationReport report;
         try {
             report = yarnClient.getApplicationReport(appId);
@@ -378,12 +378,13 @@ public class Utils {
                         || st == YarnApplicationState.KILLED) {
                     return false;
                 }
-            } else if (probe) {
+            }
+            if (probe) {
                 String host;
                 host = getCCHostname(instanceName, conf);
                 try {
                     for (int j = 0; j < 60; j++) {
-                        if (!Utils.probeLiveness(host)) {
+                        if (!Utils.probeLiveness(host, port)) {
                             try {
                                 if (print) {
                                     System.out.print(message + Utils.makeDots(i) + "\r");
@@ -416,18 +417,18 @@ public class Utils {
     }
 
     public static boolean waitForLiveness(ApplicationId appId, String message, YarnClient yarnClient,
-            String instanceName, Configuration conf) throws YarnException, IOException {
-        return waitForLiveness(appId, true, true, message, yarnClient, instanceName, conf);
+            String instanceName, Configuration conf, int port) throws YarnException, IOException {
+        return waitForLiveness(appId, true, true, message, yarnClient, instanceName, conf, port);
     }
 
-    public static boolean waitForApplication(ApplicationId appId, YarnClient yarnClient, String message)
+    public static boolean waitForApplication(ApplicationId appId, YarnClient yarnClient, String message, int port)
             throws YarnException, IOException {
-        return waitForLiveness(appId, false, true, message, yarnClient, "", null);
+        return waitForLiveness(appId, false, true, message, yarnClient, "", null, port);
     }
 
-    public static boolean waitForApplication(ApplicationId appId, YarnClient yarnClient) throws YarnException,
+    public static boolean waitForApplication(ApplicationId appId, YarnClient yarnClient, int port) throws YarnException,
             IOException, JAXBException {
-        return waitForLiveness(appId, false, false, "", yarnClient, "", null);
+        return waitForLiveness(appId, false, false, "", yarnClient, "", null, port);
     }
 
     public static String getCCHostname(String instanceName, Configuration conf) throws YarnException {

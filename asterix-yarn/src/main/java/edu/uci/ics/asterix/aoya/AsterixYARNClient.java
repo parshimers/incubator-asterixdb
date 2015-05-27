@@ -55,7 +55,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.service.Service.STATE;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
-import org.apache.hadoop.yarn.api.ApplicationConstants.Environment;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
@@ -124,11 +123,14 @@ public class AsterixYARNClient {
     private static final Log LOG = LogFactory.getLog(AsterixYARNClient.class);
     public static final String CONF_DIR_REL = ".asterix" + File.separator;
     private static final String instanceLock = "instance";
+    public static final String CONFIG_DEFAULT_NAME = "cluster-config.xml";
+    public static final String PARAMS_DEFAULT_NAME = "asterix-configuration.xml";
     private static String DEFAULT_PARAMETERS_PATH = "conf" + File.separator + "base-asterix-configuration.xml";
-    private static String MERGED_PARAMETERS_PATH = "conf" + File.separator + "asterix-configuration.xml";
+    private static String MERGED_PARAMETERS_PATH = "conf" + File.separator + PARAMS_DEFAULT_NAME;
     private static final String JAVA_HOME = System.getProperty("java.home");
     public static final String NC_JAVA_OPTS_KEY = "nc.java.opts";
     public static final String CC_JAVA_OPTS_KEY = "cc.java.opts";
+    public static final String CC_REST_PORT_KEY = "api.port";
     private Mode mode = Mode.NOOP;
 
     // Hadoop Configuration
@@ -149,7 +151,7 @@ public class AsterixYARNClient {
 
     //instance name
     private String instanceName = "";
-    //location of distributable asterix tarfile
+    //location of distributable AsterixDB zip
     private String asterixZip = "";
     // Location of cluster configuration
     private String asterixConf = "";
@@ -174,6 +176,9 @@ public class AsterixYARNClient {
     private String baseConfig = ".";
     private String ccJavaOpts = "";
     private String ncJavaOpts = "";
+
+    //Ports
+    private int ccRestPort = 19002;
 
     /**
      * @param args
@@ -218,13 +223,17 @@ public class AsterixYARNClient {
                 }
                 break;
             case KILL:
-                if (client.isRunning()) {
-                    Utils.confirmAction("Are you sure you want to kill this instance? In-progress tasks will be aborted");
+                if (client.isRunning() &&
+                    Utils.confirmAction("Are you sure you want to kill this instance? In-progress tasks will be aborted")) {
+                    try {
+                        AsterixYARNClient.killApplication(client.getLockFile(), client.yarnClient);
+                    } catch (ApplicationNotFoundException e) {
+                        LOG.info(e);
+                        System.out.println("Asterix instance by that name already exited or was never started");
+                        client.deleteLockFile();
+                    }
                 }
-                try {
-                    AsterixYARNClient.killApplication(client.getLockFile(), client.yarnClient);
-                } catch (ApplicationNotFoundException e) {
-                    LOG.info(e);
+                else if(!client.isRunning()){
                     System.out.println("Asterix instance by that name already exited or was never started");
                     client.deleteLockFile();
                 }
@@ -297,7 +306,7 @@ public class AsterixYARNClient {
             appId = client.deployAM(app, res, client.mode);
             LOG.info("Asterix started up with Application ID: " + appId.toString());
             if (Utils.waitForLiveness(appId, "Waiting for AsterixDB instance to resume ", client.yarnClient,
-                    client.instanceName, client.conf)) {
+                    client.instanceName, client.conf, client.ccRestPort)) {
                 System.out.println("Asterix successfully deployed and is now running.");
             } else {
                 LOG.fatal("AsterixDB appears to have failed to install and start");
@@ -323,7 +332,7 @@ public class AsterixYARNClient {
             appId = client.deployAM(app, res, client.mode);
             LOG.info("Asterix started up with Application ID: " + appId.toString());
             if (Utils.waitForLiveness(appId, "Waiting for new AsterixDB Instance to start ", client.yarnClient,
-                    client.instanceName, client.conf)) {
+                    client.instanceName, client.conf, client.ccRestPort)) {
                 System.out.println("Asterix successfully deployed and is now running.");
             } else {
                 LOG.fatal("AsterixDB appears to have failed to install and start");
@@ -626,7 +635,7 @@ public class AsterixYARNClient {
         FileSystem fs = FileSystem.get(conf);
         List<DFSResourceCoordinate> resources = new ArrayList<DFSResourceCoordinate>(2);
 
-        String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
+        String pathSuffix = CONF_DIR_REL + instanceFolder + CONFIG_DEFAULT_NAME;
         Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
         FileStatus destStatus;
         try {
@@ -644,7 +653,7 @@ public class AsterixYARNClient {
         conf.envs.put(dstConf.toUri().toString(), AConstants.CONFLOCATION);
         conf.envs.put(Long.toString(asterixConfLoc.getSize()), AConstants.CONFLEN);
         conf.envs.put(Long.toString(asterixConfLoc.getTimestamp()), AConstants.CONFTIMESTAMP);
-        conf.name = "cluster-config.xml";
+        conf.name = CONFIG_DEFAULT_NAME;
         conf.res = asterixConfLoc;
         resources.add(conf);
 
@@ -660,7 +669,7 @@ public class AsterixYARNClient {
      */
     private void installConfig() throws YarnException, IOException {
         FileSystem fs = FileSystem.get(conf);
-        String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
+        String pathSuffix = CONF_DIR_REL + instanceFolder + CONFIG_DEFAULT_NAME;
         Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
         try {
             fs.getFileStatus(dstConf);
@@ -678,6 +687,12 @@ public class AsterixYARNClient {
         }
 
     }
+
+    /**
+     * Upload External libraries and functions to HDFS for an instance to use when started
+     * @throws IllegalStateException
+     * @throws IOException
+     */
 
     private void installExtLibs() throws IllegalStateException, IOException {
         FileSystem fs = FileSystem.get(conf);
@@ -697,6 +712,12 @@ public class AsterixYARNClient {
         fs.copyFromLocalFile(false, true, src, libFilePath);
     }
 
+    /**
+     * Finds the minimal classes and JARs needed to start the AM only.
+     * @return Resources the AM needs to start on the initial container.
+     * @throws IllegalStateException
+     * @throws IOException
+     */
     private List<DFSResourceCoordinate> installAmLibs() throws IllegalStateException, IOException {
         List<DFSResourceCoordinate> resources = new ArrayList<DFSResourceCoordinate>(2);
         FileSystem fs = FileSystem.get(conf);
@@ -748,11 +769,17 @@ public class AsterixYARNClient {
         return resources;
     }
 
+    /**
+     * Uploads a AsterixDB cluster configuration to HDFS for the AM to use.
+     * @param overwrite Overwrite existing configurations by the same name.
+     * @throws IllegalStateException
+     * @throws IOException
+     */
     private void installAsterixConfig(boolean overwrite) throws IllegalStateException, IOException {
         FileSystem fs = FileSystem.get(conf);
         File srcfile = new File(MERGED_PARAMETERS_PATH);
         Path src = new Path(srcfile.getCanonicalPath());
-        String pathSuffix = CONF_DIR_REL + instanceFolder + File.separator + "asterix-configuration.xml";
+        String pathSuffix = CONF_DIR_REL + instanceFolder + File.separator + PARAMS_DEFAULT_NAME;
         Path dst = new Path(fs.getHomeDirectory(), pathSuffix);
         if (fs.exists(dst) && !overwrite) {
 
@@ -762,6 +789,12 @@ public class AsterixYARNClient {
         fs.copyFromLocalFile(false, true, src, dst);
     }
 
+    /**
+     * Uploads binary resources to HDFS for use by the AM
+     * @return
+     * @throws IOException
+     * @throws YarnException
+     */
     public List<DFSResourceCoordinate> distributeBinaries() throws IOException, YarnException {
 
         List<DFSResourceCoordinate> resources = new ArrayList<DFSResourceCoordinate>(2);
@@ -922,11 +955,14 @@ public class AsterixYARNClient {
         if (mode == Mode.DESTROY) {
             vargs.add("-obliterate");
         }
-        if (mode == Mode.BACKUP) {
+        else if (mode == Mode.BACKUP) {
             vargs.add("-backup");
         }
-        if (mode == Mode.RESTORE) {
+        else if (mode == Mode.RESTORE) {
             vargs.add("-restore " + snapName);
+        }
+        else if( mode == Mode.INSTALL){
+            vargs.add("-initial ");
         }
         if (refresh) {
             vargs.add("-refresh");
@@ -998,6 +1034,14 @@ public class AsterixYARNClient {
 
     }
 
+    /**
+     * Asks YARN to kill a given application by appId
+     * @param appId The application to kill.
+     * @param yarnClient The YARN client object that is connected to the RM.
+     * @throws YarnException
+     * @throws IOException
+     */
+
     public static void killApplication(ApplicationId appId, YarnClient yarnClient) throws YarnException, IOException {
         if (appId == null) {
             throw new YarnException("No Application given to kill");
@@ -1017,10 +1061,15 @@ public class AsterixYARNClient {
 
     }
 
-    private void stopInstanceIfRunning(YarnClientApplication app, List<DFSResourceCoordinate> resources)
+    /**
+     * Tries to stop a running AsterixDB instance gracefully.
+     * @throws IOException
+     * @throws YarnException
+     */
+    private void stopInstanceIfRunning()
             throws IOException, YarnException {
         FileSystem fs = FileSystem.get(conf);
-        String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
+        String pathSuffix = CONF_DIR_REL + instanceFolder + CONFIG_DEFAULT_NAME;
         Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
         //if the instance is up, fix that
         if (isRunning()) {
@@ -1034,14 +1083,22 @@ public class AsterixYARNClient {
         }
     }
 
+    /**
+     * Start a YARN job to delete local AsterixDB resources of an extant instance
+     * @param app The Client connection
+     * @param resources AM resources
+     * @throws IOException
+     * @throws YarnException
+     */
+
     private void removeInstance(YarnClientApplication app, List<DFSResourceCoordinate> resources) throws IOException,
             YarnException {
         FileSystem fs = FileSystem.get(conf);
         //if the instance is up, fix that
-        stopInstanceIfRunning(app, resources);
+        stopInstanceIfRunning();
         //now try deleting all of the on-disk artifacts on the cluster
         ApplicationId deleter = deployAM(app, resources, Mode.DESTROY);
-        boolean delete_start = Utils.waitForApplication(deleter, yarnClient, "Waiting for deletion to start");
+        boolean delete_start = Utils.waitForApplication(deleter, yarnClient, "Waiting for deletion to start", ccRestPort);
         if (!delete_start) {
             if (force) {
                 fs.delete(new Path(CONF_DIR_REL + instanceFolder), true);
@@ -1061,13 +1118,21 @@ public class AsterixYARNClient {
 
     }
 
+    /**
+     * Start a YARN job to copy all data-containing resources of an AsterixDB instance to HDFS
+     * @param app
+     * @param resources
+     * @throws IOException
+     * @throws YarnException
+     */
+
     private void backupInstance(YarnClientApplication app, List<DFSResourceCoordinate> resources) throws IOException,
             YarnException {
-        stopInstanceIfRunning(app, resources);
+        stopInstanceIfRunning();
         ApplicationId backerUpper = deployAM(app, resources, Mode.BACKUP);
         boolean backupStart;
         backupStart = Utils.waitForApplication(backerUpper, yarnClient, "Waiting for backup " + backerUpper.toString()
-                + "to start");
+                + "to start", ccRestPort);
         if (!backupStart) {
             LOG.fatal("Backup failed to start");
             throw new YarnException();
@@ -1081,11 +1146,19 @@ public class AsterixYARNClient {
         System.out.println("Backup of instance succeeded.");
     }
 
+    /**
+     * Start a YARN job to copy a set of resources from backupInstance to restore the state of an extant AsterixDB instance
+     * @param app
+     * @param resources
+     * @throws IOException
+     * @throws YarnException
+     */
+
     private void restoreInstance(YarnClientApplication app, List<DFSResourceCoordinate> resources) throws IOException,
             YarnException {
-        stopInstanceIfRunning(app, resources);
+        stopInstanceIfRunning();
         ApplicationId restorer = deployAM(app, resources, Mode.RESTORE);
-        boolean restoreStart = Utils.waitForApplication(restorer, yarnClient, "Waiting for restore to start");
+        boolean restoreStart = Utils.waitForApplication(restorer, yarnClient, "Waiting for restore to start", ccRestPort);
         if (!restoreStart) {
             LOG.fatal("Restore failed to start");
             throw new YarnException();
@@ -1108,6 +1181,8 @@ public class AsterixYARNClient {
 
     private void stopInstance() throws IOException, YarnException {
         ApplicationId appId = getLockFile();
+        //get CC rest API port if it is nonstandard
+        readConfigParams(locateConfig());
         if (yarnClient.isInState(STATE.INITED)) {
             yarnClient.start();
         }
@@ -1118,7 +1193,7 @@ public class AsterixYARNClient {
         }
         try {
             String ccIp = Utils.getCCHostname(instanceName, conf);
-            Utils.sendShutdownCall(ccIp);
+            Utils.sendShutdownCall(ccIp,ccRestPort);
         } catch (IOException e) {
             if (force) {
                 LOG.warn("Instance failed to stop gracefully, now killing it");
@@ -1138,7 +1213,7 @@ public class AsterixYARNClient {
             try {
                 AsterixYARNClient.killApplication(appId, yarnClient);
             } catch (YarnException e1) {
-                LOG.fatal("Could not stop nor kill instance gracefully.");
+                LOG.fatal("Could not stop nor kill instance gracefully.",e1);
                 return;
             }
         }
@@ -1160,14 +1235,14 @@ public class AsterixYARNClient {
 
     private boolean instanceExists() throws IOException {
         FileSystem fs = FileSystem.get(conf);
-        String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
+        String pathSuffix = CONF_DIR_REL + instanceFolder + CONFIG_DEFAULT_NAME;
         Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
         return fs.exists(dstConf);
     }
 
     private boolean isRunning() throws IOException {
         FileSystem fs = FileSystem.get(conf);
-        String pathSuffix = CONF_DIR_REL + instanceFolder + "cluster-config.xml";
+        String pathSuffix = CONF_DIR_REL + instanceFolder + CONFIG_DEFAULT_NAME;
         Path dstConf = new Path(fs.getHomeDirectory(), pathSuffix);
         if (fs.exists(dstConf)) {
             Path lock = new Path(fs.getHomeDirectory(), CONF_DIR_REL + instanceFolder + instanceLock);
@@ -1207,28 +1282,57 @@ public class AsterixYARNClient {
         return ConverterUtils.toApplicationId(lockAppId);
     }
 
-    private void writeAsterixConfig(Cluster cluster) throws FileNotFoundException, IOException {
-        String metadataNodeId = Utils.getMetadataNode(cluster).getId();
-        String asterixInstanceName = instanceName;
-
-        //this is the "base" config that is inside the zip, we start here
+    /**
+     * Locate the Asterix parameters file.
+      * @return
+     * @throws FileNotFoundException
+     * @throws IOException
+     */
+    private AsterixConfiguration locateConfig() throws FileNotFoundException, IOException{
         AsterixConfiguration configuration;
         String configPathBase = MERGED_PARAMETERS_PATH;
         if (baseConfig != null) {
             configuration = Utils.loadAsterixConfig(baseConfig);
             configPathBase = new File(baseConfig).getParentFile().getAbsolutePath() + File.separator
-                    + "asterix-configuration.xml";
+                    + PARAMS_DEFAULT_NAME;
             MERGED_PARAMETERS_PATH = configPathBase;
         } else {
             configuration = Utils.loadAsterixConfig(DEFAULT_PARAMETERS_PATH);
         }
+        return configuration;
+    }
+
+    /**
+     *
+     */
+    private void readConfigParams(AsterixConfiguration configuration){
+        //this is the "base" config that is inside the zip, we start here
         for (edu.uci.ics.asterix.common.configuration.Property property : configuration.getProperty()) {
             if (property.getName().equalsIgnoreCase(CC_JAVA_OPTS_KEY)) {
                 ccJavaOpts = property.getValue();
             } else if (property.getName().equalsIgnoreCase(NC_JAVA_OPTS_KEY)) {
                 ncJavaOpts = property.getValue();
+            } else if(property.getName().equalsIgnoreCase(CC_REST_PORT_KEY)){
+                ccRestPort = Integer.parseInt(property.getValue());
             }
+
         }
+    }
+
+    /**
+     * Retrieves necessary information from the cluster configuration and splices it into the Asterix configuration parameters
+     * @param cluster
+     * @throws FileNotFoundException
+     * @throws IOException
+     */
+
+    private void writeAsterixConfig(Cluster cluster) throws FileNotFoundException, IOException {
+        String metadataNodeId = Utils.getMetadataNode(cluster).getId();
+        String asterixInstanceName = instanceName;
+
+        AsterixConfiguration configuration = locateConfig();
+
+        readConfigParams(configuration);
 
         String version = Utils.getAsterixVersionFromClasspath();
         configuration.setVersion(version);
@@ -1274,7 +1378,7 @@ public class AsterixYARNClient {
     }
 
     private boolean waitForCompletion(ApplicationId appId, String message) throws YarnException, IOException {
-        return Utils.waitForApplication(appId, yarnClient, message);
+        return Utils.waitForApplication(appId, yarnClient, message, ccRestPort);
     }
 
     private class DFSResourceCoordinate {
