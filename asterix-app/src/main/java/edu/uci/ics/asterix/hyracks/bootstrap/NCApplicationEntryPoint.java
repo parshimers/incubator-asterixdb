@@ -14,11 +14,16 @@
  */
 package edu.uci.ics.asterix.hyracks.bootstrap;
 
+import java.io.File;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
+import org.kohsuke.args4j.Option;
 
 import edu.uci.ics.asterix.api.common.AsterixAppRuntimeContext;
 import edu.uci.ics.asterix.common.api.AsterixThreadFactory;
@@ -42,16 +47,14 @@ import edu.uci.ics.hyracks.api.application.INCApplicationEntryPoint;
 import edu.uci.ics.hyracks.api.lifecycle.ILifeCycleComponentManager;
 import edu.uci.ics.hyracks.api.lifecycle.LifeCycleComponentManager;
 
-import org.kohsuke.args4j.Argument;
-import org.kohsuke.args4j.CmdLineException;
-import org.kohsuke.args4j.CmdLineParser;
-import org.kohsuke.args4j.Option;
-
 public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
     private static final Logger LOGGER = Logger.getLogger(NCApplicationEntryPoint.class.getName());
 
     @Option(name = "-metadata-port", usage = "IP port to bind metadata listener (default: random port)", required = false)
     public int metadataRmiPort = 0;
+
+    @Option(name = "-initial-run", usage = "A flag indicating if it's the first time the NC is started (default: false)", required = false)
+    public boolean initialRun = false;
 
     private INCApplicationContext ncApplicationContext = null;
     private IAsterixAppRuntimeContext runtimeContext;
@@ -60,15 +63,14 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
     private boolean stopInitiated = false;
     private SystemState systemState = SystemState.NEW_UNIVERSE;
     private final long NON_SHARP_CHECKPOINT_TARGET_LSN = -1;
-    
+
     @Override
     public void start(INCApplicationContext ncAppCtx, String[] args) throws Exception {
         CmdLineParser parser = new CmdLineParser(this);
 
         try {
             parser.parseArgument(args);
-        }
-        catch (CmdLineException e) {
+        } catch (CmdLineException e) {
             System.err.println(e.getMessage());
             System.err.println("Usage:");
             parser.printUsage(System.err);
@@ -94,22 +96,29 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
         runtimeContext.initialize();
         ncApplicationContext.setApplicationObject(runtimeContext);
 
-        // #. recover if the system is corrupted by checking system state.
-        IRecoveryManager recoveryMgr = runtimeContext.getTransactionSubsystem().getRecoveryManager();
-        systemState = recoveryMgr.getSystemState();
+        if (initialRun) {
+            LOGGER.info("System is being initialized. (first run)");
+            systemState = SystemState.NEW_UNIVERSE;
+        } else {
+            // #. recover if the system is corrupted by checking system state.
+            IRecoveryManager recoveryMgr = runtimeContext.getTransactionSubsystem().getRecoveryManager();
+            systemState = recoveryMgr.getSystemState();
 
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("System is in a state: " + systemState);
+            if (LOGGER.isLoggable(Level.INFO)) {
+                LOGGER.info("System is in a state: " + systemState);
+            }
+
+            if (systemState != SystemState.NEW_UNIVERSE) {
+                PersistentLocalResourceRepository localResourceRepository = (PersistentLocalResourceRepository) runtimeContext
+                        .getLocalResourceRepository();
+                localResourceRepository.initialize(nodeId, null, false, runtimeContext.getResourceIdFactory());
+            }
+            
+            if (systemState == SystemState.CORRUPTED) {
+                recoveryMgr.startRecovery(true);
+            }
         }
 
-        if (systemState != SystemState.NEW_UNIVERSE) {
-            PersistentLocalResourceRepository localResourceRepository = (PersistentLocalResourceRepository) runtimeContext
-                    .getLocalResourceRepository();
-            localResourceRepository.initialize(nodeId, null, false, runtimeContext.getResourceIdFactory());
-        }
-        if (systemState == SystemState.CORRUPTED) {
-            recoveryMgr.startRecovery(true);
-        }
     }
 
     @Override
@@ -212,8 +221,20 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
             proxy.setMetadataNode(stub);
         }
 
+        // Reclaim storage for temporary datasets.
+        String[] ioDevices = AsterixClusterProperties.INSTANCE.getIODevices(nodeId);
+        String[] nodeStores = metadataProperties.getStores().get(nodeId);
+        int numIoDevices = AsterixClusterProperties.INSTANCE.getNumberOfIODevices(nodeId);
+        for (int j = 0; j < nodeStores.length; j++) {
+            for (int k = 0; k < numIoDevices; k++) {
+                File f = new File(ioDevices[k] + File.separator + nodeStores[j] + File.separator + "temp");
+                f.delete();
+            }
+        }
+
         // TODO
         // reclaim storage for orphaned index artifacts in NCs.
+
     }
 
     private void updateOnNodeJoin() {
