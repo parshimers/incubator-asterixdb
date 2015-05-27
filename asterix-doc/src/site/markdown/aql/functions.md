@@ -2234,7 +2234,7 @@ See the [Allen's Relations](allens.html).
  * Arguments:
     * `record_expression` : a record value.
  * Return Value:
-    * An order list of `record` values that include the name `string`, type `string`, isOpen `boolean` and optional nested or list type description `orderedList`.
+    * An order list of `record` values that include the name `string`, type `string`, is-open `boolean` and optional nested `orderedList` for the values of a nested record.
 
  * Example:
 
@@ -2246,11 +2246,13 @@ See the [Allen's Relations](allens.html).
 
  * The expected result is:
 
-        [ {"name":"id", "type":"int64", "isOpen":true}, 
-          {"name":"project", "type":"string", "isOpen":true}, 
-          {"name":"address", "type":"record", "isOpen":true, "nested":[{"name":"city", "type":"string", "isOpen": true}, {"name":"state", "type":"string", "isOpen": true}]}, 
-          {"name":"related", "type":"orderedList", "isOpen":true, "list":[{"type":"string"}, {"type":"string"}, {"type":"string"}]}
-        ]
+        [ { "name": "id", "type": "INT64", "is-open": false }, 
+          { "name": "project", "type": "STRING", "is-open": false }, 
+          { "name": "address", "type": "RECORD", "is-open": false, "nested": [ 
+            { "name": "city", "type": "STRING", "is-open": false }, 
+            { "name": "state", "type": "STRING", "is-open": false } ] }, 
+          { "name": "related", "type": "ORDEREDLIST", "is-open": false } ]
+
 
 
 ### get-record-field-value ###
