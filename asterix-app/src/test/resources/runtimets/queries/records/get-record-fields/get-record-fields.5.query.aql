@@ -1,0 +1,4 @@
+use dataverse TinySocial;
+
+for $r in dataset FacebookUsers
+return get-record-fields($r);

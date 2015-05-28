@@ -68,8 +68,8 @@ public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
     @Override
     public ICopyEvaluator createEvaluator(final IDataOutputProvider output) throws AlgebricksException {
         return new ICopyEvaluator() {
-            private final AString fieldName = new AString("name");
-            private final AString typeName = new AString("type");
+            private final AString fieldName = new AString("field-name");
+            private final AString typeName = new AString("field-type");
             private final AString isOpenName = new AString("is-open");
             private final AString nestedName = new AString("nested");
 
@@ -179,10 +179,10 @@ public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
                     currentFieldName = stringSerde
                             .deserialize(new DataInputStream(new ByteArrayInputStream(fieldNames.get(i).getByteArray(),
                                     fieldNames.get(i).getStartOffset(), fieldNames.get(i).getLength())));
-                    if (recType.getFieldType(currentFieldName.getStringValue()) != null) {
-                        booleanSerde.serialize(ABoolean.FALSE, valueAbvs.getDataOutput());
-                    } else {
+                    if (recType.getFieldType(currentFieldName.getStringValue()) == null) {
                         booleanSerde.serialize(ABoolean.TRUE, valueAbvs.getDataOutput());
+                    } else {
+                        booleanSerde.serialize(ABoolean.FALSE, valueAbvs.getDataOutput());
                     }
                     fieldRecordBuilder.addField(fieldAbvs, valueAbvs);
 
