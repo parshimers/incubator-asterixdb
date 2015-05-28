@@ -41,15 +41,15 @@ public class AsterixYARNLibraryTestIT {
                 + aoyaServerPath + " install";
         executeAoyaCommand(command);
 
-        command = "-n " + INSTANCE_NAME + " stop";
+        command = "-n " + INSTANCE_NAME + " -bc " + parameterPath + " stop";
         executeAoyaCommand(command);
 
         String asterixExternalLibraryPath = new File(System.getProperty("user.dir")).getParentFile().getAbsolutePath()
                 + File.separator + LIBRARY_PATH;
-        command = "-n " + INSTANCE_NAME + " -l " + asterixExternalLibraryPath + " -ld " + LIBRARY_DATAVERSE + " libinstall";
+        command = "-n " + INSTANCE_NAME + " -l " + asterixExternalLibraryPath + " -ld " + LIBRARY_DATAVERSE + " -bc " + parameterPath + " libinstall";
         executeAoyaCommand(command);
 
-        command = "-n " + INSTANCE_NAME + " start";
+        command = "-n " + INSTANCE_NAME + " -bc " + parameterPath + " start";
         executeAoyaCommand(command);
 
         TestCaseContext.Builder b = new TestCaseContext.Builder();
@@ -58,7 +58,7 @@ public class AsterixYARNLibraryTestIT {
 
     @AfterClass
     public static void tearDown() throws Exception {
-        String command = "-n " + INSTANCE_NAME + " -zip " + aoyaServerPath + " -f" + " destroy";
+        String command = "-n " + INSTANCE_NAME + " -zip " +  aoyaServerPath + " -f" + " -bc " + parameterPath + " destroy";
         executeAoyaCommand(command);
         instance.tearDown();
     }

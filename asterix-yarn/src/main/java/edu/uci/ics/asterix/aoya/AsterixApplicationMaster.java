@@ -346,9 +346,9 @@ public class AsterixApplicationMaster {
 
         instanceConfPath = envs.get(AConstants.INSTANCESTORE);
         //the only time this is null is during testing, when asterix-yarn isn't packaged in a JAR yet.
-        if(AConstants.APPLICATIONMASTERJARLOCATION != null
-                && !AConstants.APPLICATIONMASTERJARLOCATION.endsWith(File.separator)){
-            appMasterJar = new Path(AConstants.APPLICATIONMASTERJARLOCATION);
+        if(envs.get(AConstants.APPLICATIONMASTERJARLOCATION) != null
+                && !envs.get(AConstants.APPLICATIONMASTERJARLOCATION).endsWith(File.separator)){
+            appMasterJar = new Path(envs.get(AConstants.APPLICATIONMASTERJARLOCATION));
         }
         else{
             appMasterJar = null;

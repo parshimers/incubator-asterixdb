@@ -1054,7 +1054,8 @@ public class AsterixYARNClient {
         st = rep.getYarnApplicationState();
         if (st == YarnApplicationState.FINISHED || st == YarnApplicationState.KILLED
                 || st == YarnApplicationState.FAILED) {
-            throw new ApplicationNotFoundException("Application has already exited");
+            LOG.info("Application " + appId + " already exited.");
+            return;
         }
         LOG.info("Killing applicaiton with ID: " + appId);
         yarnClient.killApplication(appId);
@@ -1195,15 +1196,7 @@ public class AsterixYARNClient {
             String ccIp = Utils.getCCHostname(instanceName, conf);
             Utils.sendShutdownCall(ccIp,ccRestPort);
         } catch (IOException e) {
-            if (force) {
-                LOG.warn("Instance failed to stop gracefully, now killing it");
-                try {
-                    AsterixYARNClient.killApplication(appId, yarnClient);
-                } catch (YarnException e1) {
-                    LOG.fatal("Could not stop nor kill instance gracefully.");
-                    return;
-                }
-            }
+            LOG.error("Error while trying to issue safe shutdown:", e);
         }
         //now make sure it is actually gone and not "stuck"
         String message = "Waiting for AsterixDB to shut down";
@@ -1212,6 +1205,7 @@ public class AsterixYARNClient {
             LOG.warn("Instance failed to stop gracefully, now killing it");
             try {
                 AsterixYARNClient.killApplication(appId, yarnClient);
+                completed = true;
             } catch (YarnException e1) {
                 LOG.fatal("Could not stop nor kill instance gracefully.",e1);
                 return;

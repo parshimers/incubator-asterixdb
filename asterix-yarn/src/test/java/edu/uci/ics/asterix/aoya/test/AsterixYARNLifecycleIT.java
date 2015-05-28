@@ -96,7 +96,7 @@ public class AsterixYARNLifecycleIT {
 
     @Test
     public void test_2_StopActiveInstance() throws Exception {
-        String command = "-n " + INSTANCE_NAME + " stop";
+        String command = "-n " + INSTANCE_NAME + " -bc " + parameterPath + " stop";
         executeAoyaCommand(command);
     }
 
@@ -108,13 +108,13 @@ public class AsterixYARNLifecycleIT {
 
     @Test
     public void test_4_StartActiveInstance() throws Exception {
-        String command = "-n " + INSTANCE_NAME + " start";
+        String command = "-n " + INSTANCE_NAME + " -bc " + parameterPath + " start";
         executeAoyaCommand(command);
     }
 
     @Test
     public void test_5_KillActiveInstance() throws Exception {
-        String command = "-n " + INSTANCE_NAME + " -f" + " stop";
+        String command = "-n " + INSTANCE_NAME + " -bc " + parameterPath + " -f" + " stop";
         executeAoyaCommand(command);
     }
 
@@ -131,13 +131,13 @@ public class AsterixYARNLifecycleIT {
 
     @Test
     public void test_7_StartRestoredInstance() throws Exception {
-        String command = "-n " + INSTANCE_NAME + " start";
+        String command = "-n " + INSTANCE_NAME + " -bc " + parameterPath + " start";
         executeAoyaCommand(command);
     }
 
     @Test
     public void test_8_DeleteActiveInstance() throws Exception {
-        String command = "-n " + INSTANCE_NAME + " -zip " + aoyaServerPath + " -f" + " destroy";
+        String command = "-n " + INSTANCE_NAME + " -zip " + aoyaServerPath + " -f" + " -bc " + parameterPath + " destroy";
         executeAoyaCommand(command);
     }
 
