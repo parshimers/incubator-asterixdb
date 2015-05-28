@@ -2246,12 +2246,12 @@ See the [Allen's Relations](allens.html).
 
  * The expected result is:
 
-        [ { "name": "id", "type": "INT64", "is-open": false }, 
-          { "name": "project", "type": "STRING", "is-open": false }, 
-          { "name": "address", "type": "RECORD", "is-open": false, "nested": [ 
-            { "name": "city", "type": "STRING", "is-open": false }, 
-            { "name": "state", "type": "STRING", "is-open": false } ] }, 
-          { "name": "related", "type": "ORDEREDLIST", "is-open": false } ]
+        [ { "field-name": "id", "field-type": "INT64", "is-open": false }, 
+          { "field-name": "project", "field-type": "STRING", "is-open": false }, 
+          { "field-name": "address", "field-type": "RECORD", "is-open": false, "nested": [ 
+            { "field-name": "city", "field-type": "STRING", "is-open": false }, 
+            { "field-name": "state", "field-type": "STRING", "is-open": false } ] }, 
+          { "field-name": "related", "field-type": "ORDEREDLIST", "is-open": false } ]
 
 
 

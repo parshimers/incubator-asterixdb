@@ -1,0 +1,4 @@
+use dataverse TinySocial;
+
+for $r in dataset TwitterUsers
+return get-record-fields($r);
