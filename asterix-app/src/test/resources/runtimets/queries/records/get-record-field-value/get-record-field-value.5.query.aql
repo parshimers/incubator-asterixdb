@@ -1,4 +1,5 @@
-use dataverse TinySocial;
-
-for $r in dataset FacebookUsers
-return get-record-fields($r);
+        let $r1 := {"id":1, 
+            "project":"AsterixDB", 
+            "address":{"city":"Irvine", "state":"CA"}, 
+            "related":["Hivestrix", "Preglix", "Apache VXQuery"] }
+        return get-record-field-value($r1, "project")
