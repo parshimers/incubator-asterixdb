@@ -2234,7 +2234,7 @@ See the [Allen's Relations](allens.html).
  * Arguments:
     * `record_expression` : a record value.
  * Return Value:
-    * An order list of `record` values that include the name `string`, type `string`, is-open `boolean` and optional nested `orderedList` for the values of a nested record.
+    * An order list of `record` values that include the field-name `string`, field-type `string`, is-open `boolean` and optional nested `orderedList` for the values of a nested record.
 
  * Example:
 
@@ -2252,7 +2252,6 @@ See the [Allen's Relations](allens.html).
             { "field-name": "city", "field-type": "STRING", "is-open": false }, 
             { "field-name": "state", "field-type": "STRING", "is-open": false } ] }, 
           { "field-name": "related", "field-type": "ORDEREDLIST", "is-open": false } ]
-
 
 
 ### get-record-field-value ###
@@ -2274,7 +2273,6 @@ See the [Allen's Relations](allens.html).
             "address":{"city":"Irvine", "state":"CA"}, 
             "related":["Hivestrix", "Preglix", "Apache VXQuery"] }
         return get-record-field-value($r1, "project")
-
 
  * The expected result is:
 
