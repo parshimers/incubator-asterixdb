@@ -168,11 +168,9 @@ public class RecordMergeDescriptor extends AbstractScalarFunctionDynamicDescript
                                 }
                             }
                             if (!foundMatch) {
-
                                 addFieldToSubRecord(combinedType, leftName, leftValue, null, openFromParent,
                                         nestedLevel);
                             }
-
                         }
                         //Repeat for right side (ignoring duplicates this time)
                         for (int j = 0; j < rightRecord.getFieldNames().size(); j++) {
@@ -189,9 +187,7 @@ public class RecordMergeDescriptor extends AbstractScalarFunctionDynamicDescript
                                 addFieldToSubRecord(combinedType, rightName, rightValue, null, openFromParent,
                                         nestedLevel);
                             }
-
                         }
-
                     }
 
                     //Takes in a record type, field name, and the field values (which are record) from two records
@@ -217,7 +213,6 @@ public class RecordMergeDescriptor extends AbstractScalarFunctionDynamicDescript
                                 mergeFields((ARecordType) combinedType.getFieldType(fieldName),
                                         (ARecordPointable) leftValue, (ARecordPointable) rightValue, false,
                                         nestedLevel + 1);
-
                                 tabvs.reset();
                                 rbStack.get(nestedLevel + 1).write(tabvs.getDataOutput(), true);
                                 rbStack.get(nestedLevel).addField(pos, tabvs);
