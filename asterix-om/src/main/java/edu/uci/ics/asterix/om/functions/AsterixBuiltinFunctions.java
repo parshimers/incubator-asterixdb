@@ -50,7 +50,6 @@ import edu.uci.ics.asterix.om.typecomputer.impl.ConcatNonNullTypeComputer;
 import edu.uci.ics.asterix.om.typecomputer.impl.FieldAccessByIndexResultType;
 import edu.uci.ics.asterix.om.typecomputer.impl.FieldAccessNestedResultType;
 import edu.uci.ics.asterix.om.typecomputer.impl.GetOverlappingInvervalTypeComputer;
-import edu.uci.ics.asterix.om.typecomputer.impl.GetRecordFieldsTypeComputer;
 import edu.uci.ics.asterix.om.typecomputer.impl.InjectFailureTypeComputer;
 import edu.uci.ics.asterix.om.typecomputer.impl.NonTaggedCollectionMemberResultType;
 import edu.uci.ics.asterix.om.typecomputer.impl.NonTaggedFieldAccessByNameResultType;

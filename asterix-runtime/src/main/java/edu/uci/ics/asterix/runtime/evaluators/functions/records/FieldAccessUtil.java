@@ -50,8 +50,8 @@ public class FieldAccessUtil {
             .getSerializerDeserializer(BuiltinType.ANULL);
 
     @SuppressWarnings("unchecked")
-    public static void init(ICopyEvaluator eval0, ArrayBackedValueStorage[] abvs, DataOutput[] dos,
-            ARecordType recordType, List<String> fieldPath) throws AlgebricksException {
+    public static void init(ArrayBackedValueStorage[] abvs, DataOutput[] dos,
+            List<String> fieldPath) throws AlgebricksException {
         AString as;
         for (int i = 0; i < fieldPath.size(); i++) {
             abvs[i] = new ArrayBackedValueStorage();
@@ -64,12 +64,10 @@ public class FieldAccessUtil {
                 throw new AlgebricksException(e);
             }
         }
-        recordType = recordType.deepCopy(recordType);
     }
 
     @SuppressWarnings("unchecked")
-    public static void reset(ICopyEvaluator eval0, ArrayBackedValueStorage[] abvs, DataOutput[] dos,
-            ARecordType recordType, List<String> fieldPath) throws AlgebricksException {
+    public static void reset(ArrayBackedValueStorage[] abvs, DataOutput[] dos, List<String> fieldPath) throws AlgebricksException {
         AString as;
         for (int i = 0; i < fieldPath.size(); i++) {
             abvs[i].reset();
@@ -81,7 +79,6 @@ public class FieldAccessUtil {
                 throw new AlgebricksException(e);
             }
         }
-        recordType = recordType.deepCopy(recordType);
     }
 
     public static int checkType(byte[] serRecord, DataOutput out) throws AlgebricksException {
