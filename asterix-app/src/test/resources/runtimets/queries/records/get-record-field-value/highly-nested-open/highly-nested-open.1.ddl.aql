@@ -14,8 +14,7 @@ create type S as open{
 
 create type GS as open{
     id: int64,
-    Genus: string,
-    lower: S
+    Genus: string
 }
 
 create type FGS as open{
@@ -25,20 +24,17 @@ create type FGS as open{
 
 create type OFGS as open{
     id: int64,
-    Order: string,
-    lower: FGS
+    Order: string
 }
 
 create type COFGS as open{
     id: int64,
-    Class: string,
-    lower: OFGS
+    Class: string
 }
 
 create type PCOFGS as open{
     id: int64,
-    Phylum: string,
-    lower: COFGS
+    Phylum: string
 }
 
 create type KPCOFGS as open{
@@ -47,8 +43,7 @@ create type KPCOFGS as open{
 }
 
 create type Classification as open{
-    id: int64,
-    fullClassification:KPCOFGS
+    id: int64
 }
 
 create type Animal as open{
@@ -57,5 +52,3 @@ create type Animal as open{
 
 create dataset Animals(Animal)
 primary key id;
-
-create index anim on Animals(class.fullClassification.lower.lower.lower.lower.lower.lower.Species:string) enforced;

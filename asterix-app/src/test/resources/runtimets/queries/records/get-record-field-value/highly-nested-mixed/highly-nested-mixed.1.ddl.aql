@@ -8,7 +8,7 @@ create dataverse test;
 
 use dataverse test;
 
-create type S as closed{
+create type S as open{
     id: int64
 }
 
@@ -18,7 +18,7 @@ create type GS as closed{
     lower: S
 }
 
-create type FGS as closed{
+create type FGS as open{
     id: int64,
     Family: string
 }
@@ -29,7 +29,7 @@ create type OFGS as closed{
     lower: FGS
 }
 
-create type COFGS as closed{
+create type COFGS as open{
     id: int64,
     Class: string,
     lower: OFGS
@@ -41,7 +41,7 @@ create type PCOFGS as closed{
     lower: COFGS
 }
 
-create type KPCOFGS as closed{
+create type KPCOFGS as open{
     id: int64,
     Kingdom: string
 }
@@ -51,11 +51,9 @@ create type Classification as closed{
     fullClassification:KPCOFGS
 }
 
-create type Animal as closed{
+create type Animal as open{
     id: int64
 }
 
 create dataset Animals(Animal)
 primary key id;
-
-create index anim on Animals(class.fullClassification.lower.lower.lower.lower.lower.lower.Species:string) enforced;
