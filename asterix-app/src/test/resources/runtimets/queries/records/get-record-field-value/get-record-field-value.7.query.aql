@@ -7,4 +7,4 @@
             "project":"AsterixDB", 
             "address":{"city":"Irvine", "state":"CA"}, 
             "related":["Hivestrix", "Preglix", "Apache VXQuery"] }
-        return get-record-field-value($r1, "project")
+        return get-record-field-value($r1, "related")

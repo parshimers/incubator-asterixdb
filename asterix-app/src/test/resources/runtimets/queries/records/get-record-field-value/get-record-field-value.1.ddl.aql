@@ -1,3 +1,8 @@
+/*
+* Description  : Testing get-record-field-value under different queries.
+* Expected Res : Success
+* Date         : 04 Jun 2015
+*/
 drop dataverse TinySocial if exists;
 create dataverse TinySocial;
 use dataverse TinySocial;
