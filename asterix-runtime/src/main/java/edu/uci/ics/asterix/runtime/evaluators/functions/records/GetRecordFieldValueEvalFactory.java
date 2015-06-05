@@ -105,13 +105,13 @@ public class GetRecordFieldValueEvalFactory implements ICopyEvaluatorFactory {
                     fieldList.add(fieldName.getStringValue());
 
                     if (first) {
-                        FieldAccessUtil.init(eval0, abvs, dos, recordType, fieldList);
+                        FieldAccessUtil.init(abvs, dos, fieldList);
                         first = false;
                     } else {
-                        FieldAccessUtil.reset(eval0, abvs, dos, recordType, fieldList);
+                        FieldAccessUtil.reset(abvs, dos, fieldList);
                     }
-                    FieldAccessUtil
-                            .evaluate(tuple, out, eval0, abvs, outInput0, subRecordTmpStream, recordType, fieldList);
+                    FieldAccessUtil.evaluate(tuple, out, eval0, abvs, outInput0, subRecordTmpStream, recordType,
+                            fieldList);
                 } catch (IOException e) {
                     throw new AlgebricksException(e);
                 }

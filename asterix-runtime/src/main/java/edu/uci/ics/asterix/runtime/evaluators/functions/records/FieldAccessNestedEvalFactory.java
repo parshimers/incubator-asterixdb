@@ -45,7 +45,9 @@ public class FieldAccessNestedEvalFactory implements ICopyEvaluatorFactory {
     @Override
     public ICopyEvaluator createEvaluator(final IDataOutputProvider output) throws AlgebricksException {
         return new ICopyEvaluator() {
+
             private DataOutput out = output.getDataOutput();
+
             private ArrayBackedValueStorage outInput0 = new ArrayBackedValueStorage();
             private ByteArrayAccessibleOutputStream subRecordTmpStream = new ByteArrayAccessibleOutputStream();
             private ICopyEvaluator eval0 = recordEvalFactory.createEvaluator(outInput0);
@@ -53,7 +55,8 @@ public class FieldAccessNestedEvalFactory implements ICopyEvaluatorFactory {
             private DataOutput[] dos = new DataOutput[fieldPath.size()];
 
             {
-                FieldAccessUtil.init(eval0, abvs, dos, recordType, fieldPath);
+                FieldAccessUtil.init(abvs, dos, fieldPath);
+                recordType = recordType.deepCopy(recordType);
             }
 
             @Override
