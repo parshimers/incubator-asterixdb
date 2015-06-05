@@ -47,14 +47,39 @@
                 <output-dir compare="Text">field-access-on-open-field</output-dir>
             </compilation-unit>
         </test-case>
-        <test-case FilePath="records">
-            <compilation-unit name="get-record-fields">
-                <output-dir compare="Text">get-record-fields</output-dir>
+        <test-case FilePath="records/get-record-fields">
+            <compilation-unit name="documentation-example">
+                <output-dir compare="Text">documentation-example</output-dir>
             </compilation-unit>
         </test-case>
-        <test-case FilePath="records">
-            <compilation-unit name="get-record-field-value">
-                <output-dir compare="Text">get-record-field-value</output-dir>
+        <test-case FilePath="records/get-record-fields">
+            <compilation-unit name="tiny-social-example">
+                <output-dir compare="Text">tiny-social-example</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="records/get-record-field-value">
+            <compilation-unit name="documentation-example">
+                <output-dir compare="Text">documentation-example</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="records/get-record-field-value">
+            <compilation-unit name="highly-nested-closed">
+                <output-dir compare="Text">highly-nested-closed</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="records/get-record-field-value">
+            <compilation-unit name="highly-nested-mixed">
+                <output-dir compare="Text">highly-nested-mixed</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="records/get-record-field-value">
+            <compilation-unit name="highly-nested-open">
+                <output-dir compare="Text">highly-nested-open</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="records/get-record-field-value">
+            <compilation-unit name="tiny-social-example">
+                <output-dir compare="Text">tiny-social-example</output-dir>
             </compilation-unit>
         </test-case>
         <test-case FilePath="records">
