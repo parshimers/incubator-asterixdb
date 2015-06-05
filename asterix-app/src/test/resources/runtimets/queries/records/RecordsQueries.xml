@@ -13,6 +13,11 @@
  ! limitations under the License.
  !-->
         <test-case FilePath="records">
+            <compilation-unit name="access-nested-fields">
+                <output-dir compare="Text">access-nested-fields</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="records">
             <compilation-unit name="closed-record-constructor_01">
                 <output-dir compare="Text">closed-record-constructor_01</output-dir>
             </compilation-unit>
