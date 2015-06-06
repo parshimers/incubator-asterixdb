@@ -34,6 +34,7 @@ import edu.uci.ics.asterix.om.base.ANull;
 import edu.uci.ics.asterix.om.base.AString;
 import edu.uci.ics.asterix.om.pointables.ARecordPointable;
 import edu.uci.ics.asterix.om.pointables.PointableAllocator;
+import edu.uci.ics.asterix.om.pointables.base.DefaultOpenFieldType;
 import edu.uci.ics.asterix.om.pointables.base.IVisitablePointable;
 import edu.uci.ics.asterix.om.types.AOrderedListType;
 import edu.uci.ics.asterix.om.types.ARecordType;
@@ -96,18 +97,11 @@ public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
             private DataOutput out = output.getDataOutput();
             private ATypeTag tag;
             private AString currentFieldName;
-            private ARecordType newType;
+            private IAType fieldType;
 
-            private ARecordType openType;
+            private final ARecordType openType = DefaultOpenFieldType.NESTED_OPEN_RECORD_TYPE;
             {
                 recordType = recordType.deepCopy(recordType);
-                try {
-                    openType = new ARecordType("open", new String[0], new IAType[0], true);
-                } catch (HyracksDataException e) {
-                    e.printStackTrace();
-                } catch (AsterixException e) {
-                    e.printStackTrace();
-                }
             }
 
             public void evaluate(IFrameTupleReference tuple) throws AlgebricksException {
@@ -140,7 +134,7 @@ public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
             }
 
             public void processRecord(ARecordPointable recordAccessor, ARecordType recType, DataOutput out)
-                    throws IOException, AsterixException {
+                    throws IOException, AsterixException, AlgebricksException {
                 List<IVisitablePointable> fieldNames = recordAccessor.getFieldNames();
                 List<IVisitablePointable> fieldTags = recordAccessor.getFieldTypeTags();
                 List<IVisitablePointable> fieldValues = recordAccessor.getFieldValues();
@@ -179,7 +173,8 @@ public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
                     currentFieldName = stringSerde
                             .deserialize(new DataInputStream(new ByteArrayInputStream(fieldNames.get(i).getByteArray(),
                                     fieldNames.get(i).getStartOffset(), fieldNames.get(i).getLength())));
-                    if (recType.getFieldType(currentFieldName.getStringValue()) == null) {
+                    fieldType = recType.getFieldType(currentFieldName.getStringValue());
+                    if (fieldType == null) {
                         booleanSerde.serialize(ABoolean.TRUE, valueAbvs.getDataOutput());
                     } else {
                         booleanSerde.serialize(ABoolean.FALSE, valueAbvs.getDataOutput());
@@ -191,10 +186,13 @@ public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
                         fieldAbvs.reset();
                         stringSerde.serialize(nestedName, fieldAbvs.getDataOutput());
                         valueAbvs.reset();
-                        newType = (ARecordType) recType.getFieldType(currentFieldName.getStringValue());
-                        if (newType == null) {
+                        ARecordType newType;
+                        if (fieldType == null) {
                             newType = openType;
+                        } else {
+                            newType = (ARecordType) fieldType;
                         }
+                        newType = newType.deepCopy(newType);
                         ARecordPointable recordP = (ARecordPointable) pa.allocateRecordValue(newType);
                         recordP.set(fieldValues.get(i).getByteArray(), fieldValues.get(i).getStartOffset(), fieldValues
                                 .get(i).getLength());
