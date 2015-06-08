@@ -69,18 +69,11 @@ public class GetRecordFieldValueEvalFactory implements ICopyEvaluatorFactory {
             private ByteArrayAccessibleOutputStream subRecordTmpStream = new ByteArrayAccessibleOutputStream();
             private ArrayBackedValueStorage[] abvs = new ArrayBackedValueStorage[size];
             private DataOutput[] dos = new DataOutput[size];
-
-            private ByteArrayInputStream stream;
-            private DataInput in;
-            private AString fieldName;
             private List<String> fieldList = new ArrayList<String>();
 
             @SuppressWarnings("unchecked")
             private ISerializerDeserializer<ANull> nullSerde = AqlSerializerDeserializerProvider.INSTANCE
                     .getSerializerDeserializer(BuiltinType.ANULL);
-            @SuppressWarnings("unchecked")
-            private ISerializerDeserializer<AString> stringSerDes = AqlSerializerDeserializerProvider.INSTANCE
-                    .getSerializerDeserializer(BuiltinType.ASTRING);
 
             {
                 recordType = recordType.deepCopy(recordType);
@@ -97,12 +90,8 @@ public class GetRecordFieldValueEvalFactory implements ICopyEvaluatorFactory {
                         nullSerde.serialize(ANull.NULL, out);
                         return;
                     }
-
-                    stream = new ByteArrayInputStream(serFldName, 0, serFldName.length);
-                    in = new DataInputStream(stream);
-                    fieldName = (AString) stringSerDes.deserialize(in);
                     fieldList.clear();
-                    fieldList.add(fieldName.getStringValue());
+                    fieldList.add(new String(outInput1.getByteArray(), 3, outInput1.getLength() - 3, "UTF-8"));
 
                     if (first) {
                         FieldAccessUtil.init(abvs, dos, fieldList);
