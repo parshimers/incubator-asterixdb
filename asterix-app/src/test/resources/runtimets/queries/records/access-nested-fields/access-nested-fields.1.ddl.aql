@@ -58,4 +58,3 @@ create type Animal as open{
 create dataset Animals(Animal)
 primary key id;
 
-create index anim on Animals(class.fullClassification.lower.lower.lower.lower.lower.lower.Species:string) enforced;

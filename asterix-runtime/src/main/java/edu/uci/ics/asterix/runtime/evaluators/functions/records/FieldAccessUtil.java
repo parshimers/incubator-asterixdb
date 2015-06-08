@@ -50,61 +50,45 @@ public class FieldAccessUtil {
             .getSerializerDeserializer(BuiltinType.ANULL);
 
     @SuppressWarnings("unchecked")
-    public static void init(ArrayBackedValueStorage[] abvs, DataOutput[] dos,
-            List<String> fieldPath) throws AlgebricksException {
+    public static void getFieldsAbvs(ArrayBackedValueStorage[] abvsFields, DataOutput[] doFields,
+            List<String> fieldPaths) throws AlgebricksException {
         AString as;
-        for (int i = 0; i < fieldPath.size(); i++) {
-            abvs[i] = new ArrayBackedValueStorage();
-            dos[i] = abvs[i].getDataOutput();
-            as = new AString(fieldPath.get(i));
+        for (int i = 0; i < fieldPaths.size(); i++) {
+            abvsFields[i] = new ArrayBackedValueStorage();
+            doFields[i] = abvsFields[i].getDataOutput();
+            as = new AString(fieldPaths.get(i));
             try {
-                AqlSerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(as.getType())
-                        .serialize(as, dos[i]);
+                AqlSerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(as.getType()).serialize(as,
+                        doFields[i]);
             } catch (HyracksDataException e) {
                 throw new AlgebricksException(e);
             }
         }
     }
 
-    @SuppressWarnings("unchecked")
-    public static void reset(ArrayBackedValueStorage[] abvs, DataOutput[] dos, List<String> fieldPath) throws AlgebricksException {
-        AString as;
-        for (int i = 0; i < fieldPath.size(); i++) {
-            abvs[i].reset();
-            as = new AString(fieldPath.get(i));
-            try {
-                AqlSerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(as.getType())
-                        .serialize(as, dos[i]);
-            } catch (HyracksDataException e) {
-                throw new AlgebricksException(e);
-            }
-        }
-    }
-
-    public static int checkType(byte[] serRecord, DataOutput out) throws AlgebricksException {
+    public static boolean checkType(byte[] serRecord, DataOutput out) throws AlgebricksException {
         if (serRecord[0] == SER_NULL_TYPE_TAG) {
             try {
                 nullSerde.serialize(ANull.NULL, out);
             } catch (HyracksDataException e) {
                 throw new AlgebricksException(e);
             }
-            return -1;
+            return true;
         }
 
         if (serRecord[0] != SER_RECORD_TYPE_TAG) {
             throw new AlgebricksException("Field accessor is not defined for values of type "
                     + EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(serRecord[0]));
         }
-        return 0;
+        return false;
     }
 
     public static void evaluate(IFrameTupleReference tuple, DataOutput out, ICopyEvaluator eval0,
-            ArrayBackedValueStorage[] abvs, ArrayBackedValueStorage outInput0,
-            ByteArrayAccessibleOutputStream subRecordTmpStream, ARecordType recordType, List<String> fieldPath)
-            throws AlgebricksException {
+            ArrayBackedValueStorage[] abvsFields, ArrayBackedValueStorage abvsRecord,
+            ByteArrayAccessibleOutputStream subRecordTmpStream, ARecordType recordType) throws AlgebricksException {
 
         try {
-            outInput0.reset();
+            abvsRecord.reset();
             eval0.evaluate(tuple);
 
             int subFieldIndex = -1;
@@ -113,16 +97,16 @@ public class FieldAccessUtil {
             int nullBitmapSize = -1;
             IAType subType = recordType;
             ATypeTag subTypeTag = ATypeTag.NULL;
-            byte[] subRecord = outInput0.getByteArray();
+            byte[] subRecord = abvsRecord.getByteArray();
             boolean openField = false;
             int i = 0;
 
-            if (checkType(subRecord, out) == -1) {
+            if (checkType(subRecord, out)) {
                 return;
             }
 
             //Moving through closed fields
-            for (; i < fieldPath.size(); i++) {
+            for (; i < abvsFields.length; i++) {
                 if (subType.getTypeTag().equals(ATypeTag.UNION)) {
                     //enforced SubType
                     subType = ((AUnionType) subType).getUnionList().get(AUnionType.OPTIONAL_TYPE_INDEX_IN_UNION_LIST);
@@ -131,7 +115,8 @@ public class FieldAccessUtil {
                     }
 
                 }
-                subFieldIndex = ((ARecordType) subType).findFieldPosition(fieldPath.get(i));
+                subFieldIndex = ((ARecordType) subType).findFieldPosition(abvsFields[i].getByteArray(),
+                        abvsFields[i].getStartOffset() + 1, abvsFields[i].getLength());
                 if (subFieldIndex == -1) {
                     break;
                 }
@@ -160,23 +145,24 @@ public class FieldAccessUtil {
                             false);
                 }
 
-                if (i < fieldPath.size() - 1) {
+                if (i < abvsFields.length - 1) {
                     //setup next iteration
                     subRecordTmpStream.reset();
                     subRecordTmpStream.write(subTypeTag.serialize());
                     subRecordTmpStream.write(subRecord, subFieldOffset, subFieldLength);
                     subRecord = subRecordTmpStream.getByteArray();
 
-                    if (checkType(subRecord, out) == -1) {
+                    if (checkType(subRecord, out)) {
                         return;
                     }
                 }
             }
 
             //Moving through open fields
-            for (; i < fieldPath.size(); i++) {
+            for (; i < abvsFields.length; i++) {
                 openField = true;
-                subFieldOffset = ARecordSerializerDeserializer.getFieldOffsetByName(subRecord, abvs[i].getByteArray());
+                subFieldOffset = ARecordSerializerDeserializer.getFieldOffsetByName(subRecord,
+                        abvsFields[i].getByteArray());
                 if (subFieldOffset < 0) {
                     out.writeByte(SER_NULL_TYPE_TAG);
                     return;
@@ -185,11 +171,11 @@ public class FieldAccessUtil {
                 subTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(subRecord[subFieldOffset]);
                 subFieldLength = NonTaggedFormatUtil.getFieldValueLength(subRecord, subFieldOffset, subTypeTag, true) + 1;
 
-                if (i < fieldPath.size() - 1) {
+                if (i < abvsFields.length - 1) {
                     //setup next iteration
                     subRecord = Arrays.copyOfRange(subRecord, subFieldOffset, subFieldOffset + subFieldLength);
 
-                    if (checkType(subRecord, out) == -1) {
+                    if (checkType(subRecord, out)) {
                         return;
                     }
                 }

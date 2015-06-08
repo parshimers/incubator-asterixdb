@@ -32,6 +32,7 @@ import edu.uci.ics.asterix.om.base.ABoolean;
 import edu.uci.ics.asterix.om.base.AMutableString;
 import edu.uci.ics.asterix.om.base.ANull;
 import edu.uci.ics.asterix.om.base.AString;
+import edu.uci.ics.asterix.om.pointables.AListPointable;
 import edu.uci.ics.asterix.om.pointables.ARecordPointable;
 import edu.uci.ics.asterix.om.pointables.PointableAllocator;
 import edu.uci.ics.asterix.om.pointables.base.DefaultOpenFieldType;
@@ -39,6 +40,7 @@ import edu.uci.ics.asterix.om.pointables.base.IVisitablePointable;
 import edu.uci.ics.asterix.om.types.AOrderedListType;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
+import edu.uci.ics.asterix.om.types.AbstractCollectionType;
 import edu.uci.ics.asterix.om.types.BuiltinType;
 import edu.uci.ics.asterix.om.types.EnumDeserializer;
 import edu.uci.ics.asterix.om.types.IAType;
@@ -73,6 +75,7 @@ public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
             private final AString typeName = new AString("field-type");
             private final AString isOpenName = new AString("is-open");
             private final AString nestedName = new AString("nested");
+            private final AString listName = new AString("list");
 
             private final Queue<ArrayBackedValueStorage> baaosPool = new ArrayDeque<ArrayBackedValueStorage>();
             private final Queue<IARecordBuilder> recordBuilderPool = new ArrayDeque<IARecordBuilder>();
@@ -96,6 +99,8 @@ public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
 
             private DataOutput out = output.getDataOutput();
             private ATypeTag tag;
+            private ATypeTag innerTag;
+            private byte tagId;
             private AString currentFieldName;
             private IAType fieldType;
 
@@ -157,14 +162,9 @@ public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
                     fieldRecordBuilder.addField(fieldAbvs, fieldNames.get(i));
 
                     // write type
-                    fieldAbvs.reset();
-                    stringSerde.serialize(typeName, fieldAbvs.getDataOutput());
-                    valueAbvs.reset();
                     tag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(fieldTags.get(i).getByteArray()[fieldTags
                             .get(i).getStartOffset()]);
-                    aString.setValue(tag.toString());
-                    stringSerde.serialize(aString, valueAbvs.getDataOutput());
-                    fieldRecordBuilder.addField(fieldAbvs, valueAbvs);
+                    addFieldType(tag, fieldRecordBuilder);
 
                     // write open
                     fieldAbvs.reset();
@@ -181,22 +181,14 @@ public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
                     }
                     fieldRecordBuilder.addField(fieldAbvs, valueAbvs);
 
-                    // write nested 
+                    // write nested or list types
                     if (tag == ATypeTag.RECORD) {
+                        addNestedField(fieldValues.get(i), fieldType, fieldRecordBuilder);
+                    } else if (tag == ATypeTag.ORDEREDLIST) {
                         fieldAbvs.reset();
-                        stringSerde.serialize(nestedName, fieldAbvs.getDataOutput());
+                        stringSerde.serialize(listName, fieldAbvs.getDataOutput());
                         valueAbvs.reset();
-                        ARecordType newType;
-                        if (fieldType == null) {
-                            newType = openType;
-                        } else {
-                            newType = (ARecordType) fieldType;
-                        }
-                        newType = newType.deepCopy(newType);
-                        ARecordPointable recordP = (ARecordPointable) pa.allocateRecordValue(newType);
-                        recordP.set(fieldValues.get(i).getByteArray(), fieldValues.get(i).getStartOffset(), fieldValues
-                                .get(i).getLength());
-                        processRecord(recordP, newType, valueAbvs.getDataOutput());
+                        processListValue(fieldValues.get(i), fieldType, valueAbvs.getDataOutput());
                         fieldRecordBuilder.addField(fieldAbvs, valueAbvs);
                     }
 
@@ -214,6 +206,85 @@ public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
                 returnTempBuffer(fieldAbvs);
                 returnTempBuffer(valueAbvs);
                 returnTempBuffer(itemValue);
+            }
+
+            private void addNestedField(IVisitablePointable recordArg, IAType fieldType,
+                    IARecordBuilder fieldRecordBuilder) throws HyracksDataException, AlgebricksException, IOException,
+                    AsterixException {
+                ArrayBackedValueStorage fieldAbvs = getTempBuffer();
+                ArrayBackedValueStorage valueAbvs = getTempBuffer();
+
+                // Name
+                fieldAbvs.reset();
+                stringSerde.serialize(nestedName, fieldAbvs.getDataOutput());
+                // Value
+                valueAbvs.reset();
+                ARecordType newType;
+                if (fieldType == null) {
+                    newType = openType;
+                } else {
+                    newType = (ARecordType) fieldType;
+                }
+                newType = newType.deepCopy(newType);
+                ARecordPointable recordP = (ARecordPointable) pa.allocateRecordValue(newType);
+                recordP.set(recordArg.getByteArray(), recordArg.getStartOffset(), recordArg.getLength());
+                processRecord(recordP, newType, valueAbvs.getDataOutput());
+                fieldRecordBuilder.addField(fieldAbvs, valueAbvs);
+
+                returnTempBuffer(fieldAbvs);
+                returnTempBuffer(valueAbvs);
+            }
+
+            private void processListValue(IVisitablePointable listArg, IAType fieldType, DataOutput out)
+                    throws AsterixException, IOException, AlgebricksException {
+                ArrayBackedValueStorage itemValue = getTempBuffer();
+                IARecordBuilder listRecordBuilder = getRecordBuilder();
+
+                AListPointable list = (AListPointable) pa.allocateListValue(fieldType);
+                list.set(listArg.getByteArray(), listArg.getStartOffset(), listArg.getLength());
+
+                OrderedListBuilder innerListBuilder = getOrderedListBuilder();
+                innerListBuilder.reset(listType);
+
+                listRecordBuilder.reset(null);
+                for (int l = 0; l < list.getItemTags().size(); l++) {
+                    itemValue.reset();
+                    listRecordBuilder.init();
+
+                    tagId = list.getItemTags().get(l).getByteArray()[list.getItemTags().get(l).getStartOffset()];
+                    innerTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(tagId);
+                    addFieldType(innerTag, listRecordBuilder);
+
+                    if (innerTag == ATypeTag.RECORD) {
+                        AbstractCollectionType act = (AbstractCollectionType) fieldType;
+                        addNestedField(list.getItems().get(l), act.getItemType(), listRecordBuilder);
+                    }
+
+                    listRecordBuilder.write(itemValue.getDataOutput(), true);
+                    innerListBuilder.addItem(itemValue);
+                }
+                innerListBuilder.write(out, true);
+
+                returnRecordBuilder(listRecordBuilder);
+                returnTempBuffer(itemValue);
+            }
+
+            private void addFieldType(ATypeTag tag, IARecordBuilder fieldRecordBuilder) throws HyracksDataException,
+                    AsterixException {
+                ArrayBackedValueStorage fieldAbvs = getTempBuffer();
+                ArrayBackedValueStorage valueAbvs = getTempBuffer();
+
+                // Name
+                fieldAbvs.reset();
+                stringSerde.serialize(typeName, fieldAbvs.getDataOutput());
+                // Value
+                valueAbvs.reset();
+                aString.setValue(tag.toString());
+                stringSerde.serialize(aString, valueAbvs.getDataOutput());
+                fieldRecordBuilder.addField(fieldAbvs, valueAbvs);
+
+                returnTempBuffer(fieldAbvs);
+                returnTempBuffer(valueAbvs);
             }
 
             private IARecordBuilder getRecordBuilder() {

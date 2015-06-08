@@ -47,21 +47,21 @@ public class FieldAccessNestedEvalFactory implements ICopyEvaluatorFactory {
         return new ICopyEvaluator() {
 
             private DataOutput out = output.getDataOutput();
+            private ByteArrayAccessibleOutputStream subRecordTmpStream = new ByteArrayAccessibleOutputStream();
 
             private ArrayBackedValueStorage outInput0 = new ArrayBackedValueStorage();
-            private ByteArrayAccessibleOutputStream subRecordTmpStream = new ByteArrayAccessibleOutputStream();
             private ICopyEvaluator eval0 = recordEvalFactory.createEvaluator(outInput0);
-            private ArrayBackedValueStorage[] abvs = new ArrayBackedValueStorage[fieldPath.size()];
-            private DataOutput[] dos = new DataOutput[fieldPath.size()];
+            private ArrayBackedValueStorage[] abvsFields = new ArrayBackedValueStorage[fieldPath.size()];
+            private DataOutput[] doFields = new DataOutput[fieldPath.size()];
 
             {
-                FieldAccessUtil.init(abvs, dos, fieldPath);
+                FieldAccessUtil.getFieldsAbvs(abvsFields, doFields, fieldPath);
                 recordType = recordType.deepCopy(recordType);
             }
 
             @Override
             public void evaluate(IFrameTupleReference tuple) throws AlgebricksException {
-                FieldAccessUtil.evaluate(tuple, out, eval0, abvs, outInput0, subRecordTmpStream, recordType, fieldPath);
+                FieldAccessUtil.evaluate(tuple, out, eval0, abvsFields, outInput0, subRecordTmpStream, recordType);
             }
         };
     }
