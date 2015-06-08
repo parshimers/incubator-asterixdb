@@ -14,17 +14,11 @@
  */
 package edu.uci.ics.asterix.runtime.evaluators.functions.records;
 
-import java.io.ByteArrayInputStream;
-import java.io.DataInput;
-import java.io.DataInputStream;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 import edu.uci.ics.asterix.formats.nontagged.AqlSerializerDeserializerProvider;
 import edu.uci.ics.asterix.om.base.ANull;
-import edu.uci.ics.asterix.om.base.AString;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.BuiltinType;
@@ -57,7 +51,9 @@ public class GetRecordFieldValueEvalFactory implements ICopyEvaluatorFactory {
     @Override
     public ICopyEvaluator createEvaluator(final IDataOutputProvider output) throws AlgebricksException {
         return new ICopyEvaluator() {
-            private boolean first = true;
+
+            private DataOutput out = output.getDataOutput();
+            private ByteArrayAccessibleOutputStream subRecordTmpStream = new ByteArrayAccessibleOutputStream();
 
             private ArrayBackedValueStorage outInput0 = new ArrayBackedValueStorage();
             private ArrayBackedValueStorage outInput1 = new ArrayBackedValueStorage();
@@ -65,17 +61,16 @@ public class GetRecordFieldValueEvalFactory implements ICopyEvaluatorFactory {
             private ICopyEvaluator eval1 = fldNameEvalFactory.createEvaluator(outInput1);
 
             int size = 1;
-            private DataOutput out = output.getDataOutput();
-            private ByteArrayAccessibleOutputStream subRecordTmpStream = new ByteArrayAccessibleOutputStream();
-            private ArrayBackedValueStorage[] abvs = new ArrayBackedValueStorage[size];
-            private DataOutput[] dos = new DataOutput[size];
-            private List<String> fieldList = new ArrayList<String>();
+            private ArrayBackedValueStorage abvsFields[] = new ArrayBackedValueStorage[size];
+            private DataOutput[] doFields = new DataOutput[size];
 
             @SuppressWarnings("unchecked")
             private ISerializerDeserializer<ANull> nullSerde = AqlSerializerDeserializerProvider.INSTANCE
                     .getSerializerDeserializer(BuiltinType.ANULL);
 
             {
+                abvsFields[0] = new ArrayBackedValueStorage();
+                doFields[0] = abvsFields[0].getDataOutput();
                 recordType = recordType.deepCopy(recordType);
             }
 
@@ -90,17 +85,10 @@ public class GetRecordFieldValueEvalFactory implements ICopyEvaluatorFactory {
                         nullSerde.serialize(ANull.NULL, out);
                         return;
                     }
-                    fieldList.clear();
-                    fieldList.add(new String(outInput1.getByteArray(), 3, outInput1.getLength() - 3, "UTF-8"));
+                    abvsFields[0].reset();
+                    doFields[0].write(serFldName);
 
-                    if (first) {
-                        FieldAccessUtil.init(abvs, dos, fieldList);
-                        first = false;
-                    } else {
-                        FieldAccessUtil.reset(abvs, dos, fieldList);
-                    }
-                    FieldAccessUtil.evaluate(tuple, out, eval0, abvs, outInput0, subRecordTmpStream, recordType,
-                            fieldList);
+                    FieldAccessUtil.evaluate(tuple, out, eval0, abvsFields, outInput0, subRecordTmpStream, recordType);
                 } catch (IOException e) {
                     throw new AlgebricksException(e);
                 }

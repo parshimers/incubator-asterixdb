@@ -2238,10 +2238,10 @@ See the [Allen's Relations](allens.html).
 
  * Example:
 
-        let $r1 := {"id":1, 
-            "project":"AsterixDB", 
-            "address":{"city":"Irvine", "state":"CA"}, 
-            "related":["Hivestrix", "Preglix", "Apache VXQuery"] }
+        let $r1 := {"id": 1, 
+            "project": "AsterixDB", 
+            "address": {"city": "Irvine", "state": "CA"}, 
+            "related": ["Hivestrix", "Preglix", "Apache VXQuery"] }
         return get-record-fields($r1)
 
  * The expected result is:
@@ -2251,9 +2251,12 @@ See the [Allen's Relations](allens.html).
           { "field-name": "address", "field-type": "RECORD", "is-open": false, "nested": [ 
             { "field-name": "city", "field-type": "STRING", "is-open": false }, 
             { "field-name": "state", "field-type": "STRING", "is-open": false } ] }, 
-          { "field-name": "related", "field-type": "ORDEREDLIST", "is-open": false } ]
+          { "field-name": "related", "field-type": "ORDEREDLIST", "is-open": false, "list": [ 
+            { "field-type": "STRING" }, 
+            { "field-type": "STRING" }, 
+            { "field-type": "STRING" } ] } ]
 
-
+ ]
 ### get-record-field-value ###
  * Syntax:
 
@@ -2268,10 +2271,10 @@ See the [Allen's Relations](allens.html).
 
  * Example:
 
-        let $r1 := {"id":1, 
-            "project":"AsterixDB", 
-            "address":{"city":"Irvine", "state":"CA"}, 
-            "related":["Hivestrix", "Preglix", "Apache VXQuery"] }
+        let $r1 := {"id": 1, 
+            "project": "AsterixDB", 
+            "address": {"city": "Irvine", "state": "CA"}, 
+            "related": ["Hivestrix", "Preglix", "Apache VXQuery"] }
         return get-record-field-value($r1, "project")
 
  * The expected result is:
