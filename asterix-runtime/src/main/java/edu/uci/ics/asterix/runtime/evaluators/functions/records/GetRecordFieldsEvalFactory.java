@@ -18,14 +18,15 @@ import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.util.ArrayDeque;
 import java.util.List;
-import java.util.Queue;
 
+import edu.uci.ics.asterix.builders.AbvsBuilderFactory;
 import edu.uci.ics.asterix.builders.IARecordBuilder;
 import edu.uci.ics.asterix.builders.IAsterixListBuilder;
+import edu.uci.ics.asterix.builders.ListBuilderFactory;
 import edu.uci.ics.asterix.builders.OrderedListBuilder;
 import edu.uci.ics.asterix.builders.RecordBuilder;
+import edu.uci.ics.asterix.builders.RecordBuilderFactory;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.formats.nontagged.AqlSerializerDeserializerProvider;
 import edu.uci.ics.asterix.om.base.ABoolean;
@@ -44,12 +45,15 @@ import edu.uci.ics.asterix.om.types.AbstractCollectionType;
 import edu.uci.ics.asterix.om.types.BuiltinType;
 import edu.uci.ics.asterix.om.types.EnumDeserializer;
 import edu.uci.ics.asterix.om.types.IAType;
+import edu.uci.ics.asterix.om.util.container.IObjectPool;
+import edu.uci.ics.asterix.om.util.container.ListObjectPool;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.runtime.base.ICopyEvaluator;
 import edu.uci.ics.hyracks.algebricks.runtime.base.ICopyEvaluatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.data.std.api.IDataOutputProvider;
+import edu.uci.ics.hyracks.data.std.api.IMutableValueStorage;
 import edu.uci.ics.hyracks.data.std.util.ArrayBackedValueStorage;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 
@@ -77,9 +81,12 @@ public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
             private final AString nestedName = new AString("nested");
             private final AString listName = new AString("list");
 
-            private final Queue<ArrayBackedValueStorage> baaosPool = new ArrayDeque<ArrayBackedValueStorage>();
-            private final Queue<IARecordBuilder> recordBuilderPool = new ArrayDeque<IARecordBuilder>();
-            private final Queue<IAsterixListBuilder> orderedListBuilderPool = new ArrayDeque<IAsterixListBuilder>();
+            private IObjectPool<IARecordBuilder, String> recordBuilderPool = new ListObjectPool<IARecordBuilder, String>(
+                    new RecordBuilderFactory());
+            private IObjectPool<IAsterixListBuilder, String> listBuilderPool = new ListObjectPool<IAsterixListBuilder, String>(
+                    new ListBuilderFactory());
+            private IObjectPool<IMutableValueStorage, String> abvsBuilderPool = new ListObjectPool<IMutableValueStorage, String>(
+                    new AbvsBuilderFactory());
             private final PointableAllocator pa = new PointableAllocator();
 
             private final AOrderedListType listType = new AOrderedListType(BuiltinType.ANY, "fields");
@@ -199,13 +206,6 @@ public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
                     orderedListBuilder.addItem(itemValue);
                 }
                 orderedListBuilder.write(out, true);
-
-                // Return memory.
-                returnRecordBuilder(fieldRecordBuilder);
-                returnOrderedListBuilder(orderedListBuilder);
-                returnTempBuffer(fieldAbvs);
-                returnTempBuffer(valueAbvs);
-                returnTempBuffer(itemValue);
             }
 
             private void addNestedField(IVisitablePointable recordArg, IAType fieldType,
@@ -230,9 +230,6 @@ public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
                 recordP.set(recordArg.getByteArray(), recordArg.getStartOffset(), recordArg.getLength());
                 processRecord(recordP, newType, valueAbvs.getDataOutput());
                 fieldRecordBuilder.addField(fieldAbvs, valueAbvs);
-
-                returnTempBuffer(fieldAbvs);
-                returnTempBuffer(valueAbvs);
             }
 
             private void processListValue(IVisitablePointable listArg, IAType fieldType, DataOutput out)
@@ -264,9 +261,6 @@ public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
                     innerListBuilder.addItem(itemValue);
                 }
                 innerListBuilder.write(out, true);
-
-                returnRecordBuilder(listRecordBuilder);
-                returnTempBuffer(itemValue);
             }
 
             private void addFieldType(ATypeTag tag, IARecordBuilder fieldRecordBuilder) throws HyracksDataException,
@@ -282,50 +276,19 @@ public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
                 aString.setValue(tag.toString());
                 stringSerde.serialize(aString, valueAbvs.getDataOutput());
                 fieldRecordBuilder.addField(fieldAbvs, valueAbvs);
-
-                returnTempBuffer(fieldAbvs);
-                returnTempBuffer(valueAbvs);
             }
 
             private IARecordBuilder getRecordBuilder() {
-                RecordBuilder recBuilder = (RecordBuilder) recordBuilderPool.poll();
-                if (recBuilder != null) {
-                    return recBuilder;
-                } else {
-                    return new RecordBuilder();
-                }
-            }
-
-            private void returnRecordBuilder(IARecordBuilder recBuilder) {
-                this.recordBuilderPool.add(recBuilder);
+                return (RecordBuilder) recordBuilderPool.allocate("record");
             }
 
             private OrderedListBuilder getOrderedListBuilder() {
-                OrderedListBuilder orderedListBuilder = (OrderedListBuilder) orderedListBuilderPool.poll();
-                if (orderedListBuilder != null) {
-                    return orderedListBuilder;
-                } else {
-                    return new OrderedListBuilder();
-                }
-            }
-
-            private void returnOrderedListBuilder(OrderedListBuilder orderedListBuilder) {
-                this.orderedListBuilderPool.add(orderedListBuilder);
+                return (OrderedListBuilder) listBuilderPool.allocate("ordered");
             }
 
             private ArrayBackedValueStorage getTempBuffer() {
-                ArrayBackedValueStorage tmpBaaos = baaosPool.poll();
-                if (tmpBaaos != null) {
-                    return tmpBaaos;
-                } else {
-                    return new ArrayBackedValueStorage();
-                }
+                return (ArrayBackedValueStorage) abvsBuilderPool.allocate("buffer");
             }
-
-            private void returnTempBuffer(ArrayBackedValueStorage tempBaaos) {
-                baaosPool.add(tempBaaos);
-            }
-
         };
     }
 }
