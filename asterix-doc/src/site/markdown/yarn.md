@@ -51,7 +51,7 @@ Then start the tutorial cluster. The hostmanger plugin may ask for sudo at some 
         Bringing machine 'cc' up with 'virtualbox' provider...
         ...
 
-Once vagrant returns, the environment will be ready. The working directory with the Vagrantfile is also visible to each of the virtual machines (in the /vagrant directory), so we will unzip the Asterix binaries here as well for easy access.
+Once vagrant returns, the environment will be ready. The working directory with the Vagrantfile is also visible to each of the virtual machines (in the /vagrant directory), so we will unzip the Asterix binaries here as well for easy access. The YARN binary can be found on the AsterixDB [downloads page](http://asterixdb.ics.uci.edu/download.html)
 
     ↪ unzip -d asterix-yarn/ asterix-yarn-binary-assembly.zip
     ...
@@ -187,18 +187,19 @@ The `asterix` command itself is simply a wrapper/launcher around the AsterixClie
 
 Below is a description of the various actions available via the AsterixDB YARN client
 
-| Action     | Description                                                                                                                   |
-|------------|-------------------------------------------------------------------------------------------------------------------------------|
-| `start`    | Starts an existing instance specified by the -name flag                                                                       |
-| `install`  | Deploys and starts an AsterixDB instance described by the config specified in the -c parameter, and named by the -n parameter |
-| `stop`     | Attempts graceful shutdown of an AsterixDB instance specified in the -name parameter                                          |
-| `kill`     | Forcefully stops an instance by asking YARN to terminate all of its containers.                                               |
-| `destroy`  | Remove the instance specified by -name and all of its stored resources from the cluster                                       |
-| `describe` | Show all instances, running or not, visible to the AsterixDB YARN client                                                      |
-| `backup`   | Copies the artifacts from a stopped instance to another directory on HDFS so that the instance can be reverted to that state  |
-| `restore`  | Restores an instance to the state saved in a snapshot                                                                         |
-| `lsbackup` | Lists the stored snapshots from an instance                                                                                   |
-| `rmbackup` | Removes a snapshot from HDFS                                                                                                  |
+| Action      | Description                                                                                                                   |
+|-------------|-------------------------------------------------------------------------------------------------------------------------------|
+| `start`     | Starts an existing instance specified by the -name flag                                                                       |
+| `install`   | Deploys and starts an AsterixDB instance described by the config specified in the -c parameter, and named by the -n parameter |
+| `stop`      | Attempts graceful shutdown of an AsterixDB instance specified in the -name parameter                                          |
+| `kill`      | Forcefully stops an instance by asking YARN to terminate all of its containers.                                               |
+| `destroy`   | Remove the instance specified by -name and all of its stored resources from the cluster                                       |
+| `describe`  | Show all instances, running or not, visible to the AsterixDB YARN client                                                      |
+| `backup`    | Copies the artifacts from a stopped instance to another directory on HDFS so that the instance can be reverted to that state  |
+| `restore`   | Restores an instance to the state saved in a snapshot                                                                         |
+| `lsbackup`  | Lists the stored snapshots from an instance                                                                                   |
+| `rmbackup`  | Removes a snapshot from HDFS                                                                                                  |
+| `libinstall`| Installs an external library or UDF for use in queries                                                                        |
 
 ##Options
 Below are all availabe options, and which actions they can be applied to
@@ -224,4 +225,12 @@ A: YARN manages the logs for each container. They are visible in the YARN Resour
 ###Q: Why does AsterixDB fail to start, and the logs contain errors like 'Container is running beyond virtual memory limits.' ?
 
 A: This is a quirk of YARN's memory management that can be observed on certain operating systems (mainly CentOS). It is benign unless it causes problems of this type. A work around is to set `yarn.nodemanager.vmem-check-enabled` to `false` in the yarn-site.xml configuration for Hadoop YARN. This makes the NodeManagers avoid checking the virtual memory entirely and instead rely on resident set size to check memory usage among containers.
+
+###Q: How do I upgrade my existing instance?
+
+A: This is a complex question. Generally, one can use the `refresh` option to upgrade the version of an extant AsterixDB instance. However one must be cautious- we do not guarantee ABI compatability between releases. Therefore extreme caution should be exercised when attempting to upgrade this way!
+
+###Q: Does AsterixDB work on YARN for Windows?
+
+A: In general, yes! It has been done without much real issue. However it is a infrequent use case, so expect the deployment to have some hiccups. We're always listening on the users@asterixdb.incubator.apache.org mailing list for any issues.
 

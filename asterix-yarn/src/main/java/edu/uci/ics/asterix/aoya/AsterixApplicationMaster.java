@@ -30,22 +30,12 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.Vector;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.GnuParser;
@@ -54,8 +44,6 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -91,11 +79,20 @@ import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.event.schema.yarnCluster.Cluster;
 import edu.uci.ics.asterix.event.schema.yarnCluster.MasterNode;
 import edu.uci.ics.asterix.event.schema.yarnCluster.Node;
+import org.apache.log4j.ConsoleAppender;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+import org.apache.log4j.PatternLayout;
 
-@InterfaceAudience.Public
-@InterfaceStability.Unstable
 public class AsterixApplicationMaster {
 
+    static
+    {
+        Logger rootLogger = Logger.getRootLogger();
+        rootLogger.setLevel(Level.INFO);
+        rootLogger.addAppender(new ConsoleAppender(
+                new PatternLayout("%-6r [%p] %c - %m%n")));
+    }
     private static final Log LOG = LogFactory.getLog(AsterixApplicationMaster.class);
     private static final String CLUSTER_DESC_PATH = "cluster-config.xml";
     private static final String ASTERIX_CONF_NAME = "asterix-configuration.xml";
@@ -1055,6 +1052,7 @@ public class AsterixApplicationMaster {
                     vargs.add("-cluster-net-ip-address " + local.getClusterIp());
                     vargs.add("-data-ip-address " + local.getClusterIp());
                     vargs.add("-result-ip-address " + local.getClusterIp());
+                    vargs.add("--");
                     if(initial){
                         vargs.add("-initial-run ");
                     }
