@@ -39,6 +39,7 @@ import org.apache.hadoop.yarn.exceptions.YarnException;
 import edu.uci.ics.asterix.common.configuration.AsterixConfiguration;
 import edu.uci.ics.asterix.event.schema.yarnCluster.Cluster;
 import edu.uci.ics.asterix.event.schema.yarnCluster.Node;
+import org.apache.http.HttpStatus;
 
 public class Utils {
 
@@ -130,6 +131,9 @@ public class Utils {
         if (result == null) {
             return false;
         }
+        if(status != HttpStatus.SC_OK){
+            return false;
+        }
         return true;
     }
 
@@ -143,6 +147,7 @@ public class Utils {
         };
         client.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, noop);
         client.executeMethod(method);
+        status = method.getStatusCode();
         return method.getResponseBodyAsStream();
     }
 
