@@ -17,12 +17,7 @@ import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
 import javax.xml.bind.Unmarshaller;
 
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpException;
-import org.apache.commons.httpclient.HttpMethod;
-import org.apache.commons.httpclient.HttpMethodRetryHandler;
-import org.apache.commons.httpclient.NameValuePair;
-import org.apache.commons.httpclient.NoHttpResponseException;
+import org.apache.commons.httpclient.*;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.commons.httpclient.params.HttpMethodParams;
@@ -39,7 +34,6 @@ import org.apache.hadoop.yarn.exceptions.YarnException;
 import edu.uci.ics.asterix.common.configuration.AsterixConfiguration;
 import edu.uci.ics.asterix.event.schema.yarnCluster.Cluster;
 import edu.uci.ics.asterix.event.schema.yarnCluster.Node;
-import org.apache.http.HttpStatus;
 
 public class Utils {
 
@@ -88,13 +82,13 @@ public class Utils {
         final String url = "http://" + host + ":" + port + "/admin/shutdown";
         PostMethod method = new PostMethod(url);
         try {
-            executeHTTPCall(method, 1);
+            executeHTTPCall(method);
         } catch (NoHttpResponseException e) {
             //do nothing... this is expected
         }
         //now let's test that the instance is really down, or throw an exception
         try {
-            executeHTTPCall(method, 1);
+            executeHTTPCall(method);
         } catch (ConnectException e) {
             return;
         }
@@ -116,10 +110,9 @@ public class Utils {
         final String test = "for $x in dataset Metadata.Dataset return $x;";
         GetMethod method = new GetMethod(url);
         method.setQueryString(new NameValuePair[] { new NameValuePair("query", test) });
-        int status = 0;
         InputStream response;
         try {
-            response = executeHTTPCall(method, status);
+            response = executeHTTPCall(method);
         } catch (ConnectException e) {
             return false;
         }
@@ -131,13 +124,13 @@ public class Utils {
         if (result == null) {
             return false;
         }
-        if(status != HttpStatus.SC_OK){
+        if(method.getStatusCode() != HttpStatus.SC_OK){
             return false;
         }
         return true;
     }
 
-    private static InputStream executeHTTPCall(HttpMethod method, Integer status) throws HttpException, IOException {
+    private static InputStream executeHTTPCall(HttpMethod method) throws HttpException, IOException {
         HttpClient client = new HttpClient();
         HttpMethodRetryHandler noop = new HttpMethodRetryHandler() {
             @Override
@@ -147,7 +140,6 @@ public class Utils {
         };
         client.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, noop);
         client.executeMethod(method);
-        status = method.getStatusCode();
         return method.getResponseBodyAsStream();
     }
 
