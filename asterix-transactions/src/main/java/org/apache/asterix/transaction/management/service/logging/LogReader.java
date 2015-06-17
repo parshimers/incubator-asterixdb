@@ -77,7 +77,9 @@ public class LogReader implements ILogReader {
             return null;
         }
         if (readBuffer.position() == readBuffer.limit() || !logRecord.readLogRecord(readBuffer)) {
-            readNextPage();
+            if(!readNextPage()){
+                return null; //EOF in the middle of a page- discard these records
+            }
             if (!logRecord.readLogRecord(readBuffer)) {
                 throw new IllegalStateException();
             }
@@ -107,32 +109,39 @@ public class LogReader implements ILogReader {
         }
     }
 
-    private void readNextPage() throws ACIDException {
+    private boolean readNextPage() throws ACIDException {
         try {
             if (readLSN % logFileSize == fileChannel.size()) {
                 fileChannel.close();
                 readLSN += logFileSize - (readLSN % logFileSize);
                 getFileChannel();
             }
-            readPage();
+            return readPage();
         } catch (IOException e) {
             throw new ACIDException(e);
         }
     }
 
-    private void readPage() throws ACIDException {
-        int size;
+    private boolean readPage() throws ACIDException {
+        int size=0;
+        int read=0;
         readBuffer.position(0);
         readBuffer.limit(logPageSize);
         try {
             fileChannel.position(readLSN % logFileSize);
-            size = fileChannel.read(readBuffer);
+            while( size < logPageSize && read != -1) {
+                read = fileChannel.read(readBuffer);
+                size += read;
+            }
+            if(read == -1){ //hit EOF while trying to read page
+                return false;
+            }
         } catch (IOException e) {
             throw new ACIDException(e);
         }
         readBuffer.position(0);
-        readBuffer.limit(size);
         bufferBeginLSN = readLSN;
+        return true;
     }
 
     //for random reading
