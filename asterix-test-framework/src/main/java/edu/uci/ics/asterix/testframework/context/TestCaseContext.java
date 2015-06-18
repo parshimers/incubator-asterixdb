@@ -78,6 +78,8 @@ public class TestCaseContext {
     public static final String DEFAULT_TESTSUITE_XML_NAME = "testsuite.xml";
     public static final String ONLY_TESTSUITE_XML_NAME = "only.xml";
 
+    public static final String DEFAULT_REPEADED_TESTSUITE_XML_NAME = "repeatedtestsuite.xml";
+
     private File tsRoot;
 
     private TestSuite testSuite;

@@ -263,12 +263,12 @@ public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
                 valueAbvs.reset();
                 ARecordType newType;
                 if (fieldType == null) {
-                    newType = openType;
+                    newType = openType.deepCopy(openType);
                 } else {
-                    newType = (ARecordType) fieldType;
+                    newType = ((ARecordType) fieldType).deepCopy((ARecordType) fieldType);
                 }
                 ARecordPointable recordP = (ARecordPointable) pa.allocateRecordValue(newType);
-                recordP.set(recordArg.getByteArray(), recordArg.getStartOffset(), recordArg.getLength());
+                recordP.set(recordArg);
                 processRecord(recordP, newType, valueAbvs.getDataOutput());
                 fieldRecordBuilder.addField(fieldAbvs, valueAbvs);
             }
@@ -279,7 +279,7 @@ public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
                 IARecordBuilder listRecordBuilder = getRecordBuilder();
 
                 AListPointable list = (AListPointable) pa.allocateListValue(fieldType);
-                list.set(listArg.getByteArray(), listArg.getStartOffset(), listArg.getLength());
+                list.set(listArg);
 
                 OrderedListBuilder innerListBuilder = getOrderedListBuilder();
                 innerListBuilder.reset(listType);
