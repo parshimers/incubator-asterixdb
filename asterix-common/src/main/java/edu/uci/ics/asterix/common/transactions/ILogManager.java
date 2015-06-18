@@ -15,6 +15,7 @@
 package edu.uci.ics.asterix.common.transactions;
 
 import edu.uci.ics.asterix.common.exceptions.ACIDException;
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
 public interface ILogManager {
 
@@ -42,12 +43,12 @@ public interface ILogManager {
      * Deletes all log partitions which have a maximum LSN less than checkpointLSN
      * @param checkpointLSN
      */
-    public void deleteOldLogFiles(long checkpointLSN);
+    public void deleteOldLogFiles(long checkpointLSN) throws HyracksDataException;
     
     /**
      * 
      * @return the smallest readable LSN on the current log partitions
      */
-    public long getReadableSmallestLSN();
+    public long getReadableSmallestLSN() throws HyracksDataException;
 
 }

@@ -72,7 +72,7 @@ public class LSMRTreeLocalResourceMetadata extends AbstractLSMLocalResourceMetad
     @Override
     public ILSMIndex createIndexInstance(IAsterixAppRuntimeContextProvider runtimeContextProvider, String filePath,
             int partition) throws HyracksDataException {
-        FileReference file = new FileReference(new File(filePath));
+        FileReference file = new FileReference(filePath);
         List<IVirtualBufferCache> virtualBufferCaches = runtimeContextProvider.getVirtualBufferCaches(datasetID);
         try {
             return LSMRTreeUtils.createLSMTree(

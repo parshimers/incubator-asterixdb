@@ -112,6 +112,11 @@
                         <type>jar</type>
                         <scope>compile</scope>
                 </dependency>
-	</dependencies>
+        <dependency>
+            <groupId>edu.uci.ics.hyracks</groupId>
+            <artifactId>hyracks-control-nc</artifactId>
+            <version>0.2.16-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
 
 </project>

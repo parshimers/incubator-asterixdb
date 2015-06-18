@@ -34,6 +34,8 @@ import edu.uci.ics.asterix.common.transactions.MutableLong;
 import edu.uci.ics.asterix.transaction.management.service.transaction.TransactionManagementConstants.LockManagerConstants.LockMode;
 import edu.uci.ics.asterix.transaction.management.service.transaction.TransactionSubsystem;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.io.IFileHandle;
+import edu.uci.ics.hyracks.api.io.IIOManager;
 
 public class LogPage implements ILogPage {
 
@@ -41,6 +43,7 @@ public class LogPage implements ILogPage {
     private static final Logger LOGGER = Logger.getLogger(LogPage.class.getName());
     private final TransactionSubsystem txnSubsystem;
     private final LogPageReader logPageReader;
+    private final IIOManager ioManager;
     private final int logPageSize;
     private final MutableLong flushLSN;
     private final AtomicBoolean full;
@@ -53,15 +56,16 @@ public class LogPage implements ILogPage {
     private final LinkedBlockingQueue<ILogRecord> syncCommitQ;
     private final LinkedBlockingQueue<ILogRecord> flushQ;
 
-    private FileChannel fileChannel;
+    private IFileHandle logFile;
     private boolean stop;
     private final DatasetId reusableDsId;
     private final JobId reusableJobId;
 
-    public LogPage(TransactionSubsystem txnSubsystem, int logPageSize, MutableLong flushLSN) {
+    public LogPage(TransactionSubsystem txnSubsystem, int logPageSize, MutableLong flushLSN, IIOManager ioManager) {
         this.txnSubsystem = txnSubsystem;
         this.logPageSize = logPageSize;
         this.flushLSN = flushLSN;
+        this.ioManager = ioManager;
         appendBuffer = ByteBuffer.allocate(logPageSize);
         flushBuffer = appendBuffer.duplicate();
         unlockBuffer = appendBuffer.duplicate();
@@ -105,16 +109,8 @@ public class LogPage implements ILogPage {
         }
     }
 
-    public void setFileChannel(FileChannel fileChannel) {
-        this.fileChannel = fileChannel;
-    }
-
-    public void setInitialFlushOffset(long offset) {
-        try {
-            fileChannel.position(offset);
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
-        }
+    public void setFileHandle(IFileHandle fileHandle) {
+        this.logFile = fileHandle;
     }
 
     public synchronized void isFull(boolean full) {
@@ -160,7 +156,7 @@ public class LogPage implements ILogPage {
                                         + ", full: " + full.get());
                             }
                             if (stop) {
-                                fileChannel.close();
+                                ioManager.close(logFile);
                                 break;
                             }
                             this.wait();
@@ -174,7 +170,7 @@ public class LogPage implements ILogPage {
             }
             internalFlush(flushOffset, appendOffset);
             if (isLastPage) {
-                fileChannel.close();
+                ioManager.close(logFile);
             }
         } catch (IOException e) {
             throw new IllegalStateException(e);
@@ -185,8 +181,8 @@ public class LogPage implements ILogPage {
         try {
             if (endOffset > beginOffset) {
                 flushBuffer.limit(endOffset);
-                fileChannel.write(flushBuffer);
-                fileChannel.force(false);
+                ioManager.append(logFile, flushBuffer);
+                ioManager.sync(logFile,false);
                 flushOffset = endOffset;
                 synchronized (flushLSN) {
                     flushLSN.set(flushLSN.get() + (endOffset - beginOffset));

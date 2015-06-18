@@ -102,7 +102,7 @@ public class NCFileSystemAdapterFactory extends StreamBasedAdapterFactory implem
                 }
                 nodeName = trimmedValue.split(":")[0];
                 nodeLocalPath = trimmedValue.split("://")[1];
-                FileSplit fileSplit = new FileSplit(nodeName, new FileReference(new File(nodeLocalPath)));
+                FileSplit fileSplit = new FileSplit(nodeName, new FileReference(nodeLocalPath));
                 fileSplits[count++] = fileSplit;
             }
         }

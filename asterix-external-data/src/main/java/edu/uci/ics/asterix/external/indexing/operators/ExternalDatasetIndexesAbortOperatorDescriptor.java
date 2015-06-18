@@ -45,10 +45,15 @@ public class ExternalDatasetIndexesAbortOperatorDescriptor extends AbstractExter
     @Override
     protected void performOpOnIndex(IIndexDataflowHelperFactory indexDataflowHelperFactory, IHyracksTaskContext ctx,
             IndexInfoOperatorDescriptor fileIndexInfo, int partition) throws Exception {
-        FileReference file = new FileReference(new File(IndexFileNameUtil.prepareFileName(fileIndexInfo
+        FileReference file = new FileReference(IndexFileNameUtil.prepareFileName(fileIndexInfo
                 .getFileSplitProvider().getFileSplits()[partition].getLocalFile().getFile().getPath(), fileIndexInfo
-                .getFileSplitProvider().getFileSplits()[partition].getIODeviceId())));
-        AbortRecoverLSMIndexFileManager fileManager = new AbortRecoverLSMIndexFileManager(file);
+                .getFileSplitProvider().getFileSplits()[partition].getIODeviceId()));
+        AbortRecoverLSMIndexFileManager fileManager = new AbortRecoverLSMIndexFileManager(
+                                                        file,
+                                                        fileIndexInfo.getStorageManager()
+                                                                .getBufferCache(ctx)
+                                                                .getIOManager()
+                                                        );
         fileManager.deleteTransactionFiles();
     }
 

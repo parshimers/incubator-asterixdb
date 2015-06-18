@@ -239,8 +239,8 @@ public class AqlCompiledMetadataDeclarations {
                 throw new AlgebricksException("Node " + nd + " has no stores.");
             } else {
                 for (int j = 0; j < nodeStores.length; j++) {
-                    File f = new File(nodeStores[j] + File.separator + relPathFile);
-                    splitArray.add(new FileSplit(nd, new FileReference(f)));
+                    FileReference f = new FileReference(nodeStores[j] + File.separator + relPathFile);
+                    splitArray.add(new FileSplit(nd, f));
                 }
             }
         }

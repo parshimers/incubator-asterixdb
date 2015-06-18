@@ -457,7 +457,7 @@ public class AqlExpressionToPlanTranslator extends AbstractAqlTranslator impleme
         String filePath = outputDir + System.getProperty("file.separator") + OUTPUT_FILE_PREFIX
                 + outputFileID.incrementAndGet();
         AsterixMetadataProperties metadataProperties = AsterixAppContextInfo.getInstance().getMetadataProperties();
-        return new FileSplit(metadataProperties.getMetadataNodeName(), new FileReference(new File(filePath)));
+        return new FileSplit(metadataProperties.getMetadataNodeName(), new FileReference(filePath));
     }
 
     @Override

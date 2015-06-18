@@ -372,8 +372,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
     private Pair<IAWriterFactory, FileSplit> handleWriteStatement(AqlMetadataProvider metadataProvider, Statement stmt)
             throws InstantiationException, IllegalAccessException, ClassNotFoundException {
         WriteStatement ws = (WriteStatement) stmt;
-        File f = new File(ws.getFileName());
-        FileSplit outputFile = new FileSplit(ws.getNcName().getValue(), new FileReference(f));
+        FileReference f = new FileReference(ws.getFileName());
+        FileSplit outputFile = new FileSplit(ws.getNcName().getValue(), f);
         IAWriterFactory writerFactory = null;
         if (ws.getWriterClassName() != null) {
             writerFactory = (IAWriterFactory) Class.forName(ws.getWriterClassName()).newInstance();

@@ -18,8 +18,6 @@ import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.RandomAccessFile;
-import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -43,6 +41,10 @@ import edu.uci.ics.asterix.common.transactions.LogManagerProperties;
 import edu.uci.ics.asterix.common.transactions.LogType;
 import edu.uci.ics.asterix.common.transactions.MutableLong;
 import edu.uci.ics.asterix.transaction.management.service.transaction.TransactionSubsystem;
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.io.FileReference;
+import edu.uci.ics.hyracks.api.io.IFileHandle;
+import edu.uci.ics.hyracks.api.io.IIOManager;
 import edu.uci.ics.hyracks.api.lifecycle.ILifeCycleComponent;
 
 public class LogManager implements ILogManager, ILifeCycleComponent {
@@ -58,16 +60,19 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     private final String logDir;
     private final String logFilePrefix;
     private final MutableLong flushLSN;
+    public final IIOManager ioManager;
     private LinkedBlockingQueue<LogPage> emptyQ;
     private LinkedBlockingQueue<LogPage> flushQ;
     private final AtomicLong appendLSN;
-    private FileChannel appendChannel;
+    private IFileHandle currentLogFile;
     private LogPage appendPage;
     private LogFlusher logFlusher;
     private Future<Object> futureLogFlusher;
 
     public LogManager(TransactionSubsystem txnSubsystem) throws ACIDException {
         this.txnSubsystem = txnSubsystem;
+
+        ioManager = this.txnSubsystem.getAsterixAppRuntimeContextProvider().getIOManager();
         logManagerProperties = new LogManagerProperties(this.txnSubsystem.getTransactionProperties(),
                 this.txnSubsystem.getId());
         logFileSize = logManagerProperties.getLogPartitionSize();
@@ -84,14 +89,14 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
         emptyQ = new LinkedBlockingQueue<LogPage>(numLogPages);
         flushQ = new LinkedBlockingQueue<LogPage>(numLogPages);
         for (int i = 0; i < numLogPages; i++) {
-            emptyQ.offer(new LogPage(txnSubsystem, logPageSize, flushLSN));
+            emptyQ.offer(new LogPage(txnSubsystem, logPageSize, flushLSN, ioManager));
         }
         appendLSN.set(initializeLogAnchor(nextLogFileId));
         flushLSN.set(appendLSN.get());
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("LogManager starts logging in LSN: " + appendLSN);
         }
-        appendChannel = getFileChannel(appendLSN.get(), false);
+        currentLogFile = getLogFile(appendLSN.get(), false);
         getAndInitNewPage();
         logFlusher = new LogFlusher(this, emptyQ, flushQ);
         futureLogFlusher = txnSubsystem.getAsterixAppRuntimeContextProvider().getThreadExecutor().submit(logFlusher);
@@ -160,13 +165,13 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
             }
         }
         appendPage.reset();
-        appendPage.setFileChannel(appendChannel);
+        appendPage.setFileHandle(currentLogFile);
         flushQ.offer(appendPage);
     }
 
     private void prepareNextLogFile() {
         appendLSN.addAndGet(logFileSize - getLogFileOffset(appendLSN.get()));
-        appendChannel = getFileChannel(appendLSN.get(), true);
+        currentLogFile = getLogFile(appendLSN.get(), true);
         appendPage.isLastPage(true);
         //[Notice]
         //the current log file channel is closed if 
@@ -251,28 +256,36 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     private long initializeLogAnchor(long nextLogFileId) {
         long fileId = 0;
         long offset = 0;
-        File fileLogDir = new File(logDir);
+        FileReference fileLogDir = new FileReference(logDir, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
         try {
-            if (fileLogDir.exists()) {
+            if (ioManager.exists(fileLogDir)) {
                 List<Long> logFileIds = getLogFileIds();
                 if (logFileIds == null) {
                     fileId = nextLogFileId;
-                    createFileIfNotExists(getLogFilePath(fileId));
+                    FileReference newFile = new FileReference(getLogFilePath(fileId), FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+//                    ioManager.mkdirs(newFile);
+                    IFileHandle touch = ioManager.open(newFile, IIOManager.FileReadWriteMode.READ_WRITE, IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
+                    ioManager.close(touch);
                     if (LOGGER.isLoggable(Level.INFO)) {
                         LOGGER.info("created a log file: " + getLogFilePath(fileId));
                     }
                 } else {
                     fileId = logFileIds.get(logFileIds.size() - 1);
-                    File logFile = new File(getLogFilePath(fileId));
-                    offset = logFile.length();
+                    FileReference logFile = new FileReference(getLogFilePath(fileId), FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+                    IFileHandle logHandle = ioManager.open(logFile, IIOManager.FileReadWriteMode.READ_ONLY, IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
+                    offset = ioManager.getSize(logHandle);
+                    ioManager.close(logHandle);
                 }
             } else {
                 fileId = nextLogFileId;
-                createNewDirectory(logDir);
+                ioManager.mkdirs(new FileReference(logDir, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL));
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("created the log directory: " + logManagerProperties.getLogDir());
                 }
-                createFileIfNotExists(getLogFilePath(fileId));
+                FileReference newFile = new FileReference(getLogFilePath(fileId), FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+//                ioManager.mkdirs(newFile);
+                IFileHandle touch = ioManager.open(newFile, IIOManager.FileReadWriteMode.READ_WRITE, IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
+                ioManager.close(touch);
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("created a log file: " + getLogFilePath(fileId));
                 }
@@ -292,17 +305,16 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
         initializeLogManager(lastMaxLogFileId + 1);
     }
 
-    public void deleteOldLogFiles(long checkpointLSN){
+    public void deleteOldLogFiles(long checkpointLSN) throws HyracksDataException {
 
         Long checkpointLSNLogFileID = getLogFileId(checkpointLSN);
         List<Long> logFileIds = getLogFileIds();
         for (Long id : logFileIds) {
-
             if(id < checkpointLSNLogFileID)
             {
-                File file = new File(getLogFilePath(id));
-                if (!file.delete()) {
-                    throw new IllegalStateException("Failed to delete a file: " + file.getAbsolutePath());
+                FileReference file = new FileReference(getLogFilePath(id), FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+                if (!ioManager.delete(file)) {
+                    throw new IllegalStateException("Failed to delete a file: " + file.getPath());
                 }
             }
         }
@@ -327,30 +339,30 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
         }
     }
 
-    private long deleteAllLogFiles() {
-        if (appendChannel != null) {
+    private long deleteAllLogFiles() throws HyracksDataException {
+        if (currentLogFile != null) {
             try {
-                appendChannel.close();
+                ioManager.close(currentLogFile);
             } catch (IOException e) {
                 throw new IllegalStateException("Failed to close a fileChannel of a log file");
             }
         }
         List<Long> logFileIds = getLogFileIds();
         for (Long id : logFileIds) {
-            File file = new File(getLogFilePath(id));
-            if (!file.delete()) {
-                throw new IllegalStateException("Failed to delete a file: " + file.getAbsolutePath());
+            FileReference file = new FileReference(getLogFilePath(id), FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+            if (!ioManager.delete(file)) {
+                throw new IllegalStateException("Failed to delete a file: " + file.getPath());
             }
         }
         return logFileIds.get(logFileIds.size() - 1);
     }
 
-    private List<Long> getLogFileIds() {
-        File fileLogDir = new File(logDir);
+    private List<Long> getLogFileIds() throws HyracksDataException {
+        FileReference fileLogDir = new FileReference(logDir, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
         String[] logFileNames = null;
         List<Long> logFileIds = null;
-        if (fileLogDir.exists()) {
-            logFileNames = fileLogDir.list(new FilenameFilter() {
+        if (ioManager.exists(fileLogDir)) {
+            logFileNames = ioManager.listFiles(fileLogDir, new FilenameFilter() {
                 public boolean accept(File dir, String name) {
                     if (name.startsWith(logFilePrefix)) {
                         return true;
@@ -386,44 +398,29 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
         return lsn / logFileSize;
     }
 
-    private boolean createFileIfNotExists(String path) throws IOException {
-        File file = new File(path);
-        File parentFile = file.getParentFile();
-        if (parentFile != null) {
-            parentFile.mkdirs();
-        }
-        return file.createNewFile();
-    }
-
-    private boolean createNewDirectory(String path) throws IOException {
-        return (new File(path)).mkdir();
-    }
-
-    public FileChannel getFileChannel(long lsn, boolean create) {
-        FileChannel newFileChannel = null;
+    public IFileHandle getLogFile(long lsn, boolean create) {
+        IFileHandle handle = null;
         try {
             long fileId = getLogFileId(lsn);
             String logFilePath = getLogFilePath(fileId);
-            File file = new File(logFilePath);
+            FileReference file = new FileReference(logFilePath, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
             if (create) {
-                if (!file.createNewFile()) {
+                if (!ioManager.mkdirs(file)) {
                     throw new IllegalStateException();
                 }
             } else {
-                if (!file.exists()) {
+                if (!ioManager.exists(file)) {
                     throw new IllegalStateException();
                 }
             }
-            RandomAccessFile raf = new RandomAccessFile(new File(logFilePath), "rw");
-            newFileChannel = raf.getChannel();
-            newFileChannel.position(getLogFileOffset(lsn));
+            handle = ioManager.open(file, IIOManager.FileReadWriteMode.READ_WRITE, IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
-        return newFileChannel;
+        return handle;
     }
 
-    public long getReadableSmallestLSN() {
+    public long getReadableSmallestLSN() throws HyracksDataException {
         List<Long> logFileIds = getLogFileIds();
         return logFileIds.get(0) * logFileSize;
     }
@@ -431,16 +428,18 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
 
 class LogFlusher implements Callable<Boolean> {
     private static final Logger LOGGER = Logger.getLogger(LogFlusher.class.getName());
-    private final static LogPage POISON_PILL = new LogPage(null, ILogRecord.JOB_TERMINATE_LOG_SIZE, null);
+    private final static LogPage POISON_PILL = new LogPage(null, ILogRecord.JOB_TERMINATE_LOG_SIZE, null, null);
     private final LogManager logMgr;//for debugging
     private final LinkedBlockingQueue<LogPage> emptyQ;
     private final LinkedBlockingQueue<LogPage> flushQ;
     private LogPage flushPage;
     private final AtomicBoolean isStarted;
     private final AtomicBoolean terminateFlag;
+    private final IIOManager ioManager;
 
     public LogFlusher(LogManager logMgr, LinkedBlockingQueue<LogPage> emptyQ, LinkedBlockingQueue<LogPage> flushQ) {
         this.logMgr = logMgr;
+        this.ioManager = logMgr.ioManager;
         this.emptyQ = emptyQ;
         this.flushQ = flushQ;
         flushPage = null;

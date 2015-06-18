@@ -2063,8 +2063,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                 String[] ioDevices = AsterixClusterProperties.INSTANCE.getIODevices(node);
                 for (int j = 0; j < nodeStores.length; j++) {
                     for (int k = 0; k < numIODevices; k++) {
-                        File f = new File(ioDevices[k] + File.separator + nodeStores[j] + File.separator + relPathFile);
-                        splits.add(new FileSplit(node, new FileReference(f), k));
+                        FileReference f = new FileReference(ioDevices[k] + File.separator + nodeStores[j] + File.separator + relPathFile);
+                        splits.add(new FileSplit(node, f, k));
                     }
                 }
             }
@@ -2100,9 +2100,9 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                     String[] ioDevices = AsterixClusterProperties.INSTANCE.getIODevices(nd);
                     for (int j = 0; j < nodeStores.length; j++) {
                         for (int k = 0; k < numIODevices; k++) {
-                            File f = new File(ioDevices[k] + File.separator + nodeStores[j]
+                            FileReference f = new FileReference(ioDevices[k] + File.separator + nodeStores[j]
                                     + (temp ? (File.separator + "temp") : "") + File.separator + relPathFile);
-                            splitArray.add(new FileSplit(nd, new FileReference(f), k));
+                            splitArray.add(new FileSplit(nd, f, k));
                         }
                     }
                 }
@@ -2273,17 +2273,17 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                     String[] ioDevices = AsterixClusterProperties.INSTANCE.getIODevices(nd);
                     if (create) {
                         for (int j = 0; j < nodeStores.length; j++) {
-                            File f = new File(ioDevices[0] + File.separator + nodeStores[j] + File.separator
+                            FileReference f = new FileReference(ioDevices[0] + File.separator + nodeStores[j] + File.separator
                                     + relPathFile);
-                            splitArray.add(new FileSplit(nd, new FileReference(f), 0));
+                            splitArray.add(new FileSplit(nd, f, 0));
                         }
                     } else {
                         int numIODevices = AsterixClusterProperties.INSTANCE.getNumberOfIODevices(nd);
                         for (int j = 0; j < nodeStores.length; j++) {
                             for (int k = 0; k < numIODevices; k++) {
-                                File f = new File(ioDevices[0] + File.separator + nodeStores[j] + File.separator
+                                FileReference f = new FileReference(ioDevices[0] + File.separator + nodeStores[j] + File.separator
                                         + relPathFile);
-                                splitArray.add(new FileSplit(nd, new FileReference(f), 0));
+                                splitArray.add(new FileSplit(nd, f, 0));
                             }
                         }
                     }

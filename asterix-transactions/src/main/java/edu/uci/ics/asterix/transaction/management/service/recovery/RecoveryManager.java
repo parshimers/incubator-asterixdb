@@ -115,8 +115,12 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             }
             return state;
         }
-
-        long readableSmallestLSN = logMgr.getReadableSmallestLSN();
+        long readableSmallestLSN;
+        try {
+            readableSmallestLSN = logMgr.getReadableSmallestLSN();
+        }catch(HyracksDataException e){
+            throw new ACIDException(e);
+        }
         if (logMgr.getAppendLSN() == readableSmallestLSN) {
             if (checkpointObject.getMinMCTFirstLsn() != SHARP_CHECKPOINT_LSN) {
                 if (LOGGER.isLoggable(Level.INFO)) {

@@ -24,6 +24,9 @@ import edu.uci.ics.asterix.common.transactions.ILogReader;
 import edu.uci.ics.asterix.common.transactions.ILogRecord;
 import edu.uci.ics.asterix.common.transactions.LogRecord;
 import edu.uci.ics.asterix.common.transactions.MutableLong;
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.io.IFileHandle;
+import edu.uci.ics.hyracks.api.io.IIOManager;
 
 public class LogReader implements ILogReader {
 
@@ -39,7 +42,8 @@ public class LogReader implements ILogReader {
     private long readLSN;
     private long bufferBeginLSN;
     private long fileBeginLSN;
-    private FileChannel fileChannel;
+    private IFileHandle logFile;
+    private IIOManager ioManager;
 
     private enum ReturnState {
         FLUSH,
@@ -54,6 +58,7 @@ public class LogReader implements ILogReader {
         this.isRecoveryMode = isRecoveryMode;
         this.readBuffer = ByteBuffer.allocate(logPageSize);
         this.logRecord = new LogRecord();
+        this.ioManager = logMgr.ioManager;
     }
 
     @Override
@@ -105,8 +110,8 @@ public class LogReader implements ILogReader {
 
     private void readNextPage() throws ACIDException {
         try {
-            if (readLSN % logFileSize == fileChannel.size()) {
-                fileChannel.close();
+            if (readLSN % logFileSize == ioManager.getSize(logFile)) {
+                ioManager.close(logFile);
                 readLSN += logFileSize - (readLSN % logFileSize);
                 getFileChannel();
             }
@@ -117,18 +122,11 @@ public class LogReader implements ILogReader {
     }
 
     private void readPage() throws ACIDException {
-        int size;
-        readBuffer.position(0);
-        readBuffer.limit(logPageSize);
         try {
-            fileChannel.position(readLSN % logFileSize);
-            size = fileChannel.read(readBuffer);
-        } catch (IOException e) {
+            ioManager.syncRead(logFile, ((long) (readLSN % logFileSize)), readBuffer);
+        }catch(HyracksDataException e){
             throw new ACIDException(e);
         }
-        readBuffer.position(0);
-        readBuffer.limit(size);
-        bufferBeginLSN = readLSN;
     }
 
     //for random reading
@@ -145,11 +143,11 @@ public class LogReader implements ILogReader {
             }
         }
         try {
-            if (fileChannel == null) {
+            if (logFile == null) {
                 getFileChannel();
                 readPage();
-            } else if (readLSN < fileBeginLSN || readLSN >= fileBeginLSN + fileChannel.size()) {
-                fileChannel.close();
+            } else if (readLSN < fileBeginLSN || readLSN >= fileBeginLSN + ioManager.getSize(logFile)) {
+                ioManager.close(logFile);
                 getFileChannel();
                 readPage();
             } else if (readLSN < bufferBeginLSN || readLSN >= bufferBeginLSN + readBuffer.limit()) {
@@ -172,15 +170,15 @@ public class LogReader implements ILogReader {
     }
 
     private void getFileChannel() throws ACIDException {
-        fileChannel = logMgr.getFileChannel(readLSN, false);
+        logFile = logMgr.getLogFile(readLSN, false);
         fileBeginLSN = readLSN;
     }
 
     @Override
     public void close() throws ACIDException {
         try {
-            if (fileChannel != null) {
-                fileChannel.close();
+            if (logFile != null) {
+                ioManager.close(logFile);
             }
         } catch (IOException e) {
             throw new ACIDException(e);

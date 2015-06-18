@@ -379,7 +379,7 @@ public class MetadataBootstrap {
                 + File.separator
                 + IndexFileNameUtil.prepareFileName(metadataStore + File.separator + index.getFileNameRelativePath(),
                         runtimeContext.getMetaDataIODeviceId());
-        FileReference file = new FileReference(new File(filePath));
+        FileReference file = new FileReference(filePath);
         List<IVirtualBufferCache> virtualBufferCaches = runtimeContext.getVirtualBufferCaches(index.getDatasetId()
                 .getId());
         ITypeTraits[] typeTraits = index.getTypeTraits();

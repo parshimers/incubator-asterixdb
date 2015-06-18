@@ -43,7 +43,7 @@ public class ExternalBTreeLocalResourceMetadata extends LSMBTreeLocalResourceMet
     @Override
     public ILSMIndex createIndexInstance(IAsterixAppRuntimeContextProvider runtimeContextProvider, String filePath,
             int partition) {
-        FileReference file = new FileReference(new File(filePath));
+        FileReference file = new FileReference(filePath);
         LSMBTree lsmBTree = LSMBTreeUtils.createExternalBTree(
                 file,
                 runtimeContextProvider.getBufferCache(),
