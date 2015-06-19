@@ -93,6 +93,11 @@ public class LogRecord implements ILogRecord {
     private final CRC32 checksumGen;
     private int[] PKFields;
     private PrimaryIndexOperationTracker opTracker;
+    public enum RECORD_STATUS{
+        TRUNCATED,
+        BAD_CHKSUM,
+        OK
+    };
 
     public LogRecord() {
         isFlushed = new AtomicBoolean(false);
@@ -154,7 +159,7 @@ public class LogRecord implements ILogRecord {
     }
 
     @Override
-    public boolean readLogRecord(ByteBuffer buffer) {
+    public RECORD_STATUS readLogRecord(ByteBuffer buffer) {
         int beginOffset = buffer.position();
         try {
             logType = buffer.get();
@@ -193,13 +198,13 @@ public class LogRecord implements ILogRecord {
             
             checksum = buffer.getLong();
             if (checksum != generateChecksum(buffer, beginOffset, logSize - CHECKSUM_SIZE)) {
-                throw new IllegalStateException();
+                return RECORD_STATUS.BAD_CHKSUM;
             }
         } catch (BufferUnderflowException e) {
             buffer.position(beginOffset);
-            return false;
+            return RECORD_STATUS.TRUNCATED;
         }
-        return true;
+        return RECORD_STATUS.OK;
     }
 
     private ITupleReference readPKValue(ByteBuffer buffer) {
