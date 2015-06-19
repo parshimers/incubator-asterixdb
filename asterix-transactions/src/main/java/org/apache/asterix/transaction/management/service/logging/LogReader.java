@@ -89,14 +89,9 @@ public class LogReader implements ILogReader {
         RECORD_STATUS status = logRecord.readLogRecord(readBuffer);
         switch(status) {
             case TRUNCATED: {
-                if(!isRecoveryMode){ // file may have been flushed between then and now
-                    if(!readNextPage()) return null;
-                    if(logRecord.readLogRecord(readBuffer) == RECORD_STATUS.OK){
-                        break;
-                    }
-                    else{
-                        return null;
-                    }
+                if(!readNextPage()){ return null; } //EOF
+                if(logRecord.readLogRecord(readBuffer) == RECORD_STATUS.OK){
+                    break;
                 }
                 LOGGER.info("Log file has truncated log records.");
                 return null;
