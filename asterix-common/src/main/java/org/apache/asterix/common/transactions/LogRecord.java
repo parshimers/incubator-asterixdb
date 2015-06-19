@@ -93,11 +93,6 @@ public class LogRecord implements ILogRecord {
     private final CRC32 checksumGen;
     private int[] PKFields;
     private PrimaryIndexOperationTracker opTracker;
-    public enum RECORD_STATUS{
-        TRUNCATED,
-        BAD_CHKSUM,
-        OK
-    };
 
     public LogRecord() {
         isFlushed = new AtomicBoolean(false);
