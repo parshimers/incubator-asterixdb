@@ -29,7 +29,7 @@ public interface ILogRecord {
     public static final int UPDATE_LOG_BASE_SIZE = 54;
     public static final int FLUSH_LOG_SIZE = 17;
     
-    public boolean readLogRecord(ByteBuffer buffer);
+    public LogRecord.RECORD_STATUS readLogRecord(ByteBuffer buffer);
 
     public void writeLogRecord(ByteBuffer buffer);
 

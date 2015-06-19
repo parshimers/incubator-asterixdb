@@ -29,6 +29,8 @@ import org.apache.asterix.common.transactions.ILogRecord;
 import org.apache.asterix.common.transactions.LogRecord;
 import org.apache.asterix.common.transactions.MutableLong;
 
+import static edu.uci.ics.asterix.common.transactions.LogRecord.*;
+
 public class LogReader implements ILogReader {
 
     public static final boolean IS_DEBUG_MODE = false;//true
@@ -76,13 +78,44 @@ public class LogReader implements ILogReader {
         if (waitForFlushOrReturnIfEOF() == ReturnState.EOF) {
             return null;
         }
-        if (readBuffer.position() == readBuffer.limit() || !logRecord.readLogRecord(readBuffer)) {
-            if(!readNextPage()){
-                return null; //EOF in the middle of a page- discard these records
+        if (readBuffer.position() == readBuffer.limit()) {
+            boolean eof = readNextPage();
+            if (eof && isRecoveryMode && readLSN < flushLSN.get()) {
+                LOGGER.severe("Transaction log ends before expected. Log files may be missing.");
+                return null;
             }
-            if (!logRecord.readLogRecord(readBuffer)) {
-                throw new IllegalStateException();
+        }
+
+        RECORD_STATUS status = logRecord.readLogRecord(readBuffer);
+        switch(status) {
+            case TRUNCATED: {
+                if(!isRecoveryMode){ // file may have been flushed between then and now
+                    if(!readNextPage()) return null;
+                    if(logRecord.readLogRecord(readBuffer) == RECORD_STATUS.OK){
+                        break;
+                    }
+                    else{
+                        return null;
+                    }
+                }
+                LOGGER.info("Log file has truncated log records.");
+                return null;
             }
+            case BAD_CHKSUM:{
+                try{
+                    if(readLSN % logFileSize < (fileChannel.size()-logPageSize)){//if record is before last page of file
+                        LOGGER.severe("Transaction log is corrupted. This shouldn't happen!");
+                    }
+                    else{
+                        LOGGER.warning("Log file may have been damaged due to medium or filesystem error. " +
+                                "Continuing recovery...");
+                    }
+                }catch(IOException e){
+                    throw new ACIDException(e);
+                }
+                return null;
+            }
+            case OK: break;
         }
         logRecord.setLSN(readLSN);
         readLSN += logRecord.getLogSize();
@@ -131,15 +164,18 @@ public class LogReader implements ILogReader {
             fileChannel.position(readLSN % logFileSize);
             while( size < logPageSize && read != -1) {
                 read = fileChannel.read(readBuffer);
-                size += read;
-            }
-            if(read == -1){ //hit EOF while trying to read page
-                return false;
+                if(read>0) {
+                    size += read;
+                }
             }
         } catch (IOException e) {
             throw new ACIDException(e);
         }
         readBuffer.position(0);
+        readBuffer.limit(size);
+        if(size == 0 && read == -1){
+            return false; //EOF
+        }
         bufferBeginLSN = readLSN;
         return true;
     }
@@ -173,11 +209,23 @@ public class LogReader implements ILogReader {
         } catch (IOException e) {
             throw new ACIDException(e);
         }
-        if (!logRecord.readLogRecord(readBuffer)) {
-            readNextPage();
-            if (!logRecord.readLogRecord(readBuffer)) {
-                throw new IllegalStateException();
+        boolean eof;
+        if(readBuffer.position() == readBuffer.limit()){
+            eof = readNextPage();
+            if(eof){
+                throw new ACIDException("LSN is out of bounds");
             }
+        }
+        RECORD_STATUS status = logRecord.readLogRecord(readBuffer);
+        switch(status){
+            case TRUNCATED:{
+                throw new ACIDException("LSN is out of bounds");
+            }
+            case BAD_CHKSUM:{
+                throw new ACIDException("Log record has incorrect checksum");
+            }
+            case OK: break;
+
         }
         logRecord.setLSN(readLSN);
         readLSN += logRecord.getLogSize();
