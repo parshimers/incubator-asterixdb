@@ -24,6 +24,7 @@ import org.eclipse.jetty.util.component.AbstractLifeCycle;
 
 import edu.uci.ics.asterix.api.http.servlet.APIServlet;
 import edu.uci.ics.asterix.api.http.servlet.AQLAPIServlet;
+import edu.uci.ics.asterix.api.http.servlet.ConnectorAPIServlet;
 import edu.uci.ics.asterix.api.http.servlet.DDLAPIServlet;
 import edu.uci.ics.asterix.api.http.servlet.FeedDashboardServlet;
 import edu.uci.ics.asterix.api.http.servlet.FeedDataProviderServlet;
@@ -77,7 +78,7 @@ public class CCApplicationEntryPoint implements ICCApplicationEntryPoint {
         MetadataManager.INSTANCE = new MetadataManager(proxy, metadataProperties);
 
         AsterixAppContextInfo.getInstance().getCCApplicationContext()
-                .addJobLifecycleListener(FeedLifecycleListener.INSTANCE);
+        .addJobLifecycleListener(FeedLifecycleListener.INSTANCE);
 
         AsterixExternalProperties externalProperties = AsterixAppContextInfo.getInstance().getExternalProperties();
         setupWebServer(externalProperties);
@@ -89,7 +90,7 @@ public class CCApplicationEntryPoint implements ICCApplicationEntryPoint {
 
         setupFeedServer(externalProperties);
         feedServer.start();
-        
+
         waitUntilServerStart(webServer);
         waitUntilServerStart(jsonAPIServer);
         waitUntilServerStart(feedServer);
@@ -101,9 +102,9 @@ public class CCApplicationEntryPoint implements ICCApplicationEntryPoint {
         ccAppCtx.addClusterLifecycleListener(ClusterLifecycleListener.INSTANCE);
     }
 
-    private void waitUntilServerStart(AbstractLifeCycle webServer) throws Exception{
-        while(!webServer.isStarted()){
-            if(webServer.isFailed()){
+    private void waitUntilServerStart(AbstractLifeCycle webServer) throws Exception {
+        while (!webServer.isStarted()) {
+            if (webServer.isFailed()) {
                 throw new Exception("Server failed to start");
             }
             wait(1000);
@@ -157,6 +158,7 @@ public class CCApplicationEntryPoint implements ICCApplicationEntryPoint {
         context.addServlet(new ServletHolder(new UpdateAPIServlet()), "/update");
         context.addServlet(new ServletHolder(new DDLAPIServlet()), "/ddl");
         context.addServlet(new ServletHolder(new AQLAPIServlet()), "/aql");
+        context.addServlet(new ServletHolder(new ConnectorAPIServlet()), "/connector");
         context.addServlet(new ServletHolder(new ShutdownAPIServlet()), "/admin/shutdown");
     }
 
