@@ -40,7 +40,7 @@
       <artifactId>docker-maven-plugin</artifactId>
       <version>0.2.11</version>
       <configuration>
-        <imageName>asterixdb/latest</imageName>
+        <imageName>asterixdb/demo</imageName>
         <dockerDirectory>docker</dockerDirectory>
         <resources>
            <resource>

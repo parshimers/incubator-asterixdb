@@ -8,12 +8,12 @@ RUN easy_install supervisor
 RUN mkdir /asterixdb
 COPY asterix-server*.zip .
 RUN unzip asterix-server*.zip -d /asterixdb/
-RUN wget -O /asterixdb/bin/asterix-configuration.xml https://gist.githubusercontent.com/parshimers/d6d5fdd18ce9a99568b2/raw/918194395b6d6a4e03b25f796375aee4b73118f0/asterix-configuration.xml
-RUN wget -O /etc/supervisord.conf https://gist.githubusercontent.com/parshimers/b1c43a1594909c5d757b/raw/6303f35975c747b13ffb67c7dbb797b57f08e492/gistfile1.txt
-RUN wget -O /asterixdb/twu.adm http://asterixdb.googlecode.com/files/twu.adm
-RUN wget -O /asterixdb/twm.adm http://asterixdb.googlecode.com/files/twm.adm
-RUN wget -O /asterixdb/fbu.adm http://asterixdb.googlecode.com/files/fbu.adm
-RUN wget -O /asterixdb/fbm.adm http://asterixdb.googlecode.com/files/fbm.adm
+COPY asterix-configuration.xml /asterixdb/bin/asterix-configuration.xml
+COPY supervisord.conf /etc/supervisord.conf
+COPY twu.adm /asterixdb/twu.adm
+COPY twm.adm /asterixdb/twm.adm
+COPY fbu.adm /asterixdb/fbu.adm
+COPY fbm.adm /asterixdb/fbm.adm
 
 WORKDIR /asterixdb/bin
 ENV JAVA_HOME /usr/lib/jvm/jre-1.7.0
