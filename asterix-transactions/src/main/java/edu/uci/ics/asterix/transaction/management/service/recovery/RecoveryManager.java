@@ -14,15 +14,8 @@
  */
 package edu.uci.ics.asterix.transaction.management.service.recovery;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.FilenameFilter;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.OutputStream;
+import java.io.*;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -52,6 +45,9 @@ import edu.uci.ics.asterix.transaction.management.service.transaction.Transactio
 import edu.uci.ics.asterix.transaction.management.service.transaction.TransactionManager;
 import edu.uci.ics.asterix.transaction.management.service.transaction.TransactionSubsystem;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.io.FileReference;
+import edu.uci.ics.hyracks.api.io.IFileHandle;
+import edu.uci.ics.hyracks.api.io.IIOManager;
 import edu.uci.ics.hyracks.api.lifecycle.ILifeCycleComponent;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.ITupleReference;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndex;
@@ -76,6 +72,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
     private static final Logger LOGGER = Logger.getLogger(RecoveryManager.class.getName());
     private final TransactionSubsystem txnSubsystem;
     private final LogManager logMgr;
+    private IIOManager ioManager;
     private final int checkpointHistory;
     private final long SHARP_CHECKPOINT_LSN = -1;
 
@@ -89,6 +86,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
     public RecoveryManager(TransactionSubsystem txnSubsystem) throws ACIDException {
         this.txnSubsystem = txnSubsystem;
         this.logMgr = (LogManager) txnSubsystem.getLogManager();
+        this.ioManager = logMgr.ioManager;
         this.checkpointHistory = this.txnSubsystem.getTransactionProperties().getCheckpointHistory();
     }
 
@@ -395,14 +393,18 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         CheckpointObject checkpointObject = new CheckpointObject(logMgr.getAppendLSN(), minMCTFirstLSN,
                 txnMgr.getMaxJobId(), System.currentTimeMillis());
 
-        FileOutputStream fos = null;
+        ByteArrayOutputStream fos = null;
         ObjectOutputStream oosToFos = null;
         try {
             String fileName = getFileName(logDir, Long.toString(checkpointObject.getTimeStamp()));
-            fos = new FileOutputStream(fileName);
+            fos = new ByteArrayOutputStream();
             oosToFos = new ObjectOutputStream(fos);
             oosToFos.writeObject(checkpointObject);
             oosToFos.flush();
+            FileReference file = new FileReference(fileName, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+            IFileHandle fh = ioManager.open(file, IIOManager.FileReadWriteMode.READ_WRITE, IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
+            ioManager.syncWrite(fh, 0, ByteBuffer.wrap(fos.toByteArray()));
+            ioManager.close(fh);
         } catch (IOException e) {
             throw new ACIDException("Failed to checkpoint", e);
         } finally {

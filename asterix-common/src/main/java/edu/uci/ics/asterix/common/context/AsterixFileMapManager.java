@@ -40,7 +40,7 @@ public class AsterixFileMapManager implements IFileMapManager {
 
     @Override
     public int lookupFileId(FileReference fileRef) throws HyracksDataException {
-        String fileName = fileRef.getFile().getAbsolutePath();
+        String fileName = fileRef.getAbsolutePath();
         Integer fileId = name2IdMap.get(fileName);
         if (fileId == null) {
             throw new HyracksDataException("No mapping found for name: " + fileName);
@@ -50,7 +50,7 @@ public class AsterixFileMapManager implements IFileMapManager {
 
     @Override
     public boolean isMapped(FileReference fileRef) {
-        String fileName = fileRef.getFile().getAbsolutePath();
+        String fileName = fileRef.getAbsolutePath();
         return name2IdMap.containsKey(fileName);
     }
 
@@ -68,7 +68,7 @@ public class AsterixFileMapManager implements IFileMapManager {
     @Override
     public void registerFile(FileReference fileRef) throws HyracksDataException {
         Integer fileId = idCounter++;
-        String fileName = fileRef.getFile().getAbsolutePath();
+        String fileName = fileRef.getAbsolutePath();
         id2nameMap.put(fileId, fileName);
         name2IdMap.put(fileName, fileId);
     }
