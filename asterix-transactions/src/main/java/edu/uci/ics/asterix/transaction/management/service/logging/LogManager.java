@@ -263,7 +263,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
                 if (logFileIds == null) {
                     fileId = nextLogFileId;
                     FileReference newFile = new FileReference(getLogFilePath(fileId), FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
-                    ioManager.mkdirs(newFile);
+//                    ioManager.mkdirs(newFile);
                     IFileHandle touch = ioManager.open(newFile, IIOManager.FileReadWriteMode.READ_WRITE, IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
                     ioManager.close(touch);
                     if (LOGGER.isLoggable(Level.INFO)) {
