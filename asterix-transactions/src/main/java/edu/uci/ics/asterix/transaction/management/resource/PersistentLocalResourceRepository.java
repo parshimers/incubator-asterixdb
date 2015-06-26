@@ -236,8 +236,13 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
             oosToFos.writeObject(resource);
             oosToFos.flush();
             FileReference file = new FileReference(getFileName(resource.getResourceName(), resource.getResourceId()), FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+            if(ioManager.exists(file)){
+                ioManager.delete(file);
+            }
             IFileHandle fh = ioManager.open(file, IIOManager.FileReadWriteMode.READ_WRITE, IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
-            ioManager.syncWrite(fh,0,ByteBuffer.wrap(fos.toByteArray()));
+            ioManager.close(fh);
+            fh = ioManager.open(file,IIOManager.FileReadWriteMode.READ_WRITE, IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);getFileName(resource.getResourceName(), resource.getResourceId());
+            ioManager.append(fh,ByteBuffer.wrap(fos.toByteArray()));
             ioManager.close(fh);
 
         } catch (IOException e) {

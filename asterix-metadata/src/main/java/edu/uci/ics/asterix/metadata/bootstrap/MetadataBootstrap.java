@@ -391,7 +391,7 @@ public class MetadataBootstrap {
                 .getDatasetId().getId()) : new BaseOperationTracker((DatasetLifecycleManager) indexLifecycleManager,
                 index.getDatasetId().getId(), ((DatasetLifecycleManager) indexLifecycleManager).getDatasetInfo(index
                         .getDatasetId().getId()));
-        final String path = file.getFile().getPath();
+        final String path = file.getPath();
         if (create) {
             lsmBtree = LSMBTreeUtils.createLSMTree(
                     virtualBufferCaches,
