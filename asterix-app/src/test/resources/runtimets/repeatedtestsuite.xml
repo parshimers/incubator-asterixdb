@@ -19,13 +19,13 @@
     QueryFileExtension=".aql">
     <!-- By default no test are listed here. This is only for individual testing purposes. -->
     <!-- The following test case is commented out as an example. -->
+    <test-group name="repeated-tests">
 <!--
-     <test-group name="records">
         <test-case FilePath="records/get-record-fields">
             <compilation-unit name="tiny-social-example">
                 <output-dir compare="Text">tiny-social-example</output-dir>
             </compilation-unit>
         </test-case>
+-->
     </test-group>
- -->
- </test-suite>
+</test-suite>

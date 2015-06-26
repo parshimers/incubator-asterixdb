@@ -44,15 +44,15 @@ import edu.uci.ics.asterix.testframework.context.TestCaseContext;
 @RunWith(Parameterized.class)
 public class ExecutionTest {
 
-    private static final Logger LOGGER = Logger.getLogger(ExecutionTest.class.getName());
+    protected static final Logger LOGGER = Logger.getLogger(ExecutionTest.class.getName());
 
-    private static final String PATH_ACTUAL = "rttest" + File.separator;
-    private static final String PATH_BASE = StringUtils.join(new String[] { "src", "test", "resources", "runtimets" },
-            File.separator);
+    protected static final String PATH_ACTUAL = "rttest" + File.separator;
+    protected static final String PATH_BASE = StringUtils.join(
+            new String[] { "src", "test", "resources", "runtimets" }, File.separator);
 
-    private static final String TEST_CONFIG_FILE_NAME = "asterix-build-configuration.xml";
+    protected static final String TEST_CONFIG_FILE_NAME = "asterix-build-configuration.xml";
 
-    private static AsterixTransactionProperties txnProperties;
+    protected static AsterixTransactionProperties txnProperties;
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -119,7 +119,7 @@ public class ExecutionTest {
         return testArgs;
     }
 
-    private static Collection<Object[]> buildTestsInXml(String xmlfile) throws Exception {
+    protected static Collection<Object[]> buildTestsInXml(String xmlfile) throws Exception {
         Collection<Object[]> testArgs = new ArrayList<Object[]>();
         TestCaseContext.Builder b = new TestCaseContext.Builder();
         for (TestCaseContext ctx : b.build(new File(PATH_BASE), xmlfile)) {
@@ -129,7 +129,7 @@ public class ExecutionTest {
 
     }
 
-    private TestCaseContext tcCtx;
+    protected TestCaseContext tcCtx;
 
     public ExecutionTest(TestCaseContext tcCtx) {
         this.tcCtx = tcCtx;
