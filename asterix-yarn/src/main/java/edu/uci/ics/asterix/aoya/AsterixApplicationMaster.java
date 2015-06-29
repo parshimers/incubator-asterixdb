@@ -145,7 +145,7 @@ public class AsterixApplicationMaster {
     //Tells us whether the Cluster Controller is up so we can safely start some Node Controllers
     private AtomicBoolean ccUp = new AtomicBoolean();
     private AtomicBoolean ccStarted = new AtomicBoolean();
-    private Queue<Node> ncStarted = new ArrayDeque<Node>();
+    private Queue<Node> pendingNCs = new ArrayDeque<Node>();
 
     //HDFS path to AsterixDB distributable zip
     private String asterixZipPath = "";
@@ -466,8 +466,8 @@ public class AsterixApplicationMaster {
             resourceManager.addContainerRequest(hostToRequest(n.getClusterIp(), false));
             LOG.info("Asked for NC: " + n.getClusterIp());
             numNodes++;
-            synchronized(ncStarted){
-                ncStarted.add(n);
+            synchronized(pendingNCs){
+                pendingNCs.add(n);
             }
         }
         LOG.info("Requested all NCs and CCs. Wait for things to settle!");
@@ -796,9 +796,9 @@ public class AsterixApplicationMaster {
             LOG.info("Got response from RM for container ask, allocatedCnt=" + allocatedContainers.size());
             numAllocatedContainers.addAndGet(allocatedContainers.size());
             for (Container allocatedContainer : allocatedContainers) {
-                synchronized(ncStarted){
+                synchronized(pendingNCs){
                     try {
-                        if (!ncStarted.contains(containerToNode(allocatedContainer, clusterDesc)) && ccUp.get()) {
+                        if (!pendingNCs.contains(containerToNode(allocatedContainer, clusterDesc)) && ccUp.get()) {
                             nmClientAsync.stopContainerAsync(allocatedContainer.getId(), allocatedContainer.getNodeId());
                             continue;
                         }
@@ -819,10 +819,10 @@ public class AsterixApplicationMaster {
                 // I want to know if this node is the CC, because it must start before the NCs. 
                 LOG.info("Allocated: " + allocatedContainer.getNodeId().getHost());
                 LOG.info("CC : " + cC.getId());
-                synchronized(ncStarted){
+                synchronized(pendingNCs){
                     try {
                         if (ccUp.get()) {
-                            ncStarted.remove(containerToNode(allocatedContainer, clusterDesc));
+                            pendingNCs.remove(containerToNode(allocatedContainer, clusterDesc));
                         }
                     } catch(UnknownHostException ex){
                         LOG.error("Unknown host allocated for us by RM- this shouldn't happen.", ex);
