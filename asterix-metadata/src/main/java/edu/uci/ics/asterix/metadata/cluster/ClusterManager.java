@@ -25,6 +25,7 @@ import java.util.logging.Logger;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.Unmarshaller;
 
+import edu.uci.ics.asterix.common.api.IClusterEventsSubscriber;
 import edu.uci.ics.asterix.common.config.AsterixExternalProperties;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.event.management.AsterixEventServiceClient;
@@ -39,7 +40,6 @@ import edu.uci.ics.asterix.event.service.ILookupService;
 import edu.uci.ics.asterix.event.service.ServiceProvider;
 import edu.uci.ics.asterix.event.util.PatternCreator;
 import edu.uci.ics.asterix.installer.schema.conf.Configuration;
-import edu.uci.ics.asterix.metadata.api.IClusterEventsSubscriber;
 import edu.uci.ics.asterix.metadata.api.IClusterManager;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
 import edu.uci.ics.asterix.om.util.AsterixClusterProperties;
@@ -113,7 +113,7 @@ public class ClusterManager implements IClusterManager {
             String hostId = node.getId();
             String nodeControllerId = asterixInstanceName + "_" + node.getId();
             String iodevices = node.getIodevices() == null ? cluster.getIodevices() : node.getIodevices();
-            Pattern startNC = PatternCreator.INSTANCE.createNCStartPattern(ccHost, hostId, nodeControllerId, iodevices);
+            Pattern startNC = PatternCreator.INSTANCE.createNCStartPattern(ccHost, hostId, nodeControllerId, iodevices, false);
             pattern.add(startNC);
             Patterns startNCPattern = new Patterns(pattern);
             client.submit(startNCPattern);

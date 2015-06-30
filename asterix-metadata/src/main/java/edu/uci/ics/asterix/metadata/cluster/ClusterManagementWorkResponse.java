@@ -14,7 +14,8 @@
  */
 package edu.uci.ics.asterix.metadata.cluster;
 
-import edu.uci.ics.asterix.metadata.api.IClusterManagementWork;
+import edu.uci.ics.asterix.common.api.IClusterManagementWork;
+import edu.uci.ics.asterix.common.api.IClusterManagementWorkResponse;
 
 public class ClusterManagementWorkResponse implements IClusterManagementWorkResponse {
 
@@ -27,6 +28,7 @@ public class ClusterManagementWorkResponse implements IClusterManagementWorkResp
         this.status = Status.IN_PROGRESS;
     }
 
+   
     @Override
     public IClusterManagementWork getWork() {
         return work;

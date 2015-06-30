@@ -16,6 +16,7 @@
 package edu.uci.ics.asterix.metadata;
 
 import java.rmi.RemoteException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -23,7 +24,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import edu.uci.ics.asterix.common.config.AsterixMetadataProperties;
 import edu.uci.ics.asterix.common.exceptions.ACIDException;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
-import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
 import edu.uci.ics.asterix.common.functions.FunctionSignature;
 import edu.uci.ics.asterix.common.transactions.JobId;
 import edu.uci.ics.asterix.metadata.api.IAsterixStateProxy;
@@ -36,8 +36,6 @@ import edu.uci.ics.asterix.metadata.entities.Datatype;
 import edu.uci.ics.asterix.metadata.entities.Dataverse;
 import edu.uci.ics.asterix.metadata.entities.ExternalFile;
 import edu.uci.ics.asterix.metadata.entities.Feed;
-import edu.uci.ics.asterix.metadata.entities.FeedActivity;
-import edu.uci.ics.asterix.metadata.entities.FeedActivity.FeedActivityType;
 import edu.uci.ics.asterix.metadata.entities.FeedPolicy;
 import edu.uci.ics.asterix.metadata.entities.Function;
 import edu.uci.ics.asterix.metadata.entities.Index;
@@ -89,7 +87,7 @@ public class MetadataManager implements IMetadataManager {
     // Set in init().
     public static MetadataManager INSTANCE;
     private final MetadataCache cache = new MetadataCache();
-    private IAsterixStateProxy proxy;
+    private final IAsterixStateProxy proxy;
     private IMetadataNode metadataNode;
     private final ReadWriteLock metadataLatch;
     private final AsterixMetadataProperties metadataProperties;
@@ -141,6 +139,11 @@ public class MetadataManager implements IMetadataManager {
                         + metadataProperties.getMetadataNodeName());
             }
         }
+
+        // Starts the garbage collector thread which
+        // should always be running.
+        Thread garbageCollectorThread = new Thread(new GarbageCollector());
+        garbageCollectorThread.start();
     }
 
     @Override
@@ -236,11 +239,23 @@ public class MetadataManager implements IMetadataManager {
     @Override
     public List<Dataset> getDataverseDatasets(MetadataTransactionContext ctx, String dataverseName)
             throws MetadataException {
-        List<Dataset> dataverseDatasets;
+        List<Dataset> dataverseDatasets = new ArrayList<Dataset>();
+        // add uncommitted temporary datasets
+        for (Dataset dataset : ctx.getDataverseDatasets(dataverseName)) {
+            if (dataset.getDatasetDetails().isTemp()) {
+                dataverseDatasets.add(dataset);
+            }
+        }
+        // add the committed temporary datasets with the cache
+        for (Dataset dataset : cache.getDataverseDatasets(dataverseName)) {
+            if (dataset.getDatasetDetails().isTemp()) {
+                dataverseDatasets.add(dataset);
+            }
+        }
         try {
             // Assuming that the transaction can read its own writes on the
             // metadata node.
-            dataverseDatasets = metadataNode.getDataverseDatasets(ctx.getJobId(), dataverseName);
+            dataverseDatasets.addAll(metadataNode.getDataverseDatasets(ctx.getJobId(), dataverseName));
         } catch (RemoteException e) {
             throw new MetadataException(e);
         }
@@ -252,10 +267,12 @@ public class MetadataManager implements IMetadataManager {
     @Override
     public void addDataset(MetadataTransactionContext ctx, Dataset dataset) throws MetadataException {
         // add dataset into metadataNode
-        try {
-            metadataNode.addDataset(ctx.getJobId(), dataset);
-        } catch (RemoteException e) {
-            throw new MetadataException(e);
+        if (!dataset.getDatasetDetails().isTemp()) {
+            try {
+                metadataNode.addDataset(ctx.getJobId(), dataset);
+            } catch (RemoteException e) {
+                throw new MetadataException(e);
+            }
         }
 
         // reflect the dataset into the cache
@@ -265,11 +282,17 @@ public class MetadataManager implements IMetadataManager {
     @Override
     public void dropDataset(MetadataTransactionContext ctx, String dataverseName, String datasetName)
             throws MetadataException {
-        try {
-            metadataNode.dropDataset(ctx.getJobId(), dataverseName, datasetName);
-        } catch (RemoteException e) {
-            throw new MetadataException(e);
+        Dataset dataset = findDataset(ctx, dataverseName, datasetName);
+        // If a dataset is not in the cache, then it could not be a temp dataset
+        if (dataset == null || !dataset.getDatasetDetails().isTemp()) {
+            try {
+                metadataNode.dropDataset(ctx.getJobId(), dataverseName, datasetName);
+            } catch (RemoteException e) {
+                throw new MetadataException(e);
+            }
         }
+
+        // Drops the dataset from cache
         ctx.dropDataset(dataverseName, datasetName);
     }
 
@@ -312,13 +335,23 @@ public class MetadataManager implements IMetadataManager {
     @Override
     public List<Index> getDatasetIndexes(MetadataTransactionContext ctx, String dataverseName, String datasetName)
             throws MetadataException {
-        List<Index> datsetIndexes;
-        try {
-            datsetIndexes = metadataNode.getDatasetIndexes(ctx.getJobId(), dataverseName, datasetName);
-        } catch (RemoteException e) {
-            throw new MetadataException(e);
+        List<Index> datasetIndexes = new ArrayList<Index>();
+        Dataset dataset = findDataset(ctx, dataverseName, datasetName);
+        if (dataset == null) {
+            return datasetIndexes;
         }
-        return datsetIndexes;
+        if (dataset.getDatasetDetails().isTemp()) {
+            // for temp datsets
+            datasetIndexes = cache.getDatasetIndexes(dataverseName, datasetName);
+        } else {
+            try {
+                // for persistent datasets
+                datasetIndexes = metadataNode.getDatasetIndexes(ctx.getJobId(), dataverseName, datasetName);
+            } catch (RemoteException e) {
+                throw new MetadataException(e);
+            }
+        }
+        return datasetIndexes;
     }
 
     @Override
@@ -352,7 +385,11 @@ public class MetadataManager implements IMetadataManager {
         } catch (RemoteException e) {
             throw new MetadataException(e);
         }
-        ctx.addDatatype(datatype);
+        try {
+            ctx.addDatatype(metadataNode.getDatatype(ctx.getJobId(),datatype.getDataverseName(),datatype.getDatatypeName()));
+        } catch (RemoteException e) {
+            throw new MetadataException(e);
+        }
     }
 
     @Override
@@ -413,10 +450,15 @@ public class MetadataManager implements IMetadataManager {
 
     @Override
     public void addIndex(MetadataTransactionContext ctx, Index index) throws MetadataException {
-        try {
-            metadataNode.addIndex(ctx.getJobId(), index);
-        } catch (RemoteException e) {
-            throw new MetadataException(e);
+        String dataverseName = index.getDataverseName();
+        String datasetName = index.getDatasetName();
+        Dataset dataset = findDataset(ctx, dataverseName, datasetName);
+        if (dataset == null || !dataset.getDatasetDetails().isTemp()) {
+            try {
+                metadataNode.addIndex(ctx.getJobId(), index);
+            } catch (RemoteException e) {
+                throw new MetadataException(e);
+            }
         }
         ctx.addIndex(index);
     }
@@ -435,10 +477,15 @@ public class MetadataManager implements IMetadataManager {
     @Override
     public void dropIndex(MetadataTransactionContext ctx, String dataverseName, String datasetName, String indexName)
             throws MetadataException {
-        try {
-            metadataNode.dropIndex(ctx.getJobId(), dataverseName, datasetName, indexName);
-        } catch (RemoteException e) {
-            throw new MetadataException(e);
+        Dataset dataset = findDataset(ctx, dataverseName, datasetName);
+        // If a dataset is not in the cache, then it could be an unloaded persistent dataset.
+        // If the dataset is a temp dataset, then we do not need to call any MedataNode operations.
+        if (dataset == null || !dataset.getDatasetDetails().isTemp()) {
+            try {
+                metadataNode.dropIndex(ctx.getJobId(), dataverseName, datasetName, indexName);
+            } catch (RemoteException e) {
+                throw new MetadataException(e);
+            }
         }
         ctx.dropIndex(dataverseName, datasetName, indexName);
     }
@@ -667,30 +714,9 @@ public class MetadataManager implements IMetadataManager {
         }
         return adapter;
     }
+  
 
     @Override
-    public void registerFeedActivity(MetadataTransactionContext ctx, FeedConnectionId feedId, FeedActivity feedActivity)
-            throws MetadataException {
-        try {
-            metadataNode.registerFeedActivity(ctx.getJobId(), feedId, feedActivity);
-        } catch (RemoteException e) {
-            throw new MetadataException(e);
-        }
-    }
-
-    @Override
-    public FeedActivity getRecentActivityOnFeedConnection(MetadataTransactionContext ctx, FeedConnectionId feedId,
-            FeedActivityType... feedActivityTypes) throws MetadataException {
-
-        FeedActivity feedActivity = null;
-        try {
-            feedActivity = metadataNode.getRecentFeedActivity(ctx.getJobId(), feedId, feedActivityTypes);
-        } catch (RemoteException e) {
-            throw new MetadataException(e);
-        }
-        return feedActivity;
-    }
-
     public void dropLibrary(MetadataTransactionContext ctx, String dataverseName, String libraryName)
             throws MetadataException {
         try {
@@ -771,18 +797,7 @@ public class MetadataManager implements IMetadataManager {
         }
         return FeedPolicy;
     }
-
-    @Override
-    public List<FeedActivity> getActiveFeeds(MetadataTransactionContext ctx, String dataverse, String dataset)
-            throws MetadataException {
-        List<FeedActivity> feedActivities = null;
-        try {
-            feedActivities = metadataNode.getActiveFeeds(ctx.getJobId(), dataverse, dataset);
-        } catch (RemoteException e) {
-            throw new MetadataException(e);
-        }
-        return feedActivities;
-    }
+   
 
     @Override
     public Feed getFeed(MetadataTransactionContext ctx, String dataverse, String feedName) throws MetadataException {
@@ -797,12 +812,14 @@ public class MetadataManager implements IMetadataManager {
 
     @Override
     public void dropFeed(MetadataTransactionContext ctx, String dataverse, String feedName) throws MetadataException {
+        Feed feed = null;
         try {
+            feed = metadataNode.getFeed(ctx.getJobId(), dataverse, feedName);
             metadataNode.dropFeed(ctx.getJobId(), dataverse, feedName);
         } catch (RemoteException e) {
             throw new MetadataException(e);
         }
-        ctx.dropFeed(dataverse, feedName);
+        ctx.dropFeed(feed);
     }
 
     @Override
@@ -815,17 +832,7 @@ public class MetadataManager implements IMetadataManager {
         ctx.addFeed(feed);
     }
 
-    public List<FeedActivity> getConnectFeedActivitiesForFeed(MetadataTransactionContext ctx, String dataverse,
-            String feedName) throws MetadataException {
-        List<FeedActivity> feedActivities = null;
-        try {
-            feedActivities = metadataNode.getDatasetsServedByFeed(ctx.getJobId(), dataverse, feedName);
-        } catch (RemoteException e) {
-            throw new MetadataException(e);
-        }
-        return feedActivities;
-    }
-
+  
     public List<DatasourceAdapter> getDataverseAdapters(MetadataTransactionContext mdTxnCtx, String dataverse)
             throws MetadataException {
         List<DatasourceAdapter> dataverseAdapters;
@@ -836,6 +843,30 @@ public class MetadataManager implements IMetadataManager {
         }
         return dataverseAdapters;
     }
+    
+    public void dropFeedPolicy(MetadataTransactionContext mdTxnCtx, String dataverseName, String policyName)
+            throws MetadataException {
+        FeedPolicy feedPolicy = null;
+        try {
+            feedPolicy = metadataNode.getFeedPolicy(mdTxnCtx.getJobId(), dataverseName, policyName);
+            metadataNode.dropFeedPolicy(mdTxnCtx.getJobId(), dataverseName, policyName);
+        } catch (RemoteException e) {
+            throw new MetadataException(e);
+        }
+        mdTxnCtx.dropFeedPolicy(feedPolicy);
+    }
+    
+    public List<FeedPolicy> getDataversePolicies(MetadataTransactionContext mdTxnCtx, String dataverse)
+            throws MetadataException {
+        List<FeedPolicy> dataverseFeedPolicies;
+        try {
+            dataverseFeedPolicies = metadataNode.getDataversePolicies(mdTxnCtx.getJobId(), dataverse);
+        } catch (RemoteException e) {
+            throw new MetadataException(e);
+        }
+        return dataverseFeedPolicies;
+    }
+
 
     @Override
     public List<ExternalFile> getDatasetExternalFiles(MetadataTransactionContext mdTxnCtx, Dataset dataset)
@@ -900,5 +931,18 @@ public class MetadataManager implements IMetadataManager {
         // reflect the dataset into the cache
         ctx.dropDataset(dataset);
         ctx.addDataset(dataset);
+    }
+
+    @Override
+    public void cleanupTempDatasets() {
+        cache.cleanupTempDatasets();
+    }
+
+    private Dataset findDataset(MetadataTransactionContext ctx, String dataverseName, String datasetName) {
+        Dataset dataset = ctx.getDataset(dataverseName, datasetName);
+        if (dataset == null) {
+            dataset = cache.getDataset(dataverseName, datasetName);
+        }
+        return dataset;
     }
 }
