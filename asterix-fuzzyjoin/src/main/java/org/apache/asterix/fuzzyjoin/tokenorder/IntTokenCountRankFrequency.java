@@ -17,11 +17,11 @@
  * Author: Rares Vernica <rares (at) ics.uci.edu>
  */
 
-package edu.uci.ics.asterix.fuzzyjoin.tokenorder;
+package org.apache.asterix.fuzzyjoin.tokenorder;
 
 import java.util.HashMap;
 
-import edu.uci.ics.asterix.fuzzyjoin.IntPair;
+import org.apache.asterix.fuzzyjoin.IntPair;
 
 public class IntTokenCountRankFrequency implements IntTokenCountRank {
     /**

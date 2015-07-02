@@ -17,7 +17,7 @@
  * Author: Alexander Behm <abehm (at) ics.uci.edu>
  */
 
-package edu.uci.ics.asterix.fuzzyjoin.tests;
+package org.apache.asterix.fuzzyjoin.tests;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -34,11 +34,11 @@ import junit.framework.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import edu.uci.ics.asterix.fuzzyjoin.tokenizer.AbstractUTF8Token;
-import edu.uci.ics.asterix.fuzzyjoin.tokenizer.DelimitedUTF8StringBinaryTokenizer;
-import edu.uci.ics.asterix.fuzzyjoin.tokenizer.HashedUTF8WordTokenFactory;
-import edu.uci.ics.asterix.fuzzyjoin.tokenizer.IToken;
-import edu.uci.ics.asterix.fuzzyjoin.tokenizer.UTF8WordTokenFactory;
+import org.apache.asterix.fuzzyjoin.tokenizer.AbstractUTF8Token;
+import org.apache.asterix.fuzzyjoin.tokenizer.DelimitedUTF8StringBinaryTokenizer;
+import org.apache.asterix.fuzzyjoin.tokenizer.HashedUTF8WordTokenFactory;
+import org.apache.asterix.fuzzyjoin.tokenizer.IToken;
+import org.apache.asterix.fuzzyjoin.tokenizer.UTF8WordTokenFactory;
 
 public class WordTokenizerTest {
 

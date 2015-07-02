@@ -17,7 +17,7 @@
  * Author: Rares Vernica <rares (at) ics.uci.edu>
  */
 
-package edu.uci.ics.asterix.fuzzyjoin.tests.dataset;
+package org.apache.asterix.fuzzyjoin.tests.dataset;
 
 import java.io.File;
 import java.util.NoSuchElementException;

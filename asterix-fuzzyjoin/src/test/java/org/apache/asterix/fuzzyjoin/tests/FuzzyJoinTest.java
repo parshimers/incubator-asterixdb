@@ -17,7 +17,7 @@
  * Author: Rares Vernica <rares (at) ics.uci.edu>
  */
 
-package edu.uci.ics.asterix.fuzzyjoin.tests;
+package org.apache.asterix.fuzzyjoin.tests;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
@@ -25,11 +25,11 @@ import java.util.ArrayList;
 
 import org.junit.Test;
 
-import edu.uci.ics.asterix.fuzzyjoin.FuzzyJoinMemory;
-import edu.uci.ics.asterix.fuzzyjoin.ResultSelfJoin;
-import edu.uci.ics.asterix.fuzzyjoin.tests.dataset.AbstractDataset;
-import edu.uci.ics.asterix.fuzzyjoin.tests.dataset.AbstractDataset.Directory;
-import edu.uci.ics.asterix.fuzzyjoin.tests.dataset.DBLPSmallDataset;
+import org.apache.asterix.fuzzyjoin.FuzzyJoinMemory;
+import org.apache.asterix.fuzzyjoin.ResultSelfJoin;
+import org.apache.asterix.fuzzyjoin.tests.dataset.AbstractDataset;
+import org.apache.asterix.fuzzyjoin.tests.dataset.AbstractDataset.Directory;
+import org.apache.asterix.fuzzyjoin.tests.dataset.DBLPSmallDataset;
 
 public class FuzzyJoinTest {
 

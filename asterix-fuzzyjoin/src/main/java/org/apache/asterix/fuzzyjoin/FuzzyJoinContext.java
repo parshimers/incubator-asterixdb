@@ -17,11 +17,11 @@
  * Author: Rares Vernica <rares (at) ics.uci.edu>
  */
 
-package edu.uci.ics.asterix.fuzzyjoin;
+package org.apache.asterix.fuzzyjoin;
 
 import java.util.ArrayList;
 
-import edu.uci.ics.asterix.fuzzyjoin.similarity.SimilarityFiltersJaccard;
+import org.apache.asterix.fuzzyjoin.similarity.SimilarityFiltersJaccard;
 
 public class FuzzyJoinContext {
     public final float similarityThreshold;

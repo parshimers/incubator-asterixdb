@@ -17,7 +17,7 @@
  * Author: Rares Vernica <rares (at) ics.uci.edu>
  */
 
-package edu.uci.ics.asterix.fuzzyjoin.invertedlist;
+package org.apache.asterix.fuzzyjoin.invertedlist;
 
 import java.util.HashMap;
 
