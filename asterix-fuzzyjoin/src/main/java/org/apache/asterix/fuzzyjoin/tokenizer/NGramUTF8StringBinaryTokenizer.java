@@ -17,7 +17,7 @@
  * Author: Alexander Behm <abehm (at) ics.uci.edu>
  */
 
-package edu.uci.ics.asterix.fuzzyjoin.tokenizer;
+package org.apache.asterix.fuzzyjoin.tokenizer;
 
 public class NGramUTF8StringBinaryTokenizer extends AbstractUTF8StringBinaryTokenizer {
 

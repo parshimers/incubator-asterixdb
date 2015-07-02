@@ -1,6 +1,6 @@
-package edu.uci.ics.asterix.common.feeds;
+package org.apache.asterix.common.feeds;
 
-import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector.MetricType;
+import org.apache.asterix.common.feeds.api.IFeedMetricCollector.MetricType;
 
 public class SeriesAvg extends Series {
 

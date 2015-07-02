@@ -1,6 +1,6 @@
-package edu.uci.ics.asterix.common.feeds.api;
+package org.apache.asterix.common.feeds.api;
 
-import edu.uci.ics.asterix.common.feeds.FeedId;
+import org.apache.asterix.common.feeds.FeedId;
 
 public interface IFeedProvider {
 

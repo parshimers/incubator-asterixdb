@@ -17,12 +17,12 @@
  * Author: Rares Vernica <rares (at) ics.uci.edu>
  */
 
-package edu.uci.ics.asterix.fuzzyjoin.recordgroup;
+package org.apache.asterix.fuzzyjoin.recordgroup;
 
 import java.util.Collection;
 import java.util.LinkedList;
 
-import edu.uci.ics.asterix.fuzzyjoin.similarity.SimilarityFilters;
+import org.apache.asterix.fuzzyjoin.similarity.SimilarityFilters;
 
 public class RecordGroupTokenFrequency extends RecordGroup {
 

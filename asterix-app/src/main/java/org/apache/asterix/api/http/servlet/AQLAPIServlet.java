@@ -1,11 +1,11 @@
-package edu.uci.ics.asterix.api.http.servlet;
+package org.apache.asterix.api.http.servlet;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 
-import edu.uci.ics.asterix.aql.base.Statement.Kind;
+import org.apache.asterix.aql.base.Statement.Kind;
 
 public class AQLAPIServlet extends RESTAPIServlet {
 

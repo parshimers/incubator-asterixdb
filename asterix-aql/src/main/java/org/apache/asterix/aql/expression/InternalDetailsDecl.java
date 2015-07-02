@@ -12,12 +12,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.asterix.aql.expression;
+package org.apache.asterix.aql.expression;
 
 import java.util.List;
 import java.util.Map;
 
-import edu.uci.ics.asterix.metadata.bootstrap.MetadataConstants;
+import org.apache.asterix.metadata.bootstrap.MetadataConstants;
 
 public class InternalDetailsDecl implements IDatasetDetailsDecl {
     private final Identifier nodegroupName;

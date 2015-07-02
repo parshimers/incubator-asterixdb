@@ -17,7 +17,7 @@
  * Author: Rares Vernica <rares (at) ics.uci.edu>
  */
 
-package edu.uci.ics.asterix.fuzzyjoin.tokenizer;
+package org.apache.asterix.fuzzyjoin.tokenizer;
 
 import java.util.ArrayList;
 import java.util.HashMap;

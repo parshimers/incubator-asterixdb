@@ -17,7 +17,7 @@
  * Author: Alexander Behm <abehm (at) ics.uci.edu>
  */
 
-package edu.uci.ics.asterix.fuzzyjoin.tokenizer;
+package org.apache.asterix.fuzzyjoin.tokenizer;
 
 public abstract class AbstractUTF8TokenFactory implements ITokenFactory {
     private static final long serialVersionUID = 1L;

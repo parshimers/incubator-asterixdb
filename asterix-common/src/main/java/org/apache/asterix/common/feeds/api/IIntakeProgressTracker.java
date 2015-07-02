@@ -1,4 +1,4 @@
-package edu.uci.ics.asterix.common.feeds.api;
+package org.apache.asterix.common.feeds.api;
 
 import java.util.Map;
 

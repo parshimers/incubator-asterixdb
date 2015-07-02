@@ -17,9 +17,9 @@
  * Author: Rares Vernica <rares (at) ics.uci.edu>
  */
 
-package edu.uci.ics.asterix.fuzzyjoin.tokenizer;
+package org.apache.asterix.fuzzyjoin.tokenizer;
 
-import edu.uci.ics.asterix.fuzzyjoin.IntArray;
+import org.apache.asterix.fuzzyjoin.IntArray;
 
 public class WordTokenizerBuffered implements TokenizerBuffered {
 

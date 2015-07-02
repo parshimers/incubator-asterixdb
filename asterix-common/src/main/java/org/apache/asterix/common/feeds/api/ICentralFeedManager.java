@@ -1,8 +1,8 @@
-package edu.uci.ics.asterix.common.feeds.api;
+package org.apache.asterix.common.feeds.api;
 
 import java.io.IOException;
 
-import edu.uci.ics.asterix.common.exceptions.AsterixException;
+import org.apache.asterix.common.exceptions.AsterixException;
 
 public interface ICentralFeedManager {
 

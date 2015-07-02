@@ -17,7 +17,7 @@
  * Author: Rares Vernica <rares (at) ics.uci.edu>
  */
 
-package edu.uci.ics.asterix.fuzzyjoin.similarity;
+package org.apache.asterix.fuzzyjoin.similarity;
 
 import java.io.Serializable;
 

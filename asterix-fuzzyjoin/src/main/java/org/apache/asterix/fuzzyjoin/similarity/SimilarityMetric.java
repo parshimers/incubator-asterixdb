@@ -17,10 +17,10 @@
  * Author: Rares Vernica <rares (at) ics.uci.edu>
  */
 
-package edu.uci.ics.asterix.fuzzyjoin.similarity;
+package org.apache.asterix.fuzzyjoin.similarity;
 
-import edu.uci.ics.asterix.fuzzyjoin.tokenizer.Tokenizer;
-import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import org.apache.asterix.fuzzyjoin.tokenizer.Tokenizer;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 public abstract class SimilarityMetric {
 

@@ -17,7 +17,7 @@
  * Author: Rares Vernica <rares (at) ics.uci.edu>
  */
 
-package edu.uci.ics.asterix.fuzzyjoin.tokenorder;
+package org.apache.asterix.fuzzyjoin.tokenorder;
 
 import java.io.Serializable;
 import java.util.Collection;

@@ -1,4 +1,4 @@
-package edu.uci.ics.asterix.common.feeds;
+package org.apache.asterix.common.feeds;
 
 public class FeedStorageStatistics {
 

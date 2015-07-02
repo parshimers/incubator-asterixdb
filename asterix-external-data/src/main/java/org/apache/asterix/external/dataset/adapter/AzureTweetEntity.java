@@ -1,4 +1,4 @@
-package edu.uci.ics.asterix.external.dataset.adapter;
+package org.apache.asterix.external.dataset.adapter;
 
 import com.microsoft.windowsazure.services.table.client.TableServiceEntity;
 

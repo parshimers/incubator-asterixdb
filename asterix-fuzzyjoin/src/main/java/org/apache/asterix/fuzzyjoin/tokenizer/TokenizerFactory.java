@@ -17,7 +17,7 @@
  * Author: Rares Vernica <rares (at) ics.uci.edu>
  */
 
-package edu.uci.ics.asterix.fuzzyjoin.tokenizer;
+package org.apache.asterix.fuzzyjoin.tokenizer;
 
 public class TokenizerFactory {
     public static Tokenizer getTokenizer(String tokenizer, String wordSeparator, char tokenSeparator) {

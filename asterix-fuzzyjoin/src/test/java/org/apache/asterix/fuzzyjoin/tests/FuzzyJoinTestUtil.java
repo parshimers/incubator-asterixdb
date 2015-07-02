@@ -17,7 +17,7 @@
  * Author: Rares Vernica <rares (at) ics.uci.edu>
  */
 
-package edu.uci.ics.asterix.fuzzyjoin.tests;
+package org.apache.asterix.fuzzyjoin.tests;
 
 import java.io.BufferedReader;
 import java.io.File;

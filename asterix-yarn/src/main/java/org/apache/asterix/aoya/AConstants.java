@@ -1,4 +1,4 @@
-package edu.uci.ics.asterix.aoya;
+package org.apache.asterix.aoya;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;

@@ -17,7 +17,7 @@
  * Author: Rares Vernica <rares (at) ics.uci.edu>
  */
 
-package edu.uci.ics.asterix.fuzzyjoin.similarity;
+package org.apache.asterix.fuzzyjoin.similarity;
 
 public class SimilarityMetricFactory {
     public static SimilarityMetric getSimilarityMetric(String similarityMetric) {

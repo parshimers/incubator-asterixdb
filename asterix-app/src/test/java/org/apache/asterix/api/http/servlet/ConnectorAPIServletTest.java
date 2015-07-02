@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-package edu.uci.ics.asterix.api.http.servlet;
+package org.apache.asterix.api.http.servlet;
 
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -41,11 +41,11 @@ import org.json.JSONObject;
 import org.json.JSONTokener;
 import org.junit.Test;
 
-import edu.uci.ics.asterix.test.runtime.ExecutionTest;
-import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
-import edu.uci.ics.hyracks.api.client.NodeControllerInfo;
-import edu.uci.ics.hyracks.api.comm.NetworkAddress;
-import edu.uci.ics.hyracks.dataflow.std.file.FileSplit;
+import org.apache.asterix.test.runtime.ExecutionTest;
+import org.apache.hyracks.api.client.IHyracksClientConnection;
+import org.apache.hyracks.api.client.NodeControllerInfo;
+import org.apache.hyracks.api.comm.NetworkAddress;
+import org.apache.hyracks.dataflow.std.file.FileSplit;
 
 public class ConnectorAPIServletTest {
 
@@ -118,7 +118,7 @@ public class ConnectorAPIServletTest {
         nodeMap.put("nc1", mockInfo1);
         nodeMap.put("nc2", mockInfo2);
         PA.invokeMethod(servlet,
-                "formResponseObject(org.json.JSONObject, edu.uci.ics.hyracks.dataflow.std.file.FileSplit[], "
+                "formResponseObject(org.json.JSONObject, org.apache.hyracks.dataflow.std.file.FileSplit[], "
                         + "java.util.Map)", actualResponse, splits, nodeMap);
 
         // Constructs expected response.

@@ -12,14 +12,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.asterix.metadata;
+package org.apache.asterix.metadata;
 
 import java.io.DataOutput;
 import java.io.Serializable;
 import java.util.Map;
 
-import edu.uci.ics.asterix.common.config.DatasetConfig.DatasetType;
-import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import org.apache.asterix.common.config.DatasetConfig.DatasetType;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 public interface IDatasetDetails extends Serializable {
 

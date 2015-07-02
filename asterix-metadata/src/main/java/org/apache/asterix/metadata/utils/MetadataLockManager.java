@@ -1,11 +1,11 @@
-package edu.uci.ics.asterix.metadata.utils;
+package org.apache.asterix.metadata.utils;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import edu.uci.ics.asterix.metadata.entities.Dataverse;
+import org.apache.asterix.metadata.entities.Dataverse;
 
 public class MetadataLockManager {
 

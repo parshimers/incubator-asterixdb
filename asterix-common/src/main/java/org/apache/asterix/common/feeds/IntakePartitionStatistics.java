@@ -1,4 +1,4 @@
-package edu.uci.ics.asterix.common.feeds;
+package org.apache.asterix.common.feeds;
 
 import java.util.BitSet;
 

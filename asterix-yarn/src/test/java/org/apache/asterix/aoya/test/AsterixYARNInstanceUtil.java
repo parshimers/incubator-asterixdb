@@ -1,4 +1,4 @@
-package edu.uci.ics.asterix.aoya.test;
+package org.apache.asterix.aoya.test;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -13,10 +13,10 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.server.MiniYARNCluster;
 import org.junit.Assert;
 
-import edu.uci.ics.asterix.aoya.AsterixYARNClient;
-import edu.uci.ics.asterix.aoya.Utils;
-import edu.uci.ics.asterix.event.schema.yarnCluster.Cluster;
-import edu.uci.ics.asterix.event.schema.yarnCluster.Node;
+import org.apache.asterix.aoya.AsterixYARNClient;
+import org.apache.asterix.aoya.Utils;
+import org.apache.asterix.event.schema.yarnCluster.Cluster;
+import org.apache.asterix.event.schema.yarnCluster.Node;
 
 public class AsterixYARNInstanceUtil {
     private static final String PATH_ACTUAL = "ittest/";

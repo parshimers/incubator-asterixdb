@@ -1,4 +1,4 @@
-package edu.uci.ics.asterix.aoya.test;
+package org.apache.asterix.aoya.test;
 
 import java.io.File;
 import java.util.List;
@@ -9,9 +9,9 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import edu.uci.ics.asterix.aoya.AsterixYARNClient;
-import edu.uci.ics.asterix.test.aql.TestsUtils;
-import edu.uci.ics.asterix.testframework.context.TestCaseContext;
+import org.apache.asterix.aoya.AsterixYARNClient;
+import org.apache.asterix.test.aql.TestsUtils;
+import org.apache.asterix.testframework.context.TestCaseContext;
 
 public class AsterixYARNLibraryTestIT {
     private static final String LIBRARY_NAME = "testlib";

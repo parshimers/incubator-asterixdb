@@ -1,20 +1,20 @@
-package edu.uci.ics.asterix.external.library.java;
+package org.apache.asterix.external.library.java;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import edu.uci.ics.asterix.common.exceptions.AsterixException;
-import edu.uci.ics.asterix.external.library.TypeInfo;
-import edu.uci.ics.asterix.external.library.java.JObjectAccessors.JListAccessor;
-import edu.uci.ics.asterix.external.library.java.JObjectAccessors.JRecordAccessor;
-import edu.uci.ics.asterix.om.pointables.AFlatValuePointable;
-import edu.uci.ics.asterix.om.pointables.AListPointable;
-import edu.uci.ics.asterix.om.pointables.ARecordPointable;
-import edu.uci.ics.asterix.om.pointables.base.IVisitablePointable;
-import edu.uci.ics.asterix.om.pointables.visitor.IVisitablePointableVisitor;
-import edu.uci.ics.asterix.om.types.ARecordType;
-import edu.uci.ics.asterix.om.types.ATypeTag;
-import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import org.apache.asterix.common.exceptions.AsterixException;
+import org.apache.asterix.external.library.TypeInfo;
+import org.apache.asterix.external.library.java.JObjectAccessors.JListAccessor;
+import org.apache.asterix.external.library.java.JObjectAccessors.JRecordAccessor;
+import org.apache.asterix.om.pointables.AFlatValuePointable;
+import org.apache.asterix.om.pointables.AListPointable;
+import org.apache.asterix.om.pointables.ARecordPointable;
+import org.apache.asterix.om.pointables.base.IVisitablePointable;
+import org.apache.asterix.om.pointables.visitor.IVisitablePointableVisitor;
+import org.apache.asterix.om.types.ARecordType;
+import org.apache.asterix.om.types.ATypeTag;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 public class JObjectPointableVisitor implements IVisitablePointableVisitor<IJObject, TypeInfo> {
 

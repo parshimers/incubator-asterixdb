@@ -17,7 +17,7 @@
  * Author: Rares Vernica <rares (at) ics.uci.edu>
  */
 
-package edu.uci.ics.asterix.fuzzyjoin;
+package org.apache.asterix.fuzzyjoin;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -27,8 +27,8 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 
-import edu.uci.ics.asterix.fuzzyjoin.tokenizer.Tokenizer;
-import edu.uci.ics.asterix.fuzzyjoin.tokenizer.TokenizerFactory;
+import org.apache.asterix.fuzzyjoin.tokenizer.Tokenizer;
+import org.apache.asterix.fuzzyjoin.tokenizer.TokenizerFactory;
 
 public class FuzzyJoinAppendLength {
     public static void main(String args[]) throws IOException {

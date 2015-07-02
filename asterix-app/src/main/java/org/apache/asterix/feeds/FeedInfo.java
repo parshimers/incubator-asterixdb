@@ -1,8 +1,8 @@
-package edu.uci.ics.asterix.feeds;
+package org.apache.asterix.feeds;
 
-import edu.uci.ics.hyracks.api.job.JobId;
-import edu.uci.ics.hyracks.api.job.JobInfo;
-import edu.uci.ics.hyracks.api.job.JobSpecification;
+import org.apache.hyracks.api.job.JobId;
+import org.apache.hyracks.api.job.JobInfo;
+import org.apache.hyracks.api.job.JobSpecification;
 
 public class FeedInfo {
     public JobSpecification jobSpec;

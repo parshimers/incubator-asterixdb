@@ -1,4 +1,4 @@
-package edu.uci.ics.asterix.external.util;
+package org.apache.asterix.external.util;
 
 public class Datatypes {
 

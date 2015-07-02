@@ -1,4 +1,4 @@
-package edu.uci.ics.asterix.api.http.servlet;
+package org.apache.asterix.api.http.servlet;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -8,9 +8,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.common.feeds.FeedConnectionId;
-import edu.uci.ics.asterix.feeds.FeedLifecycleListener;
-import edu.uci.ics.asterix.metadata.feeds.RemoteSocketMessageListener;
+import org.apache.asterix.common.feeds.FeedConnectionId;
+import org.apache.asterix.feeds.FeedLifecycleListener;
+import org.apache.asterix.metadata.feeds.RemoteSocketMessageListener;
 
 public class FeedServletUtil {
 

@@ -1,4 +1,4 @@
-package edu.uci.ics.asterix.metadata.utils;
+package org.apache.asterix.metadata.utils;
 
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 

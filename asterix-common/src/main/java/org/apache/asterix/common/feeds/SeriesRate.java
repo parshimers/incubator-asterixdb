@@ -1,9 +1,9 @@
-package edu.uci.ics.asterix.common.feeds;
+package org.apache.asterix.common.feeds;
 
 import java.util.Timer;
 import java.util.TimerTask;
 
-import edu.uci.ics.asterix.common.feeds.api.IFeedMetricCollector.MetricType;
+import org.apache.asterix.common.feeds.api.IFeedMetricCollector.MetricType;
 
 public class SeriesRate extends Series {
 
