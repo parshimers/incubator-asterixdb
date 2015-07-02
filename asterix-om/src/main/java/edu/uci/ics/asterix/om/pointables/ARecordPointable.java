@@ -15,274 +15,317 @@
 
 package edu.uci.ics.asterix.om.pointables;
 
-import java.io.DataOutputStream;
+import java.io.DataOutput;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
-import edu.uci.ics.asterix.dataflow.data.nontagged.AqlNullWriterFactory;
-import edu.uci.ics.asterix.dataflow.data.nontagged.serde.AInt32SerializerDeserializer;
-import edu.uci.ics.asterix.om.pointables.base.IVisitablePointable;
-import edu.uci.ics.asterix.om.pointables.visitor.IVisitablePointableVisitor;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.AUnionType;
 import edu.uci.ics.asterix.om.types.EnumDeserializer;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.NonTaggedFormatUtil;
-import edu.uci.ics.asterix.om.util.ResettableByteArrayOutputStream;
-import edu.uci.ics.asterix.om.util.container.IObjectFactory;
-import edu.uci.ics.hyracks.api.dataflow.value.INullWriter;
+import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
+import edu.uci.ics.hyracks.data.std.api.AbstractPointable;
+import edu.uci.ics.hyracks.data.std.api.IPointable;
+import edu.uci.ics.hyracks.data.std.api.IPointableFactory;
+import edu.uci.ics.hyracks.data.std.primitive.BooleanPointable;
+import edu.uci.ics.hyracks.data.std.primitive.BytePointable;
+import edu.uci.ics.hyracks.data.std.primitive.IntegerPointable;
+import edu.uci.ics.hyracks.data.std.primitive.UTF8StringPointable;
 
-/**
- * This class interprets the binary data representation of a record. One can
- * call getFieldNames, getFieldTypeTags and getFieldValues to get pointable
- * objects for field names, field type tags, and field values.
+/*
+ * This class interprets the binary data representation of a record.
+ * 
+ * Record {
+ *   byte tag;
+ *   int length;
+ *   byte isExpanded;
+ *   int openOffset?;
+ *   int numberOfClosedFields;
+ *   byte[ceil (numberOfFields / 8)] nullBitMap; // 1 bit per field, "1" means field is Null for this record
+ *   int[numberOfClosedFields] closedFieldOffset;
+ *   IPointable[numberOfClosedFields] fieldValue;
+ *   int numberOfOpenFields?;
+ *   OpenFieldLookup[numberOfOpenFields] lookup;
+ *   OpenField[numberOfOpenFields] openFields;
+ * }
+ * 
+ * OpenFieldLookup {
+ *   int hashCode;
+ *   int Offset;
+ * }
+ * 
+ * OpenField {
+ *   StringPointable fieldName;
+ *   IPointable fieldValue;
+ * }
  */
-public class ARecordPointable extends AbstractVisitablePointable {
+public class ARecordPointable extends AbstractPointable {
 
-    /**
-     * DO NOT allow to create ARecordPointable object arbitrarily, force to use
-     * object pool based allocator, in order to have object reuse
-     */
-    static IObjectFactory<IVisitablePointable, IAType> FACTORY = new IObjectFactory<IVisitablePointable, IAType>() {
-        public IVisitablePointable create(IAType type) {
-            return new ARecordPointable((ARecordType) type);
+    public static final ITypeTraits TYPE_TRAITS = new ITypeTraits() {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public boolean isFixedLength() {
+            return false;
+        }
+
+        @Override
+        public int getFixedLength() {
+            return 0;
         }
     };
 
-    // access results: field names, field types, and field values
-    private final List<IVisitablePointable> fieldNames = new ArrayList<IVisitablePointable>();
-    private final List<IVisitablePointable> fieldTypeTags = new ArrayList<IVisitablePointable>();
-    private final List<IVisitablePointable> fieldValues = new ArrayList<IVisitablePointable>();
+    public static final IPointableFactory FACTORY = new IPointableFactory() {
+        private static final long serialVersionUID = 1L;
 
-    // pointable allocator
-    private final PointableAllocator allocator = new PointableAllocator();
-
-    private final ResettableByteArrayOutputStream typeBos = new ResettableByteArrayOutputStream();
-    private final DataOutputStream typeDos = new DataOutputStream(typeBos);
-
-    private final ResettableByteArrayOutputStream dataBos = new ResettableByteArrayOutputStream();
-    private final DataOutputStream dataDos = new DataOutputStream(dataBos);
-
-    private final ARecordType inputRecType;
-
-    private final int numberOfSchemaFields;
-    private final int[] fieldOffsets;
-    private final IVisitablePointable nullReference = AFlatValuePointable.FACTORY.create(null);
-
-    private int closedPartTypeInfoSize = 0;
-    private int offsetArrayOffset;
-    private ATypeTag typeTag;
-
-    /**
-     * private constructor, to prevent constructing it arbitrarily
-     * 
-     * @param inputType
-     */
-    private ARecordPointable(ARecordType inputType) {
-        this.inputRecType = inputType;
-        IAType[] fieldTypes = inputType.getFieldTypes();
-        String[] fieldNameStrs = inputType.getFieldNames();
-        numberOfSchemaFields = fieldTypes.length;
-
-        // initialize the buffer for closed parts(fieldName bytes+ type bytes) +
-        // constant(null bytes)
-        typeBos.reset();
-        try {
-            for (int i = 0; i < numberOfSchemaFields; i++) {
-                ATypeTag ftypeTag = fieldTypes[i].getTypeTag();
-
-                if (fieldTypes[i].getTypeTag() == ATypeTag.UNION
-                        && NonTaggedFormatUtil.isOptionalField((AUnionType) fieldTypes[i]))
-                    // optional field: add the embedded non-null type tag
-                    ftypeTag = ((AUnionType) fieldTypes[i]).getUnionList()
-                            .get(AUnionType.OPTIONAL_TYPE_INDEX_IN_UNION_LIST).getTypeTag();
-
-                // add type tag Reference
-                int tagStart = typeBos.size();
-                typeDos.writeByte(ftypeTag.serialize());
-                int tagEnd = typeBos.size();
-                IVisitablePointable typeTagReference = AFlatValuePointable.FACTORY.create(null);
-                typeTagReference.set(typeBos.getByteArray(), tagStart, tagEnd - tagStart);
-                fieldTypeTags.add(typeTagReference);
-
-                // add type name Reference (including a astring type tag)
-                int nameStart = typeBos.size();
-                typeDos.writeByte(ATypeTag.STRING.serialize());
-                typeDos.writeUTF(fieldNameStrs[i]);
-                int nameEnd = typeBos.size();
-                IVisitablePointable typeNameReference = AFlatValuePointable.FACTORY.create(null);
-                typeNameReference.set(typeBos.getByteArray(), nameStart, nameEnd - nameStart);
-                fieldNames.add(typeNameReference);
-            }
-
-            // initialize a constant: null value bytes reference
-            int nullFieldStart = typeBos.size();
-            INullWriter nullWriter = AqlNullWriterFactory.INSTANCE.createNullWriter();
-            nullWriter.writeNull(typeDos);
-            int nullFieldEnd = typeBos.size();
-            nullReference.set(typeBos.getByteArray(), nullFieldStart, nullFieldEnd - nullFieldStart);
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
+        @Override
+        public IPointable createPointable() {
+            return new ARecordPointable();
         }
-        closedPartTypeInfoSize = typeBos.size();
-        fieldOffsets = new int[numberOfSchemaFields];
+
+        @Override
+        public ITypeTraits getTypeTraits() {
+            return TYPE_TRAITS;
+        }
+    };
+
+    private static final int TAG_SIZE = 1;
+    private static final int RECORD_LENGTH_SIZE = 4;
+    private static final int EXPANDED_SIZE = 1;
+    private static final int OPEN_OFFSET_SIZE = 4;
+    private static final int CLOSED_COUNT_SIZE = 4;
+    private static final int FIELD_OFFSET_SIZE = 4;
+    private static final int OPEN_COUNT_SIZE = 4;
+    private static final int OPEN_FIELD_HASH_SIZE = 4;
+    private static final int OPEN_FIELD_OFFSET_SIZE = 4;
+    private static final int OPEN_FIELD_HEADER = OPEN_FIELD_HASH_SIZE + OPEN_FIELD_OFFSET_SIZE;
+
+    private static final int STRING_LENGTH_SIZE = 2;
+
+    private static boolean isOpen(ARecordType recordType) {
+        return recordType == null || recordType.isOpen();
+    }
+    
+    public int getSchemeFieldCount(ARecordType recordType) {
+        return recordType.getFieldNames().length;
     }
 
-    private void reset() {
-        typeBos.reset(closedPartTypeInfoSize);
-        dataBos.reset(0);
-        // reset the allocator
-        allocator.reset();
-
-        // clean up the returned containers
-        for (int i = fieldNames.size() - 1; i >= numberOfSchemaFields; i--)
-            fieldNames.remove(i);
-        for (int i = fieldTypeTags.size() - 1; i >= numberOfSchemaFields; i--)
-            fieldTypeTags.remove(i);
-        fieldValues.clear();
+    public byte getTag() {
+        return BytePointable.getByte(bytes, getTagOffset());
     }
 
-    @Override
-    public void set(byte[] b, int start, int len) {
-        // clear the previous states
-        reset();
-        super.set(b, start, len);
+    public int getTagOffset() {
+        return start;
+    }
 
-        boolean isExpanded = false;
-        int openPartOffset = 0;
-        int s = start;
-        int recordOffset = s;
-        if (inputRecType == null) {
-            openPartOffset = s + AInt32SerializerDeserializer.getInt(b, s + 6);
-            s += 8;
-            isExpanded = true;
+    public int getTagSize() {
+        return TAG_SIZE;
+    }
+
+    public int getLength() {
+        return IntegerPointable.getInteger(bytes, getLengthOffset());
+    }
+
+    public int getLengthOffset() {
+        return getTagOffset() + getTagSize();
+    }
+
+    public int getLengthSize() {
+        return RECORD_LENGTH_SIZE;
+    }
+
+    public boolean isExpanded(ARecordType recordType) {
+        if (isOpen(recordType)) {
+            return BooleanPointable.getBoolean(bytes, getExpendedOffset(recordType));
+        }
+        return false;
+    }
+
+    public int getExpendedOffset(ARecordType recordType) {
+        return getLengthOffset() + getLengthSize();
+    }
+
+    public int getExpandedSize(ARecordType recordType) {
+        return (isOpen(recordType)) ? EXPANDED_SIZE : 0;
+    }
+
+    public int getOpenPart(ARecordType recordType) {
+        return IntegerPointable.getInteger(bytes, getOpenPartOffset(recordType));
+    }
+
+    public int getOpenPartOffset(ARecordType recordType) {
+        return getExpendedOffset(recordType) + getExpandedSize(recordType);
+    }
+
+    public int getOpenPartSize(ARecordType recordType) {
+        return (isExpanded(recordType)) ? OPEN_OFFSET_SIZE : 0;
+    }
+
+    public int getClosedFieldCount(ARecordType recordType) {
+        return IntegerPointable.getInteger(bytes, getClosedFieldCountOffset(recordType));
+    }
+
+    public int getClosedFieldCountOffset(ARecordType recordType) {
+        return getOpenPartOffset(recordType) + getOpenPartSize(recordType);
+    }
+
+    public int getClosedFieldCountSize(ARecordType recordType) {
+        return CLOSED_COUNT_SIZE;
+    }
+
+    public byte[] getNullBitmap(ARecordType recordType) {
+        if (getNullBitmapSize(recordType) > 0) {
+            return Arrays.copyOfRange(bytes, getNullBitmapOffset(recordType), getNullBitmapSize(recordType));
+        }
+        return null;
+    }
+
+    public int getNullBitmapOffset(ARecordType recordType) {
+        return getClosedFieldCountOffset(recordType) + getClosedFieldCountSize(recordType);
+    }
+
+    public int getNullBitmapSize(ARecordType recordType) {
+        return ARecordType.computeNullBitmapSize(recordType);
+    }
+
+    public boolean isClosedFieldNull(ARecordType recordType, int fieldId) {
+        if (getNullBitmapSize(recordType) > 0) {
+            return ((bytes[getNullBitmapOffset(recordType) + fieldId / 8] & (1 << (7 - (fieldId % 8)))) == 0);
+        }
+        return false;
+    }
+
+    // -----------------------
+    // Closed field accessors.
+    // -----------------------
+
+    public void getClosedFieldValue(ARecordType recordType, int fieldId, DataOutput dOut) throws IOException,
+            AsterixException {
+        if (isClosedFieldNull(recordType, fieldId)) {
+            dOut.writeByte(ATypeTag.NULL.serialize());
         } else {
-            if (inputRecType.isOpen()) {
-                isExpanded = b[s + 5] == 1 ? true : false;
-                if (isExpanded) {
-                    openPartOffset = s + AInt32SerializerDeserializer.getInt(b, s + 6);
-                    s += 10;
-                } else {
-                    s += 6;
-                }
-            } else {
-                s += 5;
-            }
-        }
-        try {
-            if (numberOfSchemaFields > 0) {
-                s += 4;
-                int nullBitMapOffset = 0;
-                boolean hasNullableFields = NonTaggedFormatUtil.hasNullableField(inputRecType);
-                if (hasNullableFields) {
-                    nullBitMapOffset = s;
-                    offsetArrayOffset = s
-                            + (this.numberOfSchemaFields % 8 == 0 ? numberOfSchemaFields / 8
-                                    : numberOfSchemaFields / 8 + 1);
-                } else {
-                    offsetArrayOffset = s;
-                }
-                for (int i = 0; i < numberOfSchemaFields; i++) {
-                    fieldOffsets[i] = AInt32SerializerDeserializer.getInt(b, offsetArrayOffset) + recordOffset;
-                    offsetArrayOffset += 4;
-                }
-                for (int fieldNumber = 0; fieldNumber < numberOfSchemaFields; fieldNumber++) {
-                    if (hasNullableFields) {
-                        byte b1 = b[nullBitMapOffset + fieldNumber / 8];
-                        int p = 1 << (7 - (fieldNumber % 8));
-                        if ((b1 & p) == 0) {
-                            // set null value (including type tag inside)
-                            fieldValues.add(nullReference);
-                            continue;
-                        }
-                    }
-                    IAType[] fieldTypes = inputRecType.getFieldTypes();
-                    int fieldValueLength = 0;
-
-                    IAType fieldType = fieldTypes[fieldNumber];
-                    if (fieldTypes[fieldNumber].getTypeTag() == ATypeTag.UNION) {
-                        if (NonTaggedFormatUtil.isOptionalField((AUnionType) fieldTypes[fieldNumber])) {
-                            fieldType = ((AUnionType) fieldTypes[fieldNumber]).getUnionList().get(
-                                    AUnionType.OPTIONAL_TYPE_INDEX_IN_UNION_LIST);
-                            typeTag = fieldType.getTypeTag();
-                            fieldValueLength = NonTaggedFormatUtil.getFieldValueLength(b, fieldOffsets[fieldNumber],
-                                    typeTag, false);
-                        }
-                    } else {
-                        typeTag = fieldTypes[fieldNumber].getTypeTag();
-                        fieldValueLength = NonTaggedFormatUtil.getFieldValueLength(b, fieldOffsets[fieldNumber],
-                                typeTag, false);
-                    }
-                    // set field value (including the type tag)
-                    int fstart = dataBos.size();
-                    dataDos.writeByte(typeTag.serialize());
-                    dataDos.write(b, fieldOffsets[fieldNumber], fieldValueLength);
-                    int fend = dataBos.size();
-                    IVisitablePointable fieldValue = allocator.allocateFieldValue(fieldType);
-                    fieldValue.set(dataBos.getByteArray(), fstart, fend - fstart);
-                    fieldValues.add(fieldValue);
-                }
-            }
-            if (isExpanded) {
-                int numberOfOpenFields = AInt32SerializerDeserializer.getInt(b, openPartOffset);
-                int fieldOffset = openPartOffset + 4 + (8 * numberOfOpenFields);
-                for (int i = 0; i < numberOfOpenFields; i++) {
-                    // set the field name (including a type tag, which is
-                    // astring)
-                    int fieldValueLength = NonTaggedFormatUtil.getFieldValueLength(b, fieldOffset, ATypeTag.STRING,
-                            false);
-                    int fnstart = dataBos.size();
-                    dataDos.writeByte(ATypeTag.STRING.serialize());
-                    dataDos.write(b, fieldOffset, fieldValueLength);
-                    int fnend = dataBos.size();
-                    IVisitablePointable fieldName = allocator.allocateEmpty();
-                    fieldName.set(dataBos.getByteArray(), fnstart, fnend - fnstart);
-                    fieldNames.add(fieldName);
-                    fieldOffset += fieldValueLength;
-
-                    // set the field type tag
-                    IVisitablePointable fieldTypeTag = allocator.allocateEmpty();
-                    fieldTypeTag.set(b, fieldOffset, 1);
-                    fieldTypeTags.add(fieldTypeTag);
-                    typeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(b[fieldOffset]);
-
-                    // set the field value (already including type tag)
-                    fieldValueLength = NonTaggedFormatUtil.getFieldValueLength(b, fieldOffset, typeTag, true) + 1;
-
-                    // allocate
-                    IVisitablePointable fieldValueAccessor = allocator.allocateFieldValue(typeTag, b, fieldOffset + 1);
-                    fieldValueAccessor.set(b, fieldOffset, fieldValueLength);
-                    fieldValues.add(fieldValueAccessor);
-                    fieldOffset += fieldValueLength;
-                }
-            }
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
+            dOut.write(getClosedFieldTag(recordType, fieldId));
+            dOut.write(bytes, getClosedFieldOffset(recordType, fieldId), getClosedFieldSize(recordType, fieldId));
         }
     }
 
-    public List<IVisitablePointable> getFieldNames() {
-        return fieldNames;
+    public String getClosedFieldName(ARecordType recordType, int fieldId) {
+        return recordType.getFieldNames()[fieldId];
     }
 
-    public List<IVisitablePointable> getFieldTypeTags() {
-        return fieldTypeTags;
+    public void getClosedFieldName(ARecordType recordType, int fieldId, DataOutput dOut) throws IOException {
+        dOut.writeByte(ATypeTag.STRING.serialize());
+        dOut.writeUTF(getClosedFieldName(recordType, fieldId));
     }
 
-    public List<IVisitablePointable> getFieldValues() {
-        return fieldValues;
+    public byte getClosedFieldTag(ARecordType recordType, int fieldId) {
+        return getClosedFieldType(recordType, fieldId).getTypeTag().serialize();
+    }
+
+    public IAType getClosedFieldType(ARecordType recordType, int fieldId) {
+        IAType aType = recordType.getFieldTypes()[fieldId];
+        if (aType.getTypeTag() == ATypeTag.UNION && NonTaggedFormatUtil.isOptionalField((AUnionType) aType)) {
+            // optional field: add the embedded non-null type tag
+            aType = ((AUnionType) aType).getUnionList().get(AUnionType.OPTIONAL_TYPE_INDEX_IN_UNION_LIST);
+        }
+        return aType;
+    }
+
+    public int getClosedFieldSize(ARecordType recordType, int fieldId) throws AsterixException {
+        if (isClosedFieldNull(recordType, fieldId)) {
+            return 0;
+        }
+        return NonTaggedFormatUtil.getFieldValueLength(bytes, getClosedFieldOffset(recordType, fieldId),
+                getClosedFieldType(recordType, fieldId).getTypeTag(), false);
+    }
+
+    public int getClosedFieldOffset(ARecordType recordType, int fieldId) {
+        int offset = getNullBitmapOffset(recordType) + getNullBitmapSize(recordType) + fieldId * FIELD_OFFSET_SIZE;
+        return IntegerPointable.getInteger(bytes, offset);
+    }
+
+    // -----------------------
+    // Open field count.
+    // -----------------------
+
+    public int getOpenFieldCount(ARecordType recordType) {
+        return isExpanded(recordType) ? IntegerPointable.getInteger(bytes, getOpenFieldCountOffset(recordType)) : 0;
+    }
+
+    public int getOpenFieldCountSize(ARecordType recordType) {
+        return (isExpanded(recordType)) ? OPEN_COUNT_SIZE : 0;
+    }
+
+    public int getOpenFieldCountOffset(ARecordType recordType) {
+        return getOpenPart(recordType);
+    }
+
+    // -----------------------
+    // Open field accessors.
+    // -----------------------
+
+    public void getOpenFieldValue(ARecordType recordType, int fieldId, DataOutput dOut) throws IOException,
+            AsterixException {
+        dOut.write(bytes, getOpenFieldValueOffset(recordType, fieldId), getOpenFieldValueSize(recordType, fieldId));
+    }
+
+    public int getOpenFieldValueOffset(ARecordType recordType, int fieldId) {
+        return getOpenFieldNameOffset(recordType, fieldId) + getOpenFieldNameSize(recordType, fieldId);
+    }
+
+    public int getOpenFieldValueSize(ARecordType recordType, int fieldId) throws AsterixException {
+        int offset = getOpenFieldValueOffset(recordType, fieldId);
+        ATypeTag tag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(getOpenFieldTag(recordType, fieldId));
+        return NonTaggedFormatUtil.getFieldValueLength(bytes, offset, tag, true);
+    }
+
+    public void getOpenFieldName(ARecordType recordType, int fieldId, DataOutput dOut) throws IOException {
+        dOut.writeByte(ATypeTag.STRING.serialize());
+        dOut.write(bytes, getOpenFieldNameOffset(recordType, fieldId), getOpenFieldNameSize(recordType, fieldId));
+    }
+
+    public int getOpenFieldNameSize(ARecordType recordType, int fieldId) {
+        return UTF8StringPointable.getUTFLength(bytes, getOpenFieldNameOffset(recordType, fieldId))
+                + STRING_LENGTH_SIZE;
+    }
+
+    public int getOpenFieldNameOffset(ARecordType recordType, int fieldId) {
+        return getOpenFieldOffset(recordType, fieldId);
+    }
+
+    public byte getOpenFieldTag(ARecordType recordType, int fieldId) {
+        return bytes[getOpenFieldValueOffset(recordType, fieldId)];
+    }
+
+    public int getOpenFieldHash(ARecordType recordType, int fieldId) {
+        return IntegerPointable.getInteger(bytes, getOpenFieldHashOffset(recordType, fieldId));
+    }
+
+    public int getOpenFieldHashOffset(ARecordType recordType, int fieldId) {
+        return getOpenFieldCountOffset(recordType) + getOpenFieldCountSize(recordType) + fieldId * OPEN_FIELD_HEADER;
+    }
+
+    public int getOpenFieldHashSize(ARecordType recordType, int fieldId) {
+        return OPEN_FIELD_HASH_SIZE;
+    }
+
+    public int getOpenFieldOffset(ARecordType recordType, int fieldId) {
+        return IntegerPointable.getInteger(bytes, getOpenFieldOffsetOffset(recordType, fieldId));
+    }
+
+    public int getOpenFieldOffsetOffset(ARecordType recordType, int fieldId) {
+        return getOpenFieldHashOffset(recordType, fieldId) + getOpenFieldHashSize(recordType, fieldId);
     }
     
     public ARecordType getInputRecordType(){
         return inputRecType;
     }
 
-    @Override
-    public <R, T> R accept(IVisitablePointableVisitor<R, T> vistor, T tag) throws AsterixException {
-        return vistor.visit(this, tag);
+    public int getOpenFieldOffsetSize(ARecordType recordType, int fieldId) {
+        return OPEN_FIELD_HASH_SIZE;
     }
 
 }

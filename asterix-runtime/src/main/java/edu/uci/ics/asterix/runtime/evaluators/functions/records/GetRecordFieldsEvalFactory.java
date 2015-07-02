@@ -16,6 +16,7 @@ package edu.uci.ics.asterix.runtime.evaluators.functions.records;
 
 import java.io.DataOutput;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import edu.uci.ics.asterix.builders.AbvsBuilderFactory;
@@ -31,8 +32,9 @@ import edu.uci.ics.asterix.om.base.ABoolean;
 import edu.uci.ics.asterix.om.base.AMutableString;
 import edu.uci.ics.asterix.om.base.ANull;
 import edu.uci.ics.asterix.om.base.AString;
-import edu.uci.ics.asterix.om.pointables.AListPointable;
+import edu.uci.ics.asterix.om.pointables.AListVisitablePointable;
 import edu.uci.ics.asterix.om.pointables.ARecordPointable;
+import edu.uci.ics.asterix.om.pointables.ARecordVisitablePointable;
 import edu.uci.ics.asterix.om.pointables.PointableAllocator;
 import edu.uci.ics.asterix.om.pointables.base.DefaultOpenFieldType;
 import edu.uci.ics.asterix.om.pointables.base.IVisitablePointable;
@@ -64,8 +66,8 @@ public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
 
     private final byte SER_NULL_TYPE_TAG = ATypeTag.NULL.serialize();
     private final byte SER_RECORD_TYPE_TAG = ATypeTag.RECORD.serialize();
-    private final byte SER_ORDERED_LIST_TYPE_TAG = ATypeTag.ORDEREDLIST.serialize();
-    private final byte SER_UNORDERED_LIST_TYPE_TAG = ATypeTag.UNORDEREDLIST.serialize();
+//    private final byte SER_ORDERED_LIST_TYPE_TAG = ATypeTag.ORDEREDLIST.serialize();
+//    private final byte SER_UNORDERED_LIST_TYPE_TAG = ATypeTag.UNORDEREDLIST.serialize();
 
     public GetRecordFieldsEvalFactory(ICopyEvaluatorFactory recordEvalFactory, ARecordType recordType) {
         this.recordEvalFactory = recordEvalFactory;
@@ -75,37 +77,40 @@ public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
     @Override
     public ICopyEvaluator createEvaluator(final IDataOutputProvider output) throws AlgebricksException {
         return new ICopyEvaluator() {
-            private final AString fieldName = new AString("field-name");
-            private final AString typeName = new AString("field-type");
-            private final AString isOpenName = new AString("is-open");
-            private final AString nestedName = new AString("nested");
-            private final AString listName = new AString("list");
-
-            private IObjectPool<IARecordBuilder, String> recordBuilderPool = new ListObjectPool<IARecordBuilder, String>(
-                    new RecordBuilderFactory());
-            private IObjectPool<IAsterixListBuilder, String> listBuilderPool = new ListObjectPool<IAsterixListBuilder, String>(
-                    new ListBuilderFactory());
-            private IObjectPool<IMutableValueStorage, String> abvsBuilderPool = new ListObjectPool<IMutableValueStorage, String>(
-                    new AbvsBuilderFactory());
-            private final PointableAllocator pa = new PointableAllocator();
-
-            private final AOrderedListType listType = new AOrderedListType(BuiltinType.ANY, "fields");
-            private final AMutableString aString = new AMutableString("");
+//            private final AString fieldName = new AString("field-name");
+//            private final AString typeName = new AString("field-type");
+//            private final AString isOpenName = new AString("is-open");
+//            private final AString nestedName = new AString("nested");
+//            private final AString listName = new AString("list");
+//
+//            private List<AListVisitablePointable> listPointable = new ArrayList<AListVisitablePointable>();
+//            private List<ARecordVisitablePointable> recordPointable = new ArrayList<ARecordVisitablePointable>();
+//
+//            private IObjectPool<IARecordBuilder, String> recordBuilderPool = new ListObjectPool<IARecordBuilder, String>(
+//                    new RecordBuilderFactory());
+//            private IObjectPool<IAsterixListBuilder, String> listBuilderPool = new ListObjectPool<IAsterixListBuilder, String>(
+//                    new ListBuilderFactory());
+//            private IObjectPool<IMutableValueStorage, String> abvsBuilderPool = new ListObjectPool<IMutableValueStorage, String>(
+//                    new AbvsBuilderFactory());
+//            private final PointableAllocator pa = new PointableAllocator();
+//
+//            private final AOrderedListType listType = new AOrderedListType(BuiltinType.ANY, "fields");
+//            private final AMutableString aString = new AMutableString("");
             @SuppressWarnings("unchecked")
             private final ISerializerDeserializer<ANull> nullSerde = AqlSerializerDeserializerProvider.INSTANCE
                     .getSerializerDeserializer(BuiltinType.ANULL);
-            @SuppressWarnings("unchecked")
-            protected final ISerializerDeserializer<AString> stringSerde = AqlSerializerDeserializerProvider.INSTANCE
-                    .getSerializerDeserializer(BuiltinType.ASTRING);
-            @SuppressWarnings("unchecked")
-            protected final ISerializerDeserializer<ABoolean> booleanSerde = AqlSerializerDeserializerProvider.INSTANCE
-                    .getSerializerDeserializer(BuiltinType.ABOOLEAN);
+//            @SuppressWarnings("unchecked")
+//            protected final ISerializerDeserializer<AString> stringSerde = AqlSerializerDeserializerProvider.INSTANCE
+//                    .getSerializerDeserializer(BuiltinType.ASTRING);
+//            @SuppressWarnings("unchecked")
+//            protected final ISerializerDeserializer<ABoolean> booleanSerde = AqlSerializerDeserializerProvider.INSTANCE
+//                    .getSerializerDeserializer(BuiltinType.ABOOLEAN);
 
             private ArrayBackedValueStorage outInput0 = new ArrayBackedValueStorage();
             private ICopyEvaluator eval0 = recordEvalFactory.createEvaluator(outInput0);
             private DataOutput out = output.getDataOutput();
 
-            private final ARecordType openType = DefaultOpenFieldType.NESTED_OPEN_RECORD_TYPE;
+//            private final ARecordType openType = DefaultOpenFieldType.NESTED_OPEN_RECORD_TYPE;
             {
                 recordType = recordType.deepCopy(recordType);
             }
@@ -127,193 +132,208 @@ public class GetRecordFieldsEvalFactory implements ICopyEvaluatorFactory {
                             + EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(outInput0.getByteArray()[0]));
                 }
 
-                ARecordPointable recordPointable = (ARecordPointable) pa.allocateRecordValue(recordType);
-                recordPointable.set(outInput0.getByteArray(), outInput0.getStartOffset(), outInput0.getLength());
+                //              ARecordVisitablePointable recordPointable = new ARecordVisitablePointable(recordType);//(ARecordPointable) pa.allocateRecordValue(recordType);
+                ARecordPointable recordPointable = new ARecordPointable();//(ARecordPointable) pa.allocateRecordValue(recordType);
+                recordPointable
+                        .set(outInput0.getByteArray(), outInput0.getStartOffset(), outInput0.getLength());
 
                 try {
-                    processRecord(recordPointable, recordType, out);
+                    RecordFieldsUtil.processRecord(recordPointable, recordType, out, 0);
                 } catch (IOException e) {
                     e.printStackTrace();
                 } catch (AsterixException e) {
                     e.printStackTrace();
                 }
-                recordBuilderPool.reset();
-                listBuilderPool.reset();
-                abvsBuilderPool.reset();
             }
-
-            public void processRecord(ARecordPointable recordAccessor, ARecordType recType, DataOutput out)
-                    throws IOException, AsterixException, AlgebricksException {
-                List<IVisitablePointable> fieldNames = recordAccessor.getFieldNames();
-                List<IVisitablePointable> fieldTags = recordAccessor.getFieldTypeTags();
-                List<IVisitablePointable> fieldValues = recordAccessor.getFieldValues();
-
-                ArrayBackedValueStorage itemValue = getTempBuffer();
-
-                OrderedListBuilder orderedListBuilder = getOrderedListBuilder();
-                orderedListBuilder.reset(listType);
-                IARecordBuilder fieldRecordBuilder = getRecordBuilder();
-                fieldRecordBuilder.reset(null);
-                for (int i = 0; i < fieldNames.size(); i++) {
-                    itemValue.reset();
-                    fieldRecordBuilder.init();
-
-                    // write name
-                    addNameField(fieldNames.get(i), fieldRecordBuilder);
-
-                    // write type
-                    byte tag = fieldTags.get(i).getByteArray()[fieldTags.get(i).getStartOffset()];
-                    addFieldType(tag, fieldRecordBuilder);
-
-                    // write open
-                    int index = recType.findFieldPosition(fieldNames.get(i).getByteArray(), fieldNames.get(i)
-                            .getStartOffset() + 1, fieldNames.get(i).getLength());
-                    addIsOpenField((index == -1), fieldRecordBuilder);
-
-                    // write nested or list types
-                    if (tag == SER_RECORD_TYPE_TAG || tag == SER_ORDERED_LIST_TYPE_TAG
-                            || tag == SER_UNORDERED_LIST_TYPE_TAG) {
-                        IAType fieldType = null;
-                        if (index > -1) {
-                            fieldType = recType.getFieldTypes()[index];
-                        }
-                        if (tag == SER_RECORD_TYPE_TAG) {
-                            addNestedField(fieldValues.get(i), fieldType, fieldRecordBuilder);
-                        } else if (tag == SER_ORDERED_LIST_TYPE_TAG || tag == SER_UNORDERED_LIST_TYPE_TAG) {
-                            addListField(fieldValues.get(i), fieldType, fieldRecordBuilder);
-                        }
-                    }
-
-                    // write record
-                    fieldRecordBuilder.write(itemValue.getDataOutput(), true);
-
-                    // add item to the list of fields
-                    orderedListBuilder.addItem(itemValue);
-                }
-                orderedListBuilder.write(out, true);
-            }
-
-            private void addNameField(IVisitablePointable nameArg, IARecordBuilder fieldRecordBuilder)
-                    throws HyracksDataException, AsterixException {
-                ArrayBackedValueStorage fieldAbvs = getTempBuffer();
-
-                fieldAbvs.reset();
-                stringSerde.serialize(fieldName, fieldAbvs.getDataOutput());
-                fieldRecordBuilder.addField(fieldAbvs, nameArg);
-            }
-
-            private void addFieldType(byte tagId, IARecordBuilder fieldRecordBuilder) throws HyracksDataException,
-                    AsterixException {
-                ArrayBackedValueStorage fieldAbvs = getTempBuffer();
-                ArrayBackedValueStorage valueAbvs = getTempBuffer();
-
-                // Name
-                fieldAbvs.reset();
-                stringSerde.serialize(typeName, fieldAbvs.getDataOutput());
-                // Value
-                valueAbvs.reset();
-                ATypeTag tag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(tagId);
-                aString.setValue(tag.toString());
-                stringSerde.serialize(aString, valueAbvs.getDataOutput());
-                fieldRecordBuilder.addField(fieldAbvs, valueAbvs);
-            }
-
-            private void addIsOpenField(boolean isOpen, IARecordBuilder fieldRecordBuilder)
-                    throws HyracksDataException, AsterixException {
-                ArrayBackedValueStorage fieldAbvs = getTempBuffer();
-                ArrayBackedValueStorage valueAbvs = getTempBuffer();
-
-                // Name
-                fieldAbvs.reset();
-                stringSerde.serialize(isOpenName, fieldAbvs.getDataOutput());
-                // Value
-                valueAbvs.reset();
-                if (isOpen) {
-                    booleanSerde.serialize(ABoolean.TRUE, valueAbvs.getDataOutput());
-                } else {
-                    booleanSerde.serialize(ABoolean.FALSE, valueAbvs.getDataOutput());
-                }
-                fieldRecordBuilder.addField(fieldAbvs, valueAbvs);
-            }
-
-            private void addListField(IVisitablePointable listArg, IAType fieldType, IARecordBuilder fieldRecordBuilder)
-                    throws AsterixException, IOException, AlgebricksException {
-                ArrayBackedValueStorage fieldAbvs = getTempBuffer();
-                ArrayBackedValueStorage valueAbvs = getTempBuffer();
-
-                // Name
-                fieldAbvs.reset();
-                stringSerde.serialize(listName, fieldAbvs.getDataOutput());
-                // Value
-                valueAbvs.reset();
-                processListValue(listArg, fieldType, valueAbvs.getDataOutput());
-                fieldRecordBuilder.addField(fieldAbvs, valueAbvs);
-            }
-
-            private void addNestedField(IVisitablePointable recordArg, IAType fieldType,
-                    IARecordBuilder fieldRecordBuilder) throws HyracksDataException, AlgebricksException, IOException,
-                    AsterixException {
-                ArrayBackedValueStorage fieldAbvs = getTempBuffer();
-                ArrayBackedValueStorage valueAbvs = getTempBuffer();
-
-                // Name
-                fieldAbvs.reset();
-                stringSerde.serialize(nestedName, fieldAbvs.getDataOutput());
-                // Value
-                valueAbvs.reset();
-                ARecordType newType;
-                if (fieldType == null) {
-                    newType = openType.deepCopy(openType);
-                } else {
-                    newType = ((ARecordType) fieldType).deepCopy((ARecordType) fieldType);
-                }
-                ARecordPointable recordP = (ARecordPointable) pa.allocateRecordValue(newType);
-                recordP.set(recordArg);
-                processRecord(recordP, newType, valueAbvs.getDataOutput());
-                fieldRecordBuilder.addField(fieldAbvs, valueAbvs);
-            }
-
-            private void processListValue(IVisitablePointable listArg, IAType fieldType, DataOutput out)
-                    throws AsterixException, IOException, AlgebricksException {
-                ArrayBackedValueStorage itemValue = getTempBuffer();
-                IARecordBuilder listRecordBuilder = getRecordBuilder();
-
-                AListPointable list = (AListPointable) pa.allocateListValue(fieldType);
-                list.set(listArg);
-
-                OrderedListBuilder innerListBuilder = getOrderedListBuilder();
-                innerListBuilder.reset(listType);
-
-                listRecordBuilder.reset(null);
-                for (int l = 0; l < list.getItemTags().size(); l++) {
-                    itemValue.reset();
-                    listRecordBuilder.init();
-
-                    byte tagId = list.getItemTags().get(l).getByteArray()[list.getItemTags().get(l).getStartOffset()];
-                    addFieldType(tagId, listRecordBuilder);
-
-                    if (tagId == SER_RECORD_TYPE_TAG) {
-                        AbstractCollectionType act = (AbstractCollectionType) fieldType;
-                        addNestedField(list.getItems().get(l), act.getItemType(), listRecordBuilder);
-                    }
-
-                    listRecordBuilder.write(itemValue.getDataOutput(), true);
-                    innerListBuilder.addItem(itemValue);
-                }
-                innerListBuilder.write(out, true);
-            }
-
-            private IARecordBuilder getRecordBuilder() {
-                return (RecordBuilder) recordBuilderPool.allocate("record");
-            }
-
-            private OrderedListBuilder getOrderedListBuilder() {
-                return (OrderedListBuilder) listBuilderPool.allocate("ordered");
-            }
-
-            private ArrayBackedValueStorage getTempBuffer() {
-                return (ArrayBackedValueStorage) abvsBuilderPool.allocate("buffer");
-            }
+//
+//            public void processRecord(ARecordVisitablePointable recordAccessor, ARecordType recType, DataOutput out,
+//                    int level) throws IOException, AsterixException, AlgebricksException {
+//                List<IVisitablePointable> fieldNames = recordAccessor.getFieldNames();
+//                List<IVisitablePointable> fieldTags = recordAccessor.getFieldTypeTags();
+//                List<IVisitablePointable> fieldValues = recordAccessor.getFieldValues();
+//
+//                ArrayBackedValueStorage itemValue = getTempBuffer();
+//
+//                OrderedListBuilder orderedListBuilder = getOrderedListBuilder();
+//                orderedListBuilder.reset(listType);
+//                IARecordBuilder fieldRecordBuilder = getRecordBuilder();
+//                fieldRecordBuilder.reset(null);
+//                for (int i = 0; i < fieldNames.size(); i++) {
+//                    itemValue.reset();
+//                    fieldRecordBuilder.init();
+//
+//                    // write name
+//                    RecordFieldsUtil.addNameField(fieldNames.get(i), fieldRecordBuilder);
+//
+//                    // write type
+//                    byte tag = fieldTags.get(i).getByteArray()[fieldTags.get(i).getStartOffset()];
+//                    RecordFieldsUtil.addFieldType(tag, fieldRecordBuilder);
+//
+//                    // write open
+//                    int index = recType.findFieldPosition(fieldNames.get(i).getByteArray(), fieldNames.get(i)
+//                            .getStartOffset() + 1, fieldNames.get(i).getLength());
+//                    RecordFieldsUtil.addIsOpenField((index == -1), fieldRecordBuilder);
+//
+//                    // write nested or list types
+//                    if (tag == SER_RECORD_TYPE_TAG || tag == SER_ORDERED_LIST_TYPE_TAG
+//                            || tag == SER_UNORDERED_LIST_TYPE_TAG) {
+//                        IAType fieldType = null;
+//                        if (index > -1) {
+//                            fieldType = recType.getFieldTypes()[index];
+//                        }
+//                        if (tag == SER_RECORD_TYPE_TAG) {
+//                            addNestedField(fieldValues.get(i), fieldType, fieldRecordBuilder, level + 1);
+//                        } else if (tag == SER_ORDERED_LIST_TYPE_TAG || tag == SER_UNORDERED_LIST_TYPE_TAG) {
+//                            addListField(fieldValues.get(i), fieldType, fieldRecordBuilder, level + 1);
+//                        }
+//                    }
+//
+//                    // write record
+//                    fieldRecordBuilder.write(itemValue.getDataOutput(), true);
+//
+//                    // add item to the list of fields
+//                    orderedListBuilder.addItem(itemValue);
+//                }
+//                orderedListBuilder.write(out, true);
+//            }
+//
+//            //            private void addNameField(IVisitablePointable nameArg, IARecordBuilder fieldRecordBuilder)
+//            //                    throws HyracksDataException, AsterixException {
+//            //                ArrayBackedValueStorage fieldAbvs = getTempBuffer();
+//            //
+//            //                fieldAbvs.reset();
+//            //                stringSerde.serialize(fieldName, fieldAbvs.getDataOutput());
+//            //                fieldRecordBuilder.addField(fieldAbvs, nameArg);
+//            //            }
+//            //
+//            //            private void addFieldType(byte tagId, IARecordBuilder fieldRecordBuilder) throws HyracksDataException,
+//            //                    AsterixException {
+//            //                ArrayBackedValueStorage fieldAbvs = getTempBuffer();
+//            //                ArrayBackedValueStorage valueAbvs = getTempBuffer();
+//            //
+//            //                // Name
+//            //                fieldAbvs.reset();
+//            //                stringSerde.serialize(typeName, fieldAbvs.getDataOutput());
+//            //                // Value
+//            //                valueAbvs.reset();
+//            //                ATypeTag tag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(tagId);
+//            //                aString.setValue(tag.toString());
+//            //                stringSerde.serialize(aString, valueAbvs.getDataOutput());
+//            //                fieldRecordBuilder.addField(fieldAbvs, valueAbvs);
+//            //            }
+//            //
+//            //            private void addIsOpenField(boolean isOpen, IARecordBuilder fieldRecordBuilder)
+//            //                    throws HyracksDataException, AsterixException {
+//            //                ArrayBackedValueStorage fieldAbvs = getTempBuffer();
+//            //                ArrayBackedValueStorage valueAbvs = getTempBuffer();
+//            //
+//            //                // Name
+//            //                fieldAbvs.reset();
+//            //                stringSerde.serialize(isOpenName, fieldAbvs.getDataOutput());
+//            //                // Value
+//            //                valueAbvs.reset();
+//            //                if (isOpen) {
+//            //                    booleanSerde.serialize(ABoolean.TRUE, valueAbvs.getDataOutput());
+//            //                } else {
+//            //                    booleanSerde.serialize(ABoolean.FALSE, valueAbvs.getDataOutput());
+//            //                }
+//            //                fieldRecordBuilder.addField(fieldAbvs, valueAbvs);
+//            //            }
+//
+//            private void addListField(IVisitablePointable listArg, IAType fieldType,
+//                    IARecordBuilder fieldRecordBuilder, int level) throws AsterixException, IOException,
+//                    AlgebricksException {
+//                ArrayBackedValueStorage fieldAbvs = getTempBuffer();
+//                ArrayBackedValueStorage valueAbvs = getTempBuffer();
+//
+//                // Name
+//                fieldAbvs.reset();
+//                stringSerde.serialize(listName, fieldAbvs.getDataOutput());
+//                // Value
+//                valueAbvs.reset();
+//                processListValue(listArg, fieldType, valueAbvs.getDataOutput(), level);
+//                fieldRecordBuilder.addField(fieldAbvs, valueAbvs);
+//            }
+//
+//            private void addNestedField(IVisitablePointable recordArg, IAType fieldType,
+//                    IARecordBuilder fieldRecordBuilder, int level) throws HyracksDataException, AlgebricksException,
+//                    IOException, AsterixException {
+//                ArrayBackedValueStorage fieldAbvs = getTempBuffer();
+//                ArrayBackedValueStorage valueAbvs = getTempBuffer();
+//
+//                // Name
+//                fieldAbvs.reset();
+//                stringSerde.serialize(nestedName, fieldAbvs.getDataOutput());
+//                // Value
+//                valueAbvs.reset();
+//                ARecordType newType;
+//                if (fieldType == null) {
+//                    newType = openType.deepCopy(openType);
+//                } else {
+//                    newType = ((ARecordType) fieldType).deepCopy((ARecordType) fieldType);
+//                }
+//
+//                while (recordPointable.size() < level + 1) {
+//                    recordPointable.add(new ARecordVisitablePointable(newType));
+//                }
+//
+//                recordPointable.set(level, new ARecordVisitablePointable(newType));
+//                //                recordPointable.get(level).set(recordArg);
+//                ARecordVisitablePointable recordP = recordPointable.get(level);
+//
+//                //                ARecordPointable recordP = (ARecordPointable) pa.allocateRecordValue(newType);
+//                recordP.set(recordArg);
+//                processRecord(recordP, newType, valueAbvs.getDataOutput(), level);
+//                fieldRecordBuilder.addField(fieldAbvs, valueAbvs);
+//            }
+//
+//            private void processListValue(IVisitablePointable listArg, IAType fieldType, DataOutput out, int level)
+//                    throws AsterixException, IOException, AlgebricksException {
+//                ArrayBackedValueStorage itemValue = getTempBuffer();
+//                IARecordBuilder listRecordBuilder = getRecordBuilder();
+//
+//                while (listPointable.size() < level + 1) {
+//                    listPointable.add(new AListVisitablePointable((AbstractCollectionType) fieldType));
+//                }
+//
+//                //                AListPointable list = (AListPointable) pa.allocateListValue(fieldType);
+//                listPointable.set(level, new AListVisitablePointable((AbstractCollectionType) fieldType));
+//                listPointable.get(level).set(listArg);
+//                AListVisitablePointable list = listPointable.get(level);
+//
+//                OrderedListBuilder innerListBuilder = getOrderedListBuilder();
+//                innerListBuilder.reset(listType);
+//
+//                listRecordBuilder.reset(null);
+//                for (int l = 0; l < list.getItemTags().size(); l++) {
+//                    itemValue.reset();
+//                    listRecordBuilder.init();
+//
+//                    byte tagId = list.getItemTags().get(l).getByteArray()[list.getItemTags().get(l).getStartOffset()];
+//                    RecordFieldsUtil.addFieldType(tagId, listRecordBuilder);
+//
+//                    if (tagId == SER_RECORD_TYPE_TAG) {
+//                        AbstractCollectionType act = (AbstractCollectionType) fieldType;
+//                        addNestedField(list.getItems().get(l), act.getItemType(), listRecordBuilder, level + 1);
+//                    }
+//
+//                    listRecordBuilder.write(itemValue.getDataOutput(), true);
+//                    innerListBuilder.addItem(itemValue);
+//                }
+//                innerListBuilder.write(out, true);
+//            }
+//
+//            private IARecordBuilder getRecordBuilder() {
+//                return (RecordBuilder) recordBuilderPool.allocate("record");
+//            }
+//
+//            private OrderedListBuilder getOrderedListBuilder() {
+//                return (OrderedListBuilder) listBuilderPool.allocate("ordered");
+//            }
+//
+//            private ArrayBackedValueStorage getTempBuffer() {
+//                return (ArrayBackedValueStorage) abvsBuilderPool.allocate("buffer");
+//            }
         };
     }
 }
