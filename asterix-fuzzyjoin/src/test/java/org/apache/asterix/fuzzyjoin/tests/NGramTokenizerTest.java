@@ -17,7 +17,7 @@
  * Author: Alexander Behm <abehm (at) ics.uci.edu>
  */
 
-package edu.uci.ics.asterix.fuzzyjoin.tests;
+package org.apache.asterix.fuzzyjoin.tests;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -33,11 +33,11 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import edu.uci.ics.asterix.fuzzyjoin.tokenizer.AbstractUTF8Token;
-import edu.uci.ics.asterix.fuzzyjoin.tokenizer.HashedUTF8NGramTokenFactory;
-import edu.uci.ics.asterix.fuzzyjoin.tokenizer.IToken;
-import edu.uci.ics.asterix.fuzzyjoin.tokenizer.NGramUTF8StringBinaryTokenizer;
-import edu.uci.ics.asterix.fuzzyjoin.tokenizer.UTF8NGramTokenFactory;
+import org.apache.asterix.fuzzyjoin.tokenizer.AbstractUTF8Token;
+import org.apache.asterix.fuzzyjoin.tokenizer.HashedUTF8NGramTokenFactory;
+import org.apache.asterix.fuzzyjoin.tokenizer.IToken;
+import org.apache.asterix.fuzzyjoin.tokenizer.NGramUTF8StringBinaryTokenizer;
+import org.apache.asterix.fuzzyjoin.tokenizer.UTF8NGramTokenFactory;
 
 public class NGramTokenizerTest {
 

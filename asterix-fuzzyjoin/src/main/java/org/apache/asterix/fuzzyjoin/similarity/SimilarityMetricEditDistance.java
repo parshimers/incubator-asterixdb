@@ -17,12 +17,12 @@
  * Author: Alexander Behm <abehm (at) ics.uci.edu>
  */
 
-package edu.uci.ics.asterix.fuzzyjoin.similarity;
+package org.apache.asterix.fuzzyjoin.similarity;
 
 import java.util.Arrays;
 
-import edu.uci.ics.asterix.fuzzyjoin.tokenizer.StringUtils;
-import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import org.apache.asterix.fuzzyjoin.tokenizer.StringUtils;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 public class SimilarityMetricEditDistance implements IGenericSimilarityMetric {
 

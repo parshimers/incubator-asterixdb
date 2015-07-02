@@ -1,18 +1,4 @@
-/*
- * Copyright 2009-2013 by The Regents of the University of California
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * you may obtain a copy of the License from
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-package edu.uci.ics.asterix.api.http.servlet;
+package org.apache.asterix.api.http.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -28,17 +14,17 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.IOUtils;
 
-import edu.uci.ics.asterix.api.common.SessionConfig.OutputFormat;
-import edu.uci.ics.asterix.common.config.GlobalConfig;
-import edu.uci.ics.asterix.result.ResultUtils;
-import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
+import org.apache.asterix.api.common.SessionConfig.OutputFormat;
+import org.apache.asterix.common.config.GlobalConfig;
+import org.apache.asterix.result.ResultUtils;
+import org.apache.hyracks.api.client.IHyracksClientConnection;
 
 public class ShutdownAPIServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
 
-    private static final String HYRACKS_CONNECTION_ATTR = "edu.uci.ics.asterix.HYRACKS_CONNECTION";
+    private static final String HYRACKS_CONNECTION_ATTR = "org.apache.asterix.HYRACKS_CONNECTION";
 
-    private static final String HYRACKS_DATASET_ATTR = "edu.uci.ics.asterix.HYRACKS_DATASET";
+    private static final String HYRACKS_DATASET_ATTR = "org.apache.asterix.HYRACKS_DATASET";
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException,

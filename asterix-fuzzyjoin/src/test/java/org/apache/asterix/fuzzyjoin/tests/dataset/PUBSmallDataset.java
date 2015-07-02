@@ -17,7 +17,7 @@
  * Author: Rares Vernica <rares (at) ics.uci.edu>
  */
 
-package edu.uci.ics.asterix.fuzzyjoin.tests.dataset;
+package org.apache.asterix.fuzzyjoin.tests.dataset;
 
 public class PUBSmallDataset extends PublicationsDataset {
     public PUBSmallDataset() {

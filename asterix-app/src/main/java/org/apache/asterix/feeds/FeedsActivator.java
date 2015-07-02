@@ -1,18 +1,4 @@
-/*
- * Copyright 2009-2013 by The Regents of the University of California
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * you may obtain a copy of the License from
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-package edu.uci.ics.asterix.feeds;
+package org.apache.asterix.feeds;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -20,15 +6,15 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import edu.uci.ics.asterix.api.common.SessionConfig;
-import edu.uci.ics.asterix.api.common.SessionConfig.OutputFormat;
-import edu.uci.ics.asterix.aql.base.Statement;
-import edu.uci.ics.asterix.aql.expression.ConnectFeedStatement;
-import edu.uci.ics.asterix.aql.expression.DataverseDecl;
-import edu.uci.ics.asterix.aql.expression.Identifier;
-import edu.uci.ics.asterix.aql.translator.AqlTranslator;
-import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
-import edu.uci.ics.hyracks.api.job.JobId;
+import org.apache.asterix.api.common.SessionConfig;
+import org.apache.asterix.api.common.SessionConfig.OutputFormat;
+import org.apache.asterix.aql.base.Statement;
+import org.apache.asterix.aql.expression.ConnectFeedStatement;
+import org.apache.asterix.aql.expression.DataverseDecl;
+import org.apache.asterix.aql.expression.Identifier;
+import org.apache.asterix.aql.translator.AqlTranslator;
+import org.apache.asterix.om.util.AsterixAppContextInfo;
+import org.apache.hyracks.api.job.JobId;
 
 public class FeedsActivator implements Runnable {
 

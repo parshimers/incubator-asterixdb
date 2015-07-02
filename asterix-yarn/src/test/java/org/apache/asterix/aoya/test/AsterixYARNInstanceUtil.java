@@ -1,18 +1,4 @@
-/*
- * Copyright 2009-2013 by The Regents of the University of California
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * you may obtain a copy of the License from
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-package edu.uci.ics.asterix.aoya.test;
+package org.apache.asterix.aoya.test;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -27,10 +13,10 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.server.MiniYARNCluster;
 import org.junit.Assert;
 
-import edu.uci.ics.asterix.aoya.AsterixYARNClient;
-import edu.uci.ics.asterix.aoya.Utils;
-import edu.uci.ics.asterix.event.schema.yarnCluster.Cluster;
-import edu.uci.ics.asterix.event.schema.yarnCluster.Node;
+import org.apache.asterix.aoya.AsterixYARNClient;
+import org.apache.asterix.aoya.Utils;
+import org.apache.asterix.event.schema.yarnCluster.Cluster;
+import org.apache.asterix.event.schema.yarnCluster.Node;
 
 public class AsterixYARNInstanceUtil {
     private static final String PATH_ACTUAL = "ittest/";
