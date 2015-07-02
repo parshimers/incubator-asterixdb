@@ -64,6 +64,8 @@ class RepeatRule implements MethodRule {
 @RunWith(Parameterized.class)
 public class RepeatedTest extends ExecutionTest {
 
+    private int count;
+    
     @Parameters
     public static Collection<Object[]> tests() throws Exception {
         Collection<Object[]> testArgs = buildTestsInXml(TestCaseContext.DEFAULT_REPEADED_TESTSUITE_XML_NAME);
@@ -72,6 +74,7 @@ public class RepeatedTest extends ExecutionTest {
 
     public RepeatedTest(TestCaseContext tcCtx) {
         super(tcCtx);
+        count = 0;
     }
 
     @Rule
@@ -80,6 +83,7 @@ public class RepeatedTest extends ExecutionTest {
     @Test
     @Repeat(times = 10000)
     public void test() throws Exception {
+        System.err.println("***** Test Count: " + (++count) + " ******");
         TestsUtils.executeTest(PATH_ACTUAL, tcCtx, null, false);
     }
 }
