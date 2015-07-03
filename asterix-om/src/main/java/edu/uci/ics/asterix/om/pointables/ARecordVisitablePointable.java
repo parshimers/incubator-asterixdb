@@ -276,6 +276,10 @@ public class ARecordVisitablePointable extends AbstractVisitablePointable {
         return fieldValues;
     }
 
+    public ARecordType getInputRecordType() {
+        return inputRecType;
+    }
+    
     @Override
     public <R, T> R accept(IVisitablePointableVisitor<R, T> vistor, T tag) throws AsterixException {
         return vistor.visit(this, tag);

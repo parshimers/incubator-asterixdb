@@ -20,12 +20,9 @@ import java.io.IOException;
 import java.util.Arrays;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
-import edu.uci.ics.asterix.om.pointables.AListVisitablePointable;
-import edu.uci.ics.asterix.om.pointables.base.IVisitablePointable;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.AUnionType;
-import edu.uci.ics.asterix.om.types.AbstractCollectionType;
 import edu.uci.ics.asterix.om.types.EnumDeserializer;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.NonTaggedFormatUtil;
@@ -329,10 +326,6 @@ public class ARecordPointable extends AbstractPointable {
 
     public int getOpenFieldOffsetOffset(ARecordType recordType, int fieldId) {
         return getOpenFieldHashOffset(recordType, fieldId) + getOpenFieldHashSize(recordType, fieldId);
-    }
-    
-    public ARecordType getInputRecordType(){
-        return inputRecType;
     }
 
     public int getOpenFieldOffsetSize(ARecordType recordType, int fieldId) {

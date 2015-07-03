@@ -22,7 +22,6 @@ import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.om.types.AOrderedListType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.AbstractCollectionType;
-import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.NonTaggedFormatUtil;
 import edu.uci.ics.asterix.om.util.container.IObjectFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
