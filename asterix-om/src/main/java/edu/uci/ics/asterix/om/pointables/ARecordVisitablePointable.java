@@ -40,7 +40,7 @@ import edu.uci.ics.hyracks.api.dataflow.value.INullWriter;
  * call getFieldNames, getFieldTypeTags and getFieldValues to get pointable
  * objects for field names, field type tags, and field values.
  */
-public class ARecordPointable extends AbstractVisitablePointable {
+public class ARecordVisitablePointable extends AbstractVisitablePointable {
 
     /**
      * DO NOT allow to create ARecordPointable object arbitrarily, force to use
@@ -48,7 +48,7 @@ public class ARecordPointable extends AbstractVisitablePointable {
      */
     static IObjectFactory<IVisitablePointable, IAType> FACTORY = new IObjectFactory<IVisitablePointable, IAType>() {
         public IVisitablePointable create(IAType type) {
-            return new ARecordPointable((ARecordType) type);
+            return new ARecordVisitablePointable((ARecordType) type);
         }
     };
 
@@ -81,7 +81,7 @@ public class ARecordPointable extends AbstractVisitablePointable {
      * 
      * @param inputType
      */
-    private ARecordPointable(ARecordType inputType) {
+    public ARecordVisitablePointable(ARecordType inputType) {
         this.inputRecType = inputType;
         IAType[] fieldTypes = inputType.getFieldTypes();
         String[] fieldNameStrs = inputType.getFieldNames();

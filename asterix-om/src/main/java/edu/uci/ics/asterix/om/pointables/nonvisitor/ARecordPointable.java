@@ -13,19 +13,23 @@
  * limitations under the License.
  */
 
-package edu.uci.ics.asterix.om.pointables;
+package edu.uci.ics.asterix.om.pointables.nonvisitor;
 
 import java.io.DataOutput;
 import java.io.IOException;
 import java.util.Arrays;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
+import edu.uci.ics.asterix.om.pointables.AListVisitablePointable;
+import edu.uci.ics.asterix.om.pointables.base.IVisitablePointable;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.AUnionType;
+import edu.uci.ics.asterix.om.types.AbstractCollectionType;
 import edu.uci.ics.asterix.om.types.EnumDeserializer;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.NonTaggedFormatUtil;
+import edu.uci.ics.asterix.om.util.container.IObjectFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.data.std.api.AbstractPointable;
 import edu.uci.ics.hyracks.data.std.api.IPointable;
@@ -91,6 +95,13 @@ public class ARecordPointable extends AbstractPointable {
             return TYPE_TRAITS;
         }
     };
+    
+    public static final IObjectFactory<IPointable, String> ALLOCATOR = new IObjectFactory<IPointable, String>() {
+        public IPointable create(String id) {
+            return new ARecordPointable();
+        }
+    };
+
 
     private static final int TAG_SIZE = 1;
     private static final int RECORD_LENGTH_SIZE = 4;

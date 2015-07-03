@@ -17,17 +17,21 @@ package edu.uci.ics.asterix.runtime.evaluators.functions.records;
 import java.io.DataOutput;
 import java.io.IOException;
 
+import edu.uci.ics.asterix.builders.AbvsBuilderFactory;
 import edu.uci.ics.asterix.builders.IARecordBuilder;
+import edu.uci.ics.asterix.builders.IAsterixListBuilder;
+import edu.uci.ics.asterix.builders.ListBuilderFactory;
 import edu.uci.ics.asterix.builders.OrderedListBuilder;
 import edu.uci.ics.asterix.builders.RecordBuilder;
+import edu.uci.ics.asterix.builders.RecordBuilderFactory;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.formats.nontagged.AqlSerializerDeserializerProvider;
 import edu.uci.ics.asterix.om.base.ABoolean;
 import edu.uci.ics.asterix.om.base.AMutableString;
 import edu.uci.ics.asterix.om.base.AString;
-import edu.uci.ics.asterix.om.pointables.AListPointable;
-import edu.uci.ics.asterix.om.pointables.ARecordPointable;
 import edu.uci.ics.asterix.om.pointables.base.DefaultOpenFieldType;
+import edu.uci.ics.asterix.om.pointables.nonvisitor.AListPointable;
+import edu.uci.ics.asterix.om.pointables.nonvisitor.ARecordPointable;
 import edu.uci.ics.asterix.om.types.AOrderedListType;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
@@ -35,9 +39,13 @@ import edu.uci.ics.asterix.om.types.AbstractCollectionType;
 import edu.uci.ics.asterix.om.types.BuiltinType;
 import edu.uci.ics.asterix.om.types.EnumDeserializer;
 import edu.uci.ics.asterix.om.types.IAType;
+import edu.uci.ics.asterix.om.util.container.IObjectPool;
+import edu.uci.ics.asterix.om.util.container.ListObjectPool;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.data.std.api.IMutableValueStorage;
+import edu.uci.ics.hyracks.data.std.api.IPointable;
 import edu.uci.ics.hyracks.data.std.api.IValueReference;
 import edu.uci.ics.hyracks.data.std.util.ArrayBackedValueStorage;
 
@@ -53,8 +61,18 @@ public class RecordFieldsUtil {
     private final static AString nestedName = new AString("nested");
     private final static AString listName = new AString("list");
 
+    private IObjectPool<IARecordBuilder, String> recordBuilderPool = new ListObjectPool<IARecordBuilder, String>(
+            new RecordBuilderFactory());
+    private IObjectPool<IAsterixListBuilder, String> listBuilderPool = new ListObjectPool<IAsterixListBuilder, String>(
+            new ListBuilderFactory());
+    private IObjectPool<IMutableValueStorage, String> abvsBuilderPool = new ListObjectPool<IMutableValueStorage, String>(
+            new AbvsBuilderFactory());
+    private IObjectPool<IPointable, String> recordPointablePool = new ListObjectPool<IPointable, String>(
+            ARecordPointable.ALLOCATOR);
+    private IObjectPool<IPointable, String> listPointablePool = new ListObjectPool<IPointable, String>(
+            AListPointable.ALLOCATOR);
+
     private final static AOrderedListType listType = new AOrderedListType(BuiltinType.ANY, "fields");
-    private final static AMutableString aString = new AMutableString("");
     @SuppressWarnings("unchecked")
     protected final static ISerializerDeserializer<AString> stringSerde = AqlSerializerDeserializerProvider.INSTANCE
             .getSerializerDeserializer(BuiltinType.ASTRING);
@@ -64,7 +82,7 @@ public class RecordFieldsUtil {
 
     private final static ARecordType openType = DefaultOpenFieldType.NESTED_OPEN_RECORD_TYPE;
 
-    public static void processRecord(ARecordPointable recordAccessor, ARecordType recType, DataOutput out, int level)
+    public  void processRecord(ARecordPointable recordAccessor, ARecordType recType, DataOutput out, int level)
             throws IOException, AsterixException, AlgebricksException {
         ArrayBackedValueStorage itemValue = getTempBuffer();
         ArrayBackedValueStorage fieldName = getTempBuffer();
@@ -81,17 +99,18 @@ public class RecordFieldsUtil {
             // write name
             fieldName.reset();
             recordAccessor.getClosedFieldName(recType, i, fieldName.getDataOutput());
-            RecordFieldsUtil.addNameField(fieldName, fieldRecordBuilder);
+            addNameField(fieldName, fieldRecordBuilder);
 
             // write type
             byte tag = recordAccessor.getClosedFieldTag(recType, i);
             if (recordAccessor.isClosedFieldNull(recType, i)) {
-                //                tag = ATypeTag.NULL.serialize();
+                // TODO should the optionally null field return null if the value is null?
+                // tag = ATypeTag.NULL.serialize();
             }
-            RecordFieldsUtil.addFieldType(tag, fieldRecordBuilder);
+            addFieldType(tag, fieldRecordBuilder);
 
             // write open
-            RecordFieldsUtil.addIsOpenField(false, fieldRecordBuilder);
+            addIsOpenField(false, fieldRecordBuilder);
 
             // write nested or list types
             if (tag == SER_RECORD_TYPE_TAG || tag == SER_ORDERED_LIST_TYPE_TAG || tag == SER_UNORDERED_LIST_TYPE_TAG) {
@@ -121,14 +140,14 @@ public class RecordFieldsUtil {
             // write name
             fieldName.reset();
             recordAccessor.getOpenFieldName(recType, i, fieldName.getDataOutput());
-            RecordFieldsUtil.addNameField(fieldName, fieldRecordBuilder);
+            addNameField(fieldName, fieldRecordBuilder);
 
             // write type
             byte tag = recordAccessor.getOpenFieldTag(recType, i);
-            RecordFieldsUtil.addFieldType(tag, fieldRecordBuilder);
+            addFieldType(tag, fieldRecordBuilder);
 
             // write open
-            RecordFieldsUtil.addIsOpenField(true, fieldRecordBuilder);
+            addIsOpenField(true, fieldRecordBuilder);
 
             // write nested or list types
             if (tag == SER_RECORD_TYPE_TAG || tag == SER_ORDERED_LIST_TYPE_TAG || tag == SER_UNORDERED_LIST_TYPE_TAG) {
@@ -152,7 +171,7 @@ public class RecordFieldsUtil {
         orderedListBuilder.write(out, true);
     }
 
-    public static void addNameField(IValueReference nameArg, IARecordBuilder fieldRecordBuilder)
+    public  void addNameField(IValueReference nameArg, IARecordBuilder fieldRecordBuilder)
             throws HyracksDataException, AsterixException {
         ArrayBackedValueStorage fieldAbvs = getTempBuffer();
 
@@ -161,7 +180,7 @@ public class RecordFieldsUtil {
         fieldRecordBuilder.addField(fieldAbvs, nameArg);
     }
 
-    public static void addFieldType(byte tagId, IARecordBuilder fieldRecordBuilder) throws HyracksDataException,
+    public  void addFieldType(byte tagId, IARecordBuilder fieldRecordBuilder) throws HyracksDataException,
             AsterixException {
         ArrayBackedValueStorage fieldAbvs = getTempBuffer();
         ArrayBackedValueStorage valueAbvs = getTempBuffer();
@@ -173,15 +192,12 @@ public class RecordFieldsUtil {
         valueAbvs.reset();
         ATypeTag tag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(tagId);
         AMutableString aString = new AMutableString("");
-        //        @SuppressWarnings("unchecked")
-        //        ISerializerDeserializer<AString> stringSerde = AqlSerializerDeserializerProvider.INSTANCE
-        //                .getSerializerDeserializer(BuiltinType.ASTRING);
         aString.setValue(tag.toString());
         stringSerde.serialize(aString, valueAbvs.getDataOutput());
         fieldRecordBuilder.addField(fieldAbvs, valueAbvs);
     }
 
-    public static void addIsOpenField(boolean isOpen, IARecordBuilder fieldRecordBuilder) throws HyracksDataException,
+    public  void addIsOpenField(boolean isOpen, IARecordBuilder fieldRecordBuilder) throws HyracksDataException,
             AsterixException {
         ArrayBackedValueStorage fieldAbvs = getTempBuffer();
         ArrayBackedValueStorage valueAbvs = getTempBuffer();
@@ -199,7 +215,7 @@ public class RecordFieldsUtil {
         fieldRecordBuilder.addField(fieldAbvs, valueAbvs);
     }
 
-    public static void addListField(IValueReference listArg, IAType fieldType, IARecordBuilder fieldRecordBuilder,
+    public  void addListField(IValueReference listArg, IAType fieldType, IARecordBuilder fieldRecordBuilder,
             int level) throws AsterixException, IOException, AlgebricksException {
         ArrayBackedValueStorage fieldAbvs = getTempBuffer();
         ArrayBackedValueStorage valueAbvs = getTempBuffer();
@@ -213,7 +229,7 @@ public class RecordFieldsUtil {
         fieldRecordBuilder.addField(fieldAbvs, valueAbvs);
     }
 
-    public static void addNestedField(IValueReference recordArg, IAType fieldType, IARecordBuilder fieldRecordBuilder,
+    public  void addNestedField(IValueReference recordArg, IAType fieldType, IARecordBuilder fieldRecordBuilder,
             int level) throws HyracksDataException, AlgebricksException, IOException, AsterixException {
         ArrayBackedValueStorage fieldAbvs = getTempBuffer();
         ArrayBackedValueStorage valueAbvs = getTempBuffer();
@@ -229,18 +245,18 @@ public class RecordFieldsUtil {
         } else {
             newType = ((ARecordType) fieldType).deepCopy((ARecordType) fieldType);
         }
-        ARecordPointable recordP = new ARecordPointable();
+        ARecordPointable recordP = getRecordPointable();
         recordP.set(recordArg);
         processRecord(recordP, (ARecordType) newType, valueAbvs.getDataOutput(), level);
         fieldRecordBuilder.addField(fieldAbvs, valueAbvs);
     }
 
-    public static void processListValue(IValueReference listArg, IAType fieldType, DataOutput out, int level)
+    public  void processListValue(IValueReference listArg, IAType fieldType, DataOutput out, int level)
             throws AsterixException, IOException, AlgebricksException {
         ArrayBackedValueStorage itemValue = getTempBuffer();
         IARecordBuilder listRecordBuilder = getRecordBuilder();
 
-        AListPointable list = new AListPointable();
+        AListPointable list = getListPointable();
         list.set(listArg);
 
         OrderedListBuilder innerListBuilder = getOrderedListBuilder();
@@ -267,18 +283,23 @@ public class RecordFieldsUtil {
         innerListBuilder.write(out, true);
     }
 
-    private static IARecordBuilder getRecordBuilder() {
-        //        return (RecordBuilder) recordBuilderPool.allocate("record");
-        return new RecordBuilder();
+    private  ARecordPointable getRecordPointable() {
+        return (ARecordPointable) recordPointablePool.allocate("record");
     }
 
-    private static OrderedListBuilder getOrderedListBuilder() {
-        //        return (OrderedListBuilder) listBuilderPool.allocate("ordered");
-        return new OrderedListBuilder();
+    private  AListPointable getListPointable() {
+        return (AListPointable) listPointablePool.allocate("list");
     }
 
-    private static ArrayBackedValueStorage getTempBuffer() {
-        //        return (ArrayBackedValueStorage) abvsBuilderPool.allocate("buffer");
-        return new ArrayBackedValueStorage();
+    private  IARecordBuilder getRecordBuilder() {
+        return (RecordBuilder) recordBuilderPool.allocate("record");
+    }
+
+    private  OrderedListBuilder getOrderedListBuilder() {
+        return (OrderedListBuilder) listBuilderPool.allocate("ordered");
+    }
+
+    private  ArrayBackedValueStorage getTempBuffer() {
+        return (ArrayBackedValueStorage) abvsBuilderPool.allocate("buffer");
     }
 }
