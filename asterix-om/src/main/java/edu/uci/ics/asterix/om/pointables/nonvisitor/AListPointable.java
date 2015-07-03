@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-package edu.uci.ics.asterix.om.pointables;
+package edu.uci.ics.asterix.om.pointables.nonvisitor;
 
 import java.io.DataOutput;
 import java.io.IOException;
@@ -24,6 +24,7 @@ import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.AbstractCollectionType;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.NonTaggedFormatUtil;
+import edu.uci.ics.asterix.om.util.container.IObjectFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.data.std.api.AbstractPointable;
 import edu.uci.ics.hyracks.data.std.api.IPointable;
@@ -71,6 +72,12 @@ public class AListPointable extends AbstractPointable {
         }
     };
 
+    public static final IObjectFactory<IPointable, String> ALLOCATOR = new IObjectFactory<IPointable, String>() {
+        public IPointable create(String id) {
+            return new AListPointable();
+        }
+    };
+    
     private static final int TAG_SIZE = 1;
     private static final int TYPE_SIZE = 1;
     private static final int LENGTH_SIZE = 4;

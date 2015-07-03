@@ -37,7 +37,7 @@ import edu.uci.ics.asterix.om.util.container.IObjectFactory;
  * call getItems and getItemTags to get pointable objects for items and item
  * type tags.
  */
-public class AListPointable extends AbstractVisitablePointable {
+public class AListVisitablePointable extends AbstractVisitablePointable {
 
     /**
      * DO NOT allow to create AListPointable object arbitrarily, force to use
@@ -45,7 +45,7 @@ public class AListPointable extends AbstractVisitablePointable {
      */
     static IObjectFactory<IVisitablePointable, IAType> FACTORY = new IObjectFactory<IVisitablePointable, IAType>() {
         public IVisitablePointable create(IAType type) {
-            return new AListPointable((AbstractCollectionType) type);
+            return new AListVisitablePointable((AbstractCollectionType) type);
         }
     };
 
@@ -66,7 +66,7 @@ public class AListPointable extends AbstractVisitablePointable {
      * 
      * @param inputType
      */
-    private AListPointable(AbstractCollectionType inputType) {
+    public AListVisitablePointable(AbstractCollectionType inputType) {
         if (inputType instanceof AOrderedListType) {
             ordered = true;
         }
