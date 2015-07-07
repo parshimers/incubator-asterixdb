@@ -92,7 +92,8 @@ public class RecordFieldsUtil {
         IARecordBuilder fieldRecordBuilder = getRecordBuilder();
         fieldRecordBuilder.reset(null);
 
-        for (int i = 0; i < recordAccessor.getSchemeFieldCount(recType); ++i) {
+        int schemeFieldCount = recordAccessor.getSchemeFieldCount(recType);
+        for (int i = 0; i < schemeFieldCount; ++i) {
             itemValue.reset();
             fieldRecordBuilder.init();
 
@@ -103,10 +104,6 @@ public class RecordFieldsUtil {
 
             // write type
             byte tag = recordAccessor.getClosedFieldTag(recType, i);
-            if (recordAccessor.isClosedFieldNull(recType, i)) {
-                // TODO should the optionally null field return null if the value is null?
-                // tag = ATypeTag.NULL.serialize();
-            }
             addFieldType(tag, fieldRecordBuilder);
 
             // write open
@@ -264,7 +261,8 @@ public class RecordFieldsUtil {
 
         listRecordBuilder.reset(null);
         AbstractCollectionType act = (AbstractCollectionType) fieldType;
-        for (int l = 0; l < list.getItemCount(); l++) {
+        int itemCount = list.getItemCount();
+        for (int l = 0; l < itemCount; l++) {
             itemValue.reset();
             listRecordBuilder.init();
 

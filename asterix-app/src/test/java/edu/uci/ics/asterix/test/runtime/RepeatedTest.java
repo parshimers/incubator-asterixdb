@@ -19,7 +19,9 @@ import edu.uci.ics.asterix.test.runtime.RepeatRule.Repeat;
 import edu.uci.ics.asterix.testframework.context.TestCaseContext;
 
 /**
- * Runs the runtime test cases under 'asterix-app/src/test/resources/runtimets'.
+ * Runs runtime test cases that have been identified in the repeatedtestsuite.xml.
+ * 
+ * Each test is run 10000 times.
  */
 class RepeatRule implements MethodRule {
 

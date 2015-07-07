@@ -66,8 +66,8 @@ public class FieldAccessUtil {
         }
     }
 
-    public static boolean checkType(byte[] serRecord, DataOutput out) throws AlgebricksException {
-        if (serRecord[0] == SER_NULL_TYPE_TAG) {
+    public static boolean checkType(byte tagId, DataOutput out) throws AlgebricksException {
+        if (tagId == SER_NULL_TYPE_TAG) {
             try {
                 nullSerde.serialize(ANull.NULL, out);
             } catch (HyracksDataException e) {
@@ -76,9 +76,9 @@ public class FieldAccessUtil {
             return true;
         }
 
-        if (serRecord[0] != SER_RECORD_TYPE_TAG) {
+        if (tagId != SER_RECORD_TYPE_TAG) {
             throw new AlgebricksException("Field accessor is not defined for values of type "
-                    + EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(serRecord[0]));
+                    + EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(tagId));
         }
         return false;
     }
@@ -101,7 +101,7 @@ public class FieldAccessUtil {
             boolean openField = false;
             int i = 0;
 
-            if (checkType(subRecord, out)) {
+            if (checkType(subRecord[0], out)) {
                 return;
             }
 
@@ -152,7 +152,7 @@ public class FieldAccessUtil {
                     subRecordTmpStream.write(subRecord, subFieldOffset, subFieldLength);
                     subRecord = subRecordTmpStream.getByteArray();
 
-                    if (checkType(subRecord, out)) {
+                    if (checkType(subRecord[0], out)) {
                         return;
                     }
                 }
@@ -175,7 +175,7 @@ public class FieldAccessUtil {
                     //setup next iteration
                     subRecord = Arrays.copyOfRange(subRecord, subFieldOffset, subFieldOffset + subFieldLength);
 
-                    if (checkType(subRecord, out)) {
+                    if (checkType(subRecord[0], out)) {
                         return;
                     }
                 }
