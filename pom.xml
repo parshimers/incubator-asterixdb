@@ -24,12 +24,12 @@
     <packaging>pom</packaging>
 
     <licenses>
-      <license>
-        <name>Apache License, Version 2.0</name>
-        <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
-        <distribution>repo</distribution>
-        <comments>A business-friendly OSS license</comments>
-      </license>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+            <comments>A business-friendly OSS license</comments>
+        </license>
     </licenses>
 
     <properties>
@@ -41,9 +41,10 @@
         <optimizer.tests>**/optimizer/**/*Test.java</optimizer.tests>
         <metadata.tests>**/metadata/*Test.java</metadata.tests>
         <execution.tests>**/ExecutionTest.java</execution.tests>
+        <repeated.tests>**/ExecutionTest.java</repeated.tests>
         <invalid.tests>**/DmlTest.java</invalid.tests>
         <global.test.includes>**/*TestSuite.java,**/*Test.java,${execution.tests}</global.test.includes>
-        <global.test.excludes>${optimizer.tests},${metadata.tests},${invalid.tests}</global.test.excludes>
+        <global.test.excludes>${optimizer.tests},${metadata.tests},${invalid.tests},${repeated.tests}</global.test.excludes>
     <!-- Versions under dependencymanagement or used in many projects via properties -->
         <algebricks.version>0.2.16-SNAPSHOT</algebricks.version>
         <hyracks.version>0.2.16-SNAPSHOT</hyracks.version>
