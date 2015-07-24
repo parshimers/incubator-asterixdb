@@ -159,21 +159,18 @@
             <artifactId>asterix-tools</artifactId>
             <version>0.8.7-SNAPSHOT</version>
             <type>jar</type>
-            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>edu.uci.ics.asterix</groupId>
             <artifactId>asterix-common</artifactId>
             <version>0.8.7-SNAPSHOT</version>
             <type>jar</type>
-            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>edu.uci.ics.asterix</groupId>
             <artifactId>asterix-common</artifactId>
             <version>0.8.7-SNAPSHOT</version>
             <type>test-jar</type>
-            <scope>test</scope>
         </dependency>
 		<!-- posssible remove this <dependency> <groupId>com.kenai.nbpwr</groupId> 
 			<artifactId>org-apache-commons-io</artifactId> <version>1.3.1-201002241208</version> 
@@ -193,7 +190,6 @@
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-hdfs</artifactId>
             <type>jar</type>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>xerces</groupId>
@@ -213,7 +209,6 @@
             <groupId>edu.uci.ics.asterix</groupId>
             <artifactId>asterix-test-framework</artifactId>
             <version>0.8.7-SNAPSHOT</version>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.mockito</groupId>

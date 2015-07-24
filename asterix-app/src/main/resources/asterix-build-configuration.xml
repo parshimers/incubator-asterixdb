@@ -19,11 +19,11 @@
 	</store>
 	<transactionLogDir>
 		<ncId>nc1</ncId>
-		<txnLogDirPath>target/txnLogDir/nc1</txnLogDirPath>
+		<txnLogDirPath>/tmp/txnLogDir/nc1</txnLogDirPath>
 	</transactionLogDir>
 	<transactionLogDir>
 		<ncId>nc2</ncId>
-		<txnLogDirPath>target/txnLogDir/nc2</txnLogDirPath>
+		<txnLogDirPath>/tmp/txnLogDir/nc2</txnLogDirPath>
 	</transactionLogDir>
 
 	<property>

@@ -35,7 +35,7 @@ public class AsterixFileMapManager implements IFileMapManager {
         if (fName == null) {
             throw new HyracksDataException("No mapping found for id: " + fileId);
         }
-        return new FileReference(fName);
+        return new FileReference(fName, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
     }
 
     @Override

@@ -79,9 +79,9 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
             for (int i = 0; i < numIODevices; i++) {
                 String rootMetadataFileName = prepareRootMetaDataFileName(mountPoints[i], nodeId, i) + File.separator
                         + ROOT_METADATA_FILE_NAME_PREFIX;
-                FileReference rootMetadataFile = new FileReference(rootMetadataFileName);
+                FileReference rootMetadataFile = new FileReference(rootMetadataFileName, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
 
-                FileReference rootMetadataDir = new FileReference(prepareRootMetaDataFileName(mountPoints[i], nodeId, i));
+                FileReference rootMetadataDir = new FileReference(prepareRootMetaDataFileName(mountPoints[i], nodeId, i), FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
                 if (!ioManager.exists(rootMetadataDir)) {
                     boolean success = ioManager.mkdirs(rootMetadataDir);
                     if (!success) {
@@ -136,7 +136,7 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         for (int i = 0; i < numIODevices; i++) {
             String rootMetadataFileName = prepareRootMetaDataFileName(mountPoints[i], nodeId, i) + File.separator
                     + ROOT_METADATA_FILE_NAME_PREFIX;
-            FileReference rootMetadataFile = new FileReference(rootMetadataFileName);
+            FileReference rootMetadataFile = new FileReference(rootMetadataFileName, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
             //#. if the rootMetadataFileReference exists, read it and set this.rootDir.
             LocalResource rootLocalResource = readLocalResource(rootMetadataFile);
             String mountedRootDir = (String) rootLocalResource.getResourceObject();
@@ -145,7 +145,7 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
             }
 
             //#. load all local resources. 
-            FileReference rootDirFile = new FileReference(mountedRootDir);
+            FileReference rootDirFile = new FileReference(mountedRootDir, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
             if (!ioManager.exists(rootDirFile)) {
                 //rootDir may not exist if this node is not the metadata node and doesn't have any user data.
                 if (LOGGER.isLoggable(Level.INFO)) {
@@ -273,7 +273,7 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         }
         id2ResourceMap.remove(id);
         name2ResourceMap.remove(resource.getResourceName());
-        FileReference file = new FileReference(getFileName(resource.getResourceName(), resource.getResourceId()));
+        FileReference file = new FileReference(getFileName(resource.getResourceName(), resource.getResourceId()), FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
         ioManager.delete(file);
     }
 
@@ -285,7 +285,7 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         }
         id2ResourceMap.remove(resource.getResourceId());
         name2ResourceMap.remove(name);
-        FileReference file = new FileReference(getFileName(resource.getResourceName(), resource.getResourceId()));
+        FileReference file = new FileReference(getFileName(resource.getResourceName(), resource.getResourceId()), FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
         ioManager.delete(file);
     }
 
