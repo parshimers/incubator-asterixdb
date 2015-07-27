@@ -17,6 +17,7 @@ package edu.uci.ics.asterix.api.http.servlet;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.List;
 import java.util.Map;
 
 import javax.servlet.ServletContext;
@@ -28,10 +29,13 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import edu.uci.ics.asterix.feeds.CentralFeedManager;
 import edu.uci.ics.asterix.metadata.MetadataManager;
 import edu.uci.ics.asterix.metadata.MetadataTransactionContext;
 import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
 import edu.uci.ics.asterix.metadata.entities.Dataset;
+import edu.uci.ics.asterix.metadata.utils.DatasetUtils;
+import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.api.client.IHyracksClientConnection;
 import edu.uci.ics.hyracks.api.client.NodeControllerInfo;
 import edu.uci.ics.hyracks.dataflow.std.file.FileSplit;
@@ -76,7 +80,7 @@ public class ConnectorAPIServlet extends HttpServlet {
             MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
 
             // Retrieves file splits of the dataset.
-            AqlMetadataProvider metadataProvider = new AqlMetadataProvider(null);
+            AqlMetadataProvider metadataProvider = new AqlMetadataProvider(null, CentralFeedManager.getInstance());
             metadataProvider.setMetadataTxnContext(mdTxnCtx);
             Dataset dataset = metadataProvider.findDataset(dataverseName, datasetName);
             if (dataset == null) {
@@ -89,9 +93,18 @@ public class ConnectorAPIServlet extends HttpServlet {
             boolean temp = dataset.getDatasetDetails().isTemp();
             FileSplit[] fileSplits = metadataProvider.splitsForDataset(mdTxnCtx, dataverseName, datasetName,
                     datasetName, temp);
+            ARecordType recordType = (ARecordType) metadataProvider.findType(dataverseName, dataset.getItemTypeName());
+            List<List<String>> primaryKeys = DatasetUtils.getPartitioningKeys(dataset);
+            StringBuilder pkStrBuf = new StringBuilder();
+            for (List<String> keys : primaryKeys) {
+                for (String key : keys) {
+                    pkStrBuf.append(key).append(",");
+                }
+            }
+            pkStrBuf.delete(pkStrBuf.length() - 1, pkStrBuf.length());
 
             // Constructs the returned json object.
-            formResponseObject(jsonResponse, fileSplits, hcc.getNodeControllerInfos());
+            formResponseObject(jsonResponse, fileSplits, recordType, pkStrBuf.toString(), hcc.getNodeControllerInfos());
             // Metadata transaction commits.
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             // Writes file splits.
@@ -105,9 +118,13 @@ public class ConnectorAPIServlet extends HttpServlet {
         }
     }
 
-    private void formResponseObject(JSONObject jsonResponse, FileSplit[] fileSplits,
-            Map<String, NodeControllerInfo> nodeMap) throws Exception {
+    private void formResponseObject(JSONObject jsonResponse, FileSplit[] fileSplits, ARecordType recordType,
+            String primaryKeys, Map<String, NodeControllerInfo> nodeMap) throws Exception {
         JSONArray partititons = new JSONArray();
+        // Adds a primary key.
+        jsonResponse.put("keys", primaryKeys);
+        // Adds record type.
+        jsonResponse.put("type", recordType.toJSON());
         // Generates file partitions.
         for (FileSplit split : fileSplits) {
             String ipAddress = nodeMap.get(split.getNodeName()).getNetworkAddress().getAddress().toString();
