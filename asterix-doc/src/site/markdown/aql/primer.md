@@ -148,10 +148,7 @@ the information about other fields that are "just there" in instances of open da
 with each instance---making for more bits on disk and longer times for operations affected by
 data size (e.g., dataset scans).
 The only fields that _must_ be specified a priori are the primary key.
-(AsterixDB does not yet support auto-generated keys).
-Indexes could be build on fields, which don't belong to fixed part of datatype's schema, as long as field's type is 
-specified and _enforced_ keyword is provided in the end of index definition.
-Index fields could also be nested arbitrarily deep in datatype definition.
+Indexes can be built on fields that don't belong to the pre-specified part of datatype's schema as long as their type is specified at index create time and and the _enforced_ keyword is provided at the end of the index definition.  (The _enforced_ keyword asks the system to ensure that the indexed field or fields conform to this specified type in all of the dataset's record instances where they are present.)  Additionally, indexed fields may be nested arbitrarily deep within a dataset's records as long as the nesting does not go pass through a list (be it ordered or unordered) along the way.
 
 ### Creating Datasets and Indexes ###
 
@@ -245,14 +242,14 @@ We should note that ADM format is a textual serialization of what AsterixDB will
 when persisted in AsterixDB, the data format will be binary and the data in the predefined fields
 of the data instances will be stored separately from their associated field name and type metadata.
 
-[Twitter Users](http://asterixdb.googlecode.com/files/twu.adm)
+[Twitter Users](../data/twu.adm)
 
         {"screen-name":"NathanGiesen@211","lang":"en","friends_count":18,"statuses_count":473,"name":"Nathan Giesen","followers_count":49416}
         {"screen-name":"ColineGeyer@63","lang":"en","friends_count":121,"statuses_count":362,"name":"Coline Geyer","followers_count":17159}
         {"screen-name":"NilaMilliron_tw","lang":"en","friends_count":445,"statuses_count":164,"name":"Nila Milliron","followers_count":22649}
         {"screen-name":"ChangEwing_573","lang":"en","friends_count":182,"statuses_count":394,"name":"Chang Ewing","followers_count":32136}
 
-[Tweet Messages](http://asterixdb.googlecode.com/files/twm.adm)
+[Tweet Messages](../data/twm.adm)
 
         {"tweetid":"1","user":{"screen-name":"NathanGiesen@211","lang":"en","friends_count":39339,"statuses_count":473,"name":"Nathan Giesen","followers_count":49416},"sender-location":point("47.44,80.65"),"send-time":datetime("2008-04-26T10:10:00"),"referred-topics":{{"t-mobile","customization"}},"message-text":" love t-mobile its customization is good:)"}
         {"tweetid":"2","user":{"screen-name":"ColineGeyer@63","lang":"en","friends_count":121,"statuses_count":362,"name":"Coline Geyer","followers_count":17159},"sender-location":point("32.84,67.14"),"send-time":datetime("2010-05-13T10:10:00"),"referred-topics":{{"verizon","shortcut-menu"}},"message-text":" like verizon its shortcut-menu is awesome:)"}
@@ -267,7 +264,7 @@ of the data instances will be stored separately from their associated field name
         {"tweetid":"11","user":{"screen-name":"NilaMilliron_tw","lang":"en","friends_count":445,"statuses_count":164,"name":"Nila Milliron","followers_count":22649},"sender-location":point("37.59,68.42"),"send-time":datetime("2008-03-09T10:10:00"),"referred-topics":{{"iphone","platform"}},"message-text":" can't stand iphone its platform is terrible"}
         {"tweetid":"12","user":{"screen-name":"OliJackson_512","lang":"en","friends_count":445,"statuses_count":164,"name":"Oli Jackson","followers_count":22649},"sender-location":point("24.82,94.63"),"send-time":datetime("2010-02-13T10:10:00"),"referred-topics":{{"samsung","voice-command"}},"message-text":" like samsung the voice-command is amazing:)"}
 
-[Facebook Users](http://asterixdb.googlecode.com/files/fbu.adm)
+[Facebook Users](../data/fbu.adm)
 
         {"id":1,"alias":"Margarita","name":"MargaritaStoddard","user-since":datetime("2012-08-20T10:10:00"),"friend-ids":{{2,3,6,10}},"employment":[{"organization-name":"Codetechno","start-date":date("2006-08-06")}]}
         {"id":2,"alias":"Isbel","name":"IsbelDull","user-since":datetime("2011-01-22T10:10:00"),"friend-ids":{{1,4}},"employment":[{"organization-name":"Hexviafind","start-date":date("2010-04-27")}]}
@@ -280,7 +277,7 @@ of the data instances will be stored separately from their associated field name
         {"id":9,"alias":"Woodrow","name":"WoodrowNehling","user-since":datetime("2005-09-20T10:10:00"),"friend-ids":{{3,10}},"employment":[{"organization-name":"Zuncan","start-date":date("2003-04-22"),"end-date":date("2009-12-13")}]}
         {"id":10,"alias":"Bram","name":"BramHatch","user-since":datetime("2010-10-16T10:10:00"),"friend-ids":{{1,5,9}},"employment":[{"organization-name":"physcane","start-date":date("2007-06-05"),"end-date":date("2011-11-05")}]}
 
-[Facebook Messages](http://asterixdb.googlecode.com/files/fbm.adm)
+[Facebook Messages](../data/fbm.adm)
 
         {"message-id":1,"author-id":3,"in-response-to":2,"sender-location":point("47.16,77.75"),"message":" love sprint its shortcut-menu is awesome:)"}
         {"message-id":2,"author-id":1,"in-response-to":4,"sender-location":point("41.66,80.87"),"message":" dislike iphone its touch-screen is horrible"}
@@ -896,5 +893,5 @@ more declarative Big Data management.
 AsterixDB is powerful, so use it wisely, and remember: "With great power comes great responsibility..." :-)
 
 Please e-mail the AsterixDB user group
-(asterixdb-users (at) googlegroups.com)
+(users (at) asterixdb.incubator.apache.org)
 if you run into any problems or simply have further questions about the AsterixDB system, its features, or their proper use.

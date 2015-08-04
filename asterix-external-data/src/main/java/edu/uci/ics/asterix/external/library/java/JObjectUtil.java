@@ -14,10 +14,6 @@
  */
 package edu.uci.ics.asterix.external.library.java;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.AInt32SerializerDeserializer;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.AStringSerializerDeserializer;
@@ -42,6 +38,7 @@ import edu.uci.ics.asterix.external.library.java.JObjects.JRectangle;
 import edu.uci.ics.asterix.external.library.java.JObjects.JString;
 import edu.uci.ics.asterix.external.library.java.JObjects.JTime;
 import edu.uci.ics.asterix.external.library.java.JObjects.JUnorderedList;
+import edu.uci.ics.asterix.om.base.APoint;
 import edu.uci.ics.asterix.om.types.AOrderedListType;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
@@ -52,9 +49,41 @@ import edu.uci.ics.asterix.om.types.EnumDeserializer;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.NonTaggedFormatUtil;
 import edu.uci.ics.asterix.om.util.container.IObjectPool;
+import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
 public class JObjectUtil {
+
+    /**
+     *  Normalize an input string by removing linebreaks, and replace them with space
+     *  Also remove non-readable special characters
+     *
+     * @param originalString
+     *      The input String
+     * @return
+     *      String - the normalized string
+     */
+    public static String getNormalizedString(String originalString) {
+        int len = originalString.length();
+        char asciiBuff[] = new char[len];
+        int j = 0;
+        for (int i = 0; i < len; i++) {
+            char c = originalString.charAt(i);
+            if (c == '\n' || c == '\t' || c == '\r') {
+                asciiBuff[j] = ' ';
+                j++;
+            } else if (c > 0 && c <= 0x7f) {
+                asciiBuff[j] = c;
+                j++;
+            }
+        }
+
+        return new String(asciiBuff).trim();
+    }
 
     public static IJObject getJType(ATypeTag typeTag, IAType type, ByteArrayAccessibleDataInputStream dis,
             IObjectPool<IJObject, IAType> objectPool) throws IOException, AsterixException {
@@ -129,7 +158,11 @@ public class JObjectUtil {
                 long start = dis.readLong();
                 long end = dis.readLong();
                 byte intervalType = dis.readByte();
-                ((JInterval) jObject).setValue(start, end, intervalType);
+                try {
+                    ((JInterval) jObject).setValue(start, end, intervalType);
+                } catch (AlgebricksException e) {
+                    throw new AsterixException(e);
+                }
                 break;
             }
 
@@ -184,7 +217,7 @@ public class JObjectUtil {
                     p1.setValue(dis.readDouble(), dis.readDouble());
                     points.add(p1);
                 }
-                ((JPolygon) jObject).setValue(points);
+                ((JPolygon) jObject).setValue(points.toArray(new APoint[]{}));
                 break;
             }
 
