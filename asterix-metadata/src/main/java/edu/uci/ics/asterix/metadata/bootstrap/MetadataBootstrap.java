@@ -417,6 +417,7 @@ public class MetadataBootstrap {
                     localResourceMetadata, LocalResource.LSMBTreeResource);
             ILocalResourceFactory localResourceFactory = localResourceFactoryProvider.getLocalResourceFactory();
             localResourceRepository.insert(localResourceFactory.createLocalResource(resourceID, path, 0));
+            LOGGER.info("Registering Metadata Dataset with resourceID: " + resourceID + " at path " + path);
             indexLifecycleManager.register(resourceID, lsmBtree);
         } else {
             final LocalResource resource = localResourceRepository.getResourceByName(path);
