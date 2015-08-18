@@ -17,15 +17,16 @@ package edu.uci.ics.asterix.runtime.operators.file;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayDeque;
 import java.util.BitSet;
 import java.util.List;
-import java.util.Queue;
 
+import edu.uci.ics.asterix.builders.AbvsBuilderFactory;
 import edu.uci.ics.asterix.builders.IARecordBuilder;
 import edu.uci.ics.asterix.builders.IAsterixListBuilder;
+import edu.uci.ics.asterix.builders.ListBuilderFactory;
 import edu.uci.ics.asterix.builders.OrderedListBuilder;
 import edu.uci.ics.asterix.builders.RecordBuilder;
+import edu.uci.ics.asterix.builders.RecordBuilderFactory;
 import edu.uci.ics.asterix.builders.UnorderedListBuilder;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.AIntervalSerializerDeserializer;
@@ -41,11 +42,13 @@ import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.types.hierachy.ATypeHierarchy;
 import edu.uci.ics.asterix.om.types.hierachy.ITypeConvertComputer;
 import edu.uci.ics.asterix.om.util.NonTaggedFormatUtil;
+import edu.uci.ics.asterix.om.util.container.IObjectPool;
+import edu.uci.ics.asterix.om.util.container.ListObjectPool;
 import edu.uci.ics.asterix.runtime.operators.file.adm.AdmLexer;
 import edu.uci.ics.asterix.runtime.operators.file.adm.AdmLexerException;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.data.std.api.IMutableValueStorage;
 import edu.uci.ics.hyracks.data.std.util.ArrayBackedValueStorage;
-import edu.uci.ics.hyracks.dataflow.common.data.marshalling.Integer64SerializerDeserializer;
 
 /**
  * Parser for ADM formatted data.
@@ -59,10 +62,12 @@ public class ADMDataParser extends AbstractDataParser {
     private int nullableFieldId = 0;
     private ArrayBackedValueStorage castBuffer = new ArrayBackedValueStorage();
 
-    private Queue<ArrayBackedValueStorage> baaosPool = new ArrayDeque<ArrayBackedValueStorage>();
-    private Queue<IARecordBuilder> recordBuilderPool = new ArrayDeque<IARecordBuilder>();
-    private Queue<IAsterixListBuilder> orderedListBuilderPool = new ArrayDeque<IAsterixListBuilder>();
-    private Queue<IAsterixListBuilder> unorderedListBuilderPool = new ArrayDeque<IAsterixListBuilder>();
+    private IObjectPool<IARecordBuilder, ATypeTag> recordBuilderPool = new ListObjectPool<IARecordBuilder, ATypeTag>(
+            new RecordBuilderFactory());
+    private IObjectPool<IAsterixListBuilder, ATypeTag> listBuilderPool = new ListObjectPool<IAsterixListBuilder, ATypeTag>(
+            new ListBuilderFactory());
+    private IObjectPool<IMutableValueStorage, ATypeTag> abvsBuilderPool = new ListObjectPool<IMutableValueStorage, ATypeTag>(
+            new AbvsBuilderFactory());
 
     private String mismatchErrorMessage = "Mismatch Type, expecting a value of type ";
     private String mismatchErrorMessage2 = " got a value of type ";
@@ -96,6 +101,7 @@ public class ADMDataParser extends AbstractDataParser {
             this.column = column;
         }
 
+        @Override
         public String getMessage() {
             StringBuilder msg = new StringBuilder("Parse error");
             if (filename != null) {
@@ -123,7 +129,8 @@ public class ADMDataParser extends AbstractDataParser {
     @Override
     public boolean parse(DataOutput out) throws AsterixException {
         try {
-            return parseAdmInstance((IAType) recordType, datasetRec, out);
+            resetPools();
+            return parseAdmInstance(recordType, datasetRec, out);
         } catch (IOException e) {
             throw new ParseException(e, filename, admLexer.getLine(), admLexer.getColumn());
         } catch (AdmLexerException e) {
@@ -637,9 +644,6 @@ public class ADMDataParser extends AbstractDataParser {
             }
         }
         recBuilder.write(out, true);
-        returnRecordBuilder(recBuilder);
-        returnTempBuffer(fieldNameBuffer);
-        returnTempBuffer(fieldValueBuffer);
     }
 
     private int checkNullConstraints(ARecordType recType, BitSet nulls) {
@@ -708,8 +712,6 @@ public class ADMDataParser extends AbstractDataParser {
             first = false;
         } while (inList);
         orderedListBuilder.write(out, true);
-        returnOrderedListBuilder(orderedListBuilder);
-        returnTempBuffer(itemBuffer);
     }
 
     private void parseUnorderedList(AUnorderedListType uoltype, DataOutput out) throws IOException, AsterixException,
@@ -757,60 +759,22 @@ public class ADMDataParser extends AbstractDataParser {
             first = false;
         } while (inList);
         unorderedListBuilder.write(out, true);
-        returnUnorderedListBuilder(unorderedListBuilder);
-        returnTempBuffer(itemBuffer);
     }
 
     private IARecordBuilder getRecordBuilder() {
-        RecordBuilder recBuilder = (RecordBuilder) recordBuilderPool.poll();
-        if (recBuilder != null) {
-            return recBuilder;
-        } else {
-            return new RecordBuilder();
-        }
-    }
-
-    private void returnRecordBuilder(IARecordBuilder recBuilder) {
-        this.recordBuilderPool.add(recBuilder);
+        return recordBuilderPool.allocate(ATypeTag.RECORD);
     }
 
     private IAsterixListBuilder getOrderedListBuilder() {
-        OrderedListBuilder orderedListBuilder = (OrderedListBuilder) orderedListBuilderPool.poll();
-        if (orderedListBuilder != null) {
-            return orderedListBuilder;
-        } else {
-            return new OrderedListBuilder();
-        }
-    }
-
-    private void returnOrderedListBuilder(IAsterixListBuilder orderedListBuilder) {
-        this.orderedListBuilderPool.add(orderedListBuilder);
+        return listBuilderPool.allocate(ATypeTag.ORDEREDLIST);
     }
 
     private IAsterixListBuilder getUnorderedListBuilder() {
-        UnorderedListBuilder unorderedListBuilder = (UnorderedListBuilder) unorderedListBuilderPool.poll();
-        if (unorderedListBuilder != null) {
-            return unorderedListBuilder;
-        } else {
-            return new UnorderedListBuilder();
-        }
-    }
-
-    private void returnUnorderedListBuilder(IAsterixListBuilder unorderedListBuilder) {
-        this.unorderedListBuilderPool.add(unorderedListBuilder);
+        return listBuilderPool.allocate(ATypeTag.UNORDEREDLIST);
     }
 
     private ArrayBackedValueStorage getTempBuffer() {
-        ArrayBackedValueStorage tmpBaaos = baaosPool.poll();
-        if (tmpBaaos != null) {
-            return tmpBaaos;
-        } else {
-            return new ArrayBackedValueStorage();
-        }
-    }
-
-    private void returnTempBuffer(ArrayBackedValueStorage tempBaaos) {
-        baaosPool.add(tempBaaos);
+        return (ArrayBackedValueStorage) abvsBuilderPool.allocate(ATypeTag.BINARY);
     }
 
     private void parseToBinaryTarget(int lexerToken, String tokenImage, DataOutput out) throws ParseException,
@@ -1123,5 +1087,15 @@ public class ADMDataParser extends AbstractDataParser {
 
         aInt64.setValue(value);
         int64Serde.serialize(aInt64, out);
+    }
+
+    /**
+     * Resets the pools before parsing a top-level record.
+     * In this way the elements in those pools can be re-used.
+     */
+    private void resetPools() {
+        listBuilderPool.reset();
+        recordBuilderPool.reset();
+        abvsBuilderPool.reset();
     }
 }

@@ -9,6 +9,7 @@
 * [Similarity Functions](#SimilarityFunctions)
 * [Tokenizing Functions](#TokenizingFunctions)
 * [Temporal Functions](#TemporalFunctions)
+* [Record Functions](#RecordFunctions)
 * [Other Functions](#OtherFunctions)
 
 Asterix provides various classes of functions to support operations on numeric, string, spatial, and temporal data. This document explains how to use these functions.
@@ -197,7 +198,7 @@ Asterix provides various classes of functions to support operations on numeric, 
     * `substring_to_contain` : A target `string` that might be contained.
  * Return Value:
     * A `boolean` value, `true` if `string_expression` contains `substring_to_contain`, and `false` otherwise.
- * Note: An n-gram index can be utilized for this function.
+ * Note: An [n-gram index](similarity.html#UsingIndexesToSupportSimilarityQueries) can be utilized for this function.
  * Example:
 
         use dataverse TinySocial;
@@ -1108,20 +1109,21 @@ Asterix provides various classes of functions to support operations on numeric, 
 
 ## <a id="SimilarityFunctions">Similarity Functions</a> <font size="4"><a href="#toc">[Back to TOC]</a></font> ##
 
-AsterixDB supports queries with different similarity functions, including edit distance and Jaccard.
+AsterixDB supports queries with different similarity functions,
+including [edit distance](http://en.wikipedia.org/wiki/Levenshtein_distance) and [Jaccard](https://en.wikipedia.org/wiki/Jaccard_index).
 
 ### edit-distance ###
  * Syntax:
 
         edit-distance(expression1, expression2)
 
- * Returns the [edit distance](http://en.wikipedia.org/wiki/Levenshtein_distance) of `expression1` and `expression2`.
+ * Returns the edit distance of `expression1` and `expression2`.
  * Arguments:
     * `expression1` : A `string` or a homogeneous `OrderedList` of a comparable item type.
     * `expression2` : The same type as `expression1`.
  * Return Value:
     * An `int64` that represents the edit distance between `expression1` and `expression2`.
- * Note: An n-gram index can be utilized for this function.
+ * Note: An [n-gram index](similarity.html#UsingIndexesToSupportSimilarityQueries) can be utilized for this function.
  * Example:
 
         use dataverse TinySocial;
@@ -1155,7 +1157,7 @@ AsterixDB supports queries with different similarity functions, including edit d
     * An `OrderedList` with two items:
         * The first item contains a `boolean` value representing whether `expression1` and `expression2` are similar.
         * The second item contains an `int64` that represents the edit distance of `expression1` and `expression2` if it is within the threshold, or 0 otherwise.
- * Note: An n-gram index can be utilized for this function.
+ * Note: An [n-gram index](similarity.html#UsingIndexesToSupportSimilarityQueries) can be utilized for this function.
  * Example:
 
         use dataverse TinySocial;
@@ -1185,8 +1187,9 @@ edit-distance-contains(expression1, expression2, threshold)
     * An `OrderedList` with two items:
         * The first item contains a `boolean` value representing whether `expression1` can contain `expression2`.
         * The second item contains an `int32` that represents the required edit distance for `expression1` to contain `expression2` if the first item is true.
-* Note: An n-gram index can be utilized for this function.
+* Note: An [n-gram index](similarity.html#UsingIndexesToSupportSimilarityQueries) can be utilized for this function.
 * Example:
+
         let $i := edit-distance-contains("happy","hapr",2)
         return $i;
 
@@ -1208,13 +1211,13 @@ edit-distance-contains(expression1, expression2, threshold)
     * `list_expression2` : An `UnorderedList` or `OrderedList`.
  * Return Value:
     * A `float` that represents the Jaccard similarity of `list_expression1` and `list_expression2`.
- * Note: A keyword index can be utilized for this function.
+ * Note: A [keyword index](similarity.html#UsingIndexesToSupportSimilarityQueries) can be utilized for this function.
  * Example:
 
         use dataverse TinySocial;
 
         for $user in dataset('FacebookUsers')
-        let $sim := similarity-jaccard($user.friend-ids, [1,5,9])
+        let $sim := similarity-jaccard($user.friend-ids, [1,5,9,10])
         where $sim >= 0.6f
         return $user
 
@@ -1246,13 +1249,13 @@ edit-distance-contains(expression1, expression2, threshold)
     * An `OrderedList` with two items:
      * The first item contains a `boolean` value representing whether `list_expression1` and `list_expression2` are similar.
      * The second item contains a `float` that represents the Jaccard similarity of `list_expression1` and `list_expression2` if it is greater than or equal to the threshold, or 0 otherwise.
- * Note: A keyword index can be utilized for this function.
+ * Note: A [keyword index](similarity.html#UsingIndexesToSupportSimilarityQueries) can be utilized for this function.
  * Example:
 
         use dataverse TinySocial;
 
         for $user in dataset('FacebookUsers')
-        let $sim := similarity-jaccard-check($user.friend-ids, [1,5,9], 0.6f)
+        let $sim := similarity-jaccard-check($user.friend-ids, [1,5,9,10], 0.6f)
         where $sim[0]
         return $sim[1]
 
@@ -1263,7 +1266,7 @@ edit-distance-contains(expression1, expression2, threshold)
         1.0f
 
 
-### Similarity Operator ~# ###
+### Similarity Operator ~= ###
  * "`~=`" is syntactic sugar for expressing a similarity condition with a given similarity threshold.
  * The similarity function and threshold for "`~=`" are controlled via "set" directives.
  * The "`~=`" operator returns a `boolean` value that represents whether the operands are similar.
@@ -1276,7 +1279,7 @@ edit-distance-contains(expression1, expression2, threshold)
         set simthreshold "0.6f";
 
         for $user in dataset('FacebookUsers')
-        where $user.friend-ids ~= [1,5,9]
+        where $user.friend-ids ~= [1,5,9,10]
         return $user
 
 
@@ -1314,11 +1317,12 @@ edit-distance-contains(expression1, expression2, threshold)
 
 ## <a id="TokenizingFunctions">Tokenizing Functions</a> <font size="4"><a href="#toc">[Back to TOC]</a></font> ##
 ### word-tokens ###
+
  * Syntax:
 
         word-tokens(string_expression)
 
- * Returns a list of word tokens of `string_expression`.
+ * Returns a list of word tokens of `string_expression` using non-alphanumeric characters as delimiters.
  * Arguments:
     * `string_expression` : A `string` that will be tokenized.
  * Return Value:
@@ -2219,6 +2223,66 @@ See the [Allen's Relations](allens.html).
         { "timebins": [ interval-time("17:00:00.000Z, 17:30:00.000Z"), interval-time("17:30:00.000Z, 18:00:00.000Z"), interval-time("18:00:00.000Z, 18:30:00.000Z"), interval-time("18:30:00.000Z, 19:00:00.000Z") ], 
           "datebins": [ interval-date("1970-01-01, 1990-01-01"), interval-date("1990-01-01, 2010-01-01"), interval-date("2010-01-01, 2030-01-01") ], 
           "datetimebins": [ interval-datetime("1800-01-01T00:00:00.000Z, 1900-01-01T00:00:00.000Z"), interval-datetime("1900-01-01T00:00:00.000Z, 2000-01-01T00:00:00.000Z"), interval-datetime("2000-01-01T00:00:00.000Z, 2100-01-01T00:00:00.000Z") ] }
+
+
+## <a id="RecordFunctions">Record Functions</a> <font size="4"><a href="#toc">[Back to TOC]</a></font> ##
+
+
+### get-record-fields ###
+ * Syntax:
+
+        get-record-fields(record_expression)
+
+ * Access the record field names, type and open status for a given record.
+ * Arguments:
+    * `record_expression` : a record value.
+ * Return Value:
+    * An order list of `record` values that include the field-name `string`, field-type `string`, is-open `boolean` and optional nested `orderedList` for the values of a nested record.
+
+ * Example:
+
+        let $r1 := {"id": 1, 
+            "project": "AsterixDB", 
+            "address": {"city": "Irvine", "state": "CA"}, 
+            "related": ["Hivestrix", "Preglix", "Apache VXQuery"] }
+        return get-record-fields($r1)
+
+ * The expected result is:
+
+        [ { "field-name": "id", "field-type": "INT64", "is-open": false }, 
+          { "field-name": "project", "field-type": "STRING", "is-open": false }, 
+          { "field-name": "address", "field-type": "RECORD", "is-open": false, "nested": [ 
+            { "field-name": "city", "field-type": "STRING", "is-open": false }, 
+            { "field-name": "state", "field-type": "STRING", "is-open": false } ] }, 
+          { "field-name": "related", "field-type": "ORDEREDLIST", "is-open": false, "list": [ 
+            { "field-type": "STRING" }, 
+            { "field-type": "STRING" }, 
+            { "field-type": "STRING" } ] } ]
+
+ ]
+### get-record-field-value ###
+ * Syntax:
+
+        get-record-field-value(record_expression, string_expression)
+
+ * Access the field name given in the `string_expression` from the `record_expression`.
+ * Arguments:
+    * `record_expression` : A `record` value.
+    * `string_expression` : A `string` representing the top level field name.
+ * Return Value:
+    * An `any` value saved in the designated field of the record.
+
+ * Example:
+
+        let $r1 := {"id": 1, 
+            "project": "AsterixDB", 
+            "address": {"city": "Irvine", "state": "CA"}, 
+            "related": ["Hivestrix", "Preglix", "Apache VXQuery"] }
+        return get-record-field-value($r1, "project")
+
+ * The expected result is:
+
+        "AsterixDB"
 
 
 ## <a id="OtherFunctions">Other Functions</a> <font size="4"><a href="#toc">[Back to TOC]</a></font> ##
