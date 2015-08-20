@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,18 +14,15 @@
  */
 package edu.uci.ics.asterix.external.library;
 
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.external.library.java.IJObject;
 import edu.uci.ics.asterix.external.library.java.JObjectPointableVisitor;
+import edu.uci.ics.asterix.external.library.java.JObjects.JNull;
 import edu.uci.ics.asterix.external.library.java.JTypeTag;
 import edu.uci.ics.asterix.om.functions.IExternalFunctionInfo;
 import edu.uci.ics.asterix.om.pointables.AFlatValuePointable;
-import edu.uci.ics.asterix.om.pointables.AListPointable;
-import edu.uci.ics.asterix.om.pointables.ARecordPointable;
+import edu.uci.ics.asterix.om.pointables.AListVisitablePointable;
+import edu.uci.ics.asterix.om.pointables.ARecordVisitablePointable;
 import edu.uci.ics.asterix.om.pointables.PointableAllocator;
 import edu.uci.ics.asterix.om.pointables.base.IVisitablePointable;
 import edu.uci.ics.asterix.om.types.BuiltinType;
@@ -33,9 +30,14 @@ import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.container.IObjectPool;
 import edu.uci.ics.asterix.om.util.container.ListObjectPool;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
+import edu.uci.ics.hyracks.algebricks.common.exceptions.NotImplementedException;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.data.std.api.IDataOutputProvider;
 import edu.uci.ics.hyracks.data.std.api.IValueReference;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 public class JavaFunctionHelper implements IFunctionHelper {
 
@@ -48,6 +50,8 @@ public class JavaFunctionHelper implements IFunctionHelper {
     private final JObjectPointableVisitor pointableVisitor;
     private final PointableAllocator pointableAllocator;
     private final Map<Integer, TypeInfo> poolTypeInfo;
+
+    private boolean isValidResult = false;
 
     public JavaFunctionHelper(IExternalFunctionInfo finfo, IDataOutputProvider outputProvider)
             throws AlgebricksException {
@@ -72,12 +76,29 @@ public class JavaFunctionHelper implements IFunctionHelper {
 
     @Override
     public void setResult(IJObject result) throws IOException, AsterixException {
-        try {
-            result.serialize(outputProvider.getDataOutput(), true);
-            result.reset();
-        } catch (IOException  | AlgebricksException e) {
-            throw new HyracksDataException(e);
+        if (result == null) {
+            JNull.INSTANCE.serialize(outputProvider.getDataOutput(), true);
+            isValidResult = false;
+        } else {
+            try {
+                isValidResult = true;
+                result.serialize(outputProvider.getDataOutput(), true);
+                result.reset();
+            } catch (IOException | AlgebricksException e) {
+                throw new HyracksDataException(e);
+            }
         }
+    }
+
+    /**
+     * Gets the value of the result flag
+     *
+     * @return
+     *    boolean True is the setResult is called and result is not null
+     */
+    @Override
+    public boolean isValidResult() {
+        return this.isValidResult;
     }
 
     public void setArgument(int index, IValueReference valueReference) throws IOException, AsterixException {
@@ -88,13 +109,13 @@ public class JavaFunctionHelper implements IFunctionHelper {
             case RECORD:
                 pointable = pointableAllocator.allocateRecordValue(type);
                 pointable.set(valueReference);
-                jObject = pointableVisitor.visit((ARecordPointable) pointable, getTypeInfo(index, type));
+                jObject = pointableVisitor.visit((ARecordVisitablePointable) pointable, getTypeInfo(index, type));
                 break;
             case ORDEREDLIST:
             case UNORDEREDLIST:
                 pointable = pointableAllocator.allocateListValue(type);
                 pointable.set(valueReference);
-                jObject = pointableVisitor.visit((AListPointable) pointable, getTypeInfo(index, type));
+                jObject = pointableVisitor.visit((AListVisitablePointable) pointable, getTypeInfo(index, type));
                 break;
             case ANY:
                 throw new IllegalStateException("Cannot handle a function argument of type " + type.getTypeTag());
@@ -133,6 +154,19 @@ public class JavaFunctionHelper implements IFunctionHelper {
                 break;
             case STRING:
                 retValue = objectPool.allocate(BuiltinType.ASTRING);
+                break;
+            case DOUBLE:
+                retValue = objectPool.allocate(BuiltinType.ADOUBLE);
+                break;
+            case NULL:
+                retValue = JNull.INSTANCE;
+                break;
+            default:
+                try {
+                    throw new NotImplementedException("Object of type " + jtypeTag.name() + " not supported.");
+                } catch (IllegalStateException e) {
+                    e.printStackTrace();
+                }
                 break;
         }
         return retValue;
