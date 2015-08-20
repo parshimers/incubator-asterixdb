@@ -498,7 +498,7 @@ class LogFlusher implements Callable<Boolean> {
         } catch (Exception e) {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("-------------------------------------------------------------------------");
-                LOGGER.info("LogFlusher is terminating abnormally. System is in unusalbe state.");
+                LOGGER.info("LogFlusher is terminating abnormally. System is in unusable state.");
                 LOGGER.info("-------------------------------------------------------------------------");
             }
             e.printStackTrace();

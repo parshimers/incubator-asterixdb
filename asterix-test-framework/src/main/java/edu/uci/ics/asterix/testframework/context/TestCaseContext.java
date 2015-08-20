@@ -63,8 +63,6 @@ public class TestCaseContext {
                 return OutputFormat.JSON;
             case CSV:
                 return OutputFormat.CSV;
-            case CSV_HEADER:
-                return OutputFormat.CSV_HEADER;
             case INSPECT:
             case IGNORE:
                 return OutputFormat.NONE;
