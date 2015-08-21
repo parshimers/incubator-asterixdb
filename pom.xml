@@ -102,7 +102,7 @@
                 <version>0.11</version>
                 <executions>
                     <execution>
-                        <phase>deploy</phase>
+                        <phase>verify</phase>
                         <goals>
                             <goal>check</goal>
                         </goals>
@@ -155,7 +155,7 @@
     </build>
 
     <scm>
-        <connection>scm:git:ssh://git@github.com:apache/incubator-asterixdb.git</connection>
+        <connection>scm:git:https://github.com/apache/incubator-asterixdb</connection>
         <developerConnection>scm:git:ssh://asterix-gerrit.ics.uci.edu:29418/asterixdb</developerConnection>
     </scm>
 
