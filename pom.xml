@@ -23,6 +23,12 @@
     <version>0.8.7-SNAPSHOT</version>
     <packaging>pom</packaging>
 
+    <parent>
+      <groupId>org.apache</groupId>
+      <artifactId>apache</artifactId>
+      <version>LATEST</version>
+    </parent>
+
     <licenses>
         <license>
             <name>Apache License, Version 2.0</name>
@@ -96,7 +102,7 @@
                 <version>0.11</version>
                 <executions>
                     <execution>
-                        <phase>verify</phase>
+                        <phase>deploy</phase>
                         <goals>
                             <goal>check</goal>
                         </goals>
@@ -149,20 +155,9 @@
     </build>
 
     <scm>
-        <connection>scm:git:https://code.google.com/p/asterixdb/</connection>
-        <developerConnection>scm:git:ssh://fulliautomatix.ics.uci.edu:29418/asterixdb</developerConnection>
+        <connection>scm:git:ssh://git@github.com:apache/incubator-asterixdb.git</connection>
+        <developerConnection>scm:git:ssh://asterix-gerrit.ics.uci.edu:29418/asterixdb</developerConnection>
     </scm>
-
-    <distributionManagement>
-        <repository>
-            <id>asterix-releases</id>
-            <url>http://obelix.ics.uci.edu/nexus/content/repositories/asterix-releases/</url>
-        </repository>
-        <snapshotRepository>
-            <id>asterix-snapshots</id>
-            <url>http://obelix.ics.uci.edu/nexus/content/repositories/asterix-snapshots/</url>
-        </snapshotRepository>
-    </distributionManagement>
 
     <profiles>
         <profile>
