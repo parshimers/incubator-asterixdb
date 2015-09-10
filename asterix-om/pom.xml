@@ -30,11 +30,6 @@
     </license>
   </licenses>
 
-	<build>
-		<plugins>
-			</plugins>
-	</build>
-
 	<dependencies>
 		<dependency>
 			<groupId>org.apache.asterix</groupId>

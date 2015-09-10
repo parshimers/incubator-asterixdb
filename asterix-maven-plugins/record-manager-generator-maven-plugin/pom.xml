@@ -25,11 +25,6 @@
   <packaging>maven-plugin</packaging>
   <name>record-manager-generator-maven-plugin</name>
 
-  <build>
-    <plugins>
-      </plugins>
-  </build>
-
   <dependencies>
     <dependency>
       <groupId>org.apache.maven</groupId>

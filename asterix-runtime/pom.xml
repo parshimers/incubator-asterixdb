@@ -84,7 +84,7 @@
 								<pluginExecution>
 									<pluginExecutionFilter>
 										<groupId>
-											edu.uci.ics.asterix
+											org.apache.asterix
 										</groupId>
 										<artifactId>
 											lexer-generator-maven-plugin

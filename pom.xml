@@ -40,7 +40,6 @@
         <jdk.version>1.8</jdk.version>
         <runSlowAQLTests>false</runSlowAQLTests>
 
-    
         <optimizer.tests>**/optimizer/**/*Test.java</optimizer.tests>
         <metadata.tests>**/metadata/*Test.java</metadata.tests>
         <execution.tests>**/ExecutionTest.java</execution.tests>
@@ -48,11 +47,10 @@
         <invalid.tests>**/DmlTest.java</invalid.tests>
         <global.test.includes>**/*TestSuite.java,**/*Test.java,${execution.tests}</global.test.includes>
         <global.test.excludes>${optimizer.tests},${metadata.tests},${invalid.tests}</global.test.excludes>
-    
-        <algebricks.version>0.2.16-SNAPSHOT</algebricks.version>
-        <hyracks.version>0.2.16-SNAPSHOT</hyracks.version>
+        <algebricks.version>0.2.16-incubating</algebricks.version>
+        <hyracks.version>0.2.16-incubating</hyracks.version>
         <hadoop.version>2.2.0</hadoop.version>
-        <junit.version>4.8.1</junit.version>
+        <junit.version>4.11</junit.version>
         <commons.io.version>2.4</commons.io.version>
         <servlet.api.version>2.5</servlet.api.version>
         <json.version>20090211</json.version>
