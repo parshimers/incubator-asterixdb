@@ -1,16 +1,20 @@
 /*
- * Copyright 2009-2013 by The Regents of the University of California
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * you may obtain a copy of the License from
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
  */
 
 package org.apache.asterix.metadata.entitytupletranslators;
@@ -25,6 +29,7 @@ import java.util.List;
 
 import org.apache.asterix.builders.OrderedListBuilder;
 import org.apache.asterix.common.config.DatasetConfig.IndexType;
+import org.apache.asterix.common.config.DatasetConfig.IndexTypeProperty;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.transactions.JobId;
 import org.apache.asterix.formats.nontagged.AqlSerializerDeserializerProvider;
@@ -35,8 +40,11 @@ import org.apache.asterix.metadata.bootstrap.MetadataRecordTypes;
 import org.apache.asterix.metadata.entities.AsterixBuiltinTypeMap;
 import org.apache.asterix.metadata.entities.Index;
 import org.apache.asterix.om.base.ABoolean;
+import org.apache.asterix.om.base.ADouble;
+import org.apache.asterix.om.base.AInt16;
 import org.apache.asterix.om.base.ACollectionCursor;
 import org.apache.asterix.om.base.AInt32;
+import org.apache.asterix.om.base.AInt64;
 import org.apache.asterix.om.base.AOrderedList;
 import org.apache.asterix.om.base.ARecord;
 import org.apache.asterix.om.base.AString;
@@ -62,8 +70,14 @@ public class IndexTupleTranslator extends AbstractTupleTranslator<Index> {
     public static final int INDEX_INDEXNAME_TUPLE_FIELD_INDEX = 2;
     // Payload field containing serialized Index.
     public static final int INDEX_PAYLOAD_TUPLE_FIELD_INDEX = 3;
-    // Field name of open field.
+    // Field names of open fields.
     public static final String GRAM_LENGTH_FIELD_NAME = "GramLength";
+    public static final String BOTTOM_LEFT_X_FIELD_NAME = "BottomLeftX";
+    public static final String BOTTOM_LEFT_Y_FIELD_NAME = "BottomLeftY";
+    public static final String TOP_RIGHT_X_FIELD_NAME = "TopRightX";
+    public static final String TOP_RIGHT_Y_FIELD_NAME = "TopRightY";
+    public static final String LEVEL_DENSITY_FIELD_NAME_PREFIX = "LevelDensity";
+    public static final String CELLS_PER_OBJECT_FIELD_NAME = "CellsPerObject";
     public static final String INDEX_SEARCHKEY_TYPE_FIELD_NAME = "SearchKeyType";
     public static final String INDEX_ISENFORCED_FIELD_NAME = "IsEnforced";
 
@@ -80,6 +94,15 @@ public class IndexTupleTranslator extends AbstractTupleTranslator<Index> {
     @SuppressWarnings("unchecked")
     private ISerializerDeserializer<ARecord> recordSerde = AqlSerializerDeserializerProvider.INSTANCE
             .getSerializerDeserializer(MetadataRecordTypes.INDEX_RECORDTYPE);
+    @SuppressWarnings("unchecked")
+    protected ISerializerDeserializer<ADouble> doubleSerde = AqlSerializerDeserializerProvider.INSTANCE
+            .getSerializerDeserializer(BuiltinType.ADOUBLE);
+    @SuppressWarnings("unchecked")
+    protected ISerializerDeserializer<AInt64> longSerde = AqlSerializerDeserializerProvider.INSTANCE
+            .getSerializerDeserializer(BuiltinType.AINT64);
+    @SuppressWarnings("unchecked")
+    protected ISerializerDeserializer<AInt16> shortSerde = AqlSerializerDeserializerProvider.INSTANCE
+            .getSerializerDeserializer(BuiltinType.AINT16);
     private final MetadataNode metadataNode;
     private final JobId jobId;
 
@@ -145,13 +168,32 @@ public class IndexTupleTranslator extends AbstractTupleTranslator<Index> {
                 .getBoolean();
         int pendingOp = ((AInt32) rec.getValueByPos(MetadataRecordTypes.INDEX_ARECORD_PENDINGOP_FIELD_INDEX))
                 .getIntegerValue();
+        IndexTypeProperty indexTypeProperty = new IndexTypeProperty();
         // Check if there is a gram length as well.
-        int gramLength = -1;
-        int gramLenPos = rec.getType().findFieldPosition(GRAM_LENGTH_FIELD_NAME);
-        if (gramLenPos >= 0) {
-            gramLength = ((AInt32) rec.getValueByPos(gramLenPos)).getIntegerValue();
+        indexTypeProperty.gramLength = -1;
+        int fieldPos = rec.getType().findFieldPosition(GRAM_LENGTH_FIELD_NAME);
+        if (fieldPos >= 0) {
+            indexTypeProperty.gramLength = ((AInt32) rec.getValueByPos(fieldPos)).getIntegerValue();
         }
-        return new Index(dvName, dsName, indexName, indexStructure, searchKey, searchKeyType, gramLength,
+
+        // read optional fields for spatial index types
+        fieldPos = rec.getType().findFieldPosition(BOTTOM_LEFT_X_FIELD_NAME);
+        if (fieldPos >= 0) {
+            indexTypeProperty.bottomLeftX = ((ADouble) rec.getValueByPos(fieldPos)).getDoubleValue();
+            indexTypeProperty.bottomLeftY = ((ADouble) rec.getValueByPos(rec.getType().findFieldPosition(
+                    BOTTOM_LEFT_Y_FIELD_NAME))).getDoubleValue();
+            indexTypeProperty.topRightX = ((ADouble) rec.getValueByPos(rec.getType().findFieldPosition(
+                    TOP_RIGHT_X_FIELD_NAME))).getDoubleValue();
+            indexTypeProperty.topRightY = ((ADouble) rec.getValueByPos(rec.getType().findFieldPosition(
+                    TOP_RIGHT_Y_FIELD_NAME))).getDoubleValue();
+            for (int i = 0; i < IndexTypeProperty.CELL_BASED_SPATIAL_INDEX_MAX_LEVEL; i++) {
+                indexTypeProperty.levelDensity[i] = ((AInt16) rec.getValueByPos(rec.getType().findFieldPosition(
+                        LEVEL_DENSITY_FIELD_NAME_PREFIX + i))).getShortValue();
+            }
+            indexTypeProperty.cellsPerObject = ((AInt32) rec.getValueByPos(rec.getType().findFieldPosition(
+                    CELLS_PER_OBJECT_FIELD_NAME))).getIntegerValue();
+        }
+        return new Index(dvName, dsName, indexName, indexStructure, indexTypeProperty, searchKey, searchKeyType,
                 isEnforcingKeys, isPrimaryIndex, pendingOp);
     }
 
@@ -235,13 +277,93 @@ public class IndexTupleTranslator extends AbstractTupleTranslator<Index> {
         intSerde.serialize(new AInt32(instance.getPendingOp()), fieldValue.getDataOutput());
         recordBuilder.addField(MetadataRecordTypes.INDEX_ARECORD_PENDINGOP_FIELD_INDEX, fieldValue);
 
-        // write optional field 8        
-        if (instance.getGramLength() > 0) {
+        // write optional field 8
+        IndexType indexType = instance.getIndexType();
+        IndexTypeProperty indexTypeProperty = instance.getIndexTypeProperty();
+        if (indexType == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX
+                || indexType == IndexType.SINGLE_PARTITION_NGRAM_INVIX) {
             fieldValue.reset();
             nameValue.reset();
             aString.setValue(GRAM_LENGTH_FIELD_NAME);
             stringSerde.serialize(aString, nameValue.getDataOutput());
-            intSerde.serialize(new AInt32(instance.getGramLength()), fieldValue.getDataOutput());
+            intSerde.serialize(new AInt32(indexTypeProperty.gramLength), fieldValue.getDataOutput());
+            try {
+                recordBuilder.addField(nameValue, fieldValue);
+            } catch (AsterixException e) {
+                throw new MetadataException(e);
+            }
+        }
+
+        //write optional fields for cell-based spatial index types
+        if (indexType == IndexType.SIF || indexType == IndexType.STATIC_HILBERT_BTREE) {
+            //bottomLeftX
+            fieldValue.reset();
+            nameValue.reset();
+            aString.setValue(BOTTOM_LEFT_X_FIELD_NAME);
+            stringSerde.serialize(aString, nameValue.getDataOutput());
+            doubleSerde.serialize(new ADouble(indexTypeProperty.bottomLeftX), fieldValue.getDataOutput());
+            try {
+                recordBuilder.addField(nameValue, fieldValue);
+            } catch (AsterixException e) {
+                throw new MetadataException(e);
+            }
+
+            //bottomLeftY
+            fieldValue.reset();
+            nameValue.reset();
+            aString.setValue(BOTTOM_LEFT_Y_FIELD_NAME);
+            stringSerde.serialize(aString, nameValue.getDataOutput());
+            doubleSerde.serialize(new ADouble(indexTypeProperty.bottomLeftY), fieldValue.getDataOutput());
+            try {
+                recordBuilder.addField(nameValue, fieldValue);
+            } catch (AsterixException e) {
+                throw new MetadataException(e);
+            }
+
+            //topRightX
+            fieldValue.reset();
+            nameValue.reset();
+            aString.setValue(TOP_RIGHT_X_FIELD_NAME);
+            stringSerde.serialize(aString, nameValue.getDataOutput());
+            doubleSerde.serialize(new ADouble(indexTypeProperty.topRightX), fieldValue.getDataOutput());
+            try {
+                recordBuilder.addField(nameValue, fieldValue);
+            } catch (AsterixException e) {
+                throw new MetadataException(e);
+            }
+
+            //topRightY
+            fieldValue.reset();
+            nameValue.reset();
+            aString.setValue(TOP_RIGHT_Y_FIELD_NAME);
+            stringSerde.serialize(aString, nameValue.getDataOutput());
+            doubleSerde.serialize(new ADouble(indexTypeProperty.topRightY), fieldValue.getDataOutput());
+            try {
+                recordBuilder.addField(nameValue, fieldValue);
+            } catch (AsterixException e) {
+                throw new MetadataException(e);
+            }
+
+            //levelDensity
+            for (int i = 0; i < IndexTypeProperty.CELL_BASED_SPATIAL_INDEX_MAX_LEVEL; i++) {
+                fieldValue.reset();
+                nameValue.reset();
+                aString.setValue(LEVEL_DENSITY_FIELD_NAME_PREFIX+i);
+                stringSerde.serialize(aString, nameValue.getDataOutput());
+                shortSerde.serialize(new AInt16(indexTypeProperty.levelDensity[i]), fieldValue.getDataOutput());
+                try {
+                    recordBuilder.addField(nameValue, fieldValue);
+                } catch (AsterixException e) {
+                    throw new MetadataException(e);
+                }
+            }
+
+            //cellsPerObject
+            fieldValue.reset();
+            nameValue.reset();
+            aString.setValue(CELLS_PER_OBJECT_FIELD_NAME);
+            stringSerde.serialize(aString, nameValue.getDataOutput());
+            intSerde.serialize(new AInt32(indexTypeProperty.cellsPerObject), fieldValue.getDataOutput());
             try {
                 recordBuilder.addField(nameValue, fieldValue);
             } catch (AsterixException e) {

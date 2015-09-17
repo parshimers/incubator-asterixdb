@@ -1,16 +1,20 @@
 /*
- * Copyright 2009-2013 by The Regents of the University of California
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * you may obtain a copy of the License from
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
  */
 
 package org.apache.asterix.file;
@@ -24,6 +28,7 @@ import org.apache.asterix.common.config.AsterixStorageProperties;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.common.config.DatasetConfig.ExternalFilePendingOp;
 import org.apache.asterix.common.config.DatasetConfig.IndexType;
+import org.apache.asterix.common.config.DatasetConfig.IndexTypeProperty;
 import org.apache.asterix.common.config.IAsterixPropertiesProvider;
 import org.apache.asterix.common.context.AsterixVirtualBufferCacheProvider;
 import org.apache.asterix.common.context.ITransactionSubsystemProvider;
@@ -97,7 +102,6 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicyFactory;
 // not just for creation.
 public abstract class SecondaryIndexOperationsHelper {
     protected final PhysicalOptimizationConfig physOptConf;
-
     protected int numPrimaryKeys;
     protected int numSecondaryKeys;
     protected AqlMetadataProvider metadataProvider;
@@ -147,47 +151,52 @@ public abstract class SecondaryIndexOperationsHelper {
         this.propertiesProvider = propertiesProvider;
     }
 
-    public static SecondaryIndexOperationsHelper createIndexOperationsHelper(IndexType indexType, String dataverseName,
+    public static SecondaryIndexOperationsHelper createIndexOperationsHelper(IndexType indexType, IndexTypeProperty indexTypeProperty,
+    		String dataverseName,
             String datasetName, String indexName, List<List<String>> secondaryKeyFields,
-            List<IAType> secondaryKeyTypes, boolean isEnforced, int gramLength, AqlMetadataProvider metadataProvider,
+            List<IAType> secondaryKeyTypes, boolean isEnforced, AqlMetadataProvider metadataProvider,
             PhysicalOptimizationConfig physOptConf, ARecordType recType, ARecordType enforcedType)
             throws AsterixException, AlgebricksException {
         IAsterixPropertiesProvider asterixPropertiesProvider = AsterixAppContextInfo.getInstance();
         SecondaryIndexOperationsHelper indexOperationsHelper = null;
         switch (indexType) {
-            case BTREE: {
-                indexOperationsHelper = new SecondaryBTreeOperationsHelper(physOptConf, asterixPropertiesProvider);
+            case BTREE: 
+            case STATIC_HILBERT_BTREE:
+            case DYNAMIC_HILBERTVALUE_BTREE:
+            case DYNAMIC_HILBERT_BTREE:{
+                indexOperationsHelper = new SecondaryBTreeOperationsHelper(physOptConf, asterixPropertiesProvider, indexType);
                 break;
             }
             case RTREE: {
-                indexOperationsHelper = new SecondaryRTreeOperationsHelper(physOptConf, asterixPropertiesProvider);
+                indexOperationsHelper = new SecondaryRTreeOperationsHelper(physOptConf, asterixPropertiesProvider, indexType);
                 break;
             }
             case SINGLE_PARTITION_WORD_INVIX:
             case SINGLE_PARTITION_NGRAM_INVIX:
             case LENGTH_PARTITIONED_WORD_INVIX:
-            case LENGTH_PARTITIONED_NGRAM_INVIX: {
+            case LENGTH_PARTITIONED_NGRAM_INVIX: 
+            case SIF: {
                 indexOperationsHelper = new SecondaryInvertedIndexOperationsHelper(physOptConf,
-                        asterixPropertiesProvider);
+                        asterixPropertiesProvider, indexType);
                 break;
             }
             default: {
                 throw new AsterixException("Unknown Index Type: " + indexType);
             }
         }
-        indexOperationsHelper.init(indexType, dataverseName, datasetName, indexName, secondaryKeyFields,
-                secondaryKeyTypes, isEnforced, gramLength, metadataProvider, recType, enforcedType);
+        indexOperationsHelper.init(indexType, indexTypeProperty, dataverseName, datasetName, indexName, secondaryKeyFields,
+                secondaryKeyTypes, isEnforced, metadataProvider, recType, enforcedType);
         return indexOperationsHelper;
     }
-
+    
     public abstract JobSpecification buildCreationJobSpec() throws AsterixException, AlgebricksException;
 
     public abstract JobSpecification buildLoadingJobSpec() throws AsterixException, AlgebricksException;
 
     public abstract JobSpecification buildCompactJobSpec() throws AsterixException, AlgebricksException;
 
-    protected void init(IndexType indexType, String dvn, String dsn, String in, List<List<String>> secondaryKeyFields,
-            List<IAType> secondaryKeyTypes, boolean isEnforced, int gramLength, AqlMetadataProvider metadataProvider,
+    protected void init(IndexType indexType, IndexTypeProperty indexTypeProperty, String dvn, String dsn, String in, List<List<String>> secondaryKeyFields,
+            List<IAType> secondaryKeyTypes, boolean isEnforced, AqlMetadataProvider metadataProvider,
             ARecordType aRecType, ARecordType enforcedType) throws AsterixException, AlgebricksException {
         this.metadataProvider = metadataProvider;
         dataverseName = dvn == null ? metadataProvider.getDefaultDataverseName() : dvn;
@@ -225,8 +234,7 @@ public abstract class SecondaryIndexOperationsHelper {
             primaryPartitionConstraint = primarySplitsAndConstraint.second;
             setPrimaryRecDescAndComparators();
         }
-        setSecondaryRecDescAndComparators(indexType, secondaryKeyFields, secondaryKeyTypes, gramLength,
-                metadataProvider);
+        setSecondaryRecDescAndComparators(indexTypeProperty, secondaryKeyFields, secondaryKeyTypes, metadataProvider);
         numElementsHint = metadataProvider.getCardinalityPerPartitionHint(dataset);
         Pair<ILSMMergePolicyFactory, Map<String, String>> compactionInfo = DatasetUtils.getMergePolicyFactory(dataset,
                 metadataProvider.getMetadataTxnContext());
@@ -292,8 +300,8 @@ public abstract class SecondaryIndexOperationsHelper {
         primaryRecDesc = new RecordDescriptor(primaryRecFields, primaryTypeTraits);
     }
 
-    protected abstract void setSecondaryRecDescAndComparators(IndexType indexType,
-            List<List<String>> secondaryKeyFields, List<IAType> secondaryKeyTypes, int gramLength,
+    protected abstract void setSecondaryRecDescAndComparators(IndexTypeProperty indexTypeProperty,
+            List<List<String>> secondaryKeyFields, List<IAType> secondaryKeyTypes,
             AqlMetadataProvider metadataProvider) throws AlgebricksException, AsterixException;
 
     protected AbstractOperatorDescriptor createDummyKeyProviderOp(JobSpecification spec) throws AsterixException,

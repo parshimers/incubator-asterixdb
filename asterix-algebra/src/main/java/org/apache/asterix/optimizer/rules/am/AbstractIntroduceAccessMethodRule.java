@@ -1,17 +1,22 @@
 /*
- * Copyright 2009-2013 by The Regents of the University of California
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * you may obtain a copy of the License from
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
  */
+
 package org.apache.asterix.optimizer.rules.am;
 
 import java.io.IOException;
@@ -137,23 +142,27 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
                 Map.Entry<Index, List<Pair<Integer, Integer>>> indexEntry = indexIt.next();
                 // To avoid a case where the chosen access method and a chosen
                 // index type is different.
-                // Allowed Case: [BTreeAccessMethod , IndexType.BTREE],
+                // Allowed Case: [BTreeAccessMethod , IndexType.BTREE || STATIC_HILBERT_BTREE || DYNAMIC_HILBERT_BTREE],
                 //               [RTreeAccessMethod , IndexType.RTREE],
                 //               [InvertedIndexAccessMethod,
                 //                 IndexType.SINGLE_PARTITION_WORD_INVIX ||
                 //                           SINGLE_PARTITION_NGRAM_INVIX ||
                 //                           LENGTH_PARTITIONED_WORD_INVIX ||
-                //                           LENGTH_PARTITIONED_NGRAM_INVIX]
+                //                           LENGTH_PARTITIONED_NGRAM_INVIX || 
+                //                           SIF]
                 IAccessMethod chosenAccessMethod = amEntry.getKey();
                 Index chosenIndex = indexEntry.getKey();
+                IndexType chosenIndexType = chosenIndex.getIndexType();
                 boolean isKeywordOrNgramIndexChosen = false;
-                if (chosenIndex.getIndexType() == IndexType.LENGTH_PARTITIONED_WORD_INVIX
-                        || chosenIndex.getIndexType() == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX
-                        || chosenIndex.getIndexType() == IndexType.SINGLE_PARTITION_WORD_INVIX
-                        || chosenIndex.getIndexType() == IndexType.SINGLE_PARTITION_NGRAM_INVIX)
+                if (chosenIndexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX
+                        || chosenIndexType == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX
+                        || chosenIndexType == IndexType.SINGLE_PARTITION_WORD_INVIX
+                        || chosenIndexType == IndexType.SINGLE_PARTITION_NGRAM_INVIX
+                        || chosenIndexType == IndexType.SIF)
                     isKeywordOrNgramIndexChosen = true;
-                if ((chosenAccessMethod == BTreeAccessMethod.INSTANCE && chosenIndex.getIndexType() != IndexType.BTREE)
-                        || (chosenAccessMethod == RTreeAccessMethod.INSTANCE && chosenIndex.getIndexType() != IndexType.RTREE)
+                if ((chosenAccessMethod == BTreeAccessMethod.INSTANCE && (chosenIndexType != IndexType.BTREE && chosenIndexType != IndexType.STATIC_HILBERT_BTREE 
+                        && chosenIndexType != IndexType.DYNAMIC_HILBERT_BTREE && chosenIndexType != IndexType.DYNAMIC_HILBERTVALUE_BTREE))
+                        || (chosenAccessMethod == RTreeAccessMethod.INSTANCE && chosenIndexType != IndexType.RTREE)
                         || (chosenAccessMethod == InvertedIndexAccessMethod.INSTANCE && !isKeywordOrNgramIndexChosen)) {
                     continue;
                 }
@@ -699,6 +708,8 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
                 && funcIdent != AsterixBuiltinFunctions.SUBSTRING
                 && funcIdent != AsterixBuiltinFunctions.SUBSTRING_BEFORE
                 && funcIdent != AsterixBuiltinFunctions.SUBSTRING_AFTER
+                && funcIdent != AsterixBuiltinFunctions.MSIF_TOKENS
+                && funcIdent != AsterixBuiltinFunctions.COMPUTE_INT64_HILBERT_VALUE
                 && funcIdent != AsterixBuiltinFunctions.CREATE_POLYGON
                 && funcIdent != AsterixBuiltinFunctions.CREATE_MBR
                 && funcIdent != AsterixBuiltinFunctions.CREATE_RECTANGLE

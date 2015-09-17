@@ -1,17 +1,22 @@
 /*
- * Copyright 2009-2013 by The Regents of the University of California
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * you may obtain a copy of the License from
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
  */
+
 package org.apache.asterix.runtime.formats;
 
 import org.apache.asterix.common.config.GlobalConfig;
@@ -161,6 +166,7 @@ import org.apache.asterix.runtime.evaluators.functions.AnyCollectionMemberDescri
 import org.apache.asterix.runtime.evaluators.functions.CastListDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.CastRecordDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.CodePointToStringDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ComputeInt64HilbertValueDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.ContainsDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.CountHashedGramTokensDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.CountHashedWordTokensDescriptor;
@@ -189,6 +195,7 @@ import org.apache.asterix.runtime.evaluators.functions.IsNullDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.IsSystemNullDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.LenDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.LikeDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.MultiLevelSIFTokensDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.NotDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.NotNullDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.NumericAbsDescriptor;
@@ -208,6 +215,7 @@ import org.apache.asterix.runtime.evaluators.functions.OrDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.OrderedListConstructorDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.PrefixLenJaccardDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.RegExpDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.SIFTokensDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.SimilarityJaccardCheckDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.SimilarityJaccardDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.SimilarityJaccardPrefixCheckDescriptor;
@@ -586,6 +594,10 @@ public class NonTaggedDataFormat implements IDataFormat {
         temp.add(GramTokensDescriptor.FACTORY);
         temp.add(HashedGramTokensDescriptor.FACTORY);
         temp.add(CountHashedGramTokensDescriptor.FACTORY);
+
+        temp.add(SIFTokensDescriptor.FACTORY);
+        temp.add(MultiLevelSIFTokensDescriptor.FACTORY);
+        temp.add(ComputeInt64HilbertValueDescriptor.FACTORY);
 
         temp.add(EditDistanceDescriptor.FACTORY);
         temp.add(EditDistanceCheckDescriptor.FACTORY);

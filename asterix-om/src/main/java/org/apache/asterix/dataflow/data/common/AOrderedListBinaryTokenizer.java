@@ -1,17 +1,22 @@
 /*
- * Copyright 2009-2013 by The Regents of the University of California
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * you may obtain a copy of the License from
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
  */
+
 package org.apache.asterix.dataflow.data.common;
 
 import org.apache.asterix.common.exceptions.AsterixException;
@@ -19,9 +24,9 @@ import org.apache.asterix.dataflow.data.nontagged.serde.AOrderedListSerializerDe
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.EnumDeserializer;
 import org.apache.asterix.om.util.NonTaggedFormatUtil;
-import org.apache.hyracks.storage.am.lsm.invertedindex.tokenizers.IBinaryTokenizer;
-import org.apache.hyracks.storage.am.lsm.invertedindex.tokenizers.IToken;
-import org.apache.hyracks.storage.am.lsm.invertedindex.tokenizers.ITokenFactory;
+import org.apache.hyracks.storage.am.common.api.IBinaryTokenizer;
+import org.apache.hyracks.storage.am.common.api.IToken;
+import org.apache.hyracks.storage.am.common.api.ITokenFactory;
 
 public class AOrderedListBinaryTokenizer implements IBinaryTokenizer {
 

@@ -1,17 +1,22 @@
 /*
- * Copyright 2009-2013 by The Regents of the University of California
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * you may obtain a copy of the License from
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
  */
+
 package org.apache.asterix.file;
 
 import java.util.List;
@@ -54,10 +59,11 @@ public class IndexOperations {
             ARecordType recType, ARecordType enforcedType, AqlMetadataProvider metadataProvider)
             throws AsterixException, AlgebricksException {
         SecondaryIndexOperationsHelper secondaryIndexHelper = SecondaryIndexOperationsHelper
-                .createIndexOperationsHelper(createIndexStmt.getIndexType(), createIndexStmt.getDataverseName(),
+                .createIndexOperationsHelper(createIndexStmt.getIndexType(), createIndexStmt.getIndexTypeProperty(),
+                		createIndexStmt.getDataverseName(),
                         createIndexStmt.getDatasetName(), createIndexStmt.getIndexName(),
                         createIndexStmt.getKeyFields(), createIndexStmt.getKeyFieldTypes(),
-                        createIndexStmt.isEnforced(), createIndexStmt.getGramLength(), metadataProvider,
+                        createIndexStmt.isEnforced(), metadataProvider,
                         physicalOptimizationConfig, recType, enforcedType);
         return secondaryIndexHelper.buildCreationJobSpec();
     }
@@ -66,10 +72,11 @@ public class IndexOperations {
             ARecordType recType, ARecordType enforcedType, AqlMetadataProvider metadataProvider)
             throws AsterixException, AlgebricksException {
         SecondaryIndexOperationsHelper secondaryIndexHelper = SecondaryIndexOperationsHelper
-                .createIndexOperationsHelper(createIndexStmt.getIndexType(), createIndexStmt.getDataverseName(),
+                .createIndexOperationsHelper(createIndexStmt.getIndexType(), createIndexStmt.getIndexTypeProperty(),
+                		createIndexStmt.getDataverseName(),
                         createIndexStmt.getDatasetName(), createIndexStmt.getIndexName(),
                         createIndexStmt.getKeyFields(), createIndexStmt.getKeyFieldTypes(),
-                        createIndexStmt.isEnforced(), createIndexStmt.getGramLength(), metadataProvider,
+                        createIndexStmt.isEnforced(), metadataProvider,
                         physicalOptimizationConfig, recType, enforcedType);
         return secondaryIndexHelper.buildLoadingJobSpec();
     }
@@ -78,10 +85,11 @@ public class IndexOperations {
             ARecordType recType, ARecordType enforcedType, AqlMetadataProvider metadataProvider,
             List<ExternalFile> files) throws AsterixException, AlgebricksException {
         SecondaryIndexOperationsHelper secondaryIndexHelper = SecondaryIndexOperationsHelper
-                .createIndexOperationsHelper(createIndexStmt.getIndexType(), createIndexStmt.getDataverseName(),
+                .createIndexOperationsHelper(createIndexStmt.getIndexType(), createIndexStmt.getIndexTypeProperty(), 
+                		createIndexStmt.getDataverseName(),
                         createIndexStmt.getDatasetName(), createIndexStmt.getIndexName(),
                         createIndexStmt.getKeyFields(), createIndexStmt.getKeyFieldTypes(),
-                        createIndexStmt.isEnforced(), createIndexStmt.getGramLength(), metadataProvider,
+                        createIndexStmt.isEnforced(), metadataProvider,
                         physicalOptimizationConfig, recType, enforcedType);
         secondaryIndexHelper.setExternalFiles(files);
         return secondaryIndexHelper.buildLoadingJobSpec();
@@ -121,11 +129,11 @@ public class IndexOperations {
             ARecordType recType, ARecordType enforcedType, AqlMetadataProvider metadataProvider, Dataset dataset)
             throws AsterixException, AlgebricksException {
         SecondaryIndexOperationsHelper secondaryIndexHelper = SecondaryIndexOperationsHelper
-                .createIndexOperationsHelper(indexCompactStmt.getIndexType(), indexCompactStmt.getDataverseName(),
+                .createIndexOperationsHelper(indexCompactStmt.getIndexType(), indexCompactStmt.getIndexTypeProperty(),
+                		indexCompactStmt.getDataverseName(),
                         indexCompactStmt.getDatasetName(), indexCompactStmt.getIndexName(),
-                        indexCompactStmt.getKeyFields(), indexCompactStmt.getKeyTypes(), indexCompactStmt.isEnforced(),
-                        indexCompactStmt.getGramLength(), metadataProvider, physicalOptimizationConfig, recType,
-                        enforcedType);
+                        indexCompactStmt.getKeyFields(), indexCompactStmt.getKeyFieldTypes(), indexCompactStmt.isEnforced(),
+                        metadataProvider, physicalOptimizationConfig, recType, enforcedType);
         return secondaryIndexHelper.buildCompactJobSpec();
     }
 }

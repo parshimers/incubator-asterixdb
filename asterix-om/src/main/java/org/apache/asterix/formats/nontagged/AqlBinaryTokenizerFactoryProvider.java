@@ -1,29 +1,38 @@
 /*
- * Copyright 2009-2013 by The Regents of the University of California
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * you may obtain a copy of the License from
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
  */
+
 package org.apache.asterix.formats.nontagged;
 
+import org.apache.asterix.common.config.OptimizationConfUtil;
 import org.apache.asterix.dataflow.data.common.AListElementTokenFactory;
 import org.apache.asterix.dataflow.data.common.AOrderedListBinaryTokenizerFactory;
 import org.apache.asterix.dataflow.data.common.AUnorderedListBinaryTokenizerFactory;
 import org.apache.asterix.dataflow.data.common.IBinaryTokenizerFactoryProvider;
+import org.apache.asterix.dataflow.data.common.MultiLevelSIFBinaryTokenizerFactory;
+import org.apache.asterix.dataflow.data.common.StaticHilbertBTreeBinaryTokenizerFactory;
 import org.apache.asterix.om.types.ATypeTag;
-import org.apache.hyracks.storage.am.lsm.invertedindex.tokenizers.DelimitedUTF8StringBinaryTokenizerFactory;
-import org.apache.hyracks.storage.am.lsm.invertedindex.tokenizers.HashedUTF8WordTokenFactory;
-import org.apache.hyracks.storage.am.lsm.invertedindex.tokenizers.IBinaryTokenizerFactory;
-import org.apache.hyracks.storage.am.lsm.invertedindex.tokenizers.UTF8NGramTokenFactory;
-import org.apache.hyracks.storage.am.lsm.invertedindex.tokenizers.UTF8WordTokenFactory;
+import org.apache.hyracks.storage.am.common.api.IBinaryTokenizerFactory;
+import org.apache.hyracks.storage.am.common.tokenizer.ByteArrayTokenFactory;
+import org.apache.hyracks.storage.am.common.tokenizer.DelimitedUTF8StringBinaryTokenizerFactory;
+import org.apache.hyracks.storage.am.common.tokenizer.HashedUTF8WordTokenFactory;
+import org.apache.hyracks.storage.am.common.tokenizer.UTF8NGramTokenFactory;
+import org.apache.hyracks.storage.am.common.tokenizer.UTF8WordTokenFactory;
 
 public class AqlBinaryTokenizerFactoryProvider implements IBinaryTokenizerFactoryProvider {
 
@@ -85,5 +94,20 @@ public class AqlBinaryTokenizerFactoryProvider implements IBinaryTokenizerFactor
                 return null;
             }
         }
+    }
+
+    public IBinaryTokenizerFactory getSIFTokenizerFactory(ATypeTag keyType, double bottomLeftX, double bottomLeftY,
+            double topRightX, double topRightY, short[] levelDensity, int cellsPerObject, boolean hashedTokens) {
+        return new MultiLevelSIFBinaryTokenizerFactory(bottomLeftX, bottomLeftY, topRightX, topRightY, levelDensity,
+                cellsPerObject, new UTF8WordTokenFactory(ATypeTag.STRING.serialize(), ATypeTag.INT32.serialize()),
+                OptimizationConfUtil.getPhysicalOptimizationConfig().getFrameSize(), false);
+    }
+
+    public IBinaryTokenizerFactory getStaticHilbertBTreeTokenizerFactory(ATypeTag keyType, double bottomLeftX,
+            double bottomLeftY, double topRightX, double topRightY, short[] levelDensity, int cellsPerObject,
+            boolean hashedTokens) {
+        return new StaticHilbertBTreeBinaryTokenizerFactory(bottomLeftX, bottomLeftY, topRightX, topRightY,
+                levelDensity, cellsPerObject, new ByteArrayTokenFactory(ATypeTag.BINARY.serialize()),
+                OptimizationConfUtil.getPhysicalOptimizationConfig().getFrameSize(), false);
     }
 }

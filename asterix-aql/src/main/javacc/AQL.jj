@@ -123,6 +123,13 @@ import org.apache.asterix.common.annotations.TypeDataGen;
 import org.apache.asterix.common.annotations.UndeclaredFieldsDataGen;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.common.config.DatasetConfig.IndexType;
+import org.apache.asterix.common.config.DatasetConfig.IndexTypeProperty;
+import org.apache.asterix.aql.expression.visitor.AQLPrintVisitor;
+import org.apache.asterix.aql.expression.UnaryExpr.Sign;
+import org.apache.asterix.aql.base.Statement.Kind;
+import org.apache.asterix.aql.context.Scope;
+import org.apache.asterix.aql.context.RootScopeFactory;
+import org.apache.asterix.common.annotations.*;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.metadata.bootstrap.MetadataConstants;
@@ -164,11 +171,11 @@ public class AQLParser extends ScopeChecker {
 
     private static class IndexParams {
       public IndexType type;
-      public int gramLength;
-
-      public IndexParams(IndexType type, int gramLength) {
+      public IndexTypeProperty typeProperty;
+      
+      public IndexParams(IndexType type, IndexTypeProperty typeProperty) {
         this.type = type;
-        this.gramLength = gramLength;
+        this.typeProperty = typeProperty;
       }
     };
 
@@ -540,7 +547,7 @@ CreateIndexStatement IndexSpecification() throws ParseException:
       cis.setDatasetName(nameComponents.second);
       if (indexType != null) {
         cis.setIndexType(indexType.type);
-        cis.setGramLength(indexType.gramLength);
+        cis.setIndexTypeProperty(indexType.typeProperty);
       }
       cis.setEnforced(enforced);
       return cis;
@@ -572,7 +579,8 @@ String FilterField() throws ParseException :
 IndexParams IndexType() throws ParseException:
 {
   IndexType type = null;
-  int gramLength = 0;
+  IndexTypeProperty tp = new IndexTypeProperty();
+  boolean negative = false;
 }
 {
   ("btree"
@@ -590,12 +598,141 @@ IndexParams IndexType() throws ParseException:
   | "ngram" <LEFTPAREN> <INTEGER_LITERAL>
     {
       type = IndexType.LENGTH_PARTITIONED_NGRAM_INVIX;
-      gramLength = Integer.valueOf(token.image);
+      tp.gramLength = Integer.valueOf(token.image);
     }
-  <RIGHTPAREN>)
+    <RIGHTPAREN> 
+  | ("sif" | "shbtree")
+  	{
+  		if ("sif".equals(token.image))
+  			type = IndexType.SIF;
+  		if ("shbtree".equals(token.image))
+  			type = IndexType.STATIC_HILBERT_BTREE;
+  	} 
+  	<LEFTPAREN>
+  	{
+  		parseUserDefinedRegion(tp);
+  		parseAllLevelDensities(tp);
+  		parseMaxCellsPerObject(tp);
+  	}
+    <RIGHTPAREN>
+  | "dhbtree"
+  	{
+  		type = IndexType.DYNAMIC_HILBERT_BTREE;
+  	}
+  | "dhvbtree"
+  	{
+  		type = IndexType.DYNAMIC_HILBERTVALUE_BTREE;
+  	}
+  )
     {
-      return new IndexParams(type, gramLength);
+      return new IndexParams(type, tp);
     }
+}
+
+double parseSignedDouble() throws ParseException :
+{
+	double v = 0.0;
+	boolean negative = false;
+}
+{
+	( (<PLUS> | <MINUS>) 
+	{
+		if("-".equals(token.image))
+			negative = true;
+	}
+	)? 
+    <DOUBLE_LITERAL> 
+  	{
+      v = Double.valueOf(token.image);
+      if (negative) 
+      {
+      	v *= -1;
+      }
+      return v;
+  	}
+}
+
+void parseUserDefinedRegion(IndexTypeProperty tp) throws ParseException :
+{
+	tp.bottomLeftX = parseSignedDouble();
+}
+{
+  	<COMMA> 
+  	{
+  		tp.bottomLeftY = parseSignedDouble();
+  	}
+  	<COMMA> 
+  	{
+  		tp.topRightX = parseSignedDouble();
+  	}
+  	<COMMA> 
+  	{
+  		tp.topRightY = parseSignedDouble();
+  	}
+}
+
+short parseLevelDensity() throws ParseException :
+{
+}
+{
+	("h" | "m" | "l") 
+  	{
+  	  if ("h".equals(token.image)) { 
+  	  	return 256;
+  	  } else if ("m".equals(token.image)) {
+  	  	return 64;
+  	  } else {
+  	  	return 16;
+  	  } 
+  	}  
+}
+
+void parseAllLevelDensities(IndexTypeProperty tp) throws ParseException :
+{
+	int i = 0;
+}
+{
+	(<COMMA>
+	{
+		tp.levelDensity[i++] = parseLevelDensity();
+	}
+	<COMMA>
+	{
+		tp.levelDensity[i++] = parseLevelDensity();
+	}
+	<COMMA>
+	{
+		tp.levelDensity[i++] = parseLevelDensity();
+	}
+	<COMMA>
+	{
+		tp.levelDensity[i++] = parseLevelDensity();
+	}
+	<COMMA>
+	{
+		tp.levelDensity[i++] = parseLevelDensity();
+	}
+	<COMMA>
+	{
+		tp.levelDensity[i] = parseLevelDensity();
+	})?
+}
+
+void parseMaxCellsPerObject(IndexTypeProperty tp) throws ParseException :
+{
+}
+{
+  	(<COMMA> <INTEGER_LITERAL>
+    {
+      tp.cellsPerObject = Integer.valueOf(token.image);
+      if (tp.cellsPerObject > IndexTypeProperty.CELL_BASED_SPATIAL_INDEX_MAX_CELLS_PER_OBJECT)
+      {
+      	tp.cellsPerObject = IndexTypeProperty.CELL_BASED_SPATIAL_INDEX_MAX_CELLS_PER_OBJECT;
+      }
+      else if (tp.cellsPerObject < IndexTypeProperty.CELL_BASED_SPATIAL_INDEX_MIN_CELLS_PER_OBJECT) {
+      	tp.cellsPerObject = IndexTypeProperty.CELL_BASED_SPATIAL_INDEX_MIN_CELLS_PER_OBJECT;	
+      }
+    })?
 }
 
 CreateDataverseStatement DataverseSpecification() throws ParseException :

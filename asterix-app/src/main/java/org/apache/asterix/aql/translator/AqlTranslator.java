@@ -1,17 +1,22 @@
 /*
- * Copyright 2009-2013 by The Regents of the University of California
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * you may obtain a copy of the License from
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
  */
+
 package org.apache.asterix.aql.translator;
 
 import java.io.BufferedReader;
@@ -88,6 +93,7 @@ import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.common.config.DatasetConfig.ExternalDatasetTransactionState;
 import org.apache.asterix.common.config.DatasetConfig.ExternalFilePendingOp;
 import org.apache.asterix.common.config.DatasetConfig.IndexType;
+import org.apache.asterix.common.config.DatasetConfig.IndexTypeProperty;
 import org.apache.asterix.common.config.GlobalConfig;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.exceptions.AsterixException;
@@ -954,9 +960,9 @@ public class AqlTranslator extends AbstractAqlTranslator {
             }
 
             //#. add a new index with PendingAddOp
-            Index index = new Index(dataverseName, datasetName, indexName, stmtCreateIndex.getIndexType(), indexFields,
-                    indexFieldTypes, stmtCreateIndex.getGramLength(), stmtCreateIndex.isEnforced(), false,
-                    IMetadataEntity.PENDING_ADD_OP);
+            Index index = new Index(dataverseName, datasetName, indexName, stmtCreateIndex.getIndexType(), 
+            		stmtCreateIndex.getIndexTypeProperty(), indexFields, indexFieldTypes, 
+            		stmtCreateIndex.isEnforced(), false, IMetadataEntity.PENDING_ADD_OP);
             MetadataManager.INSTANCE.addIndex(metadataProvider.getMetadataTxnContext(), index);
 
             ARecordType enforcedType = null;
@@ -966,8 +972,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
             //#. prepare to create the index artifact in NC.
             CompiledCreateIndexStatement cis = new CompiledCreateIndexStatement(index.getIndexName(), dataverseName,
-                    index.getDatasetName(), index.getKeyFieldNames(), index.getKeyFieldTypes(),
-                    index.isEnforcingKeyFileds(), index.getGramLength(), index.getIndexType());
+            		index.getDatasetName(), index.getKeyFieldNames(), index.getKeyFieldTypes(), index.getIndexType(),
+                    index.getIndexTypeProperty(), index.isEnforcingKeyFileds());
             spec = IndexOperations.buildSecondaryIndexCreationJobSpec(cis, aRecordType, enforcedType, metadataProvider);
             if (spec == null) {
                 throw new AsterixException("Failed to create job spec for creating index '"
@@ -987,8 +993,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
             //#. load data into the index in NC.
             cis = new CompiledCreateIndexStatement(index.getIndexName(), dataverseName, index.getDatasetName(),
-                    index.getKeyFieldNames(), index.getKeyFieldTypes(), index.isEnforcingKeyFileds(),
-                    index.getGramLength(), index.getIndexType());
+            		index.getKeyFieldNames(), index.getKeyFieldTypes(), index.getIndexType(), index.getIndexTypeProperty(),
+            		index.isEnforcingKeyFileds());
             spec = IndexOperations.buildSecondaryIndexLoadingJobSpec(cis, aRecordType, enforcedType, metadataProvider);
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             bActiveTxn = false;
@@ -1532,11 +1538,10 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
                 //#. mark PendingDropOp on the existing index
                 MetadataManager.INSTANCE.dropIndex(mdTxnCtx, dataverseName, datasetName, indexName);
-                MetadataManager.INSTANCE.addIndex(
-                        mdTxnCtx,
-                        new Index(dataverseName, datasetName, indexName, index.getIndexType(),
-                                index.getKeyFieldNames(), index.getKeyFieldTypes(), index.isEnforcingKeyFileds(), index
-                                        .isPrimaryIndex(), IMetadataEntity.PENDING_DROP_OP));
+                MetadataManager.INSTANCE.addIndex(mdTxnCtx, new Index(dataverseName, datasetName, indexName, 
+                		index.getIndexType(), index.getIndexTypeProperty(), index.getKeyFieldNames(), 
+                		index.getKeyFieldTypes(), index.isEnforcingKeyFileds(), index.isPrimaryIndex(), 
+                		IMetadataEntity.PENDING_DROP_OP));
 
                 //#. commit the existing transaction before calling runJob.
                 MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
@@ -1597,11 +1602,10 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
                 //#. mark PendingDropOp on the existing index
                 MetadataManager.INSTANCE.dropIndex(mdTxnCtx, dataverseName, datasetName, indexName);
-                MetadataManager.INSTANCE.addIndex(
-                        mdTxnCtx,
-                        new Index(dataverseName, datasetName, indexName, index.getIndexType(),
-                                index.getKeyFieldNames(), index.getKeyFieldTypes(), index.isEnforcingKeyFileds(), index
-                                        .isPrimaryIndex(), IMetadataEntity.PENDING_DROP_OP));
+                MetadataManager.INSTANCE.addIndex(mdTxnCtx,
+                        new Index(dataverseName, datasetName, indexName, index.getIndexType(), index.getIndexTypeProperty(),
+                        		index.getKeyFieldNames(), index.getKeyFieldTypes(), index.isEnforcingKeyFileds(), 
+                        		index.isPrimaryIndex(), IMetadataEntity.PENDING_DROP_OP));
 
                 //#. commit the existing transaction before calling runJob.
                 MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
@@ -2411,25 +2415,32 @@ public class AqlTranslator extends AbstractAqlTranslator {
             if (ds.getDatasetType() == DatasetType.INTERNAL) {
                 for (int j = 0; j < indexes.size(); j++) {
                     if (indexes.get(j).isSecondaryIndex()) {
+                		
                         CompiledIndexCompactStatement cics = new CompiledIndexCompactStatement(dataverseName,
-                                datasetName, indexes.get(j).getIndexName(), indexes.get(j).getKeyFieldNames(), indexes
-                                        .get(j).getKeyFieldTypes(), indexes.get(j).isEnforcingKeyFileds(), indexes.get(
-                                        j).getGramLength(), indexes.get(j).getIndexType());
-
-                        Dataverse dataverse = MetadataManager.INSTANCE.getDataverse(
-                                metadataProvider.getMetadataTxnContext(), dataverseName);
-                        jobsToExecute.add(DatasetOperations.compactDatasetJobSpec(dataverse, datasetName,
-                                metadataProvider));
-
+                                datasetName, indexes.get(j).getIndexName(), indexes.get(j).getKeyFieldNames(), 
+                                indexes.get(j).getKeyFieldTypes(), indexes.get(j).getIndexType(), null,
+                                indexes.get(j).isEnforcingKeyFileds());
+                        ARecordType aRecordType = (ARecordType) dt.getDatatype();
+                        ARecordType enforcedType = null;
+                        if (cics.isEnforced()) {
+                            enforcedType = IntroduceSecondaryIndexInsertDeleteRule.createEnforcedType(aRecordType,
+                                    indexes.get(j));
+                        }
+                        jobsToExecute.add(IndexOperations.buildSecondaryIndexCompactJobSpec(cics, aRecordType,
+                        		enforcedType, metadataProvider, ds));
                     }
                 }
+                Dataverse dataverse = MetadataManager.INSTANCE.getDataverse(
+                        metadataProvider.getMetadataTxnContext(), dataverseName);
+                jobsToExecute.add(DatasetOperations.compactDatasetJobSpec(dataverse, datasetName,
+                        metadataProvider));
             } else {
                 for (int j = 0; j < indexes.size(); j++) {
                     if (!ExternalIndexingOperations.isFileIndex(indexes.get(j))) {
                         CompiledIndexCompactStatement cics = new CompiledIndexCompactStatement(dataverseName,
-                                datasetName, indexes.get(j).getIndexName(), indexes.get(j).getKeyFieldNames(), indexes
-                                        .get(j).getKeyFieldTypes(), indexes.get(j).isEnforcingKeyFileds(), indexes.get(
-                                        j).getGramLength(), indexes.get(j).getIndexType());
+                                datasetName, indexes.get(j).getIndexName(), indexes.get(j).getKeyFieldNames(), 
+                                indexes.get(j).getKeyFieldTypes(), indexes.get(j).getIndexType(), null,
+                                indexes.get(j).isEnforcingKeyFileds());
                         ARecordType aRecordType = (ARecordType) dt.getDatatype();
                         ARecordType enforcedType = null;
                         if (cics.isEnforced()) {
@@ -2438,9 +2449,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                         }
                         jobsToExecute.add(IndexOperations.buildSecondaryIndexCompactJobSpec(cics, aRecordType,
                                 enforcedType, metadataProvider, ds));
-
                     }
-
                 }
                 jobsToExecute.add(ExternalIndexingOperations.compactFilesIndexJobSpec(ds, metadataProvider));
             }

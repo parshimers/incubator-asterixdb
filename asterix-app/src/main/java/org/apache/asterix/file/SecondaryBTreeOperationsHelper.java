@@ -1,17 +1,22 @@
 /*
- * Copyright 2009-2013 by The Regents of the University of California
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * you may obtain a copy of the License from
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
  */
+
 package org.apache.asterix.file;
 
 import java.util.List;
@@ -20,6 +25,7 @@ import org.apache.asterix.common.api.ILocalResourceMetadata;
 import org.apache.asterix.common.config.AsterixStorageProperties;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.common.config.DatasetConfig.IndexType;
+import org.apache.asterix.common.config.DatasetConfig.IndexTypeProperty;
 import org.apache.asterix.common.config.GlobalConfig;
 import org.apache.asterix.common.config.IAsterixPropertiesProvider;
 import org.apache.asterix.common.context.AsterixVirtualBufferCacheProvider;
@@ -31,7 +37,11 @@ import org.apache.asterix.metadata.entities.Index;
 import org.apache.asterix.metadata.external.IndexingConstants;
 import org.apache.asterix.metadata.feeds.ExternalDataScanOperatorDescriptor;
 import org.apache.asterix.metadata.utils.ExternalDatasetsRegistry;
+import org.apache.asterix.om.types.ATypeTag;
+import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
+import org.apache.asterix.om.util.NonTaggedFormatUtil;
+import org.apache.asterix.runtime.evaluators.functions.ComputeInt64HilbertValueEvalFactory;
 import org.apache.asterix.transaction.management.opcallbacks.SecondaryIndexOperationTrackerProvider;
 import org.apache.asterix.transaction.management.resource.ExternalBTreeWithBuddyLocalResourceMetadata;
 import org.apache.asterix.transaction.management.resource.LSMBTreeLocalResourceMetadata;
@@ -59,6 +69,7 @@ import org.apache.hyracks.dataflow.std.base.AbstractOperatorDescriptor;
 import org.apache.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
 import org.apache.hyracks.dataflow.std.sort.ExternalSortOperatorDescriptor;
 import org.apache.hyracks.storage.am.btree.dataflow.BTreeSearchOperatorDescriptor;
+import org.apache.hyracks.storage.am.common.api.IBinaryTokenizerFactory;
 import org.apache.hyracks.storage.am.common.dataflow.AbstractTreeIndexOperatorDescriptor;
 import org.apache.hyracks.storage.am.common.dataflow.IIndexDataflowHelperFactory;
 import org.apache.hyracks.storage.am.common.dataflow.TreeIndexBulkLoadOperatorDescriptor;
@@ -67,27 +78,32 @@ import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallbackFactory;
 import org.apache.hyracks.storage.am.lsm.btree.dataflow.ExternalBTreeWithBuddyDataflowHelperFactory;
 import org.apache.hyracks.storage.am.lsm.btree.dataflow.LSMBTreeDataflowHelperFactory;
 import org.apache.hyracks.storage.am.lsm.common.dataflow.LSMTreeIndexCompactOperatorDescriptor;
+import org.apache.hyracks.storage.am.lsm.invertedindex.dataflow.BinaryTokenizerOperatorDescriptor;
 import org.apache.hyracks.storage.common.file.ILocalResourceFactoryProvider;
 import org.apache.hyracks.storage.common.file.LocalResource;
 
 public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelper {
 
+    private final IndexType indexType;
+    private IndexTypeProperty indexTypeProperty;
+
     protected SecondaryBTreeOperationsHelper(PhysicalOptimizationConfig physOptConf,
-            IAsterixPropertiesProvider propertiesProvider) {
+            IAsterixPropertiesProvider propertiesProvider, IndexType indexType) {
         super(physOptConf, propertiesProvider);
+        this.indexType = indexType;
     }
 
     @Override
     public JobSpecification buildCreationJobSpec() throws AsterixException, AlgebricksException {
         JobSpecification spec = JobSpecificationUtils.createJobSpecification();
-
         AsterixStorageProperties storageProperties = propertiesProvider.getStorageProperties();
         ILocalResourceFactoryProvider localResourceFactoryProvider;
         IIndexDataflowHelperFactory indexDataflowHelperFactory;
+
         if (dataset.getDatasetType() == DatasetType.INTERNAL) {
             //prepare a LocalResourceMetadata which will be stored in NC's local resource repository
             ILocalResourceMetadata localResourceMetadata = new LSMBTreeLocalResourceMetadata(secondaryTypeTraits,
-                    secondaryComparatorFactories, secondaryBloomFilterKeyFields, true, dataset.getDatasetId(),
+                    secondaryComparatorFactories, secondaryBloomFilterKeyFields, false, dataset.getDatasetId(),
                     mergePolicyFactory, mergePolicyFactoryProperties, filterTypeTraits, filterCmpFactories,
                     secondaryBTreeFields, secondaryFilterFields);
             localResourceFactoryProvider = new PersistentLocalResourceFactoryProvider(localResourceMetadata,
@@ -135,7 +151,7 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
              * In case of external data, this method is used to build loading jobs for both initial load on index creation
              * and transaction load on dataset referesh
              */
-
+            
             // Create external indexing scan operator
             ExternalDataScanOperatorDescriptor primaryScanOp = createExternalIndexingOp(spec);
 
@@ -151,6 +167,12 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
             AlgebricksMetaOperatorDescriptor selectOp = null;
             if (anySecondaryKeyIsNullable || isEnforcingKeyTypes) {
                 selectOp = createFilterNullsSelectOp(spec, numSecondaryKeys);
+            }
+
+            // Tokenizer op
+            AbstractOperatorDescriptor tokenizerOp = null;
+            if (indexType == IndexType.STATIC_HILBERT_BTREE) {
+                tokenizerOp = createTokenizerOp(spec, BuiltinType.ABINARY);
             }
 
             // Sort by secondary keys.
@@ -181,12 +203,24 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
                 spec.connect(new OneToOneConnectorDescriptor(spec), secondaryBulkLoadOp, 0, metaOp, 0);
                 root = metaOp;
             }
+            // Connect the operators.
             spec.connect(new OneToOneConnectorDescriptor(spec), sourceOp, 0, asterixAssignOp, 0);
             if (anySecondaryKeyIsNullable || isEnforcingKeyTypes) {
-                spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, selectOp, 0);
-                spec.connect(new OneToOneConnectorDescriptor(spec), selectOp, 0, sortOp, 0);
+                if (indexType == IndexType.STATIC_HILBERT_BTREE) {
+                    spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, selectOp, 0);
+                    spec.connect(new OneToOneConnectorDescriptor(spec), selectOp, 0, tokenizerOp, 0);
+                    spec.connect(new OneToOneConnectorDescriptor(spec), tokenizerOp, 0, sortOp, 0);
+                } else {
+                    spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, selectOp, 0);
+                    spec.connect(new OneToOneConnectorDescriptor(spec), selectOp, 0, sortOp, 0);
+                }
             } else {
-                spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, sortOp, 0);
+                if (indexType == IndexType.STATIC_HILBERT_BTREE) {
+                    spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, tokenizerOp, 0);
+                    spec.connect(new OneToOneConnectorDescriptor(spec), tokenizerOp, 0, sortOp, 0);
+                } else {
+                    spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, sortOp, 0);
+                }
             }
             spec.connect(new OneToOneConnectorDescriptor(spec), sortOp, 0, secondaryBulkLoadOp, 0);
             spec.addRoot(root);
@@ -213,6 +247,12 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
                 selectOp = createFilterNullsSelectOp(spec, numSecondaryKeys);
             }
 
+            // Tokenizer op
+            AbstractOperatorDescriptor tokenizerOp = null;
+            if (indexType == IndexType.STATIC_HILBERT_BTREE) {
+                tokenizerOp = createTokenizerOp(spec, BuiltinType.ABINARY);
+            }
+
             // Sort by secondary keys.
             ExternalSortOperatorDescriptor sortOp = createSortOp(spec, secondaryComparatorFactories, secondaryRecDesc);
 
@@ -236,10 +276,21 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
             spec.connect(new OneToOneConnectorDescriptor(spec), keyProviderOp, 0, primaryScanOp, 0);
             spec.connect(new OneToOneConnectorDescriptor(spec), sourceOp, 0, asterixAssignOp, 0);
             if (anySecondaryKeyIsNullable || isEnforcingKeyTypes) {
-                spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, selectOp, 0);
-                spec.connect(new OneToOneConnectorDescriptor(spec), selectOp, 0, sortOp, 0);
+                if (indexType == IndexType.STATIC_HILBERT_BTREE) {
+                    spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, selectOp, 0);
+                    spec.connect(new OneToOneConnectorDescriptor(spec), selectOp, 0, tokenizerOp, 0);
+                    spec.connect(new OneToOneConnectorDescriptor(spec), tokenizerOp, 0, sortOp, 0);
+                } else {
+                    spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, selectOp, 0);
+                    spec.connect(new OneToOneConnectorDescriptor(spec), selectOp, 0, sortOp, 0);
+                }
             } else {
-                spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, sortOp, 0);
+                if (indexType == IndexType.STATIC_HILBERT_BTREE) {
+                    spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, tokenizerOp, 0);
+                    spec.connect(new OneToOneConnectorDescriptor(spec), tokenizerOp, 0, sortOp, 0);
+                } else {
+                    spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, sortOp, 0);
+                }
             }
             spec.connect(new OneToOneConnectorDescriptor(spec), sortOp, 0, secondaryBulkLoadOp, 0);
             spec.connect(new OneToOneConnectorDescriptor(spec), secondaryBulkLoadOp, 0, metaOp, 0);
@@ -247,6 +298,22 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
             spec.setConnectorPolicyAssignmentPolicy(new ConnectorPolicyAssignmentPolicy());
             return spec;
         }
+    }
+
+    private AbstractOperatorDescriptor createTokenizerOp(JobSpecification spec, IAType tokenType)
+            throws AlgebricksException {
+        int tokenSourceFieldOffset = 0;
+        int[] primaryKeyFields = new int[numPrimaryKeys + numFilterFields];
+        for (int i = 0; i < primaryKeyFields.length; i++) {
+            primaryKeyFields[i] = numSecondaryKeys + i;
+        }
+        IBinaryTokenizerFactory tokenizerFactory = NonTaggedFormatUtil.getBinaryTokenizerFactory(
+                tokenType.getTypeTag(), indexType, indexTypeProperty);
+        BinaryTokenizerOperatorDescriptor tokenizerOp = new BinaryTokenizerOperatorDescriptor(spec, secondaryRecDesc,
+                tokenizerFactory, tokenSourceFieldOffset, primaryKeyFields, false, false, 1, false);
+        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, tokenizerOp,
+                primaryPartitionConstraint);
+        return tokenizerOp;
     }
 
     @Override
@@ -296,40 +363,86 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
 
     @Override
     @SuppressWarnings("rawtypes")
-    protected void setSecondaryRecDescAndComparators(IndexType indexType, List<List<String>> secondaryKeyFields,
-            List<IAType> secondaryKeyTypes, int gramLength, AqlMetadataProvider metadataProvider)
-            throws AlgebricksException, AsterixException {
+    protected void setSecondaryRecDescAndComparators(IndexTypeProperty indexTypeProperty, List<List<String>> secondaryKeyFields,
+    		List<IAType> secondaryKeyTypes, AqlMetadataProvider metadataProvider) throws AlgebricksException, AsterixException {
+        this.indexTypeProperty = indexTypeProperty;
+        int bloomfilterKeyFieldsCount = numSecondaryKeys;
+
+        if (indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE) {
+            /*
+             * DYNAMIC_HILBERTVALUE_BTREE index has the following fields in an entry.
+             * [ Hilbert value (AINT64) | point (APOINT) | PK ]
+             */
+            ++numSecondaryKeys;
+        }
+
         secondaryFieldAccessEvalFactories = new ICopyEvaluatorFactory[numSecondaryKeys + numFilterFields];
         secondaryComparatorFactories = new IBinaryComparatorFactory[numSecondaryKeys + numPrimaryKeys];
-        secondaryBloomFilterKeyFields = new int[numSecondaryKeys];
-        ISerializerDeserializer[] secondaryRecFields = new ISerializerDeserializer[numPrimaryKeys + numSecondaryKeys
-                + numFilterFields];
-        ISerializerDeserializer[] enforcedRecFields = new ISerializerDeserializer[1 + numPrimaryKeys + numFilterFields];
+        secondaryBloomFilterKeyFields = new int[bloomfilterKeyFieldsCount];
+
+        ISerializerDeserializer[] secondaryRecFieldsSerde = new ISerializerDeserializer[numSecondaryKeys
+                + numPrimaryKeys + numFilterFields];
         secondaryTypeTraits = new ITypeTraits[numSecondaryKeys + numPrimaryKeys];
+        ISerializerDeserializer[] enforcedRecFields = new ISerializerDeserializer[1 + numPrimaryKeys + numFilterFields];
         ITypeTraits[] enforcedTypeTraits = new ITypeTraits[1 + numPrimaryKeys];
+        
         ISerializerDeserializerProvider serdeProvider = metadataProvider.getFormat().getSerdeProvider();
         ITypeTraitProvider typeTraitProvider = metadataProvider.getFormat().getTypeTraitProvider();
         IBinaryComparatorFactoryProvider comparatorFactoryProvider = metadataProvider.getFormat()
                 .getBinaryComparatorFactoryProvider();
         // Record column is 0 for external datasets, numPrimaryKeys for internal ones
         int recordColumn = dataset.getDatasetType() == DatasetType.INTERNAL ? numPrimaryKeys : 0;
-        for (int i = 0; i < numSecondaryKeys; i++) {
-            secondaryFieldAccessEvalFactories[i] = metadataProvider.getFormat().getFieldAccessEvaluatorFactory(
-                    isEnforcingKeyTypes ? enforcedItemType : itemType, secondaryKeyFields.get(i), recordColumn);
-            Pair<IAType, Boolean> keyTypePair = Index.getNonNullableOpenFieldType(secondaryKeyTypes.get(i),
-                    secondaryKeyFields.get(i), itemType);
-            IAType keyType = keyTypePair.first;
+
+        if (indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE) {
+            //eval factory for Hilbert value generation
+            List<String> secondaryKeyFieldName = secondaryKeyFields.get(0);
+            
+            ICopyEvaluatorFactory pointEvalFactory = metadataProvider.getFormat().getFieldAccessEvaluatorFactory(
+            		isEnforcingKeyTypes ? enforcedItemType : itemType, secondaryKeyFieldName, recordColumn);
+            secondaryFieldAccessEvalFactories[0] = new ComputeInt64HilbertValueEvalFactory(pointEvalFactory);
+            secondaryRecFieldsSerde[0] = serdeProvider.getSerializerDeserializer(BuiltinType.AINT64);
+            secondaryComparatorFactories[0] = comparatorFactoryProvider.getBinaryComparatorFactory(BuiltinType.AINT64,
+                    true);
+            secondaryTypeTraits[0] = typeTraitProvider.getTypeTrait(BuiltinType.AINT64);
+            secondaryBloomFilterKeyFields[0] = 0;
+
+            //eval factory for point generation
+            secondaryFieldAccessEvalFactories[1] = metadataProvider.getFormat().getFieldAccessEvaluatorFactory(
+            		isEnforcingKeyTypes ? enforcedItemType : itemType, secondaryKeyFieldName, recordColumn);
+            secondaryRecFieldsSerde[1] = serdeProvider.getSerializerDeserializer(BuiltinType.APOINT);
+            secondaryComparatorFactories[1] = comparatorFactoryProvider.getBinaryComparatorFactory(BuiltinType.APOINT,
+                    true);
+            secondaryTypeTraits[1] = typeTraitProvider.getTypeTrait(BuiltinType.APOINT);
+
+            //set nullable flag
+            Pair<IAType, Boolean> keyTypePair = Index.getNonNullableOpenFieldType(BuiltinType.APOINT, secondaryKeyFieldName, itemType);
             anySecondaryKeyIsNullable = anySecondaryKeyIsNullable || keyTypePair.second;
-            ISerializerDeserializer keySerde = serdeProvider.getSerializerDeserializer(keyType);
-            secondaryRecFields[i] = keySerde;
-            secondaryComparatorFactories[i] = comparatorFactoryProvider.getBinaryComparatorFactory(keyType, true);
-            secondaryTypeTraits[i] = typeTraitProvider.getTypeTrait(keyType);
-            secondaryBloomFilterKeyFields[i] = i;
+        } else {
+            for (int i = 0; i < numSecondaryKeys; i++) {
+                secondaryFieldAccessEvalFactories[i] = metadataProvider.getFormat().getFieldAccessEvaluatorFactory(
+                		isEnforcingKeyTypes ? enforcedItemType : itemType, secondaryKeyFields.get(i), recordColumn);
+                Pair<IAType, Boolean> keyTypePair = Index.getNonNullableOpenFieldType(secondaryKeyTypes.get(i),
+                        secondaryKeyFields.get(i), itemType);
+                IAType keyType = keyTypePair.first;
+                anySecondaryKeyIsNullable = anySecondaryKeyIsNullable || keyTypePair.second;
+
+                if (indexType == IndexType.STATIC_HILBERT_BTREE && keyType.getTypeTag() == ATypeTag.POINT) {
+                    keyType = BuiltinType.ABINARY;
+                } else if (indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE && keyType.getTypeTag() == ATypeTag.POINT) {
+                    keyType = BuiltinType.AINT64;
+                }
+
+                secondaryRecFieldsSerde[i] = serdeProvider.getSerializerDeserializer(keyType);
+                secondaryComparatorFactories[i] = comparatorFactoryProvider.getBinaryComparatorFactory(keyType, true);
+                secondaryTypeTraits[i] = typeTraitProvider.getTypeTrait(keyType);
+                secondaryBloomFilterKeyFields[i] = i;
+            }
         }
+
         if (dataset.getDatasetType() == DatasetType.INTERNAL) {
             // Add serializers and comparators for primary index fields.
             for (int i = 0; i < numPrimaryKeys; i++) {
-                secondaryRecFields[numSecondaryKeys + i] = primaryRecDesc.getFields()[i];
+                secondaryRecFieldsSerde[numSecondaryKeys + i] = primaryRecDesc.getFields()[i];
                 enforcedRecFields[i] = primaryRecDesc.getFields()[i];
                 secondaryTypeTraits[numSecondaryKeys + i] = primaryRecDesc.getTypeTraits()[i];
                 enforcedTypeTraits[i] = primaryRecDesc.getTypeTraits()[i];
@@ -338,7 +451,7 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
         } else {
             // Add serializers and comparators for RID fields.
             for (int i = 0; i < numPrimaryKeys; i++) {
-                secondaryRecFields[numSecondaryKeys + i] = IndexingConstants.getSerializerDeserializer(i);
+                secondaryRecFieldsSerde[numSecondaryKeys + i] = IndexingConstants.getSerializerDeserializer(i);
                 enforcedRecFields[i] = IndexingConstants.getSerializerDeserializer(i);
                 secondaryTypeTraits[numSecondaryKeys + i] = IndexingConstants.getTypeTraits(i);
                 enforcedTypeTraits[i] = IndexingConstants.getTypeTraits(i);
@@ -346,18 +459,17 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
             }
         }
         enforcedRecFields[numPrimaryKeys] = serdeProvider.getSerializerDeserializer(itemType);
-
+        
         if (numFilterFields > 0) {
             secondaryFieldAccessEvalFactories[numSecondaryKeys] = metadataProvider.getFormat()
-                    .getFieldAccessEvaluatorFactory(itemType, filterFieldName, numPrimaryKeys);
+                    .getFieldAccessEvaluatorFactory(itemType, filterFieldName, recordColumn);
             Pair<IAType, Boolean> keyTypePair = Index.getNonNullableKeyFieldType(filterFieldName, itemType);
             IAType type = keyTypePair.first;
             ISerializerDeserializer serde = serdeProvider.getSerializerDeserializer(type);
-            secondaryRecFields[numPrimaryKeys + numSecondaryKeys] = serde;
+            secondaryRecFieldsSerde[numPrimaryKeys + numSecondaryKeys] = serde;
         }
-
-        secondaryRecDesc = new RecordDescriptor(secondaryRecFields, secondaryTypeTraits);
+        secondaryRecDesc = new RecordDescriptor(secondaryRecFieldsSerde, secondaryTypeTraits);
         enforcedRecDesc = new RecordDescriptor(enforcedRecFields, enforcedTypeTraits);
-
     }
+
 }
