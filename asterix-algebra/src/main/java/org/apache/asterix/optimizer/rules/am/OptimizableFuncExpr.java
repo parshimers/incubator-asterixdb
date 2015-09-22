@@ -57,7 +57,7 @@ public class OptimizableFuncExpr implements IOptimizableFuncExpr {
         this.fieldTypes = new IAType[logicalVars.length];
         this.subTrees = new OptimizableOperatorSubTree[logicalVars.length];
 
-        if (funcExpr.getFunctionIdentifier() == AsterixBuiltinFunctions.EDIT_DISTANCE_CONTAINS) {
+        if (funcExpr.getFunctionIdentifier() == AsterixBuiltinFunctions.EDIT_DISTANCE_CONTAINS_SUBSTRING) {
             this.partialField = true;
         } else {
             this.partialField = false;
@@ -78,7 +78,7 @@ public class OptimizableFuncExpr implements IOptimizableFuncExpr {
         }
         this.fieldTypes = new IAType[logicalVars.length];
         this.subTrees = new OptimizableOperatorSubTree[logicalVars.length];
-        if (funcExpr.getFunctionIdentifier() == AsterixBuiltinFunctions.EDIT_DISTANCE_CONTAINS) {
+        if (funcExpr.getFunctionIdentifier() == AsterixBuiltinFunctions.EDIT_DISTANCE_CONTAINS_SUBSTRING) {
             this.partialField = true;
         } else {
             this.partialField = false;

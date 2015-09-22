@@ -20,6 +20,7 @@ package org.apache.asterix.api.java;
 
 import java.io.PrintWriter;
 import java.io.Reader;
+import java.text.SimpleDateFormat;
 import java.util.List;
 
 import org.apache.asterix.api.common.APIFramework;
@@ -34,6 +35,8 @@ import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.job.JobSpecification;
+import org.apache.hyracks.api.util.ExecutionTimeProfiler;
+import org.apache.hyracks.api.util.OperatorExecutionTimeProfiler;
 
 public class AsterixJavaClient {
     private IHyracksClientConnection hcc;
@@ -72,6 +75,7 @@ public class AsterixJavaClient {
             builder.append((char) ch);
         }
         AQLParser parser = new AQLParser(builder.toString());
+
         List<Statement> aqlStatements;
         try {
             aqlStatements = parser.parse();

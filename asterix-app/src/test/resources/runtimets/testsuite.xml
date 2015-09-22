@@ -2479,6 +2479,11 @@
     </test-group> -->
     <test-group name="index-join">
         <test-case FilePath="index-join">
+            <compilation-unit name="btree-index-nested-loop-join">
+                <output-dir compare="Text">btree-index-nested-loop-join</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-join">
             <compilation-unit name="btree-primary-equi-join">
                 <output-dir compare="Text">btree-primary-equi-join</output-dir>
             </compilation-unit>
@@ -2489,8 +2494,53 @@
             </compilation-unit>
         </test-case>
         <test-case FilePath="index-join">
-            <compilation-unit name="rtree-spatial-intersect-point">
-                <output-dir compare="Text">rtree-spatial-intersect-point</output-dir>
+            <compilation-unit name="btree-secondary-equi-join_01">
+                <output-dir compare="Text">btree-secondary-equi-join_01</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-join">
+            <compilation-unit name="btree-secondary-equi-join_02">
+                <output-dir compare="Text">btree-secondary-equi-join_02</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-join">
+            <compilation-unit name="btree-secondary-equi-join_03">
+                <output-dir compare="Text">btree-secondary-equi-join_03</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-join">
+            <compilation-unit name="btree-secondary-equi-join_04">
+                <output-dir compare="Text">btree-secondary-equi-join_04</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-join">
+            <compilation-unit name="rtree-spatial-intersect-point_01">
+                <output-dir compare="Text">rtree-spatial-intersect-point_01</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-join">
+            <compilation-unit name="rtree-spatial-intersect-point_02">
+                <output-dir compare="Text">rtree-spatial-intersect-point_02</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-join">
+            <compilation-unit name="rtree-spatial-intersect-point_03">
+                <output-dir compare="Text">rtree-spatial-intersect-point_03</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-join">
+            <compilation-unit name="rtree-spatial-intersect-point_04">
+                <output-dir compare="Text">rtree-spatial-intersect-point_04</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-join">
+            <compilation-unit name="rtree-spatial-intersect-point_05">
+                <output-dir compare="Text">rtree-spatial-intersect-point_05</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-join">
+            <compilation-unit name="invertedindex-secondary-fulltext-search-contains-join_01">
+                <output-dir compare="Text">invertedindex-secondary-fulltext-search-contains-join_01</output-dir>
             </compilation-unit>
         </test-case>
     </test-group>
@@ -2516,8 +2566,8 @@
             </compilation-unit>
         </test-case>
         <test-case FilePath="index-selection">
-            <compilation-unit name="inverted-index-ngram-contains">
-                <output-dir compare="Text">inverted-index-ngram-contains</output-dir>
+            <compilation-unit name="inverted-index-ngram-contains-substring">
+                <output-dir compare="Text">inverted-index-ngram-contains-substring</output-dir>
             </compilation-unit>
         </test-case>
         <test-case FilePath="index-selection">
@@ -2541,8 +2591,8 @@
             </compilation-unit>
         </test-case>
         <test-case FilePath="index-selection">
-            <compilation-unit name="inverted-index-ngram-edit-distance-contains">
-                <output-dir compare="Text">inverted-index-ngram-edit-distance-contains</output-dir>
+            <compilation-unit name="inverted-index-ngram-edit-distance-contains-substring">
+                <output-dir compare="Text">inverted-index-ngram-edit-distance-contains-substring</output-dir>
             </compilation-unit>
         </test-case>
         <test-case FilePath="index-selection">
@@ -2566,8 +2616,8 @@
             </compilation-unit>
         </test-case>
         <test-case FilePath="index-selection">
-            <compilation-unit name="inverted-index-word-contains">
-                <output-dir compare="Text">inverted-index-word-contains</output-dir>
+            <compilation-unit name="inverted-index-word-contains-substring">
+                <output-dir compare="Text">inverted-index-word-contains-substring</output-dir>
             </compilation-unit>
         </test-case>
         <test-case FilePath="index-selection">
@@ -2623,6 +2673,147 @@
         <test-case FilePath="index-selection">
             <compilation-unit name="rtree-secondary-index-circular-query">
                 <output-dir compare="Text">rtree-secondary-index-circular-query</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="btree-secondary-index-indexonly-plan-01">
+                <output-dir compare="Text">btree-secondary-index-indexonly-plan-01</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="btree-secondary-index-indexonly-plan-02">
+                <output-dir compare="Text">btree-secondary-index-indexonly-plan-02</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="btree-secondary-index-indexonly-plan-03">
+                <output-dir compare="Text">btree-secondary-index-indexonly-plan-03</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="btree-secondary-index-indexonly-plan-04">
+                <output-dir compare="Text">btree-secondary-index-indexonly-plan-04</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="btree-secondary-index-indexonly-plan-05">
+                <output-dir compare="Text">btree-secondary-index-indexonly-plan-05</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="btree-secondary-index-indexonly-plan-06">
+                <output-dir compare="Text">btree-secondary-index-indexonly-plan-06</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="btree-secondary-index-indexonly-plan-07">
+                <output-dir compare="Text">btree-secondary-index-indexonly-plan-07</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="btree-secondary-index-indexonly-plan-08">
+                <output-dir compare="Text">btree-secondary-index-indexonly-plan-08</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="btree-secondary-index-indexonly-plan-limit-orderby-01">
+                <output-dir compare="Text">btree-secondary-index-indexonly-plan-limit-orderby-01</output-dir>
+            </compilation-unit>
+        </test-case>
+
+        <test-case FilePath="index-selection">
+            <compilation-unit name="btree-secondary-index-non-indexonly-plan-01">
+                <output-dir compare="Text">btree-secondary-index-non-indexonly-plan-01</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="btree-secondary-index-non-indexonly-plan-limit-orderby-01">
+                <output-dir compare="Text">btree-secondary-index-non-indexonly-plan-limit-orderby-01</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="btree-secondary-composite-index-indexonly-plan-01">
+                <output-dir compare="Text">btree-secondary-composite-index-indexonly-plan-01</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="btree-secondary-composite-index-indexonly-plan-02">
+                <output-dir compare="Text">btree-secondary-composite-index-indexonly-plan-02</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="btree-secondary-composite-index-indexonly-plan-03">
+                <output-dir compare="Text">btree-secondary-composite-index-indexonly-plan-03</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="rtree-secondary-index-indexonly-plan-01">
+                <output-dir compare="Text">rtree-secondary-index-indexonly-plan-01</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="rtree-secondary-index-indexonly-plan-02">
+                <output-dir compare="Text">rtree-secondary-index-indexonly-plan-02</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="rtree-secondary-index-indexonly-plan-03">
+                <output-dir compare="Text">rtree-secondary-index-indexonly-plan-03</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="rtree-secondary-index-indexonly-plan-04">
+                <output-dir compare="Text">rtree-secondary-index-indexonly-plan-04</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="rtree-secondary-index-indexonly-plan-05">
+                <output-dir compare="Text">rtree-secondary-index-indexonly-plan-05</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="rtree-secondary-index-indexonly-plan-06">
+                <output-dir compare="Text">rtree-secondary-index-indexonly-plan-06</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="rtree-secondary-index-indexonly-plan-07">
+                <output-dir compare="Text">rtree-secondary-index-indexonly-plan-07</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="rtree-secondary-index-indexonly-plan-08">
+                <output-dir compare="Text">rtree-secondary-index-indexonly-plan-08</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="rtree-secondary-index-indexonly-plan-09">
+                <output-dir compare="Text">rtree-secondary-index-indexonly-plan-09</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="rtree-secondary-index-non-indexonly-plan-01">
+                <output-dir compare="Text">rtree-secondary-index-non-indexonly-plan-01</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="inverted-index-fulltext-secondary-index-indexonly-plan-01">
+                <output-dir compare="Text">inverted-index-fulltext-secondary-index-indexonly-plan-01</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="inverted-index-fulltext-secondary-index-indexonly-plan-02">
+                <output-dir compare="Text">inverted-index-fulltext-secondary-index-indexonly-plan-02</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="inverted-index-fulltext-secondary-index-indexonly-plan-03">
+                <output-dir compare="Text">inverted-index-fulltext-secondary-index-indexonly-plan-03</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="index-selection">
+            <compilation-unit name="inverted-index-fulltext-secondary-index-non-indexonly-plan-01">
+                <output-dir compare="Text">inverted-index-fulltext-secondary-index-non-indexonly-plan-01</output-dir>
             </compilation-unit>
         </test-case>
         <test-case FilePath="index-selection">
@@ -3046,8 +3237,8 @@
                 </compilation-unit>
             </test-case>
             <test-case FilePath="open-index-enforced/index-selection">
-                <compilation-unit name="inverted-index-ngram-contains">
-                    <output-dir compare="Text">inverted-index-ngram-contains</output-dir>
+                <compilation-unit name="inverted-index-ngram-contains-substring">
+                    <output-dir compare="Text">inverted-index-ngram-contains-substring</output-dir>
                 </compilation-unit>
             </test-case>
             <test-case FilePath="open-index-enforced/index-selection">
@@ -3056,8 +3247,8 @@
                 </compilation-unit>
             </test-case>
             <test-case FilePath="open-index-enforced/index-selection">
-                <compilation-unit name="inverted-index-ngram-edit-distance-contains">
-                    <output-dir compare="Text">inverted-index-ngram-edit-distance-contains</output-dir>
+                <compilation-unit name="inverted-index-ngram-edit-distance-contains-substring">
+                    <output-dir compare="Text">inverted-index-ngram-edit-distance-contains-substring</output-dir>
                 </compilation-unit>
             </test-case>
             <test-case FilePath="open-index-enforced/index-selection">
@@ -3076,8 +3267,8 @@
                 </compilation-unit>
             </test-case>
             <test-case FilePath="open-index-enforced/index-selection">
-                <compilation-unit name="inverted-index-word-contains">
-                    <output-dir compare="Text">inverted-index-word-contains</output-dir>
+                <compilation-unit name="inverted-index-word-contains-substring">
+                    <output-dir compare="Text">inverted-index-word-contains-substring</output-dir>
                 </compilation-unit>
             </test-case>
             <test-case FilePath="open-index-enforced/index-selection">
@@ -3221,8 +3412,8 @@
                 </compilation-unit>
             </test-case>
             <test-case FilePath="nested-open-index/index-selection">
-                <compilation-unit name="inverted-index-ngram-contains">
-                    <output-dir compare="Text">inverted-index-ngram-contains</output-dir>
+                <compilation-unit name="inverted-index-ngram-contains-substring">
+                    <output-dir compare="Text">inverted-index-ngram-contains-substring</output-dir>
                 </compilation-unit>
             </test-case>
             <test-case FilePath="nested-open-index/index-selection">
@@ -3231,8 +3422,8 @@
                 </compilation-unit>
             </test-case>
             <test-case FilePath="nested-open-index/index-selection">
-                <compilation-unit name="inverted-index-ngram-edit-distance-contains">
-                    <output-dir compare="Text">inverted-index-ngram-edit-distance-contains</output-dir>
+                <compilation-unit name="inverted-index-ngram-edit-distance-contains-substring">
+                    <output-dir compare="Text">inverted-index-ngram-edit-distance-contains-substring</output-dir>
                 </compilation-unit>
             </test-case>
             <test-case FilePath="nested-open-index/index-selection">
@@ -3251,8 +3442,8 @@
                 </compilation-unit>
             </test-case>
             <test-case FilePath="nested-open-index/index-selection">
-                <compilation-unit name="inverted-index-word-contains">
-                    <output-dir compare="Text">inverted-index-word-contains</output-dir>
+                <compilation-unit name="inverted-index-word-contains-substring">
+                    <output-dir compare="Text">inverted-index-word-contains-substring</output-dir>
                 </compilation-unit>
             </test-case>
             <test-case FilePath="nested-open-index/index-selection">
@@ -3428,8 +3619,8 @@
                 </compilation-unit>
             </test-case>
             <test-case FilePath="nested-index/index-selection">
-                <compilation-unit name="inverted-index-ngram-contains">
-                    <output-dir compare="Text">inverted-index-ngram-contains</output-dir>
+                <compilation-unit name="inverted-index-ngram-contains-substring">
+                    <output-dir compare="Text">inverted-index-ngram-contains-substring</output-dir>
                 </compilation-unit>
             </test-case>
             <test-case FilePath="nested-index/index-selection">
@@ -3438,8 +3629,8 @@
                 </compilation-unit>
             </test-case>
             <test-case FilePath="nested-index/index-selection">
-                <compilation-unit name="inverted-index-ngram-edit-distance-contains">
-                    <output-dir compare="Text">inverted-index-ngram-edit-distance-contains</output-dir>
+                <compilation-unit name="inverted-index-ngram-edit-distance-contains-substring">
+                    <output-dir compare="Text">inverted-index-ngram-edit-distance-contains-substring</output-dir>
                 </compilation-unit>
             </test-case>
             <test-case FilePath="nested-index/index-selection">
@@ -3478,8 +3669,8 @@
                 </compilation-unit>
             </test-case>
             <test-case FilePath="nested-index/index-selection">
-                <compilation-unit name="inverted-index-word-contains">
-                    <output-dir compare="Text">inverted-index-word-contains</output-dir>
+                <compilation-unit name="inverted-index-word-contains-substring">
+                    <output-dir compare="Text">inverted-index-word-contains-substring</output-dir>
                 </compilation-unit>
             </test-case>
             <test-case FilePath="nested-index/index-selection">
@@ -4755,8 +4946,8 @@
             </compilation-unit>
         </test-case>
         <test-case FilePath="string">
-            <compilation-unit name="contains_01">
-                <output-dir compare="Text">contains_01</output-dir>
+            <compilation-unit name="contains-substring_01">
+                <output-dir compare="Text">contains-substring_01</output-dir>
             </compilation-unit>
         </test-case>
         <test-case FilePath="string">
@@ -6725,6 +6916,18 @@
         <test-case FilePath="binary">
             <compilation-unit name="length">
                 <output-dir compare="Text">length</output-dir>
+            </compilation-unit>
+        </test-case>
+    </test-group>
+    <test-group name="fulltextsearch">
+        <test-case FilePath="fulltextsearch">
+            <compilation-unit name="load-dataset-without-index">
+                <output-dir compare="Text">load-dataset-without-index</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="fulltextsearch">
+            <compilation-unit name="load-with-fulltext-index">
+                <output-dir compare="Text">load-with-fulltext-index</output-dir>
             </compilation-unit>
         </test-case>
     </test-group>

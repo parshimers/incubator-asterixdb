@@ -37,7 +37,12 @@ public class PrimaryIndexInstantSearchOperationCallbackFactory extends AbstractO
 
     public PrimaryIndexInstantSearchOperationCallbackFactory(JobId jobId, int datasetId, int[] entityIdFields,
             ITransactionSubsystemProvider txnSubsystemProvider, byte resourceType) {
-        super(jobId, datasetId, entityIdFields, txnSubsystemProvider, resourceType);
+        this(jobId, datasetId, entityIdFields, txnSubsystemProvider, resourceType, false);
+    }
+
+    public PrimaryIndexInstantSearchOperationCallbackFactory(JobId jobId, int datasetId, int[] entityIdFields,
+            ITransactionSubsystemProvider txnSubsystemProvider, byte resourceType, boolean isIndexOnlyPlanEnabled) {
+        super(jobId, datasetId, entityIdFields, txnSubsystemProvider, resourceType, isIndexOnlyPlanEnabled);
     }
 
     @Override
@@ -46,7 +51,7 @@ public class PrimaryIndexInstantSearchOperationCallbackFactory extends AbstractO
         ITransactionSubsystem txnSubsystem = txnSubsystemProvider.getTransactionSubsystem(ctx);
         try {
             ITransactionContext txnCtx = txnSubsystem.getTransactionManager().getTransactionContext(jobId, false);
-            return new PrimaryIndexInstantSearchOperationCallback(datasetId, primaryKeyFields,
+            return new PrimaryIndexInstantRecordSearchOperationCallback(datasetId, primaryKeyFields,
                     txnSubsystem.getLockManager(), txnCtx);
         } catch (ACIDException e) {
             throw new HyracksDataException(e);

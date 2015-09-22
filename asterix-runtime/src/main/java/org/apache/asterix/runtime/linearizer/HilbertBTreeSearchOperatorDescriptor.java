@@ -47,6 +47,9 @@ public class HilbertBTreeSearchOperatorDescriptor extends AbstractTreeIndexOpera
     protected final boolean highKeyInclusive;
     private final int[] minFilterFieldIndexes;
     private final int[] maxFilterFieldIndexes;
+    protected boolean useOpercationCallbackProceedReturnResult;
+    protected byte[] valuesForUseOperationCallbackProceedReturnResult;
+    protected long limitNumberOfResult;
 
     public HilbertBTreeSearchOperatorDescriptor(IOperatorDescriptorRegistry spec, RecordDescriptor recDesc,
             IStorageManagerInterface storageManager, IIndexLifecycleManagerProvider lifecycleManagerProvider,
@@ -55,7 +58,8 @@ public class HilbertBTreeSearchOperatorDescriptor extends AbstractTreeIndexOpera
             int[] highKeyFields, boolean lowKeyInclusive, boolean highKeyInclusive,
             IIndexDataflowHelperFactory dataflowHelperFactory, boolean retainInput, boolean retainNull,
             INullWriterFactory nullWriterFactory, ISearchOperationCallbackFactory searchOpCallbackProvider,
-            int[] minFilterFieldIndexes, int[] maxFilterFieldIndexes) {
+            int[] minFilterFieldIndexes, int[] maxFilterFieldIndexes, boolean useOpercationCallbackProceedReturnResult,
+            byte[] valuesForUseOperationCallbackProceedReturnResult, long limitNumberOfResult) {
         super(spec, 1, 1, recDesc, storageManager, lifecycleManagerProvider, fileSplitProvider, typeTraits,
                 comparatorFactories, bloomFilterKeyFields, dataflowHelperFactory, null, retainInput, retainNull,
                 nullWriterFactory, NoOpLocalResourceFactoryProvider.INSTANCE, searchOpCallbackProvider,
@@ -66,6 +70,9 @@ public class HilbertBTreeSearchOperatorDescriptor extends AbstractTreeIndexOpera
         this.highKeyInclusive = highKeyInclusive;
         this.minFilterFieldIndexes = minFilterFieldIndexes;
         this.maxFilterFieldIndexes = maxFilterFieldIndexes;
+        this.useOpercationCallbackProceedReturnResult = useOpercationCallbackProceedReturnResult;
+        this.valuesForUseOperationCallbackProceedReturnResult = valuesForUseOperationCallbackProceedReturnResult;
+        this.limitNumberOfResult = limitNumberOfResult;
     }
 
     @Override
@@ -73,5 +80,20 @@ public class HilbertBTreeSearchOperatorDescriptor extends AbstractTreeIndexOpera
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
         return new HilbertBTreeSearchOperatorNodePushable(this, ctx, partition, recordDescProvider, lowKeyFields,
                 highKeyFields, lowKeyInclusive, highKeyInclusive, minFilterFieldIndexes, maxFilterFieldIndexes);
+    }
+    
+    @Override
+    public boolean getUseOpercationCallbackProceedReturnResult() {
+        return useOpercationCallbackProceedReturnResult;
+    }
+
+    @Override
+    public byte[] getValuesForOpercationCallbackProceedReturnResult() {
+        return valuesForUseOperationCallbackProceedReturnResult;
+    }
+
+    @Override
+    public long getLimitNumberOfResult() {
+        return limitNumberOfResult;
     }
 }

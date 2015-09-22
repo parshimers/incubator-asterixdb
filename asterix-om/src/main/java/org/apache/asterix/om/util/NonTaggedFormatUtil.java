@@ -210,9 +210,8 @@ public final class NonTaggedFormatUtil {
                                 indexTypeProperty.levelDensity, indexTypeProperty.cellsPerObject, false);
 
                     default:
-                        return AqlBinaryTokenizerFactoryProvider.INSTANCE.getWordTokenizerFactory(keyType, false);
+                        return AqlBinaryTokenizerFactoryProvider.INSTANCE.getWordTokenizerFactory(keyType, false, false);
                 }
-
             }
             
             case SINGLE_PARTITION_NGRAM_INVIX:

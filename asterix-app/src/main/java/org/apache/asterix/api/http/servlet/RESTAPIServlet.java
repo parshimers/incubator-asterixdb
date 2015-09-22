@@ -21,6 +21,7 @@ package org.apache.asterix.api.http.servlet;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.logging.Level;
 
@@ -48,6 +49,8 @@ import org.apache.asterix.result.ResultReader;
 import org.apache.asterix.result.ResultUtils;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.dataset.IHyracksDataset;
+import org.apache.hyracks.api.util.ExecutionTimeProfiler;
+import org.apache.hyracks.api.util.OperatorExecutionTimeProfiler;
 import org.apache.hyracks.client.dataset.HyracksDataset;
 
 abstract class RESTAPIServlet extends HttpServlet {
@@ -153,12 +156,24 @@ abstract class RESTAPIServlet extends HttpServlet {
             }
 
             AQLParser parser = new AQLParser(query);
+
+//            if(ExperimentProfiler.PROFILE_MODE) {
+//                OperatorExecutionTimeProfiler.INSTANCE.executionTimeProfiler.add("RESTAPIServlet", "Initialized", false);
+//            }
+
             List<Statement> aqlStatements = parser.parse();
             if (!containsForbiddenStatements(aqlStatements)) {
                 MetadataManager.INSTANCE.init();
                 AqlTranslator aqlTranslator = new AqlTranslator(aqlStatements, sessionConfig);
                 aqlTranslator.compileAndExecute(hcc, hds, resultDelivery);
             }
+
+//            if(ExperimentProfiler.PROFILE_MODE) {
+//            	String messageToWrite = "\n\n" + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss,SSS").format(System.currentTimeMillis()) + "\t***** Query:\n" + query;
+//                OperatorExecutionTimeProfiler.INSTANCE.executionTimeProfiler.add("RESTAPIServlet", messageToWrite + "\n\n", false);
+//            }
+
+
         } catch (ParseException | TokenMgrError | org.apache.asterix.aqlplus.parser.TokenMgrError pe) {
             GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, pe.getMessage(), pe);
             String errorMessage = ResultUtils.buildParseExceptionMessage(pe, query);

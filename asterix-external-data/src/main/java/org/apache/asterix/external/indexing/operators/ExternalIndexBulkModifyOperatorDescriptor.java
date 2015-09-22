@@ -66,4 +66,10 @@ public class ExternalIndexBulkModifyOperatorDescriptor extends AbstractTreeIndex
                 numElementsHint, recordDescProvider, deletedFiles);
     }
 
+    @Override
+    public boolean getUseOpercationCallbackProceedReturnResult() {
+        // TODO Auto-generated method stub
+        return false;
+    }
+
 }

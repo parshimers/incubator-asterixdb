@@ -36,10 +36,14 @@ import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 public class PrimaryIndexModificationOperationCallback extends AbstractIndexModificationOperationCallback implements
         IModificationOperationCallback {
 
+    // For the temporary experiment
+    //    Random randomValueGenerator = null;
+
     public PrimaryIndexModificationOperationCallback(int datasetId, int[] primaryKeyFields, ITransactionContext txnCtx,
             ILockManager lockManager, ITransactionSubsystem txnSubsystem, long resourceId, byte resourceType,
             IndexOperation indexOp) {
         super(datasetId, primaryKeyFields, txnCtx, lockManager, txnSubsystem, resourceId, resourceType, indexOp);
+        //        this.randomValueGenerator = new Random(System.currentTimeMillis());
     }
 
     @Override
@@ -47,6 +51,13 @@ public class PrimaryIndexModificationOperationCallback extends AbstractIndexModi
         int pkHash = computePrimaryKeyHashValue(tuple, primaryKeyFields);
         try {
             lockManager.lock(datasetId, pkHash, LockMode.X, txnCtx);
+            // Temporary for the experiment
+            //            try {
+            //                Thread.sleep(randomValueGenerator.nextInt(501));// QUERY
+            //            } catch (InterruptedException e1) {
+            //                // TODO Auto-generated catch block
+            //                e1.printStackTrace();
+            //            }
         } catch (ACIDException e) {
             throw new HyracksDataException(e);
         }

@@ -66,7 +66,7 @@ public class ExternalLoopkupOperatorDiscriptor extends AbstractTreeIndexOperator
             final IRecordDescriptorProvider recordDescProvider, final int partition, int nPartitions)
             throws HyracksDataException {
         // Create a file index accessor to be used for files lookup operations
-        // Note that all file index accessors will use partition 0 since we only have 1 files index per NC 
+        // Note that all file index accessors will use partition 0 since we only have 1 files index per NC
         final ExternalFileIndexAccessor fileIndexAccessor = new ExternalFileIndexAccessor(
                 (ExternalBTreeDataflowHelper) dataflowHelperFactory.createIndexDataflowHelper(this, ctx, partition),
                 this);

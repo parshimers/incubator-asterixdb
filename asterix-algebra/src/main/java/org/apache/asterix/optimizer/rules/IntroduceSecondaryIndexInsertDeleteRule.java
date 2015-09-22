@@ -441,7 +441,7 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
 
             } else if (indexType == IndexType.RTREE) {
                 Pair<IAType, Boolean> keyPairType = Index
-                        .getNonNullableKeyFieldType(secondaryKeyFields.get(0), recType);
+                        .getNonNullableOpenFieldType(secondaryKeyTypes.get(0), secondaryKeyFields.get(0), recType);
                 IAType spatialType = keyPairType.first;
                 boolean isPointMBR = spatialType.getTypeTag() == ATypeTag.POINT
                         || spatialType.getTypeTag() == ATypeTag.POINT3D;

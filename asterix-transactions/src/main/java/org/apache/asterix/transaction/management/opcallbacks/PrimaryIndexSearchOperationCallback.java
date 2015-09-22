@@ -57,7 +57,12 @@ public class PrimaryIndexSearchOperationCallback extends AbstractOperationCallba
     }
 
     @Override
-    public void cancel(ITupleReference tuple) throws HyracksDataException {
+    public void cancelReconcile(ITupleReference tuple) throws HyracksDataException {
+        //no op
+    }
+
+    @Override
+    public void cancelProceed(ITupleReference tuple) throws HyracksDataException {
         //no op
     }
 
@@ -65,4 +70,5 @@ public class PrimaryIndexSearchOperationCallback extends AbstractOperationCallba
     public void complete(ITupleReference tuple) throws HyracksDataException {
         //no op
     }
+
 }

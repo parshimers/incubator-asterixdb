@@ -25,6 +25,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.logging.Level;
 
@@ -56,6 +57,10 @@ public class APIServlet extends HttpServlet {
     private static final String HYRACKS_CONNECTION_ATTR = "org.apache.asterix.HYRACKS_CONNECTION";
 
     private static final String HYRACKS_DATASET_ATTR = "org.apache.asterix.HYRACKS_DATASET";
+
+    // For Experiment Profiler
+    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss,SSS");
+    String messageToWrite;
 
     @Override
     public void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -99,6 +104,7 @@ public class APIServlet extends HttpServlet {
                 }
             }
             AQLParser parser = new AQLParser(query);
+
             List<Statement> aqlStatements = parser.parse();
             SessionConfig sessionConfig = new SessionConfig(out, format, true, isSet(executeQuery), true);
             sessionConfig.set(SessionConfig.FORMAT_HTML, true);
@@ -109,11 +115,25 @@ public class APIServlet extends HttpServlet {
             AqlTranslator aqlTranslator = new AqlTranslator(aqlStatements, sessionConfig);
             double duration = 0;
             long startTime = System.currentTimeMillis();
+
+            // For Experiment Profiler
+            //            if(ExperimentProfiler.PROFILE_MODE) {
+            //            	messageToWrite = "\n\n" + sdf.format(startTime) + "\t***** Query:\n" + query;
+            //                OperatorExecutionTimeProfiler.INSTANCE.executionTimeProfiler.add("APIServlet", messageToWrite + "\n", false);
+            //            }
+
             aqlTranslator.compileAndExecute(hcc, hds, AqlTranslator.ResultDelivery.SYNC);
             long endTime = System.currentTimeMillis();
             duration = (endTime - startTime) / 1000.00;
             out.println(APIFramework.HTML_STATEMENT_SEPARATOR);
             out.println("<PRE>Duration of all jobs: " + duration + " sec</PRE>");
+
+            // For Experiment Profiler
+            //            if(ExperimentProfiler.PROFILE_MODE) {
+            //            	messageToWrite = sdf.format(System.currentTimeMillis()) + "\t***** Query Duration: " + duration;
+            //                OperatorExecutionTimeProfiler.INSTANCE.executionTimeProfiler.add("APIServlet", messageToWrite + "\n", true);
+            //            }
+
         } catch (ParseException | TokenMgrError | org.apache.asterix.aqlplus.parser.TokenMgrError pe) {
             GlobalConfig.ASTERIX_LOGGER.log(Level.INFO, pe.toString(), pe);
             ResultUtils.webUIParseExceptionHandler(out, pe, query);

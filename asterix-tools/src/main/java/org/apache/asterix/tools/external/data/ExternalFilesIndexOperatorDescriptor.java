@@ -162,4 +162,10 @@ public class ExternalFilesIndexOperatorDescriptor extends AbstractTreeIndexOpera
         };
     }
 
+    @Override
+    public boolean getUseOpercationCallbackProceedReturnResult() {
+        // TODO Auto-generated method stub
+        return false;
+    }
+
 }

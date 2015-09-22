@@ -61,6 +61,7 @@ import org.apache.hyracks.algebricks.core.algebra.operators.logical.RunningAggre
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.ScriptOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.SelectOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.SinkOperator;
+import org.apache.hyracks.algebricks.core.algebra.operators.logical.SplitOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.SubplanOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.TokenizeOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.UnionAllOperator;
@@ -378,6 +379,12 @@ public class LogicalOperatorDeepCopyVisitor implements ILogicalOperatorVisitor<I
         copyAnnotations(op, opCopy);
         opCopy.setExecutionMode(op.getExecutionMode());
         return opCopy;
+    }
+
+    @Override
+    public ILogicalOperator visitSplitOperator(SplitOperator op, ILogicalOperator arg)
+            throws AlgebricksException {
+        throw new UnsupportedOperationException();
     }
 
     @Override

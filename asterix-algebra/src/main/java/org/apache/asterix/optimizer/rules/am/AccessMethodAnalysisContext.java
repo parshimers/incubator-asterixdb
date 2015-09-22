@@ -23,13 +23,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-import org.apache.commons.lang3.mutable.Mutable;
-
 import org.apache.asterix.metadata.entities.Dataset;
 import org.apache.asterix.metadata.entities.Index;
+import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.hyracks.algebricks.common.utils.Pair;
+import org.apache.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import org.apache.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import org.apache.hyracks.algebricks.core.algebra.expressions.ScalarFunctionCallExpression;
+import org.apache.hyracks.algebricks.core.algebra.operators.logical.OrderOperator.IOrder;
 
 /**
  * Context for analyzing the applicability of a single access method.
@@ -39,19 +40,28 @@ public class AccessMethodAnalysisContext {
     public List<IOptimizableFuncExpr> matchedFuncExprs = new ArrayList<IOptimizableFuncExpr>();
 
     // Contains candidate indexes and a list of (integer,integer) tuples that index into matchedFuncExprs and matched variable inside this expr.
-    // We are mapping from candidate indexes to a list of function expressions 
+    // We are mapping from candidate indexes to a list of function expressions
     // that match one of the index's expressions.
     public Map<Index, List<Pair<Integer, Integer>>> indexExprsAndVars = new TreeMap<Index, List<Pair<Integer, Integer>>>();
 
     // Maps from index to the dataset it is indexing.
     public Map<Index, Dataset> indexDatasetMap = new TreeMap<Index, Dataset>();
-    
+
     // Maps from an index to the number of matched fields in the query plan (for performing prefix search)
     public Map<Index, Integer> indexNumMatchedKeys = new TreeMap<Index, Integer>();
 
     // variables for resetting null placeholder for left-outer-join
     private Mutable<ILogicalOperator> lojGroupbyOpRef = null;
     private ScalarFunctionCallExpression lojIsNullFuncInGroupBy = null;
+
+    // For a secondary index, if we use only PK and secondary key field in a plan, it is an index-only plan.
+    private boolean indexOnlySelectPlanEnabled = false;
+
+    // For this access method, we push down the LIMIT from an ancestor operator (-1: no limit)
+    // That is, an index-search just generates this number of results.
+    private long limitNumberOfResult = -1;
+
+    List<Pair<IOrder, Mutable<ILogicalExpression>>> orderByExpressions = null;
 
     public void addIndexExpr(Dataset dataset, Index index, Integer exprIndex, Integer varIndex) {
         List<Pair<Integer, Integer>> exprs = indexExprsAndVars.get(index);
@@ -81,6 +91,30 @@ public class AccessMethodAnalysisContext {
 
     public ScalarFunctionCallExpression getLOJIsNullFuncInGroupBy() {
         return lojIsNullFuncInGroupBy;
+    }
+
+    public void setIndexOnlyPlanEnabled(boolean enabled) {
+        this.indexOnlySelectPlanEnabled = enabled;
+    }
+
+    public boolean isIndexOnlyPlanEnabled() {
+        return this.indexOnlySelectPlanEnabled;
+    }
+
+    public void setLimitNumberOfResult(long limitNumberOfResult) {
+        this.limitNumberOfResult = limitNumberOfResult;
+    }
+
+    public long getLimitNumberOfResult() {
+        return this.limitNumberOfResult;
+    }
+
+    public void setOrderByExpressions(List<Pair<IOrder, Mutable<ILogicalExpression>>> orderByExpressions) {
+        this.orderByExpressions = orderByExpressions;
+    }
+
+    public List<Pair<IOrder, Mutable<ILogicalExpression>>> getOrderByExpressions() {
+        return this.orderByExpressions;
     }
 
 }

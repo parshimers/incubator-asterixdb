@@ -388,7 +388,10 @@ public class TestsUtils {
 
         List<CompilationUnit> cUnits = testCaseCtx.getTestCase().getCompilationUnit();
         for (CompilationUnit cUnit : cUnits) {
-//            if (!cUnit.getName().contains("primary_plus_multiple_secondary_indices")) {
+//            if (!cUnit.getName().contains("scan-delete-btree-secondary-index-open")) {
+//                continue;
+//            }
+//            if (!cUnit.getName().contains("rtree-spatial-intersect-point_03")) {
 //                continue;
 //            }
 //            if (!cUnit.getName().contains("feeds")) {
@@ -397,6 +400,7 @@ public class TestsUtils {
 //                continue;
 //            }
             LOGGER.info("Starting [TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName() + " ... ");
+            System.out.println("Starting [TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName() + " ... ");
             testFileCtxs = testCaseCtx.getTestFiles(cUnit);
             expectedResultFileCtxs = testCaseCtx.getExpectedResultFiles(cUnit);
             for (TestFileContext ctx : testFileCtxs) {

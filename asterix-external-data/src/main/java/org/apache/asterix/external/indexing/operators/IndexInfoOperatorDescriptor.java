@@ -38,18 +38,19 @@ import org.apache.hyracks.storage.common.file.ILocalResourceFactoryProvider;
 /*
  * This is a hack used to optain multiple index instances in a single operator and it is not actually used as an operator
  */
-public class IndexInfoOperatorDescriptor implements IIndexOperatorDescriptor{
+public class IndexInfoOperatorDescriptor implements IIndexOperatorDescriptor {
 
     private static final long serialVersionUID = 1L;
     private final IFileSplitProvider fileSplitProvider;
     private final IStorageManagerInterface storageManager;
     private final IIndexLifecycleManagerProvider lifecycleManagerProvider;
-    public IndexInfoOperatorDescriptor(IFileSplitProvider fileSplitProvider,IStorageManagerInterface storageManager,
-            IIndexLifecycleManagerProvider lifecycleManagerProvider){
+
+    public IndexInfoOperatorDescriptor(IFileSplitProvider fileSplitProvider, IStorageManagerInterface storageManager,
+            IIndexLifecycleManagerProvider lifecycleManagerProvider) {
         this.fileSplitProvider = fileSplitProvider;
         this.lifecycleManagerProvider = lifecycleManagerProvider;
         this.storageManager = storageManager;
-        
+
     }
 
     @Override
@@ -121,6 +122,21 @@ public class IndexInfoOperatorDescriptor implements IIndexOperatorDescriptor{
     @Override
     public INullWriterFactory getNullWriterFactory() {
         return null;
+    }
+
+    @Override
+    public boolean getUseOpercationCallbackProceedReturnResult() {
+        return false;
+    }
+
+    @Override
+    public byte[] getValuesForOpercationCallbackProceedReturnResult() {
+        return null;
+    }
+
+    @Override
+    public long getLimitNumberOfResult() {
+        return -1;
     }
 
 }

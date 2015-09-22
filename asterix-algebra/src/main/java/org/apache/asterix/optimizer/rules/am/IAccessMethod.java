@@ -20,10 +20,12 @@ package org.apache.asterix.optimizer.rules.am;
 
 import java.util.List;
 
+import org.apache.asterix.metadata.entities.Index;
 import org.apache.commons.lang3.mutable.Mutable;
 
 import org.apache.asterix.metadata.entities.Index;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
+import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import org.apache.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import org.apache.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression;
@@ -42,7 +44,7 @@ public interface IAccessMethod {
      * @return A list of function identifiers that are optimizable by this
      *         access method.
      */
-    public List<FunctionIdentifier> getOptimizableFunctions();
+    public List<Pair<FunctionIdentifier, Boolean>> getOptimizableFunctions();
 
     /**
      * Analyzes the arguments of a given optimizable funcExpr to see if this
@@ -77,23 +79,23 @@ public interface IAccessMethod {
     /**
      * Applies the plan transformation to use chosenIndex to optimize a selection query.
      */
-    public boolean applySelectPlanTransformation(Mutable<ILogicalOperator> selectRef,
-            OptimizableOperatorSubTree subTree, Index chosenIndex, AccessMethodAnalysisContext analysisCtx,
-            IOptimizationContext context) throws AlgebricksException;
+    public boolean applySelectPlanTransformation(List<Mutable<ILogicalOperator>> aboveSelectRefs,
+            Mutable<ILogicalOperator> selectRef, OptimizableOperatorSubTree subTree, Index chosenIndex,
+            AccessMethodAnalysisContext analysisCtx, IOptimizationContext context) throws AlgebricksException;
 
     /**
      * Applies the plan transformation to use chosenIndex to optimize a join query.
-     * In the case of a LeftOuterJoin, there may or may not be a needed groupby operation
-     * If there is, we will need to include it in the transformation
+     * In the case of a LeftOuterJoin, there may or may not be a needed group-by operation
+     * If there is, we will need to include it in the transformation.
      */
-    public boolean applyJoinPlanTransformation(Mutable<ILogicalOperator> joinRef,
-            OptimizableOperatorSubTree leftSubTree, OptimizableOperatorSubTree rightSubTree, Index chosenIndex,
-            AccessMethodAnalysisContext analysisCtx, IOptimizationContext context, boolean isLeftOuterJoin,
-            boolean hasGroupBy) throws AlgebricksException;
+    public boolean applyJoinPlanTransformation(List<Mutable<ILogicalOperator>> aboveJoinRefs,
+            Mutable<ILogicalOperator> joinRef, OptimizableOperatorSubTree leftSubTree,
+            OptimizableOperatorSubTree rightSubTree, Index chosenIndex, AccessMethodAnalysisContext analysisCtx,
+            IOptimizationContext context, boolean isLeftOuterJoin, boolean hasGroupBy) throws AlgebricksException;
 
     /**
      * Analyzes expr to see whether it is optimizable by the given concrete index.
-     * 
+     *
      * @throws AlgebricksException
      */
     public boolean exprIsOptimizable(Index index, IOptimizableFuncExpr optFuncExpr) throws AlgebricksException;

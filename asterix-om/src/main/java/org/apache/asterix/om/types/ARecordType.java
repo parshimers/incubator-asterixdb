@@ -82,7 +82,7 @@ public class ARecordType extends AbstractComplexType {
         this.fieldTypes = fieldTypes;
         this.isOpen = isOpen;
 
-        fieldNameComparator = new PointableBinaryComparatorFactory(UTF8StringPointable.FACTORY, null)
+        fieldNameComparator = new PointableBinaryComparatorFactory(UTF8StringPointable.FACTORY)
                 .createBinaryComparator();
         fieldNameHashFunction = new PointableBinaryHashFunctionFactory(UTF8StringPointable.FACTORY)
                 .createBinaryHashFunction();
@@ -126,7 +126,7 @@ public class ARecordType extends AbstractComplexType {
 
     private void readObject(ObjectInputStream ois) throws IOException, ClassNotFoundException {
         ois.defaultReadObject();
-        fieldNameComparator = new PointableBinaryComparatorFactory(UTF8StringPointable.FACTORY, null)
+        fieldNameComparator = new PointableBinaryComparatorFactory(UTF8StringPointable.FACTORY)
                 .createBinaryComparator();
         fieldNameHashFunction = new PointableBinaryHashFunctionFactory(UTF8StringPointable.FACTORY)
                 .createBinaryHashFunction();

@@ -57,6 +57,9 @@ public class CommitRuntime implements IPushRuntime {
     private FrameTupleAccessor frameTupleAccessor;
     private final FrameTupleReference frameTupleReference;
 
+    // For the temporary experiment
+    //    Random randomValueGenerator = null;
+
     public CommitRuntime(IHyracksTaskContext ctx, JobId jobId, int datasetId, int[] primaryKeyFields,
             boolean isTemporaryDatasetWriteJob, boolean isWriteTransaction) {
         this.hyracksTaskCtx = ctx;
@@ -72,6 +75,8 @@ public class CommitRuntime implements IPushRuntime {
         this.isWriteTransaction = isWriteTransaction;
         this.longHashes = new long[2];
         this.logRecord = new LogRecord();
+        // For the temporary experiment
+        //        this.randomValueGenerator = new Random(System.currentTimeMillis());
     }
 
     @Override
@@ -86,6 +91,13 @@ public class CommitRuntime implements IPushRuntime {
 
     @Override
     public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
+        // Temporary for the experiment
+        //        try {
+        //            Thread.sleep(randomValueGenerator.nextInt(501));// QUERY
+        //        } catch (InterruptedException e1) {
+        //            // TODO Auto-generated catch block
+        //            e1.printStackTrace();
+        //        }
         int pkHash = 0;
         frameTupleAccessor.reset(buffer);
         int nTuple = frameTupleAccessor.getTupleCount();

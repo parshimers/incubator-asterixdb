@@ -110,7 +110,7 @@ for $profit in
          return 
            { "l_extendedprice": $l1.l_extendedprice, "l_discount": $l1.l_discount, "l_quantity": $l1.l_quantity, 
              "l_partkey": $l1.l_partkey, "l_orderkey": $l1.l_orderkey, "n_name": $l1.n_name, "ps_supplycost": $ps.ps_supplycost }  )
-      where contains($p.p_name, 'green') and $p.p_partkey = $l2.l_partkey    
+      where contains-substring($p.p_name, 'green') and $p.p_partkey = $l2.l_partkey    
       return 
         { "l_extendedprice": $l2.l_extendedprice, "l_discount": $l2.l_discount, "l_quantity": $l2.l_quantity, 
           "l_orderkey": $l2.l_orderkey, "n_name": $l2.n_name, "ps_supplycost": $l2.ps_supplycost  }  )
