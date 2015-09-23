@@ -1098,6 +1098,8 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
                 probeSubTree.rootRef.setValue(newProbeRootRef.getValue());
                 probeSubTree.root = newProbeRootRef.getValue();
             }
+        } else {
+            joinCond = join.getCondition().getValue().cloneExpression();
         }
 
         // Create regular indexed-nested loop join path.
