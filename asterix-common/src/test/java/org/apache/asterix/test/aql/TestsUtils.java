@@ -400,7 +400,6 @@ public class TestsUtils {
 //                continue;
 //            }
             LOGGER.info("Starting [TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName() + " ... ");
-            System.out.println("Starting [TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName() + " ... ");
             testFileCtxs = testCaseCtx.getTestFiles(cUnit);
             expectedResultFileCtxs = testCaseCtx.getExpectedResultFiles(cUnit);
             for (TestFileContext ctx : testFileCtxs) {

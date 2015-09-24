@@ -368,10 +368,12 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
         this.indexTypeProperty = indexTypeProperty;
         int bloomfilterKeyFieldsCount = numSecondaryKeys;
 
-        if (indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE) {
+        if (indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE || indexType == IndexType.STATIC_HILBERT_BTREE) {
             /*
              * DYNAMIC_HILBERTVALUE_BTREE index has the following fields in an entry.
              * [ Hilbert value (AINT64) | point (APOINT) | PK ]
+             * STATIC_HILBERT_BTREE index has the following fields in an entry.
+             * [ Cell number (ABINARY) | point (APOINT) | PK ]
              */
             ++numSecondaryKeys;
         }
@@ -417,6 +419,29 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
             //set nullable flag
             Pair<IAType, Boolean> keyTypePair = Index.getNonNullableOpenFieldType(BuiltinType.APOINT, secondaryKeyFieldName, itemType);
             anySecondaryKeyIsNullable = anySecondaryKeyIsNullable || keyTypePair.second;
+        } else if (indexType == IndexType.STATIC_HILBERT_BTREE) {
+            //eval factory for Hilbert value generation
+            List<String> secondaryKeyFieldName = secondaryKeyFields.get(0);
+            
+            secondaryFieldAccessEvalFactories[0] = metadataProvider.getFormat().getFieldAccessEvaluatorFactory(
+                    isEnforcingKeyTypes ? enforcedItemType : itemType, secondaryKeyFieldName, recordColumn);
+            secondaryRecFieldsSerde[0] = serdeProvider.getSerializerDeserializer(BuiltinType.ABINARY);
+            secondaryComparatorFactories[0] = comparatorFactoryProvider.getBinaryComparatorFactory(BuiltinType.ABINARY,
+                    true);
+            secondaryTypeTraits[0] = typeTraitProvider.getTypeTrait(BuiltinType.ABINARY);
+            secondaryBloomFilterKeyFields[0] = 0;
+
+            //eval factory for point generation
+            secondaryFieldAccessEvalFactories[1] = metadataProvider.getFormat().getFieldAccessEvaluatorFactory(
+                    isEnforcingKeyTypes ? enforcedItemType : itemType, secondaryKeyFieldName, recordColumn);
+            secondaryRecFieldsSerde[1] = serdeProvider.getSerializerDeserializer(BuiltinType.APOINT);
+            secondaryComparatorFactories[1] = comparatorFactoryProvider.getBinaryComparatorFactory(BuiltinType.APOINT,
+                    true);
+            secondaryTypeTraits[1] = typeTraitProvider.getTypeTrait(BuiltinType.APOINT);
+
+            //set nullable flag
+            Pair<IAType, Boolean> keyTypePair = Index.getNonNullableOpenFieldType(BuiltinType.APOINT, secondaryKeyFieldName, itemType);
+            anySecondaryKeyIsNullable = anySecondaryKeyIsNullable || keyTypePair.second;
         } else {
             for (int i = 0; i < numSecondaryKeys; i++) {
                 secondaryFieldAccessEvalFactories[i] = metadataProvider.getFormat().getFieldAccessEvaluatorFactory(
@@ -425,12 +450,6 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
                         secondaryKeyFields.get(i), itemType);
                 IAType keyType = keyTypePair.first;
                 anySecondaryKeyIsNullable = anySecondaryKeyIsNullable || keyTypePair.second;
-
-                if (indexType == IndexType.STATIC_HILBERT_BTREE && keyType.getTypeTag() == ATypeTag.POINT) {
-                    keyType = BuiltinType.ABINARY;
-                } else if (indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE && keyType.getTypeTag() == ATypeTag.POINT) {
-                    keyType = BuiltinType.AINT64;
-                }
 
                 secondaryRecFieldsSerde[i] = serdeProvider.getSerializerDeserializer(keyType);
                 secondaryComparatorFactories[i] = comparatorFactoryProvider.getBinaryComparatorFactory(keyType, true);

@@ -43,7 +43,6 @@ import org.apache.asterix.om.base.IAObject;
 import org.apache.asterix.om.constants.AsterixConstantValue;
 import org.apache.asterix.om.functions.AsterixBuiltinFunctions;
 import org.apache.asterix.om.types.ARecordType;
-import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
@@ -213,7 +212,6 @@ public class AccessMethodUtils {
     public static int getNumSecondaryKeys(Index index, ARecordType recordType) throws AlgebricksException {
         switch (index.getIndexType()) {
             case BTREE:
-            case STATIC_HILBERT_BTREE:
             case DYNAMIC_HILBERT_BTREE:
             case SINGLE_PARTITION_WORD_INVIX:
             case SINGLE_PARTITION_NGRAM_INVIX:
@@ -222,6 +220,7 @@ public class AccessMethodUtils {
             case SIF: {
                 return index.getKeyFieldNames().size();
             }
+            case STATIC_HILBERT_BTREE:
             case DYNAMIC_HILBERTVALUE_BTREE: {
                 return index.getKeyFieldNames().size() + 1;
             }
@@ -257,8 +256,11 @@ public class AccessMethodUtils {
                     }
                     break;
                 }
+                
                 case STATIC_HILBERT_BTREE:
+                    /* Secondary key consists of [ Cell number (ABINARY) | point (APOINT) ] */ 
                     dest.add(BuiltinType.ABINARY);
+                    dest.add(BuiltinType.APOINT);
                     break;
                     
                 case DYNAMIC_HILBERTVALUE_BTREE:
@@ -860,14 +862,16 @@ public class AccessMethodUtils {
 
         }
 
-        // For R-Tree only check condition:
+        // For spatial index (such as Rtree) only check condition:
         // At this point, we are sure that either an index-only plan is possible or reducing the number of SELECT operations are possible.
         // If the following two conditions are met, then we don't need to do a post-processing.
         // That is, the given index will not generate false positive results.
         // If not, we need to put "select" condition to the path where tryLock on PK succeeds, too.
         // 1) Query shape should be rectangle and
         // 2) key field type of the index should be either point or rectangle.
-        if (chosenIndex.getIndexType() == IndexType.RTREE) {
+        // 3) index type is either Rtree, dhbtree, or dhvbtree.
+        IndexType indexType = chosenIndex.getIndexType();
+        if (isSpatialIndex(indexType)) {
             // TODO: We can probably do something smarter here based on selectivity or MBR area.
             IOptimizableFuncExpr optFuncExpr = AccessMethodUtils.chooseFirstOptFuncExpr(chosenIndex, analysisCtx);
             ARecordType recordType = indexSubTree.recordType;
@@ -894,7 +898,8 @@ public class AccessMethodUtils {
                                 .getValue();
                         if (tmpVal.getObject().getType() == BuiltinType.APOINT
                                 || tmpVal.getObject().getType() == BuiltinType.ARECTANGLE) {
-                            if (keyPairType.first == BuiltinType.APOINT || keyPairType.first == BuiltinType.ARECTANGLE) {
+                            if ((keyPairType.first == BuiltinType.APOINT || keyPairType.first == BuiltinType.ARECTANGLE) && 
+                                    (indexType == IndexType.RTREE || indexType == IndexType.DYNAMIC_HILBERT_BTREE || indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE)) {
                                 verificationAfterSIdxSearchRequired = false;
                             } else {
                                 verificationAfterSIdxSearchRequired = true;
@@ -1070,11 +1075,11 @@ public class AccessMethodUtils {
         ArrayList<Mutable<ILogicalExpression>> restoredSecondaryKeyFieldExprs = null;
         IAType spatialType = null;
 
-        // R-Tree only:
+        // Spatial index (such as R-Tree) only:
         // construct an additional ASSIGN to restore the original secondary key field(s) from the results of the secondary index search
         // when the field is used after JOIN or SELECT operator
         if (isIndexOnlyPlanEnabled && (secondaryKeyFieldUsedAfterSelectOp || verificationAfterSIdxSearchRequired)
-                && idxType == IndexType.RTREE) {
+                && isSpatialIndex(idxType)) {
             IOptimizableFuncExpr optFuncExpr = AccessMethodUtils.chooseFirstOptFuncExpr(secondaryIndex, analysisCtx);
             int optFieldIdx = AccessMethodUtils.chooseFirstOptFuncVar(secondaryIndex, analysisCtx);
             Pair<IAType, Boolean> keyPairType = Index.getNonNullableOpenFieldType(
@@ -1091,20 +1096,34 @@ public class AccessMethodUtils {
 
             if (spatialType == BuiltinType.APOINT) {
                 // Reconstruct a POINT value
-                AbstractFunctionCallExpression createPointExpr = new ScalarFunctionCallExpression(
-                        FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_POINT));
-                List<Mutable<ILogicalExpression>> expressions = new ArrayList<Mutable<ILogicalExpression>>();
-                expressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
-                        secondaryKeyVarsFromSIdxSearch.get(0))));
-                expressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
-                        secondaryKeyVarsFromSIdxSearch.get(1))));
-                createPointExpr.getArguments().addAll(expressions);
+                ILogicalExpression createPointExpr = null;
+                if (idxType == IndexType.RTREE) {
+                    createPointExpr = new ScalarFunctionCallExpression(
+                            FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_POINT));
+                    List<Mutable<ILogicalExpression>> expressions = new ArrayList<Mutable<ILogicalExpression>>();
+                    expressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
+                            secondaryKeyVarsFromSIdxSearch.get(0))));
+                    expressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
+                            secondaryKeyVarsFromSIdxSearch.get(1))));
+                    ((AbstractFunctionCallExpression)createPointExpr).getArguments().addAll(expressions);
+                } else if (idxType == IndexType.DYNAMIC_HILBERT_BTREE) {
+                    //dhbtree entry's fields: [point, PK]
+                    createPointExpr = new VariableReferenceExpression(secondaryKeyVarsFromSIdxSearch.get(0));
+                } else if (idxType == IndexType.DYNAMIC_HILBERTVALUE_BTREE) {
+                    //dhvbtree entry's fields: [Hilbert value, point, PK]
+                    createPointExpr = new VariableReferenceExpression(secondaryKeyVarsFromSIdxSearch.get(1));
+                } else if (idxType == IndexType.STATIC_HILBERT_BTREE) {
+                    //dhvbtree entry's fields: [Cell number, point, PK]
+                    createPointExpr = new VariableReferenceExpression(secondaryKeyVarsFromSIdxSearch.get(1));
+                }
+                
                 restoredSecondaryKeyFieldVars.add(context.newVar());
                 restoredSecondaryKeyFieldExprs.add(new MutableObject<ILogicalExpression>(createPointExpr));
                 assignRestoredSecondaryKeyFieldOp = new AssignOperator(restoredSecondaryKeyFieldVars,
                         restoredSecondaryKeyFieldExprs);
             } else if (spatialType == BuiltinType.ARECTANGLE) {
                 // Reconstruct a RECTANGLE value
+                // TODO deal with non-RTree spatial index type
                 AbstractFunctionCallExpression createRectangleExpr = new ScalarFunctionCallExpression(
                         FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_RECTANGLE));
                 List<Mutable<ILogicalExpression>> expressions = new ArrayList<Mutable<ILogicalExpression>>();
@@ -1490,7 +1509,7 @@ public class AccessMethodUtils {
             // For an R-Tree index, if there is an operator that is using the secondary key field value,
             // we need to reconstruct that field value from the result of R-Tree search.
             // This is done by adding the assign operator that we have made in the beginning of this method
-            if (idxType == IndexType.RTREE
+            if (isSpatialIndex(idxType)
                     && (secondaryKeyFieldUsedAfterSelectOp || verificationAfterSIdxSearchRequired)) {
                 assignRestoredSecondaryKeyFieldOp.getInputs().clear();
                 assignRestoredSecondaryKeyFieldOp.getInputs().add(new MutableObject<ILogicalOperator>(splitOp));
@@ -1509,7 +1528,7 @@ public class AccessMethodUtils {
             // Lastly, if there is an index-nested-loop-join and the join contains more conditions other than joining fields,
             // then those conditions need to be applied to filter out false positive results in the right path (tryLock success path).
             // (e.g., where $a.authors /*+ indexnl */ = $b.authors and $a.id = $b.id)
-            if ((idxType == IndexType.RTREE && verificationAfterSIdxSearchRequired)
+            if ((isSpatialIndex(idxType) && verificationAfterSIdxSearchRequired)
                     || (idxType == IndexType.BTREE && secondaryIndex.getKeyFieldNames().size() > 1
                             && uniqueVarsUsedInTopOpSize > 1 && !noFalsePositiveResultsFromSIdxSearch)
                     || (transformJoinPlan && varsUsedInTopOp.size() > 2)) {
@@ -1551,7 +1570,7 @@ public class AccessMethodUtils {
                             //                            }
                         }
                     } else {
-                        // R-Tree case
+                        //Spatial index case
                         // If this list is null, then secondary key field is not used after SELECT operator.
                         // However, we need to put the secondary key field since it is used in SELECT operator.
                         if (fetchedSecondaryKeyFieldVarsFromPIdxLookUp != null) {
@@ -1579,7 +1598,7 @@ public class AccessMethodUtils {
             StringBuilder sb = new StringBuilder();
             LogicalOperatorPrettyPrintVisitor pvisitor = context.getPrettyPrintVisitor();
             PlanPrettyPrinter.printOperator((AbstractLogicalOperator) unionAllOp, sb, pvisitor, 0);
-            System.out.println("createPrimaryUnnestMap:\n" + sb.toString());
+//            System.out.println("createPrimaryUnnestMap:\n" + sb.toString());
 
             unionAllOp.setExecutionMode(ExecutionMode.PARTITIONED);
             context.computeAndSetTypeEnvironmentForOperator(unionAllOp);
@@ -1674,6 +1693,15 @@ public class AccessMethodUtils {
             // No index-only plan, no reducing number of SELECT operations optimization possible.
             return primaryIndexUnnestOp;
         }
+    }
+
+    private static boolean isSpatialIndex(IndexType indexType) {
+        if (indexType == IndexType.RTREE || indexType == IndexType.DYNAMIC_HILBERT_BTREE 
+                || indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE || indexType == IndexType.STATIC_HILBERT_BTREE
+                || indexType == IndexType.SIF) {
+            return true;
+        }
+        return false;
     }
 
     public static ScalarFunctionCallExpression findLOJIsNullFuncInGroupBy(GroupByOperator lojGroupbyOp)

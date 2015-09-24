@@ -898,25 +898,39 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             throws AlgebricksException {
 
         /*
-         * DYNAMIC_HILBERTVALUE_BTREE index entries have 2 secondary key fields as follows:
-         * [ Hilbert value (AINT64) | point (APOINT) ]
-         * where Hilbert value is generated from point.
+         * DYNAMIC_HILBERTVALUE_BTREE index entries have 3 fields:
+         * [ Hilbert value (AINT64) | point (APOINT) | PK ]
+         * where Hilbert value is generated from the point.
+         * 
+         * STATIC_HILBERT_BTREE index entries have 3 fields:
+         * [ Cell number (ABINARY) | point (APOINT) | PK ]
+         * where the cell number is generated from the point.
+         * 
          * Thus, the secondary index comparators and types should reflect this fact correctly.   
          */
 
-        boolean isDHVBtree = indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE;
+        boolean addOriginalPointField = indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE || indexType == IndexType.STATIC_HILBERT_BTREE;
         IBinaryComparatorFactory[] comparatorFactories;
         ITypeTraits[] typeTraits;
-        int sidxKeyFieldCount = isDHVBtree ? sidxKeyFieldNames.size() + 1 : sidxKeyFieldNames.size();
+        int sidxKeyFieldCount = addOriginalPointField ? sidxKeyFieldNames.size() + 1 : sidxKeyFieldNames.size();
         int pidxKeyFieldCount = pidxKeyFieldNames.size();
         typeTraits = new ITypeTraits[sidxKeyFieldCount + pidxKeyFieldCount];
         comparatorFactories = new IBinaryComparatorFactory[sidxKeyFieldCount + pidxKeyFieldCount];
 
         int i = 0;
-        if (isDHVBtree) {
+        if (indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE) {
             comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(
                     BuiltinType.AINT64, true);
             typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(BuiltinType.AINT64);
+            ++i;
+            comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(
+                    BuiltinType.APOINT, true);
+            typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(BuiltinType.APOINT);
+            ++i;
+        } else if (indexType == IndexType.STATIC_HILBERT_BTREE) {
+            comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(
+                    BuiltinType.ABINARY, true);
+            typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(BuiltinType.ABINARY);
             ++i;
             comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(
                     BuiltinType.APOINT, true);
@@ -926,15 +940,9 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             for (; i < sidxKeyFieldCount; ++i) {
                 Pair<IAType, Boolean> keyPairType = Index.getNonNullableOpenFieldType(sidxKeyFieldTypes.get(i), sidxKeyFieldNames.get(i), recType);
                 IAType keyType = keyPairType.first;
-                if (indexType == IndexType.STATIC_HILBERT_BTREE
-                        && (keyType.getTypeTag() == ATypeTag.POINT || keyType.getTypeTag() == ATypeTag.RECTANGLE)) {
-                    keyType = BuiltinType.ABINARY;
-                } else if (indexType == IndexType.DYNAMIC_HILBERT_BTREE
+                if (indexType == IndexType.DYNAMIC_HILBERT_BTREE
                         && (keyType.getTypeTag() == ATypeTag.POINT || keyType.getTypeTag() == ATypeTag.RECTANGLE)) {
                     keyType = BuiltinType.APOINT;
-                } else if (indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE
-                        && (keyType.getTypeTag() == ATypeTag.POINT || keyType.getTypeTag() == ATypeTag.RECTANGLE)) {
-                    keyType = BuiltinType.AINT64;
                 }
 
                 comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(
@@ -1973,14 +1981,17 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                         keyType, true);
                 typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(keyType);
 
-                if (secondaryIndex.getIndexType() == IndexType.DYNAMIC_HILBERTVALUE_BTREE) {
+                //dhvbtree and shbtree need to deal with original point field which is not a part of the secondary key
+                //but a required field to avoid primary index lookup as much as possible. 
+                if (secondaryIndex.getIndexType() == IndexType.DYNAMIC_HILBERTVALUE_BTREE ||
+                        secondaryIndex.getIndexType() == IndexType.STATIC_HILBERT_BTREE) {
                     i++;
                     keyType = BuiltinType.APOINT;
                     comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(
                             keyType, true);
                     typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(keyType);
                     break;
-                }
+                } 
             }
             List<List<String>> partitioningKeys = DatasetUtils.getPartitioningKeys(dataset);
             for (List<String> partitioningKey : partitioningKeys) {
