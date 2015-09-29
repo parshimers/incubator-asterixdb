@@ -29,7 +29,7 @@ import org.apache.asterix.common.transactions.ILogRecord;
 import org.apache.asterix.common.transactions.LogRecord;
 import org.apache.asterix.common.transactions.MutableLong;
 
-import static edu.uci.ics.asterix.common.transactions.LogRecord.*;
+import static org.apache.asterix.common.transactions.LogRecord.*;
 
 public class LogReader implements ILogReader {
 
@@ -69,17 +69,21 @@ public class LogReader implements ILogReader {
             return;
         }
         getFileChannel();
-        readPage();
+        fillLogReadBuffer();
     }
 
-    //for scanning
+    /**
+     * Get the next log record from the log file.
+     * @return A deserialized log record, or null if we have reached the end of the file.
+     * @throws ACIDException
+     */
     @Override
     public ILogRecord next() throws ACIDException {
         if (waitForFlushOrReturnIfEOF() == ReturnState.EOF) {
             return null;
         }
         if (readBuffer.position() == readBuffer.limit()) {
-            boolean eof = readNextPage();
+            boolean eof = refillLogReadBuffer();
             if (eof && isRecoveryMode && readLSN < flushLSN.get()) {
                 LOGGER.severe("Transaction log ends before expected. Log files may be missing.");
                 return null;
@@ -89,7 +93,9 @@ public class LogReader implements ILogReader {
         RECORD_STATUS status = logRecord.readLogRecord(readBuffer);
         switch(status) {
             case TRUNCATED: {
-                if(!readNextPage()){ return null; } //EOF
+                if(!refillLogReadBuffer()) {
+                    return null;
+                }
                 if(logRecord.readLogRecord(readBuffer) == RECORD_STATUS.OK){
                     break;
                 }
@@ -97,17 +103,7 @@ public class LogReader implements ILogReader {
                 return null;
             }
             case BAD_CHKSUM:{
-                try{
-                    if(readLSN % logFileSize < (fileChannel.size()-logPageSize)){//if record is before last page of file
-                        LOGGER.severe("Transaction log is corrupted. This shouldn't happen!");
-                    }
-                    else{
-                        LOGGER.warning("Log file may have been damaged due to medium or filesystem error. " +
-                                "Continuing recovery...");
-                    }
-                }catch(IOException e){
-                    throw new ACIDException(e);
-                }
+                LOGGER.severe("Transaction log contains corrupt log records (perhaps due to medium error). Stopping recovery early.");
                 return null;
             }
             case OK: break;
@@ -137,20 +133,31 @@ public class LogReader implements ILogReader {
         }
     }
 
-    private boolean readNextPage() throws ACIDException {
+    /**
+     * Continues log analysis between log file splits.
+     * @return true if log continues, false if EOF
+     * @throws ACIDException
+     */
+    private boolean refillLogReadBuffer() throws ACIDException {
         try {
             if (readLSN % logFileSize == fileChannel.size()) {
                 fileChannel.close();
                 readLSN += logFileSize - (readLSN % logFileSize);
                 getFileChannel();
             }
-            return readPage();
+            return fillLogReadBuffer();
         } catch (IOException e) {
             throw new ACIDException(e);
         }
     }
 
-    private boolean readPage() throws ACIDException {
+    /**
+     * Fills the log buffer with data from the log file at the current position
+     * @return false if EOF, true otherwise
+     * @throws ACIDException
+     */
+
+    private boolean fillLogReadBuffer() throws ACIDException {
         int size=0;
         int read=0;
         readBuffer.position(0);
@@ -191,13 +198,13 @@ public class LogReader implements ILogReader {
         try {
             if (fileChannel == null) {
                 getFileChannel();
-                readPage();
+                fillLogReadBuffer();
             } else if (readLSN < fileBeginLSN || readLSN >= fileBeginLSN + fileChannel.size()) {
                 fileChannel.close();
                 getFileChannel();
-                readPage();
+                fillLogReadBuffer();
             } else if (readLSN < bufferBeginLSN || readLSN >= bufferBeginLSN + readBuffer.limit()) {
-                readPage();
+                fillLogReadBuffer();
             } else {
                 readBuffer.position((int) (readLSN - bufferBeginLSN));
             }
@@ -206,7 +213,7 @@ public class LogReader implements ILogReader {
         }
         boolean eof;
         if(readBuffer.position() == readBuffer.limit()){
-            eof = readNextPage();
+            eof = refillLogReadBuffer();
             if(eof){
                 throw new ACIDException("LSN is out of bounds");
             }

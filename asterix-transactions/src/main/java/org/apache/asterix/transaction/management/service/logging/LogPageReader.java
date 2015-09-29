@@ -20,6 +20,8 @@ package org.apache.asterix.transaction.management.service.logging;
 
 import java.nio.ByteBuffer;
 
+import org.apache.asterix.common.transactions.ILogRecord;
+import org.apache.asterix.common.transactions.ILogRecord.RECORD_STATUS;
 import org.apache.asterix.common.transactions.LogRecord;
 
 public class LogPageReader {
@@ -42,7 +44,9 @@ public class LogPageReader {
         if (buffer.position() == endOffset) {
             return null;
         }
-        if (!logRecord.readLogRecord(buffer)) {
+        RECORD_STATUS status = logRecord.readLogRecord(buffer);
+        //underflow is not expected because we are at the very tail of the current log buffer
+        if (status == RECORD_STATUS.BAD_CHKSUM || status == RECORD_STATUS.TRUNCATED) {
             throw new IllegalStateException();
         }
         return logRecord;

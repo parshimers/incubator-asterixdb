@@ -28,7 +28,7 @@ import java.util.logging.Logger;
 import org.apache.asterix.common.context.PrimaryIndexOperationTracker;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.transactions.DatasetId;
-import org.apache.asterix.common.transactions.ILogPage;
+import org.apache.asterix.common.transactions.ILogBuffer;
 import org.apache.asterix.common.transactions.ILogRecord;
 import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.JobId;
@@ -39,10 +39,10 @@ import org.apache.asterix.transaction.management.service.transaction.Transaction
 import org.apache.asterix.transaction.management.service.transaction.TransactionSubsystem;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
-public class LogPage implements ILogPage {
+public class LogBuffer implements ILogBuffer {
 
     public static final boolean IS_DEBUG_MODE = false;//true
-    private static final Logger LOGGER = Logger.getLogger(LogPage.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(LogBuffer.class.getName());
     private final TransactionSubsystem txnSubsystem;
     private final LogPageReader logPageReader;
     private final int logPageSize;
@@ -62,7 +62,7 @@ public class LogPage implements ILogPage {
     private final DatasetId reusableDsId;
     private final JobId reusableJobId;
 
-    public LogPage(TransactionSubsystem txnSubsystem, int logPageSize, MutableLong flushLSN) {
+    public LogBuffer(TransactionSubsystem txnSubsystem, int logPageSize, MutableLong flushLSN) {
         this.txnSubsystem = txnSubsystem;
         this.logPageSize = logPageSize;
         this.flushLSN = flushLSN;
