@@ -18,7 +18,7 @@
  */
 package org.apache.asterix.common.transactions;
 
-public interface ILogPage {
+public interface ILogBuffer {
 
     public void append(ILogRecord logRecord, long appendLsn);
 

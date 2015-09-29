@@ -37,7 +37,7 @@ import org.apache.asterix.common.transactions.ITransactionManager;
 import org.apache.asterix.common.transactions.JobId;
 import org.apache.asterix.common.transactions.LogRecord;
 import org.apache.asterix.common.transactions.LogType;
-import org.apache.asterix.transaction.management.service.logging.LogPage;
+import org.apache.asterix.transaction.management.service.logging.LogBuffer;
 import org.apache.asterix.transaction.management.service.logging.LogPageReader;
 import org.apache.asterix.transaction.management.service.transaction.TransactionManagementConstants.LockManagerConstants.LockMode;
 import org.apache.asterix.transaction.management.service.transaction.TransactionSubsystem;
@@ -2204,7 +2204,7 @@ public class LockManager implements ILockManager, ILifeCycleComponent {
         }
     }
 
-    public void batchUnlock(LogPage logPage, LogPageReader logPageReader) throws ACIDException {
+    public void batchUnlock(LogBuffer logPage, LogPageReader logPageReader) throws ACIDException {
         latchLockTable();
         try {
             ITransactionContext txnCtx = null;
