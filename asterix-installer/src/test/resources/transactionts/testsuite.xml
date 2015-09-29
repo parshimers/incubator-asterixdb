@@ -1,18 +1,22 @@
 <!--
- ! Copyright 2009-2013 by The Regents of the University of California
- ! Licensed under the Apache License, Version 2.0 (the "License");
- ! you may not use this file except in compliance with the License.
- ! you may obtain a copy of the License from
- ! 
- !     http://www.apache.org/licenses/LICENSE-2.0
- ! 
- ! Unless required by applicable law or agreed to in writing, software
- ! distributed under the License is distributed on an "AS IS" BASIS,
- ! WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- ! See the License for the specific language governing permissions and
- ! limitations under the License.
+ ! Licensed to the Apache Software Foundation (ASF) under one
+ ! or more contributor license agreements.  See the NOTICE file
+ ! distributed with this work for additional information
+ ! regarding copyright ownership.  The ASF licenses this file
+ ! to you under the Apache License, Version 2.0 (the
+ ! "License"); you may not use this file except in compliance
+ ! with the License.  You may obtain a copy of the License at
+ !
+ !   http://www.apache.org/licenses/LICENSE-2.0
+ !
+ ! Unless required by applicable law or agreed to in writing,
+ ! software distributed under the License is distributed on an
+ ! "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ ! KIND, either express or implied.  See the License for the
+ ! specific language governing permissions and limitations
+ ! under the License.
  !-->
-<test-suite xmlns="urn:xml.testframework.asterix.ics.uci.edu" ResultOffsetPath="results" QueryOffsetPath="queries" QueryFileExtension=".aql">
+<test-suite xmlns="urn:xml.testframework.asterix.apache.org" ResultOffsetPath="results" QueryOffsetPath="queries" QueryFileExtension=".aql">
 
   <test-group name="recover_after_abort">
 
@@ -55,42 +59,42 @@
     <test-case FilePath="recover_after_abort">
       <compilation-unit name="temp_primary_index_only">
         <output-dir compare="Text">primary_index_only</output-dir>
-        <expected-error>edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
+        <expected-error>org.apache.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
       </compilation-unit>
     </test-case>
 
     <test-case FilePath="recover_after_abort">
       <compilation-unit name="temp_primary_plus_default_secondary_index">
         <output-dir compare="Text">primary_plus_default_secondary_index</output-dir>
-        <expected-error>edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
+        <expected-error>org.apache.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
       </compilation-unit>
     </test-case>
 
     <test-case FilePath="recover_after_abort">
       <compilation-unit name="temp_primary_plus_rtree_index">
         <output-dir compare="Text">primary_plus_rtree_index</output-dir>
-        <expected-error>edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
+        <expected-error>org.apache.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
       </compilation-unit>
     </test-case>
 
     <test-case FilePath="recover_after_abort">
       <compilation-unit name="temp_primary_plus_keyword_secondary_index">
         <output-dir compare="Text">primary_plus_keyword_secondary_index</output-dir>
-        <expected-error>edu.uci.ics.hyracks.api.exceptions.HyracksDataException</expected-error>
+        <expected-error>org.apache.hyracks.api.exceptions.HyracksDataException</expected-error>
       </compilation-unit>
     </test-case>
       
     <test-case FilePath="recover_after_abort">
       <compilation-unit name="temp_primary_plus_ngram_index">
         <output-dir compare="Text">primary_plus_ngram_index</output-dir>
-        <expected-error>edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
+        <expected-error>org.apache.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
       </compilation-unit>
     </test-case>
 
     <test-case FilePath="recover_after_abort">
       <compilation-unit name="primary_plus_multiple_secondary_indices">
         <output-dir compare="Text">primary_plus_multiple_secondary_indices</output-dir>
-        <expected-error>edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
+        <expected-error>org.apache.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
       </compilation-unit>
     </test-case>
  </test-group>
@@ -148,35 +152,35 @@
     <test-case FilePath="recovery_ddl">
       <compilation-unit name="temp_dataset_recovery">
         <output-dir compare="Text">dataset_recovery</output-dir>
-        <expected-error>edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
+        <expected-error>org.apache.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
       </compilation-unit>
     </test-case>
 
     <test-case FilePath="recovery_ddl">
       <compilation-unit name="temp_delete_after_recovery">
         <output-dir compare="Text">delete_after_recovery</output-dir>
-        <expected-error>edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
+        <expected-error>org.apache.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
       </compilation-unit>
     </test-case>
 
     <test-case FilePath="recovery_ddl">
       <compilation-unit name="temp_insert_after_recovery">
         <output-dir compare="Text">insert_after_recovery</output-dir>
-        <expected-error>edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
+        <expected-error>org.apache.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
       </compilation-unit>
     </test-case>
 
     <test-case FilePath="recovery_ddl">
       <compilation-unit name="temp_load_after_recovery">
         <output-dir compare="Text">load_after_recovery</output-dir>
-        <expected-error>edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
+        <expected-error>org.apache.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
       </compilation-unit>
     </test-case>
 
     <test-case FilePath="recovery_ddl">
       <compilation-unit name="temp_secondary_index_recovery">
         <output-dir compare="Text">secondary_index_recovery</output-dir>
-        <expected-error>edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
+        <expected-error>org.apache.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
       </compilation-unit>
     </test-case>
  
