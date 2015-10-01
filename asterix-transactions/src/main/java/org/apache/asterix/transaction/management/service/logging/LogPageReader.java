@@ -46,7 +46,7 @@ public class LogPageReader {
         }
         RECORD_STATUS status = logRecord.readLogRecord(buffer);
         //underflow is not expected because we are at the very tail of the current log buffer
-        if (status == RECORD_STATUS.BAD_CHKSUM || status == RECORD_STATUS.TRUNCATED) {
+        if (status != RECORD_STATUS.OK) {
             throw new IllegalStateException();
         }
         return logRecord;
