@@ -1,0 +1,21 @@
+/*
+ * Test case Name  : rtree-create-index-then-load_04.aql
+ * Description     : rtree index creation followed by load data followed by inserts, then a query. 
+ * Expected Result : Success
+ * Date            : Sept 30 2015
+ */
+
+drop dataverse STBench if exists;
+create dataverse STBench;
+use dataverse STBench;
+
+create type SimpleGeoPlaceType as closed {
+    coordinates: point, /* longitude: x, latitude: y */
+    id: int64,             
+    name: string,           
+    tags: string,           
+    categories: string,     
+    phone: string           
+}
+create dataset SimpleGeoPlace (SimpleGeoPlaceType) primary key id;
+create index rtreePlaceCoordinate on SimpleGeoPlace(coordinates) type rtree;

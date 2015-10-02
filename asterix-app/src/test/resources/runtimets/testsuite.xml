@@ -4914,6 +4914,258 @@
             </compilation-unit>
         </test-case>
     </test-group>
+    <test-group name="spatial-index">
+		<test-case FilePath="spatial-index">
+            <compilation-unit name="dhbtree-create-index-then-load_01">
+                <output-dir compare="Text">dhbtree-create-index-then-load_01</output-dir>
+            </compilation-unit>
+        </test-case>
+		<test-case FilePath="spatial-index">
+            <compilation-unit name="dhbtree-create-index-then-load_02">
+                <output-dir compare="Text">dhbtree-create-index-then-load_02</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="dhbtree-create-index-then-load_03">
+                <output-dir compare="Text">dhbtree-create-index-then-load_03</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="dhbtree-create-index-then-load_04">
+                <output-dir compare="Text">dhbtree-create-index-then-load_04</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="dhbtree-load-then-create-index_01">
+                <output-dir compare="Text">dhbtree-load-then-create-index_01</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="dhbtree-load-then-create-index_02">
+                <output-dir compare="Text">dhbtree-load-then-create-index_02</output-dir>
+            </compilation-unit>
+        </test-case>
+		<test-case FilePath="spatial-index">
+            <compilation-unit name="dhbtree-load-then-create-index_03">
+                <output-dir compare="Text">dhbtree-load-then-create-index_03</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="dhbtree-load-then-create-index_04">
+                <output-dir compare="Text">dhbtree-load-then-create-index_04</output-dir>
+            </compilation-unit>
+        </test-case>    
+		<test-case FilePath="spatial-index">
+            <compilation-unit name="dhvbtree-create-index-then-load_01">
+                <output-dir compare="Text">dhvbtree-create-index-then-load_01</output-dir>
+            </compilation-unit>
+        </test-case>
+		<test-case FilePath="spatial-index">
+            <compilation-unit name="dhvbtree-create-index-then-load_02">
+                <output-dir compare="Text">dhvbtree-create-index-then-load_02</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="dhvbtree-create-index-then-load_03">
+                <output-dir compare="Text">dhvbtree-create-index-then-load_03</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="dhvbtree-create-index-then-load_04">
+                <output-dir compare="Text">dhvbtree-create-index-then-load_04</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="dhvbtree-load-then-create-index_01">
+                <output-dir compare="Text">dhvbtree-load-then-create-index_01</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="dhvbtree-load-then-create-index_02">
+                <output-dir compare="Text">dhvbtree-load-then-create-index_02</output-dir>
+            </compilation-unit>
+        </test-case>
+		<test-case FilePath="spatial-index">
+            <compilation-unit name="dhvbtree-load-then-create-index_03">
+                <output-dir compare="Text">dhvbtree-load-then-create-index_03</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="dhvbtree-load-then-create-index_04">
+                <output-dir compare="Text">dhvbtree-load-then-create-index_04</output-dir>
+            </compilation-unit>
+        </test-case>        
+		<test-case FilePath="spatial-index">
+            <compilation-unit name="rtree-create-index-then-load_01">
+                <output-dir compare="Text">rtree-create-index-then-load_01</output-dir>
+            </compilation-unit>
+        </test-case>
+		<test-case FilePath="spatial-index">
+            <compilation-unit name="rtree-create-index-then-load_02">
+                <output-dir compare="Text">rtree-create-index-then-load_02</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="rtree-create-index-then-load_03">
+                <output-dir compare="Text">rtree-create-index-then-load_03</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="rtree-create-index-then-load_04">
+                <output-dir compare="Text">rtree-create-index-then-load_04</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="rtree-load-then-create-index_01">
+                <output-dir compare="Text">rtree-load-then-create-index_01</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="rtree-load-then-create-index_02">
+                <output-dir compare="Text">rtree-load-then-create-index_02</output-dir>
+            </compilation-unit>
+        </test-case>
+		<test-case FilePath="spatial-index">
+            <compilation-unit name="rtree-load-then-create-index_03">
+                <output-dir compare="Text">rtree-load-then-create-index_03</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="rtree-load-then-create-index_04">
+                <output-dir compare="Text">rtree-load-then-create-index_04</output-dir>
+            </compilation-unit>
+        </test-case>
+		<test-case FilePath="spatial-index">
+            <compilation-unit name="shbtree-create-index-then-load_01">
+                <output-dir compare="Text">shbtree-create-index-then-load_01</output-dir>
+            </compilation-unit>
+        </test-case>
+		<test-case FilePath="spatial-index">
+            <compilation-unit name="shbtree-create-index-then-load_02">
+                <output-dir compare="Text">shbtree-create-index-then-load_02</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="shbtree-create-index-then-load_03">
+                <output-dir compare="Text">shbtree-create-index-then-load_03</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="shbtree-create-index-then-load_04">
+                <output-dir compare="Text">shbtree-create-index-then-load_04</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="shbtree-load-then-create-index_01">
+                <output-dir compare="Text">shbtree-load-then-create-index_01</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="shbtree-load-then-create-index_02">
+                <output-dir compare="Text">shbtree-load-then-create-index_02</output-dir>
+            </compilation-unit>
+        </test-case>
+		<test-case FilePath="spatial-index">
+            <compilation-unit name="shbtree-load-then-create-index_03">
+                <output-dir compare="Text">shbtree-load-then-create-index_03</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="shbtree-load-then-create-index_04">
+                <output-dir compare="Text">shbtree-load-then-create-index_04</output-dir>
+            </compilation-unit>
+        </test-case>
+		<test-case FilePath="spatial-index">
+            <compilation-unit name="sif-create-index-then-load_01">
+                <output-dir compare="Text">sif-create-index-then-load_01</output-dir>
+            </compilation-unit>
+        </test-case>
+		<test-case FilePath="spatial-index">
+            <compilation-unit name="sif-create-index-then-load_02">
+                <output-dir compare="Text">sif-create-index-then-load_02</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="sif-create-index-then-load_03">
+                <output-dir compare="Text">sif-create-index-then-load_03</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="sif-create-index-then-load_04">
+                <output-dir compare="Text">sif-create-index-then-load_04</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="sif-load-then-create-index_01">
+                <output-dir compare="Text">sif-load-then-create-index_01</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="sif-load-then-create-index_02">
+                <output-dir compare="Text">sif-load-then-create-index_02</output-dir>
+            </compilation-unit>
+        </test-case>
+		<test-case FilePath="spatial-index">
+            <compilation-unit name="sif-load-then-create-index_03">
+                <output-dir compare="Text">sif-load-then-create-index_03</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="sif-load-then-create-index_04">
+                <output-dir compare="Text">sif-load-then-create-index_04</output-dir>
+            </compilation-unit>
+        </test-case>   
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="dhbtree-index-only-join">
+                <output-dir compare="Text">dhbtree-index-only-join</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="dhvbtree-index-only-join">
+                <output-dir compare="Text">dhvbtree-index-only-join</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="rtree-index-only-join">
+                <output-dir compare="Text">rtree-index-only-join</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="shbtree-index-only-join">
+                <output-dir compare="Text">shbtree-index-only-join</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="sif-index-only-join">
+                <output-dir compare="Text">sif-index-only-join</output-dir>
+            </compilation-unit>
+        </test-case>  
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="dhbtree-non-index-only-join">
+                <output-dir compare="Text">dhbtree-non-index-only-join</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="dhvbtree-non-index-only-join">
+                <output-dir compare="Text">dhvbtree-non-index-only-join</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="rtree-non-index-only-join">
+                <output-dir compare="Text">rtree-non-index-only-join</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="shbtree-non-index-only-join">
+                <output-dir compare="Text">shbtree-non-index-only-join</output-dir>
+            </compilation-unit>
+        </test-case>
+        <test-case FilePath="spatial-index">
+            <compilation-unit name="sif-non-index-only-join">
+                <output-dir compare="Text">sif-non-index-only-join</output-dir>
+            </compilation-unit>
+        </test-case>                                   
+    </test-group>
     <test-group name="string">
         <test-case FilePath="string">
             <compilation-unit name="codepoint-to-string1">

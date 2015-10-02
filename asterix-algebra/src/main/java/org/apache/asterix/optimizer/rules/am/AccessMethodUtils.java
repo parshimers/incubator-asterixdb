@@ -309,6 +309,9 @@ public class AccessMethodUtils {
         // We are using AINT32 to decode result values for this.
         // Refer to appendSecondaryIndexOutputVars() for the details.
         if (resultOfTryLockRequired) {
+            if (index.getIndexType() == IndexType.SIF) {
+                dest.add(BuiltinType.APOINT);
+            }
             dest.add(BuiltinType.AINT32);
         }
 
@@ -336,6 +339,10 @@ public class AccessMethodUtils {
         // If it is not granted, then we need to do a secondary index lookup, sort PKs, do a primary index lookup, and select.
         if (resultOfTryLockRequired) {
             numVars += 1;
+            if (index.getIndexType() == IndexType.SIF) {
+                //add original point field to avoid post verification.
+                ++numVars;
+            }
         }
 
         for (int i = 0; i < numVars; i++) {
@@ -387,7 +394,19 @@ public class AccessMethodUtils {
             case 2:
                 // Fetch conditional splitter
                 start = numSecondaryKeys + numPrimaryKeys;
+                if (index.getIndexType() == IndexType.SIF) {
+                    ++start;
+                }
                 stop = sourceVars.size();
+                break;
+            case 3:
+                // Fetch original point for sif index
+                if (index.getIndexType() != IndexType.SIF) {
+                    return keyVars;
+                }
+                start = numSecondaryKeys + numPrimaryKeys;
+                stop = start + 1;
+                break;
         }
         for (int i = start; i < stop; i++) {
             keyVars.add(sourceVars.get(i));
@@ -802,7 +821,7 @@ public class AccessMethodUtils {
                                 isIndexOnlyPlan = true;
                             } else if (chosenIndexVars.contains(usedVarAfterSelect)) {
                                 if (chosenIndex.getIndexType() == IndexType.BTREE
-                                        || chosenIndex.getIndexType() == IndexType.RTREE) {
+                                        || isSpatialIndex(chosenIndex.getIndexType())) {
                                     // From SK?
                                     isIndexOnlyPlan = true;
                                     secondaryKeyFieldUsedAfterTopOp = true;
@@ -910,43 +929,110 @@ public class AccessMethodUtils {
                             break;
                         }
                     } else if (t.getValue().getExpressionTag() == LogicalExpressionTag.VARIABLE) {
-                        // If we check the join condition
+                        // We are dealing with JOIN case here.
                         LogicalVariable tmpVal = ((VariableReferenceExpression) t.getValue()).getVariableReference();
-                        List<String> tmpValFieldName = null;
-                        if (probeSubTree != null) {
-                            tmpValFieldName = probeSubTree.fieldNames.get(tmpVal);
+
+                        // We only need to take care of the variables from the probe tree.
+                        // liveVarsInTopOp only contains live variables in the index sub tree.
+                        if (liveVarsInTopOp.contains(tmpVal)) {
+                            continue;
                         }
+
+                        List<String> tmpValFieldName = null;
                         IAType tmpValFieldType = null;
-                        if (tmpValFieldName != null) {
-                            for (int j = 0; j < probeRecordType.getFieldNames().length; j++) {
-                                String fieldName = probeRecordType.getFieldNames()[j];
-                                if (tmpValFieldName.contains(fieldName)) {
-                                    try {
-                                        tmpValFieldType = probeRecordType.getFieldType(fieldName);
-                                    } catch (IOException e) {
-                                        throw new IllegalStateException(
-                                                "Can't get the field type for the given fieldname: " + fieldName);
+
+                        ILogicalExpression tmpCondExpr = null;
+                        AbstractFunctionCallExpression tmpCondExprCall = null;
+                        FunctionIdentifier tmpFuncID = null;
+
+                        // Since we know the type of the given index from index sub tree,
+                        // we need to find the type of other join variable
+                        if (probeSubTree != null) {
+                            // We first check whether the given variable is produced from an assigned function-call.
+                            for (int j = 0; j < probeSubTree.assignsAndUnnestsRefs.size(); j++) {
+                                List<LogicalVariable> producedVarsFromProbeTree = new ArrayList<LogicalVariable>();
+                                List<LogicalVariable> usedVarsFromProbeTree = new ArrayList<LogicalVariable>();
+                                ILogicalOperator tmpOp = probeSubTree.assignsAndUnnestsRefs.get(j).getValue();
+                                VariableUtilities.getProducedVariables(tmpOp, producedVarsFromProbeTree);
+
+                                // If this is the assign (unnest-map) that we are looking for.
+                                if (producedVarsFromProbeTree.contains(tmpVal)) {
+                                    // If the operator is ASSIGN
+                                    if (tmpOp.getOperatorTag() == LogicalOperatorTag.ASSIGN) {
+                                        AssignOperator tmpAssignOp = (AssignOperator) tmpOp;
+                                        List<Mutable<ILogicalExpression>> tmpCondExprs = tmpAssignOp.getExpressions();
+
+                                        for (Mutable<ILogicalExpression> tmpConditionExpr : tmpCondExprs) {
+                                            if (tmpConditionExpr.getValue().getExpressionTag() == LogicalExpressionTag.FUNCTION_CALL) {
+                                                tmpCondExpr = tmpConditionExpr.getValue();
+                                                tmpCondExprCall = (AbstractFunctionCallExpression) tmpCondExpr;
+                                                tmpFuncID = tmpCondExprCall.getFunctionIdentifier();
+                                                // Get the field type for the given variable
+                                                tmpValFieldType = findSpatialType(tmpFuncID);
+                                                if (tmpValFieldType == null) {
+                                                    continue;
+                                                } else {
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    } else if (tmpOp.getOperatorTag() == LogicalOperatorTag.UNNEST_MAP) {
+                                        // If the operator is UNNESTMAP
+                                        UnnestMapOperator tmpUnnestMapOp = (UnnestMapOperator) tmpOp;
+                                        tmpCondExpr = tmpUnnestMapOp.getExpressionRef().getValue();
+                                        tmpCondExprCall = (AbstractFunctionCallExpression) tmpCondExpr;
+                                        tmpFuncID = tmpCondExprCall.getFunctionIdentifier();
+                                        tmpValFieldType = findSpatialType(tmpFuncID);
+                                        if (tmpValFieldType == null) {
+                                            continue;
+                                        } else {
+                                            break;
+                                        }
+                                    } else {
+                                        // We only care ASSIGN or UNNEST_MAP operator.
+                                        continue;
                                     }
-                                    break;
                                 }
                             }
-                            if (keyPairType.first == BuiltinType.APOINT || keyPairType.first == BuiltinType.ARECTANGLE) {
-                                // If the given field from the other join branch is a POINT or a RECTANGLE,
-                                // we don't need to verify it again using SELECT operator since there are no false positive results.
-                                if (tmpValFieldType == BuiltinType.APOINT || tmpValFieldType == BuiltinType.ARECTANGLE) {
-                                    verificationAfterSIdxSearchRequired = false;
-                                } else {
-                                    verificationAfterSIdxSearchRequired = true;
-                                }
+                        }
+
+                        // We tried to find the field type of the given variable, but couldn't.
+                        // This variable is a direct field from the probe tree so that we can find the field type.
+                        if (tmpValFieldType == null) {
+                            tmpValFieldName = probeSubTree.fieldNames.get(tmpVal);
+
+                            if (tmpValFieldName == null) {
+                                continue;
                             } else {
-                                // If the type of an R-Tree index is not a point or rectangle, an index-only plan is not possible
-                                // since we can't reconstruct the original field value from an R-Tree index search.
-                                isIndexOnlyPlan = false;
+                                for (int j = 0; j < probeRecordType.getFieldNames().length; j++) {
+                                    String fieldName = probeRecordType.getFieldNames()[j];
+                                    if (tmpValFieldName.contains(fieldName)) {
+                                        try {
+                                            tmpValFieldType = probeRecordType.getFieldType(fieldName);
+                                        } catch (IOException e) {
+                                            throw new IllegalStateException(
+                                                    "Can't get the field type for the given fieldname: " + fieldName);
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (keyPairType.first == BuiltinType.APOINT || keyPairType.first == BuiltinType.ARECTANGLE) {
+                            // If the given field from the other join branch is a POINT or a RECTANGLE,
+                            // we don't need to verify it again using SELECT operator since there are no false positive results.
+                            if (tmpValFieldType == BuiltinType.APOINT || tmpValFieldType == BuiltinType.ARECTANGLE) {
+                                verificationAfterSIdxSearchRequired = false;
+                            } else {
                                 verificationAfterSIdxSearchRequired = true;
-                                noFalsePositiveResultsFromSIdxSearch = false;
                             }
                         } else {
-                            continue;
+                            // If the type of an R-Tree index is not a point or rectangle, an index-only plan is not possible
+                            // since we can't reconstruct the original field value from an R-Tree index search.
+                            isIndexOnlyPlan = false;
+                            verificationAfterSIdxSearchRequired = true;
+                            noFalsePositiveResultsFromSIdxSearch = false;
                         }
                     }
                 }
@@ -963,6 +1049,24 @@ public class AccessMethodUtils {
 
         return true;
 
+    }
+    
+    // Helper function that finds a corresponding IAType for the given function identifier
+    public static IAType findSpatialType(FunctionIdentifier fid) {
+        if (fid == AsterixBuiltinFunctions.CREATE_CIRCLE || fid == AsterixBuiltinFunctions.CIRCLE_CONSTRUCTOR) {
+            return BuiltinType.ACIRCLE;
+        } else if (fid == AsterixBuiltinFunctions.CREATE_POINT || fid == AsterixBuiltinFunctions.POINT_CONSTRUCTOR) {
+            return BuiltinType.APOINT;
+        } else if (fid == AsterixBuiltinFunctions.CREATE_RECTANGLE
+                || fid == AsterixBuiltinFunctions.RECTANGLE_CONSTRUCTOR) {
+            return BuiltinType.ARECTANGLE;
+        } else if (fid == AsterixBuiltinFunctions.CREATE_POLYGON || fid == AsterixBuiltinFunctions.POLYGON_CONSTRUCTOR) {
+            return BuiltinType.APOLYGON;
+        } else if (fid == AsterixBuiltinFunctions.CREATE_LINE || fid == AsterixBuiltinFunctions.LINE_CONSTRUCTOR) {
+            return BuiltinType.ALINE;
+        } else {
+            return null;
+        }
     }
 
     /**
@@ -1115,6 +1219,12 @@ public class AccessMethodUtils {
                 } else if (idxType == IndexType.STATIC_HILBERT_BTREE) {
                     //dhvbtree entry's fields: [Cell number, point, PK]
                     createPointExpr = new VariableReferenceExpression(secondaryKeyVarsFromSIdxSearch.get(1));
+                } else if (idxType == IndexType.SIF) {
+                    //sif entry's fields: [Cell number, PK, point]
+                    // Fetch PK variable(s) from the secondary-index search operator
+                    List<LogicalVariable> pointVarFromSIdxSearch = AccessMethodUtils.getKeyVarsFromSecondaryUnnestMap(
+                            dataset, recordType, inputOp, secondaryIndex, 3, outputPrimaryKeysOnlyFromSIdxSearch);
+                    createPointExpr = new VariableReferenceExpression(pointVarFromSIdxSearch.get(0));
                 }
                 
                 restoredSecondaryKeyFieldVars.add(context.newVar());
@@ -1303,7 +1413,7 @@ public class AccessMethodUtils {
                 }
 
                 if (varsUsedInTopOp.contains(tVar)) {
-                    if (idxType != IndexType.RTREE) {
+                    if (!isSpatialIndex(idxType)) {
                         int sIndexIdx = chosenIndexFieldNames.indexOf(subTree.fieldNames.get(tVar));
 
                         // For the join-case, the match might not exist. In this case, we just propagate the variables later.
@@ -1506,8 +1616,8 @@ public class AccessMethodUtils {
 
             ILogicalOperator currentTopOpInRightPath = splitOp;
 
-            // For an R-Tree index, if there is an operator that is using the secondary key field value,
-            // we need to reconstruct that field value from the result of R-Tree search.
+            // For spatial indexes, if there is an operator that is using the secondary key field value,
+            // we need to reconstruct that field value from the result of spatial index search.
             // This is done by adding the assign operator that we have made in the beginning of this method
             if (isSpatialIndex(idxType)
                     && (secondaryKeyFieldUsedAfterSelectOp || verificationAfterSIdxSearchRequired)) {
@@ -1518,7 +1628,7 @@ public class AccessMethodUtils {
                 currentTopOpInRightPath = assignRestoredSecondaryKeyFieldOp;
             }
 
-            // For an R-Tree index, if the given query shape is not RECTANGLE or POINT,
+            // For spatial indexes, if the given query shape is not RECTANGLE or POINT,
             // we need to add the original SELECT operator to filter out the false positive results.
             // (e.g., spatial-intersect($o.pointfield, create-circle(create-point(30.0,70.0), 5.0)) )
             //
@@ -1595,9 +1705,9 @@ public class AccessMethodUtils {
             unionAllOp.getInputs().add(new MutableObject<ILogicalOperator>(newSelectOp));
             unionAllOp.getInputs().add(new MutableObject<ILogicalOperator>(currentTopOpInRightPath));
 
-            StringBuilder sb = new StringBuilder();
-            LogicalOperatorPrettyPrintVisitor pvisitor = context.getPrettyPrintVisitor();
-            PlanPrettyPrinter.printOperator((AbstractLogicalOperator) unionAllOp, sb, pvisitor, 0);
+//            StringBuilder sb = new StringBuilder();
+//            LogicalOperatorPrettyPrintVisitor pvisitor = context.getPrettyPrintVisitor();
+//            PlanPrettyPrinter.printOperator((AbstractLogicalOperator) unionAllOp, sb, pvisitor, 0);
 //            System.out.println("createPrimaryUnnestMap:\n" + sb.toString());
 
             unionAllOp.setExecutionMode(ExecutionMode.PARTITIONED);
@@ -1606,7 +1716,7 @@ public class AccessMethodUtils {
             // Index-only plan is constructed. Return this operator to the caller.
             return unionAllOp;
 
-        } else if (noFalsePositiveResultsFromSIdxSearch) {
+        } else if (noFalsePositiveResultsFromSIdxSearch && !verificationAfterSIdxSearchRequired) {
             // Yet, reducing the number of SELECT operations optimization is possible even there is no index-only plan for the given query.
             // At this moment, an unnest-map (primary index look-up) is the top operator.
 

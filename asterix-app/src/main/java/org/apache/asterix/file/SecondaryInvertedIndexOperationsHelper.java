@@ -31,6 +31,7 @@ import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.ioopcallbacks.LSMInvertedIndexIOOperationCallbackFactory;
 import org.apache.asterix.metadata.declared.AqlMetadataProvider;
 import org.apache.asterix.metadata.entities.Index;
+import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.util.NonTaggedFormatUtil;
 import org.apache.asterix.runtime.formats.FormatUtils;
@@ -41,14 +42,17 @@ import org.apache.asterix.transaction.management.service.transaction.AsterixRunt
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraintHelper;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
+import org.apache.hyracks.algebricks.core.algebra.expressions.LogicalExpressionJobGenToExpressionRuntimeProviderAdapter;
 import org.apache.hyracks.algebricks.core.jobgen.impl.ConnectorPolicyAssignmentPolicy;
 import org.apache.hyracks.algebricks.core.rewriter.base.PhysicalOptimizationConfig;
 import org.apache.hyracks.algebricks.data.ISerializerDeserializerProvider;
 import org.apache.hyracks.algebricks.data.ITypeTraitProvider;
 import org.apache.hyracks.algebricks.runtime.base.ICopyEvaluatorFactory;
 import org.apache.hyracks.algebricks.runtime.base.IPushRuntimeFactory;
+import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
 import org.apache.hyracks.algebricks.runtime.operators.base.SinkRuntimeFactory;
 import org.apache.hyracks.algebricks.runtime.operators.meta.AlgebricksMetaOperatorDescriptor;
+import org.apache.hyracks.algebricks.runtime.operators.std.AssignRuntimeFactory;
 import org.apache.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
 import org.apache.hyracks.api.dataflow.value.ITypeTraits;
@@ -77,6 +81,7 @@ public class SecondaryInvertedIndexOperationsHelper extends SecondaryIndexOperat
 
     private IAType secondaryKeyType;
     private ITypeTraits[] invListsTypeTraits;
+    private IBinaryComparatorFactory[] invListComparatorFactories;
     private IBinaryComparatorFactory[] tokenComparatorFactories;
     private ITypeTraits[] tokenTypeTraits;
     private IBinaryTokenizerFactory tokenizerFactory;
@@ -88,21 +93,20 @@ public class SecondaryInvertedIndexOperationsHelper extends SecondaryIndexOperat
     private int[] invertedIndexFields;
     private int[] invertedIndexFieldsForNonBulkLoadOps;
     private int[] secondaryFilterFieldsForNonBulkLoadOps;
-    private final IndexType indexType;
+    private RecordDescriptor assignOpRecDesc;
 
     protected SecondaryInvertedIndexOperationsHelper(PhysicalOptimizationConfig physOptConf,
             IAsterixPropertiesProvider propertiesProvider, IndexType indexType) {
-        super(physOptConf, propertiesProvider);
-        this.indexType = indexType;
+        super(physOptConf, propertiesProvider, indexType);
     }
 
     @Override
     @SuppressWarnings("rawtypes")
-    protected void setSecondaryRecDescAndComparators(IndexTypeProperty indexTypeProperty, List<List<String>> secondaryKeyFields,
-            List<IAType> secondaryKeyTypes, AqlMetadataProvider metadata) throws AlgebricksException, 
-            AsterixException {
+    protected void setSecondaryRecDescAndComparators(IndexTypeProperty indexTypeProperty,
+            List<List<String>> secondaryKeyFields, List<IAType> secondaryKeyTypes, AqlMetadataProvider metadata)
+            throws AlgebricksException, AsterixException {
         // Sanity checks.
-        if (numPrimaryKeys > 1) {
+        if (numPrimaryKeys > 2 || (numPrimaryKeys > 1 && indexType != IndexType.SIF)) {
             throw new AsterixException("Cannot create inverted index on dataset with composite primary key.");
         }
         if (numSecondaryKeys > 1) {
@@ -116,34 +120,82 @@ public class SecondaryInvertedIndexOperationsHelper extends SecondaryIndexOperat
         }
         // Prepare record descriptor used in the assign op, and the optional
         // select op.
-        secondaryFieldAccessEvalFactories = new ICopyEvaluatorFactory[numSecondaryKeys + numFilterFields];
-        ISerializerDeserializer[] secondaryRecFields = new ISerializerDeserializer[numPrimaryKeys + numSecondaryKeys
-                + numFilterFields];
+
+        ITypeTraits[] assignOpTypeTraits = null;
+        ISerializerDeserializer[] assignOpRecFieldsSerde = null;
+        int assignOpOutputFieldsCount = numSecondaryKeys + numPrimaryKeys + numFilterFields;
+        if (indexType == IndexType.SIF) {
+            ++assignOpOutputFieldsCount; //+1 for original point
+            assignOpTypeTraits = new ITypeTraits[assignOpOutputFieldsCount];
+            assignOpRecFieldsSerde = new ISerializerDeserializer[assignOpOutputFieldsCount];
+        }
+        int evalFactoriesCount = assignOpOutputFieldsCount - numPrimaryKeys;
+        secondaryFieldAccessEvalFactories = new ICopyEvaluatorFactory[evalFactoriesCount];
+        ISerializerDeserializer[] secondaryRecFields = new ISerializerDeserializer[assignOpOutputFieldsCount];
         ISerializerDeserializer[] enforcedRecFields = new ISerializerDeserializer[1 + numPrimaryKeys + numFilterFields];
-        secondaryTypeTraits = new ITypeTraits[numSecondaryKeys + numPrimaryKeys];
+        secondaryTypeTraits = new ITypeTraits[assignOpOutputFieldsCount - numFilterFields];
         ITypeTraits[] enforcedTypeTraits = new ITypeTraits[1 + numPrimaryKeys];
         ISerializerDeserializerProvider serdeProvider = FormatUtils.getDefaultFormat().getSerdeProvider();
         ITypeTraitProvider typeTraitProvider = FormatUtils.getDefaultFormat().getTypeTraitProvider();
-        if (numSecondaryKeys > 0) {
-            secondaryFieldAccessEvalFactories[0] = FormatUtils.getDefaultFormat().getFieldAccessEvaluatorFactory(
-                    isEnforcingKeyTypes ? enforcedItemType : itemType, secondaryKeyFields.get(0), numPrimaryKeys);
-            Pair<IAType, Boolean> keyTypePair = Index.getNonNullableOpenFieldType(secondaryKeyTypes.get(0),
-                    secondaryKeyFields.get(0), itemType);
+
+        int i = 0;
+        for (; i < numSecondaryKeys; i++) {
+            secondaryFieldAccessEvalFactories[i] = FormatUtils.getDefaultFormat().getFieldAccessEvaluatorFactory(
+                    isEnforcingKeyTypes ? enforcedItemType : itemType, secondaryKeyFields.get(i), numPrimaryKeys);
+            Pair<IAType, Boolean> keyTypePair = Index.getNonNullableOpenFieldType(secondaryKeyTypes.get(i),
+                    secondaryKeyFields.get(i), itemType);
             secondaryKeyType = keyTypePair.first;
             anySecondaryKeyIsNullable = anySecondaryKeyIsNullable || keyTypePair.second;
             ISerializerDeserializer keySerde = serdeProvider.getSerializerDeserializer(secondaryKeyType);
-            secondaryRecFields[0] = keySerde;
-            secondaryTypeTraits[0] = typeTraitProvider.getTypeTrait(secondaryKeyType);
+            secondaryRecFields[i] = keySerde;
+            secondaryTypeTraits[i] = typeTraitProvider.getTypeTrait(secondaryKeyType);
+            if (indexType == IndexType.SIF) {
+                assignOpTypeTraits[i] = typeTraitProvider.getTypeTrait(secondaryKeyType);
+                assignOpRecFieldsSerde[i] = keySerde;
+            }
         }
+        
+        if (indexType == IndexType.SIF) {
+            for (int j = 0; j < numPrimaryKeys; j++, i++) {
+                assignOpTypeTraits[i] = primaryRecDesc.getTypeTraits()[j];
+                assignOpRecFieldsSerde[i] = primaryRecDesc.getFields()[j];
+            }
+        }
+        
+        if (indexType == IndexType.SIF) {
+            //for the original point
+            secondaryFieldAccessEvalFactories[i - numPrimaryKeys] = FormatUtils.getDefaultFormat().getFieldAccessEvaluatorFactory(
+                    isEnforcingKeyTypes ? enforcedItemType : itemType, secondaryKeyFields.get(0), numPrimaryKeys);
+            ISerializerDeserializer keySerde = serdeProvider.getSerializerDeserializer(BuiltinType.APOINT);
+            secondaryRecFields[i] = keySerde;
+            secondaryTypeTraits[i] = typeTraitProvider.getTypeTrait(BuiltinType.APOINT);
+            if (indexType == IndexType.SIF) {
+                assignOpTypeTraits[i] = typeTraitProvider.getTypeTrait(BuiltinType.APOINT);
+                assignOpRecFieldsSerde[i] = keySerde;
+            }
+            i++;
+        }
+        
         if (numFilterFields > 0) {
-            secondaryFieldAccessEvalFactories[numSecondaryKeys] = FormatUtils.getDefaultFormat()
-                    .getFieldAccessEvaluatorFactory(itemType, filterFieldName, numPrimaryKeys);
+            secondaryFieldAccessEvalFactories[evalFactoriesCount-numFilterFields] = FormatUtils.getDefaultFormat().getFieldAccessEvaluatorFactory(
+                    itemType, filterFieldName, numPrimaryKeys);
             Pair<IAType, Boolean> keyTypePair = Index.getNonNullableKeyFieldType(filterFieldName, itemType);
             IAType type = keyTypePair.first;
             ISerializerDeserializer serde = serdeProvider.getSerializerDeserializer(type);
-            secondaryRecFields[numPrimaryKeys + numSecondaryKeys] = serde;
+            int idx = numPrimaryKeys + numSecondaryKeys;
+            if (indexType == IndexType.SIF) {
+                ++idx;
+                assignOpRecFieldsSerde[idx] = serde;
+                secondaryRecFields[idx] = serde;
+            } else {
+                secondaryRecFields[idx] = serde;
+            }
         }
         secondaryRecDesc = new RecordDescriptor(secondaryRecFields);
+        if (indexType == IndexType.SIF) {
+            assignOpRecDesc = new RecordDescriptor(assignOpRecFieldsSerde, assignOpTypeTraits);
+        }
+
         // Comparators and type traits for tokens.
         int numTokenFields = (!isPartitioned) ? numSecondaryKeys : numSecondaryKeys + 1;
         tokenComparatorFactories = new IBinaryComparatorFactory[numTokenFields];
@@ -161,18 +213,32 @@ public class SecondaryInvertedIndexOperationsHelper extends SecondaryIndexOperat
         tokenizerFactory = NonTaggedFormatUtil.getBinaryTokenizerFactory(secondaryKeyType.getTypeTag(), indexType,
                 indexTypeProperty);
         // Type traits for inverted-list elements. Inverted lists contain
-        // primary keys.
-        invListsTypeTraits = new ITypeTraits[numPrimaryKeys];
-        if (numPrimaryKeys > 0) {
-            invListsTypeTraits[0] = primaryRecDesc.getTypeTraits()[0];
-            enforcedRecFields[0] = primaryRecDesc.getFields()[0];
-            enforcedTypeTraits[0] = primaryRecDesc.getTypeTraits()[0];
+        // primary keys (and addition fields if any such as original point for sif index).
+        int nonTokenFieldsCount = numPrimaryKeys;
+        if (indexType == IndexType.SIF) {
+            nonTokenFieldsCount++;
         }
-        enforcedRecFields[numPrimaryKeys] = serdeProvider.getSerializerDeserializer(itemType);
+        invListsTypeTraits = new ITypeTraits[nonTokenFieldsCount];
+        invListComparatorFactories = new IBinaryComparatorFactory[nonTokenFieldsCount];
+        for (i = 0; i < numPrimaryKeys; i++) {
+            invListsTypeTraits[i] = primaryRecDesc.getTypeTraits()[i];
+            enforcedRecFields[i] = primaryRecDesc.getFields()[i];
+            enforcedTypeTraits[i] = primaryRecDesc.getTypeTraits()[i];
+        }
+        enforcedRecFields[i] = serdeProvider.getSerializerDeserializer(itemType);
         enforcedRecDesc = new RecordDescriptor(enforcedRecFields, enforcedTypeTraits);
+        
+        if (indexType == IndexType.SIF) {
+            invListsTypeTraits[i] = typeTraitProvider.getTypeTrait(BuiltinType.APOINT);
+            i++;
+        }
+
         // For tokenization, sorting and loading.
         // One token (+ optional partitioning field) + primary keys.
         numTokenKeyPairFields = (!isPartitioned) ? 1 + numPrimaryKeys : 2 + numPrimaryKeys;
+        if (indexType == IndexType.SIF) {
+            numTokenKeyPairFields++; //for original point field
+        }
         ISerializerDeserializer[] tokenKeyPairFields = new ISerializerDeserializer[numTokenKeyPairFields
                 + numFilterFields];
         ITypeTraits[] tokenKeyPairTypeTraits = new ITypeTraits[numTokenKeyPairFields];
@@ -188,24 +254,46 @@ public class SecondaryInvertedIndexOperationsHelper extends SecondaryIndexOperat
             tokenKeyPairComparatorFactories[1] = PointableBinaryComparatorFactory.of(ShortPointable.FACTORY);
             pkOff = 2;
         }
-        if (numPrimaryKeys > 0) {
-            tokenKeyPairFields[pkOff] = primaryRecDesc.getFields()[0];
-            tokenKeyPairTypeTraits[pkOff] = primaryRecDesc.getTypeTraits()[0];
-            tokenKeyPairComparatorFactories[pkOff] = primaryComparatorFactories[0];
+        for (int j = 0; j < numPrimaryKeys; j++, pkOff++) {
+            tokenKeyPairFields[pkOff] = primaryRecDesc.getFields()[j];
+            tokenKeyPairTypeTraits[pkOff] = primaryRecDesc.getTypeTraits()[j];
+            tokenKeyPairComparatorFactories[pkOff] = primaryComparatorFactories[j];
         }
+        if (indexType == IndexType.SIF) {
+            tokenKeyPairFields[pkOff] = serdeProvider.getSerializerDeserializer(BuiltinType.APOINT);
+            tokenKeyPairTypeTraits[pkOff] = typeTraitProvider.getTypeTrait(BuiltinType.APOINT);
+            tokenKeyPairComparatorFactories[pkOff] = FormatUtils.getDefaultFormat()
+                    .getBinaryComparatorFactoryProvider().getBinaryComparatorFactory(BuiltinType.APOINT, true);
+            ++pkOff;
+        }
+        
+        //set invListComparatorFactories using tokenKeyPairComparatorFactories.
+        i = numSecondaryKeys + (isPartitioned ? 1 : 0);
+        for (int j = 0; i < tokenKeyPairComparatorFactories.length; j++, i++) {
+            invListComparatorFactories[j] = tokenKeyPairComparatorFactories[i];
+        }
+        
         if (numFilterFields > 0) {
-            tokenKeyPairFields[numPrimaryKeys + pkOff] = secondaryRecFields[numPrimaryKeys + numSecondaryKeys];
+            int idx = numPrimaryKeys + numSecondaryKeys;
+            if (indexType == IndexType.SIF) {
+                ++idx;
+            }
+            tokenKeyPairFields[pkOff] = secondaryRecFields[idx];
         }
         tokenKeyPairRecDesc = new RecordDescriptor(tokenKeyPairFields, tokenKeyPairTypeTraits);
         if (filterFieldName != null) {
             invertedIndexFields = new int[numTokenKeyPairFields];
-            for (int i = 0; i < invertedIndexFields.length; i++) {
+            for (i = 0; i < invertedIndexFields.length; i++) {
                 invertedIndexFields[i] = i;
             }
             secondaryFilterFieldsForNonBulkLoadOps = new int[numFilterFields];
-            secondaryFilterFieldsForNonBulkLoadOps[0] = numSecondaryKeys + numPrimaryKeys;
-            invertedIndexFieldsForNonBulkLoadOps = new int[numSecondaryKeys + numPrimaryKeys];
-            for (int i = 0; i < invertedIndexFieldsForNonBulkLoadOps.length; i++) {
+            int fieldCount = numPrimaryKeys + numSecondaryKeys;
+            if (indexType == IndexType.SIF) {
+                ++fieldCount;
+            }
+            secondaryFilterFieldsForNonBulkLoadOps[0] = fieldCount;
+            invertedIndexFieldsForNonBulkLoadOps = new int[fieldCount];
+            for (i = 0; i < invertedIndexFieldsForNonBulkLoadOps.length; i++) {
                 invertedIndexFieldsForNonBulkLoadOps[i] = i;
             }
         }
@@ -234,7 +322,7 @@ public class SecondaryInvertedIndexOperationsHelper extends SecondaryIndexOperat
         LSMInvertedIndexCreateOperatorDescriptor invIndexCreateOp = new LSMInvertedIndexCreateOperatorDescriptor(spec,
                 AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, secondaryFileSplitProvider,
                 AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, tokenTypeTraits, tokenComparatorFactories,
-                invListsTypeTraits, primaryComparatorFactories, tokenizerFactory, dataflowHelperFactory,
+                invListsTypeTraits, invListComparatorFactories, tokenizerFactory, dataflowHelperFactory,
                 localResourceFactoryProvider, NoOpOperationCallbackFactory.INSTANCE);
         AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, invIndexCreateOp,
                 secondaryPartitionConstraint);
@@ -253,12 +341,20 @@ public class SecondaryInvertedIndexOperationsHelper extends SecondaryIndexOperat
         // Create primary index scan op.
         BTreeSearchOperatorDescriptor primaryScanOp = createPrimaryIndexScanOp(spec);
 
+        // Create castOp if necessary
         AbstractOperatorDescriptor sourceOp = primaryScanOp;
         if (isEnforcingKeyTypes) {
             sourceOp = createCastOp(spec, primaryScanOp, numSecondaryKeys, dataset.getDatasetType());
             spec.connect(new OneToOneConnectorDescriptor(spec), primaryScanOp, 0, sourceOp, 0);
         }
-        AlgebricksMetaOperatorDescriptor asterixAssignOp = createAssignOp(spec, sourceOp, numSecondaryKeys);
+
+        // Create assignOp
+        AlgebricksMetaOperatorDescriptor asterixAssignOp = null;
+        if (indexType == IndexType.SIF) {
+            asterixAssignOp = createAssignOpForSIF(spec, sourceOp, numSecondaryKeys);
+        } else {
+            asterixAssignOp = createAssignOp(spec, sourceOp, numSecondaryKeys);
+        }
 
         // If any of the secondary fields are nullable, then add a select op
         // that filters nulls.
@@ -268,7 +364,13 @@ public class SecondaryInvertedIndexOperationsHelper extends SecondaryIndexOperat
         }
 
         // Create a tokenizer op.
-        AbstractOperatorDescriptor tokenizerOp = createTokenizerOp(spec);
+        AbstractOperatorDescriptor tokenizerOp = null;
+        
+        if (indexType == IndexType.SIF) {
+            tokenizerOp = createTokenizerOpForSIF(spec);
+        } else {
+            tokenizerOp = createTokenizerOp(spec);
+        }
 
         // Sort by token + primary keys.
         ExternalSortOperatorDescriptor sortOp = createSortOp(spec, tokenKeyPairComparatorFactories, tokenKeyPairRecDesc);
@@ -295,6 +397,43 @@ public class SecondaryInvertedIndexOperationsHelper extends SecondaryIndexOperat
         return spec;
     }
 
+    private AlgebricksMetaOperatorDescriptor createAssignOpForSIF(JobSpecification spec,
+            AbstractOperatorDescriptor sourceOp, int numSecondaryKeys) {
+        //*** input and output of assignOp for sif index ****
+        //input of assignOp: [PK, RECORD]
+        //output of assignOp: [point (APOINT), PK, point (APOINT)], 
+        //where the second point is used to store the original point for possible index-only plan.
+        //***************************************************
+        int[] outColumns = new int[numSecondaryKeys + numFilterFields + 1]; /* +1 for original point */
+        int[] projectionList = new int[numSecondaryKeys + numPrimaryKeys + numFilterFields + 1]; /* +1 for original point */
+        for (int i = 0; i < numSecondaryKeys + numFilterFields + 1; i++) { /* +1 for original point */
+            outColumns[i] = numPrimaryKeys + i;
+        }
+        int projCount = 0;
+        for (int i = 0; i < numSecondaryKeys; i++) {
+            projectionList[projCount++] = numPrimaryKeys + i;
+        }
+        for (int i = 0; i < numPrimaryKeys; i++) {
+            projectionList[projCount++] = i;
+        }
+        projectionList[projCount++] = outColumns[numSecondaryKeys]; /* this is for the original point */
+        if (numFilterFields > 0) {
+            projectionList[projCount++] = numPrimaryKeys + numSecondaryKeys + 1;
+        }
+
+        IScalarEvaluatorFactory[] sefs = new IScalarEvaluatorFactory[secondaryFieldAccessEvalFactories.length];
+        for (int i = 0; i < secondaryFieldAccessEvalFactories.length; ++i) {
+            sefs[i] = new LogicalExpressionJobGenToExpressionRuntimeProviderAdapter.ScalarEvaluatorFactoryAdapter(
+                    secondaryFieldAccessEvalFactories[i]);
+        }
+        AssignRuntimeFactory assign = new AssignRuntimeFactory(outColumns, sefs, projectionList);
+        AlgebricksMetaOperatorDescriptor asterixAssignOp = new AlgebricksMetaOperatorDescriptor(spec, 1, 1,
+                new IPushRuntimeFactory[] { assign }, new RecordDescriptor[] { assignOpRecDesc });
+        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, asterixAssignOp,
+                primaryPartitionConstraint);
+        return asterixAssignOp;
+    }
+
     private AbstractOperatorDescriptor createTokenizerOp(JobSpecification spec) throws AlgebricksException {
         int docField = 0;
         int[] primaryKeyFields = new int[numPrimaryKeys + numFilterFields];
@@ -307,6 +446,20 @@ public class SecondaryInvertedIndexOperationsHelper extends SecondaryIndexOperat
                 primaryPartitionConstraint);
         return tokenizerOp;
     }
+
+    private AbstractOperatorDescriptor createTokenizerOpForSIF(JobSpecification spec) {
+        int docField = 0;
+        int[] invListFields = new int[numPrimaryKeys + 1 + numFilterFields]; //+1 for original point
+        for (int i = 0; i < invListFields.length; i++) {
+            invListFields[i] = numSecondaryKeys + i;
+        }
+        BinaryTokenizerOperatorDescriptor tokenizerOp = new BinaryTokenizerOperatorDescriptor(spec,
+                tokenKeyPairRecDesc, tokenizerFactory, docField, invListFields, isPartitioned, false, 1, false);
+        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, tokenizerOp,
+                primaryPartitionConstraint);
+        return tokenizerOp;
+    }
+
 
     @Override
     protected ExternalSortOperatorDescriptor createSortOp(JobSpecification spec,
@@ -332,7 +485,7 @@ public class SecondaryInvertedIndexOperationsHelper extends SecondaryIndexOperat
                 spec, secondaryRecDesc, fieldPermutation, false, numElementsHint, false,
                 AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, secondaryFileSplitProvider,
                 AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, tokenTypeTraits, tokenComparatorFactories,
-                invListsTypeTraits, primaryComparatorFactories, tokenizerFactory, dataflowHelperFactory);
+                invListsTypeTraits, invListComparatorFactories, tokenizerFactory, dataflowHelperFactory);
         AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, invIndexBulkLoadOp,
                 secondaryPartitionConstraint);
         return invIndexBulkLoadOp;
@@ -370,7 +523,7 @@ public class SecondaryInvertedIndexOperationsHelper extends SecondaryIndexOperat
         LSMInvertedIndexCompactOperator compactOp = new LSMInvertedIndexCompactOperator(spec,
                 AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, secondaryFileSplitProvider,
                 AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, tokenTypeTraits, tokenComparatorFactories,
-                invListsTypeTraits, primaryComparatorFactories, tokenizerFactory, dataflowHelperFactory,
+                invListsTypeTraits, invListComparatorFactories, tokenizerFactory, dataflowHelperFactory,
                 NoOpOperationCallbackFactory.INSTANCE);
         AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, compactOp,
                 secondaryPartitionConstraint);

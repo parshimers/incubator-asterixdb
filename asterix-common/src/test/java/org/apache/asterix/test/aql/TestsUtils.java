@@ -388,7 +388,7 @@ public class TestsUtils {
 
         List<CompilationUnit> cUnits = testCaseCtx.getTestCase().getCompilationUnit();
         for (CompilationUnit cUnit : cUnits) {
-//            if (!cUnit.getName().contains("scan-delete-btree-secondary-index-open")) {
+//            if (!cUnit.getName().contains("-load-then-create-index") && !cUnit.getName().contains("-create-index-then-load")) {
 //                continue;
 //            }
 //            if (!cUnit.getName().contains("rtree-spatial-intersect-point_03")) {

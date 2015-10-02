@@ -1,0 +1,10 @@
+/*
+ * Test case Name  : sif-load-then-create-index_02.aql
+ * Description     : load data to primary index followed by sif index creation followed by inserts, then a query. 
+ * Expected Result : Success
+ * Date            : Sept 30 2015
+ */
+
+use dataverse STBench;
+
+create index sifPlaceCoordinate on SimpleGeoPlace(coordinates) type sif(-180.0,-90.0,180.0,90.0);

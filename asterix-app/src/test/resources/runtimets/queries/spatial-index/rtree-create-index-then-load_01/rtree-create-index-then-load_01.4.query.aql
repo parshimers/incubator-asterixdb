@@ -1,0 +1,14 @@
+/*
+ * Test case Name  : rtree-create-index-then-load_01.aql
+ * Description     : rtree index creation followed by load data followed by inserts, then a query. 
+ * Expected Result : Success
+ * Date            : Sept 30 2015
+ */
+ 
+use dataverse STBench;
+count(
+for $x in dataset SimpleGeoPlace
+let $n :=  create-rectangle(point("-4.433658,46.0942802"), point("8.433658,55.0942802"))
+where spatial-intersect($x.coordinates, $n)
+return $x
+);

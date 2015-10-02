@@ -1,0 +1,20 @@
+/*
+ * Test case Name  : sif-load-then-create-index_03.aql
+ * Description     : load data to primary index followed by sif index creation followed by inserts, then a query. 
+ * Expected Result : Success
+ * Date            : Sept 30 2015
+ */
+
+drop dataverse STBench if exists;
+create dataverse STBench;
+use dataverse STBench;
+
+create type SimpleGeoPlaceType as closed {
+    coordinates: point, /* longitude: x, latitude: y */
+    id: int64,             
+    name: string,           
+    tags: string,           
+    categories: string,     
+    phone: string           
+}
+create dataset SimpleGeoPlace (SimpleGeoPlaceType) primary key id;

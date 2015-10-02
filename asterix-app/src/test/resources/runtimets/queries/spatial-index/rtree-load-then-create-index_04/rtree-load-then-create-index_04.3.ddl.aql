@@ -1,0 +1,10 @@
+/*
+ * Test case Name  : rtree-load-then-create-index_04.aql
+ * Description     : load data to primary index followed by rtree index creation followed by inserts, then a query. 
+ * Expected Result : Success
+ * Date            : Sept 30 2015
+ */
+
+use dataverse STBench;
+
+create index rtreePlaceCoordinate on SimpleGeoPlace(coordinates) type rtree;

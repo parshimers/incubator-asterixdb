@@ -1,0 +1,14 @@
+/*
+ * Test case Name  : dhbtree-load-then-create-index_04.aql
+ * Description     : load data to primary index followed by dhbtree index creation followed by inserts, then a query. 
+ * Expected Result : Success
+ * Date            : Sept 30 2015
+ */
+
+use dataverse STBench;
+count(
+for $x in dataset SimpleGeoPlace
+let $n :=  create-rectangle(point("14.433658,47.0942802"), point("14.533658,49.0942802"))
+where spatial-intersect($x.coordinates, $n)
+return $x
+);

@@ -1,0 +1,11 @@
+/*
+ * Test case Name  : sif-load-then-create-index_01.aql
+ * Description     : load data to primary index followed by sif index creation followed by inserts, then a query. 
+ * Expected Result : Success
+ * Date            : Sept 30 2015
+ */
+
+use dataverse STBench;
+load dataset SimpleGeoPlace 
+using "org.apache.asterix.external.dataset.adapter.NCFileSystemAdapter"
+(("path"="nc1://data/SimpleGeoPlace_10K.adm"),("format"="adm"));

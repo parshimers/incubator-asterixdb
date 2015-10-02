@@ -97,9 +97,8 @@ import org.apache.hyracks.storage.am.lsm.btree.dataflow.LSMBTreeDataflowHelperFa
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicyFactory;
 
 @SuppressWarnings("rawtypes")
-// TODO: We should eventually have a hierarchy of classes that can create all
-// possible index job specs,
-// not just for creation.
+// TODO: This class and subclasses' setSecondaryRecDescAndComparators() should be refactored 
+// to generate necessary objects when they're requested, not beforehand as is done in the current code. 
 public abstract class SecondaryIndexOperationsHelper {
     protected final PhysicalOptimizationConfig physOptConf;
     protected int numPrimaryKeys;
@@ -143,12 +142,17 @@ public abstract class SecondaryIndexOperationsHelper {
     protected int[] primaryBTreeFields;
     protected int[] secondaryBTreeFields;
     protected List<ExternalFile> externalFiles;
+    protected final IndexType indexType;
+    
+    protected static final int RECORD_FIELD_CNT = 1; 
+    
 
     // Prevent public construction. Should be created via createIndexCreator().
     protected SecondaryIndexOperationsHelper(PhysicalOptimizationConfig physOptConf,
-            IAsterixPropertiesProvider propertiesProvider) {
+            IAsterixPropertiesProvider propertiesProvider, IndexType indexType) {
         this.physOptConf = physOptConf;
         this.propertiesProvider = propertiesProvider;
+        this.indexType = indexType;
     }
 
     public static SecondaryIndexOperationsHelper createIndexOperationsHelper(IndexType indexType, IndexTypeProperty indexTypeProperty,
@@ -276,9 +280,8 @@ public abstract class SecondaryIndexOperationsHelper {
 
     protected void setPrimaryRecDescAndComparators() throws AlgebricksException {
         List<List<String>> partitioningKeys = DatasetUtils.getPartitioningKeys(dataset);
-        int numPrimaryKeys = partitioningKeys.size();
-        ISerializerDeserializer[] primaryRecFields = new ISerializerDeserializer[numPrimaryKeys + 1];
-        ITypeTraits[] primaryTypeTraits = new ITypeTraits[numPrimaryKeys + 1];
+        ISerializerDeserializer[] primaryRecFields = new ISerializerDeserializer[numPrimaryKeys + RECORD_FIELD_CNT];
+        ITypeTraits[] primaryTypeTraits = new ITypeTraits[numPrimaryKeys + RECORD_FIELD_CNT];
         primaryComparatorFactories = new IBinaryComparatorFactory[numPrimaryKeys];
         primaryBloomFilterKeyFields = new int[numPrimaryKeys];
         ISerializerDeserializerProvider serdeProvider = metadataProvider.getFormat().getSerdeProvider();

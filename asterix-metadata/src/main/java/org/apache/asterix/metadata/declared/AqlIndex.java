@@ -54,5 +54,9 @@ public class AqlIndex implements IDataSourceIndex<String, AqlSourceId> {
     public String getId() {
         return index.getIndexName();
     }
+    
+    public Index getIndex() {
+        return index;
+    }
 
 }

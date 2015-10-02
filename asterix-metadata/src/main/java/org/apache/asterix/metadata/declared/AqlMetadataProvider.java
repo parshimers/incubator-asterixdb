@@ -2060,10 +2060,6 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             isPartitioned = false;
         }
 
-        // Sanity checks.
-        if (primaryKeys.size() > 1) {
-            throw new AlgebricksException("Cannot create inverted index on dataset with composite primary key.");
-        }
         // The size of secondaryKeys can be two if it receives input from its TokenizeOperator- [token, number of token]
         if (secondaryKeys.size() > 1 && !isPartitioned && indexType != IndexType.SIF) {
             throw new AlgebricksException("Cannot create composite inverted index on multiple fields.");

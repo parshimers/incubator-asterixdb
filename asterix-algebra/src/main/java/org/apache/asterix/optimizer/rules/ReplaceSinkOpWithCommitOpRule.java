@@ -21,13 +21,14 @@ package org.apache.asterix.optimizer.rules;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.commons.lang3.mutable.Mutable;
-
 import org.apache.asterix.algebra.operators.CommitOperator;
 import org.apache.asterix.algebra.operators.physical.CommitPOperator;
+import org.apache.asterix.common.config.DatasetConfig.IndexType;
 import org.apache.asterix.common.transactions.JobId;
+import org.apache.asterix.metadata.declared.AqlIndex;
 import org.apache.asterix.metadata.declared.AqlMetadataProvider;
 import org.apache.asterix.metadata.declared.DatasetDataSource;
+import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import org.apache.hyracks.algebricks.core.algebra.base.ILogicalOperator;
@@ -95,6 +96,14 @@ public class ReplaceSinkOpWithCommitOpRule implements IAlgebraicRewriteRule {
         for (Mutable<ILogicalExpression> expr : primaryKeyExprs) {
             VariableReferenceExpression varRefExpr = (VariableReferenceExpression) expr.getValue();
             primaryKeyLogicalVars.add(new LogicalVariable(varRefExpr.getVariableReference().getId()));
+        }
+
+        if (descendantOp.getOperatorTag() == LogicalOperatorTag.INDEX_INSERT_DELETE) {
+            //SIF index should remove the original point field from primaryKeyFields.
+            IndexInsertDeleteOperator indexInsertDeleteOperator = (IndexInsertDeleteOperator) descendantOp;
+            if (((AqlIndex) indexInsertDeleteOperator.getDataSourceIndex()).getIndex().getIndexType() == IndexType.SIF) {
+                primaryKeyLogicalVars.remove(primaryKeyLogicalVars.size() - 1);
+            }
         }
 
         //get JobId(TransactorId)

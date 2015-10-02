@@ -1,0 +1,9 @@
+use dataverse STBench;
+count(
+for $x in dataset SimpleGeoPlace
+for $y in dataset JoinSeed
+let $n :=  create-circle($y.coordinates, 10.0)
+where $y.id < 3 and spatial-intersect($x.coordinates, $n)
+order by $x.id, $y.id
+return { "x.id":$x.id, "y.id":$y.id, "$x.name":$x.name}
+);

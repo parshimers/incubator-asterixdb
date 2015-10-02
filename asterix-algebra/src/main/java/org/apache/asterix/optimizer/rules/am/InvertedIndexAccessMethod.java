@@ -48,6 +48,7 @@ import org.apache.asterix.om.constants.AsterixConstantValue;
 import org.apache.asterix.om.functions.AsterixBuiltinFunctions;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.ATypeTag;
+import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.types.hierachy.ATypeHierarchy;
 import org.apache.commons.lang3.mutable.Mutable;
@@ -424,10 +425,10 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
             List<Mutable<ILogicalOperator>> assignBeforeTopOpRefs, OptimizableOperatorSubTree indexSubTree,
             OptimizableOperatorSubTree probeSubTree, Index chosenIndex, IOptimizableFuncExpr optFuncExpr,
             boolean retainInput, boolean retainNull, boolean requiresBroadcast, IOptimizationContext context,
-            AccessMethodAnalysisContext analysisCtx, boolean secondaryKeyFieldUsedInSelectCondition,
-            boolean secondaryKeyFieldUsedAfterSelectOp, boolean noFalsePositiveResultsFromSIdxSearch)
-            throws AlgebricksException {
-        
+            AccessMethodAnalysisContext analysisCtx, boolean verificationAfterSIdxSearchRequired,
+            boolean secondaryKeyFieldUsedInSelectCondition, boolean secondaryKeyFieldUsedAfterSelectOp,
+            boolean noFalsePositiveResultsFromSIdxSearch) throws AlgebricksException {
+
         boolean useSIF = optFuncExpr.getFuncExpr().getFunctionIdentifier() == AsterixBuiltinFunctions.SPATIAL_INTERSECT;
 
         // Check whether assign (unnest) operator exists before the select operator
@@ -484,6 +485,7 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
                 // Input to this assign is the EmptyTupleSource (which the dataSourceScan also must have had as input).
                 assignOpRectangle.getInputs().add(dataSourceScan.getInputs().get(0));
                 assignOpRectangle.setExecutionMode(dataSourceScan.getExecutionMode());
+                context.computeAndSetTypeEnvironmentForOperator(assignOpRectangle);
             } else {
                 //In order to use the sif index, the input to the inverted index need to form a rectangle which minimally covers a given query region.
                 //The process is as follows:
@@ -575,11 +577,15 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
                     // Input to this assign is the EmptyTupleSource (which the dataSourceScan also must have had as input).
                     assignOpMBR.getInputs().add(dataSourceScan.getInputs().get(0));
                     assignOpMBR.setExecutionMode(dataSourceScan.getExecutionMode());
+                    context.computeAndSetTypeEnvironmentForOperator(assignOpMBR);
                 } else {
                     assignOpMBR.getInputs().add(probeSubTree.rootRef);
+                    context.computeAndSetTypeEnvironmentForOperator(assignOpMBR);
                 }
                 assignOpPoints.getInputs().add(new MutableObject<ILogicalOperator>(assignOpMBR));
+                context.computeAndSetTypeEnvironmentForOperator(assignOpPoints);
                 assignOpRectangle.getInputs().add(new MutableObject<ILogicalOperator>(assignOpPoints));
+                context.computeAndSetTypeEnvironmentForOperator(assignOpRectangle);
             }
 
             //add msif-tokens function
@@ -618,6 +624,7 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
             assignSIFKeyExprList.add(new MutableObject<ILogicalExpression>(sifTokens));
             AssignOperator assignOpSIFTokens = new AssignOperator(assignSIFKeyVarList, assignSIFKeyExprList);
             assignOpSIFTokens.getInputs().add(new MutableObject<ILogicalOperator>(assignOpRectangle));
+            context.computeAndSetTypeEnvironmentForOperator(assignOpSIFTokens);
 
             inputOp = assignOpSIFTokens;
             jobGenParams.setKeyVarList(assignSIFKeyVarList);
@@ -663,8 +670,9 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
         ILogicalOperator primaryIndexUnnestOp = AccessMethodUtils.createPrimaryIndexUnnestMap(afterTopOpRefs, topOpRef,
                 conditionRef, assignBeforeTopOpRefs, dataSourceScan, dataset, recordType, secondaryIndexUnnestOp,
                 context, true, retainInput, retainNull, false, chosenIndex, analysisCtx,
-                outputPrimaryKeysOnlyFromSIdxSearch, false, secondaryKeyFieldUsedInSelectCondition,
-                secondaryKeyFieldUsedAfterSelectOp, indexSubTree, noFalsePositiveResultsFromSIdxSearch);
+                outputPrimaryKeysOnlyFromSIdxSearch, verificationAfterSIdxSearchRequired,
+                secondaryKeyFieldUsedInSelectCondition, secondaryKeyFieldUsedAfterSelectOp, indexSubTree,
+                noFalsePositiveResultsFromSIdxSearch);
 
         // Replace the datasource scan with the new plan rooted at
         // Get dataSourceRef operator - unnest-map (PK, record)
@@ -742,7 +750,7 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
         // secondary key field usage after the select operator
         boolean secondaryKeyFieldUsedAfterSelectOp = false;
 
-        // For R-Tree only: whether a verification is required after the secondary index search
+        // For spatial index only: whether a verification is required after the secondary index search
         boolean verificationAfterSIdxSearchRequired = false;
 
         // Can the chosen method generate any false positive results?
@@ -805,6 +813,29 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
             }
         }
 
+        // Preliminary index-only condition for SIF index:
+        // If an index is not built on a POINT or a RECTANGLE field, the query result can include false positives.
+        // And the result from secondary index search is an MBR, we can't construct original secondary field value
+        // to remove any false positive results.
+        IndexType indexType = chosenIndex.getIndexType();
+        if (indexType == IndexType.SIF) {
+            ARecordType recordType = subTree.recordType;
+            IOptimizableFuncExpr optFuncExpr = AccessMethodUtils.chooseFirstOptFuncExpr(chosenIndex, analysisCtx);
+            int optFieldIdx = AccessMethodUtils.chooseFirstOptFuncVar(chosenIndex, analysisCtx);
+            Pair<IAType, Boolean> keyPairType = Index.getNonNullableOpenFieldType(
+                    optFuncExpr.getFieldType(optFieldIdx), optFuncExpr.getFieldName(optFieldIdx), recordType);
+            if (keyPairType == null) {
+                return false;
+            }
+            if (keyPairType.first != BuiltinType.APOINT && keyPairType.first != BuiltinType.ARECTANGLE) {
+                isIndexOnlyPlanPossible = false;
+                noFalsePositiveResultsFromSIdxSearch = false;
+            } else {
+                isIndexOnlyPlanPossible = true;
+                noFalsePositiveResultsFromSIdxSearch = true;
+            }
+        }
+
         Quintuple<Boolean, Boolean, Boolean, Boolean, Boolean> indexOnlyPlanInfo = new Quintuple<Boolean, Boolean, Boolean, Boolean, Boolean>(
                 isIndexOnlyPlanPossible, secondaryKeyFieldUsedInSelectCondition, secondaryKeyFieldUsedAfterSelectOp,
                 verificationAfterSIdxSearchRequired, noFalsePositiveResultsFromSIdxSearch);
@@ -831,7 +862,7 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
             }
         }
 
-        if (isIndexOnlyPlanPossible && !secondaryKeyFieldUsedAfterSelectOp) {
+        if (isIndexOnlyPlanPossible && (!secondaryKeyFieldUsedAfterSelectOp || indexType == IndexType.SIF)) {
             analysisCtx.setIndexOnlyPlanEnabled(true);
         } else {
             analysisCtx.setIndexOnlyPlanEnabled(false);
@@ -842,8 +873,9 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
         IOptimizableFuncExpr optFuncExpr = AccessMethodUtils.chooseFirstOptFuncExpr(chosenIndex, analysisCtx);
         ILogicalOperator indexPlanRootOp = createSecondaryToPrimaryPlan(aboveSelectRefs, selectRef,
                 selectOp.getCondition(), subTree.assignsAndUnnestsRefs, subTree, null, chosenIndex, optFuncExpr, false,
-                false, false, context, analysisCtx, secondaryKeyFieldUsedInSelectCondition,
-                secondaryKeyFieldUsedAfterSelectOp, noFalsePositiveResultsFromSIdxSearch);
+                false, false, context, analysisCtx, verificationAfterSIdxSearchRequired,
+                secondaryKeyFieldUsedInSelectCondition, secondaryKeyFieldUsedAfterSelectOp,
+                noFalsePositiveResultsFromSIdxSearch);
         if (indexPlanRootOp == null) {
             return false;
         }
@@ -1106,8 +1138,8 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
         ILogicalOperator indexPlanRootOp = createSecondaryToPrimaryPlan(aboveJoinRefs, joinRef,
                 new MutableObject<ILogicalExpression>(joinCond), indexSubTree.assignsAndUnnestsRefs, indexSubTree,
                 probeSubTree, chosenIndex, optFuncExpr, true, isLeftOuterJoin, true, context, analysisCtx,
-                secondaryKeyFieldUsedInJoinCondition, secondaryKeyFieldUsedAfterJoinOp,
-                noFalsePositiveResultsFromSIdxSearch);
+                verificationAfterSIdxSearchRequired, secondaryKeyFieldUsedInJoinCondition,
+                secondaryKeyFieldUsedAfterJoinOp, noFalsePositiveResultsFromSIdxSearch);
         indexSubTree.dataSourceRef.setValue(indexPlanRootOp);
 
         if (!isIndexOnlyPlan && !noFalsePositiveResultsFromSIdxSearch) {
@@ -1174,7 +1206,8 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
                         indexSubTree.dataSourceRef.setValue(dataSourceRefOp);
                         // Replace the current operator with the newly created operator
                         joinRef.setValue(indexPlanRootOp);
-                    } else if (noFalsePositiveResultsFromSIdxSearch && dataset.getDatasetType() == DatasetType.INTERNAL) {
+                    } else if (noFalsePositiveResultsFromSIdxSearch && !verificationAfterSIdxSearchRequired
+                            && dataset.getDatasetType() == DatasetType.INTERNAL) {
                         // If there are no false positives, still there can be
                         // Right now, the order of operators is: union <- select <- split <- assign <- unnest-map (primary index look-up) <- [A]
                         //                                       [A] <- stream_project <- stable_sort <- unnest-map (secondary index look-up) <- ...
@@ -1217,8 +1250,10 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
                         joinOp.getInputs().add(new MutableObject<ILogicalOperator>(assignBeforeJoinOp));
                     }
                 }
-
-                if (!isIndexOnlyPlan && !noFalsePositiveResultsFromSIdxSearch) {
+                // SELECT condition needs to be applied to non-index only plan that cannot benefit from
+                // no false positive results from the secondary index or no verification after secondary index search.
+                if (!isIndexOnlyPlan
+                        && (!noFalsePositiveResultsFromSIdxSearch || verificationAfterSIdxSearchRequired)) {
                     SelectOperator topSelect = new SelectOperator(conditionRef, isLeftOuterJoin, newNullPlaceHolderVar);
                     topSelect.getInputs().add(indexSubTree.rootRef);
                     topSelect.setExecutionMode(ExecutionMode.LOCAL);
@@ -1891,7 +1926,8 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
                                 itp.bottomLeftX, itp.bottomLeftY, itp.topRightX, itp.topRightY, itp.levelDensity,
                                 itp.cellsPerObject, false);
                     default:
-                        return AqlBinaryTokenizerFactoryProvider.INSTANCE.getWordTokenizerFactory(searchKeyType, false, false);
+                        return AqlBinaryTokenizerFactoryProvider.INSTANCE.getWordTokenizerFactory(searchKeyType, false,
+                                false);
                 }
             }
             case SINGLE_PARTITION_NGRAM_INVIX:

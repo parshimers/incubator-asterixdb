@@ -1,0 +1,777 @@
+/*
+ * Test case Name  : sif-create-index-then-load_04.aql
+ * Description     : sif index creation followed by load data followed by inserts, then a query. 
+ * Expected Result : Success
+ * Date            : Sept 30 2015
+ */
+
+use dataverse STBench;
+
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("0.5,0.5"), "id": 10100000, "name": "REIDIN.com", "tags": "real-estate property emerging-markets business-intelligence china india russia turkey brazil dubai uae", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("1.5,0.5"), "id": 10100001, "name": "Content Syndicate", "tags": "N/A", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("2.5,0.5"), "id": 10100002, "name": "20:20 Mobile", "tags": "mobile", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("3.5,0.5"), "id": 10100003, "name": "Content Syndicate: Words on Demand", "tags": "content platform media internet multi-lingual market-place online-service publishers middle-east uae india us uk maddy-reddy newspapers magazines buy sell cloud", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("4.5,0.5"), "id": 10100004, "name": "eHow", "tags": "N/A", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("5.5,0.5"), "id": 10100005, "name": "Woonky", "tags": "advertisign agency digital iphone interactive banners website hotsite rich-media", "categories": "Professional Services Business Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("6.5,0.5"), "id": 10100006, "name": "Belatrix Software Factory", "tags": "N/A", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("7.5,0.5"), "id": 10100007, "name": "Power Solution S.A.", "tags": "net-framework c web-solutions", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("0.5,1.5"), "id": 10100008, "name": "elMejorTrato.com", "tags": "loans cell-phones personal-loans", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("1.5,1.5"), "id": 10100009, "name": "AdVerit", "tags": "internet-marketing website-design outsourcing email-marketing sponsored-links search-engine-optimization adwords surveys promotions-and-online-games", "categories": "Professional Services Advertising", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("2.5,1.5"), "id": 101000010, "name": "CreationFlow", "tags": "video image reviews online collaboration design-review design-feedback visual-feedback", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("3.5,1.5"), "id": 101000011, "name": "Geelbe", "tags": "outlet club shopping brand brands", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("4.5,1.5"), "id": 101000012, "name": "DreamDesigners", "tags": "web-2-0 web-services generator-of-ideas content-producer community-creators", "categories": "Professional Services Business Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("5.5,1.5"), "id": 101000013, "name": "CodeGlide", "tags": "open-source crm etl integration software solution collaboration groupware", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("6.5,1.5"), "id": 101000014, "name": "ooze", "tags": "internet experiences lab", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("7.5,1.5"), "id": 101000015, "name": "Farmsphere Inc.", "tags": "agribusiness agronegocios internet", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("0.5,2.5"), "id": 101000016, "name": "Pontis", "tags": "N/A", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("1.5,2.5"), "id": 101000017, "name": "Taringa!", "tags": "linksharing social-comunity latin-america latam argentina piracy riaa", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("2.5,2.5"), "id": 101000018, "name": "MAM Babyartikel Ges.m.b.H.", "tags": "nipple bottle", "categories": "Shopping Retail Goods Baby Store", "phone": "+43 1 491410" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("3.5,2.5"), "id": 101000019, "name": "Josef Pickl Ges.m.b.H.", "tags": "baby infant toy toys", "categories": "Shopping Retail Goods Hobbies, Toys, & Games", "phone": "+43 7243 58121" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("4.5,2.5"), "id": 101000020, "name": "Karl Freingruber Ges.m.b.H.", "tags": "backing brick", "categories": "Manufacturing Manufacturing & Wholesale Goods Pottery", "phone": "+43 3363 792380" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("5.5,2.5"), "id": 101000021, "name": "Artebagno Kunststoffbeschichtungen GesmbH", "tags": "N/A", "categories": "N/A", "phone": "+43 1 31070400" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("6.5,2.5"), "id": 101000022, "name": "Remailltechnik Peter Hruby", "tags": "N/A", "categories": "N/A", "phone": "+43 2633 45708" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("7.5,2.5"), "id": 101000023, "name": "Badamo Bad-Accessoires-Möbel", "tags": "N/A", "categories": "N/A", "phone": "+43 4366 41412599" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("0.5,3.5"), "id": 101000024, "name": "Gössl-Salzburg", "tags": "traditional bag costume", "categories": "Shopping Center Public Place ", "phone": "+43 6212 2838" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("1.5,3.5"), "id": 101000025, "name": "Tack Ges.m.b.H.", "tags": "traditional bag costume", "categories": "Shopping Center Public Place ", "phone": "+43 2682 62428" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("2.5,3.5"), "id": 101000026, "name": "Yves Rocher Ges.m.b.H.", "tags": "bag made woven", "categories": "Manufacturing Manufacturing & Wholesale Goods Building Materials", "phone": "+43 662 88800" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("3.5,3.5"), "id": 101000027, "name": "Bahnhof Admont", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("4.5,3.5"), "id": 101000028, "name": "Bahnhof Alkoven", "tags": "N/A", "categories": "N/A", "phone": "+43 7274 6417" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("5.5,3.5"), "id": 101000029, "name": "Bahnhof Ardning", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("6.5,3.5"), "id": 101000030, "name": "Bahnhof Arnoldstein", "tags": "N/A", "categories": "N/A", "phone": "+43 4255 33020" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("7.5,3.5"), "id": 101000031, "name": "Bahnhof Bad Bleiburg", "tags": "N/A", "categories": "N/A", "phone": "+43 4235 20300" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("0.5,4.5"), "id": 101000032, "name": "Bahnhof Blindenmarkt", "tags": "N/A", "categories": "N/A", "phone": "+43 7473 2280" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("1.5,4.5"), "id": 101000033, "name": "Bahnhof Breitenschützing", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("2.5,4.5"), "id": 101000034, "name": "Bahnhof Bruck an der Leitha", "tags": "N/A", "categories": "N/A", "phone": "+43 2162 625810" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("3.5,4.5"), "id": 101000035, "name": "Bahnhof Bürmoos", "tags": "N/A", "categories": "N/A", "phone": "+43 517 170" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("4.5,4.5"), "id": 101000036, "name": "Bahnhof Dorfgastein", "tags": "N/A", "categories": "N/A", "phone": "+43 6433 72150" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("5.5,4.5"), "id": 101000037, "name": "Bahnhof Dürnkrut", "tags": "N/A", "categories": "N/A", "phone": "+43 2538 80390" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("6.5,4.5"), "id": 101000038, "name": "Bahnhof Eisenerz", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("7.5,4.5"), "id": 101000039, "name": "Bahnhof Fehring", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("0.5,5.5"), "id": 101000040, "name": "Bahnhof Fehring", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("1.5,5.5"), "id": 101000041, "name": "Bahnhof Feldbach", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("2.5,5.5"), "id": 101000042, "name": "Bahnhof Friedberg", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("3.5,5.5"), "id": 101000043, "name": "Bahnhof Friesach", "tags": "N/A", "categories": "N/A", "phone": "+43 4268 22300" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("4.5,5.5"), "id": 101000044, "name": "Bahnhof Frohnleiten", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("5.5,5.5"), "id": 101000045, "name": "Bahnhof Föderlach", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("6.5,5.5"), "id": 101000046, "name": "Bahnhof Fürstenfeld", "tags": "N/A", "categories": "N/A", "phone": "+43 3382 52230" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("7.5,5.5"), "id": 101000047, "name": "Bahnhof Gerichtsberg", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("0.5,6.5"), "id": 101000048, "name": "Bahnhof Gleisdorf", "tags": "N/A", "categories": "N/A", "phone": "+43 3112 223039" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("1.5,6.5"), "id": 101000049, "name": "Bahnhof Gratwein / Gratkorn", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("2.5,6.5"), "id": 101000050, "name": "Bahnhof Greifenburg-Weißensee", "tags": "N/A", "categories": "N/A", "phone": "+43 4712 2300" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("3.5,6.5"), "id": 101000051, "name": "Bahnhof Grünburg", "tags": "N/A", "categories": "N/A", "phone": "+43 7257 7102" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("4.5,6.5"), "id": 101000052, "name": "Bahnhof Guntramsdorf-Kaiserau", "tags": "N/A", "categories": "N/A", "phone": "+43 2236 522520" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("5.5,6.5"), "id": 101000053, "name": "Bahnhof Hard-Fussach", "tags": "N/A", "categories": "N/A", "phone": "+43 512 930000" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("6.5,6.5"), "id": 101000054, "name": "Bahnhof Hartberg", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("7.5,6.5"), "id": 101000055, "name": "Bahnhof Haus", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("0.5,7.5"), "id": 101000056, "name": "Bahnhof Hermagor", "tags": "N/A", "categories": "N/A", "phone": "+43 4282 20300" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("1.5,7.5"), "id": 101000057, "name": "Bahnhof Hieflau", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("2.5,7.5"), "id": 101000058, "name": "Bahnhof Hinterstoder", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("3.5,7.5"), "id": 101000059, "name": "Bahnhof Hochzirl", "tags": "N/A", "categories": "N/A", "phone": "+43 5238 522250" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("4.5,7.5"), "id": 101000060, "name": "Bahnhof Hüttau", "tags": "N/A", "categories": "N/A", "phone": "+43 6458 7237" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("5.5,7.5"), "id": 101000061, "name": "Bahnhof Jennersdorf", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("6.5,7.5"), "id": 101000062, "name": "Bahnhof Judenburg", "tags": "N/A", "categories": "N/A", "phone": "+43 517 171" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("7.5,7.5"), "id": 101000063, "name": "Bahnhof Kainisch", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-0.5,0.5"), "id": 101000064, "name": "REIDIN.com", "tags": "real-estate property emerging-markets business-intelligence china india russia turkey brazil dubai uae", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-1.5,0.5"), "id": 101000065, "name": "Content Syndicate", "tags": "N/A", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-2.5,0.5"), "id": 101000066, "name": "20:20 Mobile", "tags": "mobile", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-3.5,0.5"), "id": 101000067, "name": "Content Syndicate: Words on Demand", "tags": "content platform media internet multi-lingual market-place online-service publishers middle-east uae india us uk maddy-reddy newspapers magazines buy sell cloud", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-4.5,0.5"), "id": 101000068, "name": "eHow", "tags": "N/A", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-5.5,0.5"), "id": 101000069, "name": "Woonky", "tags": "advertisign agency digital iphone interactive banners website hotsite rich-media", "categories": "Professional Services Business Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-6.5,0.5"), "id": 101000070, "name": "Belatrix Software Factory", "tags": "N/A", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-7.5,0.5"), "id": 101000071, "name": "Power Solution S.A.", "tags": "net-framework c web-solutions", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-0.5,1.5"), "id": 101000072, "name": "elMejorTrato.com", "tags": "loans cell-phones personal-loans", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-1.5,1.5"), "id": 101000073, "name": "AdVerit", "tags": "internet-marketing website-design outsourcing email-marketing sponsored-links search-engine-optimization adwords surveys promotions-and-online-games", "categories": "Professional Services Advertising", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-2.5,1.5"), "id": 101000074, "name": "CreationFlow", "tags": "video image reviews online collaboration design-review design-feedback visual-feedback", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-3.5,1.5"), "id": 101000075, "name": "Geelbe", "tags": "outlet club shopping brand brands", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-4.5,1.5"), "id": 101000076, "name": "DreamDesigners", "tags": "web-2-0 web-services generator-of-ideas content-producer community-creators", "categories": "Professional Services Business Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-5.5,1.5"), "id": 101000077, "name": "CodeGlide", "tags": "open-source crm etl integration software solution collaboration groupware", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-6.5,1.5"), "id": 101000078, "name": "ooze", "tags": "internet experiences lab", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-7.5,1.5"), "id": 101000079, "name": "Farmsphere Inc.", "tags": "agribusiness agronegocios internet", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-0.5,2.5"), "id": 101000080, "name": "Pontis", "tags": "N/A", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-1.5,2.5"), "id": 101000081, "name": "Taringa!", "tags": "linksharing social-comunity latin-america latam argentina piracy riaa", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-2.5,2.5"), "id": 101000082, "name": "MAM Babyartikel Ges.m.b.H.", "tags": "nipple bottle", "categories": "Shopping Retail Goods Baby Store", "phone": "+43 1 491410" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-3.5,2.5"), "id": 101000083, "name": "Josef Pickl Ges.m.b.H.", "tags": "baby infant toy toys", "categories": "Shopping Retail Goods Hobbies, Toys, & Games", "phone": "+43 7243 58121" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-4.5,2.5"), "id": 101000084, "name": "Karl Freingruber Ges.m.b.H.", "tags": "backing brick", "categories": "Manufacturing Manufacturing & Wholesale Goods Pottery", "phone": "+43 3363 792380" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-5.5,2.5"), "id": 101000085, "name": "Artebagno Kunststoffbeschichtungen GesmbH", "tags": "N/A", "categories": "N/A", "phone": "+43 1 31070400" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-6.5,2.5"), "id": 101000086, "name": "Remailltechnik Peter Hruby", "tags": "N/A", "categories": "N/A", "phone": "+43 2633 45708" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-7.5,2.5"), "id": 101000087, "name": "Badamo Bad-Accessoires-Möbel", "tags": "N/A", "categories": "N/A", "phone": "+43 4366 41412599" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-0.5,3.5"), "id": 101000088, "name": "Gössl-Salzburg", "tags": "traditional bag costume", "categories": "Shopping Center Public Place ", "phone": "+43 6212 2838" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-1.5,3.5"), "id": 101000089, "name": "Tack Ges.m.b.H.", "tags": "traditional bag costume", "categories": "Shopping Center Public Place ", "phone": "+43 2682 62428" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-2.5,3.5"), "id": 101000090, "name": "Yves Rocher Ges.m.b.H.", "tags": "bag made woven", "categories": "Manufacturing Manufacturing & Wholesale Goods Building Materials", "phone": "+43 662 88800" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-3.5,3.5"), "id": 101000091, "name": "Bahnhof Admont", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-4.5,3.5"), "id": 101000092, "name": "Bahnhof Alkoven", "tags": "N/A", "categories": "N/A", "phone": "+43 7274 6417" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-5.5,3.5"), "id": 101000093, "name": "Bahnhof Ardning", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-6.5,3.5"), "id": 101000094, "name": "Bahnhof Arnoldstein", "tags": "N/A", "categories": "N/A", "phone": "+43 4255 33020" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-7.5,3.5"), "id": 101000095, "name": "Bahnhof Bad Bleiburg", "tags": "N/A", "categories": "N/A", "phone": "+43 4235 20300" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-0.5,4.5"), "id": 101000096, "name": "Bahnhof Blindenmarkt", "tags": "N/A", "categories": "N/A", "phone": "+43 7473 2280" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-1.5,4.5"), "id": 101000097, "name": "Bahnhof Breitenschützing", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-2.5,4.5"), "id": 101000098, "name": "Bahnhof Bruck an der Leitha", "tags": "N/A", "categories": "N/A", "phone": "+43 2162 625810" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-3.5,4.5"), "id": 101000099, "name": "Bahnhof Bürmoos", "tags": "N/A", "categories": "N/A", "phone": "+43 517 170" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-4.5,4.5"), "id": 1010000100, "name": "Bahnhof Dorfgastein", "tags": "N/A", "categories": "N/A", "phone": "+43 6433 72150" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-5.5,4.5"), "id": 1010000101, "name": "Bahnhof Dürnkrut", "tags": "N/A", "categories": "N/A", "phone": "+43 2538 80390" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-6.5,4.5"), "id": 1010000102, "name": "Bahnhof Eisenerz", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-7.5,4.5"), "id": 1010000103, "name": "Bahnhof Fehring", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-0.5,5.5"), "id": 1010000104, "name": "Bahnhof Fehring", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-1.5,5.5"), "id": 1010000105, "name": "Bahnhof Feldbach", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-2.5,5.5"), "id": 1010000106, "name": "Bahnhof Friedberg", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-3.5,5.5"), "id": 1010000107, "name": "Bahnhof Friesach", "tags": "N/A", "categories": "N/A", "phone": "+43 4268 22300" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-4.5,5.5"), "id": 1010000108, "name": "Bahnhof Frohnleiten", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-5.5,5.5"), "id": 1010000109, "name": "Bahnhof Föderlach", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-6.5,5.5"), "id": 1010000110, "name": "Bahnhof Fürstenfeld", "tags": "N/A", "categories": "N/A", "phone": "+43 3382 52230" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-7.5,5.5"), "id": 1010000111, "name": "Bahnhof Gerichtsberg", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-0.5,6.5"), "id": 1010000112, "name": "Bahnhof Gleisdorf", "tags": "N/A", "categories": "N/A", "phone": "+43 3112 223039" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-1.5,6.5"), "id": 1010000113, "name": "Bahnhof Gratwein / Gratkorn", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-2.5,6.5"), "id": 1010000114, "name": "Bahnhof Greifenburg-Weißensee", "tags": "N/A", "categories": "N/A", "phone": "+43 4712 2300" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-3.5,6.5"), "id": 1010000115, "name": "Bahnhof Grünburg", "tags": "N/A", "categories": "N/A", "phone": "+43 7257 7102" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-4.5,6.5"), "id": 1010000116, "name": "Bahnhof Guntramsdorf-Kaiserau", "tags": "N/A", "categories": "N/A", "phone": "+43 2236 522520" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-5.5,6.5"), "id": 1010000117, "name": "Bahnhof Hard-Fussach", "tags": "N/A", "categories": "N/A", "phone": "+43 512 930000" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-6.5,6.5"), "id": 1010000118, "name": "Bahnhof Hartberg", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-7.5,6.5"), "id": 1010000119, "name": "Bahnhof Haus", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-0.5,7.5"), "id": 1010000120, "name": "Bahnhof Hermagor", "tags": "N/A", "categories": "N/A", "phone": "+43 4282 20300" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-1.5,7.5"), "id": 1010000121, "name": "Bahnhof Hieflau", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-2.5,7.5"), "id": 1010000122, "name": "Bahnhof Hinterstoder", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-3.5,7.5"), "id": 1010000123, "name": "Bahnhof Hochzirl", "tags": "N/A", "categories": "N/A", "phone": "+43 5238 522250" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-4.5,7.5"), "id": 1010000124, "name": "Bahnhof Hüttau", "tags": "N/A", "categories": "N/A", "phone": "+43 6458 7237" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-5.5,7.5"), "id": 1010000125, "name": "Bahnhof Jennersdorf", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-6.5,7.5"), "id": 1010000126, "name": "Bahnhof Judenburg", "tags": "N/A", "categories": "N/A", "phone": "+43 517 171" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-7.5,7.5"), "id": 1010000127, "name": "Bahnhof Kainisch", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("0.5,-0.5"), "id": 10100001000, "name": "REIDIN.com", "tags": "real-estate property emerging-markets business-intelligence china india russia turkey brazil dubai uae", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("1.5,-0.5"), "id": 10100001001, "name": "Content Syndicate", "tags": "N/A", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("2.5,-0.5"), "id": 10100001002, "name": "20:20 Mobile", "tags": "mobile", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("3.5,-0.5"), "id": 10100001003, "name": "Content Syndicate: Words on Demand", "tags": "content platform media internet multi-lingual market-place online-service publishers middle-east uae india us uk maddy-reddy newspapers magazines buy sell cloud", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("4.5,-0.5"), "id": 10100001004, "name": "eHow", "tags": "N/A", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("5.5,-0.5"), "id": 10100001005, "name": "Woonky", "tags": "advertisign agency digital iphone interactive banners website hotsite rich-media", "categories": "Professional Services Business Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("6.5,-0.5"), "id": 10100001006, "name": "Belatrix Software Factory", "tags": "N/A", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("7.5,-0.5"), "id": 10100001007, "name": "Power Solution S.A.", "tags": "net-framework c web-solutions", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("0.5,-1.5"), "id": 10100001008, "name": "elMejorTrato.com", "tags": "loans cell-phones personal-loans", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("1.5,-1.5"), "id": 10100001009, "name": "AdVerit", "tags": "internet-marketing website-design outsourcing email-marketing sponsored-links search-engine-optimization adwords surveys promotions-and-online-games", "categories": "Professional Services Advertising", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("2.5,-1.5"), "id": 10100001010, "name": "CreationFlow", "tags": "video image reviews online collaboration design-review design-feedback visual-feedback", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("3.5,-1.5"), "id": 10100001011, "name": "Geelbe", "tags": "outlet club shopping brand brands", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("4.5,-1.5"), "id": 10100001012, "name": "DreamDesigners", "tags": "web-2-0 web-services generator-of-ideas content-producer community-creators", "categories": "Professional Services Business Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("5.5,-1.5"), "id": 10100001013, "name": "CodeGlide", "tags": "open-source crm etl integration software solution collaboration groupware", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("6.5,-1.5"), "id": 10100001014, "name": "ooze", "tags": "internet experiences lab", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("7.5,-1.5"), "id": 10100001015, "name": "Farmsphere Inc.", "tags": "agribusiness agronegocios internet", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("0.5,-2.5"), "id": 10100001016, "name": "Pontis", "tags": "N/A", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("1.5,-2.5"), "id": 10100001017, "name": "Taringa!", "tags": "linksharing social-comunity latin-america latam argentina piracy riaa", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("2.5,-2.5"), "id": 10100001018, "name": "MAM Babyartikel Ges.m.b.H.", "tags": "nipple bottle", "categories": "Shopping Retail Goods Baby Store", "phone": "+43 1 491410" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("3.5,-2.5"), "id": 10100001019, "name": "Josef Pickl Ges.m.b.H.", "tags": "baby infant toy toys", "categories": "Shopping Retail Goods Hobbies, Toys, & Games", "phone": "+43 7243 58121" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("4.5,-2.5"), "id": 10100001020, "name": "Karl Freingruber Ges.m.b.H.", "tags": "backing brick", "categories": "Manufacturing Manufacturing & Wholesale Goods Pottery", "phone": "+43 3363 792380" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("5.5,-2.5"), "id": 10100001021, "name": "Artebagno Kunststoffbeschichtungen GesmbH", "tags": "N/A", "categories": "N/A", "phone": "+43 1 31070400" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("6.5,-2.5"), "id": 10100001022, "name": "Remailltechnik Peter Hruby", "tags": "N/A", "categories": "N/A", "phone": "+43 2633 45708" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("7.5,-2.5"), "id": 10100001023, "name": "Badamo Bad-Accessoires-Möbel", "tags": "N/A", "categories": "N/A", "phone": "+43 4366 41412599" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("0.5,-3.5"), "id": 10100001024, "name": "Gössl-Salzburg", "tags": "traditional bag costume", "categories": "Shopping Center Public Place ", "phone": "+43 6212 2838" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("1.5,-3.5"), "id": 10100001025, "name": "Tack Ges.m.b.H.", "tags": "traditional bag costume", "categories": "Shopping Center Public Place ", "phone": "+43 2682 62428" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("2.5,-3.5"), "id": 10100001026, "name": "Yves Rocher Ges.m.b.H.", "tags": "bag made woven", "categories": "Manufacturing Manufacturing & Wholesale Goods Building Materials", "phone": "+43 662 88800" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("3.5,-3.5"), "id": 10100001027, "name": "Bahnhof Admont", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("4.5,-3.5"), "id": 10100001028, "name": "Bahnhof Alkoven", "tags": "N/A", "categories": "N/A", "phone": "+43 7274 6417" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("5.5,-3.5"), "id": 10100001029, "name": "Bahnhof Ardning", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("6.5,-3.5"), "id": 10100001030, "name": "Bahnhof Arnoldstein", "tags": "N/A", "categories": "N/A", "phone": "+43 4255 33020" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("7.5,-3.5"), "id": 10100001031, "name": "Bahnhof Bad Bleiburg", "tags": "N/A", "categories": "N/A", "phone": "+43 4235 20300" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("0.5,-4.5"), "id": 10100001032, "name": "Bahnhof Blindenmarkt", "tags": "N/A", "categories": "N/A", "phone": "+43 7473 2280" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("1.5,-4.5"), "id": 10100001033, "name": "Bahnhof Breitenschützing", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("2.5,-4.5"), "id": 10100001034, "name": "Bahnhof Bruck an der Leitha", "tags": "N/A", "categories": "N/A", "phone": "+43 2162 625810" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("3.5,-4.5"), "id": 10100001035, "name": "Bahnhof Bürmoos", "tags": "N/A", "categories": "N/A", "phone": "+43 517 170" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("4.5,-4.5"), "id": 10100001036, "name": "Bahnhof Dorfgastein", "tags": "N/A", "categories": "N/A", "phone": "+43 6433 72150" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("5.5,-4.5"), "id": 10100001037, "name": "Bahnhof Dürnkrut", "tags": "N/A", "categories": "N/A", "phone": "+43 2538 80390" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("6.5,-4.5"), "id": 10100001038, "name": "Bahnhof Eisenerz", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("7.5,-4.5"), "id": 10100001039, "name": "Bahnhof Fehring", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("0.5,-5.5"), "id": 10100001040, "name": "Bahnhof Fehring", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("1.5,-5.5"), "id": 10100001041, "name": "Bahnhof Feldbach", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("2.5,-5.5"), "id": 10100001042, "name": "Bahnhof Friedberg", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("3.5,-5.5"), "id": 10100001043, "name": "Bahnhof Friesach", "tags": "N/A", "categories": "N/A", "phone": "+43 4268 22300" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("4.5,-5.5"), "id": 10100001044, "name": "Bahnhof Frohnleiten", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("5.5,-5.5"), "id": 10100001045, "name": "Bahnhof Föderlach", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("6.5,-5.5"), "id": 10100001046, "name": "Bahnhof Fürstenfeld", "tags": "N/A", "categories": "N/A", "phone": "+43 3382 52230" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("7.5,-5.5"), "id": 10100001047, "name": "Bahnhof Gerichtsberg", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("0.5,-6.5"), "id": 10100001048, "name": "Bahnhof Gleisdorf", "tags": "N/A", "categories": "N/A", "phone": "+43 3112 223039" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("1.5,-6.5"), "id": 10100001049, "name": "Bahnhof Gratwein / Gratkorn", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("2.5,-6.5"), "id": 10100001050, "name": "Bahnhof Greifenburg-Weißensee", "tags": "N/A", "categories": "N/A", "phone": "+43 4712 2300" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("3.5,-6.5"), "id": 10100001051, "name": "Bahnhof Grünburg", "tags": "N/A", "categories": "N/A", "phone": "+43 7257 7102" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("4.5,-6.5"), "id": 10100001052, "name": "Bahnhof Guntramsdorf-Kaiserau", "tags": "N/A", "categories": "N/A", "phone": "+43 2236 522520" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("5.5,-6.5"), "id": 10100001053, "name": "Bahnhof Hard-Fussach", "tags": "N/A", "categories": "N/A", "phone": "+43 512 930000" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("6.5,-6.5"), "id": 10100001054, "name": "Bahnhof Hartberg", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("7.5,-6.5"), "id": 10100001055, "name": "Bahnhof Haus", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("0.5,-7.5"), "id": 10100001056, "name": "Bahnhof Hermagor", "tags": "N/A", "categories": "N/A", "phone": "+43 4282 20300" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("1.5,-7.5"), "id": 10100001057, "name": "Bahnhof Hieflau", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("2.5,-7.5"), "id": 10100001058, "name": "Bahnhof Hinterstoder", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("3.5,-7.5"), "id": 10100001059, "name": "Bahnhof Hochzirl", "tags": "N/A", "categories": "N/A", "phone": "+43 5238 522250" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("4.5,-7.5"), "id": 10100001060, "name": "Bahnhof Hüttau", "tags": "N/A", "categories": "N/A", "phone": "+43 6458 7237" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("5.5,-7.5"), "id": 10100001061, "name": "Bahnhof Jennersdorf", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("6.5,-7.5"), "id": 10100001062, "name": "Bahnhof Judenburg", "tags": "N/A", "categories": "N/A", "phone": "+43 517 171" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("7.5,-7.5"), "id": 10100001063, "name": "Bahnhof Kainisch", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-0.5,-0.5"), "id": 10100001064, "name": "REIDIN.com", "tags": "real-estate property emerging-markets business-intelligence china india russia turkey brazil dubai uae", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-1.5,-0.5"), "id": 10100001065, "name": "Content Syndicate", "tags": "N/A", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-2.5,-0.5"), "id": 10100001066, "name": "20:20 Mobile", "tags": "mobile", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-3.5,-0.5"), "id": 10100001067, "name": "Content Syndicate: Words on Demand", "tags": "content platform media internet multi-lingual market-place online-service publishers middle-east uae india us uk maddy-reddy newspapers magazines buy sell cloud", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-4.5,-0.5"), "id": 10100001068, "name": "eHow", "tags": "N/A", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-5.5,-0.5"), "id": 10100001069, "name": "Woonky", "tags": "advertisign agency digital iphone interactive banners website hotsite rich-media", "categories": "Professional Services Business Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-6.5,-0.5"), "id": 10100001070, "name": "Belatrix Software Factory", "tags": "N/A", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-7.5,-0.5"), "id": 10100001071, "name": "Power Solution S.A.", "tags": "net-framework c web-solutions", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-0.5,-1.5"), "id": 10100001072, "name": "elMejorTrato.com", "tags": "loans cell-phones personal-loans", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-1.5,-1.5"), "id": 10100001073, "name": "AdVerit", "tags": "internet-marketing website-design outsourcing email-marketing sponsored-links search-engine-optimization adwords surveys promotions-and-online-games", "categories": "Professional Services Advertising", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-2.5,-1.5"), "id": 10100001074, "name": "CreationFlow", "tags": "video image reviews online collaboration design-review design-feedback visual-feedback", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-3.5,-1.5"), "id": 10100001075, "name": "Geelbe", "tags": "outlet club shopping brand brands", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-4.5,-1.5"), "id": 10100001076, "name": "DreamDesigners", "tags": "web-2-0 web-services generator-of-ideas content-producer community-creators", "categories": "Professional Services Business Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-5.5,-1.5"), "id": 10100001077, "name": "CodeGlide", "tags": "open-source crm etl integration software solution collaboration groupware", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-6.5,-1.5"), "id": 10100001078, "name": "ooze", "tags": "internet experiences lab", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-7.5,-1.5"), "id": 10100001079, "name": "Farmsphere Inc.", "tags": "agribusiness agronegocios internet", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-0.5,-2.5"), "id": 10100001080, "name": "Pontis", "tags": "N/A", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-1.5,-2.5"), "id": 10100001081, "name": "Taringa!", "tags": "linksharing social-comunity latin-america latam argentina piracy riaa", "categories": "Professional Services Computer Services", "phone": "" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-2.5,-2.5"), "id": 10100001082, "name": "MAM Babyartikel Ges.m.b.H.", "tags": "nipple bottle", "categories": "Shopping Retail Goods Baby Store", "phone": "+43 1 491410" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-3.5,-2.5"), "id": 10100001083, "name": "Josef Pickl Ges.m.b.H.", "tags": "baby infant toy toys", "categories": "Shopping Retail Goods Hobbies, Toys, & Games", "phone": "+43 7243 58121" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-4.5,-2.5"), "id": 10100001084, "name": "Karl Freingruber Ges.m.b.H.", "tags": "backing brick", "categories": "Manufacturing Manufacturing & Wholesale Goods Pottery", "phone": "+43 3363 792380" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-5.5,-2.5"), "id": 10100001085, "name": "Artebagno Kunststoffbeschichtungen GesmbH", "tags": "N/A", "categories": "N/A", "phone": "+43 1 31070400" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-6.5,-2.5"), "id": 10100001086, "name": "Remailltechnik Peter Hruby", "tags": "N/A", "categories": "N/A", "phone": "+43 2633 45708" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-7.5,-2.5"), "id": 10100001087, "name": "Badamo Bad-Accessoires-Möbel", "tags": "N/A", "categories": "N/A", "phone": "+43 4366 41412599" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-0.5,-3.5"), "id": 10100001088, "name": "Gössl-Salzburg", "tags": "traditional bag costume", "categories": "Shopping Center Public Place ", "phone": "+43 6212 2838" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-1.5,-3.5"), "id": 10100001089, "name": "Tack Ges.m.b.H.", "tags": "traditional bag costume", "categories": "Shopping Center Public Place ", "phone": "+43 2682 62428" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-2.5,-3.5"), "id": 10100001090, "name": "Yves Rocher Ges.m.b.H.", "tags": "bag made woven", "categories": "Manufacturing Manufacturing & Wholesale Goods Building Materials", "phone": "+43 662 88800" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-3.5,-3.5"), "id": 10100001091, "name": "Bahnhof Admont", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-4.5,-3.5"), "id": 10100001092, "name": "Bahnhof Alkoven", "tags": "N/A", "categories": "N/A", "phone": "+43 7274 6417" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-5.5,-3.5"), "id": 10100001093, "name": "Bahnhof Ardning", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-6.5,-3.5"), "id": 10100001094, "name": "Bahnhof Arnoldstein", "tags": "N/A", "categories": "N/A", "phone": "+43 4255 33020" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-7.5,-3.5"), "id": 10100001095, "name": "Bahnhof Bad Bleiburg", "tags": "N/A", "categories": "N/A", "phone": "+43 4235 20300" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-0.5,-4.5"), "id": 10100001096, "name": "Bahnhof Blindenmarkt", "tags": "N/A", "categories": "N/A", "phone": "+43 7473 2280" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-1.5,-4.5"), "id": 10100001097, "name": "Bahnhof Breitenschützing", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-2.5,-4.5"), "id": 10100001098, "name": "Bahnhof Bruck an der Leitha", "tags": "N/A", "categories": "N/A", "phone": "+43 2162 625810" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-3.5,-4.5"), "id": 10100001099, "name": "Bahnhof Bürmoos", "tags": "N/A", "categories": "N/A", "phone": "+43 517 170" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-4.5,-4.5"), "id": 10100001100, "name": "Bahnhof Dorfgastein", "tags": "N/A", "categories": "N/A", "phone": "+43 6433 72150" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-5.5,-4.5"), "id": 10100001101, "name": "Bahnhof Dürnkrut", "tags": "N/A", "categories": "N/A", "phone": "+43 2538 80390" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-6.5,-4.5"), "id": 10100001102, "name": "Bahnhof Eisenerz", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-7.5,-4.5"), "id": 10100001103, "name": "Bahnhof Fehring", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-0.5,-5.5"), "id": 10100001104, "name": "Bahnhof Fehring", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-1.5,-5.5"), "id": 10100001105, "name": "Bahnhof Feldbach", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-2.5,-5.5"), "id": 10100001106, "name": "Bahnhof Friedberg", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-3.5,-5.5"), "id": 10100001107, "name": "Bahnhof Friesach", "tags": "N/A", "categories": "N/A", "phone": "+43 4268 22300" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-4.5,-5.5"), "id": 10100001108, "name": "Bahnhof Frohnleiten", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-5.5,-5.5"), "id": 10100001109, "name": "Bahnhof Föderlach", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-6.5,-5.5"), "id": 10100001110, "name": "Bahnhof Fürstenfeld", "tags": "N/A", "categories": "N/A", "phone": "+43 3382 52230" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-7.5,-5.5"), "id": 10100001111, "name": "Bahnhof Gerichtsberg", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-0.5,-6.5"), "id": 10100001112, "name": "Bahnhof Gleisdorf", "tags": "N/A", "categories": "N/A", "phone": "+43 3112 223039" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-1.5,-6.5"), "id": 10100001113, "name": "Bahnhof Gratwein / Gratkorn", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-2.5,-6.5"), "id": 10100001114, "name": "Bahnhof Greifenburg-Weißensee", "tags": "N/A", "categories": "N/A", "phone": "+43 4712 2300" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-3.5,-6.5"), "id": 10100001115, "name": "Bahnhof Grünburg", "tags": "N/A", "categories": "N/A", "phone": "+43 7257 7102" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-4.5,-6.5"), "id": 10100001116, "name": "Bahnhof Guntramsdorf-Kaiserau", "tags": "N/A", "categories": "N/A", "phone": "+43 2236 522520" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-5.5,-6.5"), "id": 10100001117, "name": "Bahnhof Hard-Fussach", "tags": "N/A", "categories": "N/A", "phone": "+43 512 930000" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-6.5,-6.5"), "id": 10100001118, "name": "Bahnhof Hartberg", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-7.5,-6.5"), "id": 10100001119, "name": "Bahnhof Haus", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-0.5,-7.5"), "id": 10100001120, "name": "Bahnhof Hermagor", "tags": "N/A", "categories": "N/A", "phone": "+43 4282 20300" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-1.5,-7.5"), "id": 10100001121, "name": "Bahnhof Hieflau", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-2.5,-7.5"), "id": 10100001122, "name": "Bahnhof Hinterstoder", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-3.5,-7.5"), "id": 10100001123, "name": "Bahnhof Hochzirl", "tags": "N/A", "categories": "N/A", "phone": "+43 5238 522250" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-4.5,-7.5"), "id": 10100001124, "name": "Bahnhof Hüttau", "tags": "N/A", "categories": "N/A", "phone": "+43 6458 7237" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-5.5,-7.5"), "id": 10100001125, "name": "Bahnhof Jennersdorf", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-6.5,-7.5"), "id": 10100001126, "name": "Bahnhof Judenburg", "tags": "N/A", "categories": "N/A", "phone": "+43 517 171" }
+);
+insert into dataset SimpleGeoPlace(
+{ "coordinates": point("-7.5,-7.5"), "id": 10100001127, "name": "Bahnhof Kainisch", "tags": "N/A", "categories": "N/A", "phone": "+43 51717" }
+);

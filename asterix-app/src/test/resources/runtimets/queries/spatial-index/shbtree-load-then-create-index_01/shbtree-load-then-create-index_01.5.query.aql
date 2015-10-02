@@ -1,0 +1,15 @@
+/*
+ * Test case Name  : shbtree-load-then-create-index_01.aql
+ * Description     : load data to primary index followed by shbtree index creation followed by inserts, then a query. 
+ * Expected Result : Success
+ * Date            : Sept 30 2015
+ */
+
+use dataverse STBench;
+count(
+for $x in dataset SimpleGeoPlace
+let $n :=  create-rectangle(point("-3.500000000000001, 0.499999999999999"), point("-3.499999999999999,0.500000000000001"))
+where spatial-intersect($x.coordinates, $n)
+order by $x.coordinates
+return $x
+);

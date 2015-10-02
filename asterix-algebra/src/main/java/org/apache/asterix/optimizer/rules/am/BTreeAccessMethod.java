@@ -385,7 +385,6 @@ public class BTreeAccessMethod implements IAccessMethod {
         // Check whether assign (unnest) operator exists before the join operator
         Mutable<ILogicalOperator> assignBeforeJoinOpRef = (indexSubTree.assignsAndUnnestsRefs.isEmpty()) ? null
                 : indexSubTree.assignsAndUnnestsRefs.get(0);
-        System.out.println("subTree.assignsAndUnnestsRefs.size() " + indexSubTree.assignsAndUnnestsRefs.size());
         ILogicalOperator assignBeforeJoinOp = null;
         if (assignBeforeJoinOpRef != null) {
             assignBeforeJoinOp = assignBeforeJoinOpRef.getValue();
@@ -487,7 +486,8 @@ public class BTreeAccessMethod implements IAccessMethod {
                     indexSubTree.dataSourceRef.setValue(dataSourceRefOp);
                     // Replace the current operator with the newly created operator
                     joinRef.setValue(primaryIndexUnnestOp);
-                } else if (noFalsePositiveResultsFromSIdxSearch && dataset.getDatasetType() == DatasetType.INTERNAL) {
+                } else if (noFalsePositiveResultsFromSIdxSearch && !verificationAfterSIdxSearchRequired
+                        && dataset.getDatasetType() == DatasetType.INTERNAL) {
                     // If there are no false positives, still there can be
                     // Right now, the order of operators is: union <- select <- split <- assign <- unnest-map (primary index look-up) <- [A]
                     //                                       [A] <- stream_project <- stable_sort <- unnest-map (secondary index look-up) <- ...
@@ -530,8 +530,11 @@ public class BTreeAccessMethod implements IAccessMethod {
                     joinOp.getInputs().add(new MutableObject<ILogicalOperator>(assignBeforeJoinOp));
                 }
             }
-
-            if (!isIndexOnlyPlanPossible && !noFalsePositiveResultsFromSIdxSearch) {
+            
+            // SELECT condition needs to be applied to non-index only plan that cannot benefit from
+            // no false positive results from the secondary index or no verification after secondary index search.
+            if (!isIndexOnlyPlanPossible
+                    && (!noFalsePositiveResultsFromSIdxSearch || verificationAfterSIdxSearchRequired)) {
                 SelectOperator topSelect = new SelectOperator(conditionRef, isLeftOuterJoin, newNullPlaceHolderVar);
                 topSelect.getInputs().add(indexSubTree.rootRef);
                 topSelect.setExecutionMode(ExecutionMode.LOCAL);
@@ -607,14 +610,14 @@ public class BTreeAccessMethod implements IAccessMethod {
         BitSet setLowKeys = new BitSet(numSecondaryKeys);
         BitSet setHighKeys = new BitSet(numSecondaryKeys);
 
-		//flag for using Hilbert btree
-		boolean useLinearizerBTree = false;
+        //flag for using Hilbert btree
+        boolean useLinearizerBTree = false;
         // Go through the func exprs listed as optimizable by the chosen index,
         // and formulate a range predicate on the secondary-index keys.
 
         // checks whether a type casting happened from a real (FLOAT, DOUBLE) value to an INT value
         // since we have a round issues when dealing with LT(<) OR GT(>) operator.
-		ILogicalExpression searchKeyExpr = null;
+        ILogicalExpression searchKeyExpr = null;
         //        boolean realTypeConvertedToIntegerType = false;
 
         for (Pair<Integer, Integer> exprIndex : exprAndVarList) {
@@ -637,7 +640,7 @@ public class BTreeAccessMethod implements IAccessMethod {
                     optFuncExpr, indexSubTree, probeSubTree);
             searchKeyExpr = returnedSearchKeyExpr.first;
             ILogicalExpression searchKeyExpr2 = null;
-           
+
             //TODO extend HilbertBTree to support composite key.
             IndexType indexType = chosenIndex.getIndexType();
             if (indexType == IndexType.DYNAMIC_HILBERT_BTREE || indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE
@@ -659,31 +662,31 @@ public class BTreeAccessMethod implements IAccessMethod {
                     break;
                 }
             } else {
-            	limit = getLimitType(optFuncExpr, probeSubTree);
+                limit = getLimitType(optFuncExpr, probeSubTree);
 
-	            // If a DOUBLE or FLOAT constant is converted to an INT type value,
-	            // we need to check a corner case where two real values are located between an INT value.
-	            // For example, for the following query,
-	            //
-	            // for $emp in dataset empDataset
-	            // where $emp.age > double("2.3") and $emp.age < double("3.3")
-	            // return $emp.id;
-	            //
-	            // It should generate a result if there is a tuple that satisfies the condition, which is 3,
-	            // however, it does not generate the desired result since finding candidates
-	            // fail after truncating the fraction part (there is no INT whose value is greater than 2 and less than 3.)
-	            //
-	            // Therefore, we convert LT(<) to LE(<=) and GT(>) to GE(>=) to find candidates.
-	            // This does not change the result of an actual comparison since this conversion is only applied
-	            // for finding candidates from an index.
-	            //
-//	            if (realTypeConvertedToIntegerType) {
-//	                if (limit == LimitType.HIGH_EXCLUSIVE) {
-//	                    limit = LimitType.HIGH_INCLUSIVE;
-//	                } else if (limit == LimitType.LOW_EXCLUSIVE) {
-//	                    limit = LimitType.LOW_INCLUSIVE;
-//	                }
-//	            }
+                // If a DOUBLE or FLOAT constant is converted to an INT type value,
+                // we need to check a corner case where two real values are located between an INT value.
+                // For example, for the following query,
+                //
+                // for $emp in dataset empDataset
+                // where $emp.age > double("2.3") and $emp.age < double("3.3")
+                // return $emp.id;
+                //
+                // It should generate a result if there is a tuple that satisfies the condition, which is 3,
+                // however, it does not generate the desired result since finding candidates
+                // fail after truncating the fraction part (there is no INT whose value is greater than 2 and less than 3.)
+                //
+                // Therefore, we convert LT(<) to LE(<=) and GT(>) to GE(>=) to find candidates.
+                // This does not change the result of an actual comparison since this conversion is only applied
+                // for finding candidates from an index.
+                //
+                //	            if (realTypeConvertedToIntegerType) {
+                //	                if (limit == LimitType.HIGH_EXCLUSIVE) {
+                //	                    limit = LimitType.HIGH_INCLUSIVE;
+                //	                } else if (limit == LimitType.LOW_EXCLUSIVE) {
+                //	                    limit = LimitType.LOW_INCLUSIVE;
+                //	                }
+                //	            }
             }
 
             // the given search predicate = EQ and we have two type-casted values from FLOAT or DOUBLE to INT constant.
@@ -926,12 +929,16 @@ public class BTreeAccessMethod implements IAccessMethod {
                 // Input to this assign is the EmptyTupleSource (which the dataSourceScan also must have had as input).
                 assignConstantSearchKeys.getInputs().add(dataSourceOp.getInputs().get(0));
                 assignConstantSearchKeys.setExecutionMode(dataSourceOp.getExecutionMode());
+                context.computeAndSetTypeEnvironmentForOperator(assignConstantSearchKeys);
             } else {
                 // We are optimizing a join, place the assign op top of the probe subtree.
                 assignConstantSearchKeys.getInputs().add(probeSubTree.rootRef);
+                context.computeAndSetTypeEnvironmentForOperator(assignConstantSearchKeys);
             }
             assignOpPoints.getInputs().add(new MutableObject<ILogicalOperator>(assignConstantSearchKeys));
+            context.computeAndSetTypeEnvironmentForOperator(assignOpPoints);
             assignOpRectangle.getInputs().add(new MutableObject<ILogicalOperator>(assignOpPoints));
+            context.computeAndSetTypeEnvironmentForOperator(assignOpRectangle);
 
             if (chosenIndexType == IndexType.DYNAMIC_HILBERT_BTREE
                     || chosenIndexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE) {
@@ -984,7 +991,7 @@ public class BTreeAccessMethod implements IAccessMethod {
                 jobGenParams.setHighKeyVarList(tokenizeKeyVars, 1, 1);
             }
         } else {
-            
+
             // Here we generate vars and funcs for assigning the secondary-index keys to be fed into the secondary-index search.
             // List of variables for the assign.
             ArrayList<LogicalVariable> keyVarList = new ArrayList<LogicalVariable>();
@@ -1008,6 +1015,7 @@ public class BTreeAccessMethod implements IAccessMethod {
                 // Input to this assign is the EmptyTupleSource (which the dataSourceScan also must have had as input).
                 assignConstantSearchKeys.getInputs().add(dataSourceOp.getInputs().get(0));
                 assignConstantSearchKeys.setExecutionMode(dataSourceOp.getExecutionMode());
+                context.computeAndSetTypeEnvironmentForOperator(assignConstantSearchKeys);
                 inputOp = assignConstantSearchKeys;
             } else {
                 // All index search keys are variables.

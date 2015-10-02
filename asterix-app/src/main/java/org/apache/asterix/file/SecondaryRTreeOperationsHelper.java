@@ -101,12 +101,10 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
     protected int[] rtreeFields;
     protected boolean isPointMBR;
     protected RecordDescriptor secondaryRecDescForPointMBR = null;
-    private final IndexType indexType;
 
     protected SecondaryRTreeOperationsHelper(PhysicalOptimizationConfig physOptConf,
             IAsterixPropertiesProvider propertiesProvider, IndexType indexType) {
-        super(physOptConf, propertiesProvider);
-        this.indexType = indexType;
+        super(physOptConf, propertiesProvider, indexType);
     }
 
     @Override

@@ -1,0 +1,10 @@
+/*
+ * Test case Name  : dhbtree-load-then-create-index_01.aql
+ * Description     : load data to primary index followed by dhbtree index creation followed by inserts, then a query. 
+ * Expected Result : Success
+ * Date            : Sept 30 2015
+ */
+
+use dataverse STBench;
+
+create index dhbtreePlaceCoordinate on SimpleGeoPlace(coordinates) type dhbtree;

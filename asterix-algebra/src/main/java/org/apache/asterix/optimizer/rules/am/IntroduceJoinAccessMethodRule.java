@@ -128,10 +128,9 @@ public class IntroduceJoinAccessMethodRule extends AbstractIntroduceAccessMethod
         if (!planTransformed) {
             return false;
         } else {
-            StringBuilder sb = new StringBuilder();
-            LogicalOperatorPrettyPrintVisitor pvisitor = context.getPrettyPrintVisitor();
-            PlanPrettyPrinter.printOperator((AbstractLogicalOperator) opRef.getValue(), sb, pvisitor, 0);
-            System.out.println("\n" + sb.toString());
+//            StringBuilder sb = new StringBuilder();
+//            LogicalOperatorPrettyPrintVisitor pvisitor = context.getPrettyPrintVisitor();
+//            PlanPrettyPrinter.printOperator((AbstractLogicalOperator) opRef.getValue(), sb, pvisitor, 0);
             OperatorPropertiesUtil.typeOpRec(opRef, context);
         }
 

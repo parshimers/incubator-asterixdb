@@ -320,7 +320,7 @@ public class RTreeAccessMethod implements IAccessMethod {
         // secondary key field usage after the join operator
         boolean secondaryKeyFieldUsedAfterJoinOp = false;
 
-        // For R-Tree only: whether a verification is required after the secondary index search
+        // For spatial index only: whether a verification is required after the secondary index search
         boolean verificationAfterSIdxSearchRequired = false;
 
         // Can the chosen method generate any false positive results?
@@ -415,7 +415,8 @@ public class RTreeAccessMethod implements IAccessMethod {
                     indexSubTree.dataSourceRef.setValue(dataSourceRefOp);
                     // Replace the current operator with the newly created operator
                     joinRef.setValue(primaryIndexUnnestOp);
-                } else if (noFalsePositiveResultsFromSIdxSearch && dataset.getDatasetType() == DatasetType.INTERNAL) {
+                } else if (noFalsePositiveResultsFromSIdxSearch && !verificationAfterSIdxSearchRequired
+                        && dataset.getDatasetType() == DatasetType.INTERNAL) {
                     // If there are no false positives, still there can be
                     // Right now, the order of operators is:
                     // union <- select <- split <- assign <- unnest-map (Pidx) <- project <- stable_sort <- unnest-map (Sidx) <- ...
@@ -452,17 +453,19 @@ public class RTreeAccessMethod implements IAccessMethod {
 
                     // Replace the current operator with the newly created operator
                     joinRef.setValue(primaryIndexUnnestOp);
+                } else {
+                    // Index-only optimization and reducing the number of SELECT optimization are not possible.
+                    // Right now, the order of operators is: select <- assign <- unnest-map (primary index look-up)
+                    joinOp.getInputs().clear();
+                    indexSubTree.dataSourceRef.setValue(primaryIndexUnnestOp);
+                    joinOp.getInputs().add(new MutableObject<ILogicalOperator>(assignBeforeJoinOp));
                 }
-                //                } else {
-                // Index-only optimization and reducing the number of SELECT optimization are not possible.
-                // Right now, the order of operators is: select <- assign <- unnest-map (primary index look-up)
-                //                    joinOp.getInputs().clear();
-                //                    indexSubTree.dataSourceRef.setValue(primaryIndexUnnestOp);
-                //                    joinOp.getInputs().add(new MutableObject<ILogicalOperator>(assignBeforeJoinOp));
-                //                }
             }
 
-            if (!isIndexOnlyPlanPossible && !noFalsePositiveResultsFromSIdxSearch) {
+            // SELECT condition needs to be applied to non-index only plan that cannot benefit from
+            // no false positive results from the secondary index or no verification after secondary index search.
+            if (!isIndexOnlyPlanPossible
+                    && (!noFalsePositiveResultsFromSIdxSearch || verificationAfterSIdxSearchRequired)) {
                 SelectOperator topSelect = new SelectOperator(conditionRef, isLeftOuterJoin, newNullPlaceHolderVar);
                 topSelect.getInputs().add(indexSubTree.rootRef);
                 topSelect.setExecutionMode(ExecutionMode.LOCAL);
