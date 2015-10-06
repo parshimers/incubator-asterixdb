@@ -24,13 +24,13 @@ import org.apache.asterix.common.transactions.ILogRecord;
 import org.apache.asterix.common.transactions.ILogRecord.RECORD_STATUS;
 import org.apache.asterix.common.transactions.LogRecord;
 
-public class LogPageReader {
+public class LogBufferTailReader {
 
     private final ByteBuffer buffer;
     private final LogRecord logRecord;
     private int endOffset;
 
-    public LogPageReader(ByteBuffer buffer) {
+    public LogBufferTailReader(ByteBuffer buffer) {
         this.buffer = buffer;
         logRecord = new LogRecord();
     }
