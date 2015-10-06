@@ -72,6 +72,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     private LogBuffer appendPage;
     private LogFlusher logFlusher;
     private Future<Object> futureLogFlusher;
+    private static final long SMALLEST_LOG_FILE_ID = 0;
 
     public LogManager(TransactionSubsystem txnSubsystem) throws ACIDException {
         this.txnSubsystem = txnSubsystem;
@@ -86,7 +87,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
         logFilePrefix = logManagerProperties.getLogFilePrefix();
         flushLSN = new MutableLong();
         appendLSN = new AtomicLong();
-        initializeLogManager(0);
+        initializeLogManager(SMALLEST_LOG_FILE_ID);
     }
 
     private void initializeLogManager(long nextLogFileId) {
@@ -130,12 +131,12 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
 
     private synchronized void syncLog(ILogRecord logRecord) throws ACIDException {
         ITransactionContext txnCtx = null;
-        
-        if(logRecord.getLogType() != LogType.FLUSH)
-        {       
+
+        if (logRecord.getLogType() != LogType.FLUSH) {
             txnCtx = logRecord.getTxnCtx();
             if (txnCtx.getTxnState() == ITransactionManager.ABORTED && logRecord.getLogType() != LogType.ABORT) {
-                throw new ACIDException("Aborted job(" + txnCtx.getJobId() + ") tried to write non-abort type log record.");
+                throw new ACIDException("Aborted job(" + txnCtx.getJobId()
+                        + ") tried to write non-abort type log record.");
             }
 
         }
@@ -432,7 +433,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
 
 class LogFlusher implements Callable<Boolean> {
     private static final Logger LOGGER = Logger.getLogger(LogFlusher.class.getName());
-    private final static LogBuffer POISON_PILL = new LogPage(null, ILogRecord.JOB_TERMINATE_LOG_SIZE, null, null);
+    private final static LogBuffer POISON_PILL = new LogBuffer(null, ILogRecord.JOB_TERMINATE_LOG_SIZE, null, null);
     private final LogManager logMgr;//for debugging
     private final LinkedBlockingQueue<LogBuffer> emptyQ;
     private final LinkedBlockingQueue<LogBuffer> flushQ;

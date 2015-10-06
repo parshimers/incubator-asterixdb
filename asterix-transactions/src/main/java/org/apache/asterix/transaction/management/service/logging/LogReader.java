@@ -32,6 +32,12 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.IFileHandle;
 import org.apache.hyracks.api.io.IIOManager;
 
+import static org.apache.asterix.common.transactions.LogRecord.*;
+
+/**
+ * NOTE: Many method calls of this class are not thread safe.
+ * Be very cautious using it in a multithreaded context.
+ */
 public class LogReader implements ILogReader {
 
     public static final boolean IS_DEBUG_MODE = false;//true

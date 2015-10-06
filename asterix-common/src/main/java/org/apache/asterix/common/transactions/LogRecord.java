@@ -161,75 +161,70 @@ public class LogRecord implements ILogRecord {
             buffer.position(beginOffset);
             return RECORD_STATUS.TRUNCATED;
         }
-        try {
-            logType = buffer.get();
-            jobId = buffer.getInt();
-            if(logType != LogType.FLUSH)
-            {
-                if (logType == LogType.JOB_COMMIT || logType == LogType.ABORT) {
-                    datasetId = -1;
-                    PKHashValue = -1;
-                } else {
-                    //attempt to read in the dsid, PK hash and PK length
-                    if(buffer.remaining() < ((Integer.SIZE * 3 ))/Byte.SIZE){
-                        buffer.position(beginOffset);
-                        return RECORD_STATUS.TRUNCATED;
-                    }
-                    datasetId = buffer.getInt();
-                    PKHashValue = buffer.getInt();
-                    PKValueSize = buffer.getInt();
-                    //attempt to read in the PK
-                    if(buffer.remaining() < PKValueSize){
-                        buffer.position(beginOffset);
-                        return RECORD_STATUS.TRUNCATED;
-                    }
-                    if (PKValueSize <= 0) {
-                        throw new IllegalStateException("Primary Key Size is less than or equal to 0");
-                    }
-                    PKValue = readPKValue(buffer);
-                }
-                if (logType == LogType.UPDATE) {
-                    //attempt to read in the previous LSN, log size, new value size, and new record type
-                    if(buffer.remaining() < ((Long.SIZE *2) + (Integer.SIZE * 3) + (Byte.SIZE))/Byte.SIZE){
-                        buffer.position(beginOffset);
-                        return RECORD_STATUS.TRUNCATED;
-                    }
-                    prevLSN = buffer.getLong();
-                    resourceId = buffer.getLong();
-                    logSize = buffer.getInt();
-                    fieldCnt = buffer.getInt();
-                    newOp = buffer.get();
-                    newValueSize = buffer.getInt();
-                    if(buffer.remaining() < newValueSize){
-                        buffer.position(beginOffset);
-                        return RECORD_STATUS.TRUNCATED;
-                    }
-                    newValue = readTuple(buffer, readNewValue, fieldCnt, newValueSize);
-                } else {
-                    computeAndSetLogSize();
-                }
-            }
-            else{
-                computeAndSetLogSize();
-                if(buffer.remaining() < Integer.SIZE/Byte.SIZE){
+        logType = buffer.get();
+        jobId = buffer.getInt();
+        if(logType != LogType.FLUSH)
+        {
+            if (logType == LogType.JOB_COMMIT || logType == LogType.ABORT) {
+                datasetId = -1;
+                PKHashValue = -1;
+            } else {
+                //attempt to read in the dsid, PK hash and PK length
+                if(buffer.remaining() < ((Integer.SIZE * 3 ))/Byte.SIZE){
                     buffer.position(beginOffset);
                     return RECORD_STATUS.TRUNCATED;
                 }
                 datasetId = buffer.getInt();
-                resourceId = 0l;
+                PKHashValue = buffer.getInt();
+                PKValueSize = buffer.getInt();
+                //attempt to read in the PK
+                if(buffer.remaining() < PKValueSize){
+                    buffer.position(beginOffset);
+                    return RECORD_STATUS.TRUNCATED;
+                }
+                if (PKValueSize <= 0) {
+                    throw new IllegalStateException("Primary Key Size is less than or equal to 0");
+                }
+                PKValue = readPKValue(buffer);
             }
-            //atempt to read checksum
-            if(buffer.remaining() < Long.SIZE/Byte.SIZE){
+            if (logType == LogType.UPDATE) {
+                //attempt to read in the previous LSN, log size, new value size, and new record type
+                if(buffer.remaining() < ((Long.SIZE *2) + (Integer.SIZE * 3) + (Byte.SIZE))/Byte.SIZE){
+                    buffer.position(beginOffset);
+                    return RECORD_STATUS.TRUNCATED;
+                }
+                prevLSN = buffer.getLong();
+                resourceId = buffer.getLong();
+                logSize = buffer.getInt();
+                fieldCnt = buffer.getInt();
+                newOp = buffer.get();
+                newValueSize = buffer.getInt();
+                if(buffer.remaining() < newValueSize){
+                    buffer.position(beginOffset);
+                    return RECORD_STATUS.TRUNCATED;
+                }
+                newValue = readTuple(buffer, readNewValue, fieldCnt, newValueSize);
+            } else {
+                computeAndSetLogSize();
+            }
+        }
+        else{
+            computeAndSetLogSize();
+            if(buffer.remaining() < Integer.SIZE/Byte.SIZE){
                 buffer.position(beginOffset);
                 return RECORD_STATUS.TRUNCATED;
             }
-            checksum = buffer.getLong();
-            if (checksum != generateChecksum(buffer, beginOffset, logSize - CHECKSUM_SIZE)) {
-                return RECORD_STATUS.BAD_CHKSUM;
-            }
-        } catch (BufferUnderflowException e) {
+            datasetId = buffer.getInt();
+            resourceId = 0l;
+        }
+        //atempt to read checksum
+        if(buffer.remaining() < Long.SIZE/Byte.SIZE){
             buffer.position(beginOffset);
             return RECORD_STATUS.TRUNCATED;
+        }
+        checksum = buffer.getLong();
+        if (checksum != generateChecksum(buffer, beginOffset, logSize - CHECKSUM_SIZE)) {
+            return RECORD_STATUS.BAD_CHKSUM;
         }
         return RECORD_STATUS.OK;
     }

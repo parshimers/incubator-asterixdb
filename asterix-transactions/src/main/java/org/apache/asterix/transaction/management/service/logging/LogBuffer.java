@@ -28,7 +28,7 @@ import java.util.logging.Logger;
 import org.apache.asterix.common.context.PrimaryIndexOperationTracker;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.transactions.DatasetId;
-import org.apache.asterix.common.transactions.ILogPage;
+import org.apache.asterix.common.transactions.ILogBuffer;
 import org.apache.asterix.common.transactions.ILogRecord;
 import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.JobId;
@@ -46,7 +46,7 @@ public class LogBuffer implements ILogBuffer {
     public static final boolean IS_DEBUG_MODE = false;//true
     private static final Logger LOGGER = Logger.getLogger(LogBuffer.class.getName());
     private final TransactionSubsystem txnSubsystem;
-    private final LogPageReader logPageReader;
+    private final LogBufferTailReader logBufferTailReader;
     private final int logPageSize;
     private final MutableLong flushLSN;
     private final AtomicBoolean full;
@@ -72,7 +72,7 @@ public class LogBuffer implements ILogBuffer {
         appendBuffer = ByteBuffer.allocate(logPageSize);
         flushBuffer = appendBuffer.duplicate();
         unlockBuffer = appendBuffer.duplicate();
-        logPageReader = getLogPageReader();
+        logBufferTailReader = getLogBufferTailReader();
         full = new AtomicBoolean(false);
         appendOffset = 0;
         flushOffset = 0;
@@ -201,17 +201,17 @@ public class LogBuffer implements ILogBuffer {
         }
     }
 
-    private LogPageReader getLogPageReader() {
-        return new LogPageReader(unlockBuffer);
+    private LogBufferTailReader getLogBufferTailReader() {
+        return new LogBufferTailReader(unlockBuffer);
     }
 
     private void batchUnlock(int beginOffset, int endOffset) throws ACIDException {
         if (endOffset > beginOffset) {
-            logPageReader.initializeScan(beginOffset, endOffset);
+            logBufferTailReader.initializeScan(beginOffset, endOffset);
 
             ITransactionContext txnCtx = null;
 
-            LogRecord logRecord = logPageReader.next();
+            LogRecord logRecord = logBufferTailReader.next();
             while (logRecord != null) {
                 if (logRecord.getLogType() == LogType.ENTITY_COMMIT) {
                     reusableJobId.setId(logRecord.getJobId());
@@ -229,7 +229,7 @@ public class LogBuffer implements ILogBuffer {
                     notifyFlushTerminator();
                 }
 
-                logRecord = logPageReader.next();
+                logRecord = logBufferTailReader.next();
             }
         }
     }
