@@ -83,7 +83,6 @@ public class LogRecord implements ILogRecord {
     //------------- fields in a log record (end) --------------//
 
     private int PKFieldCnt;
-    private static final int CHECKSUM_SIZE = 8;
     private ITransactionContext txnCtx;
     private long LSN;
     private final AtomicBoolean isFlushed;
@@ -101,6 +100,23 @@ public class LogRecord implements ILogRecord {
         readNewValue = (SimpleTupleReference) tupleWriter.createTupleReference();
         checksumGen = new CRC32();
     }
+
+    private final static int TYPE_LEN = Byte.SIZE/Byte.SIZE;
+    private final static int JID_LEN = Integer.SIZE / Byte.SIZE;
+    private final static int DSID_LEN = Integer.SIZE / Byte.SIZE;
+    private final static int PKHASH_LEN = Integer.SIZE / Byte.SIZE;
+    private final static int PKSZ_LEN = Integer.SIZE / Byte.SIZE;
+    private final static int PRVLSN_LEN = Long.SIZE / Byte.SIZE;
+    private final static int RSID_LEN = Long.SIZE / Byte.SIZE;
+    private final static int FLDCNT_LEN = Integer.SIZE / Byte.SIZE;
+    private final static int NEWOP_LEN = Byte.SIZE/Byte.SIZE;
+    private final static int NEWVALSZ_LEN = Integer.SIZE / Byte.SIZE;
+    private final static int CHKSUM_LEN = Long.SIZE / Byte.SIZE;
+
+    private final static int ALL_RECORD_HEADER_LEN = TYPE_LEN + JID_LEN;
+    private final static int ENTITYCOMMIT_UPDATE_HEADER_LEN = DSID_LEN + PKHASH_LEN + PKSZ_LEN;
+    private final static int UPDATE_LSN_HEADER = PRVLSN_LEN + RSID_LEN;
+    private final static int UPDATE_BODY_HEADER = FLDCNT_LEN + NEWOP_LEN + NEWVALSZ_LEN;
 
     @Override
     public void writeLogRecord(ByteBuffer buffer) {
@@ -130,7 +146,7 @@ public class LogRecord implements ILogRecord {
             buffer.putInt(datasetId);
         }
         
-        checksum = generateChecksum(buffer, beginOffset, logSize - CHECKSUM_SIZE);
+        checksum = generateChecksum(buffer, beginOffset, logSize - CHKSUM_LEN);
         buffer.putLong(checksum);
     }
 
@@ -157,7 +173,7 @@ public class LogRecord implements ILogRecord {
     public RECORD_STATUS readLogRecord(ByteBuffer buffer) {
         int beginOffset = buffer.position();
         //first we need the logtype and Job ID, if the buffer isn't that big, then no dice.
-        if(buffer.remaining() < (Integer.SIZE + Byte.SIZE)/Byte.SIZE) {
+        if(buffer.remaining() < ALL_RECORD_HEADER_LEN) {
             buffer.position(beginOffset);
             return RECORD_STATUS.TRUNCATED;
         }
@@ -170,7 +186,7 @@ public class LogRecord implements ILogRecord {
                 PKHashValue = -1;
             } else {
                 //attempt to read in the dsid, PK hash and PK length
-                if(buffer.remaining() < ((Integer.SIZE * 3 ))/Byte.SIZE){
+                if(buffer.remaining() < ENTITYCOMMIT_UPDATE_HEADER_LEN){
                     buffer.position(beginOffset);
                     return RECORD_STATUS.TRUNCATED;
                 }
@@ -189,7 +205,7 @@ public class LogRecord implements ILogRecord {
             }
             if (logType == LogType.UPDATE) {
                 //attempt to read in the previous LSN, log size, new value size, and new record type
-                if(buffer.remaining() < ((Long.SIZE *2) + (Integer.SIZE * 3) + (Byte.SIZE))/Byte.SIZE){
+                if(buffer.remaining() <UPDATE_LSN_HEADER + UPDATE_BODY_HEADER){
                     buffer.position(beginOffset);
                     return RECORD_STATUS.TRUNCATED;
                 }
@@ -210,7 +226,7 @@ public class LogRecord implements ILogRecord {
         }
         else{
             computeAndSetLogSize();
-            if(buffer.remaining() < Integer.SIZE/Byte.SIZE){
+            if(buffer.remaining() < DSID_LEN){
                 buffer.position(beginOffset);
                 return RECORD_STATUS.TRUNCATED;
             }
@@ -218,12 +234,12 @@ public class LogRecord implements ILogRecord {
             resourceId = 0l;
         }
         //atempt to read checksum
-        if(buffer.remaining() < Long.SIZE/Byte.SIZE){
+        if(buffer.remaining() < CHKSUM_LEN){
             buffer.position(beginOffset);
             return RECORD_STATUS.TRUNCATED;
         }
         checksum = buffer.getLong();
-        if (checksum != generateChecksum(buffer, beginOffset, logSize - CHECKSUM_SIZE)) {
+        if (checksum != generateChecksum(buffer, beginOffset, logSize - CHKSUM_LEN)) {
             return RECORD_STATUS.BAD_CHKSUM;
         }
         return RECORD_STATUS.OK;

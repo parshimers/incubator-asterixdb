@@ -97,14 +97,23 @@ public class LogReader implements ILogReader {
         RECORD_STATUS status = logRecord.readLogRecord(readBuffer);
         switch(status) {
             case TRUNCATED: {
+                //we may have just read off the end of the buffer, so try refiling it
                 if(!refillLogReadBuffer()) {
                     return null;
                 }
-                if(logRecord.readLogRecord(readBuffer) == RECORD_STATUS.OK){
-                    break;
+                //now see what we have in the refilled buffer
+                status = logRecord.readLogRecord(readBuffer);
+                switch(status){
+                    case TRUNCATED: {
+                        LOGGER.info("Log file has truncated log records.");
+                        return null;
+                    }
+                    case BAD_CHKSUM:{
+                        LOGGER.severe("Transaction log contains corrupt log records (perhaps due to medium error). Stopping recovery early.");
+                        return null;
+                    }
+                    case OK: break;
                 }
-                LOGGER.info("Log file has truncated log records.");
-                return null;
             }
             case BAD_CHKSUM:{
                 LOGGER.severe("Transaction log contains corrupt log records (perhaps due to medium error). Stopping recovery early.");
@@ -168,6 +177,8 @@ public class LogReader implements ILogReader {
         readBuffer.limit(logPageSize);
         try {
             fileChannel.position(readLSN % logFileSize);
+            //We loop here because read() may return 0, but this simply means we are waiting on IO.
+            //Therefore we want to break out only when either the buffer is full, or we reach EOF.
             while( size < logPageSize && read != -1) {
                 read = fileChannel.read(readBuffer);
                 if(read>0) {
@@ -215,10 +226,10 @@ public class LogReader implements ILogReader {
         } catch (IOException e) {
             throw new ACIDException(e);
         }
-        boolean eof;
+        boolean hasRemaining;
         if(readBuffer.position() == readBuffer.limit()){
-            eof = refillLogReadBuffer();
-            if(eof){
+            hasRemaining = refillLogReadBuffer();
+            if(!hasRemaining){
                 throw new ACIDException("LSN is out of bounds");
             }
         }
