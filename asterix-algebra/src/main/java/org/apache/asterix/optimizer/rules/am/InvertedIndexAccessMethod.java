@@ -827,7 +827,8 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
             if (keyPairType == null) {
                 return false;
             }
-            if (keyPairType.first != BuiltinType.APOINT && keyPairType.first != BuiltinType.ARECTANGLE) {
+            if (keyPairType.first.getTypeTag() != ATypeTag.POINT
+                    && keyPairType.first.getTypeTag() != ATypeTag.RECTANGLE) {
                 isIndexOnlyPlanPossible = false;
                 noFalsePositiveResultsFromSIdxSearch = false;
             } else {
@@ -1252,8 +1253,7 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
                 }
                 // SELECT condition needs to be applied to non-index only plan that cannot benefit from
                 // no false positive results from the secondary index or no verification after secondary index search.
-                if (!isIndexOnlyPlan
-                        && (!noFalsePositiveResultsFromSIdxSearch || verificationAfterSIdxSearchRequired)) {
+                if (!isIndexOnlyPlan && (!noFalsePositiveResultsFromSIdxSearch || verificationAfterSIdxSearchRequired)) {
                     SelectOperator topSelect = new SelectOperator(conditionRef, isLeftOuterJoin, newNullPlaceHolderVar);
                     topSelect.getInputs().add(indexSubTree.rootRef);
                     topSelect.setExecutionMode(ExecutionMode.LOCAL);

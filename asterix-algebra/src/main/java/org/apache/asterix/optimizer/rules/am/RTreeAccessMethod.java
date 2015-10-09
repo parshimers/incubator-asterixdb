@@ -32,6 +32,7 @@ import org.apache.asterix.om.base.AInt32;
 import org.apache.asterix.om.constants.AsterixConstantValue;
 import org.apache.asterix.om.functions.AsterixBuiltinFunctions;
 import org.apache.asterix.om.types.ARecordType;
+import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.util.NonTaggedFormatUtil;
@@ -185,7 +186,7 @@ public class RTreeAccessMethod implements IAccessMethod {
         // If an index is not built on a POINT or a RECTANGLE field, the query result can include false positives.
         // And the result from secondary index search is an MBR, we can't construct original secondary field value
         // to remove any false positive results.
-        if (keyPairType.first != BuiltinType.APOINT && keyPairType.first != BuiltinType.ARECTANGLE) {
+        if (keyPairType.first.getTypeTag() != ATypeTag.POINT && keyPairType.first.getTypeTag() != ATypeTag.RECTANGLE) {
             isIndexOnlyPlanPossible = false;
             noFalsePositiveResultsFromSIdxSearch = false;
         } else {

@@ -256,19 +256,19 @@ public class AccessMethodUtils {
                     }
                     break;
                 }
-                
+
                 case STATIC_HILBERT_BTREE:
-                    /* Secondary key consists of [ Cell number (ABINARY) | point (APOINT) ] */ 
+                    /* Secondary key consists of [ Cell number (ABINARY) | point (APOINT) ] */
                     dest.add(BuiltinType.ABINARY);
                     dest.add(BuiltinType.APOINT);
                     break;
-                    
+
                 case DYNAMIC_HILBERTVALUE_BTREE:
-                    /* Secondary key consists of [ Hilbert value (AINT64) | point (APOINT) ] */ 
+                    /* Secondary key consists of [ Hilbert value (AINT64) | point (APOINT) ] */
                     dest.add(BuiltinType.AINT64);
                     dest.add(BuiltinType.APOINT);
                     break;
-                    
+
                 case RTREE: {
                     Pair<IAType, Boolean> keyPairType = Index.getNonNullableOpenFieldType(
                             index.getKeyFieldTypes().get(0), index.getKeyFieldNames().get(0), recordType);
@@ -353,7 +353,7 @@ public class AccessMethodUtils {
     /**
      * Get the primary key variables from the unnest-map operator that does a secondary index lookup.
      * The order: SK, PK, [Optional: The result of a TryLock on PK]
-     *
+     * 
      * @throws AlgebricksException
      */
     public static List<LogicalVariable> getKeyVarsFromSecondaryUnnestMap(Dataset dataset, ARecordType recordType,
@@ -430,7 +430,7 @@ public class AccessMethodUtils {
      * Returns the search key expression which feeds a secondary-index search. If we are optimizing a selection query then this method returns
      * the a ConstantExpression from the first constant value in the optimizable function expression.
      * If we are optimizing a join, then this method returns the VariableReferenceExpression that should feed the secondary index probe.
-     *
+     * 
      * @throws AlgebricksException
      */
     public static Pair<ILogicalExpression, ILogicalExpression> createSearchKeyExpr(IOptimizableFuncExpr optFuncExpr,
@@ -573,7 +573,7 @@ public class AccessMethodUtils {
      * 3. secondaryKeyFieldUsedAfterSelectOp?
      * 4. verificationAfterSIdxSearchRequired?
      * 5. noFalsePositiveResultsFromSIdxSearch?
-     *
+     * 
      * @throws IOException
      */
     public static boolean indexOnlyPlanCheck(List<Mutable<ILogicalOperator>> aboveTopRefs,
@@ -915,10 +915,10 @@ public class AccessMethodUtils {
                     if (t.getValue().getExpressionTag() == LogicalExpressionTag.CONSTANT) {
                         AsterixConstantValue tmpVal = (AsterixConstantValue) ((ConstantExpression) t.getValue())
                                 .getValue();
-                        if (tmpVal.getObject().getType() == BuiltinType.APOINT
-                                || tmpVal.getObject().getType() == BuiltinType.ARECTANGLE) {
-                            if ((keyPairType.first == BuiltinType.APOINT || keyPairType.first == BuiltinType.ARECTANGLE) && 
-                                    (indexType == IndexType.RTREE || indexType == IndexType.DYNAMIC_HILBERT_BTREE || indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE)) {
+                        if (tmpVal.getObject().getType().getTypeTag() == ATypeTag.POINT
+                                || tmpVal.getObject().getType().getTypeTag() == ATypeTag.RECTANGLE) {
+                            if ((keyPairType.first.getTypeTag() == ATypeTag.POINT || keyPairType.first.getTypeTag() == ATypeTag.RECTANGLE)
+                                    && (indexType == IndexType.RTREE || indexType == IndexType.DYNAMIC_HILBERT_BTREE || indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE)) {
                                 verificationAfterSIdxSearchRequired = false;
                             } else {
                                 verificationAfterSIdxSearchRequired = true;
@@ -1019,10 +1019,12 @@ public class AccessMethodUtils {
                             }
                         }
 
-                        if (keyPairType.first == BuiltinType.APOINT || keyPairType.first == BuiltinType.ARECTANGLE) {
+                        if (keyPairType.first.getTypeTag() == ATypeTag.POINT
+                                || keyPairType.first.getTypeTag() == ATypeTag.RECTANGLE) {
                             // If the given field from the other join branch is a POINT or a RECTANGLE,
                             // we don't need to verify it again using SELECT operator since there are no false positive results.
-                            if (tmpValFieldType == BuiltinType.APOINT || tmpValFieldType == BuiltinType.ARECTANGLE) {
+                            if (tmpValFieldType.getTypeTag() == ATypeTag.POINT
+                                    || tmpValFieldType.getTypeTag() == ATypeTag.RECTANGLE) {
                                 verificationAfterSIdxSearchRequired = false;
                             } else {
                                 verificationAfterSIdxSearchRequired = true;
@@ -1050,7 +1052,7 @@ public class AccessMethodUtils {
         return true;
 
     }
-    
+
     // Helper function that finds a corresponding IAType for the given function identifier
     public static IAType findSpatialType(FunctionIdentifier fid) {
         if (fid == AsterixBuiltinFunctions.CREATE_CIRCLE || fid == AsterixBuiltinFunctions.CIRCLE_CONSTRUCTOR) {
@@ -1198,7 +1200,7 @@ public class AccessMethodUtils {
             restoredSecondaryKeyFieldExprs = new ArrayList<Mutable<ILogicalExpression>>();
             restoredSecondaryKeyFieldVars = new ArrayList<LogicalVariable>();
 
-            if (spatialType == BuiltinType.APOINT) {
+            if (spatialType.getTypeTag() == ATypeTag.POINT) {
                 // Reconstruct a POINT value
                 ILogicalExpression createPointExpr = null;
                 if (idxType == IndexType.RTREE) {
@@ -1209,7 +1211,7 @@ public class AccessMethodUtils {
                             secondaryKeyVarsFromSIdxSearch.get(0))));
                     expressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
                             secondaryKeyVarsFromSIdxSearch.get(1))));
-                    ((AbstractFunctionCallExpression)createPointExpr).getArguments().addAll(expressions);
+                    ((AbstractFunctionCallExpression) createPointExpr).getArguments().addAll(expressions);
                 } else if (idxType == IndexType.DYNAMIC_HILBERT_BTREE) {
                     //dhbtree entry's fields: [point, PK]
                     createPointExpr = new VariableReferenceExpression(secondaryKeyVarsFromSIdxSearch.get(0));
@@ -1226,12 +1228,12 @@ public class AccessMethodUtils {
                             dataset, recordType, inputOp, secondaryIndex, 3, outputPrimaryKeysOnlyFromSIdxSearch);
                     createPointExpr = new VariableReferenceExpression(pointVarFromSIdxSearch.get(0));
                 }
-                
+
                 restoredSecondaryKeyFieldVars.add(context.newVar());
                 restoredSecondaryKeyFieldExprs.add(new MutableObject<ILogicalExpression>(createPointExpr));
                 assignRestoredSecondaryKeyFieldOp = new AssignOperator(restoredSecondaryKeyFieldVars,
                         restoredSecondaryKeyFieldExprs);
-            } else if (spatialType == BuiltinType.ARECTANGLE) {
+            } else if (spatialType.getTypeTag() == ATypeTag.RECTANGLE) {
                 // Reconstruct a RECTANGLE value
                 // TODO deal with non-RTree spatial index type
                 AbstractFunctionCallExpression createRectangleExpr = new ScalarFunctionCallExpression(
@@ -1619,8 +1621,7 @@ public class AccessMethodUtils {
             // For spatial indexes, if there is an operator that is using the secondary key field value,
             // we need to reconstruct that field value from the result of spatial index search.
             // This is done by adding the assign operator that we have made in the beginning of this method
-            if (isSpatialIndex(idxType)
-                    && (secondaryKeyFieldUsedAfterSelectOp || verificationAfterSIdxSearchRequired)) {
+            if (isSpatialIndex(idxType) && (secondaryKeyFieldUsedAfterSelectOp || verificationAfterSIdxSearchRequired)) {
                 assignRestoredSecondaryKeyFieldOp.getInputs().clear();
                 assignRestoredSecondaryKeyFieldOp.getInputs().add(new MutableObject<ILogicalOperator>(splitOp));
                 //                assignRestoredSecondaryKeyFieldOp.setExecutionMode(lastAssignBeforeTopOp.getExecutionMode());
@@ -1705,10 +1706,10 @@ public class AccessMethodUtils {
             unionAllOp.getInputs().add(new MutableObject<ILogicalOperator>(newSelectOp));
             unionAllOp.getInputs().add(new MutableObject<ILogicalOperator>(currentTopOpInRightPath));
 
-//            StringBuilder sb = new StringBuilder();
-//            LogicalOperatorPrettyPrintVisitor pvisitor = context.getPrettyPrintVisitor();
-//            PlanPrettyPrinter.printOperator((AbstractLogicalOperator) unionAllOp, sb, pvisitor, 0);
-//            System.out.println("createPrimaryUnnestMap:\n" + sb.toString());
+            //            StringBuilder sb = new StringBuilder();
+            //            LogicalOperatorPrettyPrintVisitor pvisitor = context.getPrettyPrintVisitor();
+            //            PlanPrettyPrinter.printOperator((AbstractLogicalOperator) unionAllOp, sb, pvisitor, 0);
+            //            System.out.println("createPrimaryUnnestMap:\n" + sb.toString());
 
             unionAllOp.setExecutionMode(ExecutionMode.PARTITIONED);
             context.computeAndSetTypeEnvironmentForOperator(unionAllOp);
@@ -1806,7 +1807,7 @@ public class AccessMethodUtils {
     }
 
     private static boolean isSpatialIndex(IndexType indexType) {
-        if (indexType == IndexType.RTREE || indexType == IndexType.DYNAMIC_HILBERT_BTREE 
+        if (indexType == IndexType.RTREE || indexType == IndexType.DYNAMIC_HILBERT_BTREE
                 || indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE || indexType == IndexType.STATIC_HILBERT_BTREE
                 || indexType == IndexType.SIF) {
             return true;

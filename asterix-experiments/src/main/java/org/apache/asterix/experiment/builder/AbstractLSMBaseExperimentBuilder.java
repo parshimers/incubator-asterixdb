@@ -94,6 +94,11 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
     protected final String openStreetMapFilePath;
     protected final int locationSampleInterval;
 
+    protected final int recordCountPerBatchDuringIngestionOnly;
+    protected final int recordCountPerBatchDuringQuery;
+    protected final long dataGenSleepTimeDuringIngestionOnly;
+    protected final long dataGenSleepTimeDuringQuery;
+
     public AbstractLSMBaseExperimentBuilder(String name, LSMExperimentSetRunnerConfig config,
             String clusterConfigFileName, String ingestFileName, String dgenFileName, String countFileName) {
         super(name);
@@ -115,6 +120,10 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
         this.lsAction = new SequentialActionList();
         this.openStreetMapFilePath = config.getOpenStreetMapFilePath();
         this.locationSampleInterval = config.getLocationSampleInterval();
+        recordCountPerBatchDuringIngestionOnly = config.getRecordCountPerBatchDuringIngestionOnly();
+        recordCountPerBatchDuringQuery = config.getRecordCountPerBatchDuringQuery();
+        dataGenSleepTimeDuringIngestionOnly = config.getDataGenSleepTimeDuringIngestionOnly();
+        dataGenSleepTimeDuringQuery = config.getDataGenSleepTimeDuringQuery();
     }
 
     protected abstract void doBuildDDL(SequentialActionList seq);
@@ -137,11 +146,17 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
                     String ipPortPairs = StringUtils.join(rcvrs.iterator(), " ");
                     String binary = "JAVA_HOME=" + javaHomePath + " "
                             + localExperimentRoot.resolve("bin").resolve("datagenrunner").toString();
-                    if (openStreetMapFilePath == null) { 
-                        return StringUtils.join(new String[] { binary, "-si", "" + locationSampleInterval, 
-                                "-p", "" + p, "-d", "" + duration, ipPortPairs }, " ");
+                    if (openStreetMapFilePath == null) {
+                        return StringUtils.join(new String[] { binary, "-rcbi",
+                                "" + recordCountPerBatchDuringIngestionOnly, "-rcbq",
+                                "" + recordCountPerBatchDuringQuery, "-dsti", "" + dataGenSleepTimeDuringIngestionOnly,
+                                "-dstq", "" + dataGenSleepTimeDuringQuery, "-si", "" + locationSampleInterval, "-p",
+                                "" + p, "-d", "" + duration, ipPortPairs }, " ");
                     } else {
-                        return StringUtils.join(new String[] { binary, "-si", "" + locationSampleInterval, "-of",
+                        return StringUtils.join(new String[] { binary, "-rcbi",
+                                "" + recordCountPerBatchDuringIngestionOnly, "-rcbq",
+                                "" + recordCountPerBatchDuringQuery, "-dsti", "" + dataGenSleepTimeDuringIngestionOnly,
+                                "-dstq", "" + dataGenSleepTimeDuringQuery, "-si", "" + locationSampleInterval, "-of",
                                 openStreetMapFilePath, "-p", "" + p, "-d", "" + duration, ipPortPairs }, " ");
                     }
                 }
@@ -228,20 +243,20 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
         // main exp
         doBuildDataGen(execs, dgenPairs);
 
-//        if (statFile != null) {
-//            ParallelActionSet ioCountKillActions = new ParallelActionSet();
-//            for (String ncHost : ncHosts) {
-//                ioCountKillActions.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
-//
-//                    @Override
-//                    protected String getCommand() {
-//                        String cmd = "screen -X -S `screen -list | grep Detached | awk '{print $1}'` quit";
-//                        return cmd;
-//                    }
-//                });
-//            }
-//            execs.add(ioCountKillActions);
-//        }
+        //        if (statFile != null) {
+        //            ParallelActionSet ioCountKillActions = new ParallelActionSet();
+        //            for (String ncHost : ncHosts) {
+        //                ioCountKillActions.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
+        //
+        //                    @Override
+        //                    protected String getCommand() {
+        //                        String cmd = "screen -X -S `screen -list | grep Detached | awk '{print $1}'` quit";
+        //                        return cmd;
+        //                    }
+        //                });
+        //            }
+        //            execs.add(ioCountKillActions);
+        //        }
 
         execs.add(new SleepAction(10000));
         if (countFileName != null) {
@@ -272,7 +287,7 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
             }
             execs.add(collectIOActions);
         }
-        
+
         //collect profile information
         if (ExperimentProfiler.PROFILE_MODE) {
             ParallelActionSet collectProfileInfo = new ParallelActionSet();
@@ -287,7 +302,7 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
             }
             execs.add(collectProfileInfo);
         }
-        
+
         execs.add(new LogAsterixManagixAction(managixHomePath, ASTERIX_INSTANCE_NAME, localExperimentRoot
                 .resolve(LSMExperimentConstants.LOG_DIR + "-" + logDirSuffix).resolve(getName()).toString()));
 

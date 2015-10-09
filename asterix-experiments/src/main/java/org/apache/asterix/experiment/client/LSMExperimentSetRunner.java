@@ -225,6 +225,34 @@ public class LSMExperimentSetRunner {
         public String getQuerySeedFilePath() {
             return querySeedFilePath;
         }
+        
+        @Option(name = "-rcbi", aliases = "--record-count-per-batch-during-ingestion-only", usage = "Record count per batch during ingestion only")
+        private int recordCountPerBatchDuringIngestionOnly = 1000;
+
+        public int getRecordCountPerBatchDuringIngestionOnly() {
+            return recordCountPerBatchDuringIngestionOnly;
+        }
+        
+        @Option(name = "-rcbq", aliases = "--record-count-per-batch-during-query", usage = "Record count per batch during query")
+        private int recordCountPerBatchDuringQuery = 1000;
+
+        public int getRecordCountPerBatchDuringQuery() {
+            return recordCountPerBatchDuringQuery;
+        }
+        
+        @Option(name = "-dsti", aliases = "--data-gen-sleep-time-during-ingestion-only", usage = "DataGen sleep time in milliseconds after every recordCountPerBatchDuringIngestionOnly records were sent")
+        private long dataGenSleepTimeDuringIngestionOnly = 1;
+
+        public long getDataGenSleepTimeDuringIngestionOnly() {
+            return dataGenSleepTimeDuringIngestionOnly;
+        }
+        
+        @Option(name = "-dstq", aliases = "--data-gen-sleep-time-during-query", usage = "DataGen sleep time in milliseconds after every recordCountPerBatchDuringQuery records were sent")
+        private long dataGenSleepTimeDuringQuery = 1;
+
+        public long getDataGenSleepTimeDuringQuery() {
+            return dataGenSleepTimeDuringIngestionOnly;
+        }
     }
 
     public static void main(String[] args) throws Exception {

@@ -36,9 +36,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.commons.lang3.tuple.Pair;
-
 import org.apache.asterix.tools.external.data.TweetGeneratorForSpatialIndexEvaluation;
+import org.apache.commons.lang3.tuple.Pair;
 
 public class SocketTweetGenerator {
 
@@ -62,6 +61,10 @@ public class SocketTweetGenerator {
 
     private final String openStreetMapFilePath;
     private final int locationSampleInterval;
+    private final int recordCountPerBatchDuringIngestionOnly;
+    private final int recordCountPerBatchDuringQuery;
+    private final long dataGenSleepTimeDuringIngestionOnly;
+    private final long dataGenSleepTimeDuringQuery;
 
     private final Mode mode;
 
@@ -95,6 +98,10 @@ public class SocketTweetGenerator {
         mode = startDataInterval > 0 ? Mode.DATA : Mode.TIME;
         openStreetMapFilePath = config.getOpenStreetMapFilePath();
         locationSampleInterval = config.getLocationSampleInterval();
+        recordCountPerBatchDuringIngestionOnly = config.getRecordCountPerBatchDuringIngestionOnly();
+        recordCountPerBatchDuringQuery = config.getRecordCountPerBatchDuringQuery();
+        dataGenSleepTimeDuringIngestionOnly = config.getDataGenSleepTimeDuringIngestionOnly();
+        dataGenSleepTimeDuringQuery = config.getDataGenSleepTimeDuringQuery();
     }
 
     public void start() throws Exception {
@@ -103,7 +110,9 @@ public class SocketTweetGenerator {
         for (Pair<String, Integer> address : receiverAddresses) {
             threadPool.submit(new DataGenerator(mode, sem, address.getLeft(), address.getRight(), i
                     + partitionRangeStart, dataGenDuration, queryGenDuration, nDataIntervals, startDataInterval,
-                    orchHost, orchPort, openStreetMapFilePath, locationSampleInterval));
+                    orchHost, orchPort, openStreetMapFilePath, locationSampleInterval,
+                    recordCountPerBatchDuringIngestionOnly, recordCountPerBatchDuringQuery,
+                    dataGenSleepTimeDuringIngestionOnly, dataGenSleepTimeDuringQuery));
             ++i;
         }
         sem.acquire();
@@ -130,10 +139,16 @@ public class SocketTweetGenerator {
         private final boolean flagStopResume;
         private final String openStreetMapFilePath;
         private final int locationSampleInterval;
+        private final int recordCountPerBatchDuringIngestionOnly;
+        private final int recordCountPerBatchDuringQuery;
+        private final long dataGenSleepTimeDuringIngestionOnly;
+        private final long dataGenSleepTimeDuringQuery;
 
         public DataGenerator(Mode m, Semaphore sem, String host, int port, int partition, int dataGenDuration,
                 int queryGenDuration, int nDataIntervals, long dataSizeInterval, String orchHost, int orchPort,
-                String openStreetMapFilePath, int locationSampleInterval) {
+                String openStreetMapFilePath, int locationSampleInterval, int recordCountPerBatchDuringIngestionOnly,
+                int recordCountPerBatchDuringQuery, long dataGenSleepTimeDuringIngestionOnly,
+                long dataGenSleepTimeDuringQuery) {
             this.m = m;
             this.sem = sem;
             this.host = host;
@@ -150,6 +165,10 @@ public class SocketTweetGenerator {
             this.flagStopResume = false;
             this.openStreetMapFilePath = openStreetMapFilePath;
             this.locationSampleInterval = locationSampleInterval;
+            this.recordCountPerBatchDuringIngestionOnly = recordCountPerBatchDuringIngestionOnly;
+            this.recordCountPerBatchDuringQuery = recordCountPerBatchDuringQuery;
+            this.dataGenSleepTimeDuringIngestionOnly = dataGenSleepTimeDuringIngestionOnly;
+            this.dataGenSleepTimeDuringQuery = dataGenSleepTimeDuringQuery;
         }
 
         @Override
@@ -158,7 +177,7 @@ public class SocketTweetGenerator {
                 Socket s = new Socket(host, port);
                 try {
                     Socket orchSocket = null;
-                    if (m == Mode.DATA) {
+                    if (m == Mode.DATA && orchHost != null) {
                         orchSocket = new Socket(orchHost, orchPort);
                     }
                     TweetGeneratorForSpatialIndexEvaluation tg = null;
@@ -167,25 +186,28 @@ public class SocketTweetGenerator {
                         String durationVal = m == Mode.TIME ? String.valueOf(dataGenDuration) : "0";
                         config.put(TweetGeneratorForSpatialIndexEvaluation.KEY_DURATION, String.valueOf(durationVal));
                         if (openStreetMapFilePath != null) {
-                            config.put(TweetGeneratorForSpatialIndexEvaluation.KEY_OPENSTREETMAP_FILEPATH, openStreetMapFilePath);
+                            config.put(TweetGeneratorForSpatialIndexEvaluation.KEY_OPENSTREETMAP_FILEPATH,
+                                    openStreetMapFilePath);
                             config.put(TweetGeneratorForSpatialIndexEvaluation.KEY_LOCATION_SAMPLE_INTERVAL,
                                     String.valueOf(locationSampleInterval));
                         }
-                        tg = new TweetGeneratorForSpatialIndexEvaluation(config, partition, TweetGeneratorForSpatialIndexEvaluation.OUTPUT_FORMAT_ADM_STRING,
-                                s.getOutputStream());
+                        tg = new TweetGeneratorForSpatialIndexEvaluation(config, partition,
+                                TweetGeneratorForSpatialIndexEvaluation.OUTPUT_FORMAT_ADM_STRING, s.getOutputStream());
                         long startTS = System.currentTimeMillis();
                         long prevTS = startTS;
                         long curTS = startTS;
-                        int batchCount = 0;
-                        while (tg.setNextRecordBatch(1000)) {
+                        int round = 0;
+                        while (tg.setNextRecordBatch(recordCountPerBatchDuringIngestionOnly)) {
                             if (m == Mode.DATA) {
                                 if (tg.getNumFlushedTweets() >= nextStopInterval) {
                                     //TODO stop/resume option
-                                    if (flagStopResume) {
-                                        // send stop to orchestrator
-                                        sendStopped(orchSocket);
-                                    } else {
-                                        sendReached(orchSocket);
+                                    if (orchSocket != null) {
+                                        if (flagStopResume) {
+                                            // send stop to orchestrator
+                                            sendStopped(orchSocket);
+                                        } else {
+                                            sendReached(orchSocket);
+                                        }
                                     }
 
                                     // update intervals
@@ -195,29 +217,39 @@ public class SocketTweetGenerator {
                                         break;
                                     }
 
-                                    if (flagStopResume) {
-                                        receiveResume(orchSocket);
+                                    if (orchSocket != null) {
+                                        if (flagStopResume) {
+                                            receiveResume(orchSocket);
+                                        }
                                     }
                                 }
                             }
                             curTS = System.currentTimeMillis();
                             if (LOGGER.isLoggable(Level.INFO)) {
-                                batchCount++;
-                                if (batchCount % 100 == 0) {
-                                    System.out.println("DataGen[" + partition + "][During ingestion only][TimeToInsert100000] " + (curTS - prevTS) + " in milliseconds");
-                                    batchCount = 0;
+                                round++;
+                                if ((round * recordCountPerBatchDuringIngestionOnly) % 100000 == 0) {
+                                    System.out.println("DataGen[" + partition
+                                            + "][During ingestion only][TimeToInsert100000] " + (curTS - prevTS)
+                                            + " in milliseconds");
+                                    round = 0;
                                     prevTS = curTS;
                                 }
+                            }
+                            //to prevent congestion in feed pipe line. 
+                            if (dataGenSleepTimeDuringIngestionOnly > 0) {
+                                Thread.sleep(dataGenSleepTimeDuringIngestionOnly);
                             }
                         }
 
                         if (LOGGER.isLoggable(Level.INFO)) {
-                            LOGGER.info("DataGen[" + partition + "][During ingestion only][InsertCount] Num tweets flushed = " + tg.getNumFlushedTweets() + " in "
+                            LOGGER.info("DataGen[" + partition
+                                    + "][During ingestion only][InsertCount] Num tweets flushed = "
+                                    + tg.getNumFlushedTweets() + " in "
                                     + ((System.currentTimeMillis() - startTS) / 1000) + " seconds from "
                                     + InetAddress.getLocalHost() + " to " + host + ":" + port);
                         }
 
-                        if (queryGenDuration > 0) {
+                        if (orchSocket != null && queryGenDuration > 0) {
                             //wait until orchestrator server's resume message is received.
                             receiveResume(orchSocket);
 
@@ -225,23 +257,27 @@ public class SocketTweetGenerator {
                             tg.resetDurationAndFlushedTweetCount(queryGenDuration);
 
                             prevTS = System.currentTimeMillis();
-                            batchCount = 0;
-                            int batchNum = 1;
+                            round = 0;
                             //start sending record
-                            while (tg.setNextRecordBatch(batchNum)) {
+                            while (tg.setNextRecordBatch(recordCountPerBatchDuringQuery)) {
                                 curTS = System.currentTimeMillis();
                                 if (LOGGER.isLoggable(Level.INFO)) {
-                                    batchCount++;
-                                    if (batchCount % (100000 / batchNum) == 0) {
-                                        System.out.println("DataGen[" + partition + "][During ingestion + queries][TimeToInsert100000] " + (curTS - prevTS)  + " in milliseconds");
-                                        batchCount = 0;
+                                    round++;
+                                    if ((round * recordCountPerBatchDuringQuery) % 100000 == 0) {
+                                        System.out.println("DataGen[" + partition
+                                                + "][During ingestion + queries][TimeToInsert100000] "
+                                                + (curTS - prevTS) + " in milliseconds");
+                                        round = 0;
                                         prevTS = curTS;
                                     }
                                 }
-                                Thread.sleep(1);
+                                if (dataGenSleepTimeDuringQuery > 0) {
+                                    Thread.sleep(dataGenSleepTimeDuringQuery);
+                                }
                             }
                             if (LOGGER.isLoggable(Level.INFO)) {
-                                LOGGER.info("DataGen[" + partition + "][During ingestion + queries][InsertCount] Num tweets flushed = "
+                                LOGGER.info("DataGen[" + partition
+                                        + "][During ingestion + queries][InsertCount] Num tweets flushed = "
                                         + tg.getNumFlushedTweets() + " in " + queryGenDuration + " seconds from "
                                         + InetAddress.getLocalHost() + " to " + host + ":" + port);
                             }
@@ -254,9 +290,8 @@ public class SocketTweetGenerator {
                             orchSocket.close();
                         }
                         if (LOGGER.isLoggable(Level.INFO)) {
-                            LOGGER.info("Num tweets flushed = " + tg.getNumFlushedTweets() + " in "
-                                + dataGenDuration + " seconds from " + InetAddress.getLocalHost() + " to " + host + ":"
-                                + port);
+                            LOGGER.info("Num tweets flushed = " + tg.getNumFlushedTweets() + " in " + dataGenDuration
+                                    + " seconds from " + InetAddress.getLocalHost() + " to " + host + ":" + port);
                         }
                     }
                 } catch (Throwable t) {

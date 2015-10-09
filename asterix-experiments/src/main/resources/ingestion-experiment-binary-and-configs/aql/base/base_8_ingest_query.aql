@@ -11,4 +11,4 @@ create feed TweetFeed1 using socket_adapter
 
 set wait-for-completion-feed "false";
 
-connect feed TweetFeed1 to dataset Tweets using policy Br;
+connect feed TweetFeed1 to dataset Tweets using policy Brittle;

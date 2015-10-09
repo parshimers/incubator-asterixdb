@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.Random;
 
 import org.apache.commons.lang3.StringUtils;
-
 import org.apache.asterix.experiment.action.base.AbstractAction;
 import org.apache.asterix.experiment.action.base.ParallelActionSet;
 import org.apache.asterix.experiment.action.base.SequentialActionList;
@@ -105,11 +104,17 @@ public abstract class AbstractSpatialIndexExperiment2Builder extends AbstractLSM
                     String binary = "JAVA_HOME=" + javaHomePath + " "
                             + localExperimentRoot.resolve("bin").resolve("datagenrunner").toString();
                     if (openStreetMapFilePath == null) {
-                        return StringUtils.join(new String[] { binary, "-si", "" + locationSampleInterval, "-p",
+                        return StringUtils.join(new String[] { binary, "-rcbi",
+                                "" + recordCountPerBatchDuringIngestionOnly, "-rcbq",
+                                "" + recordCountPerBatchDuringQuery, "-dsti", "" + dataGenSleepTimeDuringIngestionOnly,
+                                "-dstq", "" + dataGenSleepTimeDuringQuery, "-si", "" + locationSampleInterval, "-p",
                                 "" + p, "-di", "" + dataInterval, "-ni", "" + nIntervals, "-qd", "" + queryGenDuration,
                                 "-oh", dataGenOrchHost, "-op", "" + dataGenOrchPort, ipPortPairs }, " ");
                     } else {
-                        return StringUtils.join(new String[] { binary, "-si", "" + locationSampleInterval, "-of",
+                        return StringUtils.join(new String[] { binary, "-rcbi",
+                                "" + recordCountPerBatchDuringIngestionOnly, "-rcbq",
+                                "" + recordCountPerBatchDuringQuery, "-dsti", "" + dataGenSleepTimeDuringIngestionOnly,
+                                "-dstq", "" + dataGenSleepTimeDuringQuery, "-si", "" + locationSampleInterval, "-of",
                                 openStreetMapFilePath, "-p", "" + p, "-di", "" + dataInterval, "-ni", "" + nIntervals,
                                 "-qd", "" + queryGenDuration, "-oh", dataGenOrchHost, "-op", "" + dataGenOrchPort,
                                 ipPortPairs }, " ");
