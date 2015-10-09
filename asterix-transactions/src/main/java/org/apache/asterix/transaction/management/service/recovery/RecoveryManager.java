@@ -18,15 +18,8 @@
  */
 package org.apache.asterix.transaction.management.service.recovery;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.FilenameFilter;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.OutputStream;
+import java.io.*;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -569,7 +562,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
     /**
      * Rollback a transaction
      * 
-     * @see edu.uci.ics.transaction.management.service.recovery.IRecoveryManager# rollbackTransaction (edu.uci.ics.TransactionContext.management.service.transaction .TransactionContext)
+     *
      */
     @Override
     public void rollbackTransaction(ITransactionContext txnContext) throws ACIDException {

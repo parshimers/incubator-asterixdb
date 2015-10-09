@@ -22,10 +22,7 @@ import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -68,13 +65,15 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     private LinkedBlockingQueue<LogBuffer> emptyQ;
     private LinkedBlockingQueue<LogBuffer> flushQ;
     private final AtomicLong appendLSN;
-    private IFileHandle currentLogFile;
+    private Map<FileReference, IFileHandle> openLogFiles;
+    IFileHandle currentLogFile;
+    FileReference currentLogFileReference;
     private LogBuffer appendPage;
     private LogFlusher logFlusher;
     private Future<Object> futureLogFlusher;
     private static final long SMALLEST_LOG_FILE_ID = 0;
 
-    public LogManager(TransactionSubsystem txnSubsystem) throws ACIDException {
+    public LogManager(TransactionSubsystem txnSuhgbsystem) throws ACIDException {
         this.txnSubsystem = txnSubsystem;
 
         ioManager = this.txnSubsystem.getAsterixAppRuntimeContextProvider().getIOManager();
@@ -91,9 +90,8 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     }
 
     private void initializeLogManager(long nextLogFileId) {
-        emptyQ = new LinkedBlockingQueue<LogPage>(numLogPages);
-        flushQ = new LinkedBlockingQueue<LogPage>(numLogPages);
-        for (int i = 0; i < numLogPages; i++) {
+        emptyQ = new LinkedBlockingQueue<LogBuffer>(numLogPages);
+        flushQ = new LinkedBlockingQueue<LogBuffer>(numLogPages);
             emptyQ.offer(new LogBuffer(txnSubsystem, logPageSize, flushLSN, ioManager));
         }
         appendLSN.set(initializeLogAnchor(nextLogFileId));
@@ -403,12 +401,21 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
         return lsn / logFileSize;
     }
 
-    public IFileHandle getLogFile(long lsn, boolean create) {
+
+    private FileReference getLogFileReference(long lsn, boolean create){
+        long fileId = getLogFileId(lsn);
+        String logFilePath = getLogFilePath(fileId);
+        return new FileReference(logFilePath, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+    }
+
+    public IFileHandle getLogFile(long lsn, boolean create){
+        return getLogFile(lsn, create, IIOManager.FileReadWriteMode.READ_WRITE);
+    }
+
+    public IFileHandle getLogFile(long lsn, boolean create, IIOManager.FileReadWriteMode mode) {
         IFileHandle handle = null;
         try {
-            long fileId = getLogFileId(lsn);
-            String logFilePath = getLogFilePath(fileId);
-            FileReference file = new FileReference(logFilePath, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+            FileReference file = getLogFileReference(lsn,create);
             if (create) {
                 if (!ioManager.mkdirs(file)) {
                     throw new IllegalStateException();
@@ -418,7 +425,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
                     throw new IllegalStateException();
                 }
             }
-            handle = ioManager.open(file, IIOManager.FileReadWriteMode.READ_WRITE, IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
+            handle = ioManager.open(file, mode, IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }

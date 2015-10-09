@@ -50,6 +50,7 @@ public class LogBuffer implements ILogBuffer {
     private final int logPageSize;
     private final MutableLong flushLSN;
     private final AtomicBoolean full;
+    private final IIOManager ioManager;
     private int appendOffset;
     private int flushOffset;
     private final ByteBuffer appendBuffer;
@@ -159,7 +160,7 @@ public class LogBuffer implements ILogBuffer {
                                         + ", full: " + full.get());
                             }
                             if (stop) {
-                                fileChannel.close();
+                                ioManager.close(logFile);
                                 break;
                             }
                             this.wait();
