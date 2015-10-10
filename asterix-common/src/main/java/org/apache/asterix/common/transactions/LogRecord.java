@@ -108,6 +108,7 @@ public class LogRecord implements ILogRecord {
     private final static int PKSZ_LEN = Integer.SIZE / Byte.SIZE;
     private final static int PRVLSN_LEN = Long.SIZE / Byte.SIZE;
     private final static int RSID_LEN = Long.SIZE / Byte.SIZE;
+    private final static int LOGRCD_SZ_LEN = Integer.SIZE / Byte.SIZE;
     private final static int FLDCNT_LEN = Integer.SIZE / Byte.SIZE;
     private final static int NEWOP_LEN = Byte.SIZE/Byte.SIZE;
     private final static int NEWVALSZ_LEN = Integer.SIZE / Byte.SIZE;
@@ -115,7 +116,7 @@ public class LogRecord implements ILogRecord {
 
     private final static int ALL_RECORD_HEADER_LEN = TYPE_LEN + JID_LEN;
     private final static int ENTITYCOMMIT_UPDATE_HEADER_LEN = DSID_LEN + PKHASH_LEN + PKSZ_LEN;
-    private final static int UPDATE_LSN_HEADER = PRVLSN_LEN + RSID_LEN;
+    private final static int UPDATE_LSN_HEADER = PRVLSN_LEN + RSID_LEN + LOGRCD_SZ_LEN;
     private final static int UPDATE_BODY_HEADER = FLDCNT_LEN + NEWOP_LEN + NEWVALSZ_LEN;
 
     @Override

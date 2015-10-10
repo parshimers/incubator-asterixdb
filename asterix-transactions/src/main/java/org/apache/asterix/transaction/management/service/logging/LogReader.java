@@ -114,6 +114,9 @@ public class LogReader implements ILogReader {
                     }
                     case OK: break;
                 }
+                //if we have exited the inner switch,
+                // this means status is really "OK" after buffer refill
+                break;
             }
             case BAD_CHKSUM:{
                 LOGGER.severe("Transaction log contains corrupt log records (perhaps due to medium error). Stopping recovery early.");
