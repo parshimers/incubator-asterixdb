@@ -119,7 +119,7 @@
         <dependency>
             <groupId>edu.uci.ics.hyracks</groupId>
             <artifactId>hyracks-control-nc</artifactId>
-            <version>0.2.16-SNAPSHOT</version>
+            <version>0.2.17-SNAPSHOT</version>
         </dependency>
     </dependencies>
 
