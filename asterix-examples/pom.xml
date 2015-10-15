@@ -35,6 +35,7 @@
   </licenses>
 
 
+<!-- 
 	<build>
 		<plugins>
 			<plugin>
@@ -69,5 +70,6 @@
 			</plugin>
 		</plugins>
 	</build>
+ !-->
 	<packaging>pom</packaging>
 </project>

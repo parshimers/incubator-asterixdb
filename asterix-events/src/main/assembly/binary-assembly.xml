@@ -25,6 +25,16 @@
   </formats>
   <fileSets>
     <fileSet>
+        <directory>src/main/resources/</directory>
+        <outputDirectory>/</outputDirectory>
+        <includes>
+            <include>README*</include>
+            <include>LICENSE*</include>
+            <include>NOTICE*</include>
+            <include>DISCLAIMER*</include>
+        </includes>
+    </fileSet>
+    <fileSet>
       <directory>src/main/resources/events</directory>
       <outputDirectory>events</outputDirectory>
       <includes></includes>
