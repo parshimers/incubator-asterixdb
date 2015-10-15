@@ -24,6 +24,16 @@
   </formats>
   <includeBaseDirectory>false</includeBaseDirectory>
   <fileSets>
+        <fileSet>
+            <directory>src/main/resources/</directory>
+            <outputDirectory>/</outputDirectory>
+            <includes>
+                <include>README*</include>
+                <include>LICENSE*</include>
+                <include>NOTICE*</include>
+                <include>DISCLAIMER*</include>
+            </includes>
+    </fileSet>
     <fileSet>
       <directory>target/appassembler/repo</directory>
       <outputDirectory>repo</outputDirectory>
@@ -37,8 +47,8 @@
       <directory>target/generated-resources/appassembler/booter-windows/etc</directory>
       <outputDirectory>bin</outputDirectory>
       <includes>
-      	<include>asterixcc.xml</include>
-      	<include>asterixnc.xml</include>
+          <include>asterixcc.xml</include>
+          <include>asterixnc.xml</include>
       </includes>
     </fileSet>
 
