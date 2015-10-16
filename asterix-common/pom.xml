@@ -26,12 +26,12 @@
 	<artifactId>asterix-common</artifactId>
 
   <licenses>
-    <license>
-      <name>Apache License, Version 2.0</name>
-      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
-      <distribution>repo</distribution>
-      <comments>A business-friendly OSS license</comments>
-    </license>
+	<license>
+	  <name>Apache License, Version 2.0</name>
+	  <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+	  <distribution>repo</distribution>
+	  <comments>A business-friendly OSS license</comments>
+	</license>
   </licenses>
 
 	<build>
@@ -142,6 +142,27 @@
 								<bindingInclude>jaxb-bindings.xjb</bindingInclude>
 							</bindingIncludes>
 						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<version>2.4</version>
+				<configuration>
+					<includes>
+						<include>**/*.class</include>
+						<include>README*</include>
+						<include>DISCLAIMER*</include>
+						<include>LICENSE*</include>
+						<include>NOTICE*</include>
+					</includes>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>test-jar</goal>
+						</goals>
 					</execution>
 				</executions>
 			</plugin>

@@ -48,6 +48,14 @@
         </executions>
         <configuration>
           <outputDirectory>${basedir}/target</outputDirectory>
+          <includes>
+              <include>**/*.class</include>
+              <include>**/*.txt</include>
+              <include>README*</include>
+              <include>DISCLAIMER*</include>
+              <include>LICENSE*</include>
+              <include>NOTICE*</include>
+          </includes>
         </configuration>
       </plugin>
     </plugins>

@@ -25,12 +25,12 @@
 	</parent>
 
   <licenses>
-    <license>
-      <name>Apache License, Version 2.0</name>
-      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
-      <distribution>repo</distribution>
-      <comments>A business-friendly OSS license</comments>
-    </license>
+	<license>
+	  <name>Apache License, Version 2.0</name>
+	  <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+	  <distribution>repo</distribution>
+	  <comments>A business-friendly OSS license</comments>
+	</license>
   </licenses>
 
 	<artifactId>asterix-external-data</artifactId>
@@ -66,6 +66,10 @@
 					<includes>
 						<include>**/*.class</include>
 						<include>**/*.txt</include>
+								<include>README*</include>
+								<include>DISCLAIMER*</include>
+								<include>LICENSE*</include>
+								<include>NOTICE*</include>
 					</includes>
 				</configuration>
 				<executions>
@@ -138,10 +142,10 @@
 			<version>[3.0,)</version>
 		</dependency>
 		<dependency>
-            <groupId>org.twitter4j</groupId>
-            <artifactId>twitter4j-stream</artifactId>
-            <version>4.0.2</version>
-        </dependency>
+			<groupId>org.twitter4j</groupId>
+			<artifactId>twitter4j-stream</artifactId>
+			<version>4.0.2</version>
+		</dependency>
 		<dependency>
 			<groupId>org.apache.hadoop</groupId>
 			<artifactId>hadoop-client</artifactId>

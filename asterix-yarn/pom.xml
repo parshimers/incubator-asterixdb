@@ -55,6 +55,10 @@
 							</archive>
 							<includes>
 								<include>**/uci/ics/asterix/tools/aoya/*</include>
+								<include>README*</include>
+								<include>DISCLAIMER*</include>
+								<include>LICENSE*</include>
+								<include>NOTICE*</include>
 							</includes>
 						</configuration>
 					</execution>
@@ -151,25 +155,25 @@
 			<version>0.8.7-SNAPSHOT</version>
 			<scope>test</scope>
 		</dependency>
-        <dependency>
-            <groupId>org.apache.asterix</groupId>
-            <artifactId>asterix-common</artifactId>
-            <version>0.8.7-SNAPSHOT</version>
-        </dependency>
+		<dependency>
+			<groupId>org.apache.asterix</groupId>
+			<artifactId>asterix-common</artifactId>
+			<version>0.8.7-SNAPSHOT</version>
+		</dependency>
 		<dependency>
 			<groupId>org.apache.hadoop</groupId>
 			<artifactId>hadoop-yarn-common</artifactId>
-            <scope>provided</scope>
+			<scope>provided</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.hadoop</groupId>
 			<artifactId>hadoop-yarn-client</artifactId>
-            <scope>provided</scope>
+			<scope>provided</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.hadoop</groupId>
 			<artifactId>hadoop-common</artifactId>
-            <scope>provided</scope>
+			<scope>provided</scope>
 		</dependency>
 		<dependency>
 			<groupId>commons-codec</groupId>
