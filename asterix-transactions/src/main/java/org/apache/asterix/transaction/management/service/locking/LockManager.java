@@ -35,6 +35,7 @@ import org.apache.asterix.common.transactions.ILockManager;
 import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.ITransactionManager;
 import org.apache.asterix.common.transactions.JobId;
+import org.apache.asterix.common.transactions.JobThreadId;
 import org.apache.asterix.common.transactions.LogRecord;
 import org.apache.asterix.common.transactions.LogType;
 import org.apache.asterix.transaction.management.service.logging.LogPage;
@@ -83,6 +84,7 @@ public class LockManager implements ILockManager, ILifeCycleComponent {
     private final TimeOutDetector toutDetector;
     private final DatasetId tempDatasetIdObj; //temporary object to avoid object creation
     private final JobId tempJobIdObj;
+    private final JobThreadId tempJobThreadIdObj;
 
     private int tryLockDatasetGranuleRevertOperation;
 
@@ -104,7 +106,8 @@ public class LockManager implements ILockManager, ILifeCycleComponent {
         this.toutDetector = new TimeOutDetector(this, txnSubsystem.getAsterixAppRuntimeContextProvider()
                 .getThreadExecutor());
         this.tempDatasetIdObj = new DatasetId(0);
-        this.tempJobIdObj = new JobId(0);
+        this.tempJobIdObj = new JobId(-1);
+        this.tempJobThreadIdObj = new JobThreadId();
         this.consecutiveWakeupContext = new ConsecutiveWakeupContext();
         if (IS_DEBUG_MODE) {
             this.lockRequestTracker = new LockRequestTracker();
@@ -116,7 +119,7 @@ public class LockManager implements ILockManager, ILifeCycleComponent {
     }
 
     @Override
-    public void lock(DatasetId datasetId, int entityHashValue, byte lockMode, ITransactionContext txnContext)
+    public void lock(JobThreadId jobThreadId, DatasetId datasetId, int entityHashValue, byte lockMode, ITransactionContext txnContext)
             throws ACIDException {
         internalLock(datasetId, entityHashValue, lockMode, txnContext, false);
     }
@@ -282,7 +285,7 @@ public class LockManager implements ILockManager, ILifeCycleComponent {
             did = entityInfoManager.getDatasetId(entityInfo);
             entityHashValue = entityInfoManager.getPKHashVal(entityInfo);
             if (did == datasetId.getId() && entityHashValue != -1) {
-                this.unlock(datasetId, entityHashValue, LockMode.ANY, txnContext);
+                this.unlock(null, datasetId, entityHashValue, LockMode.ANY, txnContext);
             }
 
             entityInfo = prevEntityInfo;
@@ -642,7 +645,7 @@ public class LockManager implements ILockManager, ILifeCycleComponent {
     }
 
     @Override
-    public void unlock(DatasetId datasetId, int entityHashValue, byte lockMode, ITransactionContext txnContext)
+    public void unlock(JobThreadId jobThreadId, DatasetId datasetId, int entityHashValue, byte lockMode, ITransactionContext txnContext)
             throws ACIDException {
         internalUnlock(datasetId, entityHashValue, txnContext, false);
     }
@@ -768,7 +771,7 @@ public class LockManager implements ILockManager, ILifeCycleComponent {
     }
 
     @Override
-    public void releaseLocks(ITransactionContext txnContext) throws ACIDException {
+    public void releaseLocks(JobThreadId jobThreadId, ITransactionContext txnContext) throws ACIDException {
         LockWaiter waiterObj;
         int entityInfo;
         int prevEntityInfo;
@@ -959,7 +962,7 @@ public class LockManager implements ILockManager, ILifeCycleComponent {
     }
 
     @Override
-    public void instantLock(DatasetId datasetId, int entityHashValue, byte lockMode, ITransactionContext txnContext)
+    public void instantLock(JobThreadId jobThreadId, DatasetId datasetId, int entityHashValue, byte lockMode, ITransactionContext txnContext)
             throws ACIDException {
 
         //        try {
@@ -973,14 +976,14 @@ public class LockManager implements ILockManager, ILifeCycleComponent {
     }
 
     @Override
-    public boolean tryLock(DatasetId datasetId, int entityHashValue, byte lockMode, ITransactionContext txnContext)
+    public boolean tryLock(JobThreadId jobThreadId, DatasetId datasetId, int entityHashValue, byte lockMode, ITransactionContext txnContext)
             throws ACIDException {
         return internalTryLock(datasetId, entityHashValue, lockMode, txnContext, false);
     }
 
     @Override
-    public boolean instantTryLock(DatasetId datasetId, int entityHashValue, byte lockMode,
-            ITransactionContext txnContext) throws ACIDException {
+    public boolean instantTryLock(JobThreadId jobThreadId, DatasetId datasetId, int entityHashValue,
+            byte lockMode, ITransactionContext txnContext) throws ACIDException {
         return internalInstantTryLock(datasetId, entityHashValue, lockMode, txnContext);
     }
 
@@ -2213,14 +2216,16 @@ public class LockManager implements ILockManager, ILifeCycleComponent {
                 if (logRecord.getLogType() == LogType.ENTITY_COMMIT) {
                     tempDatasetIdObj.setId(logRecord.getDatasetId());
                     tempJobIdObj.setId(logRecord.getJobId());
+                    tempJobThreadIdObj.setJobId(logRecord.getJobId());
+                    tempJobThreadIdObj.setThreadId(logRecord.getThreadId());
                     txnCtx = txnSubsystem.getTransactionManager().getTransactionContext(tempJobIdObj, false);
-                    unlock(tempDatasetIdObj, logRecord.getPKHashValue(), LockMode.ANY, txnCtx);
+                    unlock(tempJobThreadIdObj, tempDatasetIdObj, logRecord.getPKHashValue(), LockMode.ANY, txnCtx);
                     txnCtx.notifyOptracker(false);
                 } else if (logRecord.getLogType() == LogType.JOB_COMMIT || logRecord.getLogType() == LogType.ABORT) {
                     tempJobIdObj.setId(logRecord.getJobId());
                     txnCtx = txnSubsystem.getTransactionManager().getTransactionContext(tempJobIdObj, false);
                     txnCtx.notifyOptracker(true);
-                    logPage.notifyJobTerminator();
+                    logPage.notifyJobTermination();
                 }
                 logRecord = logPageReader.next();
             }

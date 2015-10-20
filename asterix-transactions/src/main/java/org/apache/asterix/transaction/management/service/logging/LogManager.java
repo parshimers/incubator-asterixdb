@@ -111,7 +111,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
 
         syncLog(logRecord);
 
-        if ((logRecord.getLogType() == LogType.JOB_COMMIT || logRecord.getLogType() == LogType.ABORT)
+        if ((logRecord.getLogType() == LogType.JOB_COMMIT || logRecord.getLogType() == LogType.ABORT || logRecord.getLogType() == LogType.WAIT)
                 && !logRecord.isFlushed()) {
             synchronized (logRecord) {
                 while (!logRecord.isFlushed()) {
@@ -128,13 +128,12 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     private synchronized void syncLog(ILogRecord logRecord) throws ACIDException {
         ITransactionContext txnCtx = null;
 
-        if (logRecord.getLogType() != LogType.FLUSH) {
+        if (logRecord.getLogType() != LogType.FLUSH && logRecord.getLogType() != LogType.WAIT) {
             txnCtx = logRecord.getTxnCtx();
             if (txnCtx.getTxnState() == ITransactionManager.ABORTED && logRecord.getLogType() != LogType.ABORT) {
                 throw new ACIDException("Aborted job(" + txnCtx.getJobId()
                         + ") tried to write non-abort type log record.");
             }
-
         }
         if (getLogFileOffset(appendLSN.get()) + logRecord.getLogSize() > logFileSize) {
             prepareNextLogFile();

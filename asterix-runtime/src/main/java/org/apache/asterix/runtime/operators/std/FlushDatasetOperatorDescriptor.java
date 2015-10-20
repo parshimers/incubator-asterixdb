@@ -28,6 +28,7 @@ import org.apache.asterix.common.transactions.ILockManager;
 import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.ITransactionManager;
 import org.apache.asterix.common.transactions.JobId;
+import org.apache.asterix.common.transactions.JobThreadId;
 import org.apache.asterix.transaction.management.service.transaction.TransactionManagementConstants.LockManagerConstants.LockMode;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.IOperatorNodePushable;
@@ -80,7 +81,7 @@ public class FlushDatasetOperatorDescriptor extends AbstractSingleActivityOperat
                     // get the local transaction
                     ITransactionContext txnCtx = txnManager.getTransactionContext(jobId, false);
                     // lock the dataset granule
-                    lockManager.lock(datasetId, -1, LockMode.S, txnCtx);
+                    lockManager.lock(new JobThreadId(jobId.getId()), datasetId, -1, LockMode.S, txnCtx);
                     // flush the dataset synchronously
                     datasetLifeCycleManager.flushDataset(datasetId.getId(), false);
                 } catch (ACIDException e) {

@@ -27,6 +27,7 @@ import org.apache.asterix.common.transactions.ILogManager;
 import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.ITransactionManager;
 import org.apache.asterix.common.transactions.JobId;
+import org.apache.asterix.common.transactions.JobThreadId;
 import org.apache.asterix.common.transactions.LogRecord;
 import org.apache.hyracks.algebricks.runtime.base.IPushRuntime;
 import org.apache.hyracks.api.comm.IFrameWriter;
@@ -56,6 +57,7 @@ public class CommitRuntime implements IPushRuntime {
     private ITransactionContext transactionContext;
     private FrameTupleAccessor frameTupleAccessor;
     private final FrameTupleReference frameTupleReference;
+    private long threadId;
 
     // For the temporary experiment
     //    Random randomValueGenerator = null;
@@ -82,6 +84,7 @@ public class CommitRuntime implements IPushRuntime {
     @Override
     public void open() throws HyracksDataException {
         try {
+            this.threadId = Thread.currentThread().getId();
             transactionContext = transactionManager.getTransactionContext(jobId, false);
             transactionContext.setWriteTxn(isWriteTransaction);
         } catch (ACIDException e) {
@@ -117,7 +120,7 @@ public class CommitRuntime implements IPushRuntime {
             } else {
                 frameTupleReference.reset(frameTupleAccessor, t);
                 pkHash = computePrimaryKeyHashValue(frameTupleReference, primaryKeyFields);
-                logRecord.formEntityCommitLogRecord(transactionContext, datasetId, pkHash, frameTupleReference,
+                logRecord.formEntityCommitLogRecord(transactionContext, threadId, datasetId, pkHash, frameTupleReference,
                         primaryKeyFields);
                 try {
                     logMgr.log(logRecord);

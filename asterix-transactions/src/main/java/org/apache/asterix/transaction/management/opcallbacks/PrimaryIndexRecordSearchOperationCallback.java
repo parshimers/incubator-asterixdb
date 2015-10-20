@@ -23,6 +23,7 @@ import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.transactions.AbstractOperationCallback;
 import org.apache.asterix.common.transactions.ILockManager;
 import org.apache.asterix.common.transactions.ITransactionContext;
+import org.apache.asterix.common.transactions.JobThreadId;
 import org.apache.asterix.transaction.management.service.transaction.TransactionManagementConstants.LockManagerConstants.LockMode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
@@ -34,7 +35,7 @@ import org.apache.hyracks.storage.am.common.api.ISearchOperationCallback;
  */
 public class PrimaryIndexRecordSearchOperationCallback extends AbstractOperationCallback implements
         ISearchOperationCallback {
-
+    
     public PrimaryIndexRecordSearchOperationCallback(int datasetId, int[] entityIdFields, ILockManager lockManager,
             ITransactionContext txnCtx) {
         super(datasetId, entityIdFields, txnCtx, lockManager);
@@ -45,7 +46,7 @@ public class PrimaryIndexRecordSearchOperationCallback extends AbstractOperation
     public boolean proceed(ITupleReference tuple) throws HyracksDataException {
         int pkHash = computePrimaryKeyHashValue(tuple, primaryKeyFields);
         try {
-            return lockManager.tryLock(datasetId, pkHash, LockMode.S, txnCtx);
+            return lockManager.tryLock(jobThreadId, datasetId, pkHash, LockMode.S, txnCtx);
         } catch (ACIDException e) {
             throw new HyracksDataException(e);
         }
@@ -56,7 +57,7 @@ public class PrimaryIndexRecordSearchOperationCallback extends AbstractOperation
     public void reconcile(ITupleReference tuple) throws HyracksDataException {
         int pkHash = computePrimaryKeyHashValue(tuple, primaryKeyFields);
         try {
-            lockManager.lock(datasetId, pkHash, LockMode.S, txnCtx);
+            lockManager.lock(jobThreadId, datasetId, pkHash, LockMode.S, txnCtx);
         } catch (ACIDException e) {
             throw new HyracksDataException(e);
         }

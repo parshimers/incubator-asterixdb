@@ -23,6 +23,7 @@ import java.util.ArrayList;
 
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.transactions.JobId;
+import org.apache.asterix.common.transactions.JobThreadId;
 import org.apache.asterix.metadata.api.IMetadataEntity;
 import org.apache.asterix.metadata.entities.CompactionPolicy;
 import org.apache.asterix.metadata.entities.Dataset;
@@ -71,13 +72,19 @@ public class MetadataTransactionContext extends MetadataCache {
 
     protected ArrayList<MetadataLogicalOperation> opLog = new ArrayList<MetadataLogicalOperation>();
     private final JobId jobId;
+    private final JobThreadId jobThreadId;
 
     public MetadataTransactionContext(JobId jobId) {
         this.jobId = jobId;
+        this.jobThreadId = new JobThreadId(jobId.getId());
     }
 
     public JobId getJobId() {
         return jobId;
+    }
+    
+    public JobThreadId getJobThreadId() {
+        return jobThreadId;
     }
 
     public void addDataverse(Dataverse dataverse) {

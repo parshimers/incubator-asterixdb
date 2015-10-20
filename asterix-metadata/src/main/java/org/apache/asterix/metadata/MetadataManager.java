@@ -170,12 +170,12 @@ public class MetadataManager implements IMetadataManager {
 
     @Override
     public void lock(MetadataTransactionContext ctx, byte lockMode) throws RemoteException, ACIDException {
-        metadataNode.lock(ctx.getJobId(), lockMode);
+        metadataNode.lock(ctx.getJobId(), ctx.getJobThreadId(), lockMode);
     }
 
     @Override
     public void unlock(MetadataTransactionContext ctx, byte lockMode) throws RemoteException, ACIDException {
-        metadataNode.unlock(ctx.getJobId(), lockMode);
+        metadataNode.unlock(ctx.getJobId(), ctx.getJobThreadId(), lockMode);
     }
 
     @Override

@@ -41,7 +41,7 @@ public class SecondaryIndexRecordTryLockOnlySearchOperationCallback extends Abst
     public boolean proceed(ITupleReference tuple) throws HyracksDataException {
         int pkHash = computePrimaryKeyHashValue(tuple, primaryKeyFields);
         try {
-            return lockManager.tryLock(datasetId, pkHash, LockMode.S, txnCtx);
+            return lockManager.tryLock(jobThreadId, datasetId, pkHash, LockMode.S, txnCtx);
         } catch (ACIDException e) {
             throw new HyracksDataException(e);
         }

@@ -35,7 +35,8 @@ import org.apache.hyracks.storage.am.common.tuples.SimpleTupleWriter;
  * LogType(1)
  * JobId(4)
  * ---------------------------
- * [Header2] (12 bytes + PKValueSize) : for entity_commit and update log types 
+ * [Header2] (20 bytes + PKValueSize) : for entity_commit and (12 bytes + PKValueSize) : for update log
+ * ThreadId(8) //only for entity commit log 
  * DatasetId(4) //stored in dataset_dataset in Metadata Node
  * PKHashValue(4)
  * PKValueSize(4)
@@ -57,17 +58,21 @@ import org.apache.hyracks.storage.am.common.tuples.SimpleTupleWriter;
  * ---------------------------
  * = LogSize =
  * 1) JOB_COMMIT_LOG_SIZE: 13 bytes (5 + 8)
- * 2) ENTITY_COMMIT: 25 + PKSize (5 + 12 + PKSize + 8)
- *    --> ENTITY_COMMIT_LOG_BASE_SIZE = 25
+ * 2) ENTITY_COMMIT: 25 + PKSize (5 + 20 + PKSize + 8)
+ *    --> ENTITY_COMMIT_LOG_BASE_SIZE = 33
  * 3) UPDATE: 54 + PKValueSize + NewValueSize (5 + 12 + PKValueSize + 20 + 9 + NewValueSize + 8)
  * 4) FLUSH: 5 + 8 + DatasetId(4)
  *    --> UPDATE_LOG_BASE_SIZE = 54
+ * 5) WAIT_LOG_SIZE: 13 bytes (5 + 8) 
+ *    --> WAIT_LOG only requires LogType Field, but in order to conform the log reader protocol 
+ *        it also includes jobId field.
  */
 public class LogRecord implements ILogRecord {
 
     //------------- fields in a log record (begin) ------------//
     private byte logType;
     private int jobId;
+    private long threadId;
     private int datasetId;
     private int PKHashValue;
     private int PKValueSize;
@@ -107,6 +112,9 @@ public class LogRecord implements ILogRecord {
         int beginOffset = buffer.position();
         buffer.put(logType);
         buffer.putInt(jobId);
+        if (logType == LogType.ENTITY_COMMIT) {
+            buffer.putLong(threadId);
+        }
         if (logType == LogType.UPDATE || logType == LogType.ENTITY_COMMIT) {
             buffer.putInt(datasetId);
             buffer.putInt(PKHashValue);
@@ -159,12 +167,20 @@ public class LogRecord implements ILogRecord {
         try {
             logType = buffer.get();
             jobId = buffer.getInt();
-            if(logType != LogType.FLUSH)
-            {
+            if (logType == LogType.FLUSH) {
+                computeAndSetLogSize();
+                datasetId = buffer.getInt();
+                resourceId = 0l;
+            } else if (logType == LogType.WAIT) {
+                computeAndSetLogSize();
+            } else {
                 if (logType == LogType.JOB_COMMIT || logType == LogType.ABORT) {
                     datasetId = -1;
                     PKHashValue = -1;
                 } else {
+                    if (logType == LogType.ENTITY_COMMIT) {
+                        threadId = buffer.getLong();
+                    }
                     datasetId = buffer.getInt();
                     PKHashValue = buffer.getInt();
                     PKValueSize = buffer.getInt();
@@ -184,11 +200,6 @@ public class LogRecord implements ILogRecord {
                 } else {
                     computeAndSetLogSize();
                 }
-            }
-            else{
-                computeAndSetLogSize();
-                datasetId = buffer.getInt();
-                resourceId = 0l;
             }
             
             checksum = buffer.getLong();
@@ -240,11 +251,12 @@ public class LogRecord implements ILogRecord {
     }
 
     @Override
-    public void formEntityCommitLogRecord(ITransactionContext txnCtx, int datasetId, int PKHashValue,
+    public void formEntityCommitLogRecord(ITransactionContext txnCtx, long threadId, int datasetId, int PKHashValue,
             ITupleReference PKValue, int[] PKFields) {
         this.txnCtx = txnCtx;
         this.logType = LogType.ENTITY_COMMIT;
         this.jobId = txnCtx.getJobId().getId();
+        this.threadId = threadId; 
         this.datasetId = datasetId;
         this.PKHashValue = PKHashValue;
         this.PKFieldCnt = PKFields.length;
@@ -283,6 +295,9 @@ public class LogRecord implements ILogRecord {
             case LogType.FLUSH:
                 logSize = FLUSH_LOG_SIZE;
                 break;
+            case LogType.WAIT:
+                logSize = WAIT_LOG_SIZE;
+                break;    
             default:
                 throw new IllegalStateException("Unsupported Log Type");
         }
@@ -352,6 +367,17 @@ public class LogRecord implements ILogRecord {
         this.jobId = jobId;
     }
 
+    @Override
+    public long getThreadId() {
+        return threadId;
+    }
+
+    @Override
+    public void setThreadId(long threadId) {
+        this.threadId = threadId;
+    }
+
+    
     @Override
     public int getDatasetId() {
         return datasetId;

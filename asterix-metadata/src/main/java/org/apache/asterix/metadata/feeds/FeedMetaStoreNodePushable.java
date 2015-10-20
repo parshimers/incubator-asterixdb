@@ -192,7 +192,12 @@ public class FeedMetaStoreNodePushable extends AbstractUnaryInputUnaryOutputOper
                 inputSideHandler.nextFrame(null); // signal end of data
                 while (!inputSideHandler.isFinished()) {
                     synchronized (coreOperator) {
-                        coreOperator.wait();
+                        if (inputSideHandler.isFinished()) break;
+                        try { 
+                            coreOperator.wait();
+                        } catch (InterruptedException e) {
+                            //ignore
+                        }
                     }
                 }
                 System.out.println("ABOUT TO CLOSE OPERATOR  " + coreOperator);

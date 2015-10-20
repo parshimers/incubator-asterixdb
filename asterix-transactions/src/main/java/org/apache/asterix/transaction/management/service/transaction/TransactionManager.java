@@ -22,15 +22,18 @@ import java.io.OutputStream;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.transactions.DatasetId;
+import org.apache.asterix.common.transactions.ILockManager;
 import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.ITransactionManager;
 import org.apache.asterix.common.transactions.JobId;
+import org.apache.asterix.common.transactions.JobThreadId;
 import org.apache.asterix.common.transactions.LogRecord;
 import org.apache.hyracks.api.lifecycle.ILifeCycleComponent;
 
@@ -71,7 +74,11 @@ public class TransactionManager implements ITransactionManager, ILifeCycleCompon
             throw new ACIDException(msg, ae);
         } finally {
             ((TransactionContext) txnCtx).cleanupForAbort();
-            txnSubsystem.getLockManager().releaseLocks(txnCtx);
+            ConcurrentLinkedQueue<JobThreadId> jobThreadIdList = txnCtx.getJobThreadIdList();
+            ILockManager lockMgr = txnSubsystem.getLockManager();
+            while (!jobThreadIdList.isEmpty()) {
+                lockMgr.releaseLocks(jobThreadIdList.remove(),txnCtx);
+            }
             transactionContextRepository.remove(txnCtx.getJobId());
         }
     }
@@ -116,7 +123,11 @@ public class TransactionManager implements ITransactionManager, ILifeCycleCompon
             }
             throw ae;
         } finally {
-            txnSubsystem.getLockManager().releaseLocks(txnCtx); // release
+            ConcurrentLinkedQueue<JobThreadId> jobThreadIdList = txnCtx.getJobThreadIdList();
+            ILockManager lockMgr = txnSubsystem.getLockManager();
+            while (!jobThreadIdList.isEmpty()) {
+                lockMgr.releaseLocks(jobThreadIdList.remove(),txnCtx);
+            }
             transactionContextRepository.remove(txnCtx.getJobId());
             txnCtx.setTxnState(ITransactionManager.COMMITTED);
         }

@@ -219,6 +219,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                     abortLogCount++;
                     break;
                 case LogType.FLUSH:
+                case LogType.WAIT:
                     break;
                 default:
                     throw new ACIDException("Unsupported LogType: " + logRecord.getLogType());
@@ -644,6 +645,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
 
                 case LogType.ABORT:
                 case LogType.FLUSH:
+                case LogType.WAIT:
                     //ignore
                     break;
 

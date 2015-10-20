@@ -21,6 +21,7 @@ package org.apache.asterix.transaction.management.service.transaction;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -32,6 +33,7 @@ import org.apache.asterix.common.transactions.AbstractOperationCallback;
 import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.ITransactionManager;
 import org.apache.asterix.common.transactions.JobId;
+import org.apache.asterix.common.transactions.JobThreadId;
 import org.apache.asterix.common.transactions.LogRecord;
 import org.apache.asterix.common.transactions.MutableLong;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
@@ -92,6 +94,8 @@ public class TransactionContext implements ITransactionContext, Serializable {
     // Those are used in synchronized methods.
     private final MutableLong tempResourceIdForRegister;
     private final LogRecord logRecord;
+    
+    private final ConcurrentLinkedQueue<JobThreadId> jobThreadIdList = new ConcurrentLinkedQueue<JobThreadId>();
 
     // TODO: implement transactionContext pool in order to avoid object
     // creations.
@@ -236,5 +240,15 @@ public class TransactionContext implements ITransactionContext, Serializable {
         if (primaryIndexOpTracker != null) {
             primaryIndexOpTracker.cleanupNumActiveOperationsForAbortedJob(primaryIndexCallback);
         }
+    }
+
+    @Override
+    public void addJobThreadId(JobThreadId jobThreadId) {
+        jobThreadIdList.add(jobThreadId);
+    }
+
+    @Override
+    public ConcurrentLinkedQueue<JobThreadId> getJobThreadIdList() {
+        return jobThreadIdList;
     }
 }

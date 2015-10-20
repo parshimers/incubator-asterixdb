@@ -31,6 +31,7 @@ import org.apache.hyracks.storage.am.common.api.ISearchOperationCallback;
  */
 public class PrimaryIndexInstantRecordSearchOperationCallback extends AbstractOperationCallback implements
         ISearchOperationCallback {
+    
 
     public PrimaryIndexInstantRecordSearchOperationCallback(int datasetId, int[] entityIdFields,
             ILockManager lockManager, ITransactionContext txnCtx) {
@@ -41,7 +42,7 @@ public class PrimaryIndexInstantRecordSearchOperationCallback extends AbstractOp
     public boolean proceed(ITupleReference tuple) throws HyracksDataException {
         int pkHash = computePrimaryKeyHashValue(tuple, primaryKeyFields);
         try {
-            return lockManager.instantTryLock(datasetId, pkHash, LockMode.S, txnCtx);
+            return lockManager.instantTryLock(jobThreadId, datasetId, pkHash, LockMode.S, txnCtx);
         } catch (ACIDException e) {
             throw new HyracksDataException(e);
         }
@@ -52,7 +53,7 @@ public class PrimaryIndexInstantRecordSearchOperationCallback extends AbstractOp
     public void reconcile(ITupleReference tuple) throws HyracksDataException {
         int pkHash = computePrimaryKeyHashValue(tuple, primaryKeyFields);
         try {
-            lockManager.lock(datasetId, pkHash, LockMode.S, txnCtx);
+            lockManager.lock(jobThreadId, datasetId, pkHash, LockMode.S, txnCtx);
         } catch (ACIDException e) {
             throw new HyracksDataException(e);
         }
@@ -63,7 +64,7 @@ public class PrimaryIndexInstantRecordSearchOperationCallback extends AbstractOp
     public void cancelReconcile(ITupleReference tuple) throws HyracksDataException {
         int pkHash = computePrimaryKeyHashValue(tuple, primaryKeyFields);
         try {
-            lockManager.unlock(datasetId, pkHash, LockMode.S, txnCtx);
+            lockManager.unlock(jobThreadId, datasetId, pkHash, LockMode.S, txnCtx);
         } catch (ACIDException e) {
             throw new HyracksDataException(e);
         }
@@ -80,7 +81,7 @@ public class PrimaryIndexInstantRecordSearchOperationCallback extends AbstractOp
     public void complete(ITupleReference tuple) throws HyracksDataException {
         int pkHash = computePrimaryKeyHashValue(tuple, primaryKeyFields);
         try {
-            lockManager.unlock(datasetId, pkHash, LockMode.S, txnCtx);
+            lockManager.unlock(jobThreadId, datasetId, pkHash, LockMode.S, txnCtx);
         } catch (ACIDException e) {
             throw new HyracksDataException(e);
         }

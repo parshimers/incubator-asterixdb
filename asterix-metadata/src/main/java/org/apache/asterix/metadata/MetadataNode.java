@@ -36,6 +36,7 @@ import org.apache.asterix.common.transactions.IRecoveryManager.ResourceType;
 import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.ITransactionSubsystem;
 import org.apache.asterix.common.transactions.JobId;
+import org.apache.asterix.common.transactions.JobThreadId;
 import org.apache.asterix.formats.nontagged.AqlSerializerDeserializerProvider;
 import org.apache.asterix.metadata.api.IMetadataIndex;
 import org.apache.asterix.metadata.api.IMetadataNode;
@@ -149,15 +150,15 @@ public class MetadataNode implements IMetadataNode {
     }
 
     @Override
-    public void lock(JobId jobId, byte lockMode) throws ACIDException, RemoteException {
+    public void lock(JobId jobId, JobThreadId jobThreadId, byte lockMode) throws ACIDException, RemoteException {
         ITransactionContext txnCtx = transactionSubsystem.getTransactionManager().getTransactionContext(jobId, false);
-        transactionSubsystem.getLockManager().lock(METADATA_DATASET_ID, -1, lockMode, txnCtx);
+        transactionSubsystem.getLockManager().lock(jobThreadId, METADATA_DATASET_ID, -1, lockMode, txnCtx);
     }
 
     @Override
-    public void unlock(JobId jobId, byte lockMode) throws ACIDException, RemoteException {
+    public void unlock(JobId jobId, JobThreadId jobThreadId, byte lockMode) throws ACIDException, RemoteException {
         ITransactionContext txnCtx = transactionSubsystem.getTransactionManager().getTransactionContext(jobId, false);
-        transactionSubsystem.getLockManager().unlock(METADATA_DATASET_ID, -1, lockMode, txnCtx);
+        transactionSubsystem.getLockManager().unlock(jobThreadId, METADATA_DATASET_ID, -1, lockMode, txnCtx);
     }
 
     @Override
@@ -318,7 +319,7 @@ public class MetadataNode implements IMetadataNode {
         if (metadataIndex.isPrimaryIndex()) {
             return new PrimaryIndexModificationOperationCallback(metadataIndex.getDatasetId().getId(),
                     metadataIndex.getPrimaryKeyIndexes(), txnCtx, transactionSubsystem.getLockManager(),
-                    transactionSubsystem, resourceId, ResourceType.LSM_BTREE, indexOp);
+                    transactionSubsystem, resourceId, ResourceType.LSM_BTREE, indexOp, null);
         } else {
             return new SecondaryIndexModificationOperationCallback(metadataIndex.getDatasetId().getId(),
                     metadataIndex.getPrimaryKeyIndexes(), txnCtx, transactionSubsystem.getLockManager(),

@@ -25,9 +25,10 @@ import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 public interface ILogRecord {
 
     public static final int JOB_TERMINATE_LOG_SIZE = 13; //JOB_COMMIT or ABORT log type
-    public static final int ENTITY_COMMIT_LOG_BASE_SIZE = 25;
+    public static final int ENTITY_COMMIT_LOG_BASE_SIZE = 33;
     public static final int UPDATE_LOG_BASE_SIZE = 54;
     public static final int FLUSH_LOG_SIZE = 17;
+    public static final int WAIT_LOG_SIZE = 13;
     
     public boolean readLogRecord(ByteBuffer buffer);
 
@@ -35,7 +36,7 @@ public interface ILogRecord {
 
     public void formJobTerminateLogRecord(ITransactionContext txnCtx, boolean isCommit);
 
-    public void formEntityCommitLogRecord(ITransactionContext txnCtx, int datasetId, int PKHashValue,
+    public void formEntityCommitLogRecord(ITransactionContext txnCtx, long threadId, int datasetId, int PKHashValue,
             ITupleReference tupleReference, int[] primaryKeyFields);
 
     public ITransactionContext getTxnCtx();
@@ -53,6 +54,10 @@ public interface ILogRecord {
     public int getJobId();
 
     public void setJobId(int jobId);
+    
+    public long getThreadId();
+    
+    public void setThreadId(long threadId);
 
     public int getDatasetId();
 

@@ -27,6 +27,7 @@ import org.apache.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
+import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import org.apache.hyracks.dataflow.common.comm.util.FrameUtils;
 import org.apache.hyracks.dataflow.common.data.accessors.FrameTupleReference;
 import org.apache.hyracks.storage.am.common.api.ITupleFilterFactory;
@@ -40,6 +41,9 @@ import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndex;
 public class AsterixLSMInsertDeleteOperatorNodePushable extends LSMIndexInsertUpdateDeleteOperatorNodePushable {
 
     private final boolean isPrimary;
+    private int currentTupleIdx;
+    private int lastFlushedTupleIdx;
+    private boolean flushedPartialTuples;
 
     public boolean isPrimary() {
         return isPrimary;
@@ -57,12 +61,13 @@ public class AsterixLSMInsertDeleteOperatorNodePushable extends LSMIndexInsertUp
         RecordDescriptor inputRecDesc = recordDescProvider.getInputRecordDescriptor(opDesc.getActivityId(), 0);
         accessor = new FrameTupleAccessor(inputRecDesc);
         writeBuffer = new VSizeFrame(ctx);
+        appender = new FrameTupleAppender(writeBuffer);
         writer.open();
         indexHelper.open();
         AbstractLSMIndex lsmIndex = (AbstractLSMIndex) indexHelper.getIndexInstance();
         try {
             modCallback = opDesc.getModificationOpCallbackFactory().createModificationOperationCallback(
-                    indexHelper.getResourceID(), lsmIndex, ctx);
+                    indexHelper.getResourceID(), lsmIndex, ctx, this);
             indexAccessor = lsmIndex.createAccessor(modCallback, NoOpOperationCallback.INSTANCE);
             ITupleFilterFactory tupleFilterFactory = opDesc.getTupleFilterFactory();
             if (tupleFilterFactory != null) {
@@ -74,7 +79,6 @@ public class AsterixLSMInsertDeleteOperatorNodePushable extends LSMIndexInsertUp
                     .getApplicationContext().getApplicationObject();
 
             AsterixLSMIndexUtil.checkAndSetFirstLSN(lsmIndex, runtimeCtx.getTransactionSubsystem().getLogManager());
-
         } catch (Exception e) {
             indexHelper.close();
             throw new HyracksDataException(e);
@@ -83,17 +87,20 @@ public class AsterixLSMInsertDeleteOperatorNodePushable extends LSMIndexInsertUp
 
     @Override
     public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
+        currentTupleIdx = 0;
+        lastFlushedTupleIdx = 0;
+        flushedPartialTuples = false;
+        
         boolean first = true;
         accessor.reset(buffer);
+        writeBuffer.ensureFrameSize(buffer.capacity());
         ILSMIndexAccessor lsmAccessor = (ILSMIndexAccessor) indexAccessor;
         int tupleCount = accessor.getTupleCount();
-        int tmpCnt = 0;
         try {
-            for (int i = 0; i < tupleCount; i++) {
+            for (int i = 0; i < tupleCount; i++, currentTupleIdx++) {
                 if (tupleFilter != null) {
                     frameTuple.reset(accessor, i);
                     if (!tupleFilter.accept(frameTuple)) {
-                        tmpCnt++;
                         continue;
                     }
                 }
@@ -121,15 +128,29 @@ public class AsterixLSMInsertDeleteOperatorNodePushable extends LSMIndexInsertUp
                     }
                 }
             }
-//            System.out.println("AsterixLSMInsertDeleteOperatorNodePushable tupleFilter: " + tupleFilter + " accessor: "
-//                    + lsmAccessor + " tupleCnt: " + tupleCount + " skipped: " + tmpCnt);
         } catch (Exception e) {
             e.printStackTrace();
             throw new HyracksDataException(e);
         }
-        writeBuffer.ensureFrameSize(buffer.capacity());
-        FrameUtils.copyAndFlip(buffer, writeBuffer.getBuffer());
-        FrameUtils.flushFrame(writeBuffer.getBuffer(), writer);
+        
+        if (flushedPartialTuples) {
+            flushPartialFrame();
+        } else {
+            FrameUtils.copyAndFlip(buffer, writeBuffer.getBuffer());
+            FrameUtils.flushFrame(writeBuffer.getBuffer(), writer);
+        }
+    }
+    
+    /*
+     * flushes tuples in a frame from lastFlushedTupleIdx(inclusive) to currentTupleIdx(exclusive)
+     */
+    public void flushPartialFrame() throws HyracksDataException {
+        for (int i = lastFlushedTupleIdx; i < currentTupleIdx; i++) {
+            FrameUtils.appendToWriter(writer, appender, accessor, i); 
+        }
+        appender.flush(writer, true);
+        lastFlushedTupleIdx = currentTupleIdx;
+        flushedPartialTuples = true;
     }
 
 }

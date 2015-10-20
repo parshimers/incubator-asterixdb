@@ -33,6 +33,7 @@ import org.apache.asterix.common.transactions.ILogPage;
 import org.apache.asterix.common.transactions.ILogRecord;
 import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.JobId;
+import org.apache.asterix.common.transactions.JobThreadId;
 import org.apache.asterix.common.transactions.LogRecord;
 import org.apache.asterix.common.transactions.LogType;
 import org.apache.asterix.common.transactions.MutableLong;
@@ -63,6 +64,7 @@ public class LogPage implements ILogPage {
     private boolean stop;
     private final DatasetId reusableDsId;
     private final JobId reusableJobId;
+    private final JobThreadId reusableJobThreadId;
 
     public LogPage(TransactionSubsystem txnSubsystem, int logPageSize, MutableLong flushLSN) {
         this.txnSubsystem = txnSubsystem;
@@ -81,6 +83,7 @@ public class LogPage implements ILogPage {
 
         reusableDsId = new DatasetId(-1);
         reusableJobId = new JobId(-1);
+        reusableJobThreadId = new JobThreadId();
     }
 
     ////////////////////////////////////
@@ -91,7 +94,7 @@ public class LogPage implements ILogPage {
     public void append(ILogRecord logRecord, long appendLSN) {
         logRecord.writeLogRecord(appendBuffer);
         // mhubail Update impacted resource with the flushed lsn
-        if (logRecord.getLogType() != LogType.FLUSH) {
+        if (logRecord.getLogType() != LogType.FLUSH && logRecord.getLogType() != LogType.WAIT) {
             logRecord.getTxnCtx().setLastLSN(appendLSN);
         }
         synchronized (this) {
@@ -99,7 +102,7 @@ public class LogPage implements ILogPage {
             if (IS_DEBUG_MODE) {
                 LOGGER.info("append()| appendOffset: " + appendOffset);
             }
-            if (logRecord.getLogType() == LogType.JOB_COMMIT || logRecord.getLogType() == LogType.ABORT) {
+            if (logRecord.getLogType() == LogType.JOB_COMMIT || logRecord.getLogType() == LogType.ABORT || logRecord.getLogType() == LogType.WAIT) {
                 logRecord.isFlushed(false);
                 syncCommitQ.offer(logRecord);
             }
@@ -224,8 +227,10 @@ public class LogPage implements ILogPage {
                     reusableJobId.setId(logRecord.getJobId());
                     txnCtx = txnSubsystem.getTransactionManager().getTransactionContext(reusableJobId, false);
                     reusableDsId.setId(logRecord.getDatasetId());
+                    reusableJobThreadId.setJobId(reusableJobId.getId());
+                    reusableJobThreadId.setThreadId(logRecord.getThreadId());
                     txnSubsystem.getLockManager()
-                            .unlock(reusableDsId, logRecord.getPKHashValue(), LockMode.ANY, txnCtx);
+                            .unlock(reusableJobThreadId, reusableDsId, logRecord.getPKHashValue(), LockMode.ANY, txnCtx);
                     txnCtx.notifyOptracker(false);
                     if (ExperimentProfiler.PROFILE_MODE) {
                         txnSubsystem.profilerEntityCommitLogCount++;
@@ -234,9 +239,11 @@ public class LogPage implements ILogPage {
                     reusableJobId.setId(logRecord.getJobId());
                     txnCtx = txnSubsystem.getTransactionManager().getTransactionContext(reusableJobId, false);
                     txnCtx.notifyOptracker(true);
-                    notifyJobTerminator();
+                    notifyJobTermination();
                 } else if (logRecord.getLogType() == LogType.FLUSH) {
-                    notifyFlushTerminator();
+                    notifyFlushTermination();
+                } else if (logRecord.getLogType() == LogType.WAIT) {
+                    notifyWaitTermination();
                 }
 
                 logRecord = logPageReader.next();
@@ -244,7 +251,15 @@ public class LogPage implements ILogPage {
         }
     }
 
-    public void notifyJobTerminator() {
+    public void notifyJobTermination() {
+        notifyToSyncCommitQWaiter();
+    }
+    
+    public void notifyWaitTermination() {
+        notifyToSyncCommitQWaiter();
+    }
+    
+    private void notifyToSyncCommitQWaiter() {
         ILogRecord logRecord = null;
         while (logRecord == null) {
             try {
@@ -259,7 +274,7 @@ public class LogPage implements ILogPage {
         }
     }
 
-    public void notifyFlushTerminator() throws ACIDException {
+    public void notifyFlushTermination() throws ACIDException {
         LogRecord logRecord = null;
         try {
             logRecord = (LogRecord) flushQ.take();
