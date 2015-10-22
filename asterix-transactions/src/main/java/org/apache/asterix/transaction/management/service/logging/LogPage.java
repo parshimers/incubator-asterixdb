@@ -232,7 +232,7 @@ public class LogPage implements ILogPage {
                     txnSubsystem.getLockManager()
                             .unlock(reusableJobThreadId, reusableDsId, logRecord.getPKHashValue(), LockMode.ANY, txnCtx);
                     txnCtx.notifyOptracker(false);
-                    if (ExperimentProfiler.PROFILE_MODE) {
+                    if (TransactionSubsystem.PROFILE_COMMIT_COUNT) {
                         txnSubsystem.profilerEntityCommitLogCount++;
                     }
                 } else if (logRecord.getLogType() == LogType.JOB_COMMIT || logRecord.getLogType() == LogType.ABORT) {

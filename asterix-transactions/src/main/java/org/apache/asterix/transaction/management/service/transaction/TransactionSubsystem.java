@@ -19,6 +19,10 @@
 
 package org.apache.asterix.transaction.management.service.transaction;
 
+import java.util.concurrent.Callable;
+import java.util.concurrent.Future;
+import java.util.logging.Logger;
+
 import org.apache.asterix.common.config.AsterixTransactionProperties;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.transactions.IAsterixAppRuntimeContextProvider;
@@ -45,9 +49,12 @@ public class TransactionSubsystem implements ITransactionSubsystem {
     private final IAsterixAppRuntimeContextProvider asterixAppRuntimeContextProvider;
     private final CheckpointThread checkpointThread;
     private final AsterixTransactionProperties txnProperties;
+    private EntityCommitProfiler ecp;
+    private Future<Object> fecp;
     
     //for profiler
-    public long  profilerEntityCommitLogCount = 0;
+    public static final boolean PROFILE_COMMIT_COUNT = true; 
+    public long profilerEntityCommitLogCount = 0;
 
     public TransactionSubsystem(String id, IAsterixAppRuntimeContextProvider asterixAppRuntimeContextProvider,
             AsterixTransactionProperties txnProperties) throws ACIDException {
@@ -65,6 +72,10 @@ public class TransactionSubsystem implements ITransactionSubsystem {
             //this.checkpointThread.start();
         } else {
             this.checkpointThread = null;
+        }
+        if (PROFILE_COMMIT_COUNT) {
+            ecp = new EntityCommitProfiler(this, this.txnProperties.getCommitProfilerReportInterval());
+            fecp = getAsterixAppRuntimeContextProvider().getThreadExecutor().submit(ecp);
         }
     }
 
@@ -94,6 +105,64 @@ public class TransactionSubsystem implements ITransactionSubsystem {
 
     public String getId() {
         return id;
+    }
+    
+    /**************************************************************************
+     * Thread for profiling entity level commit count
+     * This thread takes a report interval (in seconds) parameter and 
+     * reports entity level commit count every report interval (in seconds)
+     * only if PROFILE_COMMIT_COUNT is set to true.
+     * However, the thread doesn't start reporting the count until the entityCommitCount > 0.   
+     *
+     * @author kisskys
+     */
+    static class EntityCommitProfiler implements Callable<Boolean>{
+        private static final Logger LOGGER = Logger.getLogger(EntityCommitProfiler.class.getName());
+        private final long reportIntervalInMillisec;
+        private long lastEntityCommitCount; 
+        private int reportIntervalInSeconds;
+        private TransactionSubsystem txnSubsystem;
+        private boolean firstReport = true;
+        private long startTimeStamp = 0;
+        private long reportRound = 1;
+        
+        public EntityCommitProfiler(TransactionSubsystem txnSubsystem, int reportIntervalInSeconds) {
+            Thread.currentThread().setName("EntityCommitProfiler-Thread");
+            this.txnSubsystem = txnSubsystem;
+            this.reportIntervalInSeconds = reportIntervalInSeconds;
+            this.reportIntervalInMillisec = reportIntervalInSeconds*1000;
+            lastEntityCommitCount = txnSubsystem.profilerEntityCommitLogCount;
+        }
+        
+        @Override
+        public Boolean call() throws Exception {
+            while (true) {
+                Thread.sleep(reportIntervalInMillisec);
+                if (txnSubsystem.profilerEntityCommitLogCount > 0) {
+                    if (firstReport) {
+                        startTimeStamp = System.currentTimeMillis();
+                        firstReport = false;
+                    } 
+                    //output the count
+                    outputCount();
+                }
+            }
+        }
+        
+        private void outputCount() {
+            long currentTimeStamp = System.currentTimeMillis();
+            long currentEntityCommitCount = txnSubsystem.profilerEntityCommitLogCount;
+            
+            LOGGER.info("EntityCommitProfiler ReportRound[" + reportRound + 
+                    "], AbsoluteTimeStamp[" + currentTimeStamp + 
+                    "], ActualRelativeTimeStamp[" + (currentTimeStamp - startTimeStamp) + 
+                    "], ExpectedRelativeTimeStamp[" + (reportIntervalInSeconds * reportRound) + 
+                    "], IIPS[" +  ((currentEntityCommitCount - lastEntityCommitCount) / reportIntervalInSeconds) +
+                    "], IPS[" + (currentEntityCommitCount / (reportRound * reportIntervalInSeconds)) + "]");
+            
+            lastEntityCommitCount = currentEntityCommitCount;
+            ++reportRound;
+        }
     }
 
 }

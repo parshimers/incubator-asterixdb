@@ -948,26 +948,27 @@ public class ConcurrentLockManager implements ILockManager, ILifeCycleComponent 
      */
 
     private void log(String string, int id, int entityHashValue, byte lockMode, ITransactionContext txnContext) {
-        if (!LOGGER.isLoggable(LVL)) {
-            return;
-        }
-        StringBuilder sb = new StringBuilder();
-        sb.append("{ op : ").append(string);
-        if (id != -1) {
-            sb.append(" , dataset : ").append(id);
-        }
-        if (entityHashValue != -1) {
-            sb.append(" , entity : ").append(entityHashValue);
-        }
-        if (lockMode != LockMode.NL) {
-            sb.append(" , mode : ").append(LockMode.toString(lockMode));
-        }
-        if (txnContext != null) {
-            sb.append(" , jobId : ").append(txnContext.getJobId());
-        }
-        sb.append(" , thread : ").append(Thread.currentThread().getName());
-        sb.append(" }");
-        LOGGER.log(LVL, sb.toString());
+        return;
+//        if (!LOGGER.isLoggable(LVL)) {
+//            return;
+//        }
+//        StringBuilder sb = new StringBuilder();
+//        sb.append("{ op : ").append(string);
+//        if (id != -1) {
+//            sb.append(" , dataset : ").append(id);
+//        }
+//        if (entityHashValue != -1) {
+//            sb.append(" , entity : ").append(entityHashValue);
+//        }
+//        if (lockMode != LockMode.NL) {
+//            sb.append(" , mode : ").append(LockMode.toString(lockMode));
+//        }
+//        if (txnContext != null) {
+//            sb.append(" , jobId : ").append(txnContext.getJobId());
+//        }
+//        sb.append(" , thread : ").append(Thread.currentThread().getName());
+//        sb.append(" }");
+//        LOGGER.log(LVL, sb.toString());
     }
 
     private void assertLocksCanBefoundInJobQueue() throws ACIDException {
@@ -1127,7 +1128,7 @@ public class ConcurrentLockManager implements ILockManager, ILifeCycleComponent 
         private byte cDsLockMode = -1;
 
         public boolean contains(final JobThreadId jobThreadId, final int dsId, byte dsLockMode) {
-            if (this.jobThreadId == jobThreadId) {
+            if (this.jobThreadId.equals(jobThreadId)) {
                 if (this.cDsId == dsId && this.cDsLockMode == dsLockMode) {
                     return true;
                 }
