@@ -36,7 +36,7 @@ import java.util.Map;
 
 public class VersionAPIServlet extends HttpServlet {
 
-    private static final String ASTERIX_BUILD_PROP_ATTR = "org.apache.asterix.PROPS";
+    public static final String ASTERIX_BUILD_PROP_ATTR = "org.apache.asterix.PROPS";
 
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -48,5 +48,6 @@ public class VersionAPIServlet extends HttpServlet {
         PrintWriter responseWriter =  response.getWriter();
         responseWriter.write(responseObject.toString());
         response.setStatus(HttpServletResponse.SC_OK);
+        responseWriter.flush();
     }
 }
