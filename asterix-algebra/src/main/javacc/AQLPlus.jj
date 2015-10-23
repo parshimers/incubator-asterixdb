@@ -1,3 +1,22 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 options {
 
 
@@ -8,7 +27,7 @@ options {
 
 PARSER_BEGIN(AQLPlusParser)
 
-package edu.uci.ics.asterix.aqlplus.parser;
+package org.apache.asterix.aqlplus.parser;
 
 import java.io.*;
 import java.util.List;
@@ -17,32 +36,32 @@ import java.util.Stack;
 import java.util.Map;
 import java.util.HashMap;
 
-import edu.uci.ics.asterix.aql.literal.FloatLiteral;
-import edu.uci.ics.asterix.aql.literal.DoubleLiteral;
-import edu.uci.ics.asterix.aql.literal.FalseLiteral;
-import edu.uci.ics.asterix.aql.base.Literal;
-import edu.uci.ics.asterix.aql.literal.IntegerLiteral;
-import edu.uci.ics.asterix.aql.literal.LongIntegerLiteral;
-import edu.uci.ics.asterix.aql.literal.NullLiteral;
-import edu.uci.ics.asterix.aql.literal.StringLiteral;
-import edu.uci.ics.asterix.aql.literal.TrueLiteral;
-import edu.uci.ics.asterix.aql.parser.ScopeChecker;
-import edu.uci.ics.asterix.aql.base.*;
-import edu.uci.ics.asterix.aql.expression.*;
-import edu.uci.ics.asterix.aql.expression.visitor.AQLPrintVisitor;
-import edu.uci.ics.asterix.aql.expression.UnaryExpr.Sign;
-import edu.uci.ics.asterix.aql.expression.TypeExpression.TypeExprKind;
-import edu.uci.ics.asterix.aql.base.Statement.Kind;
-import edu.uci.ics.asterix.aql.context.Scope;
-import edu.uci.ics.asterix.aql.context.RootScopeFactory;
-import edu.uci.ics.asterix.common.exceptions.AsterixException;
-import edu.uci.ics.asterix.om.functions.AsterixFunction;
-import edu.uci.ics.asterix.common.functions.FunctionSignature;
-import edu.uci.ics.asterix.metadata.bootstrap.MetadataConstants;
+import org.apache.asterix.aql.literal.FloatLiteral;
+import org.apache.asterix.aql.literal.DoubleLiteral;
+import org.apache.asterix.aql.literal.FalseLiteral;
+import org.apache.asterix.aql.base.Literal;
+import org.apache.asterix.aql.literal.IntegerLiteral;
+import org.apache.asterix.aql.literal.LongIntegerLiteral;
+import org.apache.asterix.aql.literal.NullLiteral;
+import org.apache.asterix.aql.literal.StringLiteral;
+import org.apache.asterix.aql.literal.TrueLiteral;
+import org.apache.asterix.aql.parser.ScopeChecker;
+import org.apache.asterix.aql.base.*;
+import org.apache.asterix.aql.expression.*;
+import org.apache.asterix.aql.expression.visitor.AQLPrintVisitor;
+import org.apache.asterix.aql.expression.UnaryExpr.Sign;
+import org.apache.asterix.aql.expression.TypeExpression.TypeExprKind;
+import org.apache.asterix.aql.base.Statement.Kind;
+import org.apache.asterix.aql.context.Scope;
+import org.apache.asterix.aql.context.RootScopeFactory;
+import org.apache.asterix.common.exceptions.AsterixException;
+import org.apache.asterix.om.functions.AsterixFunction;
+import org.apache.asterix.common.functions.FunctionSignature;
+import org.apache.asterix.metadata.bootstrap.MetadataConstants;
 
-import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IExpressionAnnotation;
-import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IndexedNLJoinExpressionAnnotation;
-import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
+import org.apache.hyracks.algebricks.core.algebra.expressions.IExpressionAnnotation;
+import org.apache.hyracks.algebricks.core.algebra.expressions.IndexedNLJoinExpressionAnnotation;
+import org.apache.hyracks.algebricks.common.utils.Pair;
 
 
 
