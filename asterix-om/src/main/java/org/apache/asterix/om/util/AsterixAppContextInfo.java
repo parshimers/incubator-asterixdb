@@ -20,14 +20,7 @@ package org.apache.asterix.om.util;
 
 import java.util.logging.Logger;
 
-import org.apache.asterix.common.config.AsterixCompilerProperties;
-import org.apache.asterix.common.config.AsterixExternalProperties;
-import org.apache.asterix.common.config.AsterixFeedProperties;
-import org.apache.asterix.common.config.AsterixMetadataProperties;
-import org.apache.asterix.common.config.AsterixPropertiesAccessor;
-import org.apache.asterix.common.config.AsterixStorageProperties;
-import org.apache.asterix.common.config.AsterixTransactionProperties;
-import org.apache.asterix.common.config.IAsterixPropertiesProvider;
+import org.apache.asterix.common.config.*;
 import org.apache.asterix.common.dataflow.IAsterixApplicationContextInfo;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.transaction.management.service.transaction.AsterixRuntimeComponentsProvider;
@@ -52,6 +45,7 @@ public class AsterixAppContextInfo implements IAsterixApplicationContextInfo, IA
     private AsterixStorageProperties storageProperties;
     private AsterixTransactionProperties txnProperties;
     private AsterixFeedProperties feedProperties;
+    private AsterixBuildProperties buildProperties;
 
     private IHyracksClientConnection hcc;
 
@@ -67,6 +61,7 @@ public class AsterixAppContextInfo implements IAsterixApplicationContextInfo, IA
         INSTANCE.txnProperties = new AsterixTransactionProperties(propertiesAccessor);
         INSTANCE.feedProperties = new AsterixFeedProperties(propertiesAccessor);
         INSTANCE.hcc = hcc;
+        INSTANCE.buildProperties = new AsterixBuildProperties(propertiesAccessor);
         Logger.getLogger("org.apache").setLevel(INSTANCE.externalProperties.getLogLevel());
     }
 
@@ -113,7 +108,12 @@ public class AsterixAppContextInfo implements IAsterixApplicationContextInfo, IA
     public AsterixFeedProperties getFeedProperties() {
         return feedProperties;
     }
-    
+
+    @Override
+    public AsterixBuildProperties getBuildProperties() {
+        return buildProperties;
+    }
+
     public IHyracksClientConnection getHcc() {
         return hcc;
     }
