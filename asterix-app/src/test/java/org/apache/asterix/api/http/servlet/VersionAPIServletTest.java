@@ -19,26 +19,11 @@
 
 package org.apache.asterix.api.http.servlet;
 
-import jdk.nashorn.internal.runtime.Version;
-import junit.extensions.PA;
 import junit.framework.Assert;
 import org.apache.asterix.common.config.AsterixBuildProperties;
-import org.apache.asterix.feeds.CentralFeedManager;
-import org.apache.asterix.metadata.MetadataManager;
-import org.apache.asterix.metadata.MetadataTransactionContext;
-import org.apache.asterix.metadata.declared.AqlMetadataProvider;
-import org.apache.asterix.metadata.entities.Dataset;
-import org.apache.asterix.om.types.ARecordType;
-import org.apache.asterix.om.types.BuiltinType;
-import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.util.AsterixAppContextInfo;
-import org.apache.asterix.om.util.JSONDeserializerForTypes;
 import org.apache.asterix.test.runtime.ExecutionTest;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
-import org.apache.hyracks.api.client.NodeControllerInfo;
-import org.apache.hyracks.api.comm.NetworkAddress;
-import org.apache.hyracks.dataflow.std.file.FileSplit;
-import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 import org.junit.Test;
@@ -51,10 +36,14 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.*;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
+
 
 @SuppressWarnings("deprecation")
 public class VersionAPIServletTest {

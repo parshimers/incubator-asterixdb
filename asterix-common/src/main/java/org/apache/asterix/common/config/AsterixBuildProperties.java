@@ -28,83 +28,83 @@ public class AsterixBuildProperties extends AbstractAsterixProperties {
         super(accessor);
     }
 
-    public String getuserEmail() {
+    public String getUserEmail() {
         return accessor.getProperty("git.build.user.email", "", PropertyInterpreters.getStringPropertyInterpreter());
     }
 
-    public String getbuildHost() {
+    public String getBuildHost() {
         return accessor.getProperty("git.build.host", "", PropertyInterpreters.getStringPropertyInterpreter());
     }
 
-    public String getdirty() {
+    public String getDirty() {
         return accessor.getProperty("git.dirty", "", PropertyInterpreters.getStringPropertyInterpreter());
     }
 
-    public String getremoteOriginUrl() {
+    public String getRemoteOriginUrl() {
         return accessor.getProperty("git.remote.origin.url", "", PropertyInterpreters.getStringPropertyInterpreter());
     }
 
-    public String getclosestTagName() {
+    public String getClosestTagName() {
         return accessor.getProperty("git.closest.tag.name", "", PropertyInterpreters.getStringPropertyInterpreter());
     }
 
-    public String getcommitIdDescribeShort() {
+    public String getCommitIdDescribeShort() {
         return accessor.getProperty("git.commit.id.describe-short", "", PropertyInterpreters.getStringPropertyInterpreter());
     }
 
-    public String getcommitUserEmail() {
+    public String getCommitUserEmail() {
         return accessor.getProperty("git.commit.user.email", "", PropertyInterpreters.getStringPropertyInterpreter());
     }
 
-    public String getcommitTime() {
+    public String getCommitTime() {
         return accessor.getProperty("git.commit.time", "", PropertyInterpreters.getStringPropertyInterpreter());
     }
 
-    public String getcommitMessage() {
+    public String getCommitMessage() {
         return accessor.getProperty("git.commit.message.full", "", PropertyInterpreters.getStringPropertyInterpreter());
     }
 
-    public String getbuildVersion() {
+    public String getBuildVersion() {
         return accessor.getProperty("git.build.version", "", PropertyInterpreters.getStringPropertyInterpreter());
     }
 
-    public String getcommitMessageShort() {
+    public String getCommitMessageShort() {
         return accessor.getProperty("git.commit.message.short", "", PropertyInterpreters.getStringPropertyInterpreter());
     }
 
-    public String getshortCommitId() {
+    public String getShortCommitId() {
         return accessor.getProperty("git.commit.id.abbrev", "", PropertyInterpreters.getStringPropertyInterpreter());
     }
 
-    public String getbranch() {
+    public String getBranch() {
         return accessor.getProperty("git.branch", "", PropertyInterpreters.getStringPropertyInterpreter());
     }
 
-    public String getbuildUserName() {
+    public String getBuildUserName() {
         return accessor.getProperty("git.build.user.name", "", PropertyInterpreters.getStringPropertyInterpreter());
     }
 
-    public String getclosestTagCommitCount() {
+    public String getClosestTagCommitCount() {
         return accessor.getProperty("git.closest.tag.commit.count", "", PropertyInterpreters.getStringPropertyInterpreter());
     }
 
-    public String getcommitIdDescribe() {
+    public String getCommitIdDescribe() {
         return accessor.getProperty("git.commit.id.describe", "", PropertyInterpreters.getStringPropertyInterpreter());
     }
 
-    public String getcommitId() {
+    public String getCommitId() {
         return accessor.getProperty("git.commit.id", "", PropertyInterpreters.getStringPropertyInterpreter());
     }
 
-    public String gettags() {
+    public String getTags() {
         return accessor.getProperty("git.tags", "", PropertyInterpreters.getStringPropertyInterpreter());
     }
 
-    public String getbuildTime() {
+    public String getBuildTime() {
         return accessor.getProperty("git.build.time", "", PropertyInterpreters.getStringPropertyInterpreter());
     }
 
-    public String getcommitUserName() {
+    public String getCommitUserName() {
         return accessor.getProperty("git.commit.user.name", "", PropertyInterpreters.getStringPropertyInterpreter());
     }
     public Map<String, String> getAllProps(){

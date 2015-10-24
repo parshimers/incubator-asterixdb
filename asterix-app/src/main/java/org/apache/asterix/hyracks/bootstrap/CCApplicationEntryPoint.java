@@ -21,13 +21,23 @@ package org.apache.asterix.hyracks.bootstrap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.asterix.api.http.servlet.*;
-import org.apache.asterix.common.config.AsterixBuildProperties;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.component.AbstractLifeCycle;
 
+import org.apache.asterix.api.http.servlet.APIServlet;
+import org.apache.asterix.api.http.servlet.AQLAPIServlet;
+import org.apache.asterix.api.http.servlet.ConnectorAPIServlet;
+import org.apache.asterix.api.http.servlet.DDLAPIServlet;
+import org.apache.asterix.api.http.servlet.FeedServlet;
+import org.apache.asterix.api.http.servlet.QueryAPIServlet;
+import org.apache.asterix.api.http.servlet.QueryResultAPIServlet;
+import org.apache.asterix.api.http.servlet.QueryStatusAPIServlet;
+import org.apache.asterix.api.http.servlet.ShutdownAPIServlet;
+import org.apache.asterix.api.http.servlet.UpdateAPIServlet;
+import org.apache.asterix.api.http.servlet.VersionAPIServlet;
+import org.apache.asterix.common.config.AsterixBuildProperties;
 import org.apache.asterix.common.api.AsterixThreadFactory;
 import org.apache.asterix.common.config.AsterixExternalProperties;
 import org.apache.asterix.common.config.AsterixMetadataProperties;

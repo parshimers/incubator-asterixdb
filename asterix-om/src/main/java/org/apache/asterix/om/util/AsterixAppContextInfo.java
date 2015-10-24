@@ -20,7 +20,15 @@ package org.apache.asterix.om.util;
 
 import java.util.logging.Logger;
 
-import org.apache.asterix.common.config.*;
+import org.apache.asterix.common.config.AsterixCompilerProperties;
+import org.apache.asterix.common.config.AsterixExternalProperties;
+import org.apache.asterix.common.config.AsterixFeedProperties;
+import org.apache.asterix.common.config.AsterixBuildProperties;
+import org.apache.asterix.common.config.AsterixMetadataProperties;
+import org.apache.asterix.common.config.AsterixPropertiesAccessor;
+import org.apache.asterix.common.config.AsterixStorageProperties;
+import org.apache.asterix.common.config.AsterixTransactionProperties;
+import org.apache.asterix.common.config.IAsterixPropertiesProvider;
 import org.apache.asterix.common.dataflow.IAsterixApplicationContextInfo;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.transaction.management.service.transaction.AsterixRuntimeComponentsProvider;
