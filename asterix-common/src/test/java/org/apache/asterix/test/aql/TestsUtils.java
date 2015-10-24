@@ -40,7 +40,6 @@ import org.apache.asterix.testframework.context.TestCaseContext;
 import org.apache.asterix.testframework.context.TestCaseContext.OutputFormat;
 import org.apache.asterix.testframework.context.TestFileContext;
 import org.apache.asterix.testframework.xml.TestCase.CompilationUnit;
-import org.apache.asterix.testframework.xml.TestGroup;
 import org.apache.commons.httpclient.DefaultHttpMethodRetryHandler;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpMethod;
@@ -210,12 +209,20 @@ public class TestsUtils {
             // In future this may be changed depending on the requested
             // output format sent to the servlet.
             String errorBody = method.getResponseBodyAsString();
-            JSONObject result = new JSONObject(errorBody);
-            String[] errors = { result.getJSONArray("error-code").getString(0), result.getString("summary"),
-                    result.getString("stacktrace") };
-            GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, errors[2]);
-            throw new Exception("HTTP operation failed: " + errors[0] + "\nSTATUS LINE: " + method.getStatusLine()
-                    + "\nSUMMARY: " + errors[1] + "\nSTACKTRACE: " + errors[2]);
+            JSONObject result = null;
+            try {
+                result = new JSONObject(errorBody);
+            } catch (Exception e) {
+                throw new Exception(errorBody);
+            }
+            if (result != null) {
+                String[] errors = { result.getJSONArray("error-code").getString(0), result.getString("summary"),
+                        result.getString("stacktrace") };
+                GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, errors[2]);
+
+                throw new Exception("HTTP operation failed: " + errors[0] + "\nSTATUS LINE: " + method.getStatusLine()
+                        + "\nSUMMARY: " + errors[1] + "\nSTACKTRACE: " + errors[2]);
+            }
         }
         return statusCode;
     }
@@ -225,15 +232,14 @@ public class TestsUtils {
         final String url = "http://localhost:19002/query";
 
         HttpMethodBase method = null;
-        if(str.length() + url.length() < MAX_URL_LENGTH ){
+        if (str.length() + url.length() < MAX_URL_LENGTH) {
             //Use GET for small-ish queries
             method = new GetMethod(url);
             method.setQueryString(new NameValuePair[] { new NameValuePair("query", str) });
-        }
-        else{
+        } else {
             //Use POST for bigger ones to avoid 413 FULL_HEAD
             method = new PostMethod(url);
-            ((PostMethod)method).setRequestEntity(new StringRequestEntity(str));
+            ((PostMethod) method).setRequestEntity(new StringRequestEntity(str));
         }
 
         //Set accepted output response type
@@ -447,7 +453,9 @@ public class TestsUtils {
                                 resultStream = executeAnyAQLAsync(statement, true, fmt);
 
                             if (queryCount >= expectedResultFileCtxs.size()) {
-                                throw new IllegalStateException("no result file for " + testFile.toString() + "; queryCount: " + queryCount + ", filectxs.size: " + expectedResultFileCtxs.size());
+                                throw new IllegalStateException("no result file for " + testFile.toString()
+                                        + "; queryCount: " + queryCount + ", filectxs.size: "
+                                        + expectedResultFileCtxs.size());
                             }
                             expectedResultFile = expectedResultFileCtxs.get(queryCount).getFile();
 

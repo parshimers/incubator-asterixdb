@@ -30,6 +30,8 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
+import org.apache.commons.io.FileUtils;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.IODeviceHandle;
 import org.apache.hyracks.storage.common.file.ILocalResourceRepository;
@@ -50,7 +52,8 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
     private final String nodeId;
     private static final int MAX_CACHED_RESOURCES = 1000;
 
-    public PersistentLocalResourceRepository(List<IODeviceHandle> devices, String nodeId) throws HyracksDataException {
+    public PersistentLocalResourceRepository(List<IODeviceHandle> devices, String nodeId, SystemState systemState)
+            throws HyracksDataException {
         mountPoints = new String[devices.size()];
         this.nodeId = nodeId;
         for (int i = 0; i < mountPoints.length; i++) {
@@ -66,6 +69,14 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
             }
         }
 
+        if (systemState == SystemState.NEW_UNIVERSE) {
+            //delete any existing storage data from old instances
+            try {
+                deleteAsterixStorageData();
+            } catch (IOException e) {
+                throw new HyracksDataException(e);
+            }
+        }
         resourceCache = CacheBuilder.newBuilder().maximumSize(MAX_CACHED_RESOURCES).build();
     }
 
@@ -73,7 +84,7 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         return mountPoint + ROOT_METADATA_DIRECTORY + File.separator + nodeId + "_" + "iodevice" + ioDeviceId;
     }
 
-    public void initialize(String nodeId, String rootDir) throws HyracksDataException {
+    public void initializeNewUniverse(String nodeId, String rootDir) throws HyracksDataException {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Initializing local resource repository ... ");
         }
@@ -134,7 +145,6 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
     @Override
     public synchronized void insert(LocalResource resource) throws HyracksDataException {
         File resourceFile = new File(getFileName(resource.getResourceName(), resource.getResourceId()));
-
         if (resourceFile.exists()) {
             throw new HyracksDataException("Duplicate resource");
         }
@@ -335,6 +345,34 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
                 } catch (IOException e) {
                     throw new HyracksDataException(e);
                 }
+            }
+        }
+    }
+
+    public void deleteAsterixStorageData() throws IOException {
+        for (int i = 0; i < mountPoints.length; i++) {
+            String rootMetadataFilePath = prepareRootMetaDataFileName(mountPoints[i], nodeId, i) + File.separator
+                    + ROOT_METADATA_FILE_NAME_PREFIX;
+            File rootMetadataFile = new File(rootMetadataFilePath);
+            if (!rootMetadataFile.exists()) {
+                //asterix metadata root doesn't exist -> no storage data
+                continue;
+            }
+            //if the rootMetadataFile exists, read it and find out the storage directory
+            LocalResource rootLocalResource = readLocalResource(rootMetadataFile);
+            String storageDirPath = (String) rootLocalResource.getResourceObject();
+
+            File storageDir = new File(storageDirPath);
+            if (storageDir.exists()) {
+                if (storageDir.isDirectory()) {
+                    FileUtils.deleteDirectory(storageDir);
+                }
+            }
+
+            //delete the metadata root folder
+            File rootMetadataDir = new File(mountPoints[i] + ROOT_METADATA_DIRECTORY);
+            if (rootMetadataDir.isDirectory()) {
+                FileUtils.deleteDirectory(rootMetadataDir);
             }
         }
     }

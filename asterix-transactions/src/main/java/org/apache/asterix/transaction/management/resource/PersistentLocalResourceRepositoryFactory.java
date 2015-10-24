@@ -18,6 +18,7 @@
  */
 package org.apache.asterix.transaction.management.resource;
 
+import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.storage.common.file.ILocalResourceRepository;
@@ -26,14 +27,15 @@ import org.apache.hyracks.storage.common.file.ILocalResourceRepositoryFactory;
 public class PersistentLocalResourceRepositoryFactory implements ILocalResourceRepositoryFactory {
     private final IIOManager ioManager;
     private final String nodeId;
-
-    public PersistentLocalResourceRepositoryFactory(IIOManager ioManager, String nodeId) {
+    private final SystemState systemState;
+    public PersistentLocalResourceRepositoryFactory(IIOManager ioManager, String nodeId, SystemState systemState) {
         this.ioManager = ioManager;
         this.nodeId = nodeId;
+        this.systemState = systemState;
     }
 
     @Override
     public ILocalResourceRepository createRepository() throws HyracksDataException {
-        return new PersistentLocalResourceRepository(ioManager.getIODevices(), nodeId);
+        return new PersistentLocalResourceRepository(ioManager.getIODevices(), nodeId, systemState);
     }
 }
