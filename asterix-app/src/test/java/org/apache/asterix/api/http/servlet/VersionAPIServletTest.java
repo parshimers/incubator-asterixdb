@@ -77,26 +77,26 @@ public class VersionAPIServletTest {
         when(mockCtx.getBuildProperties()).thenReturn(mockProperties);
         when(mockProperties.getAllProps()).thenReturn(propMap);
 
-        propMap.put("git.build.user.email","imaxon@apache.org");
-        propMap.put("git.build.host","debian-w541");
+        propMap.put("git.build.user.email","foo@bar.baz");
+        propMap.put("git.build.host","fulliautomatix");
         propMap.put("git.dirty","true");
         propMap.put("git.remote.origin.url","git@github.com:apache/incubator-asterixdb.git");
         propMap.put("git.closest.tag.name","asterix-0.8.7-incubating");
         propMap.put("git.commit.id.describe-short","asterix-0.8.7-incubating-19-dirty");
-        propMap.put("git.commit.user.email","mhubail@uci.edu");
+        propMap.put("git.commit.user.email","foo@bar.baz");
         propMap.put("git.commit.time","21.10.2015 @ 23:36:41 PDT");
-        propMap.put("git.commit.message.full","ASTERIXDB-1045: fix log file reading during recovery\n\nChange-Id: Ic83ee1dd2d7ba88180c25f4ec6c7aa8d0a5a7162\nReviewed-on: https://asterix-gerrit.ics.uci.edu/465\nReviewed-by: Ian Maxon <imaxon@apache.org>\nTested-by: Jenkins <jenkins@fulliautomatix.ics.uci.edu>");
+        propMap.put("git.commit.message.full","ASTERIXDB-1045: fix log file reading during recovery\n\nChange-Id: Ic83ee1dd2d7ba88180c25f4ec6c7aa8d0a5a7162\nReviewed-on: https://asterix-gerrit.ics.uci.edu/465\nTested-by: Jenkins <jenkins@fulliautomatix.ics.uci.edu>");
         propMap.put("git.build.version","0.8.8-SNAPSHOT");
         propMap.put("git.commit.message.short","ASTERIXDB-1045: fix log file reading during recovery");
         propMap.put("git.commit.id.abbrev","e1dad19");
-        propMap.put("git.branch","imaxon/commit-id");
-        propMap.put("git.build.user.name","Ian Maxon");
+        propMap.put("git.branch","foo/bar");
+        propMap.put("git.build.user.name","Asterix");
         propMap.put("git.closest.tag.commit.count","19");
         propMap.put("git.commit.id.describe","asterix-0.8.7-incubating-19-ge1dad19-dirty");
         propMap.put("git.commit.id","e1dad1984640517366a7e73e323c9de27b0676f7");
         propMap.put("git.tags","");
         propMap.put("git.build.time","22.10.2015 @ 17:11:07 PDT");
-        propMap.put("git.commit.user.name","Murtadha Hubail");
+        propMap.put("git.commit.user.name","Obelix");
 
         // Calls VersionAPIServlet.formResponseObject.
         servlet.doGet(mockRequest, mockResponse);
