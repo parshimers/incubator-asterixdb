@@ -100,10 +100,10 @@ public class AsterixPropertiesAccessor {
             transactionLogDirs.put(txnLogDir.getNcId(), txnLogDir.getTxnLogDirPath());
         }
         Properties p = new Properties();
-        try{
+        try {
             p.load(getClass().getClassLoader().getResourceAsStream("git.properties"));
             asterixBuildProperties = new HashMap<String, String>((Map)p);
-        }catch(IOException e){
+        } catch(IOException e) {
             throw new AsterixException(e);
         }
 
