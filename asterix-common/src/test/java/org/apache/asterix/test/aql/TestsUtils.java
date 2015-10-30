@@ -40,6 +40,7 @@ import org.apache.asterix.testframework.context.TestCaseContext;
 import org.apache.asterix.testframework.context.TestCaseContext.OutputFormat;
 import org.apache.asterix.testframework.context.TestFileContext;
 import org.apache.asterix.testframework.xml.TestCase.CompilationUnit;
+import org.apache.asterix.testframework.xml.TestGroup;
 import org.apache.commons.httpclient.DefaultHttpMethodRetryHandler;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpMethod;
@@ -297,7 +298,7 @@ public class TestsUtils {
 
         // Create a method instance.
         GetMethod method = new GetMethod(url);
-        method.setQueryString(new NameValuePair[] { new NameValuePair("handle", handle) });
+        method.setQueryString(new NameValuePair[]{new NameValuePair("handle", handle)});
         method.setRequestHeader("Accept", fmt.mimeType());
 
         // Provide custom retry handler is necessary
