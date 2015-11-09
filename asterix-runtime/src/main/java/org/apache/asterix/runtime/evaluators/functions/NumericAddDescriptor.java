@@ -42,7 +42,7 @@ public class NumericAddDescriptor extends AbstractNumericArithmeticEval {
 
     @Override
     protected long evaluateInteger(long x, long y) throws HyracksDataException {
-        return Math.addExact(x,y);
+        return Math.addExact(x, y);
     }
 
     @Override

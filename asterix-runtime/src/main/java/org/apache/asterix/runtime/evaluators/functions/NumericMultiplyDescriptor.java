@@ -42,12 +42,12 @@ public class NumericMultiplyDescriptor extends AbstractNumericArithmeticEval {
 
     @Override
     protected long evaluateInteger(long lhs, long rhs) throws HyracksDataException {
-        return Math.multiplyExact(lhs,rhs);
+        return Math.multiplyExact(lhs, rhs);
     }
 
     @Override
     protected double evaluateDouble(double lhs, double rhs) throws HyracksDataException {
-        return lhs*rhs;
+        return lhs * rhs;
     }
 
     @Override

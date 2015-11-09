@@ -44,7 +44,7 @@ public class NumericSubDescriptor extends AbstractNumericArithmeticEval {
      */
     @Override
     protected long evaluateInteger(long lhs, long rhs) throws HyracksDataException {
-        return Math.subtractExact(lhs,rhs);
+        return Math.subtractExact(lhs, rhs);
     }
 
     /* (non-Javadoc)
