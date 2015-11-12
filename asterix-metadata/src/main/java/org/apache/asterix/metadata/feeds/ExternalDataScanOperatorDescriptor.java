@@ -67,11 +67,6 @@ public class ExternalDataScanOperatorDescriptor extends AbstractSingleActivityOp
                     writer.close();
                 }
             }
-
-            @Override
-            public void deinitialize() throws HyracksDataException {
-                writer.close();
-            }
         };
 
     }
