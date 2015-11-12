@@ -124,4 +124,7 @@ public abstract class AbstractLSMIOOperationCallback implements ILSMIOOperationC
         }
         return false;
     }
+    
+    public abstract boolean componentFileHasLSN(String componentFilePath);
+
 }
