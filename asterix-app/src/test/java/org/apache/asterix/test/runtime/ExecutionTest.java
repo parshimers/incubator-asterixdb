@@ -19,13 +19,16 @@
 package org.apache.asterix.test.runtime;
 
 import java.io.File;
+import java.lang.reflect.Field;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.asterix.api.common.AsterixHyracksIntegrationUtil;
+import org.apache.asterix.common.api.IAsterixAppRuntimeContext;
 import org.apache.asterix.common.config.AsterixPropertiesAccessor;
 import org.apache.asterix.common.config.AsterixTransactionProperties;
 import org.apache.asterix.common.config.GlobalConfig;
@@ -38,9 +41,12 @@ import org.apache.asterix.testframework.xml.TestGroup;
 import org.apache.asterix.testframework.xml.TestSuite;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.apache.hyracks.api.lifecycle.ILifeCycleComponent;
+import org.apache.hyracks.api.lifecycle.ILifeCycleComponentManager;
+import org.apache.hyracks.control.nc.NodeControllerService;
+import org.apache.hyracks.control.nc.application.NCApplicationContext;
+import org.apache.hyracks.storage.common.buffercache.BufferCache;
+import org.junit.*;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
@@ -84,6 +90,7 @@ public class ExecutionTest {
         }
         AsterixHyracksIntegrationUtil.init();
 
+
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("initializing HDFS");
         }
@@ -100,8 +107,18 @@ public class ExecutionTest {
         FailedGroup.setName("failed");
     }
 
+    public static void validateBufferCacheState() throws NoSuchFieldException, IllegalAccessException {
+        for(NodeControllerService nc: AsterixHyracksIntegrationUtil.ncs){
+            IAsterixAppRuntimeContext appCtx = (IAsterixAppRuntimeContext) nc.getApplicationContext().getApplicationObject();
+            if(!((BufferCache)appCtx.getBufferCache()).isClean()){
+                throw new IllegalStateException();
+            }
+        }
+    }
+
     @AfterClass
     public static void tearDown() throws Exception {
+        validateBufferCacheState();
         AsterixHyracksIntegrationUtil.deinit();
         File outdir = new File(PATH_ACTUAL);
         File[] files = outdir.listFiles();
