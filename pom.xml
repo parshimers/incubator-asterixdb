@@ -17,14 +17,11 @@
  ! specific language governing permissions and limitations
  ! under the License.
  !-->
-<project
-    xmlns="http://maven.apache.org/POM/4.0.0"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.apache.asterix</groupId>
     <artifactId>asterix</artifactId>
-    <version>0.8.7-SNAPSHOT</version>
+    <version>0.8.8-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <parent>
@@ -45,6 +42,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <jvm.extraargs />
+        <jdk.version>1.8</jdk.version>
         <runSlowAQLTests>false</runSlowAQLTests>
 
     <!-- Definition of tests in various categories which may be excluded -->
@@ -131,6 +129,7 @@
                     <excludes>
                         <exclude>**/*.adm</exclude>
                         <exclude>**/*.aql</exclude>
+                        <exclude>**/*.ast</exclude>
                         <exclude>**/*.csv</exclude>
                         <exclude>**/*.ddl</exclude>
                         <exclude>**/*.iml</exclude>
@@ -172,6 +171,61 @@
               </executions>
             </plugin>
         </plugins>
+        <pluginManagement>
+            <plugins>
+                <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
+                <plugin>
+                    <groupId>org.eclipse.m2e</groupId>
+                    <artifactId>lifecycle-mapping</artifactId>
+                    <version>1.0.0</version>
+                    <configuration>
+                        <lifecycleMappingMetadata>
+                            <pluginExecutions>
+                                <pluginExecution>
+                                    <pluginExecutionFilter>
+                                        <groupId>org.apache.maven.plugins</groupId>
+                                        <artifactId>maven-plugin-plugin</artifactId>
+                                        <versionRange>[3.4,)</versionRange>
+                                        <goals>
+                                            <goal>descriptor</goal>
+                                        </goals>
+                                    </pluginExecutionFilter>
+                                    <action>
+                                        <ignore></ignore>
+                                    </action>
+                                </pluginExecution>
+                                <pluginExecution>
+                                    <pluginExecutionFilter>
+                                        <groupId>org.apache.asterix</groupId>
+                                        <artifactId>record-manager-generator-maven-plugin</artifactId>
+                                        <versionRange>[0.8.7-SNAPSHOT,)</versionRange>
+                                        <goals>
+                                            <goal>generate-record-manager</goal>
+                                        </goals>
+                                    </pluginExecutionFilter>
+                                    <action>
+                                        <ignore></ignore>
+                                    </action>
+                                </pluginExecution>
+                                <pluginExecution>
+                                    <pluginExecutionFilter>
+                                        <groupId>org.apache.maven.plugins</groupId>
+                                        <artifactId>maven-jar-plugin</artifactId>
+                                        <versionRange>[2.4,)</versionRange>
+                                        <goals>
+                                            <goal>test-jar</goal>
+                                        </goals>
+                                    </pluginExecutionFilter>
+                                    <action>
+                                        <ignore></ignore>
+                                    </action>
+                                </pluginExecution>
+                            </pluginExecutions>
+                        </lifecycleMappingMetadata>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
     </build>
 
     <scm>
@@ -179,7 +233,8 @@
         <developerConnection>scm:git:ssh://asterix-gerrit.ics.uci.edu:29418/asterixdb</developerConnection>
         <url>https://github.com/apache/incubator-asterixdb</url>
 
-    </scm>
+      <tag>HEAD</tag>
+  </scm>
 
     <profiles>
         <profile>
@@ -269,17 +324,46 @@
             </plugins>
           </build>
         </profile>
+        <profile>
+            <id>java6</id>
+            <activation>
+                <jdk>1.6</jdk>
+            </activation>
+             <properties>
+                <jdk.version>1.6</jdk.version>
+             </properties>
+        </profile>
+        <profile>
+            <id>java7</id>
+            <activation>
+                <jdk>1.7</jdk>
+            </activation>
+             <properties>
+                <jdk.version>1.7</jdk.version>
+             </properties>
+        </profile>
+        <profile>
+            <id>java8</id>
+            <activation>
+                <jdk>1.8</jdk>
+            </activation>
+             <properties>
+                <jdk.version>1.8</jdk.version>
+             </properties>
+        </profile>
     </profiles>
 
     <modules>
         <module>asterix-common</module>
+        <module>asterix-lang-common</module>
+        <module>asterix-lang-aql</module>
+        <module>asterix-lang-sqlpp</module>
         <module>asterix-algebra</module>
         <module>asterix-app</module>
         <module>asterix-tools</module>
         <module>asterix-transactions</module>
         <module>asterix-runtime</module>
         <module>asterix-om</module>
-        <module>asterix-aql</module>
         <module>asterix-external-data</module>
         <module>asterix-examples</module>
         <module>asterix-metadata</module>
@@ -291,6 +375,7 @@
         <module>asterix-doc</module>
         <module>asterix-fuzzyjoin</module>
         <module>asterix-yarn</module>
+        <module>asterix-replication</module>
     </modules>
 
     <repositories>
@@ -399,7 +484,17 @@
             </dependency>
             <dependency>
                 <groupId>org.apache.hyracks</groupId>
+                <artifactId>hyracks-util</artifactId>
+                <version>${hyracks.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.hyracks</groupId>
                 <artifactId>hyracks-dataflow-std</artifactId>
+                <version>${hyracks.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.hyracks</groupId>
+                <artifactId>hyracks-data</artifactId>
                 <version>${hyracks.version}</version>
             </dependency>
             <dependency>

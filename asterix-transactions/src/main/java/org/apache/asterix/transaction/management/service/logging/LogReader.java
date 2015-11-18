@@ -92,8 +92,8 @@ public class LogReader implements ILogReader {
             return null;
         }
         if (readBuffer.position() == readBuffer.limit()) {
-            boolean eof = refillLogReadBuffer();
-            if (eof && isRecoveryMode && readLSN < flushLSN.get()) {
+            boolean hasRemaining = refillLogReadBuffer();
+            if (!hasRemaining && isRecoveryMode && readLSN < flushLSN.get()) {
                 LOGGER.severe("Transaction log ends before expected. Log files may be missing.");
                 return null;
             }
@@ -102,14 +102,26 @@ public class LogReader implements ILogReader {
         RECORD_STATUS status = logRecord.readLogRecord(readBuffer);
         switch(status) {
             case TRUNCATED: {
+                //we may have just read off the end of the buffer, so try refiling it
                 if(!refillLogReadBuffer()) {
                     return null;
                 }
-                if(logRecord.readLogRecord(readBuffer) == RECORD_STATUS.OK){
-                    break;
+                //now see what we have in the refilled buffer
+                status = logRecord.readLogRecord(readBuffer);
+                switch(status){
+                    case TRUNCATED: {
+                        LOGGER.info("Log file has truncated log records.");
+                        return null;
+                    }
+                    case BAD_CHKSUM:{
+                        LOGGER.severe("Transaction log contains corrupt log records (perhaps due to medium error). Stopping recovery early.");
+                        return null;
+                    }
+                    case OK: break;
                 }
-                LOGGER.info("Log file has truncated log records.");
-                return null;
+                //if we have exited the inner switch,
+                // this means status is really "OK" after buffer refill
+                break;
             }
             case BAD_CHKSUM:{
                 LOGGER.severe("Transaction log contains corrupt log records (perhaps due to medium error). Stopping recovery early.");
@@ -214,10 +226,10 @@ public class LogReader implements ILogReader {
         } catch (IOException e) {
             throw new ACIDException(e);
         }
-        boolean eof;
+        boolean hasRemaining;
         if(readBuffer.position() == readBuffer.limit()){
-            eof = refillLogReadBuffer();
-            if(eof){
+            hasRemaining = refillLogReadBuffer();
+            if(!hasRemaining){
                 throw new ACIDException("LSN is out of bounds");
             }
         }
