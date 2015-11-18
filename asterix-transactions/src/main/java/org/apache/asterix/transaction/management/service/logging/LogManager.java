@@ -63,13 +63,9 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     private final String logFilePrefix;
     private final MutableLong flushLSN;
     public final IIOManager ioManager;
-    private LinkedBlockingQueue<LogBuffer> emptyQ;
-    private LinkedBlockingQueue<LogBuffer> flushQ;
-    private final AtomicLong appendLSN;
     private Map<FileReference, IFileHandle> openLogFiles;
     IFileHandle currentLogFile;
     FileReference currentLogFileReference;
-    private LogBuffer appendPage;
     private LinkedBlockingQueue<LogBuffer> emptyQ;
     private LinkedBlockingQueue<LogBuffer> flushQ;
     protected final AtomicLong appendLSN;

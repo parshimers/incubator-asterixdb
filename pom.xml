@@ -170,6 +170,18 @@
                   </execution>
               </executions>
             </plugin>
+
+            <plugin>
+                 <groupId>org.apache.maven.plugins</groupId>
+                 <artifactId>maven-compiler-plugin</artifactId>
+                 <version>3.1</version>
+                 <configuration>
+                    <source>${jdk.version}</source>
+                    <target>${jdk.version}</target>
+                    <compilerArgument>-Xlint:all</compilerArgument>
+                 </configuration>
+           </plugin>
+
         </plugins>
         <pluginManagement>
             <plugins>
@@ -323,24 +335,6 @@
               </plugin>
             </plugins>
           </build>
-        </profile>
-        <profile>
-            <id>java6</id>
-            <activation>
-                <jdk>1.6</jdk>
-            </activation>
-             <properties>
-                <jdk.version>1.6</jdk.version>
-             </properties>
-        </profile>
-        <profile>
-            <id>java7</id>
-            <activation>
-                <jdk>1.7</jdk>
-            </activation>
-             <properties>
-                <jdk.version>1.7</jdk.version>
-             </properties>
         </profile>
         <profile>
             <id>java8</id>

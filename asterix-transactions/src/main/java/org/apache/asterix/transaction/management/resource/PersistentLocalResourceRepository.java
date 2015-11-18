@@ -18,15 +18,9 @@
  */
 package org.apache.asterix.transaction.management.resource;
 
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.FilenameFilter;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -66,6 +60,7 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
     private IReplicationManager replicationManager;
     private boolean isReplicationEnabled = false;
     private Set<String> filesToBeReplicated;
+    private IIOManager ioManager;
     
     public PersistentLocalResourceRepository(List<IODeviceHandle> devices, String nodeId) throws HyracksDataException {
         mountPoints = new String[devices.size()];
@@ -207,7 +202,7 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
     public synchronized void deleteResourceByName(String name) throws HyracksDataException {
         FileReference resourceFile = getLocalResourceFileByName(name);
         if (ioManager.exists(resourceFile)) {
-            ioManager.delete(resourceFile)
+            ioManager.delete(resourceFile);
             resourceCache.invalidate(name);
             
             //if replication enabled, delete resource from remote replicas
@@ -249,29 +244,28 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
             continue;
         }
 
-        String[] dataverseFileList = ioManager.listFiles(rootDirFile,dummy);
+        String[] dataverseFileList = ioManager.listFiles(rootDirFile,METADATA_FILES_FILTER);
         if (dataverseFileList == null) {
             throw new HyracksDataException("Metadata dataverse doesn't exist.");
         }
         for (String dataverseFileName : dataverseFileList) {
             FileReference dataverseFileReference = new FileReference(dataverseFileName, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
             if (ioManager.isDirectory(dataverseFileReference)) {
-                String[] indexFileList = ioManager.listFiles(dataverseFileReference,dummy);
+                String[] indexFileList = ioManager.listFiles(dataverseFileReference, METADATA_FILES_FILTER);
                 if (indexFileList != null) {
                     for (String indexFileReferenceName : indexFileList) {
                         FileReference indexFileReference = new FileReference(dataverseFileName, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
                         if (ioManager.isDirectory(indexFileReference)) {
-                            String[] ioDevicesList = ioManager.listFiles(indexFileReference,dummy);
+                            String[] ioDevicesList = ioManager.listFiles(indexFileReference, METADATA_FILES_FILTER);
                             if (ioDevicesList != null) {
                                 for (String ioDeviceFileReferenceName : ioDevicesList) {
                                     FileReference ioDeviceFileReference = new FileReference(ioDeviceFileReferenceName, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
                                     if (ioManager.isDirectory(ioDeviceFileReference)) {
-                                        String[] metadataFiles = ioManager.listFiles(ioDeviceFileReference,filter);
+                                        String[] metadataFiles = ioManager.listFiles(ioDeviceFileReference, METADATA_FILES_FILTER);
                                         if (metadataFiles != null) {
-                                                for (File metadataFile : metadataFiles) {
-                                                    LocalResource localResource = readLocalResource(metadataFile);
-                                                    resourcesMap.put(localResource.getResourceId(), localResource);
-                                                }
+                                            for (File metadataFile : metadataFiles) {
+                                                LocalResource localResource = readLocalResource(metadataFile);
+                                                resourcesMap.put(localResource.getResourceId(), localResource);
                                             }
                                         }
                                     }
@@ -310,19 +304,19 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
             continue;
         }
 
-        String[] dataverseFileList = ioManager.listFiles(rootDirFile,dummy);
+        String[] dataverseFileList = ioManager.listFiles(rootDirFile,METADATA_FILES_FILTER);
         if (dataverseFileList == null) {
             throw new HyracksDataException("Metadata dataverse doesn't exist.");
         }
         for (String dataverseFileName : dataverseFileList) {
             FileReference dataverseFileReference = new FileReference(dataverseFileName, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
             if (ioManager.isDirectory(dataverseFileReference)) {
-                String[] indexFileList = ioManager.listFiles(dataverseFileReference,dummy);
+                String[] indexFileList = ioManager.listFiles(dataverseFileReference,METADATA_FILES_FILTER);
                 if (indexFileList != null) {
                     for (String indexFileReferenceName : indexFileList) {
                         FileReference indexFileReference = new FileReference(dataverseFileName, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
                         if (ioManager.isDirectory(indexFileReference)) {
-                            String[] ioDevicesList = ioManager.listFiles(indexFileReference,dummy);
+                            String[] ioDevicesList = ioManager.listFiles(indexFileReference,METADATA_FILES_FILTER);
                             if (ioDevicesList != null) {
                                 for (String ioDeviceFileReferenceName : ioDevicesList) {
                                     FileReference ioDeviceFileReference = new FileReference(ioDeviceFileReferenceName, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
@@ -333,7 +327,6 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
                                                     LocalResource localResource = readLocalResource(metadataFile);
                                                     maxResourceId = Math.max(maxResourceId,
                                                             localResource.getResourceId());
-                                                }
                                             }
                                         }
                                     }
