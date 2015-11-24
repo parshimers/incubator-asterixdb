@@ -16,9 +16,9 @@
  ! specific language governing permissions and limitations
  ! under the License.
  !-->
-#AsterixDB
+#Apache AsterixDB
 
-AsterixDB is a BDMS (Big Data Management System) with a rich feature set that sets it apart from other Big Data platforms.  Its feature set makes it well-suited to modern needs such as web data warehousing and social data storage and analysis. AsterixDB has:
+Apache AsterixDB is a full-function BDMS (Big Data Management System) with a rich feature set that distinguishes it from pretty much any other Big Data platform that's out and available today.  We believe that its feature set makes it well-suited to modern needs such as web data warehousing and social data storage and analysis.  AsterixDB has:
 
  * A semistructured NoSQL style data model (ADM) resulting from extending JSON with object database ideas
  * An expressive and declarative query language (AQL) that supports a broad range of queries and analysis over semistructured data
@@ -30,7 +30,7 @@ AsterixDB is a BDMS (Big Data Management System) with a rich feature set that se
  * Support for fuzzy and spatial queries as well as for more traditional parametric queries
  * Basic transactional (concurrency and recovery) capabilities akin to those of a NoSQL store
 
-Learn more about AsterixDB at [http://asterixdb.ics.uci.edu/] (http://asterixdb.ics.uci.edu/)
+Learn more about AsterixDB at [https://asterixdb.incubator.apache.org] (https://asterixdb.incubator.apache.org)
 
 
 ##Building AsterixDB
@@ -46,10 +46,9 @@ Additionally to run all the integration tests you should be running `sshd` local
 
 ##Documentation
 
-AsterixDB's official documentation resides at [http://asterixdb.ics.uci.edu/documentation/index.html] (http://asterixdb.ics.uci.edu/documentation/index.html). This is built from the maven project under `asterix-doc/` as a maven site. The documentation on the official website refers to the most stable release version, so for pre-release versions one should refer to the compiled documentation.
+Apache AsterixDB's official documentation resides at [http://asterixdb.ics.uci.edu/documentation/index.html] (http://asterixdb.ics.uci.edu/documentation/index.html). This is built from the maven project under `asterix-doc/` as a maven site. The documentation on the official website refers to the most stable release version, so for pre-release versions one should refer to the compiled documentation.
 
 ##Support/Contact
 
 If you have any questions, please feel free to ask on our mailing list, [users@asterixdb.incubator.apache.org](mailto:users@asterixdb.incubator.apache.org). Join the list by sending an email to [users-subscribe@asterixdb.incubator.apache.org](mailto:users-subscribe@asterixdb.incubator.apache.org). If you are interested in the internals or developement of AsterixDB, also please feel free to subscribe to our developer mailing list, [dev@asterixdb.incubator.apache.org](mailto:dev@asterixdb.incubator.apache.org), by sending an email to [dev-subscribe@asterixdb.incubator.apache.org](mailto:dev-subscribe@asterixdb.incubator.apache.org).
-
 
