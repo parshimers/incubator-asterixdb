@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.uci.ics.asterix.test.aql;
+package org.apache.asterix.test.aql;
 
 import static org.junit.Assert.fail;
 
@@ -49,10 +49,10 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 
-import edu.uci.ics.asterix.common.config.GlobalConfig;
-import edu.uci.ics.asterix.testframework.context.TestCaseContext;
-import edu.uci.ics.asterix.testframework.context.TestFileContext;
-import edu.uci.ics.asterix.testframework.xml.TestCase.CompilationUnit;
+import org.apache.asterix.common.config.GlobalConfig;
+import org.apache.asterix.testframework.context.TestCaseContext;
+import org.apache.asterix.testframework.context.TestFileContext;
+import org.apache.asterix.testframework.xml.TestCase.CompilationUnit;
 
 public class ClusterTestsUtils {
 
@@ -306,7 +306,7 @@ public class ClusterTestsUtils {
     public static void executeManagixCommand(String command) throws ClassNotFoundException, NoSuchMethodException,
             SecurityException, IllegalAccessException, IllegalArgumentException, InvocationTargetException {
         if (managixExecuteMethod == null) {
-            Class<?> clazz = Class.forName("edu.uci.ics.asterix.installer.test.AsterixInstallerIntegrationUtil");
+            Class<?> clazz = Class.forName("org.apache.asterix.installer.test.AsterixInstallerIntegrationUtil");
             managixExecuteMethod = clazz.getMethod("executeCommand", String.class);
         }
         managixExecuteMethod.invoke(null, command);

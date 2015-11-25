@@ -48,7 +48,7 @@ public class ExecutionTest {
     protected static final Logger LOGGER = Logger.getLogger(ExecutionTest.class.getName());
 
     protected static final String PATH_ACTUAL = "rttest" + File.separator;
-    protected static final String PATH_BASE = StringUtils.join(new String[] { "src", "test", "resources", "runtimets" },
+    protected static final String PATH_BASE = StringUtils.join(new String[] { "asterix-app", "src", "test", "resources", "runtimets" },
             File.separator);
 
     protected static final String TEST_CONFIG_FILE_NAME = "asterix-build-configuration.xml";

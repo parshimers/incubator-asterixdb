@@ -35,7 +35,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     $java_inst = <<-END
         wget -q --no-cookies --no-check-certificate \
         --header 'Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie' \
-        'http://download.oracle.com/otn-pub/java/jdk/7u51-b13/jdk-7u51-linux-x64.rpm' \
+        'http://download.oracle.com/otn-pub/java/jdk/8u65-b17/jdk-8u65-linux-x64.rpm' \
         -O /tmp/jdk.rpm;
 
         sudo yum -y localinstall /tmp/jdk.rpm;
@@ -45,23 +45,23 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     config.vm.provision "shell", inline: $java_inst
 
     config.vm.define "nc3" do |nc|
-        nc.vm.box = "chef/centos-6.5"
+        nc.vm.box = "bento/centos-6.7"
         nc.vm.hostname = "nc3"
         nc.vm.network "private_network", ip: "10.10.0.5"
     end
     config.vm.define "nc2" do |nc|
-        nc.vm.box = "chef/centos-6.5"
+        nc.vm.box = "bento/centos-6.7"
         nc.vm.hostname = "nc2"
         nc.vm.network "private_network", ip: "10.10.0.4"
     end
     config.vm.define "nc1" do |nc|
-        nc.vm.box = "chef/centos-6.5"
+        nc.vm.box = "bento/centos-6.7"
         nc.vm.hostname = "nc1"
         nc.vm.network "private_network", ip: "10.10.0.3"
     end
 
     config.vm.define "cc" do |cc|
-        cc.vm.box = "chef/centos-6.5"
+        cc.vm.box = "bento/centos-6.7"
         cc.vm.hostname = "cc"
         cc.vm.network "private_network", ip: "10.10.0.2"
     end
