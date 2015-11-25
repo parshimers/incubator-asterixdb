@@ -1,0 +1,85 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.asterix.dataflow.data.nontagged.serde;
+
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
+
+import org.apache.asterix.formats.nontagged.AqlSerializerDeserializerProvider;
+import org.apache.asterix.om.base.AMutableTime;
+import org.apache.asterix.om.base.ATime;
+import org.apache.asterix.om.base.temporal.ATimeParserFactory;
+import org.apache.asterix.om.types.BuiltinType;
+import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
+
+public class ATimeSerializerDeserializer implements ISerializerDeserializer<ATime> {
+
+    private static final long serialVersionUID = 1L;
+
+    public static final ATimeSerializerDeserializer INSTANCE = new ATimeSerializerDeserializer();
+
+    @SuppressWarnings("unchecked")
+    private static final ISerializerDeserializer<ATime> timeSerde = AqlSerializerDeserializerProvider.INSTANCE
+            .getSerializerDeserializer(BuiltinType.ATIME);
+    private static final AMutableTime aTime = new AMutableTime(0);
+
+    private ATimeSerializerDeserializer() {
+    }
+
+    @Override
+    public ATime deserialize(DataInput in) throws HyracksDataException {
+        try {
+            return new ATime(in.readInt());
+
+        } catch (IOException e) {
+            throw new HyracksDataException(e);
+        }
+    }
+
+    @Override
+    public void serialize(ATime instance, DataOutput out) throws HyracksDataException {
+        try {
+            out.writeInt(instance.getChrononTime());
+
+        } catch (IOException e) {
+            throw new HyracksDataException(e);
+        }
+    }
+
+    public static void parse(String time, DataOutput out) throws HyracksDataException {
+        int chrononTimeInMs;
+
+        try {
+            chrononTimeInMs = ATimeParserFactory.parseTimePart(time, 0, time.length());
+        } catch (Exception e) {
+            throw new HyracksDataException(e);
+        }
+
+        aTime.setValue(chrononTimeInMs);
+
+        timeSerde.serialize(aTime, out);
+    }
+
+    public static int getChronon(byte[] byteArray, int offset) {
+        return AInt32SerializerDeserializer.getInt(byteArray, offset);
+    }
+
+}

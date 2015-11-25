@@ -1,9 +1,26 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
 # LEXER GENERATOR configuration file
 # ---------------------------------------
 # Place *first* the generic configuration
 # then list your grammar.
 
-PACKAGE:          edu.uci.ics.asterix.runtime.operators.file.adm
+PACKAGE:          org.apache.asterix.runtime.operators.file.adm
 LEXER_NAME:       AdmLexer
 
 TOKENS:
@@ -13,12 +30,15 @@ INT8_CONS      = string(int8)
 INT16_CONS     = string(int16)
 INT32_CONS     = string(int32)
 INT64_CONS     = string(int64)
+INT64_CONS     = string(int)
 FLOAT_CONS     = string(float)
 DOUBLE_CONS    = string(double)
 DATE_CONS      = string(date)
 DATETIME_CONS  = string(datetime)
 DURATION_CONS  = string(duration)
 STRING_CONS    = string(string)
+HEX_CONS       = string(hex)
+BASE64_CONS    = string(base64)
 POINT_CONS     = string(point)
 POINT3D_CONS   = string(point3d)
 LINE_CONS      = string(line)
@@ -30,7 +50,8 @@ INTERVAL_TIME_CONS      = string(interval-time)
 INTERVAL_DATE_CONS      = string(interval-date)
 INTERVAL_DATETIME_CONS  = string(interval-datetime)
 YEAR_MONTH_DURATION_CONS = string(year-month-duration)
-DAY_TIME_DURATION_CONS   = string(day-time-duration) 
+DAY_TIME_DURATION_CONS   = string(day-time-duration)
+UUID_CONS      = string(uuid)
 
 NULL_LITERAL   = string(null)
 TRUE_LITERAL   = string(true)

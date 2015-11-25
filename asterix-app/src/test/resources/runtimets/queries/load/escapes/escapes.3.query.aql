@@ -1,5 +1,0 @@
-use dataverse TestDataverse;
-
-for $i in dataset TestSet
-order by $i.id
-return $i

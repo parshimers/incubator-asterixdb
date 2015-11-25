@@ -1,3 +1,21 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 use dataverse fuzzy1;
 
 declare type DBLPType as open {
@@ -26,18 +44,18 @@ return {'R': {'dblpid': $paperR.dblpid, 'authors': $paperR.authors},
 
 /*
 java.lang.RuntimeException: java.lang.IllegalArgumentException
-        at edu.uci.ics.hyracks.control.nc.runtime.OperatorRunnable.run(OperatorRunnable.java:70)
-        at edu.uci.ics.hyracks.control.nc.Stagelet$1.run(Stagelet.java:120)
+        at org.apache.hyracks.control.nc.runtime.OperatorRunnable.run(OperatorRunnable.java:70)
+        at org.apache.hyracks.control.nc.Stagelet$1.run(Stagelet.java:120)
         at java.util.concurrent.ThreadPoolExecutor$Worker.runTask(ThreadPoolExecutor.java:886)
         at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:908)
         at java.lang.Thread.run(Thread.java:619)
 Caused by: java.lang.IllegalArgumentException
-        at edu.uci.ics.hyracks.dataflow.common.data.util.StringUtils.charAt(StringUtils.java:62)
-        at edu.uci.ics.asterix.jobgen.data.tagged.AqlSchemalessPrinterFactory$1.print(AqlSchemalessPrinterFactory.java:103)
-        at edu.uci.ics.asterix.jobgen.data.tagged.AqlSchemalessPrinterFactory$1.print(AqlSchemalessPrinterFactory.java:112)
-        at edu.uci.ics.aqua.runtime.operators.std.PrinterRuntime.printTuple(PrinterRuntime.java:90)
-        at edu.uci.ics.aqua.runtime.operators.std.PrinterRuntime.nextFrame(PrinterRuntime.java:58)
-        at edu.uci.ics.aqua.runtime.operators.base.AquaMetaOperatorDescriptor$2.nextFrame(AquaMetaOperatorDescriptor.java:123)
-        at edu.uci.ics.hyracks.control.nc.runtime.OperatorRunnable.run(OperatorRunnable.java:62)
+        at org.apache.hyracks.dataflow.common.data.util.StringUtils.charAt(StringUtils.java:62)
+        at org.apache.asterix.jobgen.data.tagged.AqlSchemalessPrinterFactory$1.print(AqlSchemalessPrinterFactory.java:103)
+        at org.apache.asterix.jobgen.data.tagged.AqlSchemalessPrinterFactory$1.print(AqlSchemalessPrinterFactory.java:112)
+        at org.apache.aqua.runtime.operators.std.PrinterRuntime.printTuple(PrinterRuntime.java:90)
+        at org.apache.aqua.runtime.operators.std.PrinterRuntime.nextFrame(PrinterRuntime.java:58)
+        at org.apache.aqua.runtime.operators.base.AquaMetaOperatorDescriptor$2.nextFrame(AquaMetaOperatorDescriptor.java:123)
+        at org.apache.hyracks.control.nc.runtime.OperatorRunnable.run(OperatorRunnable.java:62)
         ... 4 more
 */
