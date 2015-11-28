@@ -21,8 +21,10 @@ package org.apache.asterix.experiment.builder;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.net.Inet4Address;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -38,14 +40,12 @@ import java.util.Set;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.Unmarshaller;
 
-import org.apache.http.client.HttpClient;
-import org.apache.http.impl.client.DefaultHttpClient;
-
 import org.apache.asterix.event.schema.cluster.Cluster;
 import org.apache.asterix.experiment.action.base.IAction;
 import org.apache.asterix.experiment.action.base.ParallelActionSet;
 import org.apache.asterix.experiment.action.base.SequentialActionList;
 import org.apache.asterix.experiment.action.derived.AbstractRemoteExecutableAction;
+import org.apache.asterix.experiment.action.derived.CloseOutputStreamAction;
 import org.apache.asterix.experiment.action.derived.ManagixActions.LogAsterixManagixAction;
 import org.apache.asterix.experiment.action.derived.ManagixActions.StartAsterixManagixAction;
 import org.apache.asterix.experiment.action.derived.ManagixActions.StopAsterixManagixAction;
@@ -56,8 +56,9 @@ import org.apache.asterix.experiment.action.derived.SleepAction;
 import org.apache.asterix.experiment.action.derived.TimedAction;
 import org.apache.asterix.experiment.client.LSMExperimentConstants;
 import org.apache.asterix.experiment.client.LSMExperimentSetRunner.LSMExperimentSetRunnerConfig;
-import org.apache.hyracks.api.util.ExperimentProfiler;
-import org.apache.hyracks.api.util.SpatialIndexProfiler;
+import org.apache.http.client.HttpClient;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.hyracks.api.util.ExperimentProfilerUtils;
 
 /**
  * This class is used to create experiments for spatial index static data evaluation, that is, no ingestion is involved.
@@ -65,11 +66,14 @@ import org.apache.hyracks.api.util.SpatialIndexProfiler;
  */
 public abstract class AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder extends AbstractExperimentBuilder {
 
+    private static final boolean PROFILE_JOB_LAUCHING_OVERHEAD = false;
+
     private static final String ASTERIX_INSTANCE_NAME = "a1";
     private static final int SKIP_LINE_COUNT = 223;
     private static final int CACHE_WARM_UP_QUERY_COUNT = 500;
     private static final int SELECT_QUERY_COUNT = 5000;
-    private static final int JOIN_QUERY_COUNT = 200;
+    private static final int JOIN_QUERY_COUNT = 1000;
+
     private static final int JOIN_CANDIDATE_COUNT = 100;
     private static final int MAX_QUERY_SEED = 10000;
 
@@ -121,10 +125,13 @@ public abstract class AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder e
     private int radiusIter = 0;
     private final Random randGen;
     private BufferedReader br;
+    private final boolean isIndexOnlyPlan;
+    private String outputFilePath;
+    private FileOutputStream outputFos;
 
     public AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder(String name, LSMExperimentSetRunnerConfig config,
             String clusterConfigFileName, String ingestFileName, String dgenFileName, String countFileName,
-            String createAQLFileName) {
+            String createAQLFileName, boolean isIndexOnlyPlan) {
         super(name);
         this.logDirSuffix = config.getLogDirSuffix();
         this.httpClient = new DefaultHttpClient();
@@ -147,6 +154,7 @@ public abstract class AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder e
         this.createAQLFilePath = createAQLFileName;
         this.querySeedFilePath = config.getQuerySeedFilePath();
         this.randGen = new Random();
+        this.isIndexOnlyPlan = isIndexOnlyPlan;
     }
 
     protected void doPost(SequentialActionList seq) {
@@ -219,64 +227,74 @@ public abstract class AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder e
 
         //---------- main experiment body begins -----------
 
+        try {
+            outputFilePath = openStreetMapFilePath.substring(0, openStreetMapFilePath.lastIndexOf(File.separator))
+                    + File.separator + "QueryGenResult-" + getName() + "-"
+                    + Inet4Address.getLocalHost().getHostAddress() + ".txt";
+            outputFos = ExperimentProfilerUtils.openOutputFile(outputFilePath);
+        } catch (Exception e1) {
+            e1.printStackTrace();
+            return;
+        }
+
         //delete all existing secondary indexes if any
         execs.add(new RunAQLStringAction(httpClient, restHost, restPort,
-                "use dataverse experiments; drop index Tweets.dhbtreeLocation;"));
+                "use dataverse experiments; drop index Tweets.dhbtreeLocation;", outputFos));
         execs.add(new RunAQLStringAction(httpClient, restHost, restPort,
-                "use dataverse experiments; drop index Tweets.dhvbtreeLocation;"));
+                "use dataverse experiments; drop index Tweets.dhvbtreeLocation;", outputFos));
         execs.add(new RunAQLStringAction(httpClient, restHost, restPort,
-                "use dataverse experiments; drop index Tweets.rtreeLocation;"));
+                "use dataverse experiments; drop index Tweets.rtreeLocation;", outputFos));
         execs.add(new RunAQLStringAction(httpClient, restHost, restPort,
-                "use dataverse experiments; drop index Tweets.shbtreeLocation;"));
+                "use dataverse experiments; drop index Tweets.shbtreeLocation;", outputFos));
         execs.add(new RunAQLStringAction(httpClient, restHost, restPort,
-                "use dataverse experiments; drop index Tweets.sifLocation;"));
+                "use dataverse experiments; drop index Tweets.sifLocation;", outputFos));
 
         //create secondary index 
         execs.add(new TimedAction(new RunAQLFileAction(httpClient, restHost, restPort, localExperimentRoot.resolve(
-                LSMExperimentConstants.AQL_DIR).resolve(createAQLFilePath))));
+                LSMExperimentConstants.AQL_DIR).resolve(createAQLFilePath), outputFos), outputFos));
 
         //run count query for cleaning up OS buffer cache
         if (countFileName != null) {
             execs.add(new RunAQLFileAction(httpClient, restHost, restPort, localExperimentRoot.resolve(
-                    LSMExperimentConstants.AQL_DIR).resolve(countFileName)));
+                    LSMExperimentConstants.AQL_DIR).resolve(countFileName), outputFos));
         }
 
         //run cache warm-up queries: run CACHE_WARM_UP_QUERY_COUNT select queries
         br = new BufferedReader(new FileReader(querySeedFilePath));
         radiusIter = 0;
         for (int i = 0; i < CACHE_WARM_UP_QUERY_COUNT; i++) {
-            execs.add(getSelectQuery());
+            execs.add(getSelectQuery(isIndexOnlyPlan));
         }
 
         radiusIter = 0;
         //run queries for measurement: run SELECT_QUERY_COUNT select queries
         for (int i = 0; i < SELECT_QUERY_COUNT; i++) {
-            execs.add(getSelectQuery());
+            execs.add(getSelectQuery(isIndexOnlyPlan));
         }
 
         radiusIter = 0;
         //run queries for measurement: run JOIN_QUERY_COUNT join queries
         for (int i = 0; i < JOIN_QUERY_COUNT; i++) {
-            execs.add(getJoinQuery());
+            execs.add(getJoinQuery(isIndexOnlyPlan));
         }
 
         //---------- main experiment body ends -----------
 
         //kill io state action
-//        if (statFile != null) {
-//            ParallelActionSet ioCountKillActions = new ParallelActionSet();
-//            for (String ncHost : ncHosts) {
-//                ioCountKillActions.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
-//
-//                    @Override
-//                    protected String getCommand() {
-//                        String cmd = "screen -X -S `screen -list | grep Detached | awk '{print $1}'` quit";
-//                        return cmd;
-//                    }
-//                });
-//            }
-//            execs.add(ioCountKillActions);
-//        }
+        //        if (statFile != null) {
+        //            ParallelActionSet ioCountKillActions = new ParallelActionSet();
+        //            for (String ncHost : ncHosts) {
+        //                ioCountKillActions.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
+        //
+        //                    @Override
+        //                    protected String getCommand() {
+        //                        String cmd = "screen -X -S `screen -list | grep Detached | awk '{print $1}'` quit";
+        //                        return cmd;
+        //                    }
+        //                });
+        //            }
+        //            execs.add(ioCountKillActions);
+        //        }
 
         //add ls action
         execs.add(postLSAction);
@@ -309,23 +327,41 @@ public abstract class AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder e
         }
 
         //collect profile information
-        if (ExperimentProfiler.PROFILE_MODE) {
-            ParallelActionSet collectProfileInfo = new ParallelActionSet();
-            for (String ncHost : ncHosts) {
-                collectProfileInfo.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
-                    @Override
-                    protected String getCommand() {
-                        String cmd = "mv " + SpatialIndexProfiler.PROFILE_HOME_DIR + "*.txt " + cluster.getLogDir();
-                        return cmd;
-                    }
-                });
-            }
-            execs.add(collectProfileInfo);
-        }
+        //        if (ExperimentProfiler.PROFILE_MODE) {
+        //            if (!SpatialIndexProfiler.PROFILE_HOME_DIR.contentEquals(cluster.getLogDir())) {
+        //                ParallelActionSet collectProfileInfo = new ParallelActionSet();
+        //                for (String ncHost : ncHosts) {
+        //                    collectProfileInfo.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
+        //                        @Override
+        //                        protected String getCommand() {
+        //                            String cmd = "mv " + SpatialIndexProfiler.PROFILE_HOME_DIR + "*.txt " + cluster.getLogDir();
+        //                            return cmd;
+        //                        }
+        //                    });
+        //                }
+        //                execs.add(collectProfileInfo);
+        //            }
+        //        }
 
         //collect cc and nc logs
         execs.add(new LogAsterixManagixAction(managixHomePath, ASTERIX_INSTANCE_NAME, localExperimentRoot
                 .resolve(LSMExperimentConstants.LOG_DIR + "-" + logDirSuffix).resolve(getName()).toString()));
+
+        //get query result file
+        final String queryResultFilePath = outputFilePath;
+        execs.add(new AbstractRemoteExecutableAction(restHost, username, sshKeyLocation) {
+            @Override
+            protected String getCommand() {
+                String cmd = "mv "
+                        + queryResultFilePath
+                        + " "
+                        + localExperimentRoot.resolve(LSMExperimentConstants.LOG_DIR + "-" + logDirSuffix)
+                                .resolve(getName()).toString();
+                return cmd;
+            }
+        });
+        //close the outputStream
+        execs.add(new CloseOutputStreamAction(outputFos));
 
         e.addBody(execs);
     }
@@ -350,7 +386,7 @@ public abstract class AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder e
         return dgenPairs;
     }
 
-    private SequentialActionList getSelectQuery() throws IOException {
+    private SequentialActionList getSelectQuery(boolean isIndexOnlyPlan) throws IOException {
         //prepare radius and center point
         int skipLineCount = SKIP_LINE_COUNT;
         int lineCount = 0;
@@ -378,32 +414,61 @@ public abstract class AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder e
         //create action
         SequentialActionList sAction = new SequentialActionList();
         IAction queryAction = new TimedAction(new RunAQLStringAction(httpClient, restHost, restPort, getSelectQueryAQL(
-                radiusType[radiusIter++ % radiusType.length], point)));
+                radiusType[radiusIter++ % radiusType.length], point, isIndexOnlyPlan), outputFos), outputFos);
         sAction.add(queryAction);
 
         return sAction;
     }
 
-    private String getSelectQueryAQL(float radius, String point) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("use dataverse experiments; ");
-        sb.append("count( ");
-        sb.append("for $x in dataset Tweets").append(" ");
-        sb.append("let $n :=  create-circle( ");
-        sb.append("point").append(point).append(" ");
-        sb.append(", ");
-        sb.append(String.format("%f", radius));
-        sb.append(" ) ");
-        sb.append("where spatial-intersect($x.sender-location, $n) ");
-        sb.append("return $x ");
-        sb.append(");");
+    private String getSelectQueryAQL(float radius, String point, boolean isIndexOnlyPlan) {
+        if (PROFILE_JOB_LAUCHING_OVERHEAD) {
+            Random random = new Random();
+            int btreeExtraFieldKey = random.nextInt();
+            int rangeSize = (int) (radius * 100000000L);
+            if (btreeExtraFieldKey == Integer.MIN_VALUE) {
+                btreeExtraFieldKey = Integer.MIN_VALUE + 1;
+            }
+            if (btreeExtraFieldKey + rangeSize >= Integer.MAX_VALUE) {
+                btreeExtraFieldKey = Integer.MAX_VALUE - rangeSize - 1;
+            }
 
-        System.out.println("[squery" + (queryCount++) + "]" + sb.toString());
+            StringBuilder sb = new StringBuilder();
+            sb.append("use dataverse experiments; ");
+            sb.append("count( ");
+            sb.append("for $x in dataset Tweets").append(" ");
+            sb.append("where $x.btree-extra-field1 > int32(\"" + btreeExtraFieldKey
+                    + "\") and $x.btree-extra-field1 < int32(\"" + (btreeExtraFieldKey + rangeSize) + "\")");
+            sb.append("return $x ");
+            sb.append(");");
 
-        return sb.toString();
+            System.out.println("[squery" + (queryCount++) + "]" + sb.toString());
+
+            return sb.toString();
+        } else {
+            StringBuilder sb = new StringBuilder();
+            sb.append("use dataverse experiments; ");
+            sb.append("count( ");
+            sb.append("for $x in dataset Tweets").append(" ");
+            sb.append("let $n :=  create-circle( ");
+            sb.append("point").append(point).append(" ");
+            sb.append(", ");
+            sb.append(String.format("%f", radius));
+            sb.append(" ) ");
+            if (isIndexOnlyPlan) {
+                sb.append("where spatial-intersect($x.sender-location, $n) ");
+            } else {
+                sb.append("where spatial-intersect($x.sender-location, $n) and $x.btree-extra-field1 <= int32(\"2147483647\") ");
+            }
+            sb.append("return $x ");
+            sb.append(");");
+
+            System.out.println("[squery" + (queryCount++) + "]" + sb.toString());
+
+            return sb.toString();
+        }
     }
 
-    private SequentialActionList getJoinQuery() {
+    private SequentialActionList getJoinQuery(boolean isIndexOnlyPlan) {
         querySeed += SKIP_LINE_COUNT;
         if (querySeed > MAX_QUERY_SEED) {
             querySeed -= MAX_QUERY_SEED;
@@ -415,28 +480,53 @@ public abstract class AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder e
         //create action
         SequentialActionList sAction = new SequentialActionList();
         IAction queryAction = new TimedAction(new RunAQLStringAction(httpClient, restHost, restPort, getJoinQueryAQL(
-                radiusType[radiusIter++ % (radiusType.length - 1)], lowId, highId)));
+                radiusType[radiusIter++ % (radiusType.length - 1)], lowId, highId, isIndexOnlyPlan), outputFos),
+                outputFos);
         sAction.add(queryAction);
 
         return sAction;
     }
 
-    private String getJoinQueryAQL(float radius, int lowId, int highId) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(" use dataverse experiments; \n");
-        sb.append(" count( \n");
-        sb.append(" for $x in dataset JoinSeedTweets").append(" \n");
-        sb.append(" let $area := create-circle($x.sender-location, ").append(String.format("%f", radius))
-                .append(" ) \n");
-        sb.append(" for $y in dataset Tweets \n");
-        sb.append(" where $x.tweetid >= int64(\"" + lowId + "\") ").append(
-                "and $x.tweetid < int64(\"" + highId + "\") and ");
-        sb.append(" spatial-intersect($y.sender-location, $area) \n");
-        sb.append(" return $y \n");
-        sb.append(" );\n");
+    private String getJoinQueryAQL(float radius, int lowId, int highId, boolean isIndexOnlyPlan) {
+        if (PROFILE_JOB_LAUCHING_OVERHEAD) {
+            Random random = new Random();
+            int btreeExtraFieldKey = random.nextInt();
+            if (btreeExtraFieldKey == Integer.MIN_VALUE) {
+                btreeExtraFieldKey = Integer.MIN_VALUE + 1;
+            }
 
-        System.out.println("[jquery" + (queryCount++) + "]" + sb.toString());
+            StringBuilder sb = new StringBuilder();
+            sb.append("use dataverse experiments; ");
+            sb.append("count( ");
+            sb.append("for $x in dataset Tweets").append(" ");
+            sb.append("where $x.tweetid = int64(\"" + btreeExtraFieldKey + "\")");
+            sb.append("return $x ");
+            sb.append(");");
 
-        return sb.toString();
+            System.out.println("[squery" + (queryCount++) + "]" + sb.toString());
+
+            return sb.toString();
+        } else {
+            StringBuilder sb = new StringBuilder();
+            sb.append(" use dataverse experiments; \n");
+            sb.append(" count( \n");
+            sb.append(" for $x in dataset JoinSeedTweets").append(" \n");
+            sb.append(" let $area := create-circle($x.sender-location, ").append(String.format("%f", radius))
+                    .append(" ) \n");
+            sb.append(" for $y in dataset Tweets \n");
+            sb.append(" where $x.tweetid >= int64(\"" + lowId + "\") ").append(
+                    "and $x.tweetid < int64(\"" + highId + "\") and ");
+            if (isIndexOnlyPlan) {
+                sb.append(" spatial-intersect($y.sender-location, $area) \n");
+            } else {
+                sb.append(" spatial-intersect($y.sender-location, $area) and $y.btree-extra-field1 <= int32(\"2147483647\")  \n");
+            }
+            sb.append(" return $y \n");
+            sb.append(" );\n");
+
+            System.out.println("[jquery" + (queryCount++) + "]" + sb.toString());
+
+            return sb.toString();
+        }
     }
 }

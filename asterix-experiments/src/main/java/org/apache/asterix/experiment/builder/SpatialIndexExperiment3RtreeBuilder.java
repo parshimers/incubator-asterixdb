@@ -25,6 +25,6 @@ public class SpatialIndexExperiment3RtreeBuilder extends AbstractSpatialIndexExp
 
     public SpatialIndexExperiment3RtreeBuilder(LSMExperimentSetRunnerConfig config) {
         super("SpatialIndexExperiment3Rtree", config, "8node.xml", "base_8_ingest.aql", "8.dqgen", "count.aql",
-                "spatial_3_create_rtree.aql");
+                "spatial_3_create_rtree.aql", true);
     }
 }

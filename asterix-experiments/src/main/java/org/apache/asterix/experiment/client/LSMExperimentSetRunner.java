@@ -25,10 +25,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
-import org.kohsuke.args4j.CmdLineException;
-import org.kohsuke.args4j.CmdLineParser;
-import org.kohsuke.args4j.Option;
-
 import org.apache.asterix.experiment.action.base.SequentialActionList;
 import org.apache.asterix.experiment.builder.AbstractExperimentBuilder;
 import org.apache.asterix.experiment.builder.SpatialIndexExperiment1ADhbtreeBuilder;
@@ -62,6 +58,19 @@ import org.apache.asterix.experiment.builder.SpatialIndexExperiment3PIdxLoadBuil
 import org.apache.asterix.experiment.builder.SpatialIndexExperiment3RtreeBuilder;
 import org.apache.asterix.experiment.builder.SpatialIndexExperiment3ShbtreeBuilder;
 import org.apache.asterix.experiment.builder.SpatialIndexExperiment3SifBuilder;
+import org.apache.asterix.experiment.builder.SpatialIndexExperiment4DhbtreeBuilder;
+import org.apache.asterix.experiment.builder.SpatialIndexExperiment4DhvbtreeBuilder;
+import org.apache.asterix.experiment.builder.SpatialIndexExperiment4RtreeBuilder;
+import org.apache.asterix.experiment.builder.SpatialIndexExperiment4ShbtreeBuilder;
+import org.apache.asterix.experiment.builder.SpatialIndexExperiment4SifBuilder;
+import org.apache.asterix.experiment.builder.SpatialIndexExperiment5DhbtreeBuilder;
+import org.apache.asterix.experiment.builder.SpatialIndexExperiment5DhvbtreeBuilder;
+import org.apache.asterix.experiment.builder.SpatialIndexExperiment5RtreeBuilder;
+import org.apache.asterix.experiment.builder.SpatialIndexExperiment5ShbtreeBuilder;
+import org.apache.asterix.experiment.builder.SpatialIndexExperiment5SifBuilder;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
+import org.kohsuke.args4j.Option;
 
 public class LSMExperimentSetRunner {
 
@@ -225,33 +234,33 @@ public class LSMExperimentSetRunner {
         public String getQuerySeedFilePath() {
             return querySeedFilePath;
         }
-        
+
         @Option(name = "-rcbi", aliases = "--record-count-per-batch-during-ingestion-only", usage = "Record count per batch during ingestion only")
         private int recordCountPerBatchDuringIngestionOnly = 1000;
 
         public int getRecordCountPerBatchDuringIngestionOnly() {
             return recordCountPerBatchDuringIngestionOnly;
         }
-        
+
         @Option(name = "-rcbq", aliases = "--record-count-per-batch-during-query", usage = "Record count per batch during query")
         private int recordCountPerBatchDuringQuery = 1000;
 
         public int getRecordCountPerBatchDuringQuery() {
             return recordCountPerBatchDuringQuery;
         }
-        
+
         @Option(name = "-dsti", aliases = "--data-gen-sleep-time-during-ingestion-only", usage = "DataGen sleep time in milliseconds after every recordCountPerBatchDuringIngestionOnly records were sent")
         private long dataGenSleepTimeDuringIngestionOnly = 1;
 
         public long getDataGenSleepTimeDuringIngestionOnly() {
             return dataGenSleepTimeDuringIngestionOnly;
         }
-        
+
         @Option(name = "-dstq", aliases = "--data-gen-sleep-time-during-query", usage = "DataGen sleep time in milliseconds after every recordCountPerBatchDuringQuery records were sent")
         private long dataGenSleepTimeDuringQuery = 1;
 
         public long getDataGenSleepTimeDuringQuery() {
-            return dataGenSleepTimeDuringIngestionOnly;
+            return dataGenSleepTimeDuringQuery;
         }
     }
 
@@ -301,6 +310,16 @@ public class LSMExperimentSetRunner {
         suite.add(new SpatialIndexExperiment3RtreeBuilder(config));
         suite.add(new SpatialIndexExperiment3ShbtreeBuilder(config));
         suite.add(new SpatialIndexExperiment3SifBuilder(config));
+        suite.add(new SpatialIndexExperiment4DhbtreeBuilder(config));
+        suite.add(new SpatialIndexExperiment4DhvbtreeBuilder(config));
+        suite.add(new SpatialIndexExperiment4RtreeBuilder(config));
+        suite.add(new SpatialIndexExperiment4ShbtreeBuilder(config));
+        suite.add(new SpatialIndexExperiment4SifBuilder(config));
+        suite.add(new SpatialIndexExperiment5DhbtreeBuilder(config));
+        suite.add(new SpatialIndexExperiment5DhvbtreeBuilder(config));
+        suite.add(new SpatialIndexExperiment5RtreeBuilder(config));
+        suite.add(new SpatialIndexExperiment5ShbtreeBuilder(config));
+        suite.add(new SpatialIndexExperiment5SifBuilder(config));
         //        suite.add(new Experiment7BBuilder(config));
         //        suite.add(new Experiment7DBuilder(config));
         //        suite.add(new Experiment7ABuilder(config));

@@ -54,7 +54,8 @@ public class DataGeneratorForSpatialIndexEvaluation {
         initialize(info, null, 0);
     }
 
-    public DataGeneratorForSpatialIndexEvaluation(InitializationInfo info, String openStreetMapFilePath, int locationSampleInterval) {
+    public DataGeneratorForSpatialIndexEvaluation(InitializationInfo info, String openStreetMapFilePath,
+            int locationSampleInterval) {
         initialize(info, openStreetMapFilePath, locationSampleInterval);
     }
 
@@ -100,7 +101,7 @@ public class DataGeneratorForSpatialIndexEvaluation {
         public void remove() {
             // TODO Auto-generated method stub
         }
-        
+
         public void resetDuration(int duration) {
             this.duration = duration;
             startTime = System.currentTimeMillis();
@@ -539,7 +540,11 @@ public class DataGeneratorForSpatialIndexEvaluation {
 
         public Point getNextPoint() {
             try {
-                while ((line = br.readLine()) != null) {
+                while (true) {
+                    if ((line = br.readLine()) == null) {
+                        br = new BufferedReader(new FileReader(openStreetMapFilePath));
+                        line = br.readLine(); //can't be null
+                    }
                     if (lineCount++ % sampleInterval != 0) {
                         continue;
                     }
@@ -1310,7 +1315,7 @@ public class DataGeneratorForSpatialIndexEvaluation {
             "zoomplus", "Fix-touch", "Codetechno", "Tanzumbam", "Indiex", "Canline" };
 
     public static void main(String[] args) throws Exception {
-    	DataGeneratorForSpatialIndexEvaluation dg = new DataGeneratorForSpatialIndexEvaluation(new InitializationInfo());
+        DataGeneratorForSpatialIndexEvaluation dg = new DataGeneratorForSpatialIndexEvaluation(new InitializationInfo());
         TweetMessageIterator tmi = dg.new TweetMessageIterator(1, new GULongIDGenerator(0, (byte) 0));
         int len = 0;
         int count = 0;

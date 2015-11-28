@@ -30,7 +30,8 @@ public class ProfilerReportBuilder {
     private static final int WARM_UP_SELECT_QUERY_COUNT = 500;
     private static final int SELECT_QUERY_COUNT = 5000;
     private static final int JOIN_QUERY_COUNT = 200;
-    private static final int PARTITION_COUNT = 3;
+    private static final int PARTITION_COUNT = 4;
+
     private static final int SELECT_QUERY_INVOLVED_INDEX_COUNT = 2;
     private static final int JOIN_QUERY_INVOLVED_INDEX_COUNT = 3;
     private static final int JOIN_RADIUS_TYPE_COUNT = 4;
@@ -79,7 +80,8 @@ public class ProfilerReportBuilder {
         long measuredValue = 0;
         BufferedReader br = getSearchTime ? brIndexSearchTime : brCacheMiss;
         int lineNum = 0;
-        int queryCount = isJoin ? JOIN_QUERY_COUNT/JOIN_RADIUS_TYPE_COUNT : SELECT_QUERY_COUNT/SELECT_RADIUS_TYPE_COUNT;
+        int queryCount = isJoin ? JOIN_QUERY_COUNT / JOIN_RADIUS_TYPE_COUNT : SELECT_QUERY_COUNT
+                / SELECT_RADIUS_TYPE_COUNT;
         try {
 
             //initial skip
@@ -124,7 +126,8 @@ public class ProfilerReportBuilder {
         long falsePositives = 0;
         BufferedReader br = brFalsePositive;
         int lineNum = 0;
-        int queryCount = isJoin ? JOIN_QUERY_COUNT/JOIN_RADIUS_TYPE_COUNT : SELECT_QUERY_COUNT/SELECT_RADIUS_TYPE_COUNT;
+        int queryCount = isJoin ? JOIN_QUERY_COUNT / JOIN_RADIUS_TYPE_COUNT : SELECT_QUERY_COUNT
+                / SELECT_RADIUS_TYPE_COUNT;
         try {
 
             //initial skip

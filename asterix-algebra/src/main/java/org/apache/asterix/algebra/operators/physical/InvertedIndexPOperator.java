@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.asterix.common.config.AsterixStorageProperties;
+import org.apache.asterix.common.config.DatasetConfig.IndexType;
 import org.apache.asterix.common.context.AsterixVirtualBufferCacheProvider;
 import org.apache.asterix.common.context.ITransactionSubsystemProvider;
 import org.apache.asterix.common.dataflow.IAsterixApplicationContextInfo;
@@ -178,6 +179,7 @@ public class InvertedIndexPOperator extends IndexSearchPOperator {
                 throw new AlgebricksException("Code generation error: no index " + indexName + " for dataset "
                         + datasetName);
             }
+            boolean hasAdditionalSpatialFieldForIndexOnlyPlan = hasAdditionalSpatialFieldForIndexOnlyPlan(secondaryIndex);
             List<List<String>> secondaryKeyFieldEntries = secondaryIndex.getKeyFieldNames();
             List<IAType> secondaryKeyTypeEntries = secondaryIndex.getKeyFieldTypes();
             int numSecondaryKeys = secondaryKeyFieldEntries.size();
@@ -273,7 +275,8 @@ public class InvertedIndexPOperator extends IndexSearchPOperator {
                         : new SecondaryIndexSearchOperationCallbackFactory();
             } else {
                 // We deduct 1 because the last field will be the result of searchCallback.proceed()
-                int startIdx = outputFromUnnestVarsSize - 1;
+                // We deduct 1 for SIF index which has an additional field (point) for index only plan  
+                int startIdx = outputFromUnnestVarsSize - 1 - (hasAdditionalSpatialFieldForIndexOnlyPlan ? 1 : 0);
 
                 for (int i = 0; i < numPrimaryKeys; i++) {
                     primaryKeyFieldsInSecondaryIndex[i] = startIdx - numPrimaryKeys + i;
@@ -352,5 +355,12 @@ public class InvertedIndexPOperator extends IndexSearchPOperator {
         } catch (MetadataException e) {
             throw new AlgebricksException(e);
         }
+    }
+
+    private boolean hasAdditionalSpatialFieldForIndexOnlyPlan(Index index) {
+        // DYNAMIC_HILBERTVALUE_BTREE, STATIC_HILBERT_BTREE and SIF index 
+        // have additional original point field for index only plan.
+        IndexType indexType = index.getIndexType();
+        return indexType == IndexType.SIF;
     }
 }

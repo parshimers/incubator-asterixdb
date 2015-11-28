@@ -64,7 +64,7 @@ public class SpatialQueryGeneratorConfig {
     public int getRESTPort() {
         return restPort;
     }
-    
+
     @Option(name = "-qoh", aliases = "--query-orchestrator-host", usage = "The host address of query orchestrator")
     private String queryOrchHost;
 
@@ -84,6 +84,13 @@ public class SpatialQueryGeneratorConfig {
 
     public String getOpenStreetMapFilePath() {
         return openStreetMapFilePath;
+    }
+
+    @Option(name = "-iop", aliases = "--index-only-plan", usage = "Indicator of whether index only plan or not")
+    private boolean isIndexOnlyPlan;
+
+    public boolean getIsIndexOnlyPlan() {
+        return isIndexOnlyPlan;
     }
 
     public static class AddressOptionHandler extends OptionHandler<Pair<String, Integer>> {

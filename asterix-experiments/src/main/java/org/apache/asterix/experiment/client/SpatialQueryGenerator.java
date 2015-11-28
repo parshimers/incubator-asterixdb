@@ -22,8 +22,11 @@ package org.apache.asterix.experiment.client;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.net.Inet4Address;
 import java.net.Socket;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
@@ -34,13 +37,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.http.client.HttpClient;
-import org.apache.http.impl.client.DefaultHttpClient;
-
 import org.apache.asterix.experiment.action.base.IAction;
 import org.apache.asterix.experiment.action.base.SequentialActionList;
 import org.apache.asterix.experiment.action.derived.RunAQLStringAction;
 import org.apache.asterix.experiment.action.derived.TimedAction;
+import org.apache.http.client.HttpClient;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.hyracks.api.util.ExperimentProfilerUtils;
 
 public class SpatialQueryGenerator {
 
@@ -61,6 +64,8 @@ public class SpatialQueryGenerator {
     private final int orchPort;
 
     private final String openStreetMapFilePath;
+
+    private final boolean isIndexOnlyPlan;
 
     public SpatialQueryGenerator(SpatialQueryGeneratorConfig config) {
         threadPool = Executors.newCachedThreadPool(new ThreadFactory() {
@@ -83,13 +88,13 @@ public class SpatialQueryGenerator {
         orchHost = config.getQueryOrchestratorHost();
         orchPort = config.getQueryOrchestratorPort();
         openStreetMapFilePath = config.getOpenStreetMapFilePath();
-
+        isIndexOnlyPlan = config.getIsIndexOnlyPlan();
     }
 
     public void start() throws Exception {
         final Semaphore sem = new Semaphore(0);
         threadPool.submit(new QueryGenerator(sem, restHost, restPort, orchHost, orchPort, partitionRangeStart,
-                duration, openStreetMapFilePath));
+                duration, openStreetMapFilePath, isIndexOnlyPlan));
         sem.acquire();
     }
 
@@ -112,9 +117,12 @@ public class SpatialQueryGenerator {
         private BufferedReader br;
         private long queryCount;
         private Random random = new Random(211);
+        private final boolean isIndexOnlyPlan;
+        private String outputFilePath;
+        private FileOutputStream outputFos;
 
         public QueryGenerator(Semaphore sem, String restHost, int restPort, String orchHost, int orchPort,
-                int partitionRangeStart, int queryDuration, String openStreetMapFilePath) {
+                int partitionRangeStart, int queryDuration, String openStreetMapFilePath, boolean isIndexOnlyPlan) {
             httpClient = new DefaultHttpClient();
             this.sem = sem;
             this.restHost = restHost;
@@ -126,15 +134,27 @@ public class SpatialQueryGenerator {
             this.openStreetMapFilePath = openStreetMapFilePath;
             this.queryCount = 0;
             this.randGen = new Random(partitionRangeStart);
+            this.isIndexOnlyPlan = isIndexOnlyPlan;
         }
 
         @Override
         public void run() {
+            LOGGER.info("\nQueryGen[" + partition + "] running with the following parameters: \n"
+                    + "queryGenDuration : " + queryDuration + "\n" + "isIndexOnlyPlan : " + isIndexOnlyPlan);
+
+            try {
+                outputFilePath = openStreetMapFilePath.substring(0, openStreetMapFilePath.lastIndexOf(File.separator))
+                        + File.separator + "QueryGenResult-" + Inet4Address.getLocalHost().getHostAddress() + ".txt";
+                outputFos = ExperimentProfilerUtils.openOutputFile(outputFilePath);
+            } catch (Exception e) {
+                e.printStackTrace();
+                return;
+            }
+
             try {
                 if (openStreetMapFilePath != null) {
                     this.br = new BufferedReader(new FileReader(openStreetMapFilePath));
                 }
-                Socket s = new Socket(restHost, restPort);
                 try {
                     //connect to orchestrator socket
                     Socket orchSocket = null;
@@ -168,6 +188,10 @@ public class SpatialQueryGenerator {
                                     + (queryDuration / 1000) + " seconds");
                         }
 
+                        if (outputFos != null) {
+                            ExperimentProfilerUtils.closeOutputFile(outputFos);
+                        }
+
                         //send reqched message to orchestrator
                         sendReached(orchSocket);
                     } finally {
@@ -177,11 +201,15 @@ public class SpatialQueryGenerator {
                     }
                 } catch (Throwable t) {
                     t.printStackTrace();
+                    outputFos.write("Error during sending query\n".getBytes());
+                    throw t;
                 } finally {
                     if (openStreetMapFilePath != null) {
                         br.close();
                     }
-                    s.close();
+                    if (outputFos != null) {
+                        ExperimentProfilerUtils.closeOutputFile(outputFos);
+                    }
                 }
             } catch (Throwable t) {
                 System.err.println("Error connecting to rest API server " + restHost + ":" + restPort);
@@ -228,14 +256,15 @@ public class SpatialQueryGenerator {
             //create action
             SequentialActionList sAction = new SequentialActionList();
             IAction rangeQueryAction = new TimedAction(new RunAQLStringAction(httpClient, restHost, restPort,
-                    getRangeQueryAQL(radiusType[radiusIter++ % radiusType.length], x, y)));
+                    getRangeQueryAQL(radiusType[radiusIter++ % radiusType.length], x, y, isIndexOnlyPlan), outputFos),
+                    outputFos);
             sAction.add(rangeQueryAction);
 
             //perform
             sAction.perform();
         }
 
-        private String getRangeQueryAQL(float radius, float x, float y) {
+        private String getRangeQueryAQL(float radius, float x, float y, boolean isIndexOnlyPlan) {
             StringBuilder sb = new StringBuilder();
             sb.append("use dataverse experiments; ");
             sb.append("count( ");
@@ -245,7 +274,11 @@ public class SpatialQueryGenerator {
             sb.append(", ");
             sb.append(String.format("%f", radius));
             sb.append(" )");
-            sb.append("where spatial-intersect($x.sender-location, $n)");
+            if (isIndexOnlyPlan) {
+                sb.append("where spatial-intersect($x.sender-location, $n) ");
+            } else {
+                sb.append("where spatial-intersect($x.sender-location, $n) and $x.btree-extra-field1 <= int32(\"2147483647\") ");
+            }
             sb.append("return $x ");
             sb.append(");");
             return sb.toString();

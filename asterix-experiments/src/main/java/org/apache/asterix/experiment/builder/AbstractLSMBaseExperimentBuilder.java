@@ -35,10 +35,6 @@ import java.util.Set;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.Unmarshaller;
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.http.client.HttpClient;
-import org.apache.http.impl.client.DefaultHttpClient;
-
 import org.apache.asterix.event.schema.cluster.Cluster;
 import org.apache.asterix.experiment.action.base.ParallelActionSet;
 import org.apache.asterix.experiment.action.base.SequentialActionList;
@@ -52,8 +48,9 @@ import org.apache.asterix.experiment.action.derived.RunAQLFileAction;
 import org.apache.asterix.experiment.action.derived.SleepAction;
 import org.apache.asterix.experiment.client.LSMExperimentConstants;
 import org.apache.asterix.experiment.client.LSMExperimentSetRunner.LSMExperimentSetRunnerConfig;
-import org.apache.hyracks.api.util.ExperimentProfiler;
-import org.apache.hyracks.api.util.SpatialIndexProfiler;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.http.client.HttpClient;
+import org.apache.http.impl.client.DefaultHttpClient;
 
 public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimentBuilder {
 
@@ -289,22 +286,51 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
         }
 
         //collect profile information
-        if (ExperimentProfiler.PROFILE_MODE) {
-            ParallelActionSet collectProfileInfo = new ParallelActionSet();
-            for (String ncHost : ncHosts) {
-                collectProfileInfo.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
+        //        if (ExperimentProfiler.PROFILE_MODE) {
+        //            if (!SpatialIndexProfiler.PROFILE_HOME_DIR.contentEquals(cluster.getLogDir())) {
+        //                ParallelActionSet collectProfileInfo = new ParallelActionSet();
+        //                for (String ncHost : ncHosts) {
+        //                    collectProfileInfo.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
+        //                        @Override
+        //                        protected String getCommand() {
+        //                            String cmd = "mv " + SpatialIndexProfiler.PROFILE_HOME_DIR + "*.txt " + cluster.getLogDir();
+        //                            return cmd;
+        //                        }
+        //                    });
+        //                }
+        //                execs.add(collectProfileInfo);
+        //            }
+        //        }
+
+        execs.add(new LogAsterixManagixAction(managixHomePath, ASTERIX_INSTANCE_NAME, localExperimentRoot
+                .resolve(LSMExperimentConstants.LOG_DIR + "-" + logDirSuffix).resolve(getName()).toString()));
+
+        if (getName().contains("SpatialIndexExperiment2") || getName().contains("SpatialIndexExperiment5")) {
+            //get query result file
+            SequentialActionList getQueryResultFileActions = new SequentialActionList();
+            final String queryResultFilePath = openStreetMapFilePath.substring(0,
+                    openStreetMapFilePath.lastIndexOf(File.separator))
+                    + File.separator + "QueryGenResult-*.txt";
+            for (final String qgenHost : dgenPairs.keySet()) {
+                getQueryResultFileActions.add(new AbstractRemoteExecutableAction(restHost, username, sshKeyLocation) {
+
                     @Override
                     protected String getCommand() {
-                        String cmd = "mv " + SpatialIndexProfiler.PROFILE_HOME_DIR + "*.txt " + cluster.getLogDir();
+                        String cmd = "scp "
+                                + username
+                                + "@"
+                                + qgenHost
+                                + ":"
+                                + queryResultFilePath
+                                + " "
+                                + localExperimentRoot.resolve(LSMExperimentConstants.LOG_DIR + "-" + logDirSuffix)
+                                        .resolve(getName()).toString();
                         return cmd;
                     }
                 });
             }
-            execs.add(collectProfileInfo);
+            execs.add(getQueryResultFileActions);
         }
-
-        execs.add(new LogAsterixManagixAction(managixHomePath, ASTERIX_INSTANCE_NAME, localExperimentRoot
-                .resolve(LSMExperimentConstants.LOG_DIR + "-" + logDirSuffix).resolve(getName()).toString()));
 
         e.addBody(execs);
     }

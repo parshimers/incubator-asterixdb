@@ -18,6 +18,8 @@
  */
 package org.apache.asterix.runtime.job.listener;
 
+import java.util.logging.Logger;
+
 import org.apache.asterix.common.api.IAsterixAppRuntimeContext;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.transactions.DatasetId;
@@ -29,12 +31,14 @@ import org.apache.hyracks.api.job.IJobletEventListener;
 import org.apache.hyracks.api.job.IJobletEventListenerFactory;
 import org.apache.hyracks.api.job.JobStatus;
 import org.apache.hyracks.api.util.ExecutionTimeProfiler;
-import org.apache.hyracks.api.util.OperatorExecutionTimeProfiler;
 import org.apache.hyracks.api.util.ExecutionTimeStopWatch;
+import org.apache.hyracks.api.util.OperatorExecutionTimeProfiler;
 
 public class JobEventListenerFactory implements IJobletEventListenerFactory {
 
     private static final long serialVersionUID = 1L;
+    private static final Logger LOGGER = Logger.getLogger(JobEventListenerFactory.class.getName());
+    private static final boolean DEBUG_MODE = false;
     private final JobId jobId;
     private final boolean transactionalWrite;
 
@@ -54,8 +58,10 @@ public class JobEventListenerFactory implements IJobletEventListenerFactory {
 
             // Added to measure the execution time when the profiler setting is enabled
             private ExecutionTimeStopWatch profilerSW;
+            private ExecutionTimeStopWatch profilerTxnSW;
             private String nodeJobSignature;
             private String taskId;
+            private String taskTxnId;
 
             @Override
             public void jobletFinish(JobStatus jobStatus) {
@@ -64,8 +70,38 @@ public class JobEventListenerFactory implements IJobletEventListenerFactory {
                             .getApplicationObject()).getTransactionSubsystem().getTransactionManager();
                     ITransactionContext txnContext = txnManager.getTransactionContext(jobId, false);
                     txnContext.setWriteTxn(transactionalWrite);
+
+                    // Added to measure the execution time when the profiler setting is enabled
+                    if (ExecutionTimeProfiler.PROFILE_MODE) {
+                        profilerTxnSW = new ExecutionTimeStopWatch();
+                        profilerTxnSW.start();
+
+                        // The key of this job: nodeId + JobId + Joblet hash code
+                        nodeJobSignature = jobletContext.getApplicationContext().getNodeId() + "_"
+                                + jobletContext.getJobId() + "_" + +jobletContext.hashCode();
+
+                        taskTxnId = "TXN_JOB_COMMIT" + profilerTxnSW.getStartTimeStamp();
+
+                        // taskId: partition + taskId
+                        OperatorExecutionTimeProfiler.INSTANCE.executionTimeProfiler.add(nodeJobSignature, taskTxnId,
+                                ExecutionTimeProfiler.INIT, false);
+                    }
+
                     txnManager.completedTransaction(txnContext, new DatasetId(-1), -1,
                             !(jobStatus == JobStatus.FAILURE));
+
+                    if (DEBUG_MODE) {
+                        LOGGER.severe((transactionalWrite ? "Writer finishes [ " : "Reader finishes [ ")
+                                + jobId.toString() + " ] " + (jobStatus == JobStatus.FAILURE ? "fail" : "success"));
+                    }
+
+                    if (ExecutionTimeProfiler.PROFILE_MODE) {
+                        profilerTxnSW.suspend();
+                        profilerTxnSW.finish();
+                        OperatorExecutionTimeProfiler.INSTANCE.executionTimeProfiler.add(nodeJobSignature, taskTxnId,
+                                profilerSW.getMessage("TXN_JOB_COMMIT" + " " + nodeJobSignature + " " + taskTxnId,
+                                        profilerTxnSW.getStartTimeStamp()), false);
+                    }
 
                     // Added to measure the execution time when the profiler setting is enabled
                     if (ExecutionTimeProfiler.PROFILE_MODE) {
@@ -74,7 +110,6 @@ public class JobEventListenerFactory implements IJobletEventListenerFactory {
                         OperatorExecutionTimeProfiler.INSTANCE.executionTimeProfiler.add(nodeJobSignature, taskId,
                                 profilerSW.getMessage("TOTAL_HYRACKS_JOB" + " " + nodeJobSignature + " " + taskId,
                                         profilerSW.getStartTimeStamp()), true);
-                        System.out.println("TOTAL_HYRACKS_JOB end " + nodeJobSignature);
                     }
 
                 } catch (ACIDException e) {
@@ -102,9 +137,14 @@ public class JobEventListenerFactory implements IJobletEventListenerFactory {
                         // taskId: partition + taskId
                         OperatorExecutionTimeProfiler.INSTANCE.executionTimeProfiler.add(nodeJobSignature, taskId,
                                 ExecutionTimeProfiler.INIT, false);
-                        System.out.println("TOTAL_HYRACKS_JOB start " + nodeJobSignature);
 
                     }
+
+                    if (DEBUG_MODE) {
+                        LOGGER.severe((transactionalWrite ? "Writer starts [ " : "Reader starts [ ") + jobId.toString()
+                                + " ] ");
+                    }
+
                 } catch (ACIDException e) {
                     throw new Error(e);
                 }

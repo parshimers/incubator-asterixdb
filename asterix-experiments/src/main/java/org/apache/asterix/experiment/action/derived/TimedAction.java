@@ -19,6 +19,7 @@
 
 package org.apache.asterix.experiment.action.derived;
 
+import java.io.OutputStream;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -30,9 +31,16 @@ public class TimedAction extends AbstractAction {
     private final Logger LOGGER = Logger.getLogger(TimedAction.class.getName());
 
     private final IAction action;
+    private final OutputStream os;
 
     public TimedAction(IAction action) {
         this.action = action;
+        os = null;
+    }
+
+    public TimedAction(IAction action, OutputStream os) {
+        this.action = action;
+        this.os = os;
     }
 
     @Override
@@ -40,8 +48,14 @@ public class TimedAction extends AbstractAction {
         long start = System.currentTimeMillis();
         action.perform();
         long end = System.currentTimeMillis();
-        if (LOGGER.isLoggable(Level.INFO)) {
-            System.out.println("Elapsed time = " + (end - start) + " for action " + action);
+        if (LOGGER.isLoggable(Level.SEVERE)) {
+            if (os == null) {
+                System.out.println("Elapsed time = " + (end - start) + " for action " + action);
+                System.out.flush();
+            } else {
+                os.write(("Elapsed time = " + (end - start) + " for action " + action).getBytes());
+                os.flush();
+            }
         }
     }
 }

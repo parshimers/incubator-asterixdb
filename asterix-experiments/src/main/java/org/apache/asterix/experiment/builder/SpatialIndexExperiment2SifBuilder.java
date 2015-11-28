@@ -27,7 +27,7 @@ import org.apache.asterix.experiment.client.LSMExperimentSetRunner.LSMExperiment
 public class SpatialIndexExperiment2SifBuilder extends AbstractSpatialIndexExperiment2Builder {
 
     public SpatialIndexExperiment2SifBuilder(LSMExperimentSetRunnerConfig config) {
-        super("SpatialIndexExperiment2Sif", config, "8node.xml", "base_8_ingest_query.aql", "8.dqgen");
+        super("SpatialIndexExperiment2Sif", config, "8node.xml", "base_8_ingest_query.aql", "8.dqgen", true);
     }
 
     @Override

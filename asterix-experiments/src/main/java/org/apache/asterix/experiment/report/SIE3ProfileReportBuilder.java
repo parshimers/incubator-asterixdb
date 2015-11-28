@@ -19,8 +19,8 @@
 
 package org.apache.asterix.experiment.report;
 
-public class SIE1ReportBuilder extends AbstractDynamicDataEvalReportBuilder {
-    public SIE1ReportBuilder(String expHomePath, String expName, String runLogFileName) {
+public class SIE3ProfileReportBuilder extends AbstractDynamicDataEvalReportBuilder {
+    public SIE3ProfileReportBuilder(String expHomePath, String expName, String runLogFileName) {
         super(expHomePath, expName, runLogFileName, false);
     }
 

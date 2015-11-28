@@ -25,6 +25,6 @@ public class SpatialIndexExperiment3SifBuilder extends AbstractSpatialIndexExper
 
     public SpatialIndexExperiment3SifBuilder(LSMExperimentSetRunnerConfig config) {
         super("SpatialIndexExperiment3Sif", config, "8node.xml", "base_8_ingest.aql", "8.dqgen", "count.aql",
-                "spatial_3_create_sif.aql");
+                "spatial_3_create_sif.aql", true);
     }
 }

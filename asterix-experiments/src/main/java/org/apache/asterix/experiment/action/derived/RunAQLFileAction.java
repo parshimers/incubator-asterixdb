@@ -21,6 +21,7 @@ package org.apache.asterix.experiment.action.derived;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -29,14 +30,13 @@ import java.text.MessageFormat;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.asterix.experiment.action.base.AbstractAction;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
-
-import org.apache.asterix.experiment.action.base.AbstractAction;
 
 public class RunAQLFileAction extends AbstractAction {
     private final Logger LOGGER = Logger.getLogger(RunAQLFileAction.class.getName());
@@ -50,11 +50,22 @@ public class RunAQLFileAction extends AbstractAction {
 
     private final int restPort;
 
+    private final OutputStream os;
+
     public RunAQLFileAction(HttpClient httpClient, String restHost, int restPort, Path aqlFilePath) {
         this.httpClient = httpClient;
         this.aqlFilePath = aqlFilePath;
         this.restHost = restHost;
         this.restPort = restPort;
+        os = null;
+    }
+
+    public RunAQLFileAction(HttpClient httpClient, String restHost, int restPort, Path aqlFilePath, OutputStream os) {
+        this.httpClient = httpClient;
+        this.aqlFilePath = aqlFilePath;
+        this.restHost = restHost;
+        this.restPort = restPort;
+        this.os = os;
     }
 
     @Override
@@ -76,7 +87,12 @@ public class RunAQLFileAction extends AbstractAction {
     }
 
     private void printStream(InputStream content) throws IOException {
-        IOUtils.copy(content, System.out);
-        System.out.flush();
+        if (os == null) {
+            IOUtils.copy(content, System.out);
+            System.out.flush();
+        } else {
+            IOUtils.copy(content, os);
+            os.flush();
+        }
     }
 }

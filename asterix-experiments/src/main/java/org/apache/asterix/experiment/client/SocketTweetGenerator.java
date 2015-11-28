@@ -164,7 +164,9 @@ public class SocketTweetGenerator {
             this.orchPort = orchPort;
             this.flagStopResume = false;
             this.openStreetMapFilePath = openStreetMapFilePath;
-            this.locationSampleInterval = locationSampleInterval;
+            //simple heuristic to generate different data from different data generator.
+            int lsi = locationSampleInterval + (partition + 1) * (partition <= 4 ? 7 : 9);
+            this.locationSampleInterval = lsi;
             this.recordCountPerBatchDuringIngestionOnly = recordCountPerBatchDuringIngestionOnly;
             this.recordCountPerBatchDuringQuery = recordCountPerBatchDuringQuery;
             this.dataGenSleepTimeDuringIngestionOnly = dataGenSleepTimeDuringIngestionOnly;
@@ -173,6 +175,15 @@ public class SocketTweetGenerator {
 
         @Override
         public void run() {
+            LOGGER.info("\nDataGen[" + partition + "] running with the following parameters: \n" + "dataGenDuration : "
+                    + dataGenDuration + "\n" + "queryGenDuration : " + queryGenDuration + "\n" + "nDataIntervals : "
+                    + nDataIntervals + "\n" + "dataSizeInterval : " + dataSizeInterval + "\n"
+                    + "recordCountPerBatchDuringIngestionOnly : " + recordCountPerBatchDuringIngestionOnly + "\n"
+                    + "recordCountPerBatchDuringQuery : " + recordCountPerBatchDuringQuery + "\n"
+                    + "dataGenSleepTimeDuringIngestionOnly : " + dataGenSleepTimeDuringIngestionOnly + "\n"
+                    + "dataGenSleepTimeDuringQuery : " + dataGenSleepTimeDuringQuery + "\n"
+                    + "locationSampleInterval : " + locationSampleInterval);
+
             try {
                 Socket s = new Socket(host, port);
                 try {

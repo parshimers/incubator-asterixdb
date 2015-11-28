@@ -85,8 +85,6 @@ import org.apache.hyracks.algebricks.core.algebra.operators.logical.UnionAllOper
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.UnnestMapOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.visitors.VariableUtilities;
 import org.apache.hyracks.algebricks.core.algebra.plan.ALogicalPlanImpl;
-import org.apache.hyracks.algebricks.core.algebra.prettyprint.LogicalOperatorPrettyPrintVisitor;
-import org.apache.hyracks.algebricks.core.algebra.prettyprint.PlanPrettyPrinter;
 import org.apache.hyracks.algebricks.core.algebra.util.OperatorManipulationUtil;
 import org.apache.hyracks.algebricks.core.algebra.util.OperatorPropertiesUtil;
 
@@ -309,10 +307,13 @@ public class AccessMethodUtils {
         // We are using AINT32 to decode result values for this.
         // Refer to appendSecondaryIndexOutputVars() for the details.
         if (resultOfTryLockRequired) {
-            if (index.getIndexType() == IndexType.SIF) {
-                dest.add(BuiltinType.APOINT);
-            }
             dest.add(BuiltinType.AINT32);
+        }
+
+        // This is required to support index only plan for sif index which 
+        // stores original point in sif index's as a part of primary key field. 
+        if (index.getIndexType() == IndexType.SIF) {
+            dest.add(BuiltinType.APOINT);
         }
 
     }
@@ -339,10 +340,13 @@ public class AccessMethodUtils {
         // If it is not granted, then we need to do a secondary index lookup, sort PKs, do a primary index lookup, and select.
         if (resultOfTryLockRequired) {
             numVars += 1;
-            if (index.getIndexType() == IndexType.SIF) {
-                //add original point field to avoid post verification.
-                ++numVars;
-            }
+        }
+
+        // This is required to support index only plan for sif index which 
+        // stores original point in sif index's as a part of primary key field. 
+        if (index.getIndexType() == IndexType.SIF) {
+            //add original point field to avoid post verification.
+            ++numVars;
         }
 
         for (int i = 0; i < numVars; i++) {
@@ -628,6 +632,28 @@ public class AccessMethodUtils {
         for (int i = 0; i < usedVarsInTopOpTemp.size(); i++) {
             if (!usedVarsInTopOp.contains(usedVarsInTopOpTemp.get(i))) {
                 usedVarsInTopOp.add(usedVarsInTopOpTemp.get(i));
+            }
+        }
+
+        // If this is a join, we need to traverse the index subtree and find SELECT conditions.
+        List<LogicalVariable> selectInIndexSubTreeVars = new ArrayList<LogicalVariable>();
+        if (probeSubTree != null) {
+            ILogicalOperator tmpOp = indexSubTree.root;
+            while (tmpOp.getOperatorTag() != LogicalOperatorTag.EMPTYTUPLESOURCE) {
+                if (tmpOp.getOperatorTag() == LogicalOperatorTag.SELECT) {
+                    VariableUtilities.getUsedVariables(tmpOp, selectInIndexSubTreeVars);
+
+                    // Remove any duplicated variables.
+                    for (int i = 0; i < selectInIndexSubTreeVars.size(); i++) {
+                        if (!usedVarsInTopOp.contains(selectInIndexSubTreeVars.get(i))) {
+                            usedVarsInTopOp.add(selectInIndexSubTreeVars.get(i));
+                        }
+                    }
+
+                    selectInIndexSubTreeVars.clear();
+                }
+                tmpOp = tmpOp.getInputs().get(0).getValue();
+
             }
         }
         usedVarsInTopOpTemp.clear();

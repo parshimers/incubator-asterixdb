@@ -24,15 +24,16 @@ import org.apache.asterix.experiment.action.derived.RunAQLFileAction;
 import org.apache.asterix.experiment.client.LSMExperimentConstants;
 import org.apache.asterix.experiment.client.LSMExperimentSetRunner.LSMExperimentSetRunnerConfig;
 
-public class SpatialIndexExperiment2DhbtreeBuilder extends AbstractSpatialIndexExperiment2Builder {
+public class SpatialIndexExperiment5RtreeBuilder extends AbstractSpatialIndexExperiment2Builder {
 
-    public SpatialIndexExperiment2DhbtreeBuilder(LSMExperimentSetRunnerConfig config) {
-        super("SpatialIndexExperiment2Dhbtree", config, "8node.xml", "base_8_ingest_query.aql", "8.dqgen", true);
+    //SpatialIndexExperiment5XXX is exactly the same as SpatialIndexExperiment2XXX except queries are non-index only plan queries.
+    public SpatialIndexExperiment5RtreeBuilder(LSMExperimentSetRunnerConfig config) {
+        super("SpatialIndexExperiment5Rtree", config, "8node.xml", "base_8_ingest_query.aql", "8.dqgen", false);
     }
 
     @Override
     protected void doBuildDDL(SequentialActionList seq) {
         seq.add(new RunAQLFileAction(httpClient, restHost, restPort, localExperimentRoot.resolve(
-                LSMExperimentConstants.AQL_DIR).resolve("spatial_1_dhbtree.aql")));
+                LSMExperimentConstants.AQL_DIR).resolve("spatial_1_rtree.aql")));
     }
 }

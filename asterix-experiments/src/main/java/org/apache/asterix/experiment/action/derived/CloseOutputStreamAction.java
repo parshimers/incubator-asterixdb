@@ -17,18 +17,24 @@
  * under the License.
  */
 
-package org.apache.asterix.experiment.report;
+package org.apache.asterix.experiment.action.derived;
 
-import java.util.List;
+import java.io.OutputStream;
 
-public interface IDynamicDataEvalReportBuilder {
-    public String getInstantaneousInsertPS(int genId, boolean useTimeForX) throws Exception;
+import org.apache.asterix.experiment.action.base.AbstractAction;
+import org.apache.hyracks.api.util.ExperimentProfilerUtils;
 
-    public String getOverallInsertPS(int minutes) throws Exception;
+public class CloseOutputStreamAction extends AbstractAction {
 
-    public String getInstantaneousQueryPS() throws Exception;
+    private final OutputStream os;
 
-    public String getQueryPS(int minutes) throws Exception;
+    public CloseOutputStreamAction(OutputStream os) {
+        this.os = os;
+    }
 
-    void getAllNodesAccumulatedInsertPS(int targetRound, List<Long> ipsList) throws Exception;
+    @Override
+    protected void doPerform() throws Exception {
+        ExperimentProfilerUtils.closeOutputFile(os);
+    }
+
 }

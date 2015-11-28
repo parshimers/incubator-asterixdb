@@ -35,10 +35,6 @@ import java.util.Set;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.Unmarshaller;
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.http.client.HttpClient;
-import org.apache.http.impl.client.DefaultHttpClient;
-
 import org.apache.asterix.event.schema.cluster.Cluster;
 import org.apache.asterix.experiment.action.base.ParallelActionSet;
 import org.apache.asterix.experiment.action.base.SequentialActionList;
@@ -53,10 +49,12 @@ import org.apache.asterix.experiment.action.derived.SleepAction;
 import org.apache.asterix.experiment.action.derived.TimedAction;
 import org.apache.asterix.experiment.client.LSMExperimentConstants;
 import org.apache.asterix.experiment.client.LSMExperimentSetRunner.LSMExperimentSetRunnerConfig;
+import org.apache.http.client.HttpClient;
+import org.apache.http.impl.client.DefaultHttpClient;
 
 /**
  * This class is used to create experiments for spatial index static data evaluation, that is, no ingestion is involved.
- * Also, there is no orchestration server involved in this experiment builder.  
+ * Also, there is no orchestration server involved in this experiment builder.
  */
 public abstract class AbstractSpatialIndexExperiment3PIdxLoadBuilder extends AbstractExperimentBuilder {
 
@@ -95,13 +93,14 @@ public abstract class AbstractSpatialIndexExperiment3PIdxLoadBuilder extends Abs
     protected final SequentialActionList lsAction;
 
     protected final String openStreetMapFilePath;
-    
+
     protected final int locationSampleInterval;
-    
+
     protected final String loadAQLFilePath;
-    
+
     public AbstractSpatialIndexExperiment3PIdxLoadBuilder(String name, LSMExperimentSetRunnerConfig config,
-            String clusterConfigFileName, String ingestFileName, String dgenFileName, String countFileName, String loadAQLFileName) {
+            String clusterConfigFileName, String ingestFileName, String dgenFileName, String countFileName,
+            String loadAQLFileName) {
         super(name);
         this.logDirSuffix = config.getLogDirSuffix();
         this.httpClient = new DefaultHttpClient();
@@ -205,13 +204,13 @@ public abstract class AbstractSpatialIndexExperiment3PIdxLoadBuilder extends Abs
         }
 
         //---------- main experiment body begins -----------
-        
+
         //load data into pidx 
         execs.add(new TimedAction(new RunAQLFileAction(httpClient, restHost, restPort, localExperimentRoot.resolve(
                 LSMExperimentConstants.AQL_DIR).resolve(loadAQLFilePath))));
-        
+
         //---------- main experiment body ends -----------
-        
+
         //kill io state action
         if (statFile != null) {
             ParallelActionSet ioCountKillActions = new ParallelActionSet();
@@ -237,7 +236,7 @@ public abstract class AbstractSpatialIndexExperiment3PIdxLoadBuilder extends Abs
 
         //add ls action
         execs.add(postLSAction);
-        
+
         //kill asterix cc and nc
         ParallelActionSet killCmds = new ParallelActionSet();
         for (String ncHost : ncHosts) {
@@ -245,10 +244,10 @@ public abstract class AbstractSpatialIndexExperiment3PIdxLoadBuilder extends Abs
         }
         killCmds.add(new RemoteAsterixDriverKill(restHost, username, sshKeyLocation));
         execs.add(killCmds);
-        
+
         //stop asterix instance
         execs.add(new StopAsterixManagixAction(managixHomePath, ASTERIX_INSTANCE_NAME));
-        
+
         //prepare to collect io state by putting the state file into asterix log dir
         if (statFile != null) {
             ParallelActionSet collectIOActions = new ParallelActionSet();
@@ -264,7 +263,7 @@ public abstract class AbstractSpatialIndexExperiment3PIdxLoadBuilder extends Abs
             }
             execs.add(collectIOActions);
         }
-        
+
         //collect cc and nc logs
         execs.add(new LogAsterixManagixAction(managixHomePath, ASTERIX_INSTANCE_NAME, localExperimentRoot
                 .resolve(LSMExperimentConstants.LOG_DIR + "-" + logDirSuffix).resolve(getName()).toString()));

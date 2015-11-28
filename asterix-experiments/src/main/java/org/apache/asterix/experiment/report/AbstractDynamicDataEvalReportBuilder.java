@@ -20,25 +20,55 @@
 package org.apache.asterix.experiment.report;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.List;
 
 public abstract class AbstractDynamicDataEvalReportBuilder implements IDynamicDataEvalReportBuilder {
 
     protected final static String INSTANTANEOUS_INSERT_STRING = "[TimeToInsert100000]";
     protected final static int INSTANTAEOUS_INSERT_COUNT = 100000;
+    protected final static int ROUND_COUNT = 721;
+    protected final static int ROUND_INTERVAL = 5;
+    protected final String expHomePath;
     protected final String expName;
     protected final String runLogFilePath;
+    protected final String[] ncLogFilePaths;
     protected BufferedReader br = null;
+    protected BufferedReader[] ncLogBrs = null;
+    protected final int ncLogFileCount;
 
     protected final StringBuilder dataGenSb;
     protected final StringBuilder queryGenSb;
     protected final StringBuilder rsb;
 
-    protected AbstractDynamicDataEvalReportBuilder(String expName, String runLogFilePath) {
+    protected AbstractDynamicDataEvalReportBuilder(String expHomePath, String expName, String runLogFileName,
+            boolean hasStatFile) {
+        this.expHomePath = expHomePath;
         this.expName = expName;
-        this.runLogFilePath = runLogFilePath;
+        this.runLogFilePath = new String(expHomePath + runLogFileName);
+        if (expName.contains("1A")) {
+            ncLogFileCount = 1;
+        } else if (expName.contains("1B")) {
+            ncLogFileCount = 2;
+        } else if (expName.contains("1C")) {
+            ncLogFileCount = 4;
+        } else /* if (expName.contains("1D") || other exps) */{
+            ncLogFileCount = 8;
+        }
+        ncLogFilePaths = new String[ncLogFileCount];
+        ncLogBrs = new BufferedReader[ncLogFileCount];
+        for (int i = 0; i < ncLogFileCount; i++) {
+            if (hasStatFile) {
+                ncLogFilePaths[i] = new String(expHomePath + expName + File.separator + "node" + (i + 1)
+                        + File.separator + "logs" + File.separator + "a1_node" + (i + 1) + ".log");
+            } else {
+                ncLogFilePaths[i] = new String(expHomePath + expName + File.separator + "logs" + File.separator
+                        + "a1_node" + (i + 1) + ".log");
+            }
+        }
         dataGenSb = new StringBuilder();
         queryGenSb = new StringBuilder();
         rsb = new StringBuilder();
@@ -46,11 +76,21 @@ public abstract class AbstractDynamicDataEvalReportBuilder implements IDynamicDa
 
     protected void openRunLog() throws IOException {
         br = new BufferedReader(new FileReader(runLogFilePath));
+        for (int i = 0; i < ncLogFileCount; i++) {
+            ncLogBrs[i] = new BufferedReader(new FileReader(ncLogFilePaths[i]));
+        }
     }
 
     protected void closeRunLog() throws IOException {
         if (br != null) {
             br.close();
+        }
+        if (ncLogBrs != null) {
+            for (int i = 0; i < ncLogFileCount; i++) {
+                if (ncLogBrs[i] != null) {
+                    ncLogBrs[i].close();
+                }
+            }
         }
     }
 
@@ -71,7 +111,70 @@ public abstract class AbstractDynamicDataEvalReportBuilder implements IDynamicDa
     }
 
     @Override
-    public String getInstantaneousInsertPS(int genId, boolean useTimeForX) throws Exception {
+    public String getInstantaneousInsertPS(int nodeId, boolean useTimeForX) throws Exception {
+        renewStringBuilder();
+        openRunLog();
+        try {
+
+            if (!moveToExperimentBegin()) {
+                //The experiment run log doesn't exist in this run log file
+                return null;
+            }
+
+            int round = 0;
+            while (round < ROUND_COUNT) {
+                long IIPS = 0;
+                String line;
+                while ((line = ncLogBrs[nodeId].readLine()) != null) {
+                    if (line.contains("IPS")) {
+                        IIPS = ReportBuilderHelper.getLong(line, ", IIPS[", "]");
+                        break;
+                    }
+                }
+                round++;
+                dataGenSb.append(round * ROUND_INTERVAL).append(",").append(IIPS).append("\n");
+            }
+
+            return dataGenSb.toString();
+        } finally {
+            closeRunLog();
+        }
+    }
+
+    @Override
+    public void getAllNodesAccumulatedInsertPS(int targetRound, List<Long> ipsList) throws Exception {
+        renewStringBuilder();
+        openRunLog();
+        ipsList.clear();
+        try {
+
+            if (!moveToExperimentBegin()) {
+                //The experiment run log doesn't exist in this run log file
+                return;
+            }
+
+            int round = 0;
+            while (round < targetRound) {
+                long IPSPerRound = 0;
+                for (int i = 0; i < ncLogFileCount; i++) {
+                    String line;
+                    while ((line = ncLogBrs[i].readLine()) != null) {
+                        if (line.contains("IPS")) {
+                            IPSPerRound += ReportBuilderHelper.getLong(line, ", IPS[", "]");
+                            break;
+                        }
+                    }
+                }
+                ipsList.add(IPSPerRound);
+                round++;
+            }
+            return;
+        } finally {
+            closeRunLog();
+        }
+    }
+
+    public String getInstantaneousDataGenPS(int genId, boolean useTimeForX) throws Exception {
         renewStringBuilder();
         openRunLog();
         try {
@@ -93,11 +196,11 @@ public abstract class AbstractDynamicDataEvalReportBuilder implements IDynamicDa
                         timeToInsert = ReportBuilderHelper.getLong(line, INSTANTANEOUS_INSERT_STRING, "in");
                         totalTimeToInsert += timeToInsert;
                         if (useTimeForX) {
-                            dataGenSb.append(totalTimeToInsert/1000).append(",")
-                                .append(INSTANTAEOUS_INSERT_COUNT / ((double) (timeToInsert) / 1000)).append("\n");
+                            dataGenSb.append(totalTimeToInsert / 1000).append(",")
+                                    .append(INSTANTAEOUS_INSERT_COUNT / ((double) (timeToInsert) / 1000)).append("\n");
                         } else {
                             dataGenSb.append(count).append(",")
-                                .append(INSTANTAEOUS_INSERT_COUNT / ((double) (timeToInsert) / 1000)).append("\n");
+                                    .append(INSTANTAEOUS_INSERT_COUNT / ((double) (timeToInsert) / 1000)).append("\n");
                         }
                     }
                 }
@@ -105,13 +208,13 @@ public abstract class AbstractDynamicDataEvalReportBuilder implements IDynamicDa
                     break;
                 }
             }
-            System.out.println("GenId[" + genId + "] " + totalTimeToInsert + ", " + (totalTimeToInsert/(1000*60)));
+            System.out.println("GenId[" + genId + "] " + totalTimeToInsert + ", " + (totalTimeToInsert / (1000 * 60)));
             return dataGenSb.toString();
         } finally {
             closeRunLog();
         }
     }
-    
+
     public long getDataGenStartTimeStamp() throws Exception {
         openRunLog();
         try {
@@ -119,8 +222,8 @@ public abstract class AbstractDynamicDataEvalReportBuilder implements IDynamicDa
             while ((line = br.readLine()) != null) {
                 if (line.contains("Running experiment: " + expName)) {
                     while ((line = br.readLine()) != null) {
-                        //2015-07-10 01:52:03,658 INFO  [ParallelActionThread 0] direct.SessionChannel (SessionChannel.java:exec(120)) - Will request to exec `JAVA_HOME=/home/youngsk2/jdk1.7.0_65/ /scratch/youngsk2/spatial-index-experiment/ingestion-experiment-root/ingestion-experiment-binary-and-configs/bin/datagenrunner -si 1 -of /mnt/data/sdb/youngsk2/data/simple-gps-points-120312.txt -p 0 -d 1200 128.195.9.23:10001`
-                        if (line.contains("Will request to exec `JAVA_HOME=/home/youngsk2/jdk1.7.0_65/ /scratch/youngsk2/spatial-index-experiment/ingestion-experiment-root/ingestion-experiment-binary-and-configs/bin/datagenrunner")) {
+                        //2015-10-27 17:18:28,242 INFO  [ParallelActionThread 6] transport.TransportImpl (TransportImpl.java:init(155)) - Client identity string: SSH-2.0-SSHJ_0_13_0
+                        if (line.contains("INFO  [ParallelActionThread")) {
                             //format1 = new SimpleDateFormat("MMM dd, yyyy hh:mm:ss aa");
                             //format2 = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
                             SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
@@ -134,7 +237,7 @@ public abstract class AbstractDynamicDataEvalReportBuilder implements IDynamicDa
             closeRunLog();
         }
     }
-    
+
     public String getIndexSize(String indexDirPath) throws Exception {
         /*
          * exmaple
@@ -174,7 +277,7 @@ public abstract class AbstractDynamicDataEvalReportBuilder implements IDynamicDa
                     break;
                 }
             }
-            rsb.append((double)diskSize /(1024*1024*1024));
+            rsb.append((double) diskSize / (1024 * 1024 * 1024));
             return rsb.toString();
         } finally {
             closeRunLog();

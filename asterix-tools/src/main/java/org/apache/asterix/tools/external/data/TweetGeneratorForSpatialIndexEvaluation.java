@@ -65,19 +65,19 @@ public class TweetGeneratorForSpatialIndexEvaluation {
         return tweetCount;
     }
 
-    public TweetGeneratorForSpatialIndexEvaluation(Map<String, String> configuration, int partition, String format, OutputStream os)
-            throws Exception {
+    public TweetGeneratorForSpatialIndexEvaluation(Map<String, String> configuration, int partition, String format,
+            OutputStream os) throws Exception {
         this.partition = partition;
         String value = configuration.get(KEY_DURATION);
         this.duration = value != null ? Integer.parseInt(value) : DEFAULT_DURATION;
         openStreetMapFilePath = configuration.get(KEY_OPENSTREETMAP_FILEPATH);
         String lsi = configuration.get(KEY_LOCATION_SAMPLE_INTERVAL);
         this.locationSampleInterval = lsi != null ? Integer.parseInt(lsi) : DEFAULT_SAMPLE_INTERVAL;
-        
         int guidSeed = configuration.get(KEY_GUID_SEED) != null ? Integer.parseInt(configuration.get(KEY_GUID_SEED))
                 : DEFAULT_GUID_SEED;
         uidGenerator = new GULongIDGenerator(partition, (byte) (guidSeed));
-        dataGenerator = new DataGeneratorForSpatialIndexEvaluation(new InitializationInfo(), openStreetMapFilePath, locationSampleInterval);
+        dataGenerator = new DataGeneratorForSpatialIndexEvaluation(new InitializationInfo(), openStreetMapFilePath,
+                locationSampleInterval);
         tweetIterator = dataGenerator.new TweetMessageIterator(duration, uidGenerator);
         this.os = os;
     }
@@ -129,11 +129,11 @@ public class TweetGeneratorForSpatialIndexEvaluation {
             return true;
         }
     }
-    
+
     public void resetDurationAndFlushedTweetCount(int duration) {
         tweetIterator.resetDuration(duration);
         numFlushedTweets = 0;
         tweetCount = 0;
-        
+
     }
 }

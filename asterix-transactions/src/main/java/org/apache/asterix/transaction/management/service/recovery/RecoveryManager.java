@@ -330,6 +330,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                 case LogType.ENTITY_COMMIT:
                 case LogType.ABORT:
                 case LogType.FLUSH:
+                case LogType.WAIT:
 
                     //do nothing
                     break;
@@ -357,11 +358,12 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
     }
 
     @Override
-    public synchronized long checkpoint(boolean isSharpCheckpoint, long nonSharpCheckpointTargetLSN) throws ACIDException, HyracksDataException {
+    public synchronized long checkpoint(boolean isSharpCheckpoint, long nonSharpCheckpointTargetLSN)
+            throws ACIDException, HyracksDataException {
 
         long minMCTFirstLSN;
         boolean nonSharpCheckpointSucceeded = false;
-        
+
         if (isSharpCheckpoint && LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Starting sharp checkpoint ... ");
         }
@@ -373,7 +375,8 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         //   right after the new checkpoint file is written.
         File[] prevCheckpointFiles = getPreviousCheckpointFiles();
 
-        DatasetLifecycleManager datasetLifecycleManager = (DatasetLifecycleManager)txnSubsystem.getAsterixAppRuntimeContextProvider().getIndexLifecycleManager();
+        DatasetLifecycleManager datasetLifecycleManager = (DatasetLifecycleManager) txnSubsystem
+                .getAsterixAppRuntimeContextProvider().getIndexLifecycleManager();
         //#. flush all in-memory components if it is the sharp checkpoint
         if (isSharpCheckpoint) {
 
@@ -383,11 +386,10 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         } else {
 
             minMCTFirstLSN = getMinFirstLSN();
-            
-            if(minMCTFirstLSN >= nonSharpCheckpointTargetLSN){
+
+            if (minMCTFirstLSN >= nonSharpCheckpointTargetLSN) {
                 nonSharpCheckpointSucceeded = true;
-            }
-            else{
+            } else {
                 //flush datasets with indexes behind target checkpoint LSN
                 datasetLifecycleManager.scheduleAsyncFlushForLaggingDatasets(nonSharpCheckpointTargetLSN);
             }
@@ -440,10 +442,10 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             }
         }
 
-        if(nonSharpCheckpointSucceeded){
+        if (nonSharpCheckpointSucceeded) {
             logMgr.deleteOldLogFiles(minMCTFirstLSN);
         }
-        
+
         if (isSharpCheckpoint && LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Completed sharp checkpoint.");
         }
@@ -452,9 +454,9 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         return minMCTFirstLSN;
     }
 
-    public long getMinFirstLSN() throws HyracksDataException
-    {
-        IIndexLifecycleManager indexLifecycleManager = txnSubsystem.getAsterixAppRuntimeContextProvider().getIndexLifecycleManager();
+    public long getMinFirstLSN() throws HyracksDataException {
+        IIndexLifecycleManager indexLifecycleManager = txnSubsystem.getAsterixAppRuntimeContextProvider()
+                .getIndexLifecycleManager();
         List<IIndex> openIndexList = indexLifecycleManager.getOpenIndexes();
         long firstLSN;
         //the min first lsn can only be the current append or smaller
@@ -464,8 +466,9 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
 
             for (IIndex index : openIndexList) {
 
-                AbstractLSMIOOperationCallback ioCallback =  (AbstractLSMIOOperationCallback)((ILSMIndex) index).getIOOperationCallback();
-                if(!((AbstractLSMIndex)index).isCurrentMutableComponentEmpty() || ioCallback.hasPendingFlush()){
+                AbstractLSMIOOperationCallback ioCallback = (AbstractLSMIOOperationCallback) ((ILSMIndex) index)
+                        .getIOOperationCallback();
+                if (!((AbstractLSMIndex) index).isCurrentMutableComponentEmpty() || ioCallback.hasPendingFlush()) {
                     firstLSN = ioCallback.getFirstLSN();
                     minFirstLSN = Math.min(minFirstLSN, firstLSN);
                 }

@@ -23,8 +23,6 @@ import java.io.UnsupportedEncodingException;
 
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
-import org.apache.hyracks.api.util.ExperimentProfiler;
-import org.apache.hyracks.api.util.SpatialIndexProfiler;
 import org.apache.hyracks.storage.am.common.api.IToken;
 import org.apache.hyracks.storage.am.common.api.ITokenFactory;
 
@@ -159,10 +157,6 @@ public class MultiLevelSIFBinaryTokenizer extends SpatialCellBinaryTokenizer {
                 } else {
                     promoted = false;
                 }
-            }
-
-            if (ExperimentProfiler.PROFILE_MODE) {
-                SpatialIndexProfiler.INSTANCE.sifNumOfSearchPerQuery.add("" + hilbertValueCount + "\n");
             }
         }
 

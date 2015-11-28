@@ -23,13 +23,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.asterix.experiment.action.base.AbstractAction;
 import org.apache.asterix.experiment.action.base.ParallelActionSet;
 import org.apache.asterix.experiment.action.base.SequentialActionList;
 import org.apache.asterix.experiment.action.derived.AbstractRemoteExecutableAction;
 import org.apache.asterix.experiment.client.LSMExperimentSetRunner.LSMExperimentSetRunnerConfig;
 import org.apache.asterix.experiment.client.SpatialIndexExperiment2OrchestratorServer;
+import org.apache.commons.lang3.StringUtils;
 
 public abstract class AbstractSpatialIndexExperiment2Builder extends AbstractLSMBaseExperimentBuilder {
 
@@ -57,8 +57,10 @@ public abstract class AbstractSpatialIndexExperiment2Builder extends AbstractLSM
 
     protected final Random randGen;
 
+    protected final boolean isIndexOnlyPlan;
+
     public AbstractSpatialIndexExperiment2Builder(String name, LSMExperimentSetRunnerConfig config,
-            String clusterConfigFileName, String ingestFileName, String dgenFileName) {
+            String clusterConfigFileName, String ingestFileName, String dgenFileName, boolean isIndexOnlyPlan) {
         super(name, config, clusterConfigFileName, ingestFileName, dgenFileName, null);
         nIntervals = config.getNIntervals();
         dataGenOrchHost = config.getOrchestratorHost();
@@ -69,6 +71,7 @@ public abstract class AbstractSpatialIndexExperiment2Builder extends AbstractLSM
         queryGenDuration = config.getQueryDuration();
         this.nQueryRuns = config.getNQueryRuns();
         this.randGen = new Random();
+        this.isIndexOnlyPlan = isIndexOnlyPlan;
     }
 
     @Override
@@ -131,13 +134,25 @@ public abstract class AbstractSpatialIndexExperiment2Builder extends AbstractLSM
                     String binary = "JAVA_HOME=" + javaHomePath + " "
                             + localExperimentRoot.resolve("bin").resolve("querygenrunner").toString();
                     if (openStreetMapFilePath == null) {
-                        return StringUtils.join(new String[] { binary, "-p", "" + p,
-                                "-qd", "" + queryGenDuration, "-qoh", "" + queryGenOrchHost, "-qop",
-                                "" + queryGenOrchPort, "-rh", restHost, "-rp", "" + restPort }, " ");
+                        if (isIndexOnlyPlan) {
+                            return StringUtils.join(new String[] { binary, "-iop", "-p", "" + p, "-qd",
+                                    "" + queryGenDuration, "-qoh", "" + queryGenOrchHost, "-qop",
+                                    "" + queryGenOrchPort, "-rh", restHost, "-rp", "" + restPort }, " ");
+                        } else {
+                            return StringUtils.join(new String[] { binary, "-p", "" + p, "-qd", "" + queryGenDuration,
+                                    "-qoh", "" + queryGenOrchHost, "-qop", "" + queryGenOrchPort, "-rh", restHost,
+                                    "-rp", "" + restPort }, " ");
+                        }
                     } else {
-                        return StringUtils.join(new String[] { binary, "-of", openStreetMapFilePath, "-p", "" + p,
-                                "-qd", "" + queryGenDuration, "-qoh", "" + queryGenOrchHost, "-qop",
-                                "" + queryGenOrchPort, "-rh", restHost, "-rp", "" + restPort }, " ");
+                        if (isIndexOnlyPlan) {
+                            return StringUtils.join(new String[] { binary, "-iop", "-of", openStreetMapFilePath, "-p",
+                                    "" + p, "-qd", "" + queryGenDuration, "-qoh", "" + queryGenOrchHost, "-qop",
+                                    "" + queryGenOrchPort, "-rh", restHost, "-rp", "" + restPort }, " ");
+                        } else {
+                            return StringUtils.join(new String[] { binary, "-of", openStreetMapFilePath, "-p", "" + p,
+                                    "-qd", "" + queryGenDuration, "-qoh", "" + queryGenOrchHost, "-qop",
+                                    "" + queryGenOrchPort, "-rh", restHost, "-rp", "" + restPort }, " ");
+                        }
                     }
                 }
             });

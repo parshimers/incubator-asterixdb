@@ -21,8 +21,6 @@ package org.apache.asterix.dataflow.data.common;
 
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
-import org.apache.hyracks.api.util.ExperimentProfiler;
-import org.apache.hyracks.api.util.SpatialIndexProfiler;
 import org.apache.hyracks.storage.am.common.api.ITokenFactory;
 
 public class StaticHilbertBTreeBinaryTokenizer extends SpatialCellBinaryTokenizer {
@@ -99,16 +97,12 @@ public class StaticHilbertBTreeBinaryTokenizer extends SpatialCellBinaryTokenize
 
         if (inputData[start] == ATypeTag.RECTANGLE.serialize()) {
             mergeCellIds();
-
-            if (ExperimentProfiler.PROFILE_MODE) {
-                SpatialIndexProfiler.INSTANCE.shbtreeNumOfSearchPerQuery.add("" + hilbertValueCount + "\n");
-            }
         }
     }
 
     protected boolean isMergable(byte[] head, byte[] highkey) {
         int maxValidLevel = head[MAX_LEVEL] - 1;
-        if (maxValidLevel < 0 /* entire space case */ || maxValidLevel == MAX_LEVEL /* OOPS case */)
+        if (maxValidLevel < 0 /* entire space case */|| maxValidLevel == MAX_LEVEL /* OOPS case */)
             return false;
 
         //consider highkey hilbert value as a cell Id in non-bottom level. 

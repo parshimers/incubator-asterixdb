@@ -19,20 +19,13 @@
 
 package org.apache.asterix.experiment.builder;
 
-import org.apache.asterix.experiment.action.base.SequentialActionList;
-import org.apache.asterix.experiment.action.derived.RunAQLFileAction;
-import org.apache.asterix.experiment.client.LSMExperimentConstants;
 import org.apache.asterix.experiment.client.LSMExperimentSetRunner.LSMExperimentSetRunnerConfig;
 
-public class SpatialIndexExperiment2DhbtreeBuilder extends AbstractSpatialIndexExperiment2Builder {
+public class SpatialIndexExperiment4SifBuilder extends AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder {
 
-    public SpatialIndexExperiment2DhbtreeBuilder(LSMExperimentSetRunnerConfig config) {
-        super("SpatialIndexExperiment2Dhbtree", config, "8node.xml", "base_8_ingest_query.aql", "8.dqgen", true);
-    }
-
-    @Override
-    protected void doBuildDDL(SequentialActionList seq) {
-        seq.add(new RunAQLFileAction(httpClient, restHost, restPort, localExperimentRoot.resolve(
-                LSMExperimentConstants.AQL_DIR).resolve("spatial_1_dhbtree.aql")));
+    //SpatialIndexExperiment4XXX is exactly the same as SpatialIndexExperiment3XXX except queries are non-index only plan queries.
+    public SpatialIndexExperiment4SifBuilder(LSMExperimentSetRunnerConfig config) {
+        super("SpatialIndexExperiment4Sif", config, "8node.xml", "base_8_ingest.aql", "8.dqgen", "count.aql",
+                "spatial_3_create_sif.aql", false);
     }
 }

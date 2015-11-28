@@ -21,17 +21,17 @@ package org.apache.asterix.experiment.action.derived;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
 
+import org.apache.asterix.experiment.action.base.AbstractAction;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
-
-import org.apache.asterix.experiment.action.base.AbstractAction;
 
 public class RunAQLStringAction extends AbstractAction {
     private static final String REST_URI_TEMPLATE = "http://{0}:{1}/aql";
@@ -44,11 +44,22 @@ public class RunAQLStringAction extends AbstractAction {
 
     private final int restPort;
 
+    private final OutputStream os;
+
     public RunAQLStringAction(HttpClient httpClient, String restHost, int restPort, String aql) {
         this.httpClient = httpClient;
         this.aql = aql;
         this.restHost = restHost;
         this.restPort = restPort;
+        os = null;
+    }
+
+    public RunAQLStringAction(HttpClient httpClient, String restHost, int restPort, String aql, OutputStream os) {
+        this.httpClient = httpClient;
+        this.aql = aql;
+        this.restHost = restHost;
+        this.restPort = restPort;
+        this.os = os;
     }
 
     @Override
@@ -64,7 +75,12 @@ public class RunAQLStringAction extends AbstractAction {
     }
 
     private void printStream(InputStream content) throws IOException {
-        IOUtils.copy(content, System.out);
-        System.out.flush();
+        if (os == null) {
+            IOUtils.copy(content, System.out);
+            System.out.flush();
+        } else {
+            IOUtils.copy(content, os);
+            os.flush();
+        }
     }
 }

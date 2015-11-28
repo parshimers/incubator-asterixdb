@@ -51,9 +51,9 @@ public class TransactionSubsystem implements ITransactionSubsystem {
     private final AsterixTransactionProperties txnProperties;
     private EntityCommitProfiler ecp;
     private Future<Object> fecp;
-    
+
     //for profiler
-    public static final boolean PROFILE_COMMIT_COUNT = true; 
+    public static final boolean PROFILE_COMMIT_COUNT = true;
     public long profilerEntityCommitLogCount = 0;
 
     public TransactionSubsystem(String id, IAsterixAppRuntimeContextProvider asterixAppRuntimeContextProvider,
@@ -67,7 +67,7 @@ public class TransactionSubsystem implements ITransactionSubsystem {
         this.recoveryManager = new RecoveryManager(this);
         if (asterixAppRuntimeContextProvider != null) {
             this.checkpointThread = new CheckpointThread(recoveryManager,
-                    asterixAppRuntimeContextProvider.getIndexLifecycleManager(),logManager,
+                    asterixAppRuntimeContextProvider.getIndexLifecycleManager(), logManager,
                     this.txnProperties.getCheckpointLSNThreshold(), this.txnProperties.getCheckpointPollFrequency());
             //this.checkpointThread.start();
         } else {
@@ -106,34 +106,34 @@ public class TransactionSubsystem implements ITransactionSubsystem {
     public String getId() {
         return id;
     }
-    
+
     /**************************************************************************
      * Thread for profiling entity level commit count
-     * This thread takes a report interval (in seconds) parameter and 
+     * This thread takes a report interval (in seconds) parameter and
      * reports entity level commit count every report interval (in seconds)
      * only if PROFILE_COMMIT_COUNT is set to true.
-     * However, the thread doesn't start reporting the count until the entityCommitCount > 0.   
-     *
+     * However, the thread doesn't start reporting the count until the entityCommitCount > 0.
+     * 
      * @author kisskys
      */
-    static class EntityCommitProfiler implements Callable<Boolean>{
+    static class EntityCommitProfiler implements Callable<Boolean> {
         private static final Logger LOGGER = Logger.getLogger(EntityCommitProfiler.class.getName());
         private final long reportIntervalInMillisec;
-        private long lastEntityCommitCount; 
+        private long lastEntityCommitCount;
         private int reportIntervalInSeconds;
         private TransactionSubsystem txnSubsystem;
         private boolean firstReport = true;
         private long startTimeStamp = 0;
         private long reportRound = 1;
-        
+
         public EntityCommitProfiler(TransactionSubsystem txnSubsystem, int reportIntervalInSeconds) {
             Thread.currentThread().setName("EntityCommitProfiler-Thread");
             this.txnSubsystem = txnSubsystem;
             this.reportIntervalInSeconds = reportIntervalInSeconds;
-            this.reportIntervalInMillisec = reportIntervalInSeconds*1000;
+            this.reportIntervalInMillisec = reportIntervalInSeconds * 1000;
             lastEntityCommitCount = txnSubsystem.profilerEntityCommitLogCount;
         }
-        
+
         @Override
         public Boolean call() throws Exception {
             while (true) {
@@ -142,24 +142,23 @@ public class TransactionSubsystem implements ITransactionSubsystem {
                     if (firstReport) {
                         startTimeStamp = System.currentTimeMillis();
                         firstReport = false;
-                    } 
+                    }
                     //output the count
                     outputCount();
                 }
             }
         }
-        
+
         private void outputCount() {
             long currentTimeStamp = System.currentTimeMillis();
             long currentEntityCommitCount = txnSubsystem.profilerEntityCommitLogCount;
-            
-            LOGGER.info("EntityCommitProfiler ReportRound[" + reportRound + 
-                    "], AbsoluteTimeStamp[" + currentTimeStamp + 
-                    "], ActualRelativeTimeStamp[" + (currentTimeStamp - startTimeStamp) + 
-                    "], ExpectedRelativeTimeStamp[" + (reportIntervalInSeconds * reportRound) + 
-                    "], IIPS[" +  ((currentEntityCommitCount - lastEntityCommitCount) / reportIntervalInSeconds) +
-                    "], IPS[" + (currentEntityCommitCount / (reportRound * reportIntervalInSeconds)) + "]");
-            
+
+            LOGGER.severe("EntityCommitProfiler ReportRound[" + reportRound + "], AbsoluteTimeStamp["
+                    + currentTimeStamp + "], ActualRelativeTimeStamp[" + (currentTimeStamp - startTimeStamp)
+                    + "], ExpectedRelativeTimeStamp[" + (reportIntervalInSeconds * reportRound) + "], IIPS["
+                    + ((currentEntityCommitCount - lastEntityCommitCount) / reportIntervalInSeconds) + "], IPS["
+                    + (currentEntityCommitCount / (reportRound * reportIntervalInSeconds)) + "]");
+
             lastEntityCommitCount = currentEntityCommitCount;
             ++reportRound;
         }

@@ -46,7 +46,7 @@ public class SocketTweetGeneratorConfig {
     public int getDataGenDuration() {
         return duration;
     }
-    
+
     @Option(name = "-qd", aliases = { "--querygen-duration" }, usage = "Duration in seconds to run query generation")
     private int queryDuration = -1;
 
@@ -81,47 +81,47 @@ public class SocketTweetGeneratorConfig {
     public int getOrchestratorPort() {
         return orchPort;
     }
-    
+
     @Option(name = "-of", aliases = "--openstreetmap-filepath", usage = "The open street map gps point data file path")
     private String openStreetMapFilePath;
 
     public String getOpenStreetMapFilePath() {
         return openStreetMapFilePath;
     }
-    
+
     @Option(name = "-si", aliases = "--location-sample-interval", usage = "Location sample interval from open street map point data")
     private int locationSampleInterval;
 
     public int getLocationSampleInterval() {
         return locationSampleInterval;
     }
-    
+
     @Option(name = "-rcbi", aliases = "--record-count-per-batch-during-ingestion-only", usage = "Record count per batch during ingestion only")
     private int recordCountPerBatchDuringIngestionOnly = 1000;
 
     public int getRecordCountPerBatchDuringIngestionOnly() {
         return recordCountPerBatchDuringIngestionOnly;
     }
-    
+
     @Option(name = "-rcbq", aliases = "--record-count-per-batch-during-query", usage = "Record count per batch during query")
     private int recordCountPerBatchDuringQuery = 1000;
 
     public int getRecordCountPerBatchDuringQuery() {
         return recordCountPerBatchDuringQuery;
     }
-    
+
     @Option(name = "-dsti", aliases = "--data-gen-sleep-time-during-ingestion-only", usage = "DataGen sleep time in milliseconds after every recordCountPerBatchDuringIngestionOnly records were sent")
     private long dataGenSleepTimeDuringIngestionOnly = 1;
 
     public long getDataGenSleepTimeDuringIngestionOnly() {
         return dataGenSleepTimeDuringIngestionOnly;
     }
-    
+
     @Option(name = "-dstq", aliases = "--data-gen-sleep-time-during-query", usage = "DataGen sleep time in milliseconds after every recordCountPerBatchDuringQuery records were sent")
     private long dataGenSleepTimeDuringQuery = 1;
 
     public long getDataGenSleepTimeDuringQuery() {
-        return dataGenSleepTimeDuringIngestionOnly;
+        return dataGenSleepTimeDuringQuery;
     }
 
     @Argument(required = true, usage = "A list of <ip>:<port> pairs (addresses) to send data to", metaVar = "addresses...", handler = AddressOptionHandler.class)

@@ -25,6 +25,6 @@ public class SpatialIndexExperiment3DhbtreeBuilder extends AbstractSpatialIndexE
 
     public SpatialIndexExperiment3DhbtreeBuilder(LSMExperimentSetRunnerConfig config) {
         super("SpatialIndexExperiment3Dhbtree", config, "8node.xml", "base_8_ingest.aql", "8.dqgen", "count.aql",
-                "spatial_3_create_dhbtree.aql");
+                "spatial_3_create_dhbtree.aql", true);
     }
 }
