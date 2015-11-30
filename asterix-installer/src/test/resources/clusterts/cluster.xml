@@ -34,7 +34,7 @@
 
       <store>storage</store>
 
-      <java_home>/usr/java/jdk1.7.0_51</java_home>
+      <java_home>/usr/java/latest</java_home>
 
       <master_node>
           <id>cc</id>

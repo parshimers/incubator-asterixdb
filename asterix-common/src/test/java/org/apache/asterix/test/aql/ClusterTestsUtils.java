@@ -29,15 +29,14 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.commons.httpclient.DefaultHttpMethodRetryHandler;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpMethod;
-import org.apache.commons.httpclient.HttpStatus;
-import org.apache.commons.httpclient.NameValuePair;
+import org.apache.asterix.testframework.xml.TestGroup;
+import org.apache.commons.httpclient.*;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.commons.httpclient.methods.StringRequestEntity;
@@ -56,14 +55,16 @@ import org.apache.asterix.testframework.xml.TestCase.CompilationUnit;
 
 public class ClusterTestsUtils {
 
-    private static final String EXTENSION_AQL_RESULT = "adm";
-    private static final Logger LOGGER = Logger.getLogger(ClusterTestsUtils.class.getName());
+    protected static final Logger LOGGER = Logger.getLogger(TestExecutor.class.getName());
+    // see
+    // https://stackoverflow.com/questions/417142/what-is-the-maximum-length-of-a-url-in-different-browsers/417184
+    private static final long MAX_URL_LENGTH = 2000l;
     private static Method managixExecuteMethod = null;
 
     /**
      * Probably does not work well with symlinks.
      */
-    public static boolean deleteRec(File path) {
+    public boolean deleteRec(File path) {
         if (path.isDirectory()) {
             for (File f : path.listFiles()) {
                 if (!deleteRec(f)) {
@@ -74,10 +75,11 @@ public class ClusterTestsUtils {
         return path.delete();
     }
 
-    private static void runScriptAndCompareWithResult(File scriptFile, PrintWriter print, File expectedFile,
-            File actualFile) throws Exception {
-        BufferedReader readerExpected = new BufferedReader(new InputStreamReader(new FileInputStream(expectedFile),
-                "UTF-8"));
+    public void runScriptAndCompareWithResult(File scriptFile, PrintWriter print, File expectedFile, File actualFile)
+            throws Exception {
+        System.err.println("Expected results file: " + expectedFile.toString());
+        BufferedReader readerExpected = new BufferedReader(
+                new InputStreamReader(new FileInputStream(expectedFile), "UTF-8"));
         BufferedReader readerActual = new BufferedReader(
                 new InputStreamReader(new FileInputStream(actualFile), "UTF-8"));
         String lineExpected, lineActual;
@@ -90,13 +92,13 @@ public class ClusterTestsUtils {
                     if (lineExpected.isEmpty()) {
                         continue;
                     }
-                    throw new Exception("Result for " + scriptFile + " changed at line " + num + ":\n< " + lineExpected
-                            + "\n> ");
+                    throw new Exception(
+                            "Result for " + scriptFile + " changed at line " + num + ":\n< " + lineExpected + "\n> ");
                 }
 
-                if (!equalStrings(lineExpected.split("Timestamp")[0], lineActual.split("Timestamp")[0])) {
-                    fail("Result for " + scriptFile + " changed at line " + num + ":\n< " + lineExpected + "\n> "
-                            + lineActual);
+                if (!equalStrings(lineExpected.split("Time")[0], lineActual.split("Time")[0])) {
+                    throw new Exception("Result for " + scriptFile + " changed at line " + num + ":\n< " + lineExpected
+                            + "\n> " + lineActual);
                 }
 
                 ++num;
@@ -114,7 +116,7 @@ public class ClusterTestsUtils {
 
     }
 
-    private static boolean equalStrings(String s1, String s2) {
+    private boolean equalStrings(String s1, String s2) {
         String[] rowsOne = s1.split("\n");
         String[] rowsTwo = s2.split("\n");
 
@@ -128,22 +130,49 @@ public class ClusterTestsUtils {
             String[] fields1 = row1.split(" ");
             String[] fields2 = row2.split(" ");
 
+            boolean bagEncountered = false;
+            Set<String> bagElements1 = new HashSet<String>();
+            Set<String> bagElements2 = new HashSet<String>();
+
             for (int j = 0; j < fields1.length; j++) {
-                if (fields1[j].equals(fields2[j])) {
+                if (j >= fields2.length) {
+                    return false;
+                } else if (fields1[j].equals(fields2[j])) {
+                    if (fields1[j].equals("{{"))
+                        bagEncountered = true;
+                    if (fields1[j].startsWith("}}")) {
+                        if (!bagElements1.equals(bagElements2))
+                            return false;
+                        bagEncountered = false;
+                        bagElements1.clear();
+                        bagElements2.clear();
+                    }
                     continue;
                 } else if (fields1[j].indexOf('.') < 0) {
+                    if (bagEncountered) {
+                        bagElements1.add(fields1[j].replaceAll(",$", ""));
+                        bagElements2.add(fields2[j].replaceAll(",$", ""));
+                        continue;
+                    }
                     return false;
                 } else {
+                    // If the fields are floating-point numbers, test them
+                    // for equality safely
                     fields1[j] = fields1[j].split(",")[0];
                     fields2[j] = fields2[j].split(",")[0];
-                    Double double1 = Double.parseDouble(fields1[j]);
-                    Double double2 = Double.parseDouble(fields2[j]);
-                    float float1 = (float) double1.doubleValue();
-                    float float2 = (float) double2.doubleValue();
+                    try {
+                        Double double1 = Double.parseDouble(fields1[j]);
+                        Double double2 = Double.parseDouble(fields2[j]);
+                        float float1 = (float) double1.doubleValue();
+                        float float2 = (float) double2.doubleValue();
 
-                    if (Math.abs(float1 - float2) == 0)
-                        continue;
-                    else {
+                        if (Math.abs(float1 - float2) == 0)
+                            continue;
+                        else {
+                            return false;
+                        }
+                    } catch (NumberFormatException ignored) {
+                        // Guess they weren't numbers - must simply not be equal
                         return false;
                     }
                 }
@@ -152,89 +181,77 @@ public class ClusterTestsUtils {
         return true;
     }
 
-    public static String aqlExtToResExt(String fname) {
-        int dot = fname.lastIndexOf('.');
-        return fname.substring(0, dot + 1) + EXTENSION_AQL_RESULT;
-    }
-
-    private static void writeResultsToFile(File actualFile, InputStream resultStream) throws Exception {
-        BufferedWriter writer = new BufferedWriter(new FileWriter(actualFile));
+    // For tests where you simply want the byte-for-byte output.
+    private static void writeOutputToFile(File actualFile, InputStream resultStream) throws Exception {
+        byte[] buffer = new byte[10240];
+        int len;
+        java.io.FileOutputStream out = new java.io.FileOutputStream(actualFile);
         try {
-            JsonFactory jsonFactory = new JsonFactory();
-            JsonParser resultParser = jsonFactory.createParser(resultStream);
-            while (resultParser.nextToken() == JsonToken.START_OBJECT) {
-                while (resultParser.nextToken() != JsonToken.END_OBJECT) {
-                    String key = resultParser.getCurrentName();
-                    if (key.equals("results")) {
-                        // Start of array.
-                        resultParser.nextToken();
-                        while (resultParser.nextToken() != JsonToken.END_ARRAY) {
-                            String record = resultParser.getValueAsString();
-                            writer.write(record);
-                        }
-                    } else if (key.equals("summary")) {
-                        String summary = resultParser.nextTextValue();
-                        writer.write(summary);
-                        throw new Exception("Could not find results key in the JSON Object, result file is at "
-                                + actualFile);
-                    }
-                }
+            while ((len = resultStream.read(buffer)) != -1) {
+                out.write(buffer, 0, len);
             }
         } finally {
-            writer.close();
+            out.close();
         }
     }
 
-    private static String[] handleError(HttpMethod method) throws Exception {
-        String errorBody = method.getResponseBodyAsString();
-        JSONObject result = new JSONObject(errorBody);
-        String[] errors = { result.getJSONArray("error-code").getString(0), result.getString("summary"),
-                result.getString("stacktrace") };
-        return errors;
-    }
-
-    // Executes Query and returns results as JSONArray
-    public static InputStream executeQuery(String str) throws Exception {
-        InputStream resultStream = null;
-
-        final String url = "http://10.10.0.2:19002/query";
-
-        // Create an instance of HttpClient.
+    private int executeHttpMethod(HttpMethod method) throws Exception {
         HttpClient client = new HttpClient();
-
-        // Create a method instance.
-        GetMethod method = new GetMethod(url);
-        method.setQueryString(new NameValuePair[] { new NameValuePair("query", str) });
-
-        // Provide custom retry handler is necessary
-        method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
-
+        int statusCode;
         try {
-            // Execute the method.
-            int statusCode = client.executeMethod(method);
-
-            // Check if the method was executed successfully.
-            if (statusCode != HttpStatus.SC_OK) {
-                GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, "Method failed: " + method.getStatusLine());
-            }
-
-            // Read the response body as stream
-            resultStream = method.getResponseBodyAsStream();
+            statusCode = client.executeMethod(method);
         } catch (Exception e) {
             GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, e.getMessage(), e);
             e.printStackTrace();
+            throw e;
         }
-        return resultStream;
+        if (statusCode != HttpStatus.SC_OK) {
+            // QQQ For now, we are indeed assuming we get back JSON errors.
+            // In future this may be changed depending on the requested
+            // output format sent to the servlet.
+            String errorBody = method.getResponseBodyAsString();
+            JSONObject result = new JSONObject(errorBody);
+            String[] errors = { result.getJSONArray("error-code").getString(0), result.getString("summary"),
+                    result.getString("stacktrace") };
+            GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, errors[2]);
+            throw new Exception("HTTP operation failed: " + errors[0] + "\nSTATUS LINE: " + method.getStatusLine()
+                    + "\nSUMMARY: " + errors[1] + "\nSTACKTRACE: " + errors[2]);
+        }
+        return statusCode;
+    }
+
+    // Executes Query and returns results as JSONArray
+    public InputStream executeQuery(String str, TestCaseContext.OutputFormat fmt, String url, List<CompilationUnit.Parameter> params)
+            throws Exception {
+        HttpMethodBase method = null;
+        if (str.length() + url.length() < MAX_URL_LENGTH) {
+            //Use GET for small-ish queries
+            method = new GetMethod(url);
+            NameValuePair[] parameters = new NameValuePair[params.size() + 1];
+            parameters[0] = new NameValuePair("query", str);
+            int i = 1;
+            for (CompilationUnit.Parameter param : params) {
+                parameters[i++] = new NameValuePair(param.getName(), param.getValue());
+            }
+            method.setQueryString(parameters);
+        } else {
+            //Use POST for bigger ones to avoid 413 FULL_HEAD
+            // QQQ POST API doesn't allow encoding additional parameters
+            method = new PostMethod(url);
+            ((PostMethod) method).setRequestEntity(new StringRequestEntity(str));
+        }
+
+        //Set accepted output response type
+        method.setRequestHeader("Accept", fmt.mimeType());
+        // Provide custom retry handler is necessary
+        method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
+        executeHttpMethod(method);
+        return method.getResponseBodyAsStream();
     }
 
     // To execute Update statements
     // Insert and Delete statements are executed here
-    public static void executeUpdate(String str) throws Exception {
-        final String url = "http://10.10.0.2:19002/update";
-
-        // Create an instance of HttpClient.
-        HttpClient client = new HttpClient();
-
+    public void executeUpdate(String str, String url) throws Exception {
         // Create a method instance.
         PostMethod method = new PostMethod(url);
         method.setRequestEntity(new StringRequestEntity(str));
@@ -243,16 +260,46 @@ public class ClusterTestsUtils {
         method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
 
         // Execute the method.
-        int statusCode = client.executeMethod(method);
+        executeHttpMethod(method);
+    }
 
-        // Check if the method was executed successfully.
-        if (statusCode != HttpStatus.SC_OK) {
-            GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, "Method failed: " + method.getStatusLine());
-            String[] errors = handleError(method);
-            GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, errors[2]);
-            throw new Exception("DDL operation failed: " + errors[0] + "\nSUMMARY: " + errors[1] + "\nSTACKTRACE: "
-                    + errors[2]);
+    // Executes AQL in either async or async-defer mode.
+    public InputStream executeAnyAQLAsync(String str, boolean defer, TestCaseContext.OutputFormat fmt, String url) throws Exception {
+        // Create a method instance.
+        PostMethod method = new PostMethod(url);
+        if (defer) {
+            method.setQueryString(new NameValuePair[] { new NameValuePair("mode", "asynchronous-deferred") });
+        } else {
+            method.setQueryString(new NameValuePair[] { new NameValuePair("mode", "asynchronous") });
         }
+        method.setRequestEntity(new StringRequestEntity(str));
+        method.setRequestHeader("Accept", fmt.mimeType());
+
+        // Provide custom retry handler is necessary
+        method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
+        executeHttpMethod(method);
+        InputStream resultStream = method.getResponseBodyAsStream();
+
+        String theHandle = IOUtils.toString(resultStream, "UTF-8");
+
+        // take the handle and parse it so results can be retrieved
+        InputStream handleResult = getHandleResult(theHandle, fmt);
+        return handleResult;
+    }
+
+    private InputStream getHandleResult(String handle, TestCaseContext.OutputFormat fmt) throws Exception {
+        final String url = "http://10.10.0.2:19002/query/result";
+
+        // Create a method instance.
+        GetMethod method = new GetMethod(url);
+        method.setQueryString(new NameValuePair[] { new NameValuePair("handle", handle) });
+        method.setRequestHeader("Accept", fmt.mimeType());
+
+        // Provide custom retry handler is necessary
+        method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
+
+        executeHttpMethod(method);
+        return method.getResponseBodyAsStream();
     }
 
     // To execute DDL and Update statements
@@ -261,12 +308,7 @@ public class ClusterTestsUtils {
     // create index statement
     // create dataverse statement
     // create function statement
-    public static void executeDDL(String str) throws Exception {
-        final String url = "http://10.10.0.2:19002/ddl";
-
-        // Create an instance of HttpClient.
-        HttpClient client = new HttpClient();
-
+    public void executeDDL(String str, String url) throws Exception {
         // Create a method instance.
         PostMethod method = new PostMethod(url);
         method.setRequestEntity(new StringRequestEntity(str));
@@ -274,32 +316,22 @@ public class ClusterTestsUtils {
         method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
 
         // Execute the method.
-        int statusCode = client.executeMethod(method);
-
-        // Check if the method was executed successfully.
-        if (statusCode != HttpStatus.SC_OK) {
-            GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, "Method failed: " + method.getStatusLine());
-            String[] errors = handleError(method);
-            GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, errors[2]);
-            throw new Exception("DDL operation failed: " + errors[0] + "\nSUMMARY: " + errors[1] + "\nSTACKTRACE: "
-                    + errors[2]);
-        }
+        executeHttpMethod(method);
     }
 
     // Method that reads a DDL/Update/Query File
     // and returns the contents as a string
     // This string is later passed to REST API for execution.
-    private static String readTestFile(File testFile) throws Exception {
+    public String readTestFile(File testFile) throws Exception {
         BufferedReader reader = new BufferedReader(new FileReader(testFile));
         String line = null;
         StringBuilder stringBuilder = new StringBuilder();
         String ls = System.getProperty("line.separator");
-
         while ((line = reader.readLine()) != null) {
             stringBuilder.append(line);
             stringBuilder.append(ls);
         }
-
+        reader.close();
         return stringBuilder.toString();
     }
 
@@ -352,8 +384,13 @@ public class ClusterTestsUtils {
         return s.toString();
     }
 
-    public static void executeTest(String actualPath, TestCaseContext testCaseCtx, ProcessBuilder pb,
+    public void executeTest(String actualPath, TestCaseContext testCaseCtx, ProcessBuilder pb,
             boolean isDmlRecoveryTest) throws Exception {
+        executeTest(actualPath, testCaseCtx, pb, isDmlRecoveryTest, null);
+    }
+
+    public void executeTest(String actualPath, TestCaseContext testCaseCtx, ProcessBuilder pb,
+            boolean isDmlRecoveryTest, TestGroup failedGroup) throws Exception {
 
         File testFile;
         File expectedResultFile;
@@ -366,29 +403,38 @@ public class ClusterTestsUtils {
 
         List<CompilationUnit> cUnits = testCaseCtx.getTestCase().getCompilationUnit();
         for (CompilationUnit cUnit : cUnits) {
-            LOGGER.info("Starting [TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName() + " ... ");
+            LOGGER.info(
+                    "Starting [TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName() + " ... ");
             testFileCtxs = testCaseCtx.getTestFiles(cUnit);
             expectedResultFileCtxs = testCaseCtx.getExpectedResultFiles(cUnit);
-
             for (TestFileContext ctx : testFileCtxs) {
                 testFile = ctx.getFile();
-                statement = ClusterTestsUtils.readTestFile(testFile);
-                InputStream resultStream;
+                statement = readTestFile(testFile);
+                boolean failed = false;
                 try {
                     switch (ctx.getType()) {
                         case "ddl":
-                            ClusterTestsUtils.executeDDL(statement);
+                            if (ctx.getFile().getName().endsWith("aql")) {
+                                executeDDL(statement, "http://10.10.0.2:19002/ddl");
+                            } else {
+                                executeDDL(statement, "http://10.10.0.2:19002/ddl/sqlpp");
+                            }
                             break;
                         case "update":
                             //isDmlRecoveryTest: set IP address
                             if (isDmlRecoveryTest && statement.contains("nc1://")) {
-                                statement = statement
-                                        .replaceAll("nc1://", "127.0.0.1://../../../../../../asterix-app/");
+                                statement = statement.replaceAll("nc1://",
+                                        "127.0.0.1://../../../../../../asterix-app/");
                             }
-
-                            ClusterTestsUtils.executeUpdate(statement);
+                            if (ctx.getFile().getName().endsWith("aql")) {
+                                executeUpdate(statement, "http://10.10.0.2:19002/update");
+                            } else {
+                                executeUpdate(statement, "http://10.10.0.2:19002/update/sqlpp");
+                            }
                             break;
                         case "query":
+                        case "async":
+                        case "asyncdefer":
                             // isDmlRecoveryTest: insert Crash and Recovery
                             if (isDmlRecoveryTest) {
                                 executeScript(pb, pb.environment().get("SCRIPT_HOME") + File.separator + "dml_recovery"
@@ -396,23 +442,45 @@ public class ClusterTestsUtils {
                                 executeScript(pb, pb.environment().get("SCRIPT_HOME") + File.separator + "dml_recovery"
                                         + File.separator + "stop_and_start.sh");
                             }
+                            InputStream resultStream = null;
+                            TestCaseContext.OutputFormat fmt = TestCaseContext.OutputFormat.forCompilationUnit(cUnit);
+                            if (ctx.getFile().getName().endsWith("aql")) {
+                                if (ctx.getType().equalsIgnoreCase("query")) {
+                                    resultStream = executeQuery(statement, fmt, "http://10.10.0.2:19002/query",
+                                            cUnit.getParameter());
+                                } else if (ctx.getType().equalsIgnoreCase("async")) {
+                                    resultStream = executeAnyAQLAsync(statement, false, fmt,
+                                            "http://10.10.0.2:19002/aql");
+                                } else if (ctx.getType().equalsIgnoreCase("asyncdefer")) {
+                                    resultStream = executeAnyAQLAsync(statement, true, fmt,
+                                            "http://10.10.0.2:19002/aql");
+                                }
+                            } else {
+                                if (ctx.getType().equalsIgnoreCase("query")) {
+                                    resultStream = executeQuery(statement, fmt, "http://10.10.0.2:19002/query/sqlpp",
+                                            cUnit.getParameter());
+                                } else if (ctx.getType().equalsIgnoreCase("async")) {
+                                    resultStream = executeAnyAQLAsync(statement, false, fmt,
+                                            "http://10.10.0.2:19002/sqlpp");
+                                } else if (ctx.getType().equalsIgnoreCase("asyncdefer")) {
+                                    resultStream = executeAnyAQLAsync(statement, true, fmt,
+                                            "http://10.10.0.2:19002/sqlpp");
+                                }
+                            }
 
-                            resultStream = executeQuery(statement);
                             if (queryCount >= expectedResultFileCtxs.size()) {
-                                throw new IllegalStateException("no result file for " + testFile.toString());
+                                throw new IllegalStateException(
+                                        "no result file for " + testFile.toString() + "; queryCount: " + queryCount
+                                                + ", filectxs.size: " + expectedResultFileCtxs.size());
                             }
                             expectedResultFile = expectedResultFileCtxs.get(queryCount).getFile();
 
-                            File actualFile = new File(actualPath + File.separator
-                                    + testCaseCtx.getTestCase().getFilePath().replace(File.separator, "_") + "_"
-                                    + cUnit.getName() + ".adm");
-                            ClusterTestsUtils.writeResultsToFile(actualFile, resultStream);
-
                             File actualResultFile = testCaseCtx.getActualResultFile(cUnit, new File(actualPath));
                             actualResultFile.getParentFile().mkdirs();
+                            writeOutputToFile(actualResultFile, resultStream);
 
-                            ClusterTestsUtils.runScriptAndCompareWithResult(testFile, new PrintWriter(System.err),
-                                    expectedResultFile, actualFile);
+                            runScriptAndCompareWithResult(testFile, new PrintWriter(System.err), expectedResultFile,
+                                    actualResultFile);
                             LOGGER.info("[TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName()
                                     + " PASSED ");
 
@@ -422,40 +490,47 @@ public class ClusterTestsUtils {
                             executeManagixCommand(statement);
                             break;
                         case "txnqbc": //qbc represents query before crash
-                            resultStream = executeQuery(statement);
+                            resultStream = executeQuery(statement, TestCaseContext.OutputFormat
+                                    .forCompilationUnit(cUnit),
+                                    "http://10.10.0.2:19002/query", cUnit.getParameter());
                             qbcFile = new File(actualPath + File.separator
                                     + testCaseCtx.getTestCase().getFilePath().replace(File.separator, "_") + "_"
                                     + cUnit.getName() + "_qbc.adm");
                             qbcFile.getParentFile().mkdirs();
-                            ClusterTestsUtils.writeResultsToFile(qbcFile, resultStream);
+                            writeOutputToFile(qbcFile, resultStream);
                             break;
                         case "txnqar": //qar represents query after recovery
-                            resultStream = executeQuery(statement);
+                            resultStream = executeQuery(statement, TestCaseContext.OutputFormat
+                                    .forCompilationUnit(cUnit),
+                                    "http://10.10.0.2:19002/query", cUnit.getParameter());
                             qarFile = new File(actualPath + File.separator
                                     + testCaseCtx.getTestCase().getFilePath().replace(File.separator, "_") + "_"
                                     + cUnit.getName() + "_qar.adm");
                             qarFile.getParentFile().mkdirs();
-                            ClusterTestsUtils.writeResultsToFile(qarFile, resultStream);
-
-                            ClusterTestsUtils.runScriptAndCompareWithResult(testFile, new PrintWriter(System.err), qbcFile,
-                                    qarFile);
+                            writeOutputToFile(qarFile, resultStream);
+                            runScriptAndCompareWithResult(testFile, new PrintWriter(System.err), qbcFile, qarFile);
 
                             LOGGER.info("[TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName()
                                     + " PASSED ");
                             break;
                         case "txneu": //eu represents erroneous update
                             try {
-                                ClusterTestsUtils.executeUpdate(statement);
+                                executeUpdate(statement, "http://10.10.0.2:19002/update");
                             } catch (Exception e) {
                                 //An exception is expected.
+                                failed = true;
+                                e.printStackTrace();
                             }
+                            if (!failed) {
+                                throw new Exception(
+                                        "Test \"" + testFile + "\" FAILED!\n  An exception" + "is expected.");
+                            }
+                            System.err.println("...but that was expected.");
                             break;
                         case "script":
                             try {
-                                String output = executeScript(
-                                        pb,
-                                        getScriptPath(testFile.getAbsolutePath(), pb.environment().get("SCRIPT_HOME"),
-                                                statement.trim()));
+                                String output = executeScript(pb, getScriptPath(testFile.getAbsolutePath(),
+                                        pb.environment().get("SCRIPT_HOME"), statement.trim()));
                                 if (output.contains("ERROR")) {
                                     throw new Exception(output);
                                 }
@@ -468,24 +543,39 @@ public class ClusterTestsUtils {
                             break;
                         case "errddl": // a ddlquery that expects error
                             try {
-                                ClusterTestsUtils.executeDDL(statement);
-
+                                executeDDL(statement, "http://10.10.0.2:19002/ddl");
                             } catch (Exception e) {
                                 // expected error happens
+                                failed = true;
+                                e.printStackTrace();
                             }
+                            if (!failed) {
+                                throw new Exception(
+                                        "Test \"" + testFile + "\" FAILED!\n  An exception" + "is expected.");
+                            }
+                            System.err.println("...but that was expected.");
                             break;
                         default:
                             throw new IllegalArgumentException("No statements of type " + ctx.getType());
                     }
 
                 } catch (Exception e) {
+
+                    System.err.println("testFile " + testFile.toString() + " raised an exception:");
+
+                    e.printStackTrace();
                     if (cUnit.getExpectedError().isEmpty()) {
-                        e.printStackTrace();
+                        System.err.println("...Unexpected!");
+                        if (failedGroup != null) {
+                            failedGroup.getTestCase().add(testCaseCtx.getTestCase());
+                        }
                         throw new Exception("Test \"" + testFile + "\" FAILED!", e);
                     } else {
                         LOGGER.info("[TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName()
                                 + " failed as expected: " + e.getMessage());
+                        System.err.println("...but that was expected.");
                     }
+
                 }
             }
         }

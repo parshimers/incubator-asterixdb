@@ -20,7 +20,9 @@ import java.util.Collection;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.asterix.test.aql.TestExecutor;
 import org.apache.commons.lang3.StringUtils;
+import org.codehaus.plexus.util.FileUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -45,6 +47,8 @@ public class ClusterExecutionIT {
     private static final String PATH_BASE = StringUtils.join(new String[] { "..", "asterix-app", "src", "test",
             "resources", "runtimets" }, File.separator);
 
+    private final static ClusterTestsUtils testExecutor = new ClusterTestsUtils();
+
     @BeforeClass
     public static void setUp() throws Exception {
         System.out.println("Starting setup");
@@ -55,6 +59,9 @@ public class ClusterExecutionIT {
         outdir.mkdirs();
 
         AsterixClusterLifeCycleIT.setUp();
+
+        FileUtils.copyDirectory(new File(StringUtils.join(new String[] { "..", "asterix-app", "data" })), new File(
+                StringUtils.join(new String[] { "src", "test", "resources", "clusterts", "managix-working" })));
 
         // Set the node resolver to be the identity resolver that expects node names 
         // to be node controller ids; a valid assumption in test environment. 
@@ -90,6 +97,6 @@ public class ClusterExecutionIT {
 
     @Test
     public void test() throws Exception {
-        ClusterTestsUtils.executeTest(PATH_ACTUAL, tcCtx, null, false);
+        testExecutor.executeTest(PATH_ACTUAL, tcCtx, null, false);
     }
 }

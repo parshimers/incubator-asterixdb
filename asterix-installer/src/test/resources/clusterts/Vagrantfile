@@ -23,7 +23,7 @@ VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     config.vm.provider "virtualbox" do |v|
-        v.memory =2048
+        v.memory =3096
         v.cpus = 2
     end
     config.vm.provision "file", source: "id_rsa", destination: "/home/vagrant/.ssh/id_rsa"
