@@ -99,7 +99,7 @@ public class JobEventListenerFactory implements IJobletEventListenerFactory {
                         profilerTxnSW.suspend();
                         profilerTxnSW.finish();
                         OperatorExecutionTimeProfiler.INSTANCE.executionTimeProfiler.add(nodeJobSignature, taskTxnId,
-                                profilerSW.getMessage("TXN_JOB_COMMIT" + " " + nodeJobSignature + " " + taskTxnId,
+                                profilerTxnSW.getMessage("TXN_JOB_COMMIT" + " " + nodeJobSignature + " " + taskTxnId,
                                         profilerTxnSW.getStartTimeStamp()), false);
                     }
 

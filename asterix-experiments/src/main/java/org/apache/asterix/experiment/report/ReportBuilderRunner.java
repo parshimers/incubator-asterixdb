@@ -21,9 +21,10 @@ package org.apache.asterix.experiment.report;
 
 public class ReportBuilderRunner {
     public static final boolean REPORT_SIE1 = false;
-    public static final boolean REPORT_SIE2 = true;
+    public static final boolean REPORT_SIE2 = false;
     public static final boolean REPORT_SIE3 = false;
     public static final boolean REPORT_SIE4 = false;
+    public static final boolean REPORT_SIE5 = true;
     public static final boolean REPORT_SIE3_PROFILE = false;
 
     public static void main(String[] args) throws Exception {
@@ -81,6 +82,19 @@ public class ReportBuilderRunner {
             sie4.generateJoinQueryResponseTime();
             sie4.generateSelectQueryResultCount();
             sie4.generateJoinQueryResultCount();
+        }
+
+        if (REPORT_SIE5) {
+            SIE5ReportBuilderRunner sie5 = new SIE5ReportBuilderRunner();
+            sie5.generateOverallInsertPS();
+            sie5.generateAccumulatedInsertPS();
+            sie5.generateQueryPS();
+            sie5.generateAverageQueryResultCount();
+            sie5.generateAverageQueryResponseTime();
+            sie5.generateInstantaneousInsertPS();
+            sie5.generateGanttInstantaneousInsertPS();
+            sie5.generateSelectQueryResponseTime();
+            sie5.generateSelectQueryResultCount();
         }
 
         if (REPORT_SIE3_PROFILE) {

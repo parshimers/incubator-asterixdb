@@ -26,7 +26,7 @@ import java.io.IOException;
 
 public class SIE3ReportBuilderRunner {
     static boolean IS_PROFILE = false;
-    String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/Mem3g-Disk1g-part4-Lsev-Jvm5g-Lock0g/result-report/";
+    String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
     SIE3ReportBuilder sie3Dhbtree;
     SIE3ReportBuilder sie3Dhvbtree;
     SIE3ReportBuilder sie3Rtree;
@@ -49,7 +49,7 @@ public class SIE3ReportBuilderRunner {
 
     public SIE3ReportBuilderRunner() {
 
-        String expHomePath = "/Users/kisskys/workspace/asterix_master/resultLog/Mem3g-Disk1g-part4-Lsev-Jvm5g-Lock0g/exp3/";
+        String expHomePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/exp3/";
         String runLogFileName = "run-exp3.log";
         String queryLogFileNamePrefix = "QueryGenResult-";
         String queryLogFileNameSuffix = "-130.149.249.51.txt";

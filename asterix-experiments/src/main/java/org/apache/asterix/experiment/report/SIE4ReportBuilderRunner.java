@@ -26,7 +26,7 @@ import java.io.IOException;
 
 public class SIE4ReportBuilderRunner {
     static boolean IS_PROFILE = false;
-    String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf4g-partition4-Lsev/result-report/";
+    String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
     SIE3ReportBuilder sie4Dhbtree;
     SIE3ReportBuilder sie4Dhvbtree;
     SIE3ReportBuilder sie4Rtree;
@@ -48,15 +48,21 @@ public class SIE4ReportBuilderRunner {
     StringBuilder sb = new StringBuilder();
 
     public SIE4ReportBuilderRunner() {
-
-        String expHomePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf4g-partition4-Lsev/exp4/";
+        String expHomePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/exp4/";
         String runLogFileName = "run-exp4.log";
+        String queryLogFileNamePrefix = "QueryGenResult-";
+        String queryLogFileNameSuffix = "-130.149.249.51.txt";
 
-        sie4Dhbtree = new SIE3ReportBuilder(expHomePath, "SpatialIndexExperiment4Dhbtree", runLogFileName, null);
-        sie4Dhvbtree = new SIE3ReportBuilder(expHomePath, "SpatialIndexExperiment4Dhvbtree", runLogFileName, null);
-        sie4Rtree = new SIE3ReportBuilder(expHomePath, "SpatialIndexExperiment4Rtree", runLogFileName, null);
-        sie4Shbtree = new SIE3ReportBuilder(expHomePath, "SpatialIndexExperiment4Shbtree", runLogFileName, null);
-        sie4Sif = new SIE3ReportBuilder(expHomePath, "SpatialIndexExperiment4Sif", runLogFileName, null);
+        sie4Dhbtree = new SIE3ReportBuilder(expHomePath, "SpatialIndexExperiment4Dhbtree", runLogFileName,
+                queryLogFileNamePrefix + "SpatialIndexExperiment4Dhbtree" + queryLogFileNameSuffix);
+        sie4Dhvbtree = new SIE3ReportBuilder(expHomePath, "SpatialIndexExperiment4Dhvbtree", runLogFileName,
+                queryLogFileNamePrefix + "SpatialIndexExperiment4Dhvbtree" + queryLogFileNameSuffix);
+        sie4Rtree = new SIE3ReportBuilder(expHomePath, "SpatialIndexExperiment4Rtree", runLogFileName,
+                queryLogFileNamePrefix + "SpatialIndexExperiment4Rtree" + queryLogFileNameSuffix);
+        sie4Shbtree = new SIE3ReportBuilder(expHomePath, "SpatialIndexExperiment4Shbtree", runLogFileName,
+                queryLogFileNamePrefix + "SpatialIndexExperiment4Shbtree" + queryLogFileNameSuffix);
+        sie4Sif = new SIE3ReportBuilder(expHomePath, "SpatialIndexExperiment4Sif", runLogFileName,
+                queryLogFileNamePrefix + "SpatialIndexExperiment4Sif" + queryLogFileNameSuffix);
     }
 
     public void generateIndexCreationTime() throws Exception {
