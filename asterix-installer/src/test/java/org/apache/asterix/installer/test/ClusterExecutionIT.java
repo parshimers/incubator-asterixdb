@@ -20,8 +20,9 @@ import java.util.Collection;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.asterix.test.aql.TestExecutor;
+import org.apache.asterix.test.runtime.HDFSCluster;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.codehaus.plexus.util.FileUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -32,7 +33,7 @@ import org.junit.runners.Parameterized.Parameters;
 
 import org.apache.asterix.external.dataset.adapter.FileSystemBasedAdapter;
 import org.apache.asterix.external.util.IdentitiyResolverFactory;
-import org.apache.asterix.test.aql.ClusterTestsUtils;
+import org.apache.asterix.test.aql.ClusterTestExecutor;
 import org.apache.asterix.testframework.context.TestCaseContext;
 
 /**
@@ -47,7 +48,9 @@ public class ClusterExecutionIT {
     private static final String PATH_BASE = StringUtils.join(new String[] { "..", "asterix-app", "src", "test",
             "resources", "runtimets" }, File.separator);
 
-    private final static ClusterTestsUtils testExecutor = new ClusterTestsUtils();
+    private static final String HDFS_BASE = "../asterix-app/";
+
+    private final static ClusterTestExecutor testExecutor = new ClusterTestExecutor();
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -58,10 +61,14 @@ public class ClusterExecutionIT {
         File outdir = new File(PATH_ACTUAL);
         outdir.mkdirs();
 
+        HDFSCluster.getInstance().setup(HDFS_BASE);
+
         AsterixClusterLifeCycleIT.setUp();
 
-        FileUtils.copyDirectory(new File(StringUtils.join(new String[] { "..", "asterix-app", "data" })), new File(
-                StringUtils.join(new String[] { "src", "test", "resources", "clusterts", "managix-working" })));
+        FileUtils.copyDirectoryStructure(
+                new File(StringUtils.join(new String[] { "..", "asterix-app", "data" }, File.separator)), new File(
+                StringUtils.join(new String[] { "src", "test", "resources", "clusterts", "managix-working", "data" },
+                        File.separator)));
 
         // Set the node resolver to be the identity resolver that expects node names 
         // to be node controller ids; a valid assumption in test environment. 
@@ -76,6 +83,9 @@ public class ClusterExecutionIT {
         if (files == null || files.length == 0) {
             outdir.delete();
         }
+
+        HDFSCluster.getInstance().cleanup();
+
         AsterixClusterLifeCycleIT.tearDown();
     }
 
