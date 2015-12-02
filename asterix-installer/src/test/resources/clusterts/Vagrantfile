@@ -22,10 +22,7 @@
 VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
-    config.vm.provider "virtualbox" do |v|
-        v.memory =3096
-        v.cpus = 2
-    end
+
     config.vm.provision "file", source: "id_rsa", destination: "/home/vagrant/.ssh/id_rsa"
     config.vm.provision "file", source: "id_rsa.pub", destination: "/home/vagrant/.ssh/id_rsa.pub"
     config.vm.provision "file", source: "known_hosts", destination: "/home/vagrant/.ssh/known_hosts"
@@ -47,26 +44,33 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     END
     config.vm.provision "shell", inline: $java_inst
 
-    config.vm.define "nc3" do |nc|
-        nc.vm.box = "bento/centos-6.7"
-        nc.vm.hostname = "nc3"
-        nc.vm.network "private_network", ip: "10.10.0.5"
-    end
     config.vm.define "nc2" do |nc|
         nc.vm.box = "bento/centos-6.7"
         nc.vm.hostname = "nc2"
         nc.vm.network "private_network", ip: "10.10.0.4"
+        config.vm.provider "virtualbox" do |v|
+            v.memory = 3096
+            v.cpus = 2
+        end
     end
     config.vm.define "nc1" do |nc|
         nc.vm.box = "bento/centos-6.7"
         nc.vm.hostname = "nc1"
         nc.vm.network "private_network", ip: "10.10.0.3"
+        config.vm.provider "virtualbox" do |v|
+            v.memory = 3096
+            v.cpus = 2
+        end
     end
 
     config.vm.define "cc" do |cc|
         cc.vm.box = "bento/centos-6.7"
         cc.vm.hostname = "cc"
         cc.vm.network "private_network", ip: "10.10.0.2"
+        config.vm.provider "virtualbox" do |v|
+            v.memory = 1024
+            v.cpus = 1
+        end
     end
 
 end
