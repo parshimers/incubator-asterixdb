@@ -56,7 +56,7 @@
 	</property>
 	<property>
 		<name>compiler.sortmemory</name>
-		<value>163840</value>
+		<value>327680</value>
 	</property>
 	<property>
 		<name>compiler.groupmemory</name>
