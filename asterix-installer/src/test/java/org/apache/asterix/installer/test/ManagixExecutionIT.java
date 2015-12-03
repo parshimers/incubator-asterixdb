@@ -61,12 +61,19 @@ public class ManagixExecutionIT {
 
         HDFSCluster.getInstance().setup(HDFS_BASE);
 
+        //This is nasty but there is no very nice way to set a system property on each NC that I can figure.
+        //The main issue is that we need the NC resolver to be the IdentityResolver and not the DNSResolver.
+        FileUtils.copyFile(
+                new File(StringUtils.join(new String[] { "src", "test", "resources", "integrationts", "asterix-configuration.xml" }, File.separator)),
+                new File(AsterixInstallerIntegrationUtil.getManagixHome() + "/conf/asterix-configuration.xml"));
+
         AsterixLifecycleIT.setUp();
 
 
         FileUtils.copyDirectoryStructure(
                 new File(StringUtils.join(new String[] { "..", "asterix-app", "data" }, File.separator)),
                 new File(AsterixInstallerIntegrationUtil.getManagixHome() + "/clusters/local/working_dir/data"));
+
 
         // Set the node resolver to be the identity resolver that expects node names
         // to be node controller ids; a valid assumption in test environment.

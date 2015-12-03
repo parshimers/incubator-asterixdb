@@ -20,9 +20,9 @@ import java.util.Collection;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.asterix.test.aql.TestExecutor;
 import org.apache.asterix.test.runtime.HDFSCluster;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.codehaus.plexus.util.FileUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -33,7 +33,6 @@ import org.junit.runners.Parameterized.Parameters;
 
 import org.apache.asterix.external.dataset.adapter.FileSystemBasedAdapter;
 import org.apache.asterix.external.util.IdentitiyResolverFactory;
-import org.apache.asterix.test.aql.ClusterTestExecutor;
 import org.apache.asterix.testframework.context.TestCaseContext;
 
 /**
@@ -50,7 +49,7 @@ public class ClusterExecutionIT {
 
     private static final String HDFS_BASE = "../asterix-app/";
 
-    private final static ClusterTestExecutor testExecutor = new ClusterTestExecutor();
+    private final static TestExecutor testExecutor = new TestExecutor("10.10.0.2",19002);
 
     @BeforeClass
     public static void setUp() throws Exception {
