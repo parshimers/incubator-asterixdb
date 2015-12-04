@@ -19,14 +19,14 @@
     <node>
         <id>nc1</id>
         <cluster_ip>127.0.0.1</cluster_ip>
-        <txn_log_dir>/tmp/nc1/txnLogs</txn_log_dir>
+        <txn_log_dir>/tmp/asterix/nc1/txnLogs</txn_log_dir>
         <iodevices>/tmp/asterix/nc1/p1,/tmp/asterix/nc1/p2</iodevices>
 
     </node>
     <node>
         <id>nc2</id>
         <cluster_ip>127.0.0.1</cluster_ip>
-        <txn_log_dir>/tmp/nc1/txnLogs</txn_log_dir>
+        <txn_log_dir>/tmp/asterix/nc2/txnLogs</txn_log_dir>
         <iodevices>/tmp/asterix/nc2/p1,/tmp/asterix/nc2/p2</iodevices>
     </node>
 </cluster>
