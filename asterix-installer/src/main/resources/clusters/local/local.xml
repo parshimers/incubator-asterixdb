@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <cluster xmlns="cluster">
     <java_home>/usr/lib/jvm/jdk-8-oracle-x64/jre</java_home>
-    <log_dir>/home/parshimers/Work/UCI/asterixdb/asterix-installer/target/asterix-installer-0.8.8-SNAPSHOT-binary-assembly/clusters/local/working_dir/logs</log_dir>
-    <txn_log_dir>/home/parshimers/Work/UCI/asterixdb/asterix-installer/target/asterix-installer-0.8.8-SNAPSHOT-binary-assembly/clusters/local/working_dir/txnLogs</txn_log_dir>
+    <log_dir>/tmp/asterix/logs</log_dir>
+    <txn_log_dir>/tmp/asterix/txnLogs</txn_log_dir>
     <store>storage</store>
     <working_dir>
-        <dir>/home/parshimers/Work/UCI/asterixdb/asterix-installer/target/asterix-installer-0.8.8-SNAPSHOT-binary-assembly/clusters/local/working_dir</dir>
+        <dir>/tmp/asterix-installer</dir>
         <NFS>true</NFS>
     </working_dir>
     <master_node>
@@ -19,13 +19,14 @@
     <node>
         <id>nc1</id>
         <cluster_ip>127.0.0.1</cluster_ip>
-        <txn_log_dir>/home/parshimers/Work/UCI/asterixdb/asterix-installer/target/asterix-installer-0.8.8-SNAPSHOT-binary-assembly/clusters/local/working_dir/nc1/txnLogs</txn_log_dir>
-        <iodevices>/home/parshimers/Work/UCI/asterixdb/asterix-installer/target/asterix-installer-0.8.8-SNAPSHOT-binary-assembly/clusters/local/working_dir/nc1/p1,/home/parshimers/Work/UCI/asterixdb/asterix-installer/target/asterix-installer-0.8.8-SNAPSHOT-binary-assembly/clusters/local/working_dir/nc1/p2</iodevices>
+        <txn_log_dir>/tmp/nc1/txnLogs</txn_log_dir>
+        <iodevices>/tmp/asterix/nc1/p1,/tmp/asterix/nc1/p2</iodevices>
+
     </node>
     <node>
         <id>nc2</id>
         <cluster_ip>127.0.0.1</cluster_ip>
-        <txn_log_dir>/home/parshimers/Work/UCI/asterixdb/asterix-installer/target/asterix-installer-0.8.8-SNAPSHOT-binary-assembly/clusters/local/working_dir/nc2/txnLogs</txn_log_dir>
-        <iodevices>/home/parshimers/Work/UCI/asterixdb/asterix-installer/target/asterix-installer-0.8.8-SNAPSHOT-binary-assembly/clusters/local/working_dir/nc2/p1,/home/parshimers/Work/UCI/asterixdb/asterix-installer/target/asterix-installer-0.8.8-SNAPSHOT-binary-assembly/clusters/local/working_dir/nc2/p2</iodevices>
+        <txn_log_dir>/tmp/nc1/txnLogs</txn_log_dir>
+        <iodevices>/tmp/asterix/nc2/p1,/tmp/asterix/nc2/p2</iodevices>
     </node>
 </cluster>
