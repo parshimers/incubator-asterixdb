@@ -48,8 +48,10 @@ public class ClusterExecutionIT {
             "resources", "runtimets" }, File.separator);
 
     private static final String HDFS_BASE = "../asterix-app/";
+    private static final String CLUSTER_CC_ADDRESS = "10.10.0.2";
+    private static final int CLUSTER_CC_API_PORT = 19002;
 
-    private final static TestExecutor testExecutor = new TestExecutor("10.10.0.2",19002);
+    private final static TestExecutor testExecutor = new TestExecutor(CLUSTER_CC_ADDRESS,CLUSTER_CC_API_PORT);
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -69,8 +71,8 @@ public class ClusterExecutionIT {
                 StringUtils.join(new String[] { "src", "test", "resources", "clusterts", "managix-working", "data" },
                         File.separator)));
 
-        // Set the node resolver to be the identity resolver that expects node names 
-        // to be node controller ids; a valid assumption in test environment. 
+        // Set the node resolver to be the identity resolver that expects node names
+        // to be node controller ids; a valid assumption in test environment.
         System.setProperty(FileSystemBasedAdapter.NODE_RESOLVER_FACTORY_PROPERTY,
                 IdentitiyResolverFactory.class.getName());
     }

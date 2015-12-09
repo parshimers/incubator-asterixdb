@@ -81,13 +81,13 @@ public class AsterixClusterLifeCycleIT {
         Process p = managixInvoke("create -n vagrant-ssh -c /vagrant/cluster.xml");
         String pout = processOut(p);
         LOGGER.info(pout);
-        //Assert.assertTrue(checkOutput(pout, "ACTIVE"));
+        Assert.assertTrue(checkOutput(pout, "ACTIVE"));
         // TODO: I should check for 'WARNING' here, but issue 764 stops this
         // from being reliable
         LOGGER.info("Test start active cluster instance PASSED");
 
         Process stop = managixInvoke("stop -n vagrant-ssh");
-        //Assert.assertTrue(checkOutput(stop.getInputStream(), "Stopped Asterix instance"));
+        Assert.assertTrue(checkOutput(stop.getInputStream(), "Stopped Asterix instance"));
         LOGGER.info("Test stop active cluster instance PASSED");
     }
 
