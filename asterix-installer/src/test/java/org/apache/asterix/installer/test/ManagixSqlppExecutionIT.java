@@ -38,61 +38,7 @@ import org.junit.runners.Parameterized.Parameters;
  * Runs the runtime test cases under 'asterix-app/src/test/resources/runtimets'.
  */
 @RunWith(Parameterized.class)
-public class ManagixSqlppExecutionIT {
-
-    private static final Logger LOGGER = Logger.getLogger(ManagixSqlppExecutionIT.class.getName());
-
-    private static final String PATH_ACTUAL = "ittest" + File.separator;
-    private static final String PATH_BASE = StringUtils.join(new String[] { "..", "asterix-app", "src", "test",
-            "resources", "runtimets" }, File.separator);
-
-    private static final String HDFS_BASE = "../asterix-app/";
-
-    private final static TestExecutor testExecutor = new TestExecutor();
-
-    @BeforeClass
-    public static void setUp() throws Exception {
-        System.out.println("Starting setup");
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Starting setup");
-        }
-        File outdir = new File(PATH_ACTUAL);
-        outdir.mkdirs();
-
-        HDFSCluster.getInstance().setup(HDFS_BASE);
-
-        //This is nasty but there is no very nice way to set a system property on each NC that I can figure.
-        //The main issue is that we need the NC resolver to be the IdentityResolver and not the DNSResolver.
-        FileUtils.copyFile(new File(StringUtils
-                .join(new String[] { "src", "test", "resources", "integrationts", "asterix-configuration.xml" },
-                        File.separator)),
-                new File(AsterixInstallerIntegrationUtil.getManagixHome() + "/conf/asterix-configuration.xml"));
-
-        AsterixLifecycleIT.setUp();
-
-
-        FileUtils.copyDirectoryStructure(
-                new File(StringUtils.join(new String[] { "..", "asterix-app", "data" }, File.separator)),
-                new File(AsterixInstallerIntegrationUtil.getManagixHome() + "/clusters/local/working_dir/data"));
-
-
-        // Set the node resolver to be the identity resolver that expects node names
-        // to be node controller ids; a valid assumption in test environment.
-        System.setProperty(FileSystemBasedAdapter.NODE_RESOLVER_FACTORY_PROPERTY,
-                IdentitiyResolverFactory.class.getName());
-    }
-
-    @AfterClass
-    public static void tearDown() throws Exception {
-        File outdir = new File(PATH_ACTUAL);
-        File[] files = outdir.listFiles();
-        if (files == null || files.length == 0) {
-            outdir.delete();
-        }
-        AsterixLifecycleIT.tearDown();
-
-        HDFSCluster.getInstance().cleanup();
-    }
+public class ManagixSqlppExecutionIT extends ManagixExecutionIT{
 
     @Parameters
     public static Collection<Object[]> tests() throws Exception {
@@ -116,11 +62,7 @@ public class ManagixSqlppExecutionIT {
     private TestCaseContext tcCtx;
 
     public ManagixSqlppExecutionIT(TestCaseContext tcCtx) {
+        super(tcCtx);
         this.tcCtx = tcCtx;
-    }
-
-    @Test
-    public void test() throws Exception {
-        testExecutor.executeTest(PATH_ACTUAL, tcCtx, null, false);
     }
 }

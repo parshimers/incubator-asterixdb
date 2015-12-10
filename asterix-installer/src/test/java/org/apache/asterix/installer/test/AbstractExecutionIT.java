@@ -20,8 +20,11 @@ import java.util.Collection;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.asterix.external.dataset.adapter.FileSystemBasedAdapter;
+import org.apache.asterix.external.util.IdentitiyResolverFactory;
 import org.apache.asterix.test.aql.TestExecutor;
 import org.apache.asterix.test.runtime.HDFSCluster;
+import org.apache.asterix.testframework.context.TestCaseContext;
 import org.apache.commons.lang3.StringUtils;
 import org.codehaus.plexus.util.FileUtils;
 import org.junit.AfterClass;
@@ -31,20 +34,21 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-import org.apache.asterix.external.dataset.adapter.FileSystemBasedAdapter;
-import org.apache.asterix.external.util.IdentitiyResolverFactory;
-import org.apache.asterix.testframework.context.TestCaseContext;
-
 /**
  * Runs the runtime test cases under 'asterix-app/src/test/resources/runtimets'.
  */
 @RunWith(Parameterized.class)
-public class ClusterExecutionIT extends AbstractExecutionIT{
+public abstract class AbstractExecutionIT {
 
-    private static final String CLUSTER_CC_ADDRESS = "10.10.0.2";
-    private static final int CLUSTER_CC_API_PORT = 19002;
+    protected static final Logger LOGGER = Logger.getLogger(AbstractExecutionIT.class.getName());
 
-    private final static TestExecutor testExecutor = new TestExecutor(CLUSTER_CC_ADDRESS,CLUSTER_CC_API_PORT);
+    protected static final String PATH_ACTUAL = "ittest" + File.separator;
+    protected static final String PATH_BASE = StringUtils.join(new String[] { "..", "asterix-app", "src", "test",
+            "resources", "runtimets" }, File.separator);
+
+    protected static final String HDFS_BASE = "../asterix-app/";
+
+    protected final static TestExecutor testExecutor = new TestExecutor();
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -57,12 +61,19 @@ public class ClusterExecutionIT extends AbstractExecutionIT{
 
         HDFSCluster.getInstance().setup(HDFS_BASE);
 
-        AsterixClusterLifeCycleIT.setUp();
+        //This is nasty but there is no very nice way to set a system property on each NC that I can figure.
+        //The main issue is that we need the NC resolver to be the IdentityResolver and not the DNSResolver.
+        FileUtils.copyFile(
+                new File(StringUtils.join(new String[] { "src", "test", "resources", "integrationts", "asterix-configuration.xml" }, File.separator)),
+                new File(AsterixInstallerIntegrationUtil.getManagixHome() + "/conf/asterix-configuration.xml"));
+
+        AsterixLifecycleIT.setUp();
+
 
         FileUtils.copyDirectoryStructure(
-                new File(StringUtils.join(new String[] { "..", "asterix-app", "data" }, File.separator)), new File(
-                StringUtils.join(new String[] { "src", "test", "resources", "clusterts", "managix-working", "data" },
-                        File.separator)));
+                new File(StringUtils.join(new String[] { "..", "asterix-app", "data" }, File.separator)),
+                new File(AsterixInstallerIntegrationUtil.getManagixHome() + "/clusters/local/working_dir/data"));
+
 
         // Set the node resolver to be the identity resolver that expects node names
         // to be node controller ids; a valid assumption in test environment.
@@ -77,10 +88,9 @@ public class ClusterExecutionIT extends AbstractExecutionIT{
         if (files == null || files.length == 0) {
             outdir.delete();
         }
+        AsterixLifecycleIT.tearDown();
 
         HDFSCluster.getInstance().cleanup();
-
-        AsterixClusterLifeCycleIT.tearDown();
     }
 
     @Parameters
@@ -95,8 +105,7 @@ public class ClusterExecutionIT extends AbstractExecutionIT{
 
     private TestCaseContext tcCtx;
 
-    public ClusterExecutionIT(TestCaseContext tcCtx) {
-        super(tcCtx);
+    public AbstractExecutionIT(TestCaseContext tcCtx) {
         this.tcCtx = tcCtx;
     }
 
