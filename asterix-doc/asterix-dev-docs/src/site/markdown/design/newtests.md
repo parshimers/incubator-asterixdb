@@ -1,0 +1,8 @@
+- multiple tests pointing to same results
+- single tests that can be run with different parameters to produce different results
+- need clear way to identify which tests are running and not running
+- need clear way to run subset of tests
+- should keep test metadata (how to run, what results to produce, etc) WITH test, not in separate file
+- ideally way of marking "known bugs"
+- test fixtures for known/repeated setup (perhaps DON'T want teardown, at least on failures)
+- probably keep filename conventions as today (.1.query.aql)
