@@ -28,7 +28,7 @@ public class SpatialIndexExperiment5ShbtreeBuilder extends AbstractSpatialIndexE
 
     //SpatialIndexExperiment5XXX is exactly the same as SpatialIndexExperiment2XXX except queries are non-index only plan queries.
     public SpatialIndexExperiment5ShbtreeBuilder(LSMExperimentSetRunnerConfig config) {
-        super("SpatialIndexExperiment5Shbtree", config, "8node.xml", "base_8_ingest_query.aql", "8.dqgen", false);
+        super("SpatialIndexExperiment5Shbtree", config, "1node.xml", "base_1_ingest_query.aql", "1.dgen", false);
     }
 
     @Override

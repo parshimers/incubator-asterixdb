@@ -20,5 +20,5 @@ create feed TweetFeed2 using socket_adapter
 
 set wait-for-completion-feed "false";
 
-connect feed TweetFeed1 to dataset Tweets using policy Br;
-connect feed TweetFeed2 to dataset Tweets using policy Br;
+connect feed TweetFeed1 to dataset Tweets using policy Brittle;
+connect feed TweetFeed2 to dataset Tweets using policy Brittle;

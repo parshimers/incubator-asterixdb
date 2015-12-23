@@ -29,5 +29,9 @@
 			<directory>target/appassembler/lib</directory>
 			<outputDirectory>lib</outputDirectory>
 		</fileSet>
+		<fileSet>
+			<directory>src/main/resources/ingestion-experiment-binary-and-configs</directory>
+			<outputDirectory>.</outputDirectory>
+		</fileSet>
 	</fileSets>
 </assembly>

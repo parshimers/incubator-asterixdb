@@ -28,7 +28,7 @@ public class SpatialIndexExperiment5SifBuilder extends AbstractSpatialIndexExper
 
     //SpatialIndexExperiment5XXX is exactly the same as SpatialIndexExperiment2XXX except queries are non-index only plan queries.
     public SpatialIndexExperiment5SifBuilder(LSMExperimentSetRunnerConfig config) {
-        super("SpatialIndexExperiment5Sif", config, "8node.xml", "base_8_ingest_query.aql", "8.dqgen", false);
+        super("SpatialIndexExperiment5Sif", config, "1node.xml", "base_1_ingest_query.aql", "1.dgen", false);
     }
 
     @Override

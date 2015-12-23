@@ -267,7 +267,7 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
         for (String ncHost : ncHosts) {
             killCmds.add(new RemoteAsterixDriverKill(ncHost, username, sshKeyLocation));
         }
-        killCmds.add(new RemoteAsterixDriverKill(restHost, username, sshKeyLocation));
+        //killCmds.add(new RemoteAsterixDriverKill(restHost, username, sshKeyLocation));
         execs.add(killCmds);
         execs.add(new StopAsterixManagixAction(managixHomePath, ASTERIX_INSTANCE_NAME));
         if (statFile != null) {

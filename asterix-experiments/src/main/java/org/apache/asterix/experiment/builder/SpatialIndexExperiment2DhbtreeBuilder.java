@@ -27,7 +27,7 @@ import org.apache.asterix.experiment.client.LSMExperimentSetRunner.LSMExperiment
 public class SpatialIndexExperiment2DhbtreeBuilder extends AbstractSpatialIndexExperiment2Builder {
 
     public SpatialIndexExperiment2DhbtreeBuilder(LSMExperimentSetRunnerConfig config) {
-        super("SpatialIndexExperiment2Dhbtree", config, "8node.xml", "base_8_ingest_query.aql", "8.dqgen", true);
+        super("SpatialIndexExperiment2Dhbtree", config, "1node.xml", "base_1_ingest_query.aql", "1.dgen", true);
     }
 
     @Override
