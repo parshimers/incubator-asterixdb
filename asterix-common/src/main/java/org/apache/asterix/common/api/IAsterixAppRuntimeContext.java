@@ -19,6 +19,7 @@
 package org.apache.asterix.common.api;
 
 import java.io.IOException;
+import java.rmi.RemoteException;
 import java.util.List;
 import java.util.concurrent.Executor;
 
@@ -89,4 +90,18 @@ public interface IAsterixAppRuntimeContext {
     public IReplicationChannel getReplicationChannel();
 
     public void initializeResourceIdFactory() throws HyracksDataException;
+
+    /**
+     * Exports the metadata node to the metadata RMI port.
+     * @throws RemoteException
+     */
+    public void exportMetadataNodeStub() throws RemoteException;
+
+    /**
+     * Bootstraps the metadata if {@code isMetadataNode} is true, and loads external libraries.
+     * @param isMetadataNode
+     * @param newUniverse
+     * @throws Exception
+     */
+    public void initializeMetadataAndExternalLibrary(boolean isMetadataNode, boolean newUniverse) throws Exception;
 }
