@@ -27,6 +27,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     config.vm.provision "file", source: "id_rsa.pub", destination: "/home/vagrant/.ssh/id_rsa.pub"
     config.vm.provision "file", source: "known_hosts", destination: "/home/vagrant/.ssh/known_hosts"
     config.vm.provision "file", source: "hosts", destination: "/home/vagrant/hosts"
+    config.vm.provision "file", source: ".bashrc", destination: "/home/vagrant/.bashrc"
 
     config.vm.provision "shell", inline: "mv /home/vagrant/hosts /etc/hosts"
     config.vm.provision "shell", privileged: false, inline: "chmod 400 /home/vagrant/.ssh/id_rsa"
@@ -42,6 +43,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         sudo yum -y install unzip;
 
     END
+
     config.vm.provision "shell", inline: $java_inst
 
     config.vm.define "nc2" do |nc|

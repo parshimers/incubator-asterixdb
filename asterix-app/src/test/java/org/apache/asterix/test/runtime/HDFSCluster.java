@@ -79,7 +79,7 @@ public class HDFSCluster {
         loadData(basePath);
     }
 
-    private void loadData(String localDataRoot) throws IOException {
+     void loadData(String localDataRoot) throws IOException {
         Path destDir = new Path(HDFS_PATH);
         dfs.mkdirs(destDir);
         File srcDir = new File(localDataRoot + DATA_PATH);

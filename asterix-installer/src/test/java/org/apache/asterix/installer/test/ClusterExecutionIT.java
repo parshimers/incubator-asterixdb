@@ -41,6 +41,7 @@ public class ClusterExecutionIT extends AbstractExecutionIT {
 
     private static final String CLUSTER_CC_ADDRESS = "10.10.0.2";
     private static final int CLUSTER_CC_API_PORT = 19002;
+    private static final String PATH_BASE = "src/test/resources/runtimets";
 
     private final static TestExecutor testExecutor = new TestExecutor(CLUSTER_CC_ADDRESS, CLUSTER_CC_API_PORT);
 
@@ -53,15 +54,14 @@ public class ClusterExecutionIT extends AbstractExecutionIT {
         File outdir = new File(PATH_ACTUAL);
         outdir.mkdirs();
 
-        HDFSCluster.getInstance().setup(HDFS_BASE);
-
         AsterixClusterLifeCycleIT.setUp();
 
+        AsterixClusterLifeCycleIT.startInstance();
+
         FileUtils.copyDirectoryStructure(
-                new File(StringUtils.join(new String[] { "..", "asterix-app", "data" }, File.separator)),
-                new File(StringUtils.join(
-                        new String[] { "src", "test", "resources", "clusterts", "managix-working", "data" },
-                        File.separator)));
+                new File(StringUtils.join(new String[] { "..", "asterix-app", "data" }, File.separator)), new File(
+                        StringUtils.join(new String[] { "src", "test", "resources", "clusterts", "managix-working",
+                                "data" }, File.separator)));
 
         // Set the node resolver to be the identity resolver that expects node names
         // to be node controller ids; a valid assumption in test environment.
@@ -78,7 +78,7 @@ public class ClusterExecutionIT extends AbstractExecutionIT {
         }
 
         HDFSCluster.getInstance().cleanup();
-
+        AsterixClusterLifeCycleIT.stopInstance();
         AsterixClusterLifeCycleIT.tearDown();
     }
 

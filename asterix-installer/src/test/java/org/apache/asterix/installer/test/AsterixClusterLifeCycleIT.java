@@ -78,7 +78,7 @@ public class AsterixClusterLifeCycleIT {
         logOutput(managixInvoke("configure").getInputStream());
         logOutput(managixInvoke("validate").getInputStream());
 
-        Process p = managixInvoke("create -n vagrant-ssh -c /vagrant/cluster.xml");
+        Process p = managixInvoke("create -n asterix -c /vagrant/cluster.xml");
         String pout = processOut(p);
         LOGGER.info(pout);
         Assert.assertTrue(checkOutput(pout, "ACTIVE"));
@@ -86,14 +86,14 @@ public class AsterixClusterLifeCycleIT {
         // from being reliable
         LOGGER.info("Test start active cluster instance PASSED");
 
-        Process stop = managixInvoke("stop -n vagrant-ssh");
+        Process stop = managixInvoke("stop -n asterix");
         Assert.assertTrue(checkOutput(stop.getInputStream(), "Stopped Asterix instance"));
         LOGGER.info("Test stop active cluster instance PASSED");
     }
 
     @AfterClass
     public static void tearDown() throws Exception {
-        Process p = managixInvoke("delete -n vagrant-ssh");
+        Process p = managixInvoke("delete -n asterix");
         Assert.assertTrue(checkOutput(p.getInputStream(), "Deleted Asterix instance"));
         remoteInvoke("rm -rf /vagrant/managix-working");
         LOGGER.info("Test delete active instance PASSED");
@@ -144,8 +144,8 @@ public class AsterixClusterLifeCycleIT {
         return p;
     }
 
-    private static Process remoteInvoke(String cmd) throws Exception {
-        ProcessBuilder pb = new ProcessBuilder("vagrant", "ssh", "cc", "-c", "MANAGIX_HOME=/tmp/asterix/ " + cmd);
+    public static Process remoteInvoke(String cmd) throws Exception {
+        ProcessBuilder pb = new ProcessBuilder("vagrant", "ssh", "cc", "-c" + cmd);
         File cwd = new File(asterixProjectDir.toString() + "/" + CLUSTER_BASE);
         pb.directory(cwd);
         pb.redirectErrorStream(true);
@@ -162,13 +162,30 @@ public class AsterixClusterLifeCycleIT {
         // TODO: is the instance actually live?
         // TODO: is ZK still running?
         try {
-            Process start = managixInvoke("start -n vagrant-ssh");
+            Process start = managixInvoke("start -n asterix");
             Assert.assertTrue(checkOutput(start.getInputStream(), "ACTIVE"));
-            Process stop = managixInvoke("stop -n vagrant-ssh");
+            Process stop = managixInvoke("stop -n asterix");
             Assert.assertTrue(checkOutput(stop.getInputStream(), "Stopped Asterix instance"));
             LOGGER.info("Test start/stop active cluster instance PASSED");
         } catch (Exception e) {
             throw new Exception("Test start/stop FAILED!", e);
+        }
+    }
+
+    public static void startInstance() throws Exception{
+        try{
+            Process start = managixInvoke("start -n asterix");
+            Assert.assertTrue(checkOutput(start.getInputStream(), "ACTIVE"));
+        } catch (Exception e) {
+            throw new Exception("Test start FAILED!", e);
+        }
+    }
+
+    public static void stopInstance() throws Exception{
+        try{
+            Process start = managixInvoke("stop -n asterix");
+        } catch (Exception e) {
+            throw new Exception("Test stop FAILED!", e);
         }
     }
 

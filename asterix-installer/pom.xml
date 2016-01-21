@@ -196,8 +196,6 @@
                             <forkMode>pertest</forkMode>
                             <excludes>
                                 <exclude>${failsafe.test.excludes}</exclude>
-                                <exclude>${cluster.test.excludes}</exclude>
-                                <exclude>${cluster.extest.excludes}</exclude>
                             </excludes>
                         </configuration>
                         <executions>
