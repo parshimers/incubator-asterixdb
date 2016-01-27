@@ -19,7 +19,6 @@
 package org.apache.asterix.om.util;
 
 import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -52,5 +51,9 @@ public class AsterixRuntimeUtil {
         Map<InetAddress, Set<String>> map = new HashMap<InetAddress, Set<String>>();
         AsterixAppContextInfo.getInstance().getCCApplicationContext().getCCContext().getIPAddressNodeMap(map);
         return map;
+    }
+
+    public static void getNodeControllerMap(Map<InetAddress, Set<String>> map) throws Exception {
+        AsterixAppContextInfo.getInstance().getCCApplicationContext().getCCContext().getIPAddressNodeMap(map);
     }
 }

@@ -27,9 +27,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.asterix.common.config.AsterixMetadataProperties;
 import org.apache.asterix.common.exceptions.ACIDException;
-import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.transactions.JobId;
+import org.apache.asterix.external.indexing.ExternalFile;
 import org.apache.asterix.metadata.api.IAsterixStateProxy;
 import org.apache.asterix.metadata.api.IMetadataManager;
 import org.apache.asterix.metadata.api.IMetadataNode;
@@ -38,9 +38,8 @@ import org.apache.asterix.metadata.entities.Dataset;
 import org.apache.asterix.metadata.entities.DatasourceAdapter;
 import org.apache.asterix.metadata.entities.Datatype;
 import org.apache.asterix.metadata.entities.Dataverse;
-import org.apache.asterix.metadata.entities.ExternalFile;
 import org.apache.asterix.metadata.entities.Feed;
-import org.apache.asterix.metadata.entities.FeedPolicy;
+import org.apache.asterix.metadata.entities.FeedPolicyEntity;
 import org.apache.asterix.metadata.entities.Function;
 import org.apache.asterix.metadata.entities.Index;
 import org.apache.asterix.metadata.entities.Library;
@@ -48,8 +47,6 @@ import org.apache.asterix.metadata.entities.Node;
 import org.apache.asterix.metadata.entities.NodeGroup;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.transaction.management.service.transaction.JobIdFactory;
-import org.apache.hyracks.api.client.IHyracksClientConnection;
-import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 /**
  * Provides access to Asterix metadata via remote methods to the metadata node.
@@ -95,7 +92,6 @@ public class MetadataManager implements IMetadataManager {
     private IMetadataNode metadataNode;
     private final ReadWriteLock metadataLatch;
     private final AsterixMetadataProperties metadataProperties;
-    private IHyracksClientConnection hcc;
     public boolean rebindMetadataNode = false;
 
     public MetadataManager(IAsterixStateProxy proxy, AsterixMetadataProperties metadataProperties) {
@@ -392,8 +388,8 @@ public class MetadataManager implements IMetadataManager {
             throw new MetadataException(e);
         }
         try {
-            ctx.addDatatype(metadataNode.getDatatype(ctx.getJobId(), datatype.getDataverseName(),
-                    datatype.getDatatypeName()));
+            ctx.addDatatype(
+                    metadataNode.getDatatype(ctx.getJobId(), datatype.getDataverseName(), datatype.getDatatypeName()));
         } catch (RemoteException e) {
             throw new MetadataException(e);
         }
@@ -430,17 +426,14 @@ public class MetadataManager implements IMetadataManager {
         datatype = cache.getDatatype(dataverseName, datatypeName);
         if (datatype != null) {
             // Datatype is already in the cache, don't add it again.
-            try {
-                //create a new Datatype object with a new ARecordType object in order to avoid
-                //concurrent access to UTF8StringPointable comparator in ARecordType object.
-                //see issue 510
-                ARecordType aRecType = (ARecordType) datatype.getDatatype();
-                return new Datatype(datatype.getDataverseName(), datatype.getDatatypeName(), new ARecordType(
-                        aRecType.getTypeName(), aRecType.getFieldNames(), aRecType.getFieldTypes(), aRecType.isOpen()),
-                        datatype.getIsAnonymous());
-            } catch (AsterixException | HyracksDataException e) {
-                throw new MetadataException(e);
-            }
+            //create a new Datatype object with a new ARecordType object in order to avoid
+            //concurrent access to UTF8StringPointable comparator in ARecordType object.
+            //see issue 510
+            ARecordType aRecType = (ARecordType) datatype.getDatatype();
+            return new Datatype(
+                    datatype.getDataverseName(), datatype.getDatatypeName(), new ARecordType(aRecType.getTypeName(),
+                            aRecType.getFieldNames(), aRecType.getFieldTypes(), aRecType.isOpen()),
+                    datatype.getIsAnonymous());
         }
         try {
             datatype = metadataNode.getDatatype(ctx.getJobId(), dataverseName, datatypeName);
@@ -658,7 +651,8 @@ public class MetadataManager implements IMetadataManager {
     }
 
     @Override
-    public void addFeedPolicy(MetadataTransactionContext mdTxnCtx, FeedPolicy feedPolicy) throws MetadataException {
+    public void addFeedPolicy(MetadataTransactionContext mdTxnCtx, FeedPolicyEntity feedPolicy)
+            throws MetadataException {
         try {
             metadataNode.addFeedPolicy(mdTxnCtx.getJobId(), feedPolicy);
         } catch (RemoteException e) {
@@ -702,7 +696,8 @@ public class MetadataManager implements IMetadataManager {
     }
 
     @Override
-    public void dropAdapter(MetadataTransactionContext ctx, String dataverseName, String name) throws MetadataException {
+    public void dropAdapter(MetadataTransactionContext ctx, String dataverseName, String name)
+            throws MetadataException {
         try {
             metadataNode.dropAdapter(ctx.getJobId(), dataverseName, name);
         } catch (RemoteException e) {
@@ -792,10 +787,10 @@ public class MetadataManager implements IMetadataManager {
     }
 
     @Override
-    public FeedPolicy getFeedPolicy(MetadataTransactionContext ctx, String dataverse, String policyName)
+    public FeedPolicyEntity getFeedPolicy(MetadataTransactionContext ctx, String dataverse, String policyName)
             throws MetadataException {
 
-        FeedPolicy FeedPolicy = null;
+        FeedPolicyEntity FeedPolicy = null;
         try {
             FeedPolicy = metadataNode.getFeedPolicy(ctx.getJobId(), dataverse, policyName);
         } catch (RemoteException e) {
@@ -850,7 +845,7 @@ public class MetadataManager implements IMetadataManager {
 
     public void dropFeedPolicy(MetadataTransactionContext mdTxnCtx, String dataverseName, String policyName)
             throws MetadataException {
-        FeedPolicy feedPolicy = null;
+        FeedPolicyEntity feedPolicy = null;
         try {
             feedPolicy = metadataNode.getFeedPolicy(mdTxnCtx.getJobId(), dataverseName, policyName);
             metadataNode.dropFeedPolicy(mdTxnCtx.getJobId(), dataverseName, policyName);
@@ -860,9 +855,9 @@ public class MetadataManager implements IMetadataManager {
         mdTxnCtx.dropFeedPolicy(feedPolicy);
     }
 
-    public List<FeedPolicy> getDataversePolicies(MetadataTransactionContext mdTxnCtx, String dataverse)
+    public List<FeedPolicyEntity> getDataversePolicies(MetadataTransactionContext mdTxnCtx, String dataverse)
             throws MetadataException {
-        List<FeedPolicy> dataverseFeedPolicies;
+        List<FeedPolicyEntity> dataverseFeedPolicies;
         try {
             dataverseFeedPolicies = metadataNode.getDataversePolicies(mdTxnCtx.getJobId(), dataverse);
         } catch (RemoteException e) {
@@ -916,7 +911,8 @@ public class MetadataManager implements IMetadataManager {
 
     //TODO: Optimize <-- use keys instead of object -->
     @Override
-    public void dropDatasetExternalFiles(MetadataTransactionContext mdTxnCtx, Dataset dataset) throws MetadataException {
+    public void dropDatasetExternalFiles(MetadataTransactionContext mdTxnCtx, Dataset dataset)
+            throws MetadataException {
         try {
             metadataNode.dropExternalFiles(mdTxnCtx.getJobId(), dataset);
         } catch (RemoteException e) {

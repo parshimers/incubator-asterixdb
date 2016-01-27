@@ -18,7 +18,7 @@
  */
 /*
  * Description  : Test that left-outer-join may use two available indexes, one for primary index in prob subtree and another for secondary rtree index in index subtree.
- * Issue        : 730, 741                 
+ * Issue        : 730, 741
  * Expected Res : Success
  * Date         : 8th May 2014
  */
@@ -26,5 +26,5 @@
 use test;
 
 
-load  table TweetMessages using "org.apache.asterix.external.dataset.adapter.NCFileSystemAdapter" (("path"="nc1://data/twitter/tw_for_indexleftouterjoin.adm"),("format"="adm"));
+load  table TweetMessages using "org.apache.asterix.external.dataset.adapter.NCFileSystemAdapter" (("path"="asterix_nc1://data/twitter/tw_for_indexleftouterjoin.adm"),("format"="adm"));
 

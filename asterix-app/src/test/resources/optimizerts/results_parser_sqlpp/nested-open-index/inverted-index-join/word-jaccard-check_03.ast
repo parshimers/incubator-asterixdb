@@ -13,7 +13,7 @@ TypeDecl DBLPType [
   }
 ]
 DatasetDecl DBLP(DBLPType) partitioned by [[nested, id]]
-WriteOutputTo nc1:rttest/inverted-index-join_word-jaccard-check_01.adm
+WriteOutputTo asterix_nc1:rttest/inverted-index-join_word-jaccard-check_01.adm
 Query:
 SELECT ELEMENT [
 RecordConstructor [
@@ -65,27 +65,7 @@ Where
         ]
         LiteralExpr [FLOAT] [0.5]
       ]
-      Index:       FunctionCall test.similarity-jaccard-check@3[
-        FunctionCall test.word-tokens@1[
-          FieldAccessor [
-            FieldAccessor [
-              Variable [ Name=a ]
-              Field=nested
-            ]
-            Field=title
-          ]
-        ]
-        FunctionCall test.word-tokens@1[
-          FieldAccessor [
-            FieldAccessor [
-              Variable [ Name=b ]
-              Field=nested
-            ]
-            Field=title
-          ]
-        ]
-        LiteralExpr [FLOAT] [0.5]
-      ]
+      Index:       LiteralExpr [LONG] [0]
     ]
     and
     OperatorExpr [

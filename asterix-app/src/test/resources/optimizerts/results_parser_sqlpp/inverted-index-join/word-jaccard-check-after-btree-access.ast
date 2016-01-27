@@ -23,7 +23,7 @@ TypeDecl TweetMessageType [
   }
 ]
 DatasetDecl TweetMessages(TweetMessageType) partitioned by [[tweetid]]
-WriteOutputTo nc1:rttest/inverted-index-join_word-jaccard-check-after-btree-access.adm
+WriteOutputTo asterix_nc1:rttest/inverted-index-join_word-jaccard-check-after-btree-access.adm
 Query:
 SELECT ELEMENT [
 RecordConstructor [
@@ -48,7 +48,7 @@ RecordConstructor [
     :
     IndexAccessor [
       Variable [ Name=sim ]
-      Index:       Variable [ Name=sim ]
+      Index:       LiteralExpr [LONG] [1]
     ]
   )
 ]
@@ -86,7 +86,7 @@ Where
   OperatorExpr [
     IndexAccessor [
       Variable [ Name=sim ]
-      Index:       Variable [ Name=sim ]
+      Index:       LiteralExpr [LONG] [0]
     ]
     and
     OperatorExpr [

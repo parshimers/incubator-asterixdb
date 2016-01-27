@@ -8,7 +8,7 @@ TypeDecl DBLPType [
   }
 ]
 DatasetDecl DBLP(DBLPType) partitioned by [[id]]
-WriteOutputTo nc1:rttest/inverted-index-complex_word-jaccard-check-let.adm
+WriteOutputTo asterix_nc1:rttest/inverted-index-complex_word-jaccard-check-let.adm
 Query:
 SELECT ELEMENT [
 Variable [ Name=o ]
@@ -36,5 +36,5 @@ LetVariable [ Name=jacc ]
 Where
   IndexAccessor [
     Variable [ Name=jacc ]
-    Index:     Variable [ Name=jacc ]
+    Index:     LiteralExpr [LONG] [0]
   ]

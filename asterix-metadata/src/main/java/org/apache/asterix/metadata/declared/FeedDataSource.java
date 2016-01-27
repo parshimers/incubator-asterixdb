@@ -18,12 +18,12 @@
  */
 package org.apache.asterix.metadata.declared;
 
-import org.apache.asterix.common.feeds.FeedId;
-import org.apache.asterix.common.feeds.api.IFeedLifecycleListener.ConnectionLocation;
+import org.apache.asterix.external.feed.api.IFeed;
+import org.apache.asterix.external.feed.api.IFeedLifecycleListener.ConnectionLocation;
+import org.apache.asterix.external.feed.management.FeedId;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.metadata.MetadataTransactionContext;
 import org.apache.asterix.metadata.entities.Feed;
-import org.apache.asterix.metadata.entities.Feed.FeedType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.util.AsterixClusterProperties;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
@@ -33,16 +33,16 @@ public class FeedDataSource extends AqlDataSource {
 
     private Feed feed;
     private final FeedId sourceFeedId;
-    private final FeedType sourceFeedType;
+    private final IFeed.FeedType sourceFeedType;
     private final ConnectionLocation location;
     private final String targetDataset;
     private final String[] locations;
     private final int computeCardinality;
 
     public FeedDataSource(AqlSourceId id, String targetDataset, IAType itemType, AqlDataSourceType dataSourceType,
-            FeedId sourceFeedId, FeedType sourceFeedType, ConnectionLocation location, String[] locations)
-            throws AlgebricksException {
-        super(id, id.getDataverseName(), id.getDatasourceName(), itemType, dataSourceType);
+            FeedId sourceFeedId, IFeed.FeedType sourceFeedType, ConnectionLocation location, String[] locations)
+                    throws AlgebricksException {
+        super(id, itemType, dataSourceType);
         this.targetDataset = targetDataset;
         this.sourceFeedId = sourceFeedId;
         this.sourceFeedType = sourceFeedType;
@@ -80,11 +80,6 @@ public class FeedDataSource extends AqlDataSource {
         return schemaTypes;
     }
 
-    @Override
-    public INodeDomain getDomain() {
-        return domain;
-    }
-
     public String getTargetDataset() {
         return targetDataset;
     }
@@ -118,7 +113,7 @@ public class FeedDataSource extends AqlDataSource {
         domain = domainForExternalData;
     }
 
-    public FeedType getSourceFeedType() {
+    public IFeed.FeedType getSourceFeedType() {
         return sourceFeedType;
     }
 

@@ -17,7 +17,7 @@ TypeDecl VisitorType [
 ]
 DatasetDecl Users(UserType) partitioned by [[uid]]
 DatasetDecl Visitors(VisitorType) partitioned by [[vid]]
-WriteOutputTo nc1:/tmp/rares03.adm
+WriteOutputTo asterix_nc1:/tmp/rares03.adm
 Query:
 SELECT ELEMENT [
 RecordConstructor [
@@ -78,9 +78,6 @@ LetVariable [ Name=tokens ]
           Variable [ Name=lottery_number ]
           With
           Variable [ Name=lottery_number ]
-          Variable [ Name=user ]
-          Variable [ Name=lottery_number ]
-          Variable [ Name=tokens ]
           Variable [ Name=user ]
 
         LetVariable [ Name=count ]

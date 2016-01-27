@@ -36,15 +36,7 @@ import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import junit.extensions.PA;
-import junit.framework.Assert;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
-import org.json.JSONTokener;
-import org.junit.Test;
-
-import org.apache.asterix.feeds.CentralFeedManager;
+import org.apache.asterix.feed.CentralFeedManager;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.metadata.MetadataTransactionContext;
 import org.apache.asterix.metadata.declared.AqlMetadataProvider;
@@ -58,6 +50,13 @@ import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.client.NodeControllerInfo;
 import org.apache.hyracks.api.comm.NetworkAddress;
 import org.apache.hyracks.dataflow.std.file.FileSplit;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.json.JSONTokener;
+import org.junit.Test;
+
+import junit.extensions.PA;
+import junit.framework.Assert;
 
 @SuppressWarnings("deprecation")
 public class ConnectorAPIServletTest {
@@ -94,20 +93,22 @@ public class ConnectorAPIServletTest {
         when(mockInfo2.getNetworkAddress()).thenReturn(new NetworkAddress("127.0.0.2", 3099));
 
         // Calls ConnectorAPIServlet.formResponseObject.
-        nodeMap.put("nc1", mockInfo1);
-        nodeMap.put("nc2", mockInfo2);
+        nodeMap.put("asterix_nc1", mockInfo1);
+        nodeMap.put("asterix_nc2", mockInfo2);
         servlet.doGet(mockRequest, mockResponse);
 
         // Constructs the actual response.
-        JSONTokener tokener = new JSONTokener(new InputStreamReader(
-                new ByteArrayInputStream(outputStream.toByteArray())));
+        JSONTokener tokener = new JSONTokener(
+                new InputStreamReader(new ByteArrayInputStream(outputStream.toByteArray())));
         JSONObject actualResponse = new JSONObject(tokener);
 
-        // Checks the data type of the dataset.
+        // Checks the temp-or-not, primary key, data type of the dataset.
+        boolean temp = actualResponse.getBoolean("temp");
+        Assert.assertFalse(temp);
         String primaryKey = actualResponse.getString("keys");
         Assert.assertEquals("DataverseName,DatasetName", primaryKey);
-        ARecordType recordType = (ARecordType) JSONDeserializerForTypes.convertFromJSON((JSONObject) actualResponse
-                .get("type"));
+        ARecordType recordType = (ARecordType) JSONDeserializerForTypes
+                .convertFromJSON((JSONObject) actualResponse.get("type"));
         Assert.assertEquals(getMetadataRecordType("Metadata", "Dataset"), recordType);
 
         // Checks the correctness of results.
@@ -124,8 +125,8 @@ public class ConnectorAPIServletTest {
         ConnectorAPIServlet servlet = new ConnectorAPIServlet();
         JSONObject actualResponse = new JSONObject();
         FileSplit[] splits = new FileSplit[2];
-        splits[0] = new FileSplit("nc1", "foo1");
-        splits[1] = new FileSplit("nc2", "foo2");
+        splits[0] = new FileSplit("asterix_nc1", "foo1");
+        splits[1] = new FileSplit("asterix_nc2", "foo2");
         Map<String, NodeControllerInfo> nodeMap = new HashMap<String, NodeControllerInfo>();
         NodeControllerInfo mockInfo1 = mock(NodeControllerInfo.class);
         NodeControllerInfo mockInfo2 = mock(NodeControllerInfo.class);
@@ -140,24 +141,27 @@ public class ConnectorAPIServletTest {
         String primaryKey = "a1";
 
         // Calls ConnectorAPIServlet.formResponseObject.
-        nodeMap.put("nc1", mockInfo1);
-        nodeMap.put("nc2", mockInfo2);
+        nodeMap.put("asterix_nc1", mockInfo1);
+        nodeMap.put("asterix_nc2", mockInfo2);
         PA.invokeMethod(servlet,
                 "formResponseObject(org.json.JSONObject, org.apache.hyracks.dataflow.std.file.FileSplit[], "
-                        + "org.apache.asterix.om.types.ARecordType, java.lang.String, java.util.Map)", actualResponse,
-                splits, recordType, primaryKey, nodeMap);
+                        + "org.apache.asterix.om.types.ARecordType, java.lang.String, boolean, java.util.Map)",
+                actualResponse, splits, recordType, primaryKey, true, nodeMap);
 
         // Constructs expected response.
         JSONObject expectedResponse = new JSONObject();
+        expectedResponse.put("temp", true);
         expectedResponse.put("keys", primaryKey);
         expectedResponse.put("type", recordType.toJSON());
         JSONArray splitsArray = new JSONArray();
         JSONObject element1 = new JSONObject();
         element1.put("ip", "127.0.0.1");
         element1.put("path", splits[0].getLocalFile().getFile().getAbsolutePath());
+        element1.put("ioDeviceId", 0);
         JSONObject element2 = new JSONObject();
         element2.put("ip", "127.0.0.2");
         element2.put("path", splits[1].getLocalFile().getFile().getAbsolutePath());
+        element2.put("ioDeviceId", 0);
         splitsArray.put(element1);
         splitsArray.put(element2);
         expectedResponse.put("splits", splitsArray);
@@ -172,7 +176,8 @@ public class ConnectorAPIServletTest {
         AqlMetadataProvider metadataProvider = new AqlMetadataProvider(null, CentralFeedManager.getInstance());
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
         Dataset dataset = metadataProvider.findDataset(dataverseName, datasetName);
-        ARecordType recordType = (ARecordType) metadataProvider.findType(dataverseName, dataset.getItemTypeName());
+        ARecordType recordType = (ARecordType) metadataProvider.findType(dataset.getItemTypeDataverseName(),
+                dataset.getItemTypeName());
         // Metadata transaction commits.
         MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
         return recordType;

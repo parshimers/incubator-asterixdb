@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-/* 
+/*
  * Test case Name  : insert-syntax-change.aql
  * Description     : verify various AQL syntax for insert
  * Expected Result : Success
@@ -45,7 +45,7 @@ insert into testds
 select element {'id':3,'name':'Person Three','hobbies':{{'Blues'}}};
 insert into testds
 select element {'id':4,'name':'Person Four','hobbies':{{'Metal','Jazz'}}};
-write output to nc1:"rttest/dml_insert-syntax.adm"
+write output to asterix_nc1:"rttest/dml_insert-syntax.adm"
 select element d
 from  testds as d
 order by d.id

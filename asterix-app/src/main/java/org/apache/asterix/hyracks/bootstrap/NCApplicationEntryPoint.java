@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.IOException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -33,26 +34,29 @@ import org.apache.asterix.common.config.AsterixMetadataProperties;
 import org.apache.asterix.common.config.AsterixReplicationProperties;
 import org.apache.asterix.common.config.AsterixTransactionProperties;
 import org.apache.asterix.common.config.IAsterixPropertiesProvider;
-import org.apache.asterix.common.context.DatasetLifecycleManager;
+import org.apache.asterix.common.messaging.api.INCMessageBroker;
 import org.apache.asterix.common.replication.IRemoteRecoveryManager;
 import org.apache.asterix.common.transactions.IRecoveryManager;
 import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
+import org.apache.asterix.common.utils.StoragePathUtil;
 import org.apache.asterix.event.schema.cluster.Cluster;
 import org.apache.asterix.event.schema.cluster.Node;
+import org.apache.asterix.messaging.NCMessageBroker;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.metadata.MetadataNode;
 import org.apache.asterix.metadata.api.IAsterixStateProxy;
 import org.apache.asterix.metadata.api.IMetadataNode;
 import org.apache.asterix.metadata.bootstrap.MetadataBootstrap;
-import org.apache.asterix.metadata.declared.AqlMetadataProvider;
 import org.apache.asterix.om.util.AsterixClusterProperties;
-import org.apache.asterix.replication.storage.AsterixFilesUtil;
 import org.apache.asterix.transaction.management.resource.PersistentLocalResourceRepository;
 import org.apache.asterix.transaction.management.service.recovery.RecoveryManager;
+import org.apache.commons.io.FileUtils;
 import org.apache.hyracks.api.application.INCApplicationContext;
 import org.apache.hyracks.api.application.INCApplicationEntryPoint;
 import org.apache.hyracks.api.lifecycle.ILifeCycleComponentManager;
 import org.apache.hyracks.api.lifecycle.LifeCycleComponentManager;
+import org.apache.hyracks.api.messages.IMessageBroker;
+import org.apache.hyracks.control.nc.NodeControllerService;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
@@ -74,6 +78,7 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
     private SystemState systemState = SystemState.NEW_UNIVERSE;
     private boolean performedRemoteRecovery = false;
     private boolean replicationEnabled = false;
+    private IMessageBroker messageBroker;
 
     @Override
     public void start(INCApplicationContext ncAppCtx, String[] args) throws Exception {
@@ -90,6 +95,8 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
 
         ncAppCtx.setThreadFactory(new AsterixThreadFactory(ncAppCtx.getLifeCycleComponentManager()));
         ncApplicationContext = ncAppCtx;
+        messageBroker = new NCMessageBroker((NodeControllerService) ncAppCtx.getControllerService());
+        ncApplicationContext.setMessageBroker(messageBroker);
         nodeId = ncApplicationContext.getNodeId();
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Starting Asterix node controller: " + nodeId);
@@ -104,10 +111,10 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
             }
             updateOnNodeJoin();
         }
-        runtimeContext.initialize();
+        runtimeContext.initialize(initialRun);
         ncApplicationContext.setApplicationObject(runtimeContext);
 
-        //if replication is enabled, check if there is a replica for this node
+        //If replication is enabled, check if there is a replica for this node
         AsterixReplicationProperties asterixReplicationProperties = ((IAsterixPropertiesProvider) runtimeContext)
                 .getReplicationProperties();
 
@@ -115,9 +122,8 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
 
         if (initialRun) {
             LOGGER.info("System is being initialized. (first run)");
-            systemState = SystemState.NEW_UNIVERSE;
         } else {
-            // #. recover if the system is corrupted by checking system state.
+            //#. recover if the system is corrupted by checking system state.
             IRecoveryManager recoveryMgr = runtimeContext.getTransactionSubsystem().getRecoveryManager();
             systemState = recoveryMgr.getSystemState();
 
@@ -127,7 +133,7 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
 
             if (replicationEnabled) {
                 if (systemState == SystemState.NEW_UNIVERSE || systemState == SystemState.CORRUPTED) {
-                    //try to perform remote recovery
+                    //Try to perform remote recovery
                     IRemoteRecoveryManager remoteRecoveryMgr = runtimeContext.getRemoteRecoveryManager();
                     remoteRecoveryMgr.performRemoteRecovery();
                     performedRemoteRecovery = true;
@@ -146,20 +152,20 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
     }
 
     private void startReplicationService() throws IOException {
-        //open replication channel
+        //Open replication channel
         runtimeContext.getReplicationChannel().start();
 
-        //check the state of remote replicas
+        //Check the state of remote replicas
         runtimeContext.getReplicationManager().initializeReplicasState();
 
         if (performedRemoteRecovery) {
-            //notify remote replicas about the new IP Address if changed
+            //Notify remote replicas about the new IP Address if changed
             //Note: this is a hack since each node right now maintains its own copy of the cluster configuration.
             //Once the configuration is centralized on the CC, this step wont be needed.
             runtimeContext.getReplicationManager().broadcastNewIPAddress();
         }
 
-        //start replication after the state of remote replicas has been initialized. 
+        //Start replication after the state of remote replicas has been initialized.
         runtimeContext.getReplicationManager().startReplicationThreads();
     }
 
@@ -176,7 +182,7 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
                 MetadataBootstrap.stopUniverse();
             }
 
-            //clean any temporary files
+            //Clean any temporary files
             performLocalCleanUp();
 
             //Note: stopping recovery manager will make a sharp checkpoint
@@ -191,10 +197,12 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
 
     @Override
     public void notifyStartupComplete() throws Exception {
+        //Send max resource id on this NC to the CC
+        ((INCMessageBroker) ncApplicationContext.getMessageBroker()).reportMaxResourceId();
+
         AsterixMetadataProperties metadataProperties = ((IAsterixPropertiesProvider) runtimeContext)
                 .getMetadataProperties();
-
-        if (systemState == SystemState.NEW_UNIVERSE) {
+        if (initialRun || systemState == SystemState.NEW_UNIVERSE) {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("System state: " + SystemState.NEW_UNIVERSE);
                 LOGGER.info("Node ID: " + nodeId);
@@ -204,7 +212,7 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
 
             PersistentLocalResourceRepository localResourceRepository = (PersistentLocalResourceRepository) runtimeContext
                     .getLocalResourceRepository();
-            localResourceRepository.initialize(nodeId, metadataProperties.getStores().get(nodeId)[0]);
+            localResourceRepository.initializeNewUniverse(AsterixClusterProperties.INSTANCE.getStorageDirectoryName());
         }
 
         IAsterixStateProxy proxy = null;
@@ -220,9 +228,9 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
                 throw new IllegalStateException("Metadata node cannot access distributed state");
             }
 
-            // This is a special case, we just give the metadataNode directly.
-            // This way we can delay the registration of the metadataNode until
-            // it is completely initialized.
+            //This is a special case, we just give the metadataNode directly.
+            //This way we can delay the registration of the metadataNode until
+            //it is completely initialized.
             MetadataManager.INSTANCE = new MetadataManager(proxy, MetadataNode.INSTANCE);
             MetadataBootstrap.startUniverse(((IAsterixPropertiesProvider) runtimeContext), ncApplicationContext,
                     systemState == SystemState.NEW_UNIVERSE);
@@ -250,8 +258,8 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Configured:" + lccm);
         }
-        ncApplicationContext.setStateDumpHandler(new AsterixStateDumpHandler(ncApplicationContext.getNodeId(), lccm
-                .getDumpPath(), lccm));
+        ncApplicationContext.setStateDumpHandler(
+                new AsterixStateDumpHandler(ncApplicationContext.getNodeId(), lccm.getDumpPath(), lccm));
 
         lccm.startAll();
 
@@ -264,30 +272,26 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
             proxy.setMetadataNode(stub);
         }
 
-        //clean any temporary files
+        //Clean any temporary files
         performLocalCleanUp();
     }
 
-    private void performLocalCleanUp() throws IOException {
-        //delete working area files from failed jobs
+    private void performLocalCleanUp() {
+        //Delete working area files from failed jobs
         runtimeContext.getIOManager().deleteWorkspaceFiles();
 
-        //reclaim storage for temporary datasets.
-        PersistentLocalResourceRepository localResourceRepository = (PersistentLocalResourceRepository) runtimeContext
-                .getLocalResourceRepository();
-
-        String[] storageMountingPoints = localResourceRepository.getStorageMountingPoints();
-        String storageFolderName = ((IAsterixPropertiesProvider) runtimeContext).getMetadataProperties().getStores()
-                .get(nodeId)[0];
-
-        for (String mountPoint : storageMountingPoints) {
-            String tempDatasetFolder = mountPoint + storageFolderName + File.separator
-                    + AqlMetadataProvider.TEMP_DATASETS_STORAGE_FOLDER;
-            AsterixFilesUtil.deleteFolder(tempDatasetFolder);
+        //Reclaim storage for temporary datasets.
+        String storageDirName = AsterixClusterProperties.INSTANCE.getStorageDirectoryName();
+        String[] ioDevices = ((PersistentLocalResourceRepository) runtimeContext.getLocalResourceRepository())
+                .getStorageMountingPoints();
+        for (String ioDevice : ioDevices) {
+            String tempDatasetsDir = ioDevice + storageDirName + File.separator
+                    + StoragePathUtil.TEMP_DATASETS_STORAGE_FOLDER;
+            FileUtils.deleteQuietly(new File(tempDatasetsDir));
         }
 
-        // TODO
-        //reclaim storage for orphaned index artifacts in NCs.
+        //TODO
+        //Reclaim storage for orphaned index artifacts in NCs.
         //Note: currently LSM indexes invalid components are deleted when an index is activated.
     }
 
@@ -297,15 +301,30 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
         if (!metadataProperties.getNodeNames().contains(nodeId)) {
             metadataProperties.getNodeNames().add(nodeId);
             Cluster cluster = AsterixClusterProperties.INSTANCE.getCluster();
-            String asterixInstanceName = cluster.getInstanceName();
+            if (cluster == null) {
+                throw new IllegalStateException("No cluster configuration found for this instance");
+            }
+            String asterixInstanceName = metadataProperties.getInstanceName();
             AsterixTransactionProperties txnProperties = ((IAsterixPropertiesProvider) runtimeContext)
                     .getTransactionProperties();
             Node self = null;
-            for (Node node : cluster.getSubstituteNodes().getNode()) {
+            List<Node> nodes;
+            if (cluster.getSubstituteNodes() != null) {
+                nodes = cluster.getSubstituteNodes().getNode();
+            } else {
+                throw new IllegalStateException("Unknown node joining the cluster");
+            }
+            for (Node node : nodes) {
                 String ncId = asterixInstanceName + "_" + node.getId();
                 if (ncId.equalsIgnoreCase(nodeId)) {
-                    String storeDir = node.getStore() == null ? cluster.getStore() : node.getStore();
-                    metadataProperties.getStores().put(nodeId, storeDir.split(","));
+                    String storeDir = AsterixClusterProperties.INSTANCE.getStorageDirectoryName();
+                    String nodeIoDevices = node.getIodevices() == null ? cluster.getIodevices() : node.getIodevices();
+                    String[] ioDevicePaths = nodeIoDevices.trim().split(",");
+                    for (int i = 0; i < ioDevicePaths.length; i++) {
+                        // construct full store path
+                        ioDevicePaths[i] += File.separator + storeDir;
+                    }
+                    metadataProperties.getStores().put(nodeId, ioDevicePaths);
 
                     String coredumpPath = node.getLogDir() == null ? cluster.getLogDir() : node.getLogDir();
                     metadataProperties.getCoredumpPaths().put(nodeId, coredumpPath);

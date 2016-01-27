@@ -22,6 +22,12 @@ create  database demo0927;
 
 use demo0927;
 
+create type demo0927.AddressType as
+ closed {
+  number : int32,
+  street : string,
+  city : string
+}
 
 create type demo0927.CustomerType as
  closed {
@@ -36,16 +42,9 @@ create type demo0927.CustomerType as
 
 }
 
-create type demo0927.AddressType as
- closed {
-  number : int32,
-  street : string,
-  city : string
-}
-
 create  nodegroup group1 if not exists  on 
-    nc1,
-    nc2
+    asterix_nc1,
+    asterix_nc2
 ;
 create  table Customers(CustomerType) primary key cid on group1;
 

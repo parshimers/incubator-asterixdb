@@ -1,5 +1,5 @@
 DataverseUse test
-WriteOutputTo nc1:rttest/divide.adm
+WriteOutputTo asterix_nc1:rttest/divide.adm
 Query:
 FieldAccessor [
   RecordConstructor [
@@ -20,10 +20,7 @@ FieldAccessor [
           LiteralExpr [STRING] [foo]
           LiteralExpr [STRING] [bar]
         ]
-        Index:         OrderedListConstructor [
-          LiteralExpr [STRING] [foo]
-          LiteralExpr [STRING] [bar]
-        ]
+        Index:         LiteralExpr [LONG] [0]
       ]
     )
   ]

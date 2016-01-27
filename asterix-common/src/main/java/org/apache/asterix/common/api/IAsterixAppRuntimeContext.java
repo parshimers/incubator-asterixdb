@@ -24,7 +24,6 @@ import java.util.concurrent.Executor;
 
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.exceptions.AsterixException;
-import org.apache.asterix.common.feeds.api.IFeedManager;
 import org.apache.asterix.common.replication.IRemoteRecoveryManager;
 import org.apache.asterix.common.replication.IReplicaResourcesManager;
 import org.apache.asterix.common.replication.IReplicationChannel;
@@ -39,7 +38,7 @@ import org.apache.hyracks.storage.am.lsm.common.api.IVirtualBufferCache;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
 import org.apache.hyracks.storage.common.file.IFileMapProvider;
 import org.apache.hyracks.storage.common.file.ILocalResourceRepository;
-import org.apache.hyracks.storage.common.file.ResourceIdFactory;
+import org.apache.hyracks.storage.common.file.IResourceIdFactory;
 
 public interface IAsterixAppRuntimeContext {
 
@@ -65,11 +64,11 @@ public interface IAsterixAppRuntimeContext {
 
     public IDatasetLifecycleManager getDatasetLifecycleManager();
 
-    public ResourceIdFactory getResourceIdFactory();
+    public IResourceIdFactory getResourceIdFactory();
 
     public ILSMOperationTracker getLSMBTreeOperationTracker(int datasetID);
 
-    public void initialize() throws IOException, ACIDException, AsterixException;
+    public void initialize(boolean initialRun) throws IOException, ACIDException, AsterixException;
 
     public void setShuttingdown(boolean b);
 
@@ -79,7 +78,7 @@ public interface IAsterixAppRuntimeContext {
 
     public List<IVirtualBufferCache> getVirtualBufferCaches(int datasetID);
 
-    public IFeedManager getFeedManager();
+    public Object getFeedManager();
 
     public IRemoteRecoveryManager getRemoteRecoveryManager();
 

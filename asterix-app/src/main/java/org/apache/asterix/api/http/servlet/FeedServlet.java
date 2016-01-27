@@ -32,13 +32,13 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.asterix.common.feeds.FeedActivity;
-import org.apache.asterix.common.feeds.FeedActivity.FeedActivityDetails;
-import org.apache.asterix.common.feeds.FeedConnectionId;
-import org.apache.asterix.common.feeds.FeedId;
-import org.apache.asterix.common.feeds.api.IFeedLoadManager;
-import org.apache.asterix.common.feeds.api.IFeedRuntime.FeedRuntimeType;
-import org.apache.asterix.feeds.CentralFeedManager;
+import org.apache.asterix.external.feed.api.IFeedLoadManager;
+import org.apache.asterix.external.feed.api.IFeedRuntime.FeedRuntimeType;
+import org.apache.asterix.external.feed.management.FeedConnectionId;
+import org.apache.asterix.external.feed.management.FeedId;
+import org.apache.asterix.external.feed.watch.FeedActivity;
+import org.apache.asterix.external.feed.watch.FeedActivity.FeedActivityDetails;
+import org.apache.asterix.feed.CentralFeedManager;
 
 public class FeedServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
@@ -128,8 +128,8 @@ public class FeedServlet extends HttpServlet {
         String store = activity.getFeedActivityDetails().get(FeedActivityDetails.STORAGE_LOCATIONS);
 
         IFeedLoadManager loadManager = CentralFeedManager.getInstance().getFeedLoadManager();
-        FeedConnectionId connectionId = new FeedConnectionId(new FeedId(activity.getDataverseName(),
-                activity.getFeedName()), activity.getDatasetName());
+        FeedConnectionId connectionId = new FeedConnectionId(
+                new FeedId(activity.getDataverseName(), activity.getFeedName()), activity.getDatasetName());
         int intakeRate = loadManager.getOutflowRate(connectionId, FeedRuntimeType.COLLECT) * intake.split(",").length;
         int storeRate = loadManager.getOutflowRate(connectionId, FeedRuntimeType.STORE) * store.split(",").length;
 
@@ -158,13 +158,7 @@ public class FeedServlet extends HttpServlet {
         html.append("</tr>");
     }
 
-    private String insertLink(StringBuilder html, String url, String displayText) {
-        return ("<a href=\"" + url + "\">" + displayText + "</a>");
-    }
-
     private String insertColoredText(String s, String color) {
         return "<font color=\"" + color + "\">" + s + "</font>";
     }
 }
-
-

@@ -26,9 +26,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.asterix.common.feeds.FeedConnectionId;
-import org.apache.asterix.feeds.FeedLifecycleListener;
-import org.apache.asterix.metadata.feeds.RemoteSocketMessageListener;
+import org.apache.asterix.external.feed.management.FeedConnectionId;
+import org.apache.asterix.external.feed.message.RemoteSocketMessageListener;
+import org.apache.asterix.feed.FeedLifecycleListener;
 
 public class FeedServletUtil {
 
@@ -59,6 +59,8 @@ public class FeedServletUtil {
             ch = (char) in.read();
         }
         buffer.flip();
+        sc.close();
+
         String s = new String(buffer.array());
         int feedSubscriptionPort = Integer.parseInt(s.trim());
         if (LOGGER.isLoggable(Level.INFO)) {

@@ -225,7 +225,7 @@ public class MetadataLockManager {
     public void releaseFeedWriteLock(String feedName) {
         feedsLocks.get(feedName).writeLock().unlock();
     }
-    
+
     public void acquireFeedPolicyWriteLock(String policyName) {
         ReentrantReadWriteLock fLock = feedPolicyLocks.get(policyName);
         if (fLock == null) {
@@ -291,9 +291,13 @@ public class MetadataLockManager {
         dataTypeLocks.get(dataTypeName).writeLock().unlock();
     }
 
-    public void createDatasetBegin(String dataverseName, String itemTypeFullyQualifiedName, String nodeGroupName,
-            String compactionPolicyName, String datasetFullyQualifiedName, boolean isDefaultCompactionPolicy) {
+    public void createDatasetBegin(String dataverseName, String itemTypeDataverseName,
+            String itemTypeFullyQualifiedName, String nodeGroupName, String compactionPolicyName,
+            String datasetFullyQualifiedName, boolean isDefaultCompactionPolicy) {
         acquireDataverseReadLock(dataverseName);
+        if (!dataverseName.equals(itemTypeDataverseName)) {
+            acquireDataverseReadLock(itemTypeDataverseName);
+        }
         acquireDataTypeReadLock(itemTypeFullyQualifiedName);
         acquireNodeGroupReadLock(nodeGroupName);
         if (!isDefaultCompactionPolicy) {
@@ -302,14 +306,18 @@ public class MetadataLockManager {
         acquireDatasetWriteLock(datasetFullyQualifiedName);
     }
 
-    public void createDatasetEnd(String dataverseName, String itemTypeFullyQualifiedName, String nodeGroupName,
-            String compactionPolicyName, String datasetFullyQualifiedName, boolean isDefaultCompactionPolicy) {
+    public void createDatasetEnd(String dataverseName, String itemTypeDataverseName, String itemTypeFullyQualifiedName,
+            String nodeGroupName, String compactionPolicyName, String datasetFullyQualifiedName,
+            boolean isDefaultCompactionPolicy) {
         releaseDatasetWriteLock(datasetFullyQualifiedName);
         if (!isDefaultCompactionPolicy) {
             releaseCompactionPolicyReadLock(compactionPolicyName);
         }
         releaseNodeGroupReadLock(nodeGroupName);
         releaseDataTypeReadLock(itemTypeFullyQualifiedName);
+        if (!dataverseName.equals(itemTypeDataverseName)) {
+            releaseDataverseReadLock(itemTypeDataverseName);
+        }
         releaseDataverseReadLock(dataverseName);
     }
 
@@ -444,7 +452,7 @@ public class MetadataLockManager {
         releaseFeedWriteLock(feedFullyQualifiedName);
         releaseDataverseReadLock(dataverseName);
     }
-    
+
     public void dropFeedPolicyBegin(String dataverseName, String policyName) {
         releaseFeedWriteLock(policyName);
         releaseDataverseReadLock(dataverseName);
@@ -465,7 +473,8 @@ public class MetadataLockManager {
         releaseDataverseReadLock(dataverseName);
     }
 
-    public void connectFeedBegin(String dataverseName, String datasetFullyQualifiedName, String feedFullyQualifiedName) {
+    public void connectFeedBegin(String dataverseName, String datasetFullyQualifiedName,
+            String feedFullyQualifiedName) {
         acquireDataverseReadLock(dataverseName);
         acquireDatasetReadLock(datasetFullyQualifiedName);
         acquireFeedReadLock(feedFullyQualifiedName);
@@ -486,7 +495,7 @@ public class MetadataLockManager {
         releaseFeedPolicyWriteLock(policyName);
         releaseDataverseReadLock(dataverseName);
     }
-    
+
     public void disconnectFeedBegin(String dataverseName, String datasetFullyQualifiedName,
             String feedFullyQualifiedName) {
         acquireDataverseReadLock(dataverseName);
@@ -494,20 +503,22 @@ public class MetadataLockManager {
         acquireFeedReadLock(feedFullyQualifiedName);
     }
 
-    public void disconnectFeedEnd(String dataverseName, String datasetFullyQualifiedName, String feedFullyQualifiedName) {
+    public void disconnectFeedEnd(String dataverseName, String datasetFullyQualifiedName,
+            String feedFullyQualifiedName) {
         releaseFeedReadLock(feedFullyQualifiedName);
         releaseDatasetReadLock(datasetFullyQualifiedName);
         releaseDataverseReadLock(dataverseName);
     }
-    
+
     public void subscribeFeedBegin(String dataverseName, String datasetFullyQualifiedName,
             String feedFullyQualifiedName) {
         acquireDataverseReadLock(dataverseName);
         acquireDatasetReadLock(datasetFullyQualifiedName);
         acquireFeedReadLock(feedFullyQualifiedName);
     }
-    
-    public void subscribeFeedEnd(String dataverseName, String datasetFullyQualifiedName, String feedFullyQualifiedName) {
+
+    public void subscribeFeedEnd(String dataverseName, String datasetFullyQualifiedName,
+            String feedFullyQualifiedName) {
         releaseFeedReadLock(feedFullyQualifiedName);
         releaseDatasetReadLock(datasetFullyQualifiedName);
         releaseDataverseReadLock(dataverseName);
@@ -573,27 +584,6 @@ public class MetadataLockManager {
 
     public void refreshDatasetEnd(String dataverseName, String datasetFullyQualifiedName) {
         releaseExternalDatasetRefreshLock(datasetFullyQualifiedName);
-        releaseDataverseReadLock(dataverseName);
-    }
-
-    public void pregelixBegin(String dataverseName, String datasetFullyQualifiedNameFrom,
-            String datasetFullyQualifiedNameTo) {
-        acquireDataverseReadLock(dataverseName);
-
-        if (datasetFullyQualifiedNameFrom.compareTo(datasetFullyQualifiedNameTo) < 0) {
-            acquireDatasetReadLock(datasetFullyQualifiedNameFrom);
-            acquireDatasetWriteLock(datasetFullyQualifiedNameTo);
-        } else {
-            acquireDatasetWriteLock(datasetFullyQualifiedNameTo);
-            acquireDatasetReadLock(datasetFullyQualifiedNameFrom);
-        }
-    }
-
-    public void pregelixEnd(String dataverseName, String datasetFullyQualifiedNameFrom,
-            String datasetFullyQualifiedNameTo) {
-
-        releaseDatasetReadLock(datasetFullyQualifiedNameFrom);
-        releaseDatasetWriteLock(datasetFullyQualifiedNameTo);
         releaseDataverseReadLock(dataverseName);
     }
 }

@@ -18,10 +18,14 @@
  */
 package org.apache.asterix.external.library.java;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.asterix.common.exceptions.AsterixException;
-import org.apache.asterix.dataflow.data.nontagged.serde.AInt32SerializerDeserializer;
 import org.apache.asterix.dataflow.data.nontagged.serde.AStringSerializerDeserializer;
 import org.apache.asterix.dataflow.data.nontagged.serde.SerializerDeserializerUtil;
+import org.apache.asterix.external.api.IJObject;
 import org.apache.asterix.external.library.java.JObjects.ByteArrayAccessibleDataInputStream;
 import org.apache.asterix.external.library.java.JObjects.JBoolean;
 import org.apache.asterix.external.library.java.JObjects.JCircle;
@@ -54,22 +58,16 @@ import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.util.NonTaggedFormatUtil;
 import org.apache.asterix.om.util.container.IObjectPool;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
-import org.apache.hyracks.api.exceptions.HyracksDataException;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 public class JObjectUtil {
 
     /**
-     *  Normalize an input string by removing linebreaks, and replace them with space
-     *  Also remove non-readable special characters
-     *
+     * Normalize an input string by removing linebreaks, and replace them with space
+     * Also remove non-readable special characters
      * @param originalString
-     *      The input String
+     *            The input String
      * @return
-     *      String - the normalized string
+     *         String - the normalized string
      */
     public static String getNormalizedString(String originalString) {
         int len = originalString.length();
@@ -221,7 +219,7 @@ public class JObjectUtil {
                     p1.setValue(dis.readDouble(), dis.readDouble());
                     points.add(p1);
                 }
-                ((JPolygon) jObject).setValue(points.toArray(new APoint[]{}));
+                ((JPolygon) jObject).setValue(points.toArray(new APoint[] {}));
                 break;
             }
 
@@ -267,7 +265,7 @@ public class JObjectUtil {
                             dis.readInt();
                     }
                     for (int i = 0; i < numberOfitems; i++) {
-                        IJObject v = (IJObject) getJType(elementType.getTypeTag(), elementType, dis, objectPool);
+                        IJObject v = getJType(elementType.getTypeTag(), elementType, dis, objectPool);
                         ((JUnorderedList) jObject).add(v);
                     }
                 }
@@ -302,7 +300,7 @@ public class JObjectUtil {
                             dis.readInt();
                     }
                     for (int i = 0; i < numberOfitems; i++) {
-                        IJObject v = (IJObject) getJType(elementType.getTypeTag(), elementType, dis, objectPool);
+                        IJObject v = getJType(elementType.getTypeTag(), elementType, dis, objectPool);
                         ((JOrderedList) jObject).add(v);
                     }
                 }
@@ -314,54 +312,38 @@ public class JObjectUtil {
                 int numberOfSchemaFields = recordType.getFieldTypes().length;
                 byte[] recordBits = dis.getInputStream().getArray();
                 boolean isExpanded = false;
-                int s = dis.getInputStream().getPosition();
-                int recordOffset = s;
-                int openPartOffset = 0;
-                int offsetArrayOffset = 0;
+                dis.getInputStream();
                 int[] fieldOffsets = new int[numberOfSchemaFields];
                 IJObject[] closedFields = new IJObject[numberOfSchemaFields];
 
-                if (recordType == null) {
-                    openPartOffset = s + AInt32SerializerDeserializer.getInt(recordBits, s + 6);
-                    s += 8;
-                    isExpanded = true;
-                } else {
-                    dis.skip(4); // reading length is not required.
-                    if (recordType.isOpen()) {
-                        isExpanded = dis.readBoolean();
-                        if (isExpanded) {
-                            openPartOffset = s + dis.readInt(); // AInt32SerializerDeserializer.getInt(recordBits, s + 6);
-                        } else {
-                            // do nothing s += 6;
-                        }
+                dis.skip(4); // reading length is not required.
+                if (recordType.isOpen()) {
+                    isExpanded = dis.readBoolean();
+                    if (isExpanded) {
+                        dis.readInt();
                     } else {
-                        // do nothing s += 5;
                     }
+                } else {
                 }
 
                 if (numberOfSchemaFields > 0) {
-                    int numOfSchemaFields = dis.readInt(); //s += 4;
+                    dis.readInt();
                     int nullBitMapOffset = 0;
                     boolean hasNullableFields = NonTaggedFormatUtil.hasNullableField(recordType);
                     if (hasNullableFields) {
-                        nullBitMapOffset = dis.getInputStream().getPosition();//s
-                        offsetArrayOffset = dis.getInputStream().getPosition() //s
-                                + (numberOfSchemaFields % 8 == 0 ? numberOfSchemaFields / 8
-                                        : numberOfSchemaFields / 8 + 1);
+                        nullBitMapOffset = dis.getInputStream().getPosition();
+                        dis.getInputStream();
                     } else {
-                        offsetArrayOffset = dis.getInputStream().getPosition();
+                        dis.getInputStream();
                     }
                     for (int i = 0; i < numberOfSchemaFields; i++) {
-                        fieldOffsets[i] = dis.readInt(); // AInt32SerializerDeserializer.getInt(recordBits, offsetArrayOffset) + recordOffset;
-                        // offsetArrayOffset += 4;
+                        fieldOffsets[i] = dis.readInt();
                     }
                     for (int fieldNumber = 0; fieldNumber < numberOfSchemaFields; fieldNumber++) {
                         if (hasNullableFields) {
                             byte b1 = recordBits[nullBitMapOffset + fieldNumber / 8];
                             int p = 1 << (7 - (fieldNumber % 8));
                             if ((b1 & p) == 0) {
-                                // set null value (including type tag inside)
-                                //fieldValues.add(nullReference);
                                 continue;
                             }
                         }
@@ -373,8 +355,6 @@ public class JObjectUtil {
                             if (((AUnionType) fieldTypes[fieldNumber]).isNullableType()) {
                                 fieldType = ((AUnionType) fieldTypes[fieldNumber]).getNullableType();
                                 fieldValueTypeTag = fieldType.getTypeTag();
-                                //                      fieldValueLength = NonTaggedFormatUtil.getFieldValueLength(recordBits,
-                                //                              fieldOffsets[fieldNumber], typeTag, false);
                             }
                         } else {
                             fieldValueTypeTag = fieldTypes[fieldNumber].getTypeTag();
@@ -392,7 +372,7 @@ public class JObjectUtil {
                         dis.readInt();
                     }
                     for (int i = 0; i < numberOfOpenFields; i++) {
-                        fieldNames[i] = new AStringSerializerDeserializer().deserialize(dis).getStringValue();
+                        fieldNames[i] = AStringSerializerDeserializer.INSTANCE.deserialize(dis).getStringValue();
                         ATypeTag openFieldTypeTag = SerializerDeserializerUtil.deserializeTag(dis);
                         openFields[i] = getJType(openFieldTypeTag, null, dis, objectPool);
                         fieldTypes[i] = openFields[i].getIAObject().getType();
@@ -443,10 +423,6 @@ public class JObjectUtil {
             fieldNames[i] = recType2.getFieldNames()[j];
             fieldTypes[i] = recType2.getFieldTypes()[j];
         }
-        try {
-            return new ARecordType(null, fieldNames, fieldTypes, true);
-        } catch (HyracksDataException e) {
-            throw new AsterixException(e);
-        }
+        return new ARecordType(null, fieldNames, fieldTypes, true);
     }
 }

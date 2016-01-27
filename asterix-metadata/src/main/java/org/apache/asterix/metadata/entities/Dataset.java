@@ -29,13 +29,15 @@ import org.apache.asterix.metadata.api.IMetadataEntity;
 /**
  * Metadata describing a dataset.
  */
-public class Dataset implements IMetadataEntity {
+public class Dataset implements IMetadataEntity<Dataset> {
 
     private static final long serialVersionUID = 1L;
 
     private final String dataverseName;
     // Enforced to be unique within a dataverse.
     private final String datasetName;
+    // Dataverse of ItemType for this dataset
+    private final String itemTypeDataverseName;
     // Type of items stored in this dataset.
     private final String itemTypeName;
     private final String nodeGroupName;
@@ -49,12 +51,14 @@ public class Dataset implements IMetadataEntity {
     // Type of pending operations with respect to atomic DDL operation
     private int pendingOp;
 
-    public Dataset(String dataverseName, String datasetName, String itemTypeName, String nodeGroupName,
-            String compactionPolicy, Map<String, String> compactionPolicyProperties, IDatasetDetails datasetDetails,
-            Map<String, String> hints, DatasetType datasetType, int datasetId, int pendingOp) {
+    public Dataset(String dataverseName, String datasetName, String itemTypeDataverseName, String itemTypeName,
+            String nodeGroupName, String compactionPolicy, Map<String, String> compactionPolicyProperties,
+            IDatasetDetails datasetDetails, Map<String, String> hints, DatasetType datasetType, int datasetId,
+            int pendingOp) {
         this.dataverseName = dataverseName;
         this.datasetName = datasetName;
         this.itemTypeName = itemTypeName;
+        this.itemTypeDataverseName = itemTypeDataverseName;
         this.nodeGroupName = nodeGroupName;
         this.compactionPolicy = compactionPolicy;
         this.compactionPolicyProperties = compactionPolicyProperties;
@@ -75,6 +79,10 @@ public class Dataset implements IMetadataEntity {
 
     public String getItemTypeName() {
         return itemTypeName;
+    }
+
+    public String getItemTypeDataverseName() {
+        return itemTypeDataverseName;
     }
 
     public String getNodeGroupName() {
@@ -114,12 +122,12 @@ public class Dataset implements IMetadataEntity {
     }
 
     @Override
-    public Object addToCache(MetadataCache cache) {
+    public Dataset addToCache(MetadataCache cache) {
         return cache.addDatasetIfNotExists(this);
     }
 
     @Override
-    public Object dropFromCache(MetadataCache cache) {
+    public Dataset dropFromCache(MetadataCache cache) {
         return cache.dropDataset(this);
     }
 

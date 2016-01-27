@@ -29,7 +29,7 @@ TypeDecl CSXType [
 ]
 DatasetDecl DBLP(DBLPType) partitioned by [[nested, id]]
 DatasetDecl CSX(CSXType) partitioned by [[nested, id]]
-WriteOutputTo nc1:rttest/inverted-index-join_ngram-edit-distance-check_01.adm
+WriteOutputTo asterix_nc1:rttest/inverted-index-join_ngram-edit-distance-check_01.adm
 Query:
 SELECT ELEMENT [
 RecordConstructor [
@@ -77,23 +77,7 @@ Where
         ]
         LiteralExpr [LONG] [3]
       ]
-      Index:       FunctionCall test.edit-distance-check@3[
-        FieldAccessor [
-          FieldAccessor [
-            Variable [ Name=a ]
-            Field=nested
-          ]
-          Field=authors
-        ]
-        FieldAccessor [
-          FieldAccessor [
-            Variable [ Name=b ]
-            Field=nested
-          ]
-          Field=authors
-        ]
-        LiteralExpr [LONG] [3]
-      ]
+      Index:       LiteralExpr [LONG] [0]
     ]
     and
     OperatorExpr [

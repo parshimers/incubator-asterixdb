@@ -25,10 +25,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.asterix.common.config.MetadataConstants;
 import org.apache.asterix.common.config.DatasetConfig.IndexType;
 import org.apache.asterix.dataflow.data.common.AqlExpressionTypeComputer;
 import org.apache.asterix.metadata.api.IMetadataEntity;
-import org.apache.asterix.metadata.bootstrap.MetadataConstants;
 import org.apache.asterix.metadata.declared.AqlMetadataProvider;
 import org.apache.asterix.metadata.entities.Index;
 import org.apache.asterix.metadata.utils.DatasetUtils;
@@ -174,7 +174,7 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
      * only require a match on a prefix of fields to be applicable. This methods
      * removes all index candidates indexExprs that are definitely not
      * applicable according to the expressions involved.
-     * 
+     *
      * @throws AlgebricksException
      */
     public void pruneIndexCandidates(IAccessMethod accessMethod, AccessMethodAnalysisContext analysisCtx,
@@ -193,15 +193,6 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
             matchedExpressions.clear();
             numMatchedKeys = 0;
 
-            // Remove the candidate if the dataset is a metadata dataset and the index is secondary
-            // TODO: fix the way secondary metadata indexes are implemented and remove this check
-            if (accessMethod.matchPrefixIndexExprs()) {
-                if (index.getDataverseName().equals(MetadataConstants.METADATA_DATAVERSE_NAME)
-                        && !index.isPrimaryIndex()) {
-                    indexExprAndVarIt.remove();
-                    continue;
-                }
-            }
             for (int i = 0; i < index.getKeyFieldNames().size(); i++) {
                 List<String> keyField = index.getKeyFieldNames().get(i);
                 final IAType keyType = index.getKeyFieldTypes().get(i);
@@ -333,7 +324,7 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
      * Analyzes the given selection condition, filling analyzedAMs with
      * applicable access method types. At this point we are not yet consulting
      * the metadata whether an actual index exists or not.
-     * 
+     *
      * @throws AlgebricksException
      */
     protected boolean analyzeCondition(ILogicalExpression cond, List<AbstractLogicalOperator> assignsAndUnnests,
@@ -364,7 +355,7 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
      * Finds applicable access methods for the given function expression based
      * on the function identifier, and an analysis of the function's arguments.
      * Updates the analyzedAMs accordingly.
-     * 
+     *
      * @throws AlgebricksException
      */
     protected boolean analyzeFunctionExpr(AbstractFunctionCallExpression funcExpr,
@@ -411,7 +402,7 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
      * Finds secondary indexes whose keys include fieldName, and adds a mapping
      * in analysisCtx.indexEsprs from that index to the a corresponding
      * optimizable function expression.
-     * 
+     *
      * @return true if a candidate index was added to foundIndexExprs, false
      *         otherwise
      * @throws AlgebricksException

@@ -45,11 +45,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.asterix.common.api.IDatasetLifecycleManager;
 import org.apache.asterix.common.api.ILocalResourceMetadata;
+import org.apache.asterix.common.cluster.ClusterPartition;
 import org.apache.asterix.common.config.IAsterixPropertiesProvider;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.ioopcallbacks.AbstractLSMIOOperationCallback;
@@ -75,10 +77,12 @@ import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.api.io.IFileHandle;
 import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.api.lifecycle.ILifeCycleComponent;
+import org.apache.hyracks.control.nc.io.IOManager;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.common.api.IIndex;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
+import org.apache.hyracks.storage.am.common.util.IndexFileNameUtil;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
 import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndex;
@@ -301,10 +305,10 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             //get datasetLifeCycleManager
             IDatasetLifecycleManager datasetLifecycleManager = txnSubsystem.getAsterixAppRuntimeContextProvider()
                     .getDatasetLifecycleManager();
+            IIOManager ioManager = appRuntimeContext.getIOManager();
             ILocalResourceRepository localResourceRepository = appRuntimeContext.getLocalResourceRepository();
             Map<Long, LocalResource> resourcesMap = ((PersistentLocalResourceRepository) localResourceRepository)
                     .loadAndGetAllResources();
-
             //set log reader to the lowWaterMarkLsn again.
             logReader.initializeScan(lowWaterMarkLSN);
             logRecord = logReader.next();
@@ -352,14 +356,15 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                             //get index instance from IndexLifeCycleManager
                             //if index is not registered into IndexLifeCycleManager,
                             //create the index using LocalMetadata stored in LocalResourceRepository
-                            index = (ILSMIndex) datasetLifecycleManager.getIndex(localResource.getResourceName());
+                            String resourceAbsolutePath = localResource.getResourcePath();
+                            index = (ILSMIndex) datasetLifecycleManager.getIndex(resourceAbsolutePath);
                             if (index == null) {
                                 //#. create index instance and register to indexLifeCycleManager
                                 localResourceMetadata = (ILocalResourceMetadata) localResource.getResourceObject();
                                 index = localResourceMetadata.createIndexInstance(appRuntimeContext,
-                                        localResource.getResourceName(), localResource.getPartition());
-                                datasetLifecycleManager.register(localResource.getResourceName(), index);
-                                datasetLifecycleManager.open(localResource.getResourceName());
+                                        resourceAbsolutePath, localResource.getPartition());
+                                datasetLifecycleManager.register(resourceAbsolutePath, index);
+                                datasetLifecycleManager.open(resourceAbsolutePath);
 
                                 //#. get maxDiskLastLSN
                                 ILSMIndex lsmIndex = index;
@@ -393,7 +398,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             //close all indexes
             Set<Long> resourceIdList = resourceId2MaxLSNMap.keySet();
             for (long r : resourceIdList) {
-                datasetLifecycleManager.close(resourcesMap.get(r).getResourceName());
+                datasetLifecycleManager.close(resourcesMap.get(r).getResourcePath());
             }
 
             if (LOGGER.isLoggable(Level.INFO)) {
@@ -507,6 +512,9 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
 
         //#. get indexLifeCycleManager 
         IAsterixAppRuntimeContextProvider appRuntimeContext = txnSubsystem.getAsterixAppRuntimeContextProvider();
+        IIOManager ioManager = appRuntimeContext.getIOManager();
+        SortedMap<Integer, ClusterPartition> clusterPartitions = ((IAsterixPropertiesProvider) appRuntimeContext
+                .getAppContext()).getMetadataProperties().getClusterPartitions();
         IDatasetLifecycleManager datasetLifecycleManager = appRuntimeContext.getDatasetLifecycleManager();
         ILocalResourceRepository localResourceRepository = appRuntimeContext.getLocalResourceRepository();
         Map<Long, LocalResource> resourcesMap = ((PersistentLocalResourceRepository) localResourceRepository)
@@ -558,12 +566,23 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                             //get index instance from IndexLifeCycleManager
                             //if index is not registered into IndexLifeCycleManager,
                             //create the index using LocalMetadata stored in LocalResourceRepository
-                            index = (ILSMIndex) datasetLifecycleManager.getIndex(localResource.getResourceName());
+                            //get the resource path relative to this node
+                            int resourcePartition = localResource.getPartition();
+                            //get partition io device id
+                            //NOTE:
+                            //currently we store all partition in the same IO device in all nodes. If this changes,
+                            //this needs to be updated to find the IO device in which the partition is stored in this local node.
+                            int ioDevice = clusterPartitions.get(resourcePartition).getIODeviceNum();
+                            String resourceAbsolutePath = ioManager
+                                    .getAbsoluteFileRef(ioDevice, localResource.getResourceName()).getFile()
+                                    .getAbsolutePath();
+                            localResource.setResourcePath(resourceAbsolutePath);
+                            index = (ILSMIndex) datasetLifecycleManager.getIndex(resourceAbsolutePath);
                             if (index == null) {
                                 //#. create index instance and register to indexLifeCycleManager
                                 localResourceMetadata = (ILocalResourceMetadata) localResource.getResourceObject();
                                 index = localResourceMetadata.createIndexInstance(appRuntimeContext,
-                                        localResource.getResourceName(), localResource.getPartition());
+                                        resourceAbsolutePath, localResource.getPartition());
                                 datasetLifecycleManager.register(localResource.getResourceName(), index);
                                 datasetLifecycleManager.open(localResource.getResourceName());
 
@@ -601,7 +620,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         //close all indexes
         Set<Long> resourceIdList = resourceId2MaxLSNMap.keySet();
         for (long r : resourceIdList) {
-            datasetLifecycleManager.close(resourcesMap.get(r).getResourceName());
+            datasetLifecycleManager.close(resourcesMap.get(r).getResourcePath());
         }
 
         if (LOGGER.isLoggable(Level.INFO)) {

@@ -9,7 +9,7 @@ TypeDecl DBLPType [
   }
 ]
 DatasetDecl DBLP(DBLPType) partitioned by [[id]]
-WriteOutputTo nc1:rttest/inverted-index-join_ngram-jaccard-check_03.adm
+WriteOutputTo asterix_nc1:rttest/inverted-index-join_ngram-jaccard-check_03.adm
 Query:
 SELECT ELEMENT [
 RecordConstructor [
@@ -59,25 +59,7 @@ Where
         ]
         LiteralExpr [FLOAT] [0.5]
       ]
-      Index:       FunctionCall test.similarity-jaccard-check@3[
-        FunctionCall test.gram-tokens@3[
-          FieldAccessor [
-            Variable [ Name=a ]
-            Field=title
-          ]
-          LiteralExpr [LONG] [3]
-          LiteralExpr [FALSE]
-        ]
-        FunctionCall test.gram-tokens@3[
-          FieldAccessor [
-            Variable [ Name=b ]
-            Field=title
-          ]
-          LiteralExpr [LONG] [3]
-          LiteralExpr [FALSE]
-        ]
-        LiteralExpr [FLOAT] [0.5]
-      ]
+      Index:       LiteralExpr [LONG] [0]
     ]
     and
     OperatorExpr [

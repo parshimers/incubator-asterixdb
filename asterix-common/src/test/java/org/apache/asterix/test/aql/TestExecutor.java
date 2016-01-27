@@ -22,6 +22,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -40,6 +41,7 @@ import org.apache.asterix.testframework.context.TestCaseContext;
 import org.apache.asterix.testframework.context.TestCaseContext.OutputFormat;
 import org.apache.asterix.testframework.context.TestFileContext;
 import org.apache.asterix.testframework.xml.TestCase.CompilationUnit;
+import org.apache.asterix.testframework.xml.TestCase.CompilationUnit.ExpectedError;
 import org.apache.asterix.testframework.xml.TestGroup;
 import org.apache.commons.httpclient.DefaultHttpMethodRetryHandler;
 import org.apache.commons.httpclient.HttpClient;
@@ -61,6 +63,19 @@ public class TestExecutor {
     // https://stackoverflow.com/questions/417142/what-is-the-maximum-length-of-a-url-in-different-browsers/417184
     private static final long MAX_URL_LENGTH = 2000l;
     private static Method managixExecuteMethod = null;
+
+    private String host;
+    private int port;
+
+    public TestExecutor() {
+        host = "127.0.0.1";
+        port = 19002;
+    }
+
+    public TestExecutor(String host, int port) {
+        this.host = host;
+        this.port = port;
+    }
 
     /**
      * Probably does not work well with symlinks.
@@ -184,15 +199,8 @@ public class TestExecutor {
 
     // For tests where you simply want the byte-for-byte output.
     private static void writeOutputToFile(File actualFile, InputStream resultStream) throws Exception {
-        byte[] buffer = new byte[10240];
-        int len;
-        java.io.FileOutputStream out = new java.io.FileOutputStream(actualFile);
-        try {
-            while ((len = resultStream.read(buffer)) != -1) {
-                out.write(buffer, 0, len);
-            }
-        } finally {
-            out.close();
+        try (FileOutputStream out = new FileOutputStream(actualFile)) {
+            IOUtils.copy(resultStream, out);
         }
     }
 
@@ -215,28 +223,35 @@ public class TestExecutor {
             String[] errors = { result.getJSONArray("error-code").getString(0), result.getString("summary"),
                     result.getString("stacktrace") };
             GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, errors[2]);
-            throw new Exception("HTTP operation failed: " + errors[0] + "\nSTATUS LINE: " + method.getStatusLine()
-                    + "\nSUMMARY: " + errors[1] + "\nSTACKTRACE: " + errors[2]);
+            String exceptionMsg = "HTTP operation failed: " + errors[0] + "\nSTATUS LINE: " + method.getStatusLine()
+                    + "\nSUMMARY: " + errors[1] + "\nSTACKTRACE: " + errors[2];
+            throw new Exception(exceptionMsg);
         }
         return statusCode;
     }
 
     // Executes Query and returns results as JSONArray
-    public InputStream executeQuery(String str, OutputFormat fmt) throws Exception {
-        final String url = "http://localhost:19002/query";
-
+    public InputStream executeQuery(String str, OutputFormat fmt, String url, List<CompilationUnit.Parameter> params)
+            throws Exception {
         HttpMethodBase method = null;
         if (str.length() + url.length() < MAX_URL_LENGTH) {
-            // Use GET for small-ish queries
+            //Use GET for small-ish queries
             method = new GetMethod(url);
-            method.setQueryString(new NameValuePair[] { new NameValuePair("query", str) });
+            NameValuePair[] parameters = new NameValuePair[params.size() + 1];
+            parameters[0] = new NameValuePair("query", str);
+            int i = 1;
+            for (CompilationUnit.Parameter param : params) {
+                parameters[i++] = new NameValuePair(param.getName(), param.getValue());
+            }
+            method.setQueryString(parameters);
         } else {
-            // Use POST for bigger ones to avoid 413 FULL_HEAD
+            //Use POST for bigger ones to avoid 413 FULL_HEAD
+            // QQQ POST API doesn't allow encoding additional parameters
             method = new PostMethod(url);
             ((PostMethod) method).setRequestEntity(new StringRequestEntity(str));
         }
 
-        // Set accepted output response type
+        //Set accepted output response type
         method.setRequestHeader("Accept", fmt.mimeType());
         // Provide custom retry handler is necessary
         method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
@@ -246,9 +261,7 @@ public class TestExecutor {
 
     // To execute Update statements
     // Insert and Delete statements are executed here
-    public void executeUpdate(String str) throws Exception {
-        final String url = "http://localhost:19002/update";
-
+    public void executeUpdate(String str, String url) throws Exception {
         // Create a method instance.
         PostMethod method = new PostMethod(url);
         method.setRequestEntity(new StringRequestEntity(str));
@@ -261,9 +274,7 @@ public class TestExecutor {
     }
 
     // Executes AQL in either async or async-defer mode.
-    public InputStream executeAnyAQLAsync(String str, boolean defer, OutputFormat fmt) throws Exception {
-        final String url = "http://localhost:19002/aql";
-
+    public InputStream executeAnyAQLAsync(String str, boolean defer, OutputFormat fmt, String url) throws Exception {
         // Create a method instance.
         PostMethod method = new PostMethod(url);
         if (defer) {
@@ -287,7 +298,7 @@ public class TestExecutor {
     }
 
     private InputStream getHandleResult(String handle, OutputFormat fmt) throws Exception {
-        final String url = "http://localhost:19002/query/result";
+        final String url = "http://" + host + ":" + port + "/query/result";
 
         // Create a method instance.
         GetMethod method = new GetMethod(url);
@@ -307,9 +318,7 @@ public class TestExecutor {
     // create index statement
     // create dataverse statement
     // create function statement
-    public void executeDDL(String str) throws Exception {
-        final String url = "http://localhost:19002/ddl";
-
+    public void executeDDL(String str, String url) throws Exception {
         // Create a method instance.
         PostMethod method = new PostMethod(url);
         method.setRequestEntity(new StringRequestEntity(str));
@@ -323,7 +332,7 @@ public class TestExecutor {
     // Method that reads a DDL/Update/Query File
     // and returns the contents as a string
     // This string is later passed to REST API for execution.
-    public static String readTestFile(File testFile) throws Exception {
+    public String readTestFile(File testFile) throws Exception {
         BufferedReader reader = new BufferedReader(new FileReader(testFile));
         String line = null;
         StringBuilder stringBuilder = new StringBuilder();
@@ -401,6 +410,8 @@ public class TestExecutor {
         File qbcFile = null;
         File qarFile = null;
         int queryCount = 0;
+        int numOfErrors = 0;
+        int numOfFiles = 0;
 
         List<CompilationUnit> cUnits = testCaseCtx.getTestCase().getCompilationUnit();
         for (CompilationUnit cUnit : cUnits) {
@@ -409,13 +420,18 @@ public class TestExecutor {
             testFileCtxs = testCaseCtx.getTestFiles(cUnit);
             expectedResultFileCtxs = testCaseCtx.getExpectedResultFiles(cUnit);
             for (TestFileContext ctx : testFileCtxs) {
+                numOfFiles++;
                 testFile = ctx.getFile();
                 statement = readTestFile(testFile);
                 boolean failed = false;
                 try {
                     switch (ctx.getType()) {
                         case "ddl":
-                            TestsUtils.executeDDL(statement);
+                            if (ctx.getFile().getName().endsWith("aql")) {
+                                executeDDL(statement, "http://" + host + ":" + port + "/ddl");
+                            } else {
+                                executeDDL(statement, "http://" + host + ":" + port + "/ddl/sqlpp");
+                            }
                             break;
                         case "update":
                             //isDmlRecoveryTest: set IP address
@@ -423,8 +439,11 @@ public class TestExecutor {
                                 statement = statement.replaceAll("nc1://",
                                         "127.0.0.1://../../../../../../asterix-app/");
                             }
-
-                            TestsUtils.executeUpdate(statement, cUnit.getParameter());
+                            if (ctx.getFile().getName().endsWith("aql")) {
+                                executeUpdate(statement, "http://" + host + ":" + port + "/update");
+                            } else {
+                                executeUpdate(statement, "http://" + host + ":" + port + "/update/sqlpp");
+                            }
                             break;
                         case "query":
                         case "async":
@@ -438,12 +457,29 @@ public class TestExecutor {
                             }
                             InputStream resultStream = null;
                             OutputFormat fmt = OutputFormat.forCompilationUnit(cUnit);
-                            if (ctx.getType().equalsIgnoreCase("query"))
-                                resultStream = executeQuery(statement, fmt);
-                            else if (ctx.getType().equalsIgnoreCase("async"))
-                                resultStream = executeAnyAQLAsync(statement, false, fmt);
-                            else if (ctx.getType().equalsIgnoreCase("asyncdefer"))
-                                resultStream = executeAnyAQLAsync(statement, true, fmt);
+                            if (ctx.getFile().getName().endsWith("aql")) {
+                                if (ctx.getType().equalsIgnoreCase("query")) {
+                                    resultStream = executeQuery(statement, fmt,
+                                            "http://" + host + ":" + port + "/query", cUnit.getParameter());
+                                } else if (ctx.getType().equalsIgnoreCase("async")) {
+                                    resultStream = executeAnyAQLAsync(statement, false, fmt,
+                                            "http://" + host + ":" + port + "/aql");
+                                } else if (ctx.getType().equalsIgnoreCase("asyncdefer")) {
+                                    resultStream = executeAnyAQLAsync(statement, true, fmt,
+                                            "http://" + host + ":" + port + "/aql");
+                                }
+                            } else {
+                                if (ctx.getType().equalsIgnoreCase("query")) {
+                                    resultStream = executeQuery(statement, fmt,
+                                            "http://" + host + ":" + port + "/query/sqlpp", cUnit.getParameter());
+                                } else if (ctx.getType().equalsIgnoreCase("async")) {
+                                    resultStream = executeAnyAQLAsync(statement, false, fmt,
+                                            "http://" + host + ":" + port + "/sqlpp");
+                                } else if (ctx.getType().equalsIgnoreCase("asyncdefer")) {
+                                    resultStream = executeAnyAQLAsync(statement, true, fmt,
+                                            "http://" + host + ":" + port + "/sqlpp");
+                                }
+                            }
 
                             if (queryCount >= expectedResultFileCtxs.size()) {
                                 throw new IllegalStateException(
@@ -467,7 +503,8 @@ public class TestExecutor {
                             executeManagixCommand(statement);
                             break;
                         case "txnqbc": //qbc represents query before crash
-                            resultStream = executeQuery(statement, OutputFormat.forCompilationUnit(cUnit));
+                            resultStream = executeQuery(statement, OutputFormat.forCompilationUnit(cUnit),
+                                    "http://" + host + ":" + port + "/query", cUnit.getParameter());
                             qbcFile = new File(actualPath + File.separator
                                     + testCaseCtx.getTestCase().getFilePath().replace(File.separator, "_") + "_"
                                     + cUnit.getName() + "_qbc.adm");
@@ -475,7 +512,8 @@ public class TestExecutor {
                             writeOutputToFile(qbcFile, resultStream);
                             break;
                         case "txnqar": //qar represents query after recovery
-                            resultStream = executeQuery(statement, OutputFormat.forCompilationUnit(cUnit));
+                            resultStream = executeQuery(statement, OutputFormat.forCompilationUnit(cUnit),
+                                    "http://" + host + ":" + port + "/query", cUnit.getParameter());
                             qarFile = new File(actualPath + File.separator
                                     + testCaseCtx.getTestCase().getFilePath().replace(File.separator, "_") + "_"
                                     + cUnit.getName() + "_qar.adm");
@@ -488,7 +526,7 @@ public class TestExecutor {
                             break;
                         case "txneu": //eu represents erroneous update
                             try {
-                                TestsUtils.executeUpdate(statement, cUnit.getParameter());
+                                executeUpdate(statement, "http://" + host + ":" + port + "/update");
                             } catch (Exception e) {
                                 //An exception is expected.
                                 failed = true;
@@ -516,15 +554,14 @@ public class TestExecutor {
                             break;
                         case "errddl": // a ddlquery that expects error
                             try {
-                                TestsUtils.executeDDL(statement);
+                                executeDDL(statement, "http://" + host + ":" + port + "/ddl");
                             } catch (Exception e) {
                                 // expected error happens
                                 failed = true;
                                 e.printStackTrace();
                             }
                             if (!failed) {
-                                throw new Exception(
-                                        "Test \"" + testFile + "\" FAILED!\n  An exception" + "is expected.");
+                                throw new Exception("Test \"" + testFile + "\" FAILED!\n  An exception is expected.");
                             }
                             System.err.println("...but that was expected.");
                             break;
@@ -533,22 +570,36 @@ public class TestExecutor {
                     }
 
                 } catch (Exception e) {
-
                     System.err.println("testFile " + testFile.toString() + " raised an exception:");
-
-                    e.printStackTrace();
-                    if (cUnit.getExpectedError().isEmpty()) {
+                    boolean unExpectedFailure = false;
+                    numOfErrors++;
+                    if (cUnit.getExpectedError().size() < numOfErrors) {
+                        unExpectedFailure = true;
+                    } else {
+                        // Get the expected exception
+                        ExpectedError expectedError = cUnit.getExpectedError().get(numOfErrors - 1);
+                        if (e.toString().contains(expectedError.getValue())) {
+                            System.err.println("...but that was expected.");
+                        } else {
+                            unExpectedFailure = true;
+                        }
+                    }
+                    if (unExpectedFailure) {
+                        e.printStackTrace();
                         System.err.println("...Unexpected!");
                         if (failedGroup != null) {
                             failedGroup.getTestCase().add(testCaseCtx.getTestCase());
                         }
                         throw new Exception("Test \"" + testFile + "\" FAILED!", e);
-                    } else {
-                        LOGGER.info("[TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName()
-                                + " failed as expected: " + e.getMessage());
-                        System.err.println("...but that was expected.");
                     }
-
+                } finally {
+                    if (numOfFiles == testFileCtxs.size() && numOfErrors < cUnit.getExpectedError().size()) {
+                        System.err.println("...Unexpected!");
+                        Exception e = new Exception(
+                                "Test \"" + cUnit.getName() + "\" FAILED!\nExpected error was not thrown...");
+                        e.printStackTrace();
+                        throw e;
+                    }
                 }
             }
         }

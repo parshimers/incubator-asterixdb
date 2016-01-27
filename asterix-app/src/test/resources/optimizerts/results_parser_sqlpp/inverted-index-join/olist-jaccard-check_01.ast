@@ -24,7 +24,7 @@ TypeDecl CustomerType [
 ]
 DatasetDecl Customers(CustomerType) partitioned by [[cid]]
 DatasetDecl Customers2(CustomerType) partitioned by [[cid]]
-WriteOutputTo nc1:rttest/inverted-index-join_olist-jaccard-check_01.adm
+WriteOutputTo asterix_nc1:rttest/inverted-index-join_olist-jaccard-check_01.adm
 Query:
 SELECT ELEMENT [
 RecordConstructor [
@@ -66,17 +66,7 @@ Where
         ]
         LiteralExpr [FLOAT] [0.7]
       ]
-      Index:       FunctionCall test.similarity-jaccard-check@3[
-        FieldAccessor [
-          Variable [ Name=a ]
-          Field=interests
-        ]
-        FieldAccessor [
-          Variable [ Name=b ]
-          Field=interests
-        ]
-        LiteralExpr [FLOAT] [0.7]
-      ]
+      Index:       LiteralExpr [LONG] [0]
     ]
     and
     OperatorExpr [

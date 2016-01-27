@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-/* 
+/*
  * Test case Name  : scan-delete-inverted-index-word-secondary-index.aql
  * Description     : This test is intended to test deletion from secondary keyword inverted index.
  * Expected Result : Success
@@ -26,5 +26,5 @@
 use test;
 
 
-load  table DBLP using "org.apache.asterix.external.dataset.adapter.NCFileSystemAdapter" (("path"="nc1://data/dblp-small/dblp-small-id.txt"),("format"="delimited-text"),("delimiter"=":")) pre-sorted;
+load  table DBLP using "org.apache.asterix.external.dataset.adapter.NCFileSystemAdapter" (("path"="asterix_nc1://data/dblp-small/dblp-small-id.txt"),("format"="delimited-text"),("delimiter"=":")) pre-sorted;
 

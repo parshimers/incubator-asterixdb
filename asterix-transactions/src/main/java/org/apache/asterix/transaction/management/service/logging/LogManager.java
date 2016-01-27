@@ -71,7 +71,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     protected final AtomicLong appendLSN;
     protected LogBuffer appendPage;
     private LogFlusher logFlusher;
-    private Future<Object> futureLogFlusher;
+    private Future<? extends Object> futureLogFlusher;
     private static final long SMALLEST_LOG_FILE_ID = 0;
     private final String nodeId;
     protected LinkedBlockingQueue<ILogRecord> flushLogsQ;
@@ -195,7 +195,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
         currentLogFile = getLogFile(appendLSN.get(), true);
         appendPage.isLastPage(true);
         //[Notice]
-        //the current log file channel is closed if 
+        //the current log file channel is closed if
         //LogBuffer.flush() completely flush the last page of the file.
     }
 
@@ -326,7 +326,8 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
         initializeLogManager(lastMaxLogFileId + 1);
     }
 
-    public void deleteOldLogFiles(long checkpointLSN) throws HyracksDataException {
+    @Override
+    public void deleteOldLogFiles(long checkpointLSN) {
 
         Long checkpointLSNLogFileID = getLogFileId(checkpointLSN);
         List<Long> logFileIds = getLogFileIds();

@@ -24,7 +24,7 @@ TypeDecl CustomerType [
 ]
 DatasetDecl Customers(CustomerType) partitioned by [[cid]]
 DatasetDecl Customers2(CustomerType) partitioned by [[cid]]
-WriteOutputTo nc1:rttest/inverted-index-join_olist-edit-distance-check_02.adm
+WriteOutputTo asterix_nc1:rttest/inverted-index-join_olist-edit-distance-check_02.adm
 Query:
 SELECT ELEMENT [
 RecordConstructor [
@@ -66,17 +66,7 @@ Where
         ]
         LiteralExpr [LONG] [3]
       ]
-      Index:       FunctionCall test.edit-distance-check@3[
-        FieldAccessor [
-          Variable [ Name=a ]
-          Field=interests
-        ]
-        FieldAccessor [
-          Variable [ Name=b ]
-          Field=interests
-        ]
-        LiteralExpr [LONG] [3]
-      ]
+      Index:       LiteralExpr [LONG] [0]
     ]
     and
     OperatorExpr [

@@ -21,7 +21,7 @@ TypeDecl TweetMessageType [
   }
 ]
 DatasetDecl TweetMessages(TweetMessageType) partitioned by [[tweetid]]
-WriteOutputTo nc1:rttest/inverted-index-join_issue741.adm
+WriteOutputTo asterix_nc1:rttest/inverted-index-join_issue741.adm
 Query:
 SELECT ELEMENT [
 RecordConstructor [
@@ -66,7 +66,7 @@ RecordConstructor [
         OperatorExpr [
           IndexAccessor [
             Variable [ Name=sim ]
-            Index:             Variable [ Name=sim ]
+            Index:             LiteralExpr [LONG] [0]
           ]
           and
           OperatorExpr [

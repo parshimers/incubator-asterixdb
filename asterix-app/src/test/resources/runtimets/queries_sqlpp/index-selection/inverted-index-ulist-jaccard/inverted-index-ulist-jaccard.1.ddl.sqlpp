@@ -44,8 +44,8 @@ create type test.CustomerType as
 ]
 }
 
-create  nodegroup group1 if not exists  on 
-    nc1
+create  nodegroup group1 if not exists  on
+    asterix_nc1
 ;
 create  table Customers(CustomerType) primary key cid on group1;
 

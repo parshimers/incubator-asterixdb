@@ -17,14 +17,14 @@
  ! under the License.
  !-->
 <asterixConfiguration xmlns="asterixconf">
-	<metadataNode>nc1</metadataNode>
+	<metadataNode>asterix_nc1</metadataNode>
 	<store>
-		<ncId>nc1</ncId>
-		<storeDirs>nc1data</storeDirs>
+		<ncId>asterix_nc1</ncId>
+		<storeDirs>iodevice0,iodevice1</storeDirs>
 	</store>
 	<store>
-		<ncId>nc2</ncId>
-		<storeDirs>nc2data</storeDirs>
+		<ncId>asterix_nc2</ncId>
+		<storeDirs>iodevice0,iodevice1</storeDirs>
 	</store>
 	<transactionLogDir>
 		<ncId>nc1</ncId>
@@ -56,7 +56,7 @@
 	</property>
 	<property>
 		<name>compiler.sortmemory</name>
-		<value>163840</value>
+		<value>327680</value>
 	</property>
 	<property>
 		<name>compiler.groupmemory</name>
@@ -66,6 +66,10 @@
 		<name>compiler.joinmemory</name>
 		<value>163840</value>
 	</property>
+        <property>
+               <name>compiler.pregelix.home</name>
+               <value>~/pregelix</value>
+        </property>
 	<property>
 		<name>storage.buffercache.pagesize</name>
 		<value>32768</value>

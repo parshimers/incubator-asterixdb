@@ -37,6 +37,7 @@ import org.apache.asterix.metadata.MetadataNode;
 import org.apache.asterix.metadata.bootstrap.MetadataPrimaryIndexes;
 import org.apache.asterix.metadata.bootstrap.MetadataRecordTypes;
 import org.apache.asterix.metadata.entities.AsterixBuiltinTypeMap;
+import org.apache.asterix.metadata.entities.Dataset;
 import org.apache.asterix.metadata.entities.Index;
 import org.apache.asterix.om.base.ABoolean;
 import org.apache.asterix.om.base.ACollectionCursor;
@@ -100,15 +101,16 @@ public class IndexTupleTranslator extends AbstractTupleTranslator<Index> {
         int recordLength = frameTuple.getFieldLength(INDEX_PAYLOAD_TUPLE_FIELD_INDEX);
         ByteArrayInputStream stream = new ByteArrayInputStream(serRecord, recordStartOffset, recordLength);
         DataInput in = new DataInputStream(stream);
-        ARecord rec = (ARecord) recordSerde.deserialize(in);
+        ARecord rec = recordSerde.deserialize(in);
         String dvName = ((AString) rec.getValueByPos(MetadataRecordTypes.INDEX_ARECORD_DATAVERSENAME_FIELD_INDEX))
                 .getStringValue();
         String dsName = ((AString) rec.getValueByPos(MetadataRecordTypes.INDEX_ARECORD_DATASETNAME_FIELD_INDEX))
                 .getStringValue();
         String indexName = ((AString) rec.getValueByPos(MetadataRecordTypes.INDEX_ARECORD_INDEXNAME_FIELD_INDEX))
                 .getStringValue();
-        IndexType indexStructure = IndexType.valueOf(((AString) rec
-                .getValueByPos(MetadataRecordTypes.INDEX_ARECORD_INDEXSTRUCTURE_FIELD_INDEX)).getStringValue());
+        IndexType indexStructure = IndexType
+                .valueOf(((AString) rec.getValueByPos(MetadataRecordTypes.INDEX_ARECORD_INDEXSTRUCTURE_FIELD_INDEX))
+                        .getStringValue());
         IACursor fieldNameCursor = ((AOrderedList) rec
                 .getValueByPos(MetadataRecordTypes.INDEX_ARECORD_SEARCHKEY_FIELD_INDEX)).getCursor();
         List<List<String>> searchKey = new ArrayList<List<String>>();
@@ -122,10 +124,11 @@ public class IndexTupleTranslator extends AbstractTupleTranslator<Index> {
             }
             searchKey.add(nestedFieldName);
         }
-        int indexKeyTypeFieldPos = rec.getType().findFieldPosition(INDEX_SEARCHKEY_TYPE_FIELD_NAME);
+        int indexKeyTypeFieldPos = rec.getType().getFieldIndex(INDEX_SEARCHKEY_TYPE_FIELD_NAME);
         IACursor fieldTypeCursor = new ACollectionCursor();
-        if (indexKeyTypeFieldPos > 0)
+        if (indexKeyTypeFieldPos > 0) {
             fieldTypeCursor = ((AOrderedList) rec.getValueByPos(indexKeyTypeFieldPos)).getCursor();
+        }
         List<IAType> searchKeyType = new ArrayList<IAType>(searchKey.size());
         while (fieldTypeCursor.next()) {
             String typeName = ((AString) fieldTypeCursor.get()).getStringValue();
@@ -134,24 +137,28 @@ public class IndexTupleTranslator extends AbstractTupleTranslator<Index> {
         }
         // index key type information is not persisted, thus we extract type information from the record metadata
         if (searchKeyType.isEmpty()) {
-            String datatypeName = metadataNode.getDataset(jobId, dvName, dsName).getItemTypeName();
-            ARecordType recordDt = (ARecordType) metadataNode.getDatatype(jobId, dvName, datatypeName).getDatatype();
+            Dataset dSet = metadataNode.getDataset(jobId, dvName, dsName);
+            String datatypeName = dSet.getItemTypeName();
+            String datatypeDataverseName = dSet.getItemTypeDataverseName();
+            ARecordType recordDt = (ARecordType) metadataNode.getDatatype(jobId, datatypeDataverseName, datatypeName)
+                    .getDatatype();
             for (int i = 0; i < searchKey.size(); i++) {
                 IAType fieldType = recordDt.getSubFieldType(searchKey.get(i));
                 searchKeyType.add(fieldType);
             }
         }
-        int isEnforcedFieldPos = rec.getType().findFieldPosition(INDEX_ISENFORCED_FIELD_NAME);
+        int isEnforcedFieldPos = rec.getType().getFieldIndex(INDEX_ISENFORCED_FIELD_NAME);
         Boolean isEnforcingKeys = false;
-        if (isEnforcedFieldPos > 0)
+        if (isEnforcedFieldPos > 0) {
             isEnforcingKeys = ((ABoolean) rec.getValueByPos(isEnforcedFieldPos)).getBoolean();
+        }
         Boolean isPrimaryIndex = ((ABoolean) rec.getValueByPos(MetadataRecordTypes.INDEX_ARECORD_ISPRIMARY_FIELD_INDEX))
                 .getBoolean();
         int pendingOp = ((AInt32) rec.getValueByPos(MetadataRecordTypes.INDEX_ARECORD_PENDINGOP_FIELD_INDEX))
                 .getIntegerValue();
         // Check if there is a gram length as well.
         int gramLength = -1;
-        int gramLenPos = rec.getType().findFieldPosition(GRAM_LENGTH_FIELD_NAME);
+        int gramLenPos = rec.getType().getFieldIndex(GRAM_LENGTH_FIELD_NAME);
         if (gramLenPos >= 0) {
             gramLength = ((AInt32) rec.getValueByPos(gramLenPos)).getIntegerValue();
         }
@@ -200,8 +207,8 @@ public class IndexTupleTranslator extends AbstractTupleTranslator<Index> {
         recordBuilder.addField(MetadataRecordTypes.INDEX_ARECORD_INDEXSTRUCTURE_FIELD_INDEX, fieldValue);
 
         // write field 4
-        primaryKeyListBuilder
-                .reset((AOrderedListType) MetadataRecordTypes.INDEX_RECORDTYPE.getFieldTypes()[MetadataRecordTypes.INDEX_ARECORD_SEARCHKEY_FIELD_INDEX]);
+        primaryKeyListBuilder.reset((AOrderedListType) MetadataRecordTypes.INDEX_RECORDTYPE
+                .getFieldTypes()[MetadataRecordTypes.INDEX_ARECORD_SEARCHKEY_FIELD_INDEX]);
         this.searchKey = instance.getKeyFieldNames();
         for (List<String> field : this.searchKey) {
             listBuilder.reset(stringList);
@@ -239,7 +246,7 @@ public class IndexTupleTranslator extends AbstractTupleTranslator<Index> {
         intSerde.serialize(new AInt32(instance.getPendingOp()), fieldValue.getDataOutput());
         recordBuilder.addField(MetadataRecordTypes.INDEX_ARECORD_PENDINGOP_FIELD_INDEX, fieldValue);
 
-        // write optional field 8        
+        // write optional field 8
         if (instance.getGramLength() > 0) {
             fieldValue.reset();
             nameValue.reset();
