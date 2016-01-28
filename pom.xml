@@ -57,7 +57,7 @@
         <algebricks.version>0.2.17-SNAPSHOT</algebricks.version>
         <hyracks.version>0.2.17-SNAPSHOT</hyracks.version>
         <hadoop.version>2.6.0</hadoop.version>
-        <junit.version>4.8.1</junit.version>
+        <junit.version>4.11</junit.version>
         <commons.io.version>2.4</commons.io.version>
         <servlet.api.version>2.5</servlet.api.version>
         <json.version>20090211</json.version>

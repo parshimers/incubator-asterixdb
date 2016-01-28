@@ -100,7 +100,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
         emptyQ = new LinkedBlockingQueue<LogBuffer>(numLogPages);
         flushQ = new LinkedBlockingQueue<LogBuffer>(numLogPages);
         for (int i = 0; i < numLogPages; i++) {
-            emptyQ.offer(new LogBuffer(txnSubsystem, logPageSize, flushLSN));
+            emptyQ.offer(new LogBuffer(txnSubsystem, logPageSize, flushLSN, ioManager));
         }
         appendLSN.set(initializeLogAnchor(nextLogFileId));
         flushLSN.set(appendLSN.get());
@@ -284,7 +284,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
                 if (logFileIds == null) {
                     fileId = nextLogFileId;
                     FileReference newFile = new FileReference(getLogFilePath(fileId), FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
-//                    ioManager.mkdirs(newFile);
+                    ioManager.mkdirs(newFile);
                     IFileHandle touch = ioManager.open(newFile, IIOManager.FileReadWriteMode.READ_WRITE, IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
                     ioManager.close(touch);
                     if (LOGGER.isLoggable(Level.INFO)) {
@@ -304,7 +304,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
                     LOGGER.info("created the log directory: " + logManagerProperties.getLogDir());
                 }
                 FileReference newFile = new FileReference(getLogFilePath(fileId), FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
-//                ioManager.mkdirs(newFile);
+                ioManager.mkdirs(newFile);
                 IFileHandle touch = ioManager.open(newFile, IIOManager.FileReadWriteMode.READ_WRITE, IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
                 ioManager.close(touch);
                 if (LOGGER.isLoggable(Level.INFO)) {
@@ -327,7 +327,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     }
 
     @Override
-    public void deleteOldLogFiles(long checkpointLSN) {
+    public void deleteOldLogFiles(long checkpointLSN) throws HyracksDataException {
 
         Long checkpointLSNLogFileID = getLogFileId(checkpointLSN);
         List<Long> logFileIds = getLogFileIds();
@@ -429,12 +429,6 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
 
     public IFileHandle getLogFile(long lsn, boolean create){
         return getLogFile(lsn, create, IIOManager.FileReadWriteMode.READ_WRITE);
-    }
-
-    private static boolean createFileIfNotExists(String path) throws IOException {
-    }
-
-    private static boolean createNewDirectory(String path) {
     }
 
     public IFileHandle getLogFile(long lsn, boolean create, IIOManager.FileReadWriteMode mode) {

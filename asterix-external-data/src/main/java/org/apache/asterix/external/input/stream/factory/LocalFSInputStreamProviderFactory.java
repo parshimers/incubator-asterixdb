@@ -104,7 +104,7 @@ public class LocalFSInputStreamProviderFactory implements IInputStreamProviderFa
                 }
                 nodeName = trimmedValue.split(":")[0];
                 nodeLocalPath = trimmedValue.split("://")[1];
-                FileSplit fileSplit = new FileSplit(nodeName, new FileReference(new File(nodeLocalPath)));
+                FileSplit fileSplit = new FileSplit(nodeName, new FileReference(nodeLocalPath));
                 inputFileSplits[count++] = fileSplit;
             }
         }

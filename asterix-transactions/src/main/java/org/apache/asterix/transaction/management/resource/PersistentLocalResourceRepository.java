@@ -31,7 +31,6 @@ import java.io.ObjectOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
->>>>>>> master
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -73,9 +72,11 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
     private boolean isReplicationEnabled = false;
     private Set<String> filesToBeReplicated;
     private IIOManager ioManager;
-    public PersistentLocalResourceRepository(List<IODeviceHandle> devices, String nodeId) throws HyracksDataException {
+
+    public PersistentLocalResourceRepository(List<IODeviceHandle> devices, String nodeId, IIOManager ioManager) throws HyracksDataException {
         mountPoints = new String[devices.size()];
         this.nodeId = nodeId;
+        this.ioManager = ioManager;
         for (int i = 0; i < mountPoints.length; i++) {
             String mountPoint = devices.get(i).getPath().getPath();
             FileReference mountPointDir = new FileReference(mountPoint, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
@@ -95,9 +96,9 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         return mountPoint + STORAGE_METADATA_DIRECTORY + File.separator + nodeId + "_" + "iodevice" + ioDeviceId;
     }
 
-    private static File getStorageMetadataBaseDir(File storageMetadataFile) {
+    private FileReference getStorageMetadataBaseDir(FileReference storageMetadataFile) {
         //STORAGE_METADATA_DIRECTORY / Node Id / STORAGE_METADATA_FILE_NAME_PREFIX
-        return storageMetadataFile.getParentFile().getParentFile();
+        return ioManager.getParent(ioManager.getParent(storageMetadataFile));
     }
 
     public void initializeNewUniverse(String storageRootDirName) throws HyracksDataException {
@@ -109,10 +110,10 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         //TODO with the existing cluster configuration file being static and distributed on all NCs, we can find out the storage root
         //directory without looking at this file. This file could potentially store more information, otherwise no need to keep it. 
         for (int i = 0; i < mountPoints.length; i++) {
-            File storageMetadataFile = getStorageMetadataFile(mountPoints[i], nodeId, i);
-            File storageMetadataDir = storageMetadataFile.getParentFile();
+            FileReference storageMetadataFile= getStorageMetadataFile(mountPoints[i], nodeId, i);
+            FileReference storageMetadataDir = ioManager.getParent(storageMetadataFile);
             //make dirs for the storage metadata file
-            boolean success = storageMetadataDir.mkdirs();
+            boolean success = ioManager.mkdirs(storageMetadataDir);
             if (!success) {
                 throw new IllegalStateException(
                         "Unable to create storage metadata directory of PersistentLocalResourceRepository in "
@@ -143,8 +144,8 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
     public LocalResource getResourceByPath(String path) throws HyracksDataException {
         LocalResource resource = resourceCache.getIfPresent(path);
         if (resource == null) {
-            File resourceFile = getLocalResourceFileByName(path);
-            if (resourceFile.exists()) {
+            FileReference resourceFile= getLocalResourceFileByName(path);
+            if (ioManager.exists(resourceFile)) {
                 resource = readLocalResource(resourceFile);
                 resourceCache.put(path, resource);
             }
@@ -154,11 +155,12 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
 
     @Override
     public synchronized void insert(LocalResource resource) throws HyracksDataException {
-        File resourceFile = new File(getFileName(resource.getResourcePath(), resource.getResourceId()));
-        if (resourceFile.exists()) {
+        FileReference resourceFile = new FileReference(getFileName(resource.getResourcePath(), resource.getResourceId()),
+                FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+        if (ioManager.exists(resourceFile)) {
             throw new HyracksDataException("Duplicate resource: " + resourceFile.getAbsolutePath());
         } else {
-            resourceFile.getParentFile().mkdirs();
+            ioManager.mkdirs(ioManager.getParent(resourceFile));
         }
 
         if (resource.getResourceId() != STORAGE_LOCAL_RESOURCE_ID) {
@@ -210,9 +212,9 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
 
     @Override
     public synchronized void deleteResourceByPath(String resourcePath) throws HyracksDataException {
-        File resourceFile = getLocalResourceFileByName(resourcePath);
-        if (resourceFile.exists()) {
-            resourceFile.delete();
+        FileReference resourceFile = getLocalResourceFileByName(resourcePath);
+        if (ioManager.exists(resourceFile)) {
+            ioManager.delete(resourceFile);
             resourceCache.invalidate(resourcePath);
 
             //if replication enabled, delete resource from remote replicas
@@ -224,8 +226,9 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         }
     }
 
-    private static File getLocalResourceFileByName(String resourcePath) {
-        return new File(resourcePath + File.separator + METADATA_FILE_NAME);
+    private static FileReference getLocalResourceFileByName(String resourcePath) {
+        return new FileReference(resourcePath + File.separator + METADATA_FILE_NAME,
+                FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
     }
 
     public HashMap<Long, LocalResource> loadAndGetAllResources() throws HyracksDataException {
@@ -233,28 +236,31 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         //This could be fixed by traversing all resources on disk until the required resource is found.
         HashMap<Long, LocalResource> resourcesMap = new HashMap<Long, LocalResource>();
 
+
         for (int i = 0; i < mountPoints.length; i++) {
-            File storageRootDir = getStorageRootDirectoryIfExists(mountPoints[i], nodeId, i);
+            FileReference storageRootDir = getStorageRootDirectoryIfExists(mountPoints[i], nodeId, i);
             if (storageRootDir == null) {
                 continue;
             }
-            continue;
-        }
 
             //load all local resources.
-            File[] partitions = storageRootDir.listFiles();
-            for (File partition : partitions) {
-                File[] dataverseFileList = partition.listFiles();
+            String[] partitions = ioManager.listFiles(storageRootDir,NOOP_FILES_FILTER);
+            for (String sPartition : partitions) {
+                FileReference partition = new FileReference(sPartition, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+                String[] dataverseFileList = ioManager.listFiles(partition,NOOP_FILES_FILTER);
                 if (dataverseFileList != null) {
-                    for (File dataverseFile : dataverseFileList) {
-                        if (dataverseFile.isDirectory()) {
-                            File[] indexFileList = dataverseFile.listFiles();
+                    for (String sDataverseFile : dataverseFileList) {
+                        FileReference dataverseFile = new FileReference(sDataverseFile, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+                        if (ioManager.isDirectory(dataverseFile)) {
+                            String[] indexFileList = ioManager.listFiles(dataverseFile,NOOP_FILES_FILTER);
                             if (indexFileList != null) {
-                                for (File indexFile : indexFileList) {
-                                    if (indexFile.isDirectory()) {
-                                        File[] metadataFiles = indexFile.listFiles(METADATA_FILES_FILTER);
+                                for (String sIndexFile : indexFileList) {
+                                    FileReference indexFile = new FileReference(sIndexFile, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+                                    if (ioManager.isDirectory(indexFile)) {
+                                        String[] metadataFiles = ioManager.listFiles(indexFile,METADATA_FILES_FILTER);
                                         if (metadataFiles != null) {
-                                            for (File metadataFile : metadataFiles) {
+                                            for (String sMetadataFile : metadataFiles) {
+                                                FileReference metadataFile = new FileReference(sMetadataFile, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
                                                 LocalResource localResource = readLocalResource(metadataFile);
                                                 resourcesMap.put(localResource.getResourceId(), localResource);
                                             }
@@ -275,28 +281,30 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         long maxResourceId = 0;
 
         for (int i = 0; i < mountPoints.length; i++) {
-            File storageRootDir = getStorageRootDirectoryIfExists(mountPoints[i], nodeId, i);
+            FileReference storageRootDir = getStorageRootDirectoryIfExists(mountPoints[i], nodeId, i);
             if (storageRootDir == null) {
                 continue;
             }
-            continue;
-        }
+
 
             //load all local resources.
-            File[] partitions = storageRootDir.listFiles();
-            for (File partition : partitions) {
-                //traverse all local resources.
-                File[] dataverseFileList = partition.listFiles();
+            String[] partitions = ioManager.listFiles(storageRootDir,NOOP_FILES_FILTER);
+            for (String sPartition : partitions) {
+                FileReference partition = new FileReference(sPartition, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+                String[] dataverseFileList = ioManager.listFiles(partition,NOOP_FILES_FILTER);
                 if (dataverseFileList != null) {
-                    for (File dataverseFile : dataverseFileList) {
-                        if (dataverseFile.isDirectory()) {
-                            File[] indexFileList = dataverseFile.listFiles();
+                    for (String sDataverseFile : dataverseFileList) {
+                        FileReference dataverseFile = new FileReference(sDataverseFile, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+                        if (ioManager.isDirectory(dataverseFile)) {
+                            String[] indexFileList = ioManager.listFiles(dataverseFile,NOOP_FILES_FILTER);
                             if (indexFileList != null) {
-                                for (File indexFile : indexFileList) {
-                                    if (indexFile.isDirectory()) {
-                                        File[] metadataFiles = indexFile.listFiles(METADATA_FILES_FILTER);
+                                for (String sIndexFile : indexFileList) {
+                                    FileReference indexFile = new FileReference(sIndexFile, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+                                    if (ioManager.isDirectory(indexFile)) {
+                                        String[] metadataFiles = ioManager.listFiles(indexFile,METADATA_FILES_FILTER);
                                         if (metadataFiles != null) {
-                                            for (File metadataFile : metadataFiles) {
+                                            for (String sMetadataFile : metadataFiles) {
+                                                FileReference metadataFile = new FileReference(sMetadataFile, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
                                                 LocalResource localResource = readLocalResource(metadataFile);
                                                 maxResourceId = Math.max(maxResourceId, localResource.getResourceId());
                                             }
@@ -324,7 +332,7 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         }
     }
 
-    public static LocalResource readLocalResource(FileReference file) throws HyracksDataException {
+    public LocalResource readLocalResource(FileReference file) throws HyracksDataException {
         FileInputStream fis = null;
         ObjectInputStream oisFromFis = null;
 
@@ -363,6 +371,12 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         }
     };
 
+    private static final FilenameFilter NOOP_FILES_FILTER = new FilenameFilter() {
+        public boolean accept(File dir, String name) {
+                return true;
+        }
+    };
+
     public void setReplicationManager(IReplicationManager replicationManager) {
         this.replicationManager = replicationManager;
         isReplicationEnabled = replicationManager.isReplicationEnabled();
@@ -396,19 +410,19 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
      */
     public void deleteStorageData(boolean deleteStorageMetadata) throws IOException {
         for (int i = 0; i < mountPoints.length; i++) {
-            File storageDir = getStorageRootDirectoryIfExists(mountPoints[i], nodeId, i);
+            FileReference storageDir = getStorageRootDirectoryIfExists(mountPoints[i], nodeId, i);
             if (storageDir != null) {
-                if (storageDir.isDirectory()) {
-                    FileUtils.deleteDirectory(storageDir);
+                if (ioManager.isDirectory(storageDir)) {
+                    ioManager.delete(storageDir, true);
                 }
             }
 
             if (deleteStorageMetadata) {
                 //delete the metadata root directory
-                File storageMetadataFile = getStorageMetadataFile(mountPoints[i], nodeId, i);
-                File storageMetadataDir = getStorageMetadataBaseDir(storageMetadataFile);
-                if (storageMetadataDir.exists() && storageMetadataDir.isDirectory()) {
-                    FileUtils.deleteDirectory(storageMetadataDir);
+                FileReference storageMetadataFile = getStorageMetadataFile(mountPoints[i], nodeId, i);
+                FileReference storageMetadataDir = getStorageMetadataBaseDir(storageMetadataFile);
+                if (ioManager.exists(storageMetadataDir) && ioManager.isDirectory(storageMetadataDir)) {
+                    ioManager.delete(storageMetadataDir, true);
                 }
             }
         }
@@ -420,10 +434,10 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
      * @param ioDeviceId
      * @return A file reference to the storage metadata file.
      */
-    private static File getStorageMetadataFile(String mountPoint, String nodeId, int ioDeviceId) {
+    private static FileReference getStorageMetadataFile(String mountPoint, String nodeId, int ioDeviceId) {
         String storageMetadataFileName = getStorageMetadataDirPath(mountPoint, nodeId, ioDeviceId) + File.separator
                 + STORAGE_METADATA_FILE_NAME_PREFIX;
-        File storageMetadataFile = new File(storageMetadataFileName);
+        FileReference storageMetadataFile= new FileReference(storageMetadataFileName, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
         return storageMetadataFile;
     }
 
@@ -434,16 +448,16 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
      * @return A file reference to the storage root directory if exists, otherwise null.
      * @throws HyracksDataException
      */
-    public static File getStorageRootDirectoryIfExists(String mountPoint, String nodeId, int ioDeviceId)
+    public FileReference getStorageRootDirectoryIfExists(String mountPoint, String nodeId, int ioDeviceId)
             throws HyracksDataException {
-        File storageRootDir = null;
-        File storageMetadataFile = getStorageMetadataFile(mountPoint, nodeId, ioDeviceId);
-        if (storageMetadataFile.exists()) {
+        FileReference storageRootDir = null;
+        FileReference storageMetadataFile = getStorageMetadataFile(mountPoint, nodeId, ioDeviceId);
+        if (ioManager.exists(storageMetadataFile)) {
             LocalResource rootLocalResource = readLocalResource(storageMetadataFile);
             String storageRootDirPath = (String) rootLocalResource.getResourceObject();
             Path path = Paths.get(storageRootDirPath);
             if (Files.exists(path)) {
-                storageRootDir = new File(storageRootDirPath);
+                storageRootDir = new FileReference(storageRootDirPath, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
             }
         }
         return storageRootDir;

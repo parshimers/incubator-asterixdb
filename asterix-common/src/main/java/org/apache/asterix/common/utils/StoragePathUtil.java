@@ -47,7 +47,7 @@ public class StoragePathUtil {
     }
 
     public static FileSplit getFileSplitForClusterPartition(ClusterPartition partition, File relativeFile) {
-        return new FileSplit(partition.getActiveNodeId(), new FileReference(relativeFile), partition.getIODeviceNum(),
+        return new FileSplit(partition.getActiveNodeId(), new FileReference(relativeFile.getAbsolutePath()), partition.getIODeviceNum(),
                 partition.getPartitionId());
     }
 

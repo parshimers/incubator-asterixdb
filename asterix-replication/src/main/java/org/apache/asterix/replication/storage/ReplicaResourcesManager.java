@@ -41,6 +41,7 @@ import java.util.logging.Logger;
 import org.apache.asterix.common.replication.IReplicaResourcesManager;
 import org.apache.asterix.transaction.management.resource.PersistentLocalResourceRepository;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.api.io.IODeviceHandle;
 import org.apache.hyracks.storage.am.common.util.IndexFileNameUtil;
 import org.apache.hyracks.storage.common.file.LocalResource;
@@ -270,10 +271,10 @@ public class ReplicaResourcesManager implements IReplicaResourcesManager {
             Set<File> remoteIndexes = getReplicaIndexes(replicaId);
             for (File indexFolder : remoteIndexes) {
                 if (getReplicaIndexMaxLSN(indexFolder) < targetLSN) {
-                    File localResource = new File(indexFolder + File.separator
+                    FileReference localResource = new FileReference(indexFolder + File.separator
                             + PersistentLocalResourceRepository.METADATA_FILE_NAME);
-                    LocalResource resource = PersistentLocalResourceRepository.readLocalResource(localResource);
-                    laggingReplicaIndexes.put(resource.getResourceId(), indexFolder.getAbsolutePath());
+//                    LocalResource resource = PersistentLocalResourceRepository.readLocalResource(localResource);
+//                    laggingReplicaIndexes.put(resource.getResourceId(), indexFolder.getAbsolutePath());
                 }
             }
         } catch (HyracksDataException e) {

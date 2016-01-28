@@ -27,12 +27,12 @@
 		<storeDirs>iodevice0,iodevice1</storeDirs>
 	</store>
 	<transactionLogDir>
-		<ncId>nc1</ncId>
-		<txnLogDirPath>/tmp/txnLogDir/nc1</txnLogDirPath>
+		<ncId>asterix_nc1</ncId>
+		<txnLogDirPath>target/txnLogDir/asterix_nc1</txnLogDirPath>
 	</transactionLogDir>
 	<transactionLogDir>
-		<ncId>nc2</ncId>
-		<txnLogDirPath>/tmp/txnLogDir/nc2</txnLogDirPath>
+		<ncId>asterix_nc2</ncId>
+		<txnLogDirPath>target/txnLogDir/asterix_nc2</txnLogDirPath>
 	</transactionLogDir>
 
 	<property>

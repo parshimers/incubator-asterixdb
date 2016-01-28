@@ -151,13 +151,6 @@ public class LogBuffer implements ILogBuffer {
         }
     }
 
-    public void setInitialFlushOffset(long offset) {
-        try {
-            fileChannel.position(offset);
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
-        }
-    }
 
     public synchronized void isFull(boolean full) {
         this.full.set(full);
