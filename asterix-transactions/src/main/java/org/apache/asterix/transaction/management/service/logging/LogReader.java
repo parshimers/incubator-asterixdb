@@ -250,7 +250,7 @@ public class LogReader implements ILogReader {
     }
 
     private void getFileChannel() throws ACIDException {
-        getFileChannel(IIOManager.FileReadWriteMode.READ_WRITE);
+        getFileChannel(IIOManager.FileReadWriteMode.READ_ONLY);
     }
 
     private void getFileChannel(IIOManager.FileReadWriteMode mode) throws ACIDException {

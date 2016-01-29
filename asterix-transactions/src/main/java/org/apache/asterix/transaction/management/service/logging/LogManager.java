@@ -284,7 +284,6 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
                 if (logFileIds == null) {
                     fileId = nextLogFileId;
                     FileReference newFile = new FileReference(getLogFilePath(fileId), FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
-                    ioManager.mkdirs(newFile);
                     IFileHandle touch = ioManager.open(newFile, IIOManager.FileReadWriteMode.READ_WRITE, IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
                     ioManager.close(touch);
                     if (LOGGER.isLoggable(Level.INFO)) {
@@ -304,7 +303,6 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
                     LOGGER.info("created the log directory: " + logManagerProperties.getLogDir());
                 }
                 FileReference newFile = new FileReference(getLogFilePath(fileId), FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
-                ioManager.mkdirs(newFile);
                 IFileHandle touch = ioManager.open(newFile, IIOManager.FileReadWriteMode.READ_WRITE, IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
                 ioManager.close(touch);
                 if (LOGGER.isLoggable(Level.INFO)) {
@@ -395,7 +393,9 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
             if (logFileNames != null && logFileNames.length != 0) {
                 logFileIds = new ArrayList<Long>();
                 for (String fileName : logFileNames) {
-                    logFileIds.add(Long.parseLong(fileName.substring(logFilePrefix.length() + 1)));
+                    FileReference f = new FileReference(fileName, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+                    String fName = f.getName();
+                    logFileIds.add(Long.parseLong(fName.substring(logFilePrefix.length() + 1)));
                 }
                 Collections.sort(logFileIds, new Comparator<Long>() {
                     @Override
@@ -436,7 +436,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
         try {
             FileReference file = getLogFileReference(lsn,create);
             if (create) {
-                if (!ioManager.mkdirs(file)) {
+                if (!ioManager.mkdirs(ioManager.getParent(file))) {
                     throw new IllegalStateException();
                 }
             } else {
@@ -519,6 +519,7 @@ class LogFlusher implements Callable<Boolean> {
     private final LinkedBlockingQueue<LogBuffer> emptyQ;
     private final LinkedBlockingQueue<LogBuffer> flushQ;
     private LogBuffer flushPage;
+    private LogBuffer prevFlushPg;
     private final AtomicBoolean isStarted;
     private final AtomicBoolean terminateFlag;
     private final IIOManager ioManager;
@@ -560,7 +561,7 @@ class LogFlusher implements Callable<Boolean> {
     }
 
     @Override
-    public Boolean call() {
+    public Boolean call() throws HyracksDataException {
         synchronized (isStarted) {
             isStarted.set(true);
             isStarted.notify();
@@ -571,6 +572,7 @@ class LogFlusher implements Callable<Boolean> {
                 try {
                     flushPage = flushQ.take();
                     if (flushPage == POISON_PILL || terminateFlag.get()) {
+                        prevFlushPg.sync();
                         return true;
                     }
                 } catch (InterruptedException e) {
@@ -579,6 +581,7 @@ class LogFlusher implements Callable<Boolean> {
                     }
                 }
                 flushPage.flush();
+                prevFlushPg = flushPage;
                 emptyQ.offer(flushPage);
             }
         } catch (Exception e) {

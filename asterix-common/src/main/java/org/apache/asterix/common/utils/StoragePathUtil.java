@@ -46,8 +46,9 @@ public class StoragePathUtil {
         return new Pair<IFileSplitProvider, AlgebricksPartitionConstraint>(splitProvider, pc);
     }
 
-    public static FileSplit getFileSplitForClusterPartition(ClusterPartition partition, File relativeFile) {
-        return new FileSplit(partition.getActiveNodeId(), new FileReference(relativeFile.getAbsolutePath()), partition.getIODeviceNum(),
+    public static FileSplit getFileSplitForClusterPartition(ClusterPartition partition, FileReference relativeFile) {
+        return new FileSplit(partition.getActiveNodeId(), new FileReference(relativeFile.getAbsolutePath(),
+                FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL), partition.getIODeviceNum(),
                 partition.getPartitionId());
     }
 

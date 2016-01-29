@@ -360,7 +360,7 @@ public class MetadataBootstrap {
                 ? runtimeContext.getLSMBTreeOperationTracker(index.getDatasetId().getId())
                 : new BaseOperationTracker(index.getDatasetId().getId(),
                         dataLifecycleManager.getDatasetInfo(index.getDatasetId().getId()));
-        final String absolutePath = file.getFile().getPath();
+        final String absolutePath = file.getPath();
         if (create) {
             lsmBtree = LSMBTreeUtils.createLSMTree(virtualBufferCaches, file, bufferCache, fileMapProvider, typeTraits,
                     comparatorFactories, bloomFilterKeyFields, runtimeContext.getBloomFilterFalsePositiveRate(),

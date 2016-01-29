@@ -54,8 +54,8 @@ public class FeedUtils {
             String storagePartitionPath = StoragePathUtil.prepareStoragePartitionPath(storageDirName,
                     nodePartition.getPartitionId());
             // format: 'storage dir name'/partition_#/dataverse/feed/adapter_#
-            File f = new File(storagePartitionPath + File.separator + relPathFile + File.separator
-                    + StoragePathUtil.ADAPTER_INSTANCE_PREFIX + i);
+            FileReference f = new FileReference(storagePartitionPath + File.separator + relPathFile + File.separator
+                    + StoragePathUtil.ADAPTER_INSTANCE_PREFIX + i, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
             splits.add(StoragePathUtil.getFileSplitForClusterPartition(nodePartition, f));
             i++;
         }

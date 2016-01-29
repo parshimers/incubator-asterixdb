@@ -178,6 +178,10 @@ public class LogBuffer implements ILogBuffer {
         isLastPage = false;
         stop = false;
     }
+    @Override
+    public void sync() throws HyracksDataException {
+//        ioManager.sync(logFile,true);
+    }
 
     ////////////////////////////////////
     // LogFlusher Methods

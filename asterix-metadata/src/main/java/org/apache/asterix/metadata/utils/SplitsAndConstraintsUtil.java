@@ -33,6 +33,7 @@ import org.apache.asterix.om.util.AsterixClusterProperties;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
+import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.dataflow.std.file.FileSplit;
 import org.apache.hyracks.dataflow.std.file.IFileSplitProvider;
 
@@ -48,8 +49,9 @@ public class SplitsAndConstraintsUtil {
             int nodeParitions = AsterixClusterProperties.INSTANCE
                     .getNodePartitionsCount(clusterPartition[j].getNodeId());
             for (int i = 0; i < nodeParitions; i++) {
-                File f = new File(StoragePathUtil.prepareStoragePartitionPath(storageDirName,
-                        clusterPartition[i].getPartitionId()) + File.separator + relPathFile);
+                FileReference f = new FileReference(StoragePathUtil.prepareStoragePartitionPath(storageDirName,
+                        clusterPartition[i].getPartitionId()) + File.separator + relPathFile,
+                        FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
                 splits.add(StoragePathUtil.getFileSplitForClusterPartition(clusterPartition[j], f));
             }
         }
@@ -80,10 +82,10 @@ public class SplitsAndConstraintsUtil {
 
                 for (int k = 0; k < numPartitions; k++) {
                     // format: 'storage dir name'/partition_#/dataverse/dataset_idx_index
-                    File f = new File(StoragePathUtil.prepareStoragePartitionPath(storageDirName,
+                    FileReference f = new FileReference(StoragePathUtil.prepareStoragePartitionPath(storageDirName,
                             nodePartitions[k].getPartitionId())
                             + (temp ? (File.separator + StoragePathUtil.TEMP_DATASETS_STORAGE_FOLDER) : "")
-                            + File.separator + relPathFile);
+                            + File.separator + relPathFile, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
                     splits.add(StoragePathUtil.getFileSplitForClusterPartition(nodePartitions[k], f));
                 }
             }
@@ -113,13 +115,15 @@ public class SplitsAndConstraintsUtil {
                 int firstPartition = 0;
                 if (create) {
                     // Only the first partition when create
-                    File f = new File(StoragePathUtil.prepareStoragePartitionPath(storageDirName,
-                            nodePartitions[firstPartition].getPartitionId()) + File.separator + relPathFile);
+                    FileReference f = new FileReference(StoragePathUtil.prepareStoragePartitionPath(storageDirName,
+                            nodePartitions[firstPartition].getPartitionId()) + File.separator + relPathFile,
+                            FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
                     splits.add(StoragePathUtil.getFileSplitForClusterPartition(nodePartitions[firstPartition], f));
                 } else {
                     for (int k = 0; k < nodePartitions.length; k++) {
-                        File f = new File(StoragePathUtil.prepareStoragePartitionPath(storageDirName,
-                                nodePartitions[firstPartition].getPartitionId()) + File.separator + relPathFile);
+                        FileReference f = new FileReference(StoragePathUtil.prepareStoragePartitionPath(storageDirName,
+                                nodePartitions[firstPartition].getPartitionId()) + File.separator + relPathFile,
+                                FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
                         splits.add(StoragePathUtil.getFileSplitForClusterPartition(nodePartitions[firstPartition], f));
                     }
                 }

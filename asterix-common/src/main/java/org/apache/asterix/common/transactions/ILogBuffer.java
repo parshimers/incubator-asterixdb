@@ -18,9 +18,13 @@
  */
 package org.apache.asterix.common.transactions;
 
+import org.apache.hyracks.api.exceptions.HyracksDataException;
+
 public interface ILogBuffer {
 
     public void append(ILogRecord logRecord, long appendLsn);
+
+    void sync() throws HyracksDataException;
 
     public void flush();
 
