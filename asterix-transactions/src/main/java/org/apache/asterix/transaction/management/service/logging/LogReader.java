@@ -77,7 +77,7 @@ public class LogReader implements ILogReader {
         if (waitForFlushOrReturnIfEOF() == ReturnState.EOF) {
             return;
         }
-        getFileChannel();
+        getFileChannel(IIOManager.FileReadWriteMode.READ_ONLY);
         fillLogReadBuffer();
     }
 
@@ -163,8 +163,8 @@ public class LogReader implements ILogReader {
         try {
             if (readLSN % logFileSize == ioManager.getSize(logFile)) {
                 ioManager.close(logFile);
-                readLSN += logFileSize - (readLSN % logFileSize);
-                getFileChannel();
+                //            readLSN += logFileSize - (readLSN % logFileSize);
+                getFileChannel(IIOManager.FileReadWriteMode.READ_ONLY);
             }
             return fillLogReadBuffer();
         } catch (IOException e) {
@@ -179,18 +179,17 @@ public class LogReader implements ILogReader {
      */
 
     private boolean fillLogReadBuffer() throws ACIDException {
-        int size=0;
-        int read=0;
+        int read;
         readBuffer.position(0);
         readBuffer.limit(logPageSize);
         try {
-            ioManager.syncRead(logFile, ((long) (readLSN % logFileSize)), readBuffer);
+            read = ioManager.syncRead(logFile, ((long) (readLSN % logFileSize)), readBuffer);
         }catch(HyracksDataException e){
             throw new ACIDException(e);
         }
         readBuffer.position(0);
-        readBuffer.limit(size);
-        if(size == 0 && read == -1){
+        readBuffer.limit(read);
+        if(read == -1){
             return false; //EOF
         }
         bufferBeginLSN = readLSN;
@@ -212,11 +211,11 @@ public class LogReader implements ILogReader {
         }
         try {
             if (logFile == null) {
-                getFileChannel();
+                getFileChannel(IIOManager.FileReadWriteMode.READ_ONLY);
                 fillLogReadBuffer();
             } else if (readLSN < fileBeginLSN || readLSN >= fileBeginLSN + ioManager.getSize(logFile)) {
                 ioManager.close(logFile);
-                getFileChannel();
+                getFileChannel(IIOManager.FileReadWriteMode.READ_ONLY);
                 fillLogReadBuffer();
             } else if (readLSN < bufferBeginLSN || readLSN >= bufferBeginLSN + readBuffer.limit()) {
                 fillLogReadBuffer();
@@ -250,7 +249,7 @@ public class LogReader implements ILogReader {
     }
 
     private void getFileChannel() throws ACIDException {
-        getFileChannel(IIOManager.FileReadWriteMode.READ_ONLY);
+        getFileChannel(IIOManager.FileReadWriteMode.READ_WRITE);
     }
 
     private void getFileChannel(IIOManager.FileReadWriteMode mode) throws ACIDException {

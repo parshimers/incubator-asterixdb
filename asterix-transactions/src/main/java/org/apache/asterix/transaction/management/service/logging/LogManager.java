@@ -105,7 +105,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
         appendLSN.set(initializeLogAnchor(nextLogFileId));
         flushLSN.set(appendLSN.get());
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("LogManager starts logging in LSN: " + appendLSN);
+            System.out.println("LogManager starts logging in LSN: " + appendLSN);
         }
         currentLogFile = getLogFile(appendLSN.get(), false);
         getAndInitNewPage();
@@ -287,7 +287,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
                     IFileHandle touch = ioManager.open(newFile, IIOManager.FileReadWriteMode.READ_WRITE, IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
                     ioManager.close(touch);
                     if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("created a log file: " + getLogFilePath(fileId));
+                        System.out.println("created a log file: " + getLogFilePath(fileId));
                     }
                 } else {
                     fileId = logFileIds.get(logFileIds.size() - 1);
@@ -300,20 +300,20 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
                 fileId = nextLogFileId;
                 ioManager.mkdirs(new FileReference(logDir, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL));
                 if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("created the log directory: " + logManagerProperties.getLogDir());
+                    System.out.println("created the log directory: " + logManagerProperties.getLogDir());
                 }
                 FileReference newFile = new FileReference(getLogFilePath(fileId), FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
                 IFileHandle touch = ioManager.open(newFile, IIOManager.FileReadWriteMode.READ_WRITE, IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
                 ioManager.close(touch);
                 if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("created a log file: " + getLogFilePath(fileId));
+                    System.out.println("created a log file: " + getLogFilePath(fileId));
                 }
             }
         } catch (IOException ioe) {
             throw new IllegalStateException("Failed to initialize the log anchor", ioe);
         }
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("log file Id: " + fileId + ", offset: " + offset);
+            System.out.println("log file Id: " + fileId + ", offset: " + offset);
         }
         return logFileSize * fileId + offset;
     }
@@ -342,20 +342,20 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     
     private void terminateLogFlusher() {
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Terminating LogFlusher thread ...");
+            System.out.println("Terminating LogFlusher thread ...");
         }
         logFlusher.terminate();
         try {
             futureLogFlusher.get();
         } catch (ExecutionException | InterruptedException e) {
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("---------- warning(begin): LogFlusher thread is terminated abnormally --------");
+                System.out.println("---------- warning(begin): LogFlusher thread is terminated abnormally --------");
                 e.printStackTrace();
-                LOGGER.info("---------- warning(end)  : LogFlusher thread is terminated abnormally --------");
+                System.out.println("---------- warning(end)  : LogFlusher thread is terminated abnormally --------");
             }
         }
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("LogFlusher thread is terminated.");
+            System.out.println("LogFlusher thread is terminated.");
         }
     }
 
@@ -363,6 +363,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
         if (currentLogFile != null) {
             try {
                 ioManager.close(currentLogFile);
+                currentLogFile = null;
             } catch (IOException e) {
                 throw new IllegalStateException("Failed to close a fileChannel of a log file");
             }
@@ -586,9 +587,9 @@ class LogFlusher implements Callable<Boolean> {
             }
         } catch (Exception e) {
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("-------------------------------------------------------------------------");
-                LOGGER.info("LogFlusher is terminating abnormally. System is in unusable state.");
-                LOGGER.info("-------------------------------------------------------------------------");
+                System.out.println("-------------------------------------------------------------------------");
+                System.out.println("LogFlusher is terminating abnormally. System is in unusable state.");
+                System.out.println("-------------------------------------------------------------------------");
             }
             e.printStackTrace();
             throw e;

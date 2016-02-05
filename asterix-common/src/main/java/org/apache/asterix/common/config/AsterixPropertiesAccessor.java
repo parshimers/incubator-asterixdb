@@ -117,15 +117,15 @@ public class AsterixPropertiesAccessor {
             transactionLogDirs.put(txnLogDir.getNcId(), txnLogDir.getTxnLogDirPath());
         }
         Properties gitProperties = new Properties();
-        try {
-            gitProperties.load(getClass().getClassLoader().getResourceAsStream("git.properties"));
+        //try {
+//            gitProperties.load(getClass().getClassLoader().getResourceAsStream("git.properties"));
             asterixBuildProperties = new HashMap<String, String>();
             for (final String name : gitProperties.stringPropertyNames()) {
                 asterixBuildProperties.put(name, gitProperties.getProperty(name));
             }
-        } catch (IOException e) {
-            throw new AsterixException(e);
-        }
+//        } catch (IOException e) {
+//            throw new AsterixException(e);
+//        }
 
     }
 

@@ -100,7 +100,7 @@ public class LogBuffer implements ILogBuffer {
         synchronized (this) {
             appendOffset += logRecord.getLogSize();
             if (IS_DEBUG_MODE) {
-                LOGGER.info("append()| appendOffset: " + appendOffset);
+                //System.out.println("append()| appendOffset: " + appendOffset);
             }
             if (logRecord.getLogType() == LogType.JOB_COMMIT || logRecord.getLogType() == LogType.ABORT) {
                 logRecord.isFlushed(false);
@@ -130,7 +130,7 @@ public class LogBuffer implements ILogBuffer {
         synchronized (this) {
             appendOffset += logRecord.getLogSize();
             if (IS_DEBUG_MODE) {
-                LOGGER.info("append()| appendOffset: " + appendOffset);
+               // System.out.println("append()| appendOffset: " + appendOffset);
             }
             if (logRecord.getLogSource() == LogSource.LOCAL) {
                 if (logRecord.getLogType() == LogType.JOB_COMMIT || logRecord.getLogType() == LogType.ABORT) {
@@ -196,7 +196,7 @@ public class LogBuffer implements ILogBuffer {
                     if (appendOffset - flushOffset == 0 && !full.get()) {
                         try {
                             if (IS_DEBUG_MODE) {
-                                LOGGER.info("flush()| appendOffset: " + appendOffset + ", flushOffset: " + flushOffset
+                                System.out.println("flush()| appendOffset: " + appendOffset + ", flushOffset: " + flushOffset
                                         + ", full: " + full.get());
                             }
                             if (stop) {
@@ -233,7 +233,7 @@ public class LogBuffer implements ILogBuffer {
                     flushLSN.notifyAll(); //notify to LogReaders if any
                 }
                 if (IS_DEBUG_MODE) {
-                    LOGGER.info("internalFlush()| flushOffset: " + flushOffset + ", flushLSN: " + flushLSN.get());
+                    System.out.println("internalFlush()| flushOffset: " + flushOffset + ", flushLSN: " + flushLSN.get());
                 }
                 batchUnlock(beginOffset, endOffset);
             }
