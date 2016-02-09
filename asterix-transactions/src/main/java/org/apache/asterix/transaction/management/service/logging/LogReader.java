@@ -40,7 +40,7 @@ import static org.apache.asterix.common.transactions.LogRecord.*;
  */
 public class LogReader implements ILogReader {
 
-    public static final boolean IS_DEBUG_MODE = false;//true
+    public static final boolean IS_DEBUG_MODE = true;//true
     private static final Logger LOGGER = Logger.getLogger(LogReader.class.getName());
     private final LogManager logMgr;
     private final long logFileSize;
@@ -163,7 +163,7 @@ public class LogReader implements ILogReader {
         try {
             if (readLSN % logFileSize == ioManager.getSize(logFile)) {
                 ioManager.close(logFile);
-                //            readLSN += logFileSize - (readLSN % logFileSize);
+                readLSN += logFileSize - (readLSN % logFileSize);
                 getFileChannel(IIOManager.FileReadWriteMode.READ_ONLY);
             }
             return fillLogReadBuffer();
@@ -187,11 +187,11 @@ public class LogReader implements ILogReader {
         }catch(HyracksDataException e){
             throw new ACIDException(e);
         }
-        readBuffer.position(0);
-        readBuffer.limit(read);
         if(read == -1){
             return false; //EOF
         }
+        readBuffer.position(0);
+        readBuffer.limit(read);
         bufferBeginLSN = readLSN;
         return true;
     }
