@@ -17,7 +17,7 @@
 	<parent>
 		<artifactId>asterix</artifactId>
 		<groupId>org.apache.asterix</groupId>
-		<version>0.8.7-SNAPSHOT</version>
+		<version>0.8.8-SNAPSHOT</version>
 	</parent>
 	<artifactId>asterix-experiments</artifactId>
 
@@ -91,26 +91,32 @@
 	<dependencies>
 		<dependency>
 			<groupId>org.apache.asterix</groupId>
-			<artifactId>asterix-aql</artifactId>
-			<version>0.8.7-SNAPSHOT</version>
+			<artifactId>asterix-lang-common</artifactId>
+			<version>0.8.8-SNAPSHOT</version>
+			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.asterix</groupId>
+			<artifactId>asterix-lang-aql</artifactId>
+			<version>0.8.8-SNAPSHOT</version>
 			<scope>compile</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.asterix</groupId>
 			<artifactId>asterix-algebra</artifactId>
-			<version>0.8.7-SNAPSHOT</version>
+			<version>0.8.8-SNAPSHOT</version>
 			<scope>compile</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.asterix</groupId>
 			<artifactId>asterix-external-data</artifactId>
-			<version>0.8.7-SNAPSHOT</version>
+			<version>0.8.8-SNAPSHOT</version>
 			<scope>compile</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.asterix</groupId>
 			<artifactId>asterix-metadata</artifactId>
-			<version>0.8.7-SNAPSHOT</version>
+			<version>0.8.8-SNAPSHOT</version>
 			<scope>compile</scope>
 		</dependency>
 		<dependency>
@@ -142,7 +148,7 @@
 		<dependency>
 			<groupId>org.apache.asterix</groupId>
 			<artifactId>asterix-app</artifactId>
-			<version>0.8.7-SNAPSHOT</version>
+			<version>0.8.8-SNAPSHOT</version>
 		</dependency>
 <!-- 		<dependency>
 			<groupId>net.schmizz</groupId>
