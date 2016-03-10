@@ -20,8 +20,8 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.apache.asterix</groupId>
-    <artifactId>asterix</artifactId>
-    <version>0.8.8-SNAPSHOT</version>
+    <artifactId>apache-asterixdb</artifactId>
+    <version>0.8.9-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <parent>
@@ -44,6 +44,7 @@
         <jvm.extraargs />
         <jdk.version>1.8</jdk.version>
         <runSlowAQLTests>false</runSlowAQLTests>
+        <appendedResourcesDirectory>${basedir}/src/main/appended-resources</appendedResourcesDirectory>
 
     <!-- Definition of tests in various categories which may be excluded -->
         <optimizer.tests>**/optimizer/**/*Test.java</optimizer.tests>
@@ -54,8 +55,8 @@
         <global.test.includes>**/*TestSuite.java,**/*Test.java,${execution.tests}</global.test.includes>
         <global.test.excludes>${optimizer.tests},${metadata.tests},${invalid.tests},${repeated.tests}</global.test.excludes>
     <!-- Versions under dependencymanagement or used in many projects via properties -->
-        <algebricks.version>0.2.17-SNAPSHOT</algebricks.version>
-        <hyracks.version>0.2.17-SNAPSHOT</hyracks.version>
+        <algebricks.version>0.2.18-SNAPSHOT</algebricks.version>
+        <hyracks.version>0.2.18-SNAPSHOT</hyracks.version>
         <hadoop.version>2.2.0</hadoop.version>
         <junit.version>4.11</junit.version>
         <commons.io.version>2.4</commons.io.version>
@@ -182,7 +183,28 @@
                 </configuration>
 
             </plugin>
-            <!-- END OF GIT COMMIT ID PLUGIN CONFIGURATION -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-remote-resources-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>process</goal>
+                        </goals>
+                        <configuration>
+                            <appendedResourcesDirectory>${appendedResourcesDirectory}</appendedResourcesDirectory>
+                            <resourceBundles>
+                                <resourceBundle>org.apache:apache-jar-resource-bundle:1.4</resourceBundle>
+                                <resourceBundle>org.apache:apache-incubator-disclaimer-resource-bundle:1.1</resourceBundle>
+                            </resourceBundles>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+            </plugin>
         </plugins>
         <pluginManagement>
             <plugins>
@@ -346,6 +368,24 @@
                 <jdk.version>1.8</jdk.version>
              </properties>
         </profile>
+        <profile>
+            <id>doclint-java8-disable</id>
+            <activation>
+                <jdk>[1.8,)</jdk>
+            </activation>
+
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <configuration>
+                                <additionalparam>-Xdoclint:none</additionalparam>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 
     <modules>
@@ -419,6 +459,15 @@
             </snapshots>
             <id>algebricks-snapshots</id>
             <url>http://obelix.ics.uci.edu/nexus/content/repositories/algebricks-snapshots/</url>
+        </repository>
+        <repository>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+                <checksumPolicy>fail</checksumPolicy>
+            </snapshots>
+            <id>apache-staging</id>
+            <url>https://repository.apache.org/content/repositories/orgapacheasterix-1019/</url>
         </repository>
     </repositories>
     <dependencyManagement>

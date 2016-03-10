@@ -130,6 +130,7 @@ public class InternalDatasetDetails implements IDatasetDetails {
         ArrayBackedValueStorage itemValue = new ArrayBackedValueStorage();
         OrderedListBuilder primaryKeyListBuilder = new OrderedListBuilder();
         AOrderedListType stringList = new AOrderedListType(BuiltinType.ASTRING, null);
+        AOrderedListType heterogeneousList = new AOrderedListType(BuiltinType.ANY, null);
         internalRecordBuilder.reset(MetadataRecordTypes.INTERNAL_DETAILS_RECORDTYPE);
         AMutableString aString = new AMutableString("");
         @SuppressWarnings("unchecked")
@@ -201,7 +202,7 @@ public class InternalDatasetDetails implements IDatasetDetails {
 
         List<String> filterField = getFilterField();
         if (filterField != null) {
-            listBuilder.reset(stringList);
+            listBuilder.reset(heterogeneousList);
             ArrayBackedValueStorage nameValue = new ArrayBackedValueStorage();
             nameValue.reset();
             aString.setValue(FILTER_FIELD_NAME);
