@@ -33,13 +33,14 @@ import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
  * Assumes LSM-BTrees as primary indexes.
  * Performs locking on primary keys, and also logs before/after images.
  */
-public class PrimaryIndexModificationOperationCallback extends AbstractIndexModificationOperationCallback implements
-        IModificationOperationCallback {
+public class PrimaryIndexModificationOperationCallback extends AbstractIndexModificationOperationCallback
+        implements IModificationOperationCallback {
 
     public PrimaryIndexModificationOperationCallback(int datasetId, int[] primaryKeyFields, ITransactionContext txnCtx,
-            ILockManager lockManager, ITransactionSubsystem txnSubsystem, long resourceId, byte resourceType,
-            IndexOperation indexOp) {
-        super(datasetId, primaryKeyFields, txnCtx, lockManager, txnSubsystem, resourceId, resourceType, indexOp);
+            ILockManager lockManager, ITransactionSubsystem txnSubsystem, long resourceId, int resourcePartition,
+            byte resourceType, IndexOperation indexOp) {
+        super(datasetId, primaryKeyFields, txnCtx, lockManager, txnSubsystem, resourceId, resourcePartition,
+                resourceType, indexOp);
     }
 
     @Override

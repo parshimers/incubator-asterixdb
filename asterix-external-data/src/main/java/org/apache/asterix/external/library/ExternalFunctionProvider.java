@@ -24,19 +24,19 @@ import org.apache.asterix.external.api.IFunctionHelper;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
-import org.apache.hyracks.algebricks.runtime.base.ICopyEvaluator;
-import org.apache.hyracks.algebricks.runtime.base.ICopyEvaluatorFactory;
-import org.apache.hyracks.data.std.api.IDataOutputProvider;
-import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
+import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
+import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
+import org.apache.hyracks.api.context.IHyracksTaskContext;
+import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 
 public class ExternalFunctionProvider {
 
     public static IExternalFunction getExternalFunctionEvaluator(IExternalFunctionInfo finfo,
-            ICopyEvaluatorFactory args[], IDataOutputProvider outputProvider) throws AlgebricksException {
+            IScalarEvaluatorFactory args[], IHyracksTaskContext context) throws AlgebricksException {
         switch (finfo.getKind()) {
             case SCALAR:
-                return new ExternalScalarFunction(finfo, args, outputProvider);
+                return new ExternalScalarFunction(finfo, args, context);
             case AGGREGATE:
             case UNNEST:
                 throw new IllegalArgumentException(" UDF of kind" + finfo.getKind() + " not supported.");
@@ -46,12 +46,11 @@ public class ExternalFunctionProvider {
     }
 }
 
-class ExternalScalarFunction extends ExternalFunction implements IExternalScalarFunction, ICopyEvaluator {
-    private final static byte SER_NULL_TYPE_TAG = ATypeTag.NULL.serialize();
+class ExternalScalarFunction extends ExternalFunction implements IExternalScalarFunction, IScalarEvaluator {
 
-    public ExternalScalarFunction(IExternalFunctionInfo finfo, ICopyEvaluatorFactory args[],
-            IDataOutputProvider outputProvider) throws AlgebricksException {
-        super(finfo, args, outputProvider);
+    public ExternalScalarFunction(IExternalFunctionInfo finfo, IScalarEvaluatorFactory args[],
+            IHyracksTaskContext context) throws AlgebricksException {
+        super(finfo, args, context);
         try {
             initialize(functionHelper);
         } catch (Exception e) {
@@ -60,10 +59,11 @@ class ExternalScalarFunction extends ExternalFunction implements IExternalScalar
     }
 
     @Override
-    public void evaluate(IFrameTupleReference tuple) throws AlgebricksException {
+    public void evaluate(IFrameTupleReference tuple, IPointable result) throws AlgebricksException {
         try {
             setArguments(tuple);
             evaluate(functionHelper);
+            result.set(resultBuffer.getByteArray(), resultBuffer.getStartOffset(), resultBuffer.getLength());
             functionHelper.reset();
         } catch (Exception e) {
             e.printStackTrace();
@@ -73,15 +73,16 @@ class ExternalScalarFunction extends ExternalFunction implements IExternalScalar
 
     @Override
     public void evaluate(IFunctionHelper argumentProvider) throws Exception {
+        resultBuffer.reset();
         ((IExternalScalarFunction) externalFunction).evaluate(argumentProvider);
         /*
          * Make sure that if "setResult" is not called,
          * or the result object is null we let Hyracks storage manager know
          * we want to discard a null object
          */
-        byte byteOutput = ((ArrayBackedValueStorage) out).getByteArray()[0];
-        if (!argumentProvider.isValidResult() || byteOutput == SER_NULL_TYPE_TAG) {
-            out.getDataOutput().writeByte(SER_NULL_TYPE_TAG);
+        byte byteOutput = resultBuffer.getByteArray()[0];
+        if (!argumentProvider.isValidResult() || byteOutput == ATypeTag.SERIALIZED_NULL_TYPE_TAG) {
+            resultBuffer.getDataOutput().writeByte(ATypeTag.SERIALIZED_NULL_TYPE_TAG);
         }
     }
 

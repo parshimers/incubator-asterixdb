@@ -22,10 +22,9 @@ import java.util.Set;
 
 public interface IReplicaResourcesManager {
 
-    public String getIndexPath(String backupNodeId, int IODeviceNum, String dataverse, String dataset);
-
-    public String getLocalStorageFolder();
-
-    public long getMinRemoteLSN(Set<String> remoteNodes);
-
+    /**
+     * @param partitions
+     * @return the minimum LSN of all indexes that belong to {@code partitions}.
+     */
+    public long getPartitionsMinLSN(Set<Integer> partitions);
 }

@@ -23,7 +23,6 @@ import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.asterix.external.feed.api.IExceptionHandler;
 import org.apache.asterix.external.feed.api.IFeedManager;
 import org.apache.asterix.external.feed.api.IFeedMemoryComponent;
 import org.apache.asterix.external.feed.api.IFeedMessage;
@@ -49,44 +48,36 @@ import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
  * 2. FeedMetaStoreNodePushable.initializeNewFeedRuntime();
  *              ______
  *             |      |
- * ============|core  |============
- * ============| op   |============
+ * ============| core |============
+ * ============|  op  |============
  * ^^^^^^^^^^^^|______|
- *  Input Side
- *  Handler
- *
+ * Input Side
+ * Handler
  **/
 public class FeedRuntimeInputHandler implements IFrameWriter {
 
-    private static Logger LOGGER = Logger.getLogger(FeedRuntimeInputHandler.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(FeedRuntimeInputHandler.class.getName());
 
     private final FeedConnectionId connectionId;
     private final FeedRuntimeId runtimeId;
     private final FeedPolicyAccessor feedPolicyAccessor;
-    private final IExceptionHandler exceptionHandler;
+    private final FeedExceptionHandler exceptionHandler;
     private final FeedFrameDiscarder discarder;
     private final FeedFrameSpiller spiller;
     private final FeedPolicyAccessor fpa;
     private final IFeedManager feedManager;
+    private final MonitoredBuffer mBuffer;
+    private final DataBucketPool pool;
+    private final FrameEventCallback frameEventCallback;
+
     private boolean bufferingEnabled;
     private IFrameWriter coreOperator;
-    private MonitoredBuffer mBuffer;
-    private DataBucketPool pool;
     private FrameCollection frameCollection;
     private Mode mode;
     private Mode lastMode;
     private boolean finished;
     private long nProcessed;
     private boolean throttlingEnabled;
-
-    private FrameEventCallback frameEventCallback;
-
-    public FeedRuntimeInputHandler(IHyracksTaskContext ctx, FeedConnectionId connectionId, FeedRuntimeId runtimeId,
-            IFrameWriter coreOperator, FeedPolicyAccessor fpa, FrameTupleAccessor fta, RecordDescriptor recordDesc,
-            IFeedManager feedManager, int nPartitions) throws HyracksDataException {
-        this(ctx, connectionId, runtimeId, coreOperator, fpa, fpa.bufferingEnabled(), fta, recordDesc, feedManager,
-                nPartitions);
-    }
 
     public FeedRuntimeInputHandler(IHyracksTaskContext ctx, FeedConnectionId connectionId, FeedRuntimeId runtimeId,
             IFrameWriter coreOperator, FeedPolicyAccessor fpa, boolean bufferingEnabled, FrameTupleAccessor fta,
@@ -112,7 +103,6 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
         this.mBuffer = MonitoredBuffer.getMonitoredBuffer(ctx, this, coreOperator, fta, recordDesc,
                 feedManager.getFeedMetricCollector(), connectionId, runtimeId, exceptionHandler, frameEventCallback,
                 nPartitions, fpa);
-        this.mBuffer.start();
         this.throttlingEnabled = false;
     }
 
@@ -194,7 +184,8 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
                 if (fpa.spillToDiskOnCongestion()) {
                     if (frame != null) {
                         spiller.processMessage(frame);
-                    } // TODO handle the else case
+                    } // TODO handle the else casec
+
                 } else {
                     discarder.processMessage(frame);
                 }
@@ -282,7 +273,12 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
                             bucket.setContentType(ContentType.DATA);
                         } else {
                             bucket.setContentType(ContentType.EOD);
+                            setFinished(true);
+                            synchronized (coreOperator) {
+                                coreOperator.notifyAll();
+                            }
                         }
+                        // TODO: fix handling of eod case with monitored buffers.
                         bucket.setDesiredReadCount(1);
                         mBuffer.sendMessage(bucket);
                         mBuffer.sendReport(frame);
@@ -369,19 +365,17 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
 
     @Override
     public void close() {
-        if (mBuffer != null) {
-            boolean disableMonitoring = !this.mode.equals(Mode.STALL);
-            if (frameCollection != null) {
-                feedManager.getFeedMemoryManager().releaseMemoryComponent(frameCollection);
-            }
-            if (pool != null) {
-                feedManager.getFeedMemoryManager().releaseMemoryComponent(pool);
-            }
-            mBuffer.close(false, disableMonitoring);
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Closed input side handler for " + this.runtimeId + " disabled monitoring "
-                        + disableMonitoring + " Mode for runtime " + this.mode);
-            }
+        boolean disableMonitoring = !this.mode.equals(Mode.STALL);
+        if (frameCollection != null) {
+            feedManager.getFeedMemoryManager().releaseMemoryComponent(frameCollection);
+        }
+        if (pool != null) {
+            feedManager.getFeedMemoryManager().releaseMemoryComponent(pool);
+        }
+        mBuffer.close(false, disableMonitoring);
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.info("Closed input side handler for " + this.runtimeId + " disabled monitoring "
+                    + disableMonitoring + " Mode for runtime " + this.mode);
         }
     }
 
@@ -414,6 +408,7 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
     @Override
     public void open() throws HyracksDataException {
         coreOperator.open();
+        mBuffer.start();
     }
 
     @Override
@@ -426,9 +421,7 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Reset number of partitions to " + nPartitions + " for " + this.runtimeId);
         }
-        if (mBuffer != null) {
-            mBuffer.reset();
-        }
+        mBuffer.reset();
     }
 
     public FeedConnectionId getConnectionId() {
@@ -464,5 +457,13 @@ public class FeedRuntimeInputHandler implements IFrameWriter {
 
     public void setBufferingEnabled(boolean bufferingEnabled) {
         this.bufferingEnabled = bufferingEnabled;
+    }
+
+    @Override
+    public void flush() throws HyracksDataException {
+        // Only flush when in process mode.
+        if (mode == Mode.PROCESS) {
+            coreOperator.flush();
+        }
     }
 }

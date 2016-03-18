@@ -20,22 +20,14 @@ package org.apache.asterix.external.api;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Map;
+
+import org.apache.asterix.external.util.FeedLogManager;
 
 /**
  * This interface represents a record reader that reads data from external source as a set of records
  * @param <T>
  */
 public interface IRecordReader<T> extends Closeable {
-
-    /**
-     * Configure the reader with the set of key/value pairs passed by the compiler
-     * @param configuration
-     *        the set of key/value pairs
-     * @throws Exception
-     *         when the reader can't be configured (i,e. due to incorrect configuration, unreachable source, etc.)
-     */
-    public void configure(Map<String, String> configuration) throws Exception;
 
     /**
      * @return true if the reader has more records remaining, false, otherwise.
@@ -52,15 +44,22 @@ public interface IRecordReader<T> extends Closeable {
     public IRawRecord<T> next() throws IOException, InterruptedException;
 
     /**
-     * @return the class of the java objects representing the records. used to check compatibility between readers and
-     *         parsers.
-     * @throws IOException
-     */
-    public Class<? extends T> getRecordClass() throws IOException;
-
-    /**
      * used to stop reader from producing more records.
      * @return true if the connection to the external source has been suspended, false otherwise.
      */
     public boolean stop();
+
+    // TODO: Find a better way to do flushes, this doesn't fit here
+    /**
+     * set a pointer to the controller of the feed. the controller can be used to flush()
+     * parsed records when waiting for more records to be pushed
+     */
+    public void setController(IDataFlowController controller);
+
+    // TODO: Find a better way to perform logging. this doesn't fit here
+    /**
+     * set a pointer to the log manager of the feed. the log manager can be used to log
+     * progress and errors
+     */
+    public void setFeedLogManager(FeedLogManager feedLogManager);
 }

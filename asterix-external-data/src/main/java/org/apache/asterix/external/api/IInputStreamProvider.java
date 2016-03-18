@@ -19,7 +19,11 @@
 package org.apache.asterix.external.api;
 
 import org.apache.asterix.external.input.stream.AInputStream;
+import org.apache.asterix.external.util.FeedLogManager;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 public interface IInputStreamProvider {
-    public AInputStream getInputStream() throws Exception;
+    public AInputStream getInputStream() throws HyracksDataException;
+
+    public void setFeedLogManager(FeedLogManager feedLogManager);
 }

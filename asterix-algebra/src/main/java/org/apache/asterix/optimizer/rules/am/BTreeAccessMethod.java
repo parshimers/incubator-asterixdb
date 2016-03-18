@@ -19,7 +19,6 @@
 
 package org.apache.asterix.optimizer.rules.am;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -34,6 +33,7 @@ import org.apache.asterix.common.config.DatasetConfig.IndexType;
 import org.apache.asterix.lang.common.util.FunctionUtil;
 import org.apache.asterix.metadata.entities.Dataset;
 import org.apache.asterix.metadata.entities.Index;
+import org.apache.asterix.om.functions.AsterixBuiltinFunctions;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.optimizer.rules.util.EquivalenceClassUtils;
 import org.apache.commons.lang3.mutable.Mutable;
@@ -49,6 +49,7 @@ import org.apache.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCa
 import org.apache.hyracks.algebricks.core.algebra.expressions.IVariableTypeEnvironment;
 import org.apache.hyracks.algebricks.core.algebra.expressions.IndexedNLJoinExpressionAnnotation;
 import org.apache.hyracks.algebricks.core.algebra.expressions.ScalarFunctionCallExpression;
+import org.apache.hyracks.algebricks.core.algebra.expressions.UnnestingFunctionCallExpression;
 import org.apache.hyracks.algebricks.core.algebra.expressions.VariableReferenceExpression;
 import org.apache.hyracks.algebricks.core.algebra.functions.AlgebricksBuiltinFunctions;
 import org.apache.hyracks.algebricks.core.algebra.functions.AlgebricksBuiltinFunctions.ComparisonKind;
@@ -58,10 +59,12 @@ import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractBina
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractDataSourceOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator.ExecutionMode;
+import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractUnnestMapOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.AssignOperator;
-import org.apache.hyracks.algebricks.core.algebra.operators.logical.ExternalDataLookupOperator;
+import org.apache.hyracks.algebricks.core.algebra.operators.logical.LeftOuterUnnestMapOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.SelectOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.UnnestMapOperator;
+import org.apache.hyracks.algebricks.core.algebra.util.OperatorManipulationUtil;
 
 /**
  * Class for helping rewrite rules to choose and apply BTree indexes.
@@ -123,8 +126,8 @@ public class BTreeAccessMethod implements IAccessMethod {
             IOptimizationContext context) throws AlgebricksException {
         SelectOperator select = (SelectOperator) selectRef.getValue();
         Mutable<ILogicalExpression> conditionRef = select.getCondition();
-        ILogicalOperator primaryIndexUnnestOp = createSecondaryToPrimaryPlan(selectRef, conditionRef, subTree, null,
-                chosenIndex, analysisCtx, false, false, false, context);
+        ILogicalOperator primaryIndexUnnestOp = createSecondaryToPrimaryPlan(conditionRef, subTree, null, chosenIndex,
+                analysisCtx, false, false, false, context);
         if (primaryIndexUnnestOp == null) {
             return false;
         }
@@ -164,20 +167,16 @@ public class BTreeAccessMethod implements IAccessMethod {
         Mutable<ILogicalExpression> conditionRef = joinOp.getCondition();
         // Determine if the index is applicable on the left or right side (if both, we arbitrarily prefer the left side).
         Dataset dataset = analysisCtx.indexDatasetMap.get(chosenIndex);
-        // Determine probe and index subtrees based on chosen index.
         OptimizableOperatorSubTree indexSubTree = null;
         OptimizableOperatorSubTree probeSubTree = null;
-        if (!isLeftOuterJoin && leftSubTree.hasDataSourceScan()
-                && dataset.getDatasetName().equals(leftSubTree.dataset.getDatasetName())) {
-            indexSubTree = leftSubTree;
-            probeSubTree = rightSubTree;
-        } else if (rightSubTree.hasDataSourceScan()
+        // We assume that the left subtree is the outer branch and the right subtree is the inner branch.
+        // This assumption holds true since we only use an index from the right subtree.
+        // The following is just a sanity check.
+        if (rightSubTree.hasDataSourceScan()
                 && dataset.getDatasetName().equals(rightSubTree.dataset.getDatasetName())) {
             indexSubTree = rightSubTree;
             probeSubTree = leftSubTree;
-        }
-        if (indexSubTree == null) {
-            //This may happen for left outer join case
+        } else {
             return false;
         }
 
@@ -188,8 +187,8 @@ public class BTreeAccessMethod implements IAccessMethod {
             newNullPlaceHolderVar = indexSubTree.getDataSourceVariables().get(0);
         }
 
-        ILogicalOperator primaryIndexUnnestOp = createSecondaryToPrimaryPlan(joinRef, conditionRef, indexSubTree,
-                probeSubTree, chosenIndex, analysisCtx, true, isLeftOuterJoin, true, context);
+        ILogicalOperator primaryIndexUnnestOp = createSecondaryToPrimaryPlan(conditionRef, indexSubTree, probeSubTree,
+                chosenIndex, analysisCtx, true, isLeftOuterJoin, true, context);
         if (primaryIndexUnnestOp == null) {
             return false;
         }
@@ -214,13 +213,14 @@ public class BTreeAccessMethod implements IAccessMethod {
         return true;
     }
 
-    private ILogicalOperator createSecondaryToPrimaryPlan(Mutable<ILogicalOperator> topOpRef,
-            Mutable<ILogicalExpression> conditionRef, OptimizableOperatorSubTree indexSubTree,
-            OptimizableOperatorSubTree probeSubTree, Index chosenIndex, AccessMethodAnalysisContext analysisCtx,
-            boolean retainInput, boolean retainNull, boolean requiresBroadcast, IOptimizationContext context)
-                    throws AlgebricksException {
+    @Override
+    public ILogicalOperator createSecondaryToPrimaryPlan(Mutable<ILogicalExpression> conditionRef,
+            OptimizableOperatorSubTree indexSubTree, OptimizableOperatorSubTree probeSubTree, Index chosenIndex,
+            AccessMethodAnalysisContext analysisCtx, boolean retainInput, boolean retainNull, boolean requiresBroadcast,
+            IOptimizationContext context) throws AlgebricksException {
         Dataset dataset = indexSubTree.dataset;
         ARecordType recordType = indexSubTree.recordType;
+        ARecordType metaRecordType = indexSubTree.metaRecordType;
         // we made sure indexSubTree has datasource scan
         AbstractDataSourceOperator dataSourceOp = (AbstractDataSourceOperator) indexSubTree.dataSourceRef.getValue();
         List<Pair<Integer, Integer>> exprAndVarList = analysisCtx.indexExprsAndVars.get(chosenIndex);
@@ -462,7 +462,7 @@ public class BTreeAccessMethod implements IAccessMethod {
                 assignKeyExprList, keyVarList, context, constantAtRuntimeExpressions, constAtRuntimeExprVars);
 
         BTreeJobGenParams jobGenParams = new BTreeJobGenParams(chosenIndex.getIndexName(), IndexType.BTREE,
-                dataset.getDataverseName(), dataset.getDatasetName(), retainInput, retainNull, requiresBroadcast);
+                dataset.getDataverseName(), dataset.getDatasetName(), retainInput, requiresBroadcast);
         jobGenParams.setLowKeyInclusive(lowKeyInclusive[0]);
         jobGenParams.setHighKeyInclusive(highKeyInclusive[0]);
         jobGenParams.setIsEqCondition(isEqCondition);
@@ -474,7 +474,8 @@ public class BTreeAccessMethod implements IAccessMethod {
             // Assign operator that sets the constant secondary-index search-key fields if necessary.
             AssignOperator assignConstantSearchKeys = new AssignOperator(assignKeyVarList, assignKeyExprList);
             // Input to this assign is the EmptyTupleSource (which the dataSourceScan also must have had as input).
-            assignConstantSearchKeys.getInputs().add(dataSourceOp.getInputs().get(0));
+            assignConstantSearchKeys.getInputs().add(new MutableObject<ILogicalOperator>(
+                    OperatorManipulationUtil.deepCopyWithExcutionMode(dataSourceOp.getInputs().get(0).getValue())));
             assignConstantSearchKeys.setExecutionMode(dataSourceOp.getExecutionMode());
             inputOp = assignConstantSearchKeys;
         } else {
@@ -482,43 +483,37 @@ public class BTreeAccessMethod implements IAccessMethod {
             inputOp = probeSubTree.root;
         }
 
-        UnnestMapOperator secondaryIndexUnnestOp = AccessMethodUtils.createSecondaryIndexUnnestMap(dataset, recordType,
-                chosenIndex, inputOp, jobGenParams, context, false, retainInput);
+        ILogicalOperator secondaryIndexUnnestOp = AccessMethodUtils.createSecondaryIndexUnnestMap(dataset, recordType,
+                metaRecordType, chosenIndex, inputOp, jobGenParams, context, false, retainInput, retainNull);
 
         // Generate the rest of the upstream plan which feeds the search results into the primary index.
-        UnnestMapOperator primaryIndexUnnestOp = null;
+        AbstractUnnestMapOperator primaryIndexUnnestOp = null;
+
         boolean isPrimaryIndex = chosenIndex.isPrimaryIndex();
         if (dataset.getDatasetType() == DatasetType.EXTERNAL) {
             // External dataset
-            ExternalDataLookupOperator externalDataAccessOp = AccessMethodUtils.createExternalDataLookupUnnestMap(
-                    dataSourceOp, dataset, recordType, secondaryIndexUnnestOp, context, chosenIndex, retainInput,
-                    retainNull);
+            UnnestMapOperator externalDataAccessOp = AccessMethodUtils.createExternalDataLookupUnnestMap(dataSourceOp,
+                    dataset, recordType, secondaryIndexUnnestOp, context, chosenIndex, retainInput, retainNull);
             indexSubTree.dataSourceRef.setValue(externalDataAccessOp);
             return externalDataAccessOp;
         } else if (!isPrimaryIndex) {
             primaryIndexUnnestOp = AccessMethodUtils.createPrimaryIndexUnnestMap(dataSourceOp, dataset, recordType,
-                    secondaryIndexUnnestOp, context, true, retainInput, retainNull, false);
-
-            // Replace the datasource scan with the new plan rooted at
-            // primaryIndexUnnestMap.
-            indexSubTree.dataSourceRef.setValue(primaryIndexUnnestOp);
+                    metaRecordType, secondaryIndexUnnestOp, context, true, retainInput, retainNull, false);
 
             // Adds equivalence classes --- one equivalent class between a primary key
             // variable and a record field-access expression.
             EquivalenceClassUtils.addEquivalenceClassesForPrimaryIndexAccess(primaryIndexUnnestOp,
-                    dataSourceOp.getVariables(), recordType, dataset, context);
+                    dataSourceOp.getVariables(), recordType, metaRecordType, dataset, context);
         } else {
             List<Object> primaryIndexOutputTypes = new ArrayList<Object>();
-            try {
-                AccessMethodUtils.appendPrimaryIndexTypes(dataset, recordType, primaryIndexOutputTypes);
-            } catch (IOException e) {
-                throw new AlgebricksException(e);
-            }
+            AccessMethodUtils.appendPrimaryIndexTypes(dataset, recordType, metaRecordType, primaryIndexOutputTypes);
             List<LogicalVariable> scanVariables = dataSourceOp.getVariables();
-            primaryIndexUnnestOp = new UnnestMapOperator(scanVariables, secondaryIndexUnnestOp.getExpressionRef(),
-                    primaryIndexOutputTypes, retainInput);
-            primaryIndexUnnestOp.getInputs().add(new MutableObject<ILogicalOperator>(inputOp));
 
+            // Checks whether the primary index search can replace the given
+            // SELECT condition.
+            // If so, condition will be set to null and eventually the SELECT
+            // operator will be removed.
+            // If not, we create a new condition based on remaining ones.
             if (!primaryIndexPostProccessingIsNeeded) {
                 List<Mutable<ILogicalExpression>> remainingFuncExprs = new ArrayList<Mutable<ILogicalExpression>>();
                 getNewConditionExprs(conditionRef, replacedFuncExprs, remainingFuncExprs);
@@ -531,10 +526,52 @@ public class BTreeAccessMethod implements IAccessMethod {
                 }
             }
 
+            // Checks whether LEFT_OUTER_UNNESTMAP operator is required.
+            boolean leftOuterUnnestMapRequired = false;
+            if (retainNull && retainInput) {
+                leftOuterUnnestMapRequired = true;
+            } else {
+                leftOuterUnnestMapRequired = false;
+            }
+
+            if (conditionRef.getValue() != null) {
+                // The job gen parameters are transferred to the actual job gen
+                // via the UnnestMapOperator's function arguments.
+                List<Mutable<ILogicalExpression>> primaryIndexFuncArgs = new ArrayList<Mutable<ILogicalExpression>>();
+                jobGenParams.writeToFuncArgs(primaryIndexFuncArgs);
+                // An index search is expressed as an unnest-map over an
+                // index-search function.
+                IFunctionInfo primaryIndexSearch = FunctionUtil.getFunctionInfo(AsterixBuiltinFunctions.INDEX_SEARCH);
+                UnnestingFunctionCallExpression primaryIndexSearchFunc = new UnnestingFunctionCallExpression(
+                        primaryIndexSearch, primaryIndexFuncArgs);
+                primaryIndexSearchFunc.setReturnsUniqueValues(true);
+                if (!leftOuterUnnestMapRequired) {
+                    primaryIndexUnnestOp = new UnnestMapOperator(scanVariables,
+                            new MutableObject<ILogicalExpression>(primaryIndexSearchFunc), primaryIndexOutputTypes,
+                            retainInput);
+                } else {
+                    primaryIndexUnnestOp = new LeftOuterUnnestMapOperator(scanVariables,
+                            new MutableObject<ILogicalExpression>(primaryIndexSearchFunc), primaryIndexOutputTypes,
+                            true);
+                }
+            } else {
+                if (!leftOuterUnnestMapRequired) {
+                    primaryIndexUnnestOp = new UnnestMapOperator(scanVariables,
+                            ((UnnestMapOperator) secondaryIndexUnnestOp).getExpressionRef(), primaryIndexOutputTypes,
+                            retainInput);
+                } else {
+                    primaryIndexUnnestOp = new LeftOuterUnnestMapOperator(scanVariables,
+                            ((LeftOuterUnnestMapOperator) secondaryIndexUnnestOp).getExpressionRef(),
+                            primaryIndexOutputTypes, true);
+                }
+            }
+
+            primaryIndexUnnestOp.getInputs().add(new MutableObject<ILogicalOperator>(inputOp));
+
             // Adds equivalence classes --- one equivalent class between a primary key
             // variable and a record field-access expression.
             EquivalenceClassUtils.addEquivalenceClassesForPrimaryIndexAccess(primaryIndexUnnestOp, scanVariables,
-                    recordType, dataset, context);
+                    recordType, metaRecordType, dataset, context);
         }
 
         return primaryIndexUnnestOp;
@@ -682,4 +719,15 @@ public class BTreeAccessMethod implements IAccessMethod {
         // No additional analysis required for BTrees.
         return true;
     }
+
+    @Override
+    public String getName() {
+        return "BTREE_ACCESS_METHOD";
+    }
+
+    @Override
+    public int compareTo(IAccessMethod o) {
+        return this.getName().compareTo(o.getName());
+    }
+
 }

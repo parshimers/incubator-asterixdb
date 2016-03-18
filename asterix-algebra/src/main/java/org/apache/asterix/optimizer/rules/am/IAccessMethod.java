@@ -23,12 +23,14 @@ import java.util.List;
 import org.apache.asterix.metadata.entities.Index;
 import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
+import org.apache.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import org.apache.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import org.apache.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import org.apache.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression;
 import org.apache.hyracks.algebricks.core.algebra.expressions.IVariableTypeEnvironment;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
+import org.apache.hyracks.data.std.api.IDataOutputProvider;
 
 /**
  * Interface that an access method should implement to work with the rewrite
@@ -36,7 +38,7 @@ import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractLogi
  * methods for analyzing a select/join condition, and for rewriting the plan
  * with a given index.
  */
-public interface IAccessMethod {
+public interface IAccessMethod extends Comparable<IAccessMethod>{
 
     /**
      * @return A list of function identifiers that are optimizable by this
@@ -51,7 +53,7 @@ public interface IAccessMethod {
      * optimizable by this access method based on its function identifier. If
      * funcExpr has been found to be optimizable, this method adds an
      * OptimizableFunction to analysisCtx.matchedFuncExprs for further analysis.
-     * 
+     *
      * @return true if funcExpr is optimizable by this access method, false
      *         otherwise
      * @throws AlgebricksException
@@ -63,7 +65,7 @@ public interface IAccessMethod {
     /**
      * Indicates whether all index expressions must be matched in order for this
      * index to be applicable.
-     * 
+     *
      * @return boolean
      */
     public boolean matchAllIndexExprs();
@@ -71,7 +73,7 @@ public interface IAccessMethod {
     /**
      * Indicates whether this index is applicable if only a prefix of the index
      * expressions are matched.
-     * 
+     *
      * @return boolean
      */
     public boolean matchPrefixIndexExprs();
@@ -82,6 +84,15 @@ public interface IAccessMethod {
     public boolean applySelectPlanTransformation(Mutable<ILogicalOperator> selectRef,
             OptimizableOperatorSubTree subTree, Index chosenIndex, AccessMethodAnalysisContext analysisCtx,
             IOptimizationContext context) throws AlgebricksException;
+
+    public ILogicalOperator createSecondaryToPrimaryPlan(Mutable<ILogicalExpression> conditionRef,
+            OptimizableOperatorSubTree indexSubTree,
+            OptimizableOperatorSubTree probeSubTree,
+            Index chosenIndex,
+            AccessMethodAnalysisContext analysisCtx,
+            boolean retainInput, boolean retainNull, boolean requiresBroadcast,
+            IOptimizationContext context)
+                    throws AlgebricksException;
 
     /**
      * Applies the plan transformation to use chosenIndex to optimize a join query.
@@ -95,9 +106,11 @@ public interface IAccessMethod {
 
     /**
      * Analyzes expr to see whether it is optimizable by the given concrete index.
-     * 
+     *
      * @throws AlgebricksException
      */
     public boolean exprIsOptimizable(Index index, IOptimizableFuncExpr optFuncExpr) throws AlgebricksException;
+
+    public String getName();
 
 }

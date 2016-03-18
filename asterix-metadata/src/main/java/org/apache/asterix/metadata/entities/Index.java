@@ -19,17 +19,16 @@
 
 package org.apache.asterix.metadata.entities;
 
-import java.io.IOException;
 import java.util.List;
 
 import org.apache.asterix.common.config.DatasetConfig.IndexType;
+import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.metadata.MetadataCache;
 import org.apache.asterix.metadata.api.IMetadataEntity;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.AUnionType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.util.NonTaggedFormatUtil;
-import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 
 /**
@@ -46,6 +45,7 @@ public class Index implements IMetadataEntity<Index>, Comparable<Index> {
     private final String indexName;
     private final IndexType indexType;
     private final List<List<String>> keyFieldNames;
+    private final List<Integer> keyFieldSourceIndicators;
     private final List<IAType> keyFieldTypes;
     private final boolean enforceKeyFields;
     private final boolean isPrimaryIndex;
@@ -55,13 +55,14 @@ public class Index implements IMetadataEntity<Index>, Comparable<Index> {
     private int pendingOp;
 
     public Index(String dataverseName, String datasetName, String indexName, IndexType indexType,
-            List<List<String>> keyFieldNames, List<IAType> keyFieldTypes, int gramLength, boolean enforceKeyFields,
-            boolean isPrimaryIndex, int pendingOp) {
+            List<List<String>> keyFieldNames, List<Integer> keyFieldSourceIndicators, List<IAType> keyFieldTypes,
+            int gramLength, boolean enforceKeyFields, boolean isPrimaryIndex, int pendingOp) {
         this.dataverseName = dataverseName;
         this.datasetName = datasetName;
         this.indexName = indexName;
         this.indexType = indexType;
         this.keyFieldNames = keyFieldNames;
+        this.keyFieldSourceIndicators = keyFieldSourceIndicators;
         this.keyFieldTypes = keyFieldTypes;
         this.gramLength = gramLength;
         this.enforceKeyFields = enforceKeyFields;
@@ -70,18 +71,10 @@ public class Index implements IMetadataEntity<Index>, Comparable<Index> {
     }
 
     public Index(String dataverseName, String datasetName, String indexName, IndexType indexType,
-            List<List<String>> keyFieldNames, List<IAType> keyFieldTypes, boolean enforceKeyFields,
-            boolean isPrimaryIndex, int pendingOp) {
-        this.dataverseName = dataverseName;
-        this.datasetName = datasetName;
-        this.indexName = indexName;
-        this.indexType = indexType;
-        this.keyFieldNames = keyFieldNames;
-        this.keyFieldTypes = keyFieldTypes;
-        this.gramLength = -1;
-        this.enforceKeyFields = enforceKeyFields;
-        this.isPrimaryIndex = isPrimaryIndex;
-        this.pendingOp = pendingOp;
+            List<List<String>> keyFieldNames, List<Integer> keyFieldSourceIndicators, List<IAType> keyFieldTypes,
+            boolean enforceKeyFields, boolean isPrimaryIndex, int pendingOp) {
+        this(dataverseName, datasetName, indexName, indexType, keyFieldNames, keyFieldSourceIndicators, keyFieldTypes,
+                -1, enforceKeyFields, isPrimaryIndex, pendingOp);
     }
 
     public String getDataverseName() {
@@ -98,6 +91,10 @@ public class Index implements IMetadataEntity<Index>, Comparable<Index> {
 
     public List<List<String>> getKeyFieldNames() {
         return keyFieldNames;
+    }
+
+    public List<Integer> getKeyFieldSourceIndicators() {
+        return keyFieldSourceIndicators;
     }
 
     public List<IAType> getKeyFieldTypes() {
@@ -132,7 +129,7 @@ public class Index implements IMetadataEntity<Index>, Comparable<Index> {
         return !isPrimaryIndex();
     }
 
-    public static Pair<IAType, Boolean> getNonNullableType(IAType keyType) throws AlgebricksException {
+    public static Pair<IAType, Boolean> getNonNullableType(IAType keyType) throws AsterixException {
         boolean nullable = false;
         if (NonTaggedFormatUtil.isOptional(keyType)) {
             keyType = ((AUnionType) keyType).getNullableType();
@@ -142,39 +139,31 @@ public class Index implements IMetadataEntity<Index>, Comparable<Index> {
     }
 
     public static Pair<IAType, Boolean> getNonNullableOpenFieldType(IAType fieldType, List<String> fieldName,
-            ARecordType recType) throws AlgebricksException {
+            ARecordType recType) throws AsterixException {
         Pair<IAType, Boolean> keyPairType = null;
-
-        try {
-            IAType subType = recType;
-            for (int i = 0; i < fieldName.size(); i++) {
-                subType = ((ARecordType) subType).getFieldType(fieldName.get(i));
-                if (subType == null) {
-                    keyPairType = Index.getNonNullableType(fieldType);
-                    break;
-                }
+        IAType subType = recType;
+        for (int i = 0; i < fieldName.size(); i++) {
+            subType = ((ARecordType) subType).getFieldType(fieldName.get(i));
+            if (subType == null) {
+                keyPairType = Index.getNonNullableType(fieldType);
+                break;
             }
-            if (subType != null)
-                keyPairType = Index.getNonNullableKeyFieldType(fieldName, recType);
-        } catch (IOException e) {
-            throw new AlgebricksException(e);
+        }
+        if (subType != null) {
+            keyPairType = Index.getNonNullableKeyFieldType(fieldName, recType);
         }
         return keyPairType;
     }
 
     public static Pair<IAType, Boolean> getNonNullableKeyFieldType(List<String> expr, ARecordType recType)
-            throws AlgebricksException {
+            throws AsterixException {
         IAType keyType = Index.keyFieldType(expr, recType);
         return getNonNullableType(keyType);
     }
 
-    private static IAType keyFieldType(List<String> expr, ARecordType recType) throws AlgebricksException {
+    private static IAType keyFieldType(List<String> expr, ARecordType recType) throws AsterixException {
         IAType fieldType = recType;
-        try {
-            fieldType = recType.getSubFieldType(expr);
-        } catch (IOException e) {
-            throw new AlgebricksException("Could not find field " + expr + " in the schema.", e);
-        }
+        fieldType = recType.getSubFieldType(expr);
         return fieldType;
     }
 

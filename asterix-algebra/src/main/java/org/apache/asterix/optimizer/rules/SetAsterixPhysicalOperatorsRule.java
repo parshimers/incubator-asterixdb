@@ -21,18 +21,18 @@ package org.apache.asterix.optimizer.rules;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.commons.lang3.mutable.Mutable;
-import org.apache.commons.lang3.mutable.MutableObject;
-
 import org.apache.asterix.algebra.operators.physical.BTreeSearchPOperator;
 import org.apache.asterix.algebra.operators.physical.InvertedIndexPOperator;
 import org.apache.asterix.algebra.operators.physical.RTreeSearchPOperator;
 import org.apache.asterix.common.config.DatasetConfig.IndexType;
 import org.apache.asterix.metadata.declared.AqlMetadataProvider;
 import org.apache.asterix.metadata.declared.AqlSourceId;
+import org.apache.asterix.metadata.entities.Dataset;
 import org.apache.asterix.om.functions.AsterixBuiltinFunctions;
 import org.apache.asterix.optimizer.rules.am.AccessMethodJobGenParams;
 import org.apache.asterix.optimizer.rules.am.BTreeJobGenParams;
+import org.apache.commons.lang3.mutable.Mutable;
+import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.exceptions.NotImplementedException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
@@ -52,13 +52,14 @@ import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import org.apache.hyracks.algebricks.core.algebra.metadata.IDataSourceIndex;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractOperatorWithNestedPlans;
+import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractUnnestMapOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.AggregateOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.GroupByOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.InnerJoinOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.LeftOuterJoinOperator;
-import org.apache.hyracks.algebricks.core.algebra.operators.logical.UnnestMapOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.physical.ExternalGroupByPOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.physical.PreclusteredGroupByPOperator;
+import org.apache.hyracks.algebricks.core.algebra.properties.INodeDomain;
 import org.apache.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 import org.apache.hyracks.algebricks.core.rewriter.base.PhysicalOptimizationConfig;
 import org.apache.hyracks.algebricks.rewriter.util.JoinUtils;
@@ -72,7 +73,8 @@ public class SetAsterixPhysicalOperatorsRule implements IAlgebraicRewriteRule {
     }
 
     @Override
-    public boolean rewritePre(Mutable<ILogicalOperator> opRef, IOptimizationContext context) throws AlgebricksException {
+    public boolean rewritePre(Mutable<ILogicalOperator> opRef, IOptimizationContext context)
+            throws AlgebricksException {
         AbstractLogicalOperator op = (AbstractLogicalOperator) opRef.getValue();
         if (context.checkIfInDontApplySet(this, op)) {
             return false;
@@ -99,13 +101,14 @@ public class SetAsterixPhysicalOperatorsRule implements IAlgebraicRewriteRule {
                 ILogicalPlan p0 = gby.getNestedPlans().get(0);
                 if (p0.getRoots().size() == 1) {
                     Mutable<ILogicalOperator> r0 = p0.getRoots().get(0);
-                    if (((AbstractLogicalOperator) (r0.getValue())).getOperatorTag().equals(
-                            LogicalOperatorTag.AGGREGATE)) {
+                    if (((AbstractLogicalOperator) (r0.getValue())).getOperatorTag()
+                            .equals(LogicalOperatorTag.AGGREGATE)) {
                         AggregateOperator aggOp = (AggregateOperator) r0.getValue();
                         boolean serializable = true;
                         for (Mutable<ILogicalExpression> exprRef : aggOp.getExpressions()) {
                             AbstractFunctionCallExpression expr = (AbstractFunctionCallExpression) exprRef.getValue();
-                            if (!AsterixBuiltinFunctions.isAggregateFunctionSerializable(expr.getFunctionIdentifier())) {
+                            if (!AsterixBuiltinFunctions
+                                    .isAggregateFunctionSerializable(expr.getFunctionIdentifier())) {
                                 serializable = false;
                                 break;
                             }
@@ -148,7 +151,9 @@ public class SetAsterixPhysicalOperatorsRule implements IAlgebraicRewriteRule {
                                     ExternalGroupByPOperator externalGby = new ExternalGroupByPOperator(
                                             gby.getGroupByList(),
                                             physicalOptimizationConfig.getMaxFramesExternalGroupBy(),
-                                            physicalOptimizationConfig.getExternalGroupByTableSize());
+                                            physicalOptimizationConfig.getExternalGroupByTableSize(),
+                                            (long) physicalOptimizationConfig.getMaxFramesExternalGroupBy()
+                                                    * physicalOptimizationConfig.getFrameSize());
                                     generateMergeAggregationExpressions(gby, context);
                                     op.setPhysicalOperator(externalGby);
                                     setToExternalGby = true;
@@ -169,8 +174,8 @@ public class SetAsterixPhysicalOperatorsRule implements IAlgebraicRewriteRule {
                                 op.setPhysicalOperator(new PreclusteredGroupByPOperator(columnList));
                             }
                         }
-                    } else if (((AbstractLogicalOperator) (r0.getValue())).getOperatorTag().equals(
-                            LogicalOperatorTag.RUNNINGAGGREGATE)) {
+                    } else if (((AbstractLogicalOperator) (r0.getValue())).getOperatorTag()
+                            .equals(LogicalOperatorTag.RUNNINGAGGREGATE)) {
                         List<Pair<LogicalVariable, Mutable<ILogicalExpression>>> gbyList = gby.getGroupByList();
                         List<LogicalVariable> columnList = new ArrayList<LogicalVariable>(gbyList.size());
                         for (Pair<LogicalVariable, Mutable<ILogicalExpression>> p : gbyList) {
@@ -198,9 +203,10 @@ public class SetAsterixPhysicalOperatorsRule implements IAlgebraicRewriteRule {
                     JoinUtils.setJoinAlgorithmAndExchangeAlgo((LeftOuterJoinOperator) op, context);
                     break;
                 }
-                case UNNEST_MAP: {
-                    UnnestMapOperator unnestMap = (UnnestMapOperator) op;
-                    ILogicalExpression unnestExpr = unnestMap.getExpressionRef().getValue();
+                case UNNEST_MAP:
+                case LEFT_OUTER_UNNEST_MAP: {
+                    ILogicalExpression unnestExpr = null;
+                    unnestExpr = ((AbstractUnnestMapOperator) op).getExpressionRef().getValue();
                     if (unnestExpr.getExpressionTag() == LogicalExpressionTag.FUNCTION_CALL) {
                         AbstractFunctionCallExpression f = (AbstractFunctionCallExpression) unnestExpr;
                         FunctionIdentifier fid = f.getFunctionIdentifier();
@@ -212,8 +218,11 @@ public class SetAsterixPhysicalOperatorsRule implements IAlgebraicRewriteRule {
                         AqlMetadataProvider mp = (AqlMetadataProvider) context.getMetadataProvider();
                         AqlSourceId dataSourceId = new AqlSourceId(jobGenParams.getDataverseName(),
                                 jobGenParams.getDatasetName());
+                        Dataset dataset = mp.findDataset(jobGenParams.getDataverseName(),
+                                jobGenParams.getDatasetName());
                         IDataSourceIndex<String, AqlSourceId> dsi = mp.findDataSourceIndex(jobGenParams.getIndexName(),
                                 dataSourceId);
+                        INodeDomain storageDomain = mp.findNodeDomain(dataset.getNodeGroupName());
                         if (dsi == null) {
                             throw new AlgebricksException("Could not find index " + jobGenParams.getIndexName()
                                     + " for dataset " + dataSourceId);
@@ -224,23 +233,25 @@ public class SetAsterixPhysicalOperatorsRule implements IAlgebraicRewriteRule {
                             case BTREE: {
                                 BTreeJobGenParams btreeJobGenParams = new BTreeJobGenParams();
                                 btreeJobGenParams.readFromFuncArgs(f.getArguments());
-                                op.setPhysicalOperator(new BTreeSearchPOperator(dsi, requiresBroadcast,
+                                op.setPhysicalOperator(new BTreeSearchPOperator(dsi, storageDomain, requiresBroadcast,
                                         btreeJobGenParams.isPrimaryIndex(), btreeJobGenParams.isEqCondition(),
                                         btreeJobGenParams.getLowKeyVarList(), btreeJobGenParams.getHighKeyVarList()));
                                 break;
                             }
                             case RTREE: {
-                                op.setPhysicalOperator(new RTreeSearchPOperator(dsi, requiresBroadcast));
+                                op.setPhysicalOperator(new RTreeSearchPOperator(dsi, storageDomain, requiresBroadcast));
                                 break;
                             }
                             case SINGLE_PARTITION_WORD_INVIX:
                             case SINGLE_PARTITION_NGRAM_INVIX: {
-                                op.setPhysicalOperator(new InvertedIndexPOperator(dsi, requiresBroadcast, false));
+                                op.setPhysicalOperator(
+                                        new InvertedIndexPOperator(dsi, storageDomain, requiresBroadcast, false));
                                 break;
                             }
                             case LENGTH_PARTITIONED_WORD_INVIX:
                             case LENGTH_PARTITIONED_NGRAM_INVIX: {
-                                op.setPhysicalOperator(new InvertedIndexPOperator(dsi, requiresBroadcast, true));
+                                op.setPhysicalOperator(
+                                        new InvertedIndexPOperator(dsi, storageDomain, requiresBroadcast, true));
                                 break;
                             }
                             default: {
@@ -290,8 +301,8 @@ public class SetAsterixPhysicalOperatorsRule implements IAlgebraicRewriteRule {
         int n = aggOp.getExpressions().size();
         List<Mutable<ILogicalExpression>> mergeExpressionRefs = new ArrayList<Mutable<ILogicalExpression>>();
         for (int i = 0; i < n; i++) {
-            ILogicalExpression mergeExpr = mergeAggregationExpressionFactory.createMergeAggregation(
-                    aggProducedVars.get(i), aggFuncRefs.get(i).getValue(), context);
+            ILogicalExpression mergeExpr = mergeAggregationExpressionFactory
+                    .createMergeAggregation(aggProducedVars.get(i), aggFuncRefs.get(i).getValue(), context);
             if (mergeExpr == null) {
                 throw new AlgebricksException("The aggregation function " + aggFuncRefs.get(i).getValue()
                         + " does not have a registered intermediate aggregation function.");

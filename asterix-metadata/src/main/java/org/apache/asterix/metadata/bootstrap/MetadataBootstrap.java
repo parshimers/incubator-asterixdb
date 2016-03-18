@@ -115,7 +115,7 @@ public class MetadataBootstrap {
     private static IIOManager ioManager;
 
     private static String metadataNodeName;
-    private static Set<String> nodeNames;
+    private static List<String> nodeNames;
     private static String outputDir;
 
     private static IMetadataIndex[] primaryIndexes;
@@ -226,7 +226,7 @@ public class MetadataBootstrap {
     public static void insertInitialDatasets(MetadataTransactionContext mdTxnCtx) throws Exception {
         for (int i = 0; i < primaryIndexes.length; i++) {
             IDatasetDetails id = new InternalDatasetDetails(FileStructure.BTREE, PartitioningStrategy.HASH,
-                    primaryIndexes[i].getPartitioningExpr(), primaryIndexes[i].getPartitioningExpr(),
+                    primaryIndexes[i].getPartitioningExpr(), primaryIndexes[i].getPartitioningExpr(), null,
                     primaryIndexes[i].getPartitioningExprType(), false, null, false);
             MetadataManager.INSTANCE.addDataset(mdTxnCtx, new Dataset(primaryIndexes[i].getDataverseName(),
                     primaryIndexes[i].getIndexedDatasetName(), primaryIndexes[i].getDataverseName(),
@@ -349,8 +349,8 @@ public class MetadataBootstrap {
         String resourceName = metadataPartitionPath + File.separator + index.getFileNameRelativePath();
         FileReference file = ioManager.getAbsoluteFileRef(metadataDeviceId, resourceName);
 
-        List<IVirtualBufferCache> virtualBufferCaches = runtimeContext
-                .getVirtualBufferCaches(index.getDatasetId().getId());
+        List<IVirtualBufferCache> virtualBufferCaches = runtimeContext.getDatasetLifecycleManager()
+                .getVirtualBufferCaches(index.getDatasetId().getId(), metadataPartition.getIODeviceNum());
         ITypeTraits[] typeTraits = index.getTypeTraits();
         IBinaryComparatorFactory[] comparatorFactories = index.getKeyBinaryComparatorFactory();
         int[] bloomFilterKeyFields = index.getBloomFilterKeyFields();
@@ -383,6 +383,12 @@ public class MetadataBootstrap {
             dataLifecycleManager.register(absolutePath, lsmBtree);
         } else {
             final LocalResource resource = localResourceRepository.getResourceByPath(absolutePath);
+            if (resource == null) {
+                throw new Exception("Could not find required metadata indexes. Please delete "
+                        + propertiesProvider.getMetadataProperties().getTransactionLogDirs()
+                                .get(runtimeContext.getTransactionSubsystem().getId())
+                        + " to intialize as a new instance. (WARNING: all data will be lost.)");
+            }
             resourceID = resource.getResourceId();
             lsmBtree = (LSMBTree) dataLifecycleManager.getIndex(absolutePath);
             if (lsmBtree == null) {

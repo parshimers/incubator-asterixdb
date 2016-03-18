@@ -19,16 +19,19 @@
 package org.apache.asterix.external.api;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Map;
 
-import org.apache.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
+import org.apache.asterix.common.exceptions.AsterixException;
+import org.apache.asterix.om.util.AsterixAppContextInfo;
+import org.apache.asterix.om.util.AsterixClusterProperties;
+import org.apache.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 
 public interface IExternalDataSourceFactory extends Serializable {
 
     /**
      * The data source type indicates whether the data source produces a continuous stream or
      * a set of records
-     * @author amoudi
      */
     public enum DataSourceType {
         STREAM,
@@ -42,23 +45,55 @@ public interface IExternalDataSourceFactory extends Serializable {
 
     /**
      * Specifies on which locations this data source is expected to run.
+     *
      * @return
-     * @throws Exception
+     * @throws AsterixException
      */
-    public AlgebricksPartitionConstraint getPartitionConstraint() throws Exception;
+    public AlgebricksAbsolutePartitionConstraint getPartitionConstraint() throws AsterixException;
 
     /**
      * Configure the data parser factory. The passed map contains key value pairs from the
      * submitted AQL statement and any additional pairs added by the compiler
+     *
      * @param configuration
-     * @throws Exception
+     * @throws AsterixException
      */
-    public void configure(Map<String, String> configuration) throws Exception;
+    public void configure(Map<String, String> configuration) throws AsterixException;
 
     /**
      * Specify whether the external data source can be indexed
+     *
      * @return
      */
-    public boolean isIndexible();
+    public default boolean isIndexible() {
+        return false;
+    }
 
+    public static AlgebricksAbsolutePartitionConstraint getPartitionConstraints(
+            AlgebricksAbsolutePartitionConstraint constraints, int count) {
+        if (constraints == null) {
+            ArrayList<String> locs = new ArrayList<String>();
+            Map<String, String[]> stores = AsterixAppContextInfo.getInstance().getMetadataProperties().getStores();
+            int i = 0;
+            while (i < count) {
+                for (String node : stores.keySet()) {
+                    int numIODevices = AsterixClusterProperties.INSTANCE.getNumberOfIODevices(node);
+                    for (int k = 0; k < numIODevices; k++) {
+                        locs.add(node);
+                        i++;
+                        if (i == count) {
+                            break;
+                        }
+                    }
+                    if (i == count) {
+                        break;
+                    }
+                }
+            }
+            String[] cluster = new String[locs.size()];
+            cluster = locs.toArray(cluster);
+            constraints = new AlgebricksAbsolutePartitionConstraint(cluster);
+        }
+        return constraints;
+    }
 }

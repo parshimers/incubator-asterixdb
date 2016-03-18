@@ -22,12 +22,11 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.logging.Level;
@@ -46,18 +45,18 @@ import org.apache.asterix.common.configuration.TransactionLogDir;
 import org.apache.asterix.common.exceptions.AsterixException;
 
 public class AsterixPropertiesAccessor {
-    private static final Logger LOGGER = Logger.getLogger(AsterixPropertiesAccessor.class.getName());
+    private static Logger LOGGER = Logger.getLogger(AsterixPropertiesAccessor.class.getName());
 
     private final String instanceName;
     private final String metadataNodeName;
-    private final Set<String> nodeNames;
+    private final List<String> nodeNames;
     private final Map<String, String[]> stores;
     private final Map<String, String> coredumpConfig;
     private final Map<String, Property> asterixConfigurationParams;
     private final Map<String, String> transactionLogDirs;
     private final Map<String, String> asterixBuildProperties;
     private final Map<String, ClusterPartition[]> nodePartitionsMap;
-    private SortedMap<Integer, ClusterPartition> clusterPartitions;
+    private final SortedMap<Integer, ClusterPartition> clusterPartitions;
 
     public AsterixPropertiesAccessor() throws AsterixException {
         String fileName = System.getProperty(GlobalConfig.CONFIG_FILE_PROPERTY);
@@ -87,7 +86,7 @@ public class AsterixPropertiesAccessor {
         metadataNodeName = asterixConfiguration.getMetadataNode();
         stores = new HashMap<String, String[]>();
         List<Store> configuredStores = asterixConfiguration.getStore();
-        nodeNames = new HashSet<String>();
+        nodeNames = new ArrayList<String>();
         nodePartitionsMap = new HashMap<>();
         clusterPartitions = new TreeMap<>();
         int uniquePartitionId = 0;
@@ -137,7 +136,7 @@ public class AsterixPropertiesAccessor {
         return stores;
     }
 
-    public Set<String> getNodeNames() {
+    public List<String> getNodeNames() {
         return nodeNames;
     }
 

@@ -28,11 +28,12 @@ import org.apache.asterix.common.api.IAsterixAppRuntimeContext;
 import org.apache.asterix.external.api.IAdapterFactory;
 import org.apache.asterix.external.api.IAdapterRuntimeManager;
 import org.apache.asterix.external.api.IAdapterRuntimeManager.State;
+import org.apache.asterix.external.dataset.adapter.FeedAdapter;
 import org.apache.asterix.external.feed.api.IFeedManager;
+import org.apache.asterix.external.feed.api.IFeedRuntime.FeedRuntimeType;
 import org.apache.asterix.external.feed.api.IFeedSubscriptionManager;
 import org.apache.asterix.external.feed.api.IIntakeProgressTracker;
 import org.apache.asterix.external.feed.api.ISubscriberRuntime;
-import org.apache.asterix.external.feed.api.IFeedRuntime.FeedRuntimeType;
 import org.apache.asterix.external.feed.dataflow.DistributeFeedFrameWriter;
 import org.apache.asterix.external.feed.management.FeedId;
 import org.apache.asterix.external.feed.policy.FeedPolicyAccessor;
@@ -40,8 +41,8 @@ import org.apache.asterix.external.feed.runtime.AdapterRuntimeManager;
 import org.apache.asterix.external.feed.runtime.CollectionRuntime;
 import org.apache.asterix.external.feed.runtime.IngestionRuntime;
 import org.apache.asterix.external.feed.runtime.SubscribableFeedRuntimeId;
-import org.apache.asterix.external.api.IFeedAdapter;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
+import org.apache.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import org.apache.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
@@ -63,12 +64,19 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
     private final IAdapterFactory adapterFactory;
 
     private IngestionRuntime ingestionRuntime;
-    private IFeedAdapter adapter;
+    private FeedAdapter adapter;
     private IIntakeProgressTracker tracker;
     private DistributeFeedFrameWriter feedFrameWriter;
 
+    private final FeedIntakeOperatorDescriptor opDesc;
+
+    private final IRecordDescriptorProvider recordDescProvider;
+
     public FeedIntakeOperatorNodePushable(IHyracksTaskContext ctx, FeedId feedId, IAdapterFactory adapterFactory,
-            int partition, IngestionRuntime ingestionRuntime, FeedPolicyAccessor policyAccessor) {
+            int partition, IngestionRuntime ingestionRuntime, FeedPolicyAccessor policyAccessor,
+            IRecordDescriptorProvider recordDescProvider, FeedIntakeOperatorDescriptor feedIntakeOperatorDescriptor) {
+        this.opDesc = feedIntakeOperatorDescriptor;
+        this.recordDescProvider = recordDescProvider;
         this.ctx = ctx;
         this.feedId = feedId;
         this.partition = partition;
@@ -86,7 +94,7 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
         try {
             if (ingestionRuntime == null) {
                 try {
-                    adapter = (IFeedAdapter) adapterFactory.createAdapter(ctx, partition);
+                    adapter = (FeedAdapter) adapterFactory.createAdapter(ctx, partition);
                     //TODO: Fix record tracking
                     //                    if (adapterFactory.isRecordTrackingEnabled()) {
                     //                        tracker = adapterFactory.createIntakeProgressTracker();
@@ -96,6 +104,8 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                             + " Exception " + e);
                     throw new HyracksDataException(e);
                 }
+
+                recordDesc = recordDescProvider.getOutputRecordDescriptor(opDesc.getActivityId(), 0);
                 FrameTupleAccessor fta = new FrameTupleAccessor(recordDesc);
                 feedFrameWriter = new DistributeFeedFrameWriter(ctx, feedId, writer, FeedRuntimeType.INTAKE, partition,
                         fta, feedManager);
@@ -103,7 +113,7 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
                 SubscribableFeedRuntimeId runtimeId = new SubscribableFeedRuntimeId(feedId, FeedRuntimeType.INTAKE,
                         partition);
                 ingestionRuntime = new IngestionRuntime(feedId, runtimeId, feedFrameWriter, recordDesc,
-                        adapterRuntimeManager);
+                        adapterRuntimeManager, ctx);
                 feedSubscriptionManager.registerFeedSubscribableRuntime(ingestionRuntime);
                 feedFrameWriter.open();
             } else {
@@ -180,7 +190,7 @@ public class FeedIntakeOperatorNodePushable extends AbstractUnaryOutputSourceOpe
             e.printStackTrace();
             throw new HyracksDataException(e);
         } finally {
-            if (ingestionRuntime != null
+            if ((ingestionRuntime != null)
                     && !ingestionRuntime.getAdapterRuntimeManager().getState().equals(State.INACTIVE_INGESTION)) {
                 feedFrameWriter.close();
                 if (LOGGER.isLoggable(Level.INFO)) {

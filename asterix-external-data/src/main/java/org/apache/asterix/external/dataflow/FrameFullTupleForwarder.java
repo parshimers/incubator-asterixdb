@@ -18,13 +18,11 @@
  */
 package org.apache.asterix.external.dataflow;
 
-import java.util.Map;
-
-import org.apache.asterix.common.parse.ITupleForwarder;
+import org.apache.asterix.external.api.ITupleForwarder;
 import org.apache.hyracks.api.comm.IFrame;
 import org.apache.hyracks.api.comm.IFrameWriter;
 import org.apache.hyracks.api.comm.VSizeFrame;
-import org.apache.hyracks.api.context.IHyracksCommonContext;
+import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAppender;
@@ -37,12 +35,7 @@ public class FrameFullTupleForwarder implements ITupleForwarder {
     private IFrameWriter writer;
 
     @Override
-    public void configure(Map<String, String> configuration) {
-        // no-op
-    }
-
-    @Override
-    public void initialize(IHyracksCommonContext ctx, IFrameWriter writer) throws HyracksDataException {
+    public void initialize(IHyracksTaskContext ctx, IFrameWriter writer) throws HyracksDataException {
         this.appender = new FrameTupleAppender();
         this.frame = new VSizeFrame(ctx);
         this.writer = writer;

@@ -21,6 +21,7 @@ package org.apache.asterix.external.adapter.factory;
 import java.io.Serializable;
 import java.util.Map;
 
+import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.external.api.ILookupReaderFactory;
 import org.apache.asterix.external.api.ILookupRecordReader;
 import org.apache.asterix.external.api.IRecordDataParser;
@@ -29,7 +30,7 @@ import org.apache.asterix.external.dataset.adapter.LookupAdapter;
 import org.apache.asterix.external.indexing.ExternalFileIndexAccessor;
 import org.apache.asterix.external.indexing.RecordIdReader;
 import org.apache.asterix.external.indexing.RecordIdReaderFactory;
-import org.apache.asterix.external.input.record.reader.LookupReaderFactoryProvider;
+import org.apache.asterix.external.provider.LookupReaderFactoryProvider;
 import org.apache.asterix.external.provider.ParserFactoryProvider;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.hyracks.api.comm.IFrameWriter;
@@ -44,13 +45,12 @@ public class LookupAdapterFactory<T> implements Serializable {
     private static final long serialVersionUID = 1L;
     private IRecordDataParserFactory dataParserFactory;
     private ILookupReaderFactory readerFactory;
-    private ARecordType recordType;
-    private int[] ridFields;
+    private final ARecordType recordType;
+    private final int[] ridFields;
     private Map<String, String> configuration;
-    private boolean retainInput;
-    private boolean retainNull;
-    private int[] propagatedFields;
-    private INullWriterFactory iNullWriterFactory;
+    private final boolean retainInput;
+    private final boolean retainNull;
+    private final INullWriterFactory iNullWriterFactory;
 
     public LookupAdapterFactory(ARecordType recordType, int[] ridFields, boolean retainInput, boolean retainNull,
             INullWriterFactory iNullWriterFactory) {
@@ -65,20 +65,18 @@ public class LookupAdapterFactory<T> implements Serializable {
             ExternalFileIndexAccessor snapshotAccessor, IFrameWriter writer) throws HyracksDataException {
         try {
             IRecordDataParser<T> dataParser = dataParserFactory.createRecordParser(ctx);
-            dataParser.configure(configuration, recordType);
             ILookupRecordReader<? extends T> reader = readerFactory.createRecordReader(ctx, partition,
                     snapshotAccessor);
             reader.configure(configuration);
             RecordIdReader ridReader = RecordIdReaderFactory.create(configuration, ridFields);
-            configurePropagatedFields(inRecDesc);
-            return new LookupAdapter<T>(dataParser, reader, inRecDesc, ridReader, retainInput, propagatedFields,
-                    retainNull, iNullWriterFactory, ctx, writer);
+            return new LookupAdapter<T>(dataParser, reader, inRecDesc, ridReader, retainInput, retainNull,
+                    iNullWriterFactory, ctx, writer);
         } catch (Exception e) {
             throw new HyracksDataException(e);
         }
     }
 
-    public void configure(Map<String, String> configuration) throws Exception {
+    public void configure(Map<String, String> configuration) throws AsterixException {
         this.configuration = configuration;
         readerFactory = LookupReaderFactoryProvider.getLookupReaderFactory(configuration);
         dataParserFactory = (IRecordDataParserFactory<T>) ParserFactoryProvider.getDataParserFactory(configuration);
@@ -87,25 +85,4 @@ public class LookupAdapterFactory<T> implements Serializable {
         dataParserFactory.configure(configuration);
     }
 
-    private void configurePropagatedFields(RecordDescriptor inRecDesc) {
-        int ptr = 0;
-        boolean skip = false;
-        propagatedFields = new int[inRecDesc.getFieldCount() - ridFields.length];
-        for (int i = 0; i < inRecDesc.getFieldCount(); i++) {
-            if (ptr < ridFields.length) {
-                skip = false;
-                for (int j = 0; j < ridFields.length; j++) {
-                    if (ridFields[j] == i) {
-                        ptr++;
-                        skip = true;
-                        break;
-                    }
-                }
-                if (!skip)
-                    propagatedFields[i - ptr] = i;
-            } else {
-                propagatedFields[i - ptr] = i;
-            }
-        }
-    }
 }

@@ -21,9 +21,11 @@ package org.apache.asterix.external.api;
 import java.io.Serializable;
 import java.util.Map;
 
+import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.om.types.ARecordType;
-import org.apache.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
+import org.apache.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 /**
  * Base interface for IGenericDatasetAdapterFactory and ITypedDatasetAdapterFactory.
@@ -34,7 +36,7 @@ public interface IAdapterFactory extends Serializable {
 
     /**
      * Returns the display name corresponding to the Adapter type that is created by the factory.
-     * 
+     *
      * @return the display name
      */
     public String getAlias();
@@ -50,28 +52,35 @@ public interface IAdapterFactory extends Serializable {
      * In the former case, the IP address is translated to a node controller id
      * running on the node with the given IP address.
      */
-    public AlgebricksPartitionConstraint getPartitionConstraint() throws Exception;
+    public AlgebricksAbsolutePartitionConstraint getPartitionConstraint() throws AsterixException;
 
     /**
      * Creates an instance of IDatasourceAdapter.
-     * 
+     *
      * @param HyracksTaskContext
      * @param partition
      * @return An instance of IDatasourceAdapter.
      * @throws Exception
      */
-    public IDataSourceAdapter createAdapter(IHyracksTaskContext ctx, int partition) throws Exception;
+    public IDataSourceAdapter createAdapter(IHyracksTaskContext ctx, int partition) throws HyracksDataException;
 
     /**
      * @param configuration
      * @param outputType
+     * @param metaType
      * @throws Exception
      */
-    public void configure(Map<String, String> configuration, ARecordType outputType) throws Exception;
+    public void configure(Map<String, String> configuration, ARecordType outputType, ARecordType metaType)
+            throws AsterixException;
+
+    public default void configure(final Map<String, String> configuration, final ARecordType outputType)
+            throws AsterixException {
+        configure(configuration, outputType, null);
+    }
 
     /**
      * Gets the record type associated with the output of the adapter
-     * 
+     *
      * @return
      */
     public ARecordType getAdapterOutputType();

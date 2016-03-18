@@ -20,9 +20,8 @@ package org.apache.asterix.external.util;
 
 import java.util.Map;
 
-import org.apache.asterix.common.exceptions.AsterixException;
-import org.apache.asterix.common.parse.ITupleForwarder;
-import org.apache.asterix.common.parse.ITupleForwarder.TupleForwardPolicy;
+import org.apache.asterix.external.api.ITupleForwarder;
+import org.apache.asterix.external.api.ITupleForwarder.TupleForwardPolicy;
 import org.apache.asterix.external.dataflow.CounterTimerTupleForwarder;
 import org.apache.asterix.external.dataflow.FeedTupleForwarder;
 import org.apache.asterix.external.dataflow.FrameFullTupleForwarder;
@@ -36,19 +35,19 @@ public class DataflowUtils {
     public static void addTupleToFrame(FrameTupleAppender appender, ArrayTupleBuilder tb, IFrameWriter writer)
             throws HyracksDataException {
         if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
-            appender.flush(writer, true);
+            appender.write(writer, true);
             if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
                 throw new HyracksDataException("Tuple is too large for a frame");
             }
         }
     }
 
-    public static ITupleForwarder getTupleForwarder(Map<String, String> configuration) throws AsterixException {
-        ITupleForwarder policy = null;
+    public static ITupleForwarder getTupleForwarder(Map<String, String> configuration, FeedLogManager feedLogManager)
+            throws HyracksDataException {
         ITupleForwarder.TupleForwardPolicy policyType = null;
         String propValue = configuration.get(ITupleForwarder.FORWARD_POLICY);
         if (ExternalDataUtils.isFeed(configuration)) {
-            //TODO pass this value in the configuration and avoid this check for feeds
+            // TODO pass this value in the configuration and avoid this check for feeds
             policyType = TupleForwardPolicy.FEED;
         } else if (propValue == null) {
             policyType = TupleForwardPolicy.FRAME_FULL;
@@ -57,20 +56,15 @@ public class DataflowUtils {
         }
         switch (policyType) {
             case FEED:
-                policy = new FeedTupleForwarder();
-                break;
+                return new FeedTupleForwarder(feedLogManager);
             case FRAME_FULL:
-                policy = new FrameFullTupleForwarder();
-                break;
+                return new FrameFullTupleForwarder();
             case COUNTER_TIMER_EXPIRED:
-                policy = new CounterTimerTupleForwarder();
-                break;
+                return CounterTimerTupleForwarder.create(configuration);
             case RATE_CONTROLLED:
-                policy = new RateControlledTupleForwarder();
-                break;
+                return RateControlledTupleForwarder.create(configuration);
             default:
-                throw new AsterixException("Unknown tuple forward policy");
+                throw new HyracksDataException("Unknown tuple forward policy");
         }
-        return policy;
     }
 }

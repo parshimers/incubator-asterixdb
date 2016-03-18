@@ -34,9 +34,8 @@ public class AsterixReplicationProperties extends AbstractAsterixProperties {
     private static int REPLICATION_DATAPORT_DEFAULT = 2000;
     private static int REPLICATION_FACTOR_DEFAULT = 1;
     private static int REPLICATION_TIME_OUT_DEFAULT = 15;
-
+    private static final int MAX_REMOTE_RECOVERY_ATTEMPTS = 5;
     private static final String NODE_IP_ADDRESS_DEFAULT = "127.0.0.1";
-    private static final String REPLICATION_STORE_DEFAULT = "asterix-replication";
     private final String NODE_NAME_PREFIX;
     private final Cluster cluster;
 
@@ -89,10 +88,10 @@ public class AsterixReplicationProperties extends AbstractAsterixProperties {
         Set<Replica> remoteReplicas = new HashSet<Replica>();;
 
         int numberOfRemoteReplicas = getReplicationFactor() - 1;
-
         //Using chained-declustering
         if (cluster != null) {
             int nodeIndex = -1;
+            //find the node index in the cluster config
             for (int i = 0; i < cluster.getNode().size(); i++) {
                 Node node = cluster.getNode().get(i);
                 if (getRealCluserNodeID(node.getId()).equals(nodeId)) {
@@ -102,24 +101,23 @@ public class AsterixReplicationProperties extends AbstractAsterixProperties {
             }
 
             if (nodeIndex == -1) {
-                LOGGER.log(Level.WARNING, "Could not find node " + getRealCluserNodeID(nodeId)
-                        + " in cluster configurations");
+                LOGGER.log(Level.WARNING,
+                        "Could not find node " + getRealCluserNodeID(nodeId) + " in cluster configurations");
                 return null;
             }
 
+            //find nodes to the right of this node
             for (int i = nodeIndex + 1; i < cluster.getNode().size(); i++) {
                 remoteReplicas.add(getReplicaByNodeIndex(i));
-
                 if (remoteReplicas.size() == numberOfRemoteReplicas) {
                     break;
                 }
             }
 
+            //if not all remote replicas have been found, start from the beginning
             if (remoteReplicas.size() != numberOfRemoteReplicas) {
                 for (int i = 0; i < cluster.getNode().size(); i++) {
-
                     remoteReplicas.add(getReplicaByNodeIndex(i));
-
                     if (remoteReplicas.size() == numberOfRemoteReplicas) {
                         break;
                     }
@@ -179,13 +177,6 @@ public class AsterixReplicationProperties extends AbstractAsterixProperties {
         return replicaIds;
     }
 
-    public String getReplicationStore() {
-        if (cluster != null) {
-            return cluster.getDataReplication().getReplicationStore();
-        }
-        return REPLICATION_STORE_DEFAULT;
-    }
-
     public int getReplicationFactor() {
         if (cluster != null) {
             if (cluster.getDataReplication() == null || cluster.getDataReplication().getReplicationFactor() == null) {
@@ -203,4 +194,50 @@ public class AsterixReplicationProperties extends AbstractAsterixProperties {
         return REPLICATION_TIME_OUT_DEFAULT;
     }
 
+    /**
+     * @param nodeId
+     * @return The set of nodes which replicate to this node, including the node itself
+     */
+    public Set<String> getNodeReplicationClients(String nodeId) {
+        Set<String> clientReplicas = new HashSet<>();
+        clientReplicas.add(nodeId);
+
+        int clientsCount = getReplicationFactor();
+
+        //Using chained-declustering backwards
+        if (cluster != null) {
+            int nodeIndex = -1;
+            //find the node index in the cluster config
+            for (int i = 0; i < cluster.getNode().size(); i++) {
+                Node node = cluster.getNode().get(i);
+                if (getRealCluserNodeID(node.getId()).equals(nodeId)) {
+                    nodeIndex = i;
+                    break;
+                }
+            }
+
+            //find nodes to the left of this node
+            for (int i = nodeIndex - 1; i >= 0; i--) {
+                clientReplicas.add(getReplicaByNodeIndex(i).getId());
+                if (clientReplicas.size() == clientsCount) {
+                    break;
+                }
+            }
+
+            //if not all client replicas have been found, start from the end
+            if (clientReplicas.size() != clientsCount) {
+                for (int i = cluster.getNode().size() - 1; i >= 0; i--) {
+                    clientReplicas.add(getReplicaByNodeIndex(i).getId());
+                    if (clientReplicas.size() == clientsCount) {
+                        break;
+                    }
+                }
+            }
+        }
+        return clientReplicas;
+    }
+
+    public int getMaxRemoteRecoveryAttempts() {
+        return MAX_REMOTE_RECOVERY_ATTEMPTS;
+    }
 }

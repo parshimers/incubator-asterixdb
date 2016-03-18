@@ -99,7 +99,7 @@ public class MetadataTransactionContext extends MetadataCache {
         logAndApply(new MetadataLogicalOperation(datatype, true));
     }
 
-    public void addNogeGroup(NodeGroup nodeGroup) {
+    public void addNodeGroup(NodeGroup nodeGroup) {
         droppedCache.dropNodeGroup(nodeGroup);
         logAndApply(new MetadataLogicalOperation(nodeGroup, true));
     }
@@ -128,7 +128,7 @@ public class MetadataTransactionContext extends MetadataCache {
     }
 
     public void dropIndex(String dataverseName, String datasetName, String indexName) {
-        Index index = new Index(dataverseName, datasetName, indexName, null, null, null, false, false,
+        Index index = new Index(dataverseName, datasetName, indexName, null, null, null, null, false, false,
                 IMetadataEntity.PENDING_NO_OP);
         droppedCache.addIndexIfNotExists(index);
         logAndApply(new MetadataLogicalOperation(index, false));

@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -73,7 +73,7 @@ public class ClusterExecutionIT extends AbstractExecutionIT {
     public static void tearDown() throws Exception {
         File outdir = new File(PATH_ACTUAL);
         File[] files = outdir.listFiles();
-        if (files == null || files.length == 0) {
+        if ((files == null) || (files.length == 0)) {
             outdir.delete();
         }
 
@@ -102,6 +102,9 @@ public class ClusterExecutionIT extends AbstractExecutionIT {
     @Override
     @Test
     public void test() throws Exception {
+        if (skip()) {
+            return;
+        }
         testExecutor.executeTest(PATH_ACTUAL, tcCtx, null, false);
     }
 }

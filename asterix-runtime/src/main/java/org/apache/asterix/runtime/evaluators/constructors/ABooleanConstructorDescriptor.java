@@ -33,38 +33,38 @@ import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.runtime.evaluators.base.AbstractScalarFunctionDynamicDescriptor;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
-import org.apache.hyracks.algebricks.runtime.base.ICopyEvaluator;
-import org.apache.hyracks.algebricks.runtime.base.ICopyEvaluatorFactory;
+import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
+import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
+import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.value.IBinaryComparator;
 import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
-import org.apache.hyracks.data.std.api.IDataOutputProvider;
+import org.apache.hyracks.data.std.api.IPointable;
+import org.apache.hyracks.data.std.primitive.VoidPointable;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 import org.apache.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 import org.apache.hyracks.util.string.UTF8StringUtil;
 
 public class ABooleanConstructorDescriptor extends AbstractScalarFunctionDynamicDescriptor {
-
     private static final long serialVersionUID = 1L;
-    private final static byte SER_STRING_TYPE_TAG = ATypeTag.STRING.serialize();
-    private final static byte SER_NULL_TYPE_TAG = ATypeTag.NULL.serialize();
     public static final IFunctionDescriptorFactory FACTORY = new IFunctionDescriptorFactory() {
+        @Override
         public IFunctionDescriptor createFunctionDescriptor() {
             return new ABooleanConstructorDescriptor();
         }
     };
 
     @Override
-    public ICopyEvaluatorFactory createEvaluatorFactory(final ICopyEvaluatorFactory[] args) {
-        return new ICopyEvaluatorFactory() {
+    public IScalarEvaluatorFactory createEvaluatorFactory(final IScalarEvaluatorFactory[] args) {
+        return new IScalarEvaluatorFactory() {
             private static final long serialVersionUID = 1L;
 
             @Override
-            public ICopyEvaluator createEvaluator(final IDataOutputProvider output) throws AlgebricksException {
-                return new ICopyEvaluator() {
-
-                    private DataOutput out = output.getDataOutput();
-                    private ArrayBackedValueStorage outInput = new ArrayBackedValueStorage();
-                    private ICopyEvaluator eval = args[0].createEvaluator(outInput);
+            public IScalarEvaluator createScalarEvaluator(IHyracksTaskContext ctx) throws AlgebricksException {
+                return new IScalarEvaluator() {
+                    private ArrayBackedValueStorage resultStorage = new ArrayBackedValueStorage();
+                    private DataOutput out = resultStorage.getDataOutput();
+                    private IPointable inputArg = new VoidPointable();
+                    private IScalarEvaluator eval = args[0].createScalarEvaluator(ctx);
                     private String errorMessage = "This can not be an instance of boolean";
                     private final byte[] TRUE = UTF8StringUtil.writeStringToBytes("true");
                     private final byte[] FALSE = UTF8StringUtil.writeStringToBytes("false");
@@ -78,28 +78,34 @@ public class ABooleanConstructorDescriptor extends AbstractScalarFunctionDynamic
                             .getSerializerDeserializer(BuiltinType.ANULL);
 
                     @Override
-                    public void evaluate(IFrameTupleReference tuple) throws AlgebricksException {
-
+                    public void evaluate(IFrameTupleReference tuple, IPointable result) throws AlgebricksException {
                         try {
-                            outInput.reset();
-                            eval.evaluate(tuple);
-                            byte[] serString = outInput.getByteArray();
-                            if (serString[0] == SER_STRING_TYPE_TAG) {
-                                if (utf8BinaryComparator
-                                        .compare(serString, 1, outInput.getLength(), TRUE, 0, TRUE.length) == 0) {
-                                    booleanSerde.serialize(ABoolean.TRUE, out);
-                                    return;
-                                } else if (utf8BinaryComparator
-                                        .compare(serString, 1, outInput.getLength(), FALSE, 0, FALSE.length) == 0) {
-                                    booleanSerde.serialize(ABoolean.FALSE, out);
-                                    return;
-                                } else
-                                    throw new AlgebricksException(errorMessage);
+                            resultStorage.reset();
+                            eval.evaluate(tuple, inputArg);
+                            byte[] serString = inputArg.getByteArray();
+                            int startOffset = inputArg.getStartOffset();
+                            int len = inputArg.getLength();
 
-                            } else if (serString[0] == SER_NULL_TYPE_TAG)
+                            if (serString[startOffset] == ATypeTag.SERIALIZED_STRING_TYPE_TAG) {
+                                if (utf8BinaryComparator.compare(serString, startOffset + 1, len - 1, TRUE, 0,
+                                        TRUE.length) == 0) {
+                                    booleanSerde.serialize(ABoolean.TRUE, out);
+                                    result.set(resultStorage);
+                                    return;
+                                } else if (utf8BinaryComparator.compare(serString, startOffset + 1, len - 1, FALSE, 0,
+                                        FALSE.length) == 0) {
+                                    booleanSerde.serialize(ABoolean.FALSE, out);
+                                    result.set(resultStorage);
+                                    return;
+                                } else {
+                                    throw new AlgebricksException(errorMessage);
+                                }
+                            } else if (serString[startOffset] == ATypeTag.SERIALIZED_NULL_TYPE_TAG) {
                                 nullSerde.serialize(ANull.NULL, out);
-                            else
+                            } else {
                                 throw new AlgebricksException(errorMessage);
+                            }
+                            result.set(resultStorage);
                         } catch (IOException e1) {
                             throw new AlgebricksException(errorMessage);
                         }
@@ -107,6 +113,7 @@ public class ABooleanConstructorDescriptor extends AbstractScalarFunctionDynamic
                 };
             }
         };
+
     }
 
     @Override

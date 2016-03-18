@@ -22,6 +22,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Path;
 
+import org.apache.asterix.external.dataflow.AbstractFeedDataFlowController;
 import org.apache.asterix.external.util.ExternalDataConstants;
 import org.apache.asterix.external.util.FeedLogManager;
 import org.apache.asterix.external.util.FileSystemWatcher;
@@ -32,10 +33,20 @@ public class LocalFileSystemInputStream extends AInputStream {
     private FileInputStream in;
     private byte lastByte;
 
-    public LocalFileSystemInputStream(Path inputResource, String expression, FeedLogManager logManager, boolean isFeed)
-            throws IOException {
-        this.watcher = new FileSystemWatcher(logManager, inputResource, expression, isFeed);
-        this.watcher.init();
+    public LocalFileSystemInputStream(Path inputResource, String expression, boolean isFeed)
+            throws HyracksDataException {
+        this.watcher = new FileSystemWatcher(inputResource, expression, isFeed);
+        watcher.init();
+    }
+
+    @Override
+    public void setFeedLogManager(FeedLogManager logManager) {
+        watcher.setFeedLogManager(logManager);
+    }
+
+    @Override
+    public void setController(AbstractFeedDataFlowController controller) {
+        watcher.setController(controller);
     }
 
     @Override
@@ -95,9 +106,10 @@ public class LocalFileSystemInputStream extends AInputStream {
             }
         }
         int result = in.read(b, off, len);
-        while (result < 0 && advance()) {
-            // return a new line at the end of every file <--Might create problems for some cases depending on the parser implementation-->
-            if (lastByte != ExternalDataConstants.BYTE_LF && lastByte != ExternalDataConstants.BYTE_LF) {
+        while ((result < 0) && advance()) {
+            // return a new line at the end of every file <--Might create problems for some cases
+            // depending on the parser implementation-->
+            if ((lastByte != ExternalDataConstants.BYTE_LF) && (lastByte != ExternalDataConstants.BYTE_LF)) {
                 lastByte = ExternalDataConstants.BYTE_LF;
                 b[off] = ExternalDataConstants.BYTE_LF;
                 return 1;
@@ -106,7 +118,7 @@ public class LocalFileSystemInputStream extends AInputStream {
             result = in.read(b, off, len);
         }
         if (result > 0) {
-            lastByte = b[off + result - 1];
+            lastByte = b[(off + result) - 1];
         }
         return result;
     }

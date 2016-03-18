@@ -22,6 +22,7 @@
  * Date         : 15 Sep 2012
  */
 
+drop dataverse test if exists;
 drop dataverse testdv if exists;
 create dataverse testdv;
 

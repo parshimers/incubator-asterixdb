@@ -21,6 +21,9 @@ package org.apache.asterix.external.input.stream;
 import java.io.IOException;
 import java.io.InputStream;
 
+import org.apache.asterix.external.dataflow.AbstractFeedDataFlowController;
+import org.apache.asterix.external.util.FeedLogManager;
+
 public class BasicInputStream extends AInputStream {
     private final InputStream in;
 
@@ -82,5 +85,13 @@ public class BasicInputStream extends AInputStream {
     @Override
     public boolean stop() throws Exception {
         return false;
+    }
+
+    @Override
+    public void setFeedLogManager(FeedLogManager logManager) {
+    }
+
+    @Override
+    public void setController(AbstractFeedDataFlowController controller) {
     }
 }

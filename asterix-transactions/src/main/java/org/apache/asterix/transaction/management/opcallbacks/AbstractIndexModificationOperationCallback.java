@@ -26,12 +26,16 @@ import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.ITransactionSubsystem;
 import org.apache.asterix.common.transactions.LogRecord;
 import org.apache.asterix.common.transactions.LogType;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
+import org.apache.hyracks.storage.am.common.api.IModificationOperationCallback.Operation;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.common.tuples.SimpleTupleWriter;
 
 public abstract class AbstractIndexModificationOperationCallback extends AbstractOperationCallback {
 
+    private static final byte INSERT_OP = (byte) IndexOperation.INSERT.ordinal();
+    private static final byte DELETE_OP = (byte) IndexOperation.DELETE.ordinal();
     protected final long resourceId;
     protected final byte resourceType;
     protected final IndexOperation indexOp;
@@ -41,7 +45,7 @@ public abstract class AbstractIndexModificationOperationCallback extends Abstrac
 
     protected AbstractIndexModificationOperationCallback(int datasetId, int[] primaryKeyFields,
             ITransactionContext txnCtx, ILockManager lockManager, ITransactionSubsystem txnSubsystem, long resourceId,
-            byte resourceType, IndexOperation indexOp) {
+            int resourcePartition, byte resourceType, IndexOperation indexOp) {
         super(datasetId, primaryKeyFields, txnCtx, lockManager);
         this.resourceId = resourceId;
         this.resourceType = resourceType;
@@ -54,8 +58,8 @@ public abstract class AbstractIndexModificationOperationCallback extends Abstrac
         logRecord.setJobId(txnCtx.getJobId().getId());
         logRecord.setDatasetId(datasetId);
         logRecord.setResourceId(resourceId);
+        logRecord.setResourcePartition(resourcePartition);
         logRecord.setNewOp((byte) (indexOp.ordinal()));
-        logRecord.setNodeId(txnSubsystem.getId());
     }
 
     protected void log(int PKHash, ITupleReference newValue) throws ACIDException {
@@ -71,5 +75,16 @@ public abstract class AbstractIndexModificationOperationCallback extends Abstrac
         }
         logRecord.computeAndSetLogSize();
         txnSubsystem.getLogManager().log(logRecord);
+    }
+
+    public void setOp(Operation op) throws HyracksDataException {
+        switch (op) {
+            case DELETE:
+                logRecord.setNewOp(DELETE_OP);
+                break;
+            case INSERT:
+                logRecord.setNewOp(INSERT_OP);
+                break;
+        }
     }
 }

@@ -31,10 +31,11 @@ import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.runtime.evaluators.base.AbstractScalarFunctionDynamicDescriptor;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
-import org.apache.hyracks.algebricks.runtime.base.ICopyEvaluator;
-import org.apache.hyracks.algebricks.runtime.base.ICopyEvaluatorFactory;
+import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
+import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
+import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
-import org.apache.hyracks.data.std.api.IDataOutputProvider;
+import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.data.std.primitive.ByteArrayPointable;
 import org.apache.hyracks.data.std.primitive.UTF8StringPointable;
 import org.apache.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
@@ -44,7 +45,6 @@ import org.apache.hyracks.util.string.UTF8StringWriter;
 
 public class PrintBinaryDescriptor extends AbstractScalarFunctionDynamicDescriptor {
     private static final long serialVersionUID = 1L;
-    private static final byte SER_STRING_BYTE = ATypeTag.STRING.serialize();
 
     @Override
     public FunctionIdentifier getIdentifier() {
@@ -61,13 +61,14 @@ public class PrintBinaryDescriptor extends AbstractScalarFunctionDynamicDescript
     public final static ATypeTag[] EXPECTED_INPUT_TAGS = { ATypeTag.BINARY, ATypeTag.STRING };
 
     @Override
-    public ICopyEvaluatorFactory createEvaluatorFactory(final ICopyEvaluatorFactory[] args) throws AlgebricksException {
-        return new ICopyEvaluatorFactory() {
+    public IScalarEvaluatorFactory createEvaluatorFactory(final IScalarEvaluatorFactory[] args)
+            throws AlgebricksException {
+        return new IScalarEvaluatorFactory() {
             private static final long serialVersionUID = 1L;
 
             @Override
-            public ICopyEvaluator createEvaluator(final IDataOutputProvider output) throws AlgebricksException {
-                return new AbstractCopyEvaluator(output, args) {
+            public IScalarEvaluator createScalarEvaluator(final IHyracksTaskContext ctx) throws AlgebricksException {
+                return new AbstractBinaryScalarEvaluator(ctx, args) {
 
                     private StringBuilder stringBuilder = new StringBuilder();
                     private final ByteArrayPointable byteArrayPtr = new ByteArrayPointable();
@@ -75,19 +76,23 @@ public class PrintBinaryDescriptor extends AbstractScalarFunctionDynamicDescript
                     private final UTF8StringWriter writer = new UTF8StringWriter();
 
                     @Override
-                    public void evaluate(IFrameTupleReference tuple) throws AlgebricksException {
+                    public void evaluate(IFrameTupleReference tuple, IPointable result) throws AlgebricksException {
+                        resultStorage.reset();
                         ATypeTag arg0Tag = evaluateTuple(tuple, 0);
                         ATypeTag arg1Tag = evaluateTuple(tuple, 1);
 
                         try {
                             if (serializeNullIfAnyNull(arg0Tag, arg1Tag)) {
+                                result.set(resultStorage);
                                 return;
                             }
                             checkTypeMachingThrowsIfNot(getIdentifier().getName(), EXPECTED_INPUT_TAGS, arg0Tag,
                                     arg1Tag);
 
-                            byteArrayPtr.set(storages[0].getByteArray(), 1, storages[0].getLength());
-                            formatPointable.set(storages[1].getByteArray(), 1, storages[1].getLength());
+                            byteArrayPtr.set(pointables[0].getByteArray(), pointables[0].getStartOffset() + 1,
+                                    pointables[0].getLength());
+                            formatPointable.set(pointables[1].getByteArray(), pointables[1].getStartOffset() + 1,
+                                    pointables[1].getLength());
 
                             int lengthBinary = byteArrayPtr.getContentLength();
                             stringBuilder.setLength(0);
@@ -101,13 +106,14 @@ public class PrintBinaryDescriptor extends AbstractScalarFunctionDynamicDescript
                                 throw new AlgebricksException(getIdentifier().getName()
                                         + ": expects format indicator of \"hex\" or \"base64\" in the 2nd argument");
                             }
-                            dataOutput.writeByte(SER_STRING_BYTE);
+                            dataOutput.writeByte(ATypeTag.SERIALIZED_STRING_TYPE_TAG);
                             writer.writeUTF8(stringBuilder.toString(), dataOutput);
                         } catch (HyracksDataException e) {
                             throw new AlgebricksException(e);
                         } catch (IOException e) {
                             throw new AlgebricksException(e);
                         }
+                        result.set(resultStorage);
                     }
                 };
             }

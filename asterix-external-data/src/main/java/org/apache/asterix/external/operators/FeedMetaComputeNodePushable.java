@@ -25,9 +25,9 @@ import java.util.logging.Logger;
 
 import org.apache.asterix.common.api.IAsterixAppRuntimeContext;
 import org.apache.asterix.external.feed.api.IFeedManager;
-import org.apache.asterix.external.feed.api.ISubscribableRuntime;
 import org.apache.asterix.external.feed.api.IFeedRuntime.FeedRuntimeType;
 import org.apache.asterix.external.feed.api.IFeedRuntime.Mode;
+import org.apache.asterix.external.feed.api.ISubscribableRuntime;
 import org.apache.asterix.external.feed.dataflow.DistributeFeedFrameWriter;
 import org.apache.asterix.external.feed.dataflow.FeedRuntimeInputHandler;
 import org.apache.asterix.external.feed.management.FeedConnectionId;
@@ -36,12 +36,14 @@ import org.apache.asterix.external.feed.runtime.FeedRuntime;
 import org.apache.asterix.external.feed.runtime.FeedRuntimeId;
 import org.apache.asterix.external.feed.runtime.SubscribableFeedRuntimeId;
 import org.apache.asterix.external.feed.runtime.SubscribableRuntime;
+import org.apache.asterix.external.util.FeedUtils;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.IActivity;
 import org.apache.hyracks.api.dataflow.IOperatorDescriptor;
 import org.apache.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
+import org.apache.hyracks.dataflow.common.io.MessagingFrameTupleAppender;
 import org.apache.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
 
 /*
@@ -91,6 +93,8 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
 
     private FeedRuntimeInputHandler inputSideHandler;
 
+    private ByteBuffer message = ByteBuffer.allocate(MessagingFrameTupleAppender.MAX_MESSAGE_SIZE);
+
     public FeedMetaComputeNodePushable(IHyracksTaskContext ctx, IRecordDescriptorProvider recordDescProvider,
             int partition, int nPartitions, IOperatorDescriptor coreOperator, FeedConnectionId feedConnectionId,
             Map<String, String> feedPolicyProperties, String operationId) throws HyracksDataException {
@@ -103,6 +107,7 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
         this.connectionId = feedConnectionId;
         this.feedManager = (IFeedManager) ((IAsterixAppRuntimeContext) ctx.getJobletContext().getApplicationContext()
                 .getApplicationObject()).getFeedManager();
+        ctx.setSharedObject(message);
     }
 
     @Override
@@ -126,7 +131,8 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
     private void initializeNewFeedRuntime(FeedRuntimeId runtimeId) throws Exception {
         this.fta = new FrameTupleAccessor(recordDesc);
         this.inputSideHandler = new FeedRuntimeInputHandler(ctx, connectionId, runtimeId, coreOperator,
-                policyEnforcer.getFeedPolicyAccessor(), true, fta, recordDesc, feedManager, nPartitions);
+                policyEnforcer.getFeedPolicyAccessor(), policyEnforcer.getFeedPolicyAccessor().bufferingEnabled(), fta,
+                recordDesc, feedManager, nPartitions);
 
         DistributeFeedFrameWriter distributeWriter = new DistributeFeedFrameWriter(ctx, connectionId.getFeedId(),
                 writer, runtimeType, partition, new FrameTupleAccessor(recordDesc), feedManager);
@@ -157,6 +163,7 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
     @Override
     public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
         try {
+            FeedUtils.processFeedMessage(buffer, message, fta);
             inputSideHandler.nextFrame(buffer);
         } catch (Exception e) {
             e.printStackTrace();
@@ -178,22 +185,23 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
         boolean stalled = inputSideHandler.getMode().equals(Mode.STALL);
         boolean end = inputSideHandler.getMode().equals(Mode.END);
         try {
-            if (inputSideHandler != null) {
-                if (!(stalled || end)) {
-                    inputSideHandler.nextFrame(null); // signal end of data
-                    while (!inputSideHandler.isFinished()) {
-                        synchronized (coreOperator) {
-                            coreOperator.wait();
+            if (!(stalled || end)) {
+                inputSideHandler.nextFrame(null); // signal end of data
+                while (!inputSideHandler.isFinished()) {
+                    synchronized (coreOperator) {
+                        if (inputSideHandler.isFinished()) {
+                            break;
                         }
+                        coreOperator.wait();
                     }
-                } else {
-                    inputSideHandler.setFinished(true);
                 }
+            } else {
+                inputSideHandler.setFinished(true);
             }
             coreOperator.close();
             System.out.println("CLOSED " + coreOperator + " STALLED ?" + stalled + " ENDED " + end);
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (InterruptedException e) {
+            throw new HyracksDataException(e);
         } finally {
             if (!stalled) {
                 deregister();
@@ -201,9 +209,7 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
             } else {
                 System.out.println("NOT DEREGISTERING " + this.feedRuntime.getRuntimeId());
             }
-            if (inputSideHandler != null) {
-                inputSideHandler.close();
-            }
+            inputSideHandler.close();
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Ending Operator  " + this.feedRuntime.getRuntimeId());
             }
@@ -219,6 +225,11 @@ public class FeedMetaComputeNodePushable extends AbstractUnaryInputUnaryOutputOp
             // deregister from connection manager
             feedManager.getFeedConnectionManager().deRegisterFeedRuntime(connectionId, feedRuntime.getRuntimeId());
         }
+    }
+
+    @Override
+    public void flush() throws HyracksDataException {
+        inputSideHandler.flush();
     }
 
 }

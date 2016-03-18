@@ -34,14 +34,18 @@ public class CommitRuntimeFactory implements IPushRuntimeFactory {
     private final int[] primaryKeyFields;
     private final boolean isTemporaryDatasetWriteJob;
     private final boolean isWriteTransaction;
+    private final int upsertVarIdx;
+    private int[] datasetPartitions;
 
     public CommitRuntimeFactory(JobId jobId, int datasetId, int[] primaryKeyFields, boolean isTemporaryDatasetWriteJob,
-            boolean isWriteTransaction) {
+            boolean isWriteTransaction, int upsertVarIdx, int[] datasetPartitions) {
         this.jobId = jobId;
         this.datasetId = datasetId;
         this.primaryKeyFields = primaryKeyFields;
         this.isTemporaryDatasetWriteJob = isTemporaryDatasetWriteJob;
         this.isWriteTransaction = isWriteTransaction;
+        this.upsertVarIdx = upsertVarIdx;
+        this.datasetPartitions = datasetPartitions;
     }
 
     @Override
@@ -51,7 +55,13 @@ public class CommitRuntimeFactory implements IPushRuntimeFactory {
 
     @Override
     public IPushRuntime createPushRuntime(IHyracksTaskContext ctx) throws AlgebricksException {
-        return new CommitRuntime(ctx, jobId, datasetId, primaryKeyFields, isTemporaryDatasetWriteJob,
-                isWriteTransaction);
+        if (upsertVarIdx >= 0) {
+            return new UpsertCommitRuntime(ctx, jobId, datasetId, primaryKeyFields, isTemporaryDatasetWriteJob,
+                    isWriteTransaction, datasetPartitions[ctx.getTaskAttemptId().getTaskId().getPartition()],
+                    upsertVarIdx);
+        } else {
+            return new CommitRuntime(ctx, jobId, datasetId, primaryKeyFields, isTemporaryDatasetWriteJob,
+                    isWriteTransaction, datasetPartitions[ctx.getTaskAttemptId().getTaskId().getPartition()]);
+        }
     }
 }

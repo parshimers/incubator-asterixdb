@@ -44,11 +44,13 @@ import org.apache.asterix.runtime.evaluators.base.AbstractScalarFunctionDynamicD
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.exceptions.NotImplementedException;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
-import org.apache.hyracks.algebricks.runtime.base.ICopyEvaluator;
-import org.apache.hyracks.algebricks.runtime.base.ICopyEvaluatorFactory;
+import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
+import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
+import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
-import org.apache.hyracks.data.std.api.IDataOutputProvider;
+import org.apache.hyracks.data.std.api.IPointable;
+import org.apache.hyracks.data.std.primitive.VoidPointable;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 import org.apache.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 
@@ -56,31 +58,26 @@ public class NumericUnaryMinusDescriptor extends AbstractScalarFunctionDynamicDe
 
     private static final long serialVersionUID = 1L;
     public static final IFunctionDescriptorFactory FACTORY = new IFunctionDescriptorFactory() {
+        @Override
         public IFunctionDescriptor createFunctionDescriptor() {
             return new NumericUnaryMinusDescriptor();
         }
     };
 
     @Override
-    public ICopyEvaluatorFactory createEvaluatorFactory(final ICopyEvaluatorFactory[] args) {
-        return new ICopyEvaluatorFactory() {
+    public IScalarEvaluatorFactory createEvaluatorFactory(final IScalarEvaluatorFactory[] args) {
+        return new IScalarEvaluatorFactory() {
             private static final long serialVersionUID = 1L;
 
             @Override
-            public ICopyEvaluator createEvaluator(final IDataOutputProvider output) throws AlgebricksException {
+            public IScalarEvaluator createScalarEvaluator(final IHyracksTaskContext ctx) throws AlgebricksException {
 
-                return new ICopyEvaluator() {
+                return new IScalarEvaluator() {
 
-                    private DataOutput out = output.getDataOutput();
-                    private ArrayBackedValueStorage argOut = new ArrayBackedValueStorage();
-                    private ICopyEvaluator eval = args[0].createEvaluator(argOut);
-                    private byte serNullTypeTag = ATypeTag.NULL.serialize();
-                    private byte serInt8TypeTag = ATypeTag.INT8.serialize();
-                    private byte serInt16TypeTag = ATypeTag.INT16.serialize();
-                    private byte serInt32TypeTag = ATypeTag.INT32.serialize();
-                    private byte serInt64TypeTag = ATypeTag.INT64.serialize();
-                    private byte serFloatTypeTag = ATypeTag.FLOAT.serialize();
-                    private byte serDoubleTypeTag = ATypeTag.DOUBLE.serialize();
+                    private ArrayBackedValueStorage resultStorage = new ArrayBackedValueStorage();
+                    private DataOutput out = resultStorage.getDataOutput();
+                    private IPointable argPtr = new VoidPointable();
+                    private IScalarEvaluator eval = args[0].createScalarEvaluator(ctx);
                     private AMutableDouble aDouble = new AMutableDouble(0);
                     private AMutableFloat aFloat = new AMutableFloat(0);
                     private AMutableInt64 aInt64 = new AMutableInt64(0);
@@ -92,53 +89,56 @@ public class NumericUnaryMinusDescriptor extends AbstractScalarFunctionDynamicDe
 
                     @SuppressWarnings("unchecked")
                     @Override
-                    public void evaluate(IFrameTupleReference tuple) throws AlgebricksException {
-                        argOut.reset();
-                        eval.evaluate(tuple);
+                    public void evaluate(IFrameTupleReference tuple, IPointable result) throws AlgebricksException {
+                        resultStorage.reset();
+                        eval.evaluate(tuple, argPtr);
+                        byte[] data = argPtr.getByteArray();
+                        int offset = argPtr.getStartOffset();
+
                         try {
-                            if (argOut.getByteArray()[0] == serNullTypeTag) {
+                            if (data[offset] == ATypeTag.SERIALIZED_NULL_TYPE_TAG) {
                                 serde = AqlSerializerDeserializerProvider.INSTANCE
                                         .getSerializerDeserializer(BuiltinType.ANULL);
                                 serde.serialize(ANull.NULL, out);
-                                return;
-                            } else if (argOut.getByteArray()[0] == serInt8TypeTag) {
+                            } else if (data[offset] == ATypeTag.SERIALIZED_INT8_TYPE_TAG) {
                                 serde = AqlSerializerDeserializerProvider.INSTANCE
                                         .getSerializerDeserializer(BuiltinType.AINT8);
-                                aInt8.setValue((byte) -AInt8SerializerDeserializer.getByte(argOut.getByteArray(), 1));
+                                aInt8.setValue((byte) -AInt8SerializerDeserializer.getByte(data, offset + 1));
                                 serde.serialize(aInt8, out);
-                            } else if (argOut.getByteArray()[0] == serInt16TypeTag) {
+                            } else if (data[offset] == ATypeTag.SERIALIZED_INT16_TYPE_TAG) {
                                 serde = AqlSerializerDeserializerProvider.INSTANCE
                                         .getSerializerDeserializer(BuiltinType.AINT16);
-                                aInt16.setValue((short) -AInt16SerializerDeserializer.getShort(argOut.getByteArray(), 1));
+                                aInt16.setValue((short) -AInt16SerializerDeserializer.getShort(data, offset + 1));
                                 serde.serialize(aInt16, out);
-                            } else if (argOut.getByteArray()[0] == serInt32TypeTag) {
+                            } else if (data[offset] == ATypeTag.SERIALIZED_INT32_TYPE_TAG) {
                                 serde = AqlSerializerDeserializerProvider.INSTANCE
                                         .getSerializerDeserializer(BuiltinType.AINT32);
-                                aInt32.setValue(-AInt32SerializerDeserializer.getInt(argOut.getByteArray(), 1));
+                                aInt32.setValue(-AInt32SerializerDeserializer.getInt(data, offset + 1));
                                 serde.serialize(aInt32, out);
-                            } else if (argOut.getByteArray()[0] == serInt64TypeTag) {
+                            } else if (data[offset] == ATypeTag.SERIALIZED_INT64_TYPE_TAG) {
                                 serde = AqlSerializerDeserializerProvider.INSTANCE
                                         .getSerializerDeserializer(BuiltinType.AINT64);
-                                aInt64.setValue(-AInt64SerializerDeserializer.getLong(argOut.getByteArray(), 1));
+                                aInt64.setValue(-AInt64SerializerDeserializer.getLong(data, offset + 1));
                                 serde.serialize(aInt64, out);
-                            } else if (argOut.getByteArray()[0] == serFloatTypeTag) {
+                            } else if (data[offset] == ATypeTag.SERIALIZED_FLOAT_TYPE_TAG) {
                                 serde = AqlSerializerDeserializerProvider.INSTANCE
                                         .getSerializerDeserializer(BuiltinType.AFLOAT);
-                                aFloat.setValue(-AFloatSerializerDeserializer.getFloat(argOut.getByteArray(), 1));
+                                aFloat.setValue(-AFloatSerializerDeserializer.getFloat(data, offset + 1));
                                 serde.serialize(aFloat, out);
-                            } else if (argOut.getByteArray()[0] == serDoubleTypeTag) {
+                            } else if (data[offset] == ATypeTag.SERIALIZED_DOUBLE_TYPE_TAG) {
                                 serde = AqlSerializerDeserializerProvider.INSTANCE
                                         .getSerializerDeserializer(BuiltinType.ADOUBLE);
-                                aDouble.setValue(-ADoubleSerializerDeserializer.getDouble(argOut.getByteArray(), 1));
+                                aDouble.setValue(-ADoubleSerializerDeserializer.getDouble(data, offset + 1));
                                 serde.serialize(aDouble, out);
                             } else {
-                                throw new NotImplementedException(AsterixBuiltinFunctions.NUMERIC_UNARY_MINUS.getName()
-                                        + ": not implemented for "
-                                        + EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(argOut.getByteArray()[0]));
+                                throw new NotImplementedException(
+                                        AsterixBuiltinFunctions.NUMERIC_UNARY_MINUS.getName() + ": not implemented for "
+                                                + EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(data[offset]));
                             }
                         } catch (HyracksDataException e) {
                             throw new AlgebricksException(e);
                         }
+                        result.set(resultStorage);
                     }
                 };
             }

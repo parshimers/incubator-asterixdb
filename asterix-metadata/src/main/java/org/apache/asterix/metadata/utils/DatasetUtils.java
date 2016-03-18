@@ -20,14 +20,13 @@
 package org.apache.asterix.metadata.utils;
 
 import java.io.DataOutput;
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.asterix.builders.IARecordBuilder;
 import org.apache.asterix.builders.RecordBuilder;
-import org.apache.asterix.common.config.MetadataConstants;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
+import org.apache.asterix.common.config.MetadataConstants;
 import org.apache.asterix.common.context.CorrelatedPrefixMergePolicyFactory;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.external.indexing.IndexingConstants;
@@ -73,12 +72,7 @@ public class DatasetUtils {
             }
         } else {
             for (int i = 0; i < partitioningKeys.size(); i++) {
-                IAType keyType;
-                try {
-                    keyType = itemType.getSubFieldType(partitioningKeys.get(i));
-                } catch (IOException e) {
-                    throw new AlgebricksException(e);
-                }
+                IAType keyType = itemType.getSubFieldType(partitioningKeys.get(i));
                 bcfs[i] = comparatorFactoryProvider.getBinaryComparatorFactory(keyType, true);
             }
         }
@@ -105,12 +99,7 @@ public class DatasetUtils {
         List<List<String>> partitioningKeys = getPartitioningKeys(dataset);
         IBinaryHashFunctionFactory[] bhffs = new IBinaryHashFunctionFactory[partitioningKeys.size()];
         for (int i = 0; i < partitioningKeys.size(); i++) {
-            IAType keyType;
-            try {
-                keyType = itemType.getSubFieldType(partitioningKeys.get(i));
-            } catch (IOException e) {
-                throw new AlgebricksException(e);
-            }
+            IAType keyType = itemType.getSubFieldType(partitioningKeys.get(i));
             bhffs[i] = hashFunProvider.getBinaryHashFunctionFactory(keyType);
         }
         return bhffs;
@@ -118,20 +107,37 @@ public class DatasetUtils {
 
     public static ITypeTraits[] computeTupleTypeTraits(Dataset dataset, ARecordType itemType)
             throws AlgebricksException {
+        return computeTupleTypeTraits(dataset, itemType, null);
+    }
+
+    public static ITypeTraits[] computeTupleTypeTraits(Dataset dataset, ARecordType itemType, ARecordType metaItemType)
+            throws AlgebricksException {
         if (dataset.getDatasetType() == DatasetType.EXTERNAL) {
             throw new AlgebricksException("not implemented");
         }
         List<List<String>> partitioningKeys = DatasetUtils.getPartitioningKeys(dataset);
         int numKeys = partitioningKeys.size();
-        ITypeTraits[] typeTraits = new ITypeTraits[numKeys + 1];
-        for (int i = 0; i < numKeys; i++) {
-            IAType keyType;
-            try {
-                keyType = itemType.getSubFieldType(partitioningKeys.get(i));
-            } catch (IOException e) {
-                throw new AlgebricksException(e);
+        ITypeTraits[] typeTraits;
+        if (metaItemType != null) {
+            typeTraits = new ITypeTraits[numKeys + 2];
+            List<Integer> indicator = ((InternalDatasetDetails) dataset.getDatasetDetails()).getKeySourceIndicator();
+            typeTraits[numKeys + 1] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(metaItemType);
+            for (int i = 0; i < numKeys; i++) {
+                IAType keyType;
+                if (indicator.get(i) == 0) {
+                    keyType = itemType.getSubFieldType(partitioningKeys.get(i));
+                } else {
+                    keyType = metaItemType.getSubFieldType(partitioningKeys.get(i));
+                }
+                typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(keyType);
             }
-            typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(keyType);
+        } else {
+            typeTraits = new ITypeTraits[numKeys + 1];
+            for (int i = 0; i < numKeys; i++) {
+                IAType keyType;
+                keyType = itemType.getSubFieldType(partitioningKeys.get(i));
+                typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(keyType);
+            }
         }
         typeTraits[numKeys] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(itemType);
         return typeTraits;
@@ -159,12 +165,7 @@ public class DatasetUtils {
             return null;
         }
         IBinaryComparatorFactory[] bcfs = new IBinaryComparatorFactory[1];
-        IAType type;
-        try {
-            type = itemType.getSubFieldType(filterField);
-        } catch (IOException e) {
-            throw new AlgebricksException(e);
-        }
+        IAType type = itemType.getSubFieldType(filterField);
         bcfs[0] = comparatorFactoryProvider.getBinaryComparatorFactory(type, true);
         return bcfs;
     }
@@ -179,13 +180,7 @@ public class DatasetUtils {
             return null;
         }
         ITypeTraits[] typeTraits = new ITypeTraits[1];
-
-        IAType type;
-        try {
-            type = itemType.getSubFieldType(filterField);
-        } catch (IOException e) {
-            throw new AlgebricksException(e);
-        }
+        IAType type = itemType.getSubFieldType(filterField);
         typeTraits[0] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(type);
         return typeTraits;
     }
@@ -218,7 +213,8 @@ public class DatasetUtils {
         }
 
         List<List<String>> partitioningKeys = getPartitioningKeys(dataset);
-        int[] btreeFields = new int[partitioningKeys.size() + 1];
+        int valueFields = dataset.hasMetaPart() ? 2 : 1;
+        int[] btreeFields = new int[partitioningKeys.size() + valueFields];
         for (int i = 0; i < btreeFields.length; ++i) {
             btreeFields[i] = i;
         }
@@ -228,7 +224,7 @@ public class DatasetUtils {
     public static int getPositionOfPartitioningKeyField(Dataset dataset, String fieldExpr) {
         List<List<String>> partitioningKeys = DatasetUtils.getPartitioningKeys(dataset);
         for (int i = 0; i < partitioningKeys.size(); i++) {
-            if (partitioningKeys.get(i).size() == 1 && partitioningKeys.get(i).get(0).equals(fieldExpr)) {
+            if ((partitioningKeys.get(i).size() == 1) && partitioningKeys.get(i).get(0).equals(fieldExpr)) {
                 return i;
             }
         }
@@ -276,10 +272,6 @@ public class DatasetUtils {
         stringSerde.serialize(aString, fieldValue.getDataOutput());
         propertyRecordBuilder.addField(1, fieldValue);
 
-        try {
-            propertyRecordBuilder.write(out, true);
-        } catch (IOException | AsterixException e) {
-            throw new HyracksDataException(e);
-        }
+        propertyRecordBuilder.write(out, true);
     }
 }

@@ -24,13 +24,15 @@ import java.io.DataOutput;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.EnumDeserializer;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
-import org.apache.hyracks.algebricks.runtime.base.ICopyEvaluatorFactory;
+import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
+import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 
 public class SerializableLocalAvgAggregateFunction extends AbstractSerializableAvgAggregateFunction {
 
-    public SerializableLocalAvgAggregateFunction(ICopyEvaluatorFactory[] args) throws AlgebricksException {
-        super(args);
+    public SerializableLocalAvgAggregateFunction(IScalarEvaluatorFactory[] args, IHyracksTaskContext context)
+            throws AlgebricksException {
+        super(args, context);
     }
 
     @Override
@@ -48,8 +50,9 @@ public class SerializableLocalAvgAggregateFunction extends AbstractSerializableA
         finish(state, start, len, result);
     }
 
+    @Override
     protected void processNull(byte[] state, int start) {
-        state[start + AGG_TYPE_OFFSET] = ATypeTag.NULL.serialize();
+        state[start + AGG_TYPE_OFFSET] = ATypeTag.SERIALIZED_NULL_TYPE_TAG;
     }
 
     @Override

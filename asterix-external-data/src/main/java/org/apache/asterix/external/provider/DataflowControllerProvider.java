@@ -18,91 +18,115 @@
  */
 package org.apache.asterix.external.provider;
 
+import java.io.IOException;
 import java.util.Map;
 
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.external.api.IDataFlowController;
 import org.apache.asterix.external.api.IDataParserFactory;
 import org.apache.asterix.external.api.IExternalDataSourceFactory;
+import org.apache.asterix.external.api.IIndexingDatasource;
 import org.apache.asterix.external.api.IInputStreamProvider;
 import org.apache.asterix.external.api.IInputStreamProviderFactory;
 import org.apache.asterix.external.api.IRecordDataParser;
 import org.apache.asterix.external.api.IRecordDataParserFactory;
-import org.apache.asterix.external.api.IRecordFlowController;
 import org.apache.asterix.external.api.IRecordReader;
 import org.apache.asterix.external.api.IRecordReaderFactory;
+import org.apache.asterix.external.api.IRecordWithPKDataParser;
 import org.apache.asterix.external.api.IStreamDataParser;
 import org.apache.asterix.external.api.IStreamDataParserFactory;
-import org.apache.asterix.external.api.IStreamFlowController;
+import org.apache.asterix.external.dataflow.ChangeFeedDataFlowController;
+import org.apache.asterix.external.dataflow.ChangeFeedWithMetaDataFlowController;
 import org.apache.asterix.external.dataflow.FeedRecordDataFlowController;
 import org.apache.asterix.external.dataflow.FeedStreamDataFlowController;
+import org.apache.asterix.external.dataflow.FeedTupleForwarder;
+import org.apache.asterix.external.dataflow.FeedWithMetaDataFlowController;
 import org.apache.asterix.external.dataflow.IndexingDataFlowController;
 import org.apache.asterix.external.dataflow.RecordDataFlowController;
 import org.apache.asterix.external.dataflow.StreamDataFlowController;
+import org.apache.asterix.external.input.stream.AInputStream;
+import org.apache.asterix.external.parser.RecordWithMetadataParser;
 import org.apache.asterix.external.util.DataflowUtils;
 import org.apache.asterix.external.util.ExternalDataUtils;
+import org.apache.asterix.external.util.FeedLogManager;
+import org.apache.asterix.external.util.FeedUtils;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.dataflow.std.file.FileSplit;
 
 public class DataflowControllerProvider {
 
-    /**
-     * Order of calls:
-     * 1. Constructor()
-     * 2. configure(configuration,ctx)
-     * 3. setTupleForwarder(forwarder)
-     * 4. if record flow controller
-     * |-a. Set record reader
-     * |-b. Set record parser
-     * else
-     * |-a. Set stream parser
-     * 5. start(writer)
-     */
-
+    // TODO: Instead, use a factory just like data source and data parser.
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public static IDataFlowController getDataflowController(ARecordType recordType, IHyracksTaskContext ctx,
             int partition, IExternalDataSourceFactory dataSourceFactory, IDataParserFactory dataParserFactory,
-            Map<String, String> configuration, boolean indexingOp) throws Exception {
-        switch (dataSourceFactory.getDataSourceType()) {
-            case RECORDS:
-                IRecordFlowController recordDataFlowController = null;
-                if (indexingOp) {
-                    recordDataFlowController = new IndexingDataFlowController();
-                } else if (ExternalDataUtils.isFeed(configuration)) {
-                    recordDataFlowController = new FeedRecordDataFlowController();
-                } else {
-                    recordDataFlowController = new RecordDataFlowController();
-                }
-                recordDataFlowController.configure(configuration, ctx);
-                recordDataFlowController.setTupleForwarder(DataflowUtils.getTupleForwarder(configuration));
-                IRecordReaderFactory<?> recordReaderFactory = (IRecordReaderFactory<?>) dataSourceFactory;
-                IRecordReader<?> recordReader = recordReaderFactory.createRecordReader(ctx, partition);
-                IRecordDataParserFactory<?> recordParserFactory = (IRecordDataParserFactory<?>) dataParserFactory;
-                IRecordDataParser<?> dataParser = recordParserFactory.createRecordParser(ctx);
-                dataParser.configure(configuration, recordType);
-                recordDataFlowController.setRecordReader(recordReader);
-                recordDataFlowController.setRecordParser(dataParser);
-                return recordDataFlowController;
-            case STREAM:
-                IStreamFlowController streamDataFlowController = null;
-                if (ExternalDataUtils.isFeed(configuration)) {
-                    streamDataFlowController = new FeedStreamDataFlowController();
-                } else {
-                    streamDataFlowController = new StreamDataFlowController();
-                }
-                streamDataFlowController.configure(configuration, ctx);
-                streamDataFlowController.setTupleForwarder(DataflowUtils.getTupleForwarder(configuration));
-                IInputStreamProviderFactory streamProviderFactory = (IInputStreamProviderFactory) dataSourceFactory;
-                IInputStreamProvider streamProvider = streamProviderFactory.createInputStreamProvider(ctx, partition);
-                IStreamDataParserFactory streamParserFactory = (IStreamDataParserFactory) dataParserFactory;
-                streamParserFactory.configure(configuration);
-                IStreamDataParser streamParser = streamParserFactory.createInputStreamParser(ctx, partition);
-                streamParser.configure(configuration, recordType);
-                streamParser.setInputStream(streamProvider.getInputStream());
-                streamDataFlowController.setStreamParser(streamParser);
-                return streamDataFlowController;
-            default:
-                throw new AsterixException("Unknown data source type: " + dataSourceFactory.getDataSourceType());
+            Map<String, String> configuration, boolean indexingOp, boolean isFeed, FileSplit[] feedLogFileSplits)
+                    throws HyracksDataException {
+        try {
+            FeedLogManager feedLogManager = null;
+            if (isFeed) {
+                feedLogManager = FeedUtils.getFeedLogManager(ctx, partition, feedLogFileSplits);
+            }
+            switch (dataSourceFactory.getDataSourceType()) {
+                case RECORDS:
+                    IRecordReaderFactory<?> recordReaderFactory = (IRecordReaderFactory<?>) dataSourceFactory;
+                    IRecordReader<?> recordReader = recordReaderFactory.createRecordReader(ctx, partition);
+                    IRecordDataParserFactory<?> recordParserFactory = (IRecordDataParserFactory<?>) dataParserFactory;
+                    IRecordDataParser<?> dataParser = recordParserFactory.createRecordParser(ctx);
+                    if (indexingOp) {
+                        return new IndexingDataFlowController(ctx,
+                                DataflowUtils.getTupleForwarder(configuration, feedLogManager), dataParser,
+                                recordReader, ((IIndexingDatasource) recordReader).getIndexer());
+                    } else if (isFeed) {
+                        FeedTupleForwarder tupleForwarder = (FeedTupleForwarder) DataflowUtils
+                                .getTupleForwarder(configuration, feedLogManager);
+                        boolean isChangeFeed = ExternalDataUtils.isChangeFeed(configuration);
+                        boolean isRecordWithMeta = ExternalDataUtils.isRecordWithMeta(configuration);
+                        if (isRecordWithMeta) {
+                            if (isChangeFeed) {
+                                int numOfKeys = ExternalDataUtils.getNumberOfKeys(configuration);
+                                return new ChangeFeedWithMetaDataFlowController(ctx, tupleForwarder, feedLogManager,
+                                        numOfKeys + 2, (RecordWithMetadataParser) dataParser, recordReader);
+                            } else {
+                                return new FeedWithMetaDataFlowController(ctx, tupleForwarder, feedLogManager, 2,
+                                        (RecordWithMetadataParser) dataParser, recordReader);
+                            }
+                        } else if (isChangeFeed) {
+                            int numOfKeys = ExternalDataUtils.getNumberOfKeys(configuration);
+                            return new ChangeFeedDataFlowController(ctx, tupleForwarder, feedLogManager, numOfKeys + 1,
+                                    (IRecordWithPKDataParser) dataParser, recordReader);
+                        } else {
+                            return new FeedRecordDataFlowController(ctx, tupleForwarder, feedLogManager, 1, dataParser,
+                                    recordReader);
+                        }
+                    } else {
+                        return new RecordDataFlowController(ctx,
+                                DataflowUtils.getTupleForwarder(configuration, feedLogManager), dataParser,
+                                recordReader, 1);
+                    }
+                case STREAM:
+                    IInputStreamProviderFactory streamProviderFactory = (IInputStreamProviderFactory) dataSourceFactory;
+                    IInputStreamProvider streamProvider = streamProviderFactory.createInputStreamProvider(ctx,
+                            partition);
+                    IStreamDataParserFactory streamParserFactory = (IStreamDataParserFactory) dataParserFactory;
+                    IStreamDataParser streamParser = streamParserFactory.createInputStreamParser(ctx, partition);
+                    AInputStream inputStream = streamProvider.getInputStream();
+                    streamParser.setInputStream(inputStream);
+                    if (isFeed) {
+                        return new FeedStreamDataFlowController(ctx,
+                                (FeedTupleForwarder) DataflowUtils.getTupleForwarder(configuration, feedLogManager),
+                                feedLogManager, FeedUtils.getNumOfFields(configuration), streamParser, inputStream);
+                    } else {
+                        return new StreamDataFlowController(ctx, DataflowUtils.getTupleForwarder(configuration, null),
+                                streamParser);
+                    }
+                default:
+                    throw new HyracksDataException(
+                            "Unknown data source type: " + dataSourceFactory.getDataSourceType());
+            }
+        } catch (IOException | AsterixException e) {
+            throw new HyracksDataException(e);
         }
     }
 }

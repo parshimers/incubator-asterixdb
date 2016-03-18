@@ -6,7 +6,7 @@
           -- SORT_MERGE_EXCHANGE [$$7(ASC) ]  |PARTITIONED|
             -- STREAM_LIMIT  |PARTITIONED|
               -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
-                -- STABLE_SORT [$$7(ASC)]  |PARTITIONED|
+                -- STABLE_SORT [topK: 10] [$$7(ASC)]  |PARTITIONED|
                   -- ONE_TO_ONE_EXCHANGE  |PARTITIONED|
                     -- ASSIGN  |PARTITIONED|
                       -- STREAM_PROJECT  |PARTITIONED|

@@ -22,6 +22,7 @@ import java.io.File;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.asterix.common.api.IDatasetLifecycleManager;
 import org.apache.asterix.common.context.BaseOperationTracker;
 import org.apache.asterix.common.ioopcallbacks.LSMBTreeIOOperationCallbackFactory;
 import org.apache.asterix.common.transactions.IAsterixAppRuntimeContextProvider;
@@ -62,17 +63,17 @@ public class LSMBTreeLocalResourceMetadata extends AbstractLSMLocalResourceMetad
 
     @Override
     public ILSMIndex createIndexInstance(IAsterixAppRuntimeContextProvider runtimeContextProvider, String filePath,
-            int partition) {
+            int partition, int ioDeviceNum) {
         FileReference file = new FileReference(filePath, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
-        List<IVirtualBufferCache> virtualBufferCaches = runtimeContextProvider.getVirtualBufferCaches(datasetID);
+        final IDatasetLifecycleManager datasetLifecycleManager = runtimeContextProvider.getDatasetLifecycleManager();
+        List<IVirtualBufferCache> virtualBufferCaches = datasetLifecycleManager.getVirtualBufferCaches(datasetID, ioDeviceNum);
         LSMBTree lsmBTree = LSMBTreeUtils.createLSMTree(virtualBufferCaches, file,
                 runtimeContextProvider.getBufferCache(), runtimeContextProvider.getFileMapManager(), typeTraits,
                 cmpFactories, bloomFilterKeyFields, runtimeContextProvider.getBloomFilterFalsePositiveRate(),
                 mergePolicyFactory.createMergePolicy(mergePolicyProperties,
                         runtimeContextProvider.getDatasetLifecycleManager()),
                 isPrimary ? runtimeContextProvider.getLSMBTreeOperationTracker(datasetID)
-                        : new BaseOperationTracker(datasetID,
-                                runtimeContextProvider.getDatasetLifecycleManager().getDatasetInfo(datasetID)),
+                        : new BaseOperationTracker(datasetID, datasetLifecycleManager.getDatasetInfo(datasetID)),
                 runtimeContextProvider.getLSMIOScheduler(),
                 LSMBTreeIOOperationCallbackFactory.INSTANCE.createIOOperationCallback(), isPrimary, filterTypeTraits,
                 filterCmpFactories, btreeFields, filterFields, true);

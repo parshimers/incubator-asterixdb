@@ -24,11 +24,11 @@ import java.util.TimerTask;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.asterix.common.parse.ITupleForwarder;
+import org.apache.asterix.external.api.ITupleForwarder;
 import org.apache.hyracks.api.comm.IFrame;
 import org.apache.hyracks.api.comm.IFrameWriter;
 import org.apache.hyracks.api.comm.VSizeFrame;
-import org.apache.hyracks.api.context.IHyracksCommonContext;
+import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAppender;
@@ -52,24 +52,31 @@ public class CounterTimerTupleForwarder implements ITupleForwarder {
     private Object lock = new Object();
     private boolean activeTimer = false;
 
-    @Override
-    public void configure(Map<String, String> configuration) {
-        String propValue = configuration.get(BATCH_SIZE);
-        if (propValue != null) {
-            batchSize = Integer.parseInt(propValue);
-        } else {
-            batchSize = -1;
-        }
-
-        propValue = configuration.get(BATCH_INTERVAL);
-        if (propValue != null) {
-            batchInterval = Long.parseLong(propValue);
+    private CounterTimerTupleForwarder(int batchSize, long batchInterval) {
+        this.batchSize = batchSize;
+        this.batchInterval = batchInterval;
+        if (batchInterval > 0L) {
             activeTimer = true;
         }
     }
 
+    // Factory method
+    public static CounterTimerTupleForwarder create(Map<String, String> configuration) {
+        int batchSize = -1;
+        long batchInterval = 0L;
+        String propValue = configuration.get(BATCH_SIZE);
+        if (propValue != null) {
+            batchSize = Integer.parseInt(propValue);
+        }
+        propValue = configuration.get(BATCH_INTERVAL);
+        if (propValue != null) {
+            batchInterval = Long.parseLong(propValue);
+        }
+        return new CounterTimerTupleForwarder(batchSize, batchInterval);
+    }
+
     @Override
-    public void initialize(IHyracksCommonContext ctx, IFrameWriter writer) throws HyracksDataException {
+    public void initialize(IHyracksTaskContext ctx, IFrameWriter writer) throws HyracksDataException {
         this.appender = new FrameTupleAppender();
         this.frame = new VSizeFrame(ctx);
         appender.reset(frame, true);
@@ -152,6 +159,5 @@ public class CounterTimerTupleForwarder implements ITupleForwarder {
                 e.printStackTrace();
             }
         }
-
     }
 }

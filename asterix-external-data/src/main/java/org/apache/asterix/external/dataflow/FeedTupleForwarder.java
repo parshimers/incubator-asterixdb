@@ -18,14 +18,21 @@
  */
 package org.apache.asterix.external.dataflow;
 
-import java.util.Map;
+import java.io.IOException;
+import java.nio.ByteBuffer;
 
-import org.apache.asterix.common.parse.ITupleForwarder;
+import javax.annotation.Nonnull;
+
+import org.apache.asterix.common.api.IAsterixAppRuntimeContext;
+import org.apache.asterix.external.api.ITupleForwarder;
 import org.apache.asterix.external.util.DataflowUtils;
+import org.apache.asterix.external.util.ExternalDataConstants;
+import org.apache.asterix.external.util.FeedLogManager;
+import org.apache.asterix.external.util.FeedMessageUtils;
 import org.apache.hyracks.api.comm.IFrame;
 import org.apache.hyracks.api.comm.IFrameWriter;
 import org.apache.hyracks.api.comm.VSizeFrame;
-import org.apache.hyracks.api.context.IHyracksCommonContext;
+import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAppender;
@@ -33,24 +40,48 @@ import org.apache.hyracks.dataflow.common.comm.util.FrameUtils;
 
 public class FeedTupleForwarder implements ITupleForwarder {
 
+    private final FeedLogManager feedLogManager;
+    private int maxRecordSize; // temporary until the big object in storage is solved
     private FrameTupleAppender appender;
     private IFrame frame;
     private IFrameWriter writer;
     private boolean paused = false;
+    private boolean initialized;
 
-    @Override
-    public void configure(Map<String, String> configuration) {
+    public FeedTupleForwarder(@Nonnull FeedLogManager feedLogManager) {
+        this.feedLogManager = feedLogManager;
+    }
+
+    public FeedLogManager getFeedLogManager() {
+        return feedLogManager;
     }
 
     @Override
-    public void initialize(IHyracksCommonContext ctx, IFrameWriter writer) throws HyracksDataException {
-        this.frame = new VSizeFrame(ctx);
-        this.writer = writer;
-        this.appender = new FrameTupleAppender(frame);
+    public void initialize(IHyracksTaskContext ctx, IFrameWriter writer) throws HyracksDataException {
+        if (!initialized) {
+            this.maxRecordSize = ((IAsterixAppRuntimeContext) ctx.getJobletContext().getApplicationContext()
+                    .getApplicationObject()).getBufferCache().getPageSize() / 2;
+            this.frame = new VSizeFrame(ctx);
+            this.writer = writer;
+            this.appender = new FrameTupleAppender(frame);
+            // Set null feed message
+            ByteBuffer message = (ByteBuffer) ctx.getSharedObject();
+            // a null message
+            message.put(FeedMessageUtils.NULL_FEED_MESSAGE);
+            message.flip();
+            initialized = true;
+        }
     }
 
     @Override
     public void addTuple(ArrayTupleBuilder tb) throws HyracksDataException {
+        if (tb.getSize() > maxRecordSize) {
+            try {
+                feedLogManager.logRecord(tb.toString(), ExternalDataConstants.LARGE_RECORD_ERROR_MESSAGE);
+            } catch (IOException e) {
+                throw new HyracksDataException(e);
+            }
+        }
         if (paused) {
             synchronized (this) {
                 while (paused) {
@@ -79,5 +110,18 @@ public class FeedTupleForwarder implements ITupleForwarder {
         if (appender.getTupleCount() > 0) {
             FrameUtils.flushFrame(frame.getBuffer(), writer);
         }
+        try {
+            feedLogManager.close();
+        } catch (IOException e) {
+            throw new HyracksDataException(e);
+        }
+    }
+
+    public void flush() throws HyracksDataException {
+        appender.flush(writer);
+    }
+
+    public int getMaxRecordSize() {
+        return maxRecordSize;
     }
 }

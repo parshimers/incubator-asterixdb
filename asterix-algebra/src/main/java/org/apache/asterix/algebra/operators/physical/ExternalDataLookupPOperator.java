@@ -45,8 +45,8 @@ import org.apache.hyracks.algebricks.core.algebra.expressions.IVariableTypeEnvir
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import org.apache.hyracks.algebricks.core.algebra.metadata.IDataSourcePropertiesProvider;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractScanOperator;
-import org.apache.hyracks.algebricks.core.algebra.operators.logical.ExternalDataLookupOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.IOperatorSchema;
+import org.apache.hyracks.algebricks.core.algebra.operators.logical.UnnestMapOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.visitors.VariableUtilities;
 import org.apache.hyracks.algebricks.core.algebra.operators.physical.AbstractScanPOperator;
 import org.apache.hyracks.algebricks.core.algebra.properties.BroadcastPartitioningProperty;
@@ -113,8 +113,9 @@ public class ExternalDataLookupPOperator extends AbstractScanPOperator {
     @Override
     public void computeDeliveredProperties(ILogicalOperator op, IOptimizationContext context)
             throws AlgebricksException {
-        AqlDataSource ds = new DatasetDataSource(datasetId, datasetId.getDataverseName(), datasetId.getDatasourceName(),
-                recordType, AqlDataSourceType.EXTERNAL_DATASET);
+        AqlDataSource ds = new DatasetDataSource(datasetId, dataset, recordType,
+                null /*external dataset doesn't have meta records.*/, AqlDataSourceType.EXTERNAL_DATASET,
+                dataset.getDatasetDetails(), context.getComputationNodeDomain());
         IDataSourcePropertiesProvider dspp = ds.getPropertiesProvider();
         AbstractScanOperator as = (AbstractScanOperator) op;
         deliveredProperties = dspp.computePropertiesVector(as.getVariables());
@@ -124,8 +125,8 @@ public class ExternalDataLookupPOperator extends AbstractScanPOperator {
     public void contributeRuntimeOperator(IHyracksJobBuilder builder, JobGenContext context, ILogicalOperator op,
             IOperatorSchema opSchema, IOperatorSchema[] inputSchemas, IOperatorSchema outerPlanSchema)
                     throws AlgebricksException {
-        ExternalDataLookupOperator edabro = (ExternalDataLookupOperator) op;
-        ILogicalExpression expr = edabro.getExpressionRef().getValue();
+        UnnestMapOperator unnestMap = (UnnestMapOperator) op;
+        ILogicalExpression expr = unnestMap.getExpressionRef().getValue();
         if (expr.getExpressionTag() != LogicalExpressionTag.FUNCTION_CALL) {
             throw new IllegalStateException();
         }
@@ -138,19 +139,19 @@ public class ExternalDataLookupPOperator extends AbstractScanPOperator {
         IVariableTypeEnvironment typeEnv = context.getTypeEnvironment(op);
         List<LogicalVariable> outputVars = new ArrayList<LogicalVariable>();
         if (retainInput) {
-            VariableUtilities.getLiveVariables(edabro, outputVars);
+            VariableUtilities.getLiveVariables(unnestMap, outputVars);
         } else {
-            VariableUtilities.getProducedVariables(edabro, outputVars);
+            VariableUtilities.getProducedVariables(unnestMap, outputVars);
         }
 
         AqlMetadataProvider metadataProvider = (AqlMetadataProvider) context.getMetadataProvider();
         Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> externalLoopup = AqlMetadataProvider
                 .buildExternalDataLookupRuntime(builder.getJobSpec(), dataset, secondaryIndex, ridIndexes, retainInput,
                         typeEnv, outputVars, opSchema, context, metadataProvider, retainNull);
-        builder.contributeHyracksOperator(edabro, externalLoopup.first);
+        builder.contributeHyracksOperator(unnestMap, externalLoopup.first);
         builder.contributeAlgebricksPartitionConstraint(externalLoopup.first, externalLoopup.second);
-        ILogicalOperator srcExchange = edabro.getInputs().get(0).getValue();
-        builder.contributeGraphEdge(srcExchange, 0, edabro, 0);
+        ILogicalOperator srcExchange = unnestMap.getInputs().get(0).getValue();
+        builder.contributeGraphEdge(srcExchange, 0, unnestMap, 0);
     }
 
     protected int[] getKeyIndexes(List<LogicalVariable> keyVarList, IOperatorSchema[] inputSchemas) {
@@ -166,14 +167,14 @@ public class ExternalDataLookupPOperator extends AbstractScanPOperator {
 
     @Override
     public PhysicalRequirements getRequiredPropertiesForChildren(ILogicalOperator op,
-            IPhysicalPropertiesVector reqdByParent) {
+            IPhysicalPropertiesVector reqdByParent, IOptimizationContext context) {
         if (requiresBroadcast) {
             StructuralPropertiesVector[] pv = new StructuralPropertiesVector[1];
             pv[0] = new StructuralPropertiesVector(new BroadcastPartitioningProperty(null), null);
             return new PhysicalRequirements(pv, IPartitioningRequirementsCoordinator.NO_COORDINATION);
 
         } else {
-            return super.getRequiredPropertiesForChildren(op, reqdByParent);
+            return super.getRequiredPropertiesForChildren(op, reqdByParent, context);
         }
     }
 

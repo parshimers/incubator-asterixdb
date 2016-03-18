@@ -20,22 +20,19 @@
 package org.apache.asterix.optimizer.rules;
 
 import java.io.DataInputStream;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
-
-import org.apache.commons.lang3.mutable.Mutable;
 
 import org.apache.asterix.common.config.GlobalConfig;
 import org.apache.asterix.dataflow.data.common.AqlExpressionTypeComputer;
 import org.apache.asterix.dataflow.data.common.AqlNullableTypeComputer;
 import org.apache.asterix.dataflow.data.nontagged.AqlNullWriterFactory;
+import org.apache.asterix.formats.nontagged.AqlADMPrinterFactoryProvider;
 import org.apache.asterix.formats.nontagged.AqlBinaryBooleanInspectorImpl;
 import org.apache.asterix.formats.nontagged.AqlBinaryComparatorFactoryProvider;
 import org.apache.asterix.formats.nontagged.AqlBinaryHashFunctionFactoryProvider;
 import org.apache.asterix.formats.nontagged.AqlBinaryHashFunctionFamilyProvider;
 import org.apache.asterix.formats.nontagged.AqlBinaryIntegerInspector;
-import org.apache.asterix.formats.nontagged.AqlADMPrinterFactoryProvider;
 import org.apache.asterix.formats.nontagged.AqlSerializerDeserializerProvider;
 import org.apache.asterix.formats.nontagged.AqlTypeTraitProvider;
 import org.apache.asterix.jobgen.QueryLogicalExpressionJobGen;
@@ -47,6 +44,7 @@ import org.apache.asterix.om.typecomputer.base.TypeComputerUtilities;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.AbstractCollectionType;
+import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.core.algebra.base.ILogicalExpression;
@@ -64,6 +62,7 @@ import org.apache.hyracks.algebricks.core.algebra.expressions.ScalarFunctionCall
 import org.apache.hyracks.algebricks.core.algebra.expressions.StatefulFunctionCallExpression;
 import org.apache.hyracks.algebricks.core.algebra.expressions.UnnestingFunctionCallExpression;
 import org.apache.hyracks.algebricks.core.algebra.expressions.VariableReferenceExpression;
+import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.IOperatorSchema;
 import org.apache.hyracks.algebricks.core.algebra.visitors.ILogicalExpressionReferenceTransform;
 import org.apache.hyracks.algebricks.core.algebra.visitors.ILogicalExpressionVisitor;
@@ -77,9 +76,21 @@ import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.data.std.primitive.VoidPointable;
 import org.apache.hyracks.dataflow.common.comm.util.ByteBufferInputStream;
 
+import com.google.common.collect.ImmutableSet;
+
 public class ConstantFoldingRule implements IAlgebraicRewriteRule {
 
     private final ConstantFoldingVisitor cfv = new ConstantFoldingVisitor();
+
+    // Function Identifier sets that the ConstantFolding rule should skip to apply.
+    // Most of them are record-related functions.
+    private static final ImmutableSet<FunctionIdentifier> FUNC_ID_SET_THAT_SHOULD_NOT_BE_APPLIED = ImmutableSet.of(
+            AsterixBuiltinFunctions.RECORD_MERGE, AsterixBuiltinFunctions.ADD_FIELDS,
+            AsterixBuiltinFunctions.REMOVE_FIELDS, AsterixBuiltinFunctions.GET_RECORD_FIELDS,
+            AsterixBuiltinFunctions.GET_RECORD_FIELD_VALUE, AsterixBuiltinFunctions.FIELD_ACCESS_NESTED,
+            AsterixBuiltinFunctions.GET_ITEM, AsterixBuiltinFunctions.OPEN_RECORD_CONSTRUCTOR,
+            AsterixBuiltinFunctions.FIELD_ACCESS_BY_INDEX, AsterixBuiltinFunctions.CAST_RECORD,
+            AsterixBuiltinFunctions.CAST_LIST, AsterixBuiltinFunctions.META, AsterixBuiltinFunctions.META_KEY);
 
     /** Throws exceptions in substituiteProducedVariable, setVarType, and one getVarType method. */
     private static final IVariableTypeEnvironment _emptyTypeEnv = new IVariableTypeEnvironment() {
@@ -123,7 +134,8 @@ public class ConstantFoldingRule implements IAlgebraicRewriteRule {
     private static final IOperatorSchema[] _emptySchemas = new IOperatorSchema[] {};
 
     @Override
-    public boolean rewritePre(Mutable<ILogicalOperator> opRef, IOptimizationContext context) throws AlgebricksException {
+    public boolean rewritePre(Mutable<ILogicalOperator> opRef, IOptimizationContext context)
+            throws AlgebricksException {
         return false;
     }
 
@@ -134,6 +146,7 @@ public class ConstantFoldingRule implements IAlgebraicRewriteRule {
         if (context.checkIfInDontApplySet(this, op)) {
             return false;
         }
+
         return op.acceptExpressionTransform(cfv);
     }
 
@@ -173,17 +186,18 @@ public class ConstantFoldingRule implements IAlgebraicRewriteRule {
             if (!checkArgs(expr) || !expr.isFunctional()) {
                 return new Pair<Boolean, ILogicalExpression>(changed, expr);
             }
-            //Current ARecord SerDe assumes a closed record, so we do not constant fold open record constructors
-            if (expr.getFunctionIdentifier().equals(AsterixBuiltinFunctions.OPEN_RECORD_CONSTRUCTOR)
-                    || expr.getFunctionIdentifier().equals(AsterixBuiltinFunctions.CAST_RECORD)) {
+
+            // Skip Constant Folding for the record-related functions.
+            if (FUNC_ID_SET_THAT_SHOULD_NOT_BE_APPLIED.contains(expr.getFunctionIdentifier())) {
                 return new Pair<Boolean, ILogicalExpression>(false, null);
             }
+
             //Current List SerDe assumes a strongly typed list, so we do not constant fold the list constructors if they are not strongly typed
             if (expr.getFunctionIdentifier().equals(AsterixBuiltinFunctions.UNORDERED_LIST_CONSTRUCTOR)
                     || expr.getFunctionIdentifier().equals(AsterixBuiltinFunctions.ORDERED_LIST_CONSTRUCTOR)) {
                 AbstractCollectionType listType = (AbstractCollectionType) TypeComputerUtilities.getRequiredType(expr);
-                if (listType != null
-                        && (listType.getItemType().getTypeTag() == ATypeTag.ANY || listType.getItemType() instanceof AbstractCollectionType)) {
+                if (listType != null && (listType.getItemType().getTypeTag() == ATypeTag.ANY
+                        || listType.getItemType() instanceof AbstractCollectionType)) {
                     //case1: listType == null,  could be a nested list inside a list<ANY>
                     //case2: itemType = ANY
                     //case3: itemType = a nested list
@@ -194,17 +208,13 @@ public class ConstantFoldingRule implements IAlgebraicRewriteRule {
                 ARecordType rt = (ARecordType) _emptyTypeEnv.getType(expr.getArguments().get(0).getValue());
                 String str = ((AString) ((AsterixConstantValue) ((ConstantExpression) expr.getArguments().get(1)
                         .getValue()).getValue()).getObject()).getStringValue();
-                int k;
-                try {
-                    k = rt.getFieldIndex(str);
-                } catch (IOException e) {
-                    throw new AlgebricksException(e);
-                }
+                int k = rt.getFieldIndex(str);
                 if (k >= 0) {
                     // wait for the ByNameToByIndex rule to apply
                     return new Pair<Boolean, ILogicalExpression>(changed, expr);
                 }
             }
+
             IScalarEvaluatorFactory fact = _jobGenCtx.getExpressionRuntimeProvider().createEvaluatorFactory(expr,
                     _emptyTypeEnv, _emptySchemas, _jobGenCtx);
             IScalarEvaluator eval = fact.createScalarEvaluator(null);

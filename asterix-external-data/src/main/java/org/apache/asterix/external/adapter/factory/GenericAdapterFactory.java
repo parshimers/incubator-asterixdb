@@ -21,6 +21,7 @@ package org.apache.asterix.external.adapter.factory;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.external.api.IAdapterFactory;
 import org.apache.asterix.external.api.IDataFlowController;
 import org.apache.asterix.external.api.IDataParserFactory;
@@ -28,6 +29,8 @@ import org.apache.asterix.external.api.IDataSourceAdapter;
 import org.apache.asterix.external.api.IExternalDataSourceFactory;
 import org.apache.asterix.external.api.IIndexibleExternalDataSource;
 import org.apache.asterix.external.api.IIndexingAdapterFactory;
+import org.apache.asterix.external.dataflow.AbstractFeedDataFlowController;
+import org.apache.asterix.external.dataset.adapter.FeedAdapter;
 import org.apache.asterix.external.dataset.adapter.GenericAdapter;
 import org.apache.asterix.external.indexing.ExternalFile;
 import org.apache.asterix.external.provider.DataflowControllerProvider;
@@ -35,9 +38,13 @@ import org.apache.asterix.external.provider.DatasourceFactoryProvider;
 import org.apache.asterix.external.provider.ParserFactoryProvider;
 import org.apache.asterix.external.util.ExternalDataCompatibilityUtils;
 import org.apache.asterix.external.util.ExternalDataConstants;
+import org.apache.asterix.external.util.ExternalDataUtils;
+import org.apache.asterix.external.util.FeedUtils;
 import org.apache.asterix.om.types.ARecordType;
-import org.apache.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
+import org.apache.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.dataflow.std.file.FileSplit;
 
 public class GenericAdapterFactory implements IIndexingAdapterFactory, IAdapterFactory {
 
@@ -48,6 +55,9 @@ public class GenericAdapterFactory implements IIndexingAdapterFactory, IAdapterF
     private Map<String, String> configuration;
     private List<ExternalFile> files;
     private boolean indexingOp;
+    private boolean isFeed;
+    private FileSplit[] feedLogFileSplits;
+    private ARecordType metaType;
 
     @Override
     public void setSnapshot(List<ExternalFile> files, boolean indexingOp) {
@@ -61,7 +71,7 @@ public class GenericAdapterFactory implements IIndexingAdapterFactory, IAdapterF
     }
 
     @Override
-    public AlgebricksPartitionConstraint getPartitionConstraint() throws Exception {
+    public AlgebricksAbsolutePartitionConstraint getPartitionConstraint() throws AsterixException {
         return dataSourceFactory.getPartitionConstraint();
     }
 
@@ -69,28 +79,79 @@ public class GenericAdapterFactory implements IIndexingAdapterFactory, IAdapterF
      * Runs on each node controller (after serialization-deserialization)
      */
     @Override
-    public IDataSourceAdapter createAdapter(IHyracksTaskContext ctx, int partition) throws Exception {
+    public synchronized IDataSourceAdapter createAdapter(IHyracksTaskContext ctx, int partition)
+            throws HyracksDataException {
+        try {
+            restoreExternalObjects();
+        } catch (AsterixException e) {
+            throw new HyracksDataException(e);
+        }
         IDataFlowController controller = DataflowControllerProvider.getDataflowController(recordType, ctx, partition,
-                dataSourceFactory, dataParserFactory, configuration, indexingOp);
-        return new GenericAdapter(controller);
+                dataSourceFactory, dataParserFactory, configuration, indexingOp, isFeed, feedLogFileSplits);
+        if (isFeed) {
+            return new FeedAdapter((AbstractFeedDataFlowController) controller);
+        } else {
+            return new GenericAdapter(controller);
+        }
+    }
+
+    private void restoreExternalObjects() throws AsterixException {
+        if (dataSourceFactory == null) {
+            dataSourceFactory = DatasourceFactoryProvider.getExternalDataSourceFactory(configuration);
+            // create and configure parser factory
+            if (dataSourceFactory.isIndexible() && (files != null)) {
+                ((IIndexibleExternalDataSource) dataSourceFactory).setSnapshot(files, indexingOp);
+            }
+            dataSourceFactory.configure(configuration);
+        }
+        if (dataParserFactory == null) {
+            // create and configure parser factory
+            dataParserFactory = ParserFactoryProvider.getDataParserFactory(configuration);
+            dataParserFactory.setRecordType(recordType);
+            dataParserFactory.setMetaType(metaType);
+            dataParserFactory.configure(configuration);
+        }
     }
 
     @Override
-    public void configure(Map<String, String> configuration, ARecordType outputType) throws Exception {
+    public void configure(Map<String, String> configuration, ARecordType outputType, ARecordType metaType)
+            throws AsterixException {
         this.recordType = outputType;
+        this.metaType = metaType;
         this.configuration = configuration;
         dataSourceFactory = DatasourceFactoryProvider.getExternalDataSourceFactory(configuration);
+
         dataParserFactory = ParserFactoryProvider.getDataParserFactory(configuration);
         prepare();
         ExternalDataCompatibilityUtils.validateCompatibility(dataSourceFactory, dataParserFactory);
+        configureFeedLogManager();
+        nullifyExternalObjects();
     }
 
-    private void prepare() throws Exception {
+    private void configureFeedLogManager() throws AsterixException {
+        this.isFeed = ExternalDataUtils.isFeed(configuration);
+        if (isFeed) {
+            feedLogFileSplits = FeedUtils.splitsForAdapter(ExternalDataUtils.getDataverse(configuration),
+                    ExternalDataUtils.getFeedName(configuration), dataSourceFactory.getPartitionConstraint());
+        }
+    }
+
+    private void nullifyExternalObjects() {
+        if (ExternalDataUtils.isExternal(configuration.get(ExternalDataConstants.KEY_READER))) {
+            dataSourceFactory = null;
+        }
+        if (ExternalDataUtils.isExternal(configuration.get(ExternalDataConstants.KEY_PARSER))) {
+            dataParserFactory = null;
+        }
+    }
+
+    private void prepare() throws AsterixException {
         if (dataSourceFactory.isIndexible() && (files != null)) {
             ((IIndexibleExternalDataSource) dataSourceFactory).setSnapshot(files, indexingOp);
         }
         dataSourceFactory.configure(configuration);
         dataParserFactory.setRecordType(recordType);
+        dataParserFactory.setMetaType(metaType);
         dataParserFactory.configure(configuration);
     }
 

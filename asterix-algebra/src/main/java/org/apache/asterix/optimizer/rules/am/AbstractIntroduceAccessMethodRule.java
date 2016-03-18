@@ -18,14 +18,12 @@
  */
 package org.apache.asterix.optimizer.rules.am;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.asterix.common.config.MetadataConstants;
 import org.apache.asterix.common.config.DatasetConfig.IndexType;
 import org.apache.asterix.dataflow.data.common.AqlExpressionTypeComputer;
 import org.apache.asterix.metadata.api.IMetadataEntity;
@@ -63,6 +61,8 @@ import org.apache.hyracks.algebricks.core.algebra.operators.logical.AssignOperat
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.UnnestOperator;
 import org.apache.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 
+import com.google.common.collect.ImmutableSet;
+
 /**
  * Class that embodies the commonalities between rewrite rules for access
  * methods.
@@ -70,6 +70,17 @@ import org.apache.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRewriteRule {
 
     private AqlMetadataProvider metadataProvider;
+
+    // Function Identifier sets that retain the original field variable through each function's arguments
+    private final ImmutableSet<FunctionIdentifier> funcIDSetThatRetainFieldName = ImmutableSet.of(
+            AsterixBuiltinFunctions.WORD_TOKENS, AsterixBuiltinFunctions.GRAM_TOKENS, AsterixBuiltinFunctions.SUBSTRING,
+            AsterixBuiltinFunctions.SUBSTRING_BEFORE, AsterixBuiltinFunctions.SUBSTRING_AFTER,
+            AsterixBuiltinFunctions.CREATE_POLYGON, AsterixBuiltinFunctions.CREATE_MBR,
+            AsterixBuiltinFunctions.CREATE_RECTANGLE, AsterixBuiltinFunctions.CREATE_CIRCLE,
+            AsterixBuiltinFunctions.CREATE_LINE, AsterixBuiltinFunctions.CREATE_POINT,
+            AsterixBuiltinFunctions.NUMERIC_ADD, AsterixBuiltinFunctions.NUMERIC_SUBTRACT,
+            AsterixBuiltinFunctions.NUMERIC_MULTIPLY, AsterixBuiltinFunctions.NUMERIC_DIVIDE,
+            AsterixBuiltinFunctions.NUMERIC_MOD);
 
     public abstract Map<FunctionIdentifier, List<IAccessMethod>> getAccessMethods();
 
@@ -129,14 +140,21 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
      * Simply picks the first index that it finds. TODO: Improve this decision
      * process by making it more systematic.
      */
-    protected Pair<IAccessMethod, Index> chooseIndex(Map<IAccessMethod, AccessMethodAnalysisContext> analyzedAMs) {
+    protected Pair<IAccessMethod, Index> chooseBestIndex(Map<IAccessMethod, AccessMethodAnalysisContext> analyzedAMs) {
+        List<Pair<IAccessMethod, Index>> list = chooseAllIndex(analyzedAMs);
+        return list.isEmpty() ? null : list.get(0);
+    }
+
+    protected List<Pair<IAccessMethod, Index>> chooseAllIndex(
+            Map<IAccessMethod, AccessMethodAnalysisContext> analyzedAMs) {
+        List<Pair<IAccessMethod, Index>> result = new ArrayList<Pair<IAccessMethod, Index>>();
         Iterator<Map.Entry<IAccessMethod, AccessMethodAnalysisContext>> amIt = analyzedAMs.entrySet().iterator();
         while (amIt.hasNext()) {
             Map.Entry<IAccessMethod, AccessMethodAnalysisContext> amEntry = amIt.next();
             AccessMethodAnalysisContext analysisCtx = amEntry.getValue();
             Iterator<Map.Entry<Index, List<Pair<Integer, Integer>>>> indexIt = analysisCtx.indexExprsAndVars.entrySet()
                     .iterator();
-            if (indexIt.hasNext()) {
+            while (indexIt.hasNext()) {
                 Map.Entry<Index, List<Pair<Integer, Integer>>> indexEntry = indexIt.next();
                 // To avoid a case where the chosen access method and a chosen
                 // index type is different.
@@ -149,22 +167,21 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
                 //                           LENGTH_PARTITIONED_NGRAM_INVIX]
                 IAccessMethod chosenAccessMethod = amEntry.getKey();
                 Index chosenIndex = indexEntry.getKey();
-                boolean isKeywordOrNgramIndexChosen = false;
-                if (chosenIndex.getIndexType() == IndexType.LENGTH_PARTITIONED_WORD_INVIX
+                boolean isKeywordOrNgramIndexChosen = chosenIndex
+                        .getIndexType() == IndexType.LENGTH_PARTITIONED_WORD_INVIX
                         || chosenIndex.getIndexType() == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX
                         || chosenIndex.getIndexType() == IndexType.SINGLE_PARTITION_WORD_INVIX
-                        || chosenIndex.getIndexType() == IndexType.SINGLE_PARTITION_NGRAM_INVIX)
-                    isKeywordOrNgramIndexChosen = true;
-                if ((chosenAccessMethod == BTreeAccessMethod.INSTANCE && chosenIndex.getIndexType() != IndexType.BTREE)
+                        || chosenIndex.getIndexType() == IndexType.SINGLE_PARTITION_NGRAM_INVIX;
+
+                if ((chosenAccessMethod == BTreeAccessMethod.INSTANCE && chosenIndex.getIndexType() == IndexType.BTREE)
                         || (chosenAccessMethod == RTreeAccessMethod.INSTANCE
-                                && chosenIndex.getIndexType() != IndexType.RTREE)
-                        || (chosenAccessMethod == InvertedIndexAccessMethod.INSTANCE && !isKeywordOrNgramIndexChosen)) {
-                    continue;
+                                && chosenIndex.getIndexType() == IndexType.RTREE)
+                        || (chosenAccessMethod == InvertedIndexAccessMethod.INSTANCE && isKeywordOrNgramIndexChosen)) {
+                    result.add(new Pair<IAccessMethod, Index>(chosenAccessMethod, chosenIndex));
                 }
-                return new Pair<IAccessMethod, Index>(chosenAccessMethod, chosenIndex);
             }
         }
-        return null;
+        return result;
     }
 
     /**
@@ -187,6 +204,7 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
         while (indexExprAndVarIt.hasNext()) {
             Map.Entry<Index, List<Pair<Integer, Integer>>> indexExprAndVarEntry = indexExprAndVarIt.next();
             Index index = indexExprAndVarEntry.getKey();
+
             boolean allUsed = true;
             int lastFieldMatched = -1;
             boolean foundKeyField = false;
@@ -210,9 +228,11 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
                     //Prune indexes based on field types
                     List<IAType> indexedTypes = new ArrayList<IAType>();
                     //retrieve types of expressions joined/selected with an indexed field
-                    for (int j = 0; j < optFuncExpr.getNumLogicalVars(); j++)
-                        if (j != exprAndVarIdx.second)
+                    for (int j = 0; j < optFuncExpr.getNumLogicalVars(); j++) {
+                        if (j != exprAndVarIdx.second) {
                             indexedTypes.add(optFuncExpr.getFieldType(j));
+                        }
+                    }
 
                     //add constants in case of select
                     if (indexedTypes.size() < 2 && optFuncExpr.getNumLogicalVars() == 1
@@ -228,8 +248,9 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
 
                                 @Override
                                 public Object getVarType(LogicalVariable var) throws AlgebricksException {
-                                    if (var.equals(optFuncExpr.getSourceVar(exprAndVarIdx.second)))
+                                    if (var.equals(optFuncExpr.getSourceVar(exprAndVarIdx.second))) {
                                         return keyType;
+                                    }
                                     throw new IllegalArgumentException();
                                 }
 
@@ -237,8 +258,9 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
                                 public Object getVarType(LogicalVariable var, List<LogicalVariable> nonNullVariables,
                                         List<List<LogicalVariable>> correlatedNullableVariableLists)
                                                 throws AlgebricksException {
-                                    if (var.equals(optFuncExpr.getSourceVar(exprAndVarIdx.second)))
+                                    if (var.equals(optFuncExpr.getSourceVar(exprAndVarIdx.second))) {
                                         return keyType;
+                                    }
                                     throw new IllegalArgumentException();
                                 }
 
@@ -263,9 +285,11 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
                     boolean jaccardSimilarity = optFuncExpr.getFuncExpr().getFunctionIdentifier().getName()
                             .startsWith("similarity-jaccard-check");
 
-                    for (int j = 0; j < indexedTypes.size(); j++)
-                        for (int k = j + 1; k < indexedTypes.size(); k++)
+                    for (int j = 0; j < indexedTypes.size(); j++) {
+                        for (int k = j + 1; k < indexedTypes.size(); k++) {
                             typeMatch &= isMatched(indexedTypes.get(j), indexedTypes.get(k), jaccardSimilarity);
+                        }
+                    }
 
                     // Check if any field name in the optFuncExpr matches.
                     if (optFuncExpr.findFieldName(keyField) != -1) {
@@ -314,8 +338,9 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
 
     private boolean isMatched(IAType type1, IAType type2, boolean useListDomain) throws AlgebricksException {
         if (ATypeHierarchy.isSameTypeDomain(Index.getNonNullableType(type1).first.getTypeTag(),
-                Index.getNonNullableType(type2).first.getTypeTag(), useListDomain))
+                Index.getNonNullableType(type2).first.getTypeTag(), useListDomain)) {
             return true;
+        }
         return ATypeHierarchy.canPromote(Index.getNonNullableType(type1).first.getTypeTag(),
                 Index.getNonNullableType(type2).first.getTypeTag());
     }
@@ -419,9 +444,10 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
             if (index.getKeyFieldNames().contains(fieldName) && index.getPendingOp() == IMetadataEntity.PENDING_NO_OP) {
                 indexCandidates.add(index);
                 if (optFuncExpr.getFieldType(varIdx) == BuiltinType.ANULL
-                        || optFuncExpr.getFieldType(varIdx) == BuiltinType.ANY)
+                        || optFuncExpr.getFieldType(varIdx) == BuiltinType.ANY) {
                     optFuncExpr.setFieldType(varIdx,
                             index.getKeyFieldTypes().get(index.getKeyFieldNames().indexOf(fieldName)));
+                }
                 analysisCtx.addIndexExpr(matchedSubTree.dataset, index, matchedFuncExprIndex, varIdx);
             }
         }
@@ -436,9 +462,10 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
             IOptimizationContext context) throws AlgebricksException {
         int optFuncExprIndex = 0;
         List<Index> datasetIndexes = new ArrayList<Index>();
-        if (subTree.dataSourceType != DataSourceType.COLLECTION_SCAN)
+        if (subTree.dataSourceType != DataSourceType.COLLECTION_SCAN) {
             datasetIndexes = metadataProvider.getDatasetIndexes(subTree.dataset.getDataverseName(),
                     subTree.dataset.getDatasetName());
+        }
         for (IOptimizableFuncExpr optFuncExpr : analysisCtx.matchedFuncExprs) {
             // Try to match variables from optFuncExpr to assigns or unnests.
             for (int assignOrUnnestIndex = 0; assignOrUnnestIndex < subTree.assignsAndUnnests
@@ -554,16 +581,33 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
             // The variable value is one of the partitioning fields.
             List<String> fieldName = null;
             IAType fieldType = null;
+            List<List<String>> subTreePKs = null;
 
             if (!fromAdditionalDataSource) {
-                fieldName = DatasetUtils.getPartitioningKeys(subTree.dataset).get(varIndex);
-                fieldType = (IAType) context.getOutputTypeEnvironment(subTree.dataSourceRef.getValue()).getVarType(var);
+                subTreePKs = DatasetUtils.getPartitioningKeys(subTree.dataset);
+                // Check whether this variable is PK, not a record variable.
+                if (varIndex <= subTreePKs.size() - 1) {
+                    fieldName = subTreePKs.get(varIndex);
+                    fieldType = (IAType) context.getOutputTypeEnvironment(subTree.dataSourceRef.getValue())
+                            .getVarType(var);
+                }
             } else {
-                fieldName = DatasetUtils.getPartitioningKeys(subTree.ixJoinOuterAdditionalDatasets.get(varIndex))
-                        .get(varIndex);
-                fieldType = (IAType) context
-                        .getOutputTypeEnvironment(subTree.ixJoinOuterAdditionalDataSourceRefs.get(varIndex).getValue())
-                        .getVarType(var);
+                // Need to check additional dataset one by one
+                for (int i = 0; i < subTree.ixJoinOuterAdditionalDatasets.size(); i++) {
+                    if (subTree.ixJoinOuterAdditionalDatasets.get(i) != null) {
+                        subTreePKs = DatasetUtils.getPartitioningKeys(subTree.ixJoinOuterAdditionalDatasets.get(i));
+
+                        // Check whether this variable is PK, not a record variable.
+                        if (subTreePKs.contains(var) && varIndex <= subTreePKs.size() - 1) {
+                            fieldName = subTreePKs.get(varIndex);
+                            fieldType = (IAType) context
+                                    .getOutputTypeEnvironment(
+                                            subTree.ixJoinOuterAdditionalDataSourceRefs.get(i).getValue())
+                                    .getVarType(var);
+                            break;
+                        }
+                    }
+                }
             }
             // Set the fieldName in the corresponding matched function
             // expression, and remember matching subtree.
@@ -708,12 +752,8 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
                 }
 
                 if (!isByName) {
-                    try {
-                        fieldName = ((ARecordType) recordType.getSubFieldType(parentFieldNames))
-                                .getFieldNames()[fieldIndex];
-                    } catch (IOException e) {
-                        throw new AlgebricksException(e);
-                    }
+                    fieldName = ((ARecordType) recordType.getSubFieldType(parentFieldNames))
+                            .getFieldNames()[fieldIndex];
                 }
                 optFuncExpr.setSourceVar(funcVarIndex, ((AssignOperator) op).getVariables().get(assignVarIndex));
                 //add fieldName to the nested fieldName, return
@@ -739,16 +779,7 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
 
         }
 
-        if (funcIdent != AsterixBuiltinFunctions.WORD_TOKENS && funcIdent != AsterixBuiltinFunctions.GRAM_TOKENS
-                && funcIdent != AsterixBuiltinFunctions.SUBSTRING
-                && funcIdent != AsterixBuiltinFunctions.SUBSTRING_BEFORE
-                && funcIdent != AsterixBuiltinFunctions.SUBSTRING_AFTER
-                && funcIdent != AsterixBuiltinFunctions.CREATE_POLYGON
-                && funcIdent != AsterixBuiltinFunctions.CREATE_MBR
-                && funcIdent != AsterixBuiltinFunctions.CREATE_RECTANGLE
-                && funcIdent != AsterixBuiltinFunctions.CREATE_CIRCLE
-                && funcIdent != AsterixBuiltinFunctions.CREATE_LINE
-                && funcIdent != AsterixBuiltinFunctions.CREATE_POINT) {
+        if (!funcIDSetThatRetainFieldName.contains(funcIdent)) {
             return null;
         }
         // We use a part of the field in edit distance computation

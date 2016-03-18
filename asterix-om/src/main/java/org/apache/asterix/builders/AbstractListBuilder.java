@@ -32,9 +32,6 @@ import org.apache.hyracks.data.std.util.GrowableArray;
 import org.apache.hyracks.storage.am.common.ophelpers.IntArrayList;
 
 public abstract class AbstractListBuilder implements IAsterixListBuilder {
-
-    protected static final byte serNullTypeTag = ATypeTag.NULL.serialize();
-
     protected final GrowableArray outputStorage;
     protected final DataOutputStream outputStream;
     protected final IntArrayList offsets;
@@ -80,13 +77,15 @@ public abstract class AbstractListBuilder implements IAsterixListBuilder {
     @Override
     public void addItem(IValueReference item) throws HyracksDataException {
         try {
-            if (!fixedSize && (item.getByteArray()[0] != serNullTypeTag || itemTypeTag == ATypeTag.ANY))
+            if (!fixedSize && (item.getByteArray()[item.getStartOffset()] != ATypeTag.SERIALIZED_NULL_TYPE_TAG
+                    || itemTypeTag == ATypeTag.ANY)) {
                 this.offsets.add(outputStorage.getLength());
-            if (itemTypeTag == ATypeTag.ANY
-                    || (itemTypeTag == ATypeTag.NULL && item.getByteArray()[0] == serNullTypeTag)) {
+            }
+            if (itemTypeTag == ATypeTag.ANY || (itemTypeTag == ATypeTag.NULL
+                    && item.getByteArray()[item.getStartOffset()] == ATypeTag.SERIALIZED_NULL_TYPE_TAG)) {
                 this.numberOfItems++;
                 this.outputStream.write(item.getByteArray(), item.getStartOffset(), item.getLength());
-            } else if (item.getByteArray()[0] != serNullTypeTag) {
+            } else if (item.getByteArray()[item.getStartOffset()] != ATypeTag.SERIALIZED_NULL_TYPE_TAG) {
                 this.numberOfItems++;
                 this.outputStream.write(item.getByteArray(), item.getStartOffset() + 1, item.getLength() - 1);
             }
@@ -98,10 +97,12 @@ public abstract class AbstractListBuilder implements IAsterixListBuilder {
     @Override
     public void write(DataOutput out, boolean writeTypeTag) throws HyracksDataException {
         try {
-            if (!fixedSize)
+            if (!fixedSize) {
                 metadataInfoSize += offsets.size() * 4;
-            if (offsetArray == null || offsetArray.length < metadataInfoSize)
+            }
+            if (offsetArray == null || offsetArray.length < metadataInfoSize) {
                 offsetArray = new byte[metadataInfoSize];
+            }
 
             SerializerDeserializerUtil.writeIntToByteArray(offsetArray,
                     headerSize + metadataInfoSize + outputStorage.getLength(), offsetPosition);
@@ -110,8 +111,8 @@ public abstract class AbstractListBuilder implements IAsterixListBuilder {
             if (!fixedSize) {
                 offsetPosition += 8;
                 for (int i = 0; i < offsets.size(); i++) {
-                    SerializerDeserializerUtil.writeIntToByteArray(offsetArray, offsets.get(i) + metadataInfoSize
-                            + headerSize, offsetPosition);
+                    SerializerDeserializerUtil.writeIntToByteArray(offsetArray,
+                            offsets.get(i) + metadataInfoSize + headerSize, offsetPosition);
                     offsetPosition += 4;
                 }
             }

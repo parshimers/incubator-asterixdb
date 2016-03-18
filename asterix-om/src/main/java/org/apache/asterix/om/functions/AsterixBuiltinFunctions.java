@@ -18,9 +18,16 @@
  */
 package org.apache.asterix.om.functions;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import org.apache.asterix.common.functions.FunctionConstants;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.om.typecomputer.base.IResultTypeComputer;
+import org.apache.asterix.om.typecomputer.impl.ABinaryTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.ABooleanTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.ADateTimeTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.ADateTypeComputer;
@@ -83,6 +90,7 @@ import org.apache.asterix.om.typecomputer.impl.OptionalAStringTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.OptionalATemporalInstanceTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.OptionalATimeTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.OptionalAYearMonthDurationTypeComputer;
+import org.apache.asterix.om.typecomputer.impl.OptionalOpenARecordTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.OrderedListConstructorResultType;
 import org.apache.asterix.om.typecomputer.impl.OrderedListOfAInt32TypeComputer;
 import org.apache.asterix.om.typecomputer.impl.OrderedListOfAInt64TypeComputer;
@@ -112,12 +120,6 @@ import org.apache.hyracks.algebricks.core.algebra.expressions.AggregateFunctionC
 import org.apache.hyracks.algebricks.core.algebra.functions.AlgebricksBuiltinFunctions;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import org.apache.hyracks.algebricks.core.algebra.functions.IFunctionInfo;
-
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 public class AsterixBuiltinFunctions {
 
@@ -508,12 +510,8 @@ public class AsterixBuiltinFunctions {
     public final static FunctionIdentifier DAY_TIME_DURATION_CONSTRUCTOR = new FunctionIdentifier(
             FunctionConstants.ASTERIX_NS, "day-time-duration", 1);
 
-    public final static FunctionIdentifier INTERVAL_CONSTRUCTOR_DATE = new FunctionIdentifier(
-            FunctionConstants.ASTERIX_NS, "interval-from-date", 2);
-    public final static FunctionIdentifier INTERVAL_CONSTRUCTOR_TIME = new FunctionIdentifier(
-            FunctionConstants.ASTERIX_NS, "interval-from-time", 2);
-    public final static FunctionIdentifier INTERVAL_CONSTRUCTOR_DATETIME = new FunctionIdentifier(
-            FunctionConstants.ASTERIX_NS, "interval-from-datetime", 2);
+    public final static FunctionIdentifier INTERVAL_CONSTRUCTOR = new FunctionIdentifier(FunctionConstants.ASTERIX_NS,
+            "interval", 2);
     public final static FunctionIdentifier INTERVAL_CONSTRUCTOR_START_FROM_DATE = new FunctionIdentifier(
             FunctionConstants.ASTERIX_NS, "interval-start-from-date", 2);
     public final static FunctionIdentifier INTERVAL_CONSTRUCTOR_START_FROM_TIME = new FunctionIdentifier(
@@ -614,6 +612,8 @@ public class AsterixBuiltinFunctions {
 
     public final static FunctionIdentifier CREATE_UUID = new FunctionIdentifier(FunctionConstants.ASTERIX_NS,
             "create-uuid", 0);
+    public final static FunctionIdentifier CREATE_QUERY_UID = new FunctionIdentifier(FunctionConstants.ASTERIX_NS,
+            "create-query-uid", 0);
 
     // Spatial and temporal type accessors
     public static final FunctionIdentifier ACCESSOR_TEMPORAL_YEAR = new FunctionIdentifier(FunctionConstants.ASTERIX_NS,
@@ -702,8 +702,6 @@ public class AsterixBuiltinFunctions {
     public final static FunctionIdentifier GET_POINTS_LINE_RECTANGLE_POLYGON_ACCESSOR = new FunctionIdentifier(
             FunctionConstants.ASTERIX_NS, "get-points", 1);
 
-    public final static FunctionIdentifier UNION = new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "union", 2);
-
     public static final FunctionIdentifier EQ = AlgebricksBuiltinFunctions.EQ;
     public static final FunctionIdentifier LE = AlgebricksBuiltinFunctions.LE;
     public static final FunctionIdentifier GE = AlgebricksBuiltinFunctions.GE;
@@ -725,6 +723,11 @@ public class AsterixBuiltinFunctions {
 
     public static final FunctionIdentifier EXTERNAL_LOOKUP = new FunctionIdentifier(FunctionConstants.ASTERIX_NS,
             "external-lookup", FunctionIdentifier.VARARGS);
+
+    public static final FunctionIdentifier META = new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "meta",
+            FunctionIdentifier.VARARGS);
+    public static final FunctionIdentifier META_KEY = new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "meta-key",
+            FunctionIdentifier.VARARGS);
 
     public static IFunctionInfo getAsterixFunctionInfo(FunctionIdentifier fid) {
         return registeredFunctions.get(fid);
@@ -773,6 +776,7 @@ public class AsterixBuiltinFunctions {
         addFunction(CREATE_POLYGON, OptionalAPolygonTypeComputer.INSTANCE, true);
         addFunction(CREATE_RECTANGLE, OptionalARectangleTypeComputer.INSTANCE, true);
         addFunction(CREATE_UUID, AUUIDTypeComputer.INSTANCE, false);
+        addFunction(CREATE_QUERY_UID, ABinaryTypeComputer.INSTANCE, false);
         addFunction(UUID_CONSTRUCTOR, AUUIDTypeComputer.INSTANCE, true);
 
         addFunction(DATE_CONSTRUCTOR, OptionalADateTypeComputer.INSTANCE, true);
@@ -941,7 +945,6 @@ public class AsterixBuiltinFunctions {
         addFunction(TID, AInt64TypeComputer.INSTANCE, true);
         addFunction(TIME_CONSTRUCTOR, OptionalATimeTypeComputer.INSTANCE, true);
         addPrivateFunction(TYPE_OF, null, true);
-        addPrivateFunction(UNION, UnorderedListConstructorResultType.INSTANCE, true);
         addPrivateFunction(UNORDERED_LIST_CONSTRUCTOR, UnorderedListConstructorResultType.INSTANCE, true);
         addFunction(WORD_TOKENS, OrderedListOfAStringTypeComputer.INSTANCE, true);
 
@@ -1026,12 +1029,14 @@ public class AsterixBuiltinFunctions {
         addFunction(DURATION_FROM_INTERVAL, OptionalADayTimeDurationTypeComputer.INSTANCE, true);
 
         // interval constructors
-        addFunction(INTERVAL_CONSTRUCTOR_DATE, OptionalAIntervalTypeComputer.INSTANCE, true);
-        addFunction(INTERVAL_CONSTRUCTOR_TIME, OptionalAIntervalTypeComputer.INSTANCE, true);
-        addFunction(INTERVAL_CONSTRUCTOR_DATETIME, OptionalAIntervalTypeComputer.INSTANCE, true);
+        addFunction(INTERVAL_CONSTRUCTOR, OptionalAIntervalTypeComputer.INSTANCE, true);
         addFunction(INTERVAL_CONSTRUCTOR_START_FROM_DATE, OptionalAIntervalTypeComputer.INSTANCE, true);
         addFunction(INTERVAL_CONSTRUCTOR_START_FROM_DATETIME, OptionalAIntervalTypeComputer.INSTANCE, true);
         addFunction(INTERVAL_CONSTRUCTOR_START_FROM_TIME, OptionalAIntervalTypeComputer.INSTANCE, true);
+
+        // meta() function
+        addFunction(META, OptionalOpenARecordTypeComputer.INSTANCE, true);
+        addPrivateFunction(META_KEY, AnyTypeComputer.INSTANCE, false);
 
         addPrivateFunction(COLLECTION_TO_SEQUENCE, CollectionToSequenceTypeComputer.INSTANCE, true);
 
@@ -1312,9 +1317,10 @@ public class AsterixBuiltinFunctions {
 
         IFunctionInfo finfo = getAsterixFunctionInfo(fi);
         IFunctionInfo serializableFinfo = aggregateToSerializableAggregate.get(finfo);
-        if (serializableFinfo == null)
+        if (serializableFinfo == null) {
             throw new IllegalStateException(
                     "no serializable implementation for aggregate function " + serializableFinfo);
+        }
 
         IFunctionInfo fiLocal = aggregateToLocalAggregate.get(serializableFinfo);
         IFunctionInfo fiGlobal = aggregateToGlobalAggregate.get(serializableFinfo);

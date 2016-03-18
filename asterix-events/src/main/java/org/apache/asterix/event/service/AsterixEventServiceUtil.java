@@ -147,6 +147,38 @@ public class AsterixEventServiceUtil {
         clusterProperties.add(new Property("CLUSTER_NET_PORT", "" + clusterNetPort));
         clusterProperties.add(new Property("HTTP_PORT", "" + httpPort));
 
+        //pass Cluster optional parameters
+        if (cluster.getHeartbeatPeriod() != null) {
+            clusterProperties
+                    .add(new Property("HEARTBEAT_PERIOD", String.valueOf(cluster.getHeartbeatPeriod().intValue())));
+        }
+        if (cluster.getMaxHeartbeatLapsePeriods() != null) {
+            clusterProperties.add(new Property("MAX_HEARTBEAT_LAPSE_PERIODS",
+                    String.valueOf(cluster.getMaxHeartbeatLapsePeriods().intValue())));
+        }
+        if (cluster.getProfileDumpPeriod() != null) {
+            clusterProperties.add(
+                    new Property("PROFILE_DUMP_PERIOD", String.valueOf(cluster.getProfileDumpPeriod().intValue())));
+        }
+        if (cluster.getDefaultMaxJobAttempts() != null) {
+            clusterProperties.add(new Property("DEFAULT_MAX_JOB_ATTEMPTS",
+                    String.valueOf(cluster.getDefaultMaxJobAttempts().intValue())));
+        }
+        if (cluster.getJobHistorySize() != null) {
+            clusterProperties
+                    .add(new Property("JOB_HISTORY_SIZE", String.valueOf(cluster.getJobHistorySize().intValue())));
+        }
+        if (cluster.getResultTimeToLive() != null) {
+            clusterProperties.add(
+                    new Property("RESULT_TIME_TO_LIVE", String.valueOf(cluster.getResultTimeToLive().longValue())));
+        }
+        if (cluster.getResultSweepThreshold() != null) {
+            clusterProperties.add(new Property("RESULT_SWEEP_THRESHOLD",
+                    String.valueOf(cluster.getResultSweepThreshold().longValue())));
+        }
+        if (cluster.getCcRoot() != null) {
+            clusterProperties.add(new Property("CC_ROOT", cluster.getCcRoot()));
+        }
         cluster.setEnv(new Env(clusterProperties));
     }
 
@@ -290,6 +322,7 @@ public class AsterixEventServiceUtil {
         ZipEntry entry = null;
 
         int BUFFER_SIZE = 4096;
+        createDir(destDir);
         while ((entry = zis.getNextEntry()) != null) {
             String dst = destDir + File.separator + entry.getName();
             if (entry.isDirectory()) {
@@ -396,6 +429,11 @@ public class AsterixEventServiceUtil {
         int index = name.lastIndexOf(File.separator);
         String dirSequence = name.substring(0, index);
         File newDirs = new File(destDirectory + File.separator + dirSequence);
+        newDirs.mkdirs();
+    }
+
+    private static void createDir(String destDirectory) {
+        File newDirs = new File(destDirectory + File.separator);
         newDirs.mkdirs();
     }
 

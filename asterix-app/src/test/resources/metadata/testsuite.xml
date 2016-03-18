@@ -19,6 +19,41 @@
 <test-suite xmlns="urn:xml.testframework.asterix.apache.org" ResultOffsetPath="results" QueryOffsetPath="queries" QueryFileExtension=".aql">
   <test-group name="basic">
     <test-case FilePath="basic">
+      <compilation-unit name="dataset_with_meta-1">
+        <output-dir compare="Text">dataset_with_meta-1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="basic">
+      <compilation-unit name="dataset_with_meta-2">
+        <output-dir compare="Text">dataset_with_meta-2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="basic">
+      <compilation-unit name="dataset_with_meta-3">
+        <output-dir compare="Text">dataset_with_meta-3</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="basic">
+      <compilation-unit name="dataset_with_meta-4">
+        <output-dir compare="Text">dataset_with_meta-4</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="basic">
+      <compilation-unit name="dataset_with_meta-5">
+        <output-dir compare="Text">dataset_with_meta-5</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="basic">
+      <compilation-unit name="dataset_with_meta-6">
+        <output-dir compare="Text">dataset_with_meta-6</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="basic">
+      <compilation-unit name="dataset_with_meta-7">
+        <output-dir compare="Text">dataset_with_meta-7</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="basic">
       <compilation-unit name="meta01">
         <output-dir compare="Text">meta01</output-dir>
       </compilation-unit>
@@ -271,6 +306,11 @@
     <test-case FilePath="basic">
       <compilation-unit name="issue_363_temporal_sec_key_4">
         <output-dir compare="Text">issue_363_temporal_sec_key_4</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="basic">
+      <compilation-unit name="metadata_selfjoin">
+        <output-dir compare="Text">metadata_selfjoin</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="basic">

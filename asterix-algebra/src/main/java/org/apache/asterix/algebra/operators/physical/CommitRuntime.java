@@ -28,6 +28,8 @@ import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.ITransactionManager;
 import org.apache.asterix.common.transactions.JobId;
 import org.apache.asterix.common.transactions.LogRecord;
+import org.apache.asterix.common.transactions.LogType;
+import org.apache.asterix.common.utils.TransactionUtil;
 import org.apache.hyracks.algebricks.runtime.base.IPushRuntime;
 import org.apache.hyracks.api.comm.IFrameWriter;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
@@ -42,22 +44,23 @@ public class CommitRuntime implements IPushRuntime {
 
     private final static long SEED = 0L;
 
-    private final ITransactionManager transactionManager;
-    private final ILogManager logMgr;
-    private final JobId jobId;
-    private final int datasetId;
-    private final int[] primaryKeyFields;
-    private final boolean isTemporaryDatasetWriteJob;
-    private final boolean isWriteTransaction;
-    private final long[] longHashes;
-    private final LogRecord logRecord;
+    protected final ITransactionManager transactionManager;
+    protected final ILogManager logMgr;
+    protected final JobId jobId;
+    protected final int datasetId;
+    protected final int[] primaryKeyFields;
+    protected final boolean isTemporaryDatasetWriteJob;
+    protected final boolean isWriteTransaction;
+    protected final long[] longHashes;
+    protected final LogRecord logRecord;
+    protected final FrameTupleReference frameTupleReference;
 
-    private ITransactionContext transactionContext;
-    private FrameTupleAccessor frameTupleAccessor;
-    private final FrameTupleReference frameTupleReference;
+    protected ITransactionContext transactionContext;
+    protected FrameTupleAccessor frameTupleAccessor;
+    protected final int resourcePartition;
 
     public CommitRuntime(IHyracksTaskContext ctx, JobId jobId, int datasetId, int[] primaryKeyFields,
-            boolean isTemporaryDatasetWriteJob, boolean isWriteTransaction) {
+            boolean isTemporaryDatasetWriteJob, boolean isWriteTransaction, int resourcePartition) {
         IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject();
         this.transactionManager = runtimeCtx.getTransactionSubsystem().getTransactionManager();
@@ -68,9 +71,9 @@ public class CommitRuntime implements IPushRuntime {
         this.frameTupleReference = new FrameTupleReference();
         this.isTemporaryDatasetWriteJob = isTemporaryDatasetWriteJob;
         this.isWriteTransaction = isWriteTransaction;
-        this.longHashes = new long[2];
-        this.logRecord = new LogRecord();
-        logRecord.setNodeId(logMgr.getNodeId());
+        this.resourcePartition = resourcePartition;
+        longHashes = new long[2];
+        logRecord = new LogRecord();
     }
 
     @Override
@@ -85,7 +88,6 @@ public class CommitRuntime implements IPushRuntime {
 
     @Override
     public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
-        int pkHash = 0;
         frameTupleAccessor.reset(buffer);
         int nTuple = frameTupleAccessor.getTupleCount();
         for (int t = 0; t < nTuple; t++) {
@@ -103,10 +105,8 @@ public class CommitRuntime implements IPushRuntime {
                 transactionContext.notifyOptracker(false);
             } else {
                 frameTupleReference.reset(frameTupleAccessor, t);
-                pkHash = computePrimaryKeyHashValue(frameTupleReference, primaryKeyFields);
-                logRecord.formEntityCommitLogRecord(transactionContext, datasetId, pkHash, frameTupleReference,
-                        primaryKeyFields);
                 try {
+                    formLogRecord(buffer, t);
                     logMgr.log(logRecord);
                 } catch (ACIDException e) {
                     throw new HyracksDataException(e);
@@ -115,7 +115,13 @@ public class CommitRuntime implements IPushRuntime {
         }
     }
 
-    private int computePrimaryKeyHashValue(ITupleReference tuple, int[] primaryKeyFields) {
+    protected void formLogRecord(ByteBuffer buffer, int t) {
+        int pkHash = computePrimaryKeyHashValue(frameTupleReference, primaryKeyFields);
+        TransactionUtil.formEntityCommitLogRecord(logRecord, transactionContext, datasetId, pkHash, frameTupleReference,
+                primaryKeyFields, resourcePartition, LogType.ENTITY_COMMIT);
+    }
+
+    protected int computePrimaryKeyHashValue(ITupleReference tuple, int[] primaryKeyFields) {
         MurmurHash128Bit.hash3_x64_128(tuple, primaryKeyFields, SEED, longHashes);
         return Math.abs((int) longHashes[0]);
     }
@@ -138,5 +144,9 @@ public class CommitRuntime implements IPushRuntime {
     @Override
     public void setInputRecordDescriptor(int index, RecordDescriptor recordDescriptor) {
         this.frameTupleAccessor = new FrameTupleAccessor(recordDescriptor);
+    }
+
+    @Override
+    public void flush() throws HyracksDataException {
     }
 }

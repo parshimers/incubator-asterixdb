@@ -28,7 +28,7 @@ public interface ILogManager {
 
     /**
      * Submits a logRecord to log Manager which appends it to the log tail
-     * 
+     *
      * @param logRecord
      * @throws ACIDException
      */
@@ -47,7 +47,7 @@ public interface ILogManager {
 
     /**
      * Deletes all log partitions which have a maximum LSN less than checkpointLSN
-     * 
+     *
      * @param checkpointLSN
      */
     public void deleteOldLogFiles(long checkpointLSN) throws HyracksDataException;
@@ -64,7 +64,7 @@ public interface ILogManager {
 
     /**
      * Delete all log files and start new log partition > LSNtoStartFrom
-     * 
+     *
      * @param LSNtoStartFrom
      * @throws IOException
      */

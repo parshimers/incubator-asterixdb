@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.util.HashMap;
@@ -40,23 +41,23 @@ import org.json.JSONException;
  * @requiresDependencyResolution compile
  */
 public class RecordManagerGeneratorMojo extends AbstractMojo {
-    
+
     /**
      * parameter injected from pom.xml
-     * 
+     *
      * @parameter
      */
     private boolean debug;
     /**
      * parameter injected from pom.xml
-     * 
+     *
      * @parameter
      * @required
      */
     private String packageName;
     /**
      * parameter injected from pom.xml
-     * 
+     *
      * @parameter
      * @required
      */
@@ -67,15 +68,15 @@ public class RecordManagerGeneratorMojo extends AbstractMojo {
      * @readonly
      */
     MavenProject project;
-    
-    
-    String recordManagerTemplate = "RecordManager.java"; 
+
+
+    String recordManagerTemplate = "RecordManager.java";
     String arenaManagerTemplate = "ArenaManager.java";
     String[] supportTemplates = { "RecordManagerStats.java", "AllocInfo.java", "TypeUtil.java" };
-    
+
     private Map<String, RecordType> typeMap;
 
-    public RecordManagerGeneratorMojo() {        
+    public RecordManagerGeneratorMojo() {
     }
 
     private void readRecordTypes() throws MojoExecutionException {
@@ -86,23 +87,24 @@ public class RecordManagerGeneratorMojo extends AbstractMojo {
         typeMap = new HashMap<String, RecordType>();
 
         for (int i = 0; i < inputFiles.length; ++i) {
-            try {
-                getLog().info("reading " + inputFiles[i].toString());
-                Reader read = new FileReader(inputFiles[i]);
+            getLog().info("reading " + inputFiles[i].toString());
+            try (Reader read = new FileReader(inputFiles[i])) {
                 RecordType type = RecordType.read(read);
-                // always add allocId to enable tracking of allocations 
+                // always add allocId to enable tracking of allocations
                 type.addField("alloc id", RecordType.Type.SHORT, null);
                 type.addToMap(typeMap);
             } catch (FileNotFoundException fnfe) {
-                throw new MojoExecutionException("cound not find type description file " + inputFiles[i], fnfe);
+                throw new MojoExecutionException("could not find type description file " + inputFiles[i], fnfe);
             } catch (JSONException jse) {
-                throw new MojoExecutionException("cound not parse type description file " + inputFiles[i], jse);
+                throw new MojoExecutionException("could not parse type description file " + inputFiles[i], jse);
+            } catch (IOException e) {
+                throw new MojoExecutionException("error closing type description file " + inputFiles[i], e);
             }
         }
     }
 
     public void execute() throws MojoExecutionException, MojoFailureException {
-        String outputPath = project.getBuild().getDirectory() + File.separator 
+        String outputPath = project.getBuild().getDirectory() + File.separator
                 + "generated-sources" + File.separator
                 + "java" + File.separator
                 + packageName.replace('.', File.separatorChar);
@@ -112,12 +114,12 @@ public class RecordManagerGeneratorMojo extends AbstractMojo {
         }
 
         readRecordTypes();
-        
+
         for (String recordType : typeMap.keySet()) {
             generateSource(Generator.TemplateType.RECORD_MANAGER, recordManagerTemplate, recordType, outputPath);
             generateSource(Generator.TemplateType.ARENA_MANAGER, arenaManagerTemplate, recordType, outputPath);
         }
-        
+
         for (int i = 0; i < supportTemplates.length; ++i) {
             generateSource(Generator.TemplateType.SUPPORT, supportTemplates[i], "", outputPath);
         }

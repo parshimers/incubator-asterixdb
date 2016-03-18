@@ -39,14 +39,14 @@ public interface IDatasetLifecycleManager extends IIndexLifecycleManager {
 
     /**
      * Flushes all open datasets synchronously.
-     * 
+     *
      * @throws HyracksDataException
      */
     void flushAllDatasets() throws HyracksDataException;
 
     /**
      * Schedules asynchronous flush on datasets that have memory components with first LSN < nonSharpCheckpointTargetLSN.
-     * 
+     *
      * @param nonSharpCheckpointTargetLSN
      * @throws HyracksDataException
      */
@@ -54,7 +54,7 @@ public interface IDatasetLifecycleManager extends IIndexLifecycleManager {
 
     /**
      * creates (if necessary) and returns the dataset info.
-     * 
+     *
      * @param datasetID
      * @return
      */
@@ -71,7 +71,7 @@ public interface IDatasetLifecycleManager extends IIndexLifecycleManager {
 
     /**
      * creates (if necessary) and returns the primary index operation tracker of a dataset.
-     * 
+     *
      * @param datasetID
      * @return
      */
@@ -79,11 +79,12 @@ public interface IDatasetLifecycleManager extends IIndexLifecycleManager {
 
     /**
      * creates (if necessary) and returns the dataset virtual buffer caches.
-     * 
+     *
      * @param datasetID
+     * @param ioDeviceNum
      * @return
      */
-    List<IVirtualBufferCache> getVirtualBufferCaches(int datasetID);
+    List<IVirtualBufferCache> getVirtualBufferCaches(int datasetID, int ioDeviceNum);
 
     /**
      * Flushes then closes all open datasets
@@ -94,4 +95,11 @@ public interface IDatasetLifecycleManager extends IIndexLifecycleManager {
      * @return a list of all indexes that are open at the time of the call.
      */
     List<IndexInfo> getOpenIndexesInfo();
+
+    /**
+     * Flushes and closes all user datasets (non-metadata datasets)
+     *
+     * @throws HyracksDataException
+     */
+    void closeUserDatasets() throws HyracksDataException;
 }

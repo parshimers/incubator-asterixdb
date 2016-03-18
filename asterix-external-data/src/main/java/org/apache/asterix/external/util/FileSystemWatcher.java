@@ -34,43 +34,56 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 
+import org.apache.asterix.external.dataflow.AbstractFeedDataFlowController;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 public class FileSystemWatcher {
 
-    private static Logger LOGGER = Logger.getLogger(FileSystemWatcher.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(FileSystemWatcher.class.getName());
     private final WatchService watcher;
     private final HashMap<WatchKey, Path> keys;
     private final LinkedList<File> files = new LinkedList<File>();
     private Iterator<File> it;
     private final String expression;
-    private final FeedLogManager logManager;
+    private FeedLogManager logManager;
     private final Path path;
     private final boolean isFeed;
     private boolean done;
     private File current;
+    private AbstractFeedDataFlowController controller;
 
-    public FileSystemWatcher(FeedLogManager logManager, Path inputResource, String expression, boolean isFeed)
-            throws IOException {
-        this.watcher = isFeed ? FileSystems.getDefault().newWatchService() : null;
-        this.keys = isFeed ? new HashMap<WatchKey, Path>() : null;
-        this.logManager = logManager;
-        this.expression = expression;
-        this.path = inputResource;
-        this.isFeed = isFeed;
+    public FileSystemWatcher(Path inputResource, String expression, boolean isFeed) throws HyracksDataException {
+        try {
+            this.watcher = isFeed ? FileSystems.getDefault().newWatchService() : null;
+            this.keys = isFeed ? new HashMap<WatchKey, Path>() : null;
+            this.expression = expression;
+            this.path = inputResource;
+            this.isFeed = isFeed;
+        } catch (IOException e) {
+            throw new HyracksDataException(e);
+        }
     }
 
-    public void init() throws IOException {
-        LinkedList<Path> dirs = null;
-        dirs = new LinkedList<Path>();
-        LocalFileSystemUtils.traverse(files, path.toFile(), expression, dirs);
-        it = files.iterator();
-        if (isFeed) {
-            for (Path path : dirs) {
-                register(path);
+    public void setFeedLogManager(FeedLogManager feedLogManager) {
+        this.logManager = feedLogManager;
+    }
+
+    public void init() throws HyracksDataException {
+        try {
+            LinkedList<Path> dirs = null;
+            dirs = new LinkedList<Path>();
+            LocalFileSystemUtils.traverse(files, path.toFile(), expression, dirs);
+            it = files.iterator();
+            if (isFeed) {
+                for (Path path : dirs) {
+                    register(path);
+                }
+                resume();
             }
-            resume();
+        } catch (IOException e) {
+            throw new HyracksDataException(e);
         }
     }
 
@@ -86,13 +99,6 @@ public class FileSystemWatcher {
 
     private void resume() throws IOException {
         if (logManager == null) {
-            return;
-        }
-        if (logManager.exists()) {
-            logManager.open();
-        } else {
-            logManager.create();
-            logManager.open();
             return;
         }
         /*
@@ -180,7 +186,7 @@ public class FileSystemWatcher {
     }
 
     public File next() throws IOException {
-        if (current != null && logManager != null) {
+        if ((current != null) && (logManager != null)) {
             logManager.startPartition(current.getAbsolutePath());
             logManager.endPartition();
         }
@@ -199,7 +205,7 @@ public class FileSystemWatcher {
         return false;
     }
 
-    public boolean hasNext() {
+    public boolean hasNext() throws HyracksDataException {
         if (it.hasNext()) {
             return true;
         }
@@ -207,6 +213,9 @@ public class FileSystemWatcher {
             return false;
         }
         files.clear();
+        if (keys.isEmpty()) {
+            return false;
+        }
         // Read new Events (Polling first to add all available files)
         WatchKey key;
         key = watcher.poll();
@@ -218,6 +227,9 @@ public class FileSystemWatcher {
             key = watcher.poll();
         }
         // No file was found, wait for the filesystem to push events
+        if (controller != null) {
+            controller.flush();
+        }
         while (files.isEmpty()) {
             try {
                 key = watcher.take();
@@ -240,5 +252,9 @@ public class FileSystemWatcher {
         // files were found, re-create the iterator and move it one step
         it = files.iterator();
         return it.hasNext();
+    }
+
+    public void setController(AbstractFeedDataFlowController controller) {
+        this.controller = controller;
     }
 }

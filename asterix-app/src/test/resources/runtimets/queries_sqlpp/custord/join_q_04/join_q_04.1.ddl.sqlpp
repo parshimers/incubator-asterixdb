@@ -18,6 +18,7 @@
  */
 /*
  * Description  : This test case is to verify the fix for issue51
+ */
 
 drop  database test if exists;
 create  database test;
@@ -57,7 +58,7 @@ create type test.OrderType as
   items : [int64]
 }
 
-create external  table Customers(CustomerType) using "org.apache.asterix.external.dataset.adapter.NCFileSystemAdapter"(("path"="asterix_nc1://data/nontagged/customerData.json"),("format"="adm"));
+create external  table Customers(CustomerType) using localfs(("path"="asterix_nc1://data/nontagged/customerData.json"),("format"="adm"));
 
-create external  table Orders(OrderType) using "org.apache.asterix.external.dataset.adapter.NCFileSystemAdapter"(("path"="asterix_nc1://data/nontagged/orderData.json"),("format"="adm"));
+create external  table Orders(OrderType) using localfs(("path"="asterix_nc1://data/nontagged/orderData.json"),("format"="adm"));
 

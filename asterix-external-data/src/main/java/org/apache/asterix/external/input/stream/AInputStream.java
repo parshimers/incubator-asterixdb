@@ -20,9 +20,17 @@ package org.apache.asterix.external.input.stream;
 
 import java.io.InputStream;
 
+import org.apache.asterix.external.dataflow.AbstractFeedDataFlowController;
+import org.apache.asterix.external.util.FeedLogManager;
+
 public abstract class AInputStream extends InputStream {
     public abstract boolean skipError() throws Exception;
 
     public abstract boolean stop() throws Exception;
 
+    // TODO: Find a better way to send notifications
+    public abstract void setController(AbstractFeedDataFlowController controller);
+
+    // TODO: Find a better way to send notifications
+    public abstract void setFeedLogManager(FeedLogManager logManager);
 }

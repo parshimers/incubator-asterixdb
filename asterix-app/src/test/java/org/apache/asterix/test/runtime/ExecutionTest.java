@@ -23,10 +23,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.logging.Logger;
 
+import org.apache.asterix.app.external.TestLibrarian;
 import org.apache.asterix.common.config.AsterixTransactionProperties;
 import org.apache.asterix.test.aql.TestExecutor;
 import org.apache.asterix.testframework.context.TestCaseContext;
-import org.apache.asterix.testframework.xml.TestGroup;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -52,17 +52,25 @@ public class ExecutionTest {
     protected static AsterixTransactionProperties txnProperties;
     private final static TestExecutor testExecutor = new TestExecutor();
 
-    protected static TestGroup FailedGroup;
-
     @BeforeClass
     public static void setUp() throws Exception {
-        File outdir = new File(PATH_ACTUAL);
-        outdir.mkdirs();
-        ExecutionTestUtil.setUp();
+        try {
+            File outdir = new File(PATH_ACTUAL);
+            outdir.mkdirs();
+            // remove library directory
+            TestLibrarian.removeLibraryDir();
+            testExecutor.setLibrarian(new TestLibrarian());
+            ExecutionTestUtil.setUp();
+        } catch (Throwable th) {
+            th.printStackTrace();
+            throw th;
+        }
     }
 
     @AfterClass
     public static void tearDown() throws Exception {
+        // remove library directory
+        TestLibrarian.removeLibraryDir();
         ExecutionTestUtil.tearDown();
     }
 
@@ -93,6 +101,6 @@ public class ExecutionTest {
 
     @Test
     public void test() throws Exception {
-        testExecutor.executeTest(PATH_ACTUAL, tcCtx, null, false, FailedGroup);
+        testExecutor.executeTest(PATH_ACTUAL, tcCtx, null, false, ExecutionTestUtil.FailedGroup);
     }
 }

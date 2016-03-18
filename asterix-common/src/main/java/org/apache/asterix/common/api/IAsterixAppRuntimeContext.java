@@ -19,7 +19,7 @@
 package org.apache.asterix.common.api;
 
 import java.io.IOException;
-import java.util.List;
+import java.rmi.RemoteException;
 import java.util.concurrent.Executor;
 
 import org.apache.asterix.common.exceptions.ACIDException;
@@ -34,7 +34,6 @@ import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperationScheduler;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicyFactory;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMOperationTracker;
-import org.apache.hyracks.storage.am.lsm.common.api.IVirtualBufferCache;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
 import org.apache.hyracks.storage.common.file.IFileMapProvider;
 import org.apache.hyracks.storage.common.file.ILocalResourceRepository;
@@ -53,8 +52,6 @@ public interface IAsterixAppRuntimeContext {
     public ILSMIOOperationScheduler getLSMIOScheduler();
 
     public ILSMMergePolicyFactory getMetadataMergePolicyFactory();
-
-    public int getMetaDataIODeviceId();
 
     public IBufferCache getBufferCache();
 
@@ -76,8 +73,6 @@ public interface IAsterixAppRuntimeContext {
 
     public double getBloomFilterFalsePositiveRate();
 
-    public List<IVirtualBufferCache> getVirtualBufferCaches(int datasetID);
-
     public Object getFeedManager();
 
     public IRemoteRecoveryManager getRemoteRecoveryManager();
@@ -89,4 +84,26 @@ public interface IAsterixAppRuntimeContext {
     public IReplicationChannel getReplicationChannel();
 
     public void initializeResourceIdFactory() throws HyracksDataException;
+
+    /**
+     * Exports the metadata node to the metadata RMI port.
+     *
+     * @throws RemoteException
+     */
+    public void exportMetadataNodeStub() throws RemoteException;
+
+    /**
+     * Initializes the metadata node and bootstraps the metadata.
+     *
+     * @param newUniverse
+     * @throws Exception
+     */
+    public void initializeMetadata(boolean newUniverse) throws Exception;
+
+    /**
+     * Unexports the metadata node from the RMI registry
+     *
+     * @throws RemoteException
+     */
+    public void unexportMetadataNodeStub() throws RemoteException;
 }

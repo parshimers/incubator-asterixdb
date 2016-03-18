@@ -62,17 +62,15 @@ public class ClusterLifecycleListener implements IClusterLifecycleListener {
         t.start();
     }
 
-    public enum ClusterEventType {
-        NODE_JOIN,
-        NODE_FAILURE
-    }
-
     @Override
     public void notifyNodeJoin(String nodeId, Map<String, String> ncConfiguration) {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("NC: " + nodeId + " joined");
         }
         AsterixClusterProperties.INSTANCE.addNCConfiguration(nodeId, ncConfiguration);
+        //if metadata node rejoining, we need to rebind the proxy connection when it is active again.
+        MetadataManager.INSTANCE.rebindMetadataNode = !AsterixClusterProperties.INSTANCE.isMetadataNodeActive();
+
         Set<String> nodeAddition = new HashSet<String>();
         nodeAddition.add(nodeId);
         updateProgress(ClusterEventType.NODE_JOIN, nodeAddition);
@@ -90,6 +88,7 @@ public class ClusterLifecycleListener implements IClusterLifecycleListener {
 
     }
 
+    @Override
     public void notifyNodeFailure(Set<String> deadNodeIds) {
         for (String deadNode : deadNodeIds) {
             if (LOGGER.isLoggable(Level.INFO)) {
@@ -97,17 +96,8 @@ public class ClusterLifecycleListener implements IClusterLifecycleListener {
             }
             AsterixClusterProperties.INSTANCE.removeNCConfiguration(deadNode);
 
-            //if metadata node failed, we need to rebind the proxy connection when it joins again.
-            //Note: the format for the NC should be (INSTANCE-NAME)_(NC-ID)
-            if (AsterixClusterProperties.INSTANCE.getCluster() != null) {
-                String instanceName = AsterixClusterProperties.INSTANCE.getCluster().getInstanceName();
-                String metadataNodeName = AsterixClusterProperties.INSTANCE.getCluster().getMetadataNode();
-                String completeMetadataNodeName = instanceName + "_" + metadataNodeName;
-                if (deadNode.equals(completeMetadataNodeName)) {
-                    MetadataManager.INSTANCE.rebindMetadataNode = true;
-                }
-            }
-
+            //if metadata node failed, we need to rebind the proxy connection when it is active again
+            MetadataManager.INSTANCE.rebindMetadataNode = !AsterixClusterProperties.INSTANCE.isMetadataNodeActive();
         }
         updateProgress(ClusterEventType.NODE_FAILURE, deadNodeIds);
         Set<IClusterEventsSubscriber> subscribers = ClusterManager.INSTANCE.getRegisteredClusterEventSubscribers();
@@ -166,7 +156,8 @@ public class ClusterLifecycleListener implements IClusterLifecycleListener {
                 case REMOVE_NODE:
                     nodesToRemove.addAll(((RemoveNodeWork) w).getNodesToBeRemoved());
                     nodeRemovalRequests.add(w);
-                    RemoveNodeWorkResponse response = new RemoveNodeWorkResponse((RemoveNodeWork) w, Status.IN_PROGRESS);
+                    RemoveNodeWorkResponse response = new RemoveNodeWorkResponse((RemoveNodeWork) w,
+                            Status.IN_PROGRESS);
                     pendingWorkResponses.add(response);
                     break;
             }

@@ -18,23 +18,34 @@
  */
 package org.apache.asterix.external.dataflow;
 
+import java.io.IOException;
+
+import javax.annotation.Nonnull;
+
 import org.apache.asterix.external.api.IExternalIndexer;
-import org.apache.asterix.external.api.IIndexingDatasource;
+import org.apache.asterix.external.api.IRecordDataParser;
 import org.apache.asterix.external.api.IRecordReader;
+import org.apache.asterix.external.api.ITupleForwarder;
+import org.apache.hyracks.api.context.IHyracksTaskContext;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 
 public class IndexingDataFlowController<T> extends RecordDataFlowController<T> {
-    IExternalIndexer indexer;
+    private final IExternalIndexer indexer;
 
-    @Override
-    protected void appendOtherTupleFields(ArrayTupleBuilder tb) throws Exception {
-        indexer.index(tb);
+    public IndexingDataFlowController(IHyracksTaskContext ctx, ITupleForwarder tupleForwarder,
+            @Nonnull IRecordDataParser<T> dataParser, @Nonnull IRecordReader<? extends T> recordReader,
+            IExternalIndexer indexer) throws IOException {
+        super(ctx, tupleForwarder, dataParser, recordReader, 1 + indexer.getNumberOfFields());
+        this.indexer = indexer;
     }
 
     @Override
-    public void setRecordReader(IRecordReader<T> recordReader) throws Exception {
-        super.setRecordReader(recordReader);
-        indexer = ((IIndexingDatasource) recordReader).getIndexer();
-        numOfTupleFields += indexer.getNumberOfFields();
+    protected void appendOtherTupleFields(ArrayTupleBuilder tb) throws HyracksDataException {
+        try {
+            indexer.index(tb);
+        } catch (IOException e) {
+            throw new HyracksDataException(e);
+        }
     }
 }

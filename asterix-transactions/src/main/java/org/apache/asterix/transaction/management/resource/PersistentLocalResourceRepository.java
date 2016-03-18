@@ -31,15 +31,21 @@ import java.io.ObjectOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.asterix.common.cluster.ClusterPartition;
+import org.apache.asterix.common.config.AsterixMetadataProperties;
 import org.apache.asterix.common.replication.AsterixReplicationJob;
 import org.apache.asterix.common.replication.IReplicationManager;
+import org.apache.asterix.common.utils.StoragePathUtil;
 import org.apache.commons.io.FileUtils;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileReference;
@@ -72,11 +78,16 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
     private boolean isReplicationEnabled = false;
     private Set<String> filesToBeReplicated;
     private IIOManager ioManager;
+    private final SortedMap<Integer, ClusterPartition> clusterPartitions;
+    private final Set<Integer> nodeOriginalPartitions;
+    private final Set<Integer> nodeActivePartitions;
+    private Set<Integer> nodeInactivePartitions;
 
-    public PersistentLocalResourceRepository(List<IODeviceHandle> devices, String nodeId, IIOManager ioManager) throws HyracksDataException {
+    public PersistentLocalResourceRepository(List<IODeviceHandle> devices, String nodeId, AsterixMetadataProperties metadataProperties, IIOManager ioManager) throws HyracksDataException {
         mountPoints = new String[devices.size()];
-        this.nodeId = nodeId;
         this.ioManager = ioManager;
+        this.nodeId = nodeId;
+        this.clusterPartitions = metadataProperties.getClusterPartitions();
         for (int i = 0; i < mountPoints.length; i++) {
             String mountPoint = devices.get(i).getPath().getPath();
             FileReference mountPointDir = new FileReference(mountPoint, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
@@ -90,6 +101,15 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
             }
         }
         resourceCache = CacheBuilder.newBuilder().maximumSize(MAX_CACHED_RESOURCES).build();
+
+        ClusterPartition[] nodePartitions = metadataProperties.getNodePartitions().get(nodeId);
+        //initially the node active partitions are the same as the original partitions
+        nodeOriginalPartitions = new HashSet<>(nodePartitions.length);
+        nodeActivePartitions = new HashSet<>(nodePartitions.length);
+        for (ClusterPartition partition : nodePartitions) {
+            nodeOriginalPartitions.add(partition.getPartitionId());
+            nodeActivePartitions.add(partition.getPartitionId());
+        }
     }
 
     private static String getStorageMetadataDirPath(String mountPoint, String nodeId, int ioDeviceId) {
@@ -108,7 +128,7 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
 
         //create storage metadata file (This file is used to locate the root storage directory after instance restarts).
         //TODO with the existing cluster configuration file being static and distributed on all NCs, we can find out the storage root
-        //directory without looking at this file. This file could potentially store more information, otherwise no need to keep it. 
+        //directory without looking at this file. This file could potentially store more information, otherwise no need to keep it.
         for (int i = 0; i < mountPoints.length; i++) {
             FileReference storageMetadataFile= getStorageMetadataFile(mountPoints[i], nodeId, i);
             FileReference storageMetadataDir = ioManager.getParent(storageMetadataFile);
@@ -186,27 +206,12 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
 
         } catch (IOException e) {
             throw new HyracksDataException(e);
-        } finally {
-            if (oosToFos != null) {
-                try {
-                    oosToFos.close();
-                } catch (IOException e) {
-                    throw new HyracksDataException(e);
-                }
-            }
-            if (oosToFos == null && fos != null) {
-                try {
-                    fos.close();
-                } catch (IOException e) {
-                    throw new HyracksDataException(e);
-                }
-            }
+        }
 
-            //if replication enabled, send resource metadata info to remote nodes
-            if (isReplicationEnabled && resource.getResourceId() != STORAGE_LOCAL_RESOURCE_ID) {
-                String filePath = getFileName(resource.getResourcePath(), resource.getResourceId());
-                createReplicationJob(ReplicationOperation.REPLICATE, filePath);
-            }
+        //if replication enabled, send resource metadata info to remote nodes
+        if (isReplicationEnabled && resource.getResourceId() != STORAGE_LOCAL_RESOURCE_ID) {
+            String filePath = getFileName(resource.getResourcePath(), resource.getResourceId());
+            createReplicationJob(ReplicationOperation.REPLICATE, filePath);
         }
     }
 
@@ -343,25 +348,11 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
             return resource;
         } catch (Exception e) {
             throw new HyracksDataException(e);
-        } finally {
-            if (oisFromFis != null) {
-                try {
-                    oisFromFis.close();
-                } catch (IOException e) {
-                    throw new HyracksDataException(e);
-                }
-            }
-            if (oisFromFis == null && fis != null) {
-                try {
-                    fis.close();
-                } catch (IOException e) {
-                    throw new HyracksDataException(e);
-                }
-            }
         }
     }
 
     private static final FilenameFilter METADATA_FILES_FILTER = new FilenameFilter() {
+        @Override
         public boolean accept(File dir, String name) {
             if (name.equalsIgnoreCase(METADATA_FILE_NAME)) {
                 return true;
@@ -383,6 +374,7 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
 
         if (isReplicationEnabled) {
             filesToBeReplicated = new HashSet<String>();
+            nodeInactivePartitions = ConcurrentHashMap.newKeySet();
         }
     }
 
@@ -461,5 +453,57 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
             }
         }
         return storageRootDir;
+    }
+
+    /**
+     * @param partition
+     * @return The partition local path on this NC.
+     */
+    public String getPartitionPath(int partition) {
+        //currently each partition is replicated on the same IO device number on all NCs.
+        return mountPoints[getIODeviceNum(partition)];
+    }
+
+    public int getIODeviceNum(int partition) {
+        return clusterPartitions.get(partition).getIODeviceNum();
+    }
+
+    public Set<Integer> getActivePartitions() {
+        return Collections.unmodifiableSet(nodeActivePartitions);
+    }
+
+    public Set<Integer> getInactivePartitions() {
+        return Collections.unmodifiableSet(nodeInactivePartitions);
+    }
+
+    public Set<Integer> getNodeOrignalPartitions() {
+        return Collections.unmodifiableSet(nodeOriginalPartitions);
+    }
+
+    public synchronized void addActivePartition(int partitonId) {
+        nodeActivePartitions.add(partitonId);
+        nodeInactivePartitions.remove(partitonId);
+    }
+
+    public synchronized void addInactivePartition(int partitonId) {
+        nodeInactivePartitions.add(partitonId);
+        nodeActivePartitions.remove(partitonId);
+    }
+
+    /**
+     * @param resourceAbsolutePath
+     * @return the resource relative path starting from the partition directory
+     */
+    public static String getResourceRelativePath(String resourceAbsolutePath) {
+        String[] tokens = resourceAbsolutePath.split(File.separator);
+        //partiton/dataverse/idx/fileName
+        return tokens[tokens.length - 4] + File.separator + tokens[tokens.length - 3] + File.separator
+                + tokens[tokens.length - 2] + File.separator + tokens[tokens.length - 1];
+    }
+
+    public static int getResourcePartition(String resourceAbsolutePath) {
+        String[] tokens = resourceAbsolutePath.split(File.separator);
+        //partiton/dataverse/idx/fileName
+        return StoragePathUtil.getPartitonNumFromName(tokens[tokens.length - 4]);
     }
 }

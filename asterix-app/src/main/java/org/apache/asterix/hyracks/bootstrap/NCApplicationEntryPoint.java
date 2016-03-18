@@ -19,8 +19,6 @@
 package org.apache.asterix.hyracks.bootstrap;
 
 import java.io.File;
-import java.io.IOException;
-import java.rmi.server.UnicastRemoteObject;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,10 +26,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.asterix.api.common.AsterixAppRuntimeContext;
+import org.apache.asterix.app.external.ExternalLibraryUtils;
 import org.apache.asterix.common.api.AsterixThreadFactory;
 import org.apache.asterix.common.api.IAsterixAppRuntimeContext;
 import org.apache.asterix.common.config.AsterixMetadataProperties;
-import org.apache.asterix.common.config.AsterixReplicationProperties;
 import org.apache.asterix.common.config.AsterixTransactionProperties;
 import org.apache.asterix.common.config.IAsterixPropertiesProvider;
 import org.apache.asterix.common.messaging.api.INCMessageBroker;
@@ -42,10 +40,6 @@ import org.apache.asterix.common.utils.StoragePathUtil;
 import org.apache.asterix.event.schema.cluster.Cluster;
 import org.apache.asterix.event.schema.cluster.Node;
 import org.apache.asterix.messaging.NCMessageBroker;
-import org.apache.asterix.metadata.MetadataManager;
-import org.apache.asterix.metadata.MetadataNode;
-import org.apache.asterix.metadata.api.IAsterixStateProxy;
-import org.apache.asterix.metadata.api.IMetadataNode;
 import org.apache.asterix.metadata.bootstrap.MetadataBootstrap;
 import org.apache.asterix.om.util.AsterixClusterProperties;
 import org.apache.asterix.transaction.management.resource.PersistentLocalResourceRepository;
@@ -76,8 +70,7 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
     private boolean isMetadataNode = false;
     private boolean stopInitiated = false;
     private SystemState systemState = SystemState.NEW_UNIVERSE;
-    private boolean performedRemoteRecovery = false;
-    private boolean replicationEnabled = false;
+    private boolean pendingFailbackCompletion = false;
     private IMessageBroker messageBroker;
 
     @Override
@@ -95,14 +88,13 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
 
         ncAppCtx.setThreadFactory(new AsterixThreadFactory(ncAppCtx.getLifeCycleComponentManager()));
         ncApplicationContext = ncAppCtx;
-        messageBroker = new NCMessageBroker((NodeControllerService) ncAppCtx.getControllerService());
-        ncApplicationContext.setMessageBroker(messageBroker);
+
         nodeId = ncApplicationContext.getNodeId();
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Starting Asterix node controller: " + nodeId);
         }
 
-        runtimeContext = new AsterixAppRuntimeContext(ncApplicationContext);
+        runtimeContext = new AsterixAppRuntimeContext(ncApplicationContext, metadataRmiPort);
         AsterixMetadataProperties metadataProperties = ((IAsterixPropertiesProvider) runtimeContext)
                 .getMetadataProperties();
         if (!metadataProperties.getNodeNames().contains(ncApplicationContext.getNodeId())) {
@@ -113,17 +105,14 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
         }
         runtimeContext.initialize(initialRun);
         ncApplicationContext.setApplicationObject(runtimeContext);
+        messageBroker = new NCMessageBroker((NodeControllerService) ncAppCtx.getControllerService());
+        ncApplicationContext.setMessageBroker(messageBroker);
 
-        //If replication is enabled, check if there is a replica for this node
-        AsterixReplicationProperties asterixReplicationProperties = ((IAsterixPropertiesProvider) runtimeContext)
-                .getReplicationProperties();
-
-        replicationEnabled = asterixReplicationProperties.isReplicationEnabled();
-
+        boolean replicationEnabled = AsterixClusterProperties.INSTANCE.isReplicationEnabled();
+        boolean autoFailover = AsterixClusterProperties.INSTANCE.isAutoFailoverEnabled();
         if (initialRun) {
             LOGGER.info("System is being initialized. (first run)");
         } else {
-            //#. recover if the system is corrupted by checking system state.
             IRecoveryManager recoveryMgr = runtimeContext.getTransactionSubsystem().getRecoveryManager();
             systemState = recoveryMgr.getSystemState();
 
@@ -135,35 +124,40 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
                 if (systemState == SystemState.NEW_UNIVERSE || systemState == SystemState.CORRUPTED) {
                     //Try to perform remote recovery
                     IRemoteRecoveryManager remoteRecoveryMgr = runtimeContext.getRemoteRecoveryManager();
-                    remoteRecoveryMgr.performRemoteRecovery();
-                    performedRemoteRecovery = true;
-                    systemState = SystemState.HEALTHY;
+                    if (autoFailover) {
+                        remoteRecoveryMgr.startFailbackProcess();
+                        systemState = SystemState.RECOVERING;
+                        pendingFailbackCompletion = true;
+                    } else {
+                        remoteRecoveryMgr.performRemoteRecovery();
+                        systemState = SystemState.HEALTHY;
+                    }
                 }
-            }
-
-            if (systemState == SystemState.CORRUPTED) {
-                recoveryMgr.startRecovery(true);
+            } else {
+                //recover if the system is corrupted by checking system state.
+                if (systemState == SystemState.CORRUPTED) {
+                    recoveryMgr.startRecovery(true);
+                }
             }
         }
 
-        if (replicationEnabled) {
+        /**
+         * if the node pending failback completion, the replication channel
+         * should not be opened to avoid other nodes connecting to it before
+         * the node completes its failback. CC will notify other replicas once
+         * this node is ready to receive replication requests.
+         */
+        if (replicationEnabled && !pendingFailbackCompletion) {
             startReplicationService();
         }
     }
 
-    private void startReplicationService() throws IOException {
+    private void startReplicationService() {
         //Open replication channel
         runtimeContext.getReplicationChannel().start();
 
         //Check the state of remote replicas
         runtimeContext.getReplicationManager().initializeReplicasState();
-
-        if (performedRemoteRecovery) {
-            //Notify remote replicas about the new IP Address if changed
-            //Note: this is a hack since each node right now maintains its own copy of the cluster configuration.
-            //Once the configuration is centralized on the CC, this step wont be needed.
-            runtimeContext.getReplicationManager().broadcastNewIPAddress();
-        }
 
         //Start replication after the state of remote replicas has been initialized.
         runtimeContext.getReplicationManager().startReplicationThreads();
@@ -215,33 +209,12 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
             localResourceRepository.initializeNewUniverse(AsterixClusterProperties.INSTANCE.getStorageDirectoryName());
         }
 
-        IAsterixStateProxy proxy = null;
         isMetadataNode = nodeId.equals(metadataProperties.getMetadataNodeName());
-        if (isMetadataNode) {
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Bootstrapping metadata");
-            }
-            MetadataNode.INSTANCE.initialize(runtimeContext);
-
-            proxy = (IAsterixStateProxy) ncApplicationContext.getDistributedState();
-            if (proxy == null) {
-                throw new IllegalStateException("Metadata node cannot access distributed state");
-            }
-
-            //This is a special case, we just give the metadataNode directly.
-            //This way we can delay the registration of the metadataNode until
-            //it is completely initialized.
-            MetadataManager.INSTANCE = new MetadataManager(proxy, MetadataNode.INSTANCE);
-            MetadataBootstrap.startUniverse(((IAsterixPropertiesProvider) runtimeContext), ncApplicationContext,
-                    systemState == SystemState.NEW_UNIVERSE);
-            MetadataBootstrap.startDDLRecovery();
-
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Metadata node bound");
-            }
+        if (isMetadataNode && !pendingFailbackCompletion) {
+            runtimeContext.initializeMetadata(systemState == SystemState.NEW_UNIVERSE);
         }
+        ExternalLibraryUtils.setUpExternaLibraries(isMetadataNode && !pendingFailbackCompletion);
 
-        ExternalLibraryBootstrap.setUpExternaLibraries(isMetadataNode);
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Starting lifecycle components");
         }
@@ -263,13 +236,13 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
 
         lccm.startAll();
 
-        IRecoveryManager recoveryMgr = runtimeContext.getTransactionSubsystem().getRecoveryManager();
-        recoveryMgr.checkpoint(true, RecoveryManager.NON_SHARP_CHECKPOINT_TARGET_LSN);
+        if (!pendingFailbackCompletion) {
+            IRecoveryManager recoveryMgr = runtimeContext.getTransactionSubsystem().getRecoveryManager();
+            recoveryMgr.checkpoint(true, RecoveryManager.NON_SHARP_CHECKPOINT_TARGET_LSN);
 
-        if (isMetadataNode) {
-            IMetadataNode stub = null;
-            stub = (IMetadataNode) UnicastRemoteObject.exportObject(MetadataNode.INSTANCE, metadataRmiPort);
-            proxy.setMetadataNode(stub);
+            if (isMetadataNode) {
+                runtimeContext.exportMetadataNodeStub();
+            }
         }
 
         //Clean any temporary files
