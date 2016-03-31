@@ -207,6 +207,7 @@
            <exclude>hyracks/hyracks-hdfs/hyracks-hdfs-core/src/test/resources/expected/part-0</exclude>
            <exclude>hyracks/hyracks-storage-am-common/src/main/resources/dist.all.first.cleaned</exclude>
            <exclude>hyracks/hyracks-storage-am-common/src/main/resources/dist.all.last.cleaned</exclude>
+           <exclude>hyracks/hyracks-tests/hyracks-storage-am-btree-test/config/**</exclude>
       </excludes>
         </configuration>
       </plugin>

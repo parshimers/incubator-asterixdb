@@ -82,7 +82,7 @@ public class RecordWithMetaTest {
             // create input stream
             LocalFSInputStream inputStream = new LocalFSInputStream(
                     new FileSplit[] { new FileSplit(null,
-                            new FileReference(Paths.get(getClass().getResource("/beer.csv").toURI()).toFile())) },
+                            new FileReference((getClass().getResource("/beer.csv").toURI().toString()))) },
                     null, null, 0, null, false);
 
             // create reader record reader

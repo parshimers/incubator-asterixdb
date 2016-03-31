@@ -71,7 +71,7 @@ public class ClassAdToADMTest extends TestCase {
             for (String path : files) {
                 LocalFSInputStream in = new LocalFSInputStream(
                         new FileSplit[] { new FileSplit("",
-                                new FileReference(Paths.get(getClass().getResource(path).toURI()).toFile())) },
+                                new FileReference(getClass().getResource(path).toURI().toString())) },
                         null, null, 0, null, false);
                 SemiStructuredRecordReader recordReader = new SemiStructuredRecordReader(in, null, "[", "]");
                 Value val = new Value(objectPool);
