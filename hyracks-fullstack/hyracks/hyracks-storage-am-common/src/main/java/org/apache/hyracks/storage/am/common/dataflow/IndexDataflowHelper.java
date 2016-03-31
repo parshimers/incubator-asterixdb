@@ -20,6 +20,7 @@
 package org.apache.hyracks.storage.am.common.dataflow;
 
 import java.io.IOException;
+import java.util.logging.Logger;
 
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
@@ -43,6 +44,7 @@ public abstract class IndexDataflowHelper implements IIndexDataflowHelper {
     protected final FileReference file;
     protected final int partition;
     protected final boolean durable;
+    private static final Logger LOGGER = Logger.getLogger(IndexDataflowHelper.class.getName());
     protected IIndex index;
     protected final String resourcePath;
     protected final int resourcePartition;
@@ -56,7 +58,7 @@ public abstract class IndexDataflowHelper implements IIndexDataflowHelper {
         this.resourceIdFactory = opDesc.getStorageManager().getResourceIdFactory(ctx);
         this.partition = partition;
         this.file = IndexFileNameUtil.getIndexAbsoluteFileRef(opDesc, partition, ctx.getIOManager());
-        this.resourcePath = file.getFile().getPath();
+        this.resourcePath = file.getPath();
         this.durable = durable;
         this.resourcePartition = opDesc.getFileSplitProvider().getFileSplits()[partition].getPartition();
     }
@@ -90,7 +92,8 @@ public abstract class IndexDataflowHelper implements IIndexDataflowHelper {
                 resourceID = resourceIdFactory.createId();
                 ILocalResourceFactory localResourceFactory = opDesc.getLocalResourceFactoryProvider()
                         .getLocalResourceFactory();
-                String resourceName = opDesc.getFileSplitProvider().getFileSplits()[partition].getLocalFile().getFile()
+                int resourcePartition = opDesc.getFileSplitProvider().getFileSplits()[partition].getPartition();
+                String resourceName = opDesc.getFileSplitProvider().getFileSplits()[partition].getLocalFile()
                         .getPath();
                 localResourceRepository.insert(localResourceFactory.createLocalResource(resourceID, resourceName,
                         resourcePartition, resourcePath));

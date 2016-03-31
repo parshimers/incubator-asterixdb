@@ -69,12 +69,11 @@ import org.junit.Test;
 
 public class LocalityAwareConnectorTest extends AbstractMultiNCIntegrationTest {
 
-    final IFileSplitProvider splitProvider = new ConstantFileSplitProvider(
-            new FileSplit[] { new FileSplit("asterix-001", new FileReference(new File("data/tpch0.001/lineitem.tbl"))),
-                    new FileSplit("asterix-002", new FileReference(new File("data/tpch0.001/lineitem.tbl"))),
-                    new FileSplit("asterix-003", new FileReference(new File("data/tpch0.001/lineitem.tbl"))),
-                    new FileSplit("asterix-004", new FileReference(new File("data/tpch0.001/lineitem.tbl"))) });
-
+    final IFileSplitProvider splitProvider = new ConstantFileSplitProvider(new FileSplit[] {
+            new FileSplit("asterix-001", new FileReference("data/tpch0.001/lineitem.tbl")),
+            new FileSplit("asterix-002", new FileReference("data/tpch0.001/lineitem.tbl")),
+            new FileSplit("asterix-003", new FileReference("data/tpch0.001/lineitem.tbl")),
+            new FileSplit("asterix-004", new FileReference("data/tpch0.001/lineitem.tbl")) });
     final int fileSize = 800 * 1024 * 4;
 
     final RecordDescriptor desc = new RecordDescriptor(new ISerializerDeserializer[] {

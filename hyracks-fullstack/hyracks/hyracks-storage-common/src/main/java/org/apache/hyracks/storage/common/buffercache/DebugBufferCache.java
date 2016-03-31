@@ -23,6 +23,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileReference;
+import org.apache.hyracks.api.io.IFileHandle;
+import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.api.replication.IIOReplicationManager;
 
 /**
@@ -239,8 +241,11 @@ public class DebugBufferCache implements IBufferCache {
         return false;
     }
 
-    @Override
-    public IIOReplicationManager getIOReplicationManager() {
+    @Override public IIOManager getIOManager() {
+        return null;
+    }
+
+    @Override public IIOReplicationManager getIIOReplicationManager() {
         return null;
     }
 

@@ -1,20 +1,16 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
+ * Copyright 2009-2013 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.hyracks.storage.am.lsm.common;
@@ -33,6 +29,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Executors;
 
+import org.apache.hyracks.api.io.IFileHandle;
+import org.apache.hyracks.api.io.IIOManager;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -67,33 +65,32 @@ public class LSMIndexFileManagerTest {
         fileMapProvider = TestStorageManagerComponentHolder.getFileMapProvider(null);
         baseDir = ioManager.getIODevices().get(DEFAULT_IO_DEVICE_ID).getPath() + sep + "lsm_tree"
                 + simpleDateFormat.format(new Date()) + sep;
-        File f = new File(baseDir);
-        f.mkdirs();
-        file = new FileReference(f);
+        file = new FileReference(baseDir);
+        ioManager.mkdirs(file);
     }
 
     @After
     public void tearDown() throws HyracksDataException {
-        File f = new File(baseDir);
-        f.deleteOnExit();
+        FileReference f = new FileReference(baseDir);
+        ioManager.deleteOnExit(f);
     }
 
     public void sortOrderTest(boolean testFlushFileName) throws InterruptedException, HyracksDataException {
-        ILSMIndexFileManager fileManager = new DummyLSMIndexFileManager(fileMapProvider, file, new DummyTreeFactory());
+        ILSMIndexFileManager fileManager = new DummyLSMIndexFileManager(fileMapProvider, file, new DummyTreeFactory(), ioManager);
         LinkedList<String> fileNames = new LinkedList<String>();
 
         int numFileNames = 100;
         long sleepTime = 5;
         for (int i = 0; i < numFileNames; i++) {
             String flushFileName = (String) fileManager.getRelFlushFileReference().getInsertIndexFileReference()
-                    .getFile().getName();
+                    .getName();
             if (testFlushFileName) {
                 fileNames.addFirst(flushFileName);
             }
             Thread.sleep(sleepTime);
             if (!testFlushFileName) {
                 String secondFlushFileName = (String) fileManager.getRelFlushFileReference()
-                        .getInsertIndexFileReference().getFile().getName();
+                        .getInsertIndexFileReference().getName();
                 String mergeFileName = getMergeFileName(fileManager, flushFileName, secondFlushFileName);
                 fileNames.addFirst(mergeFileName);
                 Thread.sleep(sleepTime);
@@ -119,7 +116,7 @@ public class LSMIndexFileManagerTest {
     }
 
     public void cleanInvalidFilesTest(IOManager ioManager) throws InterruptedException, IOException, IndexException {
-        ILSMIndexFileManager fileManager = new DummyLSMIndexFileManager(fileMapProvider, file, new DummyTreeFactory());
+        ILSMIndexFileManager fileManager = new DummyLSMIndexFileManager(fileMapProvider, file, new DummyTreeFactory(), ioManager);
         fileManager.createDirs();
 
         List<FileReference> flushFiles = new ArrayList<FileReference>();
@@ -160,23 +157,24 @@ public class LSMIndexFileManagerTest {
 
         // Create all files and set delete on exit for all files.
         for (FileReference fileRef : allFiles) {
-            fileRef.getFile().createNewFile();
-            fileRef.getFile().deleteOnExit();
+            IFileHandle fh = ioManager.open(fileRef, IIOManager.FileReadWriteMode.READ_WRITE, IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
+            ioManager.close(fh);
+            ioManager.deleteOnExit(fileRef);
         }
 
         // Populate expected valid flush files.
         List<String> expectedValidFiles = new ArrayList<String>();
         for (int i = 30; i < 50; i++) {
-            expectedValidFiles.add(flushFiles.get(i).getFile().getName());
+            expectedValidFiles.add(flushFiles.get(i).getName());
         }
         for (int i = 80; i < 100; i++) {
-            expectedValidFiles.add(flushFiles.get(i).getFile().getName());
+            expectedValidFiles.add(flushFiles.get(i).getName());
         }
 
         // Populate expected valid merge files.
-        expectedValidFiles.add(mergeFile5.getFile().getName());
-        expectedValidFiles.add(mergeFile6.getFile().getName());
-        expectedValidFiles.add(mergeFile7.getFile().getName());
+        expectedValidFiles.add(mergeFile5.getName());
+        expectedValidFiles.add(mergeFile6.getName());
+        expectedValidFiles.add(mergeFile7.getName());
 
         // Sort expected files.
         Collections.sort(expectedValidFiles, fileManager.getFileNameComparator());
@@ -188,20 +186,20 @@ public class LSMIndexFileManagerTest {
         assertEquals(expectedValidFiles.size(), lsmComonentFileReference.size());
         for (int i = 0; i < expectedValidFiles.size(); i++) {
             assertEquals(expectedValidFiles.get(i), lsmComonentFileReference.get(i).getInsertIndexFileReference()
-                    .getFile().getName());
+                    .getName());
         }
 
         // Make sure invalid files were removed from the IODevices.
         ArrayList<String> remainingFiles = new ArrayList<String>();
-        File dir = new File(baseDir);
+        FileReference dir = new FileReference(baseDir);
         FilenameFilter filter = new FilenameFilter() {
             public boolean accept(File dir, String name) {
                 return !name.startsWith(".");
             }
         };
-        String[] files = dir.list(filter);
+        String[] files = ioManager.listFiles(dir, filter);
         for (String file : files) {
-            File f = new File(file);
+            FileReference f = new FileReference(file);
             remainingFiles.add(f.getName());
         }
 
@@ -220,17 +218,17 @@ public class LSMIndexFileManagerTest {
         cleanDirs(singleDeviceIOManager);
     }
 
-    private void cleanDirs(IOManager ioManager) {
-        File dir = new File(baseDir);
+    private void cleanDirs(IOManager ioManager) throws HyracksDataException{
+        FileReference dir = new FileReference(baseDir);
         FilenameFilter filter = new FilenameFilter() {
             public boolean accept(File dir, String name) {
                 return !name.startsWith(".");
             }
         };
-        String[] files = dir.list(filter);
+        String[] files = ioManager.listFiles(dir,filter);
         for (String file : files) {
-            File f = new File(file);
-            f.delete();
+            FileReference f = new FileReference(file);
+            ioManager.delete(f);
         }
 
     }
@@ -246,16 +244,16 @@ public class LSMIndexFileManagerTest {
 
     private FileReference simulateMerge(ILSMIndexFileManager fileManager, FileReference a, FileReference b)
             throws HyracksDataException {
-        LSMComponentFileReferences relMergeFileRefs = fileManager.getRelMergeFileReference(a.getFile().getName(), b
-                .getFile().getName());
+        LSMComponentFileReferences relMergeFileRefs = fileManager.getRelMergeFileReference(a.getName(), b
+                .getName());
         return relMergeFileRefs.getInsertIndexFileReference();
     }
 
     private String getMergeFileName(ILSMIndexFileManager fileNameManager, String firstFile, String lastFile)
             throws HyracksDataException {
-        File f1 = new File(firstFile);
-        File f2 = new File(lastFile);
+        FileReference f1 = new FileReference(firstFile);
+        FileReference f2 = new FileReference(lastFile);
         return (String) fileNameManager.getRelMergeFileReference(f1.getName(), f2.getName())
-                .getInsertIndexFileReference().getFile().getName();
+                .getInsertIndexFileReference().getName();
     }
 }

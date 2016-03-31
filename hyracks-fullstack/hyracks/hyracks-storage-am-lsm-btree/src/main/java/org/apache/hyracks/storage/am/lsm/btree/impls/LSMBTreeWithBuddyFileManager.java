@@ -1,20 +1,16 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Copyright 2009-2013 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package org.apache.hyracks.storage.am.lsm.btree.impls;
 
@@ -31,6 +27,8 @@ import java.util.List;
 
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileReference;
+import org.apache.hyracks.api.io.FileReference.FileReferenceType;
+import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.storage.am.common.api.ITreeIndex;
 import org.apache.hyracks.storage.am.common.api.IndexException;
 import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndexFileManager;
@@ -61,8 +59,8 @@ public class LSMBTreeWithBuddyFileManager extends AbstractLSMIndexFileManager {
 
     public LSMBTreeWithBuddyFileManager(IFileMapProvider fileMapProvider, FileReference file,
             TreeIndexFactory<? extends ITreeIndex> btreeFactory,
-            TreeIndexFactory<? extends ITreeIndex> buddyBtreeFactory) {
-        super(fileMapProvider, file, null);
+            TreeIndexFactory<? extends ITreeIndex> buddyBtreeFactory, IIOManager ioManager) {
+        super(fileMapProvider, file, null, ioManager);
         this.buddyBtreeFactory = buddyBtreeFactory;
         this.btreeFactory = btreeFactory;
     }
@@ -238,23 +236,23 @@ public class LSMBTreeWithBuddyFileManager extends AbstractLSMIndexFileManager {
                 throw new HyracksDataException("Failed to delete transaction lock :" + txnFileName);
             }
         }
-        File bTreeFile = null;
-        File buddyBTreeFile = null;
-        File bloomFilterFile = null;
+        String bTreeFileName = null;
+        String buddyBTreeFileName = null;
+        String bloomFilterFileName = null;
         for (String fileName : files) {
             if (fileName.endsWith(BTREE_STRING)) {
-                bTreeFile = new File(dir.getPath() + File.separator + fileName);
+                bTreeFileName = dir.getPath() + File.separator + fileName;
             } else if (fileName.endsWith(BUDDY_BTREE_STRING)) {
-                buddyBTreeFile = new File(dir.getPath() + File.separator + fileName);
+                buddyBTreeFileName = dir.getPath() + File.separator + fileName;
             } else if (fileName.endsWith(BLOOM_FILTER_STRING)) {
-                bloomFilterFile = new File(dir.getPath() + File.separator + fileName);
+                bloomFilterFileName = dir.getPath() + File.separator + fileName;
             } else {
                 throw new HyracksDataException("unrecognized file found = " + fileName);
             }
         }
-        FileReference bTreeFileRef = new FileReference(bTreeFile);
-        FileReference buddyBTreeFileRef = new FileReference(buddyBTreeFile);
-        FileReference bloomFilterFileRef = new FileReference(bloomFilterFile);
+        FileReference bTreeFileRef = new FileReference(bTreeFileName, FileReferenceType.DISTRIBUTED_IF_AVAIL);
+        FileReference buddyBTreeFileRef = new FileReference(buddyBTreeFileName);
+        FileReference bloomFilterFileRef = new FileReference(bloomFilterFileName);
         return new LSMComponentFileReferences(bTreeFileRef, buddyBTreeFileRef, bloomFilterFileRef);
     }
 

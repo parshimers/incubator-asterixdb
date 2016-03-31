@@ -18,6 +18,10 @@
  */
 package org.apache.hyracks.api.io;
 
+import java.io.File;
+import java.io.FilenameFilter;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -45,6 +49,8 @@ public interface IIOManager {
 
     public int syncRead(IFileHandle fHandle, long offset, ByteBuffer data) throws HyracksDataException;
 
+    public int append(IFileHandle fhandle, ByteBuffer data) throws HyracksDataException;
+
     public IIOFuture asyncWrite(IFileHandle fHandle, long offset, ByteBuffer data);
 
     public IIOFuture asyncRead(IFileHandle fHandle, long offset, ByteBuffer data);
@@ -55,7 +61,25 @@ public interface IIOManager {
 
     public void setExecutor(Executor executor);
 
-    public long getSize(IFileHandle fileHandle);
+    public long getSize(IFileHandle fileHandle) throws HyracksDataException;
+
+    public boolean delete(FileReference fileReference);
+
+    public boolean delete(FileReference fileReference, boolean recursive);
+
+    public boolean exists(FileReference fileReference);
+
+    public boolean mkdirs(FileReference fileReference);
+
+    public boolean isDirectory(FileReference fileReference);
+
+    boolean deleteOnExit(FileReference fileReference);
+
+    FileReference getParent(FileReference child);
+
+    public String[] listFiles(FileReference fileReference, FilenameFilter transactionFileNameFilter) throws HyracksDataException;
+
+    public InputStream getInputStream(IFileHandle fileHandle);
 
     public void deleteWorkspaceFiles();
 

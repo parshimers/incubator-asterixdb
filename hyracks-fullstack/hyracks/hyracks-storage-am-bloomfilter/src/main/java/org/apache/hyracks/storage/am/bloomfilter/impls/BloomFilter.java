@@ -181,6 +181,7 @@ public class BloomFilter {
             return;
         }
         bufferCache.closeFile(fileId);
+        bufferCache.purgeHandle(fileId);
         isActivated = false;
     }
 
@@ -189,7 +190,7 @@ public class BloomFilter {
             throw new HyracksDataException("Failed to destroy the bloom filter since it is activated.");
         }
 
-        file.delete();
+        bufferCache.getIOManager().delete(file);
         if (fileId == -1) {
             return;
         }
@@ -214,7 +215,7 @@ public class BloomFilter {
 
         public BloomFilterBuilder(long numElements, int numHashes, int numBitsPerElement) throws HyracksDataException {
             if (!isActivated) {
-                throw new HyracksDataException("Failed to create the bloom filter builder since it is not activated.");
+                activate();
             }
             queue = bufferCache.createFIFOQueue();
             this.numElements = numElements;

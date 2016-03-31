@@ -1,20 +1,16 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+ * Copyright 2009-2013 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.hyracks.storage.am.lsm.common.impls;
@@ -35,6 +31,8 @@ import java.util.List;
 
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileReference;
+import org.apache.hyracks.api.io.FileReference.FileReferenceType;
+import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.storage.am.common.api.ITreeIndex;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexMetaDataFrame;
 import org.apache.hyracks.storage.am.common.api.IndexException;
@@ -57,18 +55,20 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
     protected final Format formatter = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS");
     protected final Comparator<String> cmp = new FileNameComparator();
     protected final Comparator<ComparableFileName> recencyCmp = new RecencyComparator();
-    protected final TreeIndexFactory<? extends ITreeIndex> treeFactory;
 
+    protected final TreeIndexFactory<? extends ITreeIndex> treeFactory;
     private String prevTimestamp = null;
+    protected final IIOManager ioManager;
 
     public AbstractLSMIndexFileManager(IFileMapProvider fileMapProvider, FileReference file,
-            TreeIndexFactory<? extends ITreeIndex> treeFactory) {
-        this.baseDir = file.getFile().getPath();
+            TreeIndexFactory<? extends ITreeIndex> treeFactory, IIOManager ioManager) {
+        this.baseDir = file.getPath();
         if (!baseDir.endsWith(System.getProperty("file.separator"))) {
             baseDir += System.getProperty("file.separator");
         }
         this.fileMapProvider = fileMapProvider;
         this.treeFactory = treeFactory;
+        this.ioManager = ioManager;
     }
 
     private static FilenameFilter fileNameFilter = new FilenameFilter() {
@@ -105,16 +105,14 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
 
     protected void cleanupAndGetValidFilesInternal(FilenameFilter filter,
             TreeIndexFactory<? extends ITreeIndex> treeFactory, ArrayList<ComparableFileName> allFiles)
-                    throws HyracksDataException, IndexException {
-        File dir = new File(baseDir);
-        String[] files = dir.list(filter);
+            throws HyracksDataException, IndexException {
+        String[] files = ioManager.listFiles(new FileReference(baseDir, FileReferenceType.DISTRIBUTED_IF_AVAIL), filter);
         for (String fileName : files) {
-            File file = new File(dir.getPath() + File.separator + fileName);
-            FileReference fileRef = new FileReference(file);
+            FileReference fileRef = new FileReference(baseDir + File.separator + fileName, FileReferenceType.DISTRIBUTED_IF_AVAIL);
             if (treeFactory == null || isValidTreeIndex(treeFactory.createIndexInstance(fileRef))) {
                 allFiles.add(new ComparableFileName(fileRef));
             } else {
-                file.delete();
+                ioManager.delete(fileRef);
             }
         }
     }
@@ -138,34 +136,22 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
 
     @Override
     public void createDirs() {
-        File f = new File(baseDir);
-        f.mkdirs();
+        ioManager.mkdirs(new FileReference(baseDir, FileReferenceType.DISTRIBUTED_IF_AVAIL));
     }
 
     @Override
     public void deleteDirs() {
-        File f = new File(baseDir);
-        delete(f);
-    }
-
-    private void delete(File f) {
-        if (f.isDirectory()) {
-            for (File c : f.listFiles()) {
-                delete(c);
-            }
-        }
-        f.delete();
+        ioManager.delete(new FileReference(baseDir, FileReferenceType.DISTRIBUTED_IF_AVAIL), true);
     }
 
     protected static FilenameFilter bloomFilterFilter = new FilenameFilter() {
-        @Override
         public boolean accept(File dir, String name) {
             return !name.startsWith(".") && name.endsWith(BLOOM_FILTER_STRING);
         }
     };
 
     protected FileReference createFlushFile(String relFlushFileName) {
-        return new FileReference(new File(relFlushFileName));
+        return new FileReference(relFlushFileName, FileReferenceType.DISTRIBUTED_IF_AVAIL);
     }
 
     protected FileReference createMergeFile(String relMergeFileName) {
@@ -227,7 +213,7 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
                 // The current file is completely contained in the interval of the
                 // last file. Thus the last file must contain at least as much information
                 // as the current file, so delete the current file.
-                current.fileRef.delete();
+                ioManager.delete(current.fileRef);
             } else {
                 // This scenario should not be possible since timestamps are monotonically increasing.
                 throw new HyracksDataException("Found LSM files with overlapping timestamp intervals, "
@@ -269,7 +255,6 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
         return baseDir;
     }
 
-    @Override
     public void recoverTransaction() throws HyracksDataException {
         File dir = new File(baseDir);
         String[] files = dir.list(transactionFileNameFilter);
@@ -296,8 +281,8 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
 
         public ComparableFileName(FileReference fileRef) {
             this.fileRef = fileRef;
-            this.fullPath = fileRef.getFile().getAbsolutePath();
-            this.fileName = fileRef.getFile().getName();
+            this.fullPath = fileRef.getAbsolutePath();
+            this.fileName = fileRef.getName();
             interval = fileName.split(SPLIT_STRING);
         }
 
@@ -364,14 +349,12 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
     }
 
     protected static FilenameFilter transactionFileNameFilter = new FilenameFilter() {
-        @Override
         public boolean accept(File dir, String name) {
             return name.startsWith(".T");
         }
     };
 
     protected static FilenameFilter dummyFilter = new FilenameFilter() {
-        @Override
         public boolean accept(File dir, String name) {
             return true;
         }
@@ -381,7 +364,6 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
         final String timeStamp = transactionFileName.substring(transactionFileName.indexOf(TRANSACTION_PREFIX)
                 + TRANSACTION_PREFIX.length());
         return new FilenameFilter() {
-            @Override
             public boolean accept(File dir, String name) {
                 if (inclusive) {
                     return name.startsWith(timeStamp);
@@ -392,9 +374,8 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
         };
     }
 
-    protected FilenameFilter getTransactionFileFilter(boolean inclusive) {
-        File dir = new File(baseDir);
-        String[] files = dir.list(transactionFileNameFilter);
+    protected FilenameFilter getTransactionFileFilter(boolean inclusive) throws HyracksDataException {
+        String[] files = ioManager.listFiles(new FileReference(baseDir, FileReferenceType.DISTRIBUTED_IF_AVAIL), transactionFileNameFilter);
         if (files.length == 0) {
             return dummyFilter;
         } else {
@@ -410,7 +391,6 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
             }
         };
     }
-
     /**
      * @return The string format of the current timestamp.
      *         The returned results of this method are guaranteed to not have duplicates.

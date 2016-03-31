@@ -24,6 +24,8 @@ import java.util.logging.Logger;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.api.replication.IIOReplicationManager;
+import org.apache.hyracks.api.io.IFileHandle;
+import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.storage.am.lsm.common.api.IVirtualBufferCache;
 import org.apache.hyracks.storage.common.buffercache.ICachedPage;
 import org.apache.hyracks.storage.common.buffercache.IFIFOPageQueue;
@@ -103,7 +105,6 @@ public class MultitenantVirtualBufferCache implements IVirtualBufferCache {
         }
     }
 
-
     @Override
     public synchronized void open() throws HyracksDataException {
         ++openCount;
@@ -182,6 +183,16 @@ public class MultitenantVirtualBufferCache implements IVirtualBufferCache {
     }
 
     @Override
+    public IIOManager getIOManager() {
+        return vbc.getIOManager();
+    }
+
+    @Override
+    public IIOReplicationManager getIIOReplicationManager() {
+        return null;
+    }
+
+    @Override
     public void returnPage(ICachedPage page, boolean reinsert) {
 
     }
@@ -194,11 +205,6 @@ public class MultitenantVirtualBufferCache implements IVirtualBufferCache {
     @Override
     public boolean isReplicationEnabled() {
         return false;
-    }
-
-    @Override
-    public IIOReplicationManager getIOReplicationManager() {
-        return null;
     }
 
     @Override

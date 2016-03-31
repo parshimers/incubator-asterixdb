@@ -30,6 +30,7 @@ import org.apache.hyracks.storage.common.buffercache.IBufferCache;
 import org.apache.hyracks.storage.common.buffercache.ICachedPage;
 import org.apache.hyracks.storage.common.buffercache.IFIFOPageQueue;
 import org.apache.hyracks.storage.common.file.BufferedFileHandle;
+import org.apache.commons.io.filefilter.IOFileFilter;
 
 public class LinkedMetaDataPageManager implements IMetaDataPageManager {
 

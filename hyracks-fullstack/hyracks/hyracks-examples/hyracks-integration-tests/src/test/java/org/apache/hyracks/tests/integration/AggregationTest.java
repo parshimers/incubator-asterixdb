@@ -74,7 +74,7 @@ import org.junit.Test;
 public class AggregationTest extends AbstractIntegrationTest {
 
     final IFileSplitProvider splitProvider = new ConstantFileSplitProvider(
-            new FileSplit[] { new FileSplit(NC2_ID, new FileReference(new File("data/tpch0.001/lineitem.tbl"))) });
+            new FileSplit[] { new FileSplit(NC2_ID, new FileReference("data/tpch0.001/lineitem.tbl")) });
 
     final RecordDescriptor desc = new RecordDescriptor(new ISerializerDeserializer[] {
             new UTF8StringSerializerDeserializer(), IntegerSerializerDeserializer.INSTANCE,

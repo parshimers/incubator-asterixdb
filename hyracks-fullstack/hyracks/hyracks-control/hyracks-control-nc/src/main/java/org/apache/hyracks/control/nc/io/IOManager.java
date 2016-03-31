@@ -21,6 +21,7 @@ package org.apache.hyracks.control.nc.io;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,17 +31,23 @@ import java.util.concurrent.Executor;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.HyracksException;
 import org.apache.hyracks.api.io.FileReference;
+import org.apache.hyracks.api.io.FileReference.FileReferenceType;
 import org.apache.hyracks.api.io.IFileHandle;
 import org.apache.hyracks.api.io.IIOFuture;
 import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.api.io.IODeviceHandle;
 
 public class IOManager implements IIOManager {
+
+    public static final boolean DEBUG = true;
     private static final String WORKSPACE_FILE_SUFFIX = ".waf";
     private final List<IODeviceHandle> ioDevices;
     private Executor executor;
     private final List<IODeviceHandle> workAreaIODevices;
     private int workAreaDeviceIndex;
+    private String hdpConfPath;
+    
+    private IIOSubSystem[] ioSubSystems = new IIOSubSystem[FileReferenceType.values().length];
 
     public IOManager(List<IODeviceHandle> devices, Executor executor) throws HyracksException {
         this(devices);
@@ -62,6 +69,11 @@ public class IOManager implements IIOManager {
         workAreaDeviceIndex = 0;
     }
 
+    public IOManager(List<IODeviceHandle> devices, String hdpConfPath) throws HyracksException {
+        this(devices);
+        this.hdpConfPath = hdpConfPath;
+    }
+
     public void setExecutor(Executor executor) {
         this.executor = executor;
     }
@@ -74,7 +86,7 @@ public class IOManager implements IIOManager {
     @Override
     public IFileHandle open(FileReference fileRef, FileReadWriteMode rwMode, FileSyncMode syncMode)
             throws HyracksDataException {
-        FileHandle fHandle = new FileHandle(fileRef);
+        IFileHandleInternal fHandle = fileRef.getType() == FileReferenceType.LOCAL ? new FileHandle(fileRef) : new HDFSFileHandle(fileRef);
         try {
             fHandle.open(rwMode, syncMode);
         } catch (IOException e) {
@@ -85,6 +97,9 @@ public class IOManager implements IIOManager {
 
     @Override
     public int syncWrite(IFileHandle fHandle, long offset, ByteBuffer data) throws HyracksDataException {
+        if(DEBUG){
+//            System.out.println("Write: "+offset);
+        }
         try {
             if (fHandle == null) {
                 throw new IllegalStateException("Trying to write to a deleted file.");
@@ -92,10 +107,10 @@ public class IOManager implements IIOManager {
             int n = 0;
             int remaining = data.remaining();
             while (remaining > 0) {
-                int len = ((FileHandle) fHandle).getFileChannel().write(data, offset);
+                int len = ((IFileHandleInternal) fHandle).write(data, offset);
                 if (len < 0) {
-                    throw new HyracksDataException(
-                            "Error writing to file: " + ((FileHandle) fHandle).getFileReference().toString());
+                    throw new HyracksDataException("Error writing to file: "
+                            + ((IFileHandleInternal) fHandle).getFileReference().toString());
                 }
                 remaining -= len;
                 offset += len;
@@ -113,18 +128,39 @@ public class IOManager implements IIOManager {
      * Please do check the return value of this read!
      *
      * @param fHandle
-     * @param offset
      * @param data
      * @return The number of bytes read, possibly zero, or -1 if the given offset is greater than or equal to the file's current size
      * @throws HyracksDataException
      */
+    @Override
+    public int append(IFileHandle fHandle, ByteBuffer data) throws HyracksDataException{
+        try {
+            int n = 0;
+            int remaining = data.remaining();
+            while (remaining > 0) {
+                int len = ((IFileHandleInternal) fHandle).append(data);
+                if (len < 0) {
+                    throw new HyracksDataException("Error writing to file: "
+                            + ((IFileHandleInternal) fHandle).getFileReference().toString());
+                }
+                remaining -= len;
+                n += len;
+            }
+            return n;
+        } catch (HyracksDataException e) {
+            throw e;
+        } catch (IOException e) {
+            throw new HyracksDataException(e);
+        }
+    }
+
     @Override
     public int syncRead(IFileHandle fHandle, long offset, ByteBuffer data) throws HyracksDataException {
         try {
             int n = 0;
             int remaining = data.remaining();
             while (remaining > 0) {
-                int len = ((FileHandle) fHandle).getFileChannel().read(data, offset);
+                int len = ((IFileHandleInternal) fHandle).read(data, offset);
                 if (len < 0) {
                     return n == 0 ? -1 : n;
                 }
@@ -157,9 +193,9 @@ public class IOManager implements IIOManager {
     @Override
     public void close(IFileHandle fHandle) throws HyracksDataException {
         try {
-            ((FileHandle) fHandle).close();
+            ((IFileHandleInternal) fHandle).close();
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+//            throw new HyracksDataException(e);
         }
     }
 
@@ -253,15 +289,120 @@ public class IOManager implements IIOManager {
     @Override
     public void sync(IFileHandle fileHandle, boolean metadata) throws HyracksDataException {
         try {
-            ((FileHandle) fileHandle).sync(metadata);
+            ((IFileHandleInternal) fileHandle).sync(metadata);
         } catch (IOException e) {
             throw new HyracksDataException(e);
         }
     }
 
     @Override
-    public long getSize(IFileHandle fileHandle) {
-        return ((FileHandle) fileHandle).getFileReference().getFile().length();
+    public long getSize(IFileHandle fileHandle) throws HyracksDataException {
+        try {
+            return ((IFileHandleInternal) fileHandle).getSize();
+        } catch (IOException e) {
+            throw new HyracksDataException(e);
+        }
+    }
+    @Override
+    public boolean exists(FileReference fileReference) {
+        try {
+            return getIOSubSystem(fileReference).exists(fileReference);
+        } catch (IllegalArgumentException | IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Override
+    public boolean mkdirs(FileReference fileReference) {
+        try {
+            return getIOSubSystem(fileReference).mkdirs(fileReference);
+        } catch (IllegalArgumentException | IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Override
+    public boolean isDirectory(FileReference fileReference) {
+        try {
+            return getIOSubSystem(fileReference).isDirectory(fileReference);
+        } catch (IllegalArgumentException | IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Override
+    public boolean delete(FileReference fileReference) {
+        try {
+            return getIOSubSystem(fileReference).delete(fileReference, false);
+        } catch (IllegalArgumentException | IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Override
+    public boolean delete(FileReference fileReference, boolean recursive) {
+        try {
+            return getIOSubSystem(fileReference).delete(fileReference, true);
+        } catch (IllegalArgumentException | IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Override
+    public boolean deleteOnExit(FileReference fileReference){
+        try{
+            return getIOSubSystem(fileReference).deleteOnExit(fileReference);
+        }
+        catch(IllegalArgumentException | IOException e){
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Override
+    public FileReference getParent(FileReference child){
+        try{
+            return getIOSubSystem(child).getParent(child);
+        }
+        catch(IllegalArgumentException | IOException e){
+            throw new IllegalStateException(e);
+        }
+    }
+
+    
+    IIOSubSystem getIOSubSystem(FileReference fileReference) {
+        IIOSubSystem ioSubSystem = ioSubSystems[fileReference.getType().ordinal()];
+        if(ioSubSystem == null) {
+            switch(fileReference.getType()) {
+                case DISTRIBUTED_IF_AVAIL:
+                    ioSubSystem = new IOHDFSSubSystem(hdpConfPath);
+                    break;
+                case LOCAL:
+                    ioSubSystem = new IOLocalSubSystem();
+                    break;
+                default:
+                    throw new IllegalStateException();
+            }
+            ioSubSystems[fileReference.getType().ordinal()] = ioSubSystem;
+        }
+        return ioSubSystem;
+    }
+
+    @Override
+    public String[] listFiles(FileReference fileReference, FilenameFilter filter) throws HyracksDataException {
+        try {
+            return getIOSubSystem(fileReference).listFiles(fileReference, filter);
+        } catch (IllegalArgumentException | IOException e) {
+            throw new HyracksDataException(e);
+        }
+    }
+
+    @Override
+    public InputStream getInputStream(IFileHandle fileHandle) {
+        try {
+            return ((IFileHandleInternal)fileHandle).getInputStream();
+        } catch (IllegalArgumentException | IOException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     @Override
@@ -286,6 +427,6 @@ public class IOManager implements IIOManager {
     @Override
     public FileReference getAbsoluteFileRef(int ioDeviceId, String relativePath) {
         IODeviceHandle devHandle = ioDevices.get(ioDeviceId);
-        return new FileReference(devHandle, relativePath);
+        return new FileReference(relativePath,FileReferenceType.DISTRIBUTED_IF_AVAIL);
     }
 }

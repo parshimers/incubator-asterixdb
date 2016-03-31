@@ -18,17 +18,21 @@
  */
 package org.apache.hyracks.storage.am.lsm.common.impls;
 
+import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.io.FilenameFilter;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Collections;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.Executor;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.hyracks.api.exceptions.HyracksDataException;
-import org.apache.hyracks.api.io.FileReference;
+import org.apache.hyracks.api.io.*;
 import org.apache.hyracks.api.replication.IIOReplicationManager;
 import org.apache.hyracks.storage.am.lsm.common.api.IVirtualBufferCache;
 import org.apache.hyracks.storage.common.buffercache.ICacheMemoryAllocator;
@@ -48,6 +52,7 @@ public class VirtualBufferCache implements IVirtualBufferCache {
     private final IFileMapManager fileMapManager;
     private final int pageSize;
     private final int numPages;
+    private final IIOManager virtIOManager;
 
     private final CacheBucket[] buckets;
     private final ArrayList<VirtualPage> pages;
@@ -66,7 +71,120 @@ public class VirtualBufferCache implements IVirtualBufferCache {
         pages = new ArrayList<VirtualPage>();
         nextFree = 0;
         open = false;
+        virtIOManager = new VirtualIOManager();
     }
+    //This is just boilerplate. Unsurprisingly, an IOManager really serves no purpose here.
+    class VirtualIOManager implements IIOManager{
+
+        @Override
+        public List<IODeviceHandle> getIODevices() {
+            return null;
+        }
+
+        @Override
+        public IFileHandle open(FileReference fileRef, FileReadWriteMode rwMode, FileSyncMode syncMode) throws HyracksDataException {
+            return null;
+        }
+
+        @Override
+        public int syncWrite(IFileHandle fHandle, long offset, ByteBuffer data) throws HyracksDataException {
+            return 0;
+        }
+
+        @Override
+        public int syncRead(IFileHandle fHandle, long offset, ByteBuffer data) throws HyracksDataException {
+            return 0;
+        }
+
+        @Override
+        public int append(IFileHandle fhandle, ByteBuffer data) throws HyracksDataException {
+            return 0;
+        }
+
+        @Override
+        public IIOFuture asyncWrite(IFileHandle fHandle, long offset, ByteBuffer data) {
+            return null;
+        }
+
+        @Override
+        public IIOFuture asyncRead(IFileHandle fHandle, long offset, ByteBuffer data) {
+            return null;
+        }
+
+        @Override
+        public void close(IFileHandle fHandle) throws HyracksDataException {
+
+        }
+
+        @Override
+        public void sync(IFileHandle fileHandle, boolean metadata) throws HyracksDataException {
+
+        }
+
+        @Override
+        public void setExecutor(Executor executor) {
+
+        }
+
+        @Override
+        public long getSize(IFileHandle fileHandle) throws HyracksDataException {
+            return 0;
+        }
+
+        @Override
+        public boolean delete(FileReference fileReference) {
+            return false;
+        }
+
+        @Override
+        public boolean delete(FileReference fileReference, boolean recursive) {
+            return false;
+        }
+
+        @Override
+        public boolean mkdirs(FileReference fileReference) {
+            return false;
+        }
+
+        @Override
+        public boolean isDirectory(FileReference fileReference) {
+            return false;
+        }
+
+        @Override
+        public boolean deleteOnExit(FileReference fileReference) {
+            return true;
+        }
+
+        @Override public FileReference getParent(FileReference child) {
+            return null;
+        }
+
+        @Override
+        public boolean exists(FileReference fileReference) {
+            return false;
+        }
+
+        @Override
+        public String[] listFiles(FileReference fileReference, FilenameFilter transactionFileNameFilter) throws HyracksDataException {
+            return new String[0];
+        }
+
+        @Override
+        public InputStream getInputStream(IFileHandle fileHandle) {
+            return null;
+        }
+
+        @Override
+        public void deleteWorkspaceFiles() {
+
+        }
+
+        @Override public FileReference getAbsoluteFileRef(int ioDeviceId, String relativePath) {
+            return null;
+        }
+    }
+
 
     @Override
     public void createFile(FileReference fileRef) throws HyracksDataException {
@@ -382,16 +500,16 @@ public class VirtualBufferCache implements IVirtualBufferCache {
     }
 
     @Override
+    public int getFileReferenceCount(int fileId) {
+        return 0;
+    }
+
+    @Override
     public void adviseWontNeed(ICachedPage page) {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.log(Level.INFO, "Calling adviseWontNeed on " + this.getClass().getName()
                     + " makes no sense as this BufferCache cannot evict pages");
         }
-    }
-
-    @Override
-    public void returnPage(ICachedPage page) {
-
     }
 
     @Override
@@ -406,6 +524,10 @@ public class VirtualBufferCache implements IVirtualBufferCache {
 
     @Override
     public ICachedPage confiscatePage(long dpid) {
+        throw new UnsupportedOperationException("Virtual buffer caches don't have FIFO writers");
+    }
+
+    @Override public void returnPage(ICachedPage page) {
         throw new UnsupportedOperationException("Virtual buffer caches don't have FIFO writers");
     }
 
@@ -425,8 +547,13 @@ public class VirtualBufferCache implements IVirtualBufferCache {
     }
 
     @Override
-    public int getFileReferenceCount(int fileId) {
-        return 0;
+    public IIOManager getIOManager() {
+        return virtIOManager;
+    }
+
+    @Override
+    public IIOReplicationManager getIIOReplicationManager() {
+        return null;
     }
 
     @Override
@@ -434,10 +561,6 @@ public class VirtualBufferCache implements IVirtualBufferCache {
         return false;
     }
 
-    @Override
-    public IIOReplicationManager getIOReplicationManager() {
-        return null;
-    }
 
     @Override
     public void purgeHandle(int fileId) throws HyracksDataException {

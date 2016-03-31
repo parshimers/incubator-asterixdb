@@ -43,6 +43,7 @@ import java.util.logging.Logger;
 
 import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.commons.lang3.mutable.MutableObject;
+
 import org.apache.hyracks.api.application.INCApplicationEntryPoint;
 import org.apache.hyracks.api.client.NodeControllerInfo;
 import org.apache.hyracks.api.comm.NetworkAddress;
@@ -164,8 +165,11 @@ public class NodeControllerService implements IControllerService {
         NodeControllerIPCI ipci = new NodeControllerIPCI();
         ipc = new IPCSystem(new InetSocketAddress(ncConfig.clusterNetIPAddress, ncConfig.clusterNetPort), ipci,
                 new CCNCFunctions.SerializerDeserializer());
-
-        this.ctx = new RootHyracksContext(this, new IOManager(getDevices(ncConfig.ioDevices)));
+        if(ncConfig.hadoopConfPath.equals("")) {
+            this.ctx = new RootHyracksContext(this, new IOManager(getDevices(ncConfig.ioDevices)));
+        }else{
+            this.ctx = new RootHyracksContext(this, new IOManager(getDevices(ncConfig.ioDevices), ncConfig.hadoopConfPath));
+        }
         if (id == null) {
             throw new Exception("id not set");
         }
@@ -333,7 +337,7 @@ public class NodeControllerService implements IControllerService {
         if (!shuttedDown) {
             LOGGER.log(Level.INFO, "Stopping NodeControllerService");
             executor.shutdownNow();
-            if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
+            if(!executor.awaitTermination(10, TimeUnit.SECONDS)){
                 LOGGER.log(Level.SEVERE, "Some jobs failed to exit, continuing shutdown abnormally");
             }
             partitionManager.close();

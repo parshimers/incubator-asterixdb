@@ -1,20 +1,16 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
+ * Copyright 2009-2013 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package org.apache.hyracks.storage.common;
 
@@ -82,7 +78,7 @@ public class BufferCacheRegressionTest {
         IBufferCache bufferCache = TestStorageManagerComponentHolder.getBufferCache(ctx);
         IFileMapProvider fmp = TestStorageManagerComponentHolder.getFileMapProvider(ctx);
 
-        FileReference firstFileRef = new FileReference(new File(fileName));
+        FileReference firstFileRef = new FileReference(fileName);
         bufferCache.createFile(firstFileRef);
         int firstFileId = fmp.lookupFileId(firstFileRef);
         bufferCache.openFile(firstFileId);
@@ -106,7 +102,7 @@ public class BufferCacheRegressionTest {
         }
 
         // Create a file with the same name.
-        FileReference secondFileRef = new FileReference(new File(fileName));
+        FileReference secondFileRef = new FileReference(fileName);
         bufferCache.createFile(secondFileRef);
         int secondFileId = fmp.lookupFileId(secondFileRef);
 
@@ -123,7 +119,7 @@ public class BufferCacheRegressionTest {
         // physical memory again, and for performance reasons pages are never
         // reset with 0's.
         IIOManager ioManager = ctx.getIOManager();
-        FileReference testFileRef = new FileReference(new File(fileName));
+        FileReference testFileRef = new FileReference(fileName);
         IFileHandle testFileHandle = ioManager.open(testFileRef, FileReadWriteMode.READ_ONLY,
                 FileSyncMode.METADATA_SYNC_DATA_SYNC);
         ByteBuffer testBuffer = ByteBuffer.allocate(PAGE_SIZE);

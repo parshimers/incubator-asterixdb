@@ -1,20 +1,16 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
+ * Copyright 2009-2013 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.hyracks.storage.am.lsm.invertedindex.ondisk;
@@ -24,6 +20,7 @@ import java.io.File;
 import org.apache.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import org.apache.hyracks.api.dataflow.value.ITypeTraits;
 import org.apache.hyracks.api.io.FileReference;
+import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.data.std.accessors.PointableBinaryComparatorFactory;
 import org.apache.hyracks.data.std.primitive.IntegerPointable;
 import org.apache.hyracks.data.std.primitive.UTF8StringPointable;
@@ -39,8 +36,10 @@ public class OnDiskInvertedIndexLifecycleTest extends AbstractIndexLifecycleTest
 
     @Override
     protected boolean persistentStateExists() throws Exception {
-        return harness.getInvListsFileRef().getFile().exists()
-                && ((OnDiskInvertedIndex) index).getBTree().getFileReference().getFile().exists();
+        IIOManager ioManager = harness.getDiskBufferCache().getIOManager();
+        boolean postingFileExists = ioManager.exists(harness.getInvListsFileRef());
+        boolean indexExists = ioManager.exists(((OnDiskInvertedIndex)index).getBTree().getFileReference());
+        return postingFileExists && indexExists;
     }
 
     @Override
@@ -61,8 +60,7 @@ public class OnDiskInvertedIndexLifecycleTest extends AbstractIndexLifecycleTest
         IBinaryComparatorFactory[] invListCmpFactories = new IBinaryComparatorFactory[] { PointableBinaryComparatorFactory
                 .of(IntegerPointable.FACTORY) };
         IInvertedListBuilder invListBuilder = new FixedSizeElementInvertedListBuilder(invListTypeTraits);
-        FileReference btreeFile = new FileReference(new File(harness.getInvListsFileRef().getFile().getPath()
-                + "_btree"));
+        FileReference btreeFile = new FileReference(harness.getInvListsFileRef().getPath() + "_btree");
         index = new OnDiskInvertedIndex(harness.getDiskBufferCache(), harness.getDiskFileMapProvider(), invListBuilder,
                 invListTypeTraits, invListCmpFactories, tokenTypeTraits, tokenCmpFactories,
                 harness.getInvListsFileRef(), btreeFile);

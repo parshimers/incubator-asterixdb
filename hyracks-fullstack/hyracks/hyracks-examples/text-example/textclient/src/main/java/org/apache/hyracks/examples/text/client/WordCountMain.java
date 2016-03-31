@@ -127,9 +127,9 @@ public class WordCountMain {
             if (idx < 0) {
                 throw new IllegalArgumentException("File split " + s + " not well formed");
             }
-            File file = new File(s.substring(idx + 1));
-            fSplits[i] = new FileSplit(s.substring(0, idx), new FileReference(file));
-            fileSize += file.length();
+            FileReference file =  new FileReference(s.substring(idx + 1));
+            fSplits[i] = new FileSplit(s.substring(0, idx),file);
+            fileSize += file.getFile().length();
         }
         return fSplits;
     }

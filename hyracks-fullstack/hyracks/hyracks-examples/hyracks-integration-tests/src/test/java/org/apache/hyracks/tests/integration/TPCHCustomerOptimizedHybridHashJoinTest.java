@@ -97,12 +97,13 @@ public class TPCHCustomerOptimizedHybridHashJoinTest extends AbstractIntegration
     @Test
     public void customerOrderCIDHybridHashJoin_Case1() throws Exception {
         JobSpecification spec = new JobSpecification();
-        FileSplit[] custSplits = new FileSplit[] { new FileSplit(NC1_ID, new FileReference(new File(
-                "data/tpch0.001/customer4.tbl"))) };
+
+        FileSplit[] custSplits = new FileSplit[] { new FileSplit(NC1_ID, new FileReference(
+                "data/tpch0.001/customer4.tbl")) };
         IFileSplitProvider custSplitsProvider = new ConstantFileSplitProvider(custSplits);
 
-        FileSplit[] ordersSplits = new FileSplit[] { new FileSplit(NC2_ID, new FileReference(new File(
-                "data/tpch0.001/orders4.tbl"))) };
+        FileSplit[] ordersSplits = new FileSplit[] { new FileSplit(NC2_ID, new FileReference(
+                "data/tpch0.001/orders4.tbl")) };
 
         IFileSplitProvider ordersSplitsProvider = new ConstantFileSplitProvider(ordersSplits);
         FileScanOperatorDescriptor ordScanner = new FileScanOperatorDescriptor(spec, ordersSplitsProvider,
@@ -146,12 +147,12 @@ public class TPCHCustomerOptimizedHybridHashJoinTest extends AbstractIntegration
     public void customerOrderCIDHybridHashJoin_Case2() throws Exception {
         JobSpecification spec = new JobSpecification();
 
-        FileSplit[] custSplits = new FileSplit[] { new FileSplit(NC1_ID, new FileReference(new File(
-                "data/tpch0.001/customer3.tbl"))) };
+        FileSplit[] custSplits = new FileSplit[] { new FileSplit(NC1_ID, new FileReference(
+                "data/tpch0.001/customer3.tbl")) };
         IFileSplitProvider custSplitsProvider = new ConstantFileSplitProvider(custSplits);
 
-        FileSplit[] ordersSplits = new FileSplit[] { new FileSplit(NC2_ID, new FileReference(new File(
-                "data/tpch0.001/orders4.tbl"))) };
+        FileSplit[] ordersSplits = new FileSplit[] { new FileSplit(NC2_ID, new FileReference(
+                "data/tpch0.001/orders4.tbl")) };
 
         IFileSplitProvider ordersSplitsProvider = new ConstantFileSplitProvider(ordersSplits);
 
@@ -197,12 +198,12 @@ public class TPCHCustomerOptimizedHybridHashJoinTest extends AbstractIntegration
 
         JobSpecification spec = new JobSpecification();
 
-        FileSplit[] custSplits = new FileSplit[] { new FileSplit(NC1_ID, new FileReference(new File(
-                "data/tpch0.001/customer3.tbl"))) };
+        FileSplit[] custSplits = new FileSplit[] { new FileSplit(NC1_ID, new FileReference(
+                "data/tpch0.001/customer3.tbl")) };
         IFileSplitProvider custSplitsProvider = new ConstantFileSplitProvider(custSplits);
 
-        FileSplit[] ordersSplits = new FileSplit[] { new FileSplit(NC2_ID, new FileReference(new File(
-                "data/tpch0.001/orders1.tbl"))) };
+        FileSplit[] ordersSplits = new FileSplit[] { new FileSplit(NC2_ID, new FileReference(
+                "data/tpch0.001/orders1.tbl")) };
 
         IFileSplitProvider ordersSplitsProvider = new ConstantFileSplitProvider(ordersSplits);
 

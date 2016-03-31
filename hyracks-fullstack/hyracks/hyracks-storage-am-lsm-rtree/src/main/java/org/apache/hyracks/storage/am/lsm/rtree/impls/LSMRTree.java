@@ -98,7 +98,7 @@ public class LSMRTree extends AbstractLSMRTree {
                 filterFactory, filterFrameFactory, filterManager, rtreeFields, filterFields, durable);
         this.buddyBTreeFields = buddyBTreeFields;
     }
-
+    
     /*
      * For External indexes with no memory components
      */

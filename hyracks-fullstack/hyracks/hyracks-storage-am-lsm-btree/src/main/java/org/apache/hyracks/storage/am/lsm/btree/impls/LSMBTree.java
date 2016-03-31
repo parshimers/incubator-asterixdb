@@ -121,7 +121,7 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
                     new BTree(virtualBufferCache, virtualBufferCache.getFileMapProvider(),
                             new VirtualMetaDataPageManager(virtualBufferCache.getNumPages()), interiorFrameFactory,
                             insertLeafFrameFactory, cmpFactories, fieldCount,
-                            new FileReference(new File(fileManager.getBaseDir() + "_virtual_" + i))),
+                            new FileReference(fileManager.getBaseDir() + "_virtual_" + i)),
                     virtualBufferCache, i == 0 ? true : false,
                     filterFactory == null ? null : filterFactory.createLSMComponentFilter());
             memoryComponents.add(mutableComponent);
@@ -491,7 +491,7 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
         FileReference firstFile = firstBTree.getFileReference();
         FileReference lastFile = lastBTree.getFileReference();
         LSMComponentFileReferences relMergeFileRefs = fileManager
-                .getRelMergeFileReference(firstFile.getFile().getName(), lastFile.getFile().getName());
+                .getRelMergeFileReference(firstFile.getName(), lastFile.getName());
         ILSMIndexAccessorInternal accessor = new LSMBTreeAccessor(lsmHarness, opCtx);
         ioScheduler.scheduleOperation(new LSMBTreeMergeOperation(accessor, mergingComponents, cursor,
                 relMergeFileRefs.getInsertIndexFileReference(), relMergeFileRefs.getBloomFilterFileReference(),
