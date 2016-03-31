@@ -1,0 +1,52 @@
+Query:
+SELECT ELEMENT [
+RecordConstructor [
+  (
+    LiteralExpr [STRING] [root]
+    :
+    Variable [ Name=#1 ]
+  )
+]
+]
+FROM [  FunctionCall Metadata.dataset@1[
+    LiteralExpr [STRING] [tbl_name]
+  ]
+  AS
+  Variable [ Name=$t ]
+]
+Groupby
+  Variable [ Name=#1 ]
+  :=
+  FunctionCall null.SQRT@1[
+    OperatorExpr [
+      FieldAccessor [
+        Variable [ Name=$t ]
+        Field=a
+      ]
+      *
+      FieldAccessor [
+        Variable [ Name=$t ]
+        Field=b
+      ]
+    ]
+  ]
+  GROUP AS
+  Variable [ Name=#2 ]
+  (
+  Variable [ Name=$t ]
+   AS t
+  )
+
+Let Variable [ Name=$u ]
+  :=
+  Variable [ Name=#1 ]
+ HAVING
+  OperatorExpr [
+    Variable [ Name=#1 ]
+    >
+    LiteralExpr [LONG] [0]
+  ]
+Orderby
+  Variable [ Name=$u ]
+  ASC
+
