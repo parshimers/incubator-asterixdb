@@ -34,9 +34,9 @@ import org.apache.hyracks.storage.am.common.ophelpers.MultiComparator;
 import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMHarness;
-import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
+import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndexOperationContext;
 
-public final class LSMBTreeOpContext implements ILSMIndexOperationContext {
+public final class LSMBTreeOpContext extends AbstractLSMIndexOperationContext {
 
     public ITreeIndexFrameFactory insertLeafFrameFactory;
     public ITreeIndexFrameFactory deleteLeafFrameFactory;
@@ -141,6 +141,7 @@ public final class LSMBTreeOpContext implements ILSMIndexOperationContext {
 
     @Override
     public void reset() {
+        super.reset();
         componentHolder.clear();
         componentsToBeMerged.clear();
         componentsToBeReplicated.clear();

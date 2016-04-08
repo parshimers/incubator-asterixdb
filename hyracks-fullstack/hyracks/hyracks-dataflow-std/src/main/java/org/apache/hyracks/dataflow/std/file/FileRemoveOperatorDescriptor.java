@@ -34,10 +34,22 @@ import org.apache.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescri
 public class FileRemoveOperatorDescriptor extends AbstractSingleActivityOperatorDescriptor {
 
     private final IFileSplitProvider fileSplitProvider;
+    private final boolean quietly;
 
-    public FileRemoveOperatorDescriptor(IOperatorDescriptorRegistry spec, IFileSplitProvider fileSplitProvder) {
+    public FileRemoveOperatorDescriptor(IOperatorDescriptorRegistry spec, IFileSplitProvider fileSplitProvder,
+            boolean quietly) {
         super(spec, 0, 0);
         this.fileSplitProvider = fileSplitProvder;
+        this.quietly = quietly;
+    }
+
+    /**
+     *
+     * @deprecated use {@link #FileRemoveOperatorDescriptor(IOperatorDescriptorRegistry spec, IFileSplitProvider fileSplitProvder, boolean quietly)} instead.
+     */
+    @Deprecated
+    public FileRemoveOperatorDescriptor(IOperatorDescriptorRegistry spec, IFileSplitProvider fileSplitProvder) {
+        this(spec, fileSplitProvder, false);
     }
 
     private static final long serialVersionUID = 1L;
