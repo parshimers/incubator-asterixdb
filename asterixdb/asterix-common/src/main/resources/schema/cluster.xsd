@@ -36,6 +36,9 @@
 	<xs:element name="NFS" type="xs:boolean" />
 	<xs:element name="store" type="xs:string" />
 	<xs:element name="iodevices" type="xs:string" />
+	<xs:element
+			name="hdp_conf_path"
+			type="xs:string" />
 	<xs:element name="java_home" type="xs:string" />
 	<xs:element name="username" type="xs:string" />
 	<xs:element name="web_port" type="xs:string" />
@@ -148,6 +151,8 @@
 				<xs:element ref="cl:txn_log_dir" minOccurs="0" />
 				<xs:element ref="cl:store" minOccurs="0" />
 				<xs:element ref="cl:iodevices" minOccurs="0" />
+				<xs:element
+						ref="cl:hdp_conf_path"/>
 				<xs:element ref="cl:working_dir" />
 				<xs:element ref="cl:metadata_node" />
 				<xs:element ref="cl:data_replication" minOccurs="0" />

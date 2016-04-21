@@ -5,14 +5,14 @@
             <version>0.20.2</version>
             <url></url>
         </hdfs>
-        <backupDir>/home/youngsk2/managix/clusters/local/working_dir/backup</backupDir>
+        <backupDir>/home/imaxon/managix-working-dfs</backupDir>
     </backup>
     <zookeeper>
-        <homeDir>/home/youngsk2/managix/.installer/zookeeper_home</homeDir>
+        <homeDir>/home/imaxon/managix-working-dfs/</homeDir>
         <clientPort>2900</clientPort>
         <servers>
-            <java_home>/home/youngsk2/jdk1.7.0_65</java_home>
-            <server>128.195.9.21</server>
+            <java_home>/mnt/data/sdb/imaxon/jdk1.8.0_77</java_home>
+            <server>sensorium-26.ics.uci.edu</server>
         </servers>
     </zookeeper>
 </configuration>

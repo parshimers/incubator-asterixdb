@@ -50,11 +50,11 @@ public class FeedUtils {
         File relPathFile = new File(prepareDataverseFeedName(dataverseName, feedName));
         String storageDirName = AsterixClusterProperties.INSTANCE.getStorageDirectoryName();
         String storagePartitionPath = StoragePathUtil.prepareStoragePartitionPath(storageDirName,
-                nodePartition.getPartitionId());
+                partition.getPartitionId());
         // format: 'storage dir name'/partition_#/dataverse/feed/adapter_#
         FileReference f = new FileReference(storagePartitionPath + File.separator + relPathFile + File.separator
                 + StoragePathUtil.ADAPTER_INSTANCE_PREFIX + partition);
-        return StoragePathUtil.getFileSplitForClusterPartition(nodePartition, f);
+        return StoragePathUtil.getFileSplitForClusterPartition(partition, f);
     }
 
     public static FileSplit[] splitsForAdapter(String dataverseName, String feedName,
@@ -77,9 +77,9 @@ public class FeedUtils {
 
     public static FeedLogManager getFeedLogManager(IHyracksTaskContext ctx, int partition,
             FileSplit[] feedLogFileSplits) throws HyracksDataException {
-        return new FeedLogManager(
-                FeedUtils.getAbsoluteFileRef(feedLogFileSplits[partition].getLocalFile().getFile().getPath(),
-                        feedLogFileSplits[partition].getIODeviceId(), ctx.getIOManager()).getFile());
+        return new FeedLogManager(new File(
+                FeedUtils.getAbsoluteFileRef(feedLogFileSplits[partition].getLocalFile().getPath(),
+                        feedLogFileSplits[partition].getIODeviceId(), ctx.getIOManager()).getAbsolutePath()));
     }
 
     public static FeedLogManager getFeedLogManager(IHyracksTaskContext ctx, FileSplit feedLogFileSplit)

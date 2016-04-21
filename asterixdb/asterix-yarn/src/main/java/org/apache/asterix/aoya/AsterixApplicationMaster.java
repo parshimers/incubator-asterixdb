@@ -1082,6 +1082,7 @@ public class AsterixApplicationMaster {
                     vargs.add("-node-id " + local.getId());
                     vargs.add("-cc-host " + cC.getClusterIp());
                     vargs.add("-iodevices " + iodevice);
+                    vargs.add("-hdp-conf-path  " + clusterDesc.getHdpConfPath());
                     vargs.add("-cluster-net-ip-address " + local.getClusterIp());
                     vargs.add("-data-ip-address " + local.getClusterIp());
                     vargs.add("-result-ip-address " + local.getClusterIp());

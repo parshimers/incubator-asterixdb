@@ -78,6 +78,9 @@
         name="metadata_node"
         type="xs:string" />
     <xs:element
+            name="hdp_conf_path"
+            type="xs:string" />
+    <xs:element
         name="cc_container_mem"
         type="xs:string" />
     <xs:element
@@ -190,6 +193,8 @@
                 <xs:element
                     ref="cl:iodevices"
                     minOccurs="0" />
+                <xs:element
+                        ref="cl:hdp_conf_path"/>
                 <xs:element ref="cl:metadata_node" />
                 <xs:element ref="cl:master_node" />
                 <xs:element

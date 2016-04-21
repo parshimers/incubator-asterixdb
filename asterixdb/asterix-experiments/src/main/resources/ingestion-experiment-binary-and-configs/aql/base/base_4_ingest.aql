@@ -2,16 +2,7 @@ use dataverse experiments;
 
 create feed TweetFeed1 using socket_adapter
 (
-    ("sockets"="128.195.9.22:10001,128.195.9.23:10001,128.195.9.24:10001,128.195.9.25:10001"),
-    ("address-type"="IP"),
-    ("type-name"="TweetMessageType"),
-    ("format"="adm"),
-    ("duration"="1200")
-);
-
-create feed TweetFeed2 using socket_adapter
-(
-    ("sockets"="128.195.9.22:10002,128.195.9.23:10002,128.195.9.24:10002,128.195.9.25:10002"),
+    ("sockets"="128.195.11.56:10001,128.195.11.57:10001,128.195.11.58:10001,128.195.11.59:10001"),
     ("address-type"="IP"),
     ("type-name"="TweetMessageType"),
     ("format"="adm"),
@@ -20,5 +11,4 @@ create feed TweetFeed2 using socket_adapter
 
 set wait-for-completion-feed "false";
 
-connect feed TweetFeed1 to dataset Tweets using policy Br;
-connect feed TweetFeed2 to dataset Tweets using policy Br;
+connect feed TweetFeed1 to dataset Tweets;

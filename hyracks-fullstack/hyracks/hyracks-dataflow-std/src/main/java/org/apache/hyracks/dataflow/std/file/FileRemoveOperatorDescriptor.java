@@ -58,9 +58,6 @@ public class FileRemoveOperatorDescriptor extends AbstractSingleActivityOperator
     public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
         final FileSplit split = fileSplitProvider.getFileSplits()[partition];
-        final String path = split.getLocalFile().getFile().getPath();
-        final int deviceId = split.getIODeviceId();
-        final IIOManager ioManager = ctx.getIOManager();
         return new AbstractOperatorNodePushable() {
 
             @Override

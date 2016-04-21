@@ -28,4 +28,4 @@ fi
 
 cd $WORKING_DIR
 
-$ASTERIX_HOME/bin/asterixnc -node-id $NC_ID -cc-host $CC_HOST -cc-port $CLUSTER_NET_PORT  -cluster-net-ip-address $IP_LOCATION  -data-ip-address $IP_LOCATION -iodevices $IO_DEVICES -result-ip-address $IP_LOCATION -- $INITIAL_RUN_FLAG &> $LOG_DIR/${NC_ID}.log
+$ASTERIX_HOME/bin/asterixnc -node-id $NC_ID -cc-host $CC_HOST -cc-port $CLUSTER_NET_PORT  -hdp-conf-path /home/imaxon/hadoop-2.6.4/etc/hadoop/ -cluster-net-ip-address $IP_LOCATION -data-ip-address $IP_LOCATION -iodevices $IO_DEVICES -result-ip-address $IP_LOCATION -- $INITIAL_RUN_FLAG &> $LOG_DIR/${NC_ID}.log

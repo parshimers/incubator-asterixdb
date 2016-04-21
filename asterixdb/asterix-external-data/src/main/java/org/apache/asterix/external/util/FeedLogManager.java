@@ -48,8 +48,8 @@ public class FeedLogManager {
     public static final String END_PREFIX = "e:";
     public static final int PREFIX_SIZE = 2;
     private String currentPartition;
-    private final TreeSet<String> completed;
-    private final Path dir;
+    //private final TreeSet<String> completed;
+    //private final Path dir;
     private BufferedWriter progressLogger;
     private BufferedWriter errorLogger;
     private BufferedWriter recordLogger;
@@ -57,16 +57,16 @@ public class FeedLogManager {
     private int count = 0;
 
     public FeedLogManager(File file) throws HyracksDataException {
-        try {
-            this.dir = file.toPath();
-            this.completed = new TreeSet<String>();
-            if (!exists()) {
-                create();
-            }
-            open();
-        } catch (IOException e) {
-            throw new HyracksDataException(e);
-        }
+//        try {
+//            this.dir = file.toPath();
+//            this.completed = new TreeSet<String>();
+//            if (!exists()) {
+//                create();
+//            }
+//            open();
+//        } catch (IOException e) {
+//            throw new HyracksDataException(e);
+//        }
     }
 
     public synchronized void touch() {
@@ -74,107 +74,111 @@ public class FeedLogManager {
     }
 
     public synchronized void endPartition() throws IOException {
-        logProgress(END_PREFIX + currentPartition);
-        completed.add(currentPartition);
+//        logProgress(END_PREFIX + currentPartition);
+//        completed.add(currentPartition);
     }
 
     public synchronized void endPartition(String partition) throws IOException {
-        currentPartition = partition;
-        logProgress(END_PREFIX + currentPartition);
-        completed.add(currentPartition);
+//        currentPartition = partition;
+//        logProgress(END_PREFIX + currentPartition);
+//        completed.add(currentPartition);
     }
 
     public synchronized void startPartition(String partition) throws IOException {
-        currentPartition = partition;
-        logProgress(START_PREFIX + currentPartition);
+//        currentPartition = partition;
+//        logProgress(START_PREFIX + currentPartition);
     }
 
     public boolean exists() {
-        return Files.exists(dir);
+        //return Files.exists(dir);
+        return true;
     }
 
     public synchronized void open() throws IOException {
-        // read content of logs.
-        BufferedReader reader = Files.newBufferedReader(
-                Paths.get(dir.toAbsolutePath().toString() + File.separator + PROGRESS_LOG_FILE_NAME));
-        String log = reader.readLine();
-        while (log != null) {
-            if (log.startsWith(END_PREFIX)) {
-                completed.add(getSplitId(log));
-            }
-            log = reader.readLine();
-        }
-        reader.close();
-
-        progressLogger = Files.newBufferedWriter(
-                Paths.get(dir.toAbsolutePath().toString() + File.separator + PROGRESS_LOG_FILE_NAME),
-                StandardCharsets.UTF_8, StandardOpenOption.APPEND);
-        errorLogger = Files.newBufferedWriter(
-                Paths.get(dir.toAbsolutePath().toString() + File.separator + ERROR_LOG_FILE_NAME),
-                StandardCharsets.UTF_8, StandardOpenOption.APPEND);
-        recordLogger = Files.newBufferedWriter(
-                Paths.get(dir.toAbsolutePath().toString() + File.separator + BAD_RECORDS_FILE_NAME),
-                StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+//        // read content of logs.
+//        BufferedReader reader = Files.newBufferedReader(
+//                Paths.get(dir.toAbsolutePath().toString() + File.separator + PROGRESS_LOG_FILE_NAME));
+//        String log = reader.readLine();
+//        while (log != null) {
+//            if (log.startsWith(END_PREFIX)) {
+//                completed.add(getSplitId(log));
+//            }
+//            log = reader.readLine();
+//        }
+//        reader.close();
+//
+//        progressLogger = Files.newBufferedWriter(
+//                Paths.get(dir.toAbsolutePath().toString() + File.separator + PROGRESS_LOG_FILE_NAME),
+//                StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+//        errorLogger = Files.newBufferedWriter(
+//                Paths.get(dir.toAbsolutePath().toString() + File.separator + ERROR_LOG_FILE_NAME),
+//                StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+//        recordLogger = Files.newBufferedWriter(
+//                Paths.get(dir.toAbsolutePath().toString() + File.separator + BAD_RECORDS_FILE_NAME),
+//                StandardCharsets.UTF_8, StandardOpenOption.APPEND);
     }
 
     public synchronized void close() throws IOException {
-        count--;
-        if (count > 0) {
-            return;
-        }
-        progressLogger.close();
-        errorLogger.close();
-        recordLogger.close();
+//        count--;
+//        if (count > 0) {
+//            return;
+//        }
+//        progressLogger.close();
+//        errorLogger.close();
+//        recordLogger.close();
     }
 
     public synchronized boolean create() throws IOException {
-        File f = dir.toFile();
-        f.mkdirs();
-        new File(f, PROGRESS_LOG_FILE_NAME).createNewFile();
-        new File(f, ERROR_LOG_FILE_NAME).createNewFile();
-        new File(f, BAD_RECORDS_FILE_NAME).createNewFile();
+//        File f = dir.toFile();
+//        f.mkdirs();
+//        new File(f, PROGRESS_LOG_FILE_NAME).createNewFile();
+//        new File(f, ERROR_LOG_FILE_NAME).createNewFile();
+//        new File(f, BAD_RECORDS_FILE_NAME).createNewFile();
         return true;
     }
 
     public synchronized boolean destroy() throws IOException {
-        File f = dir.toFile();
-        FileUtils.deleteDirectory(f);
+//        File f = dir.toFile();
+//        FileUtils.deleteDirectory(f);
+//        return true;
         return true;
     }
 
     public synchronized void logProgress(String log) throws IOException {
-        stringBuilder.setLength(0);
-        stringBuilder.append(log);
-        stringBuilder.append(ExternalDataConstants.LF);
-        progressLogger.write(stringBuilder.toString());
-        progressLogger.flush();
+//        stringBuilder.setLength(0);
+//        stringBuilder.append(log);
+//        stringBuilder.append(ExternalDataConstants.LF);
+//        progressLogger.write(stringBuilder.toString());
+//        progressLogger.flush();
     }
 
     public synchronized void logError(String error, Throwable th) throws IOException {
-        stringBuilder.setLength(0);
-        stringBuilder.append(error);
-        stringBuilder.append(ExternalDataConstants.LF);
-        stringBuilder.append(th.toString());
-        stringBuilder.append(ExternalDataConstants.LF);
-        errorLogger.write(stringBuilder.toString());
-        errorLogger.flush();
+//        stringBuilder.setLength(0);
+//        stringBuilder.append(error);
+//        stringBuilder.append(ExternalDataConstants.LF);
+//        stringBuilder.append(th.toString());
+//        stringBuilder.append(ExternalDataConstants.LF);
+//        errorLogger.write(stringBuilder.toString());
+//        errorLogger.flush();
     }
 
     public synchronized void logRecord(String record, String errorMessage) throws IOException {
-        stringBuilder.setLength(0);
-        stringBuilder.append(record);
-        stringBuilder.append(ExternalDataConstants.LF);
-        stringBuilder.append(errorMessage);
-        stringBuilder.append(ExternalDataConstants.LF);
-        recordLogger.write(stringBuilder.toString());
-        recordLogger.flush();
+//        stringBuilder.setLength(0);
+//        stringBuilder.append(record);
+//        stringBuilder.append(ExternalDataConstants.LF);
+//        stringBuilder.append(errorMessage);
+//        stringBuilder.append(ExternalDataConstants.LF);
+//        recordLogger.write(stringBuilder.toString());
+//        recordLogger.flush();
     }
 
     public static String getSplitId(String log) {
-        return log.substring(PREFIX_SIZE);
+        //return log.substring(PREFIX_SIZE);
+        return "";
     }
 
     public synchronized boolean isSplitRead(String split) {
-        return completed.contains(split);
+        //return completed.contains(split);
+        return false;
     }
 }

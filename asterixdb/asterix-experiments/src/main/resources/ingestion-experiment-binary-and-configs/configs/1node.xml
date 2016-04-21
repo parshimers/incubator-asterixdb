@@ -14,16 +14,16 @@
  !-->
 <cluster xmlns="cluster">
 	<name>1node</name>
-    <username>jenkins</username>
+    <username>parshimers</username>
 	<working_dir>
-		<dir>/home/jenkins/asterixdb/working</dir>
+		<dir>/home/parshimers/asterixdb/working</dir>
 		<NFS>true</NFS>
 	</working_dir>
-	<log_dir>/home/jenkins/asterix/logs</log_dir>
-	<txn_log_dir>/home/jenkins/asterix/txnlogs</txn_log_dir>
-	<iodevices>/home/jenkins/asterix</iodevices>
+	<log_dir>/home/parshimers/asterix/logs</log_dir>
+	<txn_log_dir>/home/parshimers/asterix/txnlogs</txn_log_dir>
+	<iodevices>/home/parshimers/asterix</iodevices>
 	<store>storage</store>
-	<java_home>/usr/lib/jvm/jre-1.8.0</java_home>
+	<java_home>/usr/lib/jvm/jdk-8-oracle-x64/</java_home>
 	<master_node>
 		<id>master</id>
 		<cluster_ip>127.0.0.1</cluster_ip>

@@ -16,13 +16,13 @@
 
 	<property>
 		<name>nc.java.opts</name>
-		<value>-Xms6144m -Xmx7168m</value>
+		<value>-Xmx4068m</value>
 		<description>JVM parameters for each Node Contoller (NC)</description>
 	</property>
 
 	<property>
 		<name>cc.java.opts</name>
-		<value>-Xms6144m -Xmx6144m</value>
+		<value>-Xmx1024m</value>
 		<description>JVM parameters for each Cluster Contoller (CC)
 		</description>
 	</property>
@@ -232,7 +232,7 @@
 
 	<property>
 		<name>log.level</name>
-		<value>ALL</value>
+		<value>INFO</value>
 		<description>The minimum log level to be displayed. (Default = INFO)
 		</description>
 	</property>
