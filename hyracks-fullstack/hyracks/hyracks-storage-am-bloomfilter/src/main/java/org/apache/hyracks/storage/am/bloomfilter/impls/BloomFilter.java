@@ -287,6 +287,7 @@ public class BloomFilter {
                 queue.put(p);
             }
             bufferCache.finishQueue();
+            bufferCache.purgeHandle(fileId);
             BloomFilter.this.numBits = numBits;
             BloomFilter.this.numHashes = numHashes;
             BloomFilter.this.numElements = numElements;

@@ -1163,6 +1163,7 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
         synchronized (fileInfoMap) {
             BufferedFileHandle fh = fileInfoMap.get(fileId);
             if (fh != null) {
+                ioManager.close(fh.getFileHandle());
             }
         }
     }

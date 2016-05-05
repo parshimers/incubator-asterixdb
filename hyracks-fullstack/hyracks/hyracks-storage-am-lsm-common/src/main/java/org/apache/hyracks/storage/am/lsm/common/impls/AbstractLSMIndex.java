@@ -142,6 +142,7 @@ public abstract class AbstractLSMIndex implements ILSMIndexInternal {
         if (durable) {
             bufferCache.force(fileId, true);
         }
+        bufferCache.purgeHandle(fileId);
     }
 
     protected void markAsValidInternal(IBufferCache bufferCache, BloomFilter filter) throws HyracksDataException {
