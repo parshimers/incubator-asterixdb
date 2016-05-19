@@ -229,12 +229,14 @@ public abstract class AbstractPerfLoadBuilder extends AbstractExperimentBuilder 
         execs.add(postLSAction);
 
         //kill asterix cc and nc
+        /*
         ParallelActionSet killCmds = new ParallelActionSet();
         for (String ncHost : ncHosts) {
             killCmds.add(new RemoteAsterixDriverKill(ncHost, username, sshKeyLocation));
         }
         killCmds.add(new RemoteAsterixDriverKill(restHost, username, sshKeyLocation));
         execs.add(killCmds);
+        */
 
         //stop asterix instance
         execs.add(new StopAsterixManagixAction(managixHomePath, ASTERIX_INSTANCE_NAME));
