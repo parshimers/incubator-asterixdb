@@ -270,7 +270,8 @@ public class LSMExperimentSetRunner {
                 suite.add(new Experiment1BBuilder(config));
                 suite.add(new Experiment1CBuilder(config));
                 suite.add(new Experiment1DBuilder(config));
-        suite.add(new Experiment1EBuilder(config));
+                suite.add(new Experiment1EBuilder(config));
+                suite.add(new Experiment1FBuilder(config));
                 suite.add(new Experiment4ABuilder(config));
                 suite.add(new Experiment4BBuilder(config));
                 suite.add(new Experiment4CBuilder(config));
@@ -283,6 +284,7 @@ public class LSMExperimentSetRunner {
                 suite.add(new Experiment5BBuilder(config));
                 suite.add(new Experiment5CBuilder(config));
                 suite.add(new Experiment5DBuilder(config));
+                suite.add(new PerfTestAggBuilder(config));
 
         Pattern p = config.getRegex() == null ? null : Pattern.compile(config.getRegex());
 
