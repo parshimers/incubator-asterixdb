@@ -1,4 +1,4 @@
-use dataverse experiments;
+use dataverse SocialNetworkData;
 
 load dataset GleambookMessages using
 localfs(("path"="asterix-6:///mnt/data/sdf/imaxon/datagen/gbook_messages.adm,asterix-7:///mnt/data/sdf/imaxon/datagen/gbook_messages.adm,asterix-8:///mnt/data/sdf/imaxon/datagen/gbook_messages.adm,asterix-9:///mnt/data/sdf/imaxon/datagen/gbook_messages.adm"),("format"="adm"));

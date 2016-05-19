@@ -1,6 +1,6 @@
-drop dataverse experiments if exists;
-create dataverse experiments;
-use dataverse experiments;
+drop dataverse SocialNetworkData if exists;
+create dataverse SocialNetworkData;
+use dataverse SocialNetworkData;
 
   create type EmploymentType as {
     organization: string,

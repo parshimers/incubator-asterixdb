@@ -1,0 +1,13 @@
+use SocialNetworkData;
+
+select uid as uid, c as count
+from GleambookUsers as user,
+     GleambookMessages as message
+where message.author_id = user.id and
+      message.send_time >= datetime('2003-07-11T10:56:04') and
+      message.send_time < datetime('2003-08-10T10:56:04')
+group by user.id AS uid
+let c = count(message)
+order by c desc
+limit 10;
+

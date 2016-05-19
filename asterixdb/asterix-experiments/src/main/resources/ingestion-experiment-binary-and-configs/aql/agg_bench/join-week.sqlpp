@@ -1,0 +1,14 @@
+use SocialNetworkData;
+
+select element {
+'uname': user.name,
+'alias': user.alias,
+'send_time': message.send_time,
+'message': substring(message.message, 1, 31)
+}
+from GleambookUsers as user,
+     GleambookMessages as message
+where message.author_id = user.id and
+      message.send_time >= datetime('2012-08-03T11:02:50') and
+      message.send_time < datetime('2012-08-10T11:02:50');
+

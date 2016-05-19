@@ -20,6 +20,7 @@
 package org.apache.asterix.experiment.action.derived;
 
 import org.apache.asterix.experiment.action.base.AbstractAction;
+import org.apache.avro.generic.GenericData;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
@@ -27,6 +28,7 @@ import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -35,6 +37,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -45,6 +49,7 @@ public class RunSQLPPFileAction extends AbstractAction {
     private final HttpClient httpClient;
 
     private final Path aqlFilePath;
+    private final List<Path> queriesToRun;
 
     private final String restHost;
 
@@ -58,6 +63,7 @@ public class RunSQLPPFileAction extends AbstractAction {
         this.restHost = restHost;
         this.restPort = restPort;
         os = null;
+        queriesToRun = new ArrayList<>();
     }
 
     public RunSQLPPFileAction(HttpClient httpClient, String restHost, int restPort, Path aqlFilePath, OutputStream os) {
@@ -66,22 +72,28 @@ public class RunSQLPPFileAction extends AbstractAction {
         this.restHost = restHost;
         this.restPort = restPort;
         this.os = os;
+        queriesToRun = new ArrayList<>();
     }
 
     @Override
     public void doPerform() throws Exception {
-        String aql = StandardCharsets.UTF_8.decode(ByteBuffer.wrap(Files.readAllBytes(aqlFilePath))).toString();
-        String uri = MessageFormat.format(REST_URI_TEMPLATE, restHost, String.valueOf(restPort));
-        HttpPost post = new HttpPost(uri);
-        post.setHeader(HttpHeaders.CONTENT_TYPE, "application/json");
-        post.setEntity(new StringEntity(aql, StandardCharsets.UTF_8));
-        HttpEntity entity = httpClient.execute(post).getEntity();
-        if (entity != null && entity.isStreaming()) {
-            printStream(entity.getContent());
+        if(aqlFilePath.toFile().isDirectory()){
+           for(File f: aqlFilePath.toFile().listFiles()){
+               queriesToRun.add(f.toPath());
+           }
         }
-        if (aql.contains("compact")) {
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("Compaction has been completed");
+        else{
+            queriesToRun.add(aqlFilePath);
+        }
+        for(Path p: queriesToRun) {
+            String sqlpp = StandardCharsets.UTF_8.decode(ByteBuffer.wrap(Files.readAllBytes(p))).toString();
+            String uri = MessageFormat.format(REST_URI_TEMPLATE, restHost, String.valueOf(restPort));
+            HttpPost post = new HttpPost(uri);
+            post.setHeader(HttpHeaders.CONTENT_TYPE, "application/json");
+            post.setEntity(new StringEntity(sqlpp, StandardCharsets.UTF_8));
+            HttpEntity entity = httpClient.execute(post).getEntity();
+            if (entity != null && entity.isStreaming()) {
+                printStream(entity.getContent());
             }
         }
     }

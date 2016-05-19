@@ -1,0 +1,9 @@
+use SocialNetworkData;
+
+select element coll_avg((
+select element "string-length"(g.message) 
+from GleambookMessages as g
+where g.send_time > datetime('2010-10-10T03:13:47') and
+      g.send_time <= datetime('2010-10-11T03:13:47')
+));
+
