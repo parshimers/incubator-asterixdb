@@ -29,7 +29,7 @@ import org.apache.hyracks.api.exceptions.HyracksException;
 public class WorkQueue {
     private static final Logger LOGGER = Logger.getLogger(WorkQueue.class.getName());
     //to be fixed when application vs. hyracks log level issues are sorted
-    private static boolean DEBUG = false;
+    private static final boolean DEBUG = false;
 
     private final LinkedBlockingQueue<AbstractWork> queue;
     private final WorkerThread thread;
