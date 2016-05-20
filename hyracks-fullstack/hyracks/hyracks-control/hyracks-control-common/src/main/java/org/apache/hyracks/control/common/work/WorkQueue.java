@@ -48,10 +48,8 @@ public class WorkQueue {
         thread = new WorkerThread();
         stopSemaphore = new Semaphore(1);
         stopped = true;
-        if (LOGGER.isLoggable(COUNT_LOGGING_LEVEL)) {
-            enqueueCount = new AtomicInteger(0);
-            dequeueCount = new AtomicInteger(0);
-        }
+        enqueueCount = new AtomicInteger(0);
+        dequeueCount = new AtomicInteger(0);
     }
 
     public void start() throws HyracksException {
