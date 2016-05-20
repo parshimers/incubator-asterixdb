@@ -19,7 +19,7 @@
     <dir>/home/asterix/asterixdb/working</dir>
     <NFS>true</NFS>
   </working_dir>
-  <log_dir>/mnt/data/sde/asterix/asterix/logs</log_dir>
+  <log_dir>/home/asterix/logs</log_dir>
   <txn_log_dir>/mnt/data/sdh/scratch/asterix/asterix/txnlogs</txn_log_dir>
   <iodevices>/mnt/data/sde/asterix/asterix/</iodevices>
   <store>storage</store>
