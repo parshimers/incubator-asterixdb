@@ -52,16 +52,31 @@
         </executions>
       </plugin>
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jar-plugin</artifactId>
+        <groupId>pl.project13.maven</groupId>
+        <artifactId>git-commit-id-plugin</artifactId>
+        <version>2.2.0</version>
         <executions>
           <execution>
             <goals>
-              <goal>jar</goal>
-              <goal>test-jar</goal>
+              <goal>revision</goal>
             </goals>
           </execution>
         </executions>
+
+        <configuration>
+          <!--
+              If you'd like to tell the plugin where your .git directory is,
+              use this setting, otherwise we'll perform a search trying to
+              figure out the right directory. It's better to add it explicite IMHO.
+          -->
+          <dotGitDirectory>${project.basedir}/.git</dotGitDirectory>
+          <!-- this is false by default, forces the plugin to generate the git.properties file -->
+          <generateGitPropertiesFile>true</generateGitPropertiesFile>
+
+          <!-- The path for the to be generated properties file, it's relative to ${project.basedir} -->
+          <generateGitPropertiesFilename>./target/classes/git.properties</generateGitPropertiesFilename>
+        </configuration>
+
       </plugin>
       <plugin>
         <artifactId>maven-resources-plugin</artifactId>
@@ -106,6 +121,29 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.apache.asterix</groupId>
+        <artifactId>asterix-test-datagenerator-maven-plugin</artifactId>
+        <version>0.8.9-SNAPSHOT</version>
+        <executions>
+          <execution>
+            <id>replace-template-data</id>
+            <phase>process-test-resources</phase>
+            <goals>
+              <goal>generate-testdata</goal>
+            </goals>
+            <configuration>
+              <inputFiles>
+                <directory>data</directory>
+                <includes>
+                  <include>**/*.template</include>
+                </includes>
+              </inputFiles>
+              <outputDir>target/data</outputDir>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
   <dependencies>
@@ -143,6 +181,10 @@
     <dependency>
       <groupId>org.apache.hyracks</groupId>
       <artifactId>hyracks-client</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hyracks</groupId>
+      <artifactId>hyracks-api</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.asterix</groupId>
@@ -199,13 +241,7 @@
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-hdfs</artifactId>
       <type>jar</type>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-hdfs</artifactId>
-      <type>jar</type>
-      <scope>compile</scope>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>xerces</groupId>

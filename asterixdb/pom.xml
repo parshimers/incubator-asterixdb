@@ -28,6 +28,7 @@
     <groupId>org.apache</groupId>
     <artifactId>apache</artifactId>
     <version>16</version>
+    <relativePath/>
   </parent>
 
   <licenses>
@@ -160,33 +161,6 @@
           <target>${jdk.version}</target>
           <compilerArgument>-Xlint:all</compilerArgument>
         </configuration>
-      </plugin>
-      <plugin>
-        <groupId>pl.project13.maven</groupId>
-        <artifactId>git-commit-id-plugin</artifactId>
-        <version>2.2.0</version>
-        <executions>
-          <execution>
-            <goals>
-              <goal>revision</goal>
-            </goals>
-          </execution>
-        </executions>
-
-        <configuration>
-          <!--
-              If you'd like to tell the plugin where your .git directory is,
-              use this setting, otherwise we'll perform a search trying to
-              figure out the right directory. It's better to add it explicite IMHO.
-          -->
-          <dotGitDirectory>${project.basedir}/.git</dotGitDirectory>
-          <!-- this is false by default, forces the plugin to generate the git.properties file -->
-          <generateGitPropertiesFile>true</generateGitPropertiesFile>
-
-          <!-- The path for the to be generated properties file, it's relative to ${project.basedir} -->
-          <generateGitPropertiesFilename>src/main/resources/git.properties</generateGitPropertiesFilename>
-        </configuration>
-
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -371,6 +345,11 @@
     </profile>
     <profile>
       <id>asterix-release</id>
+      <activation>
+        <file>
+          <exists>src/main/assembly/source.xml</exists>
+        </file>
+      </activation>
       <build>
         <plugins>
           <plugin>
@@ -635,6 +614,11 @@
       <dependency>
         <groupId>org.apache.hyracks</groupId>
         <artifactId>hyracks-control-nc</artifactId>
+        <version>${hyracks.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hyracks</groupId>
+        <artifactId>hyracks-nc-service</artifactId>
         <version>${hyracks.version}</version>
       </dependency>
       <dependency>
