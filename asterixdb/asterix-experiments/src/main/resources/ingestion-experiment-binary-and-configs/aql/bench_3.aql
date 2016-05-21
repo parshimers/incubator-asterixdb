@@ -1,4 +1,4 @@
-use dataverse experiments;
+use dataverse SocialNetworkData;
 
 create dataset GleambookUsers(GleambookUserType)
 primary key id;
