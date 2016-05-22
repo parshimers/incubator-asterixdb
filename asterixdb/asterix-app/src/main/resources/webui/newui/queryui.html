@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AsterixDB Console</title>
+  <link rel="stylesheet" href="css/bootstrap.min.css" media="screen" title="no title" charset="utf-8">
+  <link rel="stylesheet" href="css/bootstrap-theme.min.css" media="screen" title="no title" charset="utf-8">
+  <link rel="stylesheet" href="css/master.css" media="screen" title="no title" charset="utf-8">
+  <script src="js/angular.min.js" charset="utf-8"></script>
+  <script src="js/bootstrap.min.js" charset="utf-8"></script>
+</head>
+<body>
+  <div class="row main-container">
+    <div class="col-md-4 left-container">
+      <img class="logo" src="img/finalasterixlogo.png" alt="" />
+      <div class="input-container">
+          <div id="input-tab">
+            <ul class="nav nav-justified asterix-nav">
+              <li class="asterix-nav-active"><a href="#">Query</a></li>
+              <li><a href="#">History</a></li>
+            </ul>
+            <div class="asterix-tabpage">
+              <textarea name="Text1" class="form-control input-container-code" placeholder="Query" cols="40" rows="15"></textarea>
+              <div class="icon-maximize"><span class="glyphicon glyphicon-fullscreen asterix-button" aria-hidden="true"></span></div>
+            </div>
+            <div class="asterix-tabpage">
+              <div class="asterix-well margin-bottom">
+                <div class="row">
+                  <div class="col-md-8">this is an old query ha asdasds sdsdsa asd sad asd asd as das d sad sad as das </div>
+                  <div class="col-md-4 asterix-well-right"><a href="">Preview</a></div>
+                </div>
+              </div>
+              <div class="asterix-well margin-bottom">
+                <div class="row">
+                  <div class="col-md-8">this is an old query ha asdasds sdsdsa asd sad asd asd as das d sad sad as das </div>
+                  <div class="col-md-4 asterix-well-right"><a href="">Preview</a></div>
+                </div>
+              </div>
+            </div>
+          </div>
+      </div>
+    </div>
+    <div class="col-md-8 right-container">
+      <p class="asterix-status">Query Took 8.3 billion lighyears to complete</p>
+      <div class="right-toolbar">
+        <span class="glyphicon glyphicon-align-justify asterix-button asterix-button-selected" aria-hidden="true"></span>
+        <span class="glyphicon glyphicon-th-large asterix-button" aria-hidden="true"></span>
+      </div>
+      <div class="asterix-list-view">
+        <table class="table table-hover asterix-table">
+          <tbody>
+            <tr>
+              <td class="asterix-inline-item"><p class="small asterix-small">Name</p>Kaveen</td>
+              <td class="asterix-inline-item"><p class="small asterix-small">Surname</p>Rodrigo</td>
+              <td class="asterix-inline-item"><p class="small asterix-small">Email</p>kaveenr@example.com</td>
+              <td class="asterix-inline-item asterix-nested"><p class="small asterix-small">School</p>Record+</td>
+            </tr>
+            <tr>
+              <td class="asterix-inline-item"><p class="small asterix-small">Name</p>Mary</td>
+              <td class="asterix-inline-item"><p class="small asterix-small">Surname</p>Moe</td>
+              <td class="asterix-inline-item"><p class="small asterix-small">Email</p>mary@example.com</td>
+              <td class="asterix-inline-item asterix-nested"><p class="small asterix-small">School</p>Record+</td>
+            </tr>
+            <tr>
+              <td class="asterix-inline-item"><p class="small asterix-small">Name</p>July</td>
+              <td class="asterix-inline-item"><p class="small asterix-small">Surname</p>Doe</td>
+              <td class="asterix-inline-item"><p class="small asterix-small">Email</p>july@example.com</td>
+              <td class="asterix-inline-item asterix-nested"><p class="small asterix-small">School</p>Record+</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="asterix-list-wells">
+        <div class="asterix-well float-left">
+          <div class="row asterix-well-row">
+            <div class="col-sm-6">Kaveen</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Name</p></div>
+          </div>
+          <div class="row asterix-well-row">
+            <div class="col-sm-6">Rodrigo</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Surename</p></div>
+          </div>
+          <div class="row asterix-well-row">
+            <div class="col-sm-6">kaveenr@exa...</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Email</p></div>
+          </div>
+          <div class="row asterix-well-row">
+            <div class="col-sm-6 asterix-nested">+</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">School</p></div>
+          </div>
+          <div class="row">
+            <div class="col-sm-12">
+              <span class="label label-warning">NESTED</span>
+            </div>
+          </div>
+        </div>
+        <div class="asterix-well  float-left">
+          <div class="row asterix-well-row">
+            <div class="col-sm-6">Kaveen</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Name</p></div>
+          </div>
+          <div class="row asterix-well-row">
+            <div class="col-sm-6">Rodrigo</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Surename</p></div>
+          </div>
+          <div class="row asterix-well-row">
+            <div class="col-sm-6">kaveenr@exa...</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Email</p></div>
+          </div>
+          <div class="row asterix-well-row">
+            <div class="col-sm-6 asterix-nested">+</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">School</p></div>
+          </div>
+          <div class="row">
+            <div class="col-sm-12">
+              <span class="label label-warning">NESTED</span>
+            </div>
+          </div>
+        </div>
+        <div class="asterix-well float-left">
+          <div class="row asterix-well-row">
+            <div class="col-sm-6">Kaveen</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Name</p></div>
+          </div>
+          <div class="row asterix-well-row">
+            <div class="col-sm-6">Rodrigo</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Surename</p></div>
+          </div>
+          <div class="row asterix-well-row">
+            <div class="col-sm-6">kaveenr@exa...</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Email</p></div>
+          </div>
+          <div class="row asterix-well-row">
+            <div class="col-sm-6 asterix-nested">+</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">School</p></div>
+          </div>
+          <div class="row">
+            <div class="col-sm-12">
+              <span class="label label-warning">NESTED</span>
+            </div>
+          </div>
+        </div>
+        <div class="asterix-well float-left">
+          <div class="row asterix-well-row">
+            <div class="col-sm-6">Kaveen</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Name</p></div>
+          </div>
+          <div class="row asterix-well-row">
+            <div class="col-sm-6">Rodrigo</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Surename</p></div>
+          </div>
+          <div class="row asterix-well-row">
+            <div class="col-sm-6">kaveenr@exa...</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Email</p></div>
+          </div>
+          <div class="row asterix-well-row">
+            <div class="col-sm-6 asterix-nested">+</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">School</p></div>
+          </div>
+          <div class="row">
+            <div class="col-sm-12">
+              <span class="label label-warning">NESTED</span>
+            </div>
+          </div>
+        </div>
+        <div class="asterix-well float-left">
+          <div class="row asterix-well-row">
+            <div class="col-sm-6">Kaveen</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Name</p></div>
+          </div>
+          <div class="row asterix-well-row">
+            <div class="col-sm-6">Rodrigo</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Surename</p></div>
+          </div>
+          <div class="row asterix-well-row">
+            <div class="col-sm-6">kaveenr@exa...</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Email</p></div>
+          </div>
+          <div class="row asterix-well-row">
+            <div class="col-sm-6 asterix-nested">+</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">School</p></div>
+          </div>
+          <div class="row">
+            <div class="col-sm-12">
+              <span class="label label-warning">NESTED</span>
+            </div>
+          </div>
+        </div>
+        <div class="asterix-well float-left">
+          <div class="row asterix-well-row">
+            <div class="col-sm-6">Kaveen</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Name</p></div>
+          </div>
+          <div class="row asterix-well-row">
+            <div class="col-sm-6">Rodrigo</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Surename</p></div>
+          </div>
+          <div class="row asterix-well-row">
+            <div class="col-sm-6">kaveenr@exa...</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Email</p></div>
+          </div>
+          <div class="row asterix-well-row">
+            <div class="col-sm-6 asterix-nested">+</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">School</p></div>
+          </div>
+          <div class="row">
+            <div class="col-sm-12">
+              <span class="label label-warning">NESTED</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
