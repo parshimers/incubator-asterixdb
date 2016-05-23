@@ -180,6 +180,11 @@ html,body{
   margin-bottom: 10px;
 }
 
+.asterix-tabpage-fixed{
+  overflow-y: scroll;
+  height: 30%;
+}
+
 .asterix-table {
   border-bottom: 3px solid #EEE;
   border-left: 3px solid #EEE;

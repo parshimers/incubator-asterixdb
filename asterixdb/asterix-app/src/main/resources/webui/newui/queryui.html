@@ -8,200 +8,66 @@
   <link rel="stylesheet" href="css/master.css" media="screen" title="no title" charset="utf-8">
   <script src="js/angular.min.js" charset="utf-8"></script>
   <script src="js/bootstrap.min.js" charset="utf-8"></script>
+  <script src="js/main.js" charset="utf-8"></script>
 </head>
-<body>
-  <div class="row main-container">
-    <div class="col-md-4 left-container">
+<body ng-app="queryui">
+  <div class="row main-container" ng-controller="queryCtrl">
+    <div class="col-md-4 left-container" ng-class="maximized == true ? 'col-md-12' : 'col-md-4'">
       <img class="logo" src="img/finalasterixlogo.png" alt="" />
       <div class="input-container">
           <div id="input-tab">
             <ul class="nav nav-justified asterix-nav">
-              <li class="asterix-nav-active"><a href="#">Query</a></li>
-              <li><a href="#">History</a></li>
+              <li ng-class="current_tab == 0 ? 'asterix-nav-active' : '' "><a href="#" ng-click="current_tab = 0">Query</a></li>
+              <li ng-class="current_tab == 1 ? 'asterix-nav-active' : '' "><a href="#" ng-click="current_tab = 1">History</a></li>
             </ul>
-            <div class="asterix-tabpage">
-              <textarea name="Text1" class="form-control input-container-code" placeholder="Query" cols="40" rows="15"></textarea>
-              <div class="icon-maximize"><span class="glyphicon glyphicon-fullscreen asterix-button" aria-hidden="true"></span></div>
+            <div class="asterix-tabpage" ng-if="current_tab == 0">
+              <textarea name="Text1" ng-model="$parent.query_input" class="form-control input-container-code" placeholder="Query" cols="40" rows="15"></textarea>
+              <div class="icon-maximize"><span class="glyphicon glyphicon-fullscreen asterix-button" aria-hidden="true"
+                ng-class="$parent.maximized == true ? 'asterix-button-selected' : '' "
+                ng-click="$parent.maximized = !$parent.maximized"></span></div>
             </div>
-            <div class="asterix-tabpage">
-              <div class="asterix-well margin-bottom">
+            <div class="asterix-tabpage asterix-tabpage-fixed" ng-if="current_tab == 1">
+              <div class="asterix-well margin-bottom" ng-repeat="query in history track by $index">
                 <div class="row">
-                  <div class="col-md-8">this is an old query ha asdasds sdsdsa asd sad asd asd as das d sad sad as das </div>
+                  <div class="col-md-8">{{query}}</div>
                   <div class="col-md-4 asterix-well-right"><a href="">Preview</a></div>
                 </div>
               </div>
-              <div class="asterix-well margin-bottom">
-                <div class="row">
-                  <div class="col-md-8">this is an old query ha asdasds sdsdsa asd sad asd asd as das d sad sad as das </div>
-                  <div class="col-md-4 asterix-well-right"><a href="">Preview</a></div>
-                </div>
-              </div>
+              <div class="icon-maximize"><span class="glyphicon glyphicon-fullscreen asterix-button" aria-hidden="true"
+                ng-class="$parent.maximized == true ? 'asterix-button-selected' : '' "
+                ng-click="$parent.maximized = !$parent.maximized"></span></div>
             </div>
           </div>
+          <button type="button" class="btn btn-primary" ng-click="query()">Run</button>
       </div>
     </div>
-    <div class="col-md-8 right-container">
-      <p class="asterix-status">Query Took 8.3 billion lighyears to complete</p>
+    <div ng-if="!maximized" class="col-md-8 right-container">
+      <p class="asterix-status">{{statusText}}</p>
+      <div class="alert alert-danger" role="alert" ng-if="errorText != null">{{errorText}}</div>
       <div class="right-toolbar">
-        <span class="glyphicon glyphicon-align-justify asterix-button asterix-button-selected" aria-hidden="true"></span>
-        <span class="glyphicon glyphicon-th-large asterix-button" aria-hidden="true"></span>
+        <span class="glyphicon glyphicon-align-justify asterix-button" aria-hidden="true"
+          ng-class="current_list == 0 ? 'asterix-button-selected' : '' "
+          ng-click="current_list = 0"></span>
+        <span class="glyphicon glyphicon-th-large asterix-button" aria-hidden="true"
+          ng-class="current_list == 1 ? 'asterix-button-selected' : '' "
+          ng-click="current_list = 1"></span>
       </div>
-      <div class="asterix-list-view">
+      <div class="asterix-list-view" ng-if="current_list == 0 && results.length != 0">
         <table class="table table-hover asterix-table">
           <tbody>
-            <tr>
-              <td class="asterix-inline-item"><p class="small asterix-small">Name</p>Kaveen</td>
-              <td class="asterix-inline-item"><p class="small asterix-small">Surname</p>Rodrigo</td>
-              <td class="asterix-inline-item"><p class="small asterix-small">Email</p>kaveenr@example.com</td>
-              <td class="asterix-inline-item asterix-nested"><p class="small asterix-small">School</p>Record+</td>
-            </tr>
-            <tr>
-              <td class="asterix-inline-item"><p class="small asterix-small">Name</p>Mary</td>
-              <td class="asterix-inline-item"><p class="small asterix-small">Surname</p>Moe</td>
-              <td class="asterix-inline-item"><p class="small asterix-small">Email</p>mary@example.com</td>
-              <td class="asterix-inline-item asterix-nested"><p class="small asterix-small">School</p>Record+</td>
-            </tr>
-            <tr>
-              <td class="asterix-inline-item"><p class="small asterix-small">Name</p>July</td>
-              <td class="asterix-inline-item"><p class="small asterix-small">Surname</p>Doe</td>
-              <td class="asterix-inline-item"><p class="small asterix-small">Email</p>july@example.com</td>
-              <td class="asterix-inline-item asterix-nested"><p class="small asterix-small">School</p>Record+</td>
+            <tr ng-repeat="record in $parent.results">
+              <td ng-repeat="key in ObjectKeys(record)" class="asterix-inline-item" ng-class="isRecordPlus(record[key])">
+                <p class="small asterix-small">{{key}}</p>{{ObjectValue(record[key])}}
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <div class="asterix-list-wells">
-        <div class="asterix-well float-left">
-          <div class="row asterix-well-row">
-            <div class="col-sm-6">Kaveen</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Name</p></div>
-          </div>
-          <div class="row asterix-well-row">
-            <div class="col-sm-6">Rodrigo</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Surename</p></div>
-          </div>
-          <div class="row asterix-well-row">
-            <div class="col-sm-6">kaveenr@exa...</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Email</p></div>
-          </div>
-          <div class="row asterix-well-row">
-            <div class="col-sm-6 asterix-nested">+</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">School</p></div>
-          </div>
-          <div class="row">
-            <div class="col-sm-12">
-              <span class="label label-warning">NESTED</span>
-            </div>
-          </div>
-        </div>
-        <div class="asterix-well  float-left">
-          <div class="row asterix-well-row">
-            <div class="col-sm-6">Kaveen</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Name</p></div>
-          </div>
-          <div class="row asterix-well-row">
-            <div class="col-sm-6">Rodrigo</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Surename</p></div>
-          </div>
-          <div class="row asterix-well-row">
-            <div class="col-sm-6">kaveenr@exa...</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Email</p></div>
-          </div>
-          <div class="row asterix-well-row">
-            <div class="col-sm-6 asterix-nested">+</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">School</p></div>
-          </div>
-          <div class="row">
-            <div class="col-sm-12">
-              <span class="label label-warning">NESTED</span>
-            </div>
-          </div>
-        </div>
-        <div class="asterix-well float-left">
-          <div class="row asterix-well-row">
-            <div class="col-sm-6">Kaveen</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Name</p></div>
-          </div>
-          <div class="row asterix-well-row">
-            <div class="col-sm-6">Rodrigo</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Surename</p></div>
-          </div>
-          <div class="row asterix-well-row">
-            <div class="col-sm-6">kaveenr@exa...</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Email</p></div>
-          </div>
-          <div class="row asterix-well-row">
-            <div class="col-sm-6 asterix-nested">+</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">School</p></div>
-          </div>
-          <div class="row">
-            <div class="col-sm-12">
-              <span class="label label-warning">NESTED</span>
-            </div>
-          </div>
-        </div>
-        <div class="asterix-well float-left">
-          <div class="row asterix-well-row">
-            <div class="col-sm-6">Kaveen</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Name</p></div>
-          </div>
-          <div class="row asterix-well-row">
-            <div class="col-sm-6">Rodrigo</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Surename</p></div>
-          </div>
-          <div class="row asterix-well-row">
-            <div class="col-sm-6">kaveenr@exa...</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Email</p></div>
-          </div>
-          <div class="row asterix-well-row">
-            <div class="col-sm-6 asterix-nested">+</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">School</p></div>
-          </div>
-          <div class="row">
-            <div class="col-sm-12">
-              <span class="label label-warning">NESTED</span>
-            </div>
-          </div>
-        </div>
-        <div class="asterix-well float-left">
-          <div class="row asterix-well-row">
-            <div class="col-sm-6">Kaveen</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Name</p></div>
-          </div>
-          <div class="row asterix-well-row">
-            <div class="col-sm-6">Rodrigo</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Surename</p></div>
-          </div>
-          <div class="row asterix-well-row">
-            <div class="col-sm-6">kaveenr@exa...</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Email</p></div>
-          </div>
-          <div class="row asterix-well-row">
-            <div class="col-sm-6 asterix-nested">+</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">School</p></div>
-          </div>
-          <div class="row">
-            <div class="col-sm-12">
-              <span class="label label-warning">NESTED</span>
-            </div>
-          </div>
-        </div>
-        <div class="asterix-well float-left">
-          <div class="row asterix-well-row">
-            <div class="col-sm-6">Kaveen</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Name</p></div>
-          </div>
-          <div class="row asterix-well-row">
-            <div class="col-sm-6">Rodrigo</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Surename</p></div>
-          </div>
-          <div class="row asterix-well-row">
-            <div class="col-sm-6">kaveenr@exa...</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">Email</p></div>
-          </div>
-          <div class="row asterix-well-row">
-            <div class="col-sm-6 asterix-nested">+</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">School</p></div>
+      <div class="asterix-list-wells" ng-if="current_list == 1 && results.length != 0">
+        <div ng-repeat="record in $parent.results" class="asterix-well float-left">
+          <div ng-repeat="key in ObjectKeys(record)" class="row asterix-well-row">
+            <div class="col-sm-6" ng-class="isRecordPlus(record[key])">{{ObjectValue(record[key])}}</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">{{key}}</p></div>
           </div>
           <div class="row">
             <div class="col-sm-12">
