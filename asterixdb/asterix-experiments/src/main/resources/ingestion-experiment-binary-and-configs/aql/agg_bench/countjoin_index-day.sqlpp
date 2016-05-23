@@ -1,6 +1,6 @@
 use SocialNetworkData;
 
-count(
+coll_count(
  (
   select element {
   'uname': user.name,
