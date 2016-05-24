@@ -42,15 +42,12 @@ import org.apache.hyracks.api.test.TestFrameWriter;
 import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import org.apache.hyracks.test.support.TestUtils;
 import org.junit.Assert;
-import org.junit.runner.RunWith;
 import org.mockito.Mockito;
-import org.powermock.modules.junit4.PowerMockRunner;
 
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
 
-@RunWith(PowerMockRunner.class)
 public class InputHandlerTest extends TestCase {
 
     private static final int DEFAULT_FRAME_SIZE = 32768;
@@ -121,7 +118,8 @@ public class InputHandlerTest extends TestCase {
             FeedPolicyAccessor fpa =
                     createFeedPolicyAccessor(true, false, NUM_FRAMES * DEFAULT_FRAME_SIZE, DISCARD_ALLOWANCE);
             // Non-Active Writer
-            TestFrameWriter writer = FrameWriterTestUtils.create(Collections.emptyList(), Collections.emptyList());
+            TestFrameWriter writer =
+                    FrameWriterTestUtils.create(Collections.emptyList(), Collections.emptyList(), false);
             // FramePool
             ConcurrentFramePool framePool = new ConcurrentFramePool(NODE_ID, 0, DEFAULT_FRAME_SIZE);
             FeedRuntimeInputHandler handler = createInputHandler(ctx, writer, fpa, framePool);
@@ -162,7 +160,8 @@ public class InputHandlerTest extends TestCase {
             FeedPolicyAccessor fpa =
                     createFeedPolicyAccessor(true, false, NUM_FRAMES * DEFAULT_FRAME_SIZE, DISCARD_ALLOWANCE);
             // Non-Active Writer
-            TestFrameWriter writer = FrameWriterTestUtils.create(Collections.emptyList(), Collections.emptyList());
+            TestFrameWriter writer =
+                    FrameWriterTestUtils.create(Collections.emptyList(), Collections.emptyList(), false);
             // FramePool
             ConcurrentFramePool framePool = new ConcurrentFramePool(NODE_ID, 0, DEFAULT_FRAME_SIZE);
             FeedRuntimeInputHandler handler = createInputHandler(ctx, writer, fpa, framePool);
@@ -210,7 +209,7 @@ public class InputHandlerTest extends TestCase {
             FeedPolicyAccessor fpa =
                     createFeedPolicyAccessor(true, true, DEFAULT_FRAME_SIZE * numberOfSpillFrames, DISCARD_ALLOWANCE);
             // Non-Active Writer
-            TestControlledFrameWriter writer = FrameWriterTestUtils.create(DEFAULT_FRAME_SIZE);
+            TestControlledFrameWriter writer = FrameWriterTestUtils.create(DEFAULT_FRAME_SIZE, false);
             writer.freeze();
             // FramePool
             ConcurrentFramePool framePool =
@@ -320,7 +319,7 @@ public class InputHandlerTest extends TestCase {
             FeedPolicyAccessor fpa =
                     createFeedPolicyAccessor(true, true, DEFAULT_FRAME_SIZE * numberOfSpillFrames, DISCARD_ALLOWANCE);
             // Non-Active Writer
-            TestControlledFrameWriter writer = FrameWriterTestUtils.create(DEFAULT_FRAME_SIZE);
+            TestControlledFrameWriter writer = FrameWriterTestUtils.create(DEFAULT_FRAME_SIZE, false);
             writer.freeze();
             // FramePool
             ConcurrentFramePool framePool =
@@ -352,7 +351,7 @@ public class InputHandlerTest extends TestCase {
             while (nextShouldDiscard) {
                 handler.nextFrame(frame.getBuffer());
                 numDiscarded++;
-                nextShouldDiscard = ((numDiscarded + 1.0) / (handler.getTotal() + 1.0)) <= fpa.getMaxFractionDiscard();
+                nextShouldDiscard = (numDiscarded + 1.0) / (handler.getTotal() + 1.0) <= fpa.getMaxFractionDiscard();
             }
             Assert.assertEquals(0, framePool.remaining());
             Assert.assertEquals((int) (numberOfMemoryFrames + numberOfSpillFrames + numDiscarded), handler.getTotal());
@@ -393,7 +392,7 @@ public class InputHandlerTest extends TestCase {
             // Spill budget = Memory budget, No discard
             FeedPolicyAccessor fpa = createFeedPolicyAccessor(false, true, DEFAULT_FRAME_SIZE, DISCARD_ALLOWANCE);
             // Non-Active Writer
-            TestControlledFrameWriter writer = FrameWriterTestUtils.create(DEFAULT_FRAME_SIZE);
+            TestControlledFrameWriter writer = FrameWriterTestUtils.create(DEFAULT_FRAME_SIZE, false);
             writer.freeze();
             // FramePool
             ConcurrentFramePool framePool =
@@ -455,7 +454,7 @@ public class InputHandlerTest extends TestCase {
             // Spill budget = Memory budget, No discard
             FeedPolicyAccessor fpa = createFeedPolicyAccessor(false, true, DEFAULT_FRAME_SIZE, DISCARD_ALLOWANCE);
             // Non-Active Writer
-            TestControlledFrameWriter writer = FrameWriterTestUtils.create(DEFAULT_FRAME_SIZE);
+            TestControlledFrameWriter writer = FrameWriterTestUtils.create(DEFAULT_FRAME_SIZE, false);
             writer.freeze();
             // FramePool
             ConcurrentFramePool framePool =
@@ -512,7 +511,7 @@ public class InputHandlerTest extends TestCase {
             FeedPolicyAccessor fpa =
                     createFeedPolicyAccessor(true, false, DEFAULT_FRAME_SIZE * NUM_FRAMES, DISCARD_ALLOWANCE);
             // Non-Active Writer
-            TestControlledFrameWriter writer = FrameWriterTestUtils.create(DEFAULT_FRAME_SIZE);
+            TestControlledFrameWriter writer = FrameWriterTestUtils.create(DEFAULT_FRAME_SIZE, false);
             writer.freeze();
             // FramePool
             ConcurrentFramePool framePool = new ConcurrentFramePool(NODE_ID, FEED_MEM_BUDGET, DEFAULT_FRAME_SIZE);
@@ -556,7 +555,8 @@ public class InputHandlerTest extends TestCase {
             // No spill, No discard
             FeedPolicyAccessor fpa = createFeedPolicyAccessor(false, false, 0L, DISCARD_ALLOWANCE);
             // Non-Active Writer
-            TestFrameWriter writer = FrameWriterTestUtils.create(Collections.emptyList(), Collections.emptyList());
+            TestFrameWriter writer =
+                    FrameWriterTestUtils.create(Collections.emptyList(), Collections.emptyList(), false);
             // FramePool
             ConcurrentFramePool framePool = new ConcurrentFramePool(NODE_ID, FEED_MEM_BUDGET, DEFAULT_FRAME_SIZE);
             FeedRuntimeInputHandler handler = createInputHandler(ctx, writer, fpa, framePool);
@@ -596,7 +596,8 @@ public class InputHandlerTest extends TestCase {
             // No spill, No discard
             FeedPolicyAccessor fpa = createFeedPolicyAccessor(false, false, 0L, DISCARD_ALLOWANCE);
             // Non-Active Writer
-            TestFrameWriter writer = FrameWriterTestUtils.create(Collections.emptyList(), Collections.emptyList());
+            TestFrameWriter writer =
+                    FrameWriterTestUtils.create(Collections.emptyList(), Collections.emptyList(), false);
             // FramePool
             ConcurrentFramePool framePool = new ConcurrentFramePool(NODE_ID, FEED_MEM_BUDGET, DEFAULT_FRAME_SIZE);
             FeedRuntimeInputHandler handler = createInputHandler(ctx, writer, fpa, framePool);
@@ -635,7 +636,7 @@ public class InputHandlerTest extends TestCase {
             // No spill, No discard
             FeedPolicyAccessor fpa = createFeedPolicyAccessor(false, false, 0L, DISCARD_ALLOWANCE);
             // Non-Active Writer
-            TestControlledFrameWriter writer = FrameWriterTestUtils.create(DEFAULT_FRAME_SIZE);
+            TestControlledFrameWriter writer = FrameWriterTestUtils.create(DEFAULT_FRAME_SIZE, false);
             writer.freeze();
             // FramePool
             ConcurrentFramePool framePool = new ConcurrentFramePool(NODE_ID, FEED_MEM_BUDGET, DEFAULT_FRAME_SIZE);
@@ -685,7 +686,7 @@ public class InputHandlerTest extends TestCase {
             FeedPolicyAccessor fpa =
                     createFeedPolicyAccessor(true, false, DEFAULT_FRAME_SIZE * NUM_FRAMES, DISCARD_ALLOWANCE);
             // Non-Active Writer
-            TestControlledFrameWriter writer = FrameWriterTestUtils.create(DEFAULT_FRAME_SIZE);
+            TestControlledFrameWriter writer = FrameWriterTestUtils.create(DEFAULT_FRAME_SIZE, false);
             writer.freeze();
             // FramePool
             ConcurrentFramePool framePool = new ConcurrentFramePool(NODE_ID, FEED_MEM_BUDGET, DEFAULT_FRAME_SIZE);
@@ -735,7 +736,7 @@ public class InputHandlerTest extends TestCase {
             // No spill, No discard
             FeedPolicyAccessor fpa = createFeedPolicyAccessor(false, false, 0L, DISCARD_ALLOWANCE);
             // Non-Active Writer
-            TestControlledFrameWriter writer = FrameWriterTestUtils.create(DEFAULT_FRAME_SIZE);
+            TestControlledFrameWriter writer = FrameWriterTestUtils.create(DEFAULT_FRAME_SIZE, false);
             writer.freeze();
             // FramePool
             ConcurrentFramePool framePool = new ConcurrentFramePool(NODE_ID, FEED_MEM_BUDGET, DEFAULT_FRAME_SIZE);

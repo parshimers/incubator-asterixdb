@@ -142,10 +142,8 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     }
 
     protected synchronized void syncAppendToLogTail(ILogRecord logRecord) throws ACIDException {
-        ITransactionContext txnCtx = null;
-
         if (logRecord.getLogType() != LogType.FLUSH) {
-            txnCtx = logRecord.getTxnCtx();
+            ITransactionContext txnCtx = logRecord.getTxnCtx();
             if (txnCtx.getTxnState() == ITransactionManager.ABORTED && logRecord.getLogType() != LogType.ABORT) {
                 throw new ACIDException(
                         "Aborted job(" + txnCtx.getJobId() + ") tried to write non-abort type log record.");
@@ -168,9 +166,6 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
             } else {
                 getAndInitNewPage();
             }
-        }
-        if (logRecord.getLogType() == LogType.UPDATE) {
-            logRecord.setPrevLSN(txnCtx.getLastLSN());
         }
         appendPage.append(logRecord, appendLSN.get());
 
@@ -205,16 +200,13 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     protected void prepareNextLogFile() {
         //wait until all log records have been flushed in the current file
         synchronized (flushLSN) {
-            while (flushLSN.get() != appendLSN.get()) {
-                //notification will come from LogBuffer.internalFlush(.)
-                try {
+            try {
+                while (flushLSN.get() != appendLSN.get()) {
+                    //notification will come from LogBuffer.internalFlush(.)
                     flushLSN.wait();
-                } catch (InterruptedException e) {
-                    if (LOGGER.isLoggable(Level.SEVERE)) {
-                        LOGGER.severe("Preparing new log file was interrupted");
-                    }
-                    Thread.currentThread().interrupt();
                 }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
         }
         //move appendLSN and flushLSN to the first LSN of the next log file

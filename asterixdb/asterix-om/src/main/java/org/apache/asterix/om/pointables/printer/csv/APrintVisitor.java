@@ -19,6 +19,11 @@
 
 package org.apache.asterix.om.pointables.printer.csv;
 
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.dataflow.data.nontagged.printers.adm.ShortWithoutTypeInfoPrinter;
 import org.apache.asterix.dataflow.data.nontagged.printers.csv.ABinaryHexPrinter;
@@ -53,10 +58,6 @@ import org.apache.asterix.om.types.ATypeTag;
 import org.apache.hyracks.algebricks.common.exceptions.NotImplementedException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 
-import java.io.PrintStream;
-import java.util.HashMap;
-import java.util.Map;
-
 /**
  * This class is a IVisitablePointableVisitor implementation which recursively
  * visit a given record, list or flat value of a given type, and print it to a
@@ -88,7 +89,7 @@ public class APrintVisitor implements IVisitablePointableVisitor<Void, Pair<Prin
             level++;
             printer.printRecord(accessor, arg.first, this);
             level--;
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new AsterixException(e);
         }
         return null;
@@ -119,6 +120,7 @@ public class APrintVisitor implements IVisitablePointableVisitor<Void, Pair<Prin
                     AInt64Printer.INSTANCE.print(b, s, l, ps);
                     break;
                 }
+                case MISSING:
                 case NULL: {
                     ANullPrinter.INSTANCE.print(b, s, l, ps);
                     break;
@@ -204,7 +206,7 @@ public class APrintVisitor implements IVisitablePointableVisitor<Void, Pair<Prin
                 }
             }
             return null;
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new IllegalStateException(e);
         }
     }
