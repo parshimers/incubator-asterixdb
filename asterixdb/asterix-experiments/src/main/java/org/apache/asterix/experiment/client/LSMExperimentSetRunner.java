@@ -271,7 +271,6 @@ public class LSMExperimentSetRunner {
                 suite.add(new Experiment1CBuilder(config));
                 suite.add(new Experiment1DBuilder(config));
                 suite.add(new Experiment1EBuilder(config));
-                suite.add(new Experiment1FBuilder(config));
                 suite.add(new Experiment4ABuilder(config));
                 suite.add(new Experiment4BBuilder(config));
                 suite.add(new Experiment4CBuilder(config));
