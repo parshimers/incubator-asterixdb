@@ -21,12 +21,16 @@ package org.apache.asterix.experiment.action.derived;
 
 import org.apache.asterix.experiment.action.base.AbstractAction;
 import org.apache.avro.generic.GenericData;
+import org.apache.commons.httpclient.HttpException;
+import org.apache.commons.httpclient.HttpStatus;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
+import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
+import org.apache.http.util.EntityUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -91,20 +95,16 @@ public class RunSQLPPFileAction extends AbstractAction {
             HttpPost post = new HttpPost(uri);
             post.setHeader(HttpHeaders.CONTENT_TYPE, "application/json");
             post.setEntity(new StringEntity(sqlpp, StandardCharsets.UTF_8));
-            HttpEntity entity = httpClient.execute(post).getEntity();
-            if (entity != null && entity.isStreaming()) {
-                printStream(entity.getContent());
+            long start = System.currentTimeMillis();
+            HttpResponse resp = httpClient.execute(post);
+            HttpEntity entity = resp.getEntity();
+            if(resp.getStatusLine().getStatusCode() != HttpStatus.SC_OK){
+                throw new HttpException("Query returned error");
             }
-        }
-    }
-
-    private void printStream(InputStream content) throws IOException {
-        if (os == null) {
-            IOUtils.copy(content, System.out);
-            System.out.flush();
-        } else {
-            IOUtils.copy(content, os);
-            os.flush();
+            EntityUtils.consume(entity);
+            long end = System.currentTimeMillis();
+            long wallClock = start - end;
+            System.out.println(p.getFileName().toString() + ',' +wallClock );
         }
     }
 }
