@@ -58,14 +58,11 @@ public class RunSQLPPFileAction extends AbstractAction {
 
     private final int restPort;
 
-    private final OutputStream os;
-
     public RunSQLPPFileAction(HttpClient httpClient, String restHost, int restPort, Path aqlFilePath) {
         this.httpClient = httpClient;
         this.aqlFilePath = aqlFilePath;
         this.restHost = restHost;
         this.restPort = restPort;
-        os = null;
         queriesToRun = new ArrayList<>();
     }
 
@@ -74,7 +71,6 @@ public class RunSQLPPFileAction extends AbstractAction {
         this.aqlFilePath = aqlFilePath;
         this.restHost = restHost;
         this.restPort = restPort;
-        this.os = os;
         queriesToRun = new ArrayList<>();
     }
 

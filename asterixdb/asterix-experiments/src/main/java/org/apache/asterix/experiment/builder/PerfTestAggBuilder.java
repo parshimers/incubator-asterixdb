@@ -27,7 +27,8 @@ import org.apache.asterix.experiment.client.LSMExperimentSetRunner.LSMExperiment
 public class PerfTestAggBuilder extends AbstractPerfLoadBuilder {
 
     public PerfTestAggBuilder(LSMExperimentSetRunnerConfig config) {
-        super("PerfTestAggBuilder", config, "asterix-agg.xml", "asterix-4.dgen", "bench_count.aql", "bench_3_load.aql", "agg_bench");
+        super("PerfTestAggBuilder", config, "asterix-agg.xml", "asterix-4.dgen", "bench_count.aql", "bench_3_load.aql",
+                "agg_bench");
     }
 
     @Override
