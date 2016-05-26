@@ -66,14 +66,6 @@ public class RunSQLPPFileAction extends AbstractAction {
         queriesToRun = new ArrayList<>();
     }
 
-    public RunSQLPPFileAction(HttpClient httpClient, String restHost, int restPort, Path aqlFilePath, OutputStream os) {
-        this.httpClient = httpClient;
-        this.aqlFilePath = aqlFilePath;
-        this.restHost = restHost;
-        this.restPort = restPort;
-        queriesToRun = new ArrayList<>();
-    }
-
     @Override
     public void doPerform() throws Exception {
         if(aqlFilePath.toFile().isDirectory()){
