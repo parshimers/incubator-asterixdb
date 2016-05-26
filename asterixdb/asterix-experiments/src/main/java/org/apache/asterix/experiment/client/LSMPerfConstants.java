@@ -21,6 +21,8 @@ package org.apache.asterix.experiment.client;
 
 public class LSMPerfConstants {
 
+    public LSMPerfConstants() {} // never needs to be instantiated
+
     public static final String CONFIG_DIR = "configs";
 
     public static final String AQL_DIR = "aql";

@@ -34,6 +34,7 @@ import org.apache.http.client.HttpClient;
 import org.apache.http.impl.client.DefaultHttpClient;
 
 import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
 import javax.xml.bind.Unmarshaller;
 import java.io.File;
 import java.io.IOException;
@@ -87,8 +88,8 @@ public abstract class AbstractPerfLoadBuilder extends AbstractExperimentBuilder 
     protected final String querySQLPPFileName;
 
     public AbstractPerfLoadBuilder(String name, LSMExperimentSetRunnerConfig config,
-                                   String clusterConfigFileName, String ingestFileName, String dgenFileName, String countFileName,
-                                   String loadAQLFileName, String querySQLPPFileName) {
+                                   String clusterConfigFileName, String dgenFileName,
+                                   String countFileName, String loadAQLFileName, String querySQLPPFileName) {
         super(name);
         this.logDirSuffix = config.getLogDirSuffix();
         this.httpClient = new DefaultHttpClient();
@@ -112,14 +113,8 @@ public abstract class AbstractPerfLoadBuilder extends AbstractExperimentBuilder 
 
     protected abstract void doBuildDDL(SequentialActionList seq);
 
-    protected void doPost(SequentialActionList seq) {
-    }
-
-    protected void doBuildDataGen(SequentialActionList seq, final Map<String, List<String>> dgenPairs) throws Exception {
-    }
-
     @Override
-    protected void doBuild(Experiment e) throws Exception {
+    protected void doBuild(Experiment e) throws IOException, JAXBException{
         SequentialActionList execs = new SequentialActionList();
 
         String clusterConfigPath = localExperimentRoot.resolve(LSMExperimentConstants.CONFIG_DIR)
@@ -192,7 +187,7 @@ public abstract class AbstractPerfLoadBuilder extends AbstractExperimentBuilder 
 
         //---------- main experiment body begins -----------
 
-        //load data into pidx 
+        //load data into pidx
         execs.add(new TimedAction(new RunAQLFileAction(httpClient, restHost, restPort, localExperimentRoot.resolve(
                 LSMExperimentConstants.AQL_DIR).resolve(loadAQLFilePath))));
 
@@ -228,17 +223,6 @@ public abstract class AbstractPerfLoadBuilder extends AbstractExperimentBuilder 
         //add ls action
         execs.add(postLSAction);
 
-        //kill asterix cc and nc
-        /*
-        ParallelActionSet killCmds = new ParallelActionSet();
-        for (String ncHost : ncHosts) {
-            killCmds.add(new RemoteAsterixDriverKill(ncHost, username, sshKeyLocation));
-        }
-        killCmds.add(new RemoteAsterixDriverKill(restHost, username, sshKeyLocation));
-        execs.add(killCmds);
-        */
-
-        //stop asterix instance
         execs.add(new StopAsterixManagixAction(managixHomePath, ASTERIX_INSTANCE_NAME));
 
         //prepare to collect io state by putting the state file into asterix log dir

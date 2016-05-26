@@ -47,7 +47,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class RunSQLPPFileAction extends AbstractAction {
-    private final Logger LOGGER = Logger.getLogger(RunSQLPPFileAction.class.getName());
     private static final String REST_URI_TEMPLATE = "http://{0}:{1}/sqlpp";
 
     private final HttpClient httpClient;
