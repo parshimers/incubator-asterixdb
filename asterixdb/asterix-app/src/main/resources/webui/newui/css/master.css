@@ -30,6 +30,11 @@ html,body{
   margin-bottom: 20px;
 }
 
+.left-using-container{
+  margin-top: 60px;
+  padding-bottom: 30px;
+}
+
 .asterix-nav{
   box-shadow: 0 0px 5px 0 rgba(0, 0, 0, 0.2), 0 0px 20px 0 rgba(0, 0, 0, 0.19);
   border-bottom: 1px solid #5687e4;
@@ -192,4 +197,17 @@ html,body{
 }
 .asterix-table tr{
   border-top: 3px solid #EEE !important;
+}
+
+.btn-asterix {
+  background-color: #5687e4;
+  color: #FFF;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  width: 30%;
+  box-shadow: 0 0px 5px 0 rgba(0, 0, 0, 0.2), 0 0px 20px 0 rgba(0, 0, 0, 0.19);
+}
+
+.asterix-control-group{
+  padding-top: 30px;
 }

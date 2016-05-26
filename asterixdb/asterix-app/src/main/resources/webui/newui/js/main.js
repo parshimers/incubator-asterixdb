@@ -1,4 +1,5 @@
 var SERVER_HOST = "http://localhost:19002";
+var DATAVERSE_QUERY = "for $x in dataset Metadata.Dataverse return $x;"
 var DATE_TIME_REGEX = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z)$/;
 var DATE_REGEX = /^(\d{4}-\d{2}-\d{2})$/;
 
@@ -11,14 +12,29 @@ app.controller('queryCtrl', function($rootScope, $scope, $http) {
   $scope.maximized = false;
   $scope.results = [];
   $scope.history = [];
+  $scope.dataverses = [];
+  $scope.selected_dataverse = "";
   $scope.errorText = null;
   $scope.statusText = "Web UI Ready";
   $scope.query_input =  "";
 
+  $scope.init = function(){
+    $http.get(SERVER_HOST+"/query?query="+encodeURI(DATAVERSE_QUERY)).then(function(response){
+      for (i in response.data){
+        $scope.dataverses.push(response.data[i].DataverseName);
+      }
+    },
+    function(response){
+      $scope.statusText = "Error Occured Executing Query";
+      $scope.errorText = response.data.summary;
+      $scope.maximized = false;
+    });
+  }
+
   $scope.query = function(){
     var timer = new Date().getTime();
     $scope.history.push($scope.query_input);
-    $http.get(SERVER_HOST+"/query?query="+encodeURI($scope.query_input)).then(function(response){
+    $http.get(SERVER_HOST+"/query?query="+encodeURI("use dataverse "+$scope.selected_dataverse+";"+$scope.query_input)).then(function(response){
       $scope.results = response.data;
       console.log(response);
       timer = new Date().getTime() - timer;
