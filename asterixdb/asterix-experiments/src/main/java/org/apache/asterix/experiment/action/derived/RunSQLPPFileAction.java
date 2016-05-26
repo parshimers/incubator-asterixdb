@@ -103,7 +103,7 @@ public class RunSQLPPFileAction extends AbstractAction {
             }
             EntityUtils.consume(entity);
             long end = System.currentTimeMillis();
-            long wallClock = start - end;
+            long wallClock = end-start;
             System.out.println(p.getFileName().toString() + ',' +wallClock );
         }
     }
