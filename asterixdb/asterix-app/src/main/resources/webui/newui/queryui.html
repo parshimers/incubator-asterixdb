@@ -11,9 +11,17 @@
   <script src="js/main.js" charset="utf-8"></script>
 </head>
 <body ng-app="queryui">
-  <div class="row main-container" ng-controller="queryCtrl">
+  <div class="row main-container" ng-controller="queryCtrl" ng-init="init()">
     <div class="col-md-4 left-container" ng-class="maximized == true ? 'col-md-12' : 'col-md-4'">
       <img class="logo" src="img/finalasterixlogo.png" alt="" />
+        <div class="left-using-container">
+          <label for="usingSelect" class="col-sm-2 control-label">Using</label>
+          <div class="col-sm-10">
+            <select class="form-control" id="usingSelect" ng-model="selected_dataverse">
+              <option ng-repeat="entry in dataverses" >{{entry}}</option>
+            </select>
+          </div>
+        </div>
       <div class="input-container">
           <div id="input-tab">
             <ul class="nav nav-justified asterix-nav">
@@ -38,7 +46,9 @@
                 ng-click="$parent.maximized = !$parent.maximized"></span></div>
             </div>
           </div>
-          <button type="button" class="btn btn-primary" ng-click="query()">Run</button>
+          <div class="asterix-control-group">
+            <button type="button" class="btn btn-asterix center-block" ng-click="query()">Run</button>
+          </div>
       </div>
     </div>
     <div ng-if="!maximized" class="col-md-8 right-container">
