@@ -74,7 +74,7 @@
         </table>
       </div>
       <div class="asterix-list-wells" ng-if="current_list == 1 && results.length != 0">
-        <div ng-repeat="record in $parent.results" class="asterix-well float-left">
+        <div ng-repeat="record in $parent.results" class="asterix-well flex-well">
           <div ng-repeat="key in ObjectKeys(record)" class="row asterix-well-row">
             <div class="col-sm-6" ng-class="isRecordPlus(record[key])">{{ObjectValue(record[key])}}</div>
             <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">{{key}}</p></div>
