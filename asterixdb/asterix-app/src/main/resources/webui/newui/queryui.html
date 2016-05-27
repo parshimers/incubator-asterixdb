@@ -13,42 +13,54 @@
 <body ng-app="queryui">
   <div class="row main-container" ng-controller="queryCtrl" ng-init="init()">
     <div class="col-md-4 left-container" ng-class="maximized == true ? 'col-md-12' : 'col-md-4'">
-      <img class="logo" src="img/finalasterixlogo.png" alt="" />
-        <div class="left-using-container">
-          <label for="usingSelect" class="col-sm-2 control-label">Using</label>
-          <div class="col-sm-10">
-            <select class="form-control" id="usingSelect" ng-model="selected_dataverse">
-              <option ng-repeat="entry in dataverses" >{{entry}}</option>
-            </select>
+      <div class="row">
+        <div class="col-sm-12"><img class="logo" src="img/finalasterixlogo.png" alt="" /></div>
+      </div>
+      <div class="row">
+        <div class="col-sm-12">
+          <div class="left-using-container">
+            <label for="usingSelect" class="col-sm-2 control-label">Using</label>
+            <div class="col-sm-10">
+              <select class="form-control" id="usingSelect" ng-model="selected_dataverse">
+                <option ng-repeat="entry in dataverses" >{{entry}}</option>
+              </select>
+            </div>
           </div>
         </div>
-      <div class="input-container">
-          <div id="input-tab">
-            <ul class="nav nav-justified asterix-nav">
-              <li ng-class="current_tab == 0 ? 'asterix-nav-active' : '' "><a href="#" ng-click="current_tab = 0">Query</a></li>
-              <li ng-class="current_tab == 1 ? 'asterix-nav-active' : '' "><a href="#" ng-click="current_tab = 1">History</a></li>
-            </ul>
-            <div class="asterix-tabpage" ng-if="current_tab == 0">
-              <textarea name="Text1" ng-model="$parent.query_input" class="form-control input-container-code" placeholder="Query" cols="40" rows="15"></textarea>
-              <div class="icon-maximize"><span class="glyphicon glyphicon-fullscreen asterix-button" aria-hidden="true"
-                ng-class="$parent.maximized == true ? 'asterix-button-selected' : '' "
-                ng-click="$parent.maximized = !$parent.maximized"></span></div>
-            </div>
-            <div class="asterix-tabpage asterix-tabpage-fixed" ng-if="current_tab == 1">
-              <div class="asterix-well margin-bottom" ng-repeat="query in history track by $index">
-                <div class="row">
-                  <div class="col-md-8">{{query}}</div>
-                  <div class="col-md-4 asterix-well-right"><a href="">Preview</a></div>
+      </div>
+      <div class="row">
+        <div class="col-sm-12">
+          <div class="input-container">
+              <div id="input-tab">
+                <ul class="nav nav-justified asterix-nav">
+                  <li ng-class="current_tab == 0 ? 'asterix-nav-active' : '' "><a href="#" ng-click="current_tab = 0">Query</a></li>
+                  <li ng-class="current_tab == 1 ? 'asterix-nav-active' : '' "><a href="#" ng-click="current_tab = 1">History</a></li>
+                </ul>
+                <div class="asterix-tabpage" ng-if="current_tab == 0">
+                  <textarea name="Text1" ng-model="$parent.query_input" class="form-control input-container-code" placeholder="Query" cols="40" rows="15"></textarea>
+                  <div class="icon-maximize"><span class="glyphicon glyphicon-fullscreen asterix-button" aria-hidden="true"
+                    ng-class="$parent.maximized == true ? 'asterix-button-selected' : '' "
+                    ng-click="$parent.maximized = !$parent.maximized"></span></div>
+                </div>
+                <div class="asterix-tabpage" ng-if="current_tab == 1">
+                  <div class="asterix-well margin-bottom" ng-repeat="query in history track by $index">
+                    <div class="row">
+                      <div class="col-md-8">{{query}}</div>
+                      <div class="col-md-4 asterix-well-right"><a href="" ng-click="preview(query)">Preview</a></div>
+                    </div>
+                  </div>
+                  <div class="icon-maximize"><span class="glyphicon glyphicon-fullscreen asterix-button" aria-hidden="true"
+                    ng-class="$parent.maximized == true ? 'asterix-button-selected' : '' "
+                    ng-click="$parent.maximized = !$parent.maximized"></span></div>
                 </div>
               </div>
-              <div class="icon-maximize"><span class="glyphicon glyphicon-fullscreen asterix-button" aria-hidden="true"
-                ng-class="$parent.maximized == true ? 'asterix-button-selected' : '' "
-                ng-click="$parent.maximized = !$parent.maximized"></span></div>
-            </div>
           </div>
-          <div class="asterix-control-group">
-            <button type="button" class="btn btn-asterix center-block" ng-click="query()">Run</button>
-          </div>
+        </div>
+      </div>
+      <div class="row vh-spacer">
+        <div class="col-sm-12">
+          <button type="button" class="btn btn-asterix center-block" ng-click="query()">Run</button>
+        </div>
       </div>
     </div>
     <div ng-if="!maximized" class="col-md-8 right-container">
