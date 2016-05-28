@@ -79,6 +79,16 @@ app.controller('queryCtrl', function($rootScope, $scope, $http) {
     }
   }
 
+  $scope.isNested = function(obj){
+    for (var key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        var typeStr = Object.prototype.toString.call(obj[key]);
+        if (typeStr === "[object Array]" || typeStr === "[object object]") return true;
+      }
+    }
+    return false;
+  }
+
   $scope.isRecordPlus = function(obj){
     var typeStr = Object.prototype.toString.call(obj);
     if ((typeStr === "[object Array]" ) || (typeStr === "[object object]")){
