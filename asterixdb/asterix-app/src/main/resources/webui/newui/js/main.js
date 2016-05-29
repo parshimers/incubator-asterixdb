@@ -13,6 +13,7 @@ app.controller('queryCtrl', function($rootScope, $scope, $http) {
   $scope.results = [];
   $scope.history = [];
   $scope.dataverses = [];
+  $scope.selectedItem = null;
   $scope.selected_dataverse = "";
   $scope.errorText = null;
   $scope.statusText = "Web UI Ready";
@@ -96,6 +97,11 @@ app.controller('queryCtrl', function($rootScope, $scope, $http) {
     }else{
       return "";
     }
+  }
+
+  $scope.viewRecord = function(obj){
+    $scope.selectedItem = obj;
+    $("#recordModel").modal();
   }
 
 });
