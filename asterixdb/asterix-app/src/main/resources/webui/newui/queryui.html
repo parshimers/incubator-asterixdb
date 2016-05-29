@@ -101,21 +101,22 @@
       </div>
       <div class="modal fade" id="recordModel" role="dialog">
           <div class="modal-dialog">
-            <div class="modal-content">
-              <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
-                <h4 class="modal-title">Record Preview</h4>
+            <div id="input-tab">
+              <ul class="nav nav-justified asterix-nav">
+                <li ng-class="current_preview_tab == 0 ? 'asterix-nav-active' : '' "><a href="#" ng-click="current_preview_tab = 0">Record Viewer</a></li>
+                <li ng-class="current_preview_tab == 1 ? 'asterix-nav-active' : '' "><a href="#" ng-click="current_preview_tab = 1">JSON</a></li>
+                <!-- <li><a href="#" data-dismiss="modal">
+                  <span class="glyphicon glyphicon-remove"></span>
+                </a></li> -->
+              </ul>
+              <div class="asterix-tabpage" ng-if="current_preview_tab == 0">
+                <div ng-repeat="key in ObjectKeys(selectedItem)" class="row asterix-well-row">
+                  <div class="col-sm-6" ng-class="isRecordPlus(selectedItem[key])">{{ObjectValue(selectedItem[key])}}</div>
+                  <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">{{key}}</p></div>
+                </div>
               </div>
-              <div class="modal-body">
-                  <div ng-repeat="key in ObjectKeys(selectedItem)" class="row asterix-well-row">
-                    <div class="col-sm-6" ng-class="isRecordPlus(record[key])">{{ObjectValue(selectedItem[key])}}</div>
-                    <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">{{key}}</p></div>
-                  </div>
-                  <div class="row">
-                    <div class="col-sm-12" ng-if="isNested(record)">
-                      <span class="label label-warning">NESTED</span>
-                    </div>
-                  </div>
+              <div class="asterix-tabpage" ng-if="current_preview_tab == 1">
+                <code ng-bind="previewJSON(selectedItem)"></code>
               </div>
             </div>
           </div>

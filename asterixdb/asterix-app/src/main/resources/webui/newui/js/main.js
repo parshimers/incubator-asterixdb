@@ -8,6 +8,7 @@ var app = angular.module('queryui', []);
 app.controller('queryCtrl', function($rootScope, $scope, $http) {
 
   $scope.current_tab = 0;
+  $scope.current_preview_tab = 0;
   $scope.current_list = 0;
   $scope.maximized = false;
   $scope.results = [];
@@ -101,7 +102,12 @@ app.controller('queryCtrl', function($rootScope, $scope, $http) {
 
   $scope.viewRecord = function(obj){
     $scope.selectedItem = obj;
+    $scope.current_preview_tab = 0;
     $("#recordModel").modal();
+  }
+
+  $scope.previewJSON = function(obj){
+    return JSON.stringify(obj,null,4);
   }
 
 });
