@@ -3,10 +3,62 @@ var DATAVERSE_QUERY = "for $x in dataset Metadata.Dataverse return $x;"
 var DATE_TIME_REGEX = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z)$/;
 var DATE_REGEX = /^(\d{4}-\d{2}-\d{2})$/;
 
-var app = angular.module('queryui', []);
+var app = angular.module('queryui', ['jsonFormatter']);
 
-app.controller('queryCtrl', function($rootScope, $scope, $http) {
+app.service('recordFunctions', function(){
+  this.ObjectKeys = function(obj){
+    var res = [];
+    for (var key in obj) {
+      if (obj.hasOwnProperty(key) && !(key === "$$hashKey")) {
+        res.push(key)
+      }
+    }
+    return res;
+  }
+  this.isObject = function(obj){
+    var typeStr = Object.prototype.toString.call(obj);
+    if (typeStr === "[object object]"){
+      return true;
+    }else{
+      return false;
+    }
+  }
+  this.isArray = function(obj){
+    var typeStr = Object.prototype.toString.call(obj);
+    if ((typeStr === "[object Array]" )){
+      return true;
+    }else{
+      return false;
+    }
+  }
+  this.isNested = function(obj){
+    return  this.isObject(obj) || this.isArray(obj);
+  }
+  this.ObjectValue = function(obj){
+    var typeStr = Object.prototype.toString.call(obj);
+    var dateType = new Date(obj);
+    if (typeStr === "[object Array]"){
+      return "Record +";
+    }else if (typeStr === "[object object]"){
+      return "Record +";
+    }else if (typeStr == "[object Null]"){
+      return "NULL";
+    }else if(DATE_REGEX.exec(obj) != null){
+      var dat = new Date(obj);
+      return dat.getUTCFullYear()+"/"+dat.getUTCMonth()+"/"+dat.getUTCDay();
+    }else if(DATE_TIME_REGEX.exec(obj) != null){
+      var dat = new Date(obj);
+      return dat.getUTCFullYear()+"/"+dat.getUTCMonth()+"/"+dat.getUTCDay()
+        +" "+dat.getUTCHours()+":"+dat.getUTCMinutes()+":"+dat.getUTCSeconds();
+    }else{
+      return obj;
+    }
+  }
+});
 
+app.controller('queryCtrl', function($rootScope, $scope, $http, recordFunctions) {
+
+  $scope.recordFunctions = recordFunctions;
   $scope.current_tab = 0;
   $scope.current_preview_tab = 0;
   $scope.current_list = 0;
@@ -52,35 +104,6 @@ app.controller('queryCtrl', function($rootScope, $scope, $http) {
     });
   }
 
-  $scope.ObjectKeys = function(obj){
-    var res = [];
-    for (var key in obj) {
-      if (obj.hasOwnProperty(key) && !(key === "$$hashKey")) {
-        res.push(key)
-      }
-    }
-    return res;
-  }
-
-  $scope.ObjectValue = function(obj){
-    var typeStr = Object.prototype.toString.call(obj);
-    var dateType = new Date(obj);
-    if (typeStr === "[object Array]"){
-      return "Record +";
-    }else if (typeStr === "[object object]"){
-      return "Record +";
-    }else if(DATE_REGEX.exec(obj) != null){
-      var dat = new Date(obj);
-      return dat.getUTCFullYear()+"/"+dat.getUTCMonth()+"/"+dat.getUTCDay();
-    }else if(DATE_TIME_REGEX.exec(obj) != null){
-      var dat = new Date(obj);
-      return dat.getUTCFullYear()+"/"+dat.getUTCMonth()+"/"+dat.getUTCDay()
-        +" "+dat.getUTCHours()+":"+dat.getUTCMinutes()+":"+dat.getUTCSeconds();
-    }else{
-      return obj;
-    }
-  }
-
   $scope.isNested = function(obj){
     for (var key in obj) {
       if (obj.hasOwnProperty(key)) {
@@ -92,12 +115,7 @@ app.controller('queryCtrl', function($rootScope, $scope, $http) {
   }
 
   $scope.isRecordPlus = function(obj){
-    var typeStr = Object.prototype.toString.call(obj);
-    if ((typeStr === "[object Array]" ) || (typeStr === "[object object]")){
-      return "asterix-nested";
-    }else{
-      return "";
-    }
+      return $scope.recordFunctions.isNested(obj) ? "asterix-nested" : "";
   }
 
   $scope.viewRecord = function(obj){

@@ -6,8 +6,10 @@
   <link rel="stylesheet" href="css/bootstrap.min.css" media="screen" title="no title" charset="utf-8">
   <link rel="stylesheet" href="css/bootstrap-theme.min.css" media="screen" title="no title" charset="utf-8">
   <link rel="stylesheet" href="css/master.css" media="screen" title="no title" charset="utf-8">
+  <link rel="stylesheet" href="css/json-formatter.min.css" media="screen" title="no title" charset="utf-8">
   <script src="js/jquery-1.12.4.min.js" charset="utf-8"></script>
   <script src="js/angular.min.js" charset="utf-8"></script>
+  <script src="js/json-formatter.min.js" charset="utf-8"></script>
   <script src="js/bootstrap.min.js" charset="utf-8"></script>
   <script src="js/main.js" charset="utf-8"></script>
 </head>
@@ -78,18 +80,18 @@
       <div class="asterix-list-view" ng-if="current_list == 0 && results.length != 0">
         <table class="table table-hover asterix-table">
           <tbody>
-            <tr ng-repeat="record in $parent.results">
-              <td ng-repeat="key in ObjectKeys(record)" class="asterix-inline-item" ng-class="isRecordPlus(record[key])" ng-click="viewRecord(record)">
-                <p class="small asterix-small">{{key}}</p>{{ObjectValue(record[key])}}
+            <tr ng-repeat="record in $parent.results track by $index">
+              <td ng-repeat="key in recordFunctions.ObjectKeys(record)" class="asterix-inline-item" ng-class="isRecordPlus(record[key])" ng-click="viewRecord(record)">
+                <p class="small asterix-small">{{key}}</p>{{recordFunctions.ObjectValue(record[key])}}
               </td>
             </tr>
           </tbody>
         </table>
       </div>
       <div class="asterix-list-wells" ng-if="current_list == 1 && results.length != 0">
-        <div ng-repeat="record in $parent.results" class="asterix-well flex-well" ng-click="viewRecord(record)">
-          <div ng-repeat="key in ObjectKeys(record)" class="row asterix-well-row">
-            <div class="col-sm-6" ng-class="isRecordPlus(record[key])">{{ObjectValue(record[key])}}</div>
+        <div ng-repeat="record in $parent.results track by $index" class="asterix-well flex-well" ng-click="viewRecord(record)">
+          <div ng-repeat="key in recordFunctions.ObjectKeys(record)" class="row asterix-well-row">
+            <div class="col-sm-6" ng-class="isRecordPlus(record[key])">{{recordFunctions.ObjectValue(record[key])}}</div>
             <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">{{key}}</p></div>
           </div>
           <div class="row">
@@ -110,10 +112,7 @@
                 </a></li> -->
               </ul>
               <div class="asterix-tabpage" ng-if="current_preview_tab == 0">
-                <div ng-repeat="key in ObjectKeys(selectedItem)" class="row asterix-well-row">
-                  <div class="col-sm-6" ng-class="isRecordPlus(selectedItem[key])">{{ObjectValue(selectedItem[key])}}</div>
-                  <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">{{key}}</p></div>
-                </div>
+              <json-formatter open="2" ng-if="selectedItem != null" json="selectedItem"></json-formatter>
               </div>
               <div class="asterix-tabpage" ng-if="current_preview_tab == 1">
                 <code ng-bind="previewJSON(selectedItem)"></code>
