@@ -83,11 +83,12 @@ app.controller('queryCtrl', function($rootScope, $scope, $http, recordFunctions)
       $scope.errorText = response.data.summary;
       $scope.maximized = false;
     });
+    $scope.load();
   }
 
   $scope.query = function(){
     var timer = new Date().getTime();
-    $scope.history.push($scope.query_input);
+    $scope.save($scope.query_input,$scope.selected_dataverse);
     $http.get(SERVER_HOST+"/query?query="+encodeURI("use dataverse "+$scope.selected_dataverse+";"+$scope.query_input)).then(function(response){
       $scope.results = response.data;
       console.log(response);
@@ -126,6 +127,25 @@ app.controller('queryCtrl', function($rootScope, $scope, $http, recordFunctions)
 
   $scope.previewJSON = function(obj){
     return JSON.stringify(obj,null,4);
+  }
+
+  $scope.save = function(query, database){
+    var toSave = [query, database];
+    if($scope.history.push(toSave) == 11){
+      $scope.history.shift();
+    }
+    localStorage.setItem("history",JSON.stringify($scope.history));
+  }
+
+  $scope.load = function(){
+      var history = JSON.parse(localStorage.getItem("history"));
+      if (history != null) $scope.history = history;
+  }
+
+  $scope.previewHistory = function(entry){
+      $scope.current_tab = 0;
+      $scope.query_input = entry[0];
+      $scope.selected_dataverse = entry[1];
   }
 
 });
