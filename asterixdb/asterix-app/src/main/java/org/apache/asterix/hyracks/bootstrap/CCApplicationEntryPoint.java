@@ -129,7 +129,7 @@ public class CCApplicationEntryPoint implements ICCApplicationEntryPoint {
         webServer.stop();
         jsonAPIServer.stop();
         feedServer.stop();
-        queryWebServer.stop()
+        queryWebServer.stop();
         // Make sure servers are stopped before proceeding
         webServer.join();
         jsonAPIServer.join();
