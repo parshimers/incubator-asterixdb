@@ -1,4 +1,4 @@
-var SERVER_HOST = "http://localhost:19002";
+var SERVER_HOST = "http://"+location.host+":19002";
 var DATAVERSE_QUERY = "for $x in dataset Metadata.Dataverse return $x;"
 var DATE_TIME_REGEX = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z)$/;
 var DATE_REGEX = /^(\d{4}-\d{2}-\d{2})$/;
