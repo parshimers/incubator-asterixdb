@@ -107,7 +107,7 @@ public class CCApplicationEntryPoint implements ICCApplicationEntryPoint {
         setupJSONAPIServer(externalProperties);
         jsonAPIServer.start();
 
-        setupQueryWebServer();
+        setupQueryWebServer(externalProperties);
         queryWebServer.start();
 
         setupFeedServer(externalProperties);
