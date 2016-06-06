@@ -22,6 +22,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.asterix.api.http.servlet.APIServlet;
+import org.apache.asterix.api.http.servlet.QueryWebInterfaceServlet;
 import org.apache.asterix.api.http.servlet.AQLAPIServlet;
 import org.apache.asterix.api.http.servlet.ClusterAPIServlet;
 import org.apache.asterix.api.http.servlet.ConnectorAPIServlet;
@@ -69,6 +70,7 @@ public class CCApplicationEntryPoint implements ICCApplicationEntryPoint {
     private static final String ASTERIX_BUILD_PROP_ATTR = "org.apache.asterix.PROPS";
 
     private Server webServer;
+    private Server queryWebServer;
     private Server jsonAPIServer;
     private Server feedServer;
 
@@ -105,6 +107,9 @@ public class CCApplicationEntryPoint implements ICCApplicationEntryPoint {
         setupJSONAPIServer(externalProperties);
         jsonAPIServer.start();
 
+        setupQueryWebServer();
+        queryWebServer.start();
+
         setupFeedServer(externalProperties);
         feedServer.start();
         ExternalLibraryUtils.setUpExternaLibraries(false);
@@ -124,10 +129,12 @@ public class CCApplicationEntryPoint implements ICCApplicationEntryPoint {
         webServer.stop();
         jsonAPIServer.stop();
         feedServer.stop();
+        queryWebServer.stop()
         // Make sure servers are stopped before proceeding
         webServer.join();
         jsonAPIServer.join();
         feedServer.join();
+        queryWebServer.join();
     }
 
     private IHyracksClientConnection getNewHyracksClientConnection() throws Exception {
@@ -148,6 +155,20 @@ public class CCApplicationEntryPoint implements ICCApplicationEntryPoint {
 
         webServer.setHandler(context);
         context.addServlet(new ServletHolder(new APIServlet()), "/*");
+    }
+
+    private void setupQueryWebServer(AsterixExternalProperties externalProperties) throws Exception {
+
+        queryWebServer = new Server(externalProperties.getQueryWebInterfacePort());
+
+        ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
+        context.setContextPath("/");
+
+        IHyracksClientConnection hcc = getNewHyracksClientConnection();
+        context.setAttribute(HYRACKS_CONNECTION_ATTR, hcc);
+
+        queryWebServer.setHandler(context);
+        context.addServlet(new ServletHolder(new QueryWebInterfaceServlet()), "/*");
     }
 
     private void setupJSONAPIServer(AsterixExternalProperties externalProperties) throws Exception {
