@@ -27,7 +27,7 @@
     <parent>
       <groupId>org.apache</groupId>
       <artifactId>apache</artifactId>
-      <version>LATEST</version>
+      <version>17</version>
     </parent>
 
     <licenses>
@@ -57,7 +57,7 @@
     <!-- Versions under dependencymanagement or used in many projects via properties -->
         <algebricks.version>0.2.18-SNAPSHOT</algebricks.version>
         <hyracks.version>0.2.18-SNAPSHOT</hyracks.version>
-        <hadoop.version>2.2.0</hadoop.version>
+        <hadoop.version>2.6.4</hadoop.version>
         <junit.version>4.11</junit.version>
         <commons.io.version>2.4</commons.io.version>
         <servlet.api.version>2.5</servlet.api.version>

@@ -96,6 +96,9 @@ public class HDFSFileHandle implements IFileHandle, IFileHandleInternal {
 
     @Override
     public void sync(boolean metadata) throws IOException {
+        if(out == null){
+            out = fs.append(path);
+        }
         out.hsync();
     }
 

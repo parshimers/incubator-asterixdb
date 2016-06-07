@@ -47,7 +47,8 @@ public class IOHDFSSubSystem implements IIOSubSystem {
         //    conf.set("dfs.namenode.replication.considerLoad","false");
         conf.addResource(new Path(confPath + "core-site.xml"));
         conf.addResource(new Path(confPath + "mapred-site.xml"));
-        fsName = conf.get("fs.default.name");
+        conf.addResource(new Path(confPath + "hdfs-site.xml"));
+        fsName = conf.get("fs.defaultFS");
         try {
             uri = new URI(fsName);
             fs = FileSystem.get(uri, conf);
