@@ -20,7 +20,7 @@ package org.apache.asterix.formats.nontagged;
 
 import org.apache.asterix.dataflow.data.nontagged.printers.adm.AUUIDPrinterFactory;
 import org.apache.asterix.dataflow.data.nontagged.printers.adm.ShortWithoutTypeInfoPrinterFactory;
-import org.apache.asterix.dataflow.data.nontagged.printers.json.clean.ABinaryPrinterFactory;
+import org.apache.asterix.dataflow.data.nontagged.printers.json.clean.ABinaryHexPrinterFactory;
 import org.apache.asterix.dataflow.data.nontagged.printers.json.clean.ABooleanPrinterFactory;
 import org.apache.asterix.dataflow.data.nontagged.printers.json.clean.ACirclePrinterFactory;
 import org.apache.asterix.dataflow.data.nontagged.printers.json.clean.ADatePrinterFactory;
@@ -36,7 +36,7 @@ import org.apache.asterix.dataflow.data.nontagged.printers.json.clean.AInt8Print
 import org.apache.asterix.dataflow.data.nontagged.printers.json.clean.AIntervalPrinterFactory;
 import org.apache.asterix.dataflow.data.nontagged.printers.json.clean.ALinePrinterFactory;
 import org.apache.asterix.dataflow.data.nontagged.printers.json.clean.ANullPrinterFactory;
-import org.apache.asterix.dataflow.data.nontagged.printers.json.clean.ANullableFieldPrinterFactory;
+import org.apache.asterix.dataflow.data.nontagged.printers.json.clean.AOptionalFieldPrinterFactory;
 import org.apache.asterix.dataflow.data.nontagged.printers.json.clean.AObjectPrinterFactory;
 import org.apache.asterix.dataflow.data.nontagged.printers.json.clean.AOrderedlistPrinterFactory;
 import org.apache.asterix.dataflow.data.nontagged.printers.json.clean.APoint3DPrinterFactory;
@@ -116,7 +116,7 @@ public class AqlCleanJSONPrinterFactoryProvider implements IPrinterFactoryProvid
                 case STRING:
                     return AStringPrinterFactory.INSTANCE;
                 case BINARY:
-                    return ABinaryPrinterFactory.INSTANCE;
+                    return ABinaryHexPrinterFactory.INSTANCE;
                 case RECORD:
                     return new ARecordPrinterFactory((ARecordType) aqlType);
                 case ORDEREDLIST:
@@ -125,7 +125,7 @@ public class AqlCleanJSONPrinterFactoryProvider implements IPrinterFactoryProvid
                     return new AUnorderedlistPrinterFactory((AUnorderedListType) aqlType);
                 case UNION: {
                     if (((AUnionType) aqlType).isUnknownableType()) {
-                        return new ANullableFieldPrinterFactory((AUnionType) aqlType);
+                        return new AOptionalFieldPrinterFactory((AUnionType) aqlType);
                     } else {
                         return new AUnionPrinterFactory((AUnionType) aqlType);
                     }

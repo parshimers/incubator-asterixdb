@@ -530,6 +530,11 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
+      <compilation-unit name="query-ASTERIXDB-1216">
+        <output-dir compare="Text">query-ASTERIXDB-1216</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate">
       <compilation-unit name="group_only">
         <output-dir compare="Text">group_only</output-dir>
       </compilation-unit>
@@ -788,6 +793,11 @@
     <test-case FilePath="aggregate">
       <compilation-unit name="sum_numeric_null">
         <output-dir compare="Text">sum_numeric_null</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate">
+      <compilation-unit name="query-ASTERIXDB-1230">
+        <output-dir compare="Text">query-ASTERIXDB-1230</output-dir>
       </compilation-unit>
     </test-case>
   </test-group>
@@ -3019,6 +3029,36 @@
         <output-dir compare="Text">query-ASTERIXDB-673</output-dir>
       </compilation-unit>
     </test-case>
+    <test-case FilePath="list">
+      <compilation-unit name="query-ASTERIXDB-1131">
+        <output-dir compare="Text">query-ASTERIXDB-1131</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="list">
+      <compilation-unit name="query-ASTERIXDB-1131-2">
+        <output-dir compare="Text">query-ASTERIXDB-1131-2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="list">
+      <compilation-unit name="query-ASTERIXDB-1212">
+        <output-dir compare="Text">query-ASTERIXDB-1212</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="list">
+      <compilation-unit name="query-ASTERIXDB-1212-open">
+        <output-dir compare="Text">query-ASTERIXDB-1212-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="list">
+      <compilation-unit name="query-ASTERIXDB-1212-2">
+        <output-dir compare="Text">query-ASTERIXDB-1212-2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="list">
+      <compilation-unit name="query-ASTERIXDB-1212-2-open">
+        <output-dir compare="Text">query-ASTERIXDB-1212-2-open</output-dir>
+      </compilation-unit>
+    </test-case>
   </test-group>
   <test-group name="meta">
     <test-case FilePath="meta">
@@ -3912,6 +3952,11 @@
     <test-case FilePath="nestrecords">
       <compilation-unit name="nestrecord">
         <output-dir compare="Text">nestrecord</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nestrecords">
+      <compilation-unit name="query-ASTERIXDB-1025">
+        <output-dir compare="Text">query-ASTERIXDB-1025</output-dir>
       </compilation-unit>
     </test-case>
   </test-group>
@@ -5457,6 +5502,11 @@
         <output-dir compare="Text">varlen-encoding</output-dir>
       </compilation-unit>
     </test-case>
+    <test-case FilePath="string">
+      <compilation-unit name="query-ASTERIXDB-1190">
+        <output-dir compare="Text">query-ASTERIXDB-1190</output-dir>
+      </compilation-unit>
+    </test-case>
   </test-group>
   <test-group name="subset-collection">
     <test-case FilePath="subset-collection">
@@ -6243,6 +6293,11 @@
         <output-dir compare="Text">query-ASTERIXDB-1308-1</output-dir>
       </compilation-unit>
     </test-case>
+    <test-case FilePath="user-defined-functions">
+      <compilation-unit name="query-ASTERIXDB-1317">
+        <output-dir compare="Text">query-ASTERIXDB-1317</output-dir>
+      </compilation-unit>
+    </test-case>
     <!-- <test-case FilePath="user-defined-functions">
           <compilation-unit name="query-ASTERIXDB-1308-2">
               <output-dir compare="Text">query-ASTERIXDB-1308-2</output-dir>
@@ -6478,6 +6533,11 @@
     <test-case FilePath="big-object">
       <compilation-unit name="big_object_load_only_20M">
         <output-dir compare="Text">big_object_load_only_20M</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="big-object">
+      <compilation-unit name="big_object_feed_20M">
+        <output-dir compare="Text">big_object_feed_20M</output-dir>
       </compilation-unit>
     </test-case>
   </test-group>

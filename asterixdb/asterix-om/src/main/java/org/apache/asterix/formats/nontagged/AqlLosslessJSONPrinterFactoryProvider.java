@@ -20,7 +20,7 @@ package org.apache.asterix.formats.nontagged;
 
 import org.apache.asterix.dataflow.data.nontagged.printers.adm.AUUIDPrinterFactory;
 import org.apache.asterix.dataflow.data.nontagged.printers.adm.ShortWithoutTypeInfoPrinterFactory;
-import org.apache.asterix.dataflow.data.nontagged.printers.json.lossless.ABinaryPrinterFactory;
+import org.apache.asterix.dataflow.data.nontagged.printers.json.lossless.ABinaryHexPrinterFactory;
 import org.apache.asterix.dataflow.data.nontagged.printers.json.lossless.ABooleanPrinterFactory;
 import org.apache.asterix.dataflow.data.nontagged.printers.json.lossless.ACirclePrinterFactory;
 import org.apache.asterix.dataflow.data.nontagged.printers.json.lossless.ADatePrinterFactory;
@@ -36,7 +36,7 @@ import org.apache.asterix.dataflow.data.nontagged.printers.json.lossless.AInt8Pr
 import org.apache.asterix.dataflow.data.nontagged.printers.json.lossless.AIntervalPrinterFactory;
 import org.apache.asterix.dataflow.data.nontagged.printers.json.lossless.ALinePrinterFactory;
 import org.apache.asterix.dataflow.data.nontagged.printers.json.lossless.ANullPrinterFactory;
-import org.apache.asterix.dataflow.data.nontagged.printers.json.lossless.ANullableFieldPrinterFactory;
+import org.apache.asterix.dataflow.data.nontagged.printers.json.lossless.AOptionalFieldPrinterFactory;
 import org.apache.asterix.dataflow.data.nontagged.printers.json.lossless.AObjectPrinterFactory;
 import org.apache.asterix.dataflow.data.nontagged.printers.json.lossless.AOrderedlistPrinterFactory;
 import org.apache.asterix.dataflow.data.nontagged.printers.json.lossless.APoint3DPrinterFactory;
@@ -116,7 +116,7 @@ public class AqlLosslessJSONPrinterFactoryProvider implements IPrinterFactoryPro
                 case STRING:
                     return AStringPrinterFactory.INSTANCE;
                 case BINARY:
-                    return ABinaryPrinterFactory.INSTANCE;
+                    return ABinaryHexPrinterFactory.INSTANCE;
                 case RECORD:
                     return new ARecordPrinterFactory((ARecordType) aqlType);
                 case ORDEREDLIST:
@@ -125,7 +125,7 @@ public class AqlLosslessJSONPrinterFactoryProvider implements IPrinterFactoryPro
                     return new AUnorderedlistPrinterFactory((AUnorderedListType) aqlType);
                 case UNION: {
                     if (((AUnionType) aqlType).isUnknownableType()) {
-                        return new ANullableFieldPrinterFactory((AUnionType) aqlType);
+                        return new AOptionalFieldPrinterFactory((AUnionType) aqlType);
                     } else {
                         return new AUnionPrinterFactory((AUnionType) aqlType);
                     }

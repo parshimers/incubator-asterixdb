@@ -300,7 +300,7 @@ public class ARecordType extends AbstractComplexType {
     }
 
     public static int computeNullBitmapSize(ARecordType rt) {
-        return NonTaggedFormatUtil.hasNullableField(rt) ? (int) Math.ceil(rt.getFieldNames().length / 8.0) : 0;
+        return NonTaggedFormatUtil.hasOptionalField(rt) ? (int) Math.ceil(rt.getFieldNames().length / 4.0) : 0;
     }
 
     public List<IAType> getFieldTypes(List<List<String>> fields) throws AlgebricksException {
@@ -309,5 +309,15 @@ public class ARecordType extends AbstractComplexType {
             typeList.add(getSubFieldType(field));
         }
         return typeList;
+    }
+
+    @Override
+    public boolean containsType(IAType type) {
+        for (IAType aType : fieldTypes) {
+            if (aType.getTypeName().equals(type.getTypeName())) {
+                return true;
+            }
+        }
+        return false;
     }
 }
