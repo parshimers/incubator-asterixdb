@@ -114,7 +114,7 @@ public abstract class AbstractPerfLoadBuilder extends AbstractExperimentBuilder 
     protected abstract void doBuildDDL(SequentialActionList seq);
 
     @Override
-    protected void doBuild(Experiment e) throws IOException, JAXBException{
+    protected void doBuild(Experiment e) throws IOException, JAXBException {
         SequentialActionList execs = new SequentialActionList();
 
         String clusterConfigPath = localExperimentRoot.resolve(LSMExperimentConstants.CONFIG_DIR)
@@ -161,39 +161,22 @@ public abstract class AbstractPerfLoadBuilder extends AbstractExperimentBuilder 
         }
 
         //prepare post ls action
-        SequentialActionList postLSAction = new SequentialActionList();
         File file = new File(clusterConfigPath);
         JAXBContext ctx = JAXBContext.newInstance(Cluster.class);
         Unmarshaller unmarshaller = ctx.createUnmarshaller();
         final Cluster cluster = (Cluster) unmarshaller.unmarshal(file);
         String[] storageRoots = cluster.getIodevices().split(",");
-        for (String ncHost : ncHosts) {
-            for (final String sRoot : storageRoots) {
-                lsAction.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
-                    @Override
-                    protected String getCommand() {
-                        return "ls -Rl " + sRoot;
-                    }
-                });
-                postLSAction.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
-                    @Override
-                    protected String getCommand() {
-                        return "ls -Rl " + sRoot;
-                    }
-                });
-
-            }
-        }
 
         //---------- main experiment body begins -----------
 
-        //load data into pidx
+        //run DDL + Load
         execs.add(new TimedAction(new RunAQLFileAction(httpClient, restHost, restPort, localExperimentRoot.resolve(
                 LSMExperimentConstants.AQL_DIR).resolve(loadAQLFilePath))));
 
-        //load data into pidx
+        //execute SQL++ Queries
         execs.add(new TimedAction(new RunSQLPPFileAction(httpClient, restHost, restPort, localExperimentRoot.resolve(
-                LSMExperimentConstants.AQL_DIR).resolve(querySQLPPFileName))));
+                LSMExperimentConstants.AQL_DIR).resolve(querySQLPPFileName),
+                localExperimentRoot.resolve(LSMPerfConstants.RESULT_FILE))));
 
         //---------- main experiment body ends -----------
 
@@ -220,8 +203,6 @@ public abstract class AbstractPerfLoadBuilder extends AbstractExperimentBuilder 
                     LSMExperimentConstants.AQL_DIR).resolve(countFileName)));
         }
 
-        //add ls action
-        execs.add(postLSAction);
 
         execs.add(new StopAsterixManagixAction(managixHomePath, ASTERIX_INSTANCE_NAME));
 

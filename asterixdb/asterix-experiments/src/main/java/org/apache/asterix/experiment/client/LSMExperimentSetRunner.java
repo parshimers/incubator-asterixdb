@@ -26,7 +26,8 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 import org.apache.asterix.experiment.action.base.SequentialActionList;
-import org.apache.asterix.experiment.builder.*;
+import org.apache.asterix.experiment.builder.AbstractExperimentBuilder;
+import org.apache.asterix.experiment.builder.PerfTestAggBuilder;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
@@ -238,6 +239,7 @@ public class LSMExperimentSetRunner {
 
         Collection<AbstractExperimentBuilder> suite = new ArrayList<>();
 
+        /*
                 suite.add(new Experiment7BBuilder(config));
                 suite.add(new Experiment7DBuilder(config));
                 suite.add(new Experiment7ABuilder(config));
@@ -283,6 +285,7 @@ public class LSMExperimentSetRunner {
                 suite.add(new Experiment5BBuilder(config));
                 suite.add(new Experiment5CBuilder(config));
                 suite.add(new Experiment5DBuilder(config));
+        */
                 suite.add(new PerfTestAggBuilder(config));
 
         Pattern p = config.getRegex() == null ? null : Pattern.compile(config.getRegex());

@@ -32,10 +32,7 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.util.EntityUtils;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -52,15 +49,17 @@ public class RunSQLPPFileAction extends AbstractAction {
     private final HttpClient httpClient;
 
     private final Path aqlFilePath;
+    private final Path csvFilePath;
     private final List<Path> queriesToRun;
 
     private final String restHost;
 
     private final int restPort;
 
-    public RunSQLPPFileAction(HttpClient httpClient, String restHost, int restPort, Path aqlFilePath) {
+    public RunSQLPPFileAction(HttpClient httpClient, String restHost, int restPort, Path aqlFilePath, Path csvFilePath) {
         this.httpClient = httpClient;
         this.aqlFilePath = aqlFilePath;
+        this.csvFilePath = csvFilePath;
         this.restHost = restHost;
         this.restPort = restPort;
         queriesToRun = new ArrayList<>();
@@ -68,30 +67,39 @@ public class RunSQLPPFileAction extends AbstractAction {
 
     @Override
     public void doPerform() throws Exception {
-        if(aqlFilePath.toFile().isDirectory()){
-           for(File f: aqlFilePath.toFile().listFiles()){
-               queriesToRun.add(f.toPath());
-           }
-        }
-        else{
-            queriesToRun.add(aqlFilePath);
-        }
-        for(Path p: queriesToRun) {
-            String sqlpp = StandardCharsets.UTF_8.decode(ByteBuffer.wrap(Files.readAllBytes(p))).toString();
-            String uri = MessageFormat.format(REST_URI_TEMPLATE, restHost, String.valueOf(restPort));
-            HttpPost post = new HttpPost(uri);
-            post.setHeader(HttpHeaders.CONTENT_TYPE, "application/json");
-            post.setEntity(new StringEntity(sqlpp, StandardCharsets.UTF_8));
-            long start = System.currentTimeMillis();
-            HttpResponse resp = httpClient.execute(post);
-            HttpEntity entity = resp.getEntity();
-            if(resp.getStatusLine().getStatusCode() != HttpStatus.SC_OK){
-                throw new HttpException("Query returned error");
+        FileOutputStream csvFileOut = new FileOutputStream(csvFilePath.toFile());
+        PrintWriter printer = new PrintWriter(csvFileOut, true);
+        try {
+            if (aqlFilePath.toFile().isDirectory()) {
+                for (File f : aqlFilePath.toFile().listFiles()) {
+                    queriesToRun.add(f.toPath());
+                }
+            } else {
+                queriesToRun.add(aqlFilePath);
             }
-            EntityUtils.consume(entity);
-            long end = System.currentTimeMillis();
-            long wallClock = end-start;
-            System.out.println(p.getFileName().toString() + ',' +wallClock );
+
+            for (Path p : queriesToRun) {
+                String sqlpp = StandardCharsets.UTF_8.decode(ByteBuffer.wrap(Files.readAllBytes(p))).toString();
+                String uri = MessageFormat.format(REST_URI_TEMPLATE, restHost, String.valueOf(restPort));
+                HttpPost post = new HttpPost(uri);
+                post.setHeader(HttpHeaders.CONTENT_TYPE, "application/json");
+                post.setEntity(new StringEntity(sqlpp, StandardCharsets.UTF_8));
+                long start = System.currentTimeMillis();
+                HttpResponse resp = httpClient.execute(post);
+                HttpEntity entity = resp.getEntity();
+                if (resp.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                    throw new HttpException("Query returned error");
+                }
+                EntityUtils.consume(entity);
+                long end = System.currentTimeMillis();
+                long wallClock = end - start;
+                String currLine = p.getFileName().toString() + ',' + wallClock;
+                System.out.println(currLine);
+                printer.print(currLine);
+            }
+        }
+        finally{
+            printer.close();
         }
     }
 }

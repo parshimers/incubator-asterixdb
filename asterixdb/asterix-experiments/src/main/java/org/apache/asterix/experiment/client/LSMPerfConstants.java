@@ -37,5 +37,7 @@ public class LSMPerfConstants {
 
     public static final String BASE_TYPES = "base/perf_types.aql";
 
+    public static final String RESULT_FILE = "agg_results.csv";
+
     public static final String ASTERIX_CONFIGURATION = "asterix-configuration.xml";
 }
