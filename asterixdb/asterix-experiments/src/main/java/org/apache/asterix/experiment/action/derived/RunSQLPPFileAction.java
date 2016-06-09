@@ -88,7 +88,7 @@ public class RunSQLPPFileAction extends AbstractAction {
                 HttpResponse resp = httpClient.execute(post);
                 HttpEntity entity = resp.getEntity();
                 if (resp.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                    throw new HttpException("Query returned error");
+                    throw new HttpException("Query returned error" + EntityUtils.toString(entity));
                 }
                 EntityUtils.consume(entity);
                 long end = System.currentTimeMillis();
