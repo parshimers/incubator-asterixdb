@@ -32,7 +32,7 @@ import org.apache.hyracks.storage.common.buffercache.ICachedPage;
 public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
 
     // Arbitrarily chosen magic integer.
-    protected static final int MAGIC_VALID_INT = 0x2B7E1516;
+    protected static final int MAGIC_VALID_INT = 0x1B16DA7A;
     //Storage version #. Change this if you alter any tree frame formats to stop
     // possible corruption from old versions reading new formats.
     protected static final int VERSION = 1;
