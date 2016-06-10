@@ -33,9 +33,6 @@ public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
 
     // Arbitrarily chosen magic integer.
     protected static final int MAGIC_VALID_INT = 0x1B16DA7A;
-    //Storage version #. Change this if you alter any tree frame formats to stop
-    // possible corruption from old versions reading new formats.
-    protected static final int VERSION = 1;
 
     protected static final int tupleCountOff = 0; //0
     protected static final int freeSpaceOff = tupleCountOff + 4; //4
@@ -136,8 +133,7 @@ public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
 
     @Override
     public boolean isValid() {
-        return buf.getInt(validOff) == MAGIC_VALID_INT
-                && getVersion() == VERSION;
+        return buf.getInt(validOff) == MAGIC_VALID_INT;
     }
 
     @Override

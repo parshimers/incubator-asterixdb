@@ -22,6 +22,11 @@ package org.apache.hyracks.storage.am.common.api;
 import org.apache.hyracks.storage.common.buffercache.ICachedPage;
 
 public interface ITreeIndexMetaDataFrame {
+
+    //Storage version #. Change this if you alter any tree frame formats to stop
+    // possible corruption from old versions reading new formats.
+    public static final int VERSION = 1;
+
     public void initBuffer(byte level);
 
     public void setPage(ICachedPage page);

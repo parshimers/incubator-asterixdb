@@ -38,17 +38,26 @@ import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.storage.am.common.api.ITreeIndex;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexMetaDataFrame;
 import org.apache.hyracks.storage.am.common.api.IndexException;
+import org.apache.hyracks.storage.am.common.frames.LIFOMetaDataFrame;
+import org.apache.hyracks.storage.am.common.freepage.LinkedMetaDataPageManager;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexFileManager;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
 import org.apache.hyracks.storage.common.buffercache.ICachedPage;
 import org.apache.hyracks.storage.common.file.BufferedFileHandle;
 import org.apache.hyracks.storage.common.file.IFileMapProvider;
+import sun.reflect.generics.tree.Tree;
 
 public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManager {
 
     public static final String SPLIT_STRING = "_";
     protected static final String BLOOM_FILTER_STRING = "f";
     protected static final String TRANSACTION_PREFIX = ".T";
+
+    public static enum TREE_INDEX_STATE {
+        INVALID,
+        WRONG_VERS,
+        VALID
+    }
 
     protected final IFileMapProvider fileMapProvider;
 
@@ -62,7 +71,7 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
     private String prevTimestamp = null;
 
     public AbstractLSMIndexFileManager(IFileMapProvider fileMapProvider, FileReference file,
-            TreeIndexFactory<? extends ITreeIndex> treeFactory) {
+                                       TreeIndexFactory<? extends ITreeIndex> treeFactory) {
         this.baseDir = file.getFile().getPath();
         if (!baseDir.endsWith(System.getProperty("file.separator"))) {
             baseDir += System.getProperty("file.separator");
@@ -78,13 +87,13 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
         }
     };
 
-    protected boolean isValidTreeIndex(ITreeIndex treeIndex) throws HyracksDataException {
+    protected TREE_INDEX_STATE isValidTreeIndex(ITreeIndex treeIndex) throws HyracksDataException {
         IBufferCache bufferCache = treeIndex.getBufferCache();
         treeIndex.activate();
         try {
             int metadataPage = treeIndex.getMetaManager().getFirstMetadataPage();
-            if(metadataPage <0 ){
-                return false;
+            if (metadataPage < 0) {
+                return TREE_INDEX_STATE.INVALID;
             }
             ITreeIndexMetaDataFrame metadataFrame = treeIndex.getMetaManager().getMetaDataFrameFactory()
                     .createFrame();
@@ -93,7 +102,11 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
             page.acquireReadLatch();
             try {
                 metadataFrame.setPage(page);
-                return metadataFrame.isValid();
+                if (!metadataFrame.isValid()) {
+                    return TREE_INDEX_STATE.INVALID;
+                } else if (metadataFrame.getVersion() != ITreeIndexMetaDataFrame.VERSION) {
+                    return TREE_INDEX_STATE.WRONG_VERS;
+                } else return TREE_INDEX_STATE.VALID;
             } finally {
                 page.releaseReadLatch();
                 bufferCache.unpin(page);
@@ -104,23 +117,27 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
     }
 
     protected void cleanupAndGetValidFilesInternal(FilenameFilter filter,
-            TreeIndexFactory<? extends ITreeIndex> treeFactory, ArrayList<ComparableFileName> allFiles)
-                    throws HyracksDataException, IndexException {
+                                                   TreeIndexFactory<? extends ITreeIndex> treeFactory, ArrayList<ComparableFileName> allFiles)
+            throws HyracksDataException, IndexException {
         File dir = new File(baseDir);
         String[] files = dir.list(filter);
         for (String fileName : files) {
             File file = new File(dir.getPath() + File.separator + fileName);
             FileReference fileRef = new FileReference(file);
-            if (treeFactory == null || isValidTreeIndex(treeFactory.createIndexInstance(fileRef))) {
+            if(treeFactory == null){
+                allFiles.add(new ComparableFileName((fileRef)));
+            }
+            TREE_INDEX_STATE idxState = isValidTreeIndex(treeFactory.createIndexInstance(fileRef));
+            if (idxState == TREE_INDEX_STATE.VALID) {
                 allFiles.add(new ComparableFileName(fileRef));
-            } else {
+            } else if(idxState == TREE_INDEX_STATE.INVALID) {
                 file.delete();
             }
         }
     }
 
     protected void validateFiles(HashSet<String> groundTruth, ArrayList<ComparableFileName> validFiles,
-            FilenameFilter filter, TreeIndexFactory<? extends ITreeIndex> treeFactory) throws HyracksDataException,
+                                 FilenameFilter filter, TreeIndexFactory<? extends ITreeIndex> treeFactory) throws HyracksDataException,
             IndexException {
         ArrayList<ComparableFileName> tmpAllInvListsFiles = new ArrayList<ComparableFileName>();
         cleanupAndGetValidFilesInternal(filter, treeFactory, tmpAllInvListsFiles);
@@ -413,7 +430,7 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
 
     /**
      * @return The string format of the current timestamp.
-     *         The returned results of this method are guaranteed to not have duplicates.
+     * The returned results of this method are guaranteed to not have duplicates.
      */
     protected String getCurrentTimestamp() {
         Date date = new Date();
