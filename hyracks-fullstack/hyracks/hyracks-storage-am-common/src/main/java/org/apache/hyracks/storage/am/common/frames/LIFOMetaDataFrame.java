@@ -32,7 +32,10 @@ import org.apache.hyracks.storage.common.buffercache.ICachedPage;
 public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
 
     // Arbitrarily chosen magic integer.
-    protected static final int MAGIC_VALID_INT = 0x5bd1e995;
+    protected static final int MAGIC_VALID_INT = 0xDEADBEEF;
+    //Storage version #. Change this if you alter any tree frame formats to stop
+    // possible corruption from old versions reading new formats.
+    protected static final int VERSION = 1;
 
     protected static final int tupleCountOff = 0; //0
     protected static final int freeSpaceOff = tupleCountOff + 4; //4
@@ -46,6 +49,7 @@ public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
     // It is only set in the first meta page other meta pages (i.e., with level -2) have junk in the max page field.
     private static final int additionalFilteringPageOff = validOff + 4; // 29
     public static final int lsnOff = additionalFilteringPageOff + 4; // 33
+    public static final int storageVersionOff = lsnOff + 4;
 
     protected ICachedPage page = null;
     protected ByteBuffer buf = null;
@@ -116,6 +120,7 @@ public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
         buf.put(levelOff, level);
         buf.putInt(nextPageOff, -1);
         buf.putInt(additionalFilteringPageOff, -1);
+        buf.putInt(storageVersionOff, VERSION);
         setValid(false);
     }
 
@@ -131,7 +136,8 @@ public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
 
     @Override
     public boolean isValid() {
-        return buf.getInt(validOff) == MAGIC_VALID_INT;
+        return buf.getInt(validOff) == MAGIC_VALID_INT
+                && getVersion() == VERSION;
     }
 
     @Override
@@ -151,6 +157,11 @@ public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
     @Override
     public void setLSN(long lsn) {
         buf.putLong(lsnOff, lsn);
+    }
+
+    @Override
+    public int getVersion() {
+        return buf.getInt(storageVersionOff);
     }
 
     @Override

@@ -62,4 +62,7 @@ public interface ITreeIndexMetaDataFrame {
     public long getLSN();
 
     public void setLSN(long lsn);
+
+    public int getVersion();
+
 }
