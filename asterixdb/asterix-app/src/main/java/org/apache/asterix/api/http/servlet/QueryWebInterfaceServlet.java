@@ -18,6 +18,9 @@
  */
 package org.apache.asterix.api.http.servlet;
 
+import org.apache.commons.io.IOUtils;
+import org.stringtemplate.v4.ST;
+
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -25,7 +28,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 
 import javax.imageio.ImageIO;
@@ -36,6 +41,19 @@ import javax.servlet.http.HttpServletResponse;
 
 public class QueryWebInterfaceServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
+    private HashMap<String,String> fileMimePair = new HashMap<String,String>();
+
+    public QueryWebInterfaceServlet(){
+        fileMimePair.put("png","image/png");
+        fileMimePair.put("eot","application/vnd.ms-fontobject");
+        fileMimePair.put("svg","image/svg+xml\t");
+        fileMimePair.put("ttf","application/x-font-ttf");
+        fileMimePair.put("woff","application/x-font-woff");
+        fileMimePair.put("woff2","application/x-font-woff");
+        fileMimePair.put("html","text/html");
+        fileMimePair.put("css","text/css");
+        fileMimePair.put("js","application/javascript");
+    }
 
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -54,33 +72,24 @@ public class QueryWebInterfaceServlet extends HttpServlet {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
+            // Multiple MIME type support
+            for (Map.Entry<String, String> entry : fileMimePair.entrySet()) {
+                if (resourcePath.endsWith(entry.getKey())) {
+                    response.setContentType(entry.getValue());
+                    OutputStream out = response.getOutputStream();
+                    try {
+                        IOUtils.copy(is, out);
 
-            // Special handler for font files and .png resources
-            if (resourcePath.endsWith(".png")) {
+                    } finally {
 
-                BufferedImage img = ImageIO.read(is);
-                OutputStream outputStream = response.getOutputStream();
-                String formatName = "png";
-                response.setContentType("image/png");
-                ImageIO.write(img, formatName, outputStream);
-                outputStream.close();
-                return;
+                        IOUtils.closeQuietly(out);
+                        IOUtils.closeQuietly(is);
+
+                    }
+                    return;
+                }
             }
-
-            response.setCharacterEncoding("utf-8");
-            InputStreamReader isr = new InputStreamReader(is);
-            StringBuilder sb = new StringBuilder();
-            BufferedReader br = new BufferedReader(isr);
-            String line = br.readLine();
-
-            while (line != null) {
-                sb.append(line);
-                sb.append("\n");
-                line = br.readLine();
-            }
-
-            PrintWriter out = response.getWriter();
-            out.println(sb.toString());
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
         }
     }
 
