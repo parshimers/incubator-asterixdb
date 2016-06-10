@@ -32,7 +32,7 @@ import org.apache.hyracks.storage.common.buffercache.ICachedPage;
 public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
 
     // Arbitrarily chosen magic integer.
-    protected static final int MAGIC_VALID_INT = 0xDEADBEEF;
+    protected static final int MAGIC_VALID_INT = 0x2B7E1516;
     //Storage version #. Change this if you alter any tree frame formats to stop
     // possible corruption from old versions reading new formats.
     protected static final int VERSION = 1;
@@ -49,7 +49,7 @@ public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
     // It is only set in the first meta page other meta pages (i.e., with level -2) have junk in the max page field.
     private static final int additionalFilteringPageOff = validOff + 4; // 29
     public static final int lsnOff = additionalFilteringPageOff + 4; // 33
-    public static final int storageVersionOff = lsnOff + 4;
+    public static final int storageVersionOff = lsnOff + 8; //41
 
     protected ICachedPage page = null;
     protected ByteBuffer buf = null;
