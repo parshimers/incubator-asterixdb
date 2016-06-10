@@ -95,7 +95,7 @@ public class RunSQLPPFileAction extends AbstractAction {
                 long wallClock = end - start;
                 String currLine = p.getFileName().toString() + ',' + wallClock;
                 System.out.println(currLine);
-                printer.print(currLine);
+                printer.print(currLine + '\n');
             }
         }
         finally{
