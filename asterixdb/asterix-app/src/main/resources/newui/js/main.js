@@ -109,7 +109,7 @@ app.controller('queryCtrl', function($rootScope, $scope, $http, recordFunctions)
     for (var key in obj) {
       if (obj.hasOwnProperty(key)) {
         var typeStr = Object.prototype.toString.call(obj[key]);
-        if (typeStr === "[object Array]" || typeStr === "[object object]") return true;
+        if (typeStr === "[object Array]" || typeStr === "[object Object]") return true;
       }
     }
     return false;
