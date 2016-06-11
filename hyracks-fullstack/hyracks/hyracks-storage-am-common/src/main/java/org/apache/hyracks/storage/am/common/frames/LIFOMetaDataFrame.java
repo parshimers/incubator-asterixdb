@@ -34,39 +34,39 @@ public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
     // Arbitrarily chosen magic integer.
     protected static final int MAGIC_VALID_INT = 0x1B16DA7A;
 
-    protected static final int tupleCountOff = 0; //0
-    protected static final int freeSpaceOff = tupleCountOff + 4; //4
-    protected static final int maxPageOff = freeSpaceOff + 4; //8
-    protected static final int levelOff = maxPageOff + 12; //20
-    protected static final int nextPageOff = levelOff + 1; // 21
-    protected static final int validOff = nextPageOff + 4; // 25
+    protected static final int TUPLE_COUNT_OFF = 0; //0
+    protected static final int FREE_SPACE_OFF = TUPLE_COUNT_OFF + 4; //4
+    protected static final int MAX_PAGE_OFF = FREE_SPACE_OFF + 4; //8
+    protected static final int LEVEL_OFF = MAX_PAGE_OFF + 12; //20
+    protected static final int NEXT_PAGE_OFF = LEVEL_OFF + 1; // 21
+    protected static final int VALID_OFF = NEXT_PAGE_OFF + 4; // 25
 
-    // The additionalFilteringPageOff is used only for LSM indexes.
+    // The ADDITIONAL_FILTERING_PAGE_OFF is used only for LSM indexes.
     // We store the page id that will be used to store the information of the the filter that is associated with a disk component.
     // It is only set in the first meta page other meta pages (i.e., with level -2) have junk in the max page field.
-    private static final int additionalFilteringPageOff = validOff + 4; // 29
-    public static final int lsnOff = additionalFilteringPageOff + 4; // 33
-    public static final int storageVersionOff = lsnOff + 8; //41
+    private static final int ADDITIONAL_FILTERING_PAGE_OFF = VALID_OFF + 4; // 29
+    public static final int LSN_OFF = ADDITIONAL_FILTERING_PAGE_OFF + 4; // 33
+    public static final int STORAGE_VERSION_OFF = LSN_OFF + 8; //41
 
     protected ICachedPage page = null;
     protected ByteBuffer buf = null;
 
     public int getMaxPage() {
-        return buf.getInt(maxPageOff);
+        return buf.getInt(MAX_PAGE_OFF);
     }
 
     public void setMaxPage(int maxPage) {
-        buf.putInt(maxPageOff, maxPage);
+        buf.putInt(MAX_PAGE_OFF, maxPage);
     }
 
     public int getFreePage() {
-        int tupleCount = buf.getInt(tupleCountOff);
+        int tupleCount = buf.getInt(TUPLE_COUNT_OFF);
         if (tupleCount > 0) {
             // return the last page from the linked list of free pages
             // TODO: this is a dumb policy, but good enough for now
-            int lastPageOff = buf.getInt(freeSpaceOff) - 4;
-            buf.putInt(freeSpaceOff, lastPageOff);
-            buf.putInt(tupleCountOff, tupleCount - 1);
+            int lastPageOff = buf.getInt(FREE_SPACE_OFF) - 4;
+            buf.putInt(FREE_SPACE_OFF, lastPageOff);
+            buf.putInt(TUPLE_COUNT_OFF, tupleCount - 1);
             return buf.getInt(lastPageOff);
         } else {
             return -1;
@@ -77,25 +77,25 @@ public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
     // user of this class is responsible for getting a free page as a new meta
     // page, latching it, etc. if there is no space on this page
     public boolean hasSpace() {
-        return buf.getInt(freeSpaceOff) + 4 < buf.capacity();
+        return buf.getInt(FREE_SPACE_OFF) + 4 < buf.capacity();
     }
 
     // no bounds checking is done, there must be free space
     public void addFreePage(int freePage) {
-        int freeSpace = buf.getInt(freeSpaceOff);
+        int freeSpace = buf.getInt(FREE_SPACE_OFF);
         buf.putInt(freeSpace, freePage);
-        buf.putInt(freeSpaceOff, freeSpace + 4);
-        buf.putInt(tupleCountOff, buf.getInt(tupleCountOff) + 1);
+        buf.putInt(FREE_SPACE_OFF, freeSpace + 4);
+        buf.putInt(TUPLE_COUNT_OFF, buf.getInt(TUPLE_COUNT_OFF) + 1);
     }
 
     @Override
     public byte getLevel() {
-        return buf.get(levelOff);
+        return buf.get(LEVEL_OFF);
     }
 
     @Override
     public void setLevel(byte level) {
-        buf.put(levelOff, level);
+        buf.put(LEVEL_OFF, level);
     }
 
     @Override
@@ -111,62 +111,62 @@ public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
 
     @Override
     public void initBuffer(byte level) {
-        buf.putInt(tupleCountOff, 0);
-        buf.putInt(freeSpaceOff, lsnOff + 8);
-        buf.putInt(maxPageOff, 0);
-        buf.put(levelOff, level);
-        buf.putInt(nextPageOff, -1);
-        buf.putInt(additionalFilteringPageOff, -1);
-        buf.putInt(storageVersionOff, VERSION);
+        buf.putInt(TUPLE_COUNT_OFF, 0);
+        buf.putInt(FREE_SPACE_OFF, LSN_OFF + 8);
+        buf.putInt(MAX_PAGE_OFF, 0);
+        buf.put(LEVEL_OFF, level);
+        buf.putInt(NEXT_PAGE_OFF, -1);
+        buf.putInt(ADDITIONAL_FILTERING_PAGE_OFF, -1);
+        buf.putInt(STORAGE_VERSION_OFF, VERSION);
         setValid(false);
     }
 
     @Override
     public int getNextPage() {
-        return buf.getInt(nextPageOff);
+        return buf.getInt(NEXT_PAGE_OFF);
     }
 
     @Override
     public void setNextPage(int nextPage) {
-        buf.putInt(nextPageOff, nextPage);
+        buf.putInt(NEXT_PAGE_OFF, nextPage);
     }
 
     @Override
     public boolean isValid() {
-        return buf.getInt(validOff) == MAGIC_VALID_INT;
+        return buf.getInt(VALID_OFF) == MAGIC_VALID_INT;
     }
 
     @Override
     public void setValid(boolean isValid) {
         if (isValid) {
-            buf.putInt(validOff, MAGIC_VALID_INT);
+            buf.putInt(VALID_OFF, MAGIC_VALID_INT);
         } else {
-            buf.putInt(validOff, 0);
+            buf.putInt(VALID_OFF, 0);
         }
     }
 
     @Override
     public long getLSN() {
-        return buf.getLong(lsnOff);
+        return buf.getLong(LSN_OFF);
     }
 
     @Override
     public void setLSN(long lsn) {
-        buf.putLong(lsnOff, lsn);
+        buf.putLong(LSN_OFF, lsn);
     }
 
     @Override
     public int getVersion() {
-        return buf.getInt(storageVersionOff);
+        return buf.getInt(STORAGE_VERSION_OFF);
     }
 
     @Override
     public int getLSMComponentFilterPageId() {
-        return buf.getInt(additionalFilteringPageOff);
+        return buf.getInt(ADDITIONAL_FILTERING_PAGE_OFF);
     }
 
     @Override
     public void setLSMComponentFilterPageId(int filterPage) {
-        buf.putInt(additionalFilteringPageOff, filterPage);
+        buf.putInt(ADDITIONAL_FILTERING_PAGE_OFF, filterPage);
     }
 }

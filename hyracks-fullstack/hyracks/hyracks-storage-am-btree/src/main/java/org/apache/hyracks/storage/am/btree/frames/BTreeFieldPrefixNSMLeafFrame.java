@@ -461,10 +461,10 @@ public class BTreeFieldPrefixNSMLeafFrame implements IBTreeLeafFrame {
     public String printHeader() {
         StringBuilder strBuilder = new StringBuilder();
         strBuilder.append("pageLsnOff:                " + pageLsnOff + "\n");
-        strBuilder.append("tupleCountOff:             " + tupleCountOff + "\n");
-        strBuilder.append("freeSpaceOff:              " + freeSpaceOff + "\n");
+        strBuilder.append("TUPLE_COUNT_OFF:             " + tupleCountOff + "\n");
+        strBuilder.append("FREE_SPACE_OFF:              " + freeSpaceOff + "\n");
         strBuilder.append("totalFreeSpaceOff:         " + totalFreeSpaceOff + "\n");
-        strBuilder.append("levelOff:                  " + levelOff + "\n");
+        strBuilder.append("LEVEL_OFF:                  " + levelOff + "\n");
         strBuilder.append("smFlagOff:                 " + smFlagOff + "\n");
         strBuilder.append("uncompressedTupleCountOff: " + uncompressedTupleCountOff + "\n");
         strBuilder.append("prefixTupleCountOff:       " + prefixTupleCountOff + "\n");

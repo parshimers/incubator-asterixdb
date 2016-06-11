@@ -38,14 +38,11 @@ import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.storage.am.common.api.ITreeIndex;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexMetaDataFrame;
 import org.apache.hyracks.storage.am.common.api.IndexException;
-import org.apache.hyracks.storage.am.common.frames.LIFOMetaDataFrame;
-import org.apache.hyracks.storage.am.common.freepage.LinkedMetaDataPageManager;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexFileManager;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
 import org.apache.hyracks.storage.common.buffercache.ICachedPage;
 import org.apache.hyracks.storage.common.file.BufferedFileHandle;
 import org.apache.hyracks.storage.common.file.IFileMapProvider;
-import sun.reflect.generics.tree.Tree;
 
 public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManager {
 
@@ -53,7 +50,7 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
     protected static final String BLOOM_FILTER_STRING = "f";
     protected static final String TRANSACTION_PREFIX = ".T";
 
-    public static enum TREE_INDEX_STATE {
+    public enum TREE_INDEX_STATE {
         INVALID,
         WRONG_VERS,
         VALID
@@ -117,7 +114,8 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
     }
 
     protected void cleanupAndGetValidFilesInternal(FilenameFilter filter,
-                                                   TreeIndexFactory<? extends ITreeIndex> treeFactory, ArrayList<ComparableFileName> allFiles)
+                                                   TreeIndexFactory<? extends ITreeIndex> treeFactory,
+                                                   ArrayList<ComparableFileName> allFiles)
             throws HyracksDataException, IndexException {
         File dir = new File(baseDir);
         String[] files = dir.list(filter);
@@ -125,7 +123,8 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
             File file = new File(dir.getPath() + File.separator + fileName);
             FileReference fileRef = new FileReference(file);
             if(treeFactory == null){
-                allFiles.add(new ComparableFileName((fileRef)));
+                allFiles.add(new ComparableFileName(fileRef));
+                return;
             }
             TREE_INDEX_STATE idxState = isValidTreeIndex(treeFactory.createIndexInstance(fileRef));
             if (idxState == TREE_INDEX_STATE.VALID) {
@@ -137,8 +136,9 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
     }
 
     protected void validateFiles(HashSet<String> groundTruth, ArrayList<ComparableFileName> validFiles,
-                                 FilenameFilter filter, TreeIndexFactory<? extends ITreeIndex> treeFactory) throws HyracksDataException,
-            IndexException {
+                                 FilenameFilter filter,
+                                 TreeIndexFactory<? extends ITreeIndex> treeFactory
+                                ) throws HyracksDataException, IndexException {
         ArrayList<ComparableFileName> tmpAllInvListsFiles = new ArrayList<ComparableFileName>();
         cleanupAndGetValidFilesInternal(filter, treeFactory, tmpAllInvListsFiles);
         for (ComparableFileName cmpFileName : tmpAllInvListsFiles) {
