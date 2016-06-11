@@ -7,10 +7,14 @@
   <link rel="stylesheet" href="/newui/css/bootstrap-theme.min.css" media="screen" title="no title" charset="utf-8">
   <link rel="stylesheet" href="/newui/css/master.css" media="screen" title="no title" charset="utf-8">
   <link rel="stylesheet" href="/newui/css/json-formatter.min.css" media="screen" title="no title" charset="utf-8">
+  <link rel="stylesheet" href="/newui/css/codemirror.css" media="screen" title="no title" charset="utf-8">
   <script src="/newui/js/jquery-1.12.4.min.js" charset="utf-8"></script>
   <script src="/newui/js/angular.min.js" charset="utf-8"></script>
   <script src="/newui/js/json-formatter.min.js" charset="utf-8"></script>
   <script src="/newui/js/bootstrap.min.js" charset="utf-8"></script>
+  <script src="/newui/js/codemirror.js" charset="utf-8"></script>
+  <script src="/newui/js/ui-codemirror.js" charset="utf-8"></script>
+  <script src="/newui/js/aql-mode.js" charset="utf-8"></script>
   <script src="/newui/js/main.js" charset="utf-8"></script>
 </head>
 <body ng-app="queryui">
@@ -40,7 +44,7 @@
                   <li ng-class="current_tab == 1 ? 'asterix-nav-active' : '' "><a href="#" ng-click="current_tab = 1">History</a></li>
                 </ul>
                 <div class="asterix-tabpage" ng-if="current_tab == 0">
-                  <textarea name="Text1" ng-model="$parent.query_input" class="form-control input-container-code" placeholder="Query" cols="40" rows="15"></textarea>
+                  <textarea ui-codemirror="queryCmOptions" name="Text1" ng-model="$parent.query_input" class="form-control input-container-code" placeholder="Query" cols="40" rows="15"></textarea>
                   <div class="icon-maximize"><span class="glyphicon glyphicon-fullscreen asterix-button" aria-hidden="true"
                     ng-class="$parent.maximized == true ? 'asterix-button-selected' : '' "
                     ng-click="$parent.maximized = !$parent.maximized"></span></div>

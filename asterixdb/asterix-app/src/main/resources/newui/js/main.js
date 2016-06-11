@@ -3,7 +3,7 @@ var DATAVERSE_QUERY = "for $x in dataset Metadata.Dataverse return $x;"
 var DATE_TIME_REGEX = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z)$/;
 var DATE_REGEX = /^(\d{4}-\d{2}-\d{2})$/;
 
-var app = angular.module('queryui', ['jsonFormatter']);
+var app = angular.module('queryui', ['jsonFormatter','ui.codemirror']);
 
 app.service('recordFunctions', function(){
   this.ObjectKeys = function(obj){
@@ -71,6 +71,12 @@ app.controller('queryCtrl', function($rootScope, $scope, $http, recordFunctions)
   $scope.errorText = null;
   $scope.statusText = "Web UI Ready";
   $scope.query_input =  "";
+
+  $scope.queryCmOptions ={
+      lineNumbers: true,
+      indentWithTabs: true,
+      mode: 'aql'
+  }
 
   $scope.init = function(){
     $http.get(SERVER_HOST+"/query?query="+encodeURI(DATAVERSE_QUERY)).then(function(response){
