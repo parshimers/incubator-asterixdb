@@ -17,7 +17,7 @@ app.service('recordFunctions', function(){
   }
   this.isObject = function(obj){
     var typeStr = Object.prototype.toString.call(obj);
-    if (typeStr === "[object object]"){
+    if (typeStr === "[object Object]"){
       return true;
     }else{
       return false;
@@ -39,7 +39,7 @@ app.service('recordFunctions', function(){
     var dateType = new Date(obj);
     if (typeStr === "[object Array]"){
       return "Record +";
-    }else if (typeStr === "[object object]"){
+    }else if (typeStr === "[object Object]"){
       return "Record +";
     }else if (typeStr == "[object Null]"){
       return "NULL";
