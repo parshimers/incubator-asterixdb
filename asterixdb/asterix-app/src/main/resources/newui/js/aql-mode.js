@@ -3,11 +3,14 @@ CodeMirror.defineMode("aql", function() {
   var KEYWORD_MATCH = ["return","select","for","from","at","in","let","with","where","order","by","asc","desc","group",
                         "keeping","limit","offset","distinct"];
   var VAR_MATCH = /[$][a-zA-Z]+(\d*)/;
-  var DOUBLE_QUOTE_MATCH = /["].*["]/g;
-  var SINGLE_QUOTE_MATCH = /['].*[']/g;
+  var DOUBLE_QUOTE_MATCH = /["].*["]/;
+  var SINGLE_QUOTE_MATCH = /['].*[']/;
+  var BREAK_POINT = /(\s)/;
   return {
     startState: function() {return {inString: false};},
     token: function(stream, state) {
+
+          if (state.newLine == undefined)state.newLine = true;
 
           //match variable reference
           if (stream.match(VAR_MATCH)) {
@@ -24,11 +27,15 @@ CodeMirror.defineMode("aql", function() {
 
           //keyword match
           for (i in KEYWORD_MATCH){
-            if (stream.match(KEYWORD_MATCH[i])){
+            if (state.newLine && stream.match(KEYWORD_MATCH[i])){
                 return "keyword"
              }
           }
-
+          if (stream.peek() === " " || stream.peek() === null){
+            state.newLine = true;
+          }else{
+            state.newLine = false;
+          }
           stream.next();
 
       }
