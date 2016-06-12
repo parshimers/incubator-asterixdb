@@ -95,6 +95,7 @@ html,body{
   border: none !important;
   box-shadow: none !important;
   resize: none;
+  overflow-y : auto;
 }
 
 .logo {
