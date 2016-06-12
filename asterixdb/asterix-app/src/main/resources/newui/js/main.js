@@ -82,6 +82,7 @@ app.controller('queryCtrl', function($rootScope, $scope, $http, recordFunctions)
     $http.get(SERVER_HOST+"/query?query="+encodeURI(DATAVERSE_QUERY)).then(function(response){
       for (i in response.data){
         $scope.dataverses.push(response.data[i].DataverseName);
+        $scope.selected_dataverse = $scope.dataverses[0];
       }
     },
     function(response){
