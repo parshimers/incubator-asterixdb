@@ -124,7 +124,7 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
             FileReference fileRef = new FileReference(file);
             if(treeFactory == null){
                 allFiles.add(new ComparableFileName(fileRef));
-                return;
+                continue;
             }
             TREE_INDEX_STATE idxState = isValidTreeIndex(treeFactory.createIndexInstance(fileRef));
             if (idxState == TREE_INDEX_STATE.VALID) {

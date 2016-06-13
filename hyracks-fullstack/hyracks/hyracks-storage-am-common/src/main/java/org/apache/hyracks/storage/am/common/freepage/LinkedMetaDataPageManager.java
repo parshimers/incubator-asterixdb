@@ -472,7 +472,7 @@ public class LinkedMetaDataPageManager implements IMetaDataPageManager {
     public long getLSNOffset() throws HyracksDataException {
         int metadataPageNum = getFirstMetadataPage();
         if (metadataPageNum != IBufferCache.INVALID_PAGEID) {
-            return (metadataPageNum * bufferCache.getPageSize()) + LIFOMetaDataFrame.LSN_OFF;
+            return (long)(metadataPageNum * bufferCache.getPageSize()) + LIFOMetaDataFrame.LSN_OFF;
         }
         return IMetaDataPageManager.INVALID_LSN_OFFSET;
     }
