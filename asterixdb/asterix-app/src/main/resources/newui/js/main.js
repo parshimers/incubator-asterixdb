@@ -75,7 +75,7 @@ app.controller('queryCtrl', function($rootScope, $scope, $http, recordFunctions)
   $scope.queryCmOptions ={
       lineNumbers: true,
       indentWithTabs: true,
-      lineWrapping: true,
+      lineWrapping: false,
       mode: 'aql'
   }
 
