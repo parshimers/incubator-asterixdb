@@ -50,9 +50,9 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
     protected static final String BLOOM_FILTER_STRING = "f";
     protected static final String TRANSACTION_PREFIX = ".T";
 
-    public enum TREE_INDEX_STATE {
+    public enum TreeIndexState {
         INVALID,
-        WRONG_VERS,
+        VERSION_MISMATCH,
         VALID
     }
 
@@ -84,13 +84,13 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
         }
     };
 
-    protected TREE_INDEX_STATE isValidTreeIndex(ITreeIndex treeIndex) throws HyracksDataException {
+    protected TreeIndexState isValidTreeIndex(ITreeIndex treeIndex) throws HyracksDataException {
         IBufferCache bufferCache = treeIndex.getBufferCache();
         treeIndex.activate();
         try {
             int metadataPage = treeIndex.getMetaManager().getFirstMetadataPage();
             if (metadataPage < 0) {
-                return TREE_INDEX_STATE.INVALID;
+                return TreeIndexState.INVALID;
             }
             ITreeIndexMetaDataFrame metadataFrame = treeIndex.getMetaManager().getMetaDataFrameFactory()
                     .createFrame();
@@ -100,10 +100,10 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
             try {
                 metadataFrame.setPage(page);
                 if (!metadataFrame.isValid()) {
-                    return TREE_INDEX_STATE.INVALID;
+                    return TreeIndexState.INVALID;
                 } else if (metadataFrame.getVersion() != ITreeIndexMetaDataFrame.VERSION) {
-                    return TREE_INDEX_STATE.WRONG_VERS;
-                } else return TREE_INDEX_STATE.VALID;
+                    return TreeIndexState.VERSION_MISMATCH;
+                } else return TreeIndexState.VALID;
             } finally {
                 page.releaseReadLatch();
                 bufferCache.unpin(page);
@@ -126,10 +126,10 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
                 allFiles.add(new ComparableFileName(fileRef));
                 continue;
             }
-            TREE_INDEX_STATE idxState = isValidTreeIndex(treeFactory.createIndexInstance(fileRef));
-            if (idxState == TREE_INDEX_STATE.VALID) {
+            TreeIndexState idxState = isValidTreeIndex(treeFactory.createIndexInstance(fileRef));
+            if (idxState == TreeIndexState.VALID) {
                 allFiles.add(new ComparableFileName(fileRef));
-            } else if(idxState == TREE_INDEX_STATE.INVALID) {
+            } else if(idxState == TreeIndexState.INVALID) {
                 file.delete();
             }
         }
