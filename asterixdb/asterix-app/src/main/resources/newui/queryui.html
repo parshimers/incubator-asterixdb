@@ -52,7 +52,7 @@
                 </div>
                 <div class="asterix-tabpage" ng-if="current_tab == 1">
                   <div class="asterix-tabpage-scroll">
-                    <div class="asterix-well margin-bottom" ng-repeat="query in history track by $index">
+                    <div class="asterix-well margin-bottom" ng-repeat="query in history.slice().reverse() track by $index">
                       <div class="row">
                         <div class="col-md-8"><code>{{query[0]}}</code></div>
                         <div class="col-md-4 asterix-well-right"><a href="" ng-click="previewHistory(query)">Preview</a></div>
