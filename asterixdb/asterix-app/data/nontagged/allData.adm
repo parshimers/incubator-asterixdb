@@ -1,6 +1,6 @@
 { "id": 10,
 "string": string("Nancy"),
-"float": 32.5f,
+"float": 32.5,
 "double" : double("-2013.5938237483274"),
 "boolean" : true,
 "int8": int8("125"),

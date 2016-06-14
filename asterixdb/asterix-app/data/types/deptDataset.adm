@@ -50,7 +50,7 @@
 {"did":50, "dname":"dept50", "floor":50, "dsince":2050, "bossid":int64("1"), "bossidint32":int32("1"),  "dmgrid":10.0}
 {"did":51, "dname":"dept51", "floor":51, "dsince":2051, "bossid":int64("1"), "bossidint32":int32("1"), "dmgrid2":circle("10.1234,11.1e-1 +10.2E-2")}
 {"did":52, "dname":"dept52", "floor":52, "dsince":2052, "bossid":int64("1"), "bossidint32":int32("1"), "dmgrid":point("5.10E-10d, -10E5")}
-{"did":53, "dname":"dept53", "floor":53, "dsince":2053, "bossid":int64("1"), "bossidint32":int32("1"), "dmgrid":point("80.10d, -10E5")}
-{"did":54, "dname":"dept54", "floor":54, "dsince":2054, "bossid":int64("1"), "bossidint32":int32("1"), "dmgrid":point("80.10d, -10E5")}
+{"did":53, "dname":"dept53", "floor":53, "dsince":2053, "bossid":int64("1"), "bossidint32":int32("1"), "dmgrid":point("80.10, -10E5")}
+{"did":54, "dname":"dept54", "floor":54, "dsince":2054, "bossid":int64("1"), "bossidint32":int32("1"), "dmgrid":point("80.10, -10E5")}
 {"did":55, "dname":"dept55", "floor":55, "dsince":2055, "bossid":int64("1"), "bossidint32":int32("1"), "dmgrid":time("12:54:54.039Z")}
 {"did":56, "dname":"dept56", "floor":56, "dsince":2056, "bossid":int64("1"), "bossidint32":int32("1"),  "dmgrid":duration("P100Y12MT12M")}
