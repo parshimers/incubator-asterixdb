@@ -15,6 +15,7 @@
   <script src="/newui/js/codemirror.js" charset="utf-8"></script>
   <script src="/newui/js/ui-codemirror.js" charset="utf-8"></script>
   <script src="/newui/js/aql-mode.js" charset="utf-8"></script>
+  <script src="/newui/js/javascript.js" charset="utf-8"></script>
   <script src="/newui/js/main.js" charset="utf-8"></script>
 </head>
 <body ng-app="queryui">
@@ -121,7 +122,8 @@
               <json-formatter open="2" ng-if="selectedItem != null" json="selectedItem"></json-formatter>
               </div>
               <div class="asterix-tabpage" ng-if="current_preview_tab == 1">
-                <code ng-bind="previewJSON(selectedItem)"></code>
+                <!--<code ng-bind="previewJSON(selectedItem)"></code>-->
+                  <textarea ui-codemirror="queryPreviewOptions" ng-model="previewJSON(selectedItem)"></textarea>
               </div>
             </div>
           </div>

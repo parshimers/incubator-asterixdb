@@ -75,7 +75,15 @@ app.controller('queryCtrl', function($rootScope, $scope, $http, recordFunctions)
   $scope.queryCmOptions ={
       lineNumbers: true,
       indentWithTabs: true,
+      lineWrapping: true,
       mode: 'aql'
+  }
+
+  $scope.queryPreviewOptions ={
+      indentWithTabs: true,
+      lineWrapping: true,
+      mode: 'javascript',
+      readOnly : true
   }
 
   $scope.init = function(){
