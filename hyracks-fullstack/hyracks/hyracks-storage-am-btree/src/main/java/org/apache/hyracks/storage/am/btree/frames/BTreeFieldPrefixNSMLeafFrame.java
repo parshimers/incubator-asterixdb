@@ -33,11 +33,9 @@ import org.apache.hyracks.storage.am.btree.impls.BTreeOpContext.PageValidationIn
 import org.apache.hyracks.storage.am.btree.impls.FieldPrefixPrefixTupleReference;
 import org.apache.hyracks.storage.am.btree.impls.FieldPrefixSlotManager;
 import org.apache.hyracks.storage.am.btree.impls.FieldPrefixTupleReference;
-import org.apache.hyracks.storage.am.common.api.IMetaDataPageManager;
 import org.apache.hyracks.storage.am.common.api.ISplitKey;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexFrame;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexFrameCompressor;
-import org.apache.hyracks.storage.am.common.api.ITreeIndexMetaDataFrame;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexTupleReference;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexTupleWriter;
 import org.apache.hyracks.storage.am.common.api.TreeIndexException;
@@ -51,7 +49,7 @@ import org.apache.hyracks.storage.am.common.ophelpers.SlotOffTupleOff;
 import org.apache.hyracks.storage.am.common.tuples.TypeAwareTupleWriter;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
 import org.apache.hyracks.storage.common.buffercache.ICachedPage;
-import org.apache.hyracks.storage.common.buffercache.ILargePageHelper;
+import org.apache.hyracks.storage.common.buffercache.IExtraPageBlockHelper;
 
 /**
  * WARNING: only works when tupleWriter is an instance of TypeAwareTupleWriter
@@ -461,10 +459,10 @@ public class BTreeFieldPrefixNSMLeafFrame implements IBTreeLeafFrame {
     public String printHeader() {
         StringBuilder strBuilder = new StringBuilder();
         strBuilder.append("pageLsnOff:                " + pageLsnOff + "\n");
-        strBuilder.append("TUPLE_COUNT_OFF:             " + tupleCountOff + "\n");
-        strBuilder.append("FREE_SPACE_OFF:              " + freeSpaceOff + "\n");
+        strBuilder.append("tupleCountOff:             " + tupleCountOff + "\n");
+        strBuilder.append("freeSpaceOff:              " + freeSpaceOff + "\n");
         strBuilder.append("totalFreeSpaceOff:         " + totalFreeSpaceOff + "\n");
-        strBuilder.append("LEVEL_OFF:                  " + levelOff + "\n");
+        strBuilder.append("levelOff:                  " + levelOff + "\n");
         strBuilder.append("smFlagOff:                 " + smFlagOff + "\n");
         strBuilder.append("uncompressedTupleCountOff: " + uncompressedTupleCountOff + "\n");
         strBuilder.append("prefixTupleCountOff:       " + prefixTupleCountOff + "\n");
@@ -537,23 +535,13 @@ public class BTreeFieldPrefixNSMLeafFrame implements IBTreeLeafFrame {
     }
 
     @Override
-    public void configureLargePage(int supplementalPages, int supplementalBlockPageId) {
-        throw new IllegalStateException();
-    }
-
-    @Override
     public void setLargeFlag(boolean largePage) {
         throw new IllegalStateException();
     }
 
     @Override
-    public boolean isLargePage() {
+    public boolean getLargeFlag() {
         return false;
-    }
-
-    @Override
-    public int getSupplementalNumPages() {
-        throw new IllegalStateException();
     }
 
     public int getPrefixTupleCount() {
@@ -596,7 +584,8 @@ public class BTreeFieldPrefixNSMLeafFrame implements IBTreeLeafFrame {
     }
 
     @Override
-    public void split(ITreeIndexFrame rightFrame, ITupleReference tuple, ISplitKey splitKey, IMetaDataPageManager freePageManager, ITreeIndexMetaDataFrame metaFrame, IBufferCache bufferCache)
+    public void split(ITreeIndexFrame rightFrame, ITupleReference tuple, ISplitKey splitKey,
+                      IExtraPageBlockHelper extraPageBlockHelper, IBufferCache bufferCache)
             throws HyracksDataException {
 
         BTreeFieldPrefixNSMLeafFrame rf = (BTreeFieldPrefixNSMLeafFrame) rightFrame;
@@ -804,12 +793,8 @@ public class BTreeFieldPrefixNSMLeafFrame implements IBTreeLeafFrame {
     }
 
     @Override
-    public ILargePageHelper getLargePageHelper() {
-        return null;
-    }
-
-    @Override
-    public void ensureCapacity(IMetaDataPageManager freePageManager, ITreeIndexMetaDataFrame metaFrame, IBufferCache bufferCache, ITupleReference tuple) throws HyracksDataException {
+    public void ensureCapacity(IBufferCache bufferCache, ITupleReference tuple, IExtraPageBlockHelper helper)
+            throws HyracksDataException {
         throw new IllegalStateException("nyi");
     }
 

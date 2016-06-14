@@ -31,7 +31,6 @@ import org.apache.hyracks.storage.am.common.api.ITreeIndexTupleReference;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexTupleWriter;
 import org.apache.hyracks.storage.am.common.ophelpers.SlotOffTupleOff;
 import org.apache.hyracks.storage.common.buffercache.ICachedPage;
-import org.apache.hyracks.storage.common.buffercache.ILargePageHelper;
 
 public abstract class TreeIndexNSMFrame implements ITreeIndexFrame {
 
@@ -51,14 +50,12 @@ public abstract class TreeIndexNSMFrame implements ITreeIndexFrame {
 
     protected ITreeIndexTupleWriter tupleWriter;
     protected ITreeIndexTupleReference frameTuple;
-    protected ILargePageHelper largePageHelper;
 
-    public TreeIndexNSMFrame(ITreeIndexTupleWriter tupleWriter, ISlotManager slotManager, ILargePageHelper largePageHelper) {
+    public TreeIndexNSMFrame(ITreeIndexTupleWriter tupleWriter, ISlotManager slotManager) {
         this.tupleWriter = tupleWriter;
         this.frameTuple = tupleWriter.createTupleReference();
         this.slotManager = slotManager;
         this.slotManager.setFrame(this);
-        this.largePageHelper = largePageHelper;
     }
 
     @Override
@@ -101,12 +98,8 @@ public abstract class TreeIndexNSMFrame implements ITreeIndexFrame {
         }
     }
 
-    public static boolean isLargePage(ByteBuffer buf) {
+    public boolean getLargeFlag() {
         return (buf.get(flagOff) & largeFlagBit) != 0;
-    }
-
-    public boolean isLargePage() {
-        return isLargePage(buf);
     }
 
     @Override
@@ -281,10 +274,10 @@ public abstract class TreeIndexNSMFrame implements ITreeIndexFrame {
     public String printHeader() {
         StringBuilder strBuilder = new StringBuilder();
         strBuilder.append("pageLsnOff:        " + pageLsnOff + "\n");
-        strBuilder.append("TUPLE_COUNT_OFF:     " + tupleCountOff + "\n");
-        strBuilder.append("FREE_SPACE_OFF:      " + freeSpaceOff + "\n");
+        strBuilder.append("tupleCountOff:     " + tupleCountOff + "\n");
+        strBuilder.append("freeSpaceOff:      " + freeSpaceOff + "\n");
         strBuilder.append("totalFreeSpaceOff: " + totalFreeSpaceOff + "\n");
-        strBuilder.append("LEVEL_OFF:          " + levelOff + "\n");
+        strBuilder.append("levelOff:          " + levelOff + "\n");
         strBuilder.append("flagOff:           " + flagOff + "\n");
         return strBuilder.toString();
     }
@@ -342,8 +335,4 @@ public abstract class TreeIndexNSMFrame implements ITreeIndexFrame {
         return buf.capacity() - getFreeSpaceOff() - (getTupleCount() * slotManager.getSlotSize());
     }
 
-    @Override
-    public ILargePageHelper getLargePageHelper() {
-        return largePageHelper;
-    }
 }
