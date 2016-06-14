@@ -1,7 +1,7 @@
 CodeMirror.defineMode("aql", function() {
 
   var KEYWORD_MATCH = ["return","select","for","from","at","in","let","with","where","order","by","asc","desc","group",
-                        "keeping","limit","offset","distinct","dataset"];
+                        "keeping","limit","offset","distinct","dataset","or","and"];
   var VAR_MATCH = /[$][a-zA-Z]+(\d*)/;
   var DOT_MATCH = /[.](\S)*/;
   var DOUBLE_QUOTE_MATCH = /["].*["]/;
