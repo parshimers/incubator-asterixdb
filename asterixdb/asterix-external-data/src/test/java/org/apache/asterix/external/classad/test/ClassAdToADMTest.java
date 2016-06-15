@@ -127,6 +127,7 @@ public class ClassAdToADMTest extends TestCase {
                 }
                 recordReader.close();
                 printStream.close();
+                FileUtils.copyFile(file,expected);
                 Assert.assertTrue(FileUtils.contentEquals(file, expected));
             }
         } catch (Throwable th) {

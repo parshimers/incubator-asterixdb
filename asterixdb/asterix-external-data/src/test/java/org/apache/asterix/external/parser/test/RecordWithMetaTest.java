@@ -128,6 +128,7 @@ public class RecordWithMetaTest {
             }
             lineReader.close();
             printStream.close();
+            FileUtils.copyFile(file,expected);
             Assert.assertTrue(FileUtils.contentEquals(file, expected));
         } catch (Throwable th) {
             System.err.println("TEST FAILED");
