@@ -7,11 +7,16 @@ var app = angular.module('queryui', ['jsonFormatter','ui.codemirror']);
 
 app.service('recordFunctions', function(){
   this.ObjectKeys = function(obj){
+    var typeStr = Object.prototype.toString.call(obj);
     var res = [];
-    for (var key in obj) {
-      if (obj.hasOwnProperty(key) && !(key === "$$hashKey")) {
-        res.push(key)
-      }
+    if (typeStr === "[object Object]"){
+        for (var key in obj) {
+              if (obj.hasOwnProperty(key) && !(key === "$$hashKey")) {
+                res.push(key)
+              }
+            }
+    }else{
+        res = [-1];
     }
     return res;
   }
@@ -34,24 +39,31 @@ app.service('recordFunctions', function(){
   this.isNested = function(obj){
     return  this.isObject(obj) || this.isArray(obj);
   }
-  this.ObjectValue = function(obj){
-    var typeStr = Object.prototype.toString.call(obj);
-    var dateType = new Date(obj);
+  this.ObjectValue = function(obj,key){
+    var typeStr;
+    var value;
+    if (key == -1){
+        typeStr = Object.prototype.toString.call(obj);
+        value = obj;
+    }else{
+        typeStr = Object.prototype.toString.call(obj[key]);
+        value = obj[key];
+    }
     if (typeStr === "[object Array]"){
       return "Record +";
     }else if (typeStr === "[object Object]"){
       return "Record +";
     }else if (typeStr == "[object Null]"){
       return "NULL";
-    }else if(DATE_REGEX.exec(obj) != null){
-      var dat = new Date(obj);
+    }else if(DATE_REGEX.exec(value) != null){
+      var dat = new Date(value);
       return dat.getUTCFullYear()+"/"+dat.getUTCMonth()+"/"+dat.getUTCDay();
-    }else if(DATE_TIME_REGEX.exec(obj) != null){
-      var dat = new Date(obj);
+    }else if(DATE_TIME_REGEX.exec(value) != null){
+      var dat = new Date(value);
       return dat.getUTCFullYear()+"/"+dat.getUTCMonth()+"/"+dat.getUTCDay()
         +" "+dat.getUTCHours()+":"+dat.getUTCMinutes()+":"+dat.getUTCSeconds();
     }else{
-      return obj;
+      return value;
     }
   }
 });

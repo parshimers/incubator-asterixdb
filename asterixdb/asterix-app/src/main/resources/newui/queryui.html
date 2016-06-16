@@ -89,7 +89,7 @@
           <tbody>
             <tr ng-repeat="record in $parent.results track by $index">
               <td ng-repeat="key in recordFunctions.ObjectKeys(record)" class="asterix-inline-item" ng-class="isRecordPlus(record[key])" ng-click="viewRecord(record)">
-                <p class="small asterix-small">{{key}}</p>{{recordFunctions.ObjectValue(record[key])}}
+                <p class="small asterix-small">{{key == -1 ? 'value' : key}}</p>{{recordFunctions.ObjectValue(record,key)}}
               </td>
             </tr>
           </tbody>
@@ -98,8 +98,8 @@
       <div class="asterix-list-wells" ng-if="current_list == 1 && results.length != 0">
         <div ng-repeat="record in $parent.results track by $index" class="asterix-well flex-well" ng-click="viewRecord(record)">
           <div ng-repeat="key in recordFunctions.ObjectKeys(record)" class="row asterix-well-row">
-            <div class="col-sm-6" ng-class="isRecordPlus(record[key])">{{recordFunctions.ObjectValue(record[key])}}</div>
-            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">{{key}}</p></div>
+            <div class="col-sm-6" ng-class="isRecordPlus(record[key])">{{recordFunctions.ObjectValue(record,key)}}</div>
+            <div class="col-sm-6 asterix-well-right"><p class="small asterix-small">{{key == -1 ? 'value' : key}}</p></div>
           </div>
           <div class="row">
             <div class="col-sm-12" ng-if="isNested(record)">
