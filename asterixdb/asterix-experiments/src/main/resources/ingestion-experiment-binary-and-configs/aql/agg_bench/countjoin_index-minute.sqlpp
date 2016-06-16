@@ -16,10 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.hyracks.storage.common.buffercache;
+use SocialNetworkData;
 
-public interface ILargePageHelper {
+coll_count(
+ (
+  select element {
+  'uname': user.name,
+  'alias': user.alias,
+  'send_time': message.send_time,
+  'message': substring(message.message, 1, 31)
+  }
+  from  GleambookMessages as message,
+        GleambookUsers as user
+  where message.author_id /*+ indexnl */ = user.id and
+      message.send_time >= datetime('2006-04-15T23:53:14') and
+      message.send_time < datetime('2006-04-15T23:54:14')
+ )
+);
 
-    int getSupplementalBlockNumPages(CachedPage cPage);
-    int getSupplementalBlockPageId(CachedPage cPage);
-}

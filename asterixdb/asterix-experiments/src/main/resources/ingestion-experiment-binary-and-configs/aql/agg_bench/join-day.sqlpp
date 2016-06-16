@@ -16,11 +16,17 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.asterix.external.api;
+use SocialNetworkData;
 
-import java.io.DataOutput;
-import java.io.IOException;
-
-public interface IRecordWithMetaDataParser<T> extends IRecordDataParser<T> {
-    public void parseMeta(DataOutput out) throws IOException;
+select element {
+'uname': user.name,
+'alias': user.alias,
+'send_time': message.send_time,
+'message': substring(message.message, 1, 31)
 }
+from GleambookUsers as user,
+     GleambookMessages as message
+where message.author_id = user.id and
+      message.send_time >= datetime('2002-08-25T10:53:14') and
+      message.send_time < datetime('2002-08-26T10:53:14');
+
