@@ -82,4 +82,13 @@ DOUBLE_LITERAL		 = signOrNothing(), digitSequence(), char(.), digitSequence()
 DOUBLE_LITERAL		 = signOrNothing(), digitSequence(), char(.), digitSequence(), token(@EXPONENT)
 DOUBLE_LITERAL		 = signOrNothing(), digitSequence(), token(@EXPONENT)
 
+DOUBLE_LITERAL		 = signOrNothing(), char(.), digitSequence(), caseInsensitiveChar(d)
+DOUBLE_LITERAL		 = signOrNothing(), digitSequence(), char(.), digitSequence() , caseInsensitiveChar(d)
+DOUBLE_LITERAL		 = signOrNothing(), digitSequence(), char(.), digitSequence(), token(@EXPONENT), caseInsensitiveChar(d)
+DOUBLE_LITERAL		 = signOrNothing(), digitSequence(), token(@EXPONENT), caseInsensitiveChar(d)
+
+DOUBLE_LITERAL		 = string(NaN)
+DOUBLE_LITERAL		 = string(Infinity)
+DOUBLE_LITERAL		 = string(-Infinity)
+
 FLOAT_LITERAL		 = token(DOUBLE_LITERAL), caseInsensitiveChar(f)
