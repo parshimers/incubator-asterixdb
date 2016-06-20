@@ -103,7 +103,9 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
                     return TreeIndexState.INVALID;
                 } else if (metadataFrame.getVersion() != ITreeIndexMetaDataFrame.VERSION) {
                     return TreeIndexState.VERSION_MISMATCH;
-                } else return TreeIndexState.VALID;
+                } else {
+                    return TreeIndexState.VALID;
+                }
             } finally {
                 page.releaseReadLatch();
                 bufferCache.unpin(page);
@@ -122,14 +124,14 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
         for (String fileName : files) {
             File file = new File(dir.getPath() + File.separator + fileName);
             FileReference fileRef = new FileReference(file);
-            if(treeFactory == null){
+            if (treeFactory == null) {
                 allFiles.add(new ComparableFileName(fileRef));
                 continue;
             }
             TreeIndexState idxState = isValidTreeIndex(treeFactory.createIndexInstance(fileRef));
             if (idxState == TreeIndexState.VALID) {
                 allFiles.add(new ComparableFileName(fileRef));
-            } else if(idxState == TreeIndexState.INVALID) {
+            } else if (idxState == TreeIndexState.INVALID) {
                 file.delete();
             }
         }
@@ -138,7 +140,7 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
     protected void validateFiles(HashSet<String> groundTruth, ArrayList<ComparableFileName> validFiles,
                                  FilenameFilter filter,
                                  TreeIndexFactory<? extends ITreeIndex> treeFactory
-                                ) throws HyracksDataException, IndexException {
+    ) throws HyracksDataException, IndexException {
         ArrayList<ComparableFileName> tmpAllInvListsFiles = new ArrayList<ComparableFileName>();
         cleanupAndGetValidFilesInternal(filter, treeFactory, tmpAllInvListsFiles);
         for (ComparableFileName cmpFileName : tmpAllInvListsFiles) {
