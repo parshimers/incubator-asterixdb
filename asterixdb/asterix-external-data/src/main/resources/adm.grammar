@@ -91,4 +91,8 @@ DOUBLE_LITERAL		 = string(NaN)
 DOUBLE_LITERAL		 = string(Infinity)
 DOUBLE_LITERAL		 = string(-Infinity)
 
-FLOAT_LITERAL		 = token(DOUBLE_LITERAL), caseInsensitiveChar(f)
+FLOAT_LITERAL		 = signOrNothing(), char(.), digitSequence(), caseInsensitiveChar(f)
+FLOAT_LITERAL		 = signOrNothing(), digitSequence(), char(.), digitSequence() , caseInsensitiveChar(f)
+FLOAT_LITERAL		 = signOrNothing(), digitSequence(), char(.), digitSequence(), token(@EXPONENT), caseInsensitiveChar(f)
+FLOAT_LITERAL		 = signOrNothing(), digitSequence(), token(@EXPONENT), caseInsensitiveChar(f)
+
