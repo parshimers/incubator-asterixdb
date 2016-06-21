@@ -1,7 +1,7 @@
 { "partkey": 25, "part_value": 2.832302068E7 }
 { "partkey": 124, "part_value": 2.59627599E7 }
 { "partkey": 175, "part_value": 2.3853953630000003E7 }
-{ "partkey": 197, "part_value": 2.2485519669999998E7 }
+{ "partkey": 197, "part_value": 2.248551967E7 }
 { "partkey": 163, "part_value": 2.099460571E7 }
 { "partkey": 160, "part_value": 2.00232846E7 }
 { "partkey": 82, "part_value": 1.9919213349999998E7 }
@@ -81,7 +81,7 @@
 { "partkey": 49, "part_value": 1.06445572E7 }
 { "partkey": 139, "part_value": 1.044045371E7 }
 { "partkey": 192, "part_value": 1.035745974E7 }
-{ "partkey": 24, "part_value": 1.0339119360000001E7 }
+{ "partkey": 24, "part_value": 1.033911936E7 }
 { "partkey": 39, "part_value": 1.03210148E7 }
 { "partkey": 156, "part_value": 1.014364082E7 }
 { "partkey": 188, "part_value": 1.011906085E7 }
@@ -129,7 +129,7 @@
 { "partkey": 114, "part_value": 7832023.28 }
 { "partkey": 37, "part_value": 7809598.659999999 }
 { "partkey": 54, "part_value": 7578243.789999999 }
-{ "partkey": 180, "part_value": 7531794.48 }
+{ "partkey": 180, "part_value": 7531794.4799999995 }
 { "partkey": 60, "part_value": 7508961.69 }
 { "partkey": 31, "part_value": 7433034.24 }
 { "partkey": 35, "part_value": 7132671.49 }
@@ -137,7 +137,7 @@
 { "partkey": 150, "part_value": 7106237.92 }
 { "partkey": 107, "part_value": 7082828.68 }
 { "partkey": 123, "part_value": 7049500.720000001 }
-{ "partkey": 190, "part_value": 7017966.9 }
+{ "partkey": 190, "part_value": 7017966.899999999 }
 { "partkey": 120, "part_value": 6920857.090000001 }
 { "partkey": 196, "part_value": 6905182.43 }
 { "partkey": 177, "part_value": 6887257.27 }
