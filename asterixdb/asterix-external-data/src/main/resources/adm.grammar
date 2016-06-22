@@ -77,22 +77,18 @@ INT64_LITERAL        = token(INT_LITERAL), string(i64)
 
 @EXPONENT            = caseInsensitiveChar(e), signOrNothing(), digitSequence()
 
-DOUBLE_LITERAL		 = signOrNothing(), char(.), digitSequence()
-DOUBLE_LITERAL		 = signOrNothing(), digitSequence(), char(.), digitSequence()
-DOUBLE_LITERAL		 = signOrNothing(), digitSequence(), char(.), digitSequence(), token(@EXPONENT)
-DOUBLE_LITERAL		 = signOrNothing(), digitSequence(), token(@EXPONENT)
 
-DOUBLE_LITERAL		 = signOrNothing(), char(.), digitSequence(), caseInsensitiveChar(d)
-DOUBLE_LITERAL		 = signOrNothing(), digitSequence(), char(.), digitSequence() , caseInsensitiveChar(d)
-DOUBLE_LITERAL		 = signOrNothing(), digitSequence(), char(.), digitSequence(), token(@EXPONENT), caseInsensitiveChar(d)
-DOUBLE_LITERAL		 = signOrNothing(), digitSequence(), token(@EXPONENT), caseInsensitiveChar(d)
+FP_LITERAL		 = signOrNothing(), char(.), digitSequence()
+FP_LITERAL		 = signOrNothing(), digitSequence(), char(.), digitSequence()
+FP_LITERAL		 = signOrNothing(), digitSequence(), char(.), digitSequence(), token(@EXPONENT)
+FP_LITERAL		 = signOrNothing(), digitSequence(), token(@EXPONENT)
+FP_LITERAL		 = string(NaN)
+FP_LITERAL		 = string(Infinity)
+FP_LITERAL		 = string(-Infinity)
 
-DOUBLE_LITERAL		 = string(NaN)
-DOUBLE_LITERAL		 = string(Infinity)
-DOUBLE_LITERAL		 = string(-Infinity)
+DOUBLE_LITERAL       = FP_LITERAL
+DOUBLE_LITERAL		 = FP_LITERAL, caseInsensitiveChar(d)
+FLOAT_LITERAL		 = FP_LITERAL, caseInsensitiveChar(f)
 
-FLOAT_LITERAL		 = signOrNothing(), char(.), digitSequence(), caseInsensitiveChar(f)
-FLOAT_LITERAL		 = signOrNothing(), digitSequence(), char(.), digitSequence() , caseInsensitiveChar(f)
-FLOAT_LITERAL		 = signOrNothing(), digitSequence(), char(.), digitSequence(), token(@EXPONENT), caseInsensitiveChar(f)
-FLOAT_LITERAL		 = signOrNothing(), digitSequence(), token(@EXPONENT), caseInsensitiveChar(f)
+
 
