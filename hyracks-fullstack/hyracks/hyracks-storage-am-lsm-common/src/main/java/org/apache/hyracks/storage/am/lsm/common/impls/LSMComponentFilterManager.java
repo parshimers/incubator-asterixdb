@@ -122,7 +122,7 @@ public class LSMComponentFilterManager implements ILSMComponentFilterManager {
         if (componentFilterPageId < 0)
             return false;
 
-        ICachedPage filterPage = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, componentFilterPageId), true);
+        ICachedPage filterPage = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, componentFilterPageId), false);
 
         filterPage.acquireReadLatch();
         try {
