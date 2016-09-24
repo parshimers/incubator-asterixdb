@@ -647,10 +647,10 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
             for (int i = 0; i < mergeOp.getMergingComponents().size(); ++i) {
                 ITupleReference min = mergeOp.getMergingComponents().get(i).getLSMComponentFilter().getMinTuple();
                 ITupleReference max = mergeOp.getMergingComponents().get(i).getLSMComponentFilter().getMaxTuple();
-                if(min != null){
+                if (min != null) {
                     filterTuples.add(min);
                 }
-                if(max != null){
+                if (max != null) {
                     filterTuples.add(max);
                 }
             }
