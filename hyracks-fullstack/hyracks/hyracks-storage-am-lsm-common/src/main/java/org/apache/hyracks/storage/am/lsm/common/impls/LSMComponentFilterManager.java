@@ -62,7 +62,7 @@ public class LSMComponentFilterManager implements ILSMComponentFilterManager {
         int componentFilterPageId = treeMetaManager.getFilterPageId();
         boolean appendOnly = false;
         int fileId = treeIndex.getFileId();
-        if (componentFilterPageId == LinkedMetaDataPageManager.NO_FILTER_IN_PLACE) {//in-place mode, no filter page yet
+        if (componentFilterPageId == LinkedMetaDataPageManager.NO_FILTER_IN_PLACE) { //in-place mode, no filter page yet
             ITreeIndexMetaDataFrame metadataFrame = treeIndex.getMetaManager().getMetaDataFrameFactory().createFrame();
             int metaPageId = treeMetaManager.getFirstMetadataPage();
             ICachedPage metadataPage = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, metaPageId), false);
@@ -82,7 +82,7 @@ public class LSMComponentFilterManager implements ILSMComponentFilterManager {
                 treeMetaManager.setFilterPage(bufferCache.confiscatePage(IBufferCache.INVALID_DPID));
                 filterPage = treeMetaManager.getFilterPage();
             }
-        } else {// in place, not a new filter page
+        } else { // in place, not a new filter page
             filterPage = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, componentFilterPageId), true);
         }
 
