@@ -1953,15 +1953,16 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             int[] invertedIndexFieldsForNonBulkLoadOps = null;
             if (filterTypeTraits != null) {
                 filterFields = new int[1];
-                filterFields[0] = (numTokenFields + primaryKeys.size()) - 1;
+                filterFields[0] = numTokenFields + primaryKeys.size();
                 invertedIndexFields = new int[numTokenFields + primaryKeys.size()];
                 for (int k = 0; k < invertedIndexFields.length; k++) {
                     invertedIndexFields[k] = k;
                 }
 
                 filterFieldsForNonBulkLoadOps = new int[numFilterFields];
-                filterFieldsForNonBulkLoadOps[0] = numTokenKeyPairFields - 1;
-                invertedIndexFieldsForNonBulkLoadOps = new int[numTokenKeyPairFields];
+                //for non-bulk-loads, there is only <SK,PK,F> in the incoming tuples
+                filterFieldsForNonBulkLoadOps[0] = numKeys;
+                invertedIndexFieldsForNonBulkLoadOps = new int[numKeys];
                 for (int k = 0; k < invertedIndexFieldsForNonBulkLoadOps.length; k++) {
                     invertedIndexFieldsForNonBulkLoadOps[k] = k;
                 }
