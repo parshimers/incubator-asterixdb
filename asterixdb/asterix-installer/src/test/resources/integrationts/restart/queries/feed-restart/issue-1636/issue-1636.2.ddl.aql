@@ -1,0 +1,3 @@
+use dataverse twitter;
+set wait-for-completion-feed "true";
+connect feed MessageFeed to dataset ds_tweet;
