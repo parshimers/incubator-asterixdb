@@ -40,7 +40,6 @@ import org.apache.asterix.app.result.ResultReader;
 import org.apache.asterix.app.result.ResultUtil;
 import org.apache.asterix.app.translator.QueryTranslator;
 import org.apache.asterix.common.api.IClusterManagementWork;
-import org.apache.asterix.common.app.SessionConfig;
 import org.apache.asterix.common.config.GlobalConfig;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.utils.JSONUtil;
@@ -53,6 +52,7 @@ import org.apache.asterix.runtime.util.ClusterStateManager;
 import org.apache.asterix.translator.IStatementExecutor;
 import org.apache.asterix.translator.IStatementExecutor.Stats;
 import org.apache.asterix.translator.IStatementExecutorFactory;
+import org.apache.asterix.translator.SessionConfig;
 import org.apache.commons.io.IOUtils;
 import org.apache.hyracks.algebricks.core.algebra.prettyprint.AlgebricksAppendable;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
@@ -226,6 +226,23 @@ public class QueryServiceServlet extends HttpServlet {
         String format;
         boolean pretty;
         String clientContextID;
+
+        @Override
+        public String toString() {
+            return append(new StringBuilder()).toString();
+        }
+
+        public StringBuilder append(final StringBuilder sb) {
+            sb.append("{ ");
+            sb.append("\"statement\": \"");
+            JSONUtil.escape(sb, statement);
+            sb.append("\", ");
+            sb.append("\"format\": \"").append(format).append("\", ");
+            sb.append("\"pretty\": ").append(pretty).append(", ");
+            sb.append("\"clientContextID\": \"").append(clientContextID).append("\" ");
+            sb.append('}');
+            return sb;
+        }
     }
 
     private static String getParameterValue(String content, String attribute) {
@@ -426,6 +443,7 @@ public class QueryServiceServlet extends HttpServlet {
     }
 
     private void handleRequest(RequestParameters param, HttpServletResponse response) throws IOException {
+        LOGGER.info(param.toString());
         long elapsedStart = System.nanoTime();
         final StringWriter stringWriter = new StringWriter();
         final PrintWriter resultWriter = new PrintWriter(stringWriter);
