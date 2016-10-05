@@ -34,6 +34,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestRule;
 
+//This is just a simple derivative of all of the other IT test cases specifically for test cases which revolve around
+//some behavior where stopping and starting Asterix causes issues
 public class AsterixRestartIT {
 
     private static final String PATH_BASE = "src/test/resources/integrationts/restart/";
