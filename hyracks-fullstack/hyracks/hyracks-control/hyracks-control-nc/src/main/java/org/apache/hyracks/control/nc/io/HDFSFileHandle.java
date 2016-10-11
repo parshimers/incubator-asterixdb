@@ -21,6 +21,7 @@ import java.io.RandomAccessFile;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
+import java.util.EnumSet;
 
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.hadoop.conf.Configuration;
@@ -29,6 +30,9 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
+import org.apache.hadoop.hdfs.DFSOutputStream;
+import org.apache.hadoop.hdfs.DistributedFileSystem;
+import org.apache.hadoop.hdfs.client.HdfsDataOutputStream;
 import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.api.io.IIOManager.FileReadWriteMode;
 import org.apache.hyracks.api.io.IIOManager.FileSyncMode;
@@ -38,8 +42,8 @@ import org.apache.hyracks.api.io.IFileHandle;
 public class HDFSFileHandle implements IFileHandle, IFileHandleInternal {
     private URI uri;
     private static String fsName;
-    private static FileSystem fs = null;
-    private FSDataOutputStream out = null;
+    private static DistributedFileSystem fs = null;
+    private DFSOutputStream out = null;
     private FSDataInputStream in = null;
     private Path path;
     private FileReference fileRef;
@@ -63,9 +67,9 @@ public class HDFSFileHandle implements IFileHandle, IFileHandleInternal {
         if(syncMode != FileSyncMode.METADATA_ASYNC_DATA_ASYNC) throw new IOException("Sync I/O not (yet) supported for HDFS");
            if (rwMode == FileReadWriteMode.READ_WRITE) {
                if (fs.exists(path)) {
-                   out = fs.append(path);
+                   out = (DFSOutputStream) fs.append(path).getWrappedStream();
                } else {
-                   out = fs.create(path, false);
+                   out = (DFSOutputStream) fs.create(path, false).getWrappedStream();
                }
            }
         else if(rwMode == FileReadWriteMode.READ_ONLY){
@@ -97,9 +101,9 @@ public class HDFSFileHandle implements IFileHandle, IFileHandleInternal {
     @Override
     public void sync(boolean metadata) throws IOException {
         if(out == null){
-            out = fs.append(path);
+            out = (DFSOutputStream) fs.append(path).getWrappedStream();
         }
-        out.hsync();
+        out.hsync(EnumSet.of(HdfsDataOutputStream.SyncFlag.UPDATE_LENGTH));
     }
 
 

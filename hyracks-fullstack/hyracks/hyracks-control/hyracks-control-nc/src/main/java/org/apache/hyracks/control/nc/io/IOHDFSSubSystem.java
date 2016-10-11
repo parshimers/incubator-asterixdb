@@ -30,12 +30,13 @@ import java.util.ArrayList;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 
+import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hyracks.api.io.FileReference;
 
 public class IOHDFSSubSystem implements IIOSubSystem {
     private URI uri = null;
     private String fsName;
-    private static FileSystem fs;
+    private static DistributedFileSystem fs;
     Configuration conf;
 
     public IOHDFSSubSystem(String confPath){
@@ -51,14 +52,14 @@ public class IOHDFSSubSystem implements IIOSubSystem {
         fsName = conf.get("fs.defaultFS");
         try {
             uri = new URI(fsName);
-            fs = FileSystem.get(uri, conf);
+            fs = (DistributedFileSystem)DistributedFileSystem.get(uri, conf);
         } catch (IOException | URISyntaxException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
     }
 
-    public static FileSystem getFileSystem(){
+    public static DistributedFileSystem getFileSystem(){
         return fs;
     }
 
