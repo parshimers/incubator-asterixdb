@@ -221,6 +221,7 @@ public class ReplicationIT {
     private static Process invoke(String... args) throws Exception {
         ProcessBuilder pb = new ProcessBuilder(args);
         pb.redirectErrorStream(true);
+        System.out.println("Executing: " + StringUtils.join(pb.command(), " "));
         Process p = pb.start();
         return p;
     }
@@ -230,8 +231,10 @@ public class ReplicationIT {
         File cwd = new File(asterixProjectDir.toString() + "/" + CLUSTER_BASE);
         pb.directory(cwd);
         pb.redirectErrorStream(true);
+        System.out.println("Executing remotely on CC: " + StringUtils.join(pb.command(), " "));
         Process p = pb.start();
         p.waitFor();
+        System.out.println("OUTPUT: " + IOUtils.toString(p.getInputStream(), StandardCharsets.UTF_8.name()));
         return p;
     }
 
@@ -240,8 +243,11 @@ public class ReplicationIT {
         File cwd = new File(asterixProjectDir.toString() + "/" + CLUSTER_BASE);
         pb.directory(cwd);
         pb.redirectErrorStream(true);
+        System.out.println("Executing: remotely on " + node
+                 + " " + StringUtils.join(pb.command(), " "));
         Process p = pb.start();
         p.waitFor();
+        System.out.println("OUTPUT: " + IOUtils.toString(p.getInputStream(), StandardCharsets.UTF_8.name()));
         return p;
     }
 
