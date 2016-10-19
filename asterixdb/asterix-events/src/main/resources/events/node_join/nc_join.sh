@@ -29,7 +29,7 @@ fi
 cd $WORKING_DIR
 
 DATE=`date`
-echo " --------------------------------------------------------------------------------" >> $LOG_DIR/$LOG_DIR/${NC_ID}.log
-echo "LOG START: $DATE" >> $LOG_DIR/$LOG_DIR/${NC_ID}.log
-echo " --------------------------------------------------------------------------------" >> $LOG_DIR/$LOG_DIR/${NC_ID}.log
+echo " --------------------------------------------------------------------------------" >> $LOG_DIR/${NC_ID}.log
+echo "LOG START: $DATE" >> $LOG_DIR/${NC_ID}.log
+echo " --------------------------------------------------------------------------------" >> $LOG_DIR/${NC_ID}.log
 $ASTERIX_HOME/bin/asterixnc -node-id $NC_ID -cc-host $CC_HOST -cc-port $CLUSTER_NET_PORT  -cluster-net-ip-address $IP_LOCATION  -data-ip-address $IP_LOCATION -iodevices $IO_DEVICES -result-ip-address $IP_LOCATION -- $INITIAL_RUN_FLAG &> $LOG_DIR/${NC_ID}.log
