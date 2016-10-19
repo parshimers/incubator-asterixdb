@@ -27,9 +27,13 @@ import org.apache.asterix.common.transactions.LogSource;
 import org.apache.asterix.common.transactions.LogType;
 import org.apache.asterix.transaction.management.service.transaction.TransactionSubsystem;
 
+import java.util.logging.Logger;
+
 public class LogManagerWithReplication extends LogManager {
 
     private IReplicationManager replicationManager;
+
+    private static final Logger LOGGER = Logger.getLogger(LogManagerWithReplication.class.getName());
 
     public LogManagerWithReplication(TransactionSubsystem txnSubsystem) {
         super(txnSubsystem);
@@ -90,6 +94,14 @@ public class LogManagerWithReplication extends LogManager {
 
     @Override
     protected synchronized void syncAppendToLogTail(ILogRecord logRecord) throws ACIDException {
+        //LOGGER.info("Log: " + logRecord.getLogRecordForDisplay());
+        if (logRecord.getLogSource() == LogSource.REMOTE) {
+            LOGGER.info("REMOTE LOG: " + logRecord.getLogRecordForDisplay());
+            //LOGGER.info("REMOTE PK VALUE: " + logRecord.getPKValue().getFieldData(0));
+        }
+        else {
+            LOGGER.info("LOCAL LOG: " + logRecord.getLogRecordForDisplay());
+        }
         if (logRecord.getLogSource() == LogSource.LOCAL && logRecord.getLogType() != LogType.FLUSH) {
             ITransactionContext txnCtx = logRecord.getTxnCtx();
             if (txnCtx.getTxnState() == ITransactionManager.ABORTED && logRecord.getLogType() != LogType.ABORT) {

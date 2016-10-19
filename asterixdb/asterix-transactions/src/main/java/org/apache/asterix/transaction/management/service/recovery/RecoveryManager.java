@@ -315,6 +315,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         try {
             logReader.initializeScan(lowWaterMarkLSN);
             logRecord = logReader.next();
+            LOGGER.info("RECOVERY OF: " + logRecord.getLogRecordForDisplay());
             while (logRecord != null) {
                 if (IS_DEBUG_MODE) {
                     LOGGER.info(logRecord.getLogRecordForDisplay());
@@ -875,6 +876,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
 
     private static void redo(ILogRecord logRecord, IDatasetLifecycleManager datasetLifecycleManager) {
         try {
+            LOGGER.info("REDOING: " + logRecord.getLogRecordForDisplay());
             ILSMIndex index =
                     (ILSMIndex) datasetLifecycleManager.getIndex(logRecord.getDatasetId(), logRecord.getResourceId());
             ILSMIndexAccessor indexAccessor =

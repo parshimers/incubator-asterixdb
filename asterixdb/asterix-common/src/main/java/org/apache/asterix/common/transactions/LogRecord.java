@@ -472,6 +472,7 @@ public class LogRecord implements ILogRecord {
         if (logType == LogType.UPDATE) {
             builder.append(" ResourceId : ").append(resourceId);
         }
+        builder.append(" CHECKSUM : ").append(checksum);
         return builder.toString();
     }
 
