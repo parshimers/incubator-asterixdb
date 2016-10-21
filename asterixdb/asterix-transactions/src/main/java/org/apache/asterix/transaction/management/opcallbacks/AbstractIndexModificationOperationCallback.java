@@ -32,6 +32,8 @@ import org.apache.hyracks.storage.am.common.api.IModificationOperationCallback.O
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.common.tuples.SimpleTupleWriter;
 
+import java.util.logging.Logger;
+
 public abstract class AbstractIndexModificationOperationCallback extends AbstractOperationCallback {
 
     private static final byte INSERT_OP = (byte) IndexOperation.INSERT.ordinal();
@@ -41,6 +43,9 @@ public abstract class AbstractIndexModificationOperationCallback extends Abstrac
     protected final IndexOperation indexOp;
     protected final ITransactionSubsystem txnSubsystem;
     protected final ILogRecord logRecord;
+
+    private static final Logger LOGGER = Logger.getLogger(AbstractIndexModificationOperationCallback.class.getName());
+
 
     protected AbstractIndexModificationOperationCallback(int datasetId, int[] primaryKeyFields,
             ITransactionContext txnCtx, ILockManager lockManager, ITransactionSubsystem txnSubsystem, long resourceId,

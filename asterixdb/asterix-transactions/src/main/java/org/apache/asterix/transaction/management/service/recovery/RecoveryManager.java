@@ -310,13 +310,15 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         Map<Long, LocalResource> resourcesMap = localResourceRepository.loadAndGetAllResources();
         Map<Long, Long> resourceId2MaxLSNMap = new HashMap<Long, Long>();
         TxnId tempKeyTxnId = new TxnId(-1, -1, -1, null, -1, false);
-
+        int counter = 0;
         ILogRecord logRecord = null;
         try {
             logReader.initializeScan(lowWaterMarkLSN);
             logRecord = logReader.next();
             LOGGER.info("RECOVERY OF: " + logRecord.getLogRecordForDisplay());
             while (logRecord != null) {
+                counter++;
+                LOGGER.info("RECOVERY OF: " + logRecord.getLogRecordForDisplay());
                 if (IS_DEBUG_MODE) {
                     LOGGER.info(logRecord.getLogRecordForDisplay());
                 }
@@ -395,7 +397,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                                 }
 
                                 if (LSN > maxDiskLastLsn) {
-                                    redo(logRecord, datasetLifecycleManager);
+                                     redo(logRecord, datasetLifecycleManager);
                                     redoCount++;
                                 }
                             }
@@ -411,6 +413,9 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                         break;
                     default:
                         throw new ACIDException("Unsupported LogType: " + logRecord.getLogType());
+                }
+                if (counter == 13) {
+                    LOGGER.info("Counter is 13");
                 }
                 logRecord = logReader.next();
             }

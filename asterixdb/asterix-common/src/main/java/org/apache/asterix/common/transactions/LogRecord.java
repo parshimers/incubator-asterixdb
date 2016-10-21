@@ -220,6 +220,7 @@ public class LogRecord implements ILogRecord {
     private long generateChecksum(ByteBuffer buffer, int offset, int len) {
         checksumGen.reset();
         checksumGen.update(buffer.array(), offset, len);
+        setChecksum(checksumGen.getValue());
         return checksumGen.getValue();
     }
 
@@ -296,7 +297,8 @@ public class LogRecord implements ILogRecord {
                         }
                         return RecordReadStatus.TRUNCATED;
                     }
-                    newValue = readTuple(buffer, readNewValue, newValueFieldCount, newValueSize);
+                    newValue = readTuple(buffer, readNewValue, newValueFieldCount, newValueSize
+                                                  );
                     if (logSize > getUpdateLogSizeWithoutOldValue()) {
                         // Prev Image exists
                         if (buffer.remaining() < Integer.BYTES) {
@@ -473,6 +475,7 @@ public class LogRecord implements ILogRecord {
             builder.append(" ResourceId : ").append(resourceId);
         }
         builder.append(" CHECKSUM : ").append(checksum);
+        builder.append(" CHECKSUM2: ").append(checksumGen.getValue());
         return builder.toString();
     }
 
