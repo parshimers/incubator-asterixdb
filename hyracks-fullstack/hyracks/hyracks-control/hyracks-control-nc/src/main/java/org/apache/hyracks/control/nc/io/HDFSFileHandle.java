@@ -24,12 +24,11 @@ import java.nio.ByteBuffer;
 import java.util.EnumSet;
 
 import org.apache.commons.lang.NotImplementedException;
+import org.apache.commons.lang.enums.Enum;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.*;
 
+import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.DFSOutputStream;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.hdfs.client.HdfsDataOutputStream;
@@ -38,6 +37,7 @@ import org.apache.hyracks.api.io.IIOManager.FileReadWriteMode;
 import org.apache.hyracks.api.io.IIOManager.FileSyncMode;
 import org.apache.hyracks.control.nc.io.IFileHandleInternal;
 import org.apache.hyracks.api.io.IFileHandle;
+import org.apache.zookeeper.Op;
 
 public class HDFSFileHandle implements IFileHandle, IFileHandleInternal {
     private URI uri;
@@ -51,39 +51,46 @@ public class HDFSFileHandle implements IFileHandle, IFileHandleInternal {
 
     public HDFSFileHandle(FileReference fileRef) {
         try {
-            if(fs == null) {
+            if (fs == null) {
                 fs = IOHDFSSubSystem.getFileSystem();
             }
             fsName = fs.getConf().get("fs.default.name");
             this.uri = new URI(fsName + fileRef.getPath());
             this.fileRef = fileRef;
             path = new Path(uri.getPath());
-        } catch ( URISyntaxException e) {
+        } catch (URISyntaxException e) {
         }
     }
-    
+
     @Override
     public void open(FileReadWriteMode rwMode, FileSyncMode syncMode) throws IOException {
-        if(syncMode != FileSyncMode.METADATA_ASYNC_DATA_ASYNC) throw new IOException("Sync I/O not (yet) supported for HDFS");
-           if (rwMode == FileReadWriteMode.READ_WRITE) {
-               if (fs.exists(path)) {
-                   out = (DFSOutputStream) fs.append(path).getWrappedStream();
-               } else {
-                   out = (DFSOutputStream) fs.create(path, false).getWrappedStream();
-               }
-           }
-        else if(rwMode == FileReadWriteMode.READ_ONLY){
-               in = fs.open(path);
-           }
+        if (syncMode != FileSyncMode.METADATA_ASYNC_DATA_ASYNC)
+            throw new IOException("Sync I/O not (yet) supported for HDFS");
+        if (rwMode == FileReadWriteMode.READ_WRITE) {
+            if (fs.exists(path)) {
+                out = (DFSOutputStream) fs.append(path, EnumSet.of(CreateFlag.SYNC_BLOCK, CreateFlag.APPEND),
+                        CommonConfigurationKeysPublic.IO_FILE_BUFFER_SIZE_DEFAULT, null).getWrappedStream();
+            } else {
+                out = (DFSOutputStream) fs.create(path, FsPermission.getDefault(),
+                        EnumSet.of(CreateFlag.SYNC_BLOCK, CreateFlag.APPEND, CreateFlag.CREATE),
+                        CommonConfigurationKeysPublic.IO_FILE_BUFFER_SIZE_DEFAULT, (short) 2,
+                        (long) (128 * 1024 * 1024), null).getWrappedStream();
+            }
+        } else if (rwMode == FileReadWriteMode.READ_ONLY) {
+            in = fs.open(path);
+        }
         this.rwMode = rwMode;
 
     }
 
     @Override
     public void close() throws IOException {
-        if(!fs.exists(path)) return;
-        if(out != null) out.close();
-        if(in != null) in.close();
+        if (!fs.exists(path))
+            return;
+        if (out != null)
+            out.close();
+        if (in != null)
+            in.close();
         out = null;
         in = null;
     }
@@ -100,12 +107,11 @@ public class HDFSFileHandle implements IFileHandle, IFileHandleInternal {
 
     @Override
     public void sync(boolean metadata) throws IOException {
-        if(out == null){
+        if (out == null) {
             out = (DFSOutputStream) fs.append(path).getWrappedStream();
         }
         out.hsync(EnumSet.of(HdfsDataOutputStream.SyncFlag.UPDATE_LENGTH));
     }
-
 
     @Override
     public long getSize() throws IOException {
@@ -114,40 +120,41 @@ public class HDFSFileHandle implements IFileHandle, IFileHandleInternal {
 
     @Override
     public int write(ByteBuffer data, long offset) throws IOException {
-        out.write(data.array(), 0, data.limit()-data.position());
+        out.write(data.array(), 0, data.limit() - data.position());
         data.position(data.limit());
         return data.limit();
     }
 
     @Override
     public int append(ByteBuffer data) throws IOException {
-        out.write(data.array(), data.position(), data.limit()-data.position());
+        out.write(data.array(), data.position(), data.limit() - data.position());
         data.position(data.limit());
         return data.limit();
     }
 
     @Override
     public int read(ByteBuffer data, long offset) throws IOException {
-        if(in == null && rwMode == FileReadWriteMode.READ_WRITE){
-            if(out!=null) out.hsync();
+        if (in == null && rwMode == FileReadWriteMode.READ_WRITE) {
+            if (out != null)
+                out.hsync();
             in = fs.open(path);
         }
         try {
             in.seek(offset);
-        } catch (EOFException e){
+        } catch (EOFException e) {
             return -1;
         }
         return in.read(data);
     }
 
     @Override
-    public InputStream getInputStream() throws IOException{
-        if(in == null && rwMode == FileReadWriteMode.READ_WRITE){
-            if(out!=null) out.hsync();
+    public InputStream getInputStream() throws IOException {
+        if (in == null && rwMode == FileReadWriteMode.READ_WRITE) {
+            if (out != null)
+                out.hsync();
             in = fs.open(path);
         }
         return in;
     }
 
-    
 }
