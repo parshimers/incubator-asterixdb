@@ -143,7 +143,11 @@ public class LogRecord implements ILogRecord {
                 buffer.putInt(newValueFieldCount);
                 buffer.put(newOp);
                 buffer.putInt(newValueSize);
+                if (PKHashValue == 1844603939) {
+                    System.out.println("Here");
+                }
                 writeTuple(buffer, newValue, newValueSize);
+                // TODO: Write the printing logic here!
                 if (oldValueSize > 0) {
                     buffer.putInt(oldValueSize);
                     buffer.putInt(oldValueFieldCount);
@@ -208,19 +212,18 @@ public class LogRecord implements ILogRecord {
     }
 
     private void writeTuple(ByteBuffer buffer, ITupleReference tuple, int size) {
-        if (logSource == LogSource.LOCAL) {
+        //if (logSource == LogSource.LOCAL) {
             SimpleTupleWriter.INSTANCE.writeTuple(tuple, buffer.array(), buffer.position());
-        } else {
+        //} else {
             //since the tuple is already serialized in remote logs, just copy it from beginning to end.
-            System.arraycopy(tuple.getFieldData(0), 0, buffer.array(), buffer.position(), size);
-        }
+          //  System.arraycopy(tuple.getFieldData(0), tuple.getFieldStart(0), buffer.array(), buffer.position(), size);
+        //}
         buffer.position(buffer.position() + size);
     }
 
     private long generateChecksum(ByteBuffer buffer, int offset, int len) {
         checksumGen.reset();
         checksumGen.update(buffer.array(), offset, len);
-        setChecksum(checksumGen.getValue());
         return checksumGen.getValue();
     }
 
@@ -395,6 +398,8 @@ public class LogRecord implements ILogRecord {
 
     private static ITupleReference readTuple(ByteBuffer srcBuffer, SimpleTupleReference destTuple, int fieldCnt,
             int size) {
+        // TODO: Change this according to how the SimpleTupleWriter.writeTuple is making the change.
+        // The null fields are being ignored the same way that writeTuple was doing a simple System.arrayCopy
         if (srcBuffer.position() + size > srcBuffer.limit()) {
             throw new BufferUnderflowException();
         }
@@ -476,6 +481,29 @@ public class LogRecord implements ILogRecord {
         }
         builder.append(" CHECKSUM : ").append(checksum);
         builder.append(" CHECKSUM2: ").append(checksumGen.getValue());
+        builder.append(" NEW-VAL-BYTES: ").append(printBytes(newValue));
+        return builder.toString();
+    }
+
+    private String printBytes(ITupleReference newValue) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("[");
+        try {
+
+            int fLength, fStart;
+            int fCount = newValue.getFieldCount();
+            for (int i = 0; i < fCount; i++) {
+                fLength = newValue.getFieldLength(i);
+                fStart = newValue.getFieldStart(i);
+                for (int j = fStart; j < fStart + fLength; j++) {
+                    builder.append(newValue.getFieldData(i)[j]);
+                    builder.append(" , ");
+                }
+            }
+        } catch (Exception e) {
+            builder.append("Error while appending the bytes! " + e.getMessage());
+        }
+        builder.append("]");
         return builder.toString();
     }
 
@@ -753,4 +781,5 @@ public class LogRecord implements ILogRecord {
     public ByteBuffer getMarker() {
         return marker;
     }
+
 }

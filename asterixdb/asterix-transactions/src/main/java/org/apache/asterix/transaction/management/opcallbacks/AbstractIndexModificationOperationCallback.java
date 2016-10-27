@@ -66,6 +66,7 @@ public abstract class AbstractIndexModificationOperationCallback extends Abstrac
     }
 
     protected void log(int PKHash, ITupleReference newValue, ITupleReference oldValue) throws ACIDException {
+        boolean newValueIsNull = false;
         logRecord.setPKHashValue(PKHash);
         logRecord.setPKFields(primaryKeyFields);
         logRecord.setPKValue(newValue);
@@ -74,6 +75,7 @@ public abstract class AbstractIndexModificationOperationCallback extends Abstrac
             logRecord.setNewValueSize(SimpleTupleWriter.INSTANCE.bytesRequired(newValue));
             logRecord.setNewValue(newValue);
         } else {
+            newValueIsNull = true;
             logRecord.setNewValueSize(0);
         }
         if (oldValue != null) {
@@ -84,6 +86,7 @@ public abstract class AbstractIndexModificationOperationCallback extends Abstrac
         }
         logRecord.computeAndSetLogSize();
         txnSubsystem.getLogManager().log(logRecord);
+        LOGGER.info("From Tree mod: " + logRecord.getLogRecordForDisplay() + " NEW VALUE: " + newValueIsNull);
     }
 
     public void setOp(Operation op) throws HyracksDataException {

@@ -101,6 +101,9 @@ public class LogManagerWithReplication extends LogManager {
         }
         else {
             LOGGER.info("LOCAL LOG: " + logRecord.getLogRecordForDisplay());
+            if (logRecord.getLogSource() == LogSource.LOCAL && logRecord.getLogType() == LogType.UPDATE) {
+                LOGGER.fine("UPDATE LOG Generated!");
+            }
         }
         if (logRecord.getLogSource() == LogSource.LOCAL && logRecord.getLogType() != LogType.FLUSH) {
             ITransactionContext txnCtx = logRecord.getTxnCtx();

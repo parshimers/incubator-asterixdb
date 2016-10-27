@@ -1195,6 +1195,7 @@ public class ReplicationManager implements IReplicationManager {
             Replica replica = replicas.get(replicaId);
 
             if (replica.getState() == ReplicaState.DEAD) {
+                LOGGER.info("DEBUG: Replica state is already DEAD");
                 return;
             }
 

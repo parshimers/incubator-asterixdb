@@ -37,7 +37,7 @@ import org.apache.asterix.common.transactions.TxnLogFile;
  */
 public class LogReader implements ILogReader {
 
-    public static final boolean IS_DEBUG_MODE = false;//true
+    public static final boolean IS_DEBUG_MODE = true;//true
     private static final Logger LOGGER = Logger.getLogger(LogReader.class.getName());
     private final ILogManager logMgr;
     private final long logFileSize;

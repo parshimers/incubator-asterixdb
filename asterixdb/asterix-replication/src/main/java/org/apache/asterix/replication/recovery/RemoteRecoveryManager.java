@@ -119,7 +119,8 @@ public class RemoteRecoveryManager implements IRemoteRecoveryManager {
             }
 
         }
-
+        recoveryList.entrySet().stream().forEach(e ->
+                LOGGER.info("Recovery List: "  + e.getKey() + " Val: " + e.getValue()));
         return recoveryList;
     }
 

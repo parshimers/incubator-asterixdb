@@ -321,7 +321,6 @@ public class ClusterStateManager {
                     //It needs to be modified to consider load balancing.
                     addActiveReplica(replica, partition, partitionRecoveryPlan);
                     // bug? will always break on first loop execution
-                    break;
                 }
             }
 

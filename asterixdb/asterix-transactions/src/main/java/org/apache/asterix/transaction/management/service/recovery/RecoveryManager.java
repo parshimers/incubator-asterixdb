@@ -397,8 +397,13 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                                 }
 
                                 if (LSN > maxDiskLastLsn) {
-                                     redo(logRecord, datasetLifecycleManager);
-                                    redoCount++;
+                                    try {
+                                        redo(logRecord, datasetLifecycleManager);
+                                        redoCount++;
+                                        LOGGER.info("REDO DONE SUCCESSFULLY!!");
+                                    } catch (Exception e) {
+                                        LOGGER.info("There was an error in redo! Trying next one...");
+                                    }
                                 }
                             }
                         }
