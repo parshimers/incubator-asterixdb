@@ -293,7 +293,8 @@ public class MetadataNode implements IMetadataNode {
             txnCtx.registerIndexAndCallback(resourceID, lsmIndex, (AbstractOperationCallback) modCallback,
                     metadataIndex.isPrimaryIndex());
 
-            AsterixLSMIndexUtil.checkAndSetFirstLSN((AbstractLSMIndex) lsmIndex, transactionSubsystem.getLogManager());
+            AsterixLSMIndexUtil.checkAndSetFirstLSN((AbstractLSMIndex) lsmIndex,
+                    transactionSubsystem.getLogManager(metadataStoragePartition));
 
             // TODO: fix exceptions once new BTree exception model is in hyracks.
             indexAccessor.forceInsert(tuple);
@@ -560,7 +561,8 @@ public class MetadataNode implements IMetadataNode {
             txnCtx.registerIndexAndCallback(resourceID, lsmIndex, (AbstractOperationCallback) modCallback,
                     metadataIndex.isPrimaryIndex());
 
-            AsterixLSMIndexUtil.checkAndSetFirstLSN((AbstractLSMIndex) lsmIndex, transactionSubsystem.getLogManager());
+            AsterixLSMIndexUtil.checkAndSetFirstLSN((AbstractLSMIndex) lsmIndex,
+                    transactionSubsystem.getLogManager(metadataStoragePartition));
 
             indexAccessor.forceDelete(tuple);
         } finally {
@@ -980,10 +982,8 @@ public class MetadataNode implements IMetadataNode {
             try {
                 while (rangeCursor.hasNext()) {
                     rangeCursor.next();
-                    sb.append(TupleUtils.printTuple(rangeCursor.getTuple(),
-                            new ISerializerDeserializer[] {
-                                    AqlSerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(
-                                            BuiltinType.ASTRING),
+                    sb.append(TupleUtils.printTuple(rangeCursor.getTuple(), new ISerializerDeserializer[] {
+                            AqlSerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.ASTRING),
                             AqlSerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.ASTRING),
                             AqlSerializerDeserializerProvider.INSTANCE
                                     .getSerializerDeserializer(BuiltinType.ASTRING) }));
@@ -1000,7 +1000,7 @@ public class MetadataNode implements IMetadataNode {
 
     private <ResultType> void searchIndex(JobId jobId, IMetadataIndex index, ITupleReference searchKey,
             IValueExtractor<ResultType> valueExtractor, List<ResultType> results)
-                    throws MetadataException, IndexException, IOException {
+            throws MetadataException, IndexException, IOException {
         IBinaryComparatorFactory[] comparatorFactories = index.getKeyBinaryComparatorFactory();
         String resourceName = index.getFile().toString();
         IIndex indexInstance = datasetLifecycleManager.getIndex(resourceName);

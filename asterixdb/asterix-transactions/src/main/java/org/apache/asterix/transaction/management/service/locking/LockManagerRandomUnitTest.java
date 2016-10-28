@@ -64,7 +64,7 @@ public class LockManagerRandomUnitTest {
         FileUtils.copyFile(srcFile, destFile);
 
         TransactionSubsystem txnProvider = new TransactionSubsystem("nc1", null,
-                new AsterixTransactionProperties(new AsterixPropertiesAccessor()));
+                new AsterixTransactionProperties(new AsterixPropertiesAccessor()), null);
         rand = new Random(System.currentTimeMillis());
         for (i = 0; i < MAX_NUM_OF_ENTITY_LOCK_JOB; i++) {
             System.out.println("Creating " + i + "th EntityLockJob..");
@@ -80,7 +80,7 @@ public class LockManagerRandomUnitTest {
             System.out.println("Creating " + i + "th EntityLockUpgradeJob..");
             generateEntityLockUpgradeThread(txnProvider);
         }
-        ((LogManager) txnProvider.getLogManager()).stop(false, null);
+        ((LogManager) txnProvider.getLogManager(0)).stop(false, null);
     }
 
     private static void generateEntityLockThread(TransactionSubsystem txnProvider) {

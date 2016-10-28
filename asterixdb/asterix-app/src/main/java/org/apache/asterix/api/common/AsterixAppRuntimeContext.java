@@ -176,9 +176,9 @@ public class AsterixAppRuntimeContext implements IAsterixAppRuntimeContext, IAst
         IAsterixAppRuntimeContextProvider asterixAppRuntimeContextProvider = new AsterixAppRuntimeContextProviderForRecovery(
                 this);
         txnSubsystem = new TransactionSubsystem(ncApplicationContext.getNodeId(), asterixAppRuntimeContextProvider,
-                txnProperties);
+                txnProperties, localResourceRepository);
 
-        IRecoveryManager recoveryMgr = txnSubsystem.getRecoveryManager();
+        IRecoveryManager recoveryMgr = txnSubsystem.getBaseRecoveryManager();
         SystemState systemState = recoveryMgr.getSystemState();
         if (initialRun || systemState == SystemState.NEW_UNIVERSE) {
             //delete any storage data before the resource factory is initialized
@@ -187,7 +187,7 @@ public class AsterixAppRuntimeContext implements IAsterixAppRuntimeContext, IAst
         initializeResourceIdFactory();
 
         datasetLifecycleManager = new DatasetLifecycleManager(storageProperties, localResourceRepository,
-                MetadataIndexImmutableProperties.FIRST_AVAILABLE_USER_DATASET_ID, txnSubsystem.getLogManager(),
+                MetadataIndexImmutableProperties.FIRST_AVAILABLE_USER_DATASET_ID, txnSubsystem.getBaseLogManager(),
                 ioManager.getIODevices().size());
 
         isShuttingdown = false;
@@ -201,11 +201,11 @@ public class AsterixAppRuntimeContext implements IAsterixAppRuntimeContext, IAst
             replicaResourcesManager = new ReplicaResourcesManager(localResourceRepository, metadataProperties);
 
             replicationManager = new ReplicationManager(nodeId, replicationProperties, replicaResourcesManager,
-                    txnSubsystem.getLogManager(), asterixAppRuntimeContextProvider);
+                    txnSubsystem.getBaseLogManager(), asterixAppRuntimeContextProvider);
 
             //pass replication manager to replication required object
             //LogManager to replicate logs
-            txnSubsystem.getLogManager().setReplicationManager(replicationManager);
+            txnSubsystem.getBaseLogManager().setReplicationManager(replicationManager);
 
             //PersistentLocalResourceRepository to replicate metadata files and delete backups on drop index
             localResourceRepository.setReplicationManager(replicationManager);
@@ -226,7 +226,7 @@ public class AsterixAppRuntimeContext implements IAsterixAppRuntimeContext, IAst
             }
 
             //initialize replication channel
-            replicationChannel = new ReplicationChannel(nodeId, replicationProperties, txnSubsystem.getLogManager(),
+            replicationChannel = new ReplicationChannel(nodeId, replicationProperties, txnSubsystem.getBaseLogManager(),
                     replicaResourcesManager, replicationManager, ncApplicationContext,
                     asterixAppRuntimeContextProvider);
 
@@ -248,7 +248,7 @@ public class AsterixAppRuntimeContext implements IAsterixAppRuntimeContext, IAst
          * LogManager must be stopped after RecoveryManager, DatasetLifeCycleManager, and ReplicationManager
          * to process any logs that might be generated during stopping these components
          */
-        lccm.register((ILifeCycleComponent) txnSubsystem.getLogManager());
+        lccm.register((ILifeCycleComponent) txnSubsystem.getBaseLogManager());
         /**
          * ReplicationManager must be stopped after indexLifecycleManager and recovery manager
          * so that any logs/files generated during closing datasets or checkpoints are sent to remote replicas
@@ -256,7 +256,7 @@ public class AsterixAppRuntimeContext implements IAsterixAppRuntimeContext, IAst
         if (replicationManager != null) {
             lccm.register(replicationManager);
         }
-        lccm.register((ILifeCycleComponent) txnSubsystem.getRecoveryManager());
+        lccm.register((ILifeCycleComponent) txnSubsystem.getBaseRecoveryManager());
         /**
          * Stopping indexLifecycleManager will flush and close all datasets.
          */

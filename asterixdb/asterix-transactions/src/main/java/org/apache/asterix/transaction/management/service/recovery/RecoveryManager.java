@@ -113,7 +113,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
 
     public RecoveryManager(TransactionSubsystem txnSubsystem) {
         this.txnSubsystem = txnSubsystem;
-        this.logMgr = (LogManager) txnSubsystem.getLogManager();
+        this.logMgr = (LogManager) txnSubsystem.getLogManager(this);
         this.ioManager = logMgr.ioManager;
         this.checkpointHistory = this.txnSubsystem.getTransactionProperties().getCheckpointHistory();
         IAsterixPropertiesProvider propertiesProvider = (IAsterixPropertiesProvider) txnSubsystem
@@ -659,7 +659,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
     }
 
     private File[] getPreviousCheckpointFiles() {
-        String logDir = ((LogManager) txnSubsystem.getLogManager()).getLogManagerProperties().getLogDir();
+        String logDir = ((LogManager) txnSubsystem.getLogManager(this)).getLogManagerProperties().getLogDir();
         File parentDir = new File(logDir);
 
         FilenameFilter filter = new FilenameFilter() {

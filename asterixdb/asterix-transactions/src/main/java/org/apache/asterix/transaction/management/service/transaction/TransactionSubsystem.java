@@ -28,11 +28,19 @@ import org.apache.asterix.common.transactions.ILogManager;
 import org.apache.asterix.common.transactions.IRecoveryManager;
 import org.apache.asterix.common.transactions.ITransactionManager;
 import org.apache.asterix.common.transactions.ITransactionSubsystem;
+import org.apache.asterix.transaction.management.resource.PersistentLocalResourceRepository;
 import org.apache.asterix.transaction.management.service.locking.ConcurrentLockManager;
 import org.apache.asterix.transaction.management.service.logging.LogManager;
-import org.apache.asterix.transaction.management.service.logging.LogManagerWithReplication;
 import org.apache.asterix.transaction.management.service.recovery.CheckpointThread;
 import org.apache.asterix.transaction.management.service.recovery.RecoveryManager;
+import org.apache.commons.logging.Log;
+import org.apache.hyracks.algebricks.common.utils.Pair;
+import org.apache.hyracks.algebricks.common.utils.Triple;
+import org.apache.zookeeper.Op;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Provider for all the sub-systems (transaction/lock/log/recovery) managers.
@@ -40,48 +48,75 @@ import org.apache.asterix.transaction.management.service.recovery.RecoveryManage
  */
 public class TransactionSubsystem implements ITransactionSubsystem {
     private final String id;
-    private final ILogManager logManager;
     private final ILockManager lockManager;
     private final ITransactionManager transactionManager;
-    private final IRecoveryManager recoveryManager;
     private final IAsterixAppRuntimeContextProvider asterixAppRuntimeContextProvider;
-    private final CheckpointThread checkpointThread;
     private final AsterixTransactionProperties txnProperties;
+    final Map<Set<Integer>, Triple<LogManager, RecoveryManager, CheckpointThread>> partitionToLoggerMap;
+    final Triple<LogManager, RecoveryManager, CheckpointThread> baseLogger;
 
     public TransactionSubsystem(String id, IAsterixAppRuntimeContextProvider asterixAppRuntimeContextProvider,
-            AsterixTransactionProperties txnProperties) throws ACIDException {
+            AsterixTransactionProperties txnProperties, PersistentLocalResourceRepository localResourceRepository)
+            throws ACIDException {
         this.asterixAppRuntimeContextProvider = asterixAppRuntimeContextProvider;
         this.id = id;
         this.txnProperties = txnProperties;
         this.transactionManager = new TransactionManager(this);
         this.lockManager = new ConcurrentLockManager(txnProperties.getLockManagerShrinkTimer());
 
-        AsterixReplicationProperties asterixReplicationProperties = null;
-        if (asterixAppRuntimeContextProvider != null) {
-            asterixReplicationProperties = ((IAsterixPropertiesProvider) asterixAppRuntimeContextProvider
-                    .getAppContext()).getReplicationProperties();
-        }
-
-        if (asterixReplicationProperties != null && asterixReplicationProperties.isReplicationEnabled()) {
-            this.logManager = new LogManagerWithReplication(this);
-        } else {
-            this.logManager = new LogManager(this);
-        }
-
-        this.recoveryManager = new RecoveryManager(this);
+        LogManager baseLogManager = new LogManager(this);
+        RecoveryManager baseRecoveryManager = new RecoveryManager(this);
+        CheckpointThread baseCheckpointThread = null;
 
         if (asterixAppRuntimeContextProvider != null) {
-            this.checkpointThread = new CheckpointThread(recoveryManager,
-                    asterixAppRuntimeContextProvider.getDatasetLifecycleManager(),logManager,
+            baseCheckpointThread = new CheckpointThread(baseRecoveryManager,
+                    asterixAppRuntimeContextProvider.getDatasetLifecycleManager(), baseLogManager,
                     this.txnProperties.getCheckpointLSNThreshold(), this.txnProperties.getCheckpointPollFrequency());
-            this.checkpointThread.start();
-        } else {
-            this.checkpointThread = null;
+            baseCheckpointThread.start();
         }
+
+        partitionToLoggerMap = new HashMap<>();
+        baseLogger = new Triple<>(baseLogManager, baseRecoveryManager, baseCheckpointThread);
+        partitionToLoggerMap.put(localResourceRepository.getNodeOrignalPartitions(), baseLogger);
+
     }
 
-    public ILogManager getLogManager() {
-        return logManager;
+    private Triple<LogManager, RecoveryManager, CheckpointThread> getTxnInfoByPartition(int partition) {
+        Set<Set<Integer>> partitions = partitionToLoggerMap.keySet();
+        for (Set s : partitions) {
+            if (s.contains(partition)) {
+                return partitionToLoggerMap.get(s);
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public ILogManager getLogManager(Set<Integer> partitionIds) {
+        return partitionToLoggerMap.get(partitionIds).first;
+    }
+
+    @Override
+    public ILogManager getLogManager(int partitionId) {
+        Triple<LogManager, RecoveryManager, CheckpointThread> txnInfo = getTxnInfoByPartition(partitionId);
+        if (txnInfo != null) {
+            return txnInfo.first;
+        } else
+            return null;
+    }
+
+    @Override
+    public ILogManager getLogManager(IRecoveryManager recoveryManager) {
+        for (Triple<LogManager, RecoveryManager, CheckpointThread> t : partitionToLoggerMap.values()) {
+            if (t.second.equals(recoveryManager))
+                return t.first;
+        }
+        return null;
+    }
+
+    @Override
+    public ILogManager getBaseLogManager() {
+        return baseLogger.first;
     }
 
     public ILockManager getLockManager() {
@@ -92,8 +127,32 @@ public class TransactionSubsystem implements ITransactionSubsystem {
         return transactionManager;
     }
 
-    public IRecoveryManager getRecoveryManager() {
-        return recoveryManager;
+    @Override
+    public IRecoveryManager getRecoveryManager(Set<Integer> partitionIds) {
+        return partitionToLoggerMap.get(partitionIds).second;
+    }
+
+    @Override
+    public IRecoveryManager getRecoveryManager(int partitionId) {
+        Triple<LogManager, RecoveryManager, CheckpointThread> txnInfo = getTxnInfoByPartition(partitionId);
+        if (txnInfo != null) {
+            return txnInfo.second;
+        } else
+            return null;
+    }
+
+    @Override
+    public IRecoveryManager getRecoveryManager(ILogManager logManager) {
+        for (Triple<LogManager, RecoveryManager, CheckpointThread> t : partitionToLoggerMap.values()) {
+            if (t.first.equals(logManager))
+                return t.second;
+        }
+        return null;
+    }
+
+    @Override
+    public IRecoveryManager getBaseRecoveryManager() {
+        return baseLogger.second;
     }
 
     public IAsterixAppRuntimeContextProvider getAsterixAppRuntimeContextProvider() {

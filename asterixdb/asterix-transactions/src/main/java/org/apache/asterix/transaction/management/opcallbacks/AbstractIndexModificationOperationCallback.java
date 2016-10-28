@@ -74,7 +74,7 @@ public abstract class AbstractIndexModificationOperationCallback extends Abstrac
             logRecord.setNewValueSize(0);
         }
         logRecord.computeAndSetLogSize();
-        txnSubsystem.getLogManager().log(logRecord);
+        txnSubsystem.getLogManager(logRecord.getResourcePartition()).log(logRecord);
     }
 
     public void setOp(Operation op) throws HyracksDataException {

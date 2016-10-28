@@ -33,6 +33,10 @@ import org.apache.asterix.common.transactions.ITransactionManager;
 import org.apache.asterix.common.transactions.JobId;
 import org.apache.asterix.common.transactions.LogRecord;
 import org.apache.asterix.common.utils.TransactionUtil;
+import org.apache.asterix.transaction.management.service.logging.LogManager;
+import org.apache.asterix.transaction.management.service.recovery.CheckpointThread;
+import org.apache.asterix.transaction.management.service.recovery.RecoveryManager;
+import org.apache.hyracks.algebricks.common.utils.Triple;
 import org.apache.hyracks.api.lifecycle.ILifeCycleComponent;
 
 /**
@@ -60,8 +64,10 @@ public class TransactionManager implements ITransactionManager, ILifeCycleCompon
             if (txnCtx.isWriteTxn()) {
                 LogRecord logRecord = ((TransactionContext) txnCtx).getLogRecord();
                 TransactionUtil.formJobTerminateLogRecord(txnCtx, logRecord, false);
-                txnSubsystem.getLogManager().log(logRecord);
-                txnSubsystem.getRecoveryManager().rollbackTransaction(txnCtx);
+                for(Triple<LogManager,RecoveryManager,CheckpointThread> t: txnSubsystem.partitionToLoggerMap.values()) {
+                    t.first.log(logRecord);
+                    t.second.rollbackTransaction(txnCtx);
+                }
             }
         } catch (Exception ae) {
             String msg = "Could not complete rollback! System is in an inconsistent state";
@@ -109,7 +115,7 @@ public class TransactionManager implements ITransactionManager, ILifeCycleCompon
             if (txnCtx.isWriteTxn()) {
                 LogRecord logRecord = ((TransactionContext) txnCtx).getLogRecord();
                 TransactionUtil.formJobTerminateLogRecord(txnCtx, logRecord, true);
-                txnSubsystem.getLogManager().log(logRecord);
+                txnSubsystem.getLogManager(logRecord.getResourcePartition()).log(logRecord);
             }
         } catch (Exception ae) {
             if (LOGGER.isLoggable(Level.SEVERE)) {

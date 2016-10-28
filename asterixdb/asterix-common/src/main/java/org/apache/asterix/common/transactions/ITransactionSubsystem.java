@@ -19,18 +19,32 @@
 package org.apache.asterix.common.transactions;
 
 
-public interface ITransactionSubsystem {
+import java.util.Set;
 
-    public ILogManager getLogManager();
+ public interface ITransactionSubsystem {
 
-    public ILockManager getLockManager();
+     ILogManager getLogManager(Set<Integer> partitionIds);
 
-    public ITransactionManager getTransactionManager();
+     ILogManager getLogManager(int partitionId);
 
-    public IRecoveryManager getRecoveryManager();
+     ILogManager getLogManager(IRecoveryManager recoveryManager);
 
-    public IAsterixAppRuntimeContextProvider getAsterixAppRuntimeContextProvider();
+     ILogManager getBaseLogManager();
 
-    public String getId();
+     ILockManager getLockManager();
+
+     ITransactionManager getTransactionManager();
+
+     IRecoveryManager getRecoveryManager(Set<Integer> partitionIds);
+
+     IRecoveryManager getRecoveryManager(int partitionId);
+
+     IRecoveryManager getRecoveryManager(ILogManager logManager);
+
+     IRecoveryManager getBaseRecoveryManager();
+
+     IAsterixAppRuntimeContextProvider getAsterixAppRuntimeContextProvider();
+
+     String getId();
 
 }

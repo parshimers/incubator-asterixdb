@@ -64,7 +64,7 @@ public class CommitRuntime implements IPushRuntime {
         IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
                 .getApplicationContext().getApplicationObject();
         this.transactionManager = runtimeCtx.getTransactionSubsystem().getTransactionManager();
-        this.logMgr = runtimeCtx.getTransactionSubsystem().getLogManager();
+        this.logMgr = runtimeCtx.getTransactionSubsystem().getLogManager(resourcePartition);
         this.jobId = jobId;
         this.datasetId = datasetId;
         this.primaryKeyFields = primaryKeyFields;

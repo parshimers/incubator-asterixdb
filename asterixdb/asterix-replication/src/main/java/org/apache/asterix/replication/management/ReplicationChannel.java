@@ -375,7 +375,7 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
 
         private void handleGetReplicaMinLSN() throws IOException {
             long minLSN = asterixAppRuntimeContextProvider.getAppContext().getTransactionSubsystem()
-                    .getRecoveryManager().getMinFirstLSN();
+                    .getRecoveryManager(0).getMinFirstLSN();
             outBuffer.clear();
             outBuffer.putLong(minLSN);
             outBuffer.flip();
@@ -445,7 +445,7 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
 
             long fromLSN = request.getFromLSN();
             long minLocalFirstLSN = asterixAppRuntimeContextProvider.getAppContext().getTransactionSubsystem()
-                    .getRecoveryManager().getLocalMinFirstLSN();
+                    .getRecoveryManager(0).getLocalMinFirstLSN();
 
             //get Log reader
             ILogReader logReader = logManager.getLogReader(true);

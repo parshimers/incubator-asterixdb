@@ -247,10 +247,6 @@ public class LogReader implements ILogReader {
         return logRecord;
     }
 
-    private void getFileChannel() throws ACIDException {
-        getFileChannel(IIOManager.FileReadWriteMode.READ_WRITE);
-    }
-
     private void getFileChannel(IIOManager.FileReadWriteMode mode) throws ACIDException {
         logFile = logMgr.getLogFile(readLSN, false, mode);
         fileBeginLSN = readLSN;

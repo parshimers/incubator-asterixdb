@@ -74,7 +74,7 @@ class LockRequestController implements Runnable {
 
     public LockRequestController(String requestFileName) throws ACIDException, AsterixException {
         this.txnProvider = new TransactionSubsystem("nc1", new TestRuntimeContextProvider(), new AsterixTransactionProperties(
-                new AsterixPropertiesAccessor()));
+                new AsterixPropertiesAccessor()), null);
         this.workerReadyQueue = new WorkerReadyQueue();
         this.requestList = new ArrayList<LockRequest>();
         this.expectedResultList = new ArrayList<ArrayList<Integer>>();
@@ -157,7 +157,7 @@ class LockRequestController implements Runnable {
         if (isSuccess) {
             log("\n*** Test Passed ***");
         }
-        ((LogManager) txnProvider.getLogManager()).stop(false, null);
+        ((LogManager) txnProvider.getLogManager(0)).stop(false, null);
     }
 
     public boolean handleRequest(LockRequest request) throws ACIDException {

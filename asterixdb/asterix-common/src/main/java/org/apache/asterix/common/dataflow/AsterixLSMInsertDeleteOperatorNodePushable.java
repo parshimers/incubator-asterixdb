@@ -19,6 +19,7 @@
 package org.apache.asterix.common.dataflow;
 
 import java.nio.ByteBuffer;
+import java.util.Set;
 
 import org.apache.asterix.common.api.IAsterixAppRuntimeContext;
 import org.apache.asterix.common.exceptions.FrameDataException;
@@ -75,7 +76,8 @@ public class AsterixLSMInsertDeleteOperatorNodePushable extends LSMIndexInsertUp
             }
             IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
                     .getApplicationContext().getApplicationObject();
-            AsterixLSMIndexUtil.checkAndSetFirstLSN(lsmIndex, runtimeCtx.getTransactionSubsystem().getLogManager());
+            AsterixLSMIndexUtil.checkAndSetFirstLSN(lsmIndex,
+                    runtimeCtx.getTransactionSubsystem().getLogManager(indexHelper.getResourcePartition()));
         } catch (Throwable th) {
             throw new HyracksDataException(th);
         }

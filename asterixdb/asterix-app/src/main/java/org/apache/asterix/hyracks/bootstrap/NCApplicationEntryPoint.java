@@ -115,7 +115,7 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
         if (initialRun) {
             LOGGER.info("System is being initialized. (first run)");
         } else {
-            IRecoveryManager recoveryMgr = runtimeContext.getTransactionSubsystem().getRecoveryManager();
+            IRecoveryManager recoveryMgr = runtimeContext.getTransactionSubsystem().getBaseRecoveryManager();
             systemState = recoveryMgr.getSystemState();
 
             if (LOGGER.isLoggable(Level.INFO)) {
@@ -240,7 +240,7 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
         lccm.startAll();
 
         if (!pendingFailbackCompletion) {
-            IRecoveryManager recoveryMgr = runtimeContext.getTransactionSubsystem().getRecoveryManager();
+            IRecoveryManager recoveryMgr = runtimeContext.getTransactionSubsystem().getBaseRecoveryManager();
             recoveryMgr.checkpoint(true, RecoveryManager.NON_SHARP_CHECKPOINT_TARGET_LSN);
 
             if (isMetadataNode) {

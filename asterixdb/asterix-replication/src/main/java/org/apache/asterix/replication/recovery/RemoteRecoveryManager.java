@@ -72,8 +72,8 @@ public class RemoteRecoveryManager implements IRemoteRecoveryManager {
         int maxRecoveryAttempts = replicationProperties.getMaxRemoteRecoveryAttempts();
         PersistentLocalResourceRepository resourceRepository = (PersistentLocalResourceRepository) runtimeContext
                 .getLocalResourceRepository();
-        IRecoveryManager recoveryManager = runtimeContext.getTransactionSubsystem().getRecoveryManager();
-        ILogManager logManager = runtimeContext.getTransactionSubsystem().getLogManager();
+        IRecoveryManager recoveryManager = runtimeContext.getTransactionSubsystem().getRecoveryManager(0);
+        ILogManager logManager = runtimeContext.getTransactionSubsystem().getLogManager(0);
         while (true) {
             //start recovery steps
             try {
@@ -225,7 +225,7 @@ public class RemoteRecoveryManager implements IRemoteRecoveryManager {
          * notified that the takeover failed.
          */
         Set<Integer> partitionsToTakeover = new HashSet<>(Arrays.asList(partitions));
-        ILogManager logManager = runtimeContext.getTransactionSubsystem().getLogManager();
+        ILogManager logManager = runtimeContext.getTransactionSubsystem().getLogManager(0);
 
         long minLSN = runtimeContext.getReplicaResourcesManager().getPartitionsMinLSN(partitionsToTakeover);
         long readableSmallestLSN = logManager.getReadableSmallestLSN();
@@ -234,7 +234,7 @@ public class RemoteRecoveryManager implements IRemoteRecoveryManager {
         }
 
         //replay logs > minLSN that belong to these partitions
-        IRecoveryManager recoveryManager = runtimeContext.getTransactionSubsystem().getRecoveryManager();
+        IRecoveryManager recoveryManager = runtimeContext.getTransactionSubsystem().getRecoveryManager(0);
         recoveryManager.replayPartitionsLogs(partitionsToTakeover, logManager.getLogReader(true), minLSN);
 
         //mark these partitions as active in this node
@@ -299,7 +299,7 @@ public class RemoteRecoveryManager implements IRemoteRecoveryManager {
 
     @Override
     public void completeFailbackProcess() throws IOException {
-        ILogManager logManager = runtimeContext.getTransactionSubsystem().getLogManager();
+        ILogManager logManager = runtimeContext.getTransactionSubsystem().getLogManager(0);
         ReplicaResourcesManager replicaResourcesManager = (ReplicaResourcesManager) runtimeContext
                 .getReplicaResourcesManager();
         Map<String, ClusterPartition[]> nodePartitions = ((IAsterixPropertiesProvider) runtimeContext)

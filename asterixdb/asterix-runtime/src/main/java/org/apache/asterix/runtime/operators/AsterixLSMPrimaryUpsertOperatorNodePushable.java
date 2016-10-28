@@ -137,7 +137,7 @@ public class AsterixLSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertU
             IAsterixAppRuntimeContext runtimeCtx = (IAsterixAppRuntimeContext) ctx.getJobletContext()
                     .getApplicationContext().getApplicationObject();
             AsterixLSMIndexUtil.checkAndSetFirstLSN((AbstractLSMIndex) index,
-                    runtimeCtx.getTransactionSubsystem().getLogManager());
+                    runtimeCtx.getTransactionSubsystem().getLogManager(indexHelper.getResourcePartition()));
         } catch (Exception e) {
             indexHelper.close();
             throw new HyracksDataException(e);
