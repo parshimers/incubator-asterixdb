@@ -184,4 +184,14 @@ public class VirtualMetaDataPageManager implements IVirtualMetaDataPageManager {
         // Method doesn't make sense for this free page manager.
         return -1L;
     }
+
+    @Override
+    public void setRootPage(int rootPage) throws HyracksDataException {
+
+    }
+
+    @Override
+    public int getRootPage() throws HyracksDataException {
+        return 1;
+    }
 }
