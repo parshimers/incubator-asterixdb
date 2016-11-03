@@ -470,8 +470,7 @@ public class LinkedMetaDataPageManager implements IMetaDataPageManager {
     public long getLSNOffset() throws HyracksDataException {
         int metadataPageNum = getFirstMetadataPage();
         if (metadataPageNum != IBufferCache.INVALID_PAGEID) {
-            return ((long) metadataPageNum * (bufferCache.getPageSize() + BufferCache.RESERVED_HEADER_BYTES))
-                    + LIFOMetaDataFrame.LSN_OFFSET;
+            return ((long) metadataPageNum * bufferCache.getPageSizeWithHeader()) + LIFOMetaDataFrame.LSN_OFFSET;
         }
         return IMetaDataPageManager.INVALID_LSN_OFFSET;
     }
@@ -498,7 +497,7 @@ public class LinkedMetaDataPageManager implements IMetaDataPageManager {
     }
 
     @Override
-    public void setRootPage(int rootPage) throws HyracksDataException{
+    public void setRootPage(int rootPage) throws HyracksDataException {
         ICachedPage metaNode;
         if (!appendOnly) {
             metaNode = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, getFirstMetadataPage()), false);

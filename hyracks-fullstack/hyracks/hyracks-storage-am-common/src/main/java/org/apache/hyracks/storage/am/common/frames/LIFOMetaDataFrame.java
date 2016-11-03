@@ -127,7 +127,7 @@ public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
         buf.putInt(NEXT_PAGE_OFFSET, -1);
         buf.putInt(ADDITIONAL_FILTERING_PAGE_OFFSET, -1);
         buf.putLong(LAST_MARKER_LSN_OFFSET, -1L);
-        buf.putInt(ROOT_PAGE_NUMBER,0);
+        buf.putInt(ROOT_PAGE_NUMBER, 0);
         buf.putInt(STORAGE_VERSION_OFFSET, VERSION);
         setValid(false);
     }

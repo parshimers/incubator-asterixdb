@@ -91,6 +91,10 @@ public class MultitenantVirtualBufferCache implements IVirtualBufferCache {
         return vbc.getPageSize();
     }
 
+    public int getPageSizeWithHeader(){
+        return vbc.getPageSizeWithHeader();
+    }
+
     @Override
     public int getNumPages() {
         return vbc.getNumPages();

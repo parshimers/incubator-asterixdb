@@ -270,6 +270,11 @@ public class VirtualBufferCache implements IVirtualBufferCache {
     }
 
     @Override
+    public int getPageSizeWithHeader(){
+        return pageSize;
+    }
+
+    @Override
     public int getNumPages() {
         return numPages;
     }
