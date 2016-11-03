@@ -89,7 +89,7 @@ public class SimpleTupleReference implements ITreeIndexTupleReference {
     }
 
     protected int getNullFlagsBytes() {
-        return (int) Math.ceil(fieldCount / 8.0);
+        return (int) Math.ceil(fieldCount / 4.0);
     }
 
     protected int getFieldSlotsBytes() {
