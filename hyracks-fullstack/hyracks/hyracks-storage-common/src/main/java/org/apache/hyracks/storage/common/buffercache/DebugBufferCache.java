@@ -99,7 +99,7 @@ public class DebugBufferCache implements IBufferCache {
     }
 
     @Override
-    public int getPageSizeWithHeader(){
+    public int getPageSizeWithHeader() {
         return bufferCache.getPageSizeWithHeader();
     }
 
