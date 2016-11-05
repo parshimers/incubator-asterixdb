@@ -65,7 +65,6 @@ public class AsterixRestartIT {
                     + File.separator + "scripts";
             env.put("SCRIPT_HOME", scriptHomePath);
             AsterixInstallerIntegrationUtil.init();
-            AsterixInstallerIntegrationUtil.transformIntoRequiredState(State.ACTIVE);
             TestCaseContext.Builder b = new TestCaseContext.Builder();
             testCaseCollection = b.build(new File(PATH_BASE));
         } catch (Throwable th) {
@@ -82,7 +81,10 @@ public class AsterixRestartIT {
     @Test
     public void test() throws Exception {
         for (TestCaseContext testCaseCtx : testCaseCollection) {
+            AsterixInstallerIntegrationUtil.transformIntoRequiredState(State.INACTIVE);
+            AsterixInstallerIntegrationUtil.transformIntoRequiredState(State.ACTIVE);
             testExecutor.executeTest(PATH_ACTUAL, testCaseCtx, pb, false);
+            AsterixInstallerIntegrationUtil.transformIntoRequiredState(State.INACTIVE);
         }
 
     }
