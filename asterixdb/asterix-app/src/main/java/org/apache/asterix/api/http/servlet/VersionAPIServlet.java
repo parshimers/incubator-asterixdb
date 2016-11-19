@@ -27,8 +27,9 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.asterix.runtime.util.AsterixAppContextInfo;
-import org.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import static org.apache.asterix.api.http.servlet.ServletConstants.ASTERIX_BUILD_PROP_ATTR;
 
@@ -40,7 +41,11 @@ public class VersionAPIServlet extends HttpServlet {
         ServletContext context = getServletContext();
         AsterixAppContextInfo props = (AsterixAppContextInfo) context.getAttribute(ASTERIX_BUILD_PROP_ATTR);
         Map<String, String> buildProperties = props.getBuildProperties().getAllProps();
-        JSONObject responseObject = new JSONObject(buildProperties);
+        ObjectMapper om = new ObjectMapper();
+        ObjectNode responseObject = om.createObjectNode();
+        for(String s: buildProperties.keySet()){
+            responseObject.put(s,buildProperties.get(s));
+        }
         response.setCharacterEncoding("utf-8");
         PrintWriter responseWriter = response.getWriter();
         responseWriter.write(responseObject.toString());

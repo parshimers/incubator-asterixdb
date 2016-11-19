@@ -18,7 +18,8 @@
  */
 package org.apache.hyracks.control.cc.web;
 
-import org.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.hyracks.control.cc.ClusterControllerService;
 import org.apache.hyracks.control.cc.web.util.IJSONOutputFunction;
@@ -33,8 +34,9 @@ public class NodesRESTAPIFunction implements IJSONOutputFunction {
     }
 
     @Override
-    public JSONObject invoke(String[] arguments) throws Exception {
-        JSONObject result = new JSONObject();
+    public ObjectNode invoke(String[] arguments) throws Exception {
+        ObjectMapper om = new ObjectMapper();
+        ObjectNode result = om.createObjectNode();
         switch (arguments.length) {
             case 1: {
                 if ("".equals(arguments[0])) {

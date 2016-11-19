@@ -36,6 +36,7 @@ import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.metadata.MetadataTransactionContext;
 import org.apache.asterix.metadata.declared.AqlMetadataProvider;
@@ -49,8 +50,8 @@ import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.client.NodeControllerInfo;
 import org.apache.hyracks.api.comm.NetworkAddress;
 import org.apache.hyracks.dataflow.std.file.FileSplit;
-import org.json.JSONArray;
-import org.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.json.JSONTokener;
 import org.junit.Assert;
 import org.junit.Test;
@@ -96,22 +97,21 @@ public class ConnectorAPIServletTest {
         servlet.doGet(mockRequest, mockResponse);
 
         // Constructs the actual response.
-        JSONTokener tokener = new JSONTokener(
-                new InputStreamReader(new ByteArrayInputStream(outputStream.toByteArray())));
-        JSONObject actualResponse = new JSONObject(tokener);
+        ObjectMapper om = new ObjectMapper();
+        ObjectNode actualResponse = (ObjectNode) om.readTree(outputStream.toString());
 
         // Checks the temp-or-not, primary key, data type of the dataset.
-        boolean temp = actualResponse.getBoolean("temp");
+        boolean temp = actualResponse.get("temp").asBoolean();
         Assert.assertFalse(temp);
-        String primaryKey = actualResponse.getString("keys");
+        String primaryKey = actualResponse.get("keys").asText();
         Assert.assertEquals("DataverseName,DatasetName", primaryKey);
         ARecordType recordType = (ARecordType) JSONDeserializerForTypes
-                .convertFromJSON((JSONObject) actualResponse.get("type"));
+                .convertFromJSON((ObjectNode) actualResponse.get("type"));
         Assert.assertEquals(getMetadataRecordType("Metadata", "Dataset"), recordType);
 
         // Checks the correctness of results.
-        JSONArray splits = actualResponse.getJSONArray("splits");
-        String path = ((JSONObject) splits.get(0)).getString("path");
+        ArrayNode splits = (ArrayNode) actualResponse.get("splits");
+        String path = (splits.get(0)).get("path").asText();
         Assert.assertTrue(path.endsWith("Metadata/Dataset_idx_Dataset"));
 
         // Tears down the asterixdb cluster.
@@ -121,7 +121,8 @@ public class ConnectorAPIServletTest {
     @Test
     public void testFormResponseObject() throws Exception {
         ConnectorAPIServlet servlet = new ConnectorAPIServlet();
-        JSONObject actualResponse = new JSONObject();
+        ObjectMapper om = new ObjectMapper();
+        ObjectNode actualResponse = om.createObjectNode();
         FileSplit[] splits = new FileSplit[2];
         splits[0] = new FileSplit("asterix_nc1", "foo1");
         splits[1] = new FileSplit("asterix_nc2", "foo2");
@@ -142,26 +143,26 @@ public class ConnectorAPIServletTest {
         nodeMap.put("asterix_nc1", mockInfo1);
         nodeMap.put("asterix_nc2", mockInfo2);
         PA.invokeMethod(servlet,
-                "formResponseObject(org.json.JSONObject, org.apache.hyracks.dataflow.std.file.FileSplit[], "
+                "formResponseObject(org.json.ObjectNode, org.apache.hyracks.dataflow.std.file.FileSplit[], "
                         + "org.apache.asterix.om.types.ARecordType, java.lang.String, boolean, java.util.Map)",
                 actualResponse, splits, recordType, primaryKey, true, nodeMap);
 
         // Constructs expected response.
-        JSONObject expectedResponse = new JSONObject();
+        ObjectNode expectedResponse = om.createObjectNode();
         expectedResponse.put("temp", true);
         expectedResponse.put("keys", primaryKey);
         expectedResponse.put("type", recordType.toJSON());
-        JSONArray splitsArray = new JSONArray();
-        JSONObject element1 = new JSONObject();
+        ArrayNode splitsArray = om.createArrayNode();
+        ObjectNode element1 = om.createObjectNode();
         element1.put("ip", "127.0.0.1");
         element1.put("path", splits[0].getLocalFile().getFile().getAbsolutePath());
         element1.put("ioDeviceId", 0);
-        JSONObject element2 = new JSONObject();
+        ObjectNode element2 = om.createObjectNode();
         element2.put("ip", "127.0.0.2");
         element2.put("path", splits[1].getLocalFile().getFile().getAbsolutePath());
         element2.put("ioDeviceId", 0);
-        splitsArray.put(element1);
-        splitsArray.put(element2);
+        splitsArray.add(element1);
+        splitsArray.add(element2);
         expectedResponse.put("splits", splitsArray);
 
         // Checks results.

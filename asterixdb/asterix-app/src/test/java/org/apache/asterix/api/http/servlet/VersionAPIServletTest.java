@@ -31,11 +31,12 @@ import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.asterix.common.config.AsterixBuildProperties;
 import org.apache.asterix.runtime.util.AsterixAppContextInfo;
 import org.apache.asterix.test.runtime.ExecutionTest;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
-import org.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.json.JSONTokener;
 import org.junit.Assert;
 import org.junit.Test;
@@ -103,10 +104,13 @@ public class VersionAPIServletTest {
         servlet.doGet(mockRequest, mockResponse);
 
         // Constructs the actual response.
-        JSONTokener tokener = new JSONTokener(
-                new InputStreamReader(new ByteArrayInputStream(outputStream.toByteArray())));
-        JSONObject actualResponse = new JSONObject(tokener);
-        JSONObject expectedResponse = new JSONObject(propMap);
+
+        ObjectMapper om = new ObjectMapper();
+        ObjectNode actualResponse = (ObjectNode) om.readTree(outputStream.toByteArray());
+        ObjectNode expectedResponse = om.createObjectNode();
+        for(String s: propMap.keySet()){
+            expectedResponse.put(s,propMap.get(s));
+        }
 
         // Checks the response contains all the expected keys.
         Assert.assertEquals(actualResponse.toString(), expectedResponse.toString());

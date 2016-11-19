@@ -29,8 +29,9 @@ import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
-import org.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class ClusterCCDetailsAPIServlet extends ClusterAPIServlet {
     private static final long serialVersionUID = 1L;
@@ -41,18 +42,18 @@ public class ClusterCCDetailsAPIServlet extends ClusterAPIServlet {
         PrintWriter responseWriter = response.getWriter();
         ServletContext context = getServletContext();
         IHyracksClientConnection hcc = (IHyracksClientConnection) context.getAttribute(HYRACKS_CONNECTION_ATTR);
-        JSONObject json;
+        ObjectNode json;
 
         try {
             if (request.getPathInfo() == null) {
-                json = getClusterStateJSON(request, "../").getJSONObject("cc");
+                json = (ObjectNode) getClusterStateJSON(request, "../").get("cc");
             } else {
                 json = processNode(request, hcc);
             }
             response.setStatus(HttpServletResponse.SC_OK);
             response.setContentType("application/json");
             response.setCharacterEncoding("utf-8");
-            responseWriter.write(json.toString(4));
+            responseWriter.write(json.asText());
         } catch (IllegalArgumentException e) { // NOSONAR - exception not logged or rethrown
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
         } catch (Exception e) {
@@ -62,22 +63,23 @@ public class ClusterCCDetailsAPIServlet extends ClusterAPIServlet {
         responseWriter.flush();
     }
 
-    private JSONObject processNode(HttpServletRequest request, IHyracksClientConnection hcc)
+    private ObjectNode processNode(HttpServletRequest request, IHyracksClientConnection hcc)
             throws Exception {
         String pathInfo = request.getPathInfo();
+        ObjectMapper om = new ObjectMapper();
         if (pathInfo.endsWith("/")) {
             throw new IllegalArgumentException();
         }
         String[] parts = pathInfo.substring(1).split("/");
 
         if (request.getPathInfo() == null) {
-            return getClusterStateJSON(request, "../../").getJSONObject("cc");
+            return (ObjectNode) getClusterStateJSON(request, "../../").get("cc");
         } else if (parts.length == 1) {
             switch (parts[0]) {
                 case "config":
-                    return new JSONObject(hcc.getNodeDetailsJSON(null, false, true));
+                    return (ObjectNode)om.readTree((hcc.getNodeDetailsJSON(null, false, true)));
                 case "stats":
-                    return new JSONObject(hcc.getNodeDetailsJSON(null, true, false));
+                    return (ObjectNode)om.readTree((hcc.getNodeDetailsJSON(null, true, false)));
                 case "threaddump":
                     return processCCThreadDump(hcc);
 
@@ -90,12 +92,13 @@ public class ClusterCCDetailsAPIServlet extends ClusterAPIServlet {
         }
     }
 
-    private JSONObject processCCThreadDump(IHyracksClientConnection hcc) throws Exception {
+    private ObjectNode processCCThreadDump(IHyracksClientConnection hcc) throws Exception {
         String dump = hcc.getThreadDump(null);
+        ObjectMapper om = new ObjectMapper();
         if (dump == null) {
             throw new IllegalArgumentException();
         }
-        return new JSONObject(dump);
+        return (ObjectNode)om.readTree((dump));
     }
 
 }

@@ -43,7 +43,10 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.databind.*;
 import org.apache.asterix.common.config.GlobalConfig;
+import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.utils.ServletUtil.Servlets;
 import org.apache.asterix.test.base.ComparisonException;
 import org.apache.asterix.test.server.ITestServer;
@@ -67,9 +70,7 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.client.StandardHttpRequestRetryHandler;
 import org.apache.http.util.EntityUtils;
 import org.apache.hyracks.util.StorageUtil;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class TestExecutor {
 
@@ -80,11 +81,11 @@ public class TestExecutor {
     // see
     // https://stackoverflow.com/questions/417142/what-is-the-maximum-length-of-a-url-in-different-browsers/417184
     private static final long MAX_URL_LENGTH = 2000l;
-    private static final Pattern JAVA_BLOCK_COMMENT_PATTERN =
-            Pattern.compile("/\\*.*\\*/", Pattern.MULTILINE | Pattern.DOTALL);
+    private static final Pattern JAVA_BLOCK_COMMENT_PATTERN = Pattern.compile("/\\*.*\\*/",
+            Pattern.MULTILINE | Pattern.DOTALL);
     private static final Pattern REGEX_LINES_PATTERN = Pattern.compile("^(-)?/(.*)/([im]*)$");
-    private static final Pattern POLL_TIMEOUT_PATTERN =
-            Pattern.compile("polltimeoutsecs=(\\d+)(\\D|$)", Pattern.MULTILINE);
+    private static final Pattern POLL_TIMEOUT_PATTERN = Pattern.compile("polltimeoutsecs=(\\d+)(\\D|$)",
+            Pattern.MULTILINE);
     private static final Pattern POLL_DELAY_PATTERN = Pattern.compile("polldelaysecs=(\\d+)(\\D|$)", Pattern.MULTILINE);
     public static final int TRUNCATE_THRESHOLD = 16384;
 
@@ -199,9 +200,8 @@ public class TestExecutor {
 
     private void throwLineChanged(File scriptFile, String lineExpected, String lineActual, int num)
             throws ComparisonException {
-        throw new ComparisonException(
-                "Result for " + scriptFile + " changed at line " + num + ":\n< "
-                        + truncateIfLong(lineExpected) + "\n> " + truncateIfLong(lineActual));
+        throw new ComparisonException("Result for " + scriptFile + " changed at line " + num + ":\n< "
+                + truncateIfLong(lineExpected) + "\n> " + truncateIfLong(lineActual));
     }
 
     private String truncateIfLong(String string) {
@@ -211,8 +211,7 @@ public class TestExecutor {
         final StringBuilder truncatedString = new StringBuilder(string);
         truncatedString.setLength(TRUNCATE_THRESHOLD);
         truncatedString.append("\n<truncated ")
-                .append(StorageUtil.toHumanReadableSize(string.length() - TRUNCATE_THRESHOLD))
-                .append("...>");
+                .append(StorageUtil.toHumanReadableSize(string.length() - TRUNCATE_THRESHOLD)).append("...>");
         return truncatedString.toString();
     }
 
@@ -327,8 +326,8 @@ public class TestExecutor {
                 }
                 Matcher m = REGEX_LINES_PATTERN.matcher(lineExpected);
                 if (!m.matches()) {
-                    throw new IllegalArgumentException("Each line of regex file must conform to: [-]/regex/[flags]: "
-                            + expectedFile);
+                    throw new IllegalArgumentException(
+                            "Each line of regex file must conform to: [-]/regex/[flags]: " + expectedFile);
                 }
                 String negateStr = m.group(1);
                 String expression = m.group(2);
@@ -346,8 +345,8 @@ public class TestExecutor {
                 if (match && !negate || negate && !match) {
                     continue;
                 }
-                throw new Exception("Result for " + scriptFile + ": expected pattern '" + expression +
-                        "' not found in result.");
+                throw new Exception(
+                        "Result for " + scriptFile + ": expected pattern '" + expression + "' not found in result.");
             }
         } catch (Exception e) {
             System.err.println("Actual results file: " + actualFile.toString());
@@ -400,18 +399,17 @@ public class TestExecutor {
             try {
                 // First try to parse the response for a JSON error response.
 
-                JSONObject result = new JSONObject(errorBody);
-                String[] errors = { result.getJSONArray("error-code").getString(0), result.getString("summary"),
-                        result.getString("stacktrace") };
+                ObjectMapper om = new ObjectMapper();
+                JsonNode result = om.readTree(errorBody);
+                String[] errors = { result.get("error-code").asText(), result.get("summary").asText(),
+                        result.get("stacktrace").asText() };
                 GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, errors[2]);
-                exceptionMsg = "HTTP operation failed: " + errors[0]
-                        + "\nSTATUS LINE: " + httpResponse.getStatusLine()
+                exceptionMsg = "HTTP operation failed: " + errors[0] + "\nSTATUS LINE: " + httpResponse.getStatusLine()
                         + "\nSUMMARY: " + errors[1] + "\nSTACKTRACE: " + errors[2];
             } catch (Exception e) {
                 // whoops, not JSON (e.g. 404) - just include the body
                 GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, errorBody);
-                exceptionMsg = "HTTP operation failed:"
-                        + "\nSTATUS LINE: " + httpResponse.getStatusLine()
+                exceptionMsg = "HTTP operation failed:" + "\nSTATUS LINE: " + httpResponse.getStatusLine()
                         + "\nERROR_BODY: " + errorBody;
             }
             throw new Exception(exceptionMsg);
@@ -457,7 +455,7 @@ public class TestExecutor {
     }
 
     private List<CompilationUnit.Parameter> injectStatement(String statement, String stmtParamName,
-                                                            List<CompilationUnit.Parameter> otherParams) {
+            List<CompilationUnit.Parameter> otherParams) {
         CompilationUnit.Parameter stmtParam = new CompilationUnit.Parameter();
         stmtParam.setName(stmtParamName);
         stmtParam.setValue(statement);
@@ -488,7 +486,7 @@ public class TestExecutor {
     }
 
     private HttpUriRequest constructGetMethod(String endpoint, OutputFormat fmt,
-                                              List<CompilationUnit.Parameter> params) {
+            List<CompilationUnit.Parameter> params) {
 
         HttpUriRequest method = constructGetMethod(endpoint, params);
         // Set accepted output response type
@@ -506,7 +504,7 @@ public class TestExecutor {
     }
 
     private HttpUriRequest constructPostMethod(String endpoint, OutputFormat fmt,
-                                              List<CompilationUnit.Parameter> params) {
+            List<CompilationUnit.Parameter> params) {
 
         HttpUriRequest method = constructPostMethod(endpoint, params);
         // Set accepted output response type
@@ -536,13 +534,10 @@ public class TestExecutor {
             throw new NullPointerException("Statement parameter required.");
         }
         RequestBuilder builder = RequestBuilder.post(endpoint);
-        JSONObject content = new JSONObject();
-        try {
-            for (CompilationUnit.Parameter param : injectStatement(statement, stmtParam, otherParams)) {
-                content.put(param.getName(), param.getValue());
-            }
-        } catch (JSONException e) {
-            throw new IllegalArgumentException("Request object construction failed.", e);
+        ObjectMapper om = new ObjectMapper();
+        ObjectNode content = om.createObjectNode();
+        for (CompilationUnit.Parameter param : injectStatement(statement, stmtParam, otherParams)) {
+            content.put(param.getName(), param.getValue());
         }
         builder.setEntity(new StringEntity(content.toString(), ContentType.APPLICATION_JSON));
         builder.setCharset(StandardCharsets.UTF_8);
@@ -565,8 +560,7 @@ public class TestExecutor {
     // Insert and Delete statements are executed here
     public void executeUpdate(String str, String url) throws Exception {
         // Create a method instance.
-        HttpUriRequest request = RequestBuilder.post(url)
-                .setEntity(new StringEntity(str, StandardCharsets.UTF_8))
+        HttpUriRequest request = RequestBuilder.post(url).setEntity(new StringEntity(str, StandardCharsets.UTF_8))
                 .build();
 
         // Execute the method.
@@ -593,10 +587,8 @@ public class TestExecutor {
         final String url = getEndpoint(Servlets.QUERY_RESULT);
 
         // Create a method instance.
-        HttpUriRequest request = RequestBuilder.get(url)
-                .addParameter("handle", handle)
-                .setHeader("Accept", fmt.mimeType())
-                .build();
+        HttpUriRequest request = RequestBuilder.get(url).addParameter("handle", handle)
+                .setHeader("Accept", fmt.mimeType()).build();
 
         HttpResponse response = executeAndCheckHttpRequest(request);
         return response.getEntity().getContent();
@@ -610,8 +602,7 @@ public class TestExecutor {
     // create function statement
     public void executeDDL(String str, String url) throws Exception {
         // Create a method instance.
-        HttpUriRequest request = RequestBuilder.post(url)
-                .setEntity(new StringEntity(str, StandardCharsets.UTF_8))
+        HttpUriRequest request = RequestBuilder.post(url).setEntity(new StringEntity(str, StandardCharsets.UTF_8))
                 .build();
 
         // Execute the method.
@@ -622,8 +613,8 @@ public class TestExecutor {
     // and returns the contents as a string
     // This string is later passed to REST API for execution.
     public String readTestFile(File testFile) throws Exception {
-        BufferedReader reader =
-                new BufferedReader(new InputStreamReader(new FileInputStream(testFile), StandardCharsets.UTF_8));
+        BufferedReader reader = new BufferedReader(
+                new InputStreamReader(new FileInputStream(testFile), StandardCharsets.UTF_8));
         String line;
         StringBuilder stringBuilder = new StringBuilder();
         String ls = System.getProperty("line.separator");
@@ -746,7 +737,7 @@ public class TestExecutor {
                 long limitTime = startTime + TimeUnit.SECONDS.toMillis(timeoutSecs);
                 ctx.setType(ctx.getType().substring("poll".length()));
                 Exception finalException;
-                LOGGER.fine("polling for up to " + timeoutSecs + " seconds w/ " + retryDelaySecs  + " second(s) delay");
+                LOGGER.fine("polling for up to " + timeoutSecs + " seconds w/ " + retryDelaySecs + " second(s) delay");
                 while (true) {
                     try {
                         executeTest(testCaseCtx, ctx, statement, isDmlRecoveryTest, pb, cUnit, queryCount,
@@ -901,8 +892,8 @@ public class TestExecutor {
             case "get":
             case "post":
                 if (!"http".equals(ctx.extension())) {
-                    throw new IllegalArgumentException("Unexpected format for method " + ctx.getType() + ": "
-                            + ctx.extension());
+                    throw new IllegalArgumentException(
+                            "Unexpected format for method " + ctx.getType() + ": " + ctx.extension());
                 }
                 fmt = OutputFormat.forCompilationUnit(cUnit);
                 String endpoint = stripJavaComments(statement).trim();
@@ -924,7 +915,7 @@ public class TestExecutor {
                 queryCount.increment();
                 break;
             case "server": // (start <test server name> <port>
-                           // [<arg1>][<arg2>][<arg3>]...|stop (<port>|all))
+                               // [<arg1>][<arg2>][<arg3>]...|stop (<port>|all))
                 try {
                     lines = statement.trim().split("\n");
                     String[] command = lines[lines.length - 1].trim().split(" ");
@@ -972,7 +963,7 @@ public class TestExecutor {
                 }
                 break;
             case "lib": // expected format <dataverse-name> <library-name>
-                        // <library-directory>
+                            // <library-directory>
                         // TODO: make this case work well with entity names containing spaces by
                         // looking for \"
                 lines = statement.split("\n");
@@ -1097,12 +1088,18 @@ public class TestExecutor {
             InputStream resultStream = executeQueryService("select dv.DataverseName from Metadata.`Dataverse` as dv;",
                     getEndpoint(Servlets.QUERY_SERVICE));
             resultStream = ResultExtractor.extract(resultStream);
-            StringWriter sw = new StringWriter();
-            IOUtils.copy(resultStream, sw, StandardCharsets.UTF_8.name());
-            JSONArray result = new JSONArray(sw.toString());
-            for (int i = 0; i < result.length(); ++i) {
-                JSONObject json = result.getJSONObject(i);
-                String dvName = json.getString("DataverseName");
+            ObjectMapper om = new ObjectMapper();
+            om.setConfig(om.getDeserializationConfig()
+                    .with(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT));
+            ObjectNode result;
+            try {
+                result = om.readValue(resultStream, ObjectNode.class);
+            } catch( JsonMappingException e){
+                result = om.createObjectNode();
+            }
+            for (int i = 0; i < result.size(); ++i) {
+                JsonNode json = result.get(i);
+                String dvName = json.get("DataverseName").asText();
                 if (!dvName.equals("Metadata") && !dvName.equals("Default")) {
                     toBeDropped.add(dvName);
                 }
@@ -1125,4 +1122,5 @@ public class TestExecutor {
             throw th;
         }
     }
+
 }

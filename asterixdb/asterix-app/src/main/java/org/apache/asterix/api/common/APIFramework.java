@@ -79,7 +79,7 @@ import org.apache.hyracks.algebricks.core.rewriter.base.PhysicalOptimizationConf
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.api.job.JobSpecification;
-import org.json.JSONException;
+
 
 /**
  * Provides helper methods for compilation of a query into a JobSpec and submission
@@ -153,7 +153,7 @@ public class APIFramework {
     public JobSpecification compileQuery(List<FunctionDecl> declaredFunctions,
             AqlMetadataProvider queryMetadataProvider, Query rwQ, int varCounter, String outputDatasetName,
             SessionConfig conf, ICompiledDmlStatement statement)
-            throws AlgebricksException, JSONException, RemoteException, ACIDException {
+            throws AlgebricksException, IOException, ACIDException {
 
         if (!conf.is(SessionConfig.FORMAT_ONLY_PHYSICAL_OPS) && conf.is(SessionConfig.OOB_REWRITTEN_EXPR_TREE)) {
             conf.out().println();
@@ -297,7 +297,7 @@ public class APIFramework {
         if (conf.is(SessionConfig.OOB_HYRACKS_JOB)) {
             printPlanPrefix(conf, "Hyracks job");
             if (rwQ != null) {
-                conf.out().println(spec.toJSON().toString(1));
+                conf.out().println(spec.toJSON().asText());
                 conf.out().println(spec.getUserConstraints());
             }
             printPlanPostfix(conf);

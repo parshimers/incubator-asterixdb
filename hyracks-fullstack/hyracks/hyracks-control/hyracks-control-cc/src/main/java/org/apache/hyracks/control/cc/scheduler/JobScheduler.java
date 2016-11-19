@@ -31,9 +31,8 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.json.JSONException;
-import org.json.JSONObject;
-
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.hyracks.api.comm.NetworkAddress;
 import org.apache.hyracks.api.constraints.Constraint;
 import org.apache.hyracks.api.constraints.expressions.LValueConstraintExpression;
@@ -734,15 +733,12 @@ public class JobScheduler {
         }
     }
 
-    private JSONObject createJobLogObject(final JobRun run) {
-        JSONObject jobLogObject = new JSONObject();
-        try {
-            ActivityClusterGraph acg = run.getActivityClusterGraph();
-            jobLogObject.put("activity-cluster-graph", acg.toJSON());
-            jobLogObject.put("job-run", run.toJSON());
-        } catch (JSONException e) {
-            throw new RuntimeException(e);
-        }
+    private ObjectNode createJobLogObject(final JobRun run) {
+        ObjectMapper om = new ObjectMapper();
+        ObjectNode jobLogObject = om.createObjectNode();
+        ActivityClusterGraph acg = run.getActivityClusterGraph();
+        jobLogObject.put("activity-cluster-graph", acg.toJSON());
+        jobLogObject.put("job-run", run.toJSON());
         return jobLogObject;
     }
 }

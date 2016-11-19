@@ -19,16 +19,12 @@
 
 package org.apache.asterix.recordmanagergenerator;
 
+import java.io.IOException;
 import java.io.Reader;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Map;
+import java.util.*;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-import org.json.JSONTokener;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class RecordType {
 
@@ -73,10 +69,10 @@ public class RecordType {
             this.accessible = accessible;
         }
 
-        public static Field fromJSON(JSONObject obj) throws JSONException {
-            String name = obj.getString("name");
-            Type type = parseType(obj.getString("type"));
-            String initial = obj.optString("initial", null);
+        public static Field fromJSON(JsonNode obj)  {
+            String name = obj.asText("name");
+            Type type = parseType(obj.asText("type"));
+            String initial = obj.asText("initial");
             return new Field(name, type, initial, -1, true);
         }
 
@@ -271,18 +267,17 @@ public class RecordType {
         addField("next free slot", Type.INT, "-1", false);
     }
 
-    public static RecordType read(Reader reader) throws JSONException {
-        JSONTokener tok = new JSONTokener(reader);
-        JSONObject obj = new JSONObject(tok);
-        return fromJSON(obj);
+    public static RecordType read(Reader reader) throws IOException {
+        JsonNode node = new ObjectMapper().readTree(reader);
+        return fromJSON(node);
     }
 
-    public static RecordType fromJSON(JSONObject obj) throws JSONException {
-        RecordType result = new RecordType(obj.getString("name"));
-        JSONArray fields = obj.getJSONArray("fields");
-        for (int i = 0; i < fields.length(); ++i) {
-            JSONObject field = fields.getJSONObject(i);
-            result.fields.add(Field.fromJSON(field));
+    public static RecordType fromJSON(JsonNode obj){
+        RecordType result = new RecordType(obj.get("name").asText());
+        Iterator<Map.Entry<String,JsonNode>> i = obj.get("fields").fields();
+        while(i.hasNext()){
+            JsonNode n = i.next().getValue();
+            result.fields.add(Field.fromJSON(n));
         }
         return result;
     }

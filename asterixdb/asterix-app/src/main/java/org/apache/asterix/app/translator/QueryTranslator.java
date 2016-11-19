@@ -40,6 +40,7 @@ import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.asterix.active.ActiveJobNotificationHandler;
 import org.apache.asterix.active.ActivityState;
 import org.apache.asterix.active.EntityId;
@@ -202,9 +203,9 @@ import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.api.job.JobSpecification;
 import org.apache.hyracks.dataflow.std.file.FileSplit;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicyFactory;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import com.google.common.collect.Lists;
 
@@ -1966,15 +1967,20 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
     @Override
     public JobSpecification rewriteCompileQuery(AqlMetadataProvider metadataProvider, Query query,
             ICompiledDmlStatement stmt)
-            throws AsterixException, RemoteException, AlgebricksException, JSONException, ACIDException {
+            throws AsterixException, RemoteException, AlgebricksException, ACIDException {
 
         // Query Rewriting (happens under the same ongoing metadata transaction)
         Pair<Query, Integer> reWrittenQuery = apiFramework.reWriteQuery(declaredFunctions, metadataProvider, query,
                 sessionConfig);
 
         // Query Compilation (happens under the same ongoing metadata transaction)
-        JobSpecification spec = apiFramework.compileQuery(declaredFunctions, metadataProvider, reWrittenQuery.first,
-                reWrittenQuery.second, stmt == null ? null : stmt.getDatasetName(), sessionConfig, stmt);
+        JobSpecification spec = null;
+        try {
+            spec = apiFramework.compileQuery(declaredFunctions, metadataProvider, reWrittenQuery.first,
+                    reWrittenQuery.second, stmt == null ? null : stmt.getDatasetName(), sessionConfig, stmt);
+        } catch (IOException e) {
+            throw new AsterixException(e);
+        }
 
         return spec;
 
@@ -2594,16 +2600,17 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             IHyracksDataset hdc, JobSpecification compiled, ResultDelivery resultDelivery, Stats stats)
             throws Exception {
         if (GlobalConfig.ASTERIX_LOGGER.isLoggable(Level.FINE)) {
-            GlobalConfig.ASTERIX_LOGGER.fine(compiled.toJSON().toString(1));
+            GlobalConfig.ASTERIX_LOGGER.fine(compiled.toJSON().asText());
         }
         JobId jobId = JobUtils.runJob(hcc, compiled, false);
 
-        JSONObject response = new JSONObject();
+        ObjectMapper om = new ObjectMapper();
+        ObjectNode response = om.createObjectNode();
         switch (resultDelivery) {
             case ASYNC:
-                JSONArray handle = new JSONArray();
-                handle.put(jobId.getId());
-                handle.put(metadataProvider.getResultSetId().getId());
+                ArrayNode handle = om.createArrayNode();
+                handle.add(jobId.getId());
+                handle.add(metadataProvider.getResultSetId().getId());
                 response.put("handle", handle);
                 sessionConfig.out().print(response);
                 sessionConfig.out().flush();
@@ -2616,9 +2623,9 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 ResultUtil.displayResults(resultReader, sessionConfig, stats, metadataProvider.findOutputRecordType());
                 break;
             case ASYNC_DEFERRED:
-                handle = new JSONArray();
-                handle.put(jobId.getId());
-                handle.put(metadataProvider.getResultSetId().getId());
+                handle = om.createArrayNode();
+                handle.add(jobId.getId());
+                handle.add(metadataProvider.getResultSetId().getId());
                 response.put("handle", handle);
                 hcc.waitForCompletion(jobId);
                 sessionConfig.out().print(response);

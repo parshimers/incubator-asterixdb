@@ -33,6 +33,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.asterix.api.http.servlet.APIServlet;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.translator.IStatementExecutor.Stats;
@@ -41,9 +42,9 @@ import org.apache.http.ParseException;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.log4j.Logger;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class ResultUtil {
     private static final Logger LOGGER = Logger.getLogger(ResultUtil.class.getName());
@@ -82,25 +83,21 @@ public class ResultUtil {
         new ResultPrinter(conf, stats, recordType).print(record);
     }
 
-    public static JSONObject getErrorResponse(int errorCode, String errorMessage, String errorSummary,
+    public static ObjectNode getErrorResponse(int errorCode, String errorMessage, String errorSummary,
             String errorStackTrace) {
-        JSONObject errorResp = new JSONObject();
-        JSONArray errorArray = new JSONArray();
-        errorArray.put(errorCode);
-        errorArray.put(errorMessage);
-        try {
-            errorResp.put("error-code", errorArray);
-            if (!"".equals(errorSummary)) {
-                errorResp.put("summary", errorSummary);
-            } else {
-                //parse exception
-                errorResp.put("summary", errorMessage);
-            }
-            errorResp.put("stacktrace", errorStackTrace);
-        } catch (JSONException e) {
-            LOGGER.warn("Failed to build the result's JSON object", e);
-            // TODO(madhusudancs): Figure out what to do when JSONException occurs while building the results.
+        ObjectMapper om = new ObjectMapper();
+        ObjectNode errorResp = om.createObjectNode();
+        ArrayNode errorArray = om.createArrayNode();
+        errorArray.add(errorCode);
+        errorArray.add(errorMessage);
+        errorResp.put("error-code", errorArray);
+        if (!"".equals(errorSummary)) {
+            errorResp.put("summary", errorSummary);
+        } else {
+            //parse exception
+            errorResp.put("summary", errorMessage);
         }
+        errorResp.put("stacktrace", errorStackTrace);
         return errorResp;
     }
 
@@ -129,7 +126,7 @@ public class ResultUtil {
             errorCode = 4;
         }
 
-        JSONObject errorResp = ResultUtil.getErrorResponse(errorCode, extractErrorMessage(e), extractErrorSummary(e),
+        ObjectNode errorResp = ResultUtil.getErrorResponse(errorCode, extractErrorMessage(e), extractErrorSummary(e),
                 extractFullStackTrace(e));
         out.write(errorResp.toString());
     }

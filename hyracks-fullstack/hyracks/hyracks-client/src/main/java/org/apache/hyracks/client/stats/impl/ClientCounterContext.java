@@ -23,16 +23,13 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.hyracks.api.job.profiling.counters.ICounter;
 import org.apache.hyracks.client.stats.AggregateCounter;
 import org.apache.hyracks.client.stats.Counters;
@@ -132,11 +129,11 @@ public class ClientCounterContext implements IClusterCounterContext {
             reset();
             for (String slave : slaveMachines) {
                 String slaveProfile = requestProfile(slave);
-                JSONParser parser = new JSONParser();
-                JSONObject jo = (JSONObject) parser.parse(slaveProfile);
-                Object counterObject = jo.get("result");
-                if (counterObject instanceof JSONObject) {
-                    updateCounterMapWithJSONArray(slave, (JSONObject) counterObject);
+                ObjectMapper parser = new ObjectMapper();
+                JsonNode jo = parser.readTree(slaveProfile);
+                JsonNode counterObject = jo.get("result");
+                if (counterObject.isObject()) {
+                    updateCounterMapWithArrayNode(slave, counterObject);
                 }
             }
         } catch (Exception e) {
@@ -150,7 +147,7 @@ public class ClientCounterContext implements IClusterCounterContext {
      * @param jo
      *            the Profile JSON object
      */
-    private void updateCounterMapWithJSONArray(String slave, JSONObject jo) {
+    private void updateCounterMapWithArrayNode(String slave, JsonNode jo) {
         for (String counterName : RESET_COUNTERS) {
             updateCounter(slave, jo, counterName);
         }
@@ -160,8 +157,8 @@ public class ClientCounterContext implements IClusterCounterContext {
         }
     }
 
-    private void updateCounter(String slave, JSONObject jo, String counterName) {
-        Object counterObject = jo.get(counterName);
+    private void updateCounter(String slave, JsonNode jo, String counterName) {
+        JsonNode counterObject = jo.get(counterName);
         long counterValue = extractCounterValue(counterObject);
         // global counter
         ICounter counter = getCounter(counterName, true);
@@ -171,34 +168,30 @@ public class ClientCounterContext implements IClusterCounterContext {
         localCounter.set(counterValue);
     }
 
-    private long extractCounterValue(Object counterObject) {
+    private long extractCounterValue(JsonNode counterObject) {
         long counterValue = 0;
         if (counterObject == null) {
             return counterValue;
-        } else if (counterObject instanceof JSONArray) {
-            JSONArray jArray = (JSONArray) counterObject;
-            Object[] values = jArray.toArray();
+        } else if (counterObject.isObject()) {
             /**
              * use the last non-zero value as the counter value
              */
-            for (Object value : values) {
-                if (value instanceof Double) {
-                    Double dValue = (Double) value;
-                    double currentVal = dValue.doubleValue();
+            for(Iterator<JsonNode> jsonIt = counterObject.iterator(); jsonIt.hasNext();) {
+                JsonNode value = jsonIt.next();
+                if (value.isDouble()) {
+                    double currentVal = value.asDouble();
                     if (currentVal != 0) {
                         counterValue = (long) currentVal;
                     }
-                } else if (value instanceof Long) {
-                    Long lValue = (Long) value;
-                    long currentVal = lValue.longValue();
+                } else if (value.isLong()) {
+                    long currentVal = value.asLong();
                     if (currentVal != 0) {
-                        counterValue = lValue.longValue();
+                        counterValue = currentVal;
                     }
                 }
             }
         } else {
-            Long val = (Long) counterObject;
-            counterValue = val.longValue();
+            counterValue = counterObject.asLong();
         }
         return counterValue;
     }

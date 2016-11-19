@@ -18,8 +18,8 @@
  */
 package org.apache.asterix.om.base;
 
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.om.types.BuiltinType;
@@ -75,12 +75,13 @@ public class ARectangle implements IAObject {
     }
 
     @Override
-    public JSONObject toJSON() throws JSONException {
-        JSONObject json = new JSONObject();
+    public ObjectNode toJSON()  {
+        ObjectMapper om = new ObjectMapper();
+        ObjectNode json = om.createObjectNode();
 
-        JSONObject rectangle = new JSONObject();
-        rectangle.put("p1", p1);
-        rectangle.put("p2", p2);
+        ObjectNode rectangle = om.createObjectNode();
+        rectangle.put("p1", p1.toJSON());
+        rectangle.put("p2", p2.toJSON());
         json.put("ARectangle", rectangle);
 
         return json;

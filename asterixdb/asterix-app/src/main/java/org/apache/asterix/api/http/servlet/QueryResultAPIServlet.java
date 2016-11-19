@@ -29,6 +29,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.asterix.app.result.ResultReader;
 import org.apache.asterix.app.result.ResultUtil;
 import org.apache.asterix.translator.IStatementExecutor.Stats;
@@ -39,8 +40,8 @@ import org.apache.hyracks.api.dataset.IHyracksDataset;
 import org.apache.hyracks.api.dataset.ResultSetId;
 import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.client.dataset.HyracksDataset;
-import org.json.JSONArray;
-import org.json.JSONObject;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class QueryResultAPIServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
@@ -73,10 +74,11 @@ public class QueryResultAPIServlet extends HttpServlet {
                     context.setAttribute(HYRACKS_DATASET_ATTR, hds);
                 }
             }
-            JSONObject handleObj = new JSONObject(strHandle);
-            JSONArray handle = handleObj.getJSONArray("handle");
-            JobId jobId = new JobId(handle.getLong(0));
-            ResultSetId rsId = new ResultSetId(handle.getLong(1));
+            ObjectMapper om = new ObjectMapper();
+            ObjectNode handleObj = (ObjectNode) om.readTree(strHandle);
+            ArrayNode handle = (ArrayNode) handleObj.get("handle");
+            JobId jobId = new JobId(handle.get(0).asLong());
+            ResultSetId rsId = new ResultSetId(handle.get(1).asLong());
 
             ResultReader resultReader = new ResultReader(hds);
             resultReader.open(jobId, rsId);
