@@ -19,12 +19,14 @@
 
 package org.apache.asterix.recordmanagergenerator;
 
+import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Map;
 
+import org.codehaus.plexus.util.IOUtil;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -272,7 +274,12 @@ public class RecordType {
     }
 
     public static RecordType read(Reader reader) throws JSONException {
-        JSONTokener tok = new JSONTokener(reader);
+        JSONTokener tok = null;
+        try {
+            tok = new JSONTokener(IOUtil.toString(reader));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         JSONObject obj = new JSONObject(tok);
         return fromJSON(obj);
     }

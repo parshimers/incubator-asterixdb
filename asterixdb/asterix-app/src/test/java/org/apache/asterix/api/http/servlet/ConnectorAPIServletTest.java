@@ -45,6 +45,7 @@ import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.util.JSONDeserializerForTypes;
 import org.apache.asterix.test.runtime.ExecutionTest;
+import org.apache.commons.io.IOUtils;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.client.NodeControllerInfo;
 import org.apache.hyracks.api.comm.NetworkAddress;
@@ -56,6 +57,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import junit.extensions.PA;
+import sun.nio.ch.IOUtil;
 
 public class ConnectorAPIServletTest {
 
@@ -97,7 +99,7 @@ public class ConnectorAPIServletTest {
 
         // Constructs the actual response.
         JSONTokener tokener = new JSONTokener(
-                new InputStreamReader(new ByteArrayInputStream(outputStream.toByteArray())));
+                IOUtils.toString(new InputStreamReader(new ByteArrayInputStream(outputStream.toByteArray()))));
         JSONObject actualResponse = new JSONObject(tokener);
 
         // Checks the temp-or-not, primary key, data type of the dataset.

@@ -24,6 +24,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.json.JSONObject;
@@ -48,7 +49,7 @@ public class JSONOutputRequestHandler extends AbstractHandler {
         try {
             JSONObject result = fn.invoke(parts);
             response.setContentType("application/json");
-            result.write(response.getWriter());
+            IOUtils.write(result.toString(),response.getWriter());
             baseRequest.setHandled(true);
         } catch (Exception e) {
             e.printStackTrace();

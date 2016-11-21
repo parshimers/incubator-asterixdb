@@ -171,7 +171,7 @@
       <artifactId>algebricks-rewriter</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.json</groupId>
+      <groupId>com.tdunning</groupId>
       <artifactId>json</artifactId>
     </dependency>
     <dependency>

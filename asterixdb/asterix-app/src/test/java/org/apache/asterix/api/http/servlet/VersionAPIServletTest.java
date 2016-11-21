@@ -34,6 +34,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.asterix.common.config.AsterixBuildProperties;
 import org.apache.asterix.runtime.util.AsterixAppContextInfo;
 import org.apache.asterix.test.runtime.ExecutionTest;
+import org.apache.commons.io.IOUtils;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.json.JSONObject;
 import org.json.JSONTokener;
@@ -104,7 +105,7 @@ public class VersionAPIServletTest {
 
         // Constructs the actual response.
         JSONTokener tokener = new JSONTokener(
-                new InputStreamReader(new ByteArrayInputStream(outputStream.toByteArray())));
+                IOUtils.toString(new InputStreamReader(new ByteArrayInputStream(outputStream.toByteArray()))));
         JSONObject actualResponse = new JSONObject(tokener);
         JSONObject expectedResponse = new JSONObject(propMap);
 

@@ -68,9 +68,9 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.json</groupId>
+      <groupId>com.tdunning</groupId>
       <artifactId>json</artifactId>
-      <version>20090211</version>
+      <version>1.0</version>
     </dependency>
     <dependency>
       <groupId>org.apache.hyracks</groupId>
