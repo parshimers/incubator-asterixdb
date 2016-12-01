@@ -131,8 +131,9 @@ public class DatasetLifecycleManager implements IDatasetLifecycleManager, ILifeC
     public long getResourceIDfromResourcePath(String resourcePath) throws HyracksDataException {
         LocalResource lr = resourceRepository.getResourceByPath(resourcePath);
         if (lr == null) {
-            return -1;
+            return -1l;
         }
+
         return lr.getResourceId();
     }
 

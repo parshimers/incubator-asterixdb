@@ -18,33 +18,38 @@
  */
 package org.apache.asterix.common.transactions;
 
+import org.apache.asterix.common.config.AsterixStorageProperties;
+import org.apache.asterix.common.config.AsterixTransactionProperties;
 
 import java.util.Set;
 
- public interface ITransactionSubsystem {
+public interface ITransactionSubsystem {
 
-     ILogManager getLogManager(Set<Integer> partitionIds);
+    ILogManager getLogManager(Set<Integer> partitionIds);
 
-     ILogManager getLogManager(int partitionId);
+    ILogManager getLogManager(int partitionId);
 
-     ILogManager getLogManager(IRecoveryManager recoveryManager);
+    ILogManager getLogManager(IRecoveryManager recoveryManager);
 
-     ILogManager getBaseLogManager();
+    ILogManager getBaseLogManager();
 
-     ILockManager getLockManager();
+    ILockManager getLockManager();
 
-     ITransactionManager getTransactionManager();
+    ITransactionManager getTransactionManager();
 
-     IRecoveryManager getRecoveryManager(Set<Integer> partitionIds);
+    IRecoveryManager getRecoveryManager(Set<Integer> partitionIds);
 
-     IRecoveryManager getRecoveryManager(int partitionId);
+    IRecoveryManager getRecoveryManager(int partitionId);
 
-     IRecoveryManager getRecoveryManager(ILogManager logManager);
+    IRecoveryManager getRecoveryManager(ILogManager logManager);
 
-     IRecoveryManager getBaseRecoveryManager();
+    IRecoveryManager getBaseRecoveryManager();
 
-     IAsterixAppRuntimeContextProvider getAsterixAppRuntimeContextProvider();
+    IAsterixAppRuntimeContextProvider getAsterixAppRuntimeContextProvider();
 
-     String getId();
+    void addPartitions(Set<Integer> partitions, String fallenNodeId, AsterixStorageProperties storageProperties,
+            AsterixTransactionProperties txnProperties);
+
+    String getId();
 
 }

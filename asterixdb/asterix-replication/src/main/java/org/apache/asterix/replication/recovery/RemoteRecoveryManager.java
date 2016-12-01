@@ -69,86 +69,86 @@ public class RemoteRecoveryManager implements IRemoteRecoveryManager {
         //The whole remote recovery process should be atomic.
         //Any error happens, we should start the recovery from the start until the recovery is
         //complete or an illegal state is reached (cannot recover or max attempts exceed).
-        int maxRecoveryAttempts = replicationProperties.getMaxRemoteRecoveryAttempts();
-        PersistentLocalResourceRepository resourceRepository = (PersistentLocalResourceRepository) runtimeContext
-                .getLocalResourceRepository();
-        IRecoveryManager recoveryManager = runtimeContext.getTransactionSubsystem().getRecoveryManager(0);
-        ILogManager logManager = runtimeContext.getTransactionSubsystem().getLogManager(0);
-        while (true) {
-            //start recovery steps
-            try {
-                if (maxRecoveryAttempts <= 0) {
-                    //to avoid infinite loop in case of unexpected behavior.
-                    throw new IllegalStateException("Failed to perform remote recovery.");
-                }
-
-                //delete any existing recovery files from previous failed recovery attempts
-                recoveryManager.deleteRecoveryTemporaryFiles();
-
-                //create temporary file to store recovery logs
-                File recoveryLogsFile = recoveryManager.createJobRecoveryFile(REMOTE_RECOVERY_JOB_ID,
-                        RECOVERY_LOGS_FILE_NAME);
-
-                /*** Prepare for Recovery ***/
-                //1. check remote replicas states
-                replicationManager.initializeReplicasState();
-                int activeReplicasCount = replicationManager.getActiveReplicasCount();
-
-                if (activeReplicasCount == 0) {
-                    throw new IllegalStateException("no ACTIVE remote replica(s) exists to perform remote recovery");
-                }
-
-                //2. clean any memory data that could've existed from previous failed recovery attempt
-                IDatasetLifecycleManager datasetLifeCycleManager = runtimeContext.getDatasetLifecycleManager();
-                datasetLifeCycleManager.closeAllDatasets();
-
-                //3. remove any existing storage data and initialize storage metadata
-                resourceRepository.deleteStorageData(true);
-                resourceRepository.initializeNewUniverse(AsterixClusterProperties.INSTANCE.getStorageDirectoryName());
-
-                //4. select remote replicas to recover from per lost replica data
-                Map<String, Set<String>> selectedRemoteReplicas = constructRemoteRecoveryPlan();
-
-                //5. get max LSN from selected remote replicas
-                long maxRemoteLSN = replicationManager.getMaxRemoteLSN(selectedRemoteReplicas.keySet());
-
-                //6. force LogManager to start from a partition > maxLSN in selected remote replicas
-                logManager.renewLogFilesAndStartFromLSN(maxRemoteLSN);
-
-                /*** Start Recovery Per Lost Replica ***/
-                for (Entry<String, Set<String>> remoteReplica : selectedRemoteReplicas.entrySet()) {
-                    String replicaId = remoteReplica.getKey();
-                    Set<String> replicasDataToRecover = remoteReplica.getValue();
-
-                    //Request indexes metadata and LSM components
-                    replicationManager.requestReplicaFiles(replicaId, replicasDataToRecover, new HashSet<String>());
-
-                    //Get min LSN to start requesting logs from
-                    long minLSN = replicationManager.requestReplicaMinLSN(replicaId);
-
-                    //Request remote logs from selected remote replicas
-                    replicationManager.requestReplicaLogs(replicaId, replicasDataToRecover, minLSN, recoveryLogsFile);
-
-                    //Replay remote logs using recovery manager
-                    if (replicasDataToRecover.contains(logManager.getNodeId())) {
-                        //replay logs for local partitions only
-                        Set<Integer> nodePartitions = resourceRepository.getNodeOrignalPartitions();
-                        try (RandomAccessFile raf = new RandomAccessFile(recoveryLogsFile, "r");
-                                FileChannel fileChannel = raf.getChannel();) {
-                            ILogReader logReader = new RemoteLogReader(fileChannel, fileChannel.size(),
-                                    logManager.getLogPageSize());
-                            recoveryManager.replayPartitionsLogs(nodePartitions, logReader, 0);
-                        }
-                    }
-                }
-                LOGGER.log(Level.INFO, "Completed remote recovery successfully!");
-                break;
-            } catch (Exception e) {
-                e.printStackTrace();
-                LOGGER.log(Level.WARNING, "Failed during remote recovery. Attempting again...");
-                maxRecoveryAttempts--;
-            }
-        }
+//        int maxRecoveryAttempts = replicationProperties.getMaxRemoteRecoveryAttempts();
+//        PersistentLocalResourceRepository resourceRepository = (PersistentLocalResourceRepository) runtimeContext
+//                .getLocalResourceRepository();
+//        IRecoveryManager recoveryManager = runtimeContext.getTransactionSubsystem().getRecoveryManager(0);
+//        ILogManager logManager = runtimeContext.getTransactionSubsystem().getLogManager(0);
+//        while (true) {
+//            //start recovery steps
+//            try {
+//                if (maxRecoveryAttempts <= 0) {
+//                    //to avoid infinite loop in case of unexpected behavior.
+//                    throw new IllegalStateException("Failed to perform remote recovery.");
+//                }
+//
+//                //delete any existing recovery files from previous failed recovery attempts
+//                recoveryManager.deleteRecoveryTemporaryFiles();
+//
+//                //create temporary file to store recovery logs
+//                File recoveryLogsFile = recoveryManager.createJobRecoveryFile(REMOTE_RECOVERY_JOB_ID,
+//                        RECOVERY_LOGS_FILE_NAME);
+//
+//                /*** Prepare for Recovery ***/
+//                //1. check remote replicas states
+//                replicationManager.initializeReplicasState();
+//                int activeReplicasCount = replicationManager.getActiveReplicasCount();
+//
+//                if (activeReplicasCount == 0) {
+//                    throw new IllegalStateException("no ACTIVE remote replica(s) exists to perform remote recovery");
+//                }
+//
+//                //2. clean any memory data that could've existed from previous failed recovery attempt
+//                IDatasetLifecycleManager datasetLifeCycleManager = runtimeContext.getDatasetLifecycleManager();
+//                datasetLifeCycleManager.closeAllDatasets();
+//
+//                //3. remove any existing storage data and initialize storage metadata
+//                resourceRepository.deleteStorageData(true);
+//                resourceRepository.initializeNewUniverse(AsterixClusterProperties.INSTANCE.getStorageDirectoryName());
+//
+//                //4. select remote replicas to recover from per lost replica data
+//                Map<String, Set<String>> selectedRemoteReplicas = constructRemoteRecoveryPlan();
+//
+//                //5. get max LSN from selected remote replicas
+//                long maxRemoteLSN = replicationManager.getMaxRemoteLSN(selectedRemoteReplicas.keySet());
+//
+//                //6. force LogManager to start from a partition > maxLSN in selected remote replicas
+//                logManager.renewLogFilesAndStartFromLSN(maxRemoteLSN);
+//
+//                /*** Start Recovery Per Lost Replica ***/
+//                for (Entry<String, Set<String>> remoteReplica : selectedRemoteReplicas.entrySet()) {
+//                    String replicaId = remoteReplica.getKey();
+//                    Set<String> replicasDataToRecover = remoteReplica.getValue();
+//
+//                    //Request indexes metadata and LSM components
+//                    replicationManager.requestReplicaFiles(replicaId, replicasDataToRecover, new HashSet<String>());
+//
+//                    //Get min LSN to start requesting logs from
+//                    long minLSN = replicationManager.requestReplicaMinLSN(replicaId);
+//
+//                    //Request remote logs from selected remote replicas
+//                    replicationManager.requestReplicaLogs(replicaId, replicasDataToRecover, minLSN, recoveryLogsFile);
+//
+//                    //Replay remote logs using recovery manager
+//                    if (replicasDataToRecover.contains(logManager.getNodeId())) {
+//                        //replay logs for local partitions only
+//                        Set<Integer> nodePartitions = resourceRepository.getNodeOrignalPartitions();
+//                        try (RandomAccessFile raf = new RandomAccessFile(recoveryLogsFile, "r");
+//                                FileChannel fileChannel = raf.getChannel();) {
+//                            ILogReader logReader = new RemoteLogReader(fileChannel, fileChannel.size(),
+//                                    logManager.getLogPageSize());
+//                            recoveryManager.replayPartitionsLogs(nodePartitions, logReader, 0);
+//                        }
+//                    }
+//                }
+//                LOGGER.log(Level.INFO, "Completed remote recovery successfully!");
+//                break;
+//            } catch (Exception e) {
+//                e.printStackTrace();
+//                LOGGER.log(Level.WARNING, "Failed during remote recovery. Attempting again...");
+//                maxRecoveryAttempts--;
+//            }
+//        }
     }
 
     private Map<String, Set<String>> constructRemoteRecoveryPlan() {

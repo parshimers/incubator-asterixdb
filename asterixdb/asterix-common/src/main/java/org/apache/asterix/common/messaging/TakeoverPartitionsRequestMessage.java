@@ -18,17 +18,26 @@
  */
 package org.apache.asterix.common.messaging;
 
+import org.apache.asterix.common.config.AsterixStorageProperties;
+import org.apache.asterix.common.config.AsterixTransactionProperties;
+
 public class TakeoverPartitionsRequestMessage extends AbstractApplicationMessage {
 
     private static final long serialVersionUID = 1L;
     private final Integer[] partitions;
     private final long requestId;
     private final String nodeId;
+    private final AsterixTransactionProperties txnProps;
+    private final AsterixStorageProperties storageProps;
 
-    public TakeoverPartitionsRequestMessage(long requestId, String nodeId, Integer[] partitionsToTakeover) {
+    public TakeoverPartitionsRequestMessage(long requestId, String nodeId, Integer[] partitionsToTakeover,
+            AsterixTransactionProperties txnProps, AsterixStorageProperties storageProps) {
         this.requestId = requestId;
         this.nodeId = nodeId;
         this.partitions = partitionsToTakeover;
+        this.txnProps = txnProps;
+        this.storageProps = storageProps;
+
     }
 
     @Override
@@ -46,6 +55,14 @@ public class TakeoverPartitionsRequestMessage extends AbstractApplicationMessage
 
     public String getNodeId() {
         return nodeId;
+    }
+
+    public AsterixTransactionProperties getTxnProperties() {
+        return txnProps;
+    }
+
+    public AsterixStorageProperties getStorageProps() {
+        return storageProps;
     }
 
     @Override

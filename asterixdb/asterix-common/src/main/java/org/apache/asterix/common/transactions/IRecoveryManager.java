@@ -18,12 +18,12 @@
  */
 package org.apache.asterix.common.transactions;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.Set;
 
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.io.IFileHandle;
 
 /**
  * Provides API for failure recovery. Failure could be at application level and
@@ -81,6 +81,8 @@ public interface IRecoveryManager {
      */
     public void rollbackTransaction(ITransactionContext txnContext) throws ACIDException;
 
+    void replayPartitionsLogs(Set<Integer> partitions, ILogManager logManager) throws IOException, ACIDException;
+
     /**
      * Makes a system checkpoint.
      *
@@ -128,7 +130,7 @@ public interface IRecoveryManager {
      * @throws IOException
      *             if the file for the specified {@code jobId} with the {@code fileName} already exists
      */
-    public File createJobRecoveryFile(int jobId, String fileName) throws IOException;
+    public IFileHandle createJobRecoveryFile(int jobId, String fileName) throws IOException;
 
     /**
      * Deletes all temporary recovery files

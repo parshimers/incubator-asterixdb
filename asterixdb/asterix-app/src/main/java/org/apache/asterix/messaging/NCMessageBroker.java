@@ -18,7 +18,7 @@
  */
 package org.apache.asterix.messaging;
 
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
@@ -41,6 +41,7 @@ import org.apache.asterix.common.messaging.api.INCMessageBroker;
 import org.apache.asterix.common.replication.IRemoteRecoveryManager;
 import org.apache.asterix.common.replication.Replica;
 import org.apache.asterix.common.replication.ReplicaEvent;
+import org.apache.asterix.common.transactions.ITransactionSubsystem;
 import org.apache.asterix.event.schema.cluster.Node;
 import org.apache.asterix.metadata.bootstrap.MetadataIndexImmutableProperties;
 import org.apache.asterix.transaction.management.resource.PersistentLocalResourceRepository;
@@ -127,8 +128,11 @@ public class NCMessageBroker implements INCMessageBroker {
         //if the NC is shutting down, it should ignore takeover partitions request
         if (!appContext.isShuttingdown()) {
             try {
-                IRemoteRecoveryManager remoteRecoeryManager = appContext.getRemoteRecoveryManager();
-                remoteRecoeryManager.takeoverPartitons(msg.getPartitions());
+                List<Integer> partitions = Arrays.asList(msg.getPartitions());
+                ITransactionSubsystem txnSubSys = appContext.getTransactionSubsystem();
+                txnSubSys.addPartitions(new HashSet<Integer>(partitions), msg.getNodeId(), msg.getStorageProps(),
+                        msg.getTxnProperties());
+
             } finally {
                 //send response after takeover is completed
                 TakeoverPartitionsResponseMessage reponse = new TakeoverPartitionsResponseMessage(msg.getRequestId(),
@@ -191,9 +195,9 @@ public class NCMessageBroker implements INCMessageBroker {
         //mark the partitions to be closed as inactive
         PersistentLocalResourceRepository localResourceRepo = (PersistentLocalResourceRepository) appContext
                 .getLocalResourceRepository();
-        for (Integer partitionId : msg.getPartitions()) {
-            localResourceRepo.addInactivePartition(partitionId);
-        }
+////        for (Integer partitionId : msg.getPartitions()) {
+////            localResourceRepo.addInactivePartition(partitionId);
+//        }
 
         //send response after partitions prepared for failback
         PreparePartitionsFailbackResponseMessage reponse = new PreparePartitionsFailbackResponseMessage(msg.getPlanId(),

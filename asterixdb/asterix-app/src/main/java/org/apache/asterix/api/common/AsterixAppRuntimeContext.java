@@ -21,6 +21,8 @@ package org.apache.asterix.api.common;
 import java.io.IOException;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -146,8 +148,8 @@ public class AsterixAppRuntimeContext implements IAsterixAppRuntimeContext, IAst
         txnProperties = new AsterixTransactionProperties(ASTERIX_PROPERTIES_ACCESSOR);
         feedProperties = new AsterixFeedProperties(ASTERIX_PROPERTIES_ACCESSOR);
         buildProperties = new AsterixBuildProperties(ASTERIX_PROPERTIES_ACCESSOR);
-        replicationProperties = new AsterixReplicationProperties(ASTERIX_PROPERTIES_ACCESSOR,
-                AsterixClusterProperties.INSTANCE.getCluster());
+//        replicationProperties = new AsterixReplicationProperties(ASTERIX_PROPERTIES_ACCESSOR,
+//                AsterixClusterProperties.INSTANCE.getCluster());
         this.metadataRmiPort = metadataRmiPort;
     }
 
@@ -171,7 +173,8 @@ public class AsterixAppRuntimeContext implements IAsterixAppRuntimeContext, IAst
         ILocalResourceRepositoryFactory persistentLocalResourceRepositoryFactory = new PersistentLocalResourceRepositoryFactory(
                 ioManager, ncApplicationContext.getNodeId(), metadataProperties);
 
-        localResourceRepository = (PersistentLocalResourceRepository) persistentLocalResourceRepositoryFactory.createRepository();
+        localResourceRepository = (PersistentLocalResourceRepository) persistentLocalResourceRepositoryFactory
+                .createRepository();
 
         IAsterixAppRuntimeContextProvider asterixAppRuntimeContextProvider = new AsterixAppRuntimeContextProviderForRecovery(
                 this);
@@ -195,50 +198,50 @@ public class AsterixAppRuntimeContext implements IAsterixAppRuntimeContext, IAst
         feedManager = new FeedManager(ncApplicationContext.getNodeId(), feedProperties,
                 compilerProperties.getFrameSize());
 
-        if (replicationProperties.isReplicationEnabled()) {
-            String nodeId = ncApplicationContext.getNodeId();
-
-            replicaResourcesManager = new ReplicaResourcesManager(localResourceRepository, metadataProperties);
-
-            replicationManager = new ReplicationManager(nodeId, replicationProperties, replicaResourcesManager,
-                    txnSubsystem.getBaseLogManager(), asterixAppRuntimeContextProvider);
-
-            //pass replication manager to replication required object
-            //LogManager to replicate logs
-            txnSubsystem.getBaseLogManager().setReplicationManager(replicationManager);
-
-            //PersistentLocalResourceRepository to replicate metadata files and delete backups on drop index
-            localResourceRepository.setReplicationManager(replicationManager);
-
-            /**
-             * add the partitions that will be replicated in this node as inactive partitions
-             */
-            //get nodes which replicate to this node
-            Set<String> replicationClients = replicationProperties.getNodeReplicationClients(nodeId);
-            //remove the node itself
-            replicationClients.remove(nodeId);
-            for (String clientId : replicationClients) {
-                //get the partitions of each client
-                ClusterPartition[] clientPartitions = metadataProperties.getNodePartitions().get(clientId);
-                for (ClusterPartition partition : clientPartitions) {
-                    localResourceRepository.addInactivePartition(partition.getPartitionId());
-                }
-            }
-
-            //initialize replication channel
-            replicationChannel = new ReplicationChannel(nodeId, replicationProperties, txnSubsystem.getBaseLogManager(),
-                    replicaResourcesManager, replicationManager, ncApplicationContext,
-                    asterixAppRuntimeContextProvider);
-
-            remoteRecoveryManager = new RemoteRecoveryManager(replicationManager, this, replicationProperties);
-
-            bufferCache = new BufferCache(ioManager, prs, pcp, fileMapManager,
-                    storageProperties.getBufferCacheMaxOpenFiles(), ncApplicationContext.getThreadFactory(),
-                    replicationManager);
-        } else {
-            bufferCache = new BufferCache(ioManager, prs, pcp, fileMapManager,
-                    storageProperties.getBufferCacheMaxOpenFiles(), ncApplicationContext.getThreadFactory());
-        }
+        //        if (replicationProperties.isReplicationEnabled()) {
+        //            String nodeId = ncApplicationContext.getNodeId();
+        //
+        //            replicaResourcesManager = new ReplicaResourcesManager(localResourceRepository, metadataProperties);
+        //
+        //            replicationManager = new ReplicationManager(nodeId, replicationProperties, replicaResourcesManager,
+        //                    txnSubsystem.getBaseLogManager(), asterixAppRuntimeContextProvider);
+        //
+        //            //pass replication manager to replication required object
+        //            //LogManager to replicate logs
+        //            txnSubsystem.getBaseLogManager().setReplicationManager(replicationManager);
+        //
+        //            //PersistentLocalResourceRepository to replicate metadata files and delete backups on drop index
+        //            localResourceRepository.setReplicationManager(replicationManager);
+        //
+        //            /**
+        //             * add the partitions that will be replicated in this node as inactive partitions
+        //             */
+        //            //get nodes which replicate to this node
+        //            Set<String> replicationClients = replicationProperties.getNodeReplicationClients(nodeId);
+        //            //remove the node itself
+        //            replicationClients.remove(nodeId);
+        //            for (String clientId : replicationClients) {
+        //                //get the partitions of each client
+        //                ClusterPartition[] clientPartitions = metadataProperties.getNodePartitions().get(clientId);
+        //                for (ClusterPartition partition : clientPartitions) {
+        //                    localResourceRepository.addInactivePartition(partition.getPartitionId());
+        //                }
+        //            }
+        //
+        //            //initialize replication channel
+        //            replicationChannel = new ReplicationChannel(nodeId, replicationProperties, txnSubsystem.getBaseLogManager(),
+        //                    replicaResourcesManager, replicationManager, ncApplicationContext,
+        //                    asterixAppRuntimeContextProvider);
+        //
+        //            remoteRecoveryManager = new RemoteRecoveryManager(replicationManager, this, replicationProperties);
+        //
+        //            bufferCache = new BufferCache(ioManager, prs, pcp, fileMapManager,
+        //                    storageProperties.getBufferCacheMaxOpenFiles(), ncApplicationContext.getThreadFactory(),
+        //                    replicationManager);
+        //        } else {
+        bufferCache = new BufferCache(ioManager, prs, pcp, fileMapManager,
+                storageProperties.getBufferCacheMaxOpenFiles(), ncApplicationContext.getThreadFactory());
+        //        }
 
         // The order of registration is important. The buffer cache must registered before recovery and transaction managers.
         //Notes: registered components are stopped in reversed order

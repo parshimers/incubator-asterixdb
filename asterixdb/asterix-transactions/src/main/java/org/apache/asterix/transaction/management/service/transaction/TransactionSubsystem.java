@@ -19,15 +19,11 @@
 package org.apache.asterix.transaction.management.service.transaction;
 
 import org.apache.asterix.common.config.AsterixReplicationProperties;
+import org.apache.asterix.common.config.AsterixStorageProperties;
 import org.apache.asterix.common.config.AsterixTransactionProperties;
 import org.apache.asterix.common.config.IAsterixPropertiesProvider;
 import org.apache.asterix.common.exceptions.ACIDException;
-import org.apache.asterix.common.transactions.IAsterixAppRuntimeContextProvider;
-import org.apache.asterix.common.transactions.ILockManager;
-import org.apache.asterix.common.transactions.ILogManager;
-import org.apache.asterix.common.transactions.IRecoveryManager;
-import org.apache.asterix.common.transactions.ITransactionManager;
-import org.apache.asterix.common.transactions.ITransactionSubsystem;
+import org.apache.asterix.common.transactions.*;
 import org.apache.asterix.transaction.management.resource.PersistentLocalResourceRepository;
 import org.apache.asterix.transaction.management.service.locking.ConcurrentLockManager;
 import org.apache.asterix.transaction.management.service.logging.LogManager;
@@ -36,8 +32,10 @@ import org.apache.asterix.transaction.management.service.recovery.RecoveryManage
 import org.apache.commons.logging.Log;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.common.utils.Triple;
+import org.apache.hyracks.storage.common.file.ILocalResourceRepository;
 import org.apache.zookeeper.Op;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -65,7 +63,7 @@ public class TransactionSubsystem implements ITransactionSubsystem {
         this.lockManager = new ConcurrentLockManager(txnProperties.getLockManagerShrinkTimer());
 
         LogManager baseLogManager = new LogManager(this);
-        RecoveryManager baseRecoveryManager = new RecoveryManager(this);
+        RecoveryManager baseRecoveryManager = new RecoveryManager(this, baseLogManager);
         CheckpointThread baseCheckpointThread = null;
 
         if (asterixAppRuntimeContextProvider != null) {
@@ -157,6 +155,32 @@ public class TransactionSubsystem implements ITransactionSubsystem {
 
     public IAsterixAppRuntimeContextProvider getAsterixAppRuntimeContextProvider() {
         return asterixAppRuntimeContextProvider;
+    }
+
+    @Override
+    public void addPartitions(Set<Integer> partitions, String fallenNodeId, AsterixStorageProperties storageProperties,
+            AsterixTransactionProperties txnProperties) {
+        PersistentLocalResourceRepository resourceRepository = (PersistentLocalResourceRepository) asterixAppRuntimeContextProvider
+                .getLocalResourceRepository();
+        for(Integer i: partitions) {
+            resourceRepository.addActivePartition(i);
+        }
+        LogManager surrogateLogManager = new LogManager(this, new LogManagerProperties(txnProperties, fallenNodeId));
+        RecoveryManager surrogateRecoveryManager = new RecoveryManager(this, surrogateLogManager);
+        CheckpointThread surrogateCheckpointThread = new CheckpointThread(surrogateRecoveryManager,
+                asterixAppRuntimeContextProvider.getDatasetLifecycleManager(), surrogateLogManager,
+                this.txnProperties.getCheckpointLSNThreshold(), this.txnProperties.getCheckpointPollFrequency());
+        surrogateCheckpointThread.start();
+        partitionToLoggerMap.put(partitions,
+                new Triple<>(surrogateLogManager, surrogateRecoveryManager, surrogateCheckpointThread));
+        try {
+            surrogateRecoveryManager.replayPartitionsLogs(partitions,surrogateLogManager.getLogReader(true),0l);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (ACIDException e) {
+            e.printStackTrace();
+        }
+
     }
 
     public AsterixTransactionProperties getTransactionProperties() {

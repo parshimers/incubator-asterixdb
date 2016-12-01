@@ -20,9 +20,7 @@ package org.apache.asterix.transaction.management.service.recovery;
 
 import java.io.*;
 import java.nio.ByteBuffer;
-import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -36,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.SortedMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -49,15 +46,7 @@ import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.ioopcallbacks.AbstractLSMIOOperationCallback;
 import org.apache.asterix.common.replication.IReplicaResourcesManager;
 import org.apache.asterix.common.replication.IReplicationManager;
-import org.apache.asterix.common.transactions.DatasetId;
-import org.apache.asterix.common.transactions.IAsterixAppRuntimeContextProvider;
-import org.apache.asterix.common.transactions.ILogReader;
-import org.apache.asterix.common.transactions.ILogRecord;
-import org.apache.asterix.common.transactions.IRecoveryManager;
-import org.apache.asterix.common.transactions.ITransactionContext;
-import org.apache.asterix.common.transactions.JobId;
-import org.apache.asterix.common.transactions.LogRecord;
-import org.apache.asterix.common.transactions.LogType;
+import org.apache.asterix.common.transactions.*;
 import org.apache.asterix.transaction.management.resource.PersistentLocalResourceRepository;
 import org.apache.asterix.transaction.management.service.logging.LogManager;
 import org.apache.asterix.transaction.management.service.transaction.TransactionManagementConstants;
@@ -69,16 +58,13 @@ import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.api.io.IFileHandle;
 import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.api.lifecycle.ILifeCycleComponent;
-import org.apache.hyracks.control.nc.io.IOManager;
-import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
+import org.apache.hyracks.control.nc.io.FileHandle;
 import org.apache.hyracks.storage.am.common.api.IIndex;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
-import org.apache.hyracks.storage.am.common.util.IndexFileNameUtil;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
 import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndex;
-import org.apache.hyracks.storage.common.file.ILocalResourceRepository;
 import org.apache.hyracks.storage.common.file.LocalResource;
 
 /**
@@ -96,7 +82,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
     private IIOManager ioManager;
     private final int checkpointHistory;
     private final long SHARP_CHECKPOINT_LSN = -1;
-    private final boolean replicationEnabled;
+//    private final boolean replicationEnabled;
     public static final long NON_SHARP_CHECKPOINT_TARGET_LSN = -1;
     private final static String RECOVERY_FILES_DIR_NAME = "recovery_temp";
     private static final long MEGABYTE = 1024L * 1024L;
@@ -111,16 +97,16 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
     private static final String CHECKPOINT_FILENAME_PREFIX = "checkpoint_";
     private SystemState state;
 
-    public RecoveryManager(TransactionSubsystem txnSubsystem) {
+    public RecoveryManager(TransactionSubsystem txnSubsystem, LogManager logManager) {
         this.txnSubsystem = txnSubsystem;
-        this.logMgr = (LogManager) txnSubsystem.getLogManager(this);
+        this.logMgr = logManager;
         this.ioManager = logMgr.ioManager;
         this.checkpointHistory = this.txnSubsystem.getTransactionProperties().getCheckpointHistory();
         IAsterixPropertiesProvider propertiesProvider = (IAsterixPropertiesProvider) txnSubsystem
                 .getAsterixAppRuntimeContextProvider().getAppContext();
-        this.replicationEnabled = propertiesProvider.getReplicationProperties().isReplicationEnabled();
-        this.localResourceRepository = (PersistentLocalResourceRepository) txnSubsystem.getAsterixAppRuntimeContextProvider()
-            .getLocalResourceRepository();
+//        this.replicationEnabled = propertiesProvider.getReplicationProperties().isReplicationEnabled();
+        this.localResourceRepository = (PersistentLocalResourceRepository) txnSubsystem
+                .getAsterixAppRuntimeContextProvider().getLocalResourceRepository();
     }
 
     /**
@@ -146,21 +132,21 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             return state;
         }
 
-        if (replicationEnabled) {
-            if (checkpointObject.getMinMCTFirstLsn() == SHARP_CHECKPOINT_LSN) {
-                //no logs exist
-                state = SystemState.HEALTHY;
-                return state;
-            } else if (checkpointObject.getCheckpointLsn() == logMgr.getAppendLSN() && checkpointObject.isSharp()) {
-                //only remote logs exist
-                state = SystemState.HEALTHY;
-                return state;
-            } else {
-                //need to perform remote recovery
-                state = SystemState.CORRUPTED;
-                return state;
-            }
-        } else {
+//        if (replicationEnabled) {
+//            if (checkpointObject.getMinMCTFirstLsn() == SHARP_CHECKPOINT_LSN) {
+//                //no logs exist
+//                state = SystemState.HEALTHY;
+//                return state;
+//            } else if (checkpointObject.getCheckpointLsn() == logMgr.getAppendLSN() && checkpointObject.isSharp()) {
+//                //only remote logs exist
+//                state = SystemState.HEALTHY;
+//                return state;
+//            } else {
+//                //need to perform remote recovery
+//                state = SystemState.CORRUPTED;
+//                return state;
+//            }
+//        } else {
             long readableSmallestLSN = logMgr.getReadableSmallestLSN();
             if (logMgr.getAppendLSN() == readableSmallestLSN) {
                 if (checkpointObject.getMinMCTFirstLsn() != SHARP_CHECKPOINT_LSN) {
@@ -181,7 +167,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                 state = SystemState.CORRUPTED;
                 return state;
             }
-        }
+//        }
     }
 
     //This method is used only when replication is disabled.
@@ -217,6 +203,21 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         }
     }
 
+    @Override
+    public synchronized void replayPartitionsLogs(Set<Integer> partitions, ILogManager logManager)
+            throws IOException, ACIDException {
+
+        LOGGER.log(Level.INFO, "starting recovery ...");
+        long readableSmallestLSN = logManager.getReadableSmallestLSN();
+        CheckpointObject checkpointObject = readCheckpoint();
+        long lowWaterMarkLSN = checkpointObject.getMinMCTFirstLsn();
+        if (lowWaterMarkLSN < readableSmallestLSN) {
+            lowWaterMarkLSN = readableSmallestLSN;
+        }
+        replayPartitionsLogs(partitions, logManager.getLogReader(true), lowWaterMarkLSN);
+
+    }
+
     private synchronized Set<Integer> startRecoverysAnalysisPhase(Set<Integer> partitions, ILogReader logReader,
             long lowWaterMarkLSN) throws IOException, ACIDException {
         int updateLogCount = 0;
@@ -230,34 +231,34 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
 
         //set log reader to the lowWaterMarkLsn
         ILogRecord logRecord = null;
-            logReader.initializeScan(lowWaterMarkLSN);
+        logReader.initializeScan(lowWaterMarkLSN);
 
         //collect all committed Lsn
         JobEntityCommits jobEntityWinners = null;
 
-            logRecord = logReader.next();
-            while (logRecord != null) {
-                if (IS_DEBUG_MODE) {
+        logRecord = logReader.next();
+        while (logRecord != null) {
+            if (IS_DEBUG_MODE) {
                 LOGGER.info(logRecord.getLogRecordForDisplay());
-                }
-                switch (logRecord.getLogType()) {
-                    case LogType.UPDATE:
+            }
+            switch (logRecord.getLogType()) {
+                case LogType.UPDATE:
                     if (partitions.contains(logRecord.getResourcePartition())) {
                         updateLogCount++;
                     }
-                        break;
-                    case LogType.JOB_COMMIT:
-                        jobId = logRecord.getJobId();
-                        winnerJobSet.add(jobId);
-                        if (jobId2WinnerEntitiesMap.containsKey(jobId)) {
-                            jobEntityWinners = jobId2WinnerEntitiesMap.get(jobId);
-                            //to delete any spilled files as well
-                            jobEntityWinners.clear();
-                            jobId2WinnerEntitiesMap.remove(jobId);
-                        }
-                        jobCommitLogCount++;
-                        break;
-                    case LogType.ENTITY_COMMIT:
+                    break;
+                case LogType.JOB_COMMIT:
+                    jobId = logRecord.getJobId();
+                    winnerJobSet.add(jobId);
+                    if (jobId2WinnerEntitiesMap.containsKey(jobId)) {
+                        jobEntityWinners = jobId2WinnerEntitiesMap.get(jobId);
+                        //to delete any spilled files as well
+                        jobEntityWinners.clear();
+                        jobId2WinnerEntitiesMap.remove(jobId);
+                    }
+                    jobCommitLogCount++;
+                    break;
+                case LogType.ENTITY_COMMIT:
                 case LogType.UPSERT_ENTITY_COMMIT:
                     if (partitions.contains(logRecord.getResourcePartition())) {
                         jobId = logRecord.getJobId();
@@ -275,22 +276,22 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                         jobEntityWinners.add(logRecord);
                         entityCommitLogCount++;
                     }
-                        break;
-                    case LogType.ABORT:
-                        abortLogCount++;
-                        break;
-                    case LogType.FLUSH:
-                        break;
-                    default:
-                        throw new ACIDException("Unsupported LogType: " + logRecord.getLogType());
-                }
-                logRecord = logReader.next();
+                    break;
+                case LogType.ABORT:
+                    abortLogCount++;
+                    break;
+                case LogType.FLUSH:
+                    break;
+                default:
+                    throw new ACIDException("Unsupported LogType: " + logRecord.getLogType());
             }
+            logRecord = logReader.next();
+        }
 
-            //prepare winners for search after analysis is done to flush anything remaining in memory to disk.
-            for (JobEntityCommits winners : jobId2WinnerEntitiesMap.values()) {
-                winners.prepareForSearch();
-            }
+        //prepare winners for search after analysis is done to flush anything remaining in memory to disk.
+        for (JobEntityCommits winners : jobId2WinnerEntitiesMap.values()) {
+            winners.prepareForSearch();
+        }
 
         LOGGER.info("Logs analysis phase completed.");
         LOGGER.info("Analysis log count update/entityCommit/jobCommit/abort = " + updateLogCount + "/"
@@ -299,21 +300,21 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         return winnerJobSet;
     }
 
-    private synchronized void startRecoveryRedoPhase(Set<Integer> partitions, ILogReader logReader, long lowWaterMarkLSN,
-            Set<Integer> winnerJobSet) throws IOException, ACIDException {
+    private synchronized void startRecoveryRedoPhase(Set<Integer> partitions, ILogReader logReader,
+            long lowWaterMarkLSN, Set<Integer> winnerJobSet) throws IOException, ACIDException {
         int redoCount = 0;
         int jobId = -1;
 
-            long resourceId;
-            long maxDiskLastLsn;
-            long LSN = -1;
-            ILSMIndex index = null;
-            LocalResource localResource = null;
-            ILocalResourceMetadata localResourceMetadata = null;
-            boolean foundWinner = false;
+        long resourceId;
+        long maxDiskLastLsn;
+        long LSN = -1;
+        ILSMIndex index = null;
+        LocalResource localResource = null;
+        ILocalResourceMetadata localResourceMetadata = null;
+        boolean foundWinner = false;
         JobEntityCommits jobEntityWinners = null;
 
-            IAsterixAppRuntimeContextProvider appRuntimeContext = txnSubsystem.getAsterixAppRuntimeContextProvider();
+        IAsterixAppRuntimeContextProvider appRuntimeContext = txnSubsystem.getAsterixAppRuntimeContextProvider();
         IDatasetLifecycleManager datasetLifecycleManager = appRuntimeContext.getDatasetLifecycleManager();
 
         Map<Long, LocalResource> resourcesMap = localResourceRepository.loadAndGetAllResources();
@@ -334,78 +335,79 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                 switch (logRecord.getLogType()) {
                     case LogType.UPDATE:
                         if (partitions.contains(logRecord.getResourcePartition())) {
-                        if (winnerJobSet.contains(jobId)) {
-                            foundWinner = true;
-                        } else if (jobId2WinnerEntitiesMap.containsKey(jobId)) {
-                            jobEntityWinners = jobId2WinnerEntitiesMap.get(jobId);
-                            tempKeyTxnId.setTxnId(jobId, logRecord.getDatasetId(), logRecord.getPKHashValue(),
-                                    logRecord.getPKValue(), logRecord.getPKValueSize());
-                            if (jobEntityWinners.containsEntityCommitForTxnId(LSN, tempKeyTxnId)) {
+                            if (winnerJobSet.contains(jobId)) {
                                 foundWinner = true;
+                            } else if (jobId2WinnerEntitiesMap.containsKey(jobId)) {
+                                jobEntityWinners = jobId2WinnerEntitiesMap.get(jobId);
+                                tempKeyTxnId.setTxnId(jobId, logRecord.getDatasetId(), logRecord.getPKHashValue(),
+                                        logRecord.getPKValue(), logRecord.getPKValueSize());
+                                if (jobEntityWinners.containsEntityCommitForTxnId(LSN, tempKeyTxnId)) {
+                                    foundWinner = true;
+                                }
                             }
-                        }
-                        if (foundWinner) {
-                            resourceId = logRecord.getResourceId();
-                            localResource = resourcesMap.get(resourceId);
-                            /*******************************************************************
-                             * [Notice]
-                             * -> Issue
-                             * Delete index may cause a problem during redo.
-                             * The index operation to be redone couldn't be redone because the corresponding index
-                             * may not exist in NC due to the possible index drop DDL operation.
-                             * -> Approach
-                             * Avoid the problem during redo.
-                             * More specifically, the problem will be detected when the localResource of
-                             * the corresponding index is retrieved, which will end up with 'null'.
-                             * If null is returned, then just go and process the next
-                             * log record.
-                             *******************************************************************/
-                            if (localResource == null) {
-                                logRecord = logReader.next();
-                                continue;
-                            }
-                            /*******************************************************************/
+                            if (foundWinner) {
+                                resourceId = logRecord.getResourceId();
+                                localResource = resourcesMap.get(resourceId);
+                                /*******************************************************************
+                                 * [Notice]
+                                 * -> Issue
+                                 * Delete index may cause a problem during redo.
+                                 * The index operation to be redone couldn't be redone because the corresponding index
+                                 * may not exist in NC due to the possible index drop DDL operation.
+                                 * -> Approach
+                                 * Avoid the problem during redo.
+                                 * More specifically, the problem will be detected when the localResource of
+                                 * the corresponding index is retrieved, which will end up with 'null'.
+                                 * If null is returned, then just go and process the next
+                                 * log record.
+                                 *******************************************************************/
+                                if (localResource == null) {
+                                    logRecord = logReader.next();
+                                    continue;
+                                }
+                                /*******************************************************************/
 
-                            //get index instance from IndexLifeCycleManager
-                            //if index is not registered into IndexLifeCycleManager,
-                            //create the index using LocalMetadata stored in LocalResourceRepository
+                                //get index instance from IndexLifeCycleManager
+                                //if index is not registered into IndexLifeCycleManager,
+                                //create the index using LocalMetadata stored in LocalResourceRepository
                                 //get partition path in this node
                                 String partitionIODevicePath = localResourceRepository
                                         .getPartitionPath(localResource.getPartition());
                                 String resourceAbsolutePath = partitionIODevicePath + File.separator
                                         + localResource.getResourceName();
                                 localResource.setResourcePath(resourceAbsolutePath);
-                            index = (ILSMIndex) datasetLifecycleManager.getIndex(resourceAbsolutePath);
-                            if (index == null) {
-                                //#. create index instance and register to indexLifeCycleManager
-                                localResourceMetadata = (ILocalResourceMetadata) localResource.getResourceObject();
-                                index = localResourceMetadata.createIndexInstance(appRuntimeContext,
+                                index = (ILSMIndex) datasetLifecycleManager.getIndex(resourceAbsolutePath);
+                                if (index == null) {
+                                    //#. create index instance and register to indexLifeCycleManager
+                                    localResourceMetadata = (ILocalResourceMetadata) localResource.getResourceObject();
+                                    index = localResourceMetadata.createIndexInstance(appRuntimeContext,
                                             resourceAbsolutePath, localResource.getPartition(),
                                             localResourceRepository.getIODeviceNum(localResource.getPartition()));
-                                datasetLifecycleManager.register(resourceAbsolutePath, index);
-                                datasetLifecycleManager.open(resourceAbsolutePath);
+                                    datasetLifecycleManager.register(resourceAbsolutePath, index);
+                                    datasetLifecycleManager.open(resourceAbsolutePath);
 
-                                //#. get maxDiskLastLSN
-                                ILSMIndex lsmIndex = index;
+                                    //#. get maxDiskLastLSN
+                                    ILSMIndex lsmIndex = index;
                                     try {
-                                maxDiskLastLsn = ((AbstractLSMIOOperationCallback) lsmIndex.getIOOperationCallback())
-                                        .getComponentLSN(lsmIndex.getImmutableComponents());
+                                        maxDiskLastLsn = ((AbstractLSMIOOperationCallback) lsmIndex
+                                                .getIOOperationCallback())
+                                                        .getComponentLSN(lsmIndex.getImmutableComponents());
                                     } catch (HyracksDataException e) {
                                         datasetLifecycleManager.close(resourceAbsolutePath);
                                         throw e;
                                     }
 
-                                //#. set resourceId and maxDiskLastLSN to the map
-                                resourceId2MaxLSNMap.put(resourceId, maxDiskLastLsn);
-                            } else {
-                                maxDiskLastLsn = resourceId2MaxLSNMap.get(resourceId);
-                            }
+                                    //#. set resourceId and maxDiskLastLSN to the map
+                                    resourceId2MaxLSNMap.put(resourceId, maxDiskLastLsn);
+                                } else {
+                                    maxDiskLastLsn = resourceId2MaxLSNMap.get(resourceId);
+                                }
 
-                            if (LSN > maxDiskLastLsn) {
-                                redo(logRecord, datasetLifecycleManager);
-                                redoCount++;
+                                if (LSN > maxDiskLastLsn) {
+                                    redo(logRecord, datasetLifecycleManager);
+                                    redoCount++;
+                                }
                             }
-                        }
                         }
                         break;
                     case LogType.JOB_COMMIT:
@@ -434,8 +436,6 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         return Runtime.getRuntime().freeMemory() < MAX_CACHED_ENTITY_COMMITS_PER_JOB_SIZE;
     }
 
-
-
     @Override
     public synchronized long checkpoint(boolean isSharpCheckpoint, long nonSharpCheckpointTargetLSN)
             throws ACIDException, HyracksDataException {
@@ -451,48 +451,48 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
 
         //get the filename of the previous checkpoint files which are about to be deleted 
         //right after the new checkpoint file is written.
-        File[] prevCheckpointFiles = getPreviousCheckpointFiles();
+        String[] prevCheckpointFiles = getPreviousCheckpointFiles();
 
         IDatasetLifecycleManager datasetLifecycleManager = txnSubsystem.getAsterixAppRuntimeContextProvider()
                 .getDatasetLifecycleManager();
         //flush all in-memory components if it is the sharp checkpoint
         if (isSharpCheckpoint) {
             datasetLifecycleManager.flushAllDatasets();
-            if (!replicationEnabled) {
+//            if (!replicationEnabled) {
                 minMCTFirstLSN = SHARP_CHECKPOINT_LSN;
-            } else {
-                //if is shutting down, need to check if we need to keep any remote logs for dead replicas
-                if (txnSubsystem.getAsterixAppRuntimeContextProvider().getAppContext().isShuttingdown()) {
-                    Set<String> deadReplicaIds = txnSubsystem.getAsterixAppRuntimeContextProvider().getAppContext()
-                            .getReplicationManager().getDeadReplicasIds();
-                    if (deadReplicaIds.isEmpty()) {
-                        minMCTFirstLSN = SHARP_CHECKPOINT_LSN;
-                    } else {
-                        //get min LSN of dead replicas remote resources
-                        IReplicaResourcesManager remoteResourcesManager = txnSubsystem
-                                .getAsterixAppRuntimeContextProvider().getAppContext().getReplicaResourcesManager();
-                        IAsterixPropertiesProvider propertiesProvider = (IAsterixPropertiesProvider) txnSubsystem
-                                .getAsterixAppRuntimeContextProvider().getAppContext();
-                        AsterixMetadataProperties metadataProperties = propertiesProvider.getMetadataProperties();
-                        Set<Integer> deadReplicasPartitions = new HashSet<>();
-                        //get partitions of the dead replicas that are not active on this node
-                        for (String deadReplicaId : deadReplicaIds) {
-                            ClusterPartition[] nodePartitons = metadataProperties.getNodePartitions()
-                                    .get(deadReplicaId);
-                            for (ClusterPartition partition : nodePartitons) {
-                                if (!localResourceRepository.getActivePartitions()
-                                        .contains(partition.getPartitionId())) {
-                                    deadReplicasPartitions.add(partition.getPartitionId());
-                                }
-                            }
-                        }
-                        minMCTFirstLSN = remoteResourcesManager.getPartitionsMinLSN(deadReplicasPartitions);
-                    }
-                } else {
-                    //start up complete checkpoint. Avoid deleting remote recovery logs. 
-                    minMCTFirstLSN = getMinFirstLSN();
-                }
-            }
+//            } else {
+//                //if is shutting down, need to check if we need to keep any remote logs for dead replicas
+//                if (txnSubsystem.getAsterixAppRuntimeContextProvider().getAppContext().isShuttingdown()) {
+//                    Set<String> deadReplicaIds = txnSubsystem.getAsterixAppRuntimeContextProvider().getAppContext()
+//                            .getReplicationManager().getDeadReplicasIds();
+//                    if (deadReplicaIds.isEmpty()) {
+//                        minMCTFirstLSN = SHARP_CHECKPOINT_LSN;
+//                    } else {
+//                        //get min LSN of dead replicas remote resources
+//                        IReplicaResourcesManager remoteResourcesManager = txnSubsystem
+//                                .getAsterixAppRuntimeContextProvider().getAppContext().getReplicaResourcesManager();
+//                        IAsterixPropertiesProvider propertiesProvider = (IAsterixPropertiesProvider) txnSubsystem
+//                                .getAsterixAppRuntimeContextProvider().getAppContext();
+//                        AsterixMetadataProperties metadataProperties = propertiesProvider.getMetadataProperties();
+//                        Set<Integer> deadReplicasPartitions = new HashSet<>();
+//                        //get partitions of the dead replicas that are not active on this node
+//                        for (String deadReplicaId : deadReplicaIds) {
+//                            ClusterPartition[] nodePartitons = metadataProperties.getNodePartitions()
+//                                    .get(deadReplicaId);
+//                            for (ClusterPartition partition : nodePartitons) {
+//                                if (!localResourceRepository.getActivePartitions()
+//                                        .contains(partition.getPartitionId())) {
+//                                    deadReplicasPartitions.add(partition.getPartitionId());
+//                                }
+//                            }
+//                        }
+//                        minMCTFirstLSN = remoteResourcesManager.getPartitionsMinLSN(deadReplicasPartitions);
+//                    }
+//                } else {
+//                    //start up complete checkpoint. Avoid deleting remote recovery logs.
+//                    minMCTFirstLSN = getMinFirstLSN();
+//                }
+//            }
         } else {
             minMCTFirstLSN = getMinFirstLSN();
             if (minMCTFirstLSN >= nonSharpCheckpointTargetLSN) {
@@ -500,23 +500,23 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             } else {
                 //flush datasets with indexes behind target checkpoint LSN
                 datasetLifecycleManager.scheduleAsyncFlushForLaggingDatasets(nonSharpCheckpointTargetLSN);
-                if (replicationEnabled) {
-                    //request remote replicas to flush lagging indexes
-                    IReplicationManager replicationManager = txnSubsystem.getAsterixAppRuntimeContextProvider()
-                            .getAppContext().getReplicationManager();
-                    try {
-                        replicationManager.requestFlushLaggingReplicaIndexes(nonSharpCheckpointTargetLSN);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
+//                if (replicationEnabled) {
+//                    //request remote replicas to flush lagging indexes
+//                    IReplicationManager replicationManager = txnSubsystem.getAsterixAppRuntimeContextProvider()
+//                            .getAppContext().getReplicationManager();
+//                    try {
+//                        replicationManager.requestFlushLaggingReplicaIndexes(nonSharpCheckpointTargetLSN);
+//                    } catch (IOException e) {
+//                        e.printStackTrace();
+//                    }
+//                }
             }
         }
 
         CheckpointObject checkpointObject = new CheckpointObject(logMgr.getAppendLSN(), minMCTFirstLSN,
                 txnMgr.getMaxJobId(), System.currentTimeMillis(), isSharpCheckpoint);
 
-        ByteArrayOutputStream fos = null;
+        ByteArrayOutputStream fos;
         ObjectOutputStream oosToFos = null;
         try {
             String fileName = getCheckpointFileName(logDir, Long.toString(checkpointObject.getTimeStamp()));
@@ -525,7 +525,8 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             oosToFos.writeObject(checkpointObject);
             oosToFos.flush();
             FileReference file = new FileReference(fileName, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
-            IFileHandle fh = ioManager.open(file, IIOManager.FileReadWriteMode.READ_WRITE, IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
+            IFileHandle fh = ioManager.open(file, IIOManager.FileReadWriteMode.READ_WRITE,
+                    IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
             ioManager.syncWrite(fh, 0, ByteBuffer.wrap(fos.toByteArray()));
             ioManager.close(fh);
         } catch (IOException e) {
@@ -535,14 +536,6 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                 try {
                     oosToFos.close();
                 } catch (IOException e) {
-                    throw new ACIDException("Failed to checkpoint", e);
-                }
-            }
-            if (oosToFos == null && fos != null) {
-                try {
-                    fos.close();
-                } catch (IOException e) {
-                    throw new ACIDException("Failed to checkpoint", e);
                 }
             }
         }
@@ -552,7 +545,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             // sort the filenames lexicographically to keep the latest checkpointHistory files.
             Arrays.sort(prevCheckpointFiles);
             for (int i = 0; i < prevCheckpointFiles.length - this.checkpointHistory; ++i) {
-                prevCheckpointFiles[i].delete();
+                ioManager.delete(new FileReference(prevCheckpointFiles[i]));
             }
         }
 
@@ -585,10 +578,10 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         long minFirstLSN = getLocalMinFirstLSN();
 
         //if replication is enabled, consider replica resources min LSN
-        if (replicationEnabled) {
-            long remoteMinFirstLSN = getRemoteMinFirstLSN();
-            minFirstLSN = Math.min(minFirstLSN, remoteMinFirstLSN);
-        }
+//        if (replicationEnabled) {
+//            long remoteMinFirstLSN = getRemoteMinFirstLSN();
+//            minFirstLSN = Math.min(minFirstLSN, remoteMinFirstLSN);
+//        }
 
         return minFirstLSN;
     }
@@ -627,27 +620,33 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         return minRemoteLSN;
     }
 
-    private CheckpointObject readCheckpoint() throws ACIDException, FileNotFoundException {
+    private CheckpointObject readCheckpoint() throws ACIDException, FileNotFoundException, HyracksDataException {
         CheckpointObject checkpointObject = null;
 
         //read all checkpointObjects from the existing checkpoint files
-        File[] prevCheckpointFiles = getPreviousCheckpointFiles();
+        String[] prevCheckpointFiles = getPreviousCheckpointFiles();
         if (prevCheckpointFiles == null || prevCheckpointFiles.length == 0) {
             throw new FileNotFoundException("Checkpoint file is not found");
         }
 
         List<CheckpointObject> checkpointObjectList = new ArrayList<CheckpointObject>();
-        for (File file : prevCheckpointFiles) {
-            FileInputStream fis = null;
+        for (String fileName : prevCheckpointFiles) {
+            InputStream fis = null;
+            FileReference file = new FileReference(fileName);
+            IFileHandle fh = null;
             ObjectInputStream oisFromFis = null;
 
             try {
-                fis = new FileInputStream(file);
+                fh = ioManager.open(file, IIOManager.FileReadWriteMode.READ_ONLY,
+                        IIOManager.FileSyncMode.METADATA_SYNC_DATA_SYNC);
+                fis = ioManager.getInputStream(fh);
                 oisFromFis = new ObjectInputStream(fis);
                 checkpointObject = (CheckpointObject) oisFromFis.readObject();
                 checkpointObjectList.add(checkpointObject);
             } catch (Exception e) {
                 throw new ACIDException("Failed to read a checkpoint file", e);
+            } finally {
+                ioManager.close(fh);
             }
         }
 
@@ -658,9 +657,9 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         return checkpointObjectList.get(0);
     }
 
-    private File[] getPreviousCheckpointFiles() {
+    private String[] getPreviousCheckpointFiles() throws HyracksDataException {
         String logDir = ((LogManager) txnSubsystem.getLogManager(this)).getLogManagerProperties().getLogDir();
-        File parentDir = new File(logDir);
+        FileReference parentDir = new FileReference(logDir);
 
         FilenameFilter filter = new FilenameFilter() {
             @Override
@@ -669,7 +668,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             }
         };
 
-        return parentDir.listFiles(filter);
+        return ioManager.listFiles(parentDir, filter);
     }
 
     private static String getCheckpointFileName(String baseDir, String suffix) {
@@ -680,21 +679,24 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
     }
 
     @Override
-    public File createJobRecoveryFile(int jobId, String fileName) throws IOException {
+    public IFileHandle createJobRecoveryFile(int jobId, String fileName) throws IOException {
         String recoveryDirPath = getRecoveryDirPath();
-        Path JobRecoveryFolder = Paths.get(recoveryDirPath + File.separator + jobId);
-        if (!Files.exists(JobRecoveryFolder)) {
-            Files.createDirectories(JobRecoveryFolder);
+        FileReference jobRecoveryFolder = new FileReference(recoveryDirPath + File.separator + jobId,
+                FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+        if (!ioManager.exists(jobRecoveryFolder)) {
+            ioManager.mkdirs(jobRecoveryFolder);
         }
 
-        File jobRecoveryFile = new File(JobRecoveryFolder.toString() + File.separator + fileName);
-        if (!jobRecoveryFile.exists()) {
-            jobRecoveryFile.createNewFile();
+        FileReference jobRecoveryFileReference = new FileReference(
+                jobRecoveryFolder.getPath() + File.separator + fileName);
+        IFileHandle jobRecoveryFileHandle = null;
+        if (!ioManager.exists(jobRecoveryFileReference)) {
+            jobRecoveryFileHandle = ioManager.open(jobRecoveryFileReference, IIOManager.FileReadWriteMode.READ_WRITE,
+                    IIOManager.FileSyncMode.METADATA_SYNC_DATA_SYNC);
         } else {
             throw new IOException("File: " + fileName + " for job id(" + jobId + ") already exists");
         }
-
-        return jobRecoveryFile;
+        return jobRecoveryFileHandle;
     }
 
     @Override
@@ -767,14 +769,14 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                         LOGGER.info(logRecord.getLogRecordForDisplay());
                     }
                 }
-                    logJobId = logRecord.getJobId();
-                    if (logJobId != abortedJobId) {
-                        continue;
-                    }
-                    tempKeyTxnId.setTxnId(logJobId, logRecord.getDatasetId(), logRecord.getPKHashValue(),
-                            logRecord.getPKValue(), logRecord.getPKValueSize());
-                    switch (logRecord.getLogType()) {
-                        case LogType.UPDATE:
+                logJobId = logRecord.getJobId();
+                if (logJobId != abortedJobId) {
+                    continue;
+                }
+                tempKeyTxnId.setTxnId(logJobId, logRecord.getDatasetId(), logRecord.getPKHashValue(),
+                        logRecord.getPKValue(), logRecord.getPKValueSize());
+                switch (logRecord.getLogType()) {
+                    case LogType.UPDATE:
                         if (activePartitions.contains(logRecord.getResourcePartition())) {
                             undoLSNSet = jobLoserEntity2LSNsMap.get(tempKeyTxnId);
                             if (undoLSNSet == null) {
@@ -790,8 +792,8 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                                         + tempKeyTxnId);
                             }
                         }
-                            break;
-                        case LogType.ENTITY_COMMIT:
+                        break;
+                    case LogType.ENTITY_COMMIT:
                     case LogType.UPSERT_ENTITY_COMMIT:
                         if (activePartitions.contains(logRecord.getResourcePartition())) {
                             jobLoserEntity2LSNsMap.remove(tempKeyTxnId);
@@ -801,17 +803,17 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                                         + tempKeyTxnId);
                             }
                         }
-                            break;
-                        case LogType.JOB_COMMIT:
-                            throw new ACIDException("Unexpected LogType(" + logRecord.getLogType() + ") during abort.");
-                        case LogType.ABORT:
-                        case LogType.FLUSH:
-                            //ignore
-                            break;
-                        default:
-                            throw new ACIDException("Unsupported LogType: " + logRecord.getLogType());
-                    }
+                        break;
+                    case LogType.JOB_COMMIT:
+                        throw new ACIDException("Unexpected LogType(" + logRecord.getLogType() + ") during abort.");
+                    case LogType.ABORT:
+                    case LogType.FLUSH:
+                        //ignore
+                        break;
+                    default:
+                        throw new ACIDException("Unsupported LogType: " + logRecord.getLogType());
                 }
+            }
 
             if (currentLSN != lastLSN) {
                 throw new ACIDException("LastLSN mismatch: lastLSN(" + lastLSN + ") vs currentLSN(" + currentLSN
@@ -917,7 +919,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         private static final String PARTITION_FILE_NAME_SEPARATOR = "_";
         private final int jobId;
         private final Set<TxnId> cachedEntityCommitTxns = new HashSet<TxnId>();
-        private final List<File> jobEntitCommitOnDiskPartitionsFiles = new ArrayList<File>();
+        private final List<IFileHandle> jobEntitCommitOnDiskPartitionsFiles = new ArrayList<>();
         //a flag indicating whether all the the commits for this jobs have been added.
         private boolean preparedForSearch = false;
         private TxnId winnerEntity = null;
@@ -980,8 +982,8 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                 return cachedEntityCommitTxns.contains(txnId);
             } else {
                 //get candidate partitions from disk
-                ArrayList<File> candidatePartitions = getCandidiatePartitions(logLSN);
-                for (File partition : candidatePartitions) {
+                ArrayList<IFileHandle> candidatePartitions = getCandidiatePartitions(logLSN);
+                for (IFileHandle partition : candidatePartitions) {
                     if (serachPartition(partition, txnId)) {
                         return true;
                     }
@@ -994,11 +996,11 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
          * @param logLSN
          * @return partitions that have a max LSN > logLSN
          */
-        public ArrayList<File> getCandidiatePartitions(long logLSN) {
-            ArrayList<File> candidiatePartitions = new ArrayList<File>();
+        public ArrayList<IFileHandle> getCandidiatePartitions(long logLSN) {
+            ArrayList<IFileHandle> candidiatePartitions = new ArrayList<>();
 
-            for (File partition : jobEntitCommitOnDiskPartitionsFiles) {
-                String partitionName = partition.getName();
+            for (IFileHandle partition : jobEntitCommitOnDiskPartitionsFiles) {
+                String partitionName = (((FileHandle)partition).getFileReference()).getName();
                 //entity commit log must come after the update log, therefore, consider only partitions with max LSN > logLSN 
                 if (getPartitionMaxLSNFromName(partitionName) > logLSN) {
                     candidiatePartitions.add(partition);
@@ -1008,19 +1010,21 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             return candidiatePartitions;
         }
 
-        public void clear() {
+        public void clear() throws HyracksDataException {
             cachedEntityCommitTxns.clear();
-            for (File partition : jobEntitCommitOnDiskPartitionsFiles) {
-                partition.delete();
+            for (IFileHandle partition : jobEntitCommitOnDiskPartitionsFiles) {
+                ioManager.close(partition);
+                ioManager.delete(((FileHandle)partition).getFileReference());
             }
             jobEntitCommitOnDiskPartitionsFiles.clear();
         }
 
-        private boolean serachPartition(File partition, TxnId txnId) throws IOException {
+        private boolean serachPartition(IFileHandle partition, TxnId txnId) throws IOException {
             //load partition from disk if it is not  already in memory
-            if (!partition.getName().equals(currentPartitonName)) {
+            if (!((FileHandle)partition).getFileReference().getName().equals(currentPartitonName)) {
+
                 loadPartitionToMemory(partition, cachedEntityCommitTxns);
-                currentPartitonName = partition.getName();
+                currentPartitonName = ((FileHandle)partition).getFileReference().getName();
             }
             return cachedEntityCommitTxns.contains(txnId);
         }
@@ -1047,27 +1051,21 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                 iterator.remove();
             }
             //name partition file based on job id and max lsn
-            File partitionFile = createJobRecoveryFile(jobId, getPartitionName(partitionMaxLSN));
+            IFileHandle partitionFileHandle = createJobRecoveryFile(jobId, getPartitionName(partitionMaxLSN));
             //write file to disk
-            try (FileOutputStream fileOutputstream = new FileOutputStream(partitionFile, false);
-                    FileChannel fileChannel = fileOutputstream.getChannel()) {
-                buffer.flip();
-                while (buffer.hasRemaining()) {
-                    fileChannel.write(buffer);
-                }
-            }
-            jobEntitCommitOnDiskPartitionsFiles.add(partitionFile);
+            ioManager.syncWrite(partitionFileHandle,0,buffer);
+            jobEntitCommitOnDiskPartitionsFiles.add(partitionFileHandle);
         }
 
-        private void loadPartitionToMemory(File partition, Set<TxnId> partitionTxn) throws IOException {
+        private void loadPartitionToMemory(IFileHandle partition, Set<TxnId> partitionTxn) throws IOException {
             partitionTxn.clear();
             //if we don't have enough memory to a load partition, we will ask recovery manager to free memory
             if (needToFreeMemory()) {
                 freeJobsCachedEntities(jobId);
             }
-            ByteBuffer buffer = ByteBuffer.allocateDirect((int) partition.length());
+            ByteBuffer buffer = ByteBuffer.allocateDirect((int) ioManager.getSize(partition));
             //load partition to memory
-            try (InputStream is = new FileInputStream(partition)) {
+            try (InputStream is = ioManager.getInputStream(partition)){
                 int readByte;
                 while ((readByte = is.read()) != -1) {
                     buffer.put((byte) readByte);

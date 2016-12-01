@@ -20,7 +20,7 @@ package org.apache.asterix.transaction.management.resource;
 
 import java.io.*;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
+import java.util.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -31,12 +31,6 @@ import java.io.ObjectOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -46,6 +40,7 @@ import org.apache.asterix.common.config.AsterixMetadataProperties;
 import org.apache.asterix.common.replication.AsterixReplicationJob;
 import org.apache.asterix.common.replication.IReplicationManager;
 import org.apache.asterix.common.utils.StoragePathUtil;
+import org.apache.avro.generic.GenericData;
 import org.apache.commons.io.FileUtils;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileReference;
@@ -83,14 +78,16 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
     private final Set<Integer> nodeActivePartitions;
     private Set<Integer> nodeInactivePartitions;
 
-    public PersistentLocalResourceRepository(List<IODeviceHandle> devices, String nodeId, AsterixMetadataProperties metadataProperties, IIOManager ioManager) throws HyracksDataException {
+    public PersistentLocalResourceRepository(List<IODeviceHandle> devices, String nodeId,
+            AsterixMetadataProperties metadataProperties, IIOManager ioManager) throws HyracksDataException {
         mountPoints = new String[devices.size()];
         this.ioManager = ioManager;
         this.nodeId = nodeId;
         this.clusterPartitions = metadataProperties.getClusterPartitions();
         for (int i = 0; i < mountPoints.length; i++) {
             String mountPoint = devices.get(i).getPath().getPath();
-            FileReference mountPointDir = new FileReference(mountPoint, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+            FileReference mountPointDir = new FileReference(mountPoint,
+                    FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
             if (!ioManager.exists(mountPointDir)) {
                 throw new HyracksDataException(mountPointDir.getPath() + " doesn't exist.");
             }
@@ -130,7 +127,7 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         //TODO with the existing cluster configuration file being static and distributed on all NCs, we can find out the storage root
         //directory without looking at this file. This file could potentially store more information, otherwise no need to keep it.
         for (int i = 0; i < mountPoints.length; i++) {
-            FileReference storageMetadataFile= getStorageMetadataFile(mountPoints[i], nodeId, i);
+            FileReference storageMetadataFile = getStorageMetadataFile(mountPoints[i], nodeId, i);
             FileReference storageMetadataDir = ioManager.getParent(storageMetadataFile);
             //make dirs for the storage metadata file
             boolean success = ioManager.mkdirs(storageMetadataDir);
@@ -164,7 +161,7 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
     public LocalResource getResourceByPath(String path) throws HyracksDataException {
         LocalResource resource = resourceCache.getIfPresent(path);
         if (resource == null) {
-            FileReference resourceFile= getLocalResourceFileByName(path);
+            FileReference resourceFile = getLocalResourceFileByName(path);
             if (ioManager.exists(resourceFile)) {
                 resource = readLocalResource(resourceFile);
                 resourceCache.put(path, resource);
@@ -175,7 +172,8 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
 
     @Override
     public synchronized void insert(LocalResource resource) throws HyracksDataException {
-        FileReference resourceFile = new FileReference(getFileName(resource.getResourcePath(), resource.getResourceId()),
+        FileReference resourceFile = new FileReference(
+                getFileName(resource.getResourcePath(), resource.getResourceId()),
                 FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
         if (ioManager.exists(resourceFile)) {
             throw new HyracksDataException("Duplicate resource: " + resourceFile.getAbsolutePath());
@@ -194,14 +192,18 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
             oosToFos = new ObjectOutputStream(fos);
             oosToFos.writeObject(resource);
             oosToFos.flush();
-            FileReference file = new FileReference(getFileName(resource.getResourceName(), resource.getResourceId()), FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
-            if(ioManager.exists(file)){
+            FileReference file = new FileReference(getFileName(resource.getResourceName(), resource.getResourceId()),
+                    FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+            if (ioManager.exists(file)) {
                 ioManager.delete(file);
             }
-            IFileHandle fh = ioManager.open(file, IIOManager.FileReadWriteMode.READ_WRITE, IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
+            IFileHandle fh = ioManager.open(file, IIOManager.FileReadWriteMode.READ_WRITE,
+                    IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
             ioManager.close(fh);
-            fh = ioManager.open(file,IIOManager.FileReadWriteMode.READ_WRITE, IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);getFileName(resource.getResourceName(), resource.getResourceId());
-            ioManager.append(fh,ByteBuffer.wrap(fos.toByteArray()));
+            fh = ioManager.open(file, IIOManager.FileReadWriteMode.READ_WRITE,
+                    IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
+            getFileName(resource.getResourceName(), resource.getResourceId());
+            ioManager.append(fh, ByteBuffer.wrap(fos.toByteArray()));
             ioManager.close(fh);
 
         } catch (IOException e) {
@@ -241,31 +243,42 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         //This could be fixed by traversing all resources on disk until the required resource is found.
         HashMap<Long, LocalResource> resourcesMap = new HashMap<Long, LocalResource>();
 
-
         for (int i = 0; i < mountPoints.length; i++) {
             FileReference storageRootDir = getStorageRootDirectoryIfExists(mountPoints[i], nodeId, i);
             if (storageRootDir == null) {
                 continue;
             }
 
-            //load all local resources.
-            String[] partitions = ioManager.listFiles(storageRootDir,NOOP_FILES_FILTER);
+            //load all local resources that belong to us.
+            List<String> partitions = new ArrayList<>(
+                    Arrays.asList(ioManager.listFiles(storageRootDir, NOOP_FILES_FILTER)));
+            for (String candidatePart : partitions) {
+                for (Integer activePart : nodeActivePartitions) {
+                    if (!candidatePart.split("_")[1].equals(activePart)) {
+                        partitions.remove(candidatePart);
+                    }
+                }
+            }
             for (String sPartition : partitions) {
-                FileReference partition = new FileReference(sPartition, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
-                String[] dataverseFileList = ioManager.listFiles(partition,NOOP_FILES_FILTER);
+                FileReference partition = new FileReference(sPartition,
+                        FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+                String[] dataverseFileList = ioManager.listFiles(partition, NOOP_FILES_FILTER);
                 if (dataverseFileList != null) {
                     for (String sDataverseFile : dataverseFileList) {
-                        FileReference dataverseFile = new FileReference(sDataverseFile, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+                        FileReference dataverseFile = new FileReference(sDataverseFile,
+                                FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
                         if (ioManager.isDirectory(dataverseFile)) {
-                            String[] indexFileList = ioManager.listFiles(dataverseFile,NOOP_FILES_FILTER);
+                            String[] indexFileList = ioManager.listFiles(dataverseFile, NOOP_FILES_FILTER);
                             if (indexFileList != null) {
                                 for (String sIndexFile : indexFileList) {
-                                    FileReference indexFile = new FileReference(sIndexFile, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+                                    FileReference indexFile = new FileReference(sIndexFile,
+                                            FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
                                     if (ioManager.isDirectory(indexFile)) {
-                                        String[] metadataFiles = ioManager.listFiles(indexFile,METADATA_FILES_FILTER);
+                                        String[] metadataFiles = ioManager.listFiles(indexFile, METADATA_FILES_FILTER);
                                         if (metadataFiles != null) {
                                             for (String sMetadataFile : metadataFiles) {
-                                                FileReference metadataFile = new FileReference(sMetadataFile, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+                                                FileReference metadataFile = new FileReference(sMetadataFile,
+                                                        FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
                                                 LocalResource localResource = readLocalResource(metadataFile);
                                                 resourcesMap.put(localResource.getResourceId(), localResource);
                                             }
@@ -291,25 +304,28 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
                 continue;
             }
 
-
             //load all local resources.
-            String[] partitions = ioManager.listFiles(storageRootDir,NOOP_FILES_FILTER);
+            String[] partitions = ioManager.listFiles(storageRootDir, NOOP_FILES_FILTER);
             for (String sPartition : partitions) {
-                FileReference partition = new FileReference(sPartition, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
-                String[] dataverseFileList = ioManager.listFiles(partition,NOOP_FILES_FILTER);
+                FileReference partition = new FileReference(sPartition,
+                        FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+                String[] dataverseFileList = ioManager.listFiles(partition, NOOP_FILES_FILTER);
                 if (dataverseFileList != null) {
                     for (String sDataverseFile : dataverseFileList) {
-                        FileReference dataverseFile = new FileReference(sDataverseFile, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+                        FileReference dataverseFile = new FileReference(sDataverseFile,
+                                FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
                         if (ioManager.isDirectory(dataverseFile)) {
-                            String[] indexFileList = ioManager.listFiles(dataverseFile,NOOP_FILES_FILTER);
+                            String[] indexFileList = ioManager.listFiles(dataverseFile, NOOP_FILES_FILTER);
                             if (indexFileList != null) {
                                 for (String sIndexFile : indexFileList) {
-                                    FileReference indexFile = new FileReference(sIndexFile, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+                                    FileReference indexFile = new FileReference(sIndexFile,
+                                            FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
                                     if (ioManager.isDirectory(indexFile)) {
-                                        String[] metadataFiles = ioManager.listFiles(indexFile,METADATA_FILES_FILTER);
+                                        String[] metadataFiles = ioManager.listFiles(indexFile, METADATA_FILES_FILTER);
                                         if (metadataFiles != null) {
                                             for (String sMetadataFile : metadataFiles) {
-                                                FileReference metadataFile = new FileReference(sMetadataFile, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+                                                FileReference metadataFile = new FileReference(sMetadataFile,
+                                                        FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
                                                 LocalResource localResource = readLocalResource(metadataFile);
                                                 maxResourceId = Math.max(maxResourceId, localResource.getResourceId());
                                             }
@@ -342,7 +358,8 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         ObjectInputStream oisFromFis = null;
 
         try {
-            IFileHandle fHandle = ioManager.open(file, IIOManager.FileReadWriteMode.READ_ONLY, IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
+            IFileHandle fHandle = ioManager.open(file, IIOManager.FileReadWriteMode.READ_ONLY,
+                    IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
             oisFromFis = new ObjectInputStream(ioManager.getInputStream(fHandle));
             LocalResource resource = (LocalResource) oisFromFis.readObject();
             return resource;
@@ -364,7 +381,7 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
 
     private static final FilenameFilter NOOP_FILES_FILTER = new FilenameFilter() {
         public boolean accept(File dir, String name) {
-                return true;
+            return true;
         }
     };
 
@@ -440,7 +457,8 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
     private static FileReference getStorageMetadataFile(String mountPoint, String nodeId, int ioDeviceId) {
         String storageMetadataFileName = getStorageMetadataDirPath(mountPoint, nodeId, ioDeviceId) + File.separator
                 + STORAGE_METADATA_FILE_NAME_PREFIX;
-        FileReference storageMetadataFile= new FileReference(storageMetadataFileName, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+        FileReference storageMetadataFile = new FileReference(storageMetadataFileName,
+                FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
         return storageMetadataFile;
     }
 
@@ -460,7 +478,8 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
             String storageRootDirPath = (String) rootLocalResource.getResourceObject();
             Path path = Paths.get(storageRootDirPath);
             if (Files.exists(path)) {
-                storageRootDir = new FileReference(storageRootDirPath, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
+                storageRootDir = new FileReference(storageRootDirPath,
+                        FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
             }
         }
         return storageRootDir;

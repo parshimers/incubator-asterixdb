@@ -43,6 +43,7 @@ import org.apache.asterix.common.transactions.LogManagerProperties;
 import org.apache.asterix.common.transactions.LogType;
 import org.apache.asterix.common.transactions.MutableLong;
 import org.apache.asterix.transaction.management.service.transaction.TransactionSubsystem;
+import org.apache.commons.logging.Log;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.api.io.IFileHandle;
@@ -65,7 +66,6 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     public final IIOManager ioManager;
     private Map<FileReference, IFileHandle> openLogFiles;
     IFileHandle currentLogFile;
-    FileReference currentLogFileReference;
     private LinkedBlockingQueue<LogBuffer> emptyQ;
     private LinkedBlockingQueue<LogBuffer> flushQ;
     protected final AtomicLong appendLSN;
@@ -78,16 +78,19 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     private final FlushLogsLogger flushLogsLogger;
 
     public LogManager(TransactionSubsystem txnSubsystem) {
-        this.txnSubsystem = txnSubsystem;
+        this(txnSubsystem,new LogManagerProperties(txnSubsystem.getTransactionProperties(),
+                txnSubsystem.getId()));
+    }
 
+    public LogManager(TransactionSubsystem txnSubsystem, LogManagerProperties logProperties){
+        this.txnSubsystem = txnSubsystem;
+        this.logManagerProperties = logProperties;
         ioManager = this.txnSubsystem.getAsterixAppRuntimeContextProvider().getIOManager();
-        logManagerProperties = new LogManagerProperties(this.txnSubsystem.getTransactionProperties(),
-                this.txnSubsystem.getId());
-        logFileSize = logManagerProperties.getLogPartitionSize();
-        logPageSize = logManagerProperties.getLogPageSize();
-        numLogPages = logManagerProperties.getNumLogPages();
-        logDir = logManagerProperties.getLogDir();
-        logFilePrefix = logManagerProperties.getLogFilePrefix();
+        logFileSize = logProperties.getLogPartitionSize();
+        logPageSize = logProperties.getLogPageSize();
+        numLogPages = logProperties.getNumLogPages();
+        logDir = logProperties.getLogDir();
+        logFilePrefix = logProperties.getLogFilePrefix();
         flushLSN = new MutableLong();
         appendLSN = new AtomicLong();
         nodeId = txnSubsystem.getId();
