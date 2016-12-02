@@ -33,6 +33,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.asterix.runtime.util.ClusterStateManager;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -49,10 +50,11 @@ public class ClusterNodeDetailsAPIServlet extends ClusterAPIServlet {
         ServletContext context = getServletContext();
         IHyracksClientConnection hcc = (IHyracksClientConnection) context.getAttribute(HYRACKS_CONNECTION_ATTR);
         ObjectNode json;
+        ObjectMapper om = new ObjectMapper();
+        om.enable(SerializationFeature.INDENT_OUTPUT);
 
         try {
             if (request.getPathInfo() == null) {
-                ObjectMapper om = new ObjectMapper();
                 json = om.createObjectNode();
                 json.put("ncs", getClusterStateJSON(request, "../").get("ncs"));
             } else {
@@ -61,7 +63,7 @@ public class ClusterNodeDetailsAPIServlet extends ClusterAPIServlet {
             response.setStatus(HttpServletResponse.SC_OK);
             response.setContentType("application/json");
             response.setCharacterEncoding("utf-8");
-            responseWriter.write(json.toString());
+            responseWriter.write(om.writerWithDefaultPrettyPrinter().writeValueAsString(json));
         } catch (IllegalStateException e) { // NOSONAR - exception not logged or rethrown
             response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
         } catch (IllegalArgumentException e) { // NOSONAR - exception not logged or rethrown
@@ -87,7 +89,7 @@ public class ClusterNodeDetailsAPIServlet extends ClusterAPIServlet {
             ArrayNode ncs = (ArrayNode) getClusterStateJSON(request, "../../").get("ncs");
             for (int i = 0; i < ncs.size(); i++) {
                 ObjectNode json = (ObjectNode) ncs.get(i);
-                if (node.equals(json.get("node_id"))) {
+                if (node.equals(json.get("node_id").asText())) {
                     return json;
                 }
             }

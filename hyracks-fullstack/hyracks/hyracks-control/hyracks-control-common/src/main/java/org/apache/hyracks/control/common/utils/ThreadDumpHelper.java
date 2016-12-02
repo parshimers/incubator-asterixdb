@@ -20,6 +20,7 @@ package org.apache.hyracks.control.common.utils;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -86,6 +87,7 @@ public class ThreadDumpHelper {
         if (monitorDeadlockedThreads != null && monitorDeadlockedThreads.length > 0) {
             json.putPOJO("monitor_deadlocked_thread_ids", monitorDeadlockedThreads);
         }
-        return json.toString();
+        om.enable(SerializationFeature.INDENT_OUTPUT);
+        return om.writerWithDefaultPrettyPrinter().writeValueAsString(json);
     }
 }

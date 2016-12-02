@@ -25,16 +25,33 @@ import java.util.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class RecordType {
 
     enum Type {
-        BYTE  (1, "byte",  "get",      "put",      "(byte)0xde",          "TypeUtil.Byte.append",   "TypeUtil.Byte.appendFixed"),
-        SHORT (2, "short", "getShort", "putShort", "(short)0xdead",       "TypeUtil.Short.append",  "TypeUtil.Short.appendFixed"),
-        INT   (4, "int",   "getInt",   "putInt",   "0xdeadbeef",          "TypeUtil.Int.append",    "TypeUtil.Int.appendFixed"),
-        GLOBAL(8, "long",  "getLong",  "putLong",  "0xdeadbeefdeadbeefl", "TypeUtil.Global.append", "TypeUtil.Global.appendFixed");
+        BYTE(1, "byte", "get", "put", "(byte)0xde", "TypeUtil.Byte.append", "TypeUtil.Byte.appendFixed"),
+        SHORT(
+                2,
+                "short",
+                "getShort",
+                "putShort",
+                "(short)0xdead",
+                "TypeUtil.Short.append",
+                "TypeUtil.Short.appendFixed"),
+        INT(4, "int", "getInt", "putInt", "0xdeadbeef", "TypeUtil.Int.append", "TypeUtil.Int.appendFixed"),
+        GLOBAL(
+                8,
+                "long",
+                "getLong",
+                "putLong",
+                "0xdeadbeefdeadbeefl",
+                "TypeUtil.Global.append",
+                "TypeUtil.Global.appendFixed");
 
-        Type(int size, String javaType, String bbGetter, String bbSetter, String deadMemInitializer, String appender, String tabAppender) {
+        Type(int size, String javaType, String bbGetter, String bbSetter, String deadMemInitializer, String appender,
+                String tabAppender) {
             this.size = size;
             this.javaType = javaType;
             this.bbGetter = bbGetter;
@@ -69,10 +86,10 @@ public class RecordType {
             this.accessible = accessible;
         }
 
-        public static Field fromJSON(JsonNode obj)  {
-            String name = obj.asText("name");
-            Type type = parseType(obj.asText("type"));
-            String initial = obj.asText("initial");
+        public static Field fromJSON(JsonNode obj) {
+            String name = obj.get("name").asText();
+            Type type = parseType(obj.get("type").asText());
+            String initial = obj.get("initial") == null ? null : obj.get("initial").asText();
             return new Field(name, type, initial, -1, true);
         }
 
@@ -92,7 +109,7 @@ public class RecordType {
 
         String methodName(String prefix) {
             String words[] = name.split(" ");
-            assert(words.length > 0);
+            assert (words.length > 0);
             StringBuilder sb = new StringBuilder(prefix);
             for (int j = 0; j < words.length; ++j) {
                 String word = words[j];
@@ -104,11 +121,8 @@ public class RecordType {
 
         StringBuilder appendMemoryManagerGetMethod(StringBuilder sb, String indent, int level) {
             sb = indent(sb, indent, level);
-            sb.append("public ")
-              .append(type.javaType)
-              .append(' ')
-              .append(methodName("get"))
-              .append("(int slotNum) {\n");
+            sb.append("public ").append(type.javaType).append(' ').append(methodName("get"))
+                    .append("(int slotNum) {\n");
             sb = indent(sb, indent, level + 1);
             sb.append("final Buffer buf = buffers.get(slotNum / NO_SLOTS);\n");
             sb = indent(sb, indent, level + 1);
@@ -116,11 +130,8 @@ public class RecordType {
             sb = indent(sb, indent, level + 1);
             sb.append("final ByteBuffer b = buf.bb;\n");
             sb = indent(sb, indent, level + 1);
-            sb.append("return b.")
-              .append(type.bbGetter)
-              .append("((slotNum % NO_SLOTS) * ITEM_SIZE + ")
-              .append(offsetName())
-              .append(");\n");
+            sb.append("return b.").append(type.bbGetter).append("((slotNum % NO_SLOTS) * ITEM_SIZE + ")
+                    .append(offsetName()).append(");\n");
             sb = indent(sb, indent, level);
             sb.append("}\n");
             return sb;
@@ -128,19 +139,13 @@ public class RecordType {
 
         StringBuilder appendMemoryManagerSetMethod(StringBuilder sb, String indent, int level) {
             sb = indent(sb, indent, level);
-            sb.append("public void ")
-              .append(methodName("set"))
-              .append("(int slotNum, ")
-              .append(type.javaType)
-              .append(" value) {\n");
+            sb.append("public void ").append(methodName("set")).append("(int slotNum, ").append(type.javaType)
+                    .append(" value) {\n");
             sb = indent(sb, indent, level + 1);
             sb.append("final ByteBuffer b = buffers.get(slotNum / NO_SLOTS).bb;\n");
             sb = indent(sb, indent, level + 1);
-            sb.append("b.")
-              .append(type.bbSetter)
-              .append("((slotNum % NO_SLOTS) * ITEM_SIZE + ")
-              .append(offsetName())
-              .append(", value);\n");
+            sb.append("b.").append(type.bbSetter).append("((slotNum % NO_SLOTS) * ITEM_SIZE + ").append(offsetName())
+                    .append(", value);\n");
             sb = indent(sb, indent, level);
             sb.append("}\n");
             return sb;
@@ -148,23 +153,18 @@ public class RecordType {
 
         StringBuilder appendArenaManagerGetMethod(StringBuilder sb, String indent, int level) {
             sb = indent(sb, indent, level);
-            sb.append("public ")
-              .append(type.javaType)
-              .append(' ')
-              .append(methodName("get"))
-              .append("(long slotNum) {\n");
+            sb.append("public ").append(type.javaType).append(' ').append(methodName("get"))
+                    .append("(long slotNum) {\n");
             if (initial != null) {
-              sb = indent(sb, indent, level + 1);
-              sb.append("if (TRACK_ALLOC_ID) checkAllocId(slotNum);\n");
+                sb = indent(sb, indent, level + 1);
+                sb.append("if (TRACK_ALLOC_ID) checkAllocId(slotNum);\n");
             }
             sb = indent(sb, indent, level + 1);
             sb.append("final int arenaId = TypeUtil.Global.arenaId(slotNum);\n");
             sb = indent(sb, indent, level + 1);
             sb.append("final int localId = TypeUtil.Global.localId(slotNum);\n");
             sb = indent(sb, indent, level + 1);
-            sb.append("return get(arenaId).")
-              .append(methodName("get"))
-              .append("(localId);\n");
+            sb.append("return get(arenaId).").append(methodName("get")).append("(localId);\n");
             sb = indent(sb, indent, level);
             sb.append("}\n");
             return sb;
@@ -172,23 +172,18 @@ public class RecordType {
 
         StringBuilder appendArenaManagerSetMethod(StringBuilder sb, String indent, int level) {
             sb = indent(sb, indent, level);
-            sb.append("public void ")
-              .append(methodName("set"))
-              .append("(long slotNum, ")
-              .append(type.javaType)
-              .append(" value) {\n");
+            sb.append("public void ").append(methodName("set")).append("(long slotNum, ").append(type.javaType)
+                    .append(" value) {\n");
             if (initial != null) {
-              sb = indent(sb, indent, level + 1);
-              sb.append("if (TRACK_ALLOC_ID) checkAllocId(slotNum);\n");
+                sb = indent(sb, indent, level + 1);
+                sb.append("if (TRACK_ALLOC_ID) checkAllocId(slotNum);\n");
             }
             sb = indent(sb, indent, level + 1);
             sb.append("final int arenaId = TypeUtil.Global.arenaId(slotNum);\n");
             sb = indent(sb, indent, level + 1);
             sb.append("final int localId = TypeUtil.Global.localId(slotNum);\n");
             sb = indent(sb, indent, level + 1);
-            sb.append("get(arenaId).")
-              .append(methodName("set"))
-              .append("(localId, value);\n");
+            sb.append("get(arenaId).").append(methodName("set")).append("(localId, value);\n");
             sb = indent(sb, indent, level);
             sb.append("}\n");
             return sb;
@@ -196,11 +191,7 @@ public class RecordType {
 
         StringBuilder appendInitializers(StringBuilder sb, String indent, int level) {
             sb = indent(sb, indent, level);
-            sb.append("bb.")
-              .append(type.bbSetter)
-              .append("(slotNum * ITEM_SIZE + ")
-              .append(offsetName())
-              .append(", ");
+            sb.append("bb.").append(type.bbSetter).append("(slotNum * ITEM_SIZE + ").append(offsetName()).append(", ");
             if (initial != null) {
                 sb.append(initial);
             } else {
@@ -215,17 +206,11 @@ public class RecordType {
                 return sb;
             }
             sb = indent(sb, indent, level);
-            sb.append("if (bb.")
-              .append(type.bbGetter)
-              .append("(itemOffset + ")
-              .append(offsetName())
-              .append(") == ")
-              .append(type.deadMemInitializer)
-              .append(") {\n");
+            sb.append("if (bb.").append(type.bbGetter).append("(itemOffset + ").append(offsetName()).append(") == ")
+                    .append(type.deadMemInitializer).append(") {\n");
             sb = indent(sb, indent, level + 1);
-            sb.append("String msg = \"invalid value in field ")
-              .append(offsetName())
-              .append(" of slot \" + TypeUtil.Global.toString(slotNum);\n");
+            sb.append("String msg = \"invalid value in field ").append(offsetName())
+                    .append(" of slot \" + TypeUtil.Global.toString(slotNum);\n");
             sb = indent(sb, indent, level + 1);
             sb.append("throw new IllegalStateException(msg);\n");
             sb = indent(sb, indent, level);
@@ -235,7 +220,7 @@ public class RecordType {
 
         String offsetName() {
             String words[] = name.split(" ");
-            assert(words.length > 0);
+            assert (words.length > 0);
             StringBuilder sb = new StringBuilder(words[0].toUpperCase());
             for (int j = 1; j < words.length; ++j) {
                 sb.append("_").append(words[j].toUpperCase());
@@ -268,15 +253,15 @@ public class RecordType {
     }
 
     public static RecordType read(Reader reader) throws IOException {
-        JsonNode node = new ObjectMapper().readTree(reader);
+        ObjectNode node = new ObjectMapper().readValue(reader, ObjectNode.class);
         return fromJSON(node);
     }
 
-    public static RecordType fromJSON(JsonNode obj){
+    public static RecordType fromJSON(ObjectNode obj) {
         RecordType result = new RecordType(obj.get("name").asText());
-        Iterator<Map.Entry<String,JsonNode>> i = obj.get("fields").fields();
-        while(i.hasNext()){
-            JsonNode n = i.next().getValue();
+        JsonNode fields = obj.get("fields");
+        for (int i = 0; i < fields.size(); i++) {
+            JsonNode n = fields.get(i);
             result.fields.add(Field.fromJSON(n));
         }
         return result;
@@ -293,7 +278,7 @@ public class RecordType {
     }
 
     private void addField(String name, Type type, String initial, boolean accessible) {
-        if (! modifiable) {
+        if (!modifiable) {
             throw new IllegalStateException("cannot modify type anmore");
         }
         fields.add(new Field(name, type, initial, -1, accessible));
@@ -314,7 +299,8 @@ public class RecordType {
             field.offset = totalSize;
             final int size = field.type.size;
             totalSize += size;
-            if (size > alignment) alignment = size;
+            if (size > alignment)
+                alignment = size;
         }
         if (totalSize % alignment != 0) {
             totalSize = ((totalSize / alignment) + 1) * alignment;
@@ -335,17 +321,12 @@ public class RecordType {
 
     StringBuilder appendConstants(StringBuilder sb, String indent, int level) {
         sb = indent(sb, indent, level);
-        sb.append("public static int ITEM_SIZE = ")
-          .append(totalSize)
-          .append(";\n");
+        sb.append("public static int ITEM_SIZE = ").append(totalSize).append(";\n");
         for (int i = 0; i < fields.size(); ++i) {
             final Field field = fields.get(i);
             sb = indent(sb, indent, level);
-            sb.append("public static int ")
-              .append(field.offsetName())
-              .append(" = ")
-              .append(field.offset).append("; // size: ")
-              .append(field.type.size).append("\n");
+            sb.append("public static int ").append(field.offsetName()).append(" = ").append(field.offset)
+                    .append("; // size: ").append(field.type.size).append("\n");
         }
         return sb;
     }
@@ -361,22 +342,14 @@ public class RecordType {
         for (int i = 0; i < fields.size(); ++i) {
             final Field field = fields.get(i);
             sb = indent(sb, indent, level);
-            sb.append("sb.append(\"")
-              .append(padRight(field.name, maxNameWidth))
-              .append(" | \");\n");
+            sb.append("sb.append(\"").append(padRight(field.name, maxNameWidth)).append(" | \");\n");
             sb = indent(sb, indent, level);
             sb.append("for (int i = 0; i < NO_SLOTS; ++i) {\n");
             sb = indent(sb, indent, level + 1);
-            sb.append(field.type.javaType)
-              .append(" value = bb.")
-              .append(field.type.bbGetter)
-              .append("(i * ITEM_SIZE + ")
-              .append(field.offsetName())
-              .append(");\n");
+            sb.append(field.type.javaType).append(" value = bb.").append(field.type.bbGetter)
+                    .append("(i * ITEM_SIZE + ").append(field.offsetName()).append(");\n");
             sb = indent(sb, indent, level + 1);
-            sb.append("sb = ")
-              .append(field.type.tabAppender)
-              .append("(sb, value);\n");
+            sb.append("sb = ").append(field.type.tabAppender).append("(sb, value);\n");
             sb = indent(sb, indent, level + 1);
             sb.append("sb.append(\" | \");\n");
             sb = indent(sb, indent, level);

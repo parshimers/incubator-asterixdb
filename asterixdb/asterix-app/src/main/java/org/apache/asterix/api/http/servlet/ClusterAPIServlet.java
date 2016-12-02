@@ -33,6 +33,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.asterix.common.config.AbstractAsterixProperties;
 import org.apache.asterix.common.config.AsterixReplicationProperties;
 import org.apache.asterix.runtime.util.ClusterStateManager;
@@ -70,6 +71,8 @@ public class ClusterAPIServlet extends HttpServlet {
         response.setCharacterEncoding("utf-8");
         PrintWriter responseWriter = response.getWriter();
         ObjectNode json;
+        ObjectMapper om = new ObjectMapper();
+        om.enable(SerializationFeature.INDENT_OUTPUT);
 
         try {
             switch (request.getPathInfo() == null ? "" : request.getPathInfo()) {
@@ -84,7 +87,8 @@ public class ClusterAPIServlet extends HttpServlet {
 
             }
             response.setStatus(HttpServletResponse.SC_OK);
-            responseWriter.write(json.asText());
+
+            responseWriter.write(om.writerWithDefaultPrettyPrinter().writeValueAsString(json));
         } catch (IllegalArgumentException e) { // NOSONAR - exception not logged or rethrown
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
         } catch (Exception e) {

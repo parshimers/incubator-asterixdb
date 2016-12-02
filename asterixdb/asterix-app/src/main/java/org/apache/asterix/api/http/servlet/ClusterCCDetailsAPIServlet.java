@@ -63,8 +63,7 @@ public class ClusterCCDetailsAPIServlet extends ClusterAPIServlet {
         responseWriter.flush();
     }
 
-    private ObjectNode processNode(HttpServletRequest request, IHyracksClientConnection hcc)
-            throws Exception {
+    private ObjectNode processNode(HttpServletRequest request, IHyracksClientConnection hcc) throws Exception {
         String pathInfo = request.getPathInfo();
         ObjectMapper om = new ObjectMapper();
         if (pathInfo.endsWith("/")) {
@@ -77,9 +76,9 @@ public class ClusterCCDetailsAPIServlet extends ClusterAPIServlet {
         } else if (parts.length == 1) {
             switch (parts[0]) {
                 case "config":
-                    return (ObjectNode)om.readTree((hcc.getNodeDetailsJSON(null, false, true)));
+                    return om.readValue((hcc.getNodeDetailsJSON(null, false, true)), ObjectNode.class);
                 case "stats":
-                    return (ObjectNode)om.readTree((hcc.getNodeDetailsJSON(null, true, false)));
+                    return om.readValue((hcc.getNodeDetailsJSON(null, true, false)), ObjectNode.class);
                 case "threaddump":
                     return processCCThreadDump(hcc);
 
@@ -98,7 +97,7 @@ public class ClusterCCDetailsAPIServlet extends ClusterAPIServlet {
         if (dump == null) {
             throw new IllegalArgumentException();
         }
-        return (ObjectNode)om.readTree((dump));
+        return (ObjectNode) om.readTree((dump));
     }
 
 }

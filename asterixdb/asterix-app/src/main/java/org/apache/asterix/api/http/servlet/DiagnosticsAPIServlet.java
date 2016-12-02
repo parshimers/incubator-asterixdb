@@ -38,6 +38,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.asterix.runtime.util.AsterixAppContextInfo;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -52,13 +53,15 @@ public class DiagnosticsAPIServlet extends ClusterNodeDetailsAPIServlet {
         response.setCharacterEncoding("utf-8");
         PrintWriter responseWriter = response.getWriter();
         ObjectNode json;
+        ObjectMapper om = new ObjectMapper();
+        om.enable(SerializationFeature.INDENT_OUTPUT);
         try {
             if (request.getPathInfo() != null) {
                 throw new IllegalArgumentException();
             }
             json = getClusterDiagnosticsJSON();
             response.setStatus(HttpServletResponse.SC_OK);
-            responseWriter.write(json.asText());
+            responseWriter.write(om.writerWithDefaultPrettyPrinter().writeValueAsString(json));
         } catch (IllegalStateException e) { // NOSONAR - exception not logged or rethrown
             response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
         } catch (IllegalArgumentException e) { // NOSONAR - exception not logged or rethrown

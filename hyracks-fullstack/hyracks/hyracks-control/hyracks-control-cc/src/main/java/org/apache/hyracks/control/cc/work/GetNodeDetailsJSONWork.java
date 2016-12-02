@@ -52,6 +52,7 @@ public class GetNodeDetailsJSONWork extends SynchronizableWork {
     private final boolean includeConfig;
     private final IPCResponder<String> callback;
     private ObjectNode detail;
+    private ObjectMapper om = new ObjectMapper();
 
     public GetNodeDetailsJSONWork(ClusterControllerService ccs, String nodeId, boolean includeStats,
                                   boolean includeConfig, IPCResponder<String> callback) {
@@ -86,12 +87,11 @@ public class GetNodeDetailsJSONWork extends SynchronizableWork {
         }
 
         if (callback != null) {
-            callback.setValue(detail == null ? null : detail.toString());
+            callback.setValue(detail == null ? null : om.writeValueAsString(detail));
         }
     }
 
     private ObjectNode getCCDetails()  {
-        ObjectMapper om = new ObjectMapper();
         ObjectNode o = om.createObjectNode();
         MemoryMXBean memoryMXBean = ManagementFactory.getMemoryMXBean();
         List<GarbageCollectorMXBean> gcMXBeans = ManagementFactory.getGarbageCollectorMXBeans();
@@ -129,7 +129,7 @@ public class GetNodeDetailsJSONWork extends SynchronizableWork {
             }
             o.putPOJO("gcs", gcs);
 
-            o.putPOJO("date", new Date());
+            o.put("date", new Date().toString());
             o.put("heap_init_size", heapUsage.getInit());
             o.put("heap_used_size", heapUsage.getUsed());
             o.put("heap_committed_size", heapUsage.getCommitted());
