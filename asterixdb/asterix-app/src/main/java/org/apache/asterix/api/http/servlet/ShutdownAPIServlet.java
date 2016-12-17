@@ -82,7 +82,7 @@ public class ShutdownAPIServlet extends HttpServlet {
             }
             jsonObject.put("cluster", clusterState);
             final PrintWriter writer = response.getWriter();
-            writer.print(jsonObject.asText());
+            writer.print(om.writeValueAsString(jsonObject));
             writer.close();
         } catch (Exception e) {
             GlobalConfig.ASTERIX_LOGGER.log(Level.INFO, "Exception writing response", e);

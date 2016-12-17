@@ -5,7 +5,7 @@
     "log.buffer.pagesize" : 131072,
     "log.batchsize" : 4096,
     "factor" : 2,
-    "enabled" : false,
-    "timeout" : 30
+    "timeout" : 30,
+    "enabled" : false
   }
 }

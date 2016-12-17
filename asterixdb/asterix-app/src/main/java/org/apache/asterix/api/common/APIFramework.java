@@ -23,6 +23,7 @@ import java.io.PrintWriter;
 import java.rmi.RemoteException;
 import java.util.List;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.asterix.algebra.base.ILangExpressionToPlanTranslator;
 import org.apache.asterix.algebra.base.ILangExpressionToPlanTranslatorFactory;
 import org.apache.asterix.api.common.Job.SubmissionMode;
@@ -79,7 +80,6 @@ import org.apache.hyracks.algebricks.core.rewriter.base.PhysicalOptimizationConf
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.api.job.JobSpecification;
-
 
 /**
  * Provides helper methods for compilation of a query into a JobSpec and submission
@@ -167,8 +167,8 @@ public class APIFramework {
 
         org.apache.asterix.common.transactions.JobId asterixJobId = JobIdFactory.generateJobId();
         queryMetadataProvider.setJobId(asterixJobId);
-        ILangExpressionToPlanTranslator t =
-                translatorFactory.createExpressionToPlanTranslator(queryMetadataProvider, varCounter);
+        ILangExpressionToPlanTranslator t = translatorFactory.createExpressionToPlanTranslator(queryMetadataProvider,
+                varCounter);
 
         ILogicalPlan plan;
         // statement = null when it's a query
@@ -206,8 +206,8 @@ public class APIFramework {
         OptimizationConfUtil.getPhysicalOptimizationConfig().setMaxFramesExternalGroupBy(groupFrameLimit);
         OptimizationConfUtil.getPhysicalOptimizationConfig().setMaxFramesForJoin(joinFrameLimit);
 
-        HeuristicCompilerFactoryBuilder builder =
-                new HeuristicCompilerFactoryBuilder(AqlOptimizationContextFactory.INSTANCE);
+        HeuristicCompilerFactoryBuilder builder = new HeuristicCompilerFactoryBuilder(
+                AqlOptimizationContextFactory.INSTANCE);
         builder.setPhysicalOptimizationConfig(OptimizationConfUtil.getPhysicalOptimizationConfig());
         builder.setLogicalRewrites(ruleSetFactory.getLogicalRewrites());
         builder.setPhysicalRewrites(ruleSetFactory.getPhysicalRewrites());
@@ -290,14 +290,15 @@ public class APIFramework {
         builder.setTypeTraitProvider(format.getTypeTraitProvider());
         builder.setNormalizedKeyComputerFactoryProvider(format.getNormalizedKeyComputerFactoryProvider());
 
-        JobEventListenerFactory jobEventListenerFactory =
-                new JobEventListenerFactory(asterixJobId, queryMetadataProvider.isWriteTransaction());
+        JobEventListenerFactory jobEventListenerFactory = new JobEventListenerFactory(asterixJobId,
+                queryMetadataProvider.isWriteTransaction());
         JobSpecification spec = compiler.createJob(AsterixAppContextInfo.INSTANCE, jobEventListenerFactory);
 
         if (conf.is(SessionConfig.OOB_HYRACKS_JOB)) {
             printPlanPrefix(conf, "Hyracks job");
             if (rwQ != null) {
-                conf.out().println(spec.toJSON().asText());
+                conf.out()
+                        .println(new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(spec.toJSON()));
                 conf.out().println(spec.getUserConstraints());
             }
             printPlanPostfix(conf);

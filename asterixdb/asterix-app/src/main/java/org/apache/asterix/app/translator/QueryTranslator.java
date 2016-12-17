@@ -2612,7 +2612,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 handle.add(jobId.getId());
                 handle.add(metadataProvider.getResultSetId().getId());
                 response.put("handle", handle);
-                sessionConfig.out().print(response);
+                sessionConfig.out().print(om.writeValueAsString(response));
                 sessionConfig.out().flush();
                 hcc.waitForCompletion(jobId);
                 break;
@@ -2628,7 +2628,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 handle.add(metadataProvider.getResultSetId().getId());
                 response.put("handle", handle);
                 hcc.waitForCompletion(jobId);
-                sessionConfig.out().print(response);
+                sessionConfig.out().print(om.writeValueAsString(response));
                 sessionConfig.out().flush();
                 break;
             default:

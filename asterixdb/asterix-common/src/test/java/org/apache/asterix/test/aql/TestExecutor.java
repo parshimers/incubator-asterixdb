@@ -44,6 +44,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.*;
 import org.apache.asterix.common.config.GlobalConfig;
 import org.apache.asterix.common.exceptions.AsterixException;
@@ -539,7 +540,11 @@ public class TestExecutor {
         for (CompilationUnit.Parameter param : injectStatement(statement, stmtParam, otherParams)) {
             content.put(param.getName(), param.getValue());
         }
-        builder.setEntity(new StringEntity(content.toString(), ContentType.APPLICATION_JSON));
+        try {
+            builder.setEntity(new StringEntity(om.writeValueAsString(content), ContentType.APPLICATION_JSON));
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        }
         builder.setCharset(StandardCharsets.UTF_8);
         return builder.build();
     }
@@ -1099,9 +1104,11 @@ public class TestExecutor {
             }
             for (int i = 0; i < result.size(); ++i) {
                 JsonNode json = result.get(i);
-                String dvName = json.get("DataverseName").asText();
-                if (!dvName.equals("Metadata") && !dvName.equals("Default")) {
-                    toBeDropped.add(dvName);
+                if(json != null) {
+                    String dvName = json.get("DataverseName").asText();
+                    if (!dvName.equals("Metadata") && !dvName.equals("Default")) {
+                        toBeDropped.add(dvName);
+                    }
                 }
             }
             if (!toBeDropped.isEmpty()) {

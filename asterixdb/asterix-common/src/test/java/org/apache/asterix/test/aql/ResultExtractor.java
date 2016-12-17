@@ -19,12 +19,19 @@
 package org.apache.asterix.test.aql;
 
 import java.io.InputStream;
+import java.io.StringWriter;
 import java.nio.charset.Charset;
 import java.util.Iterator;
 import java.util.logging.Logger;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.PrettyPrinter;
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.collect.Iterators;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.commons.io.IOUtils;
 
@@ -39,7 +46,10 @@ public class ResultExtractor {
 
     public static InputStream extract(InputStream resultStream) throws Exception {
         ObjectMapper om = new ObjectMapper();
-        JsonNode result = om.readTree(resultStream);
+        StringWriter sw = new StringWriter();
+        String resultStr = IOUtils.toString(resultStream,Charset.defaultCharset());
+        PrettyPrinter singleLine = new SingleLinePrettyPrinter();
+        ObjectNode result = om.readValue(resultStr,ObjectNode.class);
 
         LOGGER.fine("+++++++\n" + result + "\n+++++++\n");
 
@@ -55,19 +65,53 @@ public class ResultExtractor {
                 case "signature":
                     break;
                 case "status":
-                    status = result.get(field).asText();
+                    status = om.writeValueAsString(result.get(field));
                     break;
                 case "type":
-                    type = result.get(field).asText();
+                    type = om.writeValueAsString(result.get(field));
                     break;
                 case "metrics":
-                    LOGGER.fine(result.get(field).asText());
+                    LOGGER.fine(om.writeValueAsString(result.get(field)));
                     break;
                 case "errors":
                     JsonNode errors = result.get(field).get(0).get("msg");
                     throw new AsterixException(errors.asText());
                 case "results":
-                    results = result.get(field).asText();
+                    if(result.get(field).size()<=1) {
+                        if(result.get(field).size() == 0){
+                            results = "";
+                        }
+                        else if(result.get(field).isArray()) {
+                            if(result.get(field).get(0).isTextual()){
+                                results = result.get(field).get(0).asText();
+                            }
+                            else {
+
+                                ObjectMapper omm = new ObjectMapper();
+                                omm.setDefaultPrettyPrinter(singleLine);
+                                omm.enable(SerializationFeature.INDENT_OUTPUT);
+                                results = omm.writer(singleLine).writeValueAsString(result.get(field));
+                            }
+                        }
+                        else{
+                            results = om.writeValueAsString(result.get(field));
+                        }
+                    }
+                    else{
+                        StringBuilder sb = new StringBuilder();
+                        JsonNode[] fields = Iterators.toArray(result.get(field).elements(),JsonNode.class);
+                        if(fields.length>1){
+                            for(JsonNode f: fields){
+                                if(f.isObject()) {
+                                    sb.append(om.writeValueAsString(f));
+                                }
+                                else{
+                                    sb.append(f.asText());
+                                }
+                            }
+                        }
+                        results = sb.toString();
+                    }
                     break;
                 default:
                     throw new AsterixException(field + "unanticipated field");

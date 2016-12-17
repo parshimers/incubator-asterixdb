@@ -24,6 +24,10 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.ByteBuffer;
 
+import com.fasterxml.jackson.databind.DeserializationConfig;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.asterix.common.utils.JSONUtil;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.translator.IStatementExecutor.Stats;
@@ -126,13 +130,16 @@ public class ResultPrinter {
         if (conf.is(SessionConfig.FORMAT_HTML)) {
             conf.out().println("</pre>");
         }
+        conf.out().flush();
     }
 
-    private void displayRecord(String result) {
+    private void displayRecord(String result) throws IOException {
+        ObjectMapper om = new ObjectMapper();
+        om.enable(SerializationFeature.INDENT_OUTPUT);
         String record = result;
         if (indentJSON) {
             // TODO(tillw): this is inefficient - do this during record generation
-            record = JSONUtil.indent(record, 2);
+            result = om.writerWithDefaultPrettyPrinter().writeValueAsString(om.readValue(result, ObjectNode.class));
         }
         if (conf.fmt() == SessionConfig.OutputFormat.CSV) {
             // TODO(tillw): this is inefficient as well
@@ -152,7 +159,11 @@ public class ResultPrinter {
         printPrefix();
         // TODO(tillw) evil hack
         quoteRecord = true;
-        displayRecord(record);
+        try {
+            displayRecord(record);
+        } catch (IOException e) {
+            throw new HyracksDataException(e);
+        }
         printPostfix();
     }
 
@@ -179,7 +190,11 @@ public class ResultPrinter {
                     conf.out().print(", ");
                 }
                 notFirst = true;
-                displayRecord(result);
+                try {
+                    displayRecord(result);
+                } catch (IOException e) {
+                    throw new HyracksDataException(e);
+                }
             }
             frameBuffer.clear();
         }
