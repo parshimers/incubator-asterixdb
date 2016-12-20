@@ -45,7 +45,7 @@ public class JSONUtil {
 
     public static String convertNode(final JsonNode node) throws JsonProcessingException {
         final Object obj = SORTED_MAPPER.treeToValue(node, Object.class);
-        final String json = SORTED_MAPPER.writeValueAsString(obj);
+        final String json = SORTED_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(obj);
         return json;
     }
 

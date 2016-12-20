@@ -88,12 +88,7 @@ public class ClusterAPIServlet extends HttpServlet {
 
             }
             response.setStatus(HttpServletResponse.SC_OK);
-
-            if(request.getPathInfo().equals("/replication")){
-                responseWriter.write(JSONUtil.convertNode(json));
-            }else{
-                responseWriter.write(om.writerWithDefaultPrettyPrinter().writeValueAsString(json));
-            }
+            responseWriter.write(JSONUtil.convertNode(json));
         } catch (IllegalArgumentException e) { // NOSONAR - exception not logged or rethrown
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
         } catch (Exception e) {
