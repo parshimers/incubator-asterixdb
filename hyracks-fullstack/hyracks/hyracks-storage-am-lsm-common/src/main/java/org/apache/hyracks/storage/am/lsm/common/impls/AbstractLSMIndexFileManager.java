@@ -100,7 +100,7 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
             page.acquireReadLatch();
             try {
                 metadataFrame.setPage(page);
-                if (!metadataFrame.isValid()) {
+                if (!metadataFrame.isLSMConsistent()) {
                     return TreeIndexState.INVALID;
                 } else if (metadataFrame.getVersion() != ITreeIndexMetaDataFrame.VERSION) {
                     return TreeIndexState.VERSION_MISMATCH;
@@ -215,7 +215,7 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
 
         // Gather files and delete invalid files
         // There are two types of invalid files:
-        // (1) The isValid flag is not set
+        // (1) The isLSMConsistent flag is not set
         // (2) The file's interval is contained by some other file
         // Here, we only filter out (1).
         cleanupAndGetValidFilesInternal(fileNameFilter, treeFactory, allFiles);

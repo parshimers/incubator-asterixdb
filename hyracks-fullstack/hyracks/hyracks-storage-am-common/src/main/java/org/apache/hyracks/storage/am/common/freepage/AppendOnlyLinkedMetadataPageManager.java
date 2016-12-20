@@ -34,6 +34,8 @@ import org.apache.hyracks.storage.common.file.BufferedFileHandle;
 
 public class AppendOnlyLinkedMetadataPageManager implements IMetadataPageManager {
     private final IBufferCache bufferCache;
+    //This is 0 because in append-only mode, leaves are written first, with root and metadata at the end
+    public static final int APPENDONLY_BULKLOAD_LEAF_START = 0;
     private int metadataPage = IBufferCache.INVALID_PAGEID;
     private int fileId = -1;
     private final ITreeIndexMetaDataFrameFactory frameFactory;
@@ -243,7 +245,7 @@ public class AppendOnlyLinkedMetadataPageManager implements IMetadataPageManager
             confiscatedPage.acquireWriteLatch();
             try {
                 metaFrame.setPage(confiscatedPage);
-                metaFrame.setValid(true);
+                metaFrame.setLSMConsistent(true);
             } finally {
                 confiscatedPage.releaseWriteLatch(false);
             }
@@ -412,6 +414,6 @@ public class AppendOnlyLinkedMetadataPageManager implements IMetadataPageManager
 
     @Override
     public int getBulkLoadLeaf() throws HyracksDataException {
-        return 0;
+        return APPENDONLY_BULKLOAD_LEAF_START;
     }
 }

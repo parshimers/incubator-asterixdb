@@ -32,6 +32,8 @@ import org.apache.hyracks.storage.common.file.BufferedFileHandle;
 public class LinkedMetaDataPageManager implements IMetadataPageManager {
     private final IBufferCache bufferCache;
     private int fileId = -1;
+    //This is 2 because the first leaf will be after the MD Page (0) and Root Page (1)
+    private static final int INPLACE_BULKLOAD_LEAF_START = 2;
     private final ITreeIndexMetaDataFrameFactory frameFactory;
     private boolean ready = false;
 
@@ -280,7 +282,7 @@ public class LinkedMetaDataPageManager implements IMetadataPageManager {
             metaNode.acquireWriteLatch();
             try {
                 metaFrame.setPage(metaNode);
-                metaFrame.setValid(true);
+                metaFrame.setLSMConsistent(true);
             } finally {
                 metaNode.releaseWriteLatch(true);
                 bufferCache.flushDirtyPage(metaNode);
@@ -403,7 +405,7 @@ public class LinkedMetaDataPageManager implements IMetadataPageManager {
 
     @Override
     public int getBulkLoadLeaf() throws HyracksDataException {
-        return 2;
+        return INPLACE_BULKLOAD_LEAF_START;
     }
 
     @Override

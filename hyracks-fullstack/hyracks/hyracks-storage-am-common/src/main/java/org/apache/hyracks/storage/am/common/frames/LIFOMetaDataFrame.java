@@ -43,12 +43,13 @@ public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
     protected static final int MAX_PAGE_OFFSET = FREE_SPACE_OFFSET + 4; //8
     protected static final int LEVEL_OFFSET = MAX_PAGE_OFFSET + 12; //20
     protected static final int NEXT_PAGE_OFFSET = LEVEL_OFFSET + 1; // 21
-    protected static final int VALID_OFFSET = NEXT_PAGE_OFFSET + 4; // 25
+    //This is really only here for uses like LSM where some sort of flag is needed for atomic index build
+    protected static final int LSM_CONSISTENT_OFFSET = NEXT_PAGE_OFFSET + 4; // 25
 
     // The ADDITIONAL_FILTERING_PAGE_OFF is used only for LSM indexes.
     // We store the page id that will be used to store the information of the the filter that is associated with a disk component.
     // It is only set in the first meta page other meta pages (i.e., with level -2) have junk in the max page field.
-    private static final int ADDITIONAL_FILTERING_PAGE_OFFSET = VALID_OFFSET + 4; // 29
+    private static final int ADDITIONAL_FILTERING_PAGE_OFFSET = LSM_CONSISTENT_OFFSET + 4; // 29
     public static final int LSN_OFFSET = ADDITIONAL_FILTERING_PAGE_OFFSET + 4; // 33
     private static final int LAST_MARKER_LSN_OFFSET = LSN_OFFSET + 8; // 41
     public static final int STORAGE_VERSION_OFFSET = LAST_MARKER_LSN_OFFSET + 4; //45
@@ -132,7 +133,7 @@ public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
         buf.putLong(LAST_MARKER_LSN_OFFSET, -1L);
         buf.putInt(ROOT_PAGE_NUMBER, 1);
         buf.putInt(STORAGE_VERSION_OFFSET, VERSION);
-        setValid(false);
+        setLSMConsistent(false);
     }
 
     @Override
@@ -146,16 +147,16 @@ public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
     }
 
     @Override
-    public boolean isValid() {
-        return buf.getInt(VALID_OFFSET) == MAGIC_VALID_INT || buf.getInt(VALID_OFFSET) == OBSOLETE_MAGIC_VALID_INT;
+    public boolean isLSMConsistent() {
+        return buf.getInt(LSM_CONSISTENT_OFFSET) == MAGIC_VALID_INT || buf.getInt(LSM_CONSISTENT_OFFSET) == OBSOLETE_MAGIC_VALID_INT;
     }
 
     @Override
-    public void setValid(boolean isValid) {
+    public void setLSMConsistent(boolean isValid) {
         if (isValid) {
-            buf.putInt(VALID_OFFSET, MAGIC_VALID_INT);
+            buf.putInt(LSM_CONSISTENT_OFFSET, MAGIC_VALID_INT);
         } else {
-            buf.putInt(VALID_OFFSET, 0);
+            buf.putInt(LSM_CONSISTENT_OFFSET, 0);
         }
     }
 
@@ -171,7 +172,7 @@ public class LIFOMetaDataFrame implements ITreeIndexMetaDataFrame {
 
     @Override
     public int getVersion() {
-        if (buf.getInt(VALID_OFFSET) == OBSOLETE_MAGIC_VALID_INT) {
+        if (buf.getInt(LSM_CONSISTENT_OFFSET) == OBSOLETE_MAGIC_VALID_INT) {
             return VERSION * -1;
         } else {
             return buf.getInt(STORAGE_VERSION_OFFSET);
