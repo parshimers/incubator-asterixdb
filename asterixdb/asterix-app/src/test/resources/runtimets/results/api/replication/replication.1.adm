@@ -1,11 +1,1 @@
-{
-  "config" : {
-    "max.remote.recovery.attempts" : 5,
-    "log.buffer.numpages" : 8,
-    "log.buffer.pagesize" : 131072,
-    "log.batchsize" : 4096,
-    "factor" : 2,
-    "enabled" : false,
-    "timeout" : 30
-  }
-}
+{"config":{"enabled":false,"factor":2,"log.batchsize":4096,"log.buffer.numpages":8,"log.buffer.pagesize":131072,"max.remote.recovery.attempts":5,"timeout":30}}

@@ -36,6 +36,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.asterix.common.config.AbstractAsterixProperties;
 import org.apache.asterix.common.config.AsterixReplicationProperties;
+import org.apache.asterix.common.utils.JSONUtil;
 import org.apache.asterix.runtime.util.ClusterStateManager;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
@@ -88,7 +89,11 @@ public class ClusterAPIServlet extends HttpServlet {
             }
             response.setStatus(HttpServletResponse.SC_OK);
 
-            responseWriter.write(om.writerWithDefaultPrettyPrinter().writeValueAsString(json));
+            if(request.getPathInfo().equals("/replication")){
+                responseWriter.write(JSONUtil.convertNode(json));
+            }else{
+                responseWriter.write(om.writerWithDefaultPrettyPrinter().writeValueAsString(json));
+            }
         } catch (IllegalArgumentException e) { // NOSONAR - exception not logged or rethrown
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
         } catch (Exception e) {

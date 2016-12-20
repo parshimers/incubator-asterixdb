@@ -18,8 +18,10 @@
  */
 package org.apache.asterix.common.utils;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -33,6 +35,18 @@ public class JSONUtil {
     private static final String INDENT = "\t";
 
     private JSONUtil() {
+    }
+
+
+    private static final ObjectMapper SORTED_MAPPER = new ObjectMapper();
+    static {
+        SORTED_MAPPER.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
+    }
+
+    public static String convertNode(final JsonNode node) throws JsonProcessingException {
+        final Object obj = SORTED_MAPPER.treeToValue(node, Object.class);
+        final String json = SORTED_MAPPER.writeValueAsString(obj);
+        return json;
     }
 
     public static String indent(String str, int initialIndent) {
