@@ -143,7 +143,7 @@ public class ConnectorAPIServletTest {
         nodeMap.put("asterix_nc1", mockInfo1);
         nodeMap.put("asterix_nc2", mockInfo2);
         PA.invokeMethod(servlet,
-                "formResponseObject(org.json.ObjectNode, org.apache.hyracks.dataflow.std.file.FileSplit[], "
+                "formResponseObject(com.fasterxml.jackson.databind.node.ObjectNode, org.apache.hyracks.dataflow.std.file.FileSplit[], "
                         + "org.apache.asterix.om.types.ARecordType, java.lang.String, boolean, java.util.Map)",
                 actualResponse, splits, recordType, primaryKey, true, nodeMap);
 
