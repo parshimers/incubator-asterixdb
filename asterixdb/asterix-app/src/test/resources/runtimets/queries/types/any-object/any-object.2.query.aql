@@ -18,5 +18,5 @@
  */
 
 for $x in dataset Metadata.Datatype
-order by $x.DataverseName,$x.DatatypeName
+where $x.DataverseName = "test"
 return $x;
