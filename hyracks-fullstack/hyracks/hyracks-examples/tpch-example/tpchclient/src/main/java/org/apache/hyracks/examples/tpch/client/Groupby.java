@@ -190,10 +190,12 @@ public class Groupby {
 
         AbstractSingleActivityOperatorDescriptor writer;
 
-        if (outPlain)
+        if (outPlain) {
             writer = new PlainFileWriterOperatorDescriptor(spec, outSplitProvider, "|");
-        else
+        }
+        else {
             writer = new FrameFileWriterOperatorDescriptor(spec, outSplitProvider);
+        }
 
         createPartitionConstraint(spec, writer, outSplits);
 

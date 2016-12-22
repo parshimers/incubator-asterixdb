@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.ByteBuffer;
 
-import com.fasterxml.jackson.databind.DeserializationConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -139,7 +138,7 @@ public class ResultPrinter {
         String record = result;
         if (indentJSON) {
             // TODO(tillw): this is inefficient - do this during record generation
-            result = om.writerWithDefaultPrettyPrinter().writeValueAsString(om.readValue(result, ObjectNode.class));
+            record = om.writerWithDefaultPrettyPrinter().writeValueAsString(om.readValue(result, ObjectNode.class));
         }
         if (conf.fmt() == SessionConfig.OutputFormat.CSV) {
             // TODO(tillw): this is inefficient as well

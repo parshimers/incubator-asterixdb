@@ -229,9 +229,9 @@ abstract class RESTAPIServlet extends HttpServlet {
     protected QueryTranslator.ResultDelivery whichResultDelivery(HttpServletRequest request) {
         String mode = request.getParameter("mode");
         if (mode != null) {
-            if (mode.equals("asynchronous")) {
+            if ("asynchronous".equals(mode)) {
                 return QueryTranslator.ResultDelivery.ASYNC;
-            } else if (mode.equals("asynchronous-deferred")) {
+            } else if ("asynchronous-deferred".equals(mode)) {
                 return QueryTranslator.ResultDelivery.ASYNC_DEFERRED;
             }
         }

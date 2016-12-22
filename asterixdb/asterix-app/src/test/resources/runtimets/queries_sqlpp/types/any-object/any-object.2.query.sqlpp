@@ -17,7 +17,6 @@
  * under the License.
  */
 
-select element x from Metadata.Datatype as x
-where x.`DataverseName` = "test";
+select element x from Metadata.Datatype as x;
 
 

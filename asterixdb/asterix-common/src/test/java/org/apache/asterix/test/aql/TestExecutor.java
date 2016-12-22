@@ -31,12 +31,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.Inet4Address;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -1092,17 +1087,17 @@ public class TestExecutor {
             ArrayList<String> toBeDropped = new ArrayList<>();
             InputStream resultStream = executeQueryService("select dv.DataverseName from Metadata.`Dataverse` as dv;",
                     getEndpoint(Servlets.QUERY_SERVICE));
-            resultStream = ResultExtractor.extract(resultStream);
+            String out = IOUtils.toString(resultStream);
             ObjectMapper om = new ObjectMapper();
             om.setConfig(om.getDeserializationConfig()
                     .with(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT));
-            ObjectNode result;
+            JsonNode result;
             try {
-                result = om.readValue(resultStream, ObjectNode.class);
+                result = om.readValue(out, ObjectNode.class).get("results");
             } catch( JsonMappingException e){
-                result = om.createObjectNode();
+                result = om.createArrayNode();
             }
-            for (int i = 0; i < result.size(); ++i) {
+            for (int i=0;i<result.size();i++) {
                 JsonNode json = result.get(i);
                 if(json != null) {
                     String dvName = json.get("DataverseName").asText();

@@ -568,7 +568,6 @@ public abstract class BuiltinType implements IAType {
 
         @Override
         public ObjectNode toJSON() {
-            ObjectMapper om = new ObjectMapper();
             return null;
         }
     };

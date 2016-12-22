@@ -76,9 +76,9 @@ public class ClusterCCDetailsAPIServlet extends ClusterAPIServlet {
         } else if (parts.length == 1) {
             switch (parts[0]) {
                 case "config":
-                    return om.readValue((hcc.getNodeDetailsJSON(null, false, true)), ObjectNode.class);
+                    return om.readValue(hcc.getNodeDetailsJSON(null, false, true), ObjectNode.class);
                 case "stats":
-                    return om.readValue((hcc.getNodeDetailsJSON(null, true, false)), ObjectNode.class);
+                    return om.readValue(hcc.getNodeDetailsJSON(null, true, false), ObjectNode.class);
                 case "threaddump":
                     return processCCThreadDump(hcc);
 
@@ -97,7 +97,7 @@ public class ClusterCCDetailsAPIServlet extends ClusterAPIServlet {
         if (dump == null) {
             throw new IllegalArgumentException();
         }
-        return (ObjectNode) om.readTree((dump));
+        return (ObjectNode) om.readTree(dump);
     }
 
 }

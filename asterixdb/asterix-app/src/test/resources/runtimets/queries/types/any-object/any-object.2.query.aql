@@ -18,5 +18,4 @@
  */
 
 for $x in dataset Metadata.Datatype
-where $x.DataverseName = "test"
 return $x;

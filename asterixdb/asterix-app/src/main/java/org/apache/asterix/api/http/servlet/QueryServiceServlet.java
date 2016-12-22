@@ -41,8 +41,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.asterix.app.result.ResultReader;
 import org.apache.asterix.app.result.ResultUtil;
 import org.apache.asterix.app.translator.QueryTranslator;
@@ -292,6 +290,7 @@ public class QueryServiceServlet extends HttpServlet {
     private static SessionConfig createSessionConfig(RequestParameters param, PrintWriter resultWriter) {
         SessionConfig.ResultDecorator resultPrefix = new SessionConfig.ResultDecorator() {
             int resultNo = -1;
+
             @Override
             public AlgebricksAppendable append(AlgebricksAppendable app) throws AlgebricksException {
                 app.append("\t\"");
@@ -378,34 +377,15 @@ public class QueryServiceServlet extends HttpServlet {
             rootCause = e;
         }
         final boolean addStack = false;
-//        ObjectMapper om = new ObjectMapper();
-//        ObjectNode obj = om.createObjectNode();
         pw.print("\t\"");
         pw.print(ResultFields.ERRORS.str());
-//        ArrayNode errorList = om.createArrayNode();
-//        ObjectNode error = om.createObjectNode();
         pw.print("\": [{ \n");
         printField(pw, ErrorField.CODE.str(), "1");
-//        error.put(ErrorField.CODE.str(),"1");
 
         final String msg = rootCause.getMessage();
-//        error.put(ErrorField.MSG.str(),(msg != null ? msg : rootCause.getClass().getSimpleName()));
         printField(pw, ErrorField.MSG.str(), JSONUtil.escape(msg != null ? msg : rootCause.getClass().getSimpleName()),
                 addStack);
-        if (addStack) {
-            StringWriter sw = new StringWriter();
-            PrintWriter stackWriter = new PrintWriter(sw);
-            LOGGER.info(stackWriter.toString());
-            stackWriter.close();
-//            error.put(ErrorField.STACK.str(), sw.toString());
-            printField(pw, ErrorField.STACK.str(), JSONUtil.escape(sw.toString()), false);
-        }
         pw.print("\t}],\n");
-//        errorList.add(error);
-//        obj.put(ResultFields.ERRORS.str(),errorList);
-
-//        pw.append(om.writerWithDefaultPrettyPrinter().writeValueAsString(obj.get(ResultFields.ERRORS.str())));
-//        pw.print(",\n");
     }
 
     private static void printMetrics(PrintWriter pw, long elapsedTime, long executionTime, long resultCount,

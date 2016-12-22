@@ -23,6 +23,7 @@ import static org.apache.asterix.api.http.servlet.ServletConstants.HYRACKS_DATAS
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.logging.Logger;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServlet;
@@ -45,6 +46,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class QueryResultAPIServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
+    private static final Logger LOGGER = Logger.getLogger(QueryResultAPIServlet.class.getName());
 
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -93,8 +95,8 @@ public class QueryResultAPIServlet extends HttpServlet {
             ResultUtil.displayResults(resultReader, sessionConfig, new Stats(), null);
 
         } catch (Exception e) {
-            out.println(e.getMessage());
-            e.printStackTrace(out);
+            LOGGER.severe(e.getMessage());
+            throw new IOException(e);
         }
     }
 }

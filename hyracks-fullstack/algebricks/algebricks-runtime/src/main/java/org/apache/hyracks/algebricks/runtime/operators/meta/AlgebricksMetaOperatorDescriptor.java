@@ -19,6 +19,7 @@
 package org.apache.hyracks.algebricks.runtime.operators.meta;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -56,10 +57,9 @@ public class AlgebricksMetaOperatorDescriptor extends AbstractSingleActivityOper
     }
 
     @Override
-    public ObjectNode toJSON()  {
-        ObjectMapper om = new ObjectMapper();
+    public ObjectNode toJSON() {
         ObjectNode json = super.toJSON();
-        json.put("micro-operators", pipeline.getRuntimeFactories().toString());
+        json.put("micro-operators", Arrays.toString(pipeline.getRuntimeFactories()));
         return json;
     }
 
@@ -71,10 +71,6 @@ public class AlgebricksMetaOperatorDescriptor extends AbstractSingleActivityOper
             sb.append("  " + f.toString() + ";\n");
         }
         sb.append("}");
-        // sb.append(super.getInputArity());
-        // sb.append(";");
-        // sb.append(super.getOutputArity());
-        // sb.append(";");
         return sb.toString();
     }
 

@@ -40,9 +40,6 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IMutableValueStorage;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 import org.apache.hyracks.util.string.UTF8StringWriter;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.DataOutput;
 import java.io.IOException;
@@ -195,8 +192,10 @@ public class TweetParser extends AbstractDataParser implements IRecordDataParser
             //open record type
             int closedFieldCount = 0;
             IAType curFieldType = null;
-            String attrName = "";
-            for (Iterator<String> iter = obj.fieldNames(); iter.hasNext(); attrName = iter.next()) {
+            String attrName;
+            Iterator<String> iter = obj.fieldNames();
+            while(iter.hasNext()) {
+                attrName = iter.next();
                 if (obj.get(attrName).isNull() || obj.size() == 0) {
                     continue;
                 }

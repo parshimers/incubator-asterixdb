@@ -46,7 +46,8 @@ public class IndexPage extends AbstractPage {
         ccs.getWorkQueue().scheduleAndSync(gnse);
         ArrayNode nodeSummaries = gnse.getSummaries();
         add(new Label("node-count", String.valueOf(nodeSummaries.size())));
-        ListView<JsonNode> nodeList = new ListView<JsonNode>("node-list", Lists.newArrayList(nodeSummaries.iterator())) {
+        ListView<JsonNode> nodeList = new ListView<JsonNode>("node-list",
+                Lists.newArrayList(nodeSummaries.iterator())) {
             private static final long serialVersionUID = 1L;
 
             @Override

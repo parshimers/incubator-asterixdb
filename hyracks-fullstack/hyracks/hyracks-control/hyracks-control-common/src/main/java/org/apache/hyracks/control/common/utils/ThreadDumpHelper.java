@@ -78,10 +78,9 @@ public class ThreadDumpHelper {
         json.put("date", new Date().toString());
         json.putPOJO("threads", threads);
 
-        long [] deadlockedThreads = threadMXBean.findDeadlockedThreads();
-        long [] monitorDeadlockedThreads = threadMXBean.findMonitorDeadlockedThreads();
+        long[] deadlockedThreads = threadMXBean.findDeadlockedThreads();
+        long[] monitorDeadlockedThreads = threadMXBean.findMonitorDeadlockedThreads();
         if (deadlockedThreads != null && deadlockedThreads.length > 0) {
-            ArrayNode lockedThreads = om.createArrayNode();
             json.putPOJO("deadlocked_thread_ids", deadlockedThreads);
         }
         if (monitorDeadlockedThreads != null && monitorDeadlockedThreads.length > 0) {

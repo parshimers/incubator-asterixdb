@@ -25,7 +25,6 @@ import java.util.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class RecordType {
@@ -109,7 +108,7 @@ public class RecordType {
 
         String methodName(String prefix) {
             String words[] = name.split(" ");
-            assert (words.length > 0);
+            assert words.length > 0;
             StringBuilder sb = new StringBuilder(prefix);
             for (int j = 0; j < words.length; ++j) {
                 String word = words[j];
@@ -299,8 +298,9 @@ public class RecordType {
             field.offset = totalSize;
             final int size = field.type.size;
             totalSize += size;
-            if (size > alignment)
+            if (size > alignment) {
                 alignment = size;
+            }
         }
         if (totalSize % alignment != 0) {
             totalSize = ((totalSize / alignment) + 1) * alignment;

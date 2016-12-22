@@ -25,7 +25,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.*;
 
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -41,7 +40,8 @@ import org.apache.hyracks.control.common.job.profiling.counters.Counter;
  */
 public class ClientCounterContext implements IClusterCounterContext {
     private static String[] RESET_COUNTERS = { Counters.NETWORK_IO_READ, Counters.NETWORK_IO_WRITE,
-            Counters.MEMORY_USAGE, Counters.MEMORY_MAX, Counters.DISK_READ, Counters.DISK_WRITE, Counters.NUM_PROCESSOR };
+            Counters.MEMORY_USAGE, Counters.MEMORY_MAX, Counters.DISK_READ, Counters.DISK_WRITE,
+            Counters.NUM_PROCESSOR };
     private static String[] AGG_COUNTERS = { Counters.SYSTEM_LOAD };
     private static int UPDATE_INTERVAL = 10000;
 
@@ -115,8 +115,8 @@ public class ClientCounterContext implements IClusterCounterContext {
     public ICounter getCounter(String machineName, String counterName, boolean create) {
         Counter counter = counterMap.get(machineName + "$" + counterName);
         if (counter == null) {
-            throw new IllegalStateException("request an unknown counter: " + counterName + " on slave machine "
-                    + machineName + "!");
+            throw new IllegalStateException(
+                    "request an unknown counter: " + counterName + " on slave machine " + machineName + "!");
         }
         return counter;
     }
@@ -176,7 +176,7 @@ public class ClientCounterContext implements IClusterCounterContext {
             /**
              * use the last non-zero value as the counter value
              */
-            for(Iterator<JsonNode> jsonIt = counterObject.iterator(); jsonIt.hasNext();) {
+            for (Iterator<JsonNode> jsonIt = counterObject.iterator(); jsonIt.hasNext();) {
                 JsonNode value = jsonIt.next();
                 if (value.isDouble()) {
                     double currentVal = value.asDouble();

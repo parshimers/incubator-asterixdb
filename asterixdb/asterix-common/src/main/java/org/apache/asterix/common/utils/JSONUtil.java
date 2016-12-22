@@ -27,18 +27,17 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.logging.Logger;
 
-
 public class JSONUtil {
 
     private static final Logger LOGGER = Logger.getLogger(JSONUtil.class.getName());
 
     private static final String INDENT = "\t";
 
+    private static final ObjectMapper SORTED_MAPPER = new ObjectMapper();
+
     private JSONUtil() {
     }
 
-
-    private static final ObjectMapper SORTED_MAPPER = new ObjectMapper();
     static {
         SORTED_MAPPER.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
     }
@@ -53,13 +52,14 @@ public class JSONUtil {
         ObjectMapper om = new ObjectMapper();
         try {
             return appendObj(new StringBuilder(), om.readTree(str), initialIndent).toString();
-        } catch(IOException e){
+        } catch (IOException e) {
+            LOGGER.finest(String.valueOf(e));
             LOGGER.finest("Could not indent JSON string, returning the input string: " + str);
             return str;
         }
     }
 
-    private static StringBuilder appendOrd(StringBuilder sb, JsonNode o, int indent)  {
+    private static StringBuilder appendOrd(StringBuilder sb, JsonNode o, int indent) {
         if (o.isObject()) {
             return appendObj(sb, o, indent);
         } else if (o.isArray()) {
@@ -72,7 +72,7 @@ public class JSONUtil {
         throw new UnsupportedOperationException(o.getClass().getSimpleName());
     }
 
-    private static StringBuilder appendObj(StringBuilder builder, JsonNode jobj, int indent)  {
+    private static StringBuilder appendObj(StringBuilder builder, JsonNode jobj, int indent) {
         StringBuilder sb = builder.append("{\n");
         boolean first = true;
         for (Iterator<JsonNode> it = jobj.iterator(); it.hasNext();) {
@@ -85,13 +85,11 @@ public class JSONUtil {
             sb = indent(sb, indent + 1);
             sb = quote(sb, key);
             sb = sb.append(": ");
-            if(jobj.get(key).isArray()){
+            if (jobj.get(key).isArray()) {
                 sb = appendAry(sb, jobj.get(key), indent + 1);
-            }
-            else if (jobj.get(key).isObject()){
+            } else if (jobj.get(key).isObject()) {
                 sb = appendObj(sb, jobj.get(key), indent + 1);
-            }
-            else{
+            } else {
                 sb = appendOrd(sb, jobj.get(key), indent + 1);
             }
         }
@@ -99,20 +97,18 @@ public class JSONUtil {
         return indent(sb, indent).append("}");
     }
 
-    private static StringBuilder appendAry(StringBuilder builder, JsonNode jarr, int indent)  {
+    private static StringBuilder appendAry(StringBuilder builder, JsonNode jarr, int indent) {
         StringBuilder sb = builder.append("[\n");
         for (int i = 0; i < jarr.size(); ++i) {
             if (i > 0) {
                 sb = sb.append(",\n");
             }
             sb = indent(sb, indent + 1);
-            if(jarr.get(i).isArray()){
+            if (jarr.get(i).isArray()) {
                 sb = appendAry(sb, jarr.get(i), indent + 1);
-            }
-            else if (jarr.get(i).isObject()){
+            } else if (jarr.get(i).isObject()) {
                 sb = appendObj(sb, jarr.get(i), indent + 1);
-            }
-            else{
+            } else {
                 sb = appendOrd(sb, jarr.get(i), indent + 1);
             }
         }

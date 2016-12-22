@@ -91,9 +91,9 @@ public class DiagnosticsAPIServlet extends ClusterNodeDetailsAPIServlet {
         for (String nc : AsterixAppContextInfo.INSTANCE.getMetadataProperties().getNodeNames()) {
             Map<String, Future<ObjectNode>> ncData = new HashMap<>();
             ncData.put("threaddump", executor.submit(() ->
-                    fixupKeys((ObjectNode)om.readTree((hcc.getThreadDump(nc))))));
+                    fixupKeys((ObjectNode)om.readTree(hcc.getThreadDump(nc)))));
             ncData.put("config", executor.submit(() ->
-                    fixupKeys((ObjectNode)om.readTree((hcc.getNodeDetailsJSON(nc, false, true))))));
+                    fixupKeys((ObjectNode)om.readTree(hcc.getNodeDetailsJSON(nc, false, true)))));
             ncData.put("stats", executor.submit(() ->
                     fixupKeys(processNodeStats(hcc, nc))));
             ncDataMap.put(nc, ncData);
