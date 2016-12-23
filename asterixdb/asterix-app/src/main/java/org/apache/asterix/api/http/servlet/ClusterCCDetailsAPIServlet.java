@@ -53,7 +53,7 @@ public class ClusterCCDetailsAPIServlet extends ClusterAPIServlet {
             response.setStatus(HttpServletResponse.SC_OK);
             response.setContentType("application/json");
             response.setCharacterEncoding("utf-8");
-            responseWriter.write(json.asText());
+            responseWriter.write(new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(json));
         } catch (IllegalArgumentException e) { // NOSONAR - exception not logged or rethrown
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
         } catch (Exception e) {
