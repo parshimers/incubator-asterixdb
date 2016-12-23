@@ -40,9 +40,9 @@ import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.util.FlushDatasetUtils;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.client.NodeControllerInfo;
-import org.apache.hyracks.dataflow.std.file.FileSplit;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.hyracks.api.io.FileSplit;
 
 /***
  * The REST API that takes a dataverse name and a dataset name as the input
@@ -128,7 +128,7 @@ public class ConnectorAPIServlet extends HttpServlet {
     }
 
     private void formResponseObject(ObjectNode jsonResponse, FileSplit[] fileSplits, ARecordType recordType,
-            String primaryKeys, boolean temp, Map<String, NodeControllerInfo> nodeMap) throws Exception {
+                                    String primaryKeys, boolean temp, Map<String, NodeControllerInfo> nodeMap) throws Exception {
         ObjectMapper om = new ObjectMapper();
         ArrayNode partititons = om.createArrayNode();
         // Whether the dataset is temp or not

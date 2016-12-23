@@ -2594,22 +2594,15 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
     private void handleQueryResult(MetadataProvider metadataProvider, IHyracksClientConnection hcc,
             IHyracksDataset hdc, JobSpecification jobSpec, ResultDelivery resultDelivery, Stats stats)
             throws Exception {
-        if (GlobalConfig.ASTERIX_LOGGER.isLoggable(Level.FINE)) {
-            GlobalConfig.ASTERIX_LOGGER.fine(compiled.toJSON().asText());
-        }
         JobId jobId = JobUtils.runJob(hcc, jobSpec, false);
 
-        ObjectMapper om = new ObjectMapper();
-        ObjectNode response = om.createObjectNode();
+        ResultHandle hand;
         switch (resultDelivery) {
             case ASYNC:
-                ArrayNode handle = om.createArrayNode();
-                handle.add(jobId.getId());
-                handle.add(metadataProvider.getResultSetId().getId());
-                response.put("handle", handle);
-                sessionConfig.out().print(om.writeValueAsString(response));
-                sessionConfig.out().flush();
+                hand = new ResultHandle(jobId,metadataProvider.getResultSetId());
+                ResultUtil.printResultHandle(hand,sessionConfig);
                 hcc.waitForCompletion(jobId);
+                sessionConfig.out().flush();
                 break;
             case IMMEDIATE:
                 hcc.waitForCompletion(jobId);
@@ -2617,13 +2610,10 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 resultReader.open(jobId, metadataProvider.getResultSetId());
                 ResultUtil.printResults(resultReader, sessionConfig, stats, metadataProvider.findOutputRecordType());
                 break;
-            case ASYNC_DEFERRED:
-                handle = om.createArrayNode();
-                handle.add(jobId.getId());
-                handle.add(metadataProvider.getResultSetId().getId());
-                response.put("handle", handle);
+            case DEFERRED:
                 hcc.waitForCompletion(jobId);
-                sessionConfig.out().print(om.writeValueAsString(response));
+                hand = new ResultHandle(jobId,metadataProvider.getResultSetId());
+                ResultUtil.printResultHandle(hand,sessionConfig);
                 sessionConfig.out().flush();
                 break;
             default:

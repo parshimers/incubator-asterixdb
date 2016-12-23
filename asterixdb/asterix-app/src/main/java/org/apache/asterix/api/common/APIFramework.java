@@ -311,8 +311,12 @@ public class APIFramework {
         if (conf.is(SessionConfig.OOB_HYRACKS_JOB)) {
             printPlanPrefix(conf, "Hyracks job");
             if (rwQ != null) {
-                conf.out()
-                        .println(new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(spec.toJSON()));
+                try {
+                    conf.out()
+                            .println(new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(spec.toJSON()));
+                } catch (IOException e) {
+                    conf.out().println(e.getMessage());
+                }
                 conf.out().println(spec.getUserConstraints());
             }
             printPlanPostfix(conf);

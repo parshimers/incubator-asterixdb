@@ -308,16 +308,24 @@ public class QueryServiceServlet extends HttpServlet {
             }
         };
 
+
         SessionConfig.ResultDecorator resultPostfix = (AlgebricksAppendable app) -> app.append("\t,\n");
 
-        SessionConfig.ResultDecorator handlePrefix = (AlgebricksAppendable app) -> app.append("\t\"").append
-                (ResultFields.HANDLE.str()).append("\": ");
+        SessionConfig.ResultDecorator handlePrefix = new SessionConfig.ResultDecorator() {
+            @Override
+            public AlgebricksAppendable append(AlgebricksAppendable app) throws AlgebricksException {
+                app.append("\t\"");
+                app.append(ResultFields.HANDLE.str());
+                app.append("\": ");
+                return app;
+            }
+        };
 
         SessionConfig.ResultDecorator handlePostfix = (AlgebricksAppendable app) -> app.append(",\n");
 
         SessionConfig.OutputFormat format = getFormat(param.format);
-        SessionConfig sessionConfig = new SessionConfig(resultWriter, format, resultPrefix, resultPostfix,
-                handlePrefix, handlePostfix);
+        SessionConfig sessionConfig = new SessionConfig(resultWriter, format, resultPrefix, resultPostfix, handlePrefix,
+                handlePostfix);
         sessionConfig.set(SessionConfig.FORMAT_WRAPPER_ARRAY, true);
         sessionConfig.set(SessionConfig.FORMAT_INDENT_JSON, param.pretty);
         sessionConfig.set(SessionConfig.FORMAT_QUOTE_RECORD,

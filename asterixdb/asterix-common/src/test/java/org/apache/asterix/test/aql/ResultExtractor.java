@@ -47,9 +47,9 @@ public class ResultExtractor {
     public static InputStream extract(InputStream resultStream) throws Exception {
         ObjectMapper om = new ObjectMapper();
         StringWriter sw = new StringWriter();
-        String resultStr = IOUtils.toString(resultStream,Charset.defaultCharset());
+        String resultStr = IOUtils.toString(resultStream, Charset.defaultCharset());
         PrettyPrinter singleLine = new SingleLinePrettyPrinter();
-        ObjectNode result = om.readValue(resultStr,ObjectNode.class);
+        ObjectNode result = om.readValue(resultStr, ObjectNode.class);
 
         LOGGER.fine("+++++++\n" + result + "\n+++++++\n");
 
@@ -77,35 +77,29 @@ public class ResultExtractor {
                     JsonNode errors = result.get(field).get(0).get("msg");
                     throw new AsterixException(errors.asText());
                 case "results":
-                    if(result.get(field).size()<=1) {
-                        if(result.get(field).size() == 0){
+                    if (result.get(field).size() <= 1) {
+                        if (result.get(field).size() == 0) {
                             results = "";
-                        }
-                        else if(result.get(field).isArray()) {
-                            if(result.get(field).get(0).isTextual()){
+                        } else if (result.get(field).isArray()) {
+                            if (result.get(field).get(0).isTextual()) {
                                 results = result.get(field).get(0).asText();
-                            }
-                            else {
-
+                            } else {
                                 ObjectMapper omm = new ObjectMapper();
                                 omm.setDefaultPrettyPrinter(singleLine);
                                 omm.enable(SerializationFeature.INDENT_OUTPUT);
                                 results = omm.writer(singleLine).writeValueAsString(result.get(field));
                             }
-                        }
-                        else{
+                        } else {
                             results = om.writeValueAsString(result.get(field));
                         }
-                    }
-                    else{
+                    } else {
                         StringBuilder sb = new StringBuilder();
-                        JsonNode[] fields = Iterators.toArray(result.get(field).elements(),JsonNode.class);
-                        if(fields.length>1){
-                            for(JsonNode f: fields){
-                                if(f.isObject()) {
+                        JsonNode[] fields = Iterators.toArray(result.get(field).elements(), JsonNode.class);
+                        if (fields.length > 1) {
+                            for (JsonNode f : fields) {
+                                if (f.isObject()) {
                                     sb.append(om.writeValueAsString(f));
-                                }
-                                else{
+                                } else {
                                     sb.append(f.asText());
                                 }
                             }
@@ -119,5 +113,16 @@ public class ResultExtractor {
         }
 
         return IOUtils.toInputStream(results);
+    }
+
+    public static String extractHandle(InputStream resultStream) throws Exception {
+        final Charset utf8 = Charset.forName("UTF-8");
+        ObjectMapper om = new ObjectMapper();
+        String result = IOUtils.toString(resultStream, utf8);
+        ObjectNode resultJson = om.readValue(result, ObjectNode.class);
+        JsonNode handle = resultJson.get("handle");
+        ObjectNode res = om.createObjectNode();
+        res.put("handle", handle);
+        return om.writeValueAsString(res);
     }
 }

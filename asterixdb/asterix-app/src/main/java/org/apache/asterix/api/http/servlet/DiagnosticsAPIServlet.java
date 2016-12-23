@@ -37,9 +37,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import org.apache.asterix.runtime.util.AsterixAppContextInfo;
 import org.apache.asterix.runtime.util.AppContextInfo;
->>>>>>> master
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -88,7 +86,7 @@ public class DiagnosticsAPIServlet extends ClusterNodeDetailsAPIServlet {
                 fixupKeys((ObjectNode)om.readTree(hcc.getNodeDetailsJSON(null, true, false)))));
 
         Map<String, Map<String, Future<ObjectNode>>> ncDataMap = new HashMap<>();
-        for (String nc : AsterixAppContextInfo.INSTANCE.getMetadataProperties().getNodeNames()) {
+        for (String nc : AppContextInfo.INSTANCE.getMetadataProperties().getNodeNames()) {
             Map<String, Future<ObjectNode>> ncData = new HashMap<>();
             ncData.put("threaddump", executor.submit(() ->
                     fixupKeys((ObjectNode)om.readTree(hcc.getThreadDump(nc)))));

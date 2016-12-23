@@ -668,9 +668,9 @@ public class ClusterStateManager {
         return stateDescription;
     }
 
-    public synchronized ObjectNode getClusterStateSummary() throws JSONException {
+    public synchronized ObjectNode getClusterStateSummary() {
         ObjectMapper om = new ObjectMapper();
-        ObjectNode stateDescription = om.createObjectNode;
+        ObjectNode stateDescription = om.createObjectNode();
         stateDescription.put("state", state.name());
         stateDescription.putPOJO("metadata_node", currentMetadataNode);
         stateDescription.putPOJO("partitions", clusterPartitions);

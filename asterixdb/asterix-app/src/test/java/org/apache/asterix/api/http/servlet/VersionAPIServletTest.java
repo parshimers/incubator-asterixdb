@@ -37,6 +37,7 @@ import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.asterix.common.config.BuildProperties;
 import org.apache.asterix.runtime.util.AppContextInfo;
 import org.apache.asterix.test.runtime.SqlppExecutionTest;

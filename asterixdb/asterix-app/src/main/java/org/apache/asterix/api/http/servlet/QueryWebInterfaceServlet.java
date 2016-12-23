@@ -32,14 +32,11 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.asterix.common.config.AsterixExternalProperties;
-import org.apache.asterix.runtime.util.AsterixAppContextInfo;
 import org.apache.asterix.common.config.ExternalProperties;
 import org.apache.asterix.runtime.util.AppContextInfo;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hive.com.esotericsoftware.kryo.util.ObjectMap;
 
 public class QueryWebInterfaceServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;

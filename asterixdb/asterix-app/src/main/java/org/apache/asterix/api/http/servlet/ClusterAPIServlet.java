@@ -34,8 +34,7 @@ import javax.servlet.http.HttpServletResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import org.apache.asterix.common.config.AbstractAsterixProperties;
-import org.apache.asterix.common.config.AsterixReplicationProperties;
+import org.apache.asterix.common.config.AsterixProperties;
 import org.apache.asterix.common.utils.JSONUtil;
 import org.apache.asterix.common.config.AbstractProperties;
 import org.apache.asterix.common.config.ReplicationProperties;
@@ -107,8 +106,8 @@ public class ClusterAPIServlet extends HttpServlet {
 
     protected ObjectNode getReplicationJSON() {
         ObjectMapper om = new ObjectMapper();
-        for (AbstractAsterixProperties props : getPropertiesInstances()) {
-            if (props instanceof AsterixReplicationProperties) {
+        for (AbstractProperties props : getPropertiesInstances()) {
+            if (props instanceof ReplicationProperties) {
                 ObjectNode json = om.createObjectNode();
                 json.putPOJO("config", props.getProperties(key -> REPLICATION_PROPERTY.matcher(key).replaceFirst("")));
                 return json;

@@ -50,8 +50,6 @@ public class QueryResultAPIServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private static final Logger LOGGER = Logger.getLogger(QueryResultAPIServlet.class.getName());
 
-    private static final Logger LOGGER = Logger.getLogger(QueryResultAPIServlet.class.getName());
-
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         int respCode = HttpServletResponse.SC_OK;
