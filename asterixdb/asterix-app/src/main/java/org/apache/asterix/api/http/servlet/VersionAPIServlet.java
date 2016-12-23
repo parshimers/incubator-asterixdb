@@ -44,7 +44,7 @@ public class VersionAPIServlet extends HttpServlet {
         ObjectMapper om = new ObjectMapper();
         ObjectNode responseObject = om.createObjectNode();
         for (Map.Entry<String, String> e : buildProperties.entrySet()) {
-            responseObject.put(e.getKey(), buildProperties.get(e.getValue()));
+            responseObject.put(e.getKey(), e.getValue());
         }
         response.setCharacterEncoding("utf-8");
         PrintWriter responseWriter = response.getWriter();

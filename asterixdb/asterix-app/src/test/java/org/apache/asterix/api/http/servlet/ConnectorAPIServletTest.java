@@ -155,11 +155,9 @@ public class ConnectorAPIServletTest {
         ObjectNode element1 = om.createObjectNode();
         element1.put("ip", "127.0.0.1");
         element1.put("path", splits[0].getPath());
-        element1.put("ioDeviceId", 0);
         ObjectNode element2 = om.createObjectNode();
         element2.put("ip", "127.0.0.2");
         element2.put("path", splits[1].getPath());
-        element2.put("ioDeviceId", 0);
         splitsArray.add(element1);
         splitsArray.add(element2);
         expectedResponse.put("splits", splitsArray);
