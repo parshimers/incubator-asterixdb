@@ -32,14 +32,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.asterix.runtime.util.AsterixAppContextInfo;
+import org.apache.asterix.runtime.util.AppContextInfo;
+>>>>>>> master
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 

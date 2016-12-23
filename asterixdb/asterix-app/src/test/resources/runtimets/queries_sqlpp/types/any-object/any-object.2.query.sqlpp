@@ -18,5 +18,3 @@
  */
 
 select element x from Metadata.Datatype as x;
-
-

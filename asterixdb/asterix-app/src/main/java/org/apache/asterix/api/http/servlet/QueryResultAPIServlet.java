@@ -23,6 +23,7 @@ import static org.apache.asterix.api.http.servlet.ServletConstants.HYRACKS_DATAS
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.servlet.ServletContext;
@@ -33,6 +34,7 @@ import javax.servlet.http.HttpServletResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.asterix.app.result.ResultReader;
 import org.apache.asterix.app.result.ResultUtil;
+import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.translator.IStatementExecutor.Stats;
 import org.apache.asterix.translator.SessionConfig;
 import org.apache.hyracks.api.client.HyracksConnection;
@@ -48,9 +50,12 @@ public class QueryResultAPIServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private static final Logger LOGGER = Logger.getLogger(QueryResultAPIServlet.class.getName());
 
+    private static final Logger LOGGER = Logger.getLogger(QueryResultAPIServlet.class.getName());
+
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        response.setContentType("text/html");
+        int respCode = HttpServletResponse.SC_OK;
+        response.setContentType("text/html"); // TODO this seems wrong ...
         response.setCharacterEncoding("utf-8");
         String strHandle = request.getParameter("handle");
         PrintWriter out = response.getWriter();
@@ -59,6 +64,10 @@ public class QueryResultAPIServlet extends HttpServlet {
         IHyracksDataset hds;
 
         try {
+            if (strHandle == null || strHandle.isEmpty()) {
+                throw new AsterixException("Empty request, no handle provided");
+            }
+
             HyracksProperties hp = new HyracksProperties();
             String strIP = hp.getHyracksIPAddress();
             int port = hp.getHyracksPort();
@@ -92,11 +101,16 @@ public class QueryResultAPIServlet extends HttpServlet {
             // originally determined there. Need to save this value on
             // some object that we can obtain here.
             SessionConfig sessionConfig = RESTAPIServlet.initResponse(request, response);
-            ResultUtil.displayResults(resultReader, sessionConfig, new Stats(), null);
+            ResultUtil.printResults(resultReader, sessionConfig, new Stats(), null);
 
         } catch (Exception e) {
-            LOGGER.severe(e.getMessage());
-            throw new IOException(e);
+            respCode = HttpServletResponse.SC_BAD_REQUEST;
+            out.println(e.getMessage());
+            LOGGER.log(Level.WARNING, "Error retrieving result", e);
+        }
+        response.setStatus(respCode);
+        if (out.checkError()) {
+            LOGGER.warning("Error flushing output writer");
         }
     }
 }

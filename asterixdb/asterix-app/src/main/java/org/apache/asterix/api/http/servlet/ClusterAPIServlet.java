@@ -37,9 +37,10 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.asterix.common.config.AbstractAsterixProperties;
 import org.apache.asterix.common.config.AsterixReplicationProperties;
 import org.apache.asterix.common.utils.JSONUtil;
+import org.apache.asterix.common.config.AbstractProperties;
+import org.apache.asterix.common.config.ReplicationProperties;
 import org.apache.asterix.runtime.util.ClusterStateManager;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class ClusterAPIServlet extends HttpServlet {
@@ -83,9 +84,11 @@ public class ClusterAPIServlet extends HttpServlet {
                 case "/replication":
                     json = getReplicationJSON();
                     break;
+                case "/summary":
+                    json = getClusterStateSummaryJSON();
+                    break;
                 default:
                     throw new IllegalArgumentException();
-
             }
             response.setStatus(HttpServletResponse.SC_OK);
             responseWriter.write(JSONUtil.convertNode(json));
@@ -96,6 +99,10 @@ public class ClusterAPIServlet extends HttpServlet {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.toString());
         }
         responseWriter.flush();
+    }
+
+    protected ObjectNode getClusterStateSummaryJSON() {
+        return ClusterStateManager.INSTANCE.getClusterStateSummary();
     }
 
     protected ObjectNode getReplicationJSON() {
@@ -112,16 +119,16 @@ public class ClusterAPIServlet extends HttpServlet {
 
     protected Map<String, Object> getAllClusterProperties() {
         Map<String, Object> allProperties = new HashMap<>();
-        for (AbstractAsterixProperties properties : getPropertiesInstances()) {
-            if (!(properties instanceof AsterixReplicationProperties)) {
+        for (AbstractProperties properties : getPropertiesInstances()) {
+            if (!(properties instanceof ReplicationProperties)) {
                 allProperties.putAll(properties.getProperties());
             }
         }
         return allProperties;
     }
 
-    protected List<AbstractAsterixProperties> getPropertiesInstances() {
-        return AbstractAsterixProperties.getImplementations();
+    protected List<AbstractProperties> getPropertiesInstances() {
+        return AbstractProperties.getImplementations();
     }
 
     protected ObjectNode getClusterStateJSON(HttpServletRequest request, String pathToNode) {

@@ -40,6 +40,7 @@ import org.apache.asterix.translator.IStatementExecutor.Stats;
 import org.apache.asterix.translator.SessionConfig;
 import org.apache.http.ParseException;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
+import org.apache.hyracks.algebricks.core.algebra.prettyprint.AlgebricksAppendable;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.log4j.Logger;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -73,14 +74,25 @@ public class ResultUtil {
         return escaped;
     }
 
-    public static void displayResults(ResultReader resultReader, SessionConfig conf, Stats stats,
+    public static void printResults(ResultReader resultReader, SessionConfig conf, Stats stats,
             ARecordType recordType) throws HyracksDataException {
         new ResultPrinter(conf, stats, recordType).print(resultReader);
     }
 
-    public static void displayResults(String record, SessionConfig conf, Stats stats, ARecordType recordType)
+    public static void printResults(String record, SessionConfig conf, Stats stats, ARecordType recordType)
             throws HyracksDataException {
         new ResultPrinter(conf, stats, recordType).print(record);
+    }
+
+    public static void printResultHandle(ResultHandle handle, SessionConfig conf) throws HyracksDataException {
+        try {
+            final AlgebricksAppendable app = new AlgebricksAppendable(conf.out());
+            conf.handlePrefix(app);
+            handle.append(app);
+            conf.handlePostfix(app);
+        } catch (AlgebricksException e) {
+            throw new HyracksDataException(e);
+        }
     }
 
     public static ObjectNode getErrorResponse(int errorCode, String errorMessage, String errorSummary,

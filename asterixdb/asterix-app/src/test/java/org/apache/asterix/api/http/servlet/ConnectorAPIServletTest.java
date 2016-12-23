@@ -39,19 +39,20 @@ import javax.servlet.http.HttpServletResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.metadata.MetadataTransactionContext;
-import org.apache.asterix.metadata.declared.AqlMetadataProvider;
+import org.apache.asterix.metadata.declared.MetadataProvider;
 import org.apache.asterix.metadata.entities.Dataset;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.util.JSONDeserializerForTypes;
-import org.apache.asterix.test.runtime.ExecutionTest;
+import org.apache.asterix.test.runtime.SqlppExecutionTest;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.client.NodeControllerInfo;
 import org.apache.hyracks.api.comm.NetworkAddress;
-import org.apache.hyracks.dataflow.std.file.FileSplit;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.hyracks.api.io.FileSplit;
+import org.apache.hyracks.api.io.ManagedFileSplit;
 import org.json.JSONTokener;
 import org.junit.Assert;
 import org.junit.Test;
@@ -63,13 +64,13 @@ public class ConnectorAPIServletTest {
     @Test
     public void testGet() throws Exception {
         // Starts test asterixdb cluster.
-        ExecutionTest.setUp();
+        SqlppExecutionTest.setUp();
 
         // Configures a test connector api servlet.
         ConnectorAPIServlet servlet = spy(new ConnectorAPIServlet());
         ServletConfig mockServletConfig = mock(ServletConfig.class);
         servlet.init(mockServletConfig);
-        Map<String, NodeControllerInfo> nodeMap = new HashMap<String, NodeControllerInfo>();
+        Map<String, NodeControllerInfo> nodeMap = new HashMap<>();
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         PrintWriter outputWriter = new PrintWriter(outputStream);
 
@@ -115,7 +116,7 @@ public class ConnectorAPIServletTest {
         Assert.assertTrue(path.endsWith("Metadata/Dataset_idx_Dataset"));
 
         // Tears down the asterixdb cluster.
-        ExecutionTest.tearDown();
+        SqlppExecutionTest.tearDown();
     }
 
     @Test
@@ -124,9 +125,9 @@ public class ConnectorAPIServletTest {
         ObjectMapper om = new ObjectMapper();
         ObjectNode actualResponse = om.createObjectNode();
         FileSplit[] splits = new FileSplit[2];
-        splits[0] = new FileSplit("asterix_nc1", "foo1");
-        splits[1] = new FileSplit("asterix_nc2", "foo2");
-        Map<String, NodeControllerInfo> nodeMap = new HashMap<String, NodeControllerInfo>();
+        splits[0] = new ManagedFileSplit("asterix_nc1", "foo1");
+        splits[1] = new ManagedFileSplit("asterix_nc2", "foo2");
+        Map<String, NodeControllerInfo> nodeMap = new HashMap<>();
         NodeControllerInfo mockInfo1 = mock(NodeControllerInfo.class);
         NodeControllerInfo mockInfo2 = mock(NodeControllerInfo.class);
 
@@ -142,11 +143,9 @@ public class ConnectorAPIServletTest {
         // Calls ConnectorAPIServlet.formResponseObject.
         nodeMap.put("asterix_nc1", mockInfo1);
         nodeMap.put("asterix_nc2", mockInfo2);
-        PA.invokeMethod(servlet,
-                "formResponseObject(com.fasterxml.jackson.databind.node.ObjectNode, org.apache.hyracks.dataflow.std.file.FileSplit[], "
-                        + "org.apache.asterix.om.types.ARecordType, java.lang.String, boolean, java.util.Map)",
-                actualResponse, splits, recordType, primaryKey, true, nodeMap);
-
+        PA.invokeMethod(servlet, "formResponseObject(" + ObjectNode.class.getName() + ", " + FileSplit.class.getName()
+                + "[], " + ARecordType.class.getName() + ", " + String.class.getName() + ", boolean, " + Map.class
+                        .getName() + ")", actualResponse, splits, recordType, primaryKey, true, nodeMap);
         // Constructs expected response.
         ObjectNode expectedResponse = om.createObjectNode();
         expectedResponse.put("temp", true);
@@ -155,11 +154,11 @@ public class ConnectorAPIServletTest {
         ArrayNode splitsArray = om.createArrayNode();
         ObjectNode element1 = om.createObjectNode();
         element1.put("ip", "127.0.0.1");
-        element1.put("path", splits[0].getLocalFile().getFile().getAbsolutePath());
+        element1.put("path", splits[0].getPath());
         element1.put("ioDeviceId", 0);
         ObjectNode element2 = om.createObjectNode();
         element2.put("ip", "127.0.0.2");
-        element2.put("path", splits[1].getLocalFile().getFile().getAbsolutePath());
+        element2.put("path", splits[1].getPath());
         element2.put("ioDeviceId", 0);
         splitsArray.add(element1);
         splitsArray.add(element2);
@@ -172,7 +171,7 @@ public class ConnectorAPIServletTest {
     private ARecordType getMetadataRecordType(String dataverseName, String datasetName) throws Exception {
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         // Retrieves file splits of the dataset.
-        AqlMetadataProvider metadataProvider = new AqlMetadataProvider(null);
+        MetadataProvider metadataProvider = new MetadataProvider(null);
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
         Dataset dataset = metadataProvider.findDataset(dataverseName, datasetName);
         ARecordType recordType = (ARecordType) metadataProvider.findType(dataset.getItemTypeDataverseName(),

@@ -428,7 +428,7 @@ public class TestExecutor {
 
     public InputStream executeQueryService(String str, OutputFormat fmt, String url,
             List<CompilationUnit.Parameter> params, boolean jsonEncoded) throws Exception {
-        setFormatParam(params, fmt);
+        setParam(params, "format", fmt.mimeType());
         HttpUriRequest method = jsonEncoded ? constructPostMethodJson(str, url, "statement", params)
                 : constructPostMethodUrl(str, url, "statement", params);
         // Set accepted output response type
@@ -437,16 +437,24 @@ public class TestExecutor {
         return response.getEntity().getContent();
     }
 
-    protected void setFormatParam(List<CompilationUnit.Parameter> params, OutputFormat fmt) {
+    public InputStream executeQueryService(String statement, OutputFormat fmt, String url,
+            List<CompilationUnit.Parameter> params, boolean jsonEncoded, String deferred) throws Exception {
+        setParam(params, "mode", deferred);
+        InputStream resultStream = executeQueryService(statement, fmt, url, params, jsonEncoded);
+        String handle = ResultExtractor.extractHandle(resultStream);
+        return getHandleResult(handle, fmt);
+    }
+
+    protected void setParam(List<CompilationUnit.Parameter> params, String name, String value) {
         for (CompilationUnit.Parameter param : params) {
-            if ("format".equals(param.getName())) {
-                param.setValue(fmt.mimeType());
+            if (name.equals(param.getName())) {
+                param.setValue(value);
                 return;
             }
         }
         CompilationUnit.Parameter formatParam = new CompilationUnit.Parameter();
-        formatParam.setName("format");
-        formatParam.setValue(fmt.mimeType());
+        formatParam.setName(name);
+        formatParam.setValue(value);
         params.add(formatParam);
     }
 
@@ -780,14 +788,16 @@ public class TestExecutor {
                         resultStream = executeAnyAQLAsync(statement, true, fmt, getEndpoint(Servlets.AQL));
                     }
                 } else {
-                    if (ctx.getType().equalsIgnoreCase("query")) {
-                        resultStream = executeQueryService(statement, fmt, getEndpoint(Servlets.QUERY_SERVICE),
-                                cUnit.getParameter(), true);
+                    final String reqType = ctx.getType();
+                    final String url = getEndpoint(Servlets.QUERY_SERVICE);
+                    final List<CompilationUnit.Parameter> params = cUnit.getParameter();
+                    if (reqType.equalsIgnoreCase("query")) {
+                        resultStream = executeQueryService(statement, fmt, url, params, true);
                         resultStream = ResultExtractor.extract(resultStream);
-                    } else if (ctx.getType().equalsIgnoreCase("async")) {
-                        resultStream = executeAnyAQLAsync(statement, false, fmt, getEndpoint(Servlets.SQLPP));
-                    } else if (ctx.getType().equalsIgnoreCase("asyncdefer")) {
-                        resultStream = executeAnyAQLAsync(statement, true, fmt, getEndpoint(Servlets.SQLPP));
+                    } else if (reqType.equalsIgnoreCase("async")) {
+                        resultStream = executeQueryService(statement, fmt, url, params, true, "async");
+                    } else if (reqType.equalsIgnoreCase("asyncdefer")) {
+                        resultStream = executeQueryService(statement, fmt, url, params, true, "deferred");
                     }
                 }
                 if (queryCount.intValue() >= expectedResultFileCtxs.size()) {
@@ -992,9 +1002,33 @@ public class TestExecutor {
                         throw new Exception("invalid library format");
                 }
                 break;
+            case "node":
+                command = stripJavaComments(statement).trim().split(" ");
+                String commandType = command[0];
+                String nodeId = command[1];
+                if (commandType.equals("kill")) {
+                    killNC(nodeId, cUnit);
+                }
+                break;
             default:
                 throw new IllegalArgumentException("No statements of type " + ctx.getType());
         }
+    }
+
+    private void killNC(String nodeId, CompilationUnit cUnit) throws Exception {
+        //get node process id
+        OutputFormat fmt = OutputFormat.forCompilationUnit(cUnit);
+        String endpoint = "/admin/cluster/node/" + nodeId + "/config";
+        InputStream executeJSONGet = executeJSONGet(fmt, "http://" + host + ":" + port + endpoint);
+        StringWriter actual = new StringWriter();
+        IOUtils.copy(executeJSONGet, actual, StandardCharsets.UTF_8);
+        String config = actual.toString();
+        String nodePid = StringUtils.substringBetween(config, "\"pid\": ", ",").trim();
+        if (nodePid == null) {
+            throw new IllegalArgumentException("Coud not find process for node id: " + nodeId);
+        }
+        ProcessBuilder pb = new ProcessBuilder("kill", "-9", nodePid);
+        pb.start().waitFor();
     }
 
     public void executeTest(String actualPath, TestCaseContext testCaseCtx, ProcessBuilder pb,

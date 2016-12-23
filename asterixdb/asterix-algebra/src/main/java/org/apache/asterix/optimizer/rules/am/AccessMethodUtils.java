@@ -30,7 +30,7 @@ import org.apache.asterix.common.config.DatasetConfig.IndexType;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.external.indexing.IndexingConstants;
 import org.apache.asterix.lang.common.util.FunctionUtil;
-import org.apache.asterix.metadata.declared.AqlSourceId;
+import org.apache.asterix.metadata.declared.DataSourceId;
 import org.apache.asterix.metadata.entities.Dataset;
 import org.apache.asterix.metadata.entities.ExternalDatasetDetails;
 import org.apache.asterix.metadata.entities.Index;
@@ -40,7 +40,7 @@ import org.apache.asterix.om.base.ABoolean;
 import org.apache.asterix.om.base.AInt32;
 import org.apache.asterix.om.base.AString;
 import org.apache.asterix.om.constants.AsterixConstantValue;
-import org.apache.asterix.om.functions.AsterixBuiltinFunctions;
+import org.apache.asterix.om.functions.BuiltinFunctions;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.IAType;
@@ -74,6 +74,7 @@ import org.apache.hyracks.algebricks.core.algebra.operators.logical.OrderOperato
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.OrderOperator.IOrder;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.SelectOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.UnnestMapOperator;
+import org.apache.hyracks.algebricks.core.algebra.operators.logical.visitors.VariableUtilities;
 import org.apache.hyracks.algebricks.core.algebra.plan.ALogicalPlanImpl;
 import org.apache.hyracks.algebricks.core.algebra.util.OperatorPropertiesUtil;
 
@@ -138,7 +139,7 @@ public class AccessMethodUtils {
         }
         if (arg2.getExpressionTag() == LogicalExpressionTag.VARIABLE) {
             // The arguments of contains() function are asymmetrical, we can only use index if it is on the first argument
-            if (funcExpr.getFunctionIdentifier() == AsterixBuiltinFunctions.STRING_CONTAINS) {
+            if (funcExpr.getFunctionIdentifier() == BuiltinFunctions.STRING_CONTAINS) {
                 return false;
             }
             IAType expressionType = constantRuntimeResultType(arg1, context, typeEnvironment);
@@ -308,11 +309,18 @@ public class AccessMethodUtils {
             // Type Checking and type promotion is done here
             IAType fieldType = optFuncExpr.getFieldType(0);
 
+            if (optFuncExpr.getNumConstantExpr() == 0) {
+                //We are looking at a selection case, but using two variables
+                //This means that the second variable comes from a nonPure function call
+                //TODO: Right now we miss on type promotion for nonpure functions
+                return new Pair<>(new VariableReferenceExpression(optFuncExpr.getLogicalVar(1)), false);
+            }
+
             ILogicalExpression constantAtRuntimeExpression = null;
             AsterixConstantValue constantValue = null;
             ATypeTag constantValueTag = null;
 
-            constantAtRuntimeExpression = optFuncExpr.getConstantAtRuntimeExpr(0);
+            constantAtRuntimeExpression = optFuncExpr.getConstantExpr(0);
 
             if (constantAtRuntimeExpression.getExpressionTag() == LogicalExpressionTag.CONSTANT) {
                 constantValue = (AsterixConstantValue) ((ConstantExpression) constantAtRuntimeExpression).getValue();
@@ -355,19 +363,16 @@ public class AccessMethodUtils {
             }
 
             if (typeCastingApplied) {
-                return new Pair<ILogicalExpression, Boolean>(new ConstantExpression(replacedConstantValue),
-                        realTypeConvertedToIntegerType);
+                return new Pair<>(new ConstantExpression(replacedConstantValue), realTypeConvertedToIntegerType);
             } else {
-                return new Pair<ILogicalExpression, Boolean>(optFuncExpr.getConstantAtRuntimeExpr(0), false);
+                return new Pair<>(optFuncExpr.getConstantExpr(0), false);
             }
         } else {
             // We are optimizing a join query. Determine which variable feeds the secondary index.
             if (optFuncExpr.getOperatorSubTree(0) == null || optFuncExpr.getOperatorSubTree(0) == probeSubTree) {
-                return new Pair<ILogicalExpression, Boolean>(
-                        new VariableReferenceExpression(optFuncExpr.getLogicalVar(0)), false);
+                return new Pair<>(new VariableReferenceExpression(optFuncExpr.getLogicalVar(0)), false);
             } else {
-                return new Pair<ILogicalExpression, Boolean>(
-                        new VariableReferenceExpression(optFuncExpr.getLogicalVar(1)), false);
+                return new Pair<>(new VariableReferenceExpression(optFuncExpr.getLogicalVar(1)), false);
             }
         }
     }
@@ -403,7 +408,7 @@ public class AccessMethodUtils {
         appendSecondaryIndexTypes(dataset, recordType, metaRecordType, index, outputPrimaryKeysOnly,
                 secondaryIndexOutputTypes);
         // An index search is expressed as an unnest over an index-search function.
-        IFunctionInfo secondaryIndexSearch = FunctionUtil.getFunctionInfo(AsterixBuiltinFunctions.INDEX_SEARCH);
+        IFunctionInfo secondaryIndexSearch = FunctionUtil.getFunctionInfo(BuiltinFunctions.INDEX_SEARCH);
         UnnestingFunctionCallExpression secondaryIndexSearchFunc = new UnnestingFunctionCallExpression(
                 secondaryIndexSearch, secondaryIndexFuncArgs);
         secondaryIndexSearchFunc.setReturnsUniqueValues(true);
@@ -476,7 +481,7 @@ public class AccessMethodUtils {
         primaryIndexUnnestVars.addAll(dataSourceOp.getVariables());
         appendPrimaryIndexTypes(dataset, recordType, metaRecordType, primaryIndexOutputTypes);
         // An index search is expressed as an unnest over an index-search function.
-        IFunctionInfo primaryIndexSearch = FunctionUtil.getFunctionInfo(AsterixBuiltinFunctions.INDEX_SEARCH);
+        IFunctionInfo primaryIndexSearch = FunctionUtil.getFunctionInfo(BuiltinFunctions.INDEX_SEARCH);
         AbstractFunctionCallExpression primaryIndexSearchFunc = new ScalarFunctionCallExpression(primaryIndexSearch,
                 primaryIndexFuncArgs);
         // This is the operator that jobgen will be looking for. It contains an unnest function that has all necessary arguments to determine
@@ -627,7 +632,7 @@ public class AccessMethodUtils {
         externalUnnestVars.addAll(dataSourceOp.getVariables());
         appendExternalRecTypes(dataset, recordType, outputTypes);
 
-        IFunctionInfo externalLookup = FunctionUtil.getFunctionInfo(AsterixBuiltinFunctions.EXTERNAL_LOOKUP);
+        IFunctionInfo externalLookup = FunctionUtil.getFunctionInfo(BuiltinFunctions.EXTERNAL_LOOKUP);
         AbstractFunctionCallExpression externalLookupFunc = new ScalarFunctionCallExpression(externalLookup,
                 externalLookupArgs);
         UnnestMapOperator unnestOp = new UnnestMapOperator(externalUnnestVars,
@@ -639,13 +644,13 @@ public class AccessMethodUtils {
         unnestOp.setExecutionMode(ExecutionMode.PARTITIONED);
 
         //set the physical operator
-        AqlSourceId dataSourceId = new AqlSourceId(dataset.getDataverseName(), dataset.getDatasetName());
+        DataSourceId dataSourceId = new DataSourceId(dataset.getDataverseName(), dataset.getDatasetName());
         unnestOp.setPhysicalOperator(new ExternalDataLookupPOperator(dataSourceId, dataset, recordType, secondaryIndex,
                 primaryKeyVars, false, retainInput, retainNull));
         return unnestOp;
     }
 
-    //If the expression is constant at runtime, runturn the type
+    //If the expression is constant at runtime, return the type
     public static IAType constantRuntimeResultType(ILogicalExpression expr, IOptimizationContext context,
             IVariableTypeEnvironment typeEnvironment) throws AlgebricksException {
         Set<LogicalVariable> usedVariables = new HashSet<LogicalVariable>();
@@ -656,4 +661,24 @@ public class AccessMethodUtils {
         return (IAType) context.getExpressionTypeComputer().getType(expr, context.getMetadataProvider(),
                 typeEnvironment);
     }
+
+    //Get Variables used by afterSelectRefs that were created before the datasource
+    //If there are any, we should retain inputs
+    public static boolean retainInputs(List<LogicalVariable> dataSourceVariables, ILogicalOperator sourceOp,
+            List<Mutable<ILogicalOperator>> afterSelectRefs) throws AlgebricksException {
+        List<LogicalVariable> usedVars = new ArrayList<>();
+        List<LogicalVariable> producedVars = new ArrayList<>();
+        List<LogicalVariable> liveVars = new ArrayList<>();
+        VariableUtilities.getLiveVariables(sourceOp, liveVars);
+        for (Mutable<ILogicalOperator> opMutable : afterSelectRefs) {
+            ILogicalOperator op = opMutable.getValue();
+            VariableUtilities.getUsedVariables(op, usedVars);
+            VariableUtilities.getProducedVariables(op, producedVars);
+        }
+        usedVars.removeAll(producedVars);
+        usedVars.removeAll(dataSourceVariables);
+        usedVars.retainAll(liveVars);
+        return usedVars.isEmpty() ? false : true;
+    }
+
 }

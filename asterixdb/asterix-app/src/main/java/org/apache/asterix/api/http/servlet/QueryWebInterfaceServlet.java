@@ -34,6 +34,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.asterix.common.config.AsterixExternalProperties;
 import org.apache.asterix.runtime.util.AsterixAppContextInfo;
+import org.apache.asterix.common.config.ExternalProperties;
+import org.apache.asterix.runtime.util.AppContextInfo;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -111,7 +113,7 @@ public class QueryWebInterfaceServlet extends HttpServlet {
     public void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
         response.setCharacterEncoding("utf-8");
         response.setContentType("application/json");
-        AsterixExternalProperties externalProperties = AsterixAppContextInfo.INSTANCE.getExternalProperties();
+        ExternalProperties externalProperties = AppContextInfo.INSTANCE.getExternalProperties();
         ObjectMapper om = new ObjectMapper();
         ObjectNode obj = om.createObjectNode();
         try {

@@ -30,11 +30,10 @@ import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.metadata.MetadataTransactionContext;
-import org.apache.asterix.metadata.declared.AqlMetadataProvider;
+import org.apache.asterix.metadata.declared.MetadataProvider;
 import org.apache.asterix.metadata.entities.Dataset;
 import org.apache.asterix.metadata.utils.DatasetUtils;
 import org.apache.asterix.om.types.ARecordType;
@@ -43,7 +42,6 @@ import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.client.NodeControllerInfo;
 import org.apache.hyracks.dataflow.std.file.FileSplit;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /***
@@ -85,7 +83,7 @@ public class ConnectorAPIServlet extends HttpServlet {
             MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
 
             // Retrieves file splits of the dataset.
-            AqlMetadataProvider metadataProvider = new AqlMetadataProvider(null);
+            MetadataProvider metadataProvider = new MetadataProvider(null);
             metadataProvider.setMetadataTxnContext(mdTxnCtx);
             Dataset dataset = metadataProvider.findDataset(dataverseName, datasetName);
             if (dataset == null) {
@@ -142,8 +140,8 @@ public class ConnectorAPIServlet extends HttpServlet {
         // Generates file partitions.
         for (FileSplit split : fileSplits) {
             String ipAddress = nodeMap.get(split.getNodeName()).getNetworkAddress().getAddress().toString();
-            String path = split.getLocalFile().getFile().getAbsolutePath();
-            FilePartition partition = new FilePartition(ipAddress, path, split.getIODeviceId());
+            String path = split.getPath();
+            FilePartition partition = new FilePartition(ipAddress, path);
             partititons.add(partition.toObjectNode());
         }
         // Generates the response object which contains the splits.
@@ -154,12 +152,10 @@ public class ConnectorAPIServlet extends HttpServlet {
 class FilePartition {
     private final String ipAddress;
     private final String path;
-    private final int ioDeviceId;
 
-    public FilePartition(String ipAddress, String path, int ioDeviceId) {
+    public FilePartition(String ipAddress, String path) {
         this.ipAddress = ipAddress;
         this.path = path;
-        this.ioDeviceId = ioDeviceId;
     }
 
     public String getIPAddress() {
@@ -168,10 +164,6 @@ class FilePartition {
 
     public String getPath() {
         return path;
-    }
-
-    public int getIODeviceId() {
-        return ioDeviceId;
     }
 
     @Override
@@ -184,7 +176,6 @@ class FilePartition {
         ObjectNode partition = om.createObjectNode();
         partition.put("ip", ipAddress);
         partition.put("path", path);
-        partition.put("ioDeviceId", ioDeviceId);
         return partition;
     }
 }

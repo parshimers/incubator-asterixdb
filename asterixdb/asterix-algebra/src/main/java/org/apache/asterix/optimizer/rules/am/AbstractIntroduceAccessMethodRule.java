@@ -26,15 +26,15 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.asterix.common.config.DatasetConfig.IndexType;
-import org.apache.asterix.dataflow.data.common.AqlExpressionTypeComputer;
+import org.apache.asterix.dataflow.data.common.ExpressionTypeComputer;
 import org.apache.asterix.metadata.api.IMetadataEntity;
-import org.apache.asterix.metadata.declared.AqlMetadataProvider;
+import org.apache.asterix.metadata.declared.MetadataProvider;
 import org.apache.asterix.metadata.entities.Index;
 import org.apache.asterix.metadata.utils.DatasetUtils;
 import org.apache.asterix.om.base.AOrderedList;
 import org.apache.asterix.om.base.AString;
 import org.apache.asterix.om.constants.AsterixConstantValue;
-import org.apache.asterix.om.functions.AsterixBuiltinFunctions;
+import org.apache.asterix.om.functions.BuiltinFunctions;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
@@ -70,18 +70,18 @@ import com.google.common.collect.ImmutableSet;
  */
 public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRewriteRule {
 
-    private AqlMetadataProvider metadataProvider;
+    private MetadataProvider metadataProvider;
 
     // Function Identifier sets that retain the original field variable through each function's arguments
     private final ImmutableSet<FunctionIdentifier> funcIDSetThatRetainFieldName = ImmutableSet.of(
-            AsterixBuiltinFunctions.WORD_TOKENS, AsterixBuiltinFunctions.GRAM_TOKENS, AsterixBuiltinFunctions.SUBSTRING,
-            AsterixBuiltinFunctions.SUBSTRING_BEFORE, AsterixBuiltinFunctions.SUBSTRING_AFTER,
-            AsterixBuiltinFunctions.CREATE_POLYGON, AsterixBuiltinFunctions.CREATE_MBR,
-            AsterixBuiltinFunctions.CREATE_RECTANGLE, AsterixBuiltinFunctions.CREATE_CIRCLE,
-            AsterixBuiltinFunctions.CREATE_LINE, AsterixBuiltinFunctions.CREATE_POINT,
-            AsterixBuiltinFunctions.NUMERIC_ADD, AsterixBuiltinFunctions.NUMERIC_SUBTRACT,
-            AsterixBuiltinFunctions.NUMERIC_MULTIPLY, AsterixBuiltinFunctions.NUMERIC_DIVIDE,
-            AsterixBuiltinFunctions.NUMERIC_MOD);
+            BuiltinFunctions.WORD_TOKENS, BuiltinFunctions.GRAM_TOKENS, BuiltinFunctions.SUBSTRING,
+            BuiltinFunctions.SUBSTRING_BEFORE, BuiltinFunctions.SUBSTRING_AFTER,
+            BuiltinFunctions.CREATE_POLYGON, BuiltinFunctions.CREATE_MBR,
+            BuiltinFunctions.CREATE_RECTANGLE, BuiltinFunctions.CREATE_CIRCLE,
+            BuiltinFunctions.CREATE_LINE, BuiltinFunctions.CREATE_POINT,
+            BuiltinFunctions.NUMERIC_ADD, BuiltinFunctions.NUMERIC_SUBTRACT,
+            BuiltinFunctions.NUMERIC_MULTIPLY, BuiltinFunctions.NUMERIC_DIVIDE,
+            BuiltinFunctions.NUMERIC_MOD);
 
     public abstract Map<FunctionIdentifier, List<IAccessMethod>> getAccessMethods();
 
@@ -104,7 +104,7 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
     }
 
     protected void setMetadataDeclarations(IOptimizationContext context) {
-        metadataProvider = (AqlMetadataProvider) context.getMetadataProvider();
+        metadataProvider = (MetadataProvider) context.getMetadataProvider();
     }
 
     protected void fillSubTreeIndexExprs(OptimizableOperatorSubTree subTree,
@@ -243,16 +243,18 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
                         if (j != exprAndVarIdx.second) {
                             matchedTypes.add(optFuncExpr.getFieldType(j));
                         }
+
                     }
 
                     if (matchedTypes.size() < 2 && optFuncExpr.getNumLogicalVars() == 1) {
-                        matchedTypes.add((IAType) AqlExpressionTypeComputer.INSTANCE.getType(
-                                optFuncExpr.getConstantAtRuntimeExpr(0), context.getMetadataProvider(),
+                        matchedTypes
+                                .add((IAType) ExpressionTypeComputer.INSTANCE.getType(optFuncExpr.getConstantExpr(0),
+                                        context.getMetadataProvider(),
                                 typeEnvironment));
                     }
 
                     //infer type of logicalExpr based on index keyType
-                    matchedTypes.add((IAType) AqlExpressionTypeComputer.INSTANCE.getType(
+                    matchedTypes.add((IAType) ExpressionTypeComputer.INSTANCE.getType(
                             optFuncExpr.getLogicalExpr(exprAndVarIdx.second), null, new IVariableTypeEnvironment() {
 
                                 @Override
@@ -280,7 +282,7 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
 
                                 @Override
                                 public Object getType(ILogicalExpression expr) throws AlgebricksException {
-                                    return AqlExpressionTypeComputer.INSTANCE.getType(expr, null, this);
+                                    return ExpressionTypeComputer.INSTANCE.getType(expr, null, this);
                                 }
 
                                 @Override
@@ -583,9 +585,7 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
                     subTree.getRecordType(), optVarIndex,
                     optFuncExpr.getFuncExpr().getArguments().get(optVarIndex).getValue(), datasetRecordVar,
                     subTree.getMetaRecordType(), datasetMetaVar);
-            if (fieldName == null) {
-                continue;
-            }
+
             IAType fieldType = (IAType) context.getOutputTypeEnvironment(assignOp).getVarType(var);
             // Set the fieldName in the corresponding matched
             // function expression.
@@ -695,7 +695,7 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
                 return null;
             }
             childFuncExpr = (AbstractFunctionCallExpression) expr;
-            if (childFuncExpr.getFunctionIdentifier() != AsterixBuiltinFunctions.SCAN_COLLECTION) {
+            if (childFuncExpr.getFunctionIdentifier() != BuiltinFunctions.SCAN_COLLECTION) {
                 return null;
             }
             expr = (AbstractLogicalExpression) childFuncExpr.getArguments().get(0).getValue();
@@ -711,21 +711,21 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
         String fieldName = null;
         List<String> nestedAccessFieldName = null;
         int fieldIndex = -1;
-        if (funcIdent == AsterixBuiltinFunctions.FIELD_ACCESS_BY_NAME) {
+        if (funcIdent == BuiltinFunctions.FIELD_ACCESS_BY_NAME) {
             fieldName = ConstantExpressionUtil.getStringArgument(funcExpr, 1);
             if (fieldName == null) {
                 return null;
             }
             isFieldAccess = true;
             isByName = true;
-        } else if (funcIdent == AsterixBuiltinFunctions.FIELD_ACCESS_BY_INDEX) {
+        } else if (funcIdent == BuiltinFunctions.FIELD_ACCESS_BY_INDEX) {
             Integer idx = ConstantExpressionUtil.getIntArgument(funcExpr, 1);
             if (idx == null) {
                 return null;
             }
             fieldIndex = idx;
             isFieldAccess = true;
-        } else if (funcIdent == AsterixBuiltinFunctions.FIELD_ACCESS_NESTED) {
+        } else if (funcIdent == BuiltinFunctions.FIELD_ACCESS_NESTED) {
             ILogicalExpression nameArg = funcExpr.getArguments().get(1).getValue();
             if (nameArg.getExpressionTag() != LogicalExpressionTag.CONSTANT) {
                 return null;
@@ -823,7 +823,7 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
             return null;
         }
         // We use a part of the field in edit distance computation
-        if (optFuncExpr.getFuncExpr().getFunctionIdentifier() == AsterixBuiltinFunctions.EDIT_DISTANCE_CHECK) {
+        if (optFuncExpr.getFuncExpr().getFunctionIdentifier() == BuiltinFunctions.EDIT_DISTANCE_CHECK) {
             optFuncExpr.setPartialField(true);
         }
         // We expect the function's argument to be a variable, otherwise we
