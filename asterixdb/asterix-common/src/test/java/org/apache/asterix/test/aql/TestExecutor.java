@@ -1023,11 +1023,11 @@ public class TestExecutor {
         StringWriter actual = new StringWriter();
         IOUtils.copy(executeJSONGet, actual, StandardCharsets.UTF_8);
         String config = actual.toString();
-        String nodePid = StringUtils.substringBetween(config, "\"pid\": ", ",").trim();
-        if (nodePid == null) {
-            throw new IllegalArgumentException("Coud not find process for node id: " + nodeId);
+        int nodePid = new ObjectMapper().readValue(config,ObjectNode.class).get("pid").asInt();
+        if(nodePid <=1 ){
+            throw new IllegalArgumentException("Could not retrieve node pid from admin API");
         }
-        ProcessBuilder pb = new ProcessBuilder("kill", "-9", nodePid);
+        ProcessBuilder pb = new ProcessBuilder("kill", "-9", Integer.toString(nodePid));
         pb.start().waitFor();
     }
 
