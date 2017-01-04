@@ -153,7 +153,7 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
         }
         if (fInfo == null) {
             throw new HyracksDataException("pin called on a fileId " + fileId + " that has not been created.");
-        } else if (fInfo != null && fInfo.getReferenceCount() <= 0) {
+        } else if (fInfo.getReferenceCount() <= 0) {
             throw new HyracksDataException("pin called on a fileId " + fileId + " that has not been opened.");
         }
     }
