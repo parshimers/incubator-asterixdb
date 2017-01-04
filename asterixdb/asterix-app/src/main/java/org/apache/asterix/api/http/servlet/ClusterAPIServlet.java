@@ -57,6 +57,7 @@ public class ClusterAPIServlet extends HttpServlet {
     protected static final String REPLICATION_URI_KEY = "replicationUri";
     private static final Pattern PARENT_DIR = Pattern.compile("/[^./]+/\\.\\./");
     private static final Pattern REPLICATION_PROPERTY = Pattern.compile("^replication\\.");
+    private final ObjectMapper om = new ObjectMapper();
 
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) {
@@ -71,11 +72,8 @@ public class ClusterAPIServlet extends HttpServlet {
         response.setContentType("application/json");
         response.setCharacterEncoding("utf-8");
         PrintWriter responseWriter = response.getWriter();
-        ObjectNode json;
-        ObjectMapper om = new ObjectMapper();
-        om.enable(SerializationFeature.INDENT_OUTPUT);
-
         try {
+            ObjectNode json;
             switch (request.getPathInfo() == null ? "" : request.getPathInfo()) {
                 case "":
                     json = getClusterStateJSON(request, "");
@@ -105,7 +103,6 @@ public class ClusterAPIServlet extends HttpServlet {
     }
 
     protected ObjectNode getReplicationJSON() {
-        ObjectMapper om = new ObjectMapper();
         for (AbstractProperties props : getPropertiesInstances()) {
             if (props instanceof ReplicationProperties) {
                 ObjectNode json = om.createObjectNode();
@@ -131,9 +128,7 @@ public class ClusterAPIServlet extends HttpServlet {
     }
 
     protected ObjectNode getClusterStateJSON(HttpServletRequest request, String pathToNode) {
-        ObjectMapper om = new ObjectMapper();
-        ObjectNode json;
-        json = ClusterStateManager.INSTANCE.getClusterStateDescription();
+        ObjectNode json = ClusterStateManager.INSTANCE.getClusterStateDescription();
         Map<String, Object> allProperties = getAllClusterProperties();
         json.putPOJO("config", allProperties);
 
@@ -157,7 +152,7 @@ public class ClusterAPIServlet extends HttpServlet {
             cc = (ObjectNode) json.get("cc");
         } else {
             cc = om.createObjectNode();
-            json.put("cc", cc);
+            json.set("cc", cc);
         }
         cc.put(CONFIG_URI_KEY, clusterURL + "cc/config");
         cc.put(STATS_URI_KEY, clusterURL + "cc/stats");

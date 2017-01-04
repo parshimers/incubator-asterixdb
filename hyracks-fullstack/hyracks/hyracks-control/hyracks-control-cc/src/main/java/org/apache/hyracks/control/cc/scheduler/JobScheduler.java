@@ -79,6 +79,7 @@ public class JobScheduler {
 
     private final Set<TaskCluster> inProgressTaskClusters;
 
+
     public JobScheduler(ClusterControllerService ccs, JobRun jobRun, Collection<Constraint> constraints) {
         this.ccs = ccs;
         this.jobRun = jobRun;
@@ -737,8 +738,8 @@ public class JobScheduler {
         ObjectMapper om = new ObjectMapper();
         ObjectNode jobLogObject = om.createObjectNode();
         ActivityClusterGraph acg = run.getActivityClusterGraph();
-        jobLogObject.put("activity-cluster-graph", acg.toJSON());
-        jobLogObject.put("job-run", run.toJSON());
+        jobLogObject.set("activity-cluster-graph", acg.toJSON());
+        jobLogObject.set("job-run", run.toJSON());
         return jobLogObject;
     }
 }

@@ -205,7 +205,7 @@ public class ActivityCluster implements Serializable {
                     jInput.put("connector-id", inputs.get(i).getConnectorId().toString());
                     jInputs.add(jInput);
                 }
-                jan.put("inputs", jInputs);
+                jan.set("inputs", jInputs);
             }
 
             List<IConnectorDescriptor> outputs = activityOutputMap.get(an.getActivityId());
@@ -217,7 +217,7 @@ public class ActivityCluster implements Serializable {
                     jOutput.put("connector-id", outputs.get(i).getConnectorId().toString());
                     jOutputs.add(jOutput);
                 }
-                jan.put("outputs", jOutputs);
+                jan.set("outputs", jOutputs);
             }
 
             Set<ActivityId> blockers = getBlocked2BlockerMap().get(an.getActivityId());
@@ -226,11 +226,11 @@ public class ActivityCluster implements Serializable {
                 for (ActivityId blocker : blockers) {
                     jDeps.add(blocker.toString());
                 }
-                jan.put("depends-on", jDeps);
+                jan.set("depends-on", jDeps);
             }
             jans.add(jan);
         }
-        jac.put("activities", jans);
+        jac.set("activities", jans);
 
         return jac;
     }

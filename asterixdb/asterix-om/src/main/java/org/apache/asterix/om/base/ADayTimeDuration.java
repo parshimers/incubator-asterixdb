@@ -49,7 +49,7 @@ public class ADayTimeDuration implements IAObject {
 
         ObjectNode duration = om.createObjectNode();
         duration.put("milliseconds", chrononInMillisecond);
-        json.put("ADuration", duration);
+        json.set("ADuration", duration);
 
         return json;
     }

@@ -81,7 +81,7 @@ public class APoint implements IAObject {
         ObjectNode point = om.createObjectNode();
         point.put("x", x);
         point.put("y", y);
-        json.put("APoint", point);
+        json.set("APoint", point);
 
         return json;
     }

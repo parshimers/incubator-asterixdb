@@ -80,9 +80,9 @@ public class ALine implements IAObject {
         ObjectNode json = om.createObjectNode();
 
         ObjectNode line = om.createObjectNode();
-        line.put("p1", p1.toJSON());
-        line.put("p2", p2.toJSON());
-        json.put("ALine", line);
+        line.set("p1", p1.toJSON());
+        line.set("p2", p2.toJSON());
+        json.set("ALine", line);
 
         return json;
     }

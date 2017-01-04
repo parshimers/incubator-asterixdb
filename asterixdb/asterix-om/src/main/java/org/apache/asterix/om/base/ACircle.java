@@ -87,9 +87,9 @@ public class ACircle implements IAObject {
         ObjectNode json = om.createObjectNode();
 
         ObjectNode circle = om.createObjectNode();
-        circle.put("center", center.toJSON());
+        circle.set("center", center.toJSON());
         circle.put("radius", radius);
-        json.put("ACircle", circle);
+        json.set("ACircle", circle);
 
         return json;
     }

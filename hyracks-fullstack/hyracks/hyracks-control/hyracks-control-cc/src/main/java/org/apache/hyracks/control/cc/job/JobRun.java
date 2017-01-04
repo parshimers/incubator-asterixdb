@@ -256,13 +256,13 @@ public class JobRun implements IJobStatusConditionVariable {
             for (ActivityId aid : ac.getActivityMap().keySet()) {
                 activitiesJSON.addPOJO(aid);
             }
-            acJSON.put("activities", activitiesJSON);
+            acJSON.set("activities", activitiesJSON);
 
             ArrayNode dependenciesJSON = om.createArrayNode();
             for (ActivityCluster dependency : ac.getDependencies()) {
                 dependenciesJSON.add(String.valueOf(dependency.getId()));
             }
-            acJSON.put("dependencies", dependenciesJSON);
+            acJSON.set("dependencies", dependenciesJSON);
 
             ActivityClusterPlan acp = activityClusterPlanMap.get(ac.getId());
             if (acp == null) {
@@ -286,7 +286,7 @@ public class JobRun implements IJobStatusConditionVariable {
                             inPartCountsJSON.add(i);
                         }
                     }
-                    entry.put("input-partition-counts", inPartCountsJSON);
+                    entry.set("input-partition-counts", inPartCountsJSON);
 
                     ArrayNode outPartCountsJSON = om.createArrayNode();
                     int[] outPartCounts = apd.getOutputPartitionCounts();
@@ -295,7 +295,7 @@ public class JobRun implements IJobStatusConditionVariable {
                             outPartCountsJSON.add(o);
                         }
                     }
-                    entry.put("output-partition-counts", outPartCountsJSON);
+                    entry.set("output-partition-counts", outPartCountsJSON);
 
                     ArrayNode tasks = om.createArrayNode();
                     for (Task t : acPlan.getTasks()) {
@@ -306,22 +306,22 @@ public class JobRun implements IJobStatusConditionVariable {
                         ArrayNode dependentTasksJSON = om.createArrayNode();
                         for (TaskId dependent : t.getDependents()) {
                             dependentTasksJSON.add(dependent.toString());
-                        task.put("dependents", dependentTasksJSON);
+                        task.set("dependents", dependentTasksJSON);
 
                         ArrayNode dependencyTasksJSON = om.createArrayNode();
                         for (TaskId dependency : t.getDependencies()) {
                             dependencyTasksJSON.add(dependency.toString());
                         }
-                        task.put("dependencies", dependencyTasksJSON);
+                        task.set("dependencies", dependencyTasksJSON);
 
                         tasks.add(task);
                     }
-                    entry.put("tasks", tasks);
+                    entry.set("tasks", tasks);
 
                     acTasks.add(entry);
                     }
                 }
-                planJSON.put("activities", acTasks);
+                planJSON.set("activities", acTasks);
 
                 ArrayNode tClusters = om.createArrayNode();
                 for (TaskCluster tc : acp.getTaskClusters()) {
@@ -332,19 +332,19 @@ public class JobRun implements IJobStatusConditionVariable {
                     for (Task t : tc.getTasks()) {
                         tasksAry.add(t.getTaskId().toString());
                     }
-                    c.put("tasks", tasksAry);
+                    c.set("tasks", tasksAry);
 
                     ArrayNode prodParts = om.createArrayNode();
                     for (PartitionId p : tc.getProducedPartitions()) {
                         prodParts.add(p.toString());
                     }
-                    c.put("produced-partitions", prodParts);
+                    c.set("produced-partitions", prodParts);
 
                     ArrayNode reqdParts = om.createArrayNode();
                     for (PartitionId p : tc.getRequiredPartitions()) {
                         reqdParts.add(p.toString());
                     }
-                    c.put("required-partitions", reqdParts);
+                    c.set("required-partitions", reqdParts);
 
                     ArrayNode attempts = om.createArrayNode();
                     List<TaskClusterAttempt> tcAttempts = tc.getAttempts();
@@ -376,24 +376,24 @@ public class JobRun implements IJobStatusConditionVariable {
                                 }
                                 taskAttempts.add(taskAttempt);
                             }
-                            attempt.put("task-attempts", taskAttempts);
+                            attempt.set("task-attempts", taskAttempts);
 
                             attempts.add(attempt);
                         }
                     }
-                    c.put("attempts", attempts);
+                    c.set("attempts", attempts);
 
                     tClusters.add(c);
                 }
-                planJSON.put("task-clusters", tClusters);
+                planJSON.set("task-clusters", tClusters);
 
-                acJSON.put("plan", planJSON);
+                acJSON.set("plan", planJSON);
             }
             aClusters.add(acJSON);
         }
-        result.put("activity-clusters", aClusters);
+        result.set("activity-clusters", aClusters);
 
-        result.put("profile", profile.toJSON());
+        result.set("profile", profile.toJSON());
 
         return result;
     }

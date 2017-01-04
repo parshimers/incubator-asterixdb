@@ -341,11 +341,11 @@ public class ARecordType extends AbstractComplexType {
         ArrayNode fields = om.createArrayNode();
         for (int i = 0; i < fieldNames.length; i++) {
             ObjectNode field = om.createObjectNode();
-            field.put(fieldNames[i], fieldTypes[i].toJSON());
+            field.set(fieldNames[i], fieldTypes[i].toJSON());
             fields.add(field);
         }
 
-        type.put("fields", fields);
+        type.set("fields", fields);
         return type;
     }
 

@@ -103,7 +103,7 @@ public class APolygon implements IAObject {
         for (int i = 0; i < points.length; i++) {
             polygon.add(points[i].toJSON());
         }
-        json.put("APolygon", polygon);
+        json.set("APolygon", polygon);
 
         return json;
     }

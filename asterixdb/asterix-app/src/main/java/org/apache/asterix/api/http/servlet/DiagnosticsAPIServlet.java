@@ -74,26 +74,24 @@ public class DiagnosticsAPIServlet extends ClusterNodeDetailsAPIServlet {
     private ObjectNode getClusterDiagnosticsJSON() throws Exception {
         ObjectMapper om = new ObjectMapper();
         final ServletContext context = getServletContext();
-        IHyracksClientConnection hcc =
-                (IHyracksClientConnection) context.getAttribute(HYRACKS_CONNECTION_ATTR);
+        IHyracksClientConnection hcc = (IHyracksClientConnection) context.getAttribute(HYRACKS_CONNECTION_ATTR);
         ExecutorService executor = (ExecutorService) context.getAttribute(ServletConstants.EXECUTOR_SERVICE);
 
         Map<String, Future<ObjectNode>> ccFutureData = new HashMap<>();
-        ccFutureData.put("threaddump", executor.submit(() -> fixupKeys((ObjectNode)om.readTree(hcc.getThreadDump(null)))));
-        ccFutureData.put("config", executor.submit(() ->
-                fixupKeys((ObjectNode)om.readTree(hcc.getNodeDetailsJSON(null, false, true)))));
-        ccFutureData.put("stats", executor.submit(() ->
-                fixupKeys((ObjectNode)om.readTree(hcc.getNodeDetailsJSON(null, true, false)))));
+        ccFutureData.put("threaddump",
+                executor.submit(() -> fixupKeys((ObjectNode) om.readTree(hcc.getThreadDump(null)))));
+        ccFutureData.put("config",
+                executor.submit(() -> fixupKeys((ObjectNode) om.readTree(hcc.getNodeDetailsJSON(null, false, true)))));
+        ccFutureData.put("stats",
+                executor.submit(() -> fixupKeys((ObjectNode) om.readTree(hcc.getNodeDetailsJSON(null, true, false)))));
 
         Map<String, Map<String, Future<ObjectNode>>> ncDataMap = new HashMap<>();
         for (String nc : AppContextInfo.INSTANCE.getMetadataProperties().getNodeNames()) {
             Map<String, Future<ObjectNode>> ncData = new HashMap<>();
-            ncData.put("threaddump", executor.submit(() ->
-                    fixupKeys((ObjectNode)om.readTree(hcc.getThreadDump(nc)))));
-            ncData.put("config", executor.submit(() ->
-                    fixupKeys((ObjectNode)om.readTree(hcc.getNodeDetailsJSON(nc, false, true)))));
-            ncData.put("stats", executor.submit(() ->
-                    fixupKeys(processNodeStats(hcc, nc))));
+            ncData.put("threaddump", executor.submit(() -> fixupKeys((ObjectNode) om.readTree(hcc.getThreadDump(nc)))));
+            ncData.put("config", executor
+                    .submit(() -> fixupKeys((ObjectNode) om.readTree(hcc.getNodeDetailsJSON(nc, false, true)))));
+            ncData.put("stats", executor.submit(() -> fixupKeys(processNodeStats(hcc, nc))));
             ncDataMap.put(nc, ncData);
         }
         ObjectNode result = om.createObjectNode();

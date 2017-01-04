@@ -30,6 +30,7 @@ import org.apache.hyracks.api.client.IClusterInfoCollector;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.dataset.IHyracksDataset;
 import org.apache.hyracks.api.job.JobSpecification;
+
 /**
  * An interface that takes care of executing a list of statements that are submitted through an Asterix API
  */

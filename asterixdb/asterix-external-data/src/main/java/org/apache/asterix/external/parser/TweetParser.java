@@ -194,7 +194,7 @@ public class TweetParser extends AbstractDataParser implements IRecordDataParser
             IAType curFieldType = null;
             String attrName;
             Iterator<String> iter = obj.fieldNames();
-            while(iter.hasNext()) {
+            while (iter.hasNext()) {
                 attrName = iter.next();
                 if (obj.get(attrName).isNull() || obj.size() == 0) {
                     continue;

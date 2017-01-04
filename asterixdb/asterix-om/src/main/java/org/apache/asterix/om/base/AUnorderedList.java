@@ -125,7 +125,7 @@ public class AUnorderedList implements IACollection {
         for (IAObject v : values) {
             list.add(v.toJSON());
         }
-        json.put("AUnorderedList", list);
+        json.set("AUnorderedList", list);
 
         return json;
     }

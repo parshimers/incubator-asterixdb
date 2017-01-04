@@ -89,7 +89,7 @@ public class APoint3D implements IAObject {
         point.put("x", x);
         point.put("y", y);
         point.put("z", z);
-        json.put("APoint3D", point);
+        json.set("APoint3D", point);
 
         return json;
     }

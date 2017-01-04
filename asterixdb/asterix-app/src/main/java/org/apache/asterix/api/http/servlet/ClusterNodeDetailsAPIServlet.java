@@ -43,20 +43,19 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 public class ClusterNodeDetailsAPIServlet extends ClusterAPIServlet {
     private static final long serialVersionUID = 1L;
     private static final Logger LOGGER = Logger.getLogger(ClusterNodeDetailsAPIServlet.class.getName());
+    private final ObjectMapper om = new ObjectMapper();
 
     @Override
     protected void getUnsafe(HttpServletRequest request, HttpServletResponse response) throws IOException {
         PrintWriter responseWriter = response.getWriter();
         ServletContext context = getServletContext();
         IHyracksClientConnection hcc = (IHyracksClientConnection) context.getAttribute(HYRACKS_CONNECTION_ATTR);
-        ObjectNode json;
-        ObjectMapper om = new ObjectMapper();
         om.enable(SerializationFeature.INDENT_OUTPUT);
-
         try {
+            ObjectNode json;
             if (request.getPathInfo() == null) {
                 json = om.createObjectNode();
-                json.put("ncs", getClusterStateJSON(request, "../").get("ncs"));
+                json.set("ncs", getClusterStateJSON(request, "../").get("ncs"));
             } else {
                 json = processNode(request, hcc);
             }
@@ -88,9 +87,8 @@ public class ClusterNodeDetailsAPIServlet extends ClusterAPIServlet {
         if (parts.length == 1) {
             ArrayNode ncs = (ArrayNode) getClusterStateJSON(request, "../../").get("ncs");
             for (int i = 0; i < ncs.size(); i++) {
-                ObjectNode json = (ObjectNode) ncs.get(i);
-                if (node.equals(json.get("node_id").asText())) {
-                    return json;
+                if (node.equals(ncs.get(i).get("node_id").asText())) {
+                    return (ObjectNode) ncs.get(i);
                 }
             }
             if ("cc".equals(node)) {
@@ -132,7 +130,7 @@ public class ClusterNodeDetailsAPIServlet extends ClusterAPIServlet {
         for (String key : keys) {
             String newKey = key.replace('-', '_');
             if (!newKey.equals(key)) {
-                json.put(newKey, json.remove(key));
+                json.set(newKey, json.remove(key));
             }
         }
         return json;
@@ -143,7 +141,6 @@ public class ClusterNodeDetailsAPIServlet extends ClusterAPIServlet {
         if (details == null) {
             throw new IllegalArgumentException();
         }
-        ObjectMapper om = new ObjectMapper();
         ObjectNode json = (ObjectNode) om.readTree(details);
         int index = json.get("rrd-ptr").asInt() - 1;
         json.remove("rrd-ptr");
@@ -175,9 +172,9 @@ public class ClusterNodeDetailsAPIServlet extends ClusterAPIServlet {
 
         for (int i = 0; i < gcNames.size(); i++) {
             ObjectNode gc = om.createObjectNode();
-            gc.put("name", gcNames.get(i));
-            gc.put("collection-time", ((ArrayNode)gcCollectionTimes.get(i)).get(index));
-            gc.put("collection-count", ((ArrayNode)gcCollectionCounts.get(i)).get(index));
+            gc.set("name", gcNames.get(i));
+            gc.set("collection-time", ((ArrayNode)gcCollectionTimes.get(i)).get(index));
+            gc.set("collection-count", ((ArrayNode)gcCollectionCounts.get(i)).get(index));
             gcs.add(gc);
         }
         json.putPOJO("gcs", gcs);
@@ -186,7 +183,6 @@ public class ClusterNodeDetailsAPIServlet extends ClusterAPIServlet {
     }
 
     private ObjectNode processNodeConfig(IHyracksClientConnection hcc, String node) throws Exception {
-        ObjectMapper om = new ObjectMapper();
         String config = hcc.getNodeDetailsJSON(node, false, true);
         if (config == null) {
             throw new IllegalArgumentException();
@@ -195,7 +191,6 @@ public class ClusterNodeDetailsAPIServlet extends ClusterAPIServlet {
     }
 
     private ObjectNode processNodeThreadDump(IHyracksClientConnection hcc, String node) throws Exception {
-        ObjectMapper om = new ObjectMapper();
         if ("cc".equals(node)) {
             return om.createObjectNode();
         }

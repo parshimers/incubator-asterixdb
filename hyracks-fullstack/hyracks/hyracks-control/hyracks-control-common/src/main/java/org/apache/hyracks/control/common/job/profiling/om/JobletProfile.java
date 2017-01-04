@@ -73,7 +73,7 @@ public class JobletProfile extends AbstractProfile {
         for (TaskProfile p : taskProfiles.values()) {
             tasks.add(p.toJSON());
         }
-        json.put("tasks", tasks);
+        json.set("tasks", tasks);
 
         return json;
     }

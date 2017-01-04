@@ -112,10 +112,10 @@ public class ARecord implements IAObject {
         ArrayNode record = om.createArrayNode();
         for (int i = 0; i < fields.length; i++) {
             ObjectNode item = om.createObjectNode();
-            item.put(type.getFieldNames()[i], fields[i].toJSON());
+            item.set(type.getFieldNames()[i], fields[i].toJSON());
             record.add(item);
         }
-        json.put("ARecord", record);
+        json.set("ARecord", record);
 
         return json;
     }

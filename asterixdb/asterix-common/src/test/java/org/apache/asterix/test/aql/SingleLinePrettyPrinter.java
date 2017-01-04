@@ -19,7 +19,6 @@
 
 package org.apache.asterix.test.aql;
 
-
 import java.io.*;
 
 import com.fasterxml.jackson.core.*;
@@ -36,9 +35,7 @@ import com.fasterxml.jackson.core.util.Instantiatable;
  */
 @SuppressWarnings("serial")
 public class SingleLinePrettyPrinter
-    implements PrettyPrinter, Instantiatable<SingleLinePrettyPrinter>,
-        java.io.Serializable
-{
+        implements PrettyPrinter, Instantiatable<SingleLinePrettyPrinter>, java.io.Serializable {
     private static final long serialVersionUID = 1;
 
     /**
@@ -55,13 +52,12 @@ public class SingleLinePrettyPrinter
      * context just means insertion of white space, independent of whether
      * linefeeds are output.
      */
-    public interface Indenter
-    {
+    public interface Indenter {
         void writeIndentation(JsonGenerator jg, int level) throws IOException;
 
         /**
          * @return True if indenter is considered inline (does not add linefeeds),
-         *   false otherwise
+         *         false otherwise
          */
         boolean isInline();
     }
@@ -116,12 +112,11 @@ public class SingleLinePrettyPrinter
     /**
      * Constructor that specifies separator String to use between root values;
      * if null, no separator is printed.
-     *<p>
+     * <p>
      * Note: simply constructs a {@link SerializedString} out of parameter,
      * calls {@link #SingleLinePrettyPrinter(SerializableString)}
      *
      * @param rootSeparator
-     *
      * @since 2.1
      */
     public SingleLinePrettyPrinter(String rootSeparator) {
@@ -133,7 +128,6 @@ public class SingleLinePrettyPrinter
      * if null, no separator is printed.
      *
      * @param rootSeparator
-     *
      * @since 2.1
      */
     public SingleLinePrettyPrinter(SerializableString rootSeparator) {
@@ -144,9 +138,7 @@ public class SingleLinePrettyPrinter
         this(base, base._rootSeparator);
     }
 
-    public SingleLinePrettyPrinter(SingleLinePrettyPrinter base,
-            SerializableString rootSeparator)
-    {
+    public SingleLinePrettyPrinter(SingleLinePrettyPrinter base, SerializableString rootSeparator) {
         _arrayIndenter = base._arrayIndenter;
         _objectIndenter = base._objectIndenter;
         _spacesInObjectEntries = base._spacesInObjectEntries;
@@ -155,10 +147,8 @@ public class SingleLinePrettyPrinter
         _rootSeparator = rootSeparator;
     }
 
-    public SingleLinePrettyPrinter withRootSeparator(SerializableString rootSeparator)
-    {
-        if (_rootSeparator == rootSeparator ||
-                (rootSeparator != null && rootSeparator.equals(_rootSeparator))) {
+    public SingleLinePrettyPrinter withRootSeparator(SerializableString rootSeparator) {
+        if (_rootSeparator == rootSeparator || (rootSeparator != null && rootSeparator.equals(_rootSeparator))) {
             return this;
         }
         return new SingleLinePrettyPrinter(this, rootSeparator);
@@ -183,7 +173,9 @@ public class SingleLinePrettyPrinter
      * @deprecated Since 2.3 use {@link #withSpacesInObjectEntries} and {@link #withoutSpacesInObjectEntries()}
      */
     @Deprecated
-    public void spacesInObjectEntries(boolean b) { _spacesInObjectEntries = b; }
+    public void spacesInObjectEntries(boolean b) {
+        _spacesInObjectEntries = b;
+    }
 
     /**
      * @since 2.3
@@ -239,8 +231,7 @@ public class SingleLinePrettyPrinter
         return _withSpaces(false);
     }
 
-    protected SingleLinePrettyPrinter _withSpaces(boolean state)
-    {
+    protected SingleLinePrettyPrinter _withSpaces(boolean state) {
         if (_spacesInObjectEntries == state) {
             return this;
         }
@@ -267,40 +258,34 @@ public class SingleLinePrettyPrinter
      */
 
     @Override
-    public void writeRootValueSeparator(JsonGenerator jg) throws IOException
-    {
+    public void writeRootValueSeparator(JsonGenerator jg) throws IOException {
         if (_rootSeparator != null) {
             jg.writeRaw(_rootSeparator);
         }
     }
 
     @Override
-    public void writeStartObject(JsonGenerator jg) throws IOException
-    {
+    public void writeStartObject(JsonGenerator jg) throws IOException {
         jg.writeRaw('{');
-//        if (!_objectIndenter.isInline()) {
-            ++_nesting;
-//        }
+        ++_nesting;
     }
 
     @Override
-    public void beforeObjectEntries(JsonGenerator jg) throws IOException
-    {
+    public void beforeObjectEntries(JsonGenerator jg) throws IOException {
         _objectIndenter.writeIndentation(jg, _nesting);
     }
 
     /**
      * Method called after an object field has been output, but
      * before the value is output.
-     *<p>
+     * <p>
      * Default handling (without pretty-printing) will output a single
      * colon to separate the two. Pretty-printer is
      * to output a colon as well, but can surround that with other
      * (white-space) decoration.
      */
     @Override
-    public void writeObjectFieldValueSeparator(JsonGenerator jg) throws IOException
-    {
+    public void writeObjectFieldValueSeparator(JsonGenerator jg) throws IOException {
         if (_spacesInObjectEntries) {
             jg.writeRaw(": ");
         } else {
@@ -311,25 +296,21 @@ public class SingleLinePrettyPrinter
     /**
      * Method called after an object entry (field:value) has been completely
      * output, and before another value is to be output.
-     *<p>
+     * <p>
      * Default handling (without pretty-printing) will output a single
      * comma to separate the two. Pretty-printer is
      * to output a comma as well, but can surround that with other
      * (white-space) decoration.
      */
     @Override
-    public void writeObjectEntrySeparator(JsonGenerator jg) throws IOException
-    {
+    public void writeObjectEntrySeparator(JsonGenerator jg) throws IOException {
         jg.writeRaw(',');
         _objectIndenter.writeIndentation(jg, _nesting);
     }
 
     @Override
-    public void writeEndObject(JsonGenerator jg, int nrOfEntries) throws IOException
-    {
-//        if (!_objectIndenter.isInline()) {
-            --_nesting;
-//        }
+    public void writeEndObject(JsonGenerator jg, int nrOfEntries) throws IOException {
+        --_nesting;
         if (nrOfEntries > 1) {
             _objectIndenter.writeIndentation(jg, _nesting);
         } else {
@@ -339,11 +320,8 @@ public class SingleLinePrettyPrinter
     }
 
     @Override
-    public void writeStartArray(JsonGenerator jg) throws IOException
-    {
-//        if (!_arrayIndenter.isInline()) {
-            ++_nesting;
-//        }
+    public void writeStartArray(JsonGenerator jg) throws IOException {
+        ++_nesting;
         jg.writeRaw('[');
     }
 
@@ -355,27 +333,23 @@ public class SingleLinePrettyPrinter
     /**
      * Method called after an array value has been completely
      * output, and before another value is to be output.
-     *<p>
+     * <p>
      * Default handling (without pretty-printing) will output a single
      * comma to separate the two. Pretty-printer is
      * to output a comma as well, but can surround that with other
      * (white-space) decoration.
      */
     @Override
-    public void writeArrayValueSeparator(JsonGenerator gen) throws IOException
-    {
+    public void writeArrayValueSeparator(JsonGenerator gen) throws IOException {
         gen.writeRaw(',');
         _arrayIndenter.writeIndentation(gen, _nesting);
     }
 
     @Override
-    public void writeEndArray(JsonGenerator gen, int nrOfValues) throws IOException
-    {
-//        if (!_arrayIndenter.isInline()) {
-            --_nesting;
-//        }
+    public void writeEndArray(JsonGenerator gen, int nrOfValues) throws IOException {
+        --_nesting;
 
-        if(_nesting == 0) {
+        if (_nesting == 0) {
             gen.writeRaw('\n');
         }
         if (nrOfValues > 1) {
@@ -383,7 +357,6 @@ public class SingleLinePrettyPrinter
         } else {
             gen.writeRaw(' ');
         }
-//        gen.writeRaw(' ');
         gen.writeRaw(']');
     }
 
@@ -396,16 +369,17 @@ public class SingleLinePrettyPrinter
     /**
      * Dummy implementation that adds no indentation whatsoever
      */
-    public static class NopIndenter
-        implements Indenter, java.io.Serializable
-    {
+    public static class NopIndenter implements Indenter, java.io.Serializable {
         public static final NopIndenter instance = new NopIndenter();
 
         @Override
-        public void writeIndentation(JsonGenerator jg, int level) throws IOException { }
+        public void writeIndentation(JsonGenerator jg, int level) throws IOException {
+        }
 
         @Override
-        public boolean isInline() { return true; }
+        public boolean isInline() {
+            return true;
+        }
     }
 
     /**
@@ -413,19 +387,18 @@ public class SingleLinePrettyPrinter
      * single space for indentation. It is used as the default
      * indenter for array values.
      */
-    public static class FixedSpaceIndenter extends NopIndenter
-    {
+    public static class FixedSpaceIndenter extends NopIndenter {
         @SuppressWarnings("hiding")
         public static final FixedSpaceIndenter instance = new FixedSpaceIndenter();
 
         @Override
-        public void writeIndentation(JsonGenerator jg, int level) throws IOException
-        {
+        public void writeIndentation(JsonGenerator jg, int level) throws IOException {
             jg.writeRaw(' ');
         }
 
         @Override
-        public boolean isInline() { return true; }
+        public boolean isInline() {
+            return true;
+        }
     }
 }
-

@@ -124,7 +124,7 @@ public class ABinary implements IAObject {
         for (int i = 0; i < getLength(); i++) {
             byteArray.add(bytes[start + i]);
         }
-        json.put("ABinary", byteArray);
+        json.set("ABinary", byteArray);
 
         return json;
     }

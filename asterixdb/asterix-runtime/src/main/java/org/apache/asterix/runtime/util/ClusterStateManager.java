@@ -641,7 +641,7 @@ public class ClusterStateManager {
         stateDescription.put("state", state.name());
         stateDescription.put("metadata_node", currentMetadataNode);
         ArrayNode ncs = om.createArrayNode();
-        stateDescription.put("ncs",ncs);
+        stateDescription.set("ncs",ncs);
         for (Map.Entry<String, ClusterPartition[]> entry : node2PartitionsMap.entrySet()) {
             ObjectNode nodeJSON = om.createObjectNode();
             nodeJSON.put("node_id", entry.getKey());

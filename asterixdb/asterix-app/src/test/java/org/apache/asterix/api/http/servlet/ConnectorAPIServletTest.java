@@ -150,7 +150,7 @@ public class ConnectorAPIServletTest {
         ObjectNode expectedResponse = om.createObjectNode();
         expectedResponse.put("temp", true);
         expectedResponse.put("keys", primaryKey);
-        expectedResponse.put("type", recordType.toJSON());
+        expectedResponse.set("type", recordType.toJSON());
         ArrayNode splitsArray = om.createArrayNode();
         ObjectNode element1 = om.createObjectNode();
         element1.put("ip", "127.0.0.1");
@@ -160,7 +160,7 @@ public class ConnectorAPIServletTest {
         element2.put("path", splits[1].getPath());
         splitsArray.add(element1);
         splitsArray.add(element2);
-        expectedResponse.put("splits", splitsArray);
+        expectedResponse.set("splits", splitsArray);
 
         // Checks results.
         Assert.assertEquals(actualResponse.toString(), expectedResponse.toString());

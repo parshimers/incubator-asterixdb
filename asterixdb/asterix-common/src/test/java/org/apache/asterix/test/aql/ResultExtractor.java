@@ -122,7 +122,7 @@ public class ResultExtractor {
         ObjectNode resultJson = om.readValue(result, ObjectNode.class);
         JsonNode handle = resultJson.get("handle");
         ObjectNode res = om.createObjectNode();
-        res.put("handle", handle);
+        res.set("handle", handle);
         return om.writeValueAsString(res);
     }
 }

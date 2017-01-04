@@ -36,15 +36,15 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 public class ClusterCCDetailsAPIServlet extends ClusterAPIServlet {
     private static final long serialVersionUID = 1L;
     private static final Logger LOGGER = Logger.getLogger(ClusterCCDetailsAPIServlet.class.getName());
+    private final ObjectMapper om = new ObjectMapper();
 
     @Override
     protected void getUnsafe(HttpServletRequest request, HttpServletResponse response) throws IOException {
         PrintWriter responseWriter = response.getWriter();
         ServletContext context = getServletContext();
         IHyracksClientConnection hcc = (IHyracksClientConnection) context.getAttribute(HYRACKS_CONNECTION_ATTR);
-        ObjectNode json;
-
         try {
+            ObjectNode json;
             if (request.getPathInfo() == null) {
                 json = (ObjectNode) getClusterStateJSON(request, "../").get("cc");
             } else {
@@ -65,7 +65,6 @@ public class ClusterCCDetailsAPIServlet extends ClusterAPIServlet {
 
     private ObjectNode processNode(HttpServletRequest request, IHyracksClientConnection hcc) throws Exception {
         String pathInfo = request.getPathInfo();
-        ObjectMapper om = new ObjectMapper();
         if (pathInfo.endsWith("/")) {
             throw new IllegalArgumentException();
         }
@@ -93,7 +92,6 @@ public class ClusterCCDetailsAPIServlet extends ClusterAPIServlet {
 
     private ObjectNode processCCThreadDump(IHyracksClientConnection hcc) throws Exception {
         String dump = hcc.getThreadDump(null);
-        ObjectMapper om = new ObjectMapper();
         if (dump == null) {
             throw new IllegalArgumentException();
         }

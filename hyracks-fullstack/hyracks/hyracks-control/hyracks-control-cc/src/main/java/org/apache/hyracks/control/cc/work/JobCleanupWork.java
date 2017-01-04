@@ -126,8 +126,8 @@ public class JobCleanupWork extends AbstractWork {
         ObjectMapper om = new ObjectMapper();
         ObjectNode jobLogObject = om.createObjectNode();
         ActivityClusterGraph acg = run.getActivityClusterGraph();
-        jobLogObject.put("activity-cluster-graph", acg.toJSON());
-        jobLogObject.put("job-run", run.toJSON());
+        jobLogObject.set("activity-cluster-graph", acg.toJSON());
+        jobLogObject.set("job-run", run.toJSON());
         return jobLogObject;
     }
 

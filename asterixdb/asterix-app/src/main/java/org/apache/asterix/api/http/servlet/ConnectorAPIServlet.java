@@ -94,8 +94,8 @@ public class ConnectorAPIServlet extends HttpServlet {
                 return;
             }
             boolean temp = dataset.getDatasetDetails().isTemp();
-            FileSplit[] fileSplits =
-                    metadataProvider.splitsForDataset(mdTxnCtx, dataverseName, datasetName, datasetName, temp);
+            FileSplit[] fileSplits = metadataProvider.splitsForDataset(mdTxnCtx, dataverseName, datasetName,
+                    datasetName, temp);
             ARecordType recordType = (ARecordType) metadataProvider.findType(dataset.getItemTypeDataverseName(),
                     dataset.getItemTypeName());
             List<List<String>> primaryKeys = DatasetUtils.getPartitioningKeys(dataset);
@@ -128,7 +128,7 @@ public class ConnectorAPIServlet extends HttpServlet {
     }
 
     private void formResponseObject(ObjectNode jsonResponse, FileSplit[] fileSplits, ARecordType recordType,
-                                    String primaryKeys, boolean temp, Map<String, NodeControllerInfo> nodeMap) throws Exception {
+            String primaryKeys, boolean temp, Map<String, NodeControllerInfo> nodeMap) throws Exception {
         ObjectMapper om = new ObjectMapper();
         ArrayNode partititons = om.createArrayNode();
         // Whether the dataset is temp or not
@@ -136,7 +136,7 @@ public class ConnectorAPIServlet extends HttpServlet {
         // Adds a primary key.
         jsonResponse.put("keys", primaryKeys);
         // Adds record type.
-        jsonResponse.put("type", recordType.toJSON());
+        jsonResponse.set("type", recordType.toJSON());
         // Generates file partitions.
         for (FileSplit split : fileSplits) {
             String ipAddress = nodeMap.get(split.getNodeName()).getNetworkAddress().getAddress().toString();
@@ -145,7 +145,7 @@ public class ConnectorAPIServlet extends HttpServlet {
             partititons.add(partition.toObjectNode());
         }
         // Generates the response object which contains the splits.
-        jsonResponse.put("splits", partititons);
+        jsonResponse.set("splits", partititons);
     }
 }
 
@@ -171,7 +171,7 @@ class FilePartition {
         return ipAddress + ":" + path;
     }
 
-    public ObjectNode toObjectNode()  {
+    public ObjectNode toObjectNode() {
         ObjectMapper om = new ObjectMapper();
         ObjectNode partition = om.createObjectNode();
         partition.put("ip", ipAddress);

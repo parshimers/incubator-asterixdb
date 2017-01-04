@@ -107,8 +107,8 @@ public class VersionAPIServletTest {
         ObjectMapper om = new ObjectMapper();
         ObjectNode actualResponse = (ObjectNode) om.readTree(outputStream.toByteArray());
         ObjectNode expectedResponse = om.createObjectNode();
-        for(Map.Entry<String,String> e: propMap.entrySet()){
-            expectedResponse.put(e.getKey(),e.getValue());
+        for (Map.Entry<String, String> e : propMap.entrySet()) {
+            expectedResponse.put(e.getKey(), e.getValue());
         }
 
         // Checks the response contains all the expected keys.

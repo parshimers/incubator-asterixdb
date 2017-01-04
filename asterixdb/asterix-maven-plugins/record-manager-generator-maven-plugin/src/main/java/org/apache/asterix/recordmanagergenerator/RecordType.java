@@ -21,7 +21,10 @@ package org.apache.asterix.recordmanagergenerator;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Map;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

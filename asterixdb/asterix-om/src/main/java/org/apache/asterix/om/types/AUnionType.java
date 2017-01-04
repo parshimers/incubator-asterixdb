@@ -218,7 +218,7 @@ public class AUnionType extends AbstractComplexType {
             }
         }
 
-        type.put("fields", fields);
+        type.set("fields", fields);
         return type;
     }
 }

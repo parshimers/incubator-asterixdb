@@ -81,7 +81,7 @@ public class TaskProfile extends AbstractProfile {
                 pidObj.put("connector-id", pid.getConnectorDescriptorId().toString());
                 pidObj.put("sender-index", pid.getSenderIndex());
                 pidObj.put("receiver-index", pid.getReceiverIndex());
-                ppObj.put("partition-id", pidObj);
+                ppObj.set("partition-id", pidObj);
                 ppObj.put("open-time", pp.getOpenTime());
                 ppObj.put("close-time", pp.getCloseTime());
                 MultiResolutionEventProfiler samples = pp.getSamples();
@@ -93,11 +93,11 @@ public class TaskProfile extends AbstractProfile {
                 for (int i = 0; i < sampleCount; ++i) {
                     ftA.add(ft[i]);
                 }
-                ppObj.put("frame-times", ftA);
+                ppObj.set("frame-times", ftA);
                 ppObj.put("resolution", resolution);
                 pspArray.add(ppObj);
             }
-            json.put("partition-send-profile", pspArray);
+            json.set("partition-send-profile", pspArray);
         }
         populateCounters(json);
 

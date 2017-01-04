@@ -132,13 +132,17 @@ public class ResultPrinter {
         conf.out().flush();
     }
 
-    private void displayRecord(String result) throws IOException {
+    private void displayRecord(String result) throws HyracksDataException {
         ObjectMapper om = new ObjectMapper();
         om.enable(SerializationFeature.INDENT_OUTPUT);
         String record = result;
         if (indentJSON) {
             // TODO(tillw): this is inefficient - do this during record generation
-            record = om.writerWithDefaultPrettyPrinter().writeValueAsString(om.readValue(result, ObjectNode.class));
+            try {
+                record = om.writerWithDefaultPrettyPrinter().writeValueAsString(om.readValue(result, ObjectNode.class));
+            } catch (IOException e) {
+                throw new HyracksDataException(e);
+            }
         }
         if (conf.fmt() == SessionConfig.OutputFormat.CSV) {
             // TODO(tillw): this is inefficient as well
@@ -158,11 +162,7 @@ public class ResultPrinter {
         printPrefix();
         // TODO(tillw) evil hack
         quoteRecord = true;
-        try {
-            displayRecord(record);
-        } catch (IOException e) {
-            throw new HyracksDataException(e);
-        }
+        displayRecord(record);
         printPostfix();
     }
 

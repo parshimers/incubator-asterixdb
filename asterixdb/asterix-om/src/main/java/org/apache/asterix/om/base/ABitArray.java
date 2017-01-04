@@ -147,7 +147,7 @@ public final class ABitArray implements IAObject {
         for (int i = 0; i < intArray.length; i++) {
             bitArray.add(intArray[i]);
         }
-        json.put("ABitArray", bitArray);
+        json.set("ABitArray", bitArray);
 
         return json;
     }

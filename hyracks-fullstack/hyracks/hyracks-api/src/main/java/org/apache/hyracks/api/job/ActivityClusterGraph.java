@@ -169,7 +169,7 @@ public class ActivityClusterGraph implements Serializable {
             acl.add(ac.toJSON());
         }
         acgj.put("version", version);
-        acgj.put("activity-clusters", acl);
+        acgj.set("activity-clusters", acl);
         return acgj;
     }
 }

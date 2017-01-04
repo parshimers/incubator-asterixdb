@@ -125,7 +125,7 @@ public class ADuration implements IAObject {
         ObjectNode duration = om.createObjectNode();
         duration.put("months", chrononInMonth);
         duration.put("milliseconds", chrononInMillisecond);
-        json.put("ADuration", duration);
+        json.set("ADuration", duration);
 
         return json;
     }

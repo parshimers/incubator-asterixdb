@@ -56,7 +56,7 @@ public abstract class AbstractProfile implements IWritable, Serializable {
             jpe.put("value", e.getValue());
             countersObj.add(jpe);
         }
-        jo.put("counters", countersObj);
+        jo.set("counters", countersObj);
     }
 
     protected void merge(AbstractProfile profile) {

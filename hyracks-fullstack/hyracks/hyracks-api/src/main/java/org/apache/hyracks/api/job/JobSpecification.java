@@ -376,15 +376,15 @@ public class JobSpecification implements Serializable, IOperatorDescriptorRegist
                     }
                 }
                 if (pleObject.size() > 0) {
-                    pcObject.put("location", pleObject);
+                    pcObject.set("location", pleObject);
                 }
                 if (pcObject.size() > 0) {
-                    op.put("partition-constraints", pcObject);
+                    op.set("partition-constraints", pcObject);
                 }
             }
             jopArray.add(op);
         }
-        jjob.put("operators", jopArray);
+        jjob.set("operators", jopArray);
 
         ArrayNode jcArray = om.createArrayNode();
         for (Map.Entry<ConnectorDescriptorId, IConnectorDescriptor> e : connMap.entrySet()) {
@@ -397,10 +397,10 @@ public class JobSpecification implements Serializable, IOperatorDescriptorRegist
                 conn.put("out-operator-id", connection.getRight().getLeft().getOperatorId().toString());
                 conn.put("out-operator-port", connection.getRight().getRight().intValue());
             }
-            conn.put("connector", e.getValue().toJSON());
+            conn.set("connector", e.getValue().toJSON());
             jcArray.add(conn);
         }
-        jjob.put("connectors", jcArray);
+        jjob.set("connectors", jcArray);
 
         return jjob;
     }

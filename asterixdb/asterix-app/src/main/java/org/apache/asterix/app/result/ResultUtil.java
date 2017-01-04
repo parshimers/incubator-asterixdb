@@ -102,7 +102,7 @@ public class ResultUtil {
         ArrayNode errorArray = om.createArrayNode();
         errorArray.add(errorCode);
         errorArray.add(errorMessage);
-        errorResp.put("error-code", errorArray);
+        errorResp.set("error-code", errorArray);
         if (!"".equals(errorSummary)) {
             errorResp.put("summary", errorSummary);
         } else {

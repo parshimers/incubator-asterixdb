@@ -81,7 +81,7 @@ public class AUnorderedListType extends AbstractCollectionType {
         ObjectMapper om = new ObjectMapper();
         ObjectNode type = om.createObjectNode();
         type.put("type", AUnorderedListType.class.getName());
-        type.put("item-type", itemType.toJSON());
+        type.set("item-type", itemType.toJSON());
         return type;
     }
 }

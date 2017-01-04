@@ -75,12 +75,12 @@ public class ShutdownAPIServlet extends HttpServlet {
                 ObjectNode nc = (ObjectNode) ncs.get(i);
                 String node = nc.get(NODE_ID_KEY).asText();
                 ObjectNode details = (ObjectNode) om.readTree(hcc.getNodeDetailsJSON(node, false, true));
-                nc.put(PID, details.get(PID));
+                nc.set(PID, details.get(PID));
                 if (details.has(INI) && details.get(INI).has(NCSERVICE_PID)) {
                     nc.put(NCSERVICE_PID, details.get(INI).get(NCSERVICE_PID).asInt());
                 }
             }
-            jsonObject.put("cluster", clusterState);
+            jsonObject.set("cluster", clusterState);
             final PrintWriter writer = response.getWriter();
             writer.print(om.writeValueAsString(jsonObject));
             writer.close();

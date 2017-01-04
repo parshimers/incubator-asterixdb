@@ -80,9 +80,9 @@ public class ARectangle implements IAObject {
         ObjectNode json = om.createObjectNode();
 
         ObjectNode rectangle = om.createObjectNode();
-        rectangle.put("p1", p1.toJSON());
-        rectangle.put("p2", p2.toJSON());
-        json.put("ARectangle", rectangle);
+        rectangle.set("p1", p1.toJSON());
+        rectangle.set("p2", p2.toJSON());
+        json.set("ARectangle", rectangle);
 
         return json;
     }

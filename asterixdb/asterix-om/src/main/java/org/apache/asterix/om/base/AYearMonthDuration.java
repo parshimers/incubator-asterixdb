@@ -57,7 +57,7 @@ public class AYearMonthDuration implements IAObject {
 
         ObjectNode duration = om.createObjectNode();
         duration.put("months", chrononInMonth);
-        json.put("ADuration", duration);
+        json.set("ADuration", duration);
 
         return json;
     }

@@ -134,7 +134,7 @@ public class AOrderedList implements IACollection {
         for (IAObject v : values) {
             list.add(v.toJSON());
         }
-        json.put("AOrderedList", list);
+        json.set("AOrderedList", list);
 
         return json;
     }

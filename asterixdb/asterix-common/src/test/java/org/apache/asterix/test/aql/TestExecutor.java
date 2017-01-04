@@ -31,18 +31,21 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.Inet4Address;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.*;
 import org.apache.asterix.common.config.GlobalConfig;
-import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.utils.ServletUtil.Servlets;
 import org.apache.asterix.test.base.ComparisonException;
 import org.apache.asterix.test.server.ITestServer;
@@ -1023,8 +1026,8 @@ public class TestExecutor {
         StringWriter actual = new StringWriter();
         IOUtils.copy(executeJSONGet, actual, StandardCharsets.UTF_8);
         String config = actual.toString();
-        int nodePid = new ObjectMapper().readValue(config,ObjectNode.class).get("pid").asInt();
-        if(nodePid <=1 ){
+        int nodePid = new ObjectMapper().readValue(config, ObjectNode.class).get("pid").asInt();
+        if (nodePid <= 1) {
             throw new IllegalArgumentException("Could not retrieve node pid from admin API");
         }
         ProcessBuilder pb = new ProcessBuilder("kill", "-9", Integer.toString(nodePid));
@@ -1123,17 +1126,16 @@ public class TestExecutor {
                     getEndpoint(Servlets.QUERY_SERVICE));
             String out = IOUtils.toString(resultStream);
             ObjectMapper om = new ObjectMapper();
-            om.setConfig(om.getDeserializationConfig()
-                    .with(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT));
+            om.setConfig(om.getDeserializationConfig().with(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT));
             JsonNode result;
             try {
                 result = om.readValue(out, ObjectNode.class).get("results");
-            } catch( JsonMappingException e){
+            } catch (JsonMappingException e) {
                 result = om.createArrayNode();
             }
-            for (int i=0;i<result.size();i++) {
+            for (int i = 0; i < result.size(); i++) {
                 JsonNode json = result.get(i);
-                if(json != null) {
+                if (json != null) {
                     String dvName = json.get("DataverseName").asText();
                     if (!dvName.equals("Metadata") && !dvName.equals("Default")) {
                         toBeDropped.add(dvName);

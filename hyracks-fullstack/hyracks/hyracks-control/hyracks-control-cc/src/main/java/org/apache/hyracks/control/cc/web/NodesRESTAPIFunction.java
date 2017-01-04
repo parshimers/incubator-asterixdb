@@ -42,12 +42,12 @@ public class NodesRESTAPIFunction implements IJSONOutputFunction {
                 if ("".equals(arguments[0])) {
                     GetNodeSummariesJSONWork gnse = new GetNodeSummariesJSONWork(ccs);
                     ccs.getWorkQueue().scheduleAndSync(gnse);
-                    result.put("result", gnse.getSummaries());
+                    result.set("result", gnse.getSummaries());
                 } else {
                     String nodeId = arguments[0];
                     GetNodeDetailsJSONWork gnde = new GetNodeDetailsJSONWork(ccs, nodeId, true, true);
                     ccs.getWorkQueue().scheduleAndSync(gnde);
-                    result.put("result", gnde.getDetail());
+                    result.set("result", gnde.getDetail());
                 }
             }
         }
