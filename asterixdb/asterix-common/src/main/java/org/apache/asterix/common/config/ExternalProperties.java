@@ -87,6 +87,7 @@ public class ExternalProperties extends AbstractProperties {
     }
 
     @PropertyKey(EXTERNAL_LOGLEVEL_KEY)
+    @Stringify
     public Level getLogLevel() {
         return accessor.getProperty(EXTERNAL_LOGLEVEL_KEY, EXTERNAL_LOGLEVEL_DEFAULT,
                 PropertyInterpreters.getLevelPropertyInterpreter());

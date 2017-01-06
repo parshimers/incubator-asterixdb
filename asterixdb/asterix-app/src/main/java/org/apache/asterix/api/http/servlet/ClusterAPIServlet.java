@@ -131,12 +131,6 @@ public class ClusterAPIServlet extends HttpServlet {
     protected ObjectNode getClusterStateJSON(HttpServletRequest request, String pathToNode) {
         ObjectNode json = ClusterStateManager.INSTANCE.getClusterStateDescription();
         Map<String, Object> allProperties = getAllClusterProperties();
-        //Stringify log level rather than introspecting it
-        if(allProperties.containsKey(ExternalProperties.EXTERNAL_LOGLEVEL_KEY)){
-            Level level = (Level)allProperties.get(ExternalProperties.EXTERNAL_LOGLEVEL_KEY);
-            allProperties.remove(ExternalProperties.EXTERNAL_LOGLEVEL_KEY);
-            allProperties.put(ExternalProperties.EXTERNAL_LOGLEVEL_KEY,level.toString());
-        }
         json.putPOJO("config", allProperties);
 
         ArrayNode ncs = (ArrayNode) json.get("ncs");
