@@ -29,6 +29,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.servlet.ServletContext;
+import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -46,11 +47,15 @@ public class ClusterNodeDetailsAPIServlet extends ClusterAPIServlet {
     private final ObjectMapper om = new ObjectMapper();
 
     @Override
+    public void init() throws ServletException{
+        om.enable(SerializationFeature.INDENT_OUTPUT);
+    }
+
+    @Override
     protected void getUnsafe(HttpServletRequest request, HttpServletResponse response) throws IOException {
         PrintWriter responseWriter = response.getWriter();
         ServletContext context = getServletContext();
         IHyracksClientConnection hcc = (IHyracksClientConnection) context.getAttribute(HYRACKS_CONNECTION_ATTR);
-        om.enable(SerializationFeature.INDENT_OUTPUT);
         try {
             ObjectNode json;
             if (request.getPathInfo() == null) {
@@ -77,7 +82,6 @@ public class ClusterNodeDetailsAPIServlet extends ClusterAPIServlet {
     private ObjectNode processNode(HttpServletRequest request, IHyracksClientConnection hcc)
             throws Exception {
         String pathInfo = request.getPathInfo();
-        ObjectMapper om = new ObjectMapper();
         if (pathInfo.endsWith("/")) {
             throw new IllegalArgumentException();
         }
