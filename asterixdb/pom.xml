@@ -590,6 +590,7 @@
     <module>asterix-runtime</module>
     <module>asterix-om</module>
     <module>asterix-external-data</module>
+    <module>asterix-external-data-tools</module>
     <module>asterix-examples</module>
     <module>asterix-metadata</module>
     <module>asterix-test-framework</module>
