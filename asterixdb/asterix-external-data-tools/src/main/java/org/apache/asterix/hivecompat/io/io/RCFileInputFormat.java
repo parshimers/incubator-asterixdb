@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.hive.ql.io;
+package org.apache.asterix.hivecompat.io.io;
 
 import java.io.IOException;
 import java.util.ArrayList;

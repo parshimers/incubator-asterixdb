@@ -16,25 +16,29 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.hive.ql.io;
+package org.apache.asterix.hivecompat.io.io;
 
-import java.io.IOException;
-import java.util.ArrayList;
+import java.io.OutputStream;
 
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.hive.conf.HiveConf;
+import org.apache.hadoop.io.compress.*;
 
 /**
- * Check for validity of the input files.
+ *
+ * SchemaAwareCompressionOutputStream adds the ability to inform the comression stream
+ * the current column being compressed.
+ *
  */
-public interface InputFormatChecker {
+public abstract class SchemaAwareCompressionOutputStream extends CompressionOutputStream {
+
+  protected SchemaAwareCompressionOutputStream(OutputStream out) {
+    super(out);
+  }
 
   /**
-   * This method is used to validate the input files.
-   * 
+   *
+   * The column being output
+   *
+   * @param columnIndex the index of the column. Use -1 for non-column data
    */
-  boolean validateInput(FileSystem fs, HiveConf conf,
-      ArrayList<FileStatus> files) throws IOException;
-
+  public abstract void setColumnIndex(int columnIndex);
 }

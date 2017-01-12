@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.hive.ql.io;
+package org.apache.asterix.hivecompat.io.io;
 
 import java.io.DataInput;
 import java.io.DataInputStream;
@@ -175,13 +175,13 @@ import org.apache.hadoop.util.ReflectionUtils;
  * -- component of the rowgroup.
  *
  * file-key-class-name ::=
- *   Text {"org.apache.hadoop.hive.ql.io.RCFile$KeyBuffer"}
+ *   Text {"org.apache.asterix.hivecompat.io.io.RCFile$KeyBuffer"}
  *
  * -- The name of the Java class responsible for reading the value buffer
  * -- component of the rowgroup.
  *
  * file-value-class-name ::=
- *   Text {"org.apache.hadoop.hive.ql.io.RCFile$ValueBuffer"}
+ *   Text {"org.apache.asterix.hivecompat.io.io.RCFile$ValueBuffer"}
  *
  * -- Boolean variable indicating whether or not the file uses compression
  * -- for the key and column buffer sections.
