@@ -47,6 +47,7 @@
     <runSlowAQLTests>false</runSlowAQLTests>
     <appendedResourcesDirectory>${basedir}/src/main/appended-resources</appendedResourcesDirectory>
     <sonar.jacoco.reportPath>${env.PWD}/target/jacoco-merged.exec</sonar.jacoco.reportPath>
+    <debug.suspend.flag>n</debug.suspend.flag>
 
     <!-- Definition of tests in various categories which may be excluded -->
     <optimizer.tests>**/optimizer/**/*Test.java</optimizer.tests>
@@ -88,7 +89,7 @@
             -Djava.util.logging.config.file=${user.home}/logging.properties
             -DrunSlowAQLTests=${runSlowAQLTests}
             -Xdebug
-            -Xrunjdwp:transport=dt_socket,server=y,address=8000,suspend=n
+            -Xrunjdwp:transport=dt_socket,server=y,address=8000,suspend=${debug.suspend.flag}
             ${coverageArgLine}
           </argLine>
           <includes>
@@ -951,6 +952,25 @@
         <groupId>log4j</groupId>
         <artifactId>log4j</artifactId>
         <version>1.2.17</version>
+        <exclusions>
+          <exclusion>
+            <groupId>com.sun.jmx</groupId>
+            <artifactId>jmxri</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>com.sun.jdmk</groupId>
+            <artifactId>jmxtools</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>javax.jms</groupId>
+            <artifactId>jms</artifactId>
+          </exclusion>
+        </exclusions>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.zookeeper</groupId>
+        <artifactId>zookeeper</artifactId>
+        <version>3.4.5</version>
         <exclusions>
           <exclusion>
             <groupId>com.sun.jmx</groupId>

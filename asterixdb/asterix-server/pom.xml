@@ -356,6 +356,7 @@
           <usedDependencies>
             <usedDependency>org.apache.asterix:asterix-app</usedDependency>
             <usedDependency>org.apache.asterix:asterix-client-helper</usedDependency>
+            <usedDependency>org.apache.hadoop:hadoop-minicluster</usedDependency>
             <usedDependency>org.apache.hyracks:hyracks-control-cc</usedDependency>
             <usedDependency>org.apache.hyracks:hyracks-control-nc</usedDependency>
             <usedDependency>org.apache.hyracks:hyracks-nc-service</usedDependency>
@@ -488,6 +489,11 @@
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-minicluster</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>
