@@ -233,6 +233,7 @@
       <artifactId>asterix-external-data-tools</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <dependency>
       <groupId>org.twitter4j</groupId>
       <artifactId>twitter4j-core</artifactId>
       <version>4.0.3</version>
