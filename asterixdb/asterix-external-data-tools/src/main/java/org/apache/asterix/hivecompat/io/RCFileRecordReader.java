@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.asterix.hivecompat.io.io;
+package org.apache.asterix.hivecompat.io;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -27,8 +27,8 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.conf.HiveConf;
-import org.apache.asterix.hivecompat.io.io.RCFile.KeyBuffer;
-import org.apache.asterix.hivecompat.io.io.RCFile.Reader;
+import org.apache.asterix.hivecompat.io.RCFile.KeyBuffer;
+import org.apache.asterix.hivecompat.io.RCFile.Reader;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.mapred.FileSplit;

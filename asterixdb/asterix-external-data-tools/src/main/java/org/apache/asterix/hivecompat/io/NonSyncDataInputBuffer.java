@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.asterix.hivecompat.io.io;
+package org.apache.asterix.hivecompat.io;
 
 import java.io.DataInput;
 import java.io.EOFException;

@@ -16,25 +16,27 @@
  * limitations under the License.
  */
 
-package org.apache.asterix.hivecompat.io.io;
+package org.apache.asterix.hivecompat.io;
 
-import java.io.InputStream;
+import java.io.OutputStream;
 
 import org.apache.hadoop.io.compress.*;
+
 /**
  *
- * SchemaAwareCompressionInputStream adds the ability to inform the compression
- * stream what column is being read.
+ * SchemaAwareCompressionOutputStream adds the ability to inform the comression stream
+ * the current column being compressed.
  *
  */
-public abstract class SchemaAwareCompressionInputStream extends CompressionInputStream {
+public abstract class SchemaAwareCompressionOutputStream extends CompressionOutputStream {
 
-  protected SchemaAwareCompressionInputStream(InputStream in) throws java.io.IOException {
-    super(in);
+  protected SchemaAwareCompressionOutputStream(OutputStream out) {
+    super(out);
   }
 
   /**
-   * The column being read
+   *
+   * The column being output
    *
    * @param columnIndex the index of the column. Use -1 for non-column data
    */
