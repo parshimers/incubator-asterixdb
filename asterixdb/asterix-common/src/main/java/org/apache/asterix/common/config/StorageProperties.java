@@ -38,8 +38,7 @@ public class StorageProperties extends AbstractProperties {
 
     private static final String STORAGE_MEMORYCOMPONENT_NUMPAGES_KEY = "storage.memorycomponent.numpages";
 
-    private static final String STORAGE_METADATA_MEMORYCOMPONENT_NUMPAGES_KEY =
-            "storage.metadata.memorycomponent.numpages";
+    private static final String STORAGE_METADATA_MEMORYCOMPONENT_NUMPAGES_KEY = "storage.metadata.memorycomponent.numpages";
     private static final int STORAGE_METADATA_MEMORYCOMPONENT_NUMPAGES_DEFAULT = 256; // ... so 32MB components
 
     private static final String STORAGE_MEMORYCOMPONENT_NUMCOMPONENTS_KEY = "storage.memorycomponent.numcomponents";
@@ -47,8 +46,7 @@ public class StorageProperties extends AbstractProperties {
 
     private static final String STORAGE_MEMORYCOMPONENT_GLOBALBUDGET_KEY = "storage.memorycomponent.globalbudget";
 
-    private static final String STORAGE_LSM_BLOOMFILTER_FALSEPOSITIVERATE_KEY =
-            "storage.lsm.bloomfilter.falsepositiverate";
+    private static final String STORAGE_LSM_BLOOMFILTER_FALSEPOSITIVERATE_KEY = "storage.lsm.bloomfilter.falsepositiverate";
     private static final double STORAGE_LSM_BLOOMFILTER_FALSEPOSITIVERATE_DEFAULT = 0.01;
 
     private final long storageBufferCacheSizeDefault;
@@ -66,8 +64,8 @@ public class StorageProperties extends AbstractProperties {
         storageMemorycomponentGlobalbudgetDefault = maxHeapSize / 4;
         // By default, uses 1/16 of the storageMemorycomponentGlobalbudgetDefault for the write buffer budget
         // for a dataset, including data and indexes.
-        storageMemoryComponentNumPages = (int) storageMemorycomponentGlobalbudgetDefault
-                / (16 * getMemoryComponentPageSize());
+        storageMemoryComponentNumPages = (int) (storageMemorycomponentGlobalbudgetDefault
+                / (long) (16 * getMemoryComponentPageSize()));
     }
 
     @PropertyKey(STORAGE_BUFFERCACHE_PAGESIZE_KEY)
@@ -107,8 +105,8 @@ public class StorageProperties extends AbstractProperties {
     @PropertyKey(STORAGE_METADATA_MEMORYCOMPONENT_NUMPAGES_KEY)
     public int getMetadataMemoryComponentNumPages() {
         return accessor.getProperty(STORAGE_METADATA_MEMORYCOMPONENT_NUMPAGES_KEY,
-                        STORAGE_METADATA_MEMORYCOMPONENT_NUMPAGES_DEFAULT,
-                        PropertyInterpreters.getIntegerPropertyInterpreter());
+                STORAGE_METADATA_MEMORYCOMPONENT_NUMPAGES_DEFAULT,
+                PropertyInterpreters.getIntegerPropertyInterpreter());
     }
 
     @PropertyKey(STORAGE_MEMORYCOMPONENT_NUMCOMPONENTS_KEY)
