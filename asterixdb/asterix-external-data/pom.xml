@@ -230,7 +230,7 @@
     </dependency>
     <dependency>
       <groupId>org.apache.asterix</groupId>
-      <artifactId>asterix-external-data-tools</artifactId>
+      <artifactId>asterix-hivecompat</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>

@@ -31,7 +31,7 @@
       <comments>A business-friendly OSS license</comments>
     </license>
   </licenses>
-  <artifactId>asterix-external-data-tools</artifactId>
+  <artifactId>asterix-hivecompat</artifactId>
   <build>
     <plugins>
       <plugin>
