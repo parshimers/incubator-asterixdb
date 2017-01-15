@@ -67,7 +67,7 @@ public class StorageProperties extends AbstractProperties {
         // By default, uses 1/16 of the storageMemorycomponentGlobalbudgetDefault for the write buffer budget
         // for a dataset, including data and indexes.
         storageMemoryComponentNumPages = (int) (storageMemorycomponentGlobalbudgetDefault
-                / (long) (16 * getMemoryComponentPageSize()));
+                / (16 * getMemoryComponentPageSize()));
     }
 
     @PropertyKey(STORAGE_BUFFERCACHE_PAGESIZE_KEY)
