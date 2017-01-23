@@ -31,6 +31,8 @@ public interface ITransactionSubsystem {
 
     ILogManager getLogManager(IRecoveryManager recoveryManager);
 
+    Set<ILogManager> getAllLogManagers();
+
     ILogManager getBaseLogManager();
 
     ILockManager getLockManager();

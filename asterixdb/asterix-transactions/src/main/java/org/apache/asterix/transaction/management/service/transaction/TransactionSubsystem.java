@@ -37,6 +37,7 @@ import org.apache.zookeeper.Op;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -110,6 +111,15 @@ public class TransactionSubsystem implements ITransactionSubsystem {
                 return t.first;
         }
         return null;
+    }
+
+    @Override
+    public Set<ILogManager> getAllLogManagers(){
+        Set<ILogManager> logManagers = new HashSet<>();
+        for(Triple<LogManager,RecoveryManager,CheckpointThread> t: partitionToLoggerMap.values()){
+            logManagers.add(t.first);
+        }
+        return logManagers;
     }
 
     @Override

@@ -27,11 +27,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.asterix.common.exceptions.ACIDException;
-import org.apache.asterix.common.transactions.DatasetId;
-import org.apache.asterix.common.transactions.ITransactionContext;
-import org.apache.asterix.common.transactions.ITransactionManager;
-import org.apache.asterix.common.transactions.JobId;
-import org.apache.asterix.common.transactions.LogRecord;
+import org.apache.asterix.common.transactions.*;
 import org.apache.asterix.common.utils.TransactionUtil;
 import org.apache.asterix.transaction.management.service.logging.LogManager;
 import org.apache.asterix.transaction.management.service.recovery.CheckpointThread;
@@ -115,7 +111,10 @@ public class TransactionManager implements ITransactionManager, ILifeCycleCompon
             if (txnCtx.isWriteTxn()) {
                 LogRecord logRecord = ((TransactionContext) txnCtx).getLogRecord();
                 TransactionUtil.formJobTerminateLogRecord(txnCtx, logRecord, true);
-                txnSubsystem.getLogManager(logRecord.getResourcePartition()).log(logRecord);
+                Set<ILogManager> loggers = txnSubsystem.getAllLogManagers();
+                for(ILogManager l : txnSubsystem.getAllLogManagers()){
+                    l.log(logRecord);
+                }
             }
         } catch (Exception ae) {
             if (LOGGER.isLoggable(Level.SEVERE)) {
