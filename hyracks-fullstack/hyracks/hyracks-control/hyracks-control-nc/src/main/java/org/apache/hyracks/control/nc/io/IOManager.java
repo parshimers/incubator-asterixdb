@@ -64,20 +64,7 @@ public class IOManager implements IIOManager {
 
     public IOManager(List<IODeviceHandle> devices) throws HyracksDataException {
         this.ioDevices = Collections.unmodifiableList(devices);
-        for (IODeviceHandle d : ioDevices) {
-            Path p = Paths.get(d.getMount().toURI());
-            for (IODeviceHandle e : ioDevices) {
-                if (e.equals(d)) {
-                    continue;
-                } else {
-                    Path q = Paths.get(e.getMount().toURI());
-                    if (p.startsWith(q)) {
-                        throw new HyracksDataException("IODevices shouldn't be on a union mount.");
-                    }
-                }
-            }
-
-        }
+        checkDeviceValidity(devices);
         workspaces = new ArrayList<>();
         for (IODeviceHandle d : ioDevices) {
             if (d.getWorkspace() != null) {
@@ -90,6 +77,25 @@ public class IOManager implements IIOManager {
         }
         workspaceIndex = 0;
         deviceComputer = new DefaultDeviceComputer(this);
+    }
+
+    private void checkDeviceValidity(List<IODeviceHandle> devices) throws HyracksDataException {
+        for (IODeviceHandle d : devices) {
+            Path p = Paths.get(d.getMount().toURI());
+            for (IODeviceHandle e : devices) {
+                if (e == d) {
+                    continue;
+                } else {
+                    Path q = Paths.get(e.getMount().toURI());
+                    if (p.equals(q)) {
+                        throw new HyracksDataException("Duplicate IODevices are not allowed.");
+                    } else if (p.startsWith(q)) {
+                        throw new HyracksDataException("IODevices should not be nested within each other");
+                    }
+                }
+            }
+
+        }
     }
 
     @Override
