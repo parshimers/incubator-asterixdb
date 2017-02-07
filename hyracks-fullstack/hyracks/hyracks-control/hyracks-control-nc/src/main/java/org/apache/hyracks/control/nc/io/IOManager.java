@@ -23,6 +23,8 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -62,6 +64,20 @@ public class IOManager implements IIOManager {
 
     public IOManager(List<IODeviceHandle> devices) throws HyracksDataException {
         this.ioDevices = Collections.unmodifiableList(devices);
+        for (IODeviceHandle d : ioDevices) {
+            Path p = Paths.get(d.getMount().toURI());
+            for (IODeviceHandle e : ioDevices) {
+                if (e.equals(d)) {
+                    continue;
+                } else {
+                    Path q = Paths.get(e.getMount().toURI());
+                    if (p.startsWith(q)) {
+                        throw new HyracksDataException("IODevices shouldn't be on a union mount.");
+                    }
+                }
+            }
+
+        }
         workspaces = new ArrayList<>();
         for (IODeviceHandle d : ioDevices) {
             if (d.getWorkspace() != null) {
@@ -350,8 +366,9 @@ public class IOManager implements IIOManager {
     }
 
     public IODeviceHandle getDevice(String fullPath) {
+        Path full = Paths.get(fullPath);
         for (IODeviceHandle d : ioDevices) {
-            if (fullPath.startsWith(d.getMount().getAbsolutePath())) {
+            if (full.startsWith(Paths.get(d.getMount().getAbsolutePath()))) {
                 return d;
             }
         }
