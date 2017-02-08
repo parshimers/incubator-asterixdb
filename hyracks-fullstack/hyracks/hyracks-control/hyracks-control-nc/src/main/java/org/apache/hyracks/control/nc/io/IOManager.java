@@ -30,6 +30,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executor;
 
+import com.sun.jmx.snmp.EnumRowStatus;
 import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileReference;
@@ -83,14 +84,12 @@ public class IOManager implements IIOManager {
         for (IODeviceHandle d : devices) {
             Path p = Paths.get(d.getMount().toURI());
             for (IODeviceHandle e : devices) {
-                if (e == d) {
-                    continue;
-                } else {
+                if (e != d) {
                     Path q = Paths.get(e.getMount().toURI());
                     if (p.equals(q)) {
-                        throw new HyracksDataException("Duplicate IODevices are not allowed.");
+                        throw HyracksDataException.create(ErrorCode.DUPLICATE_IODEVICE);
                     } else if (p.startsWith(q)) {
-                        throw new HyracksDataException("IODevices should not be nested within each other");
+                        throw HyracksDataException.create(ErrorCode.NESTED_IODEVICES);
                     }
                 }
             }
