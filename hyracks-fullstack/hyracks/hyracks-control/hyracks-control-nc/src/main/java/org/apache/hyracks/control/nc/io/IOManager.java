@@ -30,7 +30,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executor;
 
-import com.sun.jmx.snmp.EnumRowStatus;
 import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileReference;
