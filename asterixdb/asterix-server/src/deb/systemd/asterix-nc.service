@@ -22,6 +22,5 @@ User=asterixdb
 ExecStart=/opt/apache-asterixdb/bin/asterixncservice
 Restart=on-abort
 
-
 [Install]
 WantedBy=multi-user.target
