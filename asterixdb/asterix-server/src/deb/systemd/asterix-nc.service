@@ -1,0 +1,13 @@
+[Unit]
+Description=Apache AsterixDB Node Controller Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=asterixdb
+ExecStart=/opt/apache-asterixdb/bin/asterixncservice
+Restart=on-abort
+
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+[Unit]
+Description=Apache AsterixDB Cluster Controller
+After=network.target
+
+[Service]
+Type=simple
+User=asterixdb
+ExecStart=/opt/apache-asterixdb/bin/asterixcc --config-file /opt/apache-asterixdb/cc.conf
+Restart=on-abort
+
+
+[Install]
+WantedBy=multi-user.target
+

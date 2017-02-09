@@ -1,0 +1,10 @@
+Package: apache-asterixdb-server
+Version: [[version]]
+Section: databases
+Priority: optional
+Architecture: all
+Depends: jdk (>= 1.8)
+Maintainer: Ian Maxon <ian@maxons.email>
+Description: The AsterixDB parallel Big Data Management System
+Distribution: development
+Depends: default-jre | java8-runtime
