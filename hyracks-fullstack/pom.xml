@@ -401,11 +401,9 @@
             <version>2.1</version>
         </plugin>
         <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-scm-plugin</artifactId>
-            <version>1.8.1</version>
-            <configuration>
-                <tag>${project.artifactId}-${project.version}</tag>
-            </configuration>
+            <version>1.9.5</version>
         </plugin>
       </plugins>
     </pluginManagement>
