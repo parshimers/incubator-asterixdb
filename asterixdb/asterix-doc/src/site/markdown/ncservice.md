@@ -29,27 +29,27 @@
 
 The fastest way to get set up with a single-machine sample instance of AsterixDB is
 to use the included sample helper scripts. To do so, in the extracted `asterix-server`
-directory, navigate to `samples/local/bin/`
+directory, navigate to `opt/local/bin/`
 
     user@localhost:~/
     ➤ cd asterix-server/
     user@localhost:~/asterix-server
-    ➤ cd samples/local/bin
+    ➤ cd opt/local/bin
 
 This folder should contain 4 scripts, two pairs of `.sh` and `.bat` files
 respectively. `start-sample-cluster.sh` will simply start a basic sample cluster
 using the coniguration files located in `samples/local/conf/` simply.
 
-    user@localhost:~/a/s/l/bin
+    user@localhost:~/a/o/l/bin
     ➤ ./start-sample-cluster.sh
-    CLUSTERDIR=/home/user/asterix-server/samples/local
+    CLUSTERDIR=/home/user/asterix-server/opt/local
     INSTALLDIR=/home/user/asterix-server
-    LOGSDIR=/home/user/asterix-server/samples/local/logs
+    LOGSDIR=/home/user/asterix-server/samples/opt/logs
 
     INFO: Starting sample cluster...
     INFO: Waiting up to 30 seconds for cluster 127.0.0.1:19002 to be available.
     INFO: Cluster started and is ACTIVE.
-    user@localhost:~/a/s/l/bin
+    user@localhost:~/a/o/l/bin
     ➤
 
 Now, there should be a running AsterixDB cluster on the machine. To go to the
@@ -196,6 +196,7 @@ to kill all processes.
 
 Deploying on multiple machines only differs in the configuration file and where each process
 is actually resident. Take for example a deployment on 3 machines, `cacofonix-1`,`cacofonix-2`,and `cacofonix-3`.
+`cacofonix-1' will be the CC, and `cacofonix-2` and `cacofonix-3` will be the two NCs, respectively.
 The configuration would be as follows:
 
 `cc.conf`:
