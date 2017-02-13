@@ -154,22 +154,28 @@ To start the cluster simply use the following steps
 
 1. Change directory into the asterix-server binary folder
 
+    ```
     user@localhost:~/
     ➤ cd asterix-server/
     user@localhost:~/asterix-server
     ➤ cd samples/local/bin
+    ```
 
 2. Start the 2 `NCServices` for `red` and `blue`.
 
+    ```
     user@localhost:~/asterix-server
     ➤ bin/asterixncservice -config-file blue.conf > blue-service.log 2>&1 &
     user@localhost:~/asterix-server
     ➤ bin/asterixncservice >red-service.log 2>&1 &
+    ```
 
 3. Start the `CCDriver`.
 
+    ```
     user@localhost:~/asterix-server
     ➤ bin/asterixcc -config-file cc.conf > cc.log 2>&1 &
+    ```
 
 The `CCDriver` will connect to the `NCServices` and thus initiate the
 configuration and the start of the `NCDrivers`.
