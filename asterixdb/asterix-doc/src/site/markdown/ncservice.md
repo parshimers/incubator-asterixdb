@@ -32,16 +32,16 @@ to use the included sample helper scripts. To do so, in the extracted `asterix-s
 directory, navigate to `opt/local/bin/`
 
     user@localhost:~/
-    ➤ cd asterix-server/
+    $cd asterix-server/
     user@localhost:~/asterix-server
-    ➤ cd opt/local/bin
+    $cd opt/local/bin
 
 This folder should contain 4 scripts, two pairs of `.sh` and `.bat` files
 respectively. `start-sample-cluster.sh` will simply start a basic sample cluster
-using the coniguration files located in `samples/local/conf/` simply.
+using the coniguration files located in `samples/local/conf/`.
 
     user@localhost:~/a/o/l/bin
-    ➤ ./start-sample-cluster.sh
+    $./start-sample-cluster.sh
     CLUSTERDIR=/home/user/asterix-server/opt/local
     INSTALLDIR=/home/user/asterix-server
     LOGSDIR=/home/user/asterix-server/samples/opt/logs
@@ -50,7 +50,7 @@ using the coniguration files located in `samples/local/conf/` simply.
     INFO: Waiting up to 30 seconds for cluster 127.0.0.1:19002 to be available.
     INFO: Cluster started and is ACTIVE.
     user@localhost:~/a/o/l/bin
-    ➤
+    $
 
 Now, there should be a running AsterixDB cluster on the machine. To go to the
 Web Interface, visit [http://localhost:19001](http://localhost:19001)
@@ -67,7 +67,7 @@ Web Interface, visit [http://localhost:19001](http://localhost:19001)
 
 The above cluster was started using a script, but below is a description in detail
 of how precisely this was achieved. The config files here are analagous to the
-ones within `samples/local/conf`. 
+ones within `samples/local/conf`.
 
 When running a cluster using the `NCService` there are 3 different kinds of
 processes involved:
@@ -75,8 +75,8 @@ processes involved:
 - `NCDriver`, also known as the Node Controller or NC for short. This is the
   process that does the actual work of queries and data management within the
   AsterixDB cluster
-- `NCService` configures and starts the `NCDriver` process. It is a simple 
-  daemon whose only purpose is to wait for the `CCDriver` process to call 
+- `NCService` configures and starts the `NCDriver` process. It is a simple
+  daemon whose only purpose is to wait for the `CCDriver` process to call
   upon it to initiate cluster bootup.
 - `CCDriver`, which is the Cluster Controller process, also known as the CC.
   This process manages the distribution of tasks to all NCs, as well as providing
@@ -156,25 +156,25 @@ To start the cluster simply use the following steps
 
     ```
     user@localhost:~/
-    ➤ cd asterix-server/
+    $cd asterix-server/
     user@localhost:~/asterix-server
-    ➤ cd samples/local/bin
+    $cd samples/local/bin
     ```
 
 2. Start the 2 `NCServices` for `red` and `blue`.
 
     ```
     user@localhost:~/asterix-server
-    ➤ bin/asterixncservice -config-file blue.conf > blue-service.log 2>&1 &
+    $bin/asterixncservice -config-file blue.conf > blue-service.log 2>&1 &
     user@localhost:~/asterix-server
-    ➤ bin/asterixncservice >red-service.log 2>&1 &
+    $bin/asterixncservice >red-service.log 2>&1 &
     ```
 
 3. Start the `CCDriver`.
 
     ```
     user@localhost:~/asterix-server
-    ➤ bin/asterixcc -config-file cc.conf > cc.log 2>&1 &
+    $bin/asterixcc -config-file cc.conf > cc.log 2>&1 &
     ```
 
 The `CCDriver` will connect to the `NCServices` and thus initiate the
@@ -182,7 +182,7 @@ configuration and the start of the `NCDrivers`.
 After running these scripts, `jps` should show a result similar to this:
 
     user@localhost:~/asterix-server
-    ➤ jps
+    $jps
     13184 NCService
     13200 NCDriver
     13185 NCService
@@ -202,7 +202,7 @@ to kill all processes.
 
 Deploying on multiple machines only differs in the configuration file and where each process
 is actually resident. Take for example a deployment on 3 machines, `cacofonix-1`,`cacofonix-2`,and `cacofonix-3`.
-`cacofonix-1' will be the CC, and `cacofonix-2` and `cacofonix-3` will be the two NCs, respectively.
+`cacofonix-1` will be the CC, and `cacofonix-2` and `cacofonix-3` will be the two NCs, respectively.
 The configuration would be as follows:
 
 `cc.conf`:
@@ -211,13 +211,13 @@ The configuration would be as follows:
     txnlogdir=/lv_scratch/asterix/red/txnlog
     coredumpdir=/lv_scratch/asterix/red/coredump
     iodevices=/lv_scratch/asterix/red
-    address=cacofonix-2.ics.uci.edu
+    address=cacofonix-2
 
     [nc/blue]
     txnlogdir=/lv_scratch/asterix/blue/txnlog
     coredumpdir=/lv_scratch/asterix/blue/coredump
     iodevices=/lv_scratch/asterix/blue
-    address=cacofonix-3.ics.uci.edu
+    address=cacofonix-3
 
     [nc]
     app.class=org.apache.asterix.hyracks.bootstrap.NCApplicationEntryPoint
@@ -225,13 +225,13 @@ The configuration would be as follows:
     command=asterixnc
 
     [cc]
-    cluster.address = cacofonix-1.ics.uci.edu
+    cluster.address = cacofonix-1
 
 To deploy, first the `asterix-server` binary must be present on each machine. Any method to transfer
-the archive to each machine will work, but here `scp` will be used for simplicity's sake. 
+the archive to each machine will work, but here `scp` will be used for simplicity's sake.
 
     user@localhost:~
-    ➤ for f in {1,2,3}; scp asterix-server.zip cacofonix-$f:~/; end
+    $for f in {1,2,3}; scp asterix-server.zip cacofonix-$f:~/; end
 
 Then unzip the binary on each machine. First, start the `NCService` processes on each of the slave
 machines. Any way of getting a shell on the machine is fine, be it physical or via `ssh`.
