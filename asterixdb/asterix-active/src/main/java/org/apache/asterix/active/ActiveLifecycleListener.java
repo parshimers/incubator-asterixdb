@@ -24,11 +24,12 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.asterix.active.ActiveEvent.Kind;
 import org.apache.asterix.active.message.ActivePartitionMessage;
 import org.apache.hyracks.api.exceptions.HyracksException;
-import org.apache.hyracks.api.job.IActivityClusterGraphGeneratorFactory;
 import org.apache.hyracks.api.job.IJobLifecycleListener;
 import org.apache.hyracks.api.job.JobId;
+import org.apache.hyracks.api.job.JobSpecification;
 
 public class ActiveLifecycleListener implements IJobLifecycleListener {
 
@@ -48,7 +49,7 @@ public class ActiveLifecycleListener implements IJobLifecycleListener {
     public synchronized void notifyJobStart(JobId jobId) throws HyracksException {
         EntityId entityId = ActiveJobNotificationHandler.INSTANCE.getEntity(jobId);
         if (entityId != null) {
-            jobEventInbox.add(new ActiveEvent(jobId, ActiveEvent.EventKind.JOB_START, entityId));
+            jobEventInbox.add(new ActiveEvent(jobId, Kind.JOB_STARTED, entityId));
         }
     }
 
@@ -56,7 +57,7 @@ public class ActiveLifecycleListener implements IJobLifecycleListener {
     public synchronized void notifyJobFinish(JobId jobId) throws HyracksException {
         EntityId entityId = ActiveJobNotificationHandler.INSTANCE.getEntity(jobId);
         if (entityId != null) {
-            jobEventInbox.add(new ActiveEvent(jobId, ActiveEvent.EventKind.JOB_FINISH, entityId));
+            jobEventInbox.add(new ActiveEvent(jobId, Kind.JOB_FINISHED, entityId));
         } else {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("NO NEED TO NOTIFY JOB FINISH!");
@@ -65,15 +66,13 @@ public class ActiveLifecycleListener implements IJobLifecycleListener {
     }
 
     @Override
-    public void notifyJobCreation(JobId jobId, IActivityClusterGraphGeneratorFactory acggf) throws HyracksException {
-        ActiveJobNotificationHandler.INSTANCE.notifyJobCreation(jobId, acggf.getJobSpecification());
+    public void notifyJobCreation(JobId jobId, JobSpecification spec) throws HyracksException {
+        ActiveJobNotificationHandler.INSTANCE.notifyJobCreation(jobId, spec);
     }
 
     public void receive(ActivePartitionMessage message) {
-        if (ActiveJobNotificationHandler.INSTANCE.isActiveJob(message.getJobId())) {
-            jobEventInbox.add(new ActiveEvent(message.getJobId(), ActiveEvent.EventKind.PARTITION_EVENT,
-                    message.getActiveRuntimeId().getEntityId(), message));
-        }
+        jobEventInbox.add(new ActiveEvent(message.getJobId(), Kind.PARTITION_EVENT,
+                message.getActiveRuntimeId().getEntityId(), message));
     }
 
     public void stop() {
