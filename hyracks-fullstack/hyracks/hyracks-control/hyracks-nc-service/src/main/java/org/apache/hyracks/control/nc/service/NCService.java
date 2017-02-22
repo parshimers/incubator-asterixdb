@@ -111,7 +111,19 @@ public class NCService {
         return cList;
     }
 
-    private static void configEnvironment(Map<String,String> env) {
+    private static boolean is64Bit() {
+        String prop = System.getProperty("sun.arch.data.model");
+        if(prop == null || prop.equals("unknown")) {
+            //assert true if the property is null, this check mainly is to avoid a specific default behavior
+            //where a 32 bit JVM is run on a 64 bit OS which has a lot of available RAM
+            return true;
+        }
+        else{
+            return prop.equals("64");
+        }
+    }
+
+    private static void configEnvironment(Map<String, String> env) {
         String jvmargs = IniUtils.getString(ini, nodeSection, "jvm.args", null);
         if (jvmargs != null) {
             LOGGER.info("Using JAVA_OPTS from conf file (jvm.args)");
@@ -122,7 +134,11 @@ public class NCService {
             } else {
                 LOGGER.info("Using default JAVA_OPTS");
                 long ramSize = ((com.sun.management.OperatingSystemMXBean) osMXBean).getTotalPhysicalMemorySize();
-                jvmargs = "-Xmx" + (int) Math.ceil(0.6 * ramSize / (1024 * 1024)) + "m";
+                if (is64Bit()) {
+                    jvmargs = "-Xmx" + (int) Math.ceil(0.6 * ramSize / (1024 * 1024)) + "m";
+                } else {
+                    jvmargs = "-Xmx" + Math.min((int) Math.ceil(0.6 * ramSize / (1024 * 1024)), 1024) + "m";
+                }
             }
         }
         env.put("JAVA_OPTS", jvmargs);
@@ -132,10 +148,11 @@ public class NCService {
     /**
      * Attempts to launch the "real" NCDriver, based on the configuration
      * information gathered so far.
+     * 
      * @return true if the process was successfully launched and has now
-     * exited with a 0 (normal) exit code. false if some configuration error
-     * prevented the process from being launched or the process returned
-     * a non-0 (abnormal) exit code.
+     *         exited with a 0 (normal) exit code. false if some configuration error
+     *         prevented the process from being launched or the process returned
+     *         a non-0 (abnormal) exit code.
      */
     private static boolean launchNCProcess() {
         try {
@@ -149,11 +166,11 @@ public class NCService {
             }
 
             // Logfile
-            if (! "-".equals(config.logdir)) {
+            if (!"-".equals(config.logdir)) {
                 pb.redirectErrorStream(true);
                 File log = new File(config.logdir);
-                if (! log.mkdirs()) {
-                    if (! log.isDirectory()) {
+                if (!log.mkdirs()) {
+                    if (!log.isDirectory()) {
                         throw new IOException(config.logdir + ": cannot create");
                     }
                     // If the directory IS there, all is well
@@ -202,7 +219,7 @@ public class NCService {
         try {
             ObjectInputStream ois = new ObjectInputStream(is);
             String magic = ois.readUTF();
-            if (! ServiceConstants.NC_SERVICE_MAGIC_COOKIE.equals(magic)) {
+            if (!ServiceConstants.NC_SERVICE_MAGIC_COOKIE.equals(magic)) {
                 LOGGER.severe("Connection used incorrect magic cookie");
                 return false;
             }
