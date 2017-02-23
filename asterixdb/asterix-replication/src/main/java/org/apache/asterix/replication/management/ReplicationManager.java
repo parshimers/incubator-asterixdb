@@ -835,7 +835,7 @@ public class ReplicationManager implements IReplicationManager {
             }
             LOGGER.log(Level.INFO, "Got shutdown notification from all remote replicas");
             //close replication channel
-            asterixAppRuntimeContextProvider.getAppContext().getReplicationChannel().close();
+//            asterixAppRuntimeContextProvider.getAppContext().getReplicationChannel().close();
 
             LOGGER.log(Level.INFO, "Replication manager stopped.");
         } catch (Exception e) {

@@ -18,8 +18,13 @@
  */
 package org.apache.asterix.common.config;
 
-public abstract class AbstractAsterixProperties {
-    protected final AsterixPropertiesAccessor accessor;
+import java.io.Serializable;
+
+public abstract class AbstractAsterixProperties implements Serializable {
+    protected AsterixPropertiesAccessor accessor;
+
+    public AbstractAsterixProperties() {
+    }
 
     public AbstractAsterixProperties(AsterixPropertiesAccessor accessor) {
         this.accessor = accessor;

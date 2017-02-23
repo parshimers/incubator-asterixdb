@@ -36,10 +36,8 @@ import org.apache.hyracks.storage.common.file.ILocalResourceRepository;
 import org.apache.zookeeper.Op;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.logging.Logger;
 
 /**
  * Provider for all the sub-systems (transaction/lock/log/recovery) managers.
@@ -53,6 +51,7 @@ public class TransactionSubsystem implements ITransactionSubsystem {
     private final AsterixTransactionProperties txnProperties;
     final Map<Set<Integer>, Triple<LogManager, RecoveryManager, CheckpointThread>> partitionToLoggerMap;
     final Triple<LogManager, RecoveryManager, CheckpointThread> baseLogger;
+    private Logger LOGGER = Logger.getLogger(TransactionSubsystem.class.getName());
 
     public TransactionSubsystem(String id, IAsterixAppRuntimeContextProvider asterixAppRuntimeContextProvider,
             AsterixTransactionProperties txnProperties, PersistentLocalResourceRepository localResourceRepository)
@@ -168,14 +167,15 @@ public class TransactionSubsystem implements ITransactionSubsystem {
     }
 
     @Override
-    public void addPartitions(Set<Integer> partitions, String fallenNodeId, AsterixStorageProperties storageProperties,
-            AsterixTransactionProperties txnProperties) {
+    public void addPartitions(Set<Integer> partitions, List<String> logsToTakeover, AsterixStorageProperties storageProperties) {
         PersistentLocalResourceRepository resourceRepository = (PersistentLocalResourceRepository) asterixAppRuntimeContextProvider
                 .getLocalResourceRepository();
         for(Integer i: partitions) {
             resourceRepository.addActivePartition(i);
         }
-        LogManager surrogateLogManager = new LogManager(this, new LogManagerProperties(txnProperties, fallenNodeId));
+
+        LOGGER.info(logsToTakeover.get(0));
+        LogManager surrogateLogManager = new LogManager(this, new LogManagerProperties(txnProperties, logsToTakeover.get(0)));
         RecoveryManager surrogateRecoveryManager = new RecoveryManager(this, surrogateLogManager);
         CheckpointThread surrogateCheckpointThread = new CheckpointThread(surrogateRecoveryManager,
                 asterixAppRuntimeContextProvider.getDatasetLifecycleManager(), surrogateLogManager,
@@ -184,7 +184,7 @@ public class TransactionSubsystem implements ITransactionSubsystem {
         partitionToLoggerMap.put(partitions,
                 new Triple<>(surrogateLogManager, surrogateRecoveryManager, surrogateCheckpointThread));
         try {
-            surrogateRecoveryManager.replayPartitionsLogs(partitions,surrogateLogManager.getLogReader(true),0l);
+            surrogateRecoveryManager.startRecovery(true);
         } catch (IOException e) {
             e.printStackTrace();
         } catch (ACIDException e) {

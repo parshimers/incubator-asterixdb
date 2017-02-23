@@ -18,7 +18,9 @@
  */
 package org.apache.asterix.common.cluster;
 
-public class ClusterPartition implements Cloneable {
+import java.io.Serializable;
+
+public class ClusterPartition implements Cloneable,Serializable {
     private final int partitionId;
     private final String nodeId;
     private final int ioDeviceNum;

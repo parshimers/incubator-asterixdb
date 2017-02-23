@@ -75,14 +75,6 @@ public interface IAsterixAppRuntimeContext {
 
     public Object getFeedManager();
 
-    public IRemoteRecoveryManager getRemoteRecoveryManager();
-
-    public IReplicaResourcesManager getReplicaResourcesManager();
-
-    public IReplicationManager getReplicationManager();
-
-    public IReplicationChannel getReplicationChannel();
-
     public void initializeResourceIdFactory() throws HyracksDataException;
 
     /**

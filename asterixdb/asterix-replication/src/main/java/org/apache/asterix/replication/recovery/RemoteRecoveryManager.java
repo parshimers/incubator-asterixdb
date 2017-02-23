@@ -227,15 +227,15 @@ public class RemoteRecoveryManager implements IRemoteRecoveryManager {
         Set<Integer> partitionsToTakeover = new HashSet<>(Arrays.asList(partitions));
         ILogManager logManager = runtimeContext.getTransactionSubsystem().getLogManager(0);
 
-        long minLSN = runtimeContext.getReplicaResourcesManager().getPartitionsMinLSN(partitionsToTakeover);
+//        long minLSN = runtimeContext.getReplicaResourcesManager().getPartitionsMinLSN(partitionsToTakeover);
         long readableSmallestLSN = logManager.getReadableSmallestLSN();
-        if (minLSN < readableSmallestLSN) {
-            minLSN = readableSmallestLSN;
-        }
+////        if (minLSN < readableSmallestLSN) {
+//            minLSN = readableSmallestLSN;
+//        }
 
         //replay logs > minLSN that belong to these partitions
         IRecoveryManager recoveryManager = runtimeContext.getTransactionSubsystem().getRecoveryManager(0);
-        recoveryManager.replayPartitionsLogs(partitionsToTakeover, logManager.getLogReader(true), minLSN);
+        recoveryManager.replayPartitionsLogs(partitionsToTakeover, logManager.getLogReader(true), readableSmallestLSN);
 
         //mark these partitions as active in this node
         PersistentLocalResourceRepository resourceRepository = (PersistentLocalResourceRepository) runtimeContext
@@ -300,8 +300,8 @@ public class RemoteRecoveryManager implements IRemoteRecoveryManager {
     @Override
     public void completeFailbackProcess() throws IOException {
         ILogManager logManager = runtimeContext.getTransactionSubsystem().getLogManager(0);
-        ReplicaResourcesManager replicaResourcesManager = (ReplicaResourcesManager) runtimeContext
-                .getReplicaResourcesManager();
+//        ReplicaResourcesManager replicaResourcesManager = (ReplicaResourcesManager) runtimeContext
+//                .getReplicaResourcesManager();
         Map<String, ClusterPartition[]> nodePartitions = ((IAsterixPropertiesProvider) runtimeContext)
                 .getMetadataProperties().getNodePartitions();
 
@@ -318,8 +318,8 @@ public class RemoteRecoveryManager implements IRemoteRecoveryManager {
                     //get partitions that will be recovered from this node
                     ClusterPartition[] replicaPartitions = nodePartitions.get(nodeId);
                     for (ClusterPartition partition : replicaPartitions) {
-                        existingFiles.addAll(
-                                replicaResourcesManager.getPartitionIndexesFiles(partition.getPartitionId(), true));
+//                        existingFiles.addAll(
+//                                replicaResourcesManager.getPartitionIndexesFiles(partition.getPartitionId(), true));
                     }
                 }
 
@@ -342,8 +342,8 @@ public class RemoteRecoveryManager implements IRemoteRecoveryManager {
         logManager.renewLogFilesAndStartFromLSN(maxRemoteLSN);
 
         //start replication service after failback completed
-        runtimeContext.getReplicationChannel().start();
-        runtimeContext.getReplicationManager().startReplicationThreads();
+//        runtimeContext.getReplicationChannel().start();
+//        runtimeContext.getReplicationManager().startReplicationThreads();
 
         failbackRecoveryReplicas = null;
     }

@@ -387,25 +387,25 @@ public class AsterixAppRuntimeContext implements IAsterixAppRuntimeContext, IAst
         return replicationProperties;
     }
 
-    @Override
-    public IReplicationChannel getReplicationChannel() {
-        return replicationChannel;
-    }
-
-    @Override
-    public IReplicaResourcesManager getReplicaResourcesManager() {
-        return replicaResourcesManager;
-    }
-
-    @Override
-    public IRemoteRecoveryManager getRemoteRecoveryManager() {
-        return remoteRecoveryManager;
-    }
-
-    @Override
-    public IReplicationManager getReplicationManager() {
-        return replicationManager;
-    }
+//    @Override
+//    public IReplicationChannel getReplicationChannel() {
+//        return replicationChannel;
+//    }
+//
+//    @Override
+//    public IReplicaResourcesManager getReplicaResourcesManager() {
+//        return replicaResourcesManager;
+//    }
+//
+//    @Override
+//    public IRemoteRecoveryManager getRemoteRecoveryManager() {
+//        return remoteRecoveryManager;
+//    }
+//
+//    @Override
+//    public IReplicationManager getReplicationManager() {
+//        return replicationManager;
+//    }
 
     @Override
     public void initializeResourceIdFactory() throws HyracksDataException {

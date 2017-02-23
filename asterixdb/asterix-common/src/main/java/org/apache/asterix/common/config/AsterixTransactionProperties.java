@@ -18,9 +18,10 @@
  */
 package org.apache.asterix.common.config;
 
+import java.io.Serializable;
 import java.util.Map;
 
-public class AsterixTransactionProperties extends AbstractAsterixProperties {
+public class AsterixTransactionProperties extends AbstractAsterixProperties implements Serializable{
 
     private static final String TXN_LOG_BUFFER_NUMPAGES_KEY = "txn.log.buffer.numpages";
     private static int TXN_LOG_BUFFER_NUMPAGES_DEFAULT = 8;

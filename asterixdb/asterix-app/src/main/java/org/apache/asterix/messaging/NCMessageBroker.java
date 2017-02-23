@@ -130,8 +130,7 @@ public class NCMessageBroker implements INCMessageBroker {
             try {
                 List<Integer> partitions = Arrays.asList(msg.getPartitions());
                 ITransactionSubsystem txnSubSys = appContext.getTransactionSubsystem();
-                txnSubSys.addPartitions(new HashSet<Integer>(partitions), msg.getNodeId(), msg.getStorageProps(),
-                        msg.getTxnProperties());
+                txnSubSys.addPartitions(new HashSet<Integer>(partitions), msg.getNodeLogsToTakeover(), msg.getStorageProps());
 
             } finally {
                 //send response after takeover is completed
@@ -170,7 +169,7 @@ public class NCMessageBroker implements INCMessageBroker {
         node.setClusterIp(msg.getNodeIPAddress());
         Replica replica = new Replica(node);
         ReplicaEvent event = new ReplicaEvent(replica, msg.getEvent());
-        appContext.getReplicationManager().reportReplicaEvent(event);
+//        appContext.getReplicationManager().reportReplicaEvent(event);
     }
 
     private void handlePreparePartitionsFailback(IMessage message) throws Exception {
@@ -208,8 +207,8 @@ public class NCMessageBroker implements INCMessageBroker {
     private void handleCompleteFailbackRequest(IMessage message) throws Exception {
         CompleteFailbackRequestMessage msg = (CompleteFailbackRequestMessage) message;
         try {
-            IRemoteRecoveryManager remoteRecoeryManager = appContext.getRemoteRecoveryManager();
-            remoteRecoeryManager.completeFailbackProcess();
+//            IRemoteRecoveryManager remoteRecoeryManager = appContext.getRemoteRecoveryManager();
+//            remoteRecoeryManager.completeFailbackProcess();
         } finally {
             CompleteFailbackResponseMessage reponse = new CompleteFailbackResponseMessage(msg.getPlanId(),
                     msg.getRequestId(), msg.getPartitions());

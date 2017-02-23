@@ -22,7 +22,9 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.EnumSet;
+import java.util.logging.Logger;
 
+import com.google.common.base.Stopwatch;
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.commons.lang.enums.Enum;
 import org.apache.hadoop.conf.Configuration;
@@ -48,6 +50,7 @@ public class HDFSFileHandle implements IFileHandle, IFileHandleInternal {
     private Path path;
     private FileReference fileRef;
     private FileReadWriteMode rwMode;
+    private static Logger LOGGER = Logger.getLogger(HDFSFileHandle.class.getName());
 
     public HDFSFileHandle(FileReference fileRef) {
         try {
@@ -68,6 +71,25 @@ public class HDFSFileHandle implements IFileHandle, IFileHandleInternal {
             throw new IOException("Sync I/O not (yet) supported for HDFS");
         if (rwMode == FileReadWriteMode.READ_WRITE) {
             if (fs.exists(path)) {
+                if (!fs.isFileClosed(path)) {
+                    fs.recoverLease(path);
+                    try{
+                        boolean isclosed = fs.isFileClosed(path);
+                        Stopwatch sw = new Stopwatch().start();
+                        while (!isclosed) {
+                            if (sw.elapsedMillis() > 60 * 1000)
+                                break;
+                            try {
+                                Thread.currentThread().sleep(1000);
+                            } catch (InterruptedException e1) {
+                            }
+                            LOGGER.info("recovering lease...");
+                            isclosed = fs.isFileClosed(path);
+                        }
+                    }catch(Exception e){
+
+                    }
+                }
                 out = (DFSOutputStream) fs.append(path, EnumSet.of(CreateFlag.SYNC_BLOCK, CreateFlag.APPEND),
                         CommonConfigurationKeysPublic.IO_FILE_BUFFER_SIZE_DEFAULT, null).getWrappedStream();
             } else {

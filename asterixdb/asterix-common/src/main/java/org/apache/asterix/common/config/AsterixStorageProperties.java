@@ -18,7 +18,9 @@
  */
 package org.apache.asterix.common.config;
 
-public class AsterixStorageProperties extends AbstractAsterixProperties {
+import java.io.Serializable;
+
+public class AsterixStorageProperties extends AbstractAsterixProperties implements Serializable {
 
     private static final String STORAGE_BUFFERCACHE_PAGESIZE_KEY = "storage.buffercache.pagesize";
     private static int STORAGE_BUFFERCACHE_PAGESIZE_DEFAULT = (128 << 10); // 128KB

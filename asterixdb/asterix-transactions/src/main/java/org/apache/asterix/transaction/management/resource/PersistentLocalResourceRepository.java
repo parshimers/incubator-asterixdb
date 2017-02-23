@@ -103,6 +103,7 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         //initially the node active partitions are the same as the original partitions
         nodeOriginalPartitions = new HashSet<>(nodePartitions.length);
         nodeActivePartitions = new HashSet<>(nodePartitions.length);
+        nodeInactivePartitions = ConcurrentHashMap.newKeySet();
         for (ClusterPartition partition : nodePartitions) {
             nodeOriginalPartitions.add(partition.getPartitionId());
             nodeActivePartitions.add(partition.getPartitionId());
@@ -391,7 +392,6 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
 
         if (isReplicationEnabled) {
             filesToBeReplicated = new HashSet<String>();
-            nodeInactivePartitions = ConcurrentHashMap.newKeySet();
         }
     }
 

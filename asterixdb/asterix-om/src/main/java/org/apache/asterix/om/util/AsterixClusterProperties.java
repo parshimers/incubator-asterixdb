@@ -336,6 +336,9 @@ public class AsterixClusterProperties {
 
         //collect the partitions of the failed NC
         List<ClusterPartition> lostPartitions = getNodeAssignedPartitions(failedNodeId);
+        List<String> logsToTakeover = new ArrayList<>();
+        //TODO:make this actually work and not be a stub for 1-node fail
+        logsToTakeover.add(failedNodeId);
         if (lostPartitions.size() > 0) {
             for (ClusterPartition partition : lostPartitions) {
                 //find a replica that is still active
@@ -369,7 +372,7 @@ public class AsterixClusterProperties {
                 Integer[] partitionsToTakeover = partitionRecoveryPlan.get(replica).toArray(new Integer[] {});
                 long requestId = clusterRequestId++;
                 TakeoverPartitionsRequestMessage takeoverRequest = new TakeoverPartitionsRequestMessage(requestId,
-                        replica, partitionsToTakeover, txnProps, storageProps);
+                        replica, partitionsToTakeover, logsToTakeover, storageProps);
                 pendingTakeoverRequests.put(requestId, takeoverRequest);
                 try {
                     messageBroker.sendApplicationMessageToNC(takeoverRequest, replica);

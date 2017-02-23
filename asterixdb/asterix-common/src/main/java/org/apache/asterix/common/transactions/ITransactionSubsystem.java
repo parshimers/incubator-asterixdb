@@ -21,6 +21,7 @@ package org.apache.asterix.common.transactions;
 import org.apache.asterix.common.config.AsterixStorageProperties;
 import org.apache.asterix.common.config.AsterixTransactionProperties;
 
+import java.util.List;
 import java.util.Set;
 
 public interface ITransactionSubsystem {
@@ -49,8 +50,7 @@ public interface ITransactionSubsystem {
 
     IAsterixAppRuntimeContextProvider getAsterixAppRuntimeContextProvider();
 
-    void addPartitions(Set<Integer> partitions, String fallenNodeId, AsterixStorageProperties storageProperties,
-            AsterixTransactionProperties txnProperties);
+    void addPartitions(Set<Integer> partitions, List<String> nodeLogsToTakeover, AsterixStorageProperties storageProperties);
 
     String getId();
 

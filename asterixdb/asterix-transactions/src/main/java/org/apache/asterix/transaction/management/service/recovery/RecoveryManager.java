@@ -545,7 +545,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             // sort the filenames lexicographically to keep the latest checkpointHistory files.
             Arrays.sort(prevCheckpointFiles);
             for (int i = 0; i < prevCheckpointFiles.length - this.checkpointHistory; ++i) {
-                ioManager.delete(new FileReference(prevCheckpointFiles[i]));
+                ioManager.delete(new FileReference(prevCheckpointFiles[i], FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL));
             }
         }
 
@@ -611,12 +611,12 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
     private long getRemoteMinFirstLSN() {
         IAsterixPropertiesProvider propertiesProvider = (IAsterixPropertiesProvider) txnSubsystem
                 .getAsterixAppRuntimeContextProvider().getAppContext();
-
+        long minRemoteLSN = 0l;
         Set<String> replicaIds = propertiesProvider.getReplicationProperties()
                 .getRemoteReplicasIds(txnSubsystem.getId());
-        IReplicaResourcesManager remoteResourcesManager = txnSubsystem.getAsterixAppRuntimeContextProvider()
-                .getAppContext().getReplicaResourcesManager();
-        long minRemoteLSN = remoteResourcesManager.getPartitionsMinLSN(localResourceRepository.getInactivePartitions());
+//        IReplicaResourcesManager remoteResourcesManager = txnSubsystem.getAsterixAppRuntimeContextProvider()
+//                .getAppContext().getReplicaResourcesManager();
+//        long minRemoteLSN = remoteResourcesManager.getPartitionsMinLSN(localResourceRepository.getInactivePartitions());
         return minRemoteLSN;
     }
 
@@ -632,13 +632,14 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         List<CheckpointObject> checkpointObjectList = new ArrayList<CheckpointObject>();
         for (String fileName : prevCheckpointFiles) {
             InputStream fis = null;
-            FileReference file = new FileReference(fileName);
+            LOGGER.info(fileName);
+            FileReference file = new FileReference(fileName, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
             IFileHandle fh = null;
             ObjectInputStream oisFromFis = null;
 
             try {
                 fh = ioManager.open(file, IIOManager.FileReadWriteMode.READ_ONLY,
-                        IIOManager.FileSyncMode.METADATA_SYNC_DATA_SYNC);
+                        IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
                 fis = ioManager.getInputStream(fh);
                 oisFromFis = new ObjectInputStream(fis);
                 checkpointObject = (CheckpointObject) oisFromFis.readObject();
@@ -646,7 +647,9 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             } catch (Exception e) {
                 throw new ACIDException("Failed to read a checkpoint file", e);
             } finally {
-                ioManager.close(fh);
+                if(fh != null) {
+                    ioManager.close(fh);
+                }
             }
         }
 
@@ -659,7 +662,8 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
 
     private String[] getPreviousCheckpointFiles() throws HyracksDataException {
         String logDir = ((LogManager) txnSubsystem.getLogManager(this)).getLogManagerProperties().getLogDir();
-        FileReference parentDir = new FileReference(logDir);
+        LOGGER.info(logDir);
+        FileReference parentDir = new FileReference(logDir, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
 
         FilenameFilter filter = new FilenameFilter() {
             @Override
@@ -688,7 +692,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         }
 
         FileReference jobRecoveryFileReference = new FileReference(
-                jobRecoveryFolder.getPath() + File.separator + fileName);
+                jobRecoveryFolder.getPath() + File.separator + fileName, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
         IFileHandle jobRecoveryFileHandle = null;
         if (!ioManager.exists(jobRecoveryFileReference)) {
             jobRecoveryFileHandle = ioManager.open(jobRecoveryFileReference, IIOManager.FileReadWriteMode.READ_WRITE,

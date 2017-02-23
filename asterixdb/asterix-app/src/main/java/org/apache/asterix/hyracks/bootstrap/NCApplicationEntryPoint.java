@@ -126,13 +126,13 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
             if (replicationEnabled && !virtualNC) {
                 if (systemState == SystemState.NEW_UNIVERSE || systemState == SystemState.CORRUPTED) {
                     //Try to perform remote recovery
-                    IRemoteRecoveryManager remoteRecoveryMgr = runtimeContext.getRemoteRecoveryManager();
+//                    IRemoteRecoveryManager remoteRecoveryMgr = runtimeContext.getRemoteRecoveryManager();
                     if (autoFailover) {
-                        remoteRecoveryMgr.startFailbackProcess();
+//                        remoteRecoveryMgr.startFailbackProcess();
                         systemState = SystemState.RECOVERING;
                         pendingFailbackCompletion = true;
                     } else {
-                        remoteRecoveryMgr.performRemoteRecovery();
+//                        remoteRecoveryMgr.performRemoteRecovery();
                         systemState = SystemState.HEALTHY;
                     }
                 }
@@ -157,13 +157,13 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
 
     private void startReplicationService() {
         //Open replication channel
-        runtimeContext.getReplicationChannel().start();
+//        runtimeContext.getReplicationChannel().start();
 
         //Check the state of remote replicas
-        runtimeContext.getReplicationManager().initializeReplicasState();
+//        runtimeContext.getReplicationManager().initializeReplicasState();
 
         //Start replication after the state of remote replicas has been initialized.
-        runtimeContext.getReplicationManager().startReplicationThreads();
+//        runtimeContext.getReplicationManager().startReplicationThreads();
     }
 
     @Override
