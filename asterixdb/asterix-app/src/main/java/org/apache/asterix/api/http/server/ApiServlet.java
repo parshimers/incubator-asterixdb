@@ -56,11 +56,11 @@ import org.apache.hyracks.client.dataset.HyracksDataset;
 import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
 import org.apache.hyracks.http.server.AbstractServlet;
+import org.apache.hyracks.http.server.StaticResourceServlet;
 import org.apache.hyracks.http.server.utils.HttpUtil;
 import org.apache.hyracks.http.server.utils.HttpUtil.ContentType;
 import org.apache.hyracks.http.server.utils.HttpUtil.Encoding;
 
-import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
 
 public class ApiServlet extends AbstractServlet {
@@ -83,7 +83,8 @@ public class ApiServlet extends AbstractServlet {
         this.componentProvider = componentProvider;
     }
 
-    public void doPost(IServletRequest request, IServletResponse response) {
+    @Override
+    protected void post(IServletRequest request, IServletResponse response) {
         // Query language
         ILangCompilationProvider compilationProvider = "AQL".equals(request.getParameter("query-language"))
                 ? aqlCompilationProvider : sqlppCompilationProvider;
@@ -157,7 +158,8 @@ public class ApiServlet extends AbstractServlet {
         }
     }
 
-    public void doGet(IServletRequest request, IServletResponse response) {
+    @Override
+    protected void get(IServletRequest request, IServletResponse response) {
         String resourcePath = null;
         String requestURI = request.getHttpRequest().uri();
 
@@ -189,7 +191,7 @@ public class ApiServlet extends AbstractServlet {
                 outputStream.close();
                 return;
             }
-            String type = HttpUtil.mime(QueryWebInterfaceServlet.extension(resourcePath));
+            String type = HttpUtil.mime(StaticResourceServlet.extension(resourcePath));
             HttpUtil.setContentType(response, "".equals(type) ? HttpUtil.ContentType.TEXT_PLAIN : type,
                     HttpUtil.Encoding.UTF8);
             writeOutput(response, is, resourcePath);
@@ -226,17 +228,4 @@ public class ApiServlet extends AbstractServlet {
     private static boolean isSet(String requestParameter) {
         return requestParameter != null && "true".equals(requestParameter);
     }
-
-    @Override
-    public void handle(IServletRequest request, IServletResponse response) {
-        response.setStatus(HttpResponseStatus.OK);
-        if (request.getHttpRequest().method() == HttpMethod.GET) {
-            doGet(request, response);
-        } else if (request.getHttpRequest().method() == HttpMethod.POST) {
-            doPost(request, response);
-        } else {
-            response.setStatus(HttpResponseStatus.METHOD_NOT_ALLOWED);
-        }
-    }
-
 }
