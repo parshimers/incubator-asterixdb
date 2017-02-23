@@ -113,12 +113,11 @@ public class NCService {
 
     private static boolean is64Bit() {
         String prop = System.getProperty("sun.arch.data.model");
-        if(prop == null || prop.equals("unknown")) {
+        if (prop == null || prop.equals("unknown")) {
             //assert true if the property is null, this check mainly is to avoid a specific default behavior
             //where a 32 bit JVM is run on a 64 bit OS which has a lot of available RAM
             return true;
-        }
-        else{
+        } else {
             return prop.equals("64");
         }
     }
@@ -134,11 +133,9 @@ public class NCService {
             } else {
                 LOGGER.info("Using default JAVA_OPTS");
                 long ramSize = ((com.sun.management.OperatingSystemMXBean) osMXBean).getTotalPhysicalMemorySize();
-                if (is64Bit()) {
-                    jvmargs = "-Xmx" + (int) Math.ceil(0.6 * ramSize / (1024 * 1024)) + "m";
-                } else {
-                    jvmargs = "-Xmx" + Math.min((int) Math.ceil(0.6 * ramSize / (1024 * 1024)), 1024) + "m";
-                }
+                int proportionalRamSize = (int) Math.ceil(0.6 * ramSize / (1024 * 1024));
+                int heapSize = is64Bit() ? proportionalRamSize : (proportionalRamSize <= 1024 ? proportionalRamSize : 1024);
+                jvmargs = "-Xmx" + heapSize + "m";
             }
         }
         env.put("JAVA_OPTS", jvmargs);
