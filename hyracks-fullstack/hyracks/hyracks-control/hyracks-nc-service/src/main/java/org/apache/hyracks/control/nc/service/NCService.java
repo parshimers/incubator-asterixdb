@@ -113,12 +113,12 @@ public class NCService {
 
     private static boolean is64Bit() {
         String prop = System.getProperty("sun.arch.data.model");
-        if (prop == null || prop.equals("unknown")) {
+        if (prop == null || "unknown".equals(prop)) {
             //assert true if the property is null, this check mainly is to avoid a specific default behavior
             //where a 32 bit JVM is run on a 64 bit OS which has a lot of available RAM
             return true;
         } else {
-            return prop.equals("64");
+            return "64".equals("prop");
         }
     }
 
@@ -134,7 +134,8 @@ public class NCService {
                 LOGGER.info("Using default JAVA_OPTS");
                 long ramSize = ((com.sun.management.OperatingSystemMXBean) osMXBean).getTotalPhysicalMemorySize();
                 int proportionalRamSize = (int) Math.ceil(0.6 * ramSize / (1024 * 1024));
-                int heapSize = is64Bit() ? proportionalRamSize : (proportionalRamSize <= 1024 ? proportionalRamSize : 1024);
+                int heapSize = is64Bit() ? proportionalRamSize
+                        : (proportionalRamSize <= 1024 ? proportionalRamSize : 1024);
                 jvmargs = "-Xmx" + heapSize + "m";
             }
         }
@@ -145,7 +146,7 @@ public class NCService {
     /**
      * Attempts to launch the "real" NCDriver, based on the configuration
      * information gathered so far.
-     * 
+     *
      * @return true if the process was successfully launched and has now
      *         exited with a 0 (normal) exit code. false if some configuration error
      *         prevented the process from being launched or the process returned
@@ -166,10 +167,8 @@ public class NCService {
             if (!"-".equals(config.logdir)) {
                 pb.redirectErrorStream(true);
                 File log = new File(config.logdir);
-                if (!log.mkdirs()) {
-                    if (!log.isDirectory()) {
-                        throw new IOException(config.logdir + ": cannot create");
-                    }
+                if (!log.mkdirs() || !log.isDirectory()) {
+                    throw new IOException(config.logdir + ": cannot create");
                     // If the directory IS there, all is well
                 }
                 File logfile = new File(config.logdir, "nc-" + ncId + ".log");
