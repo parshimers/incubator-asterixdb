@@ -111,17 +111,6 @@ public class NCService {
         return cList;
     }
 
-    private static boolean is64Bit() {
-        String prop = System.getProperty("sun.arch.data.model");
-        if (prop == null || "unknown".equals(prop)) {
-            //assert true if the property is null, this check mainly is to avoid a specific default behavior
-            //where a 32 bit JVM is run on a 64 bit OS which has a lot of available RAM
-            return true;
-        } else {
-            return "64".equals("prop");
-        }
-    }
-
     private static void configEnvironment(Map<String, String> env) {
         String jvmargs = IniUtils.getString(ini, nodeSection, "jvm.args", null);
         if (jvmargs != null) {
@@ -134,8 +123,9 @@ public class NCService {
                 LOGGER.info("Using default JAVA_OPTS");
                 long ramSize = ((com.sun.management.OperatingSystemMXBean) osMXBean).getTotalPhysicalMemorySize();
                 int proportionalRamSize = (int) Math.ceil(0.6 * ramSize / (1024 * 1024));
-                int heapSize = is64Bit() ? proportionalRamSize
-                        : (proportionalRamSize <= 1024 ? proportionalRamSize : 1024);
+                //if under 32bit JVM, use less than 1GB heap by default. otherwise use proportional ramsize.
+                int heapSize = "32".equals(System.getProperty("sun.arch.data.model"))
+                        ? (proportionalRamSize <= 1024 ? proportionalRamSize : 1024) : proportionalRamSize;
                 jvmargs = "-Xmx" + heapSize + "m";
             }
         }
