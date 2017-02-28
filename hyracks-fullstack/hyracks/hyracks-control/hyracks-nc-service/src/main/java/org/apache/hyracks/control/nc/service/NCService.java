@@ -157,7 +157,7 @@ public class NCService {
             if (!"-".equals(config.logdir)) {
                 pb.redirectErrorStream(true);
                 File log = new File(config.logdir);
-                if (!log.mkdirs() || !log.isDirectory()) {
+                if (!log.mkdirs() && !log.isDirectory()) {
                     throw new IOException(config.logdir + ": cannot create");
                     // If the directory IS there, all is well
                 }
