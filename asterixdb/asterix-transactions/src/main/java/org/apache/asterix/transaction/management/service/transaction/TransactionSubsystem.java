@@ -184,7 +184,7 @@ public class TransactionSubsystem implements ITransactionSubsystem {
         partitionToLoggerMap.put(partitions,
                 new Triple<>(surrogateLogManager, surrogateRecoveryManager, surrogateCheckpointThread));
         try {
-            surrogateRecoveryManager.startRecovery(true);
+            surrogateRecoveryManager.startRecovery(true,partitions);
         } catch (IOException e) {
             e.printStackTrace();
         } catch (ACIDException e) {

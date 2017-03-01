@@ -62,6 +62,7 @@ import org.apache.hyracks.control.nc.io.FileHandle;
 import org.apache.hyracks.storage.am.common.api.IIndex;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
+import org.apache.hyracks.storage.am.lsm.btree.impls.LSMBTree;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
 import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndex;
@@ -189,6 +190,25 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         //get active partitions on this node
         Set<Integer> activePartitions = localResourceRepository.getNodeOrignalPartitions();
         replayPartitionsLogs(activePartitions, logMgr.getLogReader(true), lowWaterMarkLSN);
+    }
+
+    @Override
+    public void startRecovery(boolean synchronous, Set<Integer> partitionsToRecover) throws IOException, ACIDException {
+        state = SystemState.RECOVERING;
+        LOGGER.log(Level.INFO, "starting recovery ...");
+
+        long readableSmallestLSN = logMgr.getReadableSmallestLSN();
+        CheckpointObject checkpointObject = readCheckpoint();
+        long lowWaterMarkLSN = checkpointObject.getMinMCTFirstLsn();
+        if (lowWaterMarkLSN < readableSmallestLSN) {
+            lowWaterMarkLSN = readableSmallestLSN;
+        }
+
+        //delete any recovery files from previous failed recovery attempts
+        deleteRecoveryTemporaryFiles();
+
+        //get active partitions on this node
+        replayPartitionsLogs(partitionsToRecover, logMgr.getLogReader(true), lowWaterMarkLSN);
     }
 
     @Override
@@ -327,7 +347,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             logRecord = logReader.next();
             while (logRecord != null) {
                 if (IS_DEBUG_MODE) {
-                    LOGGER.info(logRecord.getLogRecordForDisplay());
+//                    LOGGER.info(logRecord.getLogRecordForDisplay());
                 }
                 LSN = logRecord.getLSN();
                 jobId = logRecord.getJobId();
@@ -377,6 +397,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                                         + localResource.getResourceName();
                                 localResource.setResourcePath(resourceAbsolutePath);
                                 index = (ILSMIndex) datasetLifecycleManager.getIndex(resourceAbsolutePath);
+                                LOGGER.info(resourceAbsolutePath.toString());
                                 if (index == null) {
                                     //#. create index instance and register to indexLifeCycleManager
                                     localResourceMetadata = (ILocalResourceMetadata) localResource.getResourceObject();
@@ -406,6 +427,9 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                                 if (LSN > maxDiskLastLsn) {
                                     redo(logRecord, datasetLifecycleManager);
                                     redoCount++;
+                                }
+                                else{
+                                    LOGGER.info(LSN + "," +maxDiskLastLsn);
                                 }
                             }
                         }

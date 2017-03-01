@@ -109,6 +109,8 @@ public interface IRecoveryManager {
      */
     public long getLocalMinFirstLSN() throws HyracksDataException;
 
+    void startRecovery(boolean synchronous, Set<Integer> partitionsToRecover) throws IOException, ACIDException;
+
     /**
      * Replay the logs that belong to the passed {@code partitions} starting from the {@code lowWaterMarkLSN}
      *
