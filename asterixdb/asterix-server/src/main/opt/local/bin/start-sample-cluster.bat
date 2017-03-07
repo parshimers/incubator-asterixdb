@@ -71,7 +71,7 @@ if NOT EXIST "%LOGSDIR%" (
 call "%INSTALLDIR%\bin\${HELPER_COMMAND}" get_cluster_state -quiet
 
 IF %ERRORLEVEL% EQU 0 (
-  echo ERROR: sample cluster address [localhost:19002] already in use
+  echo ERROR: sample cluster address [localhost:${LISTEN_PORT}] already in use
   goto :ERROR
 )
 set tempfile=%TEMP%\start-sample-cluster-%random%
@@ -116,7 +116,7 @@ call :timestamp "%LOGSDIR%\cc.log"
 
 start /MIN "blue-nc" cmd /c "echo See output in %LOGSDIR%\blue-service.log && "%INSTALLDIR%\bin\${NC_SERVICE_COMMAND}" -logdir - -config-file "%CLUSTERDIR%\conf\blue.conf" >> "%LOGSDIR%\blue-service.log" 2>&1"
 start /MIN "red-nc" cmd /c "echo See output in %LOGSDIR%\red-service.log && "%INSTALLDIR%\bin\${NC_SERVICE_COMMAND}" -logdir - >> "%LOGSDIR%\red-service.log" 2>&1"
-start /MIN "cc" cmd /c "echo See output in %LOGSDIR%\cc.log && "%INSTALLDIR%\bin\asterixcc" -config-file "%CLUSTERDIR%\conf\cc.conf" >>"%LOGSDIR%\cc.log" 2>&1"
+start /MIN "cc" cmd /c "echo See output in %LOGSDIR%\cc.log && "%INSTALLDIR%\bin\${CC_COMMAND}" -config-file "%CLUSTERDIR%\conf\cc.conf" >>"%LOGSDIR%\cc.log" 2>&1"
 
 echo.
 call "%INSTALLDIR%\bin\${HELPER_COMMAND}" wait_for_cluster -timeout 30
