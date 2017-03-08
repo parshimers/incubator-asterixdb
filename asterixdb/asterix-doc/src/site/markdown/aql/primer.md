@@ -326,9 +326,6 @@ of the data instances will be stored separately from their associated field name
         {"messageId":15,"authorId":7,"inResponseTo":11,"senderLocation":point("44.47,67.11"),"message":" like iphone the voicemail-service is awesome"}
         ]);
 
-Data can also be loaded faster into AsterixDB via the LOAD statement, e.g. for large files. See the section titled "Import/Export Statements" in the
-full AQL [manual](../aql/manual.html).
-
 ## AQL: Querying Your AsterixDB Data ##
 Congratulations! You now have sample social data stored (and indexed) in AsterixDB.
 (You are part of an elite and adventurous group of individuals. :-))
