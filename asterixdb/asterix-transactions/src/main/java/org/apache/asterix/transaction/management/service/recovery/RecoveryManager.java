@@ -59,6 +59,7 @@ import org.apache.hyracks.api.io.IFileHandle;
 import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.api.lifecycle.ILifeCycleComponent;
 import org.apache.hyracks.control.nc.io.FileHandle;
+import org.apache.hyracks.control.nc.io.HDFSFileHandle;
 import org.apache.hyracks.storage.am.common.api.IIndex;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
@@ -210,6 +211,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         //get active partitions on this node
         replayPartitionsLogs(partitionsToRecover, logMgr.getLogReader(true), lowWaterMarkLSN);
     }
+
 
     @Override
     public synchronized void replayPartitionsLogs(Set<Integer> partitions, ILogReader logReader, long lowWaterMarkLSN)
@@ -433,6 +435,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                                 }
                             }
                         }
+                        LOGGER.info("log partiton: "+logRecord.getResourcePartition()+"not in partition list");
                         break;
                     case LogType.JOB_COMMIT:
                     case LogType.ENTITY_COMMIT:
@@ -720,7 +723,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         IFileHandle jobRecoveryFileHandle = null;
         if (!ioManager.exists(jobRecoveryFileReference)) {
             jobRecoveryFileHandle = ioManager.open(jobRecoveryFileReference, IIOManager.FileReadWriteMode.READ_WRITE,
-                    IIOManager.FileSyncMode.METADATA_SYNC_DATA_SYNC);
+                    IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
         } else {
             throw new IOException("File: " + fileName + " for job id(" + jobId + ") already exists");
         }
@@ -1028,7 +1031,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             ArrayList<IFileHandle> candidiatePartitions = new ArrayList<>();
 
             for (IFileHandle partition : jobEntitCommitOnDiskPartitionsFiles) {
-                String partitionName = (((FileHandle)partition).getFileReference()).getName();
+                String partitionName = (((HDFSFileHandle)partition).getFileReference()).getName();
                 //entity commit log must come after the update log, therefore, consider only partitions with max LSN > logLSN 
                 if (getPartitionMaxLSNFromName(partitionName) > logLSN) {
                     candidiatePartitions.add(partition);

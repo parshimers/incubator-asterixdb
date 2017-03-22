@@ -93,7 +93,7 @@ public class IOHDFSSubSystem implements IIOSubSystem {
         ArrayList<String> files = new ArrayList<>();
         FileStatus[] fileStatuses = fs.listStatus(new Path(uri.toString() + fileRef.getPath()));
         for(FileStatus fileStatus: fileStatuses){
-            if(filter.accept(new File(Path.getPathWithoutSchemeAndAuthority(fileStatus.getPath().getParent()).toString()),fileStatus.getPath().getName()) && fileStatus.isFile()) {
+            if(filter.accept(new File(Path.getPathWithoutSchemeAndAuthority(fileStatus.getPath().getParent()).toString()),fileStatus.getPath().getName())) {
                 files.add((Path.getPathWithoutSchemeAndAuthority(fileStatus.getPath()).toString()));
             }
         }

@@ -185,7 +185,7 @@ public class AsterixAppRuntimeContext implements IAsterixAppRuntimeContext, IAst
         SystemState systemState = recoveryMgr.getSystemState();
         if (initialRun || systemState == SystemState.NEW_UNIVERSE) {
             //delete any storage data before the resource factory is initialized
-            localResourceRepository.deleteStorageData(true);
+//            localResourceRepository.deleteStorageData(true);
         }
         initializeResourceIdFactory();
 

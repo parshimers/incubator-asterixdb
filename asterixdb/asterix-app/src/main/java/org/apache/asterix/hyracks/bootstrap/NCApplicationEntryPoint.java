@@ -121,39 +121,14 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("System is in a state: " + systemState);
             }
-
-            //do not attempt to perform remote recovery if this is a virtual NC
-            if (replicationEnabled && !virtualNC) {
-                if (systemState == SystemState.NEW_UNIVERSE || systemState == SystemState.CORRUPTED) {
-                    //Try to perform remote recovery
-//                    IRemoteRecoveryManager remoteRecoveryMgr = runtimeContext.getRemoteRecoveryManager();
-                    if (autoFailover) {
-//                        remoteRecoveryMgr.startFailbackProcess();
-                        systemState = SystemState.RECOVERING;
-                        pendingFailbackCompletion = true;
-                    } else {
-//                        remoteRecoveryMgr.performRemoteRecovery();
-                        systemState = SystemState.HEALTHY;
-                    }
-                }
-            } else {
-                //recover if the system is corrupted by checking system state.
-                if (systemState == SystemState.CORRUPTED) {
-                    recoveryMgr.startRecovery(true);
-                }
+            if (systemState == SystemState.NEW_UNIVERSE || systemState == SystemState.CORRUPTED) {
+                //Try to perform remote recovery
+                systemState = SystemState.RECOVERING;
+                pendingFailbackCompletion = true;
             }
         }
-
-        /**
-         * if the node pending failback completion, the replication channel
-         * should not be opened to avoid other nodes connecting to it before
-         * the node completes its failback. CC will notify other replicas once
-         * this node is ready to receive replication requests.
-         */
-        if (replicationEnabled && !pendingFailbackCompletion) {
-            startReplicationService();
-        }
     }
+
 
     private void startReplicationService() {
         //Open replication channel

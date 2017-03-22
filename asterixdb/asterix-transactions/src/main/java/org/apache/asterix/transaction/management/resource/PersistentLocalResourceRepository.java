@@ -46,6 +46,7 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.api.io.IFileHandle;
 import org.apache.hyracks.api.io.IIOManager;
+import org.apache.hyracks.control.nc.io.IOManager;
 import org.apache.hyracks.dataflow.common.comm.util.ByteBufferInputStream;
 import org.apache.hyracks.storage.common.file.ILocalResourceRepository;
 import org.apache.hyracks.storage.common.file.LocalResource;
@@ -79,7 +80,7 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
     private Set<Integer> nodeInactivePartitions;
 
     public PersistentLocalResourceRepository(List<IODeviceHandle> devices, String nodeId,
-            AsterixMetadataProperties metadataProperties, IIOManager ioManager) throws HyracksDataException {
+                                             AsterixMetadataProperties metadataProperties, IIOManager ioManager) throws HyracksDataException {
         mountPoints = new String[devices.size()];
         this.ioManager = ioManager;
         this.nodeId = nodeId;
@@ -131,11 +132,13 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
             FileReference storageMetadataFile = getStorageMetadataFile(mountPoints[i], nodeId, i);
             FileReference storageMetadataDir = ioManager.getParent(storageMetadataFile);
             //make dirs for the storage metadata file
-            boolean success = ioManager.mkdirs(storageMetadataDir);
-            if (!success) {
-                throw new IllegalStateException(
-                        "Unable to create storage metadata directory of PersistentLocalResourceRepository in "
-                                + storageMetadataDir.getAbsolutePath() + " or directory already exists");
+            if (!ioManager.exists(storageMetadataDir)) {
+                boolean success = ioManager.mkdirs(storageMetadataDir);
+                if (!success) {
+                    throw new IllegalStateException(
+                            "Unable to create storage metadata directory of PersistentLocalResourceRepository in "
+                                    + storageMetadataDir.getAbsolutePath() + " or directory already exists");
+                }
             }
 
             LOGGER.log(Level.INFO,
@@ -178,7 +181,7 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
                 FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
         if (ioManager.exists(resourceFile)) {
             throw new HyracksDataException("Duplicate resource: " + resourceFile.getAbsolutePath());
-        } else {
+        } else if (!ioManager.exists(ioManager.getParent(resourceFile))){
             ioManager.mkdirs(ioManager.getParent(resourceFile));
         }
 
@@ -193,18 +196,10 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
             oosToFos = new ObjectOutputStream(fos);
             oosToFos.writeObject(resource);
             oosToFos.flush();
-            FileReference file = new FileReference(getFileName(resource.getResourceName(), resource.getResourceId()),
-                    FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
-            if (ioManager.exists(file)) {
-                ioManager.delete(file);
-            }
-            IFileHandle fh = ioManager.open(file, IIOManager.FileReadWriteMode.READ_WRITE,
+            IFileHandle fh = ioManager.open(resourceFile, IIOManager.FileReadWriteMode.READ_WRITE,
                     IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
-            ioManager.close(fh);
-            fh = ioManager.open(file, IIOManager.FileReadWriteMode.READ_WRITE,
-                    IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
-            getFileName(resource.getResourceName(), resource.getResourceId());
             ioManager.append(fh, ByteBuffer.wrap(fos.toByteArray()));
+            ioManager.sync(fh, true);
             ioManager.close(fh);
 
         } catch (IOException e) {
@@ -212,10 +207,6 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         }
 
         //if replication enabled, send resource metadata info to remote nodes
-        if (isReplicationEnabled && resource.getResourceId() != STORAGE_LOCAL_RESOURCE_ID) {
-            String filePath = getFileName(resource.getResourcePath(), resource.getResourceId());
-            createReplicationJob(ReplicationOperation.REPLICATE, filePath);
-        }
     }
 
     @Override
@@ -253,11 +244,9 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
             //load all local resources that belong to us.
             List<String> partitions = new ArrayList<>(
                     Arrays.asList(ioManager.listFiles(storageRootDir, NOOP_FILES_FILTER)));
-            for (String candidatePart : partitions) {
-                for (Integer activePart : nodeActivePartitions) {
-                    if (!candidatePart.split("_")[1].equals(activePart)) {
+            for (String candidatePart : Arrays.asList(ioManager.listFiles(storageRootDir,NOOP_FILES_FILTER))) {
+                if(!nodeActivePartitions.contains(Integer.parseInt(candidatePart.split("_")[1]))){
                         partitions.remove(candidatePart);
-                    }
                 }
             }
             for (String sPartition : partitions) {
@@ -476,11 +465,8 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         if (ioManager.exists(storageMetadataFile)) {
             LocalResource rootLocalResource = readLocalResource(storageMetadataFile);
             String storageRootDirPath = (String) rootLocalResource.getResourceObject();
-            Path path = Paths.get(storageRootDirPath);
-            if (Files.exists(path)) {
-                storageRootDir = new FileReference(storageRootDirPath,
-                        FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
-            }
+            storageRootDir = new FileReference(storageRootDirPath,
+                    FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
         }
         return storageRootDir;
     }
