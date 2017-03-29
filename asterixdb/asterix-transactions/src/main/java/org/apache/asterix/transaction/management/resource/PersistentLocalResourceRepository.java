@@ -35,6 +35,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.UnmodifiableIterator;
 import org.apache.asterix.common.cluster.ClusterPartition;
 import org.apache.asterix.common.config.AsterixMetadataProperties;
 import org.apache.asterix.common.replication.AsterixReplicationJob;
@@ -75,7 +77,7 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
     private Set<String> filesToBeReplicated;
     private IIOManager ioManager;
     private final SortedMap<Integer, ClusterPartition> clusterPartitions;
-    private final Set<Integer> nodeOriginalPartitions;
+    public final Set<Integer> nodeOriginalPartitions;
     private final Set<Integer> nodeActivePartitions;
     private Set<Integer> nodeInactivePartitions;
 

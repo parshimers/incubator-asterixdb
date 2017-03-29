@@ -728,12 +728,10 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
     }
 
     @Override public void openFile(int fileId) throws HyracksDataException {
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Opening file: " + fileId + " in cache: " + this);
-        }
         synchronized (fileInfoMap) {
             BufferedFileHandle fInfo;
             fInfo = fileInfoMap.get(fileId);
+
             if (fInfo == null) {
 
                 // map is full, make room by cleaning up unreferenced files
@@ -768,6 +766,9 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
                         IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
                 fInfo = new BufferedFileHandle(fileId, fh, fileRef.type != FileReference.FileReferenceType.LOCAL);
                 fileInfoMap.put(fileId, fInfo);
+                if (LOGGER.isLoggable(Level.INFO)) {
+                    LOGGER.info("Opening file: " + fileId + " in cache: " + fInfo.getFileHandle().toString());
+                }
             }
             fInfo.incReferenceCount();
         }

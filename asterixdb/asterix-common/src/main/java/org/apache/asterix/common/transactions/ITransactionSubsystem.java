@@ -52,6 +52,8 @@ public interface ITransactionSubsystem {
 
     void addPartitions(Set<Integer> partitions, List<String> nodeLogsToTakeover, AsterixStorageProperties storageProperties);
 
+    void removePartitions(Set<Integer> partitions);
+
     String getId();
 
 }

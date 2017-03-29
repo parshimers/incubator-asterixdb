@@ -168,6 +168,7 @@ public class TransactionSubsystem implements ITransactionSubsystem {
 
     @Override
     public void addPartitions(Set<Integer> partitions, List<String> logsToTakeover, AsterixStorageProperties storageProperties) {
+        //TODO: takes 1st isnt handling double-failover
         PersistentLocalResourceRepository resourceRepository = (PersistentLocalResourceRepository) asterixAppRuntimeContextProvider
                 .getLocalResourceRepository();
         for(Integer i: partitions) {
@@ -188,6 +189,20 @@ public class TransactionSubsystem implements ITransactionSubsystem {
         } catch (IOException e) {
             e.printStackTrace();
         } catch (ACIDException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    @Override
+    public void removePartitions(Set<Integer> partitions){
+
+        Triple<LogManager,RecoveryManager,CheckpointThread> t = partitionToLoggerMap.get(partitions);
+        try {
+            t.second.stop(false, null);
+            t.first.stop(false, null);
+            t.third.interrupt();
+        }catch (IOException e){
             e.printStackTrace();
         }
 

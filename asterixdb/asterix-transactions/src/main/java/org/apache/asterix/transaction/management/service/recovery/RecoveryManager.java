@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.FileAttribute;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -37,6 +38,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.google.common.io.Files;
 import org.apache.asterix.common.api.IDatasetLifecycleManager;
 import org.apache.asterix.common.api.ILocalResourceMetadata;
 import org.apache.asterix.common.cluster.ClusterPartition;
@@ -77,7 +79,7 @@ import org.apache.hyracks.storage.common.file.LocalResource;
  */
 public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
 
-    public static final boolean IS_DEBUG_MODE = true;//true
+    public static final boolean IS_DEBUG_MODE = false;//true
     private static final Logger LOGGER = Logger.getLogger(RecoveryManager.class.getName());
     private final TransactionSubsystem txnSubsystem;
     private final LogManager logMgr;
@@ -91,6 +93,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
     private Map<Integer, JobEntityCommits> jobId2WinnerEntitiesMap = null;
     private static final long MAX_CACHED_ENTITY_COMMITS_PER_JOB_SIZE = 4 * MEGABYTE; //4MB;
     private final PersistentLocalResourceRepository localResourceRepository;
+    private File jobRecoveryFolder;
 
     /**
      * A file at a known location that contains the LSN of the last log record
@@ -109,6 +112,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
 //        this.replicationEnabled = propertiesProvider.getReplicationProperties().isReplicationEnabled();
         this.localResourceRepository = (PersistentLocalResourceRepository) txnSubsystem
                 .getAsterixAppRuntimeContextProvider().getLocalResourceRepository();
+        jobRecoveryFolder = Files.createTempDir();
     }
 
     /**
@@ -435,7 +439,6 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                                 }
                             }
                         }
-                        LOGGER.info("log partiton: "+logRecord.getResourcePartition()+"not in partition list");
                         break;
                     case LogType.JOB_COMMIT:
                     case LogType.ENTITY_COMMIT:
@@ -709,25 +712,10 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         return baseDir + CHECKPOINT_FILENAME_PREFIX + suffix;
     }
 
-    @Override
-    public IFileHandle createJobRecoveryFile(int jobId, String fileName) throws IOException {
-        String recoveryDirPath = getRecoveryDirPath();
-        FileReference jobRecoveryFolder = new FileReference(recoveryDirPath + File.separator + jobId,
-                FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
-        if (!ioManager.exists(jobRecoveryFolder)) {
-            ioManager.mkdirs(jobRecoveryFolder);
-        }
-
-        FileReference jobRecoveryFileReference = new FileReference(
-                jobRecoveryFolder.getPath() + File.separator + fileName, FileReference.FileReferenceType.DISTRIBUTED_IF_AVAIL);
-        IFileHandle jobRecoveryFileHandle = null;
-        if (!ioManager.exists(jobRecoveryFileReference)) {
-            jobRecoveryFileHandle = ioManager.open(jobRecoveryFileReference, IIOManager.FileReadWriteMode.READ_WRITE,
-                    IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
-        } else {
-            throw new IOException("File: " + fileName + " for job id(" + jobId + ") already exists");
-        }
-        return jobRecoveryFileHandle;
+    public File createJobRecoveryFile(int jobId, String fileName) throws IOException {
+        File jobRecoveryFileReference = new File(
+                jobRecoveryFolder.getPath() + File.separator + fileName);
+        return jobRecoveryFileReference;
     }
 
     @Override
@@ -950,7 +938,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         private static final String PARTITION_FILE_NAME_SEPARATOR = "_";
         private final int jobId;
         private final Set<TxnId> cachedEntityCommitTxns = new HashSet<TxnId>();
-        private final List<IFileHandle> jobEntitCommitOnDiskPartitionsFiles = new ArrayList<>();
+        private final List<File> jobEntitCommitOnDiskPartitionsFiles = new ArrayList<File>();
         //a flag indicating whether all the the commits for this jobs have been added.
         private boolean preparedForSearch = false;
         private TxnId winnerEntity = null;
@@ -1013,8 +1001,8 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                 return cachedEntityCommitTxns.contains(txnId);
             } else {
                 //get candidate partitions from disk
-                ArrayList<IFileHandle> candidatePartitions = getCandidiatePartitions(logLSN);
-                for (IFileHandle partition : candidatePartitions) {
+                ArrayList<File> candidatePartitions = getCandidiatePartitions(logLSN);
+                for (File partition : candidatePartitions) {
                     if (serachPartition(partition, txnId)) {
                         return true;
                     }
@@ -1027,11 +1015,10 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
          * @param logLSN
          * @return partitions that have a max LSN > logLSN
          */
-        public ArrayList<IFileHandle> getCandidiatePartitions(long logLSN) {
-            ArrayList<IFileHandle> candidiatePartitions = new ArrayList<>();
-
-            for (IFileHandle partition : jobEntitCommitOnDiskPartitionsFiles) {
-                String partitionName = (((HDFSFileHandle)partition).getFileReference()).getName();
+        public ArrayList<File> getCandidiatePartitions(long logLSN) {
+            ArrayList<File> candidiatePartitions = new ArrayList<File>();
+            for (File partition : jobEntitCommitOnDiskPartitionsFiles) {
+                String partitionName = partition.getName();
                 //entity commit log must come after the update log, therefore, consider only partitions with max LSN > logLSN 
                 if (getPartitionMaxLSNFromName(partitionName) > logLSN) {
                     candidiatePartitions.add(partition);
@@ -1041,21 +1028,19 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             return candidiatePartitions;
         }
 
-        public void clear() throws HyracksDataException {
+        public void clear() {
             cachedEntityCommitTxns.clear();
-            for (IFileHandle partition : jobEntitCommitOnDiskPartitionsFiles) {
-                ioManager.close(partition);
-                ioManager.delete(((FileHandle)partition).getFileReference());
+            for (File partition : jobEntitCommitOnDiskPartitionsFiles) {
+                partition.delete();
             }
             jobEntitCommitOnDiskPartitionsFiles.clear();
         }
 
-        private boolean serachPartition(IFileHandle partition, TxnId txnId) throws IOException {
+        private boolean serachPartition(File partition, TxnId txnId) throws IOException {
             //load partition from disk if it is not  already in memory
-            if (!((FileHandle)partition).getFileReference().getName().equals(currentPartitonName)) {
-
+            if (!partition.getName().equals(currentPartitonName)) {
                 loadPartitionToMemory(partition, cachedEntityCommitTxns);
-                currentPartitonName = ((FileHandle)partition).getFileReference().getName();
+                currentPartitonName = partition.getName();
             }
             return cachedEntityCommitTxns.contains(txnId);
         }
@@ -1082,21 +1067,27 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                 iterator.remove();
             }
             //name partition file based on job id and max lsn
-            IFileHandle partitionFileHandle = createJobRecoveryFile(jobId, getPartitionName(partitionMaxLSN));
+            File partitionFile = createJobRecoveryFile(jobId, getPartitionName(partitionMaxLSN));
             //write file to disk
-            ioManager.syncWrite(partitionFileHandle,0,buffer);
-            jobEntitCommitOnDiskPartitionsFiles.add(partitionFileHandle);
+            try (FileOutputStream fileOutputstream = new FileOutputStream(partitionFile, false);
+                    FileChannel fileChannel = fileOutputstream.getChannel()) {
+                buffer.flip();
+                while(buffer.hasRemaining()){
+                    fileChannel.write(buffer);
+                }
+            }
+            jobEntitCommitOnDiskPartitionsFiles.add(partitionFile);
         }
 
-        private void loadPartitionToMemory(IFileHandle partition, Set<TxnId> partitionTxn) throws IOException {
+        private void loadPartitionToMemory(File partition, Set<TxnId> partitionTxn) throws IOException {
             partitionTxn.clear();
             //if we don't have enough memory to a load partition, we will ask recovery manager to free memory
             if (needToFreeMemory()) {
                 freeJobsCachedEntities(jobId);
             }
-            ByteBuffer buffer = ByteBuffer.allocateDirect((int) ioManager.getSize(partition));
+            ByteBuffer buffer = ByteBuffer.allocateDirect((int) partition.length());
             //load partition to memory
-            try (InputStream is = ioManager.getInputStream(partition)){
+            try (InputStream is = new FileInputStream(partition)){
                 int readByte;
                 while ((readByte = is.read()) != -1) {
                     buffer.put((byte) readByte);

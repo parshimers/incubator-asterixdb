@@ -108,7 +108,7 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
             throws HyracksDataException, IndexException {
         String[] files = ioManager.listFiles(new FileReference(baseDir, FileReferenceType.DISTRIBUTED_IF_AVAIL), filter);
         for (String fileName : files) {
-            FileReference fileRef = new FileReference(baseDir + File.separator + fileName, FileReferenceType.DISTRIBUTED_IF_AVAIL);
+            FileReference fileRef = new FileReference(fileName, FileReferenceType.DISTRIBUTED_IF_AVAIL);
             if (treeFactory == null || isValidTreeIndex(treeFactory.createIndexInstance(fileRef))) {
                 allFiles.add(new ComparableFileName(fileRef));
             } else {

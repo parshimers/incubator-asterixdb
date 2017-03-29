@@ -18,6 +18,7 @@
  */
 package org.apache.asterix.common.transactions;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Set;
 
@@ -116,7 +117,6 @@ public interface IRecoveryManager {
      *
      * @param partitions
      * @param lowWaterMarkLSN
-     * @param failedNode
      * @throws IOException
      * @throws ACIDException
      */
@@ -132,7 +132,7 @@ public interface IRecoveryManager {
      * @throws IOException
      *             if the file for the specified {@code jobId} with the {@code fileName} already exists
      */
-    public IFileHandle createJobRecoveryFile(int jobId, String fileName) throws IOException;
+    public File createJobRecoveryFile(int jobId, String fileName) throws IOException;
 
     /**
      * Deletes all temporary recovery files

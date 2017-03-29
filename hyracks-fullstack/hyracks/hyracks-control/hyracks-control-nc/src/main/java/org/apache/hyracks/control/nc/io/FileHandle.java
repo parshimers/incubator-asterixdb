@@ -134,4 +134,10 @@ public class FileHandle implements IFileHandle, IFileHandleInternal {
     public InputStream getInputStream(){
         return Channels.newInputStream(raf.getChannel());
     }
+
+    @Override
+    public String toString(){
+        return fileRef.getAbsolutePath();
+    }
+
 }

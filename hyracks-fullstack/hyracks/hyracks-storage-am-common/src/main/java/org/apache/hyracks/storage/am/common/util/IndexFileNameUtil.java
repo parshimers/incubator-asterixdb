@@ -32,7 +32,9 @@ public class IndexFileNameUtil {
 
     public static FileReference getIndexAbsoluteFileRef(IIndexOperatorDescriptor opDesc, int partition, IIOManager ioManager){
         String indexName = opDesc.getFileSplitProvider().getFileSplits()[partition].getLocalFile().getPath();
+        System.out.println("Index Name: " + indexName);
         int ioDeviceId = opDesc.getFileSplitProvider().getFileSplits()[partition].getIODeviceId();
+        System.out.println("Index abs path: "+ioManager.getAbsoluteFileRef(ioDeviceId,indexName).getAbsolutePath());
         return ioManager.getAbsoluteFileRef(ioDeviceId, indexName);
     }
 }

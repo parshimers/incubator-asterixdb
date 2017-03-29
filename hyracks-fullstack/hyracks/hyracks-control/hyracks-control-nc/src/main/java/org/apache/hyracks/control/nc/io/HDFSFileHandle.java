@@ -179,4 +179,9 @@ public class HDFSFileHandle implements IFileHandle, IFileHandleInternal {
         return in;
     }
 
+    @Override
+    public String toString(){
+        return fileRef.getAbsolutePath();
+    }
+
 }

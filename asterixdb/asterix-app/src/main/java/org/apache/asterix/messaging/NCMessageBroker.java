@@ -41,10 +41,12 @@ import org.apache.asterix.common.messaging.api.INCMessageBroker;
 import org.apache.asterix.common.replication.IRemoteRecoveryManager;
 import org.apache.asterix.common.replication.Replica;
 import org.apache.asterix.common.replication.ReplicaEvent;
+import org.apache.asterix.common.transactions.ILogManager;
 import org.apache.asterix.common.transactions.ITransactionSubsystem;
 import org.apache.asterix.event.schema.cluster.Node;
 import org.apache.asterix.metadata.bootstrap.MetadataIndexImmutableProperties;
 import org.apache.asterix.transaction.management.resource.PersistentLocalResourceRepository;
+import org.apache.asterix.transaction.management.service.logging.LogManager;
 import org.apache.hyracks.api.messages.IMessage;
 import org.apache.hyracks.api.util.JavaSerializationUtils;
 import org.apache.hyracks.control.nc.NodeControllerService;
@@ -194,9 +196,12 @@ public class NCMessageBroker implements INCMessageBroker {
         //mark the partitions to be closed as inactive
         PersistentLocalResourceRepository localResourceRepo = (PersistentLocalResourceRepository) appContext
                 .getLocalResourceRepository();
-////        for (Integer partitionId : msg.getPartitions()) {
-////            localResourceRepo.addInactivePartition(partitionId);
-//        }
+        for (Integer partitionId : msg.getPartitions()) {
+            localResourceRepo.addInactivePartition(partitionId);
+        }
+
+        ITransactionSubsystem txnSubsystem = appContext.getTransactionSubsystem();
+        txnSubsystem.removePartitions(msg.getPartitions());
 
         //send response after partitions prepared for failback
         PreparePartitionsFailbackResponseMessage reponse = new PreparePartitionsFailbackResponseMessage(msg.getPlanId(),
@@ -209,6 +214,8 @@ public class NCMessageBroker implements INCMessageBroker {
         try {
 //            IRemoteRecoveryManager remoteRecoeryManager = appContext.getRemoteRecoveryManager();
 //            remoteRecoeryManager.completeFailbackProcess();
+            appContext.getTransactionSubsystem().getBaseRecoveryManager().startRecovery(true);
+            appContext.getTransactionSubsystem().getBaseLogManager().renewLogFilesAndStartFromLSN(appContext.getTransactionSubsystem().getBaseLogManager().getReadableSmallestLSN());
         } finally {
             CompleteFailbackResponseMessage reponse = new CompleteFailbackResponseMessage(msg.getPlanId(),
                     msg.getRequestId(), msg.getPartitions());

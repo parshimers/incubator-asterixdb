@@ -37,7 +37,6 @@ import javax.xml.bind.Unmarshaller;
 
 import org.apache.asterix.common.api.IClusterManagementWork.ClusterState;
 import org.apache.asterix.common.cluster.ClusterPartition;
-import org.apache.asterix.common.config.AsterixPropertiesAccessor;
 import org.apache.asterix.common.config.AsterixReplicationProperties;
 import org.apache.asterix.common.config.AsterixStorageProperties;
 import org.apache.asterix.common.config.AsterixTransactionProperties;
@@ -53,7 +52,6 @@ import org.apache.asterix.common.messaging.TakeoverPartitionsResponseMessage;
 import org.apache.asterix.common.messaging.api.ICCMessageBroker;
 import org.apache.asterix.common.replication.NodeFailbackPlan;
 import org.apache.asterix.common.replication.NodeFailbackPlan.FailbackPlanState;
-import org.apache.asterix.common.transactions.LogManagerProperties;
 import org.apache.asterix.event.schema.cluster.Cluster;
 import org.apache.asterix.event.schema.cluster.Node;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
@@ -90,7 +88,7 @@ public class AsterixClusterProperties {
 
     private boolean globalRecoveryCompleted = false;
 
-    private Map<String, ClusterPartition[]> node2PartitionsMap = null;
+    private Map<String, ClusterPartition[]> currentNode2PartitionsMap = null;
     private SortedMap<Integer, ClusterPartition> clusterPartitions = null;
     private Map<Long, TakeoverPartitionsRequestMessage> pendingTakeoverRequests = null;
 
@@ -117,7 +115,7 @@ public class AsterixClusterProperties {
         // if this is the CC process
         if (AsterixAppContextInfo.getInstance() != null) {
             if (AsterixAppContextInfo.getInstance().getCCApplicationContext() != null) {
-                node2PartitionsMap = AsterixAppContextInfo.getInstance().getMetadataProperties().getNodePartitions();
+                currentNode2PartitionsMap = AsterixAppContextInfo.getInstance().getMetadataProperties().getNodePartitions();
                 clusterPartitions = AsterixAppContextInfo.getInstance().getMetadataProperties().getClusterPartitions();
                 currentMetadataNode = AsterixAppContextInfo.getInstance().getMetadataProperties().getMetadataNodeName();
                 pendingTakeoverRequests = new HashMap<>();
@@ -151,6 +149,7 @@ public class AsterixClusterProperties {
             notifyFailbackPlansNodeFailure(nodeId);
             requestPartitionsTakeover(nodeId);
         }
+        
     }
 
     public synchronized void addNCConfiguration(String nodeId, Map<String, String> configuration) {
@@ -172,7 +171,7 @@ public class AsterixClusterProperties {
     }
 
     private synchronized void updateNodePartitions(String nodeId, boolean added) {
-        ClusterPartition[] nodePartitions = node2PartitionsMap.get(nodeId);
+        ClusterPartition[] nodePartitions = currentNode2PartitionsMap.get(nodeId);
         // if this isn't a storage node, it will not have cluster partitions
         if (nodePartitions != null) {
             for (ClusterPartition p : nodePartitions) {
@@ -304,12 +303,12 @@ public class AsterixClusterProperties {
     }
 
     public synchronized ClusterPartition[] getNodePartitions(String nodeId) {
-        return node2PartitionsMap.get(nodeId);
+        return currentNode2PartitionsMap.get(nodeId);
     }
 
     public synchronized int getNodePartitionsCount(String node) {
-        if (node2PartitionsMap.containsKey(node)) {
-            return node2PartitionsMap.get(node).length;
+        if (currentNode2PartitionsMap.containsKey(node)) {
+            return currentNode2PartitionsMap.get(node).length;
         }
         return 0;
     }
@@ -461,23 +460,16 @@ public class AsterixClusterProperties {
         pendingProcessingFailbackPlans.add(plan);
         planId2FailbackPlanMap.put(plan.getPlanId(), plan);
 
-        //get all partitions this node requires to resync
-        AsterixReplicationProperties replicationProperties = AsterixAppContextInfo.getInstance()
-                .getReplicationProperties();
-        Set<String> nodeReplicas = replicationProperties.getNodeReplicationClients(failingBackNodeId);
-        for (String replicaId : nodeReplicas) {
-            ClusterPartition[] nodePartitions = node2PartitionsMap.get(replicaId);
-            for (ClusterPartition partition : nodePartitions) {
-                plan.addParticipant(partition.getActiveNodeId());
-                /**
-                 * if the partition original node is the returning node,
-                 * add it to the list of the partitions which will be failed back
-                 */
-                if (partition.getNodeId().equals(failingBackNodeId)) {
-                    plan.addPartitionToFailback(partition.getPartitionId(), partition.getActiveNodeId());
-                }
-            }
+        //get the partitions this node has
+        ClusterPartition[] failBackPartitions = currentNode2PartitionsMap.get(failingBackNodeId);
+
+        //now find which nodes have them
+
+        for(ClusterPartition p : failBackPartitions){
+            plan.addParticipant(p.getActiveNodeId());
+            plan.addPartitionToFailback(p.getPartitionId(),p.getActiveNodeId());
         }
+        //get all partitions this node requires to resync
 
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Prepared Failback plan: " + plan.toString());

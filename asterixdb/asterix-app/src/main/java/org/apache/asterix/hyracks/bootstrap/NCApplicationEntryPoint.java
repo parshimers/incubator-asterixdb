@@ -224,7 +224,7 @@ public class NCApplicationEntryPoint implements INCApplicationEntryPoint {
         }
 
         //Clean any temporary files
-        performLocalCleanUp();
+//        performLocalCleanUp();
     }
 
     private void performLocalCleanUp() {
