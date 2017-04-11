@@ -17,7 +17,8 @@
  * under the License.
  */
 
-use feeds_10;
-set `wait-for-completion-feed` `true`;
-connect  feed TweetFeed to  dataset Tweets using policy `Basic`;
-start feed TweetFeed;
+use dataverse twitter;
+
+load dataset ds_tweet
+using localfs
+(("path"="asterix_nc1://data/fulltext/cloudberry_sample_tweet.adm"),("format"="adm"));

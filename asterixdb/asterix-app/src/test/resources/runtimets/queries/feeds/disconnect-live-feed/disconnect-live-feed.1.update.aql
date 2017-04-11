@@ -17,7 +17,5 @@
  * under the License.
  */
 
-use feeds_10;
-set `wait-for-completion-feed` `true`;
-connect  feed TweetFeed to  dataset Tweets using policy `Basic`;
+use dataverse new_experiments;
 start feed TweetFeed;

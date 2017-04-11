@@ -16,8 +16,4 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
-use feeds_10;
-set `wait-for-completion-feed` `true`;
-connect  feed TweetFeed to  dataset Tweets using policy `Basic`;
-start feed TweetFeed;
+1000

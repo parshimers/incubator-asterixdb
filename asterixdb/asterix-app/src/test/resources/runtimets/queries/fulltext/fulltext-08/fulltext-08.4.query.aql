@@ -17,7 +17,10 @@
  * under the License.
  */
 
-use feeds_10;
-set `wait-for-completion-feed` `true`;
-connect  feed TweetFeed to  dataset Tweets using policy `Basic`;
-start feed TweetFeed;
+use dataverse twitter;
+
+for $t in dataset twitter.ds_tweet
+where ftcontains($t.'text', ['good','difficult'])
+order by $t.id
+return {"id":$t.id}
+
