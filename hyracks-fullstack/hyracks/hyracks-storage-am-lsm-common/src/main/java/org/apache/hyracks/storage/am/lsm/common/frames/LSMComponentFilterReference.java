@@ -128,8 +128,8 @@ public class LSMComponentFilterReference implements ILSMComponentFilterReference
 
     @Override
     public int getLength() {
-        if(binaryFilter.getLength() <=0){
-            if(isMinTupleSet() || isMaxTupleSet()) {
+        if (binaryFilter.getLength() <= 0) {
+            if (isMinTupleSet() || isMaxTupleSet()) {
                 getByteArray();
             }
 
