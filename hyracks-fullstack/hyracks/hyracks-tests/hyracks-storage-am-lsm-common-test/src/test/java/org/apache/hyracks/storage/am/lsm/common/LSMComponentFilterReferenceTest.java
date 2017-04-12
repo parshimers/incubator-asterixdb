@@ -16,20 +16,16 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.hyracks.storage.am.lsm.common.frames;
+package org.apache.hyracks.storage.am.lsm.common;
 
 import java.nio.ByteBuffer;
 
 import org.apache.hyracks.api.dataflow.value.ITypeTraits;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.primitive.IntegerPointable;
-import org.apache.hyracks.data.std.primitive.LongPointable;
 import org.apache.hyracks.dataflow.common.utils.TupleUtils;
-import org.apache.hyracks.storage.am.common.frames.LIFOMetaDataFrame;
-import org.apache.hyracks.storage.am.common.freepage.MutableArrayValueReference;
 import org.apache.hyracks.storage.am.common.tuples.TypeAwareTupleWriter;
-import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentFilter;
-import org.apache.hyracks.storage.common.buffercache.VirtualPage;
+import org.apache.hyracks.storage.am.lsm.common.frames.LSMComponentFilterReference;
 import org.junit.Assert;
 import org.junit.Test;
 
