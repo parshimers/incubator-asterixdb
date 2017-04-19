@@ -196,7 +196,7 @@ public abstract class AbstractLSMMemoryComponent extends AbstractLSMComponent im
     public void reset() throws HyracksDataException {
         isModified.set(false);
         metadata.reset();
-        if(filter != null){
+        if (filter != null) {
             filter.reset();
         }
     }
