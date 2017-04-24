@@ -41,7 +41,7 @@ public abstract class OrderedIndexBulkLoadTest extends OrderedIndexTestDriver {
     protected void runTest(ISerializerDeserializer[] fieldSerdes, int numKeys, BTreeLeafFrameType leafType,
             ITupleReference lowKey, ITupleReference highKey, ITupleReference prefixLowKey, ITupleReference prefixHighKey)
             throws Exception {
-        OrderedIndexTestContext ctx = createTestContext(fieldSerdes, numKeys, leafType);
+        OrderedIndexTestContext ctx = createTestContext(fieldSerdes, numKeys, leafType, false);
         ctx.getIndex().create();
         ctx.getIndex().activate();
         for (int i = 0; i < bulkLoadRounds; i++) {
@@ -49,9 +49,9 @@ public abstract class OrderedIndexBulkLoadTest extends OrderedIndexTestDriver {
             // one
             // to determine which field types to generate.
             if (fieldSerdes[0] instanceof IntegerSerializerDeserializer) {
-                orderedIndexTestUtils.bulkLoadIntTuples(ctx, numTuplesToInsert, getRandom());
+                orderedIndexTestUtils.bulkLoadIntTuples(ctx, numTuplesToInsert, false, getRandom());
             } else if (fieldSerdes[0] instanceof UTF8StringSerializerDeserializer) {
-                orderedIndexTestUtils.bulkLoadStringTuples(ctx, numTuplesToInsert, getRandom());
+                orderedIndexTestUtils.bulkLoadStringTuples(ctx, numTuplesToInsert, getRandom(), false);
             }
             orderedIndexTestUtils.checkPointSearches(ctx);
             orderedIndexTestUtils.checkScan(ctx);

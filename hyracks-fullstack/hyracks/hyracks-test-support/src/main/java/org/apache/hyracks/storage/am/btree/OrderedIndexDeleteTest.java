@@ -43,14 +43,14 @@ public abstract class OrderedIndexDeleteTest extends OrderedIndexTestDriver {
     protected void runTest(ISerializerDeserializer[] fieldSerdes, int numKeys, BTreeLeafFrameType leafType,
             ITupleReference lowKey, ITupleReference highKey, ITupleReference prefixLowKey, ITupleReference prefixHighKey)
             throws Exception {
-        OrderedIndexTestContext ctx = createTestContext(fieldSerdes, numKeys, leafType);
+        OrderedIndexTestContext ctx = createTestContext(fieldSerdes, numKeys, leafType, false);
         ctx.getIndex().create();
         ctx.getIndex().activate();
         for (int i = 0; i < numInsertRounds; i++) {
             // We assume all fieldSerdes are of the same type. Check the first
             // one to determine which field types to generate.
             if (fieldSerdes[0] instanceof IntegerSerializerDeserializer) {
-                orderedIndexTestUtils.insertIntTuples(ctx, numTuplesToInsert, getRandom());
+                orderedIndexTestUtils.insertIntTuples(ctx, numTuplesToInsert, false, getRandom());
             } else if (fieldSerdes[0] instanceof UTF8StringSerializerDeserializer) {
                 orderedIndexTestUtils.insertStringTuples(ctx, numTuplesToInsert, getRandom());
             }

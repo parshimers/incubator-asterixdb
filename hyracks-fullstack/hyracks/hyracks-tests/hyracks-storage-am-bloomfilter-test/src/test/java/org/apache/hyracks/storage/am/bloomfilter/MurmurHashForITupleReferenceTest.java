@@ -57,7 +57,7 @@ public class MurmurHashForITupleReferenceTest extends AbstractBloomFilterTest {
         int fieldCount = 2;
         ArrayTupleBuilder tupleBuilder = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
-        TupleUtils.createIntegerTuple(tupleBuilder, tuple, rnd.nextInt());
+        TupleUtils.createIntegerTuple(tupleBuilder, tuple, false, rnd.nextInt());
         tuple.reset(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray());
 
         int keyFields[] = { 0 };
@@ -84,7 +84,7 @@ public class MurmurHashForITupleReferenceTest extends AbstractBloomFilterTest {
         int fieldCount = 2;
         ArrayTupleBuilder tupleBuilder = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
-        TupleUtils.createIntegerTuple(tupleBuilder, tuple, rnd.nextInt(), rnd.nextInt());
+        TupleUtils.createIntegerTuple(tupleBuilder, tuple, false, rnd.nextInt(), rnd.nextInt());
         tuple.reset(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray());
 
         int keyFields[] = { 0, 1 };

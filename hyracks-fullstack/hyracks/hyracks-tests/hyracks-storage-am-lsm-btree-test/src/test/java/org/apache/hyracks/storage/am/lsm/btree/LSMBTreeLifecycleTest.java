@@ -60,7 +60,7 @@ public class LSMBTreeLifecycleTest extends AbstractIndexLifecycleTest {
                 .getFileReference(),
                 harness.getDiskBufferCache(), harness.getDiskFileMapProvider(), fieldSerdes, fieldSerdes.length,
                 harness.getBoomFilterFalsePositiveRate(), harness.getMergePolicy(), harness.getOperationTracker(),
-                harness.getIOScheduler(), harness.getIOOperationCallback(), harness.getMetadataPageManagerFactory());
+                harness.getIOScheduler(), harness.getIOOperationCallback(), harness.getMetadataPageManagerFactory(), false);
         index = testCtx.getIndex();
     }
 
@@ -77,7 +77,7 @@ public class LSMBTreeLifecycleTest extends AbstractIndexLifecycleTest {
 
     @Override
     protected void performInsertions() throws Exception {
-        titu.insertIntTuples(testCtx, 10, harness.getRandom());
+        titu.insertIntTuples(testCtx, 10, false, harness.getRandom());
     }
 
     @Override

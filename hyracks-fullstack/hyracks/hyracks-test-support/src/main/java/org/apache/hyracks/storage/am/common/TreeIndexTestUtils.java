@@ -25,18 +25,22 @@ import java.io.ByteArrayInputStream;
 import java.io.DataInput;
 import java.io.DataInputStream;
 import java.io.DataOutput;
+import java.lang.reflect.Array;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
+import org.apache.commons.lang3.tuple.MutablePair;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.hyracks.api.dataflow.value.*;
 import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleReference;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
+import org.apache.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import org.apache.hyracks.dataflow.common.utils.TupleUtils;
 import org.apache.hyracks.storage.am.common.api.IIndexBulkLoader;
 import org.apache.hyracks.storage.am.common.api.ISearchPredicate;
@@ -68,14 +72,22 @@ public abstract class TreeIndexTestUtils {
     protected abstract boolean checkDiskOrderScanResult(ITupleReference tuple, CheckTuple checkTuple,
             IIndexTestContext ctx) throws HyracksDataException;
 
+    public static int compareFilterTuples(ITupleReference lhs, ITupleReference rhs, IBinaryComparator comp) throws HyracksDataException {
+        return comp.compare(lhs.getFieldData(0),lhs.getFieldStart(0),lhs.getFieldLength(0),rhs.getFieldData(0),rhs.getFieldStart(0),rhs.getFieldLength(0));
+    }
+
     @SuppressWarnings("unchecked")
     public static void createTupleFromCheckTuple(CheckTuple checkTuple, ArrayTupleBuilder tupleBuilder,
-            ArrayTupleReference tuple, ISerializerDeserializer[] fieldSerdes) throws HyracksDataException {
+                                                 ArrayTupleReference tuple, ISerializerDeserializer[] fieldSerdes, boolean filtered) throws HyracksDataException {
         int fieldCount = tupleBuilder.getFieldEndOffsets().length;
         DataOutput dos = tupleBuilder.getDataOutput();
         tupleBuilder.reset();
-        for (int i = 0; i < fieldCount; i++) {
+        for (int i = 0; i < (filtered ? fieldCount-1:fieldCount); i++) {
             fieldSerdes[i].serialize(checkTuple.getField(i), dos);
+            tupleBuilder.addFieldEndOffset();
+        }
+        if(filtered){
+            fieldSerdes[0].serialize(checkTuple.getField(0),dos);
             tupleBuilder.addFieldEndOffset();
         }
         tuple.reset(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray());
@@ -159,7 +171,7 @@ public abstract class TreeIndexTestUtils {
     }
 
     @SuppressWarnings("unchecked")
-    public void insertIntTuples(IIndexTestContext ctx, int numTuples, Random rnd) throws Exception {
+    public Pair<ITupleReference,ITupleReference> insertIntTuples(IIndexTestContext ctx, int numTuples, boolean filtered, Random rnd) throws Exception {
         int fieldCount = ctx.getFieldCount();
         int numKeyFields = ctx.getKeyFieldCount();
         int[] fieldValues = new int[ctx.getFieldCount()];
@@ -167,12 +179,13 @@ public abstract class TreeIndexTestUtils {
         // For example, for 2 keys we want the square root of numTuples, for 3
         // keys the cube root of numTuples, etc.
         int maxValue = (int) Math.ceil(Math.pow(numTuples, 1.0 / numKeyFields));
+        MutablePair<ITupleReference,ITupleReference> minMax = null;
         for (int i = 0; i < numTuples; i++) {
             // Set keys.
             setIntKeyFields(fieldValues, numKeyFields, maxValue, rnd);
             // Set values.
             setIntPayloadFields(fieldValues, numKeyFields, fieldCount);
-            TupleUtils.createIntegerTuple(ctx.getTupleBuilder(), ctx.getTuple(), fieldValues);
+            TupleUtils.createIntegerTuple(ctx.getTupleBuilder(), ctx.getTuple(), filtered, fieldValues);
             if (LOGGER.isLoggable(Level.INFO)) {
                 if ((i + 1) % (numTuples / Math.min(10, numTuples)) == 0) {
                     LOGGER.info("Inserting Tuple " + (i + 1) + "/" + numTuples);
@@ -181,6 +194,24 @@ public abstract class TreeIndexTestUtils {
             try {
                 ctx.getIndexAccessor().insert(ctx.getTuple());
                 ctx.insertCheckTuple(createIntCheckTuple(fieldValues, ctx.getKeyFieldCount()), ctx.getCheckTuples());
+                if(filtered) {
+                    int filterField = ctx.getFieldCount();
+                    ITupleReference currTuple = ctx.getTuple();
+                    ArrayTupleBuilder filterBuilder = new ArrayTupleBuilder(1);
+                    filterBuilder.addField(currTuple.getFieldData(filterField),currTuple.getFieldStart(filterField),currTuple.getFieldLength(filterField));
+                    IBinaryComparator comparator = ctx.getComparatorFactories()[0].createBinaryComparator();
+                    ArrayTupleReference filterOnlyTuple = new ArrayTupleReference();
+                    filterOnlyTuple.reset(filterBuilder.getFieldEndOffsets(),filterBuilder.getByteArray());
+                    if(minMax == null){
+                        minMax = MutablePair.of(filterOnlyTuple,filterOnlyTuple);
+                    }
+                    else if (compareFilterTuples(minMax.getLeft(),filterOnlyTuple, comparator) > 0) {
+                        minMax.setLeft(filterOnlyTuple);
+                    }
+                    else if(compareFilterTuples(minMax.getRight(),filterOnlyTuple,comparator) < 0){
+                        minMax.setRight(filterOnlyTuple);
+                    }
+                }
             } catch (HyracksDataException e) {
                 // We set expected values only after insertion succeeds because
                 // we ignore duplicate keys.
@@ -189,10 +220,11 @@ public abstract class TreeIndexTestUtils {
                 }
             }
         }
+        return minMax;
     }
 
     @SuppressWarnings("unchecked")
-    public void upsertIntTuples(IIndexTestContext ctx, int numTuples, Random rnd) throws Exception {
+    public void upsertIntTuples(IIndexTestContext ctx, int numTuples, boolean filtered, Random rnd) throws Exception {
         int fieldCount = ctx.getFieldCount();
         int numKeyFields = ctx.getKeyFieldCount();
         int[] fieldValues = new int[ctx.getFieldCount()];
@@ -205,7 +237,7 @@ public abstract class TreeIndexTestUtils {
             setIntKeyFields(fieldValues, numKeyFields, maxValue, rnd);
             // Set values.
             setIntPayloadFields(fieldValues, numKeyFields, fieldCount);
-            TupleUtils.createIntegerTuple(ctx.getTupleBuilder(), ctx.getTuple(), fieldValues);
+            TupleUtils.createIntegerTuple(ctx.getTupleBuilder(), ctx.getTuple(), filtered,  fieldValues);
             if (LOGGER.isLoggable(Level.INFO)) {
                 if ((i + 1) % (numTuples / Math.min(10, numTuples)) == 0) {
                     LOGGER.info("Inserting Tuple " + (i + 1) + "/" + numTuples);
@@ -225,7 +257,7 @@ public abstract class TreeIndexTestUtils {
     }
 
     @SuppressWarnings("unchecked")
-    public void bulkLoadIntTuples(IIndexTestContext ctx, int numTuples, Random rnd) throws Exception {
+    public void bulkLoadIntTuples(IIndexTestContext ctx, int numTuples, boolean filter, Random rnd) throws Exception {
         int fieldCount = ctx.getFieldCount();
         int numKeyFields = ctx.getKeyFieldCount();
         int[] fieldValues = new int[ctx.getFieldCount()];
@@ -241,7 +273,7 @@ public abstract class TreeIndexTestUtils {
             // for ordered indexes bulk loading).
             ctx.insertCheckTuple(createIntCheckTuple(fieldValues, ctx.getKeyFieldCount()), tmpCheckTuples);
         }
-        bulkLoadCheckTuples(ctx, tmpCheckTuples);
+        bulkLoadCheckTuples(ctx, tmpCheckTuples, filter);
 
         // Add tmpCheckTuples to ctx check tuples for comparing searches.
         for (CheckTuple checkTuple : tmpCheckTuples) {
@@ -249,11 +281,11 @@ public abstract class TreeIndexTestUtils {
         }
     }
 
-    public static void bulkLoadCheckTuples(IIndexTestContext ctx, Collection<CheckTuple> checkTuples)
+    public static void bulkLoadCheckTuples(IIndexTestContext ctx, Collection<CheckTuple> checkTuples, boolean filtered)
             throws HyracksDataException {
         int fieldCount = ctx.getFieldCount();
         int numTuples = checkTuples.size();
-        ArrayTupleBuilder tupleBuilder = new ArrayTupleBuilder(fieldCount);
+        ArrayTupleBuilder tupleBuilder = filtered ? new ArrayTupleBuilder(fieldCount+1) : new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
         // Perform bulk load.
         IIndexBulkLoader bulkLoader = ctx.getIndex().createBulkLoader(0.7f, false, numTuples, false);
@@ -264,7 +296,7 @@ public abstract class TreeIndexTestUtils {
                 LOGGER.info("Bulk Loading Tuple " + c + "/" + numTuples);
                 //}
             }
-            createTupleFromCheckTuple(checkTuple, tupleBuilder, tuple, ctx.getFieldSerdes());
+            createTupleFromCheckTuple(checkTuple, tupleBuilder, tuple, ctx.getFieldSerdes(), filtered);
             bulkLoader.add(tuple);
             c++;
         }
@@ -294,7 +326,7 @@ public abstract class TreeIndexTestUtils {
             }
             int checkTupleIdx = Math.abs(rnd.nextInt() % numCheckTuples);
             CheckTuple checkTuple = checkTuples[checkTupleIdx];
-            createTupleFromCheckTuple(checkTuple, deleteTupleBuilder, deleteTuple, ctx.getFieldSerdes());
+            createTupleFromCheckTuple(checkTuple, deleteTupleBuilder, deleteTuple, ctx.getFieldSerdes(), false);
             ctx.getIndexAccessor().delete(deleteTuple);
 
             // Remove check tuple from expected results.

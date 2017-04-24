@@ -55,7 +55,7 @@ public abstract class LSMRTreeMergeTestDriver extends AbstractRTreeTestDriver {
         // We assume all fieldSerdes are of the same type. Check the first one
         // to determine which field types to generate.
         if (fieldSerdes[0] instanceof IntegerSerializerDeserializer) {
-            rTreeTestUtils.bulkLoadIntTuples(ctx, numTuplesToInsert, getRandom());
+            rTreeTestUtils.bulkLoadIntTuples(ctx, numTuplesToInsert, false, getRandom());
         } else if (fieldSerdes[0] instanceof DoubleSerializerDeserializer) {
             rTreeTestUtils.bulkLoadDoubleTuples(ctx, numTuplesToInsert, getRandom());
         }
@@ -64,7 +64,7 @@ public abstract class LSMRTreeMergeTestDriver extends AbstractRTreeTestDriver {
         for (int i = 0; i < maxTreesToMerge; i++) {
             for (int j = 0; j < i; j++) {
                 if (fieldSerdes[0] instanceof IntegerSerializerDeserializer) {
-                    rTreeTestUtils.insertIntTuples(ctx, numTuplesToInsert, getRandom());
+                    rTreeTestUtils.insertIntTuples(ctx, numTuplesToInsert, false, getRandom());
                     // Deactivate and the re-activate the index to force it flush its in memory component
                     ctx.getIndex().deactivate();
                     ctx.getIndex().activate();

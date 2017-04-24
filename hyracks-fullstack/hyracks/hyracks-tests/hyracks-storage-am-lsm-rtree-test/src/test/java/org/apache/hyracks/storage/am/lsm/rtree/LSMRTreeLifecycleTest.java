@@ -88,7 +88,7 @@ public class LSMRTreeLifecycleTest extends AbstractIndexLifecycleTest {
 
     @Override
     protected void performInsertions() throws Exception {
-        titu.insertIntTuples(testCtx, 10, harness.getRandom());
+        titu.insertIntTuples(testCtx, 10, false, harness.getRandom());
     }
 
     @Override

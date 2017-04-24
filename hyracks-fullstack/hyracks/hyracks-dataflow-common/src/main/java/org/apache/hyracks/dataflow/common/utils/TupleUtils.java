@@ -55,7 +55,7 @@ public class TupleUtils {
         return tuple;
     }
 
-    public static void createIntegerTuple(ArrayTupleBuilder tupleBuilder, ArrayTupleReference tuple,
+    public static void createIntegerTuple(ArrayTupleBuilder tupleBuilder, ArrayTupleReference tuple, boolean filtered,
             final int... fields) throws HyracksDataException {
         DataOutput dos = tupleBuilder.getDataOutput();
         tupleBuilder.reset();
@@ -63,13 +63,18 @@ public class TupleUtils {
             IntegerSerializerDeserializer.INSTANCE.serialize(i, dos);
             tupleBuilder.addFieldEndOffset();
         }
+        if(filtered){
+            IntegerSerializerDeserializer.INSTANCE.serialize(fields[0],dos);
+            tupleBuilder.addFieldEndOffset();
+        }
         tuple.reset(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray());
     }
 
-    public static ITupleReference createIntegerTuple(final int... fields) throws HyracksDataException {
-        ArrayTupleBuilder tupleBuilder = new ArrayTupleBuilder(fields.length);
+
+    public static ITupleReference createIntegerTuple(boolean filtered, final int... fields) throws HyracksDataException {
+        ArrayTupleBuilder tupleBuilder = filtered ? new ArrayTupleBuilder(fields.length+1) : new ArrayTupleBuilder(fields.length);
         ArrayTupleReference tuple = new ArrayTupleReference();
-        createIntegerTuple(tupleBuilder, tuple, fields);
+        createIntegerTuple(tupleBuilder, tuple, filtered, fields);
         return tuple;
     }
 

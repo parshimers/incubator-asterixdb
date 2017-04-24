@@ -112,7 +112,7 @@ public abstract class AbstractSearchOperationCallbackTest extends AbstractOperat
                 }
 
                 // begin a search on [101, +inf), blocking on 101
-                TupleUtils.createIntegerTuple(builder, tuple, 101);
+                TupleUtils.createIntegerTuple(builder, tuple, false, 101);
                 predicate.setLowKey(tuple, true);
                 predicate.setHighKey(null, true);
                 accessor.search(cursor, predicate);
@@ -144,14 +144,14 @@ public abstract class AbstractSearchOperationCallbackTest extends AbstractOperat
                     this.blockingValue = end;
                     this.expectedAfterBlock = expectedAfterBlock;
                 }
-                TupleUtils.createIntegerTuple(builder, tuple, i);
+                TupleUtils.createIntegerTuple(builder, tuple, false, i);
                 if (!cursor.hasNext()) {
                     Assert.fail("Failed to consume entire tuple range since cursor is exhausted.");
                 }
                 cursor.next();
 
                 if (this.blockOnHigh) {
-                    TupleUtils.createIntegerTuple(builder, tuple, expectedAfterBlock);
+                    TupleUtils.createIntegerTuple(builder, tuple, false, expectedAfterBlock);
                 }
                 Assert.assertEquals(0, cmp.compare(tuple, cursor.getTuple()));
             }
@@ -170,7 +170,7 @@ public abstract class AbstractSearchOperationCallbackTest extends AbstractOperat
                 Assert.assertEquals(0, cmp.compare(SearchTask.this.tuple, tuple));
                 if (blockOnHigh) {
                     try {
-                        TupleUtils.createIntegerTuple(builder, SearchTask.this.tuple, expectedAfterBlock);
+                        TupleUtils.createIntegerTuple(builder, SearchTask.this.tuple, false, expectedAfterBlock);
                     } catch (HyracksDataException e) {
                         e.printStackTrace();
                     }
@@ -183,9 +183,9 @@ public abstract class AbstractSearchOperationCallbackTest extends AbstractOperat
             @Override
             public void cancel(ITupleReference tuple) {
                 try {
-                    TupleUtils.createIntegerTuple(builder, SearchTask.this.tuple, blockingValue);
+                    TupleUtils.createIntegerTuple(builder, SearchTask.this.tuple, false, blockingValue);
                     Assert.assertEquals(0, cmp.compare(tuple, SearchTask.this.tuple));
-                    TupleUtils.createIntegerTuple(builder, SearchTask.this.tuple, expectedAfterBlock);
+                    TupleUtils.createIntegerTuple(builder, SearchTask.this.tuple, false, expectedAfterBlock);
                 } catch (HyracksDataException e) {
                     e.printStackTrace();
                 }
@@ -231,7 +231,7 @@ public abstract class AbstractSearchOperationCallbackTest extends AbstractOperat
 
                 // insert tuples [201, 300] and delete tuple 151
                 insertIntTupleRange(201, 300);
-                TupleUtils.createIntegerTuple(builder, tuple, 151);
+                TupleUtils.createIntegerTuple(builder, tuple, false, 151);
                 accessor.delete(tuple);
                 condition.signal();
             } finally {
@@ -247,7 +247,7 @@ public abstract class AbstractSearchOperationCallbackTest extends AbstractOperat
             }
 
             for (int i = begin; i <= end; i++) {
-                TupleUtils.createIntegerTuple(builder, tuple, i);
+                TupleUtils.createIntegerTuple(builder, tuple, false, i);
                 accessor.insert(tuple);
             }
         }

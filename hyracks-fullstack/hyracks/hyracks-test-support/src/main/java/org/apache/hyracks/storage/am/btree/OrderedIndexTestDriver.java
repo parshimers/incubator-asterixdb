@@ -40,7 +40,7 @@ public abstract class OrderedIndexTestDriver {
     protected static final int numTuplesToInsert = AccessMethodTestsConfig.BTREE_NUM_TUPLES_TO_INSERT;
 
     protected abstract OrderedIndexTestContext createTestContext(ISerializerDeserializer[] fieldSerdes, int numKeys,
-            BTreeLeafFrameType leafType) throws Exception;
+                                                                 BTreeLeafFrameType leafType, boolean filtered) throws Exception;
 
     protected abstract Random getRandom();
 
@@ -65,8 +65,8 @@ public abstract class OrderedIndexTestDriver {
         ISerializerDeserializer[] fieldSerdes = { IntegerSerializerDeserializer.INSTANCE,
                 IntegerSerializerDeserializer.INSTANCE };
         // Range search in [-1000, 1000]
-        ITupleReference lowKey = TupleUtils.createIntegerTuple(-1000);
-        ITupleReference highKey = TupleUtils.createIntegerTuple(1000);
+        ITupleReference lowKey = TupleUtils.createIntegerTuple(false,-1000);
+        ITupleReference highKey = TupleUtils.createIntegerTuple(false,1000);
 
         for (BTreeLeafFrameType leafFrameType : leafFrameTypesToTest) {
             runTest(fieldSerdes, 1, leafFrameType, lowKey, highKey, null, null);
@@ -83,12 +83,12 @@ public abstract class OrderedIndexTestDriver {
                 IntegerSerializerDeserializer.INSTANCE };
 
         // Range search in [50 0, 50 500]
-        ITupleReference lowKey = TupleUtils.createIntegerTuple(50, 0);
-        ITupleReference highKey = TupleUtils.createIntegerTuple(50, 500);
+        ITupleReference lowKey = TupleUtils.createIntegerTuple(false, 50, 0);
+        ITupleReference highKey = TupleUtils.createIntegerTuple(false, 50, 500);
 
         // Prefix range search in [50, 50]
-        ITupleReference prefixLowKey = TupleUtils.createIntegerTuple(50);
-        ITupleReference prefixHighKey = TupleUtils.createIntegerTuple(50);
+        ITupleReference prefixLowKey = TupleUtils.createIntegerTuple(false, 50);
+        ITupleReference prefixHighKey = TupleUtils.createIntegerTuple(false, 50);
 
         for (BTreeLeafFrameType leafFrameType : leafFrameTypesToTest) {
             runTest(fieldSerdes, 2, leafFrameType, lowKey, highKey, prefixLowKey, prefixHighKey);
@@ -106,12 +106,12 @@ public abstract class OrderedIndexTestDriver {
                 IntegerSerializerDeserializer.INSTANCE };
 
         // Range search in [50 100, 100 100]
-        ITupleReference lowKey = TupleUtils.createIntegerTuple(-100, -100);
-        ITupleReference highKey = TupleUtils.createIntegerTuple(100, 100);
+        ITupleReference lowKey = TupleUtils.createIntegerTuple(false, -100, -100);
+        ITupleReference highKey = TupleUtils.createIntegerTuple(false, 100, 100);
 
         // Prefix range search in [50, 50]
-        ITupleReference prefixLowKey = TupleUtils.createIntegerTuple(50);
-        ITupleReference prefixHighKey = TupleUtils.createIntegerTuple(50);
+        ITupleReference prefixLowKey = TupleUtils.createIntegerTuple(false, 50);
+        ITupleReference prefixHighKey = TupleUtils.createIntegerTuple(false, 50);
 
         for (BTreeLeafFrameType leafFrameType : leafFrameTypesToTest) {
             runTest(fieldSerdes, 2, leafFrameType, lowKey, highKey, prefixLowKey, prefixHighKey);

@@ -140,7 +140,7 @@ public class RTreeSearchCursorTest extends AbstractRTreeTest {
 
             int pk = rnd.nextInt();;
 
-            TupleUtils.createIntegerTuple(tb, tuple, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
+            TupleUtils.createIntegerTuple(tb, tuple, false, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
                     Math.max(p1y, p2y), pk);
             try {
                 indexAccessor.insert(tuple);
@@ -162,7 +162,7 @@ public class RTreeSearchCursorTest extends AbstractRTreeTest {
         // Build key.
         ArrayTupleBuilder keyTb = new ArrayTupleBuilder(keyFieldCount);
         ArrayTupleReference key = new ArrayTupleReference();
-        TupleUtils.createIntegerTuple(keyTb, key, -1000, -1000, 1000, 1000);
+        TupleUtils.createIntegerTuple(keyTb, key, false,  -1000, -1000, 1000, 1000);
 
         MultiComparator cmp = MultiComparator.create(cmpFactories);
         ITreeIndexCursor searchCursor = new RTreeSearchCursor(interiorFrame, leafFrame);

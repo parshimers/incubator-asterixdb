@@ -76,7 +76,7 @@ public abstract class AbstractRTreeTestDriver {
                 numKeys, IntegerPointable.FACTORY);
         // Range search, the rectangle bottom left coordinates are -1000, -1000
         // and the top right coordinates are 1000, 1000
-        ITupleReference key = TupleUtils.createIntegerTuple(-1000, -1000, 1000, 1000);
+        ITupleReference key = TupleUtils.createIntegerTuple(false, -1000, -1000, 1000, 1000);
 
         runTest(fieldSerdes, valueProviderFactories, numKeys, key, RTreePolicyType.RTREE);
 
@@ -148,7 +148,7 @@ public abstract class AbstractRTreeTestDriver {
                 numKeys, IntegerPointable.FACTORY);
         // Range search, the rectangle bottom left coordinates are -1000, -1000
         // and the top right coordinates are 1000, 1000
-        ITupleReference key = TupleUtils.createIntegerTuple(-1000, -1000, 1000, 1000);
+        ITupleReference key = TupleUtils.createIntegerTuple(false, -1000, -1000, 1000, 1000);
 
         runTest(fieldSerdes, valueProviderFactories, numKeys, key, RTreePolicyType.RSTARTREE);
 

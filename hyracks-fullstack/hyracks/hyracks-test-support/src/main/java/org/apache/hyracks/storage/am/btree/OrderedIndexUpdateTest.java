@@ -46,13 +46,13 @@ public abstract class OrderedIndexUpdateTest extends OrderedIndexTestDriver {
         if (fieldSerdes.length == numKeys) {
             return;
         }
-        OrderedIndexTestContext ctx = createTestContext(fieldSerdes, numKeys, leafType);
+        OrderedIndexTestContext ctx = createTestContext(fieldSerdes, numKeys, leafType, false);
         ctx.getIndex().create();
         ctx.getIndex().activate();
         // We assume all fieldSerdes are of the same type. Check the first one
         // to determine which field types to generate.
         if (fieldSerdes[0] instanceof IntegerSerializerDeserializer) {
-            orderedIndexTestUtils.insertIntTuples(ctx, numTuplesToInsert, getRandom());
+            orderedIndexTestUtils.insertIntTuples(ctx, numTuplesToInsert, false, getRandom());
         } else if (fieldSerdes[0] instanceof UTF8StringSerializerDeserializer) {
             orderedIndexTestUtils.insertStringTuples(ctx, numTuplesToInsert, getRandom());
         }

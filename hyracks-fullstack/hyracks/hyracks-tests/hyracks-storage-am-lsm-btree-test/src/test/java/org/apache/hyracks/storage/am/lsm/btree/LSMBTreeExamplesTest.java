@@ -115,7 +115,7 @@ public class LSMBTreeExamplesTest extends OrderedIndexExamplesTest {
         for (int i = 0; i < numInserts; i++) {
             int f0 = rnd.nextInt() % numInserts;
             int f1 = i;
-            TupleUtils.createIntegerTuple(tb, tuple, f0, f1);
+            TupleUtils.createIntegerTuple(tb, tuple, false, f0, f1);
             if (LOGGER.isLoggable(Level.INFO)) {
                 if (i % 1000 == 0) {
                     LOGGER.info("Inserting " + i + " : " + f0 + " " + f1);
@@ -134,22 +134,22 @@ public class LSMBTreeExamplesTest extends OrderedIndexExamplesTest {
         // Build low key.
         ArrayTupleBuilder lowKeyTb = new ArrayTupleBuilder(keyFieldCount);
         ArrayTupleReference lowKey = new ArrayTupleReference();
-        TupleUtils.createIntegerTuple(lowKeyTb, lowKey, -1000);
+        TupleUtils.createIntegerTuple(lowKeyTb, lowKey, false, -1000);
 
         // Build high key.
         ArrayTupleBuilder highKeyTb = new ArrayTupleBuilder(keyFieldCount);
         ArrayTupleReference highKey = new ArrayTupleReference();
-        TupleUtils.createIntegerTuple(highKeyTb, highKey, 1000);
+        TupleUtils.createIntegerTuple(highKeyTb, highKey, false, 1000);
 
         // Build min filter key.
         ArrayTupleBuilder minFilterTb = new ArrayTupleBuilder(filterFields.length);
         ArrayTupleReference minTuple = new ArrayTupleReference();
-        TupleUtils.createIntegerTuple(minFilterTb, minTuple, 400);
+        TupleUtils.createIntegerTuple(minFilterTb, minTuple, false, 400);
 
         // Build max filter key.
         ArrayTupleBuilder maxFilterTb = new ArrayTupleBuilder(filterFields.length);
         ArrayTupleReference maxTuple = new ArrayTupleReference();
-        TupleUtils.createIntegerTuple(maxFilterTb, maxTuple, 500);
+        TupleUtils.createIntegerTuple(maxFilterTb, maxTuple, false, 500);
 
         rangeSearch(cmpFactories, indexAccessor, fieldSerdes, lowKey, highKey, minTuple, maxTuple);
 

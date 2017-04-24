@@ -105,7 +105,7 @@ public class BTreeUpdateSearchTest extends AbstractBTreeTest {
         for (int i = 0; i < numInserts; i++) {
             int f0 = rnd.nextInt() % 10000;
             int f1 = 5;
-            TupleUtils.createIntegerTuple(tb, insertTuple, f0, f1);
+            TupleUtils.createIntegerTuple(tb, insertTuple, false, f0, f1);
             if (LOGGER.isLoggable(Level.INFO)) {
                 if (i % 10000 == 0) {
                     long end = System.currentTimeMillis();

@@ -133,7 +133,7 @@ public abstract class AbstractLSMRTreeExamplesTest extends AbstractRTreeExamples
             int pk = 5;
             int filter = i;
 
-            TupleUtils.createIntegerTuple(tb, tuple, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
+            TupleUtils.createIntegerTuple(tb, tuple, false, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
                     Math.max(p1y, p2y), pk, filter);
             try {
                 indexAccessor.insert(tuple);
@@ -154,17 +154,17 @@ public abstract class AbstractLSMRTreeExamplesTest extends AbstractRTreeExamples
         // Build key.
         ArrayTupleBuilder keyTb = new ArrayTupleBuilder(rtreeKeyFieldCount);
         ArrayTupleReference key = new ArrayTupleReference();
-        TupleUtils.createIntegerTuple(keyTb, key, -1000, -1000, 1000, 1000);
+        TupleUtils.createIntegerTuple(keyTb, key, false, -1000, -1000, 1000, 1000);
 
         // Build min filter key.
         ArrayTupleBuilder minFilterTb = new ArrayTupleBuilder(filterFields.length);
         ArrayTupleReference minTuple = new ArrayTupleReference();
-        TupleUtils.createIntegerTuple(minFilterTb, minTuple, 400);
+        TupleUtils.createIntegerTuple(minFilterTb, minTuple, false, 400);
 
         // Build max filter key.
         ArrayTupleBuilder maxFilterTb = new ArrayTupleBuilder(filterFields.length);
         ArrayTupleReference maxTuple = new ArrayTupleReference();
-        TupleUtils.createIntegerTuple(maxFilterTb, maxTuple, 500);
+        TupleUtils.createIntegerTuple(maxFilterTb, maxTuple, false, 500);
 
         rangeSearch(rtreeCmpFactories, indexAccessor, fieldSerdes, key, minTuple, maxTuple);
 

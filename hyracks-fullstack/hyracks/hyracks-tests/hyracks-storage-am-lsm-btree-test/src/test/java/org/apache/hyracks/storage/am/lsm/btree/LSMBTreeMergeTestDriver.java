@@ -46,23 +46,23 @@ public abstract class LSMBTreeMergeTestDriver extends OrderedIndexTestDriver {
     protected void runTest(ISerializerDeserializer[] fieldSerdes, int numKeys, BTreeLeafFrameType leafType,
             ITupleReference lowKey, ITupleReference highKey, ITupleReference prefixLowKey, ITupleReference prefixHighKey)
             throws Exception {
-        OrderedIndexTestContext ctx = createTestContext(fieldSerdes, numKeys, leafType);
+        OrderedIndexTestContext ctx = createTestContext(fieldSerdes, numKeys, leafType, false);
         ctx.getIndex().create();
         ctx.getIndex().activate();
         // Start off with one tree bulk loaded.
         // We assume all fieldSerdes are of the same type. Check the first one
         // to determine which field types to generate.
         if (fieldSerdes[0] instanceof IntegerSerializerDeserializer) {
-            orderedIndexTestUtils.bulkLoadIntTuples(ctx, numTuplesToInsert, getRandom());
+            orderedIndexTestUtils.bulkLoadIntTuples(ctx, numTuplesToInsert, false, getRandom());
         } else if (fieldSerdes[0] instanceof UTF8StringSerializerDeserializer) {
-            orderedIndexTestUtils.bulkLoadStringTuples(ctx, numTuplesToInsert, getRandom());
+            orderedIndexTestUtils.bulkLoadStringTuples(ctx, numTuplesToInsert, getRandom(), false);
         }
 
         int maxTreesToMerge = AccessMethodTestsConfig.LSM_BTREE_MAX_TREES_TO_MERGE;
         for (int i = 0; i < maxTreesToMerge; i++) {
             for (int j = 0; j < i; j++) {
                 if (fieldSerdes[0] instanceof IntegerSerializerDeserializer) {
-                    orderedIndexTestUtils.insertIntTuples(ctx, numTuplesToInsert, getRandom());
+                    orderedIndexTestUtils.insertIntTuples(ctx, numTuplesToInsert, false, getRandom());
                     // Deactivate and the re-activate the index to force it flush its in memory component
                     ctx.getIndex().deactivate();
                     ctx.getIndex().activate();

@@ -46,8 +46,8 @@ import org.apache.hyracks.storage.common.file.IFileMapProvider;
 @SuppressWarnings("rawtypes")
 public final class LSMBTreeTestContext extends OrderedIndexTestContext {
 
-    public LSMBTreeTestContext(ISerializerDeserializer[] fieldSerdes, ITreeIndex treeIndex) throws HyracksDataException {
-        super(fieldSerdes, treeIndex);
+    public LSMBTreeTestContext(ISerializerDeserializer[] fieldSerdes, ITreeIndex treeIndex, boolean filtered) throws HyracksDataException {
+        super(fieldSerdes, treeIndex, filtered);
     }
 
     @Override
@@ -71,11 +71,11 @@ public final class LSMBTreeTestContext extends OrderedIndexTestContext {
     }
 
     public static LSMBTreeTestContext create(IIOManager ioManager, List<IVirtualBufferCache> virtualBufferCaches,
-            FileReference file, IBufferCache diskBufferCache, IFileMapProvider diskFileMapProvider,
-            ISerializerDeserializer[] fieldSerdes,
-            int numKeyFields, double bloomFilterFalsePositiveRate, ILSMMergePolicy mergePolicy,
-            ILSMOperationTracker opTracker, ILSMIOOperationScheduler ioScheduler, ILSMIOOperationCallback ioOpCallback,
-            IMetadataPageManagerFactory metadataPageManagerFactory)
+                                             FileReference file, IBufferCache diskBufferCache, IFileMapProvider diskFileMapProvider,
+                                             ISerializerDeserializer[] fieldSerdes,
+                                             int numKeyFields, double bloomFilterFalsePositiveRate, ILSMMergePolicy mergePolicy,
+                                             ILSMOperationTracker opTracker, ILSMIOOperationScheduler ioScheduler, ILSMIOOperationCallback ioOpCallback,
+                                             IMetadataPageManagerFactory metadataPageManagerFactory, boolean filtered)
             throws Exception {
         ITypeTraits[] typeTraits = SerdeUtils.serdesToTypeTraits(fieldSerdes);
         IBinaryComparatorFactory[] cmpFactories = SerdeUtils.serdesToComparatorFactories(fieldSerdes, numKeyFields);
@@ -83,11 +83,29 @@ public final class LSMBTreeTestContext extends OrderedIndexTestContext {
         for (int i = 0; i < numKeyFields; ++i) {
             bloomFilterKeyFields[i] = i;
         }
-        LSMBTree lsmTree = LSMBTreeUtil.createLSMTree(ioManager, virtualBufferCaches, file, diskBufferCache,
-                diskFileMapProvider, typeTraits, cmpFactories, bloomFilterKeyFields, bloomFilterFalsePositiveRate,
-                mergePolicy, opTracker, ioScheduler, ioOpCallback, true, null, null, null, null, true,
-                metadataPageManagerFactory);
-        LSMBTreeTestContext testCtx = new LSMBTreeTestContext(fieldSerdes, lsmTree);
+        LSMBTree lsmTree;
+        if(filtered) {
+            ITypeTraits[] filterTypeTraits = new ITypeTraits[numKeyFields];
+            for (int i = 0; i < numKeyFields; i++) {
+                filterTypeTraits[i] = typeTraits[i];
+            }
+            int[] btreefields = new int[typeTraits.length];
+            for (int i = 0; i < btreefields.length; i++) {
+                btreefields[i] = i;
+            }
+            int[] filterfields = {btreefields.length};
+            lsmTree = LSMBTreeUtil.createLSMTree(ioManager, virtualBufferCaches, file, diskBufferCache,
+                    diskFileMapProvider, typeTraits, cmpFactories, bloomFilterKeyFields, bloomFilterFalsePositiveRate,
+                    mergePolicy, opTracker, ioScheduler, ioOpCallback, true, filterTypeTraits, cmpFactories, btreefields, filterfields, true,
+                    metadataPageManagerFactory);
+        }
+        else{
+            lsmTree = LSMBTreeUtil.createLSMTree(ioManager, virtualBufferCaches, file, diskBufferCache,
+                    diskFileMapProvider, typeTraits, cmpFactories, bloomFilterKeyFields, bloomFilterFalsePositiveRate,
+                    mergePolicy, opTracker, ioScheduler, ioOpCallback, true, null,null,null,null, true,
+                    metadataPageManagerFactory);
+        }
+        LSMBTreeTestContext testCtx = new LSMBTreeTestContext(fieldSerdes, lsmTree, filtered);
         return testCtx;
     }
 }

@@ -65,19 +65,19 @@ public abstract class AbstractModificationOperationCallbackTest extends Abstract
 
         isFoundNull = true;
         for (int i = 0; i < AccessMethodTestsConfig.BTREE_NUM_TUPLES_TO_INSERT; i++) {
-            TupleUtils.createIntegerTuple(builder, tuple, i);
+            TupleUtils.createIntegerTuple(builder, tuple, false, i);
             accessor.insert(tuple);
         }
 
         isFoundNull = false;
         for (int i = 0; i < AccessMethodTestsConfig.BTREE_NUM_TUPLES_TO_INSERT; i++) {
-            TupleUtils.createIntegerTuple(builder, tuple, i);
+            TupleUtils.createIntegerTuple(builder, tuple, false, i);
             accessor.upsert(tuple);
         }
 
         isFoundNull = false;
         for (int i = 0; i < AccessMethodTestsConfig.BTREE_NUM_TUPLES_TO_INSERT; i++) {
-            TupleUtils.createIntegerTuple(builder, tuple, i);
+            TupleUtils.createIntegerTuple(builder, tuple, false, i);
             accessor.delete(tuple);
         }
     }

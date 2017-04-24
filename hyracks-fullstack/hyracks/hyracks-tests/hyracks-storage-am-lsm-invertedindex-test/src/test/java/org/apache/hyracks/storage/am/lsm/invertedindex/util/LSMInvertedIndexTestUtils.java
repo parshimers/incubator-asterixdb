@@ -215,7 +215,7 @@ public class LSMInvertedIndexTestUtils {
         Iterator<CheckTuple> checkTupleIter = tmpMemIndex.iterator();
         while (checkTupleIter.hasNext()) {
             CheckTuple checkTuple = checkTupleIter.next();
-            OrderedIndexTestUtils.createTupleFromCheckTuple(checkTuple, tupleBuilder, tuple, fieldSerdes);
+            OrderedIndexTestUtils.createTupleFromCheckTuple(checkTuple, tupleBuilder, tuple, fieldSerdes, false);
             bulkLoader.add(tuple);
         }
         bulkLoader.end();
@@ -286,7 +286,7 @@ public class LSMInvertedIndexTestUtils {
                 invIndexCursor.next();
                 ITupleReference actualTuple = invIndexCursor.getTuple();
                 CheckTuple expected = expectedIter.next();
-                OrderedIndexTestUtils.createTupleFromCheckTuple(expected, expectedBuilder, expectedTuple, fieldSerdes);
+                OrderedIndexTestUtils.createTupleFromCheckTuple(expected, expectedBuilder, expectedTuple, fieldSerdes, false);
                 if (tupleCmp.compare(actualTuple, expectedTuple) != 0) {
                     fail("Index entries differ for token '" + expected.getField(0) + "'.");
                 }
@@ -349,7 +349,7 @@ public class LSMInvertedIndexTestUtils {
             Iterator<CheckTuple> expectedInvListIter = expectedInvList.iterator();
 
             // Position inverted-list cursor in actual index.
-            OrderedIndexTestUtils.createTupleFromCheckTuple(checkLowKey, searchKeyBuilder, searchKey, fieldSerdes);
+            OrderedIndexTestUtils.createTupleFromCheckTuple(checkLowKey, searchKeyBuilder, searchKey, fieldSerdes, false);
             invIndexAccessor.openInvertedListCursor(actualInvListCursor, searchKey);
 
             if (actualInvListCursor.size() != expectedInvList.size()) {
@@ -366,7 +366,7 @@ public class LSMInvertedIndexTestUtils {
                     ITupleReference actual = actualInvListCursor.getTuple();
                     CheckTuple expected = expectedInvListIter.next();
                     OrderedIndexTestUtils.createTupleFromCheckTuple(expected, expectedBuilder, completeExpectedTuple,
-                            fieldSerdes);
+                            fieldSerdes, false);
                     expectedTuple.reset(completeExpectedTuple);
                     if (invListCmp.compare(actual, expectedTuple) != 0) {
                         fail("Inverted lists of token '" + token + "' differ at position " + count + ".");

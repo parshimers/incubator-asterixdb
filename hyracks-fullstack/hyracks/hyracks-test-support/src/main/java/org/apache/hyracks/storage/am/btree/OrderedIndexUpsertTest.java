@@ -47,13 +47,13 @@ public abstract class OrderedIndexUpsertTest extends OrderedIndexTestDriver {
     protected void runTest(ISerializerDeserializer[] fieldSerdes, int numKeys, BTreeLeafFrameType leafType,
             ITupleReference lowKey, ITupleReference highKey, ITupleReference prefixLowKey, ITupleReference prefixHighKey)
             throws Exception {
-        OrderedIndexTestContext ctx = createTestContext(fieldSerdes, numKeys, leafType);
+        OrderedIndexTestContext ctx = createTestContext(fieldSerdes, numKeys, leafType, false);
         ctx.getIndex().create();
         ctx.getIndex().activate();
         // We assume all fieldSerdes are of the same type. Check the first one
         // to determine which field types to generate.
         if (fieldSerdes[0] instanceof IntegerSerializerDeserializer) {
-            orderedIndexTestUtils.upsertIntTuples(ctx, numTuplesToInsert, getRandom());
+            orderedIndexTestUtils.upsertIntTuples(ctx, numTuplesToInsert, false, getRandom());
         } else if (fieldSerdes[0] instanceof UTF8StringSerializerDeserializer) {
             orderedIndexTestUtils.upsertStringTuples(ctx, numTuplesToInsert, getRandom());
         }
