@@ -72,22 +72,25 @@ public abstract class TreeIndexTestUtils {
     protected abstract boolean checkDiskOrderScanResult(ITupleReference tuple, CheckTuple checkTuple,
             IIndexTestContext ctx) throws HyracksDataException;
 
-    public static int compareFilterTuples(ITupleReference lhs, ITupleReference rhs, IBinaryComparator comp) throws HyracksDataException {
-        return comp.compare(lhs.getFieldData(0),lhs.getFieldStart(0),lhs.getFieldLength(0),rhs.getFieldData(0),rhs.getFieldStart(0),rhs.getFieldLength(0));
+    public static int compareFilterTuples(ITupleReference lhs, ITupleReference rhs, IBinaryComparator comp)
+            throws HyracksDataException {
+        return comp.compare(lhs.getFieldData(0), lhs.getFieldStart(0), lhs.getFieldLength(0), rhs.getFieldData(0),
+                rhs.getFieldStart(0), rhs.getFieldLength(0));
     }
 
     @SuppressWarnings("unchecked")
     public static void createTupleFromCheckTuple(CheckTuple checkTuple, ArrayTupleBuilder tupleBuilder,
-                                                 ArrayTupleReference tuple, ISerializerDeserializer[] fieldSerdes, boolean filtered) throws HyracksDataException {
+            ArrayTupleReference tuple, ISerializerDeserializer[] fieldSerdes, boolean filtered)
+            throws HyracksDataException {
         int fieldCount = tupleBuilder.getFieldEndOffsets().length;
         DataOutput dos = tupleBuilder.getDataOutput();
         tupleBuilder.reset();
-        for (int i = 0; i < (filtered ? fieldCount-1:fieldCount); i++) {
+        for (int i = 0; i < (filtered ? fieldCount - 1 : fieldCount); i++) {
             fieldSerdes[i].serialize(checkTuple.getField(i), dos);
             tupleBuilder.addFieldEndOffset();
         }
-        if(filtered){
-            fieldSerdes[0].serialize(checkTuple.getField(0),dos);
+        if (filtered) {
+            fieldSerdes[0].serialize(checkTuple.getField(0), dos);
             tupleBuilder.addFieldEndOffset();
         }
         tuple.reset(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray());
@@ -99,8 +102,8 @@ public abstract class TreeIndexTestUtils {
         CheckTuple checkTuple = createCheckTuple(fieldSerdes.length, numKeys);
         int fieldCount = Math.min(fieldSerdes.length, tuple.getFieldCount());
         for (int i = 0; i < fieldCount; i++) {
-            ByteArrayInputStream inStream =
-                    new ByteArrayInputStream(tuple.getFieldData(i), tuple.getFieldStart(i), tuple.getFieldLength(i));
+            ByteArrayInputStream inStream = new ByteArrayInputStream(tuple.getFieldData(i), tuple.getFieldStart(i),
+                    tuple.getFieldLength(i));
             DataInput dataIn = new DataInputStream(inStream);
             Comparable fieldObj = (Comparable) fieldSerdes[i].deserialize(dataIn);
             checkTuple.appendField(fieldObj);
@@ -133,8 +136,8 @@ public abstract class TreeIndexTestUtils {
                 while (diskOrderCursor.hasNext()) {
                     diskOrderCursor.next();
                     ITupleReference tuple = diskOrderCursor.getTuple();
-                    CheckTuple checkTuple =
-                            createCheckTupleFromTuple(tuple, ctx.getFieldSerdes(), ctx.getKeyFieldCount());
+                    CheckTuple checkTuple = createCheckTupleFromTuple(tuple, ctx.getFieldSerdes(),
+                            ctx.getKeyFieldCount());
                     if (!checkDiskOrderScanResult(tuple, checkTuple, ctx)) {
                         fail("Disk-order scan returned unexpected answer: " + checkTuple.toString());
                     }
@@ -171,7 +174,8 @@ public abstract class TreeIndexTestUtils {
     }
 
     @SuppressWarnings("unchecked")
-    public Pair<ITupleReference,ITupleReference> insertIntTuples(IIndexTestContext ctx, int numTuples, boolean filtered, Random rnd) throws Exception {
+    public Pair<ITupleReference, ITupleReference> insertIntTuples(IIndexTestContext ctx, int numTuples,
+            boolean filtered, Random rnd) throws Exception {
         int fieldCount = ctx.getFieldCount();
         int numKeyFields = ctx.getKeyFieldCount();
         int[] fieldValues = new int[ctx.getFieldCount()];
@@ -179,7 +183,7 @@ public abstract class TreeIndexTestUtils {
         // For example, for 2 keys we want the square root of numTuples, for 3
         // keys the cube root of numTuples, etc.
         int maxValue = (int) Math.ceil(Math.pow(numTuples, 1.0 / numKeyFields));
-        MutablePair<ITupleReference,ITupleReference> minMax = null;
+        MutablePair<ITupleReference, ITupleReference> minMax = null;
         for (int i = 0; i < numTuples; i++) {
             // Set keys.
             setIntKeyFields(fieldValues, numKeyFields, maxValue, rnd);
@@ -194,21 +198,20 @@ public abstract class TreeIndexTestUtils {
             try {
                 ctx.getIndexAccessor().insert(ctx.getTuple());
                 ctx.insertCheckTuple(createIntCheckTuple(fieldValues, ctx.getKeyFieldCount()), ctx.getCheckTuples());
-                if(filtered) {
+                if (filtered) {
                     int filterField = ctx.getFieldCount();
                     ITupleReference currTuple = ctx.getTuple();
                     ArrayTupleBuilder filterBuilder = new ArrayTupleBuilder(1);
-                    filterBuilder.addField(currTuple.getFieldData(filterField),currTuple.getFieldStart(filterField),currTuple.getFieldLength(filterField));
+                    filterBuilder.addField(currTuple.getFieldData(filterField), currTuple.getFieldStart(filterField),
+                            currTuple.getFieldLength(filterField));
                     IBinaryComparator comparator = ctx.getComparatorFactories()[0].createBinaryComparator();
                     ArrayTupleReference filterOnlyTuple = new ArrayTupleReference();
-                    filterOnlyTuple.reset(filterBuilder.getFieldEndOffsets(),filterBuilder.getByteArray());
-                    if(minMax == null){
-                        minMax = MutablePair.of(filterOnlyTuple,filterOnlyTuple);
-                    }
-                    else if (compareFilterTuples(minMax.getLeft(),filterOnlyTuple, comparator) > 0) {
+                    filterOnlyTuple.reset(filterBuilder.getFieldEndOffsets(), filterBuilder.getByteArray());
+                    if (minMax == null) {
+                        minMax = MutablePair.of(filterOnlyTuple, filterOnlyTuple);
+                    } else if (compareFilterTuples(minMax.getLeft(), filterOnlyTuple, comparator) > 0) {
                         minMax.setLeft(filterOnlyTuple);
-                    }
-                    else if(compareFilterTuples(minMax.getRight(),filterOnlyTuple,comparator) < 0){
+                    } else if (compareFilterTuples(minMax.getRight(), filterOnlyTuple, comparator) < 0) {
                         minMax.setRight(filterOnlyTuple);
                     }
                 }
@@ -237,7 +240,7 @@ public abstract class TreeIndexTestUtils {
             setIntKeyFields(fieldValues, numKeyFields, maxValue, rnd);
             // Set values.
             setIntPayloadFields(fieldValues, numKeyFields, fieldCount);
-            TupleUtils.createIntegerTuple(ctx.getTupleBuilder(), ctx.getTuple(), filtered,  fieldValues);
+            TupleUtils.createIntegerTuple(ctx.getTupleBuilder(), ctx.getTuple(), filtered, fieldValues);
             if (LOGGER.isLoggable(Level.INFO)) {
                 if ((i + 1) % (numTuples / Math.min(10, numTuples)) == 0) {
                     LOGGER.info("Inserting Tuple " + (i + 1) + "/" + numTuples);
@@ -285,7 +288,8 @@ public abstract class TreeIndexTestUtils {
             throws HyracksDataException {
         int fieldCount = ctx.getFieldCount();
         int numTuples = checkTuples.size();
-        ArrayTupleBuilder tupleBuilder = filtered ? new ArrayTupleBuilder(fieldCount+1) : new ArrayTupleBuilder(fieldCount);
+        ArrayTupleBuilder tupleBuilder = filtered ? new ArrayTupleBuilder(fieldCount + 1)
+                : new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
         // Perform bulk load.
         IIndexBulkLoader bulkLoader = ctx.getIndex().createBulkLoader(0.7f, false, numTuples, false);

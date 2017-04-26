@@ -33,7 +33,8 @@ public abstract class OrderedIndexTestContext extends IndexTestContext<CheckTupl
 
     protected final TreeSet<CheckTuple> checkTuples = new TreeSet<CheckTuple>();
 
-    public OrderedIndexTestContext(ISerializerDeserializer[] fieldSerdes, IIndex index, boolean filtered) throws HyracksDataException {
+    public OrderedIndexTestContext(ISerializerDeserializer[] fieldSerdes, IIndex index, boolean filtered)
+            throws HyracksDataException {
         super(fieldSerdes, index, filtered);
     }
 

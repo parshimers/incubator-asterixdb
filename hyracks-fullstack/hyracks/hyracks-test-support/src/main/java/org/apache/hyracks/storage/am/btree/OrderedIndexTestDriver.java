@@ -40,13 +40,13 @@ public abstract class OrderedIndexTestDriver {
     protected static final int numTuplesToInsert = AccessMethodTestsConfig.BTREE_NUM_TUPLES_TO_INSERT;
 
     protected abstract OrderedIndexTestContext createTestContext(ISerializerDeserializer[] fieldSerdes, int numKeys,
-                                                                 BTreeLeafFrameType leafType, boolean filtered) throws Exception;
+            BTreeLeafFrameType leafType, boolean filtered) throws Exception;
 
     protected abstract Random getRandom();
 
     protected abstract void runTest(ISerializerDeserializer[] fieldSerdes, int numKeys, BTreeLeafFrameType leafType,
-            ITupleReference lowKey, ITupleReference highKey, ITupleReference prefixLowKey, ITupleReference prefixHighKey)
-            throws Exception;
+            ITupleReference lowKey, ITupleReference highKey, ITupleReference prefixLowKey,
+            ITupleReference prefixHighKey) throws Exception;
 
     protected abstract String getTestOpName();
 
@@ -65,8 +65,8 @@ public abstract class OrderedIndexTestDriver {
         ISerializerDeserializer[] fieldSerdes = { IntegerSerializerDeserializer.INSTANCE,
                 IntegerSerializerDeserializer.INSTANCE };
         // Range search in [-1000, 1000]
-        ITupleReference lowKey = TupleUtils.createIntegerTuple(false,-1000);
-        ITupleReference highKey = TupleUtils.createIntegerTuple(false,1000);
+        ITupleReference lowKey = TupleUtils.createIntegerTuple(false, -1000);
+        ITupleReference highKey = TupleUtils.createIntegerTuple(false, 1000);
 
         for (BTreeLeafFrameType leafFrameType : leafFrameTypesToTest) {
             runTest(fieldSerdes, 1, leafFrameType, lowKey, highKey, null, null);
