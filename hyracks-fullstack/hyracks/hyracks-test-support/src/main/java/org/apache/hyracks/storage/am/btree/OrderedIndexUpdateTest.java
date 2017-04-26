@@ -40,8 +40,8 @@ public abstract class OrderedIndexUpdateTest extends OrderedIndexTestDriver {
 
     @Override
     protected void runTest(ISerializerDeserializer[] fieldSerdes, int numKeys, BTreeLeafFrameType leafType,
-            ITupleReference lowKey, ITupleReference highKey, ITupleReference prefixLowKey, ITupleReference prefixHighKey)
-            throws Exception {
+            ITupleReference lowKey, ITupleReference highKey, ITupleReference prefixLowKey,
+            ITupleReference prefixHighKey) throws Exception {
         // This is a noop because we can only update non-key fields.
         if (fieldSerdes.length == numKeys) {
             return;
@@ -54,7 +54,7 @@ public abstract class OrderedIndexUpdateTest extends OrderedIndexTestDriver {
         if (fieldSerdes[0] instanceof IntegerSerializerDeserializer) {
             orderedIndexTestUtils.insertIntTuples(ctx, numTuplesToInsert, false, getRandom());
         } else if (fieldSerdes[0] instanceof UTF8StringSerializerDeserializer) {
-            orderedIndexTestUtils.insertStringTuples(ctx, numTuplesToInsert, getRandom());
+            orderedIndexTestUtils.insertStringTuples(ctx, numTuplesToInsert, false, getRandom());
         }
         int numTuplesPerDeleteRound = (int) Math.ceil((float) ctx.getCheckTuples().size() / (float) numUpdateRounds);
         for (int j = 0; j < numUpdateRounds; j++) {

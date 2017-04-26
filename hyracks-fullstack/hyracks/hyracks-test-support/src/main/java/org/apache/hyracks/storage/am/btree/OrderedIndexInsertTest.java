@@ -45,8 +45,8 @@ public abstract class OrderedIndexInsertTest extends OrderedIndexTestDriver {
 
     @Override
     protected void runTest(ISerializerDeserializer[] fieldSerdes, int numKeys, BTreeLeafFrameType leafType,
-            ITupleReference lowKey, ITupleReference highKey, ITupleReference prefixLowKey, ITupleReference prefixHighKey)
-            throws Exception {
+            ITupleReference lowKey, ITupleReference highKey, ITupleReference prefixLowKey,
+            ITupleReference prefixHighKey) throws Exception {
         OrderedIndexTestContext ctx = createTestContext(fieldSerdes, numKeys, leafType, false);
         ctx.getIndex().create();
         ctx.getIndex().activate();
@@ -55,7 +55,7 @@ public abstract class OrderedIndexInsertTest extends OrderedIndexTestDriver {
         if (fieldSerdes[0] instanceof IntegerSerializerDeserializer) {
             orderedIndexTestUtils.insertIntTuples(ctx, numTuplesToInsert, false, getRandom());
         } else if (fieldSerdes[0] instanceof UTF8StringSerializerDeserializer) {
-            orderedIndexTestUtils.insertStringTuples(ctx, numTuplesToInsert, getRandom());
+            orderedIndexTestUtils.insertStringTuples(ctx, numTuplesToInsert, false, getRandom());
         }
 
         orderedIndexTestUtils.checkPointSearches(ctx);

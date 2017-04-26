@@ -154,14 +154,14 @@ public class BloomFilterTest extends AbstractBloomFilterTest {
         }
 
         for (int i = 0; i < numElements; ++i) {
-            TupleUtils.createTuple(tupleBuilder, tuple, fieldSerdes, s1.get(i), s2.get(i), i, s3.get(i), s4.get(i));
+            TupleUtils.createTuple(tupleBuilder, tuple, fieldSerdes, false, s1.get(i), s2.get(i), i, s3.get(i), s4.get(i));
             builder.add(tuple);
         }
         builder.end();
 
         long[] hashes = new long[2];
         for (int i = 0; i < numElements; ++i) {
-            TupleUtils.createTuple(tupleBuilder, tuple, fieldSerdes, s1.get(i), s2.get(i), i, s3.get(i), s4.get(i));
+            TupleUtils.createTuple(tupleBuilder, tuple, fieldSerdes, false, s1.get(i), s2.get(i), i, s3.get(i), s4.get(i));
             Assert.assertTrue(bf.contains(tuple, hashes));
         }
 

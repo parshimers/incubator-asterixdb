@@ -95,10 +95,10 @@ public abstract class AbstractRTreeExamplesTest {
         typeTraits[4] = IntegerPointable.TYPE_TRAITS;
         typeTraits[5] = IntegerPointable.TYPE_TRAITS;
         // Declare field serdes.
-        ISerializerDeserializer[] fieldSerdes =
-                { IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-                        IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
-                        IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE };
+        ISerializerDeserializer[] fieldSerdes = { IntegerSerializerDeserializer.INSTANCE,
+                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+                IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE,
+                IntegerSerializerDeserializer.INSTANCE };
 
         // Declare RTree keys.
         int rtreeKeyFieldCount = 4;
@@ -135,8 +135,8 @@ public abstract class AbstractRTreeExamplesTest {
         }
 
         // create value providers
-        IPrimitiveValueProviderFactory[] valueProviderFactories =
-                RTreeUtils.createPrimitiveValueProviderFactories(rtreeCmpFactories.length, IntegerPointable.FACTORY);
+        IPrimitiveValueProviderFactory[] valueProviderFactories = RTreeUtils
+                .createPrimitiveValueProviderFactories(rtreeCmpFactories.length, IntegerPointable.FACTORY);
 
         ITreeIndex treeIndex = createTreeIndex(typeTraits, rtreeCmpFactories, btreeCmpFactories, valueProviderFactories,
                 RTreePolicyType.RTREE, null, btreeFields, null, null, null);
@@ -149,8 +149,8 @@ public abstract class AbstractRTreeExamplesTest {
         }
         ArrayTupleBuilder tb = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
-        IIndexAccessor indexAccessor =
-                treeIndex.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+        IIndexAccessor indexAccessor = treeIndex.createAccessor(NoOpOperationCallback.INSTANCE,
+                NoOpOperationCallback.INSTANCE);
         int numInserts = 10000;
         for (int i = 0; i < numInserts; i++) {
             int p1x = rnd.nextInt();
@@ -248,8 +248,8 @@ public abstract class AbstractRTreeExamplesTest {
         }
 
         // create value providers
-        IPrimitiveValueProviderFactory[] valueProviderFactories =
-                RTreeUtils.createPrimitiveValueProviderFactories(rtreeCmpFactories.length, IntegerPointable.FACTORY);
+        IPrimitiveValueProviderFactory[] valueProviderFactories = RTreeUtils
+                .createPrimitiveValueProviderFactories(rtreeCmpFactories.length, IntegerPointable.FACTORY);
 
         //2
         ITreeIndex treeIndex = createTreeIndex(typeTraits, rtreeCmpFactories, btreeCmpFactories, valueProviderFactories,
@@ -260,8 +260,8 @@ public abstract class AbstractRTreeExamplesTest {
 
         ArrayTupleBuilder tb = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
-        IIndexAccessor indexAccessor =
-                treeIndex.createAccessor(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
+        IIndexAccessor indexAccessor = treeIndex.createAccessor(TestOperationCallback.INSTANCE,
+                TestOperationCallback.INSTANCE);
 
         int p1x = rnd.nextInt();
         int p1y = rnd.nextInt();
@@ -271,8 +271,8 @@ public abstract class AbstractRTreeExamplesTest {
         for (int i = 0; i < 210; i++) {
             data += "X";
         }
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
-                Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
+                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         p1x = rnd.nextInt();
@@ -280,8 +280,8 @@ public abstract class AbstractRTreeExamplesTest {
         p2x = rnd.nextInt();
         p2y = rnd.nextInt();
         data = "XXX";
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
-                Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
+                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         p1x = rnd.nextInt();
@@ -289,8 +289,8 @@ public abstract class AbstractRTreeExamplesTest {
         p2x = rnd.nextInt();
         p2y = rnd.nextInt();
         data = "XXX";
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
-                Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
+                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         p1x = rnd.nextInt();
@@ -298,8 +298,8 @@ public abstract class AbstractRTreeExamplesTest {
         p2x = rnd.nextInt();
         p2y = rnd.nextInt();
         data = "XXX";
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
-                Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
+                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         p1x = rnd.nextInt();
@@ -310,8 +310,8 @@ public abstract class AbstractRTreeExamplesTest {
         for (int i = 0; i < 210; i++) {
             data += "X";
         }
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
-                Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
+                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         p1x = rnd.nextInt();
@@ -322,8 +322,8 @@ public abstract class AbstractRTreeExamplesTest {
         for (int i = 0; i < 210; i++) {
             data += "X";
         }
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
-                Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
+                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         treeIndex.deactivate();
@@ -388,8 +388,8 @@ public abstract class AbstractRTreeExamplesTest {
         }
 
         // create value providers
-        IPrimitiveValueProviderFactory[] valueProviderFactories =
-                RTreeUtils.createPrimitiveValueProviderFactories(rtreeCmpFactories.length, IntegerPointable.FACTORY);
+        IPrimitiveValueProviderFactory[] valueProviderFactories = RTreeUtils
+                .createPrimitiveValueProviderFactories(rtreeCmpFactories.length, IntegerPointable.FACTORY);
 
         ITreeIndex treeIndex = createTreeIndex(typeTraits, rtreeCmpFactories, btreeCmpFactories, valueProviderFactories,
                 RTreePolicyType.RSTARTREE, null, btreeFields, null, null, null);
@@ -399,8 +399,8 @@ public abstract class AbstractRTreeExamplesTest {
 
         ArrayTupleBuilder tb = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
-        IIndexAccessor indexAccessor =
-                treeIndex.createAccessor(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
+        IIndexAccessor indexAccessor = treeIndex.createAccessor(TestOperationCallback.INSTANCE,
+                TestOperationCallback.INSTANCE);
 
         int p1x = rnd.nextInt();
         int p1y = rnd.nextInt();
@@ -410,8 +410,8 @@ public abstract class AbstractRTreeExamplesTest {
         for (int i = 0; i < 210; i++) {
             data += "X";
         }
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
-                Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
+                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         p1x = rnd.nextInt();
@@ -422,8 +422,8 @@ public abstract class AbstractRTreeExamplesTest {
         for (int i = 0; i < 210; i++) {
             data += "X";
         }
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
-                Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
+                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         p1x = rnd.nextInt();
@@ -431,8 +431,8 @@ public abstract class AbstractRTreeExamplesTest {
         p2x = rnd.nextInt();
         p2y = rnd.nextInt();
         data = "XXX";
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
-                Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
+                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         p1x = rnd.nextInt();
@@ -440,8 +440,8 @@ public abstract class AbstractRTreeExamplesTest {
         p2x = rnd.nextInt();
         p2y = rnd.nextInt();
         data = "XXX";
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
-                Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
+                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         p1x = rnd.nextInt();
@@ -452,8 +452,8 @@ public abstract class AbstractRTreeExamplesTest {
         for (int i = 0; i < 210; i++) {
             data += "X";
         }
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
-                Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
+                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         p1x = rnd.nextInt();
@@ -464,8 +464,8 @@ public abstract class AbstractRTreeExamplesTest {
         for (int i = 0; i < 210; i++) {
             data += "X";
         }
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
-                Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
+                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         treeIndex.deactivate();
@@ -537,8 +537,8 @@ public abstract class AbstractRTreeExamplesTest {
         }
 
         // create value providers
-        IPrimitiveValueProviderFactory[] valueProviderFactories =
-                RTreeUtils.createPrimitiveValueProviderFactories(rtreeCmpFactories.length, DoublePointable.FACTORY);
+        IPrimitiveValueProviderFactory[] valueProviderFactories = RTreeUtils
+                .createPrimitiveValueProviderFactories(rtreeCmpFactories.length, DoublePointable.FACTORY);
 
         //4
         ITreeIndex treeIndex = createTreeIndex(typeTraits, rtreeCmpFactories, btreeCmpFactories, valueProviderFactories,
@@ -552,8 +552,8 @@ public abstract class AbstractRTreeExamplesTest {
         }
         ArrayTupleBuilder tb = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
-        IIndexAccessor indexAccessor =
-                treeIndex.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+        IIndexAccessor indexAccessor = treeIndex.createAccessor(NoOpOperationCallback.INSTANCE,
+                NoOpOperationCallback.INSTANCE);
         int numInserts = 10000;
         for (int i = 0; i < numInserts; i++) {
             double p1x = rnd.nextDouble();
@@ -648,8 +648,8 @@ public abstract class AbstractRTreeExamplesTest {
         }
 
         // create value providers
-        IPrimitiveValueProviderFactory[] valueProviderFactories =
-                RTreeUtils.createPrimitiveValueProviderFactories(rtreeCmpFactories.length, IntegerPointable.FACTORY);
+        IPrimitiveValueProviderFactory[] valueProviderFactories = RTreeUtils
+                .createPrimitiveValueProviderFactories(rtreeCmpFactories.length, IntegerPointable.FACTORY);
 
         ITreeIndex treeIndex = createTreeIndex(typeTraits, rtreeCmpFactories, btreeCmpFactories, valueProviderFactories,
                 RTreePolicyType.RTREE, null, btreeFields, null, null, null);
@@ -658,8 +658,8 @@ public abstract class AbstractRTreeExamplesTest {
 
         ArrayTupleBuilder tb = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
-        IIndexAccessor indexAccessor =
-                treeIndex.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+        IIndexAccessor indexAccessor = treeIndex.createAccessor(NoOpOperationCallback.INSTANCE,
+                NoOpOperationCallback.INSTANCE);
 
         int runs = 3;
         for (int run = 0; run < runs; run++) {
@@ -690,8 +690,8 @@ public abstract class AbstractRTreeExamplesTest {
                 p2ys[i] = Math.max(p1y, p2y);
                 pks[i] = pk;
 
-                TupleUtils.createIntegerTuple(tb, tuple, false, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
-                        Math.max(p1y, p2y), pk);
+                TupleUtils.createIntegerTuple(tb, tuple, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
+                        Math.max(p1x, p2x), Math.max(p1y, p2y), pk);
                 try {
                     indexAccessor.insert(tuple);
                 } catch (HyracksDataException e) {
@@ -790,8 +790,8 @@ public abstract class AbstractRTreeExamplesTest {
         }
 
         // create value providers
-        IPrimitiveValueProviderFactory[] valueProviderFactories =
-                RTreeUtils.createPrimitiveValueProviderFactories(rtreeCmpFactories.length, IntegerPointable.FACTORY);
+        IPrimitiveValueProviderFactory[] valueProviderFactories = RTreeUtils
+                .createPrimitiveValueProviderFactories(rtreeCmpFactories.length, IntegerPointable.FACTORY);
 
         //6
         ITreeIndex treeIndex = createTreeIndex(typeTraits, rtreeCmpFactories, btreeCmpFactories, valueProviderFactories,
@@ -828,8 +828,8 @@ public abstract class AbstractRTreeExamplesTest {
             LOGGER.info(numInserts + " tuples loaded in " + (end - start) + "ms");
         }
 
-        IIndexAccessor indexAccessor =
-                treeIndex.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+        IIndexAccessor indexAccessor = treeIndex.createAccessor(NoOpOperationCallback.INSTANCE,
+                NoOpOperationCallback.INSTANCE);
 
         // Build key.
         ArrayTupleBuilder keyTb = new ArrayTupleBuilder(rtreeKeyFieldCount);
@@ -869,8 +869,8 @@ public abstract class AbstractRTreeExamplesTest {
                 LOGGER.info("Disk-Order Scan:");
             }
             ITreeIndexAccessor treeIndexAccessor = (ITreeIndexAccessor) indexAccessor;
-            TreeIndexDiskOrderScanCursor diskOrderCursor =
-                    (TreeIndexDiskOrderScanCursor) treeIndexAccessor.createDiskOrderScanCursor();
+            TreeIndexDiskOrderScanCursor diskOrderCursor = (TreeIndexDiskOrderScanCursor) treeIndexAccessor
+                    .createDiskOrderScanCursor();
             treeIndexAccessor.diskOrderScan(diskOrderCursor);
             try {
                 while (diskOrderCursor.hasNext()) {

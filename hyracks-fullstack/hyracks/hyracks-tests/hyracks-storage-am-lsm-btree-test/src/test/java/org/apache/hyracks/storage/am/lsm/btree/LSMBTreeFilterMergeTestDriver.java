@@ -19,7 +19,6 @@
 
 package org.apache.hyracks.storage.am.lsm.btree;
 
-import apple.laf.JRSUIUtils;
 import junit.framework.Assert;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
@@ -42,9 +41,6 @@ import org.apache.hyracks.storage.am.lsm.btree.impls.LSMBTreeDiskComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.*;
 import org.apache.hyracks.storage.am.lsm.common.impls.NoOpIOOperationCallback;
 
-import java.io.ByteArrayInputStream;
-import java.io.DataInput;
-import java.io.DataInputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -94,18 +90,20 @@ public abstract class LSMBTreeFilterMergeTestDriver extends OrderedIndexTestDriv
             List<Pair<ITupleReference,ITupleReference>> minMaxes = new ArrayList<>();
             int flushed = 0;
             for (; flushed < i; flushed++) {
+                Pair<ITupleReference,ITupleReference> minMax = null;
                 if (fieldSerdes[0] instanceof IntegerSerializerDeserializer) {
-                    Pair<ITupleReference,ITupleReference> minMax = orderedIndexTestUtils.insertIntTuples(ctx, numTuplesToInsert, true, getRandom());
-                    minMaxes.add(flushed,minMax);
-                    ILSMComponentFilter f  = ((LSMBTree) ctx.getIndex()).getCurrentMemoryComponent().getLSMComponentFilter();
-                    Pair<ITupleReference,ITupleReference> obsMinMax = filterToMinMax(f);
-                    Assert.assertEquals(0,TreeIndexTestUtils.compareFilterTuples(obsMinMax.getLeft(),minMax.getLeft(),comp));
-                    Assert.assertEquals(0,TreeIndexTestUtils.compareFilterTuples(obsMinMax.getRight(),minMax.getRight(),comp));
-                    accessor.scheduleFlush(NoOpIOOperationCallback.INSTANCE);
-                } else if (fieldSerdes[0] instanceof UTF8StringSerializerDeserializer) {
-                    orderedIndexTestUtils.insertStringTuples(ctx, numTuplesToInsert, getRandom());
-                    accessor.scheduleFlush(NoOpIOOperationCallback.INSTANCE);
+                    minMax = orderedIndexTestUtils.insertIntTuples(ctx, numTuplesToInsert, true, getRandom());
+                } else {
+                    minMax = orderedIndexTestUtils.insertStringTuples(ctx, numTuplesToInsert, true, getRandom());
                 }
+                if(minMax != null) {
+                    minMaxes.add(flushed, minMax);
+                    ILSMComponentFilter f = ((LSMBTree) ctx.getIndex()).getCurrentMemoryComponent().getLSMComponentFilter();
+                    Pair<ITupleReference, ITupleReference> obsMinMax = filterToMinMax(f);
+                    Assert.assertEquals(0, TreeIndexTestUtils.compareFilterTuples(obsMinMax.getLeft(), minMax.getLeft(), comp));
+                    Assert.assertEquals(0, TreeIndexTestUtils.compareFilterTuples(obsMinMax.getRight(), minMax.getRight(), comp));
+                }
+                accessor.scheduleFlush(NoOpIOOperationCallback.INSTANCE);
             }
             List<ILSMDiskComponent> flushedComponents = ((LSMBTree) ctx.getIndex()).getImmutableComponents();
             for(int j=flushed;j<flushed;j++){
@@ -121,10 +119,10 @@ public abstract class LSMBTreeFilterMergeTestDriver extends OrderedIndexTestDriv
                 if(expectedMergeMinMax == null){
                     expectedMergeMinMax = MutablePair.of(componentMinMax.getLeft(),componentMinMax.getRight());
                 }
-                else if (TreeIndexTestUtils.compareFilterTuples(expectedMergeMinMax.getLeft(),componentMinMax.getLeft(), comp) > 0) {
+                if (TreeIndexTestUtils.compareFilterTuples(expectedMergeMinMax.getLeft(),componentMinMax.getLeft(), comp) > 0) {
                     expectedMergeMinMax.setLeft(componentMinMax.getLeft());
                 }
-                else if (TreeIndexTestUtils.compareFilterTuples(expectedMergeMinMax.getRight(),componentMinMax.getRight(), comp) < 0) {
+                if (TreeIndexTestUtils.compareFilterTuples(expectedMergeMinMax.getRight(),componentMinMax.getRight(), comp) < 0) {
                     expectedMergeMinMax.setRight(componentMinMax.getRight());
                 }
             }

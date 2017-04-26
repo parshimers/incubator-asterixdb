@@ -85,18 +85,17 @@ public final class LSMBTreeTestContext extends OrderedIndexTestContext {
         }
         LSMBTree lsmTree;
         if(filtered) {
-            ITypeTraits[] filterTypeTraits = new ITypeTraits[numKeyFields];
-            for (int i = 0; i < numKeyFields; i++) {
-                filterTypeTraits[i] = typeTraits[i];
-            }
+            ITypeTraits[] filterTypeTraits = new ITypeTraits[1];
+            filterTypeTraits[0] = typeTraits[0];
             int[] btreefields = new int[typeTraits.length];
             for (int i = 0; i < btreefields.length; i++) {
                 btreefields[i] = i;
             }
             int[] filterfields = {btreefields.length};
+            IBinaryComparatorFactory[] filterCmp = {cmpFactories[0]};
             lsmTree = LSMBTreeUtil.createLSMTree(ioManager, virtualBufferCaches, file, diskBufferCache,
                     diskFileMapProvider, typeTraits, cmpFactories, bloomFilterKeyFields, bloomFilterFalsePositiveRate,
-                    mergePolicy, opTracker, ioScheduler, ioOpCallback, true, filterTypeTraits, cmpFactories, btreefields, filterfields, true,
+                    mergePolicy, opTracker, ioScheduler, ioOpCallback, true, filterTypeTraits, filterCmp, btreefields, filterfields, true,
                     metadataPageManagerFactory);
         }
         else{
