@@ -161,7 +161,7 @@ public abstract class AbstractRTreeExamplesTest {
             int pk1 = 5;
             int pk2 = 10;
 
-            TupleUtils.createIntegerTuple(tb, tuple, false, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
+            TupleUtils.createIntegerTuple(tb, tuple, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
                     Math.max(p1y, p2y), pk1, pk2);
             try {
                 indexAccessor.insert(tuple);
@@ -182,7 +182,7 @@ public abstract class AbstractRTreeExamplesTest {
         // Build key.
         ArrayTupleBuilder keyTb = new ArrayTupleBuilder(rtreeKeyFieldCount);
         ArrayTupleReference key = new ArrayTupleReference();
-        TupleUtils.createIntegerTuple(keyTb, key, false, -1000, -1000, 1000, 1000);
+        TupleUtils.createIntegerTuple(keyTb, key, -1000, -1000, 1000, 1000);
 
         rangeSearch(rtreeCmpFactories, indexAccessor, fieldSerdes, key, null, null);
 
@@ -271,8 +271,8 @@ public abstract class AbstractRTreeExamplesTest {
         for (int i = 0; i < 210; i++) {
             data += "X";
         }
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
-                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
+                Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         p1x = rnd.nextInt();
@@ -280,8 +280,8 @@ public abstract class AbstractRTreeExamplesTest {
         p2x = rnd.nextInt();
         p2y = rnd.nextInt();
         data = "XXX";
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
-                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
+                Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         p1x = rnd.nextInt();
@@ -289,8 +289,8 @@ public abstract class AbstractRTreeExamplesTest {
         p2x = rnd.nextInt();
         p2y = rnd.nextInt();
         data = "XXX";
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
-                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
+                Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         p1x = rnd.nextInt();
@@ -298,8 +298,8 @@ public abstract class AbstractRTreeExamplesTest {
         p2x = rnd.nextInt();
         p2y = rnd.nextInt();
         data = "XXX";
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
-                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
+                Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         p1x = rnd.nextInt();
@@ -310,8 +310,8 @@ public abstract class AbstractRTreeExamplesTest {
         for (int i = 0; i < 210; i++) {
             data += "X";
         }
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
-                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
+                Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         p1x = rnd.nextInt();
@@ -322,8 +322,8 @@ public abstract class AbstractRTreeExamplesTest {
         for (int i = 0; i < 210; i++) {
             data += "X";
         }
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
-                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
+                Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         treeIndex.deactivate();
@@ -410,8 +410,8 @@ public abstract class AbstractRTreeExamplesTest {
         for (int i = 0; i < 210; i++) {
             data += "X";
         }
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
-                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
+                Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         p1x = rnd.nextInt();
@@ -422,8 +422,8 @@ public abstract class AbstractRTreeExamplesTest {
         for (int i = 0; i < 210; i++) {
             data += "X";
         }
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
-                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
+                Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         p1x = rnd.nextInt();
@@ -431,8 +431,8 @@ public abstract class AbstractRTreeExamplesTest {
         p2x = rnd.nextInt();
         p2y = rnd.nextInt();
         data = "XXX";
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
-                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
+                Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         p1x = rnd.nextInt();
@@ -440,8 +440,8 @@ public abstract class AbstractRTreeExamplesTest {
         p2x = rnd.nextInt();
         p2y = rnd.nextInt();
         data = "XXX";
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
-                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
+                Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         p1x = rnd.nextInt();
@@ -452,8 +452,8 @@ public abstract class AbstractRTreeExamplesTest {
         for (int i = 0; i < 210; i++) {
             data += "X";
         }
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
-                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
+                Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         p1x = rnd.nextInt();
@@ -464,8 +464,8 @@ public abstract class AbstractRTreeExamplesTest {
         for (int i = 0; i < 210; i++) {
             data += "X";
         }
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
-                Math.max(p1x, p2x), Math.max(p1y, p2y), data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
+                Math.max(p1y, p2y), data);
         indexAccessor.insert(tuple);
 
         treeIndex.deactivate();
@@ -690,8 +690,8 @@ public abstract class AbstractRTreeExamplesTest {
                 p2ys[i] = Math.max(p1y, p2y);
                 pks[i] = pk;
 
-                TupleUtils.createIntegerTuple(tb, tuple, false, Math.min(p1x, p2x), Math.min(p1y, p2y),
-                        Math.max(p1x, p2x), Math.max(p1y, p2y), pk);
+                TupleUtils.createIntegerTuple(tb, tuple, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
+                        Math.max(p1y, p2y), pk);
                 try {
                     indexAccessor.insert(tuple);
                 } catch (HyracksDataException e) {
@@ -707,7 +707,7 @@ public abstract class AbstractRTreeExamplesTest {
             }
             int delDone = 0;
             for (int i = 0; i < numInserts; i++) {
-                TupleUtils.createIntegerTuple(tb, tuple, false, p1xs[i], p1ys[i], p2xs[i], p2ys[i], pks[i]);
+                TupleUtils.createIntegerTuple(tb, tuple, p1xs[i], p1ys[i], p2xs[i], p2ys[i], pks[i]);
                 try {
                     indexAccessor.delete(tuple);
                     delDone++;
@@ -817,7 +817,7 @@ public abstract class AbstractRTreeExamplesTest {
 
             int pk = 5;
 
-            TupleUtils.createIntegerTuple(tb, tuple, false, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
+            TupleUtils.createIntegerTuple(tb, tuple, Math.min(p1x, p2x), Math.min(p1y, p2y), Math.max(p1x, p2x),
                     Math.max(p1y, p2y), pk);
             bulkLoader.add(tuple);
         }
@@ -834,7 +834,7 @@ public abstract class AbstractRTreeExamplesTest {
         // Build key.
         ArrayTupleBuilder keyTb = new ArrayTupleBuilder(rtreeKeyFieldCount);
         ArrayTupleReference key = new ArrayTupleReference();
-        TupleUtils.createIntegerTuple(keyTb, key, false, -1000, -1000, 1000, 1000);
+        TupleUtils.createIntegerTuple(keyTb, key, -1000, -1000, 1000, 1000);
 
         rangeSearch(rtreeCmpFactories, indexAccessor, fieldSerdes, key, null, null);
 

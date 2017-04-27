@@ -113,7 +113,7 @@ public class MurmurHashForITupleReferenceTest extends AbstractBloomFilterTest {
         ArrayTupleBuilder tupleBuilder = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
         String s = randomString(100, rnd);
-        TupleUtils.createTuple(tupleBuilder, tuple, fieldSerdes, false, s);
+        TupleUtils.createTuple(tupleBuilder, tuple, fieldSerdes, s);
 
         int keyFields[] = { 0 };
         int length = getTupleSize(tuple, keyFields);
@@ -144,7 +144,7 @@ public class MurmurHashForITupleReferenceTest extends AbstractBloomFilterTest {
         String s1 = randomString(40, rnd);
         String s2 = randomString(60, rnd);
         String s3 = randomString(20, rnd);
-        TupleUtils.createTuple(tupleBuilder, tuple, fieldSerdes, false, s1, s2, s3);
+        TupleUtils.createTuple(tupleBuilder, tuple, fieldSerdes, s1, s2, s3);
 
         int keyFields[] = { 2, 0, 1 };
         int length = getTupleSize(tuple, keyFields);

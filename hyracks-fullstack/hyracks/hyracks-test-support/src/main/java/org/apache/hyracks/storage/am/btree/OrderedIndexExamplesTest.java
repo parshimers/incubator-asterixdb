@@ -188,32 +188,32 @@ public abstract class OrderedIndexExamplesTest {
 
         String key = "111";
         String data = "XXX";
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, key, data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, key, data);
         indexAccessor.insert(tuple);
 
         key = "222";
         data = "XXX";
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, key, data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, key, data);
         indexAccessor.insert(tuple);
 
         key = "333";
         data = "XXX";
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, key, data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, key, data);
         indexAccessor.insert(tuple);
 
         key = "444";
         data = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, key, data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, key, data);
         indexAccessor.insert(tuple);
 
         key = "555";
         data = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, key, data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, key, data);
         indexAccessor.insert(tuple);
 
         key = "666";
         data = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-        TupleUtils.createTuple(tb, tuple, fieldSerdes, false, key, data);
+        TupleUtils.createTuple(tb, tuple, fieldSerdes, key, data);
         indexAccessor.insert(tuple);
 
         treeIndex.validate();
@@ -358,7 +358,7 @@ public abstract class OrderedIndexExamplesTest {
         for (int i = 0; i < 10000; i++) {
             String f0 = randomString(Math.abs(rnd.nextInt()) % maxLength + 1, rnd);
             String f1 = randomString(Math.abs(rnd.nextInt()) % maxLength + 1, rnd);
-            TupleUtils.createTuple(tb, tuple, fieldSerdes, false, f0, f1);
+            TupleUtils.createTuple(tb, tuple, fieldSerdes, f0, f1);
             if (LOGGER.isLoggable(Level.INFO)) {
                 if (i % 1000 == 0) {
                     LOGGER.info("Inserting[" + i + "] " + f0 + " " + f1);
@@ -383,12 +383,12 @@ public abstract class OrderedIndexExamplesTest {
         // Build low key.
         ArrayTupleBuilder lowKeyTb = new ArrayTupleBuilder(1);
         ArrayTupleReference lowKey = new ArrayTupleReference();
-        TupleUtils.createTuple(lowKeyTb, lowKey, fieldSerdes, false, "cbf");
+        TupleUtils.createTuple(lowKeyTb, lowKey, fieldSerdes, "cbf");
 
         // Build high key.
         ArrayTupleBuilder highKeyTb = new ArrayTupleBuilder(1);
         ArrayTupleReference highKey = new ArrayTupleReference();
-        TupleUtils.createTuple(highKeyTb, highKey, fieldSerdes, false, "cc7");
+        TupleUtils.createTuple(highKeyTb, highKey, fieldSerdes, "cc7");
 
         rangeSearch(cmpFactories, indexAccessor, fieldSerdes, lowKey, highKey, null, null);
 
@@ -451,7 +451,7 @@ public abstract class OrderedIndexExamplesTest {
             for (int i = 0; i < ins; i++) {
                 String f0 = randomString(Math.abs(rnd.nextInt()) % maxLength + 1, rnd);
                 String f1 = randomString(Math.abs(rnd.nextInt()) % maxLength + 1, rnd);
-                TupleUtils.createTuple(tb, tuple, fieldSerdes, false, f0, f1);
+                TupleUtils.createTuple(tb, tuple, fieldSerdes, f0, f1);
                 f0s[i] = f0;
                 f1s[i] = f1;
                 if (LOGGER.isLoggable(Level.INFO)) {
@@ -475,7 +475,7 @@ public abstract class OrderedIndexExamplesTest {
             }
             int delDone = 0;
             for (int i = 0; i < ins; i++) {
-                TupleUtils.createTuple(tb, tuple, fieldSerdes, false, f0s[i], f1s[i]);
+                TupleUtils.createTuple(tb, tuple, fieldSerdes, f0s[i], f1s[i]);
                 if (LOGGER.isLoggable(Level.INFO)) {
                     if (i % 1000 == 0) {
                         LOGGER.info("Deleting " + i);
@@ -556,7 +556,7 @@ public abstract class OrderedIndexExamplesTest {
         for (int i = 0; i < ins; i++) {
             String f0 = randomString(Math.abs(rnd.nextInt()) % maxLength + 1, rnd);
             String f1 = randomString(Math.abs(rnd.nextInt()) % maxLength + 1, rnd);
-            TupleUtils.createTuple(tb, tuple, fieldSerdes, false, f0, f1);
+            TupleUtils.createTuple(tb, tuple, fieldSerdes, f0, f1);
             keys[i] = f0;
             if (LOGGER.isLoggable(Level.INFO)) {
                 if (i % 1000 == 0) {
@@ -583,7 +583,7 @@ public abstract class OrderedIndexExamplesTest {
             for (int i = 0; i < ins; i++) {
                 // Generate a new random value for f1.
                 String f1 = randomString(Math.abs(rnd.nextInt()) % maxLength + 1, rnd);
-                TupleUtils.createTuple(tb, tuple, fieldSerdes, false, keys[i], f1);
+                TupleUtils.createTuple(tb, tuple, fieldSerdes, keys[i], f1);
                 if (LOGGER.isLoggable(Level.INFO)) {
                     if (i % 1000 == 0) {
                         LOGGER.info("Updating " + i);

@@ -336,7 +336,7 @@ public class OrderedIndexTestUtils extends TreeIndexTestUtils {
             for (int j = numKeyFields; j < fieldCount; j++) {
                 fieldValues[j] = getRandomString(5, rnd);
             }
-            TupleUtils.createTuple(ctx.getTupleBuilder(), ctx.getTuple(), ctx.getFieldSerdes(), false,
+            TupleUtils.createTuple(ctx.getTupleBuilder(), ctx.getTuple(), ctx.getFieldSerdes(),
                     (Object[]) fieldValues);
             ctx.getIndexAccessor().upsert(ctx.getTuple());
             ctx.upsertCheckTuple(createStringCheckTuple(fieldValues, ctx.getKeyFieldCount()), ctx.getCheckTuples());
