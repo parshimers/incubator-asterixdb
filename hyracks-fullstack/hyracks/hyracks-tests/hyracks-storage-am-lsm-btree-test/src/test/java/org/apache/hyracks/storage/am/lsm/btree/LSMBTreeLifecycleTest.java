@@ -77,7 +77,7 @@ public class LSMBTreeLifecycleTest extends AbstractIndexLifecycleTest {
 
     @Override
     protected void performInsertions() throws Exception {
-        titu.insertIntTuples(testCtx, 10, false, harness.getRandom());
+        titu.insertIntTuples(testCtx, 10, harness.getRandom());
     }
 
     @Override

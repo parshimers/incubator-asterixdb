@@ -64,7 +64,7 @@ public abstract class LSMRTreeMergeTestDriver extends AbstractRTreeTestDriver {
         for (int i = 0; i < maxTreesToMerge; i++) {
             for (int j = 0; j < i; j++) {
                 if (fieldSerdes[0] instanceof IntegerSerializerDeserializer) {
-                    rTreeTestUtils.insertIntTuples(ctx, numTuplesToInsert, false, getRandom());
+                    rTreeTestUtils.insertIntTuples(ctx, numTuplesToInsert, getRandom());
                     // Deactivate and the re-activate the index to force it flush its in memory component
                     ctx.getIndex().deactivate();
                     ctx.getIndex().activate();

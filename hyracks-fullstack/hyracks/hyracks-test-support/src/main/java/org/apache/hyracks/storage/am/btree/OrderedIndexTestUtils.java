@@ -373,7 +373,7 @@ public class OrderedIndexTestUtils extends TreeIndexTestUtils {
     }
 
     @Override
-    public void upsertIntTuples(IIndexTestContext ictx, int numTuples, boolean filtered, Random rnd) throws Exception {
+    public void upsertIntTuples(IIndexTestContext ictx, int numTuples, Random rnd) throws Exception {
         OrderedIndexTestContext ctx = (OrderedIndexTestContext) ictx;
         int fieldCount = ctx.getFieldCount();
         int numKeyFields = ctx.getKeyFieldCount();
@@ -387,7 +387,7 @@ public class OrderedIndexTestUtils extends TreeIndexTestUtils {
             setIntKeyFields(fieldValues, numKeyFields, maxValue, rnd);
             // Set values.
             setIntPayloadFields(fieldValues, numKeyFields, fieldCount);
-            TupleUtils.createIntegerTuple(ctx.getTupleBuilder(), ctx.getTuple(), filtered, fieldValues);
+            TupleUtils.createIntegerTuple(ctx.getTupleBuilder(), ctx.getTuple(), fieldValues);
             if (LOGGER.isLoggable(Level.INFO)) {
                 if ((i + 1) % (numTuples / Math.min(10, numTuples)) == 0) {
                     LOGGER.info("Inserting Tuple " + (i + 1) + "/" + numTuples);

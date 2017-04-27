@@ -53,7 +53,7 @@ public abstract class OrderedIndexUpsertTest extends OrderedIndexTestDriver {
         // We assume all fieldSerdes are of the same type. Check the first one
         // to determine which field types to generate.
         if (fieldSerdes[0] instanceof IntegerSerializerDeserializer) {
-            orderedIndexTestUtils.upsertIntTuples(ctx, numTuplesToInsert, false, getRandom());
+            orderedIndexTestUtils.upsertIntTuples(ctx, numTuplesToInsert, getRandom());
         } else if (fieldSerdes[0] instanceof UTF8StringSerializerDeserializer) {
             orderedIndexTestUtils.upsertStringTuples(ctx, numTuplesToInsert, getRandom());
         }

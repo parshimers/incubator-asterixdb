@@ -93,7 +93,7 @@ public class BloomFilterTest extends AbstractBloomFilterTest {
 
         // Insert tuples in the bloom filter
         for (int i = 0; i < keys.size(); ++i) {
-            TupleUtils.createIntegerTuple(tupleBuilder, tuple, false, keys.get(i), i);
+            TupleUtils.createIntegerTuple(tupleBuilder, tuple, keys.get(i), i);
             builder.add(tuple);
         }
         builder.end();
@@ -102,7 +102,7 @@ public class BloomFilterTest extends AbstractBloomFilterTest {
 
         long[] hashes = new long[2];
         for (int i = 0; i < keys.size(); ++i) {
-            TupleUtils.createIntegerTuple(tupleBuilder, tuple, false, keys.get(i), i);
+            TupleUtils.createIntegerTuple(tupleBuilder, tuple, keys.get(i), i);
             Assert.assertTrue(bf.contains(tuple, hashes));
         }
 

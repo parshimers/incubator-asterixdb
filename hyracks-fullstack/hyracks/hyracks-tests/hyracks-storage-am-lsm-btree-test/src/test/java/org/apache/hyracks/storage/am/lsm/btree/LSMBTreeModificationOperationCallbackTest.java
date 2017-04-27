@@ -76,7 +76,7 @@ public class LSMBTreeModificationOperationCallbackTest extends AbstractModificat
         for (int j = 0; j < 2; j++) {
             isFoundNull = true;
             for (int i = 0; i < NUM_TUPLES; i++) {
-                TupleUtils.createIntegerTuple(builder, tuple, false, i);
+                TupleUtils.createIntegerTuple(builder, tuple, i);
                 accessor.insert(tuple);
             }
 
@@ -89,7 +89,7 @@ public class LSMBTreeModificationOperationCallbackTest extends AbstractModificat
             }
 
             for (int i = 0; i < NUM_TUPLES; i++) {
-                TupleUtils.createIntegerTuple(builder, tuple, false, i);
+                TupleUtils.createIntegerTuple(builder, tuple, i);
                 accessor.upsert(tuple);
             }
 
@@ -102,7 +102,7 @@ public class LSMBTreeModificationOperationCallbackTest extends AbstractModificat
             }
 
             for (int i = 0; i < NUM_TUPLES; i++) {
-                TupleUtils.createIntegerTuple(builder, tuple, false, i);
+                TupleUtils.createIntegerTuple(builder, tuple, i);
                 accessor.delete(tuple);
             }
 

@@ -25,7 +25,6 @@ import java.io.ByteArrayInputStream;
 import java.io.DataInput;
 import java.io.DataInputStream;
 import java.io.DataOutput;
-import java.lang.reflect.Array;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Random;
@@ -40,7 +39,6 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleReference;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
-import org.apache.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import org.apache.hyracks.dataflow.common.utils.TupleUtils;
 import org.apache.hyracks.storage.am.common.api.IIndexBulkLoader;
 import org.apache.hyracks.storage.am.common.api.ISearchPredicate;
@@ -174,6 +172,12 @@ public abstract class TreeIndexTestUtils {
     }
 
     @SuppressWarnings("unchecked")
+
+    public Pair<ITupleReference, ITupleReference> insertIntTuples(IIndexTestContext ctx, int numTuples, Random rnd)
+            throws Exception {
+        return insertIntTuples(ctx, numTuples, false, rnd);
+    }
+
     public Pair<ITupleReference, ITupleReference> insertIntTuples(IIndexTestContext ctx, int numTuples,
             boolean filtered, Random rnd) throws Exception {
         int fieldCount = ctx.getFieldCount();
@@ -227,7 +231,7 @@ public abstract class TreeIndexTestUtils {
     }
 
     @SuppressWarnings("unchecked")
-    public void upsertIntTuples(IIndexTestContext ctx, int numTuples, boolean filtered, Random rnd) throws Exception {
+    public void upsertIntTuples(IIndexTestContext ctx, int numTuples, Random rnd) throws Exception {
         int fieldCount = ctx.getFieldCount();
         int numKeyFields = ctx.getKeyFieldCount();
         int[] fieldValues = new int[ctx.getFieldCount()];
@@ -240,7 +244,7 @@ public abstract class TreeIndexTestUtils {
             setIntKeyFields(fieldValues, numKeyFields, maxValue, rnd);
             // Set values.
             setIntPayloadFields(fieldValues, numKeyFields, fieldCount);
-            TupleUtils.createIntegerTuple(ctx.getTupleBuilder(), ctx.getTuple(), filtered, fieldValues);
+            TupleUtils.createIntegerTuple(ctx.getTupleBuilder(), ctx.getTuple(), fieldValues);
             if (LOGGER.isLoggable(Level.INFO)) {
                 if ((i + 1) % (numTuples / Math.min(10, numTuples)) == 0) {
                     LOGGER.info("Inserting Tuple " + (i + 1) + "/" + numTuples);

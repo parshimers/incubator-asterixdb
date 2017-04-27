@@ -52,7 +52,7 @@ public abstract class OrderedIndexUpdateTest extends OrderedIndexTestDriver {
         // We assume all fieldSerdes are of the same type. Check the first one
         // to determine which field types to generate.
         if (fieldSerdes[0] instanceof IntegerSerializerDeserializer) {
-            orderedIndexTestUtils.insertIntTuples(ctx, numTuplesToInsert, false, getRandom());
+            orderedIndexTestUtils.insertIntTuples(ctx, numTuplesToInsert, getRandom());
         } else if (fieldSerdes[0] instanceof UTF8StringSerializerDeserializer) {
             orderedIndexTestUtils.insertStringTuples(ctx, numTuplesToInsert, false, getRandom());
         }

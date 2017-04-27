@@ -125,7 +125,7 @@ public class BTreeSearchCursorTest extends AbstractBTreeTest {
         // insert keys into btree
         for (int i = 0; i < keys.size(); i++) {
 
-            TupleUtils.createIntegerTuple(tupleBuilder, tuple, false, keys.get(i) , i);
+            TupleUtils.createIntegerTuple(tupleBuilder, tuple, keys.get(i) , i);
             tuple.reset(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray());
 
             try {
@@ -198,7 +198,7 @@ public class BTreeSearchCursorTest extends AbstractBTreeTest {
         // insert keys into btree
         for (int i = 0; i < keys.size(); i++) {
 
-            TupleUtils.createIntegerTuple(tupleBuilder, tuple, false, keys.get(i), i);
+            TupleUtils.createIntegerTuple(tupleBuilder, tuple, keys.get(i), i);
             tuple.reset(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray());
 
             try {
@@ -271,7 +271,7 @@ public class BTreeSearchCursorTest extends AbstractBTreeTest {
         // insert keys into btree
         for (int i = 0; i < keys.size(); i++) {
 
-            TupleUtils.createIntegerTuple(tupleBuilder, tuple, false, keys.get(i), i);
+            TupleUtils.createIntegerTuple(tupleBuilder, tuple, keys.get(i), i);
             tuple.reset(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray());
 
             try {

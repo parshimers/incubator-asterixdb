@@ -106,7 +106,7 @@ public abstract class OrderedIndexExamplesTest {
         for (int i = 0; i < numInserts; i++) {
             int f0 = rnd.nextInt() % numInserts;
             int f1 = 5;
-            TupleUtils.createIntegerTuple(tb, tuple, false, f0, f1);
+            TupleUtils.createIntegerTuple(tb, tuple, f0, f1);
             if (LOGGER.isLoggable(Level.INFO)) {
                 if (i % 1000 == 0) {
                     LOGGER.info("Inserting " + i + " : " + f0 + " " + f1);
@@ -131,12 +131,12 @@ public abstract class OrderedIndexExamplesTest {
         // Build low key.
         ArrayTupleBuilder lowKeyTb = new ArrayTupleBuilder(keyFieldCount);
         ArrayTupleReference lowKey = new ArrayTupleReference();
-        TupleUtils.createIntegerTuple(lowKeyTb, lowKey, false, -1000);
+        TupleUtils.createIntegerTuple(lowKeyTb, lowKey, -1000);
 
         // Build high key.
         ArrayTupleBuilder highKeyTb = new ArrayTupleBuilder(keyFieldCount);
         ArrayTupleReference highKey = new ArrayTupleReference();
-        TupleUtils.createIntegerTuple(highKeyTb, highKey, false, 1000);
+        TupleUtils.createIntegerTuple(highKeyTb, highKey, 1000);
 
         rangeSearch(cmpFactories, indexAccessor, fieldSerdes, lowKey, highKey, null, null);
 
@@ -271,7 +271,7 @@ public abstract class OrderedIndexExamplesTest {
             int f0 = rnd.nextInt() % 2000;
             int f1 = rnd.nextInt() % 1000;
             int f2 = 5;
-            TupleUtils.createIntegerTuple(tb, tuple, false, f0, f1, f2);
+            TupleUtils.createIntegerTuple(tb, tuple, f0, f1, f2);
             if (LOGGER.isLoggable(Level.INFO)) {
                 if (i % 1000 == 0) {
                     LOGGER.info("Inserting " + i + " : " + f0 + " " + f1 + " " + f2);
@@ -296,12 +296,12 @@ public abstract class OrderedIndexExamplesTest {
         // Build low key.
         ArrayTupleBuilder lowKeyTb = new ArrayTupleBuilder(1);
         ArrayTupleReference lowKey = new ArrayTupleReference();
-        TupleUtils.createIntegerTuple(lowKeyTb, lowKey, false, -3);
+        TupleUtils.createIntegerTuple(lowKeyTb, lowKey, -3);
 
         // Build high key.
         ArrayTupleBuilder highKeyTb = new ArrayTupleBuilder(1);
         ArrayTupleReference highKey = new ArrayTupleReference();
-        TupleUtils.createIntegerTuple(highKeyTb, highKey, false, 3);
+        TupleUtils.createIntegerTuple(highKeyTb, highKey, 3);
 
         // Prefix-Range search in [-3, 3]
         rangeSearch(cmpFactories, indexAccessor, fieldSerdes, lowKey, highKey, null, null);
@@ -643,7 +643,7 @@ public abstract class OrderedIndexExamplesTest {
         ArrayTupleBuilder tb = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
         for (int i = 0; i < ins; i++) {
-            TupleUtils.createIntegerTuple(tb, tuple, false, i, i, 5);
+            TupleUtils.createIntegerTuple(tb, tuple, i, i, 5);
             bulkLoader.add(tuple);
         }
         bulkLoader.end();
@@ -658,12 +658,12 @@ public abstract class OrderedIndexExamplesTest {
         // Build low key.
         ArrayTupleBuilder lowKeyTb = new ArrayTupleBuilder(1);
         ArrayTupleReference lowKey = new ArrayTupleReference();
-        TupleUtils.createIntegerTuple(lowKeyTb, lowKey, false, 44444);
+        TupleUtils.createIntegerTuple(lowKeyTb, lowKey, 44444);
 
         // Build high key.
         ArrayTupleBuilder highKeyTb = new ArrayTupleBuilder(1);
         ArrayTupleReference highKey = new ArrayTupleReference();
-        TupleUtils.createIntegerTuple(highKeyTb, highKey, false, 44500);
+        TupleUtils.createIntegerTuple(highKeyTb, highKey, 44500);
 
         // Prefix-Range search in [44444, 44500]
         rangeSearch(cmpFactories, indexAccessor, fieldSerdes, lowKey, highKey, null, null);
@@ -727,7 +727,7 @@ public abstract class OrderedIndexExamplesTest {
                         key -= Math.abs(Math.random() % (ins - 1)) + 1;
                     }
                 }
-                TupleUtils.createIntegerTuple(tb, tuple, false, key, 5);
+                TupleUtils.createIntegerTuple(tb, tuple, key, 5);
                 try {
                     bulkLoader.add(tuple);
                 } catch (HyracksDataException e) {

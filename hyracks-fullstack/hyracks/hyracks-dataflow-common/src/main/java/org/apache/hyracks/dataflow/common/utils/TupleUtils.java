@@ -67,7 +67,7 @@ public class TupleUtils {
     }
 
     public static void createIntegerTuple(ArrayTupleBuilder tupleBuilder, ArrayTupleReference tuple, boolean filtered,
-            final int... fields) throws HyracksDataException {
+                                          final int... fields) throws HyracksDataException {
         DataOutput dos = tupleBuilder.getDataOutput();
         tupleBuilder.reset();
         for (final int i : fields) {
@@ -91,7 +91,7 @@ public class TupleUtils {
         ArrayTupleBuilder tupleBuilder = filtered ? new ArrayTupleBuilder(fields.length + 1)
                 : new ArrayTupleBuilder(fields.length);
         ArrayTupleReference tuple = new ArrayTupleReference();
-        createIntegerTuple(tupleBuilder, tuple, filtered, fields);
+        createIntegerTuple(tupleBuilder, tuple, fields);
         return tuple;
     }
 

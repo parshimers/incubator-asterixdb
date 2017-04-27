@@ -53,7 +53,7 @@ public abstract class AbstractRTreeInsertTest extends AbstractRTreeTestDriver {
         // We assume all fieldSerdes are of the same type. Check the first one
         // to determine which field types to generate.
         if (fieldSerdes[0] instanceof IntegerSerializerDeserializer) {
-            rTreeTestUtils.insertIntTuples(ctx, numTuplesToInsert, false, getRandom());
+            rTreeTestUtils.insertIntTuples(ctx, numTuplesToInsert, getRandom());
         } else if (fieldSerdes[0] instanceof DoubleSerializerDeserializer) {
             rTreeTestUtils.insertDoubleTuples(ctx, numTuplesToInsert, getRandom());
         }
