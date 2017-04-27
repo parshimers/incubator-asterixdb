@@ -39,10 +39,14 @@ import org.apache.hyracks.storage.am.config.AccessMethodTestsConfig;
 import org.apache.hyracks.storage.am.lsm.btree.impls.LSMBTree;
 import org.apache.hyracks.storage.am.lsm.btree.impls.LSMBTreeDiskComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.*;
+import org.apache.hyracks.storage.am.lsm.common.impls.BlockingIOOperationCallbackWrapper;
 import org.apache.hyracks.storage.am.lsm.common.impls.NoOpIOOperationCallback;
+import org.apache.hyracks.storage.am.lsm.common.impls.StubIOOperationCallback;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @SuppressWarnings("rawtypes")
 public abstract class LSMBTreeFilterMergeTestDriver extends OrderedIndexTestDriver {
@@ -54,23 +58,25 @@ public abstract class LSMBTreeFilterMergeTestDriver extends OrderedIndexTestDriv
         this.orderedIndexTestUtils = new OrderedIndexTestUtils();
     }
 
-    private Pair<ITupleReference,ITupleReference> filterToMinMax(ILSMComponentFilter f) throws HyracksDataException{
+    private Pair<ITupleReference, ITupleReference> filterToMinMax(ILSMComponentFilter f) throws HyracksDataException {
         ArrayTupleBuilder builder = new ArrayTupleBuilder(1);
-        builder.addField(f.getMinTuple().getFieldData(0),f.getMinTuple().getFieldStart(0),f.getMinTuple().getFieldLength(0));
+        builder.addField(f.getMinTuple().getFieldData(0), f.getMinTuple().getFieldStart(0),
+                f.getMinTuple().getFieldLength(0));
         ArrayTupleReference minCopy = new ArrayTupleReference();
-        minCopy.reset(builder.getFieldEndOffsets(),builder.getByteArray());
+        minCopy.reset(builder.getFieldEndOffsets(), builder.getByteArray());
         builder = new ArrayTupleBuilder(1);
-        builder.addField(f.getMaxTuple().getFieldData(0),f.getMaxTuple().getFieldStart(0),f.getMaxTuple().getFieldLength(0));
+        builder.addField(f.getMaxTuple().getFieldData(0), f.getMaxTuple().getFieldStart(0),
+                f.getMaxTuple().getFieldLength(0));
         ArrayTupleReference maxCopy = new ArrayTupleReference();
-        maxCopy.reset(builder.getFieldEndOffsets(),builder.getByteArray());
+        maxCopy.reset(builder.getFieldEndOffsets(), builder.getByteArray());
         builder.reset();
-        return Pair.of(minCopy,maxCopy);
+        return Pair.of(minCopy, maxCopy);
     }
 
     @Override
     protected void runTest(ISerializerDeserializer[] fieldSerdes, int numKeys, BTreeLeafFrameType leafType,
-            ITupleReference lowKey, ITupleReference highKey, ITupleReference prefixLowKey, ITupleReference prefixHighKey)
-            throws Exception {
+            ITupleReference lowKey, ITupleReference highKey, ITupleReference prefixLowKey,
+            ITupleReference prefixHighKey) throws Exception {
         OrderedIndexTestContext ctx = createTestContext(fieldSerdes, numKeys, leafType, true);
         ctx.getIndex().create();
         ctx.getIndex().activate();
@@ -87,53 +93,64 @@ public abstract class LSMBTreeFilterMergeTestDriver extends OrderedIndexTestDriv
         ILSMIndexAccessor accessor = (ILSMIndexAccessor) ctx.getIndexAccessor();
         IBinaryComparator comp = ctx.getComparatorFactories()[0].createBinaryComparator();
         for (int i = 0; i < maxTreesToMerge; i++) {
-            List<Pair<ITupleReference,ITupleReference>> minMaxes = new ArrayList<>();
             int flushed = 0;
             for (; flushed < i; flushed++) {
-                Pair<ITupleReference,ITupleReference> minMax = null;
+                Pair<ITupleReference, ITupleReference> minMax = null;
                 if (fieldSerdes[0] instanceof IntegerSerializerDeserializer) {
                     minMax = orderedIndexTestUtils.insertIntTuples(ctx, numTuplesToInsert, true, getRandom());
                 } else {
                     minMax = orderedIndexTestUtils.insertStringTuples(ctx, numTuplesToInsert, true, getRandom());
                 }
-                if(minMax != null) {
-                    minMaxes.add(flushed, minMax);
-                    ILSMComponentFilter f = ((LSMBTree) ctx.getIndex()).getCurrentMemoryComponent().getLSMComponentFilter();
+                if (minMax != null) {
+                    ILSMComponentFilter f = ((LSMBTree) ctx.getIndex()).getCurrentMemoryComponent()
+                            .getLSMComponentFilter();
                     Pair<ITupleReference, ITupleReference> obsMinMax = filterToMinMax(f);
-                    Assert.assertEquals(0, TreeIndexTestUtils.compareFilterTuples(obsMinMax.getLeft(), minMax.getLeft(), comp));
-                    Assert.assertEquals(0, TreeIndexTestUtils.compareFilterTuples(obsMinMax.getRight(), minMax.getRight(), comp));
+                    Assert.assertEquals(0,
+                            TreeIndexTestUtils.compareFilterTuples(obsMinMax.getLeft(), minMax.getLeft(), comp));
+                    Assert.assertEquals(0,
+                            TreeIndexTestUtils.compareFilterTuples(obsMinMax.getRight(), minMax.getRight(), comp));
                 }
-                accessor.scheduleFlush(NoOpIOOperationCallback.INSTANCE);
-            }
-            List<ILSMDiskComponent> flushedComponents = ((LSMBTree) ctx.getIndex()).getImmutableComponents();
-            for(int j=flushed;j<flushed;j++){
-                LSMBTreeDiskComponent btreeComp = (LSMBTreeDiskComponent) flushedComponents.get(j);
-                Pair<ITupleReference,ITupleReference> obsMinMax = filterToMinMax(btreeComp.getLSMComponentFilter());
-                Assert.assertEquals(0,TreeIndexTestUtils.compareFilterTuples(obsMinMax.getLeft(),minMaxes.get(j).getLeft(),comp));
-                Assert.assertEquals(0,TreeIndexTestUtils.compareFilterTuples(obsMinMax.getRight(),minMaxes.get(j).getRight(),comp));
 
-            }
-            MutablePair<ITupleReference,ITupleReference> expectedMergeMinMax = null;
-            for(ILSMDiskComponent f: flushedComponents){
-                Pair<ITupleReference,ITupleReference> componentMinMax = filterToMinMax(f.getLSMComponentFilter());
-                if(expectedMergeMinMax == null){
-                    expectedMergeMinMax = MutablePair.of(componentMinMax.getLeft(),componentMinMax.getRight());
+                StubIOOperationCallback stub = new StubIOOperationCallback();
+                BlockingIOOperationCallbackWrapper waiter = new BlockingIOOperationCallbackWrapper(stub);
+                accessor.scheduleFlush(waiter);
+                waiter.waitForIO();
+                if(minMax != null) {
+                    Pair<ITupleReference, ITupleReference> obsMinMax = filterToMinMax(
+                            stub.getLastNewComponent().getLSMComponentFilter());
+                    Assert.assertEquals(0,
+                            TreeIndexTestUtils.compareFilterTuples(obsMinMax.getLeft(), minMax.getLeft(), comp));
+                    Assert.assertEquals(0,
+                            TreeIndexTestUtils.compareFilterTuples(obsMinMax.getRight(), minMax.getRight(), comp));
                 }
-                if (TreeIndexTestUtils.compareFilterTuples(expectedMergeMinMax.getLeft(),componentMinMax.getLeft(), comp) > 0) {
+            }
+
+            List<ILSMDiskComponent> flushedComponents = ((LSMBTree) ctx.getIndex()).getImmutableComponents();
+            MutablePair<ITupleReference, ITupleReference> expectedMergeMinMax = null;
+            for (ILSMDiskComponent f : flushedComponents) {
+                Pair<ITupleReference, ITupleReference> componentMinMax = filterToMinMax(f.getLSMComponentFilter());
+                if (expectedMergeMinMax == null) {
+                    expectedMergeMinMax = MutablePair.of(componentMinMax.getLeft(), componentMinMax.getRight());
+                }
+                if (TreeIndexTestUtils.compareFilterTuples(expectedMergeMinMax.getLeft(), componentMinMax.getLeft(),
+                        comp) > 0) {
                     expectedMergeMinMax.setLeft(componentMinMax.getLeft());
                 }
-                if (TreeIndexTestUtils.compareFilterTuples(expectedMergeMinMax.getRight(),componentMinMax.getRight(), comp) < 0) {
+                if (TreeIndexTestUtils.compareFilterTuples(expectedMergeMinMax.getRight(), componentMinMax.getRight(),
+                        comp) < 0) {
                     expectedMergeMinMax.setRight(componentMinMax.getRight());
                 }
             }
             accessor.scheduleMerge(NoOpIOOperationCallback.INSTANCE,
                     ((LSMBTree) ctx.getIndex()).getImmutableComponents());
 
-            flushedComponents = ((LSMBTree)ctx.getIndex()).getImmutableComponents();
-            Pair<ITupleReference,ITupleReference> mergedMinMax = filterToMinMax(flushedComponents.get(0).getLSMComponentFilter());
-            Assert.assertEquals(0, TreeIndexTestUtils.compareFilterTuples(expectedMergeMinMax.getLeft(),mergedMinMax.getLeft(),comp));
-            Assert.assertEquals(0, TreeIndexTestUtils.compareFilterTuples(expectedMergeMinMax.getRight(),mergedMinMax.getRight(),comp));
-
+            flushedComponents = ((LSMBTree) ctx.getIndex()).getImmutableComponents();
+            Pair<ITupleReference, ITupleReference> mergedMinMax = filterToMinMax(
+                    flushedComponents.get(0).getLSMComponentFilter());
+            Assert.assertEquals(0, TreeIndexTestUtils.compareFilterTuples(expectedMergeMinMax.getLeft(),
+                    mergedMinMax.getLeft(), comp));
+            Assert.assertEquals(0, TreeIndexTestUtils.compareFilterTuples(expectedMergeMinMax.getRight(),
+                    mergedMinMax.getRight(), comp));
 
             orderedIndexTestUtils.checkPointSearches(ctx);
             orderedIndexTestUtils.checkScan(ctx);
