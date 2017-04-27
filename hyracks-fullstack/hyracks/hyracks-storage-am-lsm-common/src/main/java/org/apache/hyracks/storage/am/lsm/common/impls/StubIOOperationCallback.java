@@ -33,6 +33,7 @@ public class StubIOOperationCallback implements ILSMIOOperationCallback {
 
     @Override
     public void beforeOperation(LSMOperationType opType) throws HyracksDataException {
+        //Not interested in this
     }
 
     @Override
@@ -49,13 +50,14 @@ public class StubIOOperationCallback implements ILSMIOOperationCallback {
 
     @Override
     public void setNumOfMutableComponents(int count) {
+        //Not interested in this
     }
 
-    public List<ILSMComponent> getLastOldComponents(){
+    public List<ILSMComponent> getLastOldComponents() {
         return oldComponents;
     }
 
-    public ILSMDiskComponent getLastNewComponent(){
+    public ILSMDiskComponent getLastNewComponent() {
         return newComponent;
     }
 }
