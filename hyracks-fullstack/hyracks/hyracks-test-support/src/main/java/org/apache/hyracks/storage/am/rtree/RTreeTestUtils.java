@@ -164,7 +164,7 @@ public class RTreeTestUtils extends TreeIndexTestUtils {
             // Set expected values.
             ctx.insertCheckTuple(createDoubleCheckTuple(fieldValues, ctx.getKeyFieldCount()), tmpCheckTuples);
         }
-        bulkLoadCheckTuples(ctx, tmpCheckTuples, false);
+        bulkLoadCheckTuples(ctx, tmpCheckTuples);
 
         // Add tmpCheckTuples to ctx check tuples for comparing searches.
         for (CheckTuple checkTuple : tmpCheckTuples) {

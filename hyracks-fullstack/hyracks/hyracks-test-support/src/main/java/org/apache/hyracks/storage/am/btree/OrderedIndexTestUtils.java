@@ -265,6 +265,11 @@ public class OrderedIndexTestUtils extends TreeIndexTestUtils {
         }
     }
 
+    public Pair<ITupleReference, ITupleReference> insertStringTuples(IIndexTestContext ctx, int numTuples, Random rnd)
+            throws Exception {
+        return insertStringTuples(ctx, numTuples, false, rnd);
+    }
+
     @SuppressWarnings("unchecked")
     public Pair<ITupleReference, ITupleReference> insertStringTuples(IIndexTestContext ctx, int numTuples,
             boolean filtered, Random rnd) throws Exception {

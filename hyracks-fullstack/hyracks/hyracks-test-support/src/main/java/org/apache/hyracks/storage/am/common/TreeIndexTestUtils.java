@@ -297,7 +297,11 @@ public abstract class TreeIndexTestUtils {
         }
     }
 
-    public static void bulkLoadCheckTuples(IIndexTestContext ctx, Collection<CheckTuple> checkTuples, boolean filtered)
+    public static void bulkLoadCheckTuples(IIndexTestContext ctx, Collection<CheckTuple> checkTuples)
+            throws HyracksDataException {
+        bulkLoadCheckTuples(ctx,checkTuples,false);
+    }
+    public static void bulkLoadCheckTuples(IIndexTestContext ctx, Collection<CheckTuple> checkTuples,boolean filtered)
             throws HyracksDataException {
         int fieldCount = ctx.getFieldCount();
         int numTuples = checkTuples.size();

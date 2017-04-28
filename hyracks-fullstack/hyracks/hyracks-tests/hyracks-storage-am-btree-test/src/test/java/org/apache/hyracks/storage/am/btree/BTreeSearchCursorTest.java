@@ -106,8 +106,8 @@ public class BTreeSearchCursorTest extends AbstractBTreeTest {
         ArrayTupleBuilder tupleBuilder = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
 
-        ITreeIndexAccessor indexAccessor =
-                btree.createAccessor(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
+        ITreeIndexAccessor indexAccessor = btree.createAccessor(TestOperationCallback.INSTANCE,
+                TestOperationCallback.INSTANCE);
 
         // generate keys
         int numKeys = 50;
@@ -125,7 +125,7 @@ public class BTreeSearchCursorTest extends AbstractBTreeTest {
         // insert keys into btree
         for (int i = 0; i < keys.size(); i++) {
 
-            TupleUtils.createIntegerTuple(tupleBuilder, tuple, keys.get(i) , i);
+            TupleUtils.createIntegerTuple(tupleBuilder, tuple, keys.get(i), i);
             tuple.reset(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray());
 
             try {
@@ -182,8 +182,8 @@ public class BTreeSearchCursorTest extends AbstractBTreeTest {
         ArrayTupleBuilder tupleBuilder = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
 
-        ITreeIndexAccessor indexAccessor =
-                btree.createAccessor(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
+        ITreeIndexAccessor indexAccessor = btree.createAccessor(TestOperationCallback.INSTANCE,
+                TestOperationCallback.INSTANCE);
 
         // generate keys
         int numKeys = 50;
@@ -255,8 +255,8 @@ public class BTreeSearchCursorTest extends AbstractBTreeTest {
         ArrayTupleBuilder tupleBuilder = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
 
-        ITreeIndexAccessor indexAccessor =
-                btree.createAccessor(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
+        ITreeIndexAccessor indexAccessor = btree.createAccessor(TestOperationCallback.INSTANCE,
+                TestOperationCallback.INSTANCE);
 
         // generate keys
         int numKeys = 50;
@@ -309,8 +309,8 @@ public class BTreeSearchCursorTest extends AbstractBTreeTest {
         searchCmps[0] = PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY).createBinaryComparator();
         MultiComparator searchCmp = new MultiComparator(searchCmps);
 
-        RangePredicate rangePred =
-                new RangePredicate(lowKey, highKey, lowKeyInclusive, highKeyInclusive, searchCmp, searchCmp);
+        RangePredicate rangePred = new RangePredicate(lowKey, highKey, lowKeyInclusive, highKeyInclusive, searchCmp,
+                searchCmp);
         return rangePred;
     }
 
@@ -356,8 +356,8 @@ public class BTreeSearchCursorTest extends AbstractBTreeTest {
 
                 ITreeIndexCursor rangeCursor = new BTreeRangeSearchCursor(leafFrame, false);
                 RangePredicate rangePred = createRangePredicate(lowKey, highKey, lowKeyInclusive, highKeyInclusive);
-                ITreeIndexAccessor indexAccessor =
-                        btree.createAccessor(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
+                ITreeIndexAccessor indexAccessor = btree.createAccessor(TestOperationCallback.INSTANCE,
+                        TestOperationCallback.INSTANCE);
                 indexAccessor.search(rangeCursor, rangePred);
 
                 try {

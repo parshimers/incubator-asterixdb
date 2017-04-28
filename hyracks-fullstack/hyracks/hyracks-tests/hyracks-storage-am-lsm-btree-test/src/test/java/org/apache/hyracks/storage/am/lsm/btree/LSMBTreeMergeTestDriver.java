@@ -67,7 +67,7 @@ public abstract class LSMBTreeMergeTestDriver extends OrderedIndexTestDriver {
                     ctx.getIndex().deactivate();
                     ctx.getIndex().activate();
                 } else if (fieldSerdes[0] instanceof UTF8StringSerializerDeserializer) {
-                    orderedIndexTestUtils.insertStringTuples(ctx, numTuplesToInsert, false, getRandom());
+                    orderedIndexTestUtils.insertStringTuples(ctx, numTuplesToInsert, getRandom());
                     // Deactivate and the re-activate the index to force it flush its in memory component
                     ctx.getIndex().deactivate();
                     ctx.getIndex().activate();
