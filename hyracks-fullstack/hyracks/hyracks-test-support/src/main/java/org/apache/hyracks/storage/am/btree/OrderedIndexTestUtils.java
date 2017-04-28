@@ -300,21 +300,7 @@ public class OrderedIndexTestUtils extends TreeIndexTestUtils {
                 // because we ignore duplicate keys.
                 ctx.insertCheckTuple(createStringCheckTuple(fieldValues, ctx.getKeyFieldCount()), ctx.getCheckTuples());
                 if (filtered) {
-                    int filterField = ctx.getFieldCount();
-                    ITupleReference currTuple = ctx.getTuple();
-                    ArrayTupleBuilder filterBuilder = new ArrayTupleBuilder(1);
-                    filterBuilder.addField(currTuple.getFieldData(filterField), currTuple.getFieldStart(filterField),
-                            currTuple.getFieldLength(filterField));
-                    IBinaryComparator comparator = ctx.getComparatorFactories()[0].createBinaryComparator();
-                    ArrayTupleReference filterOnlyTuple = new ArrayTupleReference();
-                    filterOnlyTuple.reset(filterBuilder.getFieldEndOffsets(), filterBuilder.getByteArray());
-                    if (minMax == null) {
-                        minMax = MutablePair.of(filterOnlyTuple, filterOnlyTuple);
-                    } else if (compareFilterTuples(minMax.getLeft(), filterOnlyTuple, comparator) > 0) {
-                        minMax.setLeft(filterOnlyTuple);
-                    } else if (compareFilterTuples(minMax.getRight(), filterOnlyTuple, comparator) < 0) {
-                        minMax.setRight(filterOnlyTuple);
-                    }
+                    addFilterField(ctx,minMax);
                 }
             } catch (HyracksDataException e) {
                 // Ignore duplicate key insertions.

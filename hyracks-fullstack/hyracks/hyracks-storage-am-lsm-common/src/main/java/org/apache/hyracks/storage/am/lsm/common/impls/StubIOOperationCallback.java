@@ -26,13 +26,16 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.LSMOperationType;
 
+/**
+ * This class is for testing. It's basically a way to get the new/old component info from the
+ * harness callback simply.
+ */
+
 public class StubIOOperationCallback implements ILSMIOOperationCallback {
 
     private List<ILSMComponent> oldComponents = null;
     private ILSMDiskComponent newComponent = null;
 
-    // This class is for testing. It's basically a way to get the new/old component info from the
-    // harness callback simply.
     @Override
     public void beforeOperation(LSMOperationType opType) throws HyracksDataException {
         //Not interested in this

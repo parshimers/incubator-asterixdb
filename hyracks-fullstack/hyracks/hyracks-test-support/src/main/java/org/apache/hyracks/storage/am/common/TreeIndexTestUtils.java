@@ -208,21 +208,7 @@ public abstract class TreeIndexTestUtils {
                 ctx.getIndexAccessor().insert(ctx.getTuple());
                 ctx.insertCheckTuple(createIntCheckTuple(fieldValues, ctx.getKeyFieldCount()), ctx.getCheckTuples());
                 if (filtered) {
-                    int filterField = ctx.getFieldCount();
-                    ITupleReference currTuple = ctx.getTuple();
-                    ArrayTupleBuilder filterBuilder = new ArrayTupleBuilder(1);
-                    filterBuilder.addField(currTuple.getFieldData(filterField), currTuple.getFieldStart(filterField),
-                            currTuple.getFieldLength(filterField));
-                    IBinaryComparator comparator = ctx.getComparatorFactories()[0].createBinaryComparator();
-                    ArrayTupleReference filterOnlyTuple = new ArrayTupleReference();
-                    filterOnlyTuple.reset(filterBuilder.getFieldEndOffsets(), filterBuilder.getByteArray());
-                    if (minMax == null) {
-                        minMax = MutablePair.of(filterOnlyTuple, filterOnlyTuple);
-                    } else if (compareFilterTuples(minMax.getLeft(), filterOnlyTuple, comparator) > 0) {
-                        minMax.setLeft(filterOnlyTuple);
-                    } else if (compareFilterTuples(minMax.getRight(), filterOnlyTuple, comparator) < 0) {
-                        minMax.setRight(filterOnlyTuple);
-                    }
+                    addFilterField(ctx, minMax);
                 }
             } catch (HyracksDataException e) {
                 // We set expected values only after insertion succeeds because
@@ -233,6 +219,26 @@ public abstract class TreeIndexTestUtils {
             }
         }
         return minMax;
+    }
+
+    protected void addFilterField(IIndexTestContext ctx, MutablePair<ITupleReference, ITupleReference> minMax)
+            throws HyracksDataException {
+        //Duplicate the PK field as a filter field at the end of the tuple to be inserted.
+        int filterField = ctx.getFieldCount();
+        ITupleReference currTuple = ctx.getTuple();
+        ArrayTupleBuilder filterBuilder = new ArrayTupleBuilder(1);
+        filterBuilder.addField(currTuple.getFieldData(filterField), currTuple.getFieldStart(filterField),
+                currTuple.getFieldLength(filterField));
+        IBinaryComparator comparator = ctx.getComparatorFactories()[0].createBinaryComparator();
+        ArrayTupleReference filterOnlyTuple = new ArrayTupleReference();
+        filterOnlyTuple.reset(filterBuilder.getFieldEndOffsets(), filterBuilder.getByteArray());
+        if (minMax == null) {
+            minMax = MutablePair.of(filterOnlyTuple, filterOnlyTuple);
+        } else if (compareFilterTuples(minMax.getLeft(), filterOnlyTuple, comparator) > 0) {
+            minMax.setLeft(filterOnlyTuple);
+        } else if (compareFilterTuples(minMax.getRight(), filterOnlyTuple, comparator) < 0) {
+            minMax.setRight(filterOnlyTuple);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -299,9 +305,10 @@ public abstract class TreeIndexTestUtils {
 
     public static void bulkLoadCheckTuples(IIndexTestContext ctx, Collection<CheckTuple> checkTuples)
             throws HyracksDataException {
-        bulkLoadCheckTuples(ctx,checkTuples,false);
+        bulkLoadCheckTuples(ctx, checkTuples, false);
     }
-    public static void bulkLoadCheckTuples(IIndexTestContext ctx, Collection<CheckTuple> checkTuples,boolean filtered)
+
+    public static void bulkLoadCheckTuples(IIndexTestContext ctx, Collection<CheckTuple> checkTuples, boolean filtered)
             throws HyracksDataException {
         int fieldCount = ctx.getFieldCount();
         int numTuples = checkTuples.size();

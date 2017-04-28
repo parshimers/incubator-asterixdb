@@ -44,6 +44,11 @@ import org.apache.hyracks.storage.am.lsm.common.impls.StubIOOperationCallback;
 
 import java.util.List;
 
+/**
+ * This test is the LSMBTreeMergeTest but using a filter, and at each step of the filter's lifecycle its value is
+ * checked against computed min/maxes from the check tuples.
+ */
+
 @SuppressWarnings("rawtypes")
 public abstract class LSMBTreeFilterMergeTestDriver extends OrderedIndexTestDriver {
 
@@ -68,10 +73,6 @@ public abstract class LSMBTreeFilterMergeTestDriver extends OrderedIndexTestDriv
         builder.reset();
         return Pair.of(minCopy, maxCopy);
     }
-
-
-    // This test is the LSMBTreeMergeTest but using a filter, and at each step of the filter's lifecycle its value is
-    // checked against computed min/maxes from the check tuples.
 
     @Override
     protected void runTest(ISerializerDeserializer[] fieldSerdes, int numKeys, BTreeLeafFrameType leafType,
