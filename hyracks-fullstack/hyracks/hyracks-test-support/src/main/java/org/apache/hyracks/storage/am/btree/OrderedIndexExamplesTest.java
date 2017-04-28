@@ -78,8 +78,8 @@ public abstract class OrderedIndexExamplesTest {
         typeTraits[0] = IntegerPointable.TYPE_TRAITS;
         typeTraits[1] = IntegerPointable.TYPE_TRAITS;
         // Declare field serdes.
-        ISerializerDeserializer[] fieldSerdes = { IntegerSerializerDeserializer.INSTANCE,
-                IntegerSerializerDeserializer.INSTANCE };
+        ISerializerDeserializer[] fieldSerdes =
+                { IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE };
 
         // Declare keys.
         int keyFieldCount = 1;
@@ -100,8 +100,8 @@ public abstract class OrderedIndexExamplesTest {
         }
         ArrayTupleBuilder tb = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
-        IIndexAccessor indexAccessor = treeIndex.createAccessor(TestOperationCallback.INSTANCE,
-                TestOperationCallback.INSTANCE);
+        IIndexAccessor indexAccessor =
+                treeIndex.createAccessor(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
         int numInserts = 10000;
         for (int i = 0; i < numInserts; i++) {
             int f0 = rnd.nextInt() % numInserts;
@@ -165,8 +165,8 @@ public abstract class OrderedIndexExamplesTest {
         typeTraits[0] = UTF8StringPointable.TYPE_TRAITS;
         typeTraits[1] = UTF8StringPointable.TYPE_TRAITS;
         // Declare field serdes.
-        ISerializerDeserializer[] fieldSerdes = { new UTF8StringSerializerDeserializer(),
-                new UTF8StringSerializerDeserializer() };
+        ISerializerDeserializer[] fieldSerdes =
+                { new UTF8StringSerializerDeserializer(), new UTF8StringSerializerDeserializer() };
 
         // Declare keys.
         int keyFieldCount = 1;
@@ -183,8 +183,8 @@ public abstract class OrderedIndexExamplesTest {
 
         ArrayTupleBuilder tb = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
-        IIndexAccessor indexAccessor = treeIndex.createAccessor(TestOperationCallback.INSTANCE,
-                TestOperationCallback.INSTANCE);
+        IIndexAccessor indexAccessor =
+                treeIndex.createAccessor(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
 
         String key = "111";
         String data = "XXX";
@@ -264,8 +264,8 @@ public abstract class OrderedIndexExamplesTest {
         }
         ArrayTupleBuilder tb = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
-        IIndexAccessor indexAccessor = treeIndex.createAccessor(TestOperationCallback.INSTANCE,
-                TestOperationCallback.INSTANCE);
+        IIndexAccessor indexAccessor =
+                treeIndex.createAccessor(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
         int numInserts = 10000;
         for (int i = 0; i < 10000; i++) {
             int f0 = rnd.nextInt() % 2000;
@@ -328,8 +328,8 @@ public abstract class OrderedIndexExamplesTest {
         typeTraits[0] = UTF8StringPointable.TYPE_TRAITS;
         typeTraits[1] = UTF8StringPointable.TYPE_TRAITS;
         // Declare field serdes.
-        ISerializerDeserializer[] fieldSerdes = { new UTF8StringSerializerDeserializer(),
-                new UTF8StringSerializerDeserializer() };
+        ISerializerDeserializer[] fieldSerdes =
+                { new UTF8StringSerializerDeserializer(), new UTF8StringSerializerDeserializer() };
 
         // Declare keys.
         int keyFieldCount = 1;
@@ -350,8 +350,8 @@ public abstract class OrderedIndexExamplesTest {
         }
         ArrayTupleBuilder tb = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
-        IIndexAccessor indexAccessor = treeIndex.createAccessor(TestOperationCallback.INSTANCE,
-                TestOperationCallback.INSTANCE);
+        IIndexAccessor indexAccessor =
+                treeIndex.createAccessor(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
         // Max string length to be generated.
         int maxLength = 10;
         int numInserts = 10000;
@@ -415,8 +415,8 @@ public abstract class OrderedIndexExamplesTest {
         typeTraits[0] = UTF8StringPointable.TYPE_TRAITS;
         typeTraits[1] = UTF8StringPointable.TYPE_TRAITS;
         // Declare field serdes.
-        ISerializerDeserializer[] fieldSerdes = { new UTF8StringSerializerDeserializer(),
-                new UTF8StringSerializerDeserializer() };
+        ISerializerDeserializer[] fieldSerdes =
+                { new UTF8StringSerializerDeserializer(), new UTF8StringSerializerDeserializer() };
 
         // Declare keys.
         int keyFieldCount = 1;
@@ -433,8 +433,8 @@ public abstract class OrderedIndexExamplesTest {
 
         ArrayTupleBuilder tb = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
-        IIndexAccessor indexAccessor = treeIndex.createAccessor(TestOperationCallback.INSTANCE,
-                TestOperationCallback.INSTANCE);
+        IIndexAccessor indexAccessor =
+                treeIndex.createAccessor(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
         // Max string length to be generated.
         int runs = 3;
         for (int run = 0; run < runs; run++) {
@@ -527,8 +527,8 @@ public abstract class OrderedIndexExamplesTest {
         typeTraits[0] = UTF8StringPointable.TYPE_TRAITS;
         typeTraits[1] = UTF8StringPointable.TYPE_TRAITS;
         // Declare field serdes.
-        ISerializerDeserializer[] fieldSerdes = { new UTF8StringSerializerDeserializer(),
-                new UTF8StringSerializerDeserializer() };
+        ISerializerDeserializer[] fieldSerdes =
+                { new UTF8StringSerializerDeserializer(), new UTF8StringSerializerDeserializer() };
 
         // Declare keys.
         int keyFieldCount = 1;
@@ -546,8 +546,8 @@ public abstract class OrderedIndexExamplesTest {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Inserting into tree...");
         }
-        IIndexAccessor indexAccessor = treeIndex.createAccessor(TestOperationCallback.INSTANCE,
-                TestOperationCallback.INSTANCE);
+        IIndexAccessor indexAccessor =
+                treeIndex.createAccessor(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
         ArrayTupleBuilder tb = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
         int maxLength = 10;
@@ -652,8 +652,8 @@ public abstract class OrderedIndexExamplesTest {
             LOGGER.info(ins + " tuples loaded in " + (end - start) + "ms");
         }
 
-        IIndexAccessor indexAccessor = treeIndex.createAccessor(TestOperationCallback.INSTANCE,
-                TestOperationCallback.INSTANCE);
+        IIndexAccessor indexAccessor =
+                treeIndex.createAccessor(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
 
         // Build low key.
         ArrayTupleBuilder lowKeyTb = new ArrayTupleBuilder(1);
@@ -705,8 +705,8 @@ public abstract class OrderedIndexExamplesTest {
         int ins = 1000;
         for (int i = 1; i < ins; i++) {
 
-            ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null,
-                    null);
+            ITreeIndex treeIndex =
+                    createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, null, null, null, null);
             treeIndex.create();
             treeIndex.activate();
 
@@ -775,8 +775,8 @@ public abstract class OrderedIndexExamplesTest {
                 LOGGER.info("Disk-Order Scan:");
             }
             ITreeIndexAccessor treeIndexAccessor = (ITreeIndexAccessor) indexAccessor;
-            TreeIndexDiskOrderScanCursor diskOrderCursor = (TreeIndexDiskOrderScanCursor) treeIndexAccessor
-                    .createDiskOrderScanCursor();
+            TreeIndexDiskOrderScanCursor diskOrderCursor =
+                    (TreeIndexDiskOrderScanCursor) treeIndexAccessor.createDiskOrderScanCursor();
             treeIndexAccessor.diskOrderScan(diskOrderCursor);
             try {
                 while (diskOrderCursor.hasNext()) {

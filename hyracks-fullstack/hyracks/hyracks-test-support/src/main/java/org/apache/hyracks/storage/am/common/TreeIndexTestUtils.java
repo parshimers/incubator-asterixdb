@@ -76,6 +76,11 @@ public abstract class TreeIndexTestUtils {
                 rhs.getFieldStart(0), rhs.getFieldLength(0));
     }
 
+    public static void createTupleFromCheckTuple(CheckTuple checkTuple, ArrayTupleBuilder tupleBuilder,
+            ArrayTupleReference tuple, ISerializerDeserializer[] fieldSerdes) throws HyracksDataException {
+        createTupleFromCheckTuple(checkTuple, tupleBuilder, tuple, fieldSerdes, false);
+    }
+
     @SuppressWarnings("unchecked")
     public static void createTupleFromCheckTuple(CheckTuple checkTuple, ArrayTupleBuilder tupleBuilder,
             ArrayTupleReference tuple, ISerializerDeserializer[] fieldSerdes, boolean filtered)
@@ -263,6 +268,10 @@ public abstract class TreeIndexTestUtils {
         }
     }
 
+    public void bulkLoadIntTuples(IIndexTestContext ctx, int numTuples, Random rnd) throws Exception {
+        bulkLoadIntTuples(ctx, numTuples, false, rnd);
+    }
+
     @SuppressWarnings("unchecked")
     public void bulkLoadIntTuples(IIndexTestContext ctx, int numTuples, boolean filter, Random rnd) throws Exception {
         int fieldCount = ctx.getFieldCount();
@@ -334,7 +343,7 @@ public abstract class TreeIndexTestUtils {
             }
             int checkTupleIdx = Math.abs(rnd.nextInt() % numCheckTuples);
             CheckTuple checkTuple = checkTuples[checkTupleIdx];
-            createTupleFromCheckTuple(checkTuple, deleteTupleBuilder, deleteTuple, ctx.getFieldSerdes(), false);
+            createTupleFromCheckTuple(checkTuple, deleteTupleBuilder, deleteTuple, ctx.getFieldSerdes());
             ctx.getIndexAccessor().delete(deleteTuple);
 
             // Remove check tuple from expected results.

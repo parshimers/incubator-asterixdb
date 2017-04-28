@@ -158,8 +158,8 @@ public class OrderedIndexTestUtils extends TreeIndexTestUtils {
         // Iterate through expected tuples, and perform a point search in the
         // BTree to verify the tuple can be reached.
         for (CheckTuple checkTuple : ctx.getCheckTuples()) {
-            createTupleFromCheckTuple(checkTuple, lowKeyBuilder, lowKey, ctx.getFieldSerdes(), false);
-            createTupleFromCheckTuple(checkTuple, highKeyBuilder, highKey, ctx.getFieldSerdes(), false);
+            createTupleFromCheckTuple(checkTuple, lowKeyBuilder, lowKey, ctx.getFieldSerdes());
+            createTupleFromCheckTuple(checkTuple, highKeyBuilder, highKey, ctx.getFieldSerdes());
             MultiComparator lowKeyCmp = BTreeUtils.getSearchMultiComparator(ctx.getComparatorFactories(), lowKey);
             MultiComparator highKeyCmp = BTreeUtils.getSearchMultiComparator(ctx.getComparatorFactories(), highKey);
 
@@ -203,7 +203,7 @@ public class OrderedIndexTestUtils extends TreeIndexTestUtils {
             // for ordered indexes bulk loading).
             ctx.insertCheckTuple(createIntCheckTuple(fieldValues, ctx.getKeyFieldCount()), tmpCheckTuples);
         }
-        insertCheckTuples(ctx, tmpCheckTuples, false);
+        insertCheckTuples(ctx, tmpCheckTuples);
 
         // Add tmpCheckTuples to ctx check tuples for comparing searches.
         for (CheckTuple checkTuple : tmpCheckTuples) {
@@ -231,12 +231,17 @@ public class OrderedIndexTestUtils extends TreeIndexTestUtils {
             // for bulk loading.
             ctx.insertCheckTuple(createStringCheckTuple(fieldValues, ctx.getKeyFieldCount()), tmpCheckTuples);
         }
-        insertCheckTuples(ctx, tmpCheckTuples, false);
+        insertCheckTuples(ctx, tmpCheckTuples);
 
         // Add tmpCheckTuples to ctx check tuples for comparing searches.
         for (CheckTuple checkTuple : tmpCheckTuples) {
             ctx.insertCheckTuple(checkTuple, ctx.getCheckTuples());
         }
+    }
+
+    public static void insertCheckTuples(IIndexTestContext ctx, Collection<CheckTuple> checkTuples)
+            throws HyracksDataException {
+        insertCheckTuples(ctx, checkTuples, false);
     }
 
     public static void insertCheckTuples(IIndexTestContext ctx, Collection<CheckTuple> checkTuples, boolean filtered)
@@ -254,7 +259,7 @@ public class OrderedIndexTestUtils extends TreeIndexTestUtils {
                     LOGGER.info("Inserting Tuple " + c + "/" + numTuples);
                 }
             }
-            createTupleFromCheckTuple(checkTuple, tupleBuilder, tuple, ctx.getFieldSerdes(), false);
+            createTupleFromCheckTuple(checkTuple, tupleBuilder, tuple, ctx.getFieldSerdes(), filtered);
             ctx.getIndexAccessor().insert(tuple);
             c++;
         }
@@ -336,15 +341,18 @@ public class OrderedIndexTestUtils extends TreeIndexTestUtils {
             for (int j = numKeyFields; j < fieldCount; j++) {
                 fieldValues[j] = getRandomString(5, rnd);
             }
-            TupleUtils.createTuple(ctx.getTupleBuilder(), ctx.getTuple(), ctx.getFieldSerdes(),
-                    (Object[]) fieldValues);
+            TupleUtils.createTuple(ctx.getTupleBuilder(), ctx.getTuple(), ctx.getFieldSerdes(), (Object[]) fieldValues);
             ctx.getIndexAccessor().upsert(ctx.getTuple());
             ctx.upsertCheckTuple(createStringCheckTuple(fieldValues, ctx.getKeyFieldCount()), ctx.getCheckTuples());
         }
     }
 
+    public void bulkLoadStringTuples(IIndexTestContext ctx, int numTuples, Random rnd) throws Exception {
+        bulkLoadStringTuples(ctx, numTuples, false, rnd);
+    }
+
     @SuppressWarnings("unchecked")
-    public void bulkLoadStringTuples(IIndexTestContext ctx, int numTuples, Random rnd, boolean filtered)
+    public void bulkLoadStringTuples(IIndexTestContext ctx, int numTuples, boolean filtered, Random rnd)
             throws Exception {
         int fieldCount = ctx.getFieldCount();
         int numKeyFields = ctx.getKeyFieldCount();
@@ -431,7 +439,7 @@ public class OrderedIndexTestUtils extends TreeIndexTestUtils {
                 checkTuple.setField(j, newValue);
             }
 
-            createTupleFromCheckTuple(checkTuple, updateTupleBuilder, updateTuple, ctx.getFieldSerdes(), false);
+            createTupleFromCheckTuple(checkTuple, updateTupleBuilder, updateTuple, ctx.getFieldSerdes());
             ctx.getIndexAccessor().update(updateTuple);
 
             // Swap with last "valid" CheckTuple.

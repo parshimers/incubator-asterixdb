@@ -69,6 +69,10 @@ public abstract class LSMBTreeFilterMergeTestDriver extends OrderedIndexTestDriv
         return Pair.of(minCopy, maxCopy);
     }
 
+
+    // This test is the LSMBTreeMergeTest but using a filter, and at each step of the filter's lifecycle its value is
+    // checked against computed min/maxes from the check tuples.
+
     @Override
     protected void runTest(ISerializerDeserializer[] fieldSerdes, int numKeys, BTreeLeafFrameType leafType,
             ITupleReference lowKey, ITupleReference highKey, ITupleReference prefixLowKey,
@@ -82,7 +86,7 @@ public abstract class LSMBTreeFilterMergeTestDriver extends OrderedIndexTestDriv
         if (fieldSerdes[0] instanceof IntegerSerializerDeserializer) {
             orderedIndexTestUtils.bulkLoadIntTuples(ctx, numTuplesToInsert, true, getRandom());
         } else if (fieldSerdes[0] instanceof UTF8StringSerializerDeserializer) {
-            orderedIndexTestUtils.bulkLoadStringTuples(ctx, numTuplesToInsert, getRandom(), true);
+            orderedIndexTestUtils.bulkLoadStringTuples(ctx, numTuplesToInsert, true, getRandom());
         }
 
         int maxTreesToMerge = AccessMethodTestsConfig.LSM_BTREE_MAX_TREES_TO_MERGE;
@@ -111,7 +115,7 @@ public abstract class LSMBTreeFilterMergeTestDriver extends OrderedIndexTestDriv
                 BlockingIOOperationCallbackWrapper waiter = new BlockingIOOperationCallbackWrapper(stub);
                 accessor.scheduleFlush(waiter);
                 waiter.waitForIO();
-                if(minMax != null) {
+                if (minMax != null) {
                     Pair<ITupleReference, ITupleReference> obsMinMax = filterToMinMax(
                             stub.getLastNewComponent().getLSMComponentFilter());
                     Assert.assertEquals(0,

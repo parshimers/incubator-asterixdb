@@ -53,9 +53,9 @@ public abstract class LSMBTreeMergeTestDriver extends OrderedIndexTestDriver {
         // We assume all fieldSerdes are of the same type. Check the first one
         // to determine which field types to generate.
         if (fieldSerdes[0] instanceof IntegerSerializerDeserializer) {
-            orderedIndexTestUtils.bulkLoadIntTuples(ctx, numTuplesToInsert, false, getRandom());
+            orderedIndexTestUtils.bulkLoadIntTuples(ctx, numTuplesToInsert, getRandom());
         } else if (fieldSerdes[0] instanceof UTF8StringSerializerDeserializer) {
-            orderedIndexTestUtils.bulkLoadStringTuples(ctx, numTuplesToInsert, getRandom(), false);
+            orderedIndexTestUtils.bulkLoadStringTuples(ctx, numTuplesToInsert, getRandom());
         }
 
         int maxTreesToMerge = AccessMethodTestsConfig.LSM_BTREE_MAX_TREES_TO_MERGE;

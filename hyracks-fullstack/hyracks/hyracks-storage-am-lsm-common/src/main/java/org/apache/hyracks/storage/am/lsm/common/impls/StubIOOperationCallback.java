@@ -31,6 +31,8 @@ public class StubIOOperationCallback implements ILSMIOOperationCallback {
     private List<ILSMComponent> oldComponents = null;
     private ILSMDiskComponent newComponent = null;
 
+    // This class is for testing. It's basically a way to get the new/old component info from the
+    // harness callback simply.
     @Override
     public void beforeOperation(LSMOperationType opType) throws HyracksDataException {
         //Not interested in this
@@ -46,6 +48,7 @@ public class StubIOOperationCallback implements ILSMIOOperationCallback {
     @Override
     public synchronized void afterFinalize(LSMOperationType opType, ILSMDiskComponent newComponent)
             throws HyracksDataException {
+        //Redundant info from after
     }
 
     @Override
