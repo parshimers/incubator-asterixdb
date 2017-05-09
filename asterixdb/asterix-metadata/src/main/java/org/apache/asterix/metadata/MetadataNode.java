@@ -457,7 +457,6 @@ public class MetadataNode implements IMetadataNode {
 
             // TODO: fix exceptions once new BTree exception model is in hyracks.
             indexAccessor.forceInsert(tuple);
-            transactionSubsystem.getTransactionManager().getTransactionContext(jobId,false).decrementNumActiveOperations();
             lsmIndex.getOperationTracker().completeOperation(lsmIndex, LSMOperationType.FORCE_MODIFICATION,null,modCallback);
         } finally {
             datasetLifecycleManager.close(resourceName);
@@ -750,7 +749,6 @@ public class MetadataNode implements IMetadataNode {
             LSMIndexUtil.checkAndSetFirstLSN((AbstractLSMIndex) lsmIndex, transactionSubsystem.getLogManager());
 
             indexAccessor.forceDelete(tuple);
-            transactionSubsystem.getTransactionManager().getTransactionContext(jobId,false).decrementNumActiveOperations();
             lsmIndex.getOperationTracker().completeOperation(lsmIndex, LSMOperationType.FORCE_MODIFICATION,null,modCallback);
         } finally {
             datasetLifecycleManager.close(resourceName);
