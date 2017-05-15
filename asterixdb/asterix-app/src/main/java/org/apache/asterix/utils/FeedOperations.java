@@ -69,7 +69,7 @@ import org.apache.asterix.runtime.utils.ClusterStateManager;
 import org.apache.asterix.runtime.utils.RuntimeUtils;
 import org.apache.asterix.translator.CompiledStatements;
 import org.apache.asterix.translator.IStatementExecutor;
-import org.apache.asterix.translator.SessionConfig;
+import org.apache.asterix.translator.SessionOutput;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
@@ -151,7 +151,7 @@ public class FeedOperations {
         return spec;
     }
 
-    private static JobSpecification getConnectionJob(SessionConfig sessionConfig, MetadataProvider metadataProvider,
+    private static JobSpecification getConnectionJob(SessionOutput sessionOutput, MetadataProvider metadataProvider,
             FeedConnection feedConnection, String[] locations, ILangCompilationProvider compilationProvider,
             IStorageComponentProvider storageComponentProvider, DefaultStatementExecutorFactory qtFactory,
             IHyracksClientConnection hcc) throws AlgebricksException, RemoteException, ACIDException {
@@ -165,7 +165,7 @@ public class FeedOperations {
         statements.add(dataverseDecl);
         statements.add(subscribeStmt);
         IStatementExecutor translator = qtFactory.create(metadataProvider.getApplicationContext(), statements,
-                sessionConfig, compilationProvider, storageComponentProvider);
+                sessionOutput, compilationProvider, storageComponentProvider);
         // configure the metadata provider
         metadataProvider.getConfig().put(FunctionUtil.IMPORT_PRIVATE_FUNCTIONS, "" + Boolean.TRUE);
         metadataProvider.getConfig().put(FeedActivityDetails.FEED_POLICY_NAME, "" + subscribeStmt.getPolicy());
@@ -214,8 +214,8 @@ public class FeedOperations {
             JobSpecification subJob = jobsList.get(iter1);
             operatorIdMapping.clear();
             Map<OperatorDescriptorId, IOperatorDescriptor> operatorsMap = subJob.getOperatorMap();
-            FeedConnectionId feedConnectionId =
-                    new FeedConnectionId(ingestionOp.getEntityId(), feedConnections.get(iter1).getDatasetName());
+            String datasetName = feedConnections.get(iter1).getDatasetName();
+            FeedConnectionId feedConnectionId = new FeedConnectionId(ingestionOp.getEntityId(), datasetName);
 
             FeedPolicyEntity feedPolicyEntity =
                     FeedMetadataUtil.validateIfPolicyExists(curFeedConnection.getDataverseName(),
@@ -227,9 +227,8 @@ public class FeedOperations {
                 OperatorDescriptorId opId = null;
                 if (opDesc instanceof LSMTreeInsertDeleteOperatorDescriptor
                         && ((LSMTreeInsertDeleteOperatorDescriptor) opDesc).isPrimary()) {
-                    String operandId = ((LSMTreeInsertDeleteOperatorDescriptor) opDesc).getIndexName();
                     metaOp = new FeedMetaOperatorDescriptor(jobSpec, feedConnectionId, opDesc,
-                            feedPolicyEntity.getProperties(), FeedRuntimeType.STORE, operandId);
+                            feedPolicyEntity.getProperties(), FeedRuntimeType.STORE);
                     opId = metaOp.getOperatorId();
                     opDesc.setOperatorId(opId);
                 } else {
@@ -243,7 +242,7 @@ public class FeedOperations {
                             // anything on the network interface needs to be message compatible
                             if (connectorDesc instanceof MToNPartitioningConnectorDescriptor) {
                                 metaOp = new FeedMetaOperatorDescriptor(jobSpec, feedConnectionId, opDesc,
-                                        feedPolicyEntity.getProperties(), FeedRuntimeType.COMPUTE, null);
+                                        feedPolicyEntity.getProperties(), FeedRuntimeType.COMPUTE);
                                 opId = metaOp.getOperatorId();
                                 opDesc.setOperatorId(opId);
                             }
@@ -357,7 +356,7 @@ public class FeedOperations {
     }
 
     public static Pair<JobSpecification, AlgebricksAbsolutePartitionConstraint> buildStartFeedJob(
-            SessionConfig sessionConfig, MetadataProvider metadataProvider, Feed feed,
+            SessionOutput sessionOutput, MetadataProvider metadataProvider, Feed feed,
             List<FeedConnection> feedConnections, ILangCompilationProvider compilationProvider,
             IStorageComponentProvider storageComponentProvider, DefaultStatementExecutorFactory qtFactory,
             IHyracksClientConnection hcc) throws Exception {
@@ -372,7 +371,7 @@ public class FeedOperations {
         String[] ingestionLocations = ingestionAdaptorFactory.getPartitionConstraint().getLocations();
         // Add connection job
         for (FeedConnection feedConnection : feedConnections) {
-            JobSpecification connectionJob = getConnectionJob(sessionConfig, metadataProvider, feedConnection,
+            JobSpecification connectionJob = getConnectionJob(sessionOutput, metadataProvider, feedConnection,
                     ingestionLocations, compilationProvider, storageComponentProvider, qtFactory, hcc);
             jobsList.add(connectionJob);
         }

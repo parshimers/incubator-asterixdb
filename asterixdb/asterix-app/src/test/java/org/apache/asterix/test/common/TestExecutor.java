@@ -32,11 +32,13 @@ import java.io.StringWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.Inet4Address;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -118,17 +120,24 @@ public class TestExecutor {
     /*
      * Instance members
      */
-    protected final String host;
-    protected final int port;
+    protected final List<InetSocketAddress> endpoints;
+    protected int endpointSelector;
     protected ITestLibrarian librarian;
-
-    public TestExecutor(String host, int port) {
-        this.host = host;
-        this.port = port;
-    }
 
     public TestExecutor() {
         this(Inet4Address.getLoopbackAddress().getHostAddress(), 19002);
+    }
+
+    public TestExecutor(String host, int port) {
+        this(InetSocketAddress.createUnresolved(host, port));
+    }
+
+    public TestExecutor(InetSocketAddress endpoint) {
+        this(Collections.singletonList(endpoint));
+    }
+
+    public TestExecutor(List<InetSocketAddress> endpoints) {
+        this.endpoints = endpoints;
     }
 
     public void setLibrarian(ITestLibrarian librarian) {
@@ -372,8 +381,8 @@ public class TestExecutor {
                 if (match && !negate || negate && !match) {
                     continue;
                 }
-                throw new Exception(
-                        "Result for " + scriptFile + ": expected pattern '" + expression + "' not found in result.");
+                throw new Exception("Result for " + scriptFile + ": expected pattern '" + expression
+                        + "' not found in result: " + actual);
             }
         } catch (Exception e) {
             System.err.println("Actual results file: " + actualFile.toString());
@@ -811,6 +820,7 @@ public class TestExecutor {
                 break;
             case "mgx":
                 executeManagixCommand(stripLineComments(statement).trim());
+                Thread.sleep(8000);
                 break;
             case "txnqbc": // qbc represents query before crash
                 InputStream resultStream = executeQuery(statement, OutputFormat.forCompilationUnit(cUnit),
@@ -1165,7 +1175,7 @@ public class TestExecutor {
 
     protected InputStream executeHttp(String ctxType, String endpoint, OutputFormat fmt) throws Exception {
         String[] split = endpoint.split("\\?");
-        URI uri = new URI("http", null, host, port, split[0], split.length > 1 ? split[1] : null, null);
+        URI uri = createEndpointURI(split[0], split.length > 1 ? split[1] : null);
         return executeURI(ctxType, uri, fmt);
     }
 
@@ -1184,7 +1194,7 @@ public class TestExecutor {
         //get node process id
         OutputFormat fmt = OutputFormat.forCompilationUnit(cUnit);
         String endpoint = "/admin/cluster/node/" + nodeId + "/config";
-        InputStream executeJSONGet = executeJSONGet(fmt, new URI("http", null, host, port, endpoint, null, null));
+        InputStream executeJSONGet = executeJSONGet(fmt, createEndpointURI(endpoint, null));
         StringWriter actual = new StringWriter();
         IOUtils.copy(executeJSONGet, actual, StandardCharsets.UTF_8);
         String config = actual.toString();
@@ -1201,7 +1211,7 @@ public class TestExecutor {
     private void deleteNCTxnLogs(String nodeId, CompilationUnit cUnit) throws Exception {
         OutputFormat fmt = OutputFormat.forCompilationUnit(cUnit);
         String endpoint = "/admin/cluster/node/" + nodeId + "/config";
-        InputStream executeJSONGet = executeJSONGet(fmt, new URI("http://" + host + ":" + port + endpoint));
+        InputStream executeJSONGet = executeJSONGet(fmt, createEndpointURI(endpoint, null));
         StringWriter actual = new StringWriter();
         IOUtils.copy(executeJSONGet, actual, StandardCharsets.UTF_8);
         String config = actual.toString();
@@ -1231,27 +1241,11 @@ public class TestExecutor {
                             expectedResultFileCtxs, testFile, actualPath);
                 } catch (Exception e) {
                     System.err.println("testFile " + testFile.toString() + " raised an exception: " + e);
-                    boolean unExpectedFailure = false;
                     numOfErrors++;
-                    String expectedError = null;
-                    if (cUnit.getExpectedError().size() < numOfErrors) {
-                        unExpectedFailure = true;
-                    } else {
-                        // Get the expected exception
-                        expectedError = cUnit.getExpectedError().get(numOfErrors - 1);
-                        if (e.toString().contains(expectedError)) {
-                            System.err.println("...but that was expected.");
-                        } else {
-                            unExpectedFailure = true;
-                        }
-                    }
+                    boolean unExpectedFailure = isUnExpected(e, cUnit, numOfErrors, queryCount);
                     if (unExpectedFailure) {
                         e.printStackTrace();
                         System.err.println("...Unexpected!");
-                        if (expectedError != null) {
-                            System.err.println("Expected to find the following in error text:\n+++++\n" + expectedError
-                                    + "\n+++++");
-                        }
                         if (failedGroup != null) {
                             failedGroup.getTestCase().add(testCaseCtx.getTestCase());
                         }
@@ -1273,6 +1267,24 @@ public class TestExecutor {
         }
     }
 
+    protected boolean isUnExpected(Exception e, CompilationUnit cUnit, int numOfErrors, MutableInt queryCount) {
+        String expectedError = null;
+        if (cUnit.getExpectedError().size() < numOfErrors) {
+            return true;
+        } else {
+            // Get the expected exception
+            expectedError = cUnit.getExpectedError().get(numOfErrors - 1);
+            if (e.toString().contains(expectedError)) {
+                System.err.println("...but that was expected.");
+                return false;
+            } else {
+                System.err
+                        .println("Expected to find the following in error text:\n+++++\n" + expectedError + "\n+++++");
+                return true;
+            }
+        }
+    }
+
     private static File getTestCaseQueryBeforeCrashFile(String actualPath, TestCaseContext testCaseCtx,
             CompilationUnit cUnit) {
         return new File(
@@ -1280,8 +1292,16 @@ public class TestExecutor {
                         + cUnit.getName() + "_qbc.adm");
     }
 
+    protected URI createEndpointURI(String path, String query) throws URISyntaxException {
+        int endpointIdx = Math.abs(endpointSelector++ % endpoints.size());
+        InetSocketAddress endpoint = endpoints.get(endpointIdx);
+        URI uri = new URI("http", null, endpoint.getHostString(), endpoint.getPort(), path, query, null);
+        LOGGER.fine("Created endpoint URI: " + uri);
+        return uri;
+    }
+
     protected URI getEndpoint(String servlet) throws URISyntaxException {
-        return new URI("http", null, host, port, getPath(servlet).replaceAll("/\\*$", ""), null, null);
+        return createEndpointURI(getPath(servlet).replaceAll("/\\*$", ""), null);
     }
 
     public static String stripJavaComments(String text) {

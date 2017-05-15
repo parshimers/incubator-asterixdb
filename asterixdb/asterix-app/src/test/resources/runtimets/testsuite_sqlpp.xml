@@ -18,43 +18,10 @@
  !-->
 <!DOCTYPE test-suite [
   <!ENTITY RecordsQueries SYSTEM "queries_sqlpp/objects/ObjectsQueries.xml">
-
+  <!ENTITY AsyncDeferredQueries SYSTEM "queries_sqlpp/async-deferred/AsyncDeferredQueries.xml">
 ]>
 <test-suite xmlns="urn:xml.testframework.asterix.apache.org" ResultOffsetPath="results" QueryOffsetPath="queries_sqlpp" QueryFileExtension=".sqlpp">
-  <test-group name="async-deferred">
-    <test-case FilePath="async-deferred">
-      <compilation-unit name="async-failed">
-        <output-dir compare="Text">async-failed</output-dir>
-        <expected-error>Injected failure in asterix:inject-failure</expected-error>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="async-deferred">
-      <compilation-unit name="async-compilation-failed">
-        <output-dir compare="Text">async-compilation-failed</output-dir>
-        <expected-error>Cannot find dataset gargel</expected-error>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="async-deferred">
-      <compilation-unit name="deferred">
-        <output-dir compare="Text">deferred</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="async-deferred">
-      <compilation-unit name="async">
-        <output-dir compare="Text">async</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="async-deferred">
-      <compilation-unit name="async-repeated">
-        <output-dir compare="Text">async-repeated</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="async-deferred">
-      <compilation-unit name="async-running">
-        <output-dir compare="Text">async-running</output-dir>
-      </compilation-unit>
-    </test-case>
-  </test-group>
+  &AsyncDeferredQueries;
   <test-group name="flwor">
     <test-case FilePath="flwor">
       <compilation-unit name="at00">
@@ -135,6 +102,31 @@
       <compilation-unit name="explain_pretty">
         <parameter name="pretty" value="true" />
         <output-dir compare="Text">explain_simple</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="explain">
+      <compilation-unit name="explain_object_constructor-01">
+        <output-dir compare="Text">explain_object_constructor-01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="explain">
+      <compilation-unit name="explain_object_constructor-02">
+        <output-dir compare="Text">explain_object_constructor-02</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="explain">
+      <compilation-unit name="explain_object_constructor-03">
+        <output-dir compare="Text">explain_object_constructor-03</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="explain">
+      <compilation-unit name="explain_field_access">
+        <output-dir compare="Text">explain_field_access</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="explain">
+      <compilation-unit name="explain_field_access_closed">
+        <output-dir compare="Text">explain_field_access_closed</output-dir>
       </compilation-unit>
     </test-case>
   </test-group>
@@ -2567,13 +2559,13 @@
     <test-case FilePath="global-aggregate">
       <compilation-unit name="q05_error">
         <output-dir compare="Text">q01</output-dir>
-        <expected-error>Type mismatch: function field-access-by-name expects its 1st input parameter to be type record, but the actual input type is orderedlist</expected-error>
+        <expected-error>Type mismatch: function field-access-by-name expects its 1st input parameter to be type object, but the actual input type is array</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="global-aggregate">
       <compilation-unit name="q06_error">
         <output-dir compare="Text">q01</output-dir>
-        <expected-error>Type mismatch: function scan-collection expects its 1st input parameter to be type orderedlist or unorderedlist, but the actual input type is string</expected-error>
+        <expected-error>Type mismatch: function scan-collection expects its 1st input parameter to be type array or multiset, but the actual input type is string</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="global-aggregate">
@@ -2658,7 +2650,7 @@
     <test-case FilePath="group-by">
       <compilation-unit name="sugar-01-negative">
         <output-dir compare="Text">core-01</output-dir>
-        <expected-error>Type mismatch: function field-access-by-name expects its 1st input parameter to be type record, but the actual input type is orderedlist</expected-error>
+        <expected-error>Type mismatch: function field-access-by-name expects its 1st input parameter to be type object, but the actual input type is array</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="group-by">
@@ -3294,7 +3286,7 @@
     <test-case FilePath="misc">
       <compilation-unit name="query-ASTERIXDB-1577">
         <output-dir compare="Text">query-ASTERIXDB-1577</output-dir>
-        <expected-error>Type mismatch: function field-access-by-name expects its 1st input parameter to be type record, but the actual input type is orderedlist</expected-error>
+        <expected-error>Type mismatch: function field-access-by-name expects its 1st input parameter to be type object, but the actual input type is array</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="misc">
@@ -6050,7 +6042,7 @@
     <test-case FilePath="subquery">
       <compilation-unit name="query-ASTERIXDB-1574">
         <output-dir compare="Text">query-ASTERIXDB-1574</output-dir>
-        <expected-error>Type mismatch: function scan-collection expects its 1st input parameter to be type unorderedlist or orderedlist, but the actual input type is record</expected-error>
+        <expected-error>Type mismatch: function scan-collection expects its 1st input parameter to be type multiset or array, but the actual input type is object</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="subquery">
@@ -7404,7 +7396,7 @@
         <output-dir compare="Text">cross-dv07</output-dir>
       </compilation-unit>
     </test-case>
-    <!--NotImplementedException: No binary comparator factory implemented for type RECORD.
+    <!--NotImplementedException: No binary comparator factory implemented for type OBJECT.
         <test-case FilePath="cross-dataverse">
           <compilation-unit name="cross-dv08">
             <output-dir compare="Text">cross-dv08</output-dir>
@@ -7448,14 +7440,14 @@
         <expected-error>Recursive invocation testdv1.fun04@0</expected-error>
       </compilation-unit>
     </test-case>
-    <!--NotImplementedException: No binary comparator factory implemented for type RECORD.
+    <!--NotImplementedException: No binary comparator factory implemented for type OBJECT.
         <test-case FilePath="cross-dataverse">
           <compilation-unit name="cross-dv17">
             <output-dir compare="Text">cross-dv17</output-dir>
           </compilation-unit>
         </test-case>
         -->
-    <!--NotImplementedException: No binary comparator factory implemented for type RECORD.
+    <!--NotImplementedException: No binary comparator factory implemented for type OBJECT.
         <test-case FilePath="cross-dataverse">
           <compilation-unit name="cross-dv18">
             <output-dir compare="Text">cross-dv18</output-dir>

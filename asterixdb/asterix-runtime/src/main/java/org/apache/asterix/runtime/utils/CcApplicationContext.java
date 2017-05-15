@@ -34,6 +34,7 @@ import org.apache.asterix.common.config.PropertiesAccessor;
 import org.apache.asterix.common.config.ReplicationProperties;
 import org.apache.asterix.common.config.StorageProperties;
 import org.apache.asterix.common.config.TransactionProperties;
+import org.apache.asterix.common.context.IStorageComponentProvider;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.library.ILibraryManager;
@@ -43,7 +44,6 @@ import org.apache.asterix.common.transactions.IResourceIdManager;
 import org.apache.hyracks.api.application.ICCServiceContext;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.job.IJobLifecycleListener;
-import org.apache.hyracks.storage.am.common.api.IIndexLifecycleManagerProvider;
 import org.apache.hyracks.storage.common.IStorageManager;
 
 /*
@@ -54,6 +54,7 @@ import org.apache.hyracks.storage.common.IStorageManager;
 public class CcApplicationContext implements ICcApplicationContext {
 
     private ICCServiceContext ccServiceCtx;
+    private IStorageComponentProvider storageComponentProvider;
     private IGlobalRecoveryManager globalRecoveryManager;
     private ILibraryManager libraryManager;
     private IResourceIdManager resourceIdManager;
@@ -77,7 +78,8 @@ public class CcApplicationContext implements ICcApplicationContext {
     public CcApplicationContext(ICCServiceContext ccServiceCtx, IHyracksClientConnection hcc,
             ILibraryManager libraryManager, IResourceIdManager resourceIdManager,
             Supplier<IMetadataBootstrap> metadataBootstrapSupplier, IGlobalRecoveryManager globalRecoveryManager,
-            IFaultToleranceStrategy ftStrategy, IJobLifecycleListener activeLifeCycleListener)
+            IFaultToleranceStrategy ftStrategy, IJobLifecycleListener activeLifeCycleListener,
+            IStorageComponentProvider storageComponentProvider)
             throws AsterixException, IOException {
         this.ccServiceCtx = ccServiceCtx;
         this.hcc = hcc;
@@ -102,6 +104,7 @@ public class CcApplicationContext implements ICcApplicationContext {
         this.nodeProperties = new NodeProperties(propertiesAccessor);
         this.metadataBootstrapSupplier = metadataBootstrapSupplier;
         this.globalRecoveryManager = globalRecoveryManager;
+        this.storageComponentProvider = storageComponentProvider;
     }
 
     @Override
@@ -150,11 +153,6 @@ public class CcApplicationContext implements ICcApplicationContext {
     }
 
     @Override
-    public IIndexLifecycleManagerProvider getIndexLifecycleManagerProvider() {
-        return RuntimeComponentsProvider.RUNTIME_PROVIDER;
-    }
-
-    @Override
     public IStorageManager getStorageManager() {
         return RuntimeComponentsProvider.RUNTIME_PROVIDER;
     }
@@ -174,6 +172,7 @@ public class CcApplicationContext implements ICcApplicationContext {
         return libraryManager;
     }
 
+    @Override
     public Object getExtensionManager() {
         return extensionManager;
     }
@@ -212,5 +211,10 @@ public class CcApplicationContext implements ICcApplicationContext {
     @Override
     public IJobLifecycleListener getActiveLifecycleListener() {
         return activeLifeCycleListener;
+    }
+
+    @Override
+    public IStorageComponentProvider getStorageComponentProvider() {
+        return storageComponentProvider;
     }
 }
