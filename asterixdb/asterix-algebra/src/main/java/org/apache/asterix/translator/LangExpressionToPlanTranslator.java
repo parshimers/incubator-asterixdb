@@ -211,7 +211,7 @@ class LangExpressionToPlanTranslator
                 metadataProvider.findType(dataset.getMetaItemTypeDataverseName(), dataset.getMetaItemTypeName());
         DatasetDataSource targetDatasource =
                 validateDatasetInfo(metadataProvider, stmt.getDataverseName(), stmt.getDatasetName());
-        List<List<String>> partitionKeys = DatasetUtil.getPartitioningKeys(targetDatasource.getDataset());
+        List<List<String>> partitionKeys = targetDatasource.getDataset().getPrimaryKeys();
         if (dataset.hasMetaPart()) {
             throw new AlgebricksException(
                     dataset.getDatasetName() + ": load dataset is not supported on Datasets with Meta records");
@@ -361,7 +361,7 @@ class LangExpressionToPlanTranslator
             ArrayList<LogicalVariable> vars = new ArrayList<>();
             ArrayList<Mutable<ILogicalExpression>> exprs = new ArrayList<>();
             List<Mutable<ILogicalExpression>> varRefsForLoading = new ArrayList<>();
-            List<List<String>> partitionKeys = DatasetUtil.getPartitioningKeys(targetDatasource.getDataset());
+            List<List<String>> partitionKeys = targetDatasource.getDataset().getPrimaryKeys();
             int numOfPrimaryKeys = partitionKeys.size();
             for (int i = 0; i < numOfPrimaryKeys; i++) {
                 if (keySourceIndicator == null || keySourceIndicator.get(i).intValue() == 0) {
@@ -691,7 +691,7 @@ class LangExpressionToPlanTranslator
         ILogicalOperator rootOperator = inputOperator;
 
         //Makes the id of the insert var point to the record variable.
-        context.newVar(compiledInsert.getVar());
+        context.newVarFromExpression(compiledInsert.getVar());
         context.setVar(compiledInsert.getVar(),
                 ((VariableReferenceExpression) insertOp.getPayloadExpression().getValue()).getVariableReference());
         Pair<ILogicalExpression, Mutable<ILogicalOperator>> p =
@@ -744,12 +744,12 @@ class LangExpressionToPlanTranslator
         LogicalVariable v;
         ILogicalOperator returnedOp;
         if (lc.getBindingExpr().getKind() == Kind.VARIABLE_EXPRESSION) {
-            v = context.newVar(lc.getVarExpr());
+            v = context.newVarFromExpression(lc.getVarExpr());
             LogicalVariable prev = context.getVar(((VariableExpr) lc.getBindingExpr()).getVar().getId());
             returnedOp = new AssignOperator(v, new MutableObject<>(new VariableReferenceExpression(prev)));
             returnedOp.getInputs().add(tupSource);
         } else {
-            v = context.newVar(lc.getVarExpr());
+            v = context.newVarFromExpression(lc.getVarExpr());
             Pair<ILogicalExpression, Mutable<ILogicalOperator>> eo =
                     langExprToAlgExpression(lc.getBindingExpr(), tupSource);
             returnedOp = new AssignOperator(v, new MutableObject<>(eo.first));
@@ -762,7 +762,7 @@ class LangExpressionToPlanTranslator
     public Pair<ILogicalOperator, LogicalVariable> visit(FieldAccessor fa, Mutable<ILogicalOperator> tupSource)
             throws CompilationException {
         Pair<ILogicalExpression, Mutable<ILogicalOperator>> p = langExprToAlgExpression(fa.getExpr(), tupSource);
-        LogicalVariable v = context.newVar();
+        LogicalVariable v = context.newVarFromExpression(fa);
         AbstractFunctionCallExpression fldAccess =
                 new ScalarFunctionCallExpression(FunctionUtil.getFunctionInfo(BuiltinFunctions.FIELD_ACCESS_BY_NAME));
         fldAccess.getArguments().add(new MutableObject<>(p.first));
@@ -922,7 +922,7 @@ class LangExpressionToPlanTranslator
                 ILogicalExpression groupFieldExpr = langExprToAlgExpression(groupField.first, topOp).first;
                 groupRecordConstructorArgList.add(new MutableObject<>(groupFieldExpr));
             }
-            LogicalVariable groupVar = context.newVar(gc.getGroupVar());
+            LogicalVariable groupVar = context.newVarFromExpression(gc.getGroupVar());
             AssignOperator groupVarAssignOp = new AssignOperator(groupVar,
                     new MutableObject<>(new ScalarFunctionCallExpression(
                             FunctionUtil.getFunctionInfo(BuiltinFunctions.OPEN_RECORD_CONSTRUCTOR),
@@ -934,14 +934,14 @@ class LangExpressionToPlanTranslator
         GroupByOperator gOp = new GroupByOperator();
         for (GbyVariableExpressionPair ve : gc.getGbyPairList()) {
             VariableExpr vexpr = ve.getVar();
-            LogicalVariable v = vexpr == null ? context.newVar() : context.newVar(vexpr);
+            LogicalVariable v = vexpr == null ? context.newVar() : context.newVarFromExpression(vexpr);
             Pair<ILogicalExpression, Mutable<ILogicalOperator>> eo = langExprToAlgExpression(ve.getExpr(), topOp);
             gOp.addGbyExpression(v, eo.first);
             topOp = eo.second;
         }
         for (GbyVariableExpressionPair ve : gc.getDecorPairList()) {
             VariableExpr vexpr = ve.getVar();
-            LogicalVariable v = vexpr == null ? context.newVar() : context.newVar(vexpr);
+            LogicalVariable v = vexpr == null ? context.newVar() : context.newVarFromExpression(vexpr);
             Pair<ILogicalExpression, Mutable<ILogicalOperator>> eo = langExprToAlgExpression(ve.getExpr(), topOp);
             gOp.addDecorExpression(v, eo.first);
             topOp = eo.second;
@@ -1159,7 +1159,7 @@ class LangExpressionToPlanTranslator
         for (QuantifiedPair qt : qe.getQuantifiedList()) {
             Pair<ILogicalExpression, Mutable<ILogicalOperator>> eo1 = langExprToAlgExpression(qt.getExpr(), topOp);
             topOp = eo1.second;
-            LogicalVariable uVar = context.newVar(qt.getVarExpr());
+            LogicalVariable uVar = context.newVarFromExpression(qt.getVarExpr());
             ILogicalOperator u = new UnnestOperator(uVar, new MutableObject<>(makeUnnestExpression(eo1.first)));
 
             if (firstOp == null) {

@@ -109,17 +109,17 @@ import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleReference;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.dataflow.common.utils.TupleUtils;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
-import org.apache.hyracks.storage.am.common.api.IIndex;
-import org.apache.hyracks.storage.am.common.api.IIndexAccessor;
-import org.apache.hyracks.storage.am.common.api.IIndexCursor;
-import org.apache.hyracks.storage.am.common.api.IModificationOperationCallback;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexCursor;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
-import org.apache.hyracks.storage.am.common.ophelpers.MultiComparator;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
 import org.apache.hyracks.storage.am.lsm.common.api.LSMOperationType;
 import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndex;
+import org.apache.hyracks.storage.common.IIndex;
+import org.apache.hyracks.storage.common.IIndexAccessor;
+import org.apache.hyracks.storage.common.IIndexCursor;
+import org.apache.hyracks.storage.common.IModificationOperationCallback;
+import org.apache.hyracks.storage.common.MultiComparator;
 
 public class MetadataNode implements IMetadataNode {
     private static final long serialVersionUID = 1L;
@@ -458,7 +458,7 @@ public class MetadataNode implements IMetadataNode {
 
             // TODO: fix exceptions once new BTree exception model is in hyracks.
             indexAccessor.forceInsert(tuple);
-            //Manually complete the operation after the insert. This is to decrement the resource counters within the LSM
+            //Manually complete the operation after the insert. This is to decrement the resource counters within the
             //index that determine how many tuples are still 'in-flight' within the index. Normally the log flusher
             //does this. The only exception is the index registered as the "primary" which we will let be decremented
             //by the job commit log event
@@ -757,7 +757,7 @@ public class MetadataNode implements IMetadataNode {
             LSMIndexUtil.checkAndSetFirstLSN((AbstractLSMIndex) lsmIndex, transactionSubsystem.getLogManager());
 
             indexAccessor.forceDelete(tuple);
-            //Manually complete the operation after the insert. This is to decrement the resource counters within the LSM
+            //Manually complete the operation after the insert. This is to decrement the resource counters within the
             //index that determine how many tuples are still 'in-flight' within the index. Normally the log flusher
             //does this. The only exception is the index registered as the "primary" which we will let be decremented
             //by the job commit log event
@@ -968,7 +968,7 @@ public class MetadataNode implements IMetadataNode {
         Datatype parentType = getDatatype(jobId, dataverseName, datatypeName);
 
         List<IAType> subTypes = null;
-        if (parentType.getDatatype().getTypeTag() == ATypeTag.RECORD) {
+        if (parentType.getDatatype().getTypeTag() == ATypeTag.OBJECT) {
             ARecordType recType = (ARecordType) parentType.getDatatype();
             subTypes = Arrays.asList(recType.getFieldTypes());
         } else if (parentType.getDatatype().getTypeTag() == ATypeTag.UNION) {

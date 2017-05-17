@@ -55,6 +55,9 @@ public class ErrorCode {
     public static final int COERCION = 12;
     public static final int DUPLICATE_FIELD_NAME = 13;
     public static final int PROPERTY_NOT_SET = 14;
+    public static final int ROOT_LOCAL_RESOURCE_EXISTS = 15;
+    public static final int ROOT_LOCAL_RESOURCE_COULD_NOT_BE_CREATED = 16;
+    public static final int UNKNOWN_EXTERNAL_FILE_PENDING_OP = 17;
     public static final int INSTANTIATION_ERROR = 100;
 
     // Compilation errors
@@ -130,9 +133,6 @@ public class ErrorCode {
     public static final int NODE_RESOLVER_UNABLE_RESOLVE_HOST = 3032;
     public static final int INPUT_RECORD_CONVERTER_DCP_MSG_TO_RECORD_CONVERTER_UNKNOWN_DCP_REQUEST = 3033;
     public static final int FEED_DATAFLOW_FRAME_DISTR_REGISTER_FAILED_DATA_PROVIDER = 3034;
-    public static final int FEED_MANAGEMENT_FEED_EVENTS_LISTENER_ALREADY_HAVE_INTAKE_JOB = 3035;
-    public static final int FEED_MANAGEMENT_FEED_EVENTS_LISTENER_INTAKE_JOB_REGISTERED = 3036;
-    public static final int FEED_MANAGEMENT_FEED_EVENTS_LISTENER_FEED_JOB_REGISTERED = 3037;
     public static final int INPUT_RECORD_READER_CHAR_ARRAY_RECORD_TOO_LARGE = 3038;
     public static final int LIBRARY_JOBJECT_ACCESSOR_CANNOT_PARSE_TYPE = 3039;
     public static final int LIBRARY_JOBJECT_UTIL_ILLEGAL_ARGU_TYPE = 3040;

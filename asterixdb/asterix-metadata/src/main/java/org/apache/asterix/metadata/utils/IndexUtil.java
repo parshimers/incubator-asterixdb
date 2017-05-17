@@ -20,10 +20,8 @@ package org.apache.asterix.metadata.utils;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.asterix.common.config.OptimizationConfUtil;
-import org.apache.asterix.common.context.IStorageComponentProvider;
 import org.apache.asterix.common.exceptions.CompilationException;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.external.indexing.ExternalFile;
@@ -31,18 +29,11 @@ import org.apache.asterix.metadata.declared.MetadataProvider;
 import org.apache.asterix.metadata.entities.Dataset;
 import org.apache.asterix.metadata.entities.Index;
 import org.apache.asterix.om.types.ARecordType;
-import org.apache.asterix.runtime.utils.RuntimeUtils;
-import org.apache.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
-import org.apache.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraintHelper;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.core.rewriter.base.PhysicalOptimizationConfig;
 import org.apache.hyracks.api.dataflow.value.ITypeTraits;
 import org.apache.hyracks.api.job.JobSpecification;
-import org.apache.hyracks.dataflow.std.file.IFileSplitProvider;
-import org.apache.hyracks.storage.am.common.dataflow.IIndexDataflowHelperFactory;
-import org.apache.hyracks.storage.am.common.dataflow.IndexDropOperatorDescriptor;
-import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicyFactory;
 
 public class IndexUtil {
 
@@ -66,7 +57,7 @@ public class IndexUtil {
         if (index.isPrimaryIndex()) {
             return DatasetUtil.createBTreeFieldsWhenThereisAFilter(dataset);
         }
-        int numPrimaryKeys = DatasetUtil.getPartitioningKeys(dataset).size();
+        int numPrimaryKeys = dataset.getPrimaryKeys().size();
         int numSecondaryKeys = index.getKeyFieldNames().size();
         int[] btreeFields = new int[numSecondaryKeys + numPrimaryKeys];
         for (int k = 0; k < btreeFields.length; k++) {
@@ -80,7 +71,7 @@ public class IndexUtil {
         if (filterTypeTraits == null) {
             return empty;
         }
-        int numPrimaryKeys = DatasetUtil.getPartitioningKeys(dataset).size();
+        int numPrimaryKeys = dataset.getPrimaryKeys().size();
         int numSecondaryKeys = index.getKeyFieldNames().size();
         switch (index.getIndexType()) {
             case BTREE:
@@ -143,31 +134,6 @@ public class IndexUtil {
                         physicalOptimizationConfig, recType, metaType, enforcedType, enforcedMetaType);
         secondaryIndexHelper.setExternalFiles(files);
         return secondaryIndexHelper.buildLoadingJobSpec();
-    }
-
-    public static JobSpecification buildDropSecondaryIndexJobSpec(Index index, MetadataProvider metadataProvider,
-            Dataset dataset) throws AlgebricksException {
-        JobSpecification spec = RuntimeUtils.createJobSpecification(metadataProvider.getApplicationContext());
-        IStorageComponentProvider storageComponentProvider = metadataProvider.getStorageComponentProvider();
-        Pair<IFileSplitProvider, AlgebricksPartitionConstraint> splitsAndConstraint =
-                metadataProvider.getSplitProviderAndConstraints(dataset, index.getIndexName());
-        Pair<ILSMMergePolicyFactory, Map<String, String>> compactionInfo =
-                DatasetUtil.getMergePolicyFactory(dataset, metadataProvider.getMetadataTxnContext());
-        ARecordType recordType =
-                (ARecordType) metadataProvider.findType(dataset.getItemTypeDataverseName(), dataset.getItemTypeName());
-        ARecordType metaType = DatasetUtil.getMetaType(metadataProvider, dataset);
-        IIndexDataflowHelperFactory dataflowHelperFactory = dataset.getIndexDataflowHelperFactory(metadataProvider,
-                index, recordType, metaType, compactionInfo.first, compactionInfo.second);
-        // The index drop operation should be persistent regardless of temp datasets or permanent dataset.
-        IndexDropOperatorDescriptor btreeDrop =
-                new IndexDropOperatorDescriptor(spec, storageComponentProvider.getStorageManager(),
-                        storageComponentProvider.getIndexLifecycleManagerProvider(), splitsAndConstraint.first,
-                        dataflowHelperFactory, storageComponentProvider.getMetadataPageManagerFactory());
-        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, btreeDrop,
-                splitsAndConstraint.second);
-        spec.addRoot(btreeDrop);
-
-        return spec;
     }
 
     public static JobSpecification buildSecondaryIndexCompactJobSpec(Dataset dataset, Index index, ARecordType recType,

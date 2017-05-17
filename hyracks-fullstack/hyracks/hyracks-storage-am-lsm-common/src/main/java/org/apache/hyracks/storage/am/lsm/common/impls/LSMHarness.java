@@ -30,8 +30,6 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.replication.IReplicationJob.ReplicationOperation;
 import org.apache.hyracks.data.std.api.IValueReference;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
-import org.apache.hyracks.storage.am.common.api.IIndexCursor;
-import org.apache.hyracks.storage.am.common.api.ISearchPredicate;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
@@ -47,6 +45,8 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicy;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMOperationTracker;
 import org.apache.hyracks.storage.am.lsm.common.api.LSMOperationType;
+import org.apache.hyracks.storage.common.IIndexCursor;
+import org.apache.hyracks.storage.common.ISearchPredicate;
 
 public class LSMHarness implements ILSMHarness {
     private static final Logger LOGGER = Logger.getLogger(LSMHarness.class.getName());
@@ -88,6 +88,7 @@ public class LSMHarness implements ILSMHarness {
                                     .getCurrentMutableComponentState() == ComponentState.READABLE_UNWRITABLE) {
                                 ((AbstractLSMIndex) lsmIndex)
                                         .setCurrentMutableComponentState(ComponentState.READABLE_WRITABLE);
+                                opTracker.notifyAll();
                             }
                             return false;
                         }
@@ -367,7 +368,9 @@ public class LSMHarness implements ILSMHarness {
         }
         getAndEnterComponents(ctx, LSMOperationType.MODIFICATION, false);
         try {
-            lsmIndex.getCurrentMemoryComponent().getMetadata().put(key, value);
+            AbstractLSMMemoryComponent c = (AbstractLSMMemoryComponent) ctx.getComponentHolder().get(0);
+            c.getMetadata().put(key, value);
+            c.setModified();
         } finally {
             exitAndComplete(ctx, LSMOperationType.MODIFICATION);
         }
@@ -389,7 +392,9 @@ public class LSMHarness implements ILSMHarness {
         }
         getAndEnterComponents(ctx, LSMOperationType.FORCE_MODIFICATION, false);
         try {
-            lsmIndex.getCurrentMemoryComponent().getMetadata().put(key, value);
+            AbstractLSMMemoryComponent c = (AbstractLSMMemoryComponent) ctx.getComponentHolder().get(0);
+            c.getMetadata().put(key, value);
+            c.setModified();
         } finally {
             exitAndComplete(ctx, LSMOperationType.FORCE_MODIFICATION);
         }
