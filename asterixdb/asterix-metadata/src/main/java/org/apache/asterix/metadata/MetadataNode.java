@@ -98,6 +98,7 @@ import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.transaction.management.opcallbacks.AbstractIndexModificationOperationCallback.Operation;
 import org.apache.asterix.transaction.management.opcallbacks.SecondaryIndexModificationOperationCallback;
 import org.apache.asterix.transaction.management.service.transaction.DatasetIdFactory;
+import org.apache.asterix.transaction.management.service.transaction.TransactionContext;
 import org.apache.hyracks.api.dataflow.value.IBinaryComparator;
 import org.apache.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
@@ -457,8 +458,14 @@ public class MetadataNode implements IMetadataNode {
 
             // TODO: fix exceptions once new BTree exception model is in hyracks.
             indexAccessor.forceInsert(tuple);
-            lsmIndex.getOperationTracker().completeOperation(lsmIndex, LSMOperationType.FORCE_MODIFICATION, null,
-                    modCallback);
+            //Manually complete the operation after the insert. This is to decrement the resource counters within the LSM
+            //index that determine how many tuples are still 'in-flight' within the index. Normally the log flusher
+            //does this. The only exception is the index registered as the "primary" which we will let be decremented
+            //by the job commit log event
+            if (!((TransactionContext) txnCtx).getPrimaryIndexOpTracker().equals(lsmIndex.getOperationTracker())) {
+                lsmIndex.getOperationTracker().completeOperation(lsmIndex, LSMOperationType.FORCE_MODIFICATION, null,
+                        modCallback);
+            }
         } finally {
             datasetLifecycleManager.close(resourceName);
         }
@@ -750,8 +757,14 @@ public class MetadataNode implements IMetadataNode {
             LSMIndexUtil.checkAndSetFirstLSN((AbstractLSMIndex) lsmIndex, transactionSubsystem.getLogManager());
 
             indexAccessor.forceDelete(tuple);
-            lsmIndex.getOperationTracker().completeOperation(lsmIndex, LSMOperationType.FORCE_MODIFICATION, null,
-                    modCallback);
+            //Manually complete the operation after the insert. This is to decrement the resource counters within the LSM
+            //index that determine how many tuples are still 'in-flight' within the index. Normally the log flusher
+            //does this. The only exception is the index registered as the "primary" which we will let be decremented
+            //by the job commit log event
+            if (!((TransactionContext) txnCtx).getPrimaryIndexOpTracker().equals(lsmIndex.getOperationTracker())) {
+                lsmIndex.getOperationTracker().completeOperation(lsmIndex, LSMOperationType.FORCE_MODIFICATION, null,
+                        modCallback);
+            }
         } finally {
             datasetLifecycleManager.close(resourceName);
         }
