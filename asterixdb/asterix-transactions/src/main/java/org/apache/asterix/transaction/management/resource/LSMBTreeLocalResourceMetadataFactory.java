@@ -62,7 +62,7 @@ public class LSMBTreeLocalResourceMetadataFactory extends ResourceFactory {
     @Override
     public Resource resource(int partition) {
         return new LSMBTreeLocalResourceMetadata(typeTraits, cmpFactories, bloomFilterKeyFields, isPrimary, datasetId,
-                partition, mergePolicyFactory, mergePolicyProperties, typeTraits, filterCmpFactories, btreeFields,
+                partition, mergePolicyFactory, mergePolicyProperties, filterTypeTraits, filterCmpFactories, btreeFields,
                 filterFields, opTrackerProvider, ioOpCallbackFactory, metadataPageManagerFactory);
     }
 }

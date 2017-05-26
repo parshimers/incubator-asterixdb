@@ -49,6 +49,7 @@ import org.apache.hyracks.storage.am.common.impls.NodeFrontier;
 import org.apache.hyracks.storage.am.common.impls.TreeIndexDiskOrderScanCursor;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.common.ophelpers.MultiComparator;
+import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import org.apache.hyracks.storage.am.common.util.TreeIndexUtils;
 import org.apache.hyracks.storage.am.rtree.api.IRTreeFrame;
 import org.apache.hyracks.storage.am.rtree.api.IRTreeInteriorFrame;
@@ -158,6 +159,13 @@ public class RTree extends AbstractTreeIndex {
                 modificationCallback);
     }
 
+    private RTreeOpContext createOpContext(IModificationOperationCallback modificationCallback,
+            PermutingTupleReference indexTuple) {
+        return new RTreeOpContext((IRTreeLeafFrame) leafFrameFactory.createFrame(),
+                (IRTreeInteriorFrame) interiorFrameFactory.createFrame(), freePageManager, cmpFactories,
+                modificationCallback, indexTuple);
+    }
+
     private ICachedPage findLeaf(RTreeOpContext ctx) throws HyracksDataException {
         int pageId = rootPage;
         boolean writeLatched = false;
@@ -220,8 +228,8 @@ public class RTree extends AbstractTreeIndex {
                 if (!isLeaf) {
                     // findBestChild must be called *before* checkIfEnlarementIsNeeded
                     int childPageId = ctx.getInteriorFrame().findBestChild(ctx.getTuple(), ctx.getCmp());
-                    boolean enlarementIsNeeded =
-                            ctx.getInteriorFrame().checkIfEnlarementIsNeeded(ctx.getTuple(), ctx.getCmp());
+                    boolean enlarementIsNeeded = ctx.getInteriorFrame().checkIfEnlarementIsNeeded(ctx.getTuple(),
+                            ctx.getCmp());
 
                     if (enlarementIsNeeded) {
                         if (!writeLatched) {
@@ -300,8 +308,15 @@ public class RTree extends AbstractTreeIndex {
                     if (!isLeaf) {
                         ctx.getInteriorFrame().insert(tuple, -1);
                     } else {
-                        ctx.getModificationCallback().found(null, tuple);
-                        ctx.getLeafFrame().insert(tuple, -1);
+                        if (ctx.getIndexTuple() != null) {
+                            PermutingTupleReference indexTuple = ctx.getIndexTuple();
+                            indexTuple.reset(tuple);
+                            ctx.getLeafFrame().insert(indexTuple, -1);
+                            ctx.getModificationCallback().found(null, tuple);
+                        } else {
+                            ctx.getModificationCallback().found(null, tuple);
+                            ctx.getLeafFrame().insert(tuple, -1);
+                        }
                     }
                     succeeded = true;
                 } finally {
@@ -325,8 +340,15 @@ public class RTree extends AbstractTreeIndex {
                         ctx.getInteriorFrame().insert(tuple, -1);
                     } else {
                         ctx.getLeafFrame().compact();
-                        ctx.getModificationCallback().found(null, tuple);
-                        ctx.getLeafFrame().insert(tuple, -1);
+                        if (ctx.getIndexTuple() != null) {
+                            PermutingTupleReference indexTuple = ctx.getIndexTuple();
+                            indexTuple.reset(tuple);
+                            ctx.getLeafFrame().insert(indexTuple, -1);
+                            ctx.getModificationCallback().found(null, tuple);
+                        } else {
+                            ctx.getModificationCallback().found(null, tuple);
+                            ctx.getLeafFrame().insert(tuple, -1);
+                        }
                     }
                     succeeded = true;
                 } finally {
@@ -355,7 +377,14 @@ public class RTree extends AbstractTreeIndex {
                         rightFrame.setPage(rightNode);
                         rightFrame.initBuffer(ctx.getInteriorFrame().getLevel());
                         rightFrame.setRightPage(ctx.getInteriorFrame().getRightPage());
-                        ctx.getInteriorFrame().split(rightFrame, tuple, ctx.getSplitKey(), ctx, bufferCache);
+                        if(ctx.getIndexTuple() != null) {
+                            PermutingTupleReference indexTuple = ctx.getIndexTuple();
+                            indexTuple.reset(tuple);
+                            ctx.getInteriorFrame().split(rightFrame, indexTuple, ctx.getSplitKey(), ctx, bufferCache);
+                        }
+                        else{
+                            ctx.getInteriorFrame().split(rightFrame, tuple, ctx.getSplitKey(), ctx, bufferCache);
+                        }
                         ctx.getInteriorFrame().setRightPage(rightPageId);
                     } else {
                         rightFrame = (IRTreeFrame) leafFrameFactory.createFrame();
@@ -363,7 +392,14 @@ public class RTree extends AbstractTreeIndex {
                         rightFrame.initBuffer((byte) 0);
                         rightFrame.setRightPage(ctx.getInteriorFrame().getRightPage());
                         ctx.getModificationCallback().found(null, tuple);
-                        ctx.getLeafFrame().split(rightFrame, tuple, ctx.getSplitKey(), ctx, bufferCache);
+                        if(ctx.getIndexTuple() != null) {
+                            PermutingTupleReference indexTuple = ctx.getIndexTuple();
+                            indexTuple.reset(tuple);
+                            ctx.getLeafFrame().split(rightFrame, indexTuple, ctx.getSplitKey(), ctx, bufferCache);
+                        }
+                        else{
+                            ctx.getLeafFrame().split(rightFrame, tuple, ctx.getSplitKey(), ctx, bufferCache);
+                        }
                         ctx.getLeafFrame().setRightPage(rightPageId);
                     }
                     succeeded = true;
@@ -389,8 +425,8 @@ public class RTree extends AbstractTreeIndex {
                 ctx.getSplitKey().setPages(pageId, rightPageId);
                 if (pageId == rootPage) {
                     int newLeftId = freePageManager.takePage(ctx.getMetaFrame());
-                    ICachedPage newLeftNode =
-                            bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, newLeftId), true);
+                    ICachedPage newLeftNode = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, newLeftId),
+                            true);
                     newLeftNode.acquireWriteLatch();
                     succeeded = false;
                     try {
@@ -629,8 +665,8 @@ public class RTree extends AbstractTreeIndex {
 
                 if (!isLeaf) {
                     for (int i = 0; i < ctx.getInteriorFrame().getTupleCount(); i++) {
-                        int childPageId =
-                                ctx.getInteriorFrame().getChildPageIdIfIntersect(ctx.getTuple(), i, ctx.getCmp());
+                        int childPageId = ctx.getInteriorFrame().getChildPageIdIfIntersect(ctx.getTuple(), i,
+                                ctx.getCmp());
                         if (childPageId != -1) {
                             ctx.getPathList().add(childPageId, pageLsn, -1);
                         }
@@ -756,6 +792,11 @@ public class RTree extends AbstractTreeIndex {
         return new RTreeAccessor(this, modificationCallback, searchCallback);
     }
 
+    public ITreeIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
+            ISearchOperationCallback searchCallback, PermutingTupleReference indexTuple) {
+        return new RTreeAccessor(this, modificationCallback, searchCallback, indexTuple);
+    }
+
     public class RTreeAccessor implements ITreeIndexAccessor {
         private RTree rtree;
         private RTreeOpContext ctx;
@@ -764,6 +805,12 @@ public class RTree extends AbstractTreeIndex {
                 ISearchOperationCallback searchCallback) {
             this.rtree = rtree;
             this.ctx = rtree.createOpContext(modificationCallback);
+        }
+
+        public RTreeAccessor(RTree rtree, IModificationOperationCallback modificationCallback,
+                ISearchOperationCallback searchCallback, PermutingTupleReference indexTuple) {
+            this.rtree = rtree;
+            this.ctx = rtree.createOpContext(modificationCallback, indexTuple);
         }
 
         public void reset(RTree rtree, IModificationOperationCallback modificationCallback) {
@@ -890,8 +937,8 @@ public class RTree extends AbstractTreeIndex {
 
     public class RTreeBulkLoader extends AbstractTreeIndex.AbstractTreeIndexBulkLoader {
         ITreeIndexFrame lowerFrame, prevInteriorFrame;
-        RTreeTypeAwareTupleWriter interiorFrameTupleWriter =
-                ((RTreeTypeAwareTupleWriter) interiorFrame.getTupleWriter());
+        RTreeTypeAwareTupleWriter interiorFrameTupleWriter = ((RTreeTypeAwareTupleWriter) interiorFrame
+                .getTupleWriter());
         ITreeIndexTupleReference mbrTuple = interiorFrame.createTupleReference();
         ByteBuffer mbr;
         List<Integer> prevNodeFrontierPages = new ArrayList<>();
@@ -938,8 +985,8 @@ public class RTree extends AbstractTreeIndex {
                     }
 
                     pagesToWrite.clear();
-                    leafFrontier.page =
-                            bufferCache.confiscatePage(BufferedFileHandle.getDiskPageId(fileId, leafFrontier.pageId));
+                    leafFrontier.page = bufferCache
+                            .confiscatePage(BufferedFileHandle.getDiskPageId(fileId, leafFrontier.pageId));
                     leafFrame.setPage(leafFrontier.page);
                     leafFrame.initBuffer((byte) 0);
 
@@ -1031,9 +1078,9 @@ public class RTree extends AbstractTreeIndex {
             ((RTreeNSMFrame) lowerFrame).adjustMBR();
 
             if (mbr == null) {
-                int bytesRequired =
-                        interiorFrameTupleWriter.bytesRequired(((RTreeNSMFrame) lowerFrame).getMBRTuples()[0], 0,
-                                cmp.getKeyFieldCount()) + ((RTreeNSMInteriorFrame) interiorFrame).getChildPointerSize();
+                int bytesRequired = interiorFrameTupleWriter
+                        .bytesRequired(((RTreeNSMFrame) lowerFrame).getMBRTuples()[0], 0, cmp.getKeyFieldCount())
+                        + ((RTreeNSMInteriorFrame) interiorFrame).getChildPointerSize();
                 mbr = ByteBuffer.allocate(bytesRequired);
             }
             interiorFrameTupleWriter.writeTupleFields(((RTreeNSMFrame) lowerFrame).getMBRTuples(), 0, mbr, 0);
@@ -1045,8 +1092,8 @@ public class RTree extends AbstractTreeIndex {
             // load where finalization can possibly lead to a split
             //TODO: accomplish this without wasting 1 tuple
             int sizeOfTwoTuples = 2 * (mbrTuple.getTupleSize() + RTreeNSMInteriorFrame.childPtrSize);
-            FrameOpSpaceStatus spaceForTwoTuples =
-                    (((RTreeNSMInteriorFrame) interiorFrame).hasSpaceInsert(sizeOfTwoTuples));
+            FrameOpSpaceStatus spaceForTwoTuples = (((RTreeNSMInteriorFrame) interiorFrame)
+                    .hasSpaceInsert(sizeOfTwoTuples));
             if (spaceForTwoTuples != FrameOpSpaceStatus.SUFFICIENT_CONTIGUOUS_SPACE && !toRoot) {
 
                 int finalPageId = freePageManager.takePage(metaFrame);

@@ -25,20 +25,21 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentFilter;
 import org.apache.hyracks.storage.am.lsm.common.api.IVirtualBufferCache;
 import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMMemoryComponent;
 import org.apache.hyracks.storage.am.lsm.invertedindex.api.IInvertedIndex;
+import org.apache.hyracks.storage.am.lsm.invertedindex.inmemory.InMemoryInvertedIndex;
 
 public class LSMInvertedIndexMemoryComponent extends AbstractLSMMemoryComponent {
 
-    private final IInvertedIndex invIndex;
+    private final InMemoryInvertedIndex invIndex;
     private final BTree deletedKeysBTree;
 
-    public LSMInvertedIndexMemoryComponent(IInvertedIndex invIndex, BTree deletedKeysBTree, IVirtualBufferCache vbc,
-            boolean isActive, ILSMComponentFilter filter) {
+    public LSMInvertedIndexMemoryComponent(InMemoryInvertedIndex invIndex, BTree deletedKeysBTree,
+            IVirtualBufferCache vbc, boolean isActive, ILSMComponentFilter filter) {
         super(vbc, isActive, filter);
         this.invIndex = invIndex;
         this.deletedKeysBTree = deletedKeysBTree;
     }
 
-    public IInvertedIndex getInvIndex() {
+    public InMemoryInvertedIndex getInvIndex() {
         return invIndex;
     }
 

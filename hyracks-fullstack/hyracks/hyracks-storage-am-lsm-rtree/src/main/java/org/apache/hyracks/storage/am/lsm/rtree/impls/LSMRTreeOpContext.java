@@ -79,8 +79,13 @@ public final class LSMRTreeOpContext extends AbstractLSMIndexOperationContext {
 
         for (int i = 0; i < mutableComponents.size(); i++) {
             LSMRTreeMemoryComponent mutableComponent = (LSMRTreeMemoryComponent) mutableComponents.get(i);
-            mutableRTreeAccessors[i] = (RTree.RTreeAccessor) mutableComponent.getRTree()
-                    .createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            if (filterFields != null) {
+                mutableRTreeAccessors[i] = (RTree.RTreeAccessor) mutableComponent.getRTree()
+                        .createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            } else {
+                mutableRTreeAccessors[i] = (RTree.RTreeAccessor) mutableComponent.getRTree()
+                        .createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            }
             mutableBTreeAccessors[i] = (BTree.BTreeAccessor) mutableComponent.getBTree()
                     .createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
 

@@ -30,6 +30,7 @@ import org.apache.hyracks.storage.am.common.api.IIndexOperationContext;
 import org.apache.hyracks.storage.am.common.api.ISearchPredicate;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
+import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import org.apache.hyracks.storage.am.lsm.invertedindex.api.IInvertedIndexAccessor;
 import org.apache.hyracks.storage.am.lsm.invertedindex.api.IInvertedIndexSearcher;
 import org.apache.hyracks.storage.am.lsm.invertedindex.api.IInvertedListCursor;
@@ -46,6 +47,7 @@ public class InMemoryInvertedIndexAccessor implements IInvertedIndexAccessor {
     protected InMemoryInvertedIndex index;
     protected BTreeAccessor btreeAccessor;
 
+
     public InMemoryInvertedIndexAccessor(InMemoryInvertedIndex index, IIndexOperationContext opCtx)
             throws HyracksDataException {
         this.opCtx = opCtx;
@@ -53,6 +55,15 @@ public class InMemoryInvertedIndexAccessor implements IInvertedIndexAccessor {
         this.searcher = createSearcher();
         this.btreeAccessor = (BTreeAccessor) index.getBTree().createAccessor(NoOpOperationCallback.INSTANCE,
                 NoOpOperationCallback.INSTANCE);
+    }
+
+    public InMemoryInvertedIndexAccessor(InMemoryInvertedIndex index, IIndexOperationContext opCtx, PermutingTupleReference filterTuple)
+            throws HyracksDataException {
+        this.opCtx = opCtx;
+        this.index = index;
+        this.searcher = createSearcher();
+        this.btreeAccessor = (BTreeAccessor) index.getBTree().createAccessor(NoOpOperationCallback.INSTANCE,
+                NoOpOperationCallback.INSTANCE, filterTuple);
     }
 
     @Override

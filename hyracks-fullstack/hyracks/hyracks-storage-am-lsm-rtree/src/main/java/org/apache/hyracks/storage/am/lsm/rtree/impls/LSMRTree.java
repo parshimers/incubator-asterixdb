@@ -489,7 +489,7 @@ public class LSMRTree extends AbstractLSMRTree {
         ctx.getModificationCallback().before(indexTuple);
         ctx.getModificationCallback().found(null, indexTuple);
         if (ctx.getOperation() == IndexOperation.INSERT) {
-            ctx.getCurrentMutableRTreeAccessor().insert(indexTuple);
+            ctx.getCurrentMutableRTreeAccessor().insert(tuple);
         } else {
             // First remove all entries in the in-memory rtree (if any).
             ctx.getCurrentMutableRTreeAccessor().delete(indexTuple);

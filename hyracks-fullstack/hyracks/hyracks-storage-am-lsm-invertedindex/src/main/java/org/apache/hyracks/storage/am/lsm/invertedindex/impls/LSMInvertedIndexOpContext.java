@@ -36,6 +36,7 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMemoryComponent;
 import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndexOperationContext;
 import org.apache.hyracks.storage.am.lsm.invertedindex.api.IInvertedIndexAccessor;
+import org.apache.hyracks.storage.am.lsm.invertedindex.inmemory.InMemoryInvertedIndexAccessor;
 
 public class LSMInvertedIndexOpContext extends AbstractLSMIndexOperationContext {
 
@@ -78,19 +79,9 @@ public class LSMInvertedIndexOpContext extends AbstractLSMIndexOperationContext 
         mutableInvIndexAccessors = new IInvertedIndexAccessor[mutableComponents.size()];
         deletedKeysBTreeAccessors = new IIndexAccessor[mutableComponents.size()];
 
-        for (int i = 0; i < mutableComponents.size(); i++) {
-            LSMInvertedIndexMemoryComponent mutableComponent =
-                    (LSMInvertedIndexMemoryComponent) mutableComponents.get(i);
-            mutableInvIndexAccessors[i] = (IInvertedIndexAccessor) mutableComponent.getInvIndex()
-                    .createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
-            deletedKeysBTreeAccessors[i] = mutableComponent.getDeletedKeysBTree()
-                    .createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
-        }
-
-        assert mutableComponents.size() > 0;
+        LSMInvertedIndexMemoryComponent c = (LSMInvertedIndexMemoryComponent) mutableComponents.get(0);
 
         // Project away the document fields, leaving only the key fields.
-        LSMInvertedIndexMemoryComponent c = (LSMInvertedIndexMemoryComponent) mutableComponents.get(0);
         int numKeyFields = c.getInvIndex().getInvListTypeTraits().length;
         int[] keyFieldPermutation = new int[numKeyFields];
         for (int i = 0; i < numKeyFields; i++) {
@@ -107,6 +98,23 @@ public class LSMInvertedIndexOpContext extends AbstractLSMIndexOperationContext 
             filterCmp = null;
             filterTuple = null;
         }
+
+        for (int i = 0; i < mutableComponents.size(); i++) {
+            LSMInvertedIndexMemoryComponent mutableComponent = (LSMInvertedIndexMemoryComponent) mutableComponents
+                    .get(i);
+            if (filterTuple != null) {
+                mutableInvIndexAccessors[i] = (InMemoryInvertedIndexAccessor) mutableComponent.getInvIndex()
+                        .createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE, indexTuple);
+            } else {
+                mutableInvIndexAccessors[i] = (IInvertedIndexAccessor) mutableComponent.getInvIndex()
+                        .createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            }
+            deletedKeysBTreeAccessors[i] = mutableComponent.getDeletedKeysBTree()
+                    .createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+        }
+
+        assert mutableComponents.size() > 0;
+
     }
 
     @Override

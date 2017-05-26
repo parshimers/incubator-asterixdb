@@ -87,6 +87,16 @@ public final class LSMBTreeOpContext extends AbstractLSMIndexOperationContext {
             this.cmp = null;
         }
 
+        if (filterFields != null) {
+            indexTuple = new PermutingTupleReference(btreeFields);
+            filterCmp = MultiComparator.create(c.getLSMComponentFilter().getFilterCmpFactories());
+            filterTuple = new PermutingTupleReference(filterFields);
+        } else {
+            indexTuple = null;
+            filterCmp = null;
+            filterTuple = null;
+        }
+
         bloomFilterCmp = numBloomFilterKeyFields == 0 ? null
                 : MultiComparator.create(c.getBTree().getComparatorFactories(), 0, numBloomFilterKeyFields);
 
@@ -97,7 +107,7 @@ public final class LSMBTreeOpContext extends AbstractLSMIndexOperationContext {
             LSMBTreeMemoryComponent mutableComponent = (LSMBTreeMemoryComponent) mutableComponents.get(i);
             mutableBTrees[i] = mutableComponent.getBTree();
             mutableBTreeAccessors[i] = (BTree.BTreeAccessor) mutableBTrees[i].createAccessor(modificationCallback,
-                    NoOpOperationCallback.INSTANCE);
+                    NoOpOperationCallback.INSTANCE, indexTuple);
             mutableBTreeOpCtxs[i] = mutableBTreeAccessors[i].getOpContext();
         }
 
@@ -117,15 +127,6 @@ public final class LSMBTreeOpContext extends AbstractLSMIndexOperationContext {
         this.modificationCallback = modificationCallback;
         this.searchCallback = searchCallback;
 
-        if (filterFields != null) {
-            indexTuple = new PermutingTupleReference(btreeFields);
-            filterCmp = MultiComparator.create(c.getLSMComponentFilter().getFilterCmpFactories());
-            filterTuple = new PermutingTupleReference(filterFields);
-        } else {
-            indexTuple = null;
-            filterCmp = null;
-            filterTuple = null;
-        }
         searchPredicate = new RangePredicate(null, null, true, true, getCmp(), getCmp());
         memCursor = (insertLeafFrame != null) ? new BTreeRangeSearchCursor(insertLeafFrame, false) : null;
         searchInitialState = new LSMBTreeCursorInitialState(insertLeafFrameFactory, getCmp(), bloomFilterCmp,

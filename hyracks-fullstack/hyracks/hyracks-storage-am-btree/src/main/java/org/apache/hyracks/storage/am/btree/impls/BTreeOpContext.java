@@ -31,17 +31,10 @@ import org.apache.hyracks.dataflow.common.utils.TupleUtils;
 import org.apache.hyracks.storage.am.btree.api.IBTreeInteriorFrame;
 import org.apache.hyracks.storage.am.btree.api.IBTreeLeafFrame;
 import org.apache.hyracks.storage.am.btree.api.ITupleAcceptor;
-import org.apache.hyracks.storage.am.common.api.IIndexAccessor;
-import org.apache.hyracks.storage.am.common.api.IIndexOperationContext;
-import org.apache.hyracks.storage.am.common.api.IModificationOperationCallback;
-import org.apache.hyracks.storage.am.common.api.IPageManager;
-import org.apache.hyracks.storage.am.common.api.ISearchOperationCallback;
-import org.apache.hyracks.storage.am.common.api.ITreeIndexCursor;
-import org.apache.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
-import org.apache.hyracks.storage.am.common.api.ITreeIndexMetadataFrame;
-import org.apache.hyracks.storage.am.common.api.ITreeIndexTupleReference;
+import org.apache.hyracks.storage.am.common.api.*;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.common.ophelpers.MultiComparator;
+import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import org.apache.hyracks.storage.common.arraylist.IntArrayList;
 import org.apache.hyracks.storage.common.arraylist.LongArrayList;
 import org.apache.hyracks.storage.common.buffercache.IExtraPageBlockHelper;
@@ -71,6 +64,7 @@ public class BTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
     private ISearchOperationCallback searchCallback;
     private ITupleAcceptor acceptor;
     private int smoCount;
+    private PermutingTupleReference indexTuple;
 
     // Debug
     private final Deque<PageValidationInfo> validationInfos;
@@ -109,6 +103,15 @@ public class BTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
         // Debug
         this.validationInfos = new ArrayDeque<>(INIT_ARRAYLIST_SIZE);
         this.interiorFrameTuple = getInteriorFrame().createTupleReference();
+    }
+
+    public BTreeOpContext(IIndexAccessor accessor, ITreeIndexFrameFactory leafFrameFactory,
+            ITreeIndexFrameFactory interiorFrameFactory, IPageManager freePageManager,
+            IBinaryComparatorFactory[] cmpFactories, IModificationOperationCallback modificationCallback,
+            ISearchOperationCallback searchCallback, PermutingTupleReference indexTuple) {
+        this(accessor, leafFrameFactory, interiorFrameFactory, freePageManager, cmpFactories, modificationCallback,
+                searchCallback);
+        this.indexTuple = indexTuple;
     }
 
     @Override
@@ -363,5 +366,9 @@ public class BTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
 
     public void setLeafFrameFactory(ITreeIndexFrameFactory leafFrameFactory) {
         this.leafFrameFactory = leafFrameFactory;
+    }
+
+    public PermutingTupleReference getIndexTuple() {
+        return indexTuple;
     }
 }

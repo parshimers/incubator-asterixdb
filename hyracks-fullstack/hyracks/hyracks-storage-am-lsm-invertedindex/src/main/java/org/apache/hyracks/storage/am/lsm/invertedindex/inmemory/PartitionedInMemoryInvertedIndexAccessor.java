@@ -21,6 +21,7 @@ package org.apache.hyracks.storage.am.lsm.invertedindex.inmemory;
 
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.storage.am.common.api.IIndexOperationContext;
+import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import org.apache.hyracks.storage.am.lsm.invertedindex.api.IInvertedIndexSearcher;
 import org.apache.hyracks.storage.am.lsm.invertedindex.search.PartitionedTOccurrenceSearcher;
 
@@ -29,6 +30,11 @@ public class PartitionedInMemoryInvertedIndexAccessor extends InMemoryInvertedIn
     public PartitionedInMemoryInvertedIndexAccessor(InMemoryInvertedIndex index, IIndexOperationContext opCtx)
             throws HyracksDataException {
         super(index, opCtx);
+    }
+
+    public PartitionedInMemoryInvertedIndexAccessor(InMemoryInvertedIndex index, IIndexOperationContext opCtx,
+            PermutingTupleReference filterTuple) throws HyracksDataException {
+        super(index, opCtx, filterTuple);
     }
 
     protected IInvertedIndexSearcher createSearcher() throws HyracksDataException {

@@ -27,6 +27,7 @@ import org.apache.hyracks.storage.am.common.api.IIndexOperationContext;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.common.ophelpers.MultiComparator;
+import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import org.apache.hyracks.storage.am.lsm.invertedindex.tokenizers.IBinaryTokenizer;
 import org.apache.hyracks.storage.am.lsm.invertedindex.tokenizers.IBinaryTokenizerFactory;
 import org.apache.hyracks.storage.am.lsm.invertedindex.util.InvertedIndexTokenizingTupleIterator;
@@ -47,11 +48,21 @@ public class InMemoryInvertedIndexOpContext implements IIndexOperationContext {
     private final IBinaryTokenizerFactory tokenizerFactory;
     private InvertedIndexTokenizingTupleIterator tupleIter;
 
+    private PermutingTupleReference filterTuple;
+
     InMemoryInvertedIndexOpContext(BTree btree, IBinaryComparatorFactory[] tokenCmpFactories,
             IBinaryTokenizerFactory tokenizerFactory) {
         this.btree = btree;
         this.tokenCmpFactories = tokenCmpFactories;
         this.tokenizerFactory = tokenizerFactory;
+    }
+
+    InMemoryInvertedIndexOpContext(BTree btree, IBinaryComparatorFactory[] tokenCmpFactories,
+            IBinaryTokenizerFactory tokenizerFactory, PermutingTupleReference filterTuple) {
+        this.btree = btree;
+        this.tokenCmpFactories = tokenCmpFactories;
+        this.tokenizerFactory = tokenizerFactory;
+        this.filterTuple = filterTuple;
     }
 
     @Override
@@ -123,5 +134,9 @@ public class InMemoryInvertedIndexOpContext implements IIndexOperationContext {
 
     public void setTupleIter(InvertedIndexTokenizingTupleIterator tupleIter) {
         this.tupleIter = tupleIter;
+    }
+
+    public PermutingTupleReference getFilterTuple() {
+        return filterTuple;
     }
 }

@@ -35,6 +35,7 @@ import org.apache.hyracks.storage.am.common.api.IModificationOperationCallback;
 import org.apache.hyracks.storage.am.common.api.IPageManager;
 import org.apache.hyracks.storage.am.common.api.ISearchOperationCallback;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
+import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import org.apache.hyracks.storage.am.lsm.common.api.IVirtualBufferCache;
 import org.apache.hyracks.storage.am.lsm.invertedindex.api.IInvertedIndex;
 import org.apache.hyracks.storage.am.lsm.invertedindex.api.IInvertedListCursor;
@@ -117,7 +118,9 @@ public class InMemoryInvertedIndex implements IInvertedIndex {
             ctx.getTupleIter().next();
             ITupleReference insertTuple = ctx.getTupleIter().getTuple();
             try {
-                btreeAccessor.insert(insertTuple);
+                if(ctx.getFilterTuple() != null) {
+                    btreeAccessor.insert(insertTuple);
+                }
             } catch (HyracksDataException e) {
                 if (e.getErrorCode() != ErrorCode.DUPLICATE_KEY) {
                     // This exception may be caused by duplicate tokens in the same insert "document".
@@ -170,9 +173,15 @@ public class InMemoryInvertedIndex implements IInvertedIndex {
 
     @Override
     public IIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
-            ISearchOperationCallback searchCallback) throws HyracksDataException {
+                                         ISearchOperationCallback searchCallback) throws HyracksDataException {
         return new InMemoryInvertedIndexAccessor(this,
                 new InMemoryInvertedIndexOpContext(btree, tokenCmpFactories, tokenizerFactory));
+    }
+
+    public IIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
+                                         ISearchOperationCallback searchCallback, PermutingTupleReference filterTuple) throws HyracksDataException {
+        return new InMemoryInvertedIndexAccessor(this,
+                new InMemoryInvertedIndexOpContext(btree, tokenCmpFactories, tokenizerFactory, filterTuple));
     }
 
     @Override

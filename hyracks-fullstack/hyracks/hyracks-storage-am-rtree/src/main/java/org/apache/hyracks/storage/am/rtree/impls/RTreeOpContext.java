@@ -32,6 +32,7 @@ import org.apache.hyracks.storage.am.common.api.ITreeIndexCursor;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexMetadataFrame;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.common.ophelpers.MultiComparator;
+import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import org.apache.hyracks.storage.am.rtree.api.IRTreeInteriorFrame;
 import org.apache.hyracks.storage.am.rtree.api.IRTreeLeafFrame;
 import org.apache.hyracks.storage.common.buffercache.ICachedPage;
@@ -60,6 +61,8 @@ public class RTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
 
     private IModificationOperationCallback modificationCallback;
 
+    private PermutingTupleReference indexTuple = null;
+
     public RTreeOpContext(IRTreeLeafFrame leafFrame, IRTreeInteriorFrame interiorFrame, IPageManager freePageManager,
             IBinaryComparatorFactory[] cmpFactories, IModificationOperationCallback modificationCallback) {
 
@@ -77,6 +80,14 @@ public class RTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
         pathList = new PathList(INITIAL_HEIGHT, INITIAL_HEIGHT);
         NSNUpdates = new ArrayList<>();
         LSNUpdates = new ArrayList<>();
+    }
+
+    public RTreeOpContext(IRTreeLeafFrame leafFrame, IRTreeInteriorFrame interiorFrame, IPageManager freePageManager,
+            IBinaryComparatorFactory[] cmpFactories, IModificationOperationCallback modificationCallback,
+            PermutingTupleReference indexTuple) {
+        this(leafFrame, interiorFrame, freePageManager, cmpFactories, modificationCallback);
+        this.indexTuple = indexTuple;
+
     }
 
     public ITupleReference getTuple() {
@@ -188,5 +199,9 @@ public class RTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
 
     public RTreeCursorInitialState getCursorInitialState() {
         return cursorInitialState;
+    }
+
+    public PermutingTupleReference getIndexTuple() {
+        return indexTuple;
     }
 }

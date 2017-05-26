@@ -39,19 +39,7 @@ import org.apache.hyracks.storage.am.btree.api.IBTreeLeafFrame;
 import org.apache.hyracks.storage.am.btree.api.ITupleAcceptor;
 import org.apache.hyracks.storage.am.btree.frames.BTreeNSMInteriorFrame;
 import org.apache.hyracks.storage.am.btree.impls.BTreeOpContext.PageValidationInfo;
-import org.apache.hyracks.storage.am.common.api.IIndexAccessor;
-import org.apache.hyracks.storage.am.common.api.IIndexBulkLoader;
-import org.apache.hyracks.storage.am.common.api.IIndexCursor;
-import org.apache.hyracks.storage.am.common.api.IModificationOperationCallback;
-import org.apache.hyracks.storage.am.common.api.IPageManager;
-import org.apache.hyracks.storage.am.common.api.ISearchOperationCallback;
-import org.apache.hyracks.storage.am.common.api.ISearchPredicate;
-import org.apache.hyracks.storage.am.common.api.ISplitKey;
-import org.apache.hyracks.storage.am.common.api.ITreeIndexAccessor;
-import org.apache.hyracks.storage.am.common.api.ITreeIndexCursor;
-import org.apache.hyracks.storage.am.common.api.ITreeIndexFrame;
-import org.apache.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
-import org.apache.hyracks.storage.am.common.api.ITreeIndexTupleReference;
+import org.apache.hyracks.storage.am.common.api.*;
 import org.apache.hyracks.storage.am.common.frames.FrameOpSpaceStatus;
 import org.apache.hyracks.storage.am.common.impls.AbstractTreeIndex;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
@@ -59,6 +47,7 @@ import org.apache.hyracks.storage.am.common.impls.NodeFrontier;
 import org.apache.hyracks.storage.am.common.impls.TreeIndexDiskOrderScanCursor;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.common.ophelpers.MultiComparator;
+import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import org.apache.hyracks.storage.common.buffercache.BufferCache;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
 import org.apache.hyracks.storage.common.buffercache.ICachedPage;
@@ -119,8 +108,8 @@ public class BTree extends AbstractTreeIndex {
         // Stack validation protocol:
         //      * parent pushes the validation information onto the stack before validation
         //      * child pops the validation information off of the stack after validating
-        BTreeAccessor accessor =
-                (BTreeAccessor) createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+        BTreeAccessor accessor = (BTreeAccessor) createAccessor(NoOpOperationCallback.INSTANCE,
+                NoOpOperationCallback.INSTANCE);
         PageValidationInfo pvi = accessor.ctx.createPageValidationInfo(null);
         accessor.ctx.getValidationInfos().addFirst(pvi);
         if (isActive) {
@@ -237,8 +226,8 @@ public class BTree extends AbstractTreeIndex {
 
     private void createNewRoot(BTreeOpContext ctx) throws HyracksDataException {
         // Make sure the root is always in the same page.
-        ICachedPage leftNode =
-                bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, ctx.getSplitKey().getLeftPage()), false);
+        ICachedPage leftNode = bufferCache
+                .pin(BufferedFileHandle.getDiskPageId(fileId, ctx.getSplitKey().getLeftPage()), false);
         leftNode.acquireWriteLatch();
         try {
             int newLeftId = freePageManager.takePage(ctx.getMetaFrame());
@@ -292,7 +281,14 @@ public class BTree extends AbstractTreeIndex {
     private boolean insertLeaf(ITupleReference tuple, int targetTupleIndex, int pageId, BTreeOpContext ctx)
             throws Exception {
         boolean restartOp = false;
-        FrameOpSpaceStatus spaceStatus = ctx.getLeafFrame().hasSpaceInsert(tuple);
+        FrameOpSpaceStatus spaceStatus = null;
+        if (ctx.getIndexTuple() != null) {
+            PermutingTupleReference indexTuple = ctx.getIndexTuple();
+            indexTuple.reset(tuple);
+            spaceStatus = ctx.getLeafFrame().hasSpaceInsert(indexTuple);
+        } else {
+            spaceStatus = ctx.getLeafFrame().hasSpaceInsert(tuple);
+        }
 
         switch (spaceStatus) {
             case EXPAND: {
@@ -301,16 +297,31 @@ public class BTree extends AbstractTreeIndex {
             }
             // fall-through
             case SUFFICIENT_CONTIGUOUS_SPACE: {
-                ctx.getModificationCallback().found(null, tuple);
-                ctx.getLeafFrame().insert(tuple, targetTupleIndex);
+                if (ctx.getIndexTuple() != null) {
+                    PermutingTupleReference indexTuple = ctx.getIndexTuple();
+                    indexTuple.reset(tuple);
+                    ctx.getLeafFrame().insert(indexTuple, targetTupleIndex);
+                    ctx.getModificationCallback().found(null, tuple);
+                } else {
+                    ctx.getLeafFrame().insert(tuple, targetTupleIndex);
+                    ctx.getModificationCallback().found(null, tuple);
+                }
                 ctx.getSplitKey().reset();
                 break;
             }
             case SUFFICIENT_SPACE: {
                 int finalIndex = ctx.getLeafFrame().compact() ? ctx.getLeafFrame().findInsertTupleIndex(tuple)
                         : targetTupleIndex;
-                ctx.getModificationCallback().found(null, tuple);
-                ctx.getLeafFrame().insert(tuple, finalIndex);
+
+                if (ctx.getIndexTuple() != null) {
+                    PermutingTupleReference indexTuple = ctx.getIndexTuple();
+                    indexTuple.reset(tuple);
+                    ctx.getLeafFrame().insert(indexTuple, targetTupleIndex);
+                    ctx.getModificationCallback().found(null, tuple);
+                } else {
+                    ctx.getModificationCallback().found(null, tuple);
+                    ctx.getLeafFrame().insert(tuple, finalIndex);
+                }
                 ctx.getSplitKey().reset();
                 break;
             }
@@ -318,8 +329,16 @@ public class BTree extends AbstractTreeIndex {
                 // Try compressing the page first and see if there is space available.
                 if (ctx.getLeafFrame().compress()
                         && ctx.getLeafFrame().hasSpaceInsert(tuple) == FrameOpSpaceStatus.SUFFICIENT_CONTIGUOUS_SPACE) {
-                    ctx.getModificationCallback().found(null, tuple);
-                    ctx.getLeafFrame().insert(tuple, ctx.getLeafFrame().findInsertTupleIndex(tuple));
+
+                    if (ctx.getIndexTuple() != null) {
+                        PermutingTupleReference indexTuple = ctx.getIndexTuple();
+                        indexTuple.reset(tuple);
+                        ctx.getLeafFrame().insert(indexTuple, targetTupleIndex);
+                        ctx.getModificationCallback().found(null, tuple);
+                    } else {
+                        ctx.getModificationCallback().found(null, tuple);
+                        ctx.getLeafFrame().insert(tuple, ctx.getLeafFrame().findInsertTupleIndex(tuple));
+                    }
                     ctx.getSplitKey().reset();
                 } else {
                     restartOp = performLeafSplit(pageId, tuple, ctx, -1);
@@ -360,13 +379,30 @@ public class BTree extends AbstractTreeIndex {
 
             // Perform an update (delete + insert) if the updateTupleIndex != -1
             if (updateTupleIndex != -1) {
-                ITupleReference beforeTuple = ctx.getLeafFrame().getMatchingKeyTuple(tuple, updateTupleIndex);
-                ctx.getModificationCallback().found(beforeTuple, tuple);
-                ctx.getLeafFrame().delete(tuple, updateTupleIndex);
+                ITupleReference beforeTuple = null;
+                if (ctx.getIndexTuple() != null) {
+                    PermutingTupleReference indexTuple = ctx.getIndexTuple();
+                    indexTuple.reset(tuple);
+                    beforeTuple = ctx.getLeafFrame().getMatchingKeyTuple(indexTuple, updateTupleIndex);
+                    ctx.getModificationCallback().found(beforeTuple, tuple);
+                    ctx.getLeafFrame().delete(indexTuple, updateTupleIndex);
+                }
+                else {
+                    beforeTuple = ctx.getLeafFrame().getMatchingKeyTuple(tuple, updateTupleIndex);
+                    ctx.getModificationCallback().found(beforeTuple, tuple);
+                    ctx.getLeafFrame().delete(tuple, updateTupleIndex);
+                }
             } else {
                 ctx.getModificationCallback().found(null, tuple);
             }
-            ctx.getLeafFrame().split(rightFrame, tuple, ctx.getSplitKey(), ctx, bufferCache);
+
+            if (ctx.getIndexTuple() != null) {
+                PermutingTupleReference indexTuple = ctx.getIndexTuple();
+                indexTuple.reset(tuple);
+                ctx.getLeafFrame().split(rightFrame, indexTuple, ctx.getSplitKey(), ctx, bufferCache);
+            } else {
+                ctx.getLeafFrame().split(rightFrame, tuple, ctx.getSplitKey(), ctx, bufferCache);
+            }
 
             ctx.getSmPages().add(pageId);
             ctx.getSmPages().add(rightPageId);
@@ -620,8 +656,8 @@ public class BTree extends AbstractTreeIndex {
                             case UPDATE: {
                                 // Is there a propagated split key?
                                 if (ctx.getSplitKey().getBuffer() != null) {
-                                    ICachedPage interiorNode =
-                                            bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, pageId), false);
+                                    ICachedPage interiorNode = bufferCache
+                                            .pin(BufferedFileHandle.getDiskPageId(fileId, pageId), false);
                                     interiorNode.acquireWriteLatch();
                                     try {
                                         // Insert or update op. Both can cause split keys to propagate upwards.
@@ -755,6 +791,12 @@ public class BTree extends AbstractTreeIndex {
                 modificationCallback, searchCallback);
     }
 
+    private BTreeOpContext createOpContext(IIndexAccessor accessor, IModificationOperationCallback modificationCallback,
+            ISearchOperationCallback searchCallback, PermutingTupleReference indexTuple) {
+        return new BTreeOpContext(accessor, leafFrameFactory, interiorFrameFactory, freePageManager, cmpFactories,
+                modificationCallback, searchCallback, indexTuple);
+    }
+
     @SuppressWarnings("rawtypes")
     public String printTree(IBTreeLeafFrame leafFrame, IBTreeInteriorFrame interiorFrame,
             ISerializerDeserializer[] keySerdes) throws Exception {
@@ -815,6 +857,11 @@ public class BTree extends AbstractTreeIndex {
         return new BTreeAccessor(this, modificationCallback, searchCallback);
     }
 
+    public BTreeAccessor createAccessor(IModificationOperationCallback modificationOperationCallback,
+            ISearchOperationCallback searchOperationCallback, PermutingTupleReference filterTuple) {
+        return new BTreeAccessor(this, modificationOperationCallback, searchOperationCallback, filterTuple);
+    }
+
     // TODO: Class should be private. But currently we need to expose the
     // setOpContext() API to the LSM Tree for it to work correctly.
 
@@ -832,6 +879,12 @@ public class BTree extends AbstractTreeIndex {
                 ISearchOperationCallback searchCallback) {
             this.btree = btree;
             this.ctx = btree.createOpContext(this, modificationCalback, searchCallback);
+        }
+
+        public BTreeAccessor(BTree btree, IModificationOperationCallback modificationCallback,
+                ISearchOperationCallback searchCallback, PermutingTupleReference indexTuple) {
+            this.btree = btree;
+            this.ctx = btree.createOpContext(this, modificationCallback, searchCallback, indexTuple);
         }
 
         public void reset(BTree btree, IModificationOperationCallback modificationCallback,
@@ -1040,8 +1093,8 @@ public class BTree extends AbstractTreeIndex {
                         final long dpid = BufferedFileHandle.getDiskPageId(fileId, leafFrontier.pageId);
                         // calculate required number of pages.
                         int headerSize = Math.max(leafFrame.getPageHeaderSize(), interiorFrame.getPageHeaderSize());
-                        final int multiplier =
-                                (int) Math.ceil((double) tupleSize / (bufferCache.getPageSize() - headerSize));
+                        final int multiplier = (int) Math
+                                .ceil((double) tupleSize / (bufferCache.getPageSize() - headerSize));
                         if (multiplier > 1) {
                             leafFrontier.page = bufferCache.confiscateLargePage(dpid, multiplier,
                                     freePageManager.takeBlock(metaFrame, multiplier - 1));
@@ -1215,5 +1268,9 @@ public class BTree extends AbstractTreeIndex {
         int rightMostChildPageId = interiorFrame.getRightmostChildPageId();
         strBuilder.append("(" + rightMostChildPageId + ")");
         return strBuilder.toString();
+    }
+
+    public int getNumOfFilterFields() {
+        return 0;
     }
 }

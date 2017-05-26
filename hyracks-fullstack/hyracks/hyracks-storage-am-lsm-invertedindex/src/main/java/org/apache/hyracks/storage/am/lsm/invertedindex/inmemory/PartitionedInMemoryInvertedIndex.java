@@ -33,6 +33,7 @@ import org.apache.hyracks.storage.am.common.api.IModificationOperationCallback;
 import org.apache.hyracks.storage.am.common.api.IPageManager;
 import org.apache.hyracks.storage.am.common.api.ISearchOperationCallback;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
+import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import org.apache.hyracks.storage.am.lsm.invertedindex.api.IInvertedIndexSearcher;
 import org.apache.hyracks.storage.am.lsm.invertedindex.api.IInvertedListCursor;
 import org.apache.hyracks.storage.am.lsm.invertedindex.api.IPartitionedInvertedIndex;
@@ -61,8 +62,8 @@ public class PartitionedInMemoryInvertedIndex extends InMemoryInvertedIndex impl
             throws HyracksDataException {
         super.insert(tuple, btreeAccessor, ictx);
         PartitionedInMemoryInvertedIndexOpContext ctx = (PartitionedInMemoryInvertedIndexOpContext) ictx;
-        PartitionedInvertedIndexTokenizingTupleIterator tupleIter =
-                (PartitionedInvertedIndexTokenizingTupleIterator) ctx.getTupleIter();
+        PartitionedInvertedIndexTokenizingTupleIterator tupleIter = (PartitionedInvertedIndexTokenizingTupleIterator) ctx
+                .getTupleIter();
         updatePartitionIndexes(tupleIter.getNumTokens());
     }
 
@@ -92,6 +93,13 @@ public class PartitionedInMemoryInvertedIndex extends InMemoryInvertedIndex impl
             ISearchOperationCallback searchCallback) throws HyracksDataException {
         return new PartitionedInMemoryInvertedIndexAccessor(this,
                 new PartitionedInMemoryInvertedIndexOpContext(btree, tokenCmpFactories, tokenizerFactory));
+    }
+
+    public IIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
+            ISearchOperationCallback searchCallback, PermutingTupleReference filterFields) throws HyracksDataException {
+        return new PartitionedInMemoryInvertedIndexAccessor(this,
+                new PartitionedInMemoryInvertedIndexOpContext(btree, tokenCmpFactories, tokenizerFactory, filterFields),
+                filterFields);
     }
 
     @Override
@@ -130,8 +138,8 @@ public class PartitionedInMemoryInvertedIndex extends InMemoryInvertedIndex impl
         // using the last existing partition and re-searching the BTree with an open interval as low key.
         for (short i = partitionStartIndex; i <= partitionEndIndex; i++) {
             partSearcher.setNumTokensBoundsInSearchKeys(i, i);
-            InMemoryInvertedListCursor inMemListCursor =
-                    (InMemoryInvertedListCursor) partSearcher.getCachedInvertedListCursor();
+            InMemoryInvertedListCursor inMemListCursor = (InMemoryInvertedListCursor) partSearcher
+                    .getCachedInvertedListCursor();
             inMemListCursor.prepare(ctx.getBtreeAccessor(), ctx.getBtreePred(), ctx.getTokenFieldsCmp(),
                     ctx.getBtreeCmp());
             inMemListCursor.reset(searchKey);
