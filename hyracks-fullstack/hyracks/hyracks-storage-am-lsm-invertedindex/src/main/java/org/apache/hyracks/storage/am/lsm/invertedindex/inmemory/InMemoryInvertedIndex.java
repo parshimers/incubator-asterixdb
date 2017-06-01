@@ -175,6 +175,12 @@ public class InMemoryInvertedIndex implements IInvertedIndex {
                 new InMemoryInvertedIndexOpContext(btree, tokenCmpFactories, tokenizerFactory));
     }
 
+    public IIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
+            ISearchOperationCallback searchCallback, int[] logTupleFields) throws HyracksDataException {
+        return new InMemoryInvertedIndexAccessor(this,
+                new InMemoryInvertedIndexOpContext(btree, tokenCmpFactories, tokenizerFactory), logTupleFields);
+    }
+
     @Override
     public IBufferCache getBufferCache() {
         return btree.getBufferCache();
