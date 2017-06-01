@@ -64,7 +64,7 @@ public class BTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
     private ISearchOperationCallback searchCallback;
     private ITupleAcceptor acceptor;
     private int smoCount;
-    private PermutingTupleReference indexTuple;
+    private PermutingTupleReference tupleWithFilter;
 
     // Debug
     private final Deque<PageValidationInfo> validationInfos;
@@ -108,10 +108,10 @@ public class BTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
     public BTreeOpContext(IIndexAccessor accessor, ITreeIndexFrameFactory leafFrameFactory,
             ITreeIndexFrameFactory interiorFrameFactory, IPageManager freePageManager,
             IBinaryComparatorFactory[] cmpFactories, IModificationOperationCallback modificationCallback,
-            ISearchOperationCallback searchCallback, PermutingTupleReference indexTuple) {
+            ISearchOperationCallback searchCallback, PermutingTupleReference tupleWithFilter) {
         this(accessor, leafFrameFactory, interiorFrameFactory, freePageManager, cmpFactories, modificationCallback,
                 searchCallback);
-        this.indexTuple = indexTuple;
+        this.tupleWithFilter = tupleWithFilter;
     }
 
     @Override
@@ -368,7 +368,7 @@ public class BTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
         this.leafFrameFactory = leafFrameFactory;
     }
 
-    public PermutingTupleReference getIndexTuple() {
-        return indexTuple;
+    public PermutingTupleReference getTupleWithFilter() {
+        return tupleWithFilter;
     }
 }

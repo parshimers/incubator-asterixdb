@@ -48,7 +48,7 @@ public class InMemoryInvertedIndexOpContext implements IIndexOperationContext {
     private final IBinaryTokenizerFactory tokenizerFactory;
     private InvertedIndexTokenizingTupleIterator tupleIter;
 
-    private PermutingTupleReference filterTuple;
+    private PermutingTupleReference tupleWithFilter;
 
     InMemoryInvertedIndexOpContext(BTree btree, IBinaryComparatorFactory[] tokenCmpFactories,
             IBinaryTokenizerFactory tokenizerFactory) {
@@ -58,11 +58,11 @@ public class InMemoryInvertedIndexOpContext implements IIndexOperationContext {
     }
 
     InMemoryInvertedIndexOpContext(BTree btree, IBinaryComparatorFactory[] tokenCmpFactories,
-            IBinaryTokenizerFactory tokenizerFactory, PermutingTupleReference filterTuple) {
+            IBinaryTokenizerFactory tokenizerFactory, PermutingTupleReference tupleWithFilter) {
         this.btree = btree;
         this.tokenCmpFactories = tokenCmpFactories;
         this.tokenizerFactory = tokenizerFactory;
-        this.filterTuple = filterTuple;
+        this.tupleWithFilter = tupleWithFilter;
     }
 
     @Override
@@ -136,7 +136,7 @@ public class InMemoryInvertedIndexOpContext implements IIndexOperationContext {
         this.tupleIter = tupleIter;
     }
 
-    public PermutingTupleReference getFilterTuple() {
-        return filterTuple;
+    public PermutingTupleReference getTupleWithFilter() {
+        return tupleWithFilter;
     }
 }

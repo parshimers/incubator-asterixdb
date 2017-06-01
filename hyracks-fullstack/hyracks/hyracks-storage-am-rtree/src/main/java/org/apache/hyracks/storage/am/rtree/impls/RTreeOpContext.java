@@ -61,7 +61,7 @@ public class RTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
 
     private IModificationOperationCallback modificationCallback;
 
-    private PermutingTupleReference indexTuple = null;
+    private PermutingTupleReference tupleWithFilter = null;
 
     public RTreeOpContext(IRTreeLeafFrame leafFrame, IRTreeInteriorFrame interiorFrame, IPageManager freePageManager,
             IBinaryComparatorFactory[] cmpFactories, IModificationOperationCallback modificationCallback) {
@@ -84,9 +84,9 @@ public class RTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
 
     public RTreeOpContext(IRTreeLeafFrame leafFrame, IRTreeInteriorFrame interiorFrame, IPageManager freePageManager,
             IBinaryComparatorFactory[] cmpFactories, IModificationOperationCallback modificationCallback,
-            PermutingTupleReference indexTuple) {
+            PermutingTupleReference tupleWithFilter) {
         this(leafFrame, interiorFrame, freePageManager, cmpFactories, modificationCallback);
-        this.indexTuple = indexTuple;
+        this.tupleWithFilter = tupleWithFilter;
 
     }
 
@@ -201,7 +201,7 @@ public class RTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
         return cursorInitialState;
     }
 
-    public PermutingTupleReference getIndexTuple() {
-        return indexTuple;
+    public PermutingTupleReference getTupleWithFilter() {
+        return tupleWithFilter;
     }
 }

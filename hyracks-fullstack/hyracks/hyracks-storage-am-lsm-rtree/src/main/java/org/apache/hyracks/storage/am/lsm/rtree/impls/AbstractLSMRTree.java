@@ -351,12 +351,13 @@ public abstract class AbstractLSMRTree extends AbstractLSMIndex implements ITree
         if (ctx.getIndexTuple() != null) {
             ctx.getIndexTuple().reset(tuple);
             indexTuple = ctx.getIndexTuple();
+            ctx.getCurrentMutableRTreeAccessor().getOpContext().getTupleWithFilter().reset(tuple);
         } else {
             indexTuple = tuple;
         }
 
         ctx.getModificationCallback().before(indexTuple);
-        ctx.getModificationCallback().found(null, indexTuple);
+        ctx.getModificationCallback().found(null, tuple);
         if (ctx.getOperation() == IndexOperation.INSERT) {
             ctx.getCurrentMutableRTreeAccessor().insert(indexTuple);
         } else {

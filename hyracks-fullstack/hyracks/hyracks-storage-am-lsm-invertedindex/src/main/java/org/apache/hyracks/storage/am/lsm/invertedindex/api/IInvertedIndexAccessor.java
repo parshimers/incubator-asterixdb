@@ -23,6 +23,7 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.common.api.IIndexAccessor;
 import org.apache.hyracks.storage.am.common.api.IIndexCursor;
+import org.apache.hyracks.storage.am.common.api.IIndexOperationContext;
 import org.apache.hyracks.storage.am.common.api.ISearchPredicate;
 
 public interface IInvertedIndexAccessor extends IIndexAccessor {
@@ -34,4 +35,6 @@ public interface IInvertedIndexAccessor extends IIndexAccessor {
     public IIndexCursor createRangeSearchCursor();
 
     public void rangeSearch(IIndexCursor cursor, ISearchPredicate searchPred) throws HyracksDataException;
+
+    public IIndexOperationContext getOpCtx();
 }

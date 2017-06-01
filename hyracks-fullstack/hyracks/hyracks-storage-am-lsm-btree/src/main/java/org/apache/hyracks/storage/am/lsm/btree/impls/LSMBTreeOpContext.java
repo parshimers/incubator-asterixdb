@@ -64,6 +64,7 @@ public final class LSMBTreeOpContext extends AbstractLSMIndexOperationContext {
     private final PermutingTupleReference indexTuple;
     private final MultiComparator filterCmp;
     private final PermutingTupleReference filterTuple;
+    private final PermutingTupleReference indexTupleWithFilter;
     private final BTreeRangeSearchCursor memCursor;
     private final LSMBTreeCursorInitialState searchInitialState;
     private final LSMBTreePointSearchCursor insertSearchCursor;
@@ -91,10 +92,19 @@ public final class LSMBTreeOpContext extends AbstractLSMIndexOperationContext {
             indexTuple = new PermutingTupleReference(btreeFields);
             filterCmp = MultiComparator.create(c.getLSMComponentFilter().getFilterCmpFactories());
             filterTuple = new PermutingTupleReference(filterFields);
+            int[] indexAndFilterFields = new int[btreeFields.length + filterFields.length];
+            for (int i = 0; i < btreeFields.length; i++) {
+                indexAndFilterFields[i] = btreeFields[i];
+            }
+            for (int i = btreeFields.length; i < (btreeFields.length + filterFields.length); i++) {
+                indexAndFilterFields[i] = filterFields[(i - btreeFields.length)];
+            }
+            indexTupleWithFilter = new PermutingTupleReference(indexAndFilterFields);
         } else {
             indexTuple = null;
             filterCmp = null;
             filterTuple = null;
+            indexTupleWithFilter = null;
         }
 
         bloomFilterCmp = numBloomFilterKeyFields == 0 ? null
@@ -107,7 +117,7 @@ public final class LSMBTreeOpContext extends AbstractLSMIndexOperationContext {
             LSMBTreeMemoryComponent mutableComponent = (LSMBTreeMemoryComponent) mutableComponents.get(i);
             mutableBTrees[i] = mutableComponent.getBTree();
             mutableBTreeAccessors[i] = (BTree.BTreeAccessor) mutableBTrees[i].createAccessor(modificationCallback,
-                    NoOpOperationCallback.INSTANCE, indexTuple);
+                    NoOpOperationCallback.INSTANCE, indexTupleWithFilter);
             mutableBTreeOpCtxs[i] = mutableBTreeAccessors[i].getOpContext();
         }
 

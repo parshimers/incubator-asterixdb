@@ -47,7 +47,6 @@ public class InMemoryInvertedIndexAccessor implements IInvertedIndexAccessor {
     protected InMemoryInvertedIndex index;
     protected BTreeAccessor btreeAccessor;
 
-
     public InMemoryInvertedIndexAccessor(InMemoryInvertedIndex index, IIndexOperationContext opCtx)
             throws HyracksDataException {
         this.opCtx = opCtx;
@@ -57,13 +56,13 @@ public class InMemoryInvertedIndexAccessor implements IInvertedIndexAccessor {
                 NoOpOperationCallback.INSTANCE);
     }
 
-    public InMemoryInvertedIndexAccessor(InMemoryInvertedIndex index, IIndexOperationContext opCtx, PermutingTupleReference filterTuple)
-            throws HyracksDataException {
+    public InMemoryInvertedIndexAccessor(InMemoryInvertedIndex index, IIndexOperationContext opCtx,
+            PermutingTupleReference tupleWithFilter) throws HyracksDataException {
         this.opCtx = opCtx;
         this.index = index;
         this.searcher = createSearcher();
         this.btreeAccessor = (BTreeAccessor) index.getBTree().createAccessor(NoOpOperationCallback.INSTANCE,
-                NoOpOperationCallback.INSTANCE, filterTuple);
+                NoOpOperationCallback.INSTANCE, tupleWithFilter);
     }
 
     @Override
@@ -126,5 +125,9 @@ public class InMemoryInvertedIndexAccessor implements IInvertedIndexAccessor {
 
     protected IInvertedIndexSearcher createSearcher() throws HyracksDataException {
         return new TOccurrenceSearcher(hyracksCtx, index);
+    }
+
+    public IIndexOperationContext getOpCtx() {
+        return opCtx;
     }
 }

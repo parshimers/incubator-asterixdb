@@ -62,6 +62,7 @@ public final class LSMRTreeOpContext extends AbstractLSMIndexOperationContext {
     private final PermutingTupleReference indexTuple;
     private final MultiComparator filterCmp;
     private final PermutingTupleReference filterTuple;
+    private final PermutingTupleReference indexTupleWithFilter;
     private ISearchPredicate searchPredicate;
     private LSMRTreeCursorInitialState searchInitialState;
 
@@ -77,11 +78,30 @@ public final class LSMRTreeOpContext extends AbstractLSMIndexOperationContext {
 
         LSMRTreeMemoryComponent c = (LSMRTreeMemoryComponent) mutableComponents.get(0);
 
+        if (filterFields != null) {
+            indexTuple = new PermutingTupleReference(rtreeFields);
+            filterCmp = MultiComparator.create(c.getLSMComponentFilter().getFilterCmpFactories());
+            filterTuple = new PermutingTupleReference(filterFields);
+            int[] indexAndFilterFields = new int[rtreeFields.length + filterFields.length];
+            for (int i = 0; i < rtreeFields.length; i++) {
+                indexAndFilterFields[i] = rtreeFields[i];
+            }
+            for (int i = rtreeFields.length; i < (rtreeFields.length + filterFields.length); i++) {
+                indexAndFilterFields[i] = filterFields[(i - rtreeFields.length)];
+            }
+            indexTupleWithFilter = new PermutingTupleReference(indexAndFilterFields);
+        } else {
+            indexTuple = null;
+            filterCmp = null;
+            filterTuple = null;
+            indexTupleWithFilter = null;
+        }
+
         for (int i = 0; i < mutableComponents.size(); i++) {
             LSMRTreeMemoryComponent mutableComponent = (LSMRTreeMemoryComponent) mutableComponents.get(i);
             if (filterFields != null) {
-                mutableRTreeAccessors[i] = (RTree.RTreeAccessor) mutableComponent.getRTree()
-                        .createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+                mutableRTreeAccessors[i] = (RTree.RTreeAccessor) mutableComponent.getRTree().createAccessor(
+                        NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE, indexTupleWithFilter);
             } else {
                 mutableRTreeAccessors[i] = (RTree.RTreeAccessor) mutableComponent.getRTree()
                         .createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
@@ -102,15 +122,6 @@ public final class LSMRTreeOpContext extends AbstractLSMIndexOperationContext {
         this.modificationCallback = modificationCallback;
         this.searchCallback = searchCallback;
 
-        if (filterFields != null) {
-            indexTuple = new PermutingTupleReference(rtreeFields);
-            filterCmp = MultiComparator.create(c.getLSMComponentFilter().getFilterCmpFactories());
-            filterTuple = new PermutingTupleReference(filterFields);
-        } else {
-            indexTuple = null;
-            filterCmp = null;
-            filterTuple = null;
-        }
         searchInitialState = new LSMRTreeCursorInitialState(rtreeLeafFrameFactory, rtreeInteriorFrameFactory,
                 btreeLeafFrameFactory, getBTreeMultiComparator(), lsmHarness, comparatorFields, linearizerArray,
                 searchCallback, componentHolder);

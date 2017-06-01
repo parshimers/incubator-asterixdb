@@ -118,9 +118,7 @@ public class InMemoryInvertedIndex implements IInvertedIndex {
             ctx.getTupleIter().next();
             ITupleReference insertTuple = ctx.getTupleIter().getTuple();
             try {
-                if(ctx.getFilterTuple() != null) {
-                    btreeAccessor.insert(insertTuple);
-                }
+                btreeAccessor.insert(insertTuple);
             } catch (HyracksDataException e) {
                 if (e.getErrorCode() != ErrorCode.DUPLICATE_KEY) {
                     // This exception may be caused by duplicate tokens in the same insert "document".
@@ -173,15 +171,15 @@ public class InMemoryInvertedIndex implements IInvertedIndex {
 
     @Override
     public IIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
-                                         ISearchOperationCallback searchCallback) throws HyracksDataException {
+            ISearchOperationCallback searchCallback) throws HyracksDataException {
         return new InMemoryInvertedIndexAccessor(this,
                 new InMemoryInvertedIndexOpContext(btree, tokenCmpFactories, tokenizerFactory));
     }
 
     public IIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
-                                         ISearchOperationCallback searchCallback, PermutingTupleReference filterTuple) throws HyracksDataException {
+            ISearchOperationCallback searchCallback, PermutingTupleReference tupleWithFilter) throws HyracksDataException {
         return new InMemoryInvertedIndexAccessor(this,
-                new InMemoryInvertedIndexOpContext(btree, tokenCmpFactories, tokenizerFactory, filterTuple));
+                new InMemoryInvertedIndexOpContext(btree, tokenCmpFactories, tokenizerFactory, tupleWithFilter));
     }
 
     @Override

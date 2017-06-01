@@ -96,10 +96,10 @@ public class PartitionedInMemoryInvertedIndex extends InMemoryInvertedIndex impl
     }
 
     public IIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
-            ISearchOperationCallback searchCallback, PermutingTupleReference filterFields) throws HyracksDataException {
+            ISearchOperationCallback searchCallback, PermutingTupleReference tupleWithFilter) throws HyracksDataException {
         return new PartitionedInMemoryInvertedIndexAccessor(this,
-                new PartitionedInMemoryInvertedIndexOpContext(btree, tokenCmpFactories, tokenizerFactory, filterFields),
-                filterFields);
+                new PartitionedInMemoryInvertedIndexOpContext(btree, tokenCmpFactories, tokenizerFactory, tupleWithFilter),
+                tupleWithFilter);
     }
 
     @Override

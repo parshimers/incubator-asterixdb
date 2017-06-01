@@ -321,6 +321,7 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
         if (ctx.getIndexTuple() != null) {
             ctx.getIndexTuple().reset(tuple);
             indexTuple = ctx.getIndexTuple();
+            ctx.getCurrentMutableBTreeAccessor().getOpContext().getTupleWithFilter().reset(tuple);
         } else {
             indexTuple = tuple;
         }
@@ -330,7 +331,7 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
                 ctx.getCurrentMutableBTreeAccessor().delete(indexTuple);
                 break;
             case INSERT:
-                insert(tuple, ctx);
+                insert(indexTuple, ctx);
                 break;
             default:
                 ctx.getCurrentMutableBTreeAccessor().upsert(indexTuple);

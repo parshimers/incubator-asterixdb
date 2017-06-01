@@ -320,8 +320,8 @@ public class OnDiskInvertedIndex implements IInvertedIndex {
             this.btreeTupleReference = new ArrayTupleReference();
             this.lastTupleBuilder = new ArrayTupleBuilder(numTokenFields + numInvListKeys);
             this.lastTuple = new ArrayTupleReference();
-            this.btreeBulkloader =
-                    btree.createBulkLoader(btreeFillFactor, verifyInput, numElementsHint, checkIfEmptyIndex);
+            this.btreeBulkloader = btree.createBulkLoader(btreeFillFactor, verifyInput, numElementsHint,
+                    checkIfEmptyIndex);
             currentPageId = startPageId;
             currentPage = bufferCache.confiscatePage(BufferedFileHandle.getDiskPageId(fileId, currentPageId));
             invListBuilder.setTargetBuffer(currentPage.getBuffer().array(), 0);
@@ -546,6 +546,11 @@ public class OnDiskInvertedIndex implements IInvertedIndex {
         public void upsert(ITupleReference tuple) throws HyracksDataException {
             throw new UnsupportedOperationException("Upsert not supported by inverted index.");
         }
+
+        @Override
+        public IIndexOperationContext getOpCtx() {
+            return opCtx;
+        }
     }
 
     @Override
@@ -605,8 +610,8 @@ public class OnDiskInvertedIndex implements IInvertedIndex {
     public void validate() throws HyracksDataException {
         btree.validate();
         // Scan the btree and validate the order of elements in each inverted-list.
-        IIndexAccessor btreeAccessor =
-                btree.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+        IIndexAccessor btreeAccessor = btree.createAccessor(NoOpOperationCallback.INSTANCE,
+                NoOpOperationCallback.INSTANCE);
         IIndexCursor btreeCursor = btreeAccessor.createSearchCursor(false);
         MultiComparator btreeCmp = MultiComparator.create(btree.getComparatorFactories());
         RangePredicate rangePred = new RangePredicate(null, null, true, true, btreeCmp, btreeCmp);
@@ -616,8 +621,8 @@ public class OnDiskInvertedIndex implements IInvertedIndex {
         }
         PermutingTupleReference tokenTuple = new PermutingTupleReference(fieldPermutation);
 
-        IInvertedIndexAccessor invIndexAccessor =
-                (IInvertedIndexAccessor) createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+        IInvertedIndexAccessor invIndexAccessor = (IInvertedIndexAccessor) createAccessor(
+                NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
         IInvertedListCursor invListCursor = invIndexAccessor.createInvertedListCursor();
         MultiComparator invListCmp = MultiComparator.create(invListCmpFactories);
 

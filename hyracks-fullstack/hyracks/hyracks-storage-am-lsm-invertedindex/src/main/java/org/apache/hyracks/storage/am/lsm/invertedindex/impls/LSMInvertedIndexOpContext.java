@@ -64,6 +64,7 @@ public class LSMInvertedIndexOpContext extends AbstractLSMIndexOperationContext 
     private final PermutingTupleReference indexTuple;
     private final MultiComparator filterCmp;
     private final PermutingTupleReference filterTuple;
+    private final PermutingTupleReference indexWithFilterTuple;
 
     private ISearchPredicate searchPredicate;
 
@@ -93,10 +94,19 @@ public class LSMInvertedIndexOpContext extends AbstractLSMIndexOperationContext 
             indexTuple = new PermutingTupleReference(invertedIndexFields);
             filterCmp = MultiComparator.create(c.getLSMComponentFilter().getFilterCmpFactories());
             filterTuple = new PermutingTupleReference(filterFields);
+            int[] indexAndFilterFields = new int[invertedIndexFields.length + filterFields.length];
+            for (int i = 0; i < invertedIndexFields.length; i++) {
+                indexAndFilterFields[i] = invertedIndexFields[i];
+            }
+            for (int i = invertedIndexFields.length; i < (invertedIndexFields.length + filterFields.length); i++) {
+                indexAndFilterFields[i] = filterFields[(i - invertedIndexFields.length)];
+            }
+            indexWithFilterTuple = new PermutingTupleReference(indexAndFilterFields);
         } else {
             indexTuple = null;
             filterCmp = null;
             filterTuple = null;
+            indexWithFilterTuple = null;
         }
 
         for (int i = 0; i < mutableComponents.size(); i++) {
@@ -104,7 +114,8 @@ public class LSMInvertedIndexOpContext extends AbstractLSMIndexOperationContext 
                     .get(i);
             if (filterTuple != null) {
                 mutableInvIndexAccessors[i] = (InMemoryInvertedIndexAccessor) mutableComponent.getInvIndex()
-                        .createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE, indexTuple);
+                        .createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE,
+                                indexWithFilterTuple);
             } else {
                 mutableInvIndexAccessors[i] = (IInvertedIndexAccessor) mutableComponent.getInvIndex()
                         .createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);

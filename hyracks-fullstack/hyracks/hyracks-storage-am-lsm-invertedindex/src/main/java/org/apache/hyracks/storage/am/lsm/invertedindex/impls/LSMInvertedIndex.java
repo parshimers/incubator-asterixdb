@@ -81,6 +81,7 @@ import org.apache.hyracks.storage.am.lsm.invertedindex.api.IInvertedIndex;
 import org.apache.hyracks.storage.am.lsm.invertedindex.api.IInvertedListCursor;
 import org.apache.hyracks.storage.am.lsm.invertedindex.inmemory.InMemoryInvertedIndex;
 import org.apache.hyracks.storage.am.lsm.invertedindex.inmemory.InMemoryInvertedIndexAccessor;
+import org.apache.hyracks.storage.am.lsm.invertedindex.inmemory.InMemoryInvertedIndexOpContext;
 import org.apache.hyracks.storage.am.lsm.invertedindex.ondisk.OnDiskInvertedIndex;
 import org.apache.hyracks.storage.am.lsm.invertedindex.ondisk.OnDiskInvertedIndexFactory;
 import org.apache.hyracks.storage.am.lsm.invertedindex.search.InvertedIndexSearchPredicate;
@@ -326,6 +327,8 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
         if (ctx.getIndexTuple() != null) {
             ctx.getIndexTuple().reset(tuple);
             indexTuple = ctx.getIndexTuple();
+            ((InMemoryInvertedIndexOpContext) ctx.getCurrentMutableInvIndexAccessors().getOpCtx()).getTupleWithFilter()
+                    .reset(tuple);
         } else {
             indexTuple = tuple;
         }
@@ -335,7 +338,7 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
         switch (ctx.getOperation()) {
             case INSERT: {
                 // Insert into the in-memory inverted index.
-                ctx.getCurrentMutableInvIndexAccessors().insert(tuple);
+                ctx.getCurrentMutableInvIndexAccessors().insert(indexTuple);
                 break;
             }
             case DELETE: {
@@ -360,8 +363,8 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
         }
         if (ctx.getFilterTuple() != null) {
             ctx.getFilterTuple().reset(tuple);
-            memoryComponents.get(currentMutableComponentId.get()).getLSMComponentFilter().update(ctx.getFilterTuple(),
-                    ctx.getFilterCmp());
+            memoryComponents.get(currentMutableComponentId.get()).getLSMComponentFilter()
+                    .update(ctx.getFilterTuple(), ctx.getFilterCmp());
         }
     }
 

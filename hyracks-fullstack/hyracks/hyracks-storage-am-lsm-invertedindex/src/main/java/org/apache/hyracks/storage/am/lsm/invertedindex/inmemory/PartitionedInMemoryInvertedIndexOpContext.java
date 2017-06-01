@@ -34,8 +34,8 @@ public class PartitionedInMemoryInvertedIndexOpContext extends InMemoryInvertedI
     }
 
     public PartitionedInMemoryInvertedIndexOpContext(BTree btree, IBinaryComparatorFactory[] tokenCmpFactories,
-            IBinaryTokenizerFactory tokenizerFactory, PermutingTupleReference filterFields) {
-        super(btree, tokenCmpFactories, tokenizerFactory, filterFields);
+            IBinaryTokenizerFactory tokenizerFactory, PermutingTupleReference tupleWithFilter) {
+        super(btree, tokenCmpFactories, tokenizerFactory, tupleWithFilter);
     }
 
     protected void setTokenizingTupleIterator() {

@@ -202,8 +202,8 @@ public class LSMRTree extends AbstractLSMRTree {
             throws HyracksDataException {
         ILSMComponent flushingComponent = ctx.getComponentHolder().get(0);
         LSMComponentFileReferences componentFileRefs = fileManager.getRelFlushFileReference();
-        ILSMIndexOperationContext rctx =
-                createOpContext(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+        ILSMIndexOperationContext rctx = createOpContext(NoOpOperationCallback.INSTANCE,
+                NoOpOperationCallback.INSTANCE);
         rctx.setOperation(IndexOperation.FLUSH);
         rctx.getComponentHolder().addAll(ctx.getComponentHolder());
         LSMRTreeAccessor accessor = new LSMRTreeAccessor(lsmHarness, rctx);
@@ -286,8 +286,8 @@ public class LSMRTree extends AbstractLSMRTree {
         }
 
         int maxBucketsPerElement = BloomCalculations.maxBucketsPerElement(numBTreeTuples);
-        BloomFilterSpecification bloomFilterSpec =
-                BloomCalculations.computeBloomSpec(maxBucketsPerElement, bloomFilterFalsePositiveRate);
+        BloomFilterSpecification bloomFilterSpec = BloomCalculations.computeBloomSpec(maxBucketsPerElement,
+                bloomFilterFalsePositiveRate);
 
         IIndexCursor btreeScanCursor = memBTreeAccessor.createSearchCursor(false);
         memBTreeAccessor.search(btreeScanCursor, btreeNullPredicate);
@@ -326,8 +326,8 @@ public class LSMRTree extends AbstractLSMRTree {
     @Override
     public void scheduleMerge(ILSMIndexOperationContext ctx, ILSMIOOperationCallback callback)
             throws HyracksDataException {
-        ILSMIndexOperationContext rctx =
-                createOpContext(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+        ILSMIndexOperationContext rctx = createOpContext(NoOpOperationCallback.INSTANCE,
+                NoOpOperationCallback.INSTANCE);
         rctx.setOperation(IndexOperation.MERGE);
         List<ILSMComponent> mergingComponents = ctx.getComponentHolder();
         ITreeIndexCursor cursor = new LSMRTreeSortedCursor(rctx, linearizer, buddyBTreeFields);
@@ -368,8 +368,8 @@ public class LSMRTree extends AbstractLSMRTree {
             }
 
             int maxBucketsPerElement = BloomCalculations.maxBucketsPerElement(numElements);
-            BloomFilterSpecification bloomFilterSpec =
-                    BloomCalculations.computeBloomSpec(maxBucketsPerElement, bloomFilterFalsePositiveRate);
+            BloomFilterSpecification bloomFilterSpec = BloomCalculations.computeBloomSpec(maxBucketsPerElement,
+                    bloomFilterFalsePositiveRate);
             IIndexBulkLoader builder = mergedComponent.getBloomFilter().createBuilder(numElements,
                     bloomFilterSpec.getNumHashes(), bloomFilterSpec.getNumBucketsPerElements());
 
@@ -482,14 +482,15 @@ public class LSMRTree extends AbstractLSMRTree {
         if (ctx.getIndexTuple() != null) {
             ctx.getIndexTuple().reset(tuple);
             indexTuple = ctx.getIndexTuple();
+            ctx.getCurrentMutableRTreeAccessor().getOpContext().getTupleWithFilter().reset(tuple);
         } else {
             indexTuple = tuple;
         }
 
         ctx.getModificationCallback().before(indexTuple);
-        ctx.getModificationCallback().found(null, indexTuple);
+        ctx.getModificationCallback().found(null, tuple);
         if (ctx.getOperation() == IndexOperation.INSERT) {
-            ctx.getCurrentMutableRTreeAccessor().insert(tuple);
+            ctx.getCurrentMutableRTreeAccessor().insert(indexTuple);
         } else {
             // First remove all entries in the in-memory rtree (if any).
             ctx.getCurrentMutableRTreeAccessor().delete(indexTuple);

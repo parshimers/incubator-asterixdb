@@ -160,10 +160,10 @@ public class RTree extends AbstractTreeIndex {
     }
 
     private RTreeOpContext createOpContext(IModificationOperationCallback modificationCallback,
-            PermutingTupleReference indexTuple) {
+            PermutingTupleReference tupleWithFilter) {
         return new RTreeOpContext((IRTreeLeafFrame) leafFrameFactory.createFrame(),
                 (IRTreeInteriorFrame) interiorFrameFactory.createFrame(), freePageManager, cmpFactories,
-                modificationCallback, indexTuple);
+                modificationCallback, tupleWithFilter);
     }
 
     private ICachedPage findLeaf(RTreeOpContext ctx) throws HyracksDataException {
@@ -308,15 +308,12 @@ public class RTree extends AbstractTreeIndex {
                     if (!isLeaf) {
                         ctx.getInteriorFrame().insert(tuple, -1);
                     } else {
-                        if (ctx.getIndexTuple() != null) {
-                            PermutingTupleReference indexTuple = ctx.getIndexTuple();
-                            indexTuple.reset(tuple);
-                            ctx.getLeafFrame().insert(indexTuple, -1);
-                            ctx.getModificationCallback().found(null, tuple);
+                        if (ctx.getTupleWithFilter() != null) {
+                            ctx.getModificationCallback().found(null, ctx.getTupleWithFilter());
                         } else {
                             ctx.getModificationCallback().found(null, tuple);
-                            ctx.getLeafFrame().insert(tuple, -1);
                         }
+                        ctx.getLeafFrame().insert(tuple, -1);
                     }
                     succeeded = true;
                 } finally {
@@ -340,15 +337,12 @@ public class RTree extends AbstractTreeIndex {
                         ctx.getInteriorFrame().insert(tuple, -1);
                     } else {
                         ctx.getLeafFrame().compact();
-                        if (ctx.getIndexTuple() != null) {
-                            PermutingTupleReference indexTuple = ctx.getIndexTuple();
-                            indexTuple.reset(tuple);
-                            ctx.getLeafFrame().insert(indexTuple, -1);
-                            ctx.getModificationCallback().found(null, tuple);
+                        if (ctx.getTupleWithFilter() != null) {
+                            ctx.getModificationCallback().found(null, ctx.getTupleWithFilter());
                         } else {
                             ctx.getModificationCallback().found(null, tuple);
-                            ctx.getLeafFrame().insert(tuple, -1);
                         }
+                        ctx.getLeafFrame().insert(tuple, -1);
                     }
                     succeeded = true;
                 } finally {
@@ -377,29 +371,19 @@ public class RTree extends AbstractTreeIndex {
                         rightFrame.setPage(rightNode);
                         rightFrame.initBuffer(ctx.getInteriorFrame().getLevel());
                         rightFrame.setRightPage(ctx.getInteriorFrame().getRightPage());
-                        if(ctx.getIndexTuple() != null) {
-                            PermutingTupleReference indexTuple = ctx.getIndexTuple();
-                            indexTuple.reset(tuple);
-                            ctx.getInteriorFrame().split(rightFrame, indexTuple, ctx.getSplitKey(), ctx, bufferCache);
-                        }
-                        else{
-                            ctx.getInteriorFrame().split(rightFrame, tuple, ctx.getSplitKey(), ctx, bufferCache);
-                        }
+                        ctx.getInteriorFrame().split(rightFrame, tuple, ctx.getSplitKey(), ctx, bufferCache);
                         ctx.getInteriorFrame().setRightPage(rightPageId);
                     } else {
                         rightFrame = (IRTreeFrame) leafFrameFactory.createFrame();
                         rightFrame.setPage(rightNode);
                         rightFrame.initBuffer((byte) 0);
                         rightFrame.setRightPage(ctx.getInteriorFrame().getRightPage());
-                        ctx.getModificationCallback().found(null, tuple);
-                        if(ctx.getIndexTuple() != null) {
-                            PermutingTupleReference indexTuple = ctx.getIndexTuple();
-                            indexTuple.reset(tuple);
-                            ctx.getLeafFrame().split(rightFrame, indexTuple, ctx.getSplitKey(), ctx, bufferCache);
+                        if (ctx.getTupleWithFilter() != null) {
+                            ctx.getModificationCallback().found(null, ctx.getTupleWithFilter());
+                        } else {
+                            ctx.getModificationCallback().found(null, tuple);
                         }
-                        else{
-                            ctx.getLeafFrame().split(rightFrame, tuple, ctx.getSplitKey(), ctx, bufferCache);
-                        }
+                        ctx.getLeafFrame().split(rightFrame, tuple, ctx.getSplitKey(), ctx, bufferCache);
                         ctx.getLeafFrame().setRightPage(rightPageId);
                     }
                     succeeded = true;
@@ -793,8 +777,8 @@ public class RTree extends AbstractTreeIndex {
     }
 
     public ITreeIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
-            ISearchOperationCallback searchCallback, PermutingTupleReference indexTuple) {
-        return new RTreeAccessor(this, modificationCallback, searchCallback, indexTuple);
+            ISearchOperationCallback searchCallback, PermutingTupleReference tupleWithFilter) {
+        return new RTreeAccessor(this, modificationCallback, searchCallback, tupleWithFilter);
     }
 
     public class RTreeAccessor implements ITreeIndexAccessor {
@@ -808,9 +792,9 @@ public class RTree extends AbstractTreeIndex {
         }
 
         public RTreeAccessor(RTree rtree, IModificationOperationCallback modificationCallback,
-                ISearchOperationCallback searchCallback, PermutingTupleReference indexTuple) {
+                ISearchOperationCallback searchCallback, PermutingTupleReference tupleWithFilter) {
             this.rtree = rtree;
-            this.ctx = rtree.createOpContext(modificationCallback, indexTuple);
+            this.ctx = rtree.createOpContext(modificationCallback, tupleWithFilter);
         }
 
         public void reset(RTree rtree, IModificationOperationCallback modificationCallback) {
