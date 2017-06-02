@@ -529,7 +529,7 @@ public class BTree extends AbstractTreeIndex {
         }
         int tupleIndex = ctx.getLeafFrame().findDeleteTupleIndex(tuple);
         ITupleReference beforeTuple = ctx.getLeafFrame().getMatchingKeyTuple(tuple, tupleIndex);
-        logFoundTuple(ctx, beforeTuple, tuple);
+        ctx.getModificationCallback().found(beforeTuple, tuple);
         ctx.getLeafFrame().delete(tuple, tupleIndex);
         return false;
     }
