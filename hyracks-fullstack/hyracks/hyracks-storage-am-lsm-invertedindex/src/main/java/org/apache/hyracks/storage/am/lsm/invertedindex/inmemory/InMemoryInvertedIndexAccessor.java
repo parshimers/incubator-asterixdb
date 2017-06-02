@@ -126,7 +126,7 @@ public class InMemoryInvertedIndexAccessor implements IInvertedIndexAccessor {
         return new TOccurrenceSearcher(hyracksCtx, index);
     }
 
-    public void resetLogTuple(ITupleReference newTuple){
+    public void resetLogTuple(ITupleReference newTuple) {
         btreeAccessor.getOpContext().resetLogTuple(newTuple);
     }
 

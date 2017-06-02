@@ -83,8 +83,9 @@ public class RTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
     }
 
     public RTreeOpContext(IRTreeLeafFrame leafFrame, IRTreeInteriorFrame interiorFrame, IPageManager freePageManager,
-                          IBinaryComparatorFactory[] cmpFactories, IModificationOperationCallback modificationCallback, int[] logTupleFields) {
-        this(leafFrame,interiorFrame,freePageManager,cmpFactories,modificationCallback);
+            IBinaryComparatorFactory[] cmpFactories, IModificationOperationCallback modificationCallback,
+            int[] logTupleFields) {
+        this(leafFrame, interiorFrame, freePageManager, cmpFactories, modificationCallback);
         logTuple = new PermutingTupleReference(logTupleFields);
     }
 
