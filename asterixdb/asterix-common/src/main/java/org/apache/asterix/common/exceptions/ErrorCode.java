@@ -58,6 +58,10 @@ public class ErrorCode {
     public static final int ROOT_LOCAL_RESOURCE_EXISTS = 15;
     public static final int ROOT_LOCAL_RESOURCE_COULD_NOT_BE_CREATED = 16;
     public static final int UNKNOWN_EXTERNAL_FILE_PENDING_OP = 17;
+    public static final int TYPE_CONVERT = 18;
+    public static final int TYPE_CONVERT_INTEGER_SOURCE = 19;
+    public static final int TYPE_CONVERT_INTEGER_TARGET = 20;
+    public static final int TYPE_CONVERT_OUT_OF_BOUND = 21;
     public static final int INSTANTIATION_ERROR = 100;
 
     // Compilation errors
@@ -186,6 +190,9 @@ public class ErrorCode {
     public static final int FEED_UNKNOWN_ADAPTER_NAME = 3085;
     public static final int PROVIDER_STREAM_RECORD_READER_WRONG_CONFIGURATION = 3086;
     public static final int FEED_CONNECT_FEED_APPLIED_INVALID_FUNCTION = 3087;
+
+    // Lifecycle management errors
+    public static final int DUPLICATE_PARTITION_ID = 4000;
 
     private ErrorCode() {
     }
