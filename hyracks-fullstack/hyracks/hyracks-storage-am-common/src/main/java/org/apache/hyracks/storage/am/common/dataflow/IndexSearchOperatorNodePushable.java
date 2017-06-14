@@ -78,6 +78,7 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
     protected final boolean appendIndexFilter;
     protected ArrayTupleBuilder nonFilterTupleBuild;
     protected final ISearchOperationCallbackFactory searchCallbackFactory;
+    protected boolean failed = false;
 
     public IndexSearchOperatorNodePushable(IHyracksTaskContext ctx, RecordDescriptor inputRecDesc, int partition,
             int[] minFilterFieldIndexes, int[] maxFilterFieldIndexes, IIndexDataflowHelperFactory indexHelperFactory,
@@ -85,7 +86,7 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
             ISearchOperationCallbackFactory searchCallbackFactory, boolean appendIndexFilter)
             throws HyracksDataException {
         this.ctx = ctx;
-        this.indexHelper = indexHelperFactory.create(ctx, partition);
+        this.indexHelper = indexHelperFactory.create(ctx.getJobletContext().getServiceContext(), partition);
         this.retainInput = retainInput;
         this.retainMissing = retainMissing;
         this.appendIndexFilter = appendIndexFilter;
@@ -193,7 +194,7 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
                 writeSearchResults(i);
             }
         } catch (Exception e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 
@@ -207,12 +208,15 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
         HyracksDataException closeException = null;
         if (index != null) {
             // if index == null, then the index open was not successful
-            try {
-                if (appender.getTupleCount() > 0) {
-                    appender.write(writer, true);
+            if (!failed) {
+                try {
+                    if (appender.getTupleCount() > 0) {
+                        appender.write(writer, true);
+                    }
+                } catch (Throwable th) {
+                    writer.fail();
+                    closeException = new HyracksDataException(th);
                 }
-            } catch (Throwable th) {
-                closeException = new HyracksDataException(th);
             }
 
             try {
@@ -251,6 +255,7 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
 
     @Override
     public void fail() throws HyracksDataException {
+        failed = true;
         writer.fail();
     }
 

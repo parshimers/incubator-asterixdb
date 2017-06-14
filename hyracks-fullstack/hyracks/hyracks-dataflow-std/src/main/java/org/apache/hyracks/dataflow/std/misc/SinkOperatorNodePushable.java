@@ -16,37 +16,33 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.asterix.runtime.operators.std;
 
-import org.apache.hyracks.algebricks.runtime.base.IPushRuntime;
-import org.apache.hyracks.algebricks.runtime.base.IPushRuntimeFactory;
-import org.apache.hyracks.algebricks.runtime.operators.base.AbstractOneInputSourcePushRuntime;
-import org.apache.hyracks.api.context.IHyracksTaskContext;
+package org.apache.hyracks.dataflow.std.misc;
+
+import java.nio.ByteBuffer;
+
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodePushable;
 
-public class NoTupleSourceRuntimeFactory implements IPushRuntimeFactory {
-
-    private static final long serialVersionUID = 1L;
+public class SinkOperatorNodePushable extends AbstractUnaryInputSinkOperatorNodePushable {
 
     @Override
-    public String toString() {
-        return "nts";
+    public void open() throws HyracksDataException {
+        // Does nothing.
     }
 
     @Override
-    public IPushRuntime createPushRuntime(IHyracksTaskContext ctx) {
-        return new AbstractOneInputSourcePushRuntime() {
-
-            @Override
-            public void open() throws HyracksDataException {
-                try {
-                    writer.open();
-                } finally {
-                    writer.close();
-                }
-            }
-
-        };
+    public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
+        // Does nothing.
     }
 
+    @Override
+    public void close() throws HyracksDataException {
+        // Does nothing.
+    }
+
+    @Override
+    public void fail() throws HyracksDataException {
+        // Does nothing.
+    }
 }

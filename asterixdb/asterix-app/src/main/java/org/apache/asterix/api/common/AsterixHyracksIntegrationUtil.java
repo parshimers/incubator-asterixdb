@@ -25,7 +25,6 @@ import java.io.File;
 import java.io.IOException;
 import java.net.Inet4Address;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -42,9 +41,6 @@ import org.apache.hyracks.api.application.ICCApplication;
 import org.apache.hyracks.api.application.INCApplication;
 import org.apache.hyracks.api.client.HyracksConnection;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
-import org.apache.hyracks.api.job.JobFlag;
-import org.apache.hyracks.api.job.JobId;
-import org.apache.hyracks.api.job.JobSpecification;
 import org.apache.hyracks.control.cc.ClusterControllerService;
 import org.apache.hyracks.control.common.config.ConfigManager;
 import org.apache.hyracks.control.common.controllers.CCConfig;
@@ -86,7 +82,7 @@ public class AsterixHyracksIntegrationUtil {
         final List<NodeControllerService> nodeControllers = new ArrayList<>();
         for (String nodeId : nodeNames) {
             // mark this NC as virtual in the CC's config manager, so he doesn't try to contact NCService...
-            configManager.set(nodeId, NCConfig.Option.VIRTUAL_NC, true);
+            configManager.set(nodeId, NCConfig.Option.NCSERVICE_PORT, NCConfig.NCSERVICE_PORT_DISABLED);
             final INCApplication ncApplication = createNCApplication();
             ConfigManager ncConfigManager = new ConfigManager();
             ncApplication.registerConfig(ncConfigManager);
@@ -131,6 +127,7 @@ public class AsterixHyracksIntegrationUtil {
         ccConfig.setClusterListenPort(DEFAULT_HYRACKS_CC_CLUSTER_PORT);
         ccConfig.setResultTTL(120000L);
         ccConfig.setResultSweepThreshold(1000L);
+        ccConfig.setEnforceFrameWriterProtocol(true);
         configManager.set(ControllerConfig.Option.DEFAULT_DIR, joinPath(getDefaultStoragePath(), "asterixdb"));
         return ccConfig;
     }
@@ -149,7 +146,7 @@ public class AsterixHyracksIntegrationUtil {
         ncConfig.setMessagingListenAddress(Inet4Address.getLoopbackAddress().getHostAddress());
         ncConfig.setResultTTL(120000L);
         ncConfig.setResultSweepThreshold(1000L);
-        ncConfig.setVirtualNC(true);
+        ncConfig.setVirtualNC();
         configManager.set(ControllerConfig.Option.DEFAULT_DIR, joinPath(getDefaultStoragePath(), "asterixdb", ncName));
         return ncConfig;
     }
@@ -213,13 +210,6 @@ public class AsterixHyracksIntegrationUtil {
             deleteTransactionLogs();
             removeTestStorageFiles();
         }
-    }
-
-    public void runJob(JobSpecification spec) throws Exception {
-        GlobalConfig.ASTERIX_LOGGER.info(spec.toJSON().toString());
-        JobId jobId = hcc.startJob(spec, EnumSet.of(JobFlag.PROFILE_RUNTIME));
-        GlobalConfig.ASTERIX_LOGGER.info(jobId.toString());
-        hcc.waitForCompletion(jobId);
     }
 
     protected String getDefaultStoragePath() {

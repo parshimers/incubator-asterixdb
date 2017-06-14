@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.reflect.InvocationTargetException;
@@ -71,6 +72,7 @@ import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
 import org.apache.http.entity.ContentType;
@@ -223,7 +225,7 @@ public class TestExecutor {
             }
             lineActual = readerActual.readLine();
             if (lineActual != null) {
-                throw createLineChangedException(scriptFile, "<EOF>", lineActual, num);
+                throw createLineChangedException(scriptFile, "expected <EOF>", lineActual, num);
             }
         } catch (Exception e) {
             System.err.println("Actual results file: " + actualFile.toString());
@@ -453,25 +455,50 @@ public class TestExecutor {
             throws Exception {
         if (!responseCodeValidator.test(httpResponse.getStatusLine().getStatusCode())) {
             String errorBody = EntityUtils.toString(httpResponse.getEntity());
-            String exceptionMsg;
+            String[] errors;
             try {
                 // First try to parse the response for a JSON error response.
                 ObjectMapper om = new ObjectMapper();
                 JsonNode result = om.readTree(errorBody);
-                String[] errors = { result.get("error-code").asText(), result.get("summary").asText(),
+                errors = new String[] { result.get("error-code").get(1).asText(), result.get("summary").asText(),
                         result.get("stacktrace").asText() };
-                GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, errors[2]);
-                exceptionMsg = "HTTP operation failed: " + errors[0] + "\nSTATUS LINE: " + httpResponse.getStatusLine()
-                        + "\nSUMMARY: " + errors[1] + "\nSTACKTRACE: " + errors[2];
             } catch (Exception e) {
                 // whoops, not JSON (e.g. 404) - just include the body
                 GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, errorBody);
-                exceptionMsg = "HTTP operation failed:" + "\nSTATUS LINE: " + httpResponse.getStatusLine()
-                        + "\nERROR_BODY: " + errorBody;
+                throw new Exception("HTTP operation failed:" + "\nSTATUS LINE: " + httpResponse.getStatusLine()
+                        + "\nERROR_BODY: " + errorBody, e);
             }
-            throw new Exception(exceptionMsg);
+            throw new ParsedException("HTTP operation failed: " + errors[0] + "\nSTATUS LINE: "
+                    + httpResponse.getStatusLine() + "\nSUMMARY: " + errors[2].split("\n")[0], errors[2]);
         }
         return httpResponse;
+    }
+
+    static class ParsedException extends Exception {
+
+        private final String savedStack;
+
+        ParsedException(String message, String stackTrace) {
+            super(message);
+            savedStack = stackTrace;
+        }
+
+        @Override
+        public String toString() {
+            return getMessage();
+        }
+
+        @Override
+        public void printStackTrace(PrintStream s) {
+            super.printStackTrace(s);
+            s.println("Caused by: " + savedStack);
+        }
+
+        @Override
+        public void printStackTrace(PrintWriter s) {
+            super.printStackTrace(s);
+            s.println("Caused by: " + savedStack);
+        }
     }
 
     public InputStream executeQuery(String str, OutputFormat fmt, URI uri, List<CompilationUnit.Parameter> params)
@@ -1260,7 +1287,7 @@ public class TestExecutor {
                         if (failedGroup != null) {
                             failedGroup.getTestCase().add(testCaseCtx.getTestCase());
                         }
-                        throw new Exception("Test \"" + testFile + "\" FAILED!", e);
+                        throw new Exception("Test \"" + testFile + "\" FAILED!");
                     }
                 } finally {
                     if (numOfFiles == testFileCtxs.size()) {
@@ -1371,6 +1398,48 @@ public class TestExecutor {
     //This method is here to enable extension
     protected String getPath(String servlet) {
         return servlet;
+    }
+
+    public void waitForClusterActive(int timeoutSecs, TimeUnit timeUnit) throws Exception {
+        waitForClusterState("ACTIVE", timeoutSecs, timeUnit);
+    }
+
+    public void waitForClusterState(String desiredState, int timeout, TimeUnit timeUnit) throws Exception {
+        LOGGER.info("Waiting for cluster state " + desiredState + "...");
+        Thread t = new Thread(() -> {
+            while (true) {
+                try {
+                    final HttpClient client = HttpClients.createDefault();
+
+                    final HttpGet get = new HttpGet(createEndpointURI("/admin/cluster", null));
+                    final HttpResponse httpResponse = client.execute(get);
+                    final int statusCode = httpResponse.getStatusLine().getStatusCode();
+                    final String response = EntityUtils.toString(httpResponse.getEntity());
+                    if (statusCode != HttpStatus.SC_OK) {
+                        throw new Exception("HTTP error " + statusCode + ":\n" + response);
+                    }
+                    ObjectMapper om = new ObjectMapper();
+                    ObjectNode result = (ObjectNode) om.readTree(response);
+                    if (desiredState.equals(result.get("state").asText())) {
+                        break;
+                    }
+                } catch (Exception e) {
+                    // ignore, try again
+                }
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    break;
+                }
+            }
+        });
+        t.start();
+        timeUnit.timedJoin(t, timeout);
+        if (t.isAlive()) {
+            throw new Exception("Cluster did not become " + desiredState + " within " + timeout + " "
+                    + timeUnit.name().toLowerCase());
+        }
+        LOGGER.info("Cluster state now " + desiredState);
     }
 
 }

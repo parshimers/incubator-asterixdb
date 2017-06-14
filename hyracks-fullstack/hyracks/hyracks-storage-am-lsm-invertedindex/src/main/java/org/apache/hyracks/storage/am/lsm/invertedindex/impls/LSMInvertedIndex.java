@@ -365,7 +365,7 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
         }
 
         ILSMDiskComponentBulkLoader componentBulkLoader =
-                createComponentBulkLoader(component, 1.0f, false, numBTreeTuples, false, false);
+                createComponentBulkLoader(component, 1.0f, false, numBTreeTuples, false, false, false);
 
         // Create a scan cursor on the deleted keys BTree underlying the in-memory inverted index.
         IIndexCursor deletedKeysScanCursor = deletedKeysBTreeAccessor.createSearchCursor(false);
@@ -445,7 +445,7 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
                         .getNumElements();
             }
 
-            componentBulkLoader = createComponentBulkLoader(component, 1.0f, false, numElements, false, false);
+            componentBulkLoader = createComponentBulkLoader(component, 1.0f, false, numElements, false, false, false);
             try {
                 while (btreeCursor.hasNext()) {
                     btreeCursor.next();
@@ -456,7 +456,7 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
                 btreeCursor.close();
             }
         } else {
-            componentBulkLoader = createComponentBulkLoader(component, 1.0f, false, 0L, false, false);
+            componentBulkLoader = createComponentBulkLoader(component, 1.0f, false, 0L, false, false, false);
         }
 
         try {
@@ -492,8 +492,8 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
 
     @Override
     public ILSMDiskComponentBulkLoader createComponentBulkLoader(ILSMDiskComponent component, float fillFactor,
-            boolean verifyInput, long numElementsHint, boolean checkIfEmptyIndex, boolean withFilter)
-            throws HyracksDataException {
+            boolean verifyInput, long numElementsHint, boolean checkIfEmptyIndex, boolean withFilter,
+            boolean cleanupEmptyComponent) throws HyracksDataException {
         BloomFilterSpecification bloomFilterSpec = null;
         if (numElementsHint > 0) {
             int maxBucketsPerElement = BloomCalculations.maxBucketsPerElement(numElementsHint);
@@ -501,12 +501,13 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
         }
         if (withFilter && filterFields != null) {
             return new LSMInvertedIndexDiskComponentBulkLoader((LSMInvertedIndexDiskComponent) component,
-                    bloomFilterSpec, fillFactor, verifyInput, numElementsHint, checkIfEmptyIndex, filterManager,
-                    treeFields, filterFields,
+                    bloomFilterSpec, fillFactor, verifyInput, numElementsHint, checkIfEmptyIndex, cleanupEmptyComponent,
+                    filterManager, treeFields, filterFields,
                     MultiComparator.create(component.getLSMComponentFilter().getFilterCmpFactories()));
         } else {
             return new LSMInvertedIndexDiskComponentBulkLoader((LSMInvertedIndexDiskComponent) component,
-                    bloomFilterSpec, fillFactor, verifyInput, numElementsHint, checkIfEmptyIndex);
+                    bloomFilterSpec, fillFactor, verifyInput, numElementsHint, checkIfEmptyIndex,
+                    cleanupEmptyComponent);
         }
     }
 
@@ -527,7 +528,7 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
             component = createBulkLoadTarget();
 
             componentBulkLoader =
-                    createComponentBulkLoader(component, fillFactor, verifyInput, numElementsHint, false, true);
+                    createComponentBulkLoader(component, fillFactor, verifyInput, numElementsHint, false, true, true);
         }
 
         @Override

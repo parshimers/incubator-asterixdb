@@ -205,7 +205,7 @@ public class TestNodeController {
                 NoOpOperationCallbackFactory.INSTANCE, filterFields, filterFields, false);
         BTreeSearchOperatorNodePushable searchOp =
                 searchOpDesc.createPushRuntime(ctx, primaryIndexInfo.getSearchRecordDescriptorProvider(), PARTITION, 1);
-        emptyTupleOp.setFrameWriter(0, searchOp,
+        emptyTupleOp.setOutputFrameWriter(0, searchOp,
                 primaryIndexInfo.getSearchRecordDescriptorProvider().getInputRecordDescriptor(null, 0));
         searchOp.setOutputFrameWriter(0, countOp, primaryIndexInfo.rDesc);
         return emptyTupleOp;
@@ -312,7 +312,7 @@ public class TestNodeController {
     public IHyracksTaskContext createTestContext(boolean withMessaging) throws HyracksDataException {
         IHyracksTaskContext ctx = TestUtils.create(KB32);
         if (withMessaging) {
-            TaskUtil.putInSharedMap(HyracksConstants.KEY_MESSAGE, new VSizeFrame(ctx), ctx);
+            TaskUtil.put(HyracksConstants.KEY_MESSAGE, new VSizeFrame(ctx), ctx);
         }
         ctx = Mockito.spy(ctx);
         Mockito.when(ctx.getJobletContext()).thenReturn(jobletCtx);
@@ -447,7 +447,8 @@ public class TestNodeController {
 
     public IndexDataflowHelperFactory getPrimaryIndexDataflowHelperFactory(PrimaryIndexInfo primaryIndexInfo,
             IStorageComponentProvider storageComponentProvider) throws AlgebricksException {
-        return new IndexDataflowHelperFactory(storageComponentProvider.getStorageManager(), primaryIndexInfo.fileSplitProvider);
+        return new IndexDataflowHelperFactory(storageComponentProvider.getStorageManager(),
+                primaryIndexInfo.fileSplitProvider);
     }
 
     public IIndexDataflowHelper getPrimaryIndexDataflowHelper(Dataset dataset, IAType[] primaryKeyTypes,
@@ -459,6 +460,6 @@ public class TestNodeController {
                 mergePolicyFactory, mergePolicyProperties, filterFields, primaryKeyIndexes, primaryKeyIndicators,
                 storageComponentProvider);
         return getPrimaryIndexDataflowHelperFactory(primaryIndexInfo, storageComponentProvider)
-                .create(createTestContext(true), PARTITION);
+                .create(createTestContext(true).getJobletContext().getServiceContext(), PARTITION);
     }
 }

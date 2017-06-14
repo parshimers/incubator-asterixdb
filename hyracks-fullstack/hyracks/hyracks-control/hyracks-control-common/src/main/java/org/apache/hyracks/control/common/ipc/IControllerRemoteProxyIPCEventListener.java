@@ -16,16 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.hyracks.control.common.ipc;
 
-package org.apache.hyracks.storage.am.common.dataflow;
+import org.apache.hyracks.ipc.api.IIPCHandle;
+import org.apache.hyracks.ipc.exceptions.IPCException;
 
-import java.io.Serializable;
+public interface IControllerRemoteProxyIPCEventListener {
 
-import org.apache.hyracks.api.application.INCServiceContext;
-import org.apache.hyracks.api.exceptions.HyracksDataException;
-import org.apache.hyracks.storage.am.common.api.IIndexDataflowHelper;
+    default void ipcHandleConnected(IIPCHandle handle) throws IPCException {
+        // no-op
+    }
 
-@FunctionalInterface
-public interface IIndexDataflowHelperFactory extends Serializable {
-    IIndexDataflowHelper create(final INCServiceContext ctx, int partition) throws HyracksDataException;
+    default void ipcHandleDisconnected(IIPCHandle handle) throws IPCException {
+        // no-op
+    }
+
+    default void ipcHandleRestored(IIPCHandle handle) throws IPCException {
+        // no-op
+    }
 }
