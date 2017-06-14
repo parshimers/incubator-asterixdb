@@ -56,7 +56,7 @@ public class BTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
     private final IBTreeInteriorFrame interiorFrame;
     private final IPageManager freePageManager;
     private final ITreeIndexMetadataFrame metaFrame;
-    private PermutingTupleReference logTuple; // Optional, for filtered LSM Index transaction support
+    private PermutingTupleReference logTuple;
     private ITreeIndexFrameFactory leafFrameFactory;
     private IBTreeLeafFrame leafFrame;
     private IndexOperation op;

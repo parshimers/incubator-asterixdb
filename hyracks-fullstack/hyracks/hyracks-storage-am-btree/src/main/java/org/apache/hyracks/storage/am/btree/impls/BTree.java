@@ -1241,10 +1241,10 @@ public class BTree extends AbstractTreeIndex {
 
     private void logFoundTuple(BTreeOpContext ctx, ITupleReference before, ITupleReference after)
             throws HyracksDataException {
-        if (ctx.getTupleForLog() == null) {
-            ctx.getModificationCallback().found(before, after);
-        } else {
+        if (ctx.getTupleForLog() != null) {
             ctx.getModificationCallback().found(before, ctx.getTupleForLog());
+        } else {
+            ctx.getModificationCallback().found(before, after);
         }
     }
 
