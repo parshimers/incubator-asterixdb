@@ -51,7 +51,7 @@
     <cluster_ip>127.0.0.1</cluster_ip>
     <txn_log_dir>/tmp/asterix/nc1/txnLogs</txn_log_dir>
     <iodevices>/tmp/asterix/nc1/p1,/tmp/asterix/nc1/p2</iodevices>
-
+    <debug_port>8001</debug_port>
   </node>
   <node>
     <id>nc2</id>

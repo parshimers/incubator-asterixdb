@@ -165,13 +165,13 @@ public abstract class LSMIndexSearchCursor implements ITreeIndexCursor {
 
     @Override
     public ITupleReference getFilterMinTuple() {
-        ILSMComponentFilter filter = operationalComponents.get(outputElement.cursorIndex).getLSMComponentFilter();
+        ILSMComponentFilter filter = operationalComponents.get(outputElement == null ? 0 : outputElement.cursorIndex).getLSMComponentFilter();
         return filter == null ? null : filter.getMinTuple();
     }
 
     @Override
     public ITupleReference getFilterMaxTuple() {
-        ILSMComponentFilter filter = operationalComponents.get(outputElement.cursorIndex).getLSMComponentFilter();
+        ILSMComponentFilter filter = operationalComponents.get(outputElement == null ? 0 : outputElement.cursorIndex).getLSMComponentFilter();
         return filter == null ? null : filter.getMaxTuple();
     }
 
