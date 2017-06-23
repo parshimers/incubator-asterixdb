@@ -61,7 +61,7 @@ public class RTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
 
     private IModificationOperationCallback modificationCallback;
 
-    private PermutingTupleReference logTuple;
+    private PermutingTupleReference tupleWithNonIndexFields;
 
     public RTreeOpContext(IRTreeLeafFrame leafFrame, IRTreeInteriorFrame interiorFrame, IPageManager freePageManager,
             IBinaryComparatorFactory[] cmpFactories, IModificationOperationCallback modificationCallback) {
@@ -84,9 +84,9 @@ public class RTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
 
     public RTreeOpContext(IRTreeLeafFrame leafFrame, IRTreeInteriorFrame interiorFrame, IPageManager freePageManager,
             IBinaryComparatorFactory[] cmpFactories, IModificationOperationCallback modificationCallback,
-            int[] logTupleFields) {
+            int[] nonIndexFields) {
         this(leafFrame, interiorFrame, freePageManager, cmpFactories, modificationCallback);
-        logTuple = new PermutingTupleReference(logTupleFields);
+        tupleWithNonIndexFields = new PermutingTupleReference(nonIndexFields);
     }
 
     public ITupleReference getTuple() {
@@ -200,11 +200,11 @@ public class RTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
         return cursorInitialState;
     }
 
-    public ITupleReference getTupleForLog() {
-        return logTuple;
+    public ITupleReference getTupleWithNonIndexFields() {
+        return tupleWithNonIndexFields;
     }
 
-    public void resetLogTuple(ITupleReference newValue) {
-        logTuple.reset(newValue);
+    public void resetNonIndexFieldsTuple(ITupleReference newValue) {
+        tupleWithNonIndexFields.reset(newValue);
     }
 }

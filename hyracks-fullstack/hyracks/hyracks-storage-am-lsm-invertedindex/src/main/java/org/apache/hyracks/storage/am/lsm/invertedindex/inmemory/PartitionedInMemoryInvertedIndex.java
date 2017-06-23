@@ -96,10 +96,10 @@ public class PartitionedInMemoryInvertedIndex extends InMemoryInvertedIndex impl
 
     @Override
     public IIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
-            ISearchOperationCallback searchCallback, int[] logTupleFields) throws HyracksDataException {
+            ISearchOperationCallback searchCallback, int[] nonIndexFields) throws HyracksDataException {
         return new PartitionedInMemoryInvertedIndexAccessor(this,
                 new PartitionedInMemoryInvertedIndexOpContext(btree, tokenCmpFactories, tokenizerFactory),
-                logTupleFields);
+                nonIndexFields);
     }
 
     @Override

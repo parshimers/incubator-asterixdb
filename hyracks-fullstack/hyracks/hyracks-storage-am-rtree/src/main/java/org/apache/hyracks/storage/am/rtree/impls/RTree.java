@@ -156,10 +156,10 @@ public class RTree extends AbstractTreeIndex {
                 modificationCallback);
     }
 
-    private RTreeOpContext createOpContext(IModificationOperationCallback modificationCallback, int[] logTupleFields) {
+    private RTreeOpContext createOpContext(IModificationOperationCallback modificationCallback, int[] nonIndexFields) {
         return new RTreeOpContext((IRTreeLeafFrame) leafFrameFactory.createFrame(),
                 (IRTreeInteriorFrame) interiorFrameFactory.createFrame(), freePageManager, cmpFactories,
-                modificationCallback, logTupleFields);
+                modificationCallback, nonIndexFields);
     }
 
     private ICachedPage findLeaf(RTreeOpContext ctx) throws HyracksDataException {
@@ -304,7 +304,7 @@ public class RTree extends AbstractTreeIndex {
                     if (!isLeaf) {
                         ctx.getInteriorFrame().insert(tuple, -1);
                     } else {
-                        logFoundTuple(ctx, null, tuple);
+                        foundModCallback(ctx, null, tuple);
                         ctx.getLeafFrame().insert(tuple, -1);
                     }
                     succeeded = true;
@@ -329,7 +329,7 @@ public class RTree extends AbstractTreeIndex {
                         ctx.getInteriorFrame().insert(tuple, -1);
                     } else {
                         ctx.getLeafFrame().compact();
-                        logFoundTuple(ctx, null, tuple);
+                        foundModCallback(ctx, null, tuple);
                         ctx.getLeafFrame().insert(tuple, -1);
                     }
                     succeeded = true;
@@ -367,7 +367,7 @@ public class RTree extends AbstractTreeIndex {
                         rightFrame.setPage(rightNode);
                         rightFrame.initBuffer((byte) 0);
                         rightFrame.setRightPage(ctx.getInteriorFrame().getRightPage());
-                        logFoundTuple(ctx, null, tuple);
+                        foundModCallback(ctx, null, tuple);
                         ctx.getLeafFrame().split(rightFrame, tuple, ctx.getSplitKey(), ctx, bufferCache);
                         ctx.getLeafFrame().setRightPage(rightPageId);
                     }
@@ -762,8 +762,8 @@ public class RTree extends AbstractTreeIndex {
     }
 
     public ITreeIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
-                                             ISearchOperationCallback searchCallback, int[] logTupleFields) {
-        return new RTreeAccessor(this, modificationCallback, searchCallback, logTupleFields);
+                                             ISearchOperationCallback searchCallback, int[] nonIndexFields) {
+        return new RTreeAccessor(this, modificationCallback, searchCallback, nonIndexFields);
     }
 
     public class RTreeAccessor implements ITreeIndexAccessor {
@@ -777,9 +777,9 @@ public class RTree extends AbstractTreeIndex {
         }
 
         public RTreeAccessor(RTree rtree, IModificationOperationCallback modificationCallback,
-                ISearchOperationCallback searchCallback, int[] logTupleFields) {
+                ISearchOperationCallback searchCallback, int[] nonIndexFields) {
             this.rtree = rtree;
-            this.ctx = rtree.createOpContext(modificationCallback, logTupleFields);
+            this.ctx = rtree.createOpContext(modificationCallback, nonIndexFields);
         }
 
         public void reset(RTree rtree, IModificationOperationCallback modificationCallback) {
@@ -1118,10 +1118,10 @@ public class RTree extends AbstractTreeIndex {
         return 0;
     }
 
-    private void logFoundTuple(RTreeOpContext ctx, ITupleReference before, ITupleReference after)
+    private void foundModCallback(RTreeOpContext ctx, ITupleReference before, ITupleReference after)
             throws HyracksDataException {
-        if (ctx.getTupleForLog() != null) {
-            ctx.getModificationCallback().found(before, ctx.getTupleForLog());
+        if (ctx.getTupleWithNonIndexFields() != null) {
+            ctx.getModificationCallback().found(before, ctx.getTupleWithNonIndexFields());
         } else {
             ctx.getModificationCallback().found(before, after);
         }

@@ -199,7 +199,7 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
         if (ctx.getIndexTuple() != null) {
             ctx.getIndexTuple().reset(tuple);
             indexTuple = ctx.getIndexTuple();
-            ctx.getCurrentMutableBTreeAccessor().getOpContext().resetLogTuple(tuple);
+            ctx.getCurrentMutableBTreeAccessor().getOpContext().resetNonIndexFieldsTuple(tuple);
         } else {
             indexTuple = tuple;
         }

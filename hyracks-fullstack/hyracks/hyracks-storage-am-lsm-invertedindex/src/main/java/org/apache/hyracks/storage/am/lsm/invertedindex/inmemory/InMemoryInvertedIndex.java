@@ -174,9 +174,9 @@ public class InMemoryInvertedIndex implements IInvertedIndex {
     }
 
     public IIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
-            ISearchOperationCallback searchCallback, int[] logTupleFields) throws HyracksDataException {
+            ISearchOperationCallback searchCallback, int[] nonIndexFields) throws HyracksDataException {
         return new InMemoryInvertedIndexAccessor(this,
-                new InMemoryInvertedIndexOpContext(btree, tokenCmpFactories, tokenizerFactory), logTupleFields);
+                new InMemoryInvertedIndexOpContext(btree, tokenCmpFactories, tokenizerFactory), nonIndexFields);
     }
 
     @Override

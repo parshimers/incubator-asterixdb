@@ -56,7 +56,7 @@ public class BTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
     private final IBTreeInteriorFrame interiorFrame;
     private final IPageManager freePageManager;
     private final ITreeIndexMetadataFrame metaFrame;
-    private PermutingTupleReference logTuple; // Optional, for filtered LSM Index transaction support
+    private PermutingTupleReference tupleWithNonIndexFields; // Optional, for filtered LSM Index transaction support
     private ITreeIndexFrameFactory leafFrameFactory;
     private IBTreeLeafFrame leafFrame;
     private IndexOperation op;
@@ -116,10 +116,10 @@ public class BTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
     public BTreeOpContext(IIndexAccessor accessor, ITreeIndexFrameFactory leafFrameFactory,
             ITreeIndexFrameFactory interiorFrameFactory, IPageManager freePageManager,
             IBinaryComparatorFactory[] cmpFactories, IModificationOperationCallback modificationCallback,
-            ISearchOperationCallback searchCallback, int[] logTuple) {
+            ISearchOperationCallback searchCallback, int[] nonIndexFields) {
         this(accessor, leafFrameFactory, interiorFrameFactory, freePageManager, cmpFactories, modificationCallback,
                 searchCallback);
-        this.logTuple = new PermutingTupleReference(logTuple);
+        this.tupleWithNonIndexFields = new PermutingTupleReference(nonIndexFields);
     }
 
     @Override
@@ -376,11 +376,11 @@ public class BTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
         this.leafFrameFactory = leafFrameFactory;
     }
 
-    public ITupleReference getTupleForLog() {
-        return logTuple;
+    public ITupleReference getTupleWithNonIndexFields() {
+        return tupleWithNonIndexFields;
     }
 
-    public void resetLogTuple(ITupleReference newValue) {
-        logTuple.reset(newValue);
+    public void resetNonIndexFieldsTuple(ITupleReference newValue) {
+        tupleWithNonIndexFields.reset(newValue);
     }
 }

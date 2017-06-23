@@ -32,8 +32,8 @@ public class PartitionedInMemoryInvertedIndexAccessor extends InMemoryInvertedIn
     }
 
     public PartitionedInMemoryInvertedIndexAccessor(InMemoryInvertedIndex index, IIndexOperationContext opCtx,
-            int[] logTupleFields) throws HyracksDataException {
-        super(index, opCtx, logTupleFields);
+            int[] nonIndexFields) throws HyracksDataException {
+        super(index, opCtx, nonIndexFields);
     }
 
     protected IInvertedIndexSearcher createSearcher() throws HyracksDataException {
