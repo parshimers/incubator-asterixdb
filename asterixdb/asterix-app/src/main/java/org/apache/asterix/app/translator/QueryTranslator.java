@@ -84,7 +84,7 @@ import org.apache.asterix.lang.common.base.IReturningStatement;
 import org.apache.asterix.lang.common.base.IRewriterFactory;
 import org.apache.asterix.lang.common.base.IStatementRewriter;
 import org.apache.asterix.lang.common.base.Statement;
-import org.apache.asterix.lang.common.expression.TypeExpression;
+import org.apache.asterix.lang.common.expression.IndexedTypeExpression;
 import org.apache.asterix.lang.common.statement.CompactStatement;
 import org.apache.asterix.lang.common.statement.ConnectFeedStatement;
 import org.apache.asterix.lang.common.statement.CreateDataverseStatement;
@@ -709,17 +709,19 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
 
     protected static String configureNodegroupForDataset(ICcApplicationContext appCtx, Map<String, String> hints,
             String dataverseName, String datasetName, MetadataProvider metadataProvider) throws Exception {
-        Set<String> allNodes = ClusterStateManager.INSTANCE.getParticipantNodes();
+        Set<String> allNodes = ClusterStateManager.INSTANCE.getParticipantNodes(true);
         Set<String> selectedNodes = new LinkedHashSet<>();
         String hintValue = hints.get(DatasetNodegroupCardinalityHint.NAME);
         if (hintValue == null) {
             selectedNodes.addAll(allNodes);
         } else {
             int nodegroupCardinality;
-            boolean valid = DatasetHints.validate(appCtx, DatasetNodegroupCardinalityHint.NAME,
-                    hints.get(DatasetNodegroupCardinalityHint.NAME)).first;
+            final Pair<Boolean, String> validation = DatasetHints.validate(appCtx, DatasetNodegroupCardinalityHint.NAME,
+                    hints.get(DatasetNodegroupCardinalityHint.NAME));
+            boolean valid = validation.first;
             if (!valid) {
-                throw new CompilationException("Incorrect use of hint:" + DatasetNodegroupCardinalityHint.NAME);
+                throw new CompilationException("Incorrect use of hint '" + DatasetNodegroupCardinalityHint.NAME +
+                        "': " + validation.second);
             } else {
                 nodegroupCardinality = Integer.parseInt(hints.get(DatasetNodegroupCardinalityHint.NAME));
             }
@@ -777,7 +779,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             List<List<String>> indexFields = new ArrayList<>();
             List<IAType> indexFieldTypes = new ArrayList<>();
             int keyIndex = 0;
-            for (Pair<List<String>, TypeExpression> fieldExpr : stmtCreateIndex.getFieldExprs()) {
+            boolean overridesFieldTypes = false;
+            for (Pair<List<String>, IndexedTypeExpression> fieldExpr : stmtCreateIndex.getFieldExprs()) {
                 IAType fieldType = null;
                 ARecordType subType =
                         KeyFieldTypeUtil.chooseSource(keySourceIndicators, keyIndex, aRecordType, metaRecordType);
@@ -793,9 +796,13 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 if (fieldExpr.second == null) {
                     fieldType = subType.getSubFieldType(fieldExpr.first.subList(i, fieldExpr.first.size()));
                 } else {
-                    if (!stmtCreateIndex.isEnforced()) {
-                        throw new AlgebricksException("Cannot create typed index on \"" + fieldExpr.first
-                                + "\" field without enforcing it's type");
+                    if (!stmtCreateIndex.isEnforced() && stmtCreateIndex.getIndexType() != IndexType.BTREE) {
+                        throw new AsterixException(ErrorCode.INDEX_ILLEGAL_NON_ENFORCED_TYPED,
+                                stmtCreateIndex.getIndexType());
+                    }
+                    if (stmtCreateIndex.isEnforced() && !fieldExpr.second.isUnknownable()) {
+                        throw new AsterixException(ErrorCode.INDEX_ILLEGAL_ENFORCED_NON_OPTIONAL,
+                                String.valueOf(fieldExpr.first));
                     }
                     if (!isOpen) {
                         throw new AlgebricksException("Typed index on \"" + fieldExpr.first
@@ -805,9 +812,10 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                         throw new AlgebricksException("Typed open index can only be created on the record part");
                     }
                     Map<TypeSignature, IAType> typeMap =
-                            TypeTranslator.computeTypes(mdTxnCtx, fieldExpr.second, indexName, dataverseName);
+                            TypeTranslator.computeTypes(mdTxnCtx, fieldExpr.second.getType(), indexName, dataverseName);
                     TypeSignature typeSignature = new TypeSignature(dataverseName, indexName);
                     fieldType = typeMap.get(typeSignature);
+                    overridesFieldTypes = true;
                 }
                 if (fieldType == null) {
                     throw new AlgebricksException(
@@ -819,8 +827,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 ++keyIndex;
             }
 
-            ValidateUtil.validateKeyFields(aRecordType, metaRecordType, indexFields, keySourceIndicators,
-                    indexFieldTypes, stmtCreateIndex.getIndexType());
+            validateIndexKeyFields(stmtCreateIndex, keySourceIndicators, aRecordType, metaRecordType, indexFields,
+                    indexFieldTypes);
 
             if (index != null) {
                 if (stmtCreateIndex.getIfNotExists()) {
@@ -892,7 +900,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                     // Add an entry for the files index
                     filesIndex = new Index(dataverseName, datasetName, IndexingConstants.getFilesIndexName(datasetName),
                             IndexType.BTREE, ExternalIndexingOperations.FILE_INDEX_FIELD_NAMES, null,
-                            ExternalIndexingOperations.FILE_INDEX_FIELD_TYPES, false, false,
+                            ExternalIndexingOperations.FILE_INDEX_FIELD_TYPES, overridesFieldTypes, false, false,
                             MetadataUtil.PENDING_ADD_OP);
                     MetadataManager.INSTANCE.addIndex(metadataProvider.getMetadataTxnContext(), filesIndex);
                     // Add files to the external files index
@@ -918,7 +926,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 for (Index existingIndex : indexes) {
                     if (existingIndex.getKeyFieldNames().equals(indexFields)
                             && !existingIndex.getKeyFieldTypes().equals(indexFieldTypes)
-                            && existingIndex.isEnforcingKeyFields()) {
+                            && existingIndex.isEnforced()) {
                         throw new CompilationException("Cannot create index " + indexName + " , enforced index "
                                 + existingIndex.getIndexName() + " on field \"" + StringUtils.join(indexFields, ',')
                                 + "\" is already defined with type \"" + existingIndex.getKeyFieldTypes() + "\"");
@@ -928,8 +936,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
 
             // #. add a new index with PendingAddOp
             index = new Index(dataverseName, datasetName, indexName, stmtCreateIndex.getIndexType(), indexFields,
-                    keySourceIndicators, indexFieldTypes, stmtCreateIndex.getGramLength(), stmtCreateIndex.isEnforced(),
-                    false, MetadataUtil.PENDING_ADD_OP);
+                    keySourceIndicators, indexFieldTypes, stmtCreateIndex.getGramLength(), overridesFieldTypes,
+                    stmtCreateIndex.isEnforced(),false, MetadataUtil.PENDING_ADD_OP);
             MetadataManager.INSTANCE.addIndex(metadataProvider.getMetadataTxnContext(), index);
 
             // #. prepare to create the index artifact in NC.
@@ -945,6 +953,11 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
 
             // #. create the index artifact in NC.
             runJob(hcc, spec);
+
+            // #. flush the internal dataset for correlated policy
+            if (ds.isCorrelated() && ds.getDatasetType() == DatasetType.INTERNAL) {
+                FlushDatasetUtil.flushDataset(hcc, metadataProvider, dataverseName, datasetName, datasetName);
+            }
 
             mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
             bActiveTxn = true;
@@ -1069,6 +1082,13 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 ExternalDatasetsRegistry.INSTANCE.buildIndexEnd(ds, firstExternalDatasetIndex);
             }
         }
+    }
+
+    protected void validateIndexKeyFields(CreateIndexStatement stmtCreateIndex, List<Integer> keySourceIndicators,
+            ARecordType aRecordType, ARecordType metaRecordType, List<List<String>> indexFields,
+            List<IAType> indexFieldTypes) throws AlgebricksException {
+        ValidateUtil.validateKeyFields(aRecordType, metaRecordType, indexFields, keySourceIndicators,
+                indexFieldTypes, stmtCreateIndex.getIndexType());
     }
 
     protected void handleCreateTypeStatement(MetadataProvider metadataProvider, Statement stmt) throws Exception {
@@ -1404,7 +1424,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 MetadataManager.INSTANCE.addIndex(mdTxnCtx,
                         new Index(dataverseName, datasetName, indexName, index.getIndexType(), index.getKeyFieldNames(),
                                 index.getKeyFieldSourceIndicators(), index.getKeyFieldTypes(),
-                                index.isEnforcingKeyFields(), index.isPrimaryIndex(), MetadataUtil.PENDING_DROP_OP));
+                                index.isOverridingKeyFieldTypes(), index.isEnforced(), index.isPrimaryIndex(),
+                                MetadataUtil.PENDING_DROP_OP));
 
                 // #. commit the existing transaction before calling runJob.
                 MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
@@ -1454,8 +1475,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                                     new Index(dataverseName, datasetName, externalIndex.getIndexName(),
                                             externalIndex.getIndexType(), externalIndex.getKeyFieldNames(),
                                             externalIndex.getKeyFieldSourceIndicators(), index.getKeyFieldTypes(),
-                                            index.isEnforcingKeyFields(), externalIndex.isPrimaryIndex(),
-                                            MetadataUtil.PENDING_DROP_OP));
+                                            index.isOverridingKeyFieldTypes(), index.isEnforced(),
+                                            externalIndex.isPrimaryIndex(), MetadataUtil.PENDING_DROP_OP));
                         }
                     }
                 }
@@ -1465,7 +1486,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 MetadataManager.INSTANCE.addIndex(mdTxnCtx,
                         new Index(dataverseName, datasetName, indexName, index.getIndexType(), index.getKeyFieldNames(),
                                 index.getKeyFieldSourceIndicators(), index.getKeyFieldTypes(),
-                                index.isEnforcingKeyFields(), index.isPrimaryIndex(), MetadataUtil.PENDING_DROP_OP));
+                                index.isOverridingKeyFieldTypes(), index.isEnforced(), index.isPrimaryIndex(),
+                                MetadataUtil.PENDING_DROP_OP));
 
                 // #. commit the existing transaction before calling runJob.
                 MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);

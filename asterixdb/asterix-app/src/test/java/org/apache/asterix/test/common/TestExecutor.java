@@ -45,9 +45,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -516,17 +518,27 @@ public class TestExecutor {
 
     public InputStream executeQueryService(String str, OutputFormat fmt, URI uri,
             List<CompilationUnit.Parameter> params, boolean jsonEncoded) throws Exception {
-        return executeQueryService(str, fmt, uri, params, jsonEncoded, false);
+        return executeQueryService(str, fmt, uri, params, jsonEncoded, null, false);
+    }
+
+    public InputStream executeQueryService(String str, OutputFormat fmt, URI uri,
+            List<CompilationUnit.Parameter> params, boolean jsonEncoded, Predicate<Integer> responseCodeValidator)
+            throws Exception {
+        return executeQueryService(str, fmt, uri, params, jsonEncoded, responseCodeValidator, false);
     }
 
     protected InputStream executeQueryService(String str, OutputFormat fmt, URI uri,
-            List<CompilationUnit.Parameter> params, boolean jsonEncoded, boolean cancellable) throws Exception {
+            List<CompilationUnit.Parameter> params, boolean jsonEncoded, Predicate<Integer> responseCodeValidator,
+            boolean cancellable) throws Exception {
         final List<CompilationUnit.Parameter> newParams = upsertParam(params, "format", fmt.mimeType());
         HttpUriRequest method = jsonEncoded ? constructPostMethodJson(str, uri, "statement", newParams)
                 : constructPostMethodUrl(str, uri, "statement", newParams);
         // Set accepted output response type
         method.setHeader("Accept", OutputFormat.CLEAN_JSON.mimeType());
         HttpResponse response = executeHttpRequest(method);
+        if (responseCodeValidator != null) {
+            checkResponse(response, responseCodeValidator);
+        }
         return response.getEntity().getContent();
     }
 
@@ -635,8 +647,13 @@ public class TestExecutor {
     }
 
     public InputStream executeJSONGet(OutputFormat fmt, URI uri) throws Exception {
+        return executeJSONGet(fmt, uri, code -> code == HttpStatus.SC_OK);
+    }
+
+    public InputStream executeJSONGet(OutputFormat fmt, URI uri, Predicate<Integer> responseCodeValidator)
+            throws Exception {
         HttpUriRequest request = constructGetMethod(uri, fmt, new ArrayList<>());
-        HttpResponse response = executeAndCheckHttpRequest(request);
+        HttpResponse response = executeAndCheckHttpRequest(request, responseCodeValidator);
         return response.getEntity().getContent();
     }
 
@@ -1041,9 +1058,9 @@ public class TestExecutor {
         }
     }
 
-    private void executeHttpRequest(OutputFormat fmt, String statement, Map<String, Object> variableCtx, String reqType,
-            File testFile, File expectedResultFile, File actualResultFile, MutableInt queryCount, int numResultFiles,
-            String extension, ComparisonEnum compare) throws Exception {
+    protected void executeHttpRequest(OutputFormat fmt, String statement, Map<String, Object> variableCtx,
+            String reqType, File testFile, File expectedResultFile, File actualResultFile, MutableInt queryCount,
+            int numResultFiles, String extension, ComparisonEnum compare) throws Exception {
         String handleVar = getHandleVariable(statement);
         final String trimmedPathAndQuery = stripLineComments(stripJavaComments(statement)).trim();
         final String variablesReplaced = replaceVarRef(trimmedPathAndQuery, variableCtx);
@@ -1099,7 +1116,7 @@ public class TestExecutor {
             }
             final URI uri = getEndpoint(Servlets.QUERY_SERVICE);
             if (DELIVERY_IMMEDIATE.equals(delivery)) {
-                resultStream = executeQueryService(statement, fmt, uri, params, true, true);
+                resultStream = executeQueryService(statement, fmt, uri, params, true, null, true);
                 resultStream = ResultExtractor.extract(resultStream);
             } else {
                 String handleVar = getHandleVariable(statement);
@@ -1136,12 +1153,26 @@ public class TestExecutor {
         boolean expectedException = false;
         Exception finalException;
         LOGGER.fine("polling for up to " + timeoutSecs + " seconds w/ " + retryDelaySecs + " second(s) delay");
+        int responsesReceived = 0;
+        final ExecutorService executorService = Executors.newSingleThreadExecutor();
         while (true) {
             try {
-                executeTestFile(testCaseCtx, ctx, variableCtx, statement, isDmlRecoveryTest, pb, cUnit, queryCount,
-                        expectedResultFileCtxs, testFile, actualPath);
+                Future<Void> execution = executorService.submit(() -> {
+                    executeTestFile(testCaseCtx, ctx, variableCtx, statement, isDmlRecoveryTest, pb, cUnit, queryCount,
+                            expectedResultFileCtxs, testFile, actualPath);
+                    return null;
+                });
+                execution.get(limitTime - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+                responsesReceived++;
                 finalException = null;
                 break;
+            } catch (TimeoutException e) {
+                if (responsesReceived == 0) {
+                    throw new Exception("Poll limit (" + timeoutSecs + "s) exceeded without obtaining *any* result from server");
+                } else {
+                    throw new Exception("Poll limit (" + timeoutSecs + "s) exceeded without obtaining expected result");
+
+                }
             } catch (Exception e) {
                 if (isExpected(e, cUnit)) {
                     expectedException = true;
@@ -1153,7 +1184,7 @@ public class TestExecutor {
                     break;
                 }
                 LOGGER.fine("sleeping " + retryDelaySecs + " second(s) before polling again");
-                Thread.sleep(TimeUnit.SECONDS.toMillis(retryDelaySecs));
+                TimeUnit.SECONDS.sleep(retryDelaySecs);
             }
         }
         if (expectedException) {
@@ -1339,7 +1370,7 @@ public class TestExecutor {
         return uri;
     }
 
-    protected URI getEndpoint(String servlet) throws URISyntaxException {
+    public URI getEndpoint(String servlet) throws URISyntaxException {
         return createEndpointURI(getPath(servlet).replaceAll("/\\*$", ""), null);
     }
 
@@ -1411,7 +1442,7 @@ public class TestExecutor {
                 try {
                     final HttpClient client = HttpClients.createDefault();
 
-                    final HttpGet get = new HttpGet(createEndpointURI("/admin/cluster", null));
+                    final HttpGet get = new HttpGet(getEndpoint(Servlets.CLUSTER_STATE));
                     final HttpResponse httpResponse = client.execute(get);
                     final int statusCode = httpResponse.getStatusLine().getStatusCode();
                     final String response = EntityUtils.toString(httpResponse.getEntity());
