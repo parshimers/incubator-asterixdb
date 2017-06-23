@@ -204,13 +204,17 @@ public class LSMRTreeWithAntiMatterTuplesSearchCursor extends LSMIndexSearchCurs
 
     @Override
     public ITupleReference getFilterMinTuple() {
-        ILSMComponentFilter filter = operationalComponents.get(currentCursor).getLSMComponentFilter();
+        ILSMComponentFilter filter = operationalComponents
+                .get(currentCursor < numMutableComponents ? currentCursor : outputElement.getCursorIndex() + currentCursor)
+                .getLSMComponentFilter();
         return filter == null ? null : filter.getMinTuple();
     }
 
     @Override
     public ITupleReference getFilterMaxTuple() {
-        ILSMComponentFilter filter = operationalComponents.get(currentCursor).getLSMComponentFilter();
+        ILSMComponentFilter filter = operationalComponents
+                .get(currentCursor < numMutableComponents ? currentCursor : outputElement.getCursorIndex() + currentCursor)
+                .getLSMComponentFilter();
         return filter == null ? null : filter.getMaxTuple();
     }
 
