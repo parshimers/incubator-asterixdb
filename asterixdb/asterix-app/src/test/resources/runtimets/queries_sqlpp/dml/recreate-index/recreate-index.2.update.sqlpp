@@ -16,42 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.asterix.metadata.lock;
-
-/**
- * A Metadata lock local to compilation node
+/*
+ * Test case Name  : recreate-index
+ * Description     : This test is intended to test creating and inserting into a dataset with an index
+ *                   then deleting the index, re-create the same index with the same name, and then insert
+ *                   additional data
+ * Expected Result : Success
+ * Date            : June 23 2017
  */
-public interface IMetadataLock {
 
-    enum Mode {
-        READ,
-        MODIFY,
-        REFRESH,
-        INDEX_BUILD,
-        INDEX_DROP,
-        WRITE
-    }
+use test;
 
-    /**
-     * Acquire a lock
-     *
-     * @param mode
-     *            lock mode
-     */
-    void acquire(IMetadataLock.Mode mode);
 
-    /**
-     * Release a lock
-     *
-     * @param mode
-     *            lock mode
-     */
-    void release(IMetadataLock.Mode mode);
+load  dataset test.employee using localfs ((`path`=`asterix_nc1://data/names.adm`),(`format`=`delimited-text`),(`delimiter`=`|`));
 
-    /**
-     * Get the lock's key
-     *
-     * @return the key identiying the lock
-     */
-    String getKey();
-}
+insert into test.employee
+select element {'id':(x.id + 10000),'fname':x.fname,'lname':x.lname,'age':x.age,'dept':x.dept}
+from  `test.employee` as x
+;
