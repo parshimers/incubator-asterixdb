@@ -38,11 +38,13 @@ public abstract class AbstractIndexModificationOperationCallback extends Abstrac
     public static final byte INSERT_BYTE = 0x01;
     public static final byte DELETE_BYTE = 0x02;
     public static final byte UPSERT_BYTE = 0x03;
+    public static final byte FILTER_BYTE = 0x04;
 
     public enum Operation {
         INSERT(INSERT_BYTE),
         DELETE(DELETE_BYTE),
-        UPSERT(UPSERT_BYTE);
+        UPSERT(UPSERT_BYTE),
+        FILTER_MOD(FILTER_BYTE);
         private byte value;
 
         Operation(byte value) {
@@ -61,6 +63,8 @@ public abstract class AbstractIndexModificationOperationCallback extends Abstrac
                     return INSERT;
                 case UPSERT:
                     return UPSERT;
+                case FILTER_MOD:
+                    return FILTER_MOD;
                 default:
                     throw new IllegalArgumentException();
 

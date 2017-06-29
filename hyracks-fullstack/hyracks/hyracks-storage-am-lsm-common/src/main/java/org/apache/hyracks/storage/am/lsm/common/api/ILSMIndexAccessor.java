@@ -245,4 +245,11 @@ public interface ILSMIndexAccessor extends IIndexAccessor {
      *             If the BufferCache throws while un/pinning or un/latching.
      */
     void scanDiskComponents(IIndexCursor cursor) throws HyracksDataException;
+
+    /**
+     * Update the filter of an LSM index
+     * @param tuple
+     * @throws HyracksDataException
+     */
+    void updateFilter(ITupleReference tuple) throws HyracksDataException;
 }

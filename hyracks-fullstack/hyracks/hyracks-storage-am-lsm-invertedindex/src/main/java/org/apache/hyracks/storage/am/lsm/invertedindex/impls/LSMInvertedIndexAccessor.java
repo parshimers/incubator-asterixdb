@@ -200,6 +200,11 @@ public class LSMInvertedIndexAccessor implements ILSMIndexAccessor, IInvertedInd
     }
 
     @Override
+    public void updateFilter(ITupleReference tuple) throws HyracksDataException {
+        lsmHarness.updateFilter(ctx,tuple);
+    }
+
+    @Override
     public void forceUpsert(ITupleReference tuple) throws HyracksDataException {
         throw new UnsupportedOperationException("Upsert not supported by lsm inverted index.");
     }
