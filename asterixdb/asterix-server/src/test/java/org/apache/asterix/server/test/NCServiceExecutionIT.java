@@ -19,6 +19,7 @@
 package org.apache.asterix.server.test;
 
 import java.io.File;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -26,12 +27,16 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
+import org.apache.asterix.common.utils.Servlets;
 import org.apache.asterix.test.common.TestExecutor;
 import org.apache.asterix.test.runtime.HDFSCluster;
 import org.apache.asterix.testframework.context.TestCaseContext;
+import org.apache.asterix.testframework.xml.TestCase;
 import org.apache.asterix.testframework.xml.TestGroup;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.http.conn.HttpHostConnectException;
 import org.apache.hyracks.server.process.HyracksCCProcess;
 import org.apache.hyracks.server.process.HyracksNCServiceProcess;
 import org.apache.hyracks.server.process.HyracksVirtualCluster;
@@ -252,7 +257,16 @@ public class NCServiceExecutionIT {
                 default:
                     Assert.fail("killType: " + killType);
             }
-            testExecutor.waitForClusterActive(30, TimeUnit.SECONDS);
+            List<TestCase.CompilationUnit.Parameter> nullList = new ArrayList<>();
+            while(true){
+                try {
+                    System.out.println(IOUtils.toString(
+                            testExecutor.executeQuery("SELECT 1", TestCaseContext.OutputFormat.ADM, testExecutor.getEndpoint(Servlets.SQLPP), nullList)));
+                    break;
+                } catch(HttpHostConnectException e){
+                    continue;
+                }
+            }
         }
     }
 }
