@@ -59,4 +59,9 @@ public enum NoOpOperationCallback implements IModificationOperationCallback,ISea
     public void complete(ITupleReference tuple) throws HyracksDataException {
         // Do nothing.
     }
+
+    @Override
+    public void logFilter(ITupleReference tuple) throws HyracksDataException {
+        // Do nothing.
+    }
 }

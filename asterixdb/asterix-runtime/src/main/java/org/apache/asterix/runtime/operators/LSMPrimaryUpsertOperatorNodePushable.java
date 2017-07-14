@@ -370,6 +370,7 @@ public class LSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertUpdateDe
     @Override
     public void fail() throws HyracksDataException {
         writer.fail();
+
     }
 
     @Override

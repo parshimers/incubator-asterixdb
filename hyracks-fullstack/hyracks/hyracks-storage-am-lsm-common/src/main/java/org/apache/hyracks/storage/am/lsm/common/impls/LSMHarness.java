@@ -629,7 +629,7 @@ public class LSMHarness implements ILSMHarness {
         if (!lsmIndex.isMemoryComponentsAllocated()) {
             lsmIndex.allocateMemoryComponents();
         }
-        ctx.getModificationCallback().found(null, tuple);
+        ctx.getModificationCallback().logFilter(tuple);
         lsmIndex.updateFilter(ctx, tuple);
     }
 

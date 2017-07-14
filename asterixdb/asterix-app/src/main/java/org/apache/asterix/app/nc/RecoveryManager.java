@@ -230,6 +230,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                 case LogType.FLUSH:
                 case LogType.WAIT:
                 case LogType.MARKER:
+                case LogType.FILTER:
                     break;
                 default:
                     throw new ACIDException("Unsupported LogType: " + logRecord.getLogType());
@@ -322,7 +323,13 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                                     foundWinner = true;
                                 }
                             }
-                            if (foundWinner) {
+                            if (!foundWinner) {
+                                break;
+                            }
+                        }
+                        //fall through. filters are not assigned strictly to entities
+                    case LogType.FILTER:
+                        if (partitions.contains(logRecord.getResourcePartition())) {
                                 resourceId = logRecord.getResourceId();
                                 localResource = resourcesMap.get(resourceId);
                                 /*******************************************************************
@@ -378,7 +385,6 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                                     redo(logRecord, datasetLifecycleManager);
                                     redoCount++;
                                 }
-                            }
                         }
                         break;
                     case LogType.JOB_COMMIT:

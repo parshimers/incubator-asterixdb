@@ -65,4 +65,9 @@ public enum TestOperationCallback implements ISearchOperationCallback,IModificat
     public void complete(ITupleReference tuple) throws HyracksDataException {
         // Do nothing.
     }
+
+    @Override
+    public void logFilter(ITupleReference tuple) throws HyracksDataException{
+        // Do nothing.
+    }
 }
