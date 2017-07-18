@@ -37,7 +37,7 @@ import org.apache.hyracks.storage.am.common.tuples.SimpleTupleWriter;
  * LogType(1)
  * JobId(4)
  * ---------------------------
- * [Header2] (8 bytes + PKValueSize) : for entity_commit, upsert_entity_commit, and update log types
+ * [Header2] (8 bytes) : for entity_commit, upsert_entity_commit, filter and update log types
  * DatasetId(4) //stored in dataset_dataset in Metadata Node
  * ResourcePartition(4)
  * ---------------------------
@@ -61,10 +61,12 @@ import org.apache.hyracks.storage.am.common.tuples.SimpleTupleWriter;
  * ---------------------------
  * = LogSize =
  * 1) JOB_COMMIT_LOG_SIZE: 14 bytes (Header1(6) + Tail(8))
- * 2) ENTITY_COMMIT || UPSERT_ENTITY_COMMIT: (Header1(6) + Header2(16) + Tail(8)) + PKValueSize
+ * 2) ENTITY_COMMIT || UPSERT_ENTITY_COMMIT: (Header1(6) + Header2(8) + Header3(8) + Tail(8)) + PKValueSize
  * --> ENTITY_COMMIT_LOG_BASE_SIZE = 30
- * 3) UPDATE: (Header1(6) + Header2(16) + + Header3(20) + Body(9) + Tail(8)) + PKValueSize + NewValueSize
- * --> UPDATE_LOG_BASE_SIZE = 59
+ * 3) UPDATE: (Header1(6) + Header2(8) + Header3(8) + Header4(20) + Body(9) + Tail(8)) + PKValueSize + NewValueSize
+ * --> UPDATE_LOG_BASE_SIZE = 51
+ * 4) FILTER: (Header1(6) + Header2(8) + Body(9) + Tail(8))
+ * --> FILTER_LOG_BASE_SIZE = 43
  * 4) FLUSH: 18 bytes (Header1(6) + DatasetId(4) + Tail(8))
  * 5) WAIT_LOG_SIZE: 14 bytes (Header1(6) + Tail(8))
  * --> WAIT_LOG only requires LogType Field, but in order to conform the log reader protocol
@@ -151,6 +153,15 @@ public class LogRecord implements ILogRecord {
                     writeTuple(buffer, oldValue, oldValueSize);
                 }
                 break;
+            case LogType.FILTER:
+                writeEntityInfoNoPK(buffer);
+                buffer.putLong(resourceId);
+                buffer.putInt(logSize);
+                buffer.putInt(newValueFieldCount);
+                buffer.put(newOp);
+                buffer.putInt(newValueSize);
+                writeTuple(buffer, newValue, newValueSize);
+                break;
             case LogType.FLUSH:
                 buffer.putInt(datasetId);
                 break;
@@ -175,6 +186,11 @@ public class LogRecord implements ILogRecord {
         }
         buffer.putInt(PKValueSize);
         writePKValue(buffer);
+    }
+
+    private void writeEntityInfoNoPK(ByteBuffer buffer) {
+        buffer.putInt(resourcePartition);
+        buffer.putInt(datasetId);
     }
 
     @Override
@@ -443,6 +459,10 @@ public class LogRecord implements ILogRecord {
         }
     }
 
+    private int getFilterLogSize() {
+       return FILTER_LOG_BASE_SIZE + newValueSize;
+    }
+
     private int getUpdateLogSizeWithoutOldValue() {
         return UPDATE_LOG_BASE_SIZE + PKValueSize + newValueSize;
     }
@@ -452,6 +472,9 @@ public class LogRecord implements ILogRecord {
         switch (logType) {
             case LogType.UPDATE:
                 setUpdateLogSize();
+                break;
+            case LogType.FILTER:
+                logSize = getFilterLogSize();
                 break;
             case LogType.JOB_COMMIT:
             case LogType.ABORT:
