@@ -26,9 +26,14 @@ import java.io.IOException;
 import java.net.Inet4Address;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.fasterxml.jackson.databind.introspect.TypeResolutionContext;
+import io.netty.util.internal.logging.InternalLoggerFactory;
+import io.netty.util.internal.logging.JdkLoggerFactory;
+import io.netty.util.internal.logging.Log4JLoggerFactory;
 import org.apache.asterix.common.api.IClusterManagementWork.ClusterState;
 import org.apache.asterix.common.config.GlobalConfig;
 import org.apache.asterix.common.config.PropertiesAccessor;
@@ -47,6 +52,8 @@ import org.apache.hyracks.control.common.controllers.CCConfig;
 import org.apache.hyracks.control.common.controllers.ControllerConfig;
 import org.apache.hyracks.control.common.controllers.NCConfig;
 import org.apache.hyracks.control.nc.NodeControllerService;
+import org.apache.log4j.Appender;
+import org.apache.log4j.BasicConfigurator;
 import org.kohsuke.args4j.CmdLineException;
 
 public class AsterixHyracksIntegrationUtil {
@@ -59,6 +66,8 @@ public class AsterixHyracksIntegrationUtil {
 
     public static final int DEFAULT_HYRACKS_CC_CLIENT_PORT = 1098;
     public static final int DEFAULT_HYRACKS_CC_CLUSTER_PORT = 1099;
+
+    static org.apache.log4j.Logger logger = org.apache.log4j.Logger.getLogger(AsterixHyracksIntegrationUtil.class);
 
     public ClusterControllerService cc;
     public NodeControllerService[] ncs = new NodeControllerService[0];
@@ -247,6 +256,12 @@ public class AsterixHyracksIntegrationUtil {
      *            unused
      */
     public static void main(String[] args) throws Exception {
+        LOGGER.getParent().setLevel(Level.FINER);
+        InternalLoggerFactory.setDefaultFactory(new JdkLoggerFactory());
+        Logger.getLogger("io.netty").setLevel(Level.FINEST);
+        LoggerHolder.LOGGER.setLevel(Level.FINEST);
+        LOGGER.addHandler(new ConsoleHandler());
+        BasicConfigurator.configure();
         AsterixHyracksIntegrationUtil integrationUtil = new AsterixHyracksIntegrationUtil();
         try {
             integrationUtil.run(Boolean.getBoolean("cleanup.start"), Boolean.getBoolean("cleanup.shutdown"));

@@ -31,6 +31,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import io.netty.util.internal.logging.InternalLogger;
+import io.netty.util.internal.logging.InternalLoggerFactory;
+import io.netty.util.internal.logging.JdkLoggerFactory;
 import org.apache.hyracks.http.api.IServlet;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -195,7 +198,7 @@ public class HttpServer {
         ServerBootstrap b = new ServerBootstrap();
         b.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)
                 .childOption(ChannelOption.WRITE_BUFFER_WATER_MARK, WRITE_BUFFER_WATER_MARK)
-                .handler(new LoggingHandler(LogLevel.DEBUG)).childHandler(new HttpServerInitializer(this));
+                .childHandler(new LoggingHandler()).childHandler(new HttpServerInitializer(this));
         channel = b.bind(port).sync().channel();
     }
 

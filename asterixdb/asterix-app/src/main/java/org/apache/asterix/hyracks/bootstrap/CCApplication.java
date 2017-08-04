@@ -21,6 +21,7 @@ package org.apache.asterix.hyracks.bootstrap;
 
 import static org.apache.asterix.algebra.base.ILangExtension.Language.AQL;
 import static org.apache.asterix.algebra.base.ILangExtension.Language.SQLPP;
+import static org.apache.asterix.api.http.servlet.ServletConstants.ACCESS_LOG_ATTR;
 import static org.apache.asterix.api.http.servlet.ServletConstants.ASTERIX_APP_CONTEXT_INFO_ATTR;
 import static org.apache.asterix.api.http.servlet.ServletConstants.HYRACKS_CONNECTION_ATTR;
 

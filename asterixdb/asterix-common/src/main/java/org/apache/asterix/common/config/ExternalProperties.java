@@ -18,11 +18,14 @@
  */
 package org.apache.asterix.common.config;
 
+import static java.lang.Boolean.FALSE;
 import static org.apache.hyracks.control.common.config.OptionTypes.*;
 
 import org.apache.hyracks.api.config.IOption;
 import org.apache.hyracks.api.config.IOptionType;
 import org.apache.hyracks.api.config.Section;
+
+import java.util.logging.Level;
 
 public class ExternalProperties extends AbstractProperties {
 
@@ -31,7 +34,7 @@ public class ExternalProperties extends AbstractProperties {
         WEB_QUERYINTERFACE_PORT(INTEGER, 19006, "The listen port of the query web interface"),
         API_PORT(INTEGER, 19002, "The listen port of the API server"),
         ACTIVE_PORT(INTEGER, 19003, "The listen port of the active server"),
-        LOG_LEVEL(LEVEL, java.util.logging.Level.WARNING, "The logging level for master and slave processes"),
+        LOG_LEVEL(LEVEL, Level.FINE, "The logging level for master and slave processes"),
         MAX_WAIT_ACTIVE_CLUSTER(INTEGER, 60, "The max pending time (in seconds) for cluster startup. After the " +
                 "threshold, if the cluster still is not up and running, it is considered unavailable"),
         CC_JAVA_OPTS(STRING, "-Xmx1024m", "The JVM options passed to the cluster controller process by managix"),
@@ -117,4 +120,5 @@ public class ExternalProperties extends AbstractProperties {
     public String getCCJavaParams() {
         return accessor.getString(Option.CC_JAVA_OPTS);
     }
+
 }
