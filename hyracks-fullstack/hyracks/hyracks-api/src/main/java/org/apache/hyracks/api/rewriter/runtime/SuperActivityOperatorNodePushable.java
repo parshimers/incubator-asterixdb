@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 
@@ -60,7 +61,8 @@ public class SuperActivityOperatorNodePushable implements IOperatorNodePushable 
     private int inputArity = 0;
 
     public SuperActivityOperatorNodePushable(SuperActivity parent, Map<ActivityId, IActivity> startActivities,
-            IHyracksTaskContext ctx, IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) {
+            IHyracksTaskContext ctx, IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions)
+            throws HyracksDataException {
         this.parent = parent;
         this.startActivities = startActivities;
         this.ctx = ctx;
@@ -75,7 +77,7 @@ public class SuperActivityOperatorNodePushable implements IOperatorNodePushable 
         try {
             init();
         } catch (Exception e) {
-            throw new IllegalStateException(e);
+            throw HyracksDataException.create(e);
         }
     }
 
@@ -213,9 +215,9 @@ public class SuperActivityOperatorNodePushable implements IOperatorNodePushable 
             cancelTasks(tasks, startSemaphore, completeSemaphore);
             Thread.currentThread().interrupt();
             throw HyracksDataException.create(e);
-        } catch (Exception e) {
+        } catch (ExecutionException e) {
             cancelTasks(tasks, startSemaphore, completeSemaphore);
-            throw HyracksDataException.create(e);
+            throw HyracksDataException.create(e.getCause());
         }
     }
 

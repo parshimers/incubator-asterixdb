@@ -81,6 +81,7 @@ import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.client.StandardHttpRequestRetryHandler;
+import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.EntityUtils;
 import org.apache.hyracks.util.StorageUtil;
 import org.junit.Assert;
@@ -445,12 +446,16 @@ public class TestExecutor {
     protected HttpResponse executeHttpRequest(HttpUriRequest method) throws Exception {
         HttpClient client = HttpClients.custom().setRetryHandler(StandardHttpRequestRetryHandler.INSTANCE).build();
         try {
-            return client.execute(method);
+            return client.execute(method, getHttpContext());
         } catch (Exception e) {
             GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, e.getMessage(), e);
             e.printStackTrace();
             throw e;
         }
+    }
+
+    protected HttpContext getHttpContext() {
+        return null;
     }
 
     protected HttpResponse checkResponse(HttpResponse httpResponse, Predicate<Integer> responseCodeValidator)
@@ -467,8 +472,10 @@ public class TestExecutor {
             } catch (Exception e) {
                 // whoops, not JSON (e.g. 404) - just include the body
                 GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, errorBody);
-                throw new Exception("HTTP operation failed:" + "\nSTATUS LINE: " + httpResponse.getStatusLine()
-                        + "\nERROR_BODY: " + errorBody, e);
+                Exception failure = new Exception("HTTP operation failed:" + "\nSTATUS LINE: "
+                        + httpResponse.getStatusLine() + "\nERROR_BODY: " + errorBody);
+                failure.addSuppressed(e);
+                throw failure;
             }
             throw new ParsedException("HTTP operation failed: " + errors[0] + "\nSTATUS LINE: "
                     + httpResponse.getStatusLine() + "\nSUMMARY: " + errors[2].split("\n")[0], errors[2]);
@@ -1168,7 +1175,8 @@ public class TestExecutor {
                 break;
             } catch (TimeoutException e) {
                 if (responsesReceived == 0) {
-                    throw new Exception("Poll limit (" + timeoutSecs + "s) exceeded without obtaining *any* result from server");
+                    throw new Exception(
+                            "Poll limit (" + timeoutSecs + "s) exceeded without obtaining *any* result from server");
                 } else {
                     throw new Exception("Poll limit (" + timeoutSecs + "s) exceeded without obtaining expected result");
 
@@ -1441,9 +1449,8 @@ public class TestExecutor {
             while (true) {
                 try {
                     final HttpClient client = HttpClients.createDefault();
-
                     final HttpGet get = new HttpGet(getEndpoint(Servlets.CLUSTER_STATE));
-                    final HttpResponse httpResponse = client.execute(get);
+                    final HttpResponse httpResponse = client.execute(get, getHttpContext());
                     final int statusCode = httpResponse.getStatusLine().getStatusCode();
                     final String response = EntityUtils.toString(httpResponse.getEntity());
                     if (statusCode != HttpStatus.SC_OK) {
@@ -1451,7 +1458,7 @@ public class TestExecutor {
                     }
                     ObjectMapper om = new ObjectMapper();
                     ObjectNode result = (ObjectNode) om.readTree(response);
-                    if (desiredState.equals(result.get("state").asText())) {
+                    if (result.get("state").asText().matches(desiredState)) {
                         break;
                     }
                 } catch (Exception e) {

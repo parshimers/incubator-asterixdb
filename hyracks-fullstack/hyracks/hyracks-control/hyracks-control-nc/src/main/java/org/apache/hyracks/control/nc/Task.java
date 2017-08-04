@@ -22,13 +22,13 @@ import static org.apache.hyracks.api.exceptions.ErrorCode.TASK_ABORTED;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.logging.Level;
@@ -121,7 +121,7 @@ public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
         opEnv = joblet.getEnvironment();
         partitionSendProfile = new Hashtable<>();
         pendingThreads = new LinkedHashSet<>();
-        exceptions = new ArrayList<>();
+        exceptions = new CopyOnWriteArrayList<>(); // Multiple threads could add exceptions to this list.
         this.ncs = ncs;
         this.inputChannelsFromConnectors = inputChannelsFromConnectors;
     }
@@ -275,7 +275,8 @@ public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
         if (!addPendingThread(ct)) {
             exceptions.add(HyracksDataException.create(TASK_ABORTED, getTaskAttemptId()));
             ExceptionUtils.setNodeIds(exceptions, ncs.getId());
-            ncs.getWorkQueue().schedule(new NotifyTaskFailureWork(ncs, this, exceptions));
+            ncs.getWorkQueue()
+                    .schedule(new NotifyTaskFailureWork(ncs, this, exceptions, joblet.getJobId(), taskAttemptId));
             return;
         }
         ct.setName(displayName + ":" + taskAttemptId + ":" + 0);
@@ -353,13 +354,14 @@ public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
                 for (int i = 0; i < exceptions.size(); i++) {
                     LOGGER.log(Level.WARNING,
                             "Task " + taskAttemptId + " failed with exception"
-                                    + (exceptions.size() > 1 ? "s (" + (i + 1) + "/" + exceptions.size()  + ")" : ""),
+                                    + (exceptions.size() > 1 ? "s (" + (i + 1) + "/" + exceptions.size() + ")" : ""),
                             exceptions.get(i));
                 }
             }
             NodeControllerService ncs = joblet.getNodeController();
             ExceptionUtils.setNodeIds(exceptions, ncs.getId());
-            ncs.getWorkQueue().schedule(new NotifyTaskFailureWork(ncs, this, exceptions));
+            ncs.getWorkQueue()
+                    .schedule(new NotifyTaskFailureWork(ncs, this, exceptions, joblet.getJobId(), taskAttemptId));
         }
     }
 
