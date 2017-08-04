@@ -713,7 +713,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             } else if (logRecord.getNewOp() == AbstractIndexModificationOperationCallback.UPSERT_BYTE) {
                 // redo, upsert the new value
                 indexAccessor.forceUpsert(logRecord.getNewValue());
-            } else if (logRecord.getNewOp() == AbstractIndexModificationOperationCallback.FILTER_BYTE){
+            } else if (logRecord.getNewOp() == AbstractIndexModificationOperationCallback.FILTER_BYTE) {
                 indexAccessor.updateFilter(logRecord.getNewValue());
 
             } else {

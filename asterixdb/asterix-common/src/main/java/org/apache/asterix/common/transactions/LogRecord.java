@@ -302,13 +302,12 @@ public class LogRecord implements ILogRecord {
                 }
                 break;
             case LogType.FILTER:
-                if(readEntityNoPKInfo(buffer)) {
+                if (readEntityNoPKInfo(buffer)) {
                     RecordReadStatus updStatus = readUpdateInfo(buffer);
                     if (updStatus != RecordReadStatus.OK) {
                         return updStatus;
                     }
-                }
-                else {
+                } else {
                     return RecordReadStatus.TRUNCATED;
                 }
                 break;
@@ -460,7 +459,7 @@ public class LogRecord implements ILogRecord {
     }
 
     private int getFilterLogSize() {
-       return FILTER_LOG_BASE_SIZE + newValueSize;
+        return FILTER_LOG_BASE_SIZE + newValueSize;
     }
 
     private int getUpdateLogSizeWithoutOldValue() {
