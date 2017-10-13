@@ -27,6 +27,7 @@ public class LogType {
     public static final byte FLUSH = 4;
     public static final byte WAIT = 6;
     public static final byte MARKER = 7;
+    public static final byte FILTER = 8;
 
     private static final String STRING_UPDATE = "UPDATE";
     private static final String STRING_JOB_COMMIT = "JOB_COMMIT";
@@ -35,6 +36,7 @@ public class LogType {
     private static final String STRING_FLUSH = "FLUSH";
     private static final String STRING_WAIT = "WAIT";
     private static final String STRING_MARKER = "MARKER";
+    private static final String STRING_FILTER = "FILTER";
     private static final String STRING_UNKNOWN_LOG_TYPE = "UNKNOWN_LOG_TYPE";
 
     public static String toString(byte logType) {
@@ -53,6 +55,8 @@ public class LogType {
                 return STRING_WAIT;
             case LogType.MARKER:
                 return STRING_MARKER;
+            case LogType.FILTER:
+                return STRING_FILTER;
             default:
                 return STRING_UNKNOWN_LOG_TYPE;
         }

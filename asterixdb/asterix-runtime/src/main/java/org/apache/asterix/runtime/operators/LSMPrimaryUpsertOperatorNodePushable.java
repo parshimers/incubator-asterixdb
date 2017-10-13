@@ -164,7 +164,7 @@ public class LSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertUpdateDe
                     }
                     if (isFiltered && prevTuple != null) {
                         // need to update the filter of the new component with the previous value
-                        lsmAccessor.updateFilter(prevTuple);
+                        lsmAccessor.updateFilter(prevTuple, true);
                     }
                     writeOutput(index, recordWasInserted, recordWasDeleted);
                 } catch (Exception e) {
@@ -369,6 +369,7 @@ public class LSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertUpdateDe
     @Override
     public void fail() throws HyracksDataException {
         writer.fail();
+
     }
 
     @Override

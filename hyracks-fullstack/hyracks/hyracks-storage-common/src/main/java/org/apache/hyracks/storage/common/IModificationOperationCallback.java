@@ -36,7 +36,7 @@ public interface IModificationOperationCallback {
      * @param tuple
      *            the tuple that is about to be operated on
      */
-    public void before(ITupleReference tuple) throws HyracksDataException;
+    void before(ITupleReference tuple) throws HyracksDataException;
 
     /**
      * This method is called on a tuple when a tuple with a matching key is found for the
@@ -48,5 +48,7 @@ public interface IModificationOperationCallback {
      * @param tuple
      *            a tuple with a matching key, otherwise null if none exists
      */
-    public void found(ITupleReference before, ITupleReference after) throws HyracksDataException;
+    void found(ITupleReference before, ITupleReference after) throws HyracksDataException;
+
+    void logFilter(ITupleReference after) throws HyracksDataException;
 }

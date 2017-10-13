@@ -59,6 +59,7 @@ public interface ILogRecord {
     public static final int JOB_TERMINATE_LOG_SIZE = ALL_RECORD_HEADER_LEN + CHKSUM_LEN;
     public static final int ENTITY_COMMIT_LOG_BASE_SIZE = 30; // ALL_RECORD_HEADER_LEN + CHKSUM_LEN +?
     public static final int UPDATE_LOG_BASE_SIZE = 51; // ALL_RECORD_HEADER_LEN + CHKSUM_LEN +?
+    public static final int FILTER_LOG_BASE_SIZE = 43; // ALL_RECORD_HEADER_LEN except PK values (8) + CHKSUM_LEN +?
     public static final int FLUSH_LOG_SIZE = 18; // ALL_RECORD_HEADER_LEN + CHKSUM_LEN +?
     public static final int WAIT_LOG_SIZE = ALL_RECORD_HEADER_LEN + CHKSUM_LEN;
     public static final int MARKER_BASE_LOG_SIZE =

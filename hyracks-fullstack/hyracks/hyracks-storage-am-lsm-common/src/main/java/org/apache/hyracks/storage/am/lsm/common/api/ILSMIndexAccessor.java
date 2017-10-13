@@ -253,6 +253,13 @@ public interface ILSMIndexAccessor extends IIndexAccessor {
     void scanDiskComponents(IIndexCursor cursor) throws HyracksDataException;
 
     /**
+     * Update the filter of an LSM index
+     * @param tuple
+     * @throws HyracksDataException
+     */
+    void updateFilter(ITupleReference tuple) throws HyracksDataException;
+
+    /**
      * Delete components that match the passed predicate
      * NOTE: This call can only be made when the caller knows that data modification has been stopped
      *

@@ -37,18 +37,20 @@ import org.apache.hyracks.storage.am.common.tuples.SimpleTupleWriter;
  * LogType(1)
  * JobId(4)
  * ---------------------------
- * [Header2] (16 bytes + PKValueSize) : for entity_commit, upsert_entity_commit, and update log types
+ * [Header2] (8 bytes) : for entity_commit, upsert_entity_commit, filter and update log types
  * DatasetId(4) //stored in dataset_dataset in Metadata Node
  * ResourcePartition(4)
+ * ---------------------------
+ * [Header3] (8 bytes + PKValueSize) : for entity_commit, upsert_entity_commit, and update log types
  * PKHashValue(4)
  * PKValueSize(4)
  * PKValue(PKValueSize)
  * ---------------------------
- * [Header3] (12 bytes) : only for update log type
+ * [Header4] (12 bytes) : only for update, filter log type
  * ResourceId(8) //stored in .metadata of the corresponding index in NC node
  * LogRecordSize(4)
  * ---------------------------
- * [Body] (9 bytes + NewValueSize) : only for update log type
+ * [Body] (9 bytes + NewValueSize) : only for update, filter log type
  * FieldCnt(4)
  * NewOp(1)
  * NewValueSize(4)
@@ -59,10 +61,12 @@ import org.apache.hyracks.storage.am.common.tuples.SimpleTupleWriter;
  * ---------------------------
  * = LogSize =
  * 1) JOB_COMMIT_LOG_SIZE: 14 bytes (Header1(6) + Tail(8))
- * 2) ENTITY_COMMIT || UPSERT_ENTITY_COMMIT: (Header1(6) + Header2(16) + Tail(8)) + PKValueSize
+ * 2) ENTITY_COMMIT || UPSERT_ENTITY_COMMIT: (Header1(6) + Header2(8) + Header3(8) + Tail(8)) + PKValueSize
  * --> ENTITY_COMMIT_LOG_BASE_SIZE = 30
- * 3) UPDATE: (Header1(6) + Header2(16) + + Header3(20) + Body(9) + Tail(8)) + PKValueSize + NewValueSize
- * --> UPDATE_LOG_BASE_SIZE = 59
+ * 3) UPDATE: (Header1(6) + Header2(8) + Header3(8) + Header4(20) + Body(9) + Tail(8)) + PKValueSize + NewValueSize
+ * --> UPDATE_LOG_BASE_SIZE = 51
+ * 4) FILTER: (Header1(6) + Header2(8) + Body(9) + Tail(8))
+ * --> FILTER_LOG_BASE_SIZE = 43
  * 4) FLUSH: 18 bytes (Header1(6) + DatasetId(4) + Tail(8))
  * 5) WAIT_LOG_SIZE: 14 bytes (Header1(6) + Tail(8))
  * --> WAIT_LOG only requires LogType Field, but in order to conform the log reader protocol
@@ -149,6 +153,15 @@ public class LogRecord implements ILogRecord {
                     writeTuple(buffer, oldValue, oldValueSize);
                 }
                 break;
+            case LogType.FILTER:
+                writeEntityInfoNoPK(buffer);
+                buffer.putLong(resourceId);
+                buffer.putInt(logSize);
+                buffer.putInt(newValueFieldCount);
+                buffer.put(newOp);
+                buffer.putInt(newValueSize);
+                writeTuple(buffer, newValue, newValueSize);
+                break;
             case LogType.FLUSH:
                 buffer.putInt(datasetId);
                 break;
@@ -173,6 +186,11 @@ public class LogRecord implements ILogRecord {
         }
         buffer.putInt(PKValueSize);
         writePKValue(buffer);
+    }
+
+    private void writeEntityInfoNoPK(ByteBuffer buffer) {
+        buffer.putInt(resourcePartition);
+        buffer.putInt(datasetId);
     }
 
     @Override
@@ -275,38 +293,19 @@ public class LogRecord implements ILogRecord {
                 break;
             case LogType.UPDATE:
                 if (readEntityInfo(buffer)) {
-                    if (buffer.remaining() < UPDATE_LSN_HEADER + UPDATE_BODY_HEADER) {
-                        return RecordReadStatus.TRUNCATED;
+                    RecordReadStatus updStatus = readUpdateInfo(buffer);
+                    if (updStatus != RecordReadStatus.OK) {
+                        return updStatus;
                     }
-                    resourceId = buffer.getLong();
-                    logSize = buffer.getInt();
-                    newValueFieldCount = buffer.getInt();
-                    newOp = buffer.get();
-                    newValueSize = buffer.getInt();
-                    if (buffer.remaining() < newValueSize) {
-                        if (logSize > buffer.capacity()) {
-                            return RecordReadStatus.LARGE_RECORD;
-                        }
-                        return RecordReadStatus.TRUNCATED;
-                    }
-                    newValue = readTuple(buffer, readNewValue, newValueFieldCount, newValueSize);
-                    if (logSize > getUpdateLogSizeWithoutOldValue()) {
-                        // Prev Image exists
-                        if (buffer.remaining() < Integer.BYTES) {
-                            return RecordReadStatus.TRUNCATED;
-                        }
-                        oldValueSize = buffer.getInt();
-                        if (buffer.remaining() < Integer.BYTES) {
-                            return RecordReadStatus.TRUNCATED;
-                        }
-                        oldValueFieldCount = buffer.getInt();
-                        if (buffer.remaining() < oldValueSize) {
-                            return RecordReadStatus.TRUNCATED;
-                        }
-                        oldValue = readTuple(buffer, readOldValue, oldValueFieldCount, oldValueSize);
-                    } else {
-                        oldValueSize = 0;
-                        oldValue = null;
+                } else {
+                    return RecordReadStatus.TRUNCATED;
+                }
+                break;
+            case LogType.FILTER:
+                if (readEntityNoPKInfo(buffer)) {
+                    RecordReadStatus updStatus = readUpdateInfo(buffer);
+                    if (updStatus != RecordReadStatus.OK) {
+                        return updStatus;
                     }
                 } else {
                     return RecordReadStatus.TRUNCATED;
@@ -358,6 +357,53 @@ public class LogRecord implements ILogRecord {
         }
         PKValue = readPKValue(buffer);
         return true;
+    }
+
+    private boolean readEntityNoPKInfo(ByteBuffer buffer) {
+        //attempt to read in the resourcePartition, dsid, PK hash and PK length
+        if (buffer.remaining() < ENTITYCOMMIT_UPDATE_HEADER_LEN) {
+            return false;
+        }
+        resourcePartition = buffer.getInt();
+        datasetId = buffer.getInt();
+        return true;
+    }
+
+    private RecordReadStatus readUpdateInfo(ByteBuffer buffer) {
+        if (buffer.remaining() < UPDATE_LSN_HEADER + UPDATE_BODY_HEADER) {
+            return RecordReadStatus.TRUNCATED;
+        }
+        resourceId = buffer.getLong();
+        logSize = buffer.getInt();
+        newValueFieldCount = buffer.getInt();
+        newOp = buffer.get();
+        newValueSize = buffer.getInt();
+        if (buffer.remaining() < newValueSize) {
+            if (logSize > buffer.capacity()) {
+                return RecordReadStatus.LARGE_RECORD;
+            }
+            return RecordReadStatus.TRUNCATED;
+        }
+        newValue = readTuple(buffer, readNewValue, newValueFieldCount, newValueSize);
+        if (logSize > getUpdateLogSizeWithoutOldValue()) {
+            // Prev Image exists
+            if (buffer.remaining() < Integer.BYTES) {
+                return RecordReadStatus.TRUNCATED;
+            }
+            oldValueSize = buffer.getInt();
+            if (buffer.remaining() < Integer.BYTES) {
+                return RecordReadStatus.TRUNCATED;
+            }
+            oldValueFieldCount = buffer.getInt();
+            if (buffer.remaining() < oldValueSize) {
+                return RecordReadStatus.TRUNCATED;
+            }
+            oldValue = readTuple(buffer, readOldValue, oldValueFieldCount, oldValueSize);
+        } else {
+            oldValueSize = 0;
+            oldValue = null;
+        }
+        return RecordReadStatus.OK;
     }
 
     @Override
@@ -412,6 +458,10 @@ public class LogRecord implements ILogRecord {
         }
     }
 
+    private int getFilterLogSize() {
+        return FILTER_LOG_BASE_SIZE + newValueSize;
+    }
+
     private int getUpdateLogSizeWithoutOldValue() {
         return UPDATE_LOG_BASE_SIZE + PKValueSize + newValueSize;
     }
@@ -421,6 +471,9 @@ public class LogRecord implements ILogRecord {
         switch (logType) {
             case LogType.UPDATE:
                 setUpdateLogSize();
+                break;
+            case LogType.FILTER:
+                logSize = getFilterLogSize();
                 break;
             case LogType.JOB_COMMIT:
             case LogType.ABORT:
