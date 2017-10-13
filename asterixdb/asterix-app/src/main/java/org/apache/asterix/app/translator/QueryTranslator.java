@@ -26,10 +26,12 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -56,6 +58,7 @@ import org.apache.asterix.app.active.FeedEventsListener;
 import org.apache.asterix.app.result.ResultHandle;
 import org.apache.asterix.app.result.ResultReader;
 import org.apache.asterix.common.api.IMetadataLockManager;
+import org.apache.asterix.common.cluster.IClusterStateManager;
 import org.apache.asterix.common.config.ClusterProperties;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.common.config.DatasetConfig.ExternalFilePendingOp;
@@ -152,7 +155,6 @@ import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.types.TypeSignature;
-import org.apache.asterix.runtime.utils.ClusterStateManager;
 import org.apache.asterix.transaction.management.service.transaction.DatasetIdFactory;
 import org.apache.asterix.translator.AbstractLangTranslator;
 import org.apache.asterix.translator.CompiledStatements.CompiledDeleteStatement;
@@ -160,8 +162,10 @@ import org.apache.asterix.translator.CompiledStatements.CompiledInsertStatement;
 import org.apache.asterix.translator.CompiledStatements.CompiledLoadFromFileStatement;
 import org.apache.asterix.translator.CompiledStatements.CompiledUpsertStatement;
 import org.apache.asterix.translator.CompiledStatements.ICompiledDmlStatement;
+import org.apache.asterix.translator.IRequestParameters;
 import org.apache.asterix.translator.IStatementExecutor;
 import org.apache.asterix.translator.IStatementExecutorContext;
+import org.apache.asterix.translator.NoOpStatementExecutorContext;
 import org.apache.asterix.translator.SessionConfig;
 import org.apache.asterix.translator.SessionOutput;
 import org.apache.asterix.translator.TypeTranslator;
@@ -192,7 +196,14 @@ import org.apache.hyracks.api.io.UnmanagedFileSplit;
 import org.apache.hyracks.api.job.JobFlag;
 import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.api.job.JobSpecification;
+import org.apache.hyracks.api.job.JobStatus;
+import org.apache.hyracks.control.cc.ClusterControllerService;
+import org.apache.hyracks.control.cc.job.IJobManager;
+import org.apache.hyracks.control.cc.job.JobRun;
 import org.apache.hyracks.control.common.controllers.CCConfig;
+import org.apache.hyracks.control.common.job.profiling.om.JobProfile;
+import org.apache.hyracks.control.common.job.profiling.om.JobletProfile;
+import org.apache.hyracks.control.common.job.profiling.om.TaskProfile;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicyFactory;
 
 /*
@@ -248,26 +259,24 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
     }
 
     @Override
-    public void compileAndExecute(IHyracksClientConnection hcc, IHyracksDataset hdc, ResultDelivery resultDelivery,
-            ResultMetadata outMetadata, Stats stats) throws Exception {
-        compileAndExecute(hcc, hdc, resultDelivery, outMetadata, stats, null, null);
-    }
-
-    @Override
-    public void compileAndExecute(IHyracksClientConnection hcc, IHyracksDataset hdc, ResultDelivery resultDelivery,
-            ResultMetadata outMetadata, Stats stats, String clientContextId, IStatementExecutorContext ctx)
-            throws Exception {
+    public void compileAndExecute(IHyracksClientConnection hcc, IStatementExecutorContext ctx,
+            IRequestParameters requestParameters) throws Exception {
         int resultSetIdCounter = 0;
         FileSplit outputFile = null;
         IAWriterFactory writerFactory = PrinterBasedWriterFactory.INSTANCE;
         IResultSerializerFactoryProvider resultSerializerFactoryProvider = ResultSerializerFactoryProvider.INSTANCE;
-        Map<String, String> config = new HashMap<>();
         /* Since the system runs a large number of threads, when HTTP requests don't return, it becomes difficult to
          * find the thread running the request to determine where it has stopped.
          * Setting the thread name helps make that easier
          */
         String threadName = Thread.currentThread().getName();
         Thread.currentThread().setName(QueryTranslator.class.getSimpleName());
+        Map<String, String> config = new HashMap<>();
+        final IHyracksDataset hdc = requestParameters.getHyracksDataset();
+        final ResultDelivery resultDelivery = requestParameters.getResultDelivery();
+        final Stats stats = requestParameters.getStats();
+        final ResultMetadata outMetadata = requestParameters.getOutMetadata();
+        final String clientContextId = requestParameters.getClientContextId();
         try {
             for (Statement stmt : statements) {
                 if (sessionConfig.is(SessionConfig.FORMAT_HTML)) {
@@ -276,10 +285,10 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 validateOperation(appCtx, activeDataverse, stmt);
                 rewriteStatement(stmt); // Rewrite the statement's AST.
                 MetadataProvider metadataProvider = new MetadataProvider(appCtx, activeDataverse);
+                metadataProvider.getConfig().putAll(config);
                 metadataProvider.setWriterFactory(writerFactory);
                 metadataProvider.setResultSerializerFactoryProvider(resultSerializerFactoryProvider);
                 metadataProvider.setOutputFile(outputFile);
-                metadataProvider.setConfig(config);
                 switch (stmt.getKind()) {
                     case Statement.Kind.SET:
                         handleSetStatement(stmt, config);
@@ -291,10 +300,10 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                         handleCreateDataverseStatement(metadataProvider, stmt);
                         break;
                     case Statement.Kind.DATASET_DECL:
-                        handleCreateDatasetStatement(metadataProvider, stmt, hcc);
+                        handleCreateDatasetStatement(metadataProvider, stmt, hcc, requestParameters);
                         break;
                     case Statement.Kind.CREATE_INDEX:
-                        handleCreateIndexStatement(metadataProvider, stmt, hcc);
+                        handleCreateIndexStatement(metadataProvider, stmt, hcc, requestParameters);
                         break;
                     case Statement.Kind.TYPE_DECL:
                         handleCreateTypeStatement(metadataProvider, stmt);
@@ -306,10 +315,10 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                         handleDataverseDropStatement(metadataProvider, stmt, hcc);
                         break;
                     case Statement.Kind.DATASET_DROP:
-                        handleDatasetDropStatement(metadataProvider, stmt, hcc);
+                        handleDatasetDropStatement(metadataProvider, stmt, hcc, requestParameters);
                         break;
                     case Statement.Kind.INDEX_DROP:
-                        handleIndexDropStatement(metadataProvider, stmt, hcc);
+                        handleIndexDropStatement(metadataProvider, stmt, hcc, requestParameters);
                         break;
                     case Statement.Kind.TYPE_DROP:
                         handleTypeDropStatement(metadataProvider, stmt);
@@ -334,7 +343,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                                     || resultDelivery == ResultDelivery.DEFERRED);
                         }
                         handleInsertUpsertStatement(metadataProvider, stmt, hcc, hdc, resultDelivery, outMetadata,
-                                stats, false, clientContextId, ctx);
+                                stats, false, clientContextId);
                         break;
                     case Statement.Kind.DELETE:
                         handleDeleteStatement(metadataProvider, stmt, hcc, false);
@@ -388,8 +397,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                         // No op
                         break;
                     case Statement.Kind.EXTENSION:
-                        ((IExtensionStatement) stmt).handle(this, metadataProvider, hcc, hdc, resultDelivery, stats,
-                                resultSetIdCounter);
+                        ((IExtensionStatement) stmt)
+                                .handle(hcc, this, requestParameters, metadataProvider, resultSetIdCounter);
                         break;
                     default:
                         throw new CompilationException("Unknown function");
@@ -503,7 +512,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
     }
 
     public void handleCreateDatasetStatement(MetadataProvider metadataProvider, Statement stmt,
-            IHyracksClientConnection hcc) throws CompilationException, Exception {
+            IHyracksClientConnection hcc, IRequestParameters requestParameters) throws CompilationException, Exception {
         MutableObject<ProgressState> progress = new MutableObject<>(ProgressState.NO_PROGRESS);
         DatasetDecl dd = (DatasetDecl) stmt;
         String dataverseName = getActiveDataverse(dd.getDataverse());
@@ -706,7 +715,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
 
     protected static String configureNodegroupForDataset(ICcApplicationContext appCtx, Map<String, String> hints,
             String dataverseName, String datasetName, MetadataProvider metadataProvider) throws Exception {
-        Set<String> allNodes = ClusterStateManager.INSTANCE.getParticipantNodes(true);
+        IClusterStateManager csm = appCtx.getClusterStateManager();
+        Set<String> allNodes = csm.getParticipantNodes(true);
         Set<String> selectedNodes = new LinkedHashSet<>();
         String hintValue = hints.get(DatasetNodegroupCardinalityHint.NAME);
         if (hintValue == null) {
@@ -731,7 +741,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
     }
 
     protected void handleCreateIndexStatement(MetadataProvider metadataProvider, Statement stmt,
-            IHyracksClientConnection hcc) throws Exception {
+            IHyracksClientConnection hcc, IRequestParameters requestParameters) throws Exception {
         CreateIndexStatement stmtCreateIndex = (CreateIndexStatement) stmt;
         String dataverseName = getActiveDataverse(stmtCreateIndex.getDataverseName());
         String datasetName = stmtCreateIndex.getDatasetName().getValue();
@@ -761,6 +771,10 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                     throw new AlgebricksException("An index with this name " + indexName + " already exists.");
                 }
             }
+            // can't create secondary primary index on an external dataset
+            if (ds.getDatasetType() == DatasetType.EXTERNAL && stmtCreateIndex.getFieldExprs().isEmpty()) {
+                throw new AsterixException(ErrorCode.CANNOT_CREATE_SEC_PRIMARY_IDX_ON_EXT_DATASET);
+            }
             Datatype dt = MetadataManager.INSTANCE.getDatatype(metadataProvider.getMetadataTxnContext(),
                     ds.getItemTypeDataverseName(), ds.getItemTypeName());
             ARecordType aRecordType = (ARecordType) dt.getDatatype();
@@ -775,6 +789,13 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             List<IAType> indexFieldTypes = new ArrayList<>();
             int keyIndex = 0;
             boolean overridesFieldTypes = false;
+
+            // this set is used to detect duplicates in the specified keys in the create index statement
+            // e.g. CREATE INDEX someIdx on dataset(id,id).
+            // checking only the names is not enough. Need also to check the source indicators for cases like:
+            // CREATE INDEX someIdx on dataset(meta().id, id)
+            Set<Pair<List<String>, Integer>> indexKeysSet = new HashSet<>();
+
             for (Pair<List<String>, IndexedTypeExpression> fieldExpr : stmtCreateIndex.getFieldExprs()) {
                 IAType fieldType = null;
                 ARecordType subType =
@@ -799,6 +820,13 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                         throw new AsterixException(ErrorCode.INDEX_ILLEGAL_ENFORCED_NON_OPTIONAL,
                                 String.valueOf(fieldExpr.first));
                     }
+                    // don't allow creating an enforced index on a closed-type field, fields that are part of schema.
+                    // get the field type, if it's not null, then the field is closed-type
+                    if (stmtCreateIndex.isEnforced() &&
+                            subType.getSubFieldType(fieldExpr.first.subList(i, fieldExpr.first.size())) != null) {
+                        throw new AsterixException(ErrorCode.INDEX_ILLEGAL_ENFORCED_ON_CLOSED_FIELD,
+                                String.valueOf(fieldExpr.first));
+                    }
                     if (!isOpen) {
                         throw new AlgebricksException("Typed index on \"" + fieldExpr.first
                                 + "\" field could be created only for open datatype");
@@ -815,6 +843,13 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 if (fieldType == null) {
                     throw new AlgebricksException(
                             "Unknown type " + (fieldExpr.second == null ? fieldExpr.first : fieldExpr.second));
+                }
+
+                // try to add the key & its source to the set of keys, if key couldn't be added, there is a duplicate
+                if (!indexKeysSet.add(new Pair<>(fieldExpr.first,
+                        stmtCreateIndex.getFieldSourceIndicators().get(keyIndex)))) {
+                    throw new AsterixException(ErrorCode.INDEX_ILLEGAL_REPETITIVE_FIELD,
+                            String.valueOf(fieldExpr.first));
                 }
 
                 indexFields.add(fieldExpr.first);
@@ -1162,8 +1197,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 }
             }
             // # check whether any function in current dataverse is being used by others
-            List<Function> functionsInDataverse = MetadataManager.INSTANCE.getDataverseFunctions(mdTxnCtx,
-                    dataverseName);
+            List<Function> functionsInDataverse =
+                    MetadataManager.INSTANCE.getDataverseFunctions(mdTxnCtx, dataverseName);
             for (Function function : functionsInDataverse) {
                 if (checkWhetherFunctionIsBeingUsed(mdTxnCtx, function.getDataverseName(), function.getName(),
                         function.getArity(), dataverseName)) {
@@ -1303,7 +1338,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
     }
 
     public void handleDatasetDropStatement(MetadataProvider metadataProvider, Statement stmt,
-            IHyracksClientConnection hcc) throws Exception {
+            IHyracksClientConnection hcc, IRequestParameters requestParameters) throws Exception {
         DropDatasetStatement stmtDelete = (DropDatasetStatement) stmt;
         String dataverseName = getActiveDataverse(stmtDelete.getDataverseName());
         String datasetName = stmtDelete.getDatasetName().getValue();
@@ -1331,8 +1366,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                     MetadataManager.INSTANCE.commitTransaction(mdTxnCtx.getValue());
                     return;
                 } else {
-                    throw new AlgebricksException("There is no dataset with this name " + datasetName + " in dataverse "
-                            + dataverseName + ".");
+                    throw new AsterixException(ErrorCode.NO_DATASET_WITH_NAME, dataverseName, datasetName);
                 }
             }
             ds.drop(metadataProvider, mdTxnCtx, jobsToExecute, bActiveTxn, progress, hcc, dropCorrespondingNodeGroup);
@@ -1375,7 +1409,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
     }
 
     protected void handleIndexDropStatement(MetadataProvider metadataProvider, Statement stmt,
-            IHyracksClientConnection hcc) throws Exception {
+            IHyracksClientConnection hcc, IRequestParameters requestParameters) throws Exception {
 
         IndexDropStatement stmtIndexDrop = (IndexDropStatement) stmt;
         String datasetName = stmtIndexDrop.getDatasetName().getValue();
@@ -1728,8 +1762,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
 
     public JobSpecification handleInsertUpsertStatement(MetadataProvider metadataProvider, Statement stmt,
             IHyracksClientConnection hcc, IHyracksDataset hdc, ResultDelivery resultDelivery,
-            ResultMetadata outMetadata, Stats stats, boolean compileOnly, String clientContextId,
-            IStatementExecutorContext ctx) throws Exception {
+            ResultMetadata outMetadata, Stats stats, boolean compileOnly, String clientContextId) throws Exception {
         InsertStatement stmtInsertUpsert = (InsertStatement) stmt;
         String dataverseName = getActiveDataverse(stmtInsertUpsert.getDataverseName());
         final IMetadataLocker locker = new IMetadataLocker() {
@@ -1772,7 +1805,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
 
         if (stmtInsertUpsert.getReturnExpression() != null) {
             deliverResult(hcc, hdc, compiler, metadataProvider, locker, resultDelivery, outMetadata, stats,
-                    clientContextId, ctx);
+                    clientContextId, NoOpStatementExecutorContext.INSTANCE);
         } else {
             locker.lock();
             try {
@@ -2057,6 +2090,9 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                     metadataProvider.getMetadataTxnContext());
             List<FeedConnection> feedConnections = MetadataManager.INSTANCE
                     .getFeedConections(metadataProvider.getMetadataTxnContext(), dataverseName, feedName);
+            if (feedConnections.isEmpty()) {
+                throw new CompilationException(ErrorCode.FEED_START_FEED_WITHOUT_CONNECTION, feedName);
+            }
             for (FeedConnection feedConnection : feedConnections) {
                 // what if the dataset is in a different dataverse
                 String fqName = feedConnection.getDataverseName() + "." + feedConnection.getDatasetName();
@@ -2339,12 +2375,14 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             case IMMEDIATE:
                 createAndRunJob(hcc, jobFlags, null, compiler, locker, resultDelivery, id -> {
                     final ResultReader resultReader = new ResultReader(hdc, id, resultSetId);
+                    updateJobStats(id, stats);
                     ResultUtil.printResults(appCtx, resultReader, sessionOutput, stats,
                             metadataProvider.findOutputRecordType());
                 }, clientContextId, ctx);
                 break;
             case DEFERRED:
                 createAndRunJob(hcc, jobFlags, null, compiler, locker, resultDelivery, id -> {
+                    updateJobStats(id, stats);
                     ResultUtil.printResultHandle(sessionOutput, new ResultHandle(id, resultSetId));
                     if (outMetadata != null) {
                         outMetadata.getResultSets()
@@ -2355,6 +2393,25 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             default:
                 break;
         }
+    }
+
+    private void updateJobStats(JobId jobId, Stats stats) {
+        final IJobManager jobManager =
+                ((ClusterControllerService) appCtx.getServiceContext().getControllerService()).getJobManager();
+        final JobRun run = jobManager.get(jobId);
+        if (run == null || run.getStatus() != JobStatus.TERMINATED) {
+            return;
+        }
+        final JobProfile jobProfile = run.getJobProfile();
+        final Collection<JobletProfile> jobletProfiles = jobProfile.getJobletProfiles().values();
+        long processedObjects = 0;
+        for (JobletProfile jp : jobletProfiles) {
+            final Collection<TaskProfile> jobletTasksProfile = jp.getTaskProfiles().values();
+            for (TaskProfile tp : jobletTasksProfile) {
+                processedObjects += tp.getStatsCollector().getAggregatedStats().getTupleCounter().get();
+            }
+        }
+        stats.setProcessedObjects(processedObjects);
     }
 
     private void asyncCreateAndRunJob(IHyracksClientConnection hcc, IStatementCompiler compiler, IMetadataLocker locker,
@@ -2793,7 +2850,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             // Cleans up the sink dataset -- Drop and then Create.
             DropDatasetStatement dropStmt =
                     new DropDatasetStatement(new Identifier(dataverseNameTo), pregelixStmt.getDatasetNameTo(), true);
-            this.handleDatasetDropStatement(metadataProvider, dropStmt, hcc);
+            this.handleDatasetDropStatement(metadataProvider, dropStmt, hcc, null);
             IDatasetDetailsDecl idd = new InternalDetailsDecl(toIndex.getKeyFieldNames(),
                     toIndex.getKeyFieldSourceIndicators(), false, null, toDataset.getDatasetDetails().isTemp());
             DatasetDecl createToDataset = new DatasetDecl(new Identifier(dataverseNameTo),
@@ -2803,7 +2860,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                     new Identifier(toDataset.getMetaItemTypeName()), new Identifier(toDataset.getNodeGroupName()),
                     toDataset.getCompactionPolicy(), toDataset.getCompactionPolicyProperties(), toDataset.getHints(),
                     toDataset.getDatasetType(), idd, false);
-            this.handleCreateDatasetStatement(metadataProvider, createToDataset, hcc);
+            this.handleCreateDatasetStatement(metadataProvider, createToDataset, hcc, null);
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, e.getMessage(), e);
             throw new AlgebricksException("Error cleaning the result dataset. This should not happen.");

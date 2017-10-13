@@ -19,8 +19,6 @@
 
 package org.apache.asterix.app.message;
 
-import java.util.concurrent.TimeUnit;
-
 import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.messaging.api.INcAddressedMessage;
 import org.apache.asterix.common.messaging.api.MessageFuture;
@@ -31,13 +29,13 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 public final class ExecuteStatementResponseMessage implements INcAddressedMessage {
     private static final long serialVersionUID = 1L;
 
-    public static final long DEFAULT_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(5);
-
     private final long requestMessageId;
 
     private String result;
 
     private IStatementExecutor.ResultMetadata metadata;
+
+    private IStatementExecutor.Stats stats;
 
     private Throwable error;
 
@@ -76,6 +74,14 @@ public final class ExecuteStatementResponseMessage implements INcAddressedMessag
 
     public void setMetadata(IStatementExecutor.ResultMetadata metadata) {
         this.metadata = metadata;
+    }
+
+    public IStatementExecutor.Stats getStats() {
+        return stats;
+    }
+
+    public void setStats(IStatementExecutor.Stats stats) {
+        this.stats = stats;
     }
 
     @Override

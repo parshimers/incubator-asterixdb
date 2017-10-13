@@ -46,6 +46,8 @@ import org.apache.hyracks.control.cc.cluster.INodeManager;
 import org.apache.hyracks.control.cc.scheduler.FIFOJobQueue;
 import org.apache.hyracks.control.cc.scheduler.IJobQueue;
 import org.apache.hyracks.control.common.controllers.CCConfig;
+import org.apache.hyracks.control.common.work.IResultCallback;
+import org.apache.hyracks.control.common.work.NoOpCallback;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -90,7 +92,7 @@ public class JobManager implements IJobManager {
         runMapHistory = new LinkedHashMap<JobId, List<Exception>>() {
             private static final long serialVersionUID = 1L;
             /** history size + 1 is for the case when history size = 0 */
-            private int allowedSize = 100 * (ccConfig.getJobHistorySize() + 1);
+            private final int allowedSize = 100 * (ccConfig.getJobHistorySize() + 1);
 
             @Override
             protected boolean removeEldestEntry(Map.Entry<JobId, List<Exception>> eldest) {
@@ -115,17 +117,14 @@ public class JobManager implements IJobManager {
     }
 
     @Override
-    public void cancel(JobId jobId) throws HyracksException {
-        if (jobId == null) {
-            return;
-        }
+    public void cancel(JobId jobId, IResultCallback<Void> callback) throws HyracksException {
         // Cancels a running job.
         if (activeRunMap.containsKey(jobId)) {
             JobRun jobRun = activeRunMap.get(jobId);
             // The following call will abort all ongoing tasks and then consequently
             // trigger JobCleanupWork and JobCleanupNotificationWork which will update the lifecyle of the job.
             // Therefore, we do not remove the job out of activeRunMap here.
-            jobRun.getExecutor().cancelJob();
+            jobRun.getExecutor().cancelJob(callback);
             return;
         }
         // Removes a pending job.
@@ -138,6 +137,7 @@ public class JobManager implements IJobManager {
             runMapArchive.put(jobId, jobRun);
             runMapHistory.put(jobId, exceptions);
         }
+        callback.setValue(null);
     }
 
     @Override
@@ -277,7 +277,8 @@ public class JobManager implements IJobManager {
 
     @Override
     public List<Exception> getExceptionHistory(JobId jobId) {
-        return runMapHistory.get(jobId);
+        List<Exception> exceptions = runMapHistory.get(jobId);
+        return exceptions == null ? runMapHistory.containsKey(jobId) ? Collections.emptyList() : null : exceptions;
     }
 
     @Override
@@ -322,7 +323,7 @@ public class JobManager implements IJobManager {
             // fail the job then abort it
             run.setStatus(JobStatus.FAILURE, exceptions);
             // abort job will trigger JobCleanupWork
-            run.getExecutor().abortJob(exceptions);
+            run.getExecutor().abortJob(exceptions, NoOpCallback.INSTANCE);
         }
     }
 

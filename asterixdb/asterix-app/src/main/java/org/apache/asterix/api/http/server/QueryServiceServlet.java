@@ -22,12 +22,14 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.asterix.algebra.base.ILangExtension;
-import org.apache.asterix.api.http.servlet.ServletConstants;
+import org.apache.asterix.common.api.Duration;
 import org.apache.asterix.common.api.IApplicationContext;
 import org.apache.asterix.common.api.IClusterManagementWork;
 import org.apache.asterix.common.config.GlobalConfig;
@@ -39,7 +41,7 @@ import org.apache.asterix.lang.aql.parser.TokenMgrError;
 import org.apache.asterix.lang.common.base.IParser;
 import org.apache.asterix.lang.common.base.Statement;
 import org.apache.asterix.metadata.MetadataManager;
-import org.apache.asterix.runtime.utils.ClusterStateManager;
+import org.apache.asterix.translator.IRequestParameters;
 import org.apache.asterix.translator.IStatementExecutor;
 import org.apache.asterix.translator.IStatementExecutor.ResultDelivery;
 import org.apache.asterix.translator.IStatementExecutor.Stats;
@@ -63,7 +65,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpResponseStatus;
 
 public class QueryServiceServlet extends AbstractQueryApiServlet {
@@ -74,10 +75,12 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
     private final IStorageComponentProvider componentProvider;
     private final IStatementExecutorContext queryCtx;
     protected final IServiceContext serviceCtx;
+    protected final Function<IServletRequest, Map<String, String>> optionalParamProvider;
 
     public QueryServiceServlet(ConcurrentMap<String, Object> ctx, String[] paths, IApplicationContext appCtx,
             ILangExtension.Language queryLanguage, ILangCompilationProvider compilationProvider,
-            IStatementExecutorFactory statementExecutorFactory, IStorageComponentProvider componentProvider) {
+            IStatementExecutorFactory statementExecutorFactory, IStorageComponentProvider componentProvider,
+            Function<IServletRequest, Map<String, String>> optionalParamProvider) {
         super(appCtx, ctx, paths);
         this.queryLanguage = queryLanguage;
         this.compilationProvider = compilationProvider;
@@ -85,16 +88,23 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
         this.componentProvider = componentProvider;
         this.queryCtx = (IStatementExecutorContext) ctx.get(ServletConstants.RUNNING_QUERIES_ATTR);
         this.serviceCtx = (IServiceContext) ctx.get(ServletConstants.SERVICE_CONTEXT_ATTR);
+        this.optionalParamProvider = optionalParamProvider;
     }
 
     @Override
     protected void post(IServletRequest request, IServletResponse response) {
         try {
-            handleRequest(getRequestParameters(request), response);
+            handleRequest(request, response);
         } catch (IOException e) {
             // Servlet methods should not throw exceptions
             // http://cwe.mitre.org/data/definitions/600.html
             GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, e.getMessage(), e);
+        } catch (Throwable th) {// NOSONAR: Logging and re-throwing
+            try {
+                GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, th.getMessage(), th);
+            } catch (Throwable ignored) { // NOSONAR: Logging failure
+            }
+            throw th;
         }
     }
 
@@ -103,7 +113,8 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
         FORMAT("format"),
         CLIENT_ID("client_context_id"),
         PRETTY("pretty"),
-        MODE("mode");
+        MODE("mode"),
+        TIMEOUT("timeout");
 
         private final String str;
 
@@ -136,7 +147,8 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
         EXECUTION_TIME("executionTime"),
         RESULT_COUNT("resultCount"),
         RESULT_SIZE("resultSize"),
-        ERROR_COUNT("errorCount");
+        ERROR_COUNT("errorCount"),
+        PROCESSED_OBJECTS_COUNT("processedObjects");
 
         private final String str;
 
@@ -149,39 +161,12 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
         }
     }
 
-    public enum TimeUnit {
-        SEC("s", 9),
-        MILLI("ms", 6),
-        MICRO("µs", 3),
-        NANO("ns", 0);
-
-        String unit;
-        int nanoDigits;
-
-        TimeUnit(String unit, int nanoDigits) {
-            this.unit = unit;
-            this.nanoDigits = nanoDigits;
-        }
-
-        public static String formatNanos(long nanoTime) {
-            final String strTime = String.valueOf(nanoTime);
-            final int len = strTime.length();
-            for (TimeUnit tu : TimeUnit.values()) {
-                if (len > tu.nanoDigits) {
-                    final String integer = strTime.substring(0, len - tu.nanoDigits);
-                    final String fractional = strTime.substring(len - tu.nanoDigits);
-                    return integer + (fractional.length() > 0 ? "." + fractional : "") + tu.unit;
-                }
-            }
-            return "illegal string value: " + strTime;
-        }
-    }
-
     static class RequestParameters {
         String host;
         String path;
         String statement;
         String format;
+        String timeout;
         boolean pretty;
         String clientContextID;
         String mode;
@@ -197,6 +182,7 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
                 on.put("pretty", pretty);
                 on.put("mode", mode);
                 on.put("clientContextID", clientContextID);
+                on.put("format", format);
                 return om.writer(new MinimalPrettyPrinter()).writeValueAsString(on);
             } catch (JsonProcessingException e) { // NOSONAR
                 return e.getMessage();
@@ -286,19 +272,22 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
     }
 
     private static void printMetrics(PrintWriter pw, long elapsedTime, long executionTime, long resultCount,
-            long resultSize, long errorCount) {
+            long resultSize, long processedObjects, long errorCount) {
         boolean hasErrors = errorCount != 0;
         pw.print("\t\"");
         pw.print(ResultFields.METRICS.str());
         pw.print("\": {\n");
         pw.print("\t");
-        ResultUtil.printField(pw, Metrics.ELAPSED_TIME.str(), TimeUnit.formatNanos(elapsedTime));
+        ResultUtil.printField(pw, Metrics.ELAPSED_TIME.str(), Duration.formatNanos(elapsedTime));
         pw.print("\t");
-        ResultUtil.printField(pw, Metrics.EXECUTION_TIME.str(), TimeUnit.formatNanos(executionTime));
+        ResultUtil.printField(pw, Metrics.EXECUTION_TIME.str(), Duration.formatNanos(executionTime));
         pw.print("\t");
         ResultUtil.printField(pw, Metrics.RESULT_COUNT.str(), resultCount, true);
         pw.print("\t");
-        ResultUtil.printField(pw, Metrics.RESULT_SIZE.str(), resultSize, hasErrors);
+        ResultUtil.printField(pw, Metrics.RESULT_SIZE.str(), resultSize, true);
+        pw.print("\t");
+        ResultUtil.printField(pw, Metrics.PROCESSED_OBJECTS_COUNT.str(), processedObjects, hasErrors);
+        pw.print("\t");
         if (hasErrors) {
             pw.print("\t");
             ResultUtil.printField(pw, Metrics.ERROR_COUNT.str(), errorCount, false);
@@ -317,20 +306,19 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
     }
 
     private RequestParameters getRequestParameters(IServletRequest request) throws IOException {
-        final String contentTypeParam = request.getHttpRequest().headers().get(HttpHeaderNames.CONTENT_TYPE);
-        int sep = contentTypeParam.indexOf(';');
-        final String contentType = sep < 0 ? contentTypeParam.trim() : contentTypeParam.substring(0, sep).trim();
+        final String contentType = HttpUtil.getContentTypeOnly(request);
         RequestParameters param = new RequestParameters();
         param.host = host(request);
         param.path = servletPath(request);
         if (HttpUtil.ContentType.APPLICATION_JSON.equals(contentType)) {
             try {
-                JsonNode jsonRequest = new ObjectMapper().readTree(HttpUtil.getRequestBody(request));
+                JsonNode jsonRequest = OBJECT_MAPPER.readTree(HttpUtil.getRequestBody(request));
                 param.statement = jsonRequest.get(Parameter.STATEMENT.str()).asText();
                 param.format = toLower(getOptText(jsonRequest, Parameter.FORMAT.str()));
                 param.pretty = getOptBoolean(jsonRequest, Parameter.PRETTY.str(), false);
                 param.mode = toLower(getOptText(jsonRequest, Parameter.MODE.str()));
                 param.clientContextID = getOptText(jsonRequest, Parameter.CLIENT_ID.str());
+                param.timeout = getOptText(jsonRequest, Parameter.TIMEOUT.str());
             } catch (JsonParseException | JsonMappingException e) {
                 // if the JSON parsing fails, the statement is empty and we get an empty statement error
                 GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, e.getMessage(), e);
@@ -387,7 +375,8 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
         return "http://" + host + path + handlePath(delivery);
     }
 
-    private void handleRequest(RequestParameters param, IServletResponse response) throws IOException {
+    private void handleRequest(IServletRequest request, IServletResponse response) throws IOException {
+        RequestParameters param = getRequestParameters(request);
         LOGGER.info(param.toString());
         long elapsedStart = System.nanoTime();
         final StringWriter stringWriter = new StringWriter();
@@ -415,7 +404,11 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
                 throw new AsterixException("Empty request, no statement provided");
             }
             String statementsText = param.statement + ";";
-            executeStatement(statementsText, sessionOutput, delivery, stats, param, handleUrl, execStartEnd);
+            Map<String, String> optionalParams = null;
+            if (optionalParamProvider != null) {
+                optionalParams = optionalParamProvider.apply(request);
+            }
+            executeStatement(statementsText, sessionOutput, delivery, stats, param, execStartEnd, optionalParams);
             if (ResultDelivery.IMMEDIATE == delivery || ResultDelivery.DEFERRED == delivery) {
                 ResultUtil.printStatus(sessionOutput, ResultStatus.SUCCESS);
             }
@@ -432,7 +425,7 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
             }
         }
         printMetrics(resultWriter, System.nanoTime() - elapsedStart, execStartEnd[1] - execStartEnd[0],
-                stats.getCount(), stats.getSize(), errorCount);
+                stats.getCount(), stats.getSize(), stats.getProcessedObjects(), errorCount);
         resultWriter.print("}\n");
         resultWriter.flush();
         String result = stringWriter.toString();
@@ -447,9 +440,10 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
     }
 
     protected void executeStatement(String statementsText, SessionOutput sessionOutput, ResultDelivery delivery,
-            IStatementExecutor.Stats stats, RequestParameters param, String handleUrl, long[] outExecStartEnd)
-            throws Exception {
-        IClusterManagementWork.ClusterState clusterState = ClusterStateManager.INSTANCE.getState();
+            IStatementExecutor.Stats stats, RequestParameters param, long[] outExecStartEnd,
+            Map<String, String> optionalParameters) throws Exception {
+        IClusterManagementWork.ClusterState clusterState =
+                ((ICcApplicationContext) appCtx).getClusterStateManager().getState();
         if (clusterState != IClusterManagementWork.ClusterState.ACTIVE) {
             // using a plain IllegalStateException here to get into the right catch clause for a 500
             throw new IllegalStateException("Cannot execute request, cluster is " + clusterState);
@@ -460,8 +454,10 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
         IStatementExecutor translator = statementExecutorFactory.create((ICcApplicationContext) appCtx, statements,
                 sessionOutput, compilationProvider, componentProvider);
         outExecStartEnd[0] = System.nanoTime();
-        translator.compileAndExecute(getHyracksClientConnection(), getHyracksDataset(), delivery, null, stats,
-                param.clientContextID, queryCtx);
+        final IRequestParameters requestParameters =
+                new org.apache.asterix.app.translator.RequestParameters(getHyracksDataset(), delivery, stats, null,
+                        param.clientContextID, optionalParameters);
+        translator.compileAndExecute(getHyracksClientConnection(), queryCtx, requestParameters);
         outExecStartEnd[1] = System.nanoTime();
     }
 

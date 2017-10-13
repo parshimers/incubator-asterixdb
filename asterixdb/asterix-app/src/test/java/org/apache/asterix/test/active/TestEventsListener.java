@@ -105,7 +105,7 @@ public class TestEventsListener extends ActiveEntityEventsListener {
 
     @SuppressWarnings("deprecation")
     @Override
-    protected void doStart(MetadataProvider metadataProvider) throws HyracksDataException, AlgebricksException {
+    protected void doStart(MetadataProvider metadataProvider) throws HyracksDataException {
         step(onStart);
         failCompile(onStart);
         JobId jobId = jobIdFactory.create();
@@ -122,14 +122,14 @@ public class TestEventsListener extends ActiveEntityEventsListener {
                     Collections.singletonList(new HyracksDataException("RuntimeFailure")));
         } else {
             for (int i = 0; i < nodeControllers.length; i++) {
-                TestNodeControllerActor nodeController = nodeControllers[0];
+                TestNodeControllerActor nodeController = nodeControllers[i];
                 nodeController.registerRuntime(jobId, entityId, i);
             }
         }
         try {
             subscriber.sync();
             if (subscriber.getFailure() != null) {
-                throw HyracksDataException.create(subscriber.getFailure());
+                throw subscriber.getFailure();
             }
         } catch (Exception e) {
             throw HyracksDataException.create(e);
@@ -178,7 +178,7 @@ public class TestEventsListener extends ActiveEntityEventsListener {
 
     @Override
     protected void setRunning(MetadataProvider metadataProvider, boolean running)
-            throws HyracksDataException, AlgebricksException {
+            throws HyracksDataException {
         try {
             IMetadataLockManager lockManager = metadataProvider.getApplicationContext().getMetadataLockManager();
             LockList locks = metadataProvider.getLocks();
@@ -191,12 +191,12 @@ public class TestEventsListener extends ActiveEntityEventsListener {
     }
 
     @Override
-    protected Void doSuspend(MetadataProvider metadataProvider) throws HyracksDataException, AlgebricksException {
+    protected Void doSuspend(MetadataProvider metadataProvider) throws HyracksDataException {
         return doStop(metadataProvider);
     }
 
     @Override
-    protected void doResume(MetadataProvider metadataProvider) throws HyracksDataException, AlgebricksException {
+    protected void doResume(MetadataProvider metadataProvider) throws HyracksDataException {
         doStart(metadataProvider);
     }
 }

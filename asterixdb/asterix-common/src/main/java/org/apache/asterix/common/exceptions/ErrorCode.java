@@ -68,6 +68,9 @@ public class ErrorCode {
     public static final int POLYGON_3_POINTS = 25;
     public static final int POLYGON_INVALID = 26;
     public static final int OPERATION_NOT_SUPPORTED = 27;
+    public static final int INVALID_DURATION = 28;
+    public static final int UNKNOWN_DURATION_UNIT = 29;
+    public static final int QUERY_TIMEOUT = 30;
 
     public static final int INSTANTIATION_ERROR = 100;
 
@@ -121,6 +124,11 @@ public class ErrorCode {
     public static final int UPGRADE_FAILED_LOCK_WAS_NOT_ACQUIRED = 1047;
     public static final int DOWNGRADE_FAILED_LOCK_WAS_NOT_ACQUIRED = 1048;
     public static final int LOCK_WAS_ACQUIRED_DIFFERENT_OPERATION = 1049;
+    public static final int NO_DATASET_WITH_NAME = 1050;
+    public static final int INDEX_ILLEGAL_ENFORCED_ON_CLOSED_FIELD = 1051;
+    public static final int INDEX_ILLEGAL_REPETITIVE_FIELD = 1052;
+    public static final int CANNOT_CREATE_SEC_PRIMARY_IDX_ON_EXT_DATASET = 1053;
+    public static final int COMPILATION_FAILED_DUE_TO_REPLICATE_OP = 1054;
 
     // Feed errors
     public static final int DATAFLOW_ILLEGAL_STATE = 3001;
@@ -228,6 +236,8 @@ public class ErrorCode {
     public static final int ACTIVE_EVENT_HANDLER_ALREADY_SUSPENDED = 3107;
     public static final int FEED_STOPPED_WHILE_WAITING_FOR_A_NEW_RECORD = 3108;
     public static final int METADATA_DROP_FUCTION_IN_USE = 3109;
+    public static final int FEED_FAILED_WHILE_GETTING_A_NEW_RECORD = 3110;
+    public static final int FEED_START_FEED_WITHOUT_CONNECTION = 3111;
 
     // Lifecycle management errors
     public static final int DUPLICATE_PARTITION_ID = 4000;

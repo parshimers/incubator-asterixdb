@@ -43,8 +43,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -56,6 +58,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.asterix.common.api.Duration;
 import org.apache.asterix.common.config.GlobalConfig;
 import org.apache.asterix.common.utils.Servlets;
 import org.apache.asterix.test.server.ITestServer;
@@ -65,6 +68,7 @@ import org.apache.asterix.testframework.context.TestCaseContext.OutputFormat;
 import org.apache.asterix.testframework.context.TestFileContext;
 import org.apache.asterix.testframework.xml.ComparisonEnum;
 import org.apache.asterix.testframework.xml.TestCase.CompilationUnit;
+import org.apache.asterix.testframework.xml.TestCase.CompilationUnit.Parameter;
 import org.apache.asterix.testframework.xml.TestGroup;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
@@ -102,22 +106,25 @@ public class TestExecutor {
     // see
     // https://stackoverflow.com/questions/417142/what-is-the-maximum-length-of-a-url-in-different-browsers/417184
     private static final long MAX_URL_LENGTH = 2000l;
-    private static final Pattern JAVA_BLOCK_COMMENT_PATTERN =
-            Pattern.compile("/\\*.*\\*/", Pattern.MULTILINE | Pattern.DOTALL);
-    private static final Pattern JAVA_LINE_COMMENT_PATTERN = Pattern.compile("//.*$", Pattern.MULTILINE);
-    private static final Pattern SHELL_LINE_COMMENT_PATTERN = Pattern.compile("#.*$", Pattern.MULTILINE);
+    private static final Pattern JAVA_BLOCK_COMMENT_PATTERN = Pattern.compile("/\\*.*\\*/",
+            Pattern.MULTILINE | Pattern.DOTALL);
+    private static final Pattern JAVA_SHELL_SQL_LINE_COMMENT_PATTERN = Pattern.compile("^(//|#|--).*$",
+            Pattern.MULTILINE);
     private static final Pattern REGEX_LINES_PATTERN = Pattern.compile("^(-)?/(.*)/([im]*)$");
-    private static final Pattern POLL_TIMEOUT_PATTERN =
-            Pattern.compile("polltimeoutsecs=(\\d+)(\\D|$)", Pattern.MULTILINE);
+    private static final Pattern POLL_TIMEOUT_PATTERN = Pattern.compile("polltimeoutsecs=(\\d+)(\\D|$)",
+            Pattern.MULTILINE);
     private static final Pattern POLL_DELAY_PATTERN = Pattern.compile("polldelaysecs=(\\d+)(\\D|$)", Pattern.MULTILINE);
     private static final Pattern HANDLE_VARIABLE_PATTERN = Pattern.compile("handlevariable=(\\w+)");
     private static final Pattern VARIABLE_REF_PATTERN = Pattern.compile("\\$(\\w+)");
+    private static final Pattern HTTP_PARAM_PATTERN = Pattern.compile("param (\\w+)=(.*)", Pattern.MULTILINE);
+    private static final Pattern HTTP_STATUSCODE_PATTERN = Pattern.compile("statuscode (.*)", Pattern.MULTILINE);
 
     public static final int TRUNCATE_THRESHOLD = 16384;
 
     public static final String DELIVERY_ASYNC = "async";
     public static final String DELIVERY_DEFERRED = "deferred";
     public static final String DELIVERY_IMMEDIATE = "immediate";
+    private static final String METRICS_QUERY_TYPE = "metrics";
 
     private static Method managixExecuteMethod = null;
     private static final HashMap<Integer, ITestServer> runningTestServers = new HashMap<>();
@@ -128,6 +135,7 @@ public class TestExecutor {
     protected final List<InetSocketAddress> endpoints;
     protected int endpointSelector;
     protected ITestLibrarian librarian;
+    private Map<File, TestLoop> testLoops = new HashMap<>();
 
     public TestExecutor() {
         this(Inet4Address.getLoopbackAddress().getHostAddress(), 19002);
@@ -166,10 +174,10 @@ public class TestExecutor {
     public void runScriptAndCompareWithResult(File scriptFile, PrintWriter print, File expectedFile, File actualFile,
             ComparisonEnum compare) throws Exception {
         System.err.println("Expected results file: " + expectedFile.toString());
-        BufferedReader readerExpected =
-                new BufferedReader(new InputStreamReader(new FileInputStream(expectedFile), "UTF-8"));
-        BufferedReader readerActual =
-                new BufferedReader(new InputStreamReader(new FileInputStream(actualFile), "UTF-8"));
+        BufferedReader readerExpected = new BufferedReader(
+                new InputStreamReader(new FileInputStream(expectedFile), "UTF-8"));
+        BufferedReader readerActual = new BufferedReader(
+                new InputStreamReader(new FileInputStream(actualFile), "UTF-8"));
         boolean regex = false;
         try {
             if (ComparisonEnum.BINARY.equals(compare)) {
@@ -352,10 +360,10 @@ public class TestExecutor {
     public void runScriptAndCompareWithResultRegex(File scriptFile, File expectedFile, File actualFile)
             throws Exception {
         String lineExpected, lineActual;
-        try (BufferedReader readerExpected =
-                new BufferedReader(new InputStreamReader(new FileInputStream(expectedFile), "UTF-8"));
-                BufferedReader readerActual =
-                        new BufferedReader(new InputStreamReader(new FileInputStream(actualFile), "UTF-8"))) {
+        try (BufferedReader readerExpected = new BufferedReader(
+                new InputStreamReader(new FileInputStream(expectedFile), "UTF-8"));
+                BufferedReader readerActual = new BufferedReader(
+                        new InputStreamReader(new FileInputStream(actualFile), "UTF-8"))) {
             StringBuilder actual = new StringBuilder();
             while ((lineActual = readerActual.readLine()) != null) {
                 actual.append(lineActual).append('\n');
@@ -510,8 +518,7 @@ public class TestExecutor {
         }
     }
 
-    public InputStream executeQuery(String str, OutputFormat fmt, URI uri, List<CompilationUnit.Parameter> params)
-            throws Exception {
+    public InputStream executeQuery(String str, OutputFormat fmt, URI uri, List<Parameter> params) throws Exception {
         HttpUriRequest method = constructHttpMethod(str, uri, "query", false, params);
         // Set accepted output response type
         method.setHeader("Accept", fmt.mimeType());
@@ -523,21 +530,19 @@ public class TestExecutor {
         return executeQueryService(str, fmt, uri, new ArrayList<>(), false);
     }
 
-    public InputStream executeQueryService(String str, OutputFormat fmt, URI uri,
-            List<CompilationUnit.Parameter> params, boolean jsonEncoded) throws Exception {
+    public InputStream executeQueryService(String str, OutputFormat fmt, URI uri, List<Parameter> params,
+            boolean jsonEncoded) throws Exception {
         return executeQueryService(str, fmt, uri, params, jsonEncoded, null, false);
     }
 
-    public InputStream executeQueryService(String str, OutputFormat fmt, URI uri,
-            List<CompilationUnit.Parameter> params, boolean jsonEncoded, Predicate<Integer> responseCodeValidator)
-            throws Exception {
+    public InputStream executeQueryService(String str, OutputFormat fmt, URI uri, List<Parameter> params,
+            boolean jsonEncoded, Predicate<Integer> responseCodeValidator) throws Exception {
         return executeQueryService(str, fmt, uri, params, jsonEncoded, responseCodeValidator, false);
     }
 
-    protected InputStream executeQueryService(String str, OutputFormat fmt, URI uri,
-            List<CompilationUnit.Parameter> params, boolean jsonEncoded, Predicate<Integer> responseCodeValidator,
-            boolean cancellable) throws Exception {
-        final List<CompilationUnit.Parameter> newParams = upsertParam(params, "format", fmt.mimeType());
+    public InputStream executeQueryService(String str, OutputFormat fmt, URI uri, List<Parameter> params,
+            boolean jsonEncoded, Predicate<Integer> responseCodeValidator, boolean cancellable) throws Exception {
+        final List<Parameter> newParams = upsertParam(params, "format", fmt.mimeType());
         HttpUriRequest method = jsonEncoded ? constructPostMethodJson(str, uri, "statement", newParams)
                 : constructPostMethodUrl(str, uri, "statement", newParams);
         // Set accepted output response type
@@ -549,12 +554,11 @@ public class TestExecutor {
         return response.getEntity().getContent();
     }
 
-    protected List<CompilationUnit.Parameter> upsertParam(List<CompilationUnit.Parameter> params, String name,
-            String value) {
+    protected List<Parameter> upsertParam(List<Parameter> params, String name, String value) {
         boolean replaced = false;
-        List<CompilationUnit.Parameter> result = new ArrayList<>();
-        for (CompilationUnit.Parameter param : params) {
-            CompilationUnit.Parameter newParam = new CompilationUnit.Parameter();
+        List<Parameter> result = new ArrayList<>();
+        for (Parameter param : params) {
+            Parameter newParam = new Parameter();
             newParam.setName(param.getName());
             if (name.equals(param.getName())) {
                 newParam.setValue(value);
@@ -565,7 +569,7 @@ public class TestExecutor {
             result.add(newParam);
         }
         if (!replaced) {
-            CompilationUnit.Parameter newParam = new CompilationUnit.Parameter();
+            Parameter newParam = new Parameter();
             newParam.setName(name);
             newParam.setValue(value);
             result.add(newParam);
@@ -574,7 +578,7 @@ public class TestExecutor {
     }
 
     private HttpUriRequest constructHttpMethod(String statement, URI uri, String stmtParam, boolean postStmtAsParam,
-            List<CompilationUnit.Parameter> otherParams) throws URISyntaxException {
+            List<Parameter> otherParams) throws URISyntaxException {
         if (statement.length() + uri.toString().length() < MAX_URL_LENGTH) {
             // Use GET for small-ish queries
             return constructGetMethod(uri, upsertParam(otherParams, stmtParam, statement));
@@ -585,32 +589,49 @@ public class TestExecutor {
         }
     }
 
-    private HttpUriRequest constructGetMethod(URI endpoint, List<CompilationUnit.Parameter> params) {
+    private HttpUriRequest constructGetMethod(URI endpoint, List<Parameter> params) {
         RequestBuilder builder = RequestBuilder.get(endpoint);
-        for (CompilationUnit.Parameter param : params) {
+        for (Parameter param : params) {
             builder.addParameter(param.getName(), param.getValue());
         }
         builder.setCharset(StandardCharsets.UTF_8);
         return builder.build();
     }
 
-    private HttpUriRequest constructGetMethod(URI endpoint, OutputFormat fmt, List<CompilationUnit.Parameter> params) {
+    private HttpUriRequest buildRequest(String method, URI uri, List<Parameter> params) {
+        RequestBuilder builder = RequestBuilder.create(method);
+        builder.setUri(uri);
+        for (Parameter param : params) {
+            builder.addParameter(param.getName(), param.getValue());
+        }
+        builder.setCharset(StandardCharsets.UTF_8);
+        return builder.build();
+    }
+
+    private HttpUriRequest buildRequest(String method, URI uri, OutputFormat fmt, List<Parameter> params) {
+        HttpUriRequest request = buildRequest(method, uri, params);
+        // Set accepted output response type
+        request.setHeader("Accept", fmt.mimeType());
+        return request;
+    }
+
+    private HttpUriRequest constructGetMethod(URI endpoint, OutputFormat fmt, List<Parameter> params) {
         HttpUriRequest method = constructGetMethod(endpoint, params);
         // Set accepted output response type
         method.setHeader("Accept", fmt.mimeType());
         return method;
     }
 
-    private HttpUriRequest constructPostMethod(URI uri, List<CompilationUnit.Parameter> params) {
+    private HttpUriRequest constructPostMethod(URI uri, List<Parameter> params) {
         RequestBuilder builder = RequestBuilder.post(uri);
-        for (CompilationUnit.Parameter param : params) {
+        for (Parameter param : params) {
             builder.addParameter(param.getName(), param.getValue());
         }
         builder.setCharset(StandardCharsets.UTF_8);
         return builder.build();
     }
 
-    private HttpUriRequest constructPostMethod(URI uri, OutputFormat fmt, List<CompilationUnit.Parameter> params) {
+    private HttpUriRequest constructPostMethod(URI uri, OutputFormat fmt, List<Parameter> params) {
         HttpUriRequest method = constructPostMethod(uri, params);
         // Set accepted output response type
         method.setHeader("Accept", fmt.mimeType());
@@ -618,10 +639,10 @@ public class TestExecutor {
     }
 
     protected HttpUriRequest constructPostMethodUrl(String statement, URI uri, String stmtParam,
-            List<CompilationUnit.Parameter> otherParams) {
+            List<Parameter> otherParams) {
         RequestBuilder builder = RequestBuilder.post(uri);
         if (stmtParam != null) {
-            for (CompilationUnit.Parameter param : upsertParam(otherParams, stmtParam, statement)) {
+            for (Parameter param : upsertParam(otherParams, stmtParam, statement)) {
                 builder.addParameter(param.getName(), param.getValue());
             }
             builder.addParameter(stmtParam, statement);
@@ -634,14 +655,14 @@ public class TestExecutor {
     }
 
     protected HttpUriRequest constructPostMethodJson(String statement, URI uri, String stmtParam,
-            List<CompilationUnit.Parameter> otherParams) {
+            List<Parameter> otherParams) {
         if (stmtParam == null) {
             throw new NullPointerException("Statement parameter required.");
         }
         RequestBuilder builder = RequestBuilder.post(uri);
         ObjectMapper om = new ObjectMapper();
         ObjectNode content = om.createObjectNode();
-        for (CompilationUnit.Parameter param : upsertParam(otherParams, stmtParam, statement)) {
+        for (Parameter param : upsertParam(otherParams, stmtParam, statement)) {
             content.put(param.getName(), param.getValue());
         }
         try {
@@ -654,23 +675,26 @@ public class TestExecutor {
     }
 
     public InputStream executeJSONGet(OutputFormat fmt, URI uri) throws Exception {
-        return executeJSONGet(fmt, uri, code -> code == HttpStatus.SC_OK);
+        return executeJSON(fmt, "GET", uri, Collections.emptyList());
     }
 
-    public InputStream executeJSONGet(OutputFormat fmt, URI uri, Predicate<Integer> responseCodeValidator)
+    public InputStream executeJSONGet(OutputFormat fmt, URI uri, List<Parameter> params,
+            Predicate<Integer> responseCodeValidator) throws Exception {
+        return executeJSON(fmt, "GET", uri, params, responseCodeValidator);
+    }
+
+    public InputStream executeJSON(OutputFormat fmt, String method, URI uri, List<Parameter> params) throws Exception {
+        return executeJSON(fmt, method, uri, params, code -> code == HttpStatus.SC_OK);
+    }
+
+    public InputStream executeJSON(OutputFormat fmt, String method, URI uri, Predicate<Integer> responseCodeValidator)
             throws Exception {
-        HttpUriRequest request = constructGetMethod(uri, fmt, new ArrayList<>());
-        HttpResponse response = executeAndCheckHttpRequest(request, responseCodeValidator);
-        return response.getEntity().getContent();
+        return executeJSON(fmt, method, uri, Collections.emptyList(), responseCodeValidator);
     }
 
-    public InputStream executeJSONPost(OutputFormat fmt, URI uri) throws Exception {
-        return executeJSONPost(fmt, uri, code -> code == HttpStatus.SC_OK);
-    }
-
-    public InputStream executeJSONPost(OutputFormat fmt, URI uri, Predicate<Integer> responseCodeValidator)
-            throws Exception {
-        HttpUriRequest request = constructPostMethod(uri, fmt, new ArrayList<>());
+    public InputStream executeJSON(OutputFormat fmt, String method, URI uri, List<Parameter> params,
+            Predicate<Integer> responseCodeValidator) throws Exception {
+        HttpUriRequest request = buildRequest(method, uri, fmt, params);
         HttpResponse response = executeAndCheckHttpRequest(request, responseCodeValidator);
         return response.getEntity().getContent();
     }
@@ -679,8 +703,8 @@ public class TestExecutor {
     // Insert and Delete statements are executed here
     public void executeUpdate(String str, URI uri) throws Exception {
         // Create a method instance.
-        HttpUriRequest request =
-                RequestBuilder.post(uri).setEntity(new StringEntity(str, StandardCharsets.UTF_8)).build();
+        HttpUriRequest request = RequestBuilder.post(uri).setEntity(new StringEntity(str, StandardCharsets.UTF_8))
+                .build();
 
         // Execute the method.
         executeAndCheckHttpRequest(request);
@@ -690,10 +714,10 @@ public class TestExecutor {
     public InputStream executeAnyAQLAsync(String statement, boolean defer, OutputFormat fmt, URI uri,
             Map<String, Object> variableCtx) throws Exception {
         // Create a method instance.
-        HttpUriRequest request =
-                RequestBuilder.post(uri).addParameter("mode", defer ? "asynchronous-deferred" : "asynchronous")
-                        .setEntity(new StringEntity(statement, StandardCharsets.UTF_8))
-                        .setHeader("Accept", fmt.mimeType()).build();
+        HttpUriRequest request = RequestBuilder.post(uri)
+                .addParameter("mode", defer ? "asynchronous-deferred" : "asynchronous")
+                .setEntity(new StringEntity(statement, StandardCharsets.UTF_8)).setHeader("Accept", fmt.mimeType())
+                .build();
 
         String handleVar = getHandleVariable(statement);
 
@@ -719,8 +743,8 @@ public class TestExecutor {
     // create function statement
     public void executeDDL(String str, URI uri) throws Exception {
         // Create a method instance.
-        HttpUriRequest request =
-                RequestBuilder.post(uri).setEntity(new StringEntity(str, StandardCharsets.UTF_8)).build();
+        HttpUriRequest request = RequestBuilder.post(uri).setEntity(new StringEntity(str, StandardCharsets.UTF_8))
+                .build();
 
         // Execute the method.
         executeAndCheckHttpRequest(request);
@@ -730,8 +754,8 @@ public class TestExecutor {
     // and returns the contents as a string
     // This string is later passed to REST API for execution.
     public String readTestFile(File testFile) throws Exception {
-        BufferedReader reader =
-                new BufferedReader(new InputStreamReader(new FileInputStream(testFile), StandardCharsets.UTF_8));
+        BufferedReader reader = new BufferedReader(
+                new InputStreamReader(new FileInputStream(testFile), StandardCharsets.UTF_8));
         String line;
         StringBuilder stringBuilder = new StringBuilder();
         String ls = System.getProperty("line.separator");
@@ -786,8 +810,8 @@ public class TestExecutor {
 
     private static String getProcessOutput(Process p) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        Future<Integer> future =
-                Executors.newSingleThreadExecutor().submit(() -> IOUtils.copy(p.getInputStream(), new OutputStream() {
+        Future<Integer> future = Executors.newSingleThreadExecutor()
+                .submit(() -> IOUtils.copy(p.getInputStream(), new OutputStream() {
                     @Override
                     public void write(int b) throws IOException {
                         baos.write(b);
@@ -865,6 +889,7 @@ public class TestExecutor {
             case "query":
             case "async":
             case "deferred":
+            case "metrics":
                 // isDmlRecoveryTest: insert Crash and Recovery
                 if (isDmlRecoveryTest) {
                     executeScript(pb, pb.environment().get("SCRIPT_HOME") + File.separator + "dml_recovery"
@@ -966,6 +991,7 @@ public class TestExecutor {
                 break;
             case "get":
             case "post":
+            case "put":
                 expectedResultFile = (queryCount.intValue() >= expectedResultFileCtxs.size()) ? null
                         : expectedResultFileCtxs.get(queryCount.intValue()).getFile();
                 actualResultFile = expectedResultFile == null ? null
@@ -1060,6 +1086,59 @@ public class TestExecutor {
                     killNC(nodeId, cUnit);
                 }
                 break;
+            case "loop":
+                TestLoop testLoop = testLoops.get(testFile);
+                if (testLoop == null) {
+                    lines = stripAllComments(statement).trim().split("\n");
+                    String target = null;
+                    int count = -1;
+                    long durationSecs = -1;
+                    for (String line : lines) {
+                        command = line.trim().split(" ");
+                        switch (command[0]) {
+                            case "target":
+                                if (target != null) {
+                                    throw new IllegalStateException("duplicate target");
+                                }
+                                target = command[1];
+                                break;
+                            case "count":
+                                if (count != -1) {
+                                    throw new IllegalStateException("duplicate count");
+                                }
+                                count = Integer.parseInt(command[1]);
+                                break;
+                            case "duration":
+                                if (durationSecs != -1) {
+                                    throw new IllegalStateException("duplicate duration");
+                                }
+                                long duration = Duration.parseDurationStringToNanos(command[1]);
+                                durationSecs = TimeUnit.NANOSECONDS.toSeconds(duration);
+                                if (durationSecs < 1) {
+                                    throw new IllegalArgumentException("duration cannot be shorter than 1s");
+                                } else if (TimeUnit.SECONDS.toDays(durationSecs) > 1) {
+                                    throw new IllegalArgumentException("duration cannot be exceed 1d");
+                                }
+                                break;
+                            default:
+                                throw new IllegalArgumentException("unknown directive: " + command[0]);
+                        }
+                    }
+                    if (target == null || (count == -1 && durationSecs == -1) || (count != -1 && durationSecs != -1)) {
+                        throw new IllegalStateException("Must specify 'target' and exactly one of 'count', 'duration'");
+                    }
+                    if (count != -1) {
+                        testLoop = TestLoop.createLoop(target, count);
+                    } else {
+                        testLoop = TestLoop.createLoop(target, durationSecs, TimeUnit.SECONDS);
+                    }
+                    testLoops.put(testFile, testLoop);
+                }
+                testLoop.executeLoop();
+                // we only reach here if the loop is over
+                testLoops.remove(testFile);
+                break;
+
             default:
                 throw new IllegalArgumentException("No statements of type " + ctx.getType());
         }
@@ -1069,13 +1148,15 @@ public class TestExecutor {
             String reqType, File testFile, File expectedResultFile, File actualResultFile, MutableInt queryCount,
             int numResultFiles, String extension, ComparisonEnum compare) throws Exception {
         String handleVar = getHandleVariable(statement);
-        final String trimmedPathAndQuery = stripLineComments(stripJavaComments(statement)).trim();
+        final String trimmedPathAndQuery = stripAllComments(statement).trim();
         final String variablesReplaced = replaceVarRef(trimmedPathAndQuery, variableCtx);
+        final List<Parameter> params = extractParameters(statement);
+        final Predicate<Integer> statusCodePredicate = extractStatusCodePredicate(statement);
         InputStream resultStream;
         if ("http".equals(extension)) {
-            resultStream = executeHttp(reqType, variablesReplaced, fmt);
+            resultStream = executeHttp(reqType, variablesReplaced, fmt, params, statusCodePredicate);
         } else if ("uri".equals(extension)) {
-            resultStream = executeURI(reqType, URI.create(variablesReplaced), fmt);
+            resultStream = executeURI(reqType, URI.create(variablesReplaced), fmt, params, statusCodePredicate);
         } else {
             throw new IllegalArgumentException("Unexpected format for method " + reqType + ": " + extension);
         }
@@ -1100,7 +1181,7 @@ public class TestExecutor {
 
     public void executeQuery(OutputFormat fmt, String statement, Map<String, Object> variableCtx, String reqType,
             File testFile, File expectedResultFile, File actualResultFile, MutableInt queryCount, int numResultFiles,
-            List<CompilationUnit.Parameter> params, ComparisonEnum compare) throws Exception {
+            List<Parameter> params, ComparisonEnum compare) throws Exception {
         InputStream resultStream = null;
         if (testFile.getName().endsWith("aql")) {
             if (reqType.equalsIgnoreCase("query")) {
@@ -1124,7 +1205,9 @@ public class TestExecutor {
             final URI uri = getEndpoint(Servlets.QUERY_SERVICE);
             if (DELIVERY_IMMEDIATE.equals(delivery)) {
                 resultStream = executeQueryService(statement, fmt, uri, params, true, null, true);
-                resultStream = ResultExtractor.extract(resultStream);
+                resultStream = METRICS_QUERY_TYPE.equals(reqType) ?
+                        ResultExtractor.extractMetrics(resultStream) :
+                        ResultExtractor.extract(resultStream);
             } else {
                 String handleVar = getHandleVariable(statement);
                 resultStream = executeQueryService(statement, fmt, uri, upsertParam(params, "mode", delivery), true);
@@ -1158,7 +1241,7 @@ public class TestExecutor {
         long limitTime = startTime + TimeUnit.SECONDS.toMillis(timeoutSecs);
         ctx.setType(ctx.getType().substring("poll".length()));
         boolean expectedException = false;
-        Exception finalException;
+        Exception finalException = null;
         LOGGER.fine("polling for up to " + timeoutSecs + " seconds w/ " + retryDelaySecs + " second(s) delay");
         int responsesReceived = 0;
         final ExecutorService executorService = Executors.newSingleThreadExecutor();
@@ -1177,11 +1260,26 @@ public class TestExecutor {
                 if (responsesReceived == 0) {
                     throw new Exception(
                             "Poll limit (" + timeoutSecs + "s) exceeded without obtaining *any* result from server");
+                } else if (finalException != null) {
+                    throw new Exception("Poll limit (" + timeoutSecs
+                            + "s) exceeded without obtaining expected result; last exception:", finalException);
                 } else {
                     throw new Exception("Poll limit (" + timeoutSecs + "s) exceeded without obtaining expected result");
 
                 }
-            } catch (Exception e) {
+            } catch (ExecutionException ee) {
+                Exception e;
+                if (ee.getCause() instanceof Exception) {
+                    e = (Exception) ee.getCause();
+                } else {
+                    e = ee;
+                }
+                if (e instanceof ComparisonException) {
+                    LOGGER.log(Level.INFO, "Comparison failure on poll: " + e.getMessage());
+                } else {
+                    LOGGER.log(Level.INFO, "received exception on poll", e);
+                }
+                responsesReceived++;
                 if (isExpected(e, cUnit)) {
                     expectedException = true;
                     finalException = e;
@@ -1250,21 +1348,45 @@ public class TestExecutor {
         return tmpStmt;
     }
 
-    protected InputStream executeHttp(String ctxType, String endpoint, OutputFormat fmt) throws Exception {
-        String[] split = endpoint.split("\\?");
-        URI uri = createEndpointURI(split[0], split.length > 1 ? split[1] : null);
-        return executeURI(ctxType, uri, fmt);
+    protected static List<Parameter> extractParameters(String statement) {
+        List<Parameter> params = new ArrayList<>();
+        final Matcher m = HTTP_PARAM_PATTERN.matcher(statement);
+        while (m.find()) {
+            final Parameter param = new Parameter();
+            param.setName(m.group(1));
+            param.setValue(m.group(2));
+            params.add(param);
+        }
+        return params;
     }
 
-    private InputStream executeURI(String ctxType, URI uri, OutputFormat fmt) throws Exception {
-        switch (ctxType) {
-            case "get":
-                return executeJSONGet(fmt, uri);
-            case "post":
-                return executeJSONPost(fmt, uri);
-            default:
-                throw new AssertionError("Not implemented: " + ctxType);
+    protected static Predicate<Integer> extractStatusCodePredicate(String statement) {
+        List<Integer> codes = new ArrayList<>();
+        final Matcher m = HTTP_STATUSCODE_PATTERN.matcher(statement);
+        while (m.find()) {
+            codes.add(Integer.parseInt(m.group(1)));
         }
+        if (codes.isEmpty()) {
+            return code -> code == HttpStatus.SC_OK;
+        } else {
+            return codes::contains;
+        }
+    }
+
+    protected InputStream executeHttp(String ctxType, String endpoint, OutputFormat fmt, List<Parameter> params,
+            Predicate<Integer> statusCodePredicate) throws Exception {
+        String[] split = endpoint.split("\\?");
+        URI uri = createEndpointURI(split[0], split.length > 1 ? split[1] : null);
+        return executeURI(ctxType, uri, fmt, params, statusCodePredicate);
+    }
+
+    private InputStream executeURI(String ctxType, URI uri, OutputFormat fmt, List<Parameter> params) throws Exception {
+        return executeJSON(fmt, ctxType.toUpperCase(), uri, params);
+    }
+
+    private InputStream executeURI(String ctxType, URI uri, OutputFormat fmt, List<Parameter> params,
+            Predicate<Integer> responseCodeValidator) throws Exception {
+        return executeJSON(fmt, ctxType.toUpperCase(), uri, params, responseCodeValidator);
     }
 
     private void killNC(String nodeId, CompilationUnit cUnit) throws Exception {
@@ -1310,13 +1432,26 @@ public class TestExecutor {
             Map<String, Object> variableCtx = new HashMap<>();
             List<TestFileContext> testFileCtxs = testCaseCtx.getTestFiles(cUnit);
             List<TestFileContext> expectedResultFileCtxs = testCaseCtx.getExpectedResultFiles(cUnit);
-            for (TestFileContext ctx : testFileCtxs) {
+            int[] savedQueryCounts = new int[numOfFiles + testFileCtxs.size()];
+            for (ListIterator<TestFileContext> iter = testFileCtxs.listIterator(); iter.hasNext();) {
+                TestFileContext ctx = iter.next();
+                savedQueryCounts[numOfFiles] = queryCount.getValue();
                 numOfFiles++;
                 final File testFile = ctx.getFile();
                 final String statement = readTestFile(testFile);
                 try {
                     executeTestFile(testCaseCtx, ctx, variableCtx, statement, isDmlRecoveryTest, pb, cUnit, queryCount,
                             expectedResultFileCtxs, testFile, actualPath);
+                } catch (TestLoop loop) {
+                    // rewind the iterator until we find our target
+                    while (!ctx.getFile().getName().equals(loop.getTarget())) {
+                        if (!iter.hasPrevious()) {
+                            throw new IllegalStateException("unable to find loop target '" + loop.getTarget() + "'!");
+                        }
+                        ctx = iter.previous();
+                        numOfFiles--;
+                        queryCount.setValue(savedQueryCounts[numOfFiles]);
+                    }
                 } catch (Exception e) {
                     System.err.println("testFile " + testFile.toString() + " raised an exception: " + e);
                     numOfErrors++;
@@ -1326,7 +1461,7 @@ public class TestExecutor {
                         if (failedGroup != null) {
                             failedGroup.getTestCase().add(testCaseCtx.getTestCase());
                         }
-                        throw new Exception("Test \"" + testFile + "\" FAILED!");
+                        throw new Exception("Test \"" + testFile + "\" FAILED!", e);
                     }
                 } finally {
                     if (numOfFiles == testFileCtxs.size()) {
@@ -1387,8 +1522,11 @@ public class TestExecutor {
     }
 
     public static String stripLineComments(String text) {
-        final String s = SHELL_LINE_COMMENT_PATTERN.matcher(text).replaceAll("");
-        return JAVA_LINE_COMMENT_PATTERN.matcher(s).replaceAll("");
+        return JAVA_SHELL_SQL_LINE_COMMENT_PATTERN.matcher(text).replaceAll("");
+    }
+
+    public static String stripAllComments(String statement) {
+        return stripLineComments(stripJavaComments(statement));
     }
 
     public void cleanup(String testCase, List<String> badtestcases) throws Exception {
@@ -1480,4 +1618,48 @@ public class TestExecutor {
         LOGGER.info("Cluster state now " + desiredState);
     }
 
+    abstract static class TestLoop extends Exception {
+
+        private final String target;
+
+        TestLoop(String target) {
+            this.target = target;
+        }
+
+        static TestLoop createLoop(String target, final int count) {
+            LOGGER.info("Starting loop '" + count + " times back to '" + target + "'...");
+            return new TestLoop(target) {
+                int remainingLoops = count;
+
+                @Override
+                void executeLoop() throws TestLoop {
+                    if (remainingLoops-- > 0) {
+                        throw this;
+                    }
+                    LOGGER.info("Loop to '" + target + "' complete!");
+                }
+            };
+        }
+
+        static TestLoop createLoop(String target, long duration, TimeUnit unit) {
+            LOGGER.info("Starting loop for " + unit.toSeconds(duration) + "s back to '" + target + "'...");
+            return new TestLoop(target) {
+                long endTime = unit.toMillis(duration) + System.currentTimeMillis();
+
+                @Override
+                void executeLoop() throws TestLoop {
+                    if (System.currentTimeMillis() < endTime) {
+                        throw this;
+                    }
+                    LOGGER.info("Loop to '" + target + "' complete!");
+                }
+            };
+        }
+
+        abstract void executeLoop() throws TestLoop;
+
+        public String getTarget() {
+            return target;
+        }
+    }
 }

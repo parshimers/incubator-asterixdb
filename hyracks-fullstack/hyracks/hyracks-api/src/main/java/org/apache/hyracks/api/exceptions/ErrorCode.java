@@ -57,7 +57,7 @@ public class ErrorCode {
     public static final int ERROR_FINDING_DISTRIBUTED_JOB = 21;
     public static final int DUPLICATE_DISTRIBUTED_JOB = 22;
     public static final int DISTRIBUTED_JOB_FAILURE = 23;
-    public static final int NO_RESULTSET = 24;
+    public static final int NO_RESULT_SET = 24;
     public static final int JOB_CANCELED = 25;
     public static final int NODE_FAILED = 26;
     public static final int FILE_IS_NOT_DIRECTORY = 27;
@@ -122,6 +122,17 @@ public class ErrorCode {
     public static final int UNRECOGNIZED_INDEX_COMPONENT_FILE = 86;
     public static final int UNEQUAL_NUM_FILTERS_TREES = 87;
     public static final int CANNOT_MODIFY_INDEX_DISK_IS_FULL = 88;
+    public static final int GROUP_BY_MEMORY_BUDGET_EXCEEDS = 89;
+    public static final int ILLEGAL_MEMORY_BUDGET = 90;
+    public static final int TIMEOUT = 91;
+    public static final int JOB_HAS_BEEN_CLEARED_FROM_HISTORY = 92;
+    public static final int JOB_HAS_NOT_BEEN_CREATED_YET = 93;
+    public static final int CANNOT_READ_CLOSED_FILE = 94;
+    public static final int TUPLE_CANNOT_FIT_INTO_EMPTY_FRAME = 95;
+    public static final int ILLEGAL_ATTEMPT_TO_ENTER_EMPTY_COMPONENT = 96;
+    public static final int ILLEGAL_ATTEMPT_TO_EXIT_EMPTY_COMPONENT = 97;
+    public static final int A_FLUSH_OPERATION_HAS_FAILED = 98;
+    public static final int A_MERGE_OPERATION_HAS_FAILED = 99;
 
     // Compilation error codes.
     public static final int RULECOLLECTION_NOT_INSTANCE_OF_LIST = 10000;

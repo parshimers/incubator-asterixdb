@@ -30,6 +30,7 @@ import org.apache.hyracks.storage.am.bloomfilter.impls.BloomFilterFactory;
 import org.apache.hyracks.storage.am.btree.frames.BTreeNSMInteriorFrameFactory;
 import org.apache.hyracks.storage.am.btree.frames.BTreeNSMLeafFrameFactory;
 import org.apache.hyracks.storage.am.btree.impls.BTree;
+import org.apache.hyracks.storage.am.btree.tuples.BTreeTypeAwareTupleWriterFactory;
 import org.apache.hyracks.storage.am.common.api.IMetadataPageManagerFactory;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import org.apache.hyracks.storage.am.common.tuples.TypeAwareTupleWriterFactory;
@@ -52,6 +53,7 @@ import org.apache.hyracks.storage.am.lsm.common.impls.ComponentFilterHelper;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentFilterManager;
 import org.apache.hyracks.storage.am.lsm.common.impls.TreeIndexFactory;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
+import org.apache.hyracks.util.trace.ITracer;
 
 public class LSMBTreeUtil {
 
@@ -64,15 +66,16 @@ public class LSMBTreeUtil {
             ILSMMergePolicy mergePolicy, ILSMOperationTracker opTracker, ILSMIOOperationScheduler ioScheduler,
             ILSMIOOperationCallback ioOpCallback, boolean needKeyDupCheck, ITypeTraits[] filterTypeTraits,
             IBinaryComparatorFactory[] filterCmpFactories, int[] btreeFields, int[] filterFields, boolean durable,
-            IMetadataPageManagerFactory freePageManagerFactory) throws HyracksDataException {
+            IMetadataPageManagerFactory freePageManagerFactory, boolean updateAware, ITracer tracer)
+            throws HyracksDataException {
         LSMBTreeTupleWriterFactory insertTupleWriterFactory =
-                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, false);
+                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, false, updateAware);
         LSMBTreeTupleWriterFactory deleteTupleWriterFactory =
-                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, true);
+                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, true, updateAware);
         LSMBTreeCopyTupleWriterFactory copyTupleWriterFactory =
-                new LSMBTreeCopyTupleWriterFactory(typeTraits, cmpFactories.length);
+                new LSMBTreeCopyTupleWriterFactory(typeTraits, cmpFactories.length, updateAware);
         LSMBTreeTupleWriterFactory bulkLoadTupleWriterFactory =
-                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, false);
+                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, false, updateAware);
 
         ITreeIndexFrameFactory insertLeafFrameFactory = new BTreeNSMLeafFrameFactory(insertTupleWriterFactory);
         ITreeIndexFrameFactory copyTupleLeafFrameFactory = new BTreeNSMLeafFrameFactory(copyTupleWriterFactory);
@@ -107,7 +110,7 @@ public class LSMBTreeUtil {
                 deleteLeafFrameFactory, fileNameManager, diskBTreeFactory, bulkLoadBTreeFactory, bloomFilterFactory,
                 filterHelper, filterFrameFactory, filterManager, bloomFilterFalsePositiveRate, typeTraits.length,
                 cmpFactories, mergePolicy, opTracker, ioScheduler, ioOpCallback, needKeyDupCheck, btreeFields,
-                filterFields, durable);
+                filterFields, durable, updateAware, tracer);
     }
 
     public static ExternalBTree createExternalBTree(IIOManager ioManager, FileReference file,
@@ -116,18 +119,18 @@ public class LSMBTreeUtil {
             ILSMOperationTracker opTracker, ILSMIOOperationScheduler ioScheduler, ILSMIOOperationCallback ioOpCallback,
             boolean durable, IMetadataPageManagerFactory freePageManagerFactory) {
         LSMBTreeTupleWriterFactory insertTupleWriterFactory =
-                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, false);
+                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, false, false);
         LSMBTreeTupleWriterFactory deleteTupleWriterFactory =
-                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, true);
+                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, true, false);
         LSMBTreeCopyTupleWriterFactory copyTupleWriterFactory =
-                new LSMBTreeCopyTupleWriterFactory(typeTraits, cmpFactories.length);
+                new LSMBTreeCopyTupleWriterFactory(typeTraits, cmpFactories.length, false);
         ITreeIndexFrameFactory insertLeafFrameFactory = new BTreeNSMLeafFrameFactory(insertTupleWriterFactory);
         ITreeIndexFrameFactory copyTupleLeafFrameFactory = new BTreeNSMLeafFrameFactory(copyTupleWriterFactory);
         ITreeIndexFrameFactory deleteLeafFrameFactory = new BTreeNSMLeafFrameFactory(deleteTupleWriterFactory);
         ITreeIndexFrameFactory interiorFrameFactory = new BTreeNSMInteriorFrameFactory(insertTupleWriterFactory);
         // This is the tuple writer that can do both inserts and deletes
         LSMBTreeTupleWriterFactory transactionTupleWriterFactory =
-                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, false);
+                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, false, false);
         // This is the leaf frame factory for transaction components since it
         // can be used for both inserts and deletes
         ITreeIndexFrameFactory transactionLeafFrameFactory =
@@ -164,16 +167,16 @@ public class LSMBTreeUtil {
             buddyBtreeTypeTraits[i] = typeTraits[buddyBTreeFields[i]];
             buddyBtreeCmpFactories[i] = cmpFactories[buddyBTreeFields[i]];
         }
-        TypeAwareTupleWriterFactory buddyBtreeTupleWriterFactory =
-                new TypeAwareTupleWriterFactory(buddyBtreeTypeTraits);
+        BTreeTypeAwareTupleWriterFactory buddyBtreeTupleWriterFactory =
+                new BTreeTypeAwareTupleWriterFactory(buddyBtreeTypeTraits, false);
         ITreeIndexFrameFactory buddyBtreeInteriorFrameFactory =
                 new BTreeNSMInteriorFrameFactory(buddyBtreeTupleWriterFactory);
         ITreeIndexFrameFactory buddyBtreeLeafFrameFactory = new BTreeNSMLeafFrameFactory(buddyBtreeTupleWriterFactory);
 
         LSMBTreeTupleWriterFactory insertTupleWriterFactory =
-                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, false);
+                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, false, false);
         LSMBTreeCopyTupleWriterFactory copyTupleWriterFactory =
-                new LSMBTreeCopyTupleWriterFactory(typeTraits, cmpFactories.length);
+                new LSMBTreeCopyTupleWriterFactory(typeTraits, cmpFactories.length, false);
         ITreeIndexFrameFactory insertLeafFrameFactory = new BTreeNSMLeafFrameFactory(insertTupleWriterFactory);
         ITreeIndexFrameFactory copyTupleLeafFrameFactory = new BTreeNSMLeafFrameFactory(copyTupleWriterFactory);
         ITreeIndexFrameFactory interiorFrameFactory = new BTreeNSMInteriorFrameFactory(insertTupleWriterFactory);

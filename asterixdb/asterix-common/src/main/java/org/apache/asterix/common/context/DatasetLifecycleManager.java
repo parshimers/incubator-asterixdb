@@ -147,7 +147,8 @@ public class DatasetLifecycleManager implements IDatasetLifecycleManager, ILifeC
                     //notification will come from DatasetInfo class (undeclareActiveIOOperation)
                     dsInfo.wait();
                 } catch (InterruptedException e) {
-                    throw new HyracksDataException(e);
+                    Thread.currentThread().interrupt();
+                    throw HyracksDataException.create(e);
                 }
             }
         }
@@ -438,14 +439,15 @@ public class DatasetLifecycleManager implements IDatasetLifecycleManager, ILifeC
                 try {
                     dsInfo.wait();
                 } catch (InterruptedException e) {
-                    throw new HyracksDataException(e);
+                    Thread.currentThread().interrupt();
+                    throw HyracksDataException.create(e);
                 }
             }
         }
         try {
             flushDatasetOpenIndexes(dsInfo, false);
         } catch (Exception e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
         for (IndexInfo iInfo : dsInfo.getIndexes().values()) {
             if (iInfo.isOpen()) {

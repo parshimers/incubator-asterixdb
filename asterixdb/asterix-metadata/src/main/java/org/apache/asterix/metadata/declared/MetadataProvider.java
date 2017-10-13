@@ -21,10 +21,12 @@ package org.apache.asterix.metadata.declared;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.asterix.common.cluster.IClusterStateManager;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.common.config.DatasetConfig.ExternalFilePendingOp;
 import org.apache.asterix.common.config.DatasetConfig.IndexType;
@@ -83,7 +85,6 @@ import org.apache.asterix.runtime.base.AsterixTupleFilterFactory;
 import org.apache.asterix.runtime.formats.FormatUtils;
 import org.apache.asterix.runtime.job.listener.JobEventListenerFactory;
 import org.apache.asterix.runtime.operators.LSMSecondaryUpsertOperatorDescriptor;
-import org.apache.asterix.runtime.utils.ClusterStateManager;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
@@ -143,10 +144,10 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
     private final StorageProperties storageProperties;
     private final Dataverse defaultDataverse;
     private final LockList locks;
+    private final Map<String, String> config;
 
     private MetadataTransactionContext mdTxnCtx;
     private boolean isWriteTransaction;
-    private Map<String, String> config;
     private IAWriterFactory writerFactory;
     private FileSplit outputFile;
     private boolean asyncResults;
@@ -163,14 +164,11 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
         this.storageComponentProvider = appCtx.getStorageComponentProvider();
         storageProperties = appCtx.getStorageProperties();
         locks = new LockList();
+        config = new HashMap<>();
     }
 
     public String getPropertyValue(String propertyName) {
         return config.get(propertyName);
-    }
-
-    public void setConfig(Map<String, String> config) {
-        this.config = config;
     }
 
     public void disableBlockingOperator() {
@@ -297,7 +295,7 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
     }
 
     public INodeDomain findNodeDomain(String nodeGroupName) throws AlgebricksException {
-        return MetadataManagerUtil.findNodeDomain(mdTxnCtx, nodeGroupName);
+        return MetadataManagerUtil.findNodeDomain(appCtx.getClusterStateManager(), mdTxnCtx, nodeGroupName);
     }
 
     public List<String> findNodes(String nodeGroupName) throws AlgebricksException {
@@ -331,11 +329,11 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
 
     @Override
     public DataSource findDataSource(DataSourceId id) throws AlgebricksException {
-        return MetadataManagerUtil.findDataSource(mdTxnCtx, id);
+        return MetadataManagerUtil.findDataSource(appCtx.getClusterStateManager(), mdTxnCtx, id);
     }
 
     public DataSource lookupSourceInMetadata(DataSourceId aqlId) throws AlgebricksException {
-        return MetadataManagerUtil.lookupSourceInMetadata(mdTxnCtx, aqlId);
+        return MetadataManagerUtil.lookupSourceInMetadata(appCtx.getClusterStateManager(), mdTxnCtx, aqlId);
     }
 
     @Override
@@ -711,8 +709,9 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
         int numPartitions = 0;
         List<String> nodeGroup =
                 MetadataManager.INSTANCE.getNodegroup(mdTxnCtx, dataset.getNodeGroupName()).getNodeNames();
+        IClusterStateManager csm = appCtx.getClusterStateManager();
         for (String nd : nodeGroup) {
-            numPartitions += ClusterStateManager.INSTANCE.getNodePartitionsCount(nd);
+            numPartitions += csm.getNodePartitionsCount(nd);
         }
         return numElementsHint / numPartitions;
     }
@@ -757,12 +756,13 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
     }
 
     public Pair<IFileSplitProvider, AlgebricksPartitionConstraint> splitAndConstraints(String dataverse) {
-        return SplitsAndConstraintsUtil.getDataverseSplitProviderAndConstraints(dataverse);
+        return SplitsAndConstraintsUtil.getDataverseSplitProviderAndConstraints(appCtx.getClusterStateManager(),
+                dataverse);
     }
 
     public FileSplit[] splitsForIndex(MetadataTransactionContext mdTxnCtx, Dataset dataset, String indexName)
             throws AlgebricksException {
-        return SplitsAndConstraintsUtil.getIndexSplits(dataset, indexName, mdTxnCtx);
+        return SplitsAndConstraintsUtil.getIndexSplits(appCtx.getClusterStateManager(), dataset, indexName, mdTxnCtx);
     }
 
     public DatasourceAdapter getAdapter(MetadataTransactionContext mdTxnCtx, String dataverseName, String adapterName)
@@ -779,7 +779,7 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
     }
 
     public AlgebricksAbsolutePartitionConstraint getClusterLocations() {
-        return ClusterStateManager.INSTANCE.getClusterLocations();
+        return appCtx.getClusterStateManager().getClusterLocations();
     }
 
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildExternalDataLookupRuntime(

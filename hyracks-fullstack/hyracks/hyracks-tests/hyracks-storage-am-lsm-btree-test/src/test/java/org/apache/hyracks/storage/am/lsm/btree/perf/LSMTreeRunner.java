@@ -48,6 +48,7 @@ import org.apache.hyracks.storage.common.buffercache.HeapBufferAllocator;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
 import org.apache.hyracks.test.support.TestStorageManagerComponentHolder;
 import org.apache.hyracks.test.support.TestUtils;
+import org.apache.hyracks.util.trace.ITracer;
 
 public class LSMTreeRunner implements IExperimentRunner {
 
@@ -108,7 +109,8 @@ public class LSMTreeRunner implements IExperimentRunner {
         lsmtree = LSMBTreeUtil.createLSMTree(ioManager, virtualBufferCaches, file, bufferCache, typeTraits,
                 cmpFactories, bloomFilterKeyFields, bloomFilterFalsePositiveRate, new NoMergePolicy(),
                 new ThreadCountingTracker(), ioScheduler, NoOpIOOperationCallbackFactory.INSTANCE.createIoOpCallback(),
-                true, null, null, null, null, true, TestStorageManagerComponentHolder.getMetadataPageManagerFactory());
+                true, null, null, null, null, true, TestStorageManagerComponentHolder.getMetadataPageManagerFactory(),
+                false, ITracer.NONE);
     }
 
     @Override

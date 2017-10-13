@@ -50,12 +50,14 @@ import org.apache.hyracks.storage.am.lsm.common.freepage.VirtualFreePageManager;
 import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentFileReferences;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentFilterManager;
+import org.apache.hyracks.storage.am.rtree.frames.RTreeFrameFactory;
 import org.apache.hyracks.storage.am.rtree.impls.RTree;
 import org.apache.hyracks.storage.common.IIndexCursor;
 import org.apache.hyracks.storage.common.IModificationOperationCallback;
 import org.apache.hyracks.storage.common.ISearchOperationCallback;
 import org.apache.hyracks.storage.common.ISearchPredicate;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
+import org.apache.hyracks.util.trace.ITracer;
 
 public abstract class AbstractLSMRTree extends AbstractLSMIndex implements ITreeIndex {
 
@@ -78,7 +80,7 @@ public abstract class AbstractLSMRTree extends AbstractLSMIndex implements ITree
     protected final ITreeIndexFrameFactory btreeLeafFrameFactory;
 
     public AbstractLSMRTree(IIOManager ioManager, List<IVirtualBufferCache> virtualBufferCaches,
-            ITreeIndexFrameFactory rtreeInteriorFrameFactory, ITreeIndexFrameFactory rtreeLeafFrameFactory,
+            RTreeFrameFactory rtreeInteriorFrameFactory, RTreeFrameFactory rtreeLeafFrameFactory,
             ITreeIndexFrameFactory btreeInteriorFrameFactory, ITreeIndexFrameFactory btreeLeafFrameFactory,
             ILSMIndexFileManager fileManager, ILSMDiskComponentFactory componentFactory, int fieldCount,
             IBinaryComparatorFactory[] rtreeCmpFactories, IBinaryComparatorFactory[] btreeCmpFactories,
@@ -90,7 +92,7 @@ public abstract class AbstractLSMRTree extends AbstractLSMIndex implements ITree
             boolean isPointMBR, IBufferCache diskBufferCache) throws HyracksDataException {
         super(ioManager, virtualBufferCaches, diskBufferCache, fileManager, bloomFilterFalsePositiveRate, mergePolicy,
                 opTracker, ioScheduler, ioOpCallback, filterFrameFactory, filterManager, filterFields, durable,
-                filterHelper, rtreeFields);
+                filterHelper, rtreeFields, ITracer.NONE);
         int i = 0;
         for (IVirtualBufferCache virtualBufferCache : virtualBufferCaches) {
             RTree memRTree = new RTree(virtualBufferCache, new VirtualFreePageManager(virtualBufferCache),
@@ -289,11 +291,6 @@ public abstract class AbstractLSMRTree extends AbstractLSMIndex implements ITree
     @Override
     public boolean isPrimaryIndex() {
         return false;
-    }
-
-    @Override
-    public String toString() {
-        return "LSMRTree [" + fileManager.getBaseDir() + "]";
     }
 
     @Override
