@@ -175,6 +175,11 @@ public class LSMBTreeUpdateInPlaceTest extends AbstractOperationCallbackTest {
             }
             Assert.assertEquals(0, cmp.compare(this.tuple, after));
         }
+
+        @Override
+        public void logFilter(ITupleReference tuple){
+
+        }
     }
 
 }

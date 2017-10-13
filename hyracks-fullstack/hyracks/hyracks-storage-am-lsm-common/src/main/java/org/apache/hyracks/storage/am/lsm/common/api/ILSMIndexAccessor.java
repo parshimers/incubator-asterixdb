@@ -259,6 +259,7 @@ public interface ILSMIndexAccessor extends IIndexAccessor {
      */
     void updateFilter(ITupleReference tuple) throws HyracksDataException;
 
+    /**
      * Delete components that match the passed predicate
      * NOTE: This call can only be made when the caller knows that data modification has been stopped
      *
