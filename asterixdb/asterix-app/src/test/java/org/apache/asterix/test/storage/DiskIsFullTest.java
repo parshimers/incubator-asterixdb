@@ -43,7 +43,6 @@ import org.apache.asterix.metadata.entities.InternalDatasetDetails.PartitioningS
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
-import org.apache.asterix.test.common.TestHelper;
 import org.apache.commons.lang3.SystemUtils;
 import org.apache.hyracks.api.comm.VSizeFrame;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
@@ -88,7 +87,7 @@ public class DiskIsFullTest {
             return;
         }
         System.out.println("SetUp: ");
-        TestHelper.deleteExistingInstanceFiles();
+//        TestHelper.deleteExistingInstanceFiles();
         // create RAM disk
         final Path ramDiskRoot = DiskUtil.mountRamDisk(TEST_DISK_NAME, 4, MEGABYTE);
         // Use RAM disk for storage
@@ -101,7 +100,7 @@ public class DiskIsFullTest {
             return;
         }
         System.out.println("TearDown");
-        TestHelper.deleteExistingInstanceFiles();
+//        TestHelper.deleteExistingInstanceFiles();
         DiskUtil.unmountRamDisk(TEST_DISK_NAME);
         AsterixHyracksIntegrationUtil.restoreDefaultStoragePath();
     }

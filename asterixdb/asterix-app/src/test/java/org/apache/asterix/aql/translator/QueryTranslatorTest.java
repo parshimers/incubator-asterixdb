@@ -29,11 +29,8 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.apache.asterix.app.translator.DefaultStatementExecutorFactory;
-import org.apache.asterix.common.config.ClusterProperties;
 import org.apache.asterix.common.config.ExternalProperties;
 import org.apache.asterix.compiler.provider.AqlCompilationProvider;
-import org.apache.asterix.event.schema.cluster.Cluster;
-import org.apache.asterix.event.schema.cluster.MasterNode;
 import org.apache.asterix.file.StorageComponentProvider;
 import org.apache.asterix.lang.common.base.Statement;
 import org.apache.asterix.lang.common.statement.RunStatement;
@@ -68,14 +65,6 @@ public class QueryTranslatorTest {
         when(mockServiceContext.getAppConfig()).thenReturn(mockApplicationConfig);
         when(mockApplicationConfig.getBoolean(CCConfig.Option.ENFORCE_FRAME_WRITER_PROTOCOL)).thenReturn(true);
 
-        // Mocks AsterixClusterProperties.
-        Cluster mockCluster = mock(Cluster.class);
-        MasterNode mockMasterNode = mock(MasterNode.class);
-        ClusterProperties mockClusterProperties = mock(ClusterProperties.class);
-        setFinalStaticField(ClusterProperties.class.getDeclaredField("INSTANCE"), mockClusterProperties);
-        when(mockClusterProperties.getCluster()).thenReturn(mockCluster);
-        when(mockCluster.getMasterNode()).thenReturn(mockMasterNode);
-        when(mockMasterNode.getClientIp()).thenReturn("127.0.0.1");
 
         IStatementExecutor aqlTranslator = new DefaultStatementExecutorFactory().create(mockAsterixAppContextInfo,
                 statements, mockSessionOutput, new AqlCompilationProvider(), new StorageComponentProvider());

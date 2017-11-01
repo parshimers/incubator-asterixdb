@@ -21,8 +21,6 @@ package org.apache.asterix.common.utils;
 import java.util.ArrayList;
 
 import org.apache.asterix.common.config.AsterixExtension;
-import org.apache.asterix.common.configuration.Extension;
-import org.apache.asterix.common.configuration.Property;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 
 public class ConfigUtil {
@@ -30,12 +28,12 @@ public class ConfigUtil {
     private ConfigUtil() {
     }
 
-    public static AsterixExtension toAsterixExtension(Extension ext) {
-        String className = ext.getExtensionClassName();
-        ArrayList<Pair<String, String>> args = new ArrayList<>();
-        for (Property property : ext.getProperty()) {
-            args.add(new Pair<>(property.getName(), property.getValue()));
-        }
-        return new AsterixExtension(className, args);
-    }
+//    public static AsterixExtension toAsterixExtension(Extension ext) {
+//        String className = ext.getExtensionClassName();
+//        ArrayList<Pair<String, String>> args = new ArrayList<>();
+//        for (Property property : ext.getProperty()) {
+//            args.add(new Pair<>(property.getName(), property.getValue()));
+//        }
+//        return new AsterixExtension(className, args);
+//    }
 }

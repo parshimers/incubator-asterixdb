@@ -42,7 +42,6 @@ import org.apache.asterix.external.util.ExternalDataConstants;
 import org.apache.asterix.external.util.IdentitiyResolverFactory;
 import org.apache.asterix.file.StorageComponentProvider;
 import org.apache.asterix.test.base.AsterixTestHelper;
-import org.apache.asterix.test.common.TestHelper;
 import org.apache.asterix.test.runtime.HDFSCluster;
 import org.apache.asterix.translator.IStatementExecutorFactory;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
@@ -156,14 +155,14 @@ public class OptimizerTest {
             String queryFileShort =
                     queryFile.getPath().substring(PATH_QUERIES.length()).replace(SEPARATOR.charAt(0), '/');
             if (!only.isEmpty()) {
-                boolean toRun = TestHelper.isInPrefixList(only, queryFileShort);
+                boolean toRun = true; //TestHelper.isInPrefixList(only, queryFileShort);
                 if (!toRun) {
                     LOGGER.info("SKIP TEST: \"" + queryFile.getPath()
                             + "\" \"only.txt\" not empty and not in \"only.txt\".");
                 }
                 Assume.assumeTrue(toRun);
             }
-            boolean skipped = TestHelper.isInPrefixList(ignore, queryFileShort);
+            boolean skipped = true; //TestHelper.isInPrefixList(ignore, queryFileShort);
             if (skipped) {
                 LOGGER.info("SKIP TEST: \"" + queryFile.getPath() + "\" in \"ignore.txt\".");
             }

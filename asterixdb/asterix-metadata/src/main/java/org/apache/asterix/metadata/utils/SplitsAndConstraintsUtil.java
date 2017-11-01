@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.asterix.common.cluster.ClusterPartition;
-import org.apache.asterix.common.config.ClusterProperties;
 import org.apache.asterix.common.exceptions.MetadataException;
 import org.apache.asterix.common.utils.StoragePathUtil;
 import org.apache.asterix.metadata.MetadataManager;
@@ -47,10 +46,9 @@ public class SplitsAndConstraintsUtil {
         List<FileSplit> splits = new ArrayList<>();
         // get all partitions
         ClusterPartition[] clusterPartition = ClusterStateManager.INSTANCE.getClusterPartitons();
-        String storageDirName = ClusterProperties.INSTANCE.getStorageDirectoryName();
         for (int j = 0; j < clusterPartition.length; j++) {
             File f = new File(
-                    StoragePathUtil.prepareStoragePartitionPath(storageDirName, clusterPartition[j].getPartitionId())
+                    StoragePathUtil.prepareStoragePartitionPath(ClusterStateManager.INSTANCE.getStoragePathPrefix(), clusterPartition[j].getPartitionId())
                             + File.separator + relPathFile);
             splits.add(StoragePathUtil.getFileSplitForClusterPartition(clusterPartition[j], f.getPath()));
         }
@@ -74,7 +72,6 @@ public class SplitsAndConstraintsUtil {
     public static FileSplit[] getIndexSplits(Dataset dataset, String indexName, List<String> nodes) {
         File relPathFile = new File(StoragePathUtil.prepareDataverseIndexName(dataset.getDataverseName(),
                 dataset.getDatasetName(), indexName, dataset.getRebalanceCount()));
-        String storageDirName = ClusterProperties.INSTANCE.getStorageDirectoryName();
         List<FileSplit> splits = new ArrayList<>();
         for (String nd : nodes) {
             int numPartitions = ClusterStateManager.INSTANCE.getNodePartitionsCount(nd);
@@ -86,7 +83,7 @@ public class SplitsAndConstraintsUtil {
 
             for (int k = 0; k < numPartitions; k++) {
                 // format: 'storage dir name'/partition_#/dataverse/dataset_idx_index
-                File f = new File(StoragePathUtil.prepareStoragePartitionPath(storageDirName,
+                File f = new File(StoragePathUtil.prepareStoragePartitionPath(ClusterStateManager.INSTANCE.getStoragePathPrefix(),
                         nodePartitions[k].getPartitionId())
                         + (dataset.isTemp() ? (File.separator + StoragePathUtil.TEMP_DATASETS_STORAGE_FOLDER) : "")
                         + File.separator + relPathFile);
@@ -103,8 +100,7 @@ public class SplitsAndConstraintsUtil {
     }
 
     public static String getIndexPath(String partitionPath, int partition, String dataverse, String fullIndexName) {
-        String storageDirName = ClusterProperties.INSTANCE.getStorageDirectoryName();
-        return partitionPath + StoragePathUtil.prepareStoragePartitionPath(storageDirName, partition) + File.separator
+        return partitionPath + StoragePathUtil.prepareStoragePartitionPath(ClusterStateManager.INSTANCE.getStoragePathPrefix(), partition) + File.separator
                 + StoragePathUtil.prepareDataverseIndexName(dataverse, fullIndexName);
     }
 }

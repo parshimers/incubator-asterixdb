@@ -21,10 +21,15 @@ package org.apache.asterix.common.replication;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.asterix.common.config.MetadataProperties;
+import org.apache.asterix.common.config.ReplicationProperties;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
-import org.apache.asterix.event.schema.cluster.Cluster;
+import org.apache.hyracks.api.config.IApplicationConfig;
+import org.apache.hyracks.api.config.IConfigManager;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.control.common.config.ConfigManager;
+import org.apache.hyracks.control.common.controllers.NCConfig;
 
 public class ReplicationStrategyFactory {
 
@@ -41,16 +46,9 @@ public class ReplicationStrategyFactory {
         throw new AssertionError();
     }
 
-    public static IReplicationStrategy create(Cluster cluster) throws HyracksDataException {
-        boolean highAvailabilityEnabled = cluster.getHighAvailability() != null
-                && cluster.getHighAvailability().getEnabled() != null
-                && Boolean.valueOf(cluster.getHighAvailability().getEnabled());
-
-        if (!highAvailabilityEnabled || cluster.getHighAvailability().getDataReplication() == null
-                || cluster.getHighAvailability().getDataReplication().getStrategy() == null) {
-            return new NoReplicationStrategy();
-        }
-        String strategyName = cluster.getHighAvailability().getDataReplication().getStrategy().toLowerCase();
+    public static IReplicationStrategy create(String name, ReplicationProperties repProp, IConfigManager ncConfig)
+            throws HyracksDataException {
+        String strategyName = name.toLowerCase();
         if (!BUILT_IN_REPLICATION_STRATEGY.containsKey(strategyName)) {
             throw new RuntimeDataException(ErrorCode.UNSUPPORTED_REPLICATION_STRATEGY,
                     String.format("%s. Available strategies: %s", strategyName,
@@ -58,7 +56,7 @@ public class ReplicationStrategyFactory {
         }
         Class<? extends IReplicationStrategy> clazz = BUILT_IN_REPLICATION_STRATEGY.get(strategyName);
         try {
-            return clazz.newInstance().from(cluster);
+            return clazz.newInstance().from(repProp,ncConfig);
         } catch (InstantiationException | IllegalAccessException e) {
             throw new RuntimeDataException(ErrorCode.INSTANTIATION_ERROR, e, clazz.getName());
         }

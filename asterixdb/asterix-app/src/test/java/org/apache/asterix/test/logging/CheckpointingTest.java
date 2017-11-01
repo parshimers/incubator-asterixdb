@@ -30,8 +30,6 @@ import org.apache.asterix.app.data.gen.TupleGenerator;
 import org.apache.asterix.app.data.gen.TupleGenerator.GenerationFunction;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.common.config.TransactionProperties;
-import org.apache.asterix.common.configuration.AsterixConfiguration;
-import org.apache.asterix.common.configuration.Property;
 import org.apache.asterix.common.dataflow.LSMInsertDeleteOperatorNodePushable;
 import org.apache.asterix.common.transactions.Checkpoint;
 import org.apache.asterix.common.transactions.DatasetId;
@@ -48,7 +46,6 @@ import org.apache.asterix.metadata.entities.InternalDatasetDetails.PartitioningS
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
-import org.apache.asterix.test.common.TestHelper;
 import org.apache.asterix.transaction.management.service.logging.LogManager;
 import org.apache.asterix.transaction.management.service.recovery.AbstractCheckpointManager;
 import org.apache.hyracks.api.comm.VSizeFrame;
@@ -92,23 +89,23 @@ public class CheckpointingTest {
     @Before
     public void setUp() throws Exception {
         System.out.println("SetUp: ");
-        TestHelper.deleteExistingInstanceFiles();
-        // Read default test configurations
-        AsterixConfiguration ac = TestHelper.getConfigurations(DEFAULT_TEST_CONFIG_FILE_NAME);
-        // Set log file size to 2MB
-        ac.getProperty().add(new Property(TransactionProperties.TXN_LOG_PARTITIONSIZE_KEY,
-                String.valueOf(TXN_LOG_PARTITION_SIZE), ""));
-        // Disable checkpointing by making checkpoint thread wait max wait time
-        ac.getProperty().add(new Property(TransactionProperties.TXN_LOG_CHECKPOINT_POLLFREQUENCY_KEY,
-                String.valueOf(Integer.MAX_VALUE), ""));
+//        TestHelper.deleteExistingInstanceFiles();
+//        // Read default test configurations
+//        AsterixConfiguration ac = TestHelper.getConfigurations(DEFAULT_TEST_CONFIG_FILE_NAME);
+//        // Set log file size to 2MB
+//        ac.getProperty().add(new Property(TransactionProperties.TXN_LOG_PARTITIONSIZE_KEY,
+//                String.valueOf(TXN_LOG_PARTITION_SIZE), ""));
+//        // Disable checkpointing by making checkpoint thread wait max wait time
+//        ac.getProperty().add(new Property(TransactionProperties.TXN_LOG_CHECKPOINT_POLLFREQUENCY_KEY,
+//                String.valueOf(Integer.MAX_VALUE), ""));
         // Write test config file
-        TestHelper.writeConfigurations(ac, TEST_CONFIG_FILE_PATH);
+//        TestHelper.writeConfigurations(ac, TEST_CONFIG_FILE_PATH);
     }
 
     @After
     public void tearDown() throws Exception {
         System.out.println("TearDown");
-        TestHelper.deleteExistingInstanceFiles();
+//        TestHelper.deleteExistingInstanceFiles();
     }
 
     @Test

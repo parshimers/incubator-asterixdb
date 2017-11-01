@@ -42,7 +42,6 @@ import org.apache.asterix.metadata.entities.InternalDatasetDetails.PartitioningS
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
-import org.apache.asterix.test.common.TestHelper;
 import org.apache.asterix.transaction.management.service.logging.LogReader;
 import org.apache.hyracks.algebricks.runtime.base.IPushRuntime;
 import org.apache.hyracks.api.comm.VSizeFrame;
@@ -91,13 +90,13 @@ public class LogMarkerTest {
     @Before
     public void setUp() throws Exception {
         System.out.println("SetUp: ");
-        TestHelper.deleteExistingInstanceFiles();
+//        TestHelper.deleteExistingInstanceFiles();
     }
 
     @After
     public void tearDown() throws Exception {
         System.out.println("TearDown");
-        TestHelper.deleteExistingInstanceFiles();
+//        TestHelper.deleteExistingInstanceFiles();
     }
 
     @Test

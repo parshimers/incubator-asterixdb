@@ -24,6 +24,7 @@ import java.util.logging.Logger;
 import org.apache.asterix.common.config.ReplicationProperties;
 import org.apache.asterix.common.config.TransactionProperties;
 import org.apache.asterix.common.exceptions.ACIDException;
+import org.apache.asterix.common.replication.IReplicationManager;
 import org.apache.asterix.common.replication.IReplicationStrategy;
 import org.apache.asterix.common.transactions.Checkpoint;
 import org.apache.asterix.common.transactions.CheckpointProperties;
@@ -61,7 +62,7 @@ public class TransactionSubsystem implements ITransactionSubsystem {
     private EntityCommitProfiler ecp;
 
     public TransactionSubsystem(INCServiceContext serviceCtx, String id,
-            IAppRuntimeContextProvider asterixAppRuntimeContextProvider, TransactionProperties txnProperties)
+                                IAppRuntimeContextProvider asterixAppRuntimeContextProvider, TransactionProperties txnProperties)
             throws ACIDException {
         this.asterixAppRuntimeContextProvider = asterixAppRuntimeContextProvider;
         this.id = id;
@@ -70,8 +71,7 @@ public class TransactionSubsystem implements ITransactionSubsystem {
         this.lockManager = new ConcurrentLockManager(txnProperties.getLockManagerShrinkTimer());
         ReplicationProperties repProperties =
                 asterixAppRuntimeContextProvider.getAppContext().getReplicationProperties();
-        IReplicationStrategy replicationStrategy = repProperties.getReplicationStrategy();
-        final boolean replicationEnabled = repProperties.isParticipant(id);
+        final boolean replicationEnabled = repProperties.isReplicationEnabled();
 
         final CheckpointProperties checkpointProperties = new CheckpointProperties(txnProperties, id);
         checkpointManager = CheckpointManagerFactory.create(this, checkpointProperties, replicationEnabled);
@@ -83,7 +83,7 @@ public class TransactionSubsystem implements ITransactionSubsystem {
         }
 
         if (replicationEnabled) {
-            this.logManager = new LogManagerWithReplication(this, replicationStrategy);
+            this.logManager = new LogManagerWithReplication(this);
         } else {
             this.logManager = new LogManager(this);
         }

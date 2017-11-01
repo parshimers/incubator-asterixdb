@@ -23,19 +23,23 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.apache.asterix.common.config.ClusterProperties;
+import org.apache.asterix.common.config.MetadataProperties;
+import org.apache.asterix.common.config.ReplicationProperties;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.common.metadata.MetadataIndexImmutableProperties;
-import org.apache.asterix.event.schema.cluster.Cluster;
-import org.apache.asterix.event.schema.cluster.Node;
+import org.apache.hyracks.api.config.IConfigManager;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.lifecycle.LifeCycleComponentManager;
+import org.apache.hyracks.control.common.config.ConfigManager;
+import org.apache.hyracks.control.common.controllers.NCConfig;
 
 public class MetadataOnlyReplicationStrategy implements IReplicationStrategy {
 
-    private String metadataNodeId;
-    private Replica metadataPrimaryReplica;
+
+    private String metadataPrimaryReplicaId;
     private Set<Replica> metadataNodeReplicas;
+    MetadataProperties metadataProperties;
 
     @Override
     public boolean isMatch(int datasetId) {
@@ -44,50 +48,36 @@ public class MetadataOnlyReplicationStrategy implements IReplicationStrategy {
 
     @Override
     public Set<Replica> getRemoteReplicas(String nodeId) {
-        if (nodeId.equals(metadataNodeId)) {
+        if (nodeId.equals(metadataPrimaryReplicaId)) {
             return metadataNodeReplicas;
         }
         return Collections.emptySet();
     }
 
     @Override
+    public boolean isParticipant(String nodeId) {
+        return false;
+    }
+
+    @Override
     public Set<Replica> getRemotePrimaryReplicas(String nodeId) {
         if (metadataNodeReplicas.stream().map(Replica::getId).filter(replicaId -> replicaId.equals(nodeId))
                 .count() != 0) {
-            return new HashSet<>(Arrays.asList(metadataPrimaryReplica));
+            return metadataNodeReplicas;
         }
         return Collections.emptySet();
     }
 
     @Override
-    public MetadataOnlyReplicationStrategy from(Cluster cluster) throws HyracksDataException {
-        if (cluster.getMetadataNode() == null) {
-            throw new RuntimeDataException(ErrorCode.INVALID_CONFIGURATION, "Metadata node must be specified.");
-        }
-
-        Node metadataNode = ClusterProperties.INSTANCE.getNodeById(cluster.getMetadataNode());
-        if (metadataNode == null) {
-            throw new IllegalStateException("Invalid metadata node specified");
-        }
-
-        if (cluster.getHighAvailability().getFaultTolerance().getReplica() == null
-                || cluster.getHighAvailability().getFaultTolerance().getReplica().getNodeId() == null
-                || cluster.getHighAvailability().getFaultTolerance().getReplica().getNodeId().isEmpty()) {
-            throw new RuntimeDataException(ErrorCode.INVALID_CONFIGURATION,
-                    "One or more replicas must be specified for metadata node.");
-        }
+    public MetadataOnlyReplicationStrategy from(ReplicationProperties p, IConfigManager configManager) throws HyracksDataException {
+        metadataProperties = p.getMetadataProperties();
+        metadataPrimaryReplicaId = metadataProperties.getMetadataNodeName();
 
         final Set<Replica> replicas = new HashSet<>();
-        for (String nodeId : cluster.getHighAvailability().getFaultTolerance().getReplica().getNodeId()) {
-            Node node = ClusterProperties.INSTANCE.getNodeById(nodeId);
-            if (node == null) {
-                throw new RuntimeDataException(ErrorCode.INVALID_CONFIGURATION, "Invalid replica specified: " + nodeId);
-            }
-            replicas.add(new Replica(node));
+        for (String nodeId :( ((ConfigManager)(configManager)).getNodeNames())) {
+            replicas.add(new Replica(nodeId, ((ConfigManager)configManager).getNodeEffectiveConfig(nodeId).getString(NCConfig.Option.REPLICATION_LISTEN_ADDRESS), ((ConfigManager)configManager).getNodeEffectiveConfig(nodeId).getInt(NCConfig.Option.REPLICATION_LISTEN_PORT)));
         }
         MetadataOnlyReplicationStrategy st = new MetadataOnlyReplicationStrategy();
-        st.metadataNodeId = cluster.getMetadataNode();
-        st.metadataPrimaryReplica = new Replica(metadataNode);
         st.metadataNodeReplicas = replicas;
         return st;
     }

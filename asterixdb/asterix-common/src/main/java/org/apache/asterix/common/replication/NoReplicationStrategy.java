@@ -21,7 +21,10 @@ package org.apache.asterix.common.replication;
 import java.util.Collections;
 import java.util.Set;
 
-import org.apache.asterix.event.schema.cluster.Cluster;
+import org.apache.asterix.common.config.ReplicationProperties;
+import org.apache.hyracks.api.config.IConfigManager;
+import org.apache.hyracks.control.common.config.ConfigManager;
+import org.apache.hyracks.control.common.controllers.NCConfig;
 
 public class NoReplicationStrategy implements IReplicationStrategy {
 
@@ -46,7 +49,7 @@ public class NoReplicationStrategy implements IReplicationStrategy {
     }
 
     @Override
-    public NoReplicationStrategy from(Cluster cluster) {
+    public NoReplicationStrategy from(ReplicationProperties p, IConfigManager configManager) {
         return new NoReplicationStrategy();
     }
 }

@@ -26,10 +26,7 @@ import java.util.logging.Logger;
 
 import org.apache.asterix.common.api.IClusterManagementWork;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
-import org.apache.asterix.common.exceptions.AsterixException;
-import org.apache.asterix.event.schema.cluster.Node;
 import org.apache.asterix.metadata.cluster.AddNodeWork;
-import org.apache.asterix.metadata.cluster.ClusterManagerProvider;
 import org.apache.asterix.metadata.cluster.RemoveNodeWork;
 import org.apache.asterix.runtime.utils.ClusterStateManager;
 
@@ -69,27 +66,18 @@ public class ClusterWorkExecutor implements Runnable {
                     }
                 }
 
-                Set<Node> addedNodes = new HashSet<>();
                 for (int i = 0; i < nodesToAdd; i++) {
-                    Node node = ClusterStateManager.INSTANCE.getAvailableSubstitutionNode();
-                    if (node != null) {
-                        try {
-                            ClusterManagerProvider.getClusterManager().addNode(appCtx, node);
-                            addedNodes.add(node);
-                            if (LOGGER.isLoggable(Level.INFO)) {
-                                LOGGER.info("Added NC at:" + node.getId());
-                            }
-                        } catch (AsterixException e) {
-                            if (LOGGER.isLoggable(Level.WARNING)) {
-                                LOGGER.warning("Unable to add NC at:" + node.getId());
-                            }
-                            e.printStackTrace();
-                        }
-                    } else {
+//                    Node node = ClusterStateManager.INSTANCE.getAvailableSubstitutionNode();
+//                    if (node != null) {
+//                            addedNodes.add(node);
+//                            if (LOGGER.isLoggable(Level.INFO)) {
+//                                LOGGER.info("Added NC at:" + node.getId());
+//                            }
+//                    } else {
                         if (LOGGER.isLoggable(Level.WARNING)) {
                             LOGGER.warning("Unable to add NC: no more available nodes");
                         }
-                    }
+//                    }
                 }
 
             } catch (InterruptedException e) {

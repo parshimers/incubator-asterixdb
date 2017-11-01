@@ -63,6 +63,8 @@ public class NCConfig extends ControllerConfig {
         MESSAGING_LISTEN_PORT(INTEGER, 0),
         MESSAGING_PUBLIC_ADDRESS(STRING, PUBLIC_ADDRESS),
         MESSAGING_PUBLIC_PORT(INTEGER, MESSAGING_LISTEN_PORT),
+        REPLICATION_LISTEN_ADDRESS(STRING,PUBLIC_ADDRESS),
+        REPLICATION_LISTEN_PORT(INTEGER,2000),
         CLUSTER_CONNECT_RETRIES(INTEGER, 5),
         IODEVICES(
                 STRING_ARRAY,
@@ -166,6 +168,10 @@ public class NCConfig extends ControllerConfig {
                     return "Public IP Address to announce messaging listener";
                 case MESSAGING_PUBLIC_PORT:
                     return "Public IP port to announce messaging listener";
+                case REPLICATION_LISTEN_ADDRESS:
+                    return "Replication bind address";
+                case REPLICATION_LISTEN_PORT:
+                    return "Port to listen on for replication service";
                 case CLUSTER_CONNECT_RETRIES:
                     return "Number of attempts to contact CC before giving up";
                 case IODEVICES:
@@ -428,6 +434,10 @@ public class NCConfig extends ControllerConfig {
     public void setMessagingPublicPort(int messagingPublicPort) {
         configManager.set(nodeId, Option.MESSAGING_PUBLIC_PORT, messagingPublicPort);
     }
+
+    public String getReplicationPublicAddress() { return appConfig.getString(Option.REPLICATION_LISTEN_ADDRESS);}
+
+    public int getReplicationPublicPort() { return appConfig.getInt(Option.REPLICATION_LISTEN_PORT);};
 
     public int getClusterConnectRetries() {
         return appConfig.getInt(Option.CLUSTER_CONNECT_RETRIES);

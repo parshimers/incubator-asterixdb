@@ -27,11 +27,10 @@ import java.util.List;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.library.ILibraryManager;
-import org.apache.asterix.event.service.AsterixEventServiceUtil;
 import org.apache.asterix.test.common.ITestLibrarian;
 import org.apache.commons.io.FileUtils;
 import org.apache.hyracks.algebricks.common.utils.Pair;
-import org.apache.hyracks.api.exceptions.HyracksDataException;
+
 
 public class TestLibrarian implements ITestLibrarian {
 
@@ -57,7 +56,7 @@ public class TestLibrarian implements ITestLibrarian {
         FileUtils.deleteQuietly(destinationDir);
         destinationDir.mkdirs();
         try {
-            AsterixEventServiceUtil.unzip(libPath, destinationDir.getAbsolutePath());
+//            TestHelper.unzip(libPath, destinationDir.getAbsolutePath());
         } catch (Exception e) {
 
             throw new Exception("Couldn't unzip the file: " + libPath, e);

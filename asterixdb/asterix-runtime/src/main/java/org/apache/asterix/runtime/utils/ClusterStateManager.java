@@ -35,12 +35,9 @@ import java.util.logging.Logger;
 import org.apache.asterix.common.api.IClusterManagementWork.ClusterState;
 import org.apache.asterix.common.cluster.ClusterPartition;
 import org.apache.asterix.common.cluster.IClusterStateManager;
-import org.apache.asterix.common.config.ClusterProperties;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.replication.IFaultToleranceStrategy;
-import org.apache.asterix.event.schema.cluster.Cluster;
-import org.apache.asterix.event.schema.cluster.Node;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import org.apache.hyracks.api.config.IOption;
 import org.apache.hyracks.api.config.Section;
@@ -69,7 +66,6 @@ public class ClusterStateManager implements IClusterStateManager {
     public static final ClusterStateManager INSTANCE = new ClusterStateManager();
     private final Map<String, Map<IOption, Object>> activeNcConfiguration = new HashMap<>();
     private Set<String> pendingRemoval = new HashSet<>();
-    private final Cluster cluster;
     private ClusterState state = ClusterState.UNUSABLE;
     private AlgebricksAbsolutePartitionConstraint clusterPartitionConstraint;
     private Map<String, ClusterPartition[]> node2PartitionsMap;
@@ -81,7 +77,6 @@ public class ClusterStateManager implements IClusterStateManager {
     private CcApplicationContext appCtx;
 
     private ClusterStateManager() {
-        cluster = ClusterProperties.INSTANCE.getCluster();
     }
 
     public void setCcAppCtx(CcApplicationContext appCtx) {
@@ -229,14 +224,15 @@ public class ClusterStateManager implements IClusterStateManager {
     }
 
     @Override
+    public String getStoragePathPrefix(){
+        return appCtx.getNodeProperties().getStorageSubdir();
+    }
+
+    @Override
     public synchronized ClusterState getState() {
         return state;
     }
 
-    public synchronized Node getAvailableSubstitutionNode() {
-        List<Node> subNodes = cluster.getSubstituteNodes() == null ? null : cluster.getSubstituteNodes().getNode();
-        return subNodes == null || subNodes.isEmpty() ? null : subNodes.get(0);
-    }
 
     public synchronized Set<String> getParticipantNodes() {
         Set<String> participantNodes = new HashSet<>();
@@ -273,10 +269,6 @@ public class ClusterStateManager implements IClusterStateManager {
     }
 
     public synchronized boolean isClusterActive() {
-        if (cluster == null) {
-            // this is a virtual cluster
-            return true;
-        }
         return state == ClusterState.ACTIVE;
     }
 

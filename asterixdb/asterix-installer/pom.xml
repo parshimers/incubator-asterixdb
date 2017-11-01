@@ -94,7 +94,6 @@
               <includes>
                 <!-- NOTE! Any changes here must be mirrored in src/main/assembly/binary-assembly.xml -->
                 <include>log4j:log4j</include>
-                <include>org.apache.asterix:asterix-events</include>
                 <include>org.apache.asterix:asterix-common</include>
                 <include>org.apache.commons:commons-lang3</include>
                 <include>org.apache.zookeeper:zookeeper</include>
@@ -440,11 +439,6 @@
     </dependency>
     <dependency>
       <groupId>org.apache.asterix</groupId>
-      <artifactId>asterix-events</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.asterix</groupId>
       <artifactId>asterix-common</artifactId>
       <version>${project.version}</version>
       <type>test-jar</type>
@@ -547,5 +541,10 @@
       <classifier>testlib</classifier>
       <scope>test</scope>
     </dependency>
+      <dependency>
+          <groupId>org.apache.hyracks</groupId>
+          <artifactId>hyracks-server</artifactId>
+          <scope>test</scope>
+      </dependency>
   </dependencies>
 </project>

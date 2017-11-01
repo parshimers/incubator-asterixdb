@@ -53,7 +53,7 @@ public class ReplicaStateChecker implements Callable<Void> {
         Thread.currentThread().setName("ReplicaConnector Thread");
 
         long startTime = System.currentTimeMillis();
-        InetSocketAddress replicaAddress = replica.getAddress(asterixReplicationProperties);
+        InetSocketAddress replicaAddress = InetSocketAddress.createUnresolved(replica.getClusterIp(),replica.getPort());
 
         while (true) {
             try (SocketChannel connection = SocketChannel.open()) {

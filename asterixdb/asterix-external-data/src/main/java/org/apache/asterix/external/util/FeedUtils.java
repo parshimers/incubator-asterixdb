@@ -24,8 +24,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.asterix.common.api.IClusterManagementWork;
 import org.apache.asterix.common.cluster.ClusterPartition;
-import org.apache.asterix.common.config.ClusterProperties;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.utils.StoragePathUtil;
 import org.apache.asterix.runtime.utils.ClusterStateManager;
@@ -78,9 +78,8 @@ public class FeedUtils {
     public static FileSplit splitsForAdapter(String dataverseName, String feedName, String nodeName,
             ClusterPartition partition) {
         File relPathFile = new File(prepareDataverseFeedName(dataverseName, feedName));
-        String storageDirName = ClusterProperties.INSTANCE.getStorageDirectoryName();
         String storagePartitionPath =
-                StoragePathUtil.prepareStoragePartitionPath(storageDirName, partition.getPartitionId());
+                StoragePathUtil.prepareStoragePartitionPath(ClusterStateManager.INSTANCE.getStoragePathPrefix(), partition.getPartitionId());
         // Note: feed adapter instances in a single node share the feed logger
         // format: 'storage dir name'/partition_#/dataverse/feed/node
         File f = new File(storagePartitionPath + File.separator + relPathFile + File.separator + nodeName);

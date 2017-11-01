@@ -20,8 +20,11 @@ package org.apache.asterix.common.replication;
 
 import java.util.Set;
 
-import org.apache.asterix.event.schema.cluster.Cluster;
+import org.apache.asterix.common.config.ReplicationProperties;
+import org.apache.hyracks.api.config.IConfigManager;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.control.common.config.ConfigManager;
+import org.apache.hyracks.control.common.controllers.NCConfig;
 
 public interface IReplicationStrategy {
 
@@ -51,9 +54,10 @@ public interface IReplicationStrategy {
         return !getRemoteReplicas(nodeId).isEmpty() || !getRemotePrimaryReplicas(nodeId).isEmpty();
     }
 
+
     /**
-     * @param cluster
+     * @param p
      * @return A replication strategy based on the passed configurations.
      */
-    IReplicationStrategy from(Cluster cluster) throws HyracksDataException;
+    IReplicationStrategy from(ReplicationProperties p, IConfigManager configManager) throws HyracksDataException;
 }

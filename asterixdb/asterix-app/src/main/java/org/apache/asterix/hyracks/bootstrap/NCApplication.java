@@ -30,7 +30,6 @@ import org.apache.asterix.app.replication.message.StartupTaskRequestMessage;
 import org.apache.asterix.common.api.AsterixThreadFactory;
 import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.config.AsterixExtension;
-import org.apache.asterix.common.config.ClusterProperties;
 import org.apache.asterix.common.config.ExternalProperties;
 import org.apache.asterix.common.config.MessagingProperties;
 import org.apache.asterix.common.config.MetadataProperties;
@@ -41,8 +40,6 @@ import org.apache.asterix.common.transactions.IRecoveryManager;
 import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
 import org.apache.asterix.common.utils.PrintUtil;
 import org.apache.asterix.common.utils.StoragePathUtil;
-import org.apache.asterix.event.schema.cluster.Cluster;
-import org.apache.asterix.event.schema.cluster.Node;
 import org.apache.asterix.messaging.MessagingChannelInterfaceFactory;
 import org.apache.asterix.messaging.NCMessageBroker;
 import org.apache.asterix.transaction.management.resource.PersistentLocalResourceRepository;
@@ -127,7 +124,7 @@ public class NCApplication extends BaseNCApplication {
             }
             PersistentLocalResourceRepository localResourceRepository =
                     (PersistentLocalResourceRepository) runtimeContext.getLocalResourceRepository();
-            localResourceRepository.initializeNewUniverse(ClusterProperties.INSTANCE.getStorageDirectoryName());
+            localResourceRepository.initializeNewUniverse(runtimeContext.getNodeProperties().getStorageSubdir());
         }
 
         webManager = new WebManager();
@@ -186,10 +183,10 @@ public class NCApplication extends BaseNCApplication {
 
         // Since we don't pass initial run flag in AsterixHyracksIntegrationUtil, we use the virtualNC flag
         final NodeProperties nodeProperties = runtimeContext.getNodeProperties();
-        if (systemState == SystemState.PERMANENT_DATA_LOSS
-                && (nodeProperties.isInitialRun() || nodeProperties.isVirtualNc())) {
+//        if (systemState == SystemState.PERMANENT_DATA_LOSS
+//                && (nodeProperties.isInitialRun() || nodeProperties.isVirtualNc())) {
             systemState = SystemState.BOOTSTRAPPING;
-        }
+//        }
         // Request startup tasks from CC
         StartupTaskRequestMessage.send((NodeControllerService) ncServiceCtx.getControllerService(), systemState);
         startupCompleted = true;
@@ -220,7 +217,7 @@ public class NCApplication extends BaseNCApplication {
         runtimeContext.getIoManager().deleteWorkspaceFiles();
 
         //Reclaim storage for temporary datasets.
-        String storageDirName = ClusterProperties.INSTANCE.getStorageDirectoryName();
+        String storageDirName = runtimeContext.getNodeProperties().getStorageSubdir();
         String[] ioDevices = ((PersistentLocalResourceRepository) runtimeContext.getLocalResourceRepository())
                 .getStorageMountingPoints();
         for (String ioDevice : ioDevices) {
@@ -240,54 +237,47 @@ public class NCApplication extends BaseNCApplication {
     private void updateOnNodeJoin() {
         MetadataProperties metadataProperties = runtimeContext.getMetadataProperties();
         if (!metadataProperties.getNodeNames().contains(nodeId)) {
-            Cluster cluster = ClusterProperties.INSTANCE.getCluster();
-            if (cluster == null) {
-                throw new IllegalStateException("No cluster configuration found for this instance");
-            }
             NCConfig ncConfig = ((NodeControllerService) ncServiceCtx.getControllerService()).getConfiguration();
             ncConfig.getConfigManager().ensureNode(nodeId);
             String asterixInstanceName = metadataProperties.getInstanceName();
             TransactionProperties txnProperties = runtimeContext.getTransactionProperties();
-            Node self = null;
-            List<Node> nodes;
-            if (cluster.getSubstituteNodes() != null) {
-                nodes = cluster.getSubstituteNodes().getNode();
-            } else {
-                throw new IllegalStateException("Unknown node joining the cluster");
-            }
-            for (Node node : nodes) {
-                String ncId = asterixInstanceName + "_" + node.getId();
-                if (ncId.equalsIgnoreCase(nodeId)) {
-                    String storeDir = ClusterProperties.INSTANCE.getStorageDirectoryName();
-                    String nodeIoDevices = node.getIodevices() == null ? cluster.getIodevices() : node.getIodevices();
-                    String[] ioDevicePaths = nodeIoDevices.trim().split(",");
-                    for (int i = 0; i < ioDevicePaths.length; i++) {
-                        // construct full store path
-                        ioDevicePaths[i] += File.separator + storeDir;
-                    }
-                    metadataProperties.getStores().put(nodeId, ioDevicePaths);
-
-                    String coredumpPath = node.getLogDir() == null ? cluster.getLogDir() : node.getLogDir();
-                    metadataProperties.getCoredumpPaths().put(nodeId, coredumpPath);
-
-                    String txnLogDir = node.getTxnLogDir() == null ? cluster.getTxnLogDir() : node.getTxnLogDir();
-                    txnProperties.getLogDirectories().put(nodeId, txnLogDir);
-
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("Store set to : " + storeDir);
-                        LOGGER.info("Coredump dir set to : " + coredumpPath);
-                        LOGGER.info("Transaction log dir set to :" + txnLogDir);
-                    }
-                    self = node;
-                    break;
-                }
-            }
-            if (self != null) {
-                cluster.getSubstituteNodes().getNode().remove(self);
-                cluster.getNode().add(self);
-            } else {
-                throw new IllegalStateException("Unknown node joining the cluster");
-            }
+//            Node self = null;
+//            List<Node> nodes;
+//            if (cluster.getSubstituteNodes() != null) {
+//                nodes = cluster.getSubstituteNodes().getNode();
+//            } else {
+//                throw new IllegalStateException("Unknown node joining the cluster");
+//            }
+//                    String storageDirName = runtimeContext.getNodeProperties().getStorageSubdir();
+//                    String nodeIoDevices = node.getIodevices() == null ? cluster.getIodevices() : node.getIodevices();
+//                    String[] ioDevicePaths = nodeIoDevices.trim().split(",");
+//                    for (int i = 0; i < ioDevicePaths.length; i++) {
+//                        // construct full store path
+//                        ioDevicePaths[i] += File.separator + storeDir;
+//                    }
+//                    metadataProperties.getStores().put(nodeId, ioDevicePaths);
+//
+//                    String coredumpPath = node.getLogDir() == null ? cluster.getLogDir() : node.getLogDir();
+//                    metadataProperties.getCoredumpPaths().put(nodeId, coredumpPath);
+//
+//                    String txnLogDir = node.getTxnLogDir() == null ? cluster.getTxnLogDir() : node.getTxnLogDir();
+//                    txnProperties.getLogDirectories().put(nodeId, txnLogDir);
+//
+//                    if (LOGGER.isLoggable(Level.INFO)) {
+//                        LOGGER.info("Store set to : " + storeDir);
+//                        LOGGER.info("Coredump dir set to : " + coredumpPath);
+//                        LOGGER.info("Transaction log dir set to :" + txnLogDir);
+//                    }
+//                    self = node;
+//                    break;
+//                }
+//            }
+//            if (self != null) {
+//                cluster.getSubstituteNodes().getNode().remove(self);
+//                cluster.getNode().add(self);
+//            } else {
+//                throw new IllegalStateException("Unknown node joining the cluster");
+//            }
         }
     }
 

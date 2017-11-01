@@ -18,23 +18,24 @@
  */
 package org.apache.asterix.common.config;
 
-import static org.apache.hyracks.control.common.config.OptionTypes.INTEGER;
-import static org.apache.hyracks.control.common.config.OptionTypes.INTEGER_BYTE_UNIT;
-
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.asterix.common.replication.IReplicationStrategy;
 import org.apache.asterix.common.replication.Replica;
-import org.apache.asterix.event.schema.cluster.Cluster;
-import org.apache.asterix.event.schema.cluster.Node;
+import org.apache.asterix.common.replication.ReplicationStrategyFactory;
 import org.apache.hyracks.api.config.IApplicationConfig;
 import org.apache.hyracks.api.config.IOption;
 import org.apache.hyracks.api.config.IOptionType;
 import org.apache.hyracks.api.config.Section;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.control.common.controllers.NCConfig;
+import org.apache.hyracks.control.nc.application.NCServiceContext;
 import org.apache.hyracks.util.StorageUtil;
 import org.apache.hyracks.util.StorageUtil.StorageUnit;
+
+import static org.apache.hyracks.control.common.config.OptionTypes.*;
 
 public class ReplicationProperties extends AbstractProperties {
 
@@ -48,6 +49,11 @@ public class ReplicationProperties extends AbstractProperties {
                 "The size in bytes to replicate in each batch"),
         REPLICATION_TIMEOUT(INTEGER, REPLICATION_TIME_OUT_DEFAULT,
                 "The time in seconds to timeout when trying to contact a replica, before assuming it is dead"),
+
+        REPLICATION_ENABLED(BOOLEAN, false, "Whether or not data replication is enabled"),
+        REPLICATION_FACTOR(INTEGER, 3, "Number of node controller faults to tolerate with replication"),
+        REPLICATION_STRATEGY(STRING, "chained_declustering", "Replication strategy to choose"),
+        REPLICATION_PORT(INTEGER, 2000, "port on which to run replication related communications"),
         ;
 
         private final IOptionType type;
@@ -84,13 +90,6 @@ public class ReplicationProperties extends AbstractProperties {
         public Object get(IApplicationConfig config) {
             switch (this) {
                 case REPLICATION_TIMEOUT:
-                    final Cluster cluster = ClusterProperties.INSTANCE.getCluster();
-                    if (cluster != null
-                            && cluster.getHighAvailability() != null
-                            && cluster.getHighAvailability().getDataReplication() != null
-                            && cluster.getHighAvailability().getDataReplication().getReplicationTimeOut() != null) {
-                        return cluster.getHighAvailability().getDataReplication().getReplicationTimeOut().intValue();
-                    }
                     return REPLICATION_TIME_OUT_DEFAULT;
                 default:
                     return config.getStatic(this);
@@ -104,15 +103,20 @@ public class ReplicationProperties extends AbstractProperties {
 
     private static final String NODE_IP_ADDRESS_DEFAULT = "127.0.0.1";
 
-    private final IReplicationStrategy repStrategy;
-
     public ReplicationProperties(PropertiesAccessor accessor) throws HyracksDataException {
         super(accessor);
-        this.repStrategy = ClusterProperties.INSTANCE.getReplicationStrategy();
     }
 
     public int getMaxRemoteRecoveryAttempts() {
         return accessor.getInt(Option.REPLICATION_MAX_REMOTE_RECOVERY_ATTEMPTS);
+    }
+
+    public boolean isReplicationEnabled() {
+        return accessor.getBoolean(Option.REPLICATION_ENABLED);
+    }
+
+    public int getReplicationFactor() {
+        return accessor.getInt(Option.REPLICATION_FACTOR);
     }
 
     public int getLogBufferPageSize() {
@@ -127,53 +131,22 @@ public class ReplicationProperties extends AbstractProperties {
         return accessor.getInt(Option.REPLICATION_LOG_BATCHSIZE);
     }
 
-    public String getReplicaIPAddress(String nodeId) {
-        Node node = ClusterProperties.INSTANCE.getNodeById(nodeId);
-        return node != null ? node.getClusterIp() : NODE_IP_ADDRESS_DEFAULT;
+    public List<String> getNodeIds() {
+        return accessor.getNCNames();
     }
 
-    public int getDataReplicationPort(String nodeId) {
-        final Cluster cluster = ClusterProperties.INSTANCE.getCluster();
-        Node node = ClusterProperties.INSTANCE.getNodeById(nodeId);
-        if (node != null) {
-            return node.getReplicationPort() != null ? node.getReplicationPort().intValue()
-                    : cluster.getHighAvailability().getDataReplication().getReplicationPort().intValue();
-        }
-        return REPLICATION_DATAPORT_DEFAULT;
-    }
-
-    public Replica getReplicaById(String nodeId) {
-        Node node = ClusterProperties.INSTANCE.getNodeById(nodeId);
-        if (node != null) {
-            return new Replica(node);
-        }
-        return null;
-    }
-
-    public Set<String> getRemoteReplicasIds(String nodeId) {
-        return repStrategy.getRemoteReplicas(nodeId).stream().map(Replica::getId).collect(Collectors.toSet());
-    }
-
-    public Set<String> getRemotePrimaryReplicasIds(String nodeId) {
-        return repStrategy.getRemotePrimaryReplicas(nodeId).stream().map(Replica::getId).collect(Collectors.toSet());
-    }
-
-    public Set<String> getNodeReplicasIds(String nodeId) {
-        Set<String> remoteReplicasIds = getRemoteReplicasIds(nodeId);
-        // This includes the node itself
-        remoteReplicasIds.add(nodeId);
-        return remoteReplicasIds;
-    }
+    public String getNodeIpFromId(String id){ return accessor.getNCEffectiveConfig(id).getString(NCConfig.Option.PUBLIC_ADDRESS);}
 
     public int getReplicationTimeOut() {
         return accessor.getInt(Option.REPLICATION_TIMEOUT);
     }
 
-    public boolean isParticipant(String nodeId) {
-        return repStrategy.isParticipant(nodeId);
+    public String getReplicationStrategy() {
+        return accessor.getString(Option.REPLICATION_STRATEGY);
     }
 
-    public IReplicationStrategy getReplicationStrategy() {
-        return repStrategy;
+    public MetadataProperties getMetadataProperties() {
+        return new MetadataProperties(accessor);
     }
+
 }

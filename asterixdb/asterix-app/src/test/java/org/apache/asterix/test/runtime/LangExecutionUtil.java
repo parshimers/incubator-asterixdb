@@ -32,7 +32,7 @@ import java.util.Collection;
 import java.util.List;
 
 import org.apache.asterix.app.external.TestLibrarian;
-import org.apache.asterix.common.config.ClusterProperties;
+import org.apache.asterix.common.config.NodeProperties;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.test.common.TestExecutor;
 import org.apache.asterix.testframework.context.TestCaseContext;
@@ -152,7 +152,7 @@ public class LangExecutionUtil {
             File[] dataDirs = ioDevice.getMount().listFiles();
             for (File dataDir : dataDirs) {
                 String dirName = dataDir.getName();
-                if (!dirName.equals(ClusterProperties.DEFAULT_STORAGE_DIR_NAME)) {
+                if (!dirName.equals(NodeProperties.Option.STORAGE_SUBDIR)) {
                     // Skips non-storage directories.
                     continue;
                 }

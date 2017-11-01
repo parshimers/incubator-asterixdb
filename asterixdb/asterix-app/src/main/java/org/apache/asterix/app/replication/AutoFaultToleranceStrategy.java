@@ -29,6 +29,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import org.apache.asterix.app.nc.task.BindMetadataNodeTask;
 import org.apache.asterix.app.nc.task.CheckpointTask;
@@ -62,6 +63,7 @@ import org.apache.asterix.common.messaging.api.ICCMessageBroker;
 import org.apache.asterix.common.replication.IFaultToleranceStrategy;
 import org.apache.asterix.common.replication.INCLifecycleMessage;
 import org.apache.asterix.common.replication.IReplicationStrategy;
+import org.apache.asterix.common.replication.Replica;
 import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.util.FaultToleranceUtil;
@@ -144,7 +146,7 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
         if (!lostPartitions.isEmpty()) {
             for (ClusterPartition partition : lostPartitions) {
                 //find replicas for this partitions
-                Set<String> partitionReplicas = replicationProperties.getNodeReplicasIds(partition.getNodeId());
+                Set<String> partitionReplicas = replicationStrategy.getRemoteReplicas(partition.getNodeId()).stream().map(Replica::getId).collect(Collectors.toSet());
                 //find a replica that is still active
                 for (String replica : partitionReplicas) {
                     //TODO (mhubail) currently this assigns the partition to the first found active replica.
@@ -208,7 +210,7 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
         //get all partitions this node requires to resync
         ICcApplicationContext appCtx = (ICcApplicationContext) serviceCtx.getApplicationContext();
         ReplicationProperties replicationProperties = appCtx.getReplicationProperties();
-        Set<String> nodeReplicas = replicationProperties.getNodeReplicasIds(failingBackNodeId);
+        Set<String> nodeReplicas = replicationStrategy.getRemoteReplicas(failingBackNodeId).stream().map(Replica::getId).collect(Collectors.toSet());
         clusterManager.getClusterPartitons();
         for (String replicaId : nodeReplicas) {
             ClusterPartition[] nodePartitions = clusterManager.getNodePartitions(replicaId);

@@ -79,10 +79,10 @@ public class CcApplicationContext implements ICcApplicationContext {
     private IMetadataLockManager mdLockManager;
 
     public CcApplicationContext(ICCServiceContext ccServiceCtx, IHyracksClientConnection hcc,
-            ILibraryManager libraryManager, IResourceIdManager resourceIdManager,
-            Supplier<IMetadataBootstrap> metadataBootstrapSupplier, IGlobalRecoveryManager globalRecoveryManager,
+                                ILibraryManager libraryManager, IResourceIdManager resourceIdManager,
+                                Supplier<IMetadataBootstrap> metadataBootstrapSupplier, IGlobalRecoveryManager globalRecoveryManager,
             IFaultToleranceStrategy ftStrategy, IJobLifecycleListener activeLifeCycleListener,
-            IStorageComponentProvider storageComponentProvider, IMetadataLockManager mdLockManager)
+                                IStorageComponentProvider storageComponentProvider, IMetadataLockManager mdLockManager)
             throws AsterixException, IOException {
         this.ccServiceCtx = ccServiceCtx;
         this.hcc = hcc;
