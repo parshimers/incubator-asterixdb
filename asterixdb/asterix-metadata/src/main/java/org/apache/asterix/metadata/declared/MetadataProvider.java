@@ -760,7 +760,7 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
 
     public FileSplit[] splitsForIndex(MetadataTransactionContext mdTxnCtx, Dataset dataset, String indexName)
             throws AlgebricksException {
-        return SplitsAndConstraintsUtil.getIndexSplits(dataset, indexName, mdTxnCtx);
+        return SplitsAndConstraintsUtil.getIndexSplits(dataset, indexName, appCtx.getNodeProperties().getStorageSubdir(), mdTxnCtx);
     }
 
     public DatasourceAdapter getAdapter(MetadataTransactionContext mdTxnCtx, String dataverseName, String adapterName)

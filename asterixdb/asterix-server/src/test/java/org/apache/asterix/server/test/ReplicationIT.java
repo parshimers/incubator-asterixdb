@@ -35,10 +35,7 @@ import org.apache.hyracks.server.process.HyracksCCProcess;
 import org.apache.hyracks.server.process.HyracksNCServiceProcess;
 import org.apache.hyracks.server.process.HyracksVirtualCluster;
 import org.apache.hyracks.util.file.FileUtil;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -65,10 +62,7 @@ public class ReplicationIT {
 
     private final TestExecutor testExecutor = new TestExecutor();
     private TestCaseContext tcCtx;
-    private static String scriptHomePath;
-    private static File asterixInstallerPath;
     private static ProcessBuilder pb;
-    private static Map<String, String> env;
 
     private static HyracksCCProcess cc;
     private static HyracksNCServiceProcess nc1;
@@ -79,8 +73,8 @@ public class ReplicationIT {
         this.tcCtx = tcCtx;
     }
 
-//    @Rule
-    //public TestRule retainLogs = new RetainLogsRule(NCServiceExecutionIT.ASTERIX_APP_DIR, reportPath, this);
+    @Rule
+    public TestRule retainLogs = new RetainLogsRule(NCServiceExecutionIT.ASTERIX_APP_DIR, reportPath, this);
 
 
     @Before
@@ -110,9 +104,10 @@ public class ReplicationIT {
         LOGGER.info("Instance created.");
         testExecutor.waitForClusterActive(30, TimeUnit.SECONDS);
         LOGGER.info("Instance is in ACTIVE state.");
+
     }
 
-    @RetainLogsRule.After
+    @After
     public void after() throws Exception {
         LOGGER.info("Destroying instance...");
         cluster.stop();
@@ -121,7 +116,7 @@ public class ReplicationIT {
 
     @Test
     public void test() throws Exception {
-        testExecutor.executeTest(PATH_ACTUAL, tcCtx, pb, false);
+        testExecutor.executeTest(PATH_ACTUAL, tcCtx, null, false);
     }
 
     @Parameterized.Parameters(name = "ReplicationIT {index}: {0}")

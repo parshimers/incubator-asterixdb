@@ -48,6 +48,10 @@ public class NoReplicationStrategy implements IReplicationStrategy {
         return Collections.emptySet();
     }
 
+    public Set<Replica> getRemoteReplicasAndSelf(String nodeId){
+        return Collections.emptySet();
+    }
+
     @Override
     public NoReplicationStrategy from(ReplicationProperties p, IConfigManager configManager) {
         return new NoReplicationStrategy();

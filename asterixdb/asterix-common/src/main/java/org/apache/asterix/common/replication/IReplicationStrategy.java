@@ -34,6 +34,8 @@ public interface IReplicationStrategy {
      */
     boolean isMatch(int datasetId);
 
+    Set<Replica> getRemoteReplicasAndSelf(String nodeId);
+
     /**
      * @param nodeId
      * @return The set of nodes that replicate data on {@code nodeId}.

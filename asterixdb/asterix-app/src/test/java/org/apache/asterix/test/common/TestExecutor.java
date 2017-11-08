@@ -67,6 +67,7 @@ import org.apache.asterix.testframework.xml.ComparisonEnum;
 import org.apache.asterix.testframework.xml.TestCase.CompilationUnit;
 import org.apache.asterix.testframework.xml.TestCase.CompilationUnit.Parameter;
 import org.apache.asterix.testframework.xml.TestGroup;
+import org.apache.avro.generic.GenericData;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.output.ByteArrayOutputStream;
@@ -762,14 +763,6 @@ public class TestExecutor {
         return stringBuilder.toString();
     }
 
-    public static void executeManagixCommand(String command) throws ClassNotFoundException, NoSuchMethodException,
-            SecurityException, IllegalAccessException, IllegalArgumentException, InvocationTargetException {
-        if (managixExecuteMethod == null) {
-            Class<?> clazz = Class.forName("org.apache.asterix.installer.test.AsterixInstallerIntegrationUtil");
-            managixExecuteMethod = clazz.getMethod("executeCommand", String.class);
-        }
-        managixExecuteMethod.invoke(null, command);
-    }
 
     public static String executeScript(ProcessBuilder pb, String scriptPath) throws Exception {
         LOGGER.info("Executing script: " + scriptPath);
@@ -778,21 +771,6 @@ public class TestExecutor {
         return getProcessOutput(p);
     }
 
-    private static String executeVagrantScript(ProcessBuilder pb, String node, String scriptName) throws Exception {
-        pb.command("vagrant", "ssh", node, "--", pb.environment().get("SCRIPT_HOME") + scriptName);
-        Process p = pb.start();
-        p.waitFor();
-        InputStream input = p.getInputStream();
-        return IOUtils.toString(input, StandardCharsets.UTF_8.name());
-    }
-
-    private static String executeVagrantManagix(ProcessBuilder pb, String command) throws Exception {
-        pb.command("vagrant", "ssh", "cc", "--", pb.environment().get("MANAGIX_HOME") + command);
-        Process p = pb.start();
-        p.waitFor();
-        InputStream input = p.getInputStream();
-        return IOUtils.toString(input, StandardCharsets.UTF_8.name());
-    }
 
     private static String getScriptPath(String queryPath, String scriptBasePath, String scriptFileName) {
         String targetWord = "queries" + File.separator;
@@ -899,10 +877,6 @@ public class TestExecutor {
                         expectedResultFile, actualResultFile, queryCount, expectedResultFileCtxs.size(),
                         cUnit.getParameter(), ComparisonEnum.TEXT);
                 break;
-            case "mgx":
-                executeManagixCommand(stripLineComments(statement).trim());
-                Thread.sleep(8000);
-                break;
             case "txnqbc": // qbc represents query before crash
                 InputStream resultStream = executeQuery(statement, OutputFormat.forCompilationUnit(cUnit),
                         getEndpoint(Servlets.AQL_QUERY), cUnit.getParameter());
@@ -960,28 +934,6 @@ public class TestExecutor {
                     throw new Exception("Test \"" + testFile + "\" FAILED!\n  An exception is expected.");
                 }
                 System.err.println("...but that was expected.");
-                break;
-            case "vscript": // a script that will be executed on a vagrant virtual node
-                try {
-                    String[] command = stripLineComments(statement).trim().split(" ");
-                    if (command.length != 2) {
-                        throw new Exception("invalid vagrant script format");
-                    }
-                    String nodeId = command[0];
-                    String scriptName = command[1];
-                    String output = executeVagrantScript(pb, nodeId, scriptName);
-                    if (output.contains("ERROR")) {
-                        throw new Exception(output);
-                    }
-                } catch (Exception e) {
-                    throw new Exception("Test \"" + testFile + "\" FAILED!\n", e);
-                }
-                break;
-            case "vmgx": // a managix command that will be executed on vagrant cc node
-                String output = executeVagrantManagix(pb, stripLineComments(statement).trim());
-                if (output.contains("ERROR")) {
-                    throw new Exception(output);
-                }
                 break;
             case "get":
             case "post":
@@ -1076,8 +1028,13 @@ public class TestExecutor {
                 command = stripJavaComments(statement).trim().split(" ");
                 String commandType = command[0];
                 String nodeId = command[1];
-                if (commandType.equals("kill")) {
-                    killNC(nodeId, cUnit);
+                switch (commandType){
+                    case "kill":
+                        killNC(nodeId, cUnit);
+                        break;
+                    case "start":
+                        startNC(nodeId, cUnit);
+                        break;
                 }
                 break;
             default:
@@ -1334,6 +1291,18 @@ public class TestExecutor {
         pb.start().waitFor();
         // Delete NC's transaction logs to re-initialize it as a new NC.
         deleteNCTxnLogs(nodeId, cUnit);
+    }
+
+    private void startNC(String nodeId, CompilationUnit cUnit) throws Exception {
+        //get node process id
+        OutputFormat fmt = OutputFormat.forCompilationUnit(cUnit);
+        String endpoint = "/rest/startnode";
+        List<Parameter> params = new ArrayList<>();
+        Parameter node = new Parameter();
+        node.setName("node");
+        node.setValue(nodeId);
+        params.add(node);
+        InputStream executeJSON = executeJSON(fmt, "POST", URI.create("http://localhost:16001"+endpoint), params);
     }
 
     private void deleteNCTxnLogs(String nodeId, CompilationUnit cUnit) throws Exception {

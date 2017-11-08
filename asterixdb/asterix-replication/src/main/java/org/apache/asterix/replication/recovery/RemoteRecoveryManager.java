@@ -65,16 +65,16 @@ public class RemoteRecoveryManager implements IRemoteRecoveryManager {
         //1. identify which replicas reside in this node
         String localNodeId = runtimeContext.getTransactionSubsystem().getId();
 
-        Set<Replica> replicas = replicationStrategy.getRemoteReplicas(localNodeId);
+        Set<Replica> replicas = replicationStrategy.getRemoteReplicasAndSelf(localNodeId);
         Map<String, Set<String>> recoveryCandidates = new HashMap<>();
         Map<String, Integer> candidatesScore = new HashMap<>();
 
         //2. identify which nodes has backup per lost node data
         for (Replica node : replicas) {
-            Set<Replica> locations = replicationStrategy.getRemoteReplicas(node.getId());
+            Set<Replica> locations = replicationStrategy.getRemoteReplicasAndSelf(node.getId());
 
             //since the local node just started, remove it from candidates
-            locations.remove(localNodeId);
+            locations.remove(new Replica(localNodeId,"",-1));
 
             //remove any dead replicas
             Set<String> deadReplicas = replicationManager.getDeadReplicasIds();

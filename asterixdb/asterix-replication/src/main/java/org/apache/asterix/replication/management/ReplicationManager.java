@@ -866,6 +866,7 @@ public class ReplicationManager implements IReplicationManager {
             SocketChannel sc = SocketChannel.open();
             sc.configureBlocking(true);
             IApplicationConfig config = ncConfig.getConfigManager().getNodeEffectiveConfig(replicaId);
+            System.out.println(new InetSocketAddress(config.getString(NCConfig.Option.REPLICATION_LISTEN_ADDRESS),config.getInt(NCConfig.Option.REPLICATION_LISTEN_PORT)).toString());
             sc.connect(new InetSocketAddress(config.getString(NCConfig.Option.REPLICATION_LISTEN_ADDRESS), config.getInt(NCConfig.Option.REPLICATION_LISTEN_PORT)));
             return sc;
     }

@@ -28,8 +28,6 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 public interface IClusterStateManager {
 
-    String getStoragePathPrefix();
-
     /**
      * @return The current cluster state.
      */

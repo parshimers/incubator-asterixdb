@@ -4,6 +4,7 @@
     "0" : {
       "partitionId" : 0,
       "nodeId" : "asterix_nc1",
+      "storageSubDir" : "test_storage",
       "activeNodeId" : "asterix_nc2",
       "active" : true,
       "iodeviceNum" : 0
@@ -11,6 +12,7 @@
     "1" : {
       "partitionId" : 1,
       "nodeId" : "asterix_nc1",
+      "storageSubDir" : "test_storage",
       "activeNodeId" : "asterix_nc2",
       "active" : true,
       "iodeviceNum" : 1
@@ -18,6 +20,7 @@
     "2" : {
       "partitionId" : 2,
       "nodeId" : "asterix_nc2",
+      "storageSubDir" : "test_storage",
       "activeNodeId" : "asterix_nc2",
       "active" : true,
       "iodeviceNum" : 0
@@ -25,6 +28,7 @@
     "3" : {
       "partitionId" : 3,
       "nodeId" : "asterix_nc2",
+      "storageSubDir" : "test_storage",
       "activeNodeId" : "asterix_nc2",
       "active" : true,
       "iodeviceNum" : 1

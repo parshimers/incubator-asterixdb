@@ -55,7 +55,7 @@ public class SplitsAndConstraintsUtil {
         return splits.toArray(new FileSplit[] {});
     }
 
-    public static FileSplit[] getIndexSplits(Dataset dataset, String indexName, MetadataTransactionContext mdTxnCtx)
+    public static FileSplit[] getIndexSplits(Dataset dataset, String indexName, String storagePathPrefix, MetadataTransactionContext mdTxnCtx)
             throws AlgebricksException {
         try {
             NodeGroup nodeGroup = MetadataManager.INSTANCE.getNodegroup(mdTxnCtx, dataset.getNodeGroupName());
@@ -63,13 +63,13 @@ public class SplitsAndConstraintsUtil {
                 throw new AlgebricksException("Couldn't find node group " + dataset.getNodeGroupName());
             }
             List<String> nodeList = nodeGroup.getNodeNames();
-            return getIndexSplits(dataset, indexName, nodeList);
+            return getIndexSplits(dataset, indexName, storagePathPrefix, nodeList);
         } catch (MetadataException me) {
             throw new AlgebricksException(me);
         }
     }
 
-    public static FileSplit[] getIndexSplits(Dataset dataset, String indexName, List<String> nodes) {
+    public static FileSplit[] getIndexSplits(Dataset dataset, String indexName, String storagePathPrefix, List<String> nodes) {
         File relPathFile = new File(StoragePathUtil.prepareDataverseIndexName(dataset.getDataverseName(),
                 dataset.getDatasetName(), indexName, dataset.getRebalanceCount()));
         List<FileSplit> splits = new ArrayList<>();
@@ -83,7 +83,7 @@ public class SplitsAndConstraintsUtil {
 
             for (int k = 0; k < numPartitions; k++) {
                 // format: 'storage dir name'/partition_#/dataverse/dataset_idx_index
-                File f = new File(StoragePathUtil.prepareStoragePartitionPath(ClusterStateManager.INSTANCE.getStoragePathPrefix(),
+                File f = new File(StoragePathUtil.prepareStoragePartitionPath(storagePathPrefix,
                         nodePartitions[k].getPartitionId())
                         + (dataset.isTemp() ? (File.separator + StoragePathUtil.TEMP_DATASETS_STORAGE_FOLDER) : "")
                         + File.separator + relPathFile);
@@ -99,8 +99,8 @@ public class SplitsAndConstraintsUtil {
         return StoragePathUtil.splitProviderAndPartitionConstraints(splits);
     }
 
-    public static String getIndexPath(String partitionPath, int partition, String dataverse, String fullIndexName) {
-        return partitionPath + StoragePathUtil.prepareStoragePartitionPath(ClusterStateManager.INSTANCE.getStoragePathPrefix(), partition) + File.separator
+    public static String getIndexPath(String partitionPath, int partition, String dataverse, String fullIndexName, String storagePathPrefix) {
+        return partitionPath + StoragePathUtil.prepareStoragePartitionPath(storagePathPrefix, partition) + File.separator
                 + StoragePathUtil.prepareDataverseIndexName(dataverse, fullIndexName);
     }
 }

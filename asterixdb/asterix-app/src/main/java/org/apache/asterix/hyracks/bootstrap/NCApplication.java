@@ -183,10 +183,10 @@ public class NCApplication extends BaseNCApplication {
 
         // Since we don't pass initial run flag in AsterixHyracksIntegrationUtil, we use the virtualNC flag
         final NodeProperties nodeProperties = runtimeContext.getNodeProperties();
-//        if (systemState == SystemState.PERMANENT_DATA_LOSS
-//                && (nodeProperties.isInitialRun() || nodeProperties.isVirtualNc())) {
+        if (systemState == SystemState.PERMANENT_DATA_LOSS
+                && (nodeProperties.isInitialRun() || nodeProperties.isVirtualNc())) {
             systemState = SystemState.BOOTSTRAPPING;
-//        }
+        }
         // Request startup tasks from CC
         StartupTaskRequestMessage.send((NodeControllerService) ncServiceCtx.getControllerService(), systemState);
         startupCompleted = true;

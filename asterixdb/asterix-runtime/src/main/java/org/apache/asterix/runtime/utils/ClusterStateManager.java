@@ -224,11 +224,6 @@ public class ClusterStateManager implements IClusterStateManager {
     }
 
     @Override
-    public String getStoragePathPrefix(){
-        return appCtx.getNodeProperties().getStorageSubdir();
-    }
-
-    @Override
     public synchronized ClusterState getState() {
         return state;
     }
@@ -424,4 +419,7 @@ public class ClusterStateManager implements IClusterStateManager {
         }
     }
 
+    public String getStoragePathPrefix() {
+        return appCtx.getNodeProperties().getStorageSubdir();
+    }
 }

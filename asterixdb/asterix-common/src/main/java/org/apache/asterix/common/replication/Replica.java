@@ -96,4 +96,18 @@ public class Replica {
         DataOutputStream dos = new DataOutputStream(out);
         writeFields(dos);
     }
+
+    @Override
+    public boolean equals(Object o){
+        if(!(o instanceof Replica)){
+            return false;
+        }
+        Replica other = (Replica) o;
+        return nodeId.equals(other.getId());
+    }
+
+    @Override
+    public int hashCode(){
+        return nodeId.hashCode();
+    }
 }

@@ -260,7 +260,7 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
                 }
             } catch (Exception e) {
                 if (LOGGER.isLoggable(Level.WARNING)) {
-                    LOGGER.log(Level.WARNING, "Unexpectedly error during replication.", e);
+                    LOGGER.log(Level.WARNING, "Unexpected error during replication.", e);
                 }
             } finally {
                 if (socketChannel.isOpen()) {

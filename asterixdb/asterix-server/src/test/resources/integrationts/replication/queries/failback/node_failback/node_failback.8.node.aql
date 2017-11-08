@@ -17,20 +17,12 @@
  * under the License.
  */
 /*
- * Test case Name  : node_failback.aql
- * Description     : Make sure node failback completes as expected.
+ * Test case Name  : bulkload.aql
+ * Description     : Check that Bulkload LSM component are replicated correclty.
                      The test goes as follows:
-                     start 2 nodes, bulkload a dataset, copy it to in-memory dataset,
-                     kill one node and wait until the failover complete, query cluster state,
-                     query data, insert new data, start the killed node and wait for failback,
-                     query cluster state, query data.
+                     start 2 nodes, bulkload a dataset, query data, kill one node
+                     and wait until the failover complete, query the data again.
  * Expected Result : Success
- * Date            : February 3 2016
+ * Date            : January 6 2016
  */
-use dataverse TinySocial;
-
-load dataset FacebookUsers using localfs
-(("path"="asterix_nc1://../asterix-server/src/test/resources/integrationts/replication/data/fbu.adm"),
-("format"="adm"));
-
-insert into dataset TinySocial.FacebookUsersInMemory(for $x in dataset TinySocial.FacebookUsers return $x);
+start asterix_nc1

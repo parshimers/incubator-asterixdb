@@ -55,6 +55,11 @@ public class MetadataOnlyReplicationStrategy implements IReplicationStrategy {
     }
 
     @Override
+    public Set<Replica> getRemoteReplicasAndSelf(String nodeId){
+        return getRemoteReplicas(nodeId);
+    }
+
+    @Override
     public boolean isParticipant(String nodeId) {
         return false;
     }

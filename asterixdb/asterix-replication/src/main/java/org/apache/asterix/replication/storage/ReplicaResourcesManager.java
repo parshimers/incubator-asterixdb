@@ -87,7 +87,7 @@ public class ReplicaResourcesManager implements IReplicaResourcesManager {
         String partitionPath = localRepository.getPartitionPath(fileProperties.getPartition());
         //get index path
         String indexPath = SplitsAndConstraintsUtil.getIndexPath(partitionPath, fileProperties.getPartition(),
-                fileProperties.getDataverse(), fileProperties.getIdxName());
+                fileProperties.getDataverse(), fileProperties.getIdxName(), storagePath);
 
         Path path = Paths.get(indexPath);
         if (!Files.exists(path)) {

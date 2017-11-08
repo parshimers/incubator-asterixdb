@@ -67,6 +67,7 @@ import org.apache.asterix.common.replication.Replica;
 import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.util.FaultToleranceUtil;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hyracks.api.application.ICCServiceContext;
 import org.apache.hyracks.api.application.IClusterLifecycleListener.ClusterEventType;
 import org.apache.hyracks.api.config.IOption;
@@ -88,6 +89,8 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
     private IReplicationStrategy replicationStrategy;
     private ICCServiceContext serviceCtx;
     private Set<String> pendingStartupCompletionNodes = new HashSet<>();
+    private List<String> nodeIds;
+    private Map<String,SystemState> startupQueue = new HashMap<>();
 
     @Override
     public void notifyNodeJoin(String nodeId) throws HyracksDataException {
@@ -430,6 +433,7 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
         ft.messageBroker = (ICCMessageBroker) serviceCtx.getMessageBroker();
         ft.replicationStrategy = replicationStrategy;
         ft.serviceCtx = serviceCtx;
+        ft.nodeIds = serviceCtx.getAppConfig().getNCNames();
         return ft;
     }
 
@@ -491,18 +495,31 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
     private synchronized void process(StartupTaskRequestMessage msg) throws HyracksDataException {
         final String nodeId = msg.getNodeId();
         final SystemState state = msg.getState();
-        List<INCLifecycleTask> tasks;
-        if (state == SystemState.BOOTSTRAPPING || state == SystemState.HEALTHY) {
-            tasks = buildStartupSequence(nodeId);
-        } else {
-            // failed node returned. Need to start failback process
-            tasks = buildFailbackStartupSequence();
+        //last node needed to start
+        if(startupQueue.keySet().size() == nodeIds.size() -1){
+            startupQueue.put(nodeId,state);
+            for(Entry<String,SystemState> nodeState: startupQueue.entrySet()){
+                List<INCLifecycleTask> tasks = buildStartupSequence(nodeState.getKey());
+                StartupTaskResponseMessage response = new StartupTaskResponseMessage(nodeState.getKey(), tasks);
+                try {
+                    messageBroker.sendApplicationMessageToNC(response, nodeState.getKey());
+                } catch (Exception e) {
+                    throw HyracksDataException.create(e);
+                }
+            }
+
         }
-        StartupTaskResponseMessage response = new StartupTaskResponseMessage(nodeId, tasks);
-        try {
-            messageBroker.sendApplicationMessageToNC(response, msg.getNodeId());
-        } catch (Exception e) {
-            throw HyracksDataException.create(e);
+        else if(failedNodes.size() > 0){
+            List<INCLifecycleTask>  tasks = buildFailbackStartupSequence();
+            StartupTaskResponseMessage response = new StartupTaskResponseMessage(nodeId,tasks);
+            try{
+                messageBroker.sendApplicationMessageToNC(response,msg.getNodeId());
+            } catch (Exception e){
+                throw HyracksDataException.create(e);
+            }
+        }
+        else{
+            startupQueue.put(nodeId,state);
         }
     }
 

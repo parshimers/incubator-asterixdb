@@ -79,7 +79,7 @@ public class FeedUtils {
             ClusterPartition partition) {
         File relPathFile = new File(prepareDataverseFeedName(dataverseName, feedName));
         String storagePartitionPath =
-                StoragePathUtil.prepareStoragePartitionPath(ClusterStateManager.INSTANCE.getStoragePathPrefix(), partition.getPartitionId());
+                StoragePathUtil.prepareStoragePartitionPath(partition.getStorageSubDir(), partition.getPartitionId());
         // Note: feed adapter instances in a single node share the feed logger
         // format: 'storage dir name'/partition_#/dataverse/feed/node
         File f = new File(storagePartitionPath + File.separator + relPathFile + File.separator + nodeName);
