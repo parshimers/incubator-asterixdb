@@ -22,18 +22,19 @@ import java.util.List;
 
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
+import org.apache.hyracks.storage.am.bloomfilter.impls.BloomFilter;
 import org.apache.hyracks.storage.am.btree.api.IBTreeLeafFrame;
 import org.apache.hyracks.storage.am.btree.impls.BTree;
 import org.apache.hyracks.storage.am.btree.impls.BTree.BTreeAccessor;
 import org.apache.hyracks.storage.am.btree.impls.BTreeRangeSearchCursor;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexCursor;
+import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent.LSMComponentType;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMHarness;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
-import org.apache.hyracks.storage.am.lsm.common.impls.BloomFilterAwareBTreePointSearchCursor;
 import org.apache.hyracks.storage.am.rtree.api.IRTreeInteriorFrame;
 import org.apache.hyracks.storage.am.rtree.api.IRTreeLeafFrame;
 import org.apache.hyracks.storage.am.rtree.impls.RTree;
@@ -52,6 +53,7 @@ public abstract class LSMRTreeAbstractCursor implements ITreeIndexCursor {
     protected BTreeRangeSearchCursor[] btreeCursors;
     protected RTreeAccessor[] rtreeAccessors;
     protected BTreeAccessor[] btreeAccessors;
+    protected BloomFilter[] bloomFilters;
     private MultiComparator btreeCmp;
     protected int numberOfTrees;
     protected SearchPredicate rtreeSearchPredicate;
@@ -61,8 +63,8 @@ public abstract class LSMRTreeAbstractCursor implements ITreeIndexCursor {
     protected ILSMHarness lsmHarness;
     protected boolean foundNext;
     protected final ILSMIndexOperationContext opCtx;
-
     protected List<ILSMComponent> operationalComponents;
+    protected long[] hashes = BloomFilter.createHashArray();
 
     public LSMRTreeAbstractCursor(ILSMIndexOperationContext opCtx) {
         this.opCtx = opCtx;
@@ -92,6 +94,7 @@ public abstract class LSMRTreeAbstractCursor implements ITreeIndexCursor {
             btreeCursors = new BTreeRangeSearchCursor[numberOfTrees];
             rtreeAccessors = new RTreeAccessor[numberOfTrees];
             btreeAccessors = new BTreeAccessor[numberOfTrees];
+            bloomFilters = new BloomFilter[numberOfTrees];
         }
 
         includeMutableComponent = false;
@@ -102,7 +105,7 @@ public abstract class LSMRTreeAbstractCursor implements ITreeIndexCursor {
             if (component.getType() == LSMComponentType.MEMORY) {
                 includeMutableComponent = true;
                 // No need for a bloom filter for the in-memory BTree.
-                if (btreeCursors[i] == null || btreeCursors[i].isBloomFilterAware()) {
+                if (btreeCursors[i] == null) {
                     //create
                     btreeCursors[i] = new BTreeRangeSearchCursor(
                             (IBTreeLeafFrame) lsmInitialState.getBTreeLeafFrameFactory().createFrame(), false);
@@ -110,22 +113,21 @@ public abstract class LSMRTreeAbstractCursor implements ITreeIndexCursor {
                     //re-use
                     btreeCursors[i].reset();
                 }
-                rtree = ((LSMRTreeMemoryComponent) component).getRTree();
-                btree = ((LSMRTreeMemoryComponent) component).getBTree();
+                rtree = ((LSMRTreeMemoryComponent) component).getIndex();
+                btree = ((LSMRTreeMemoryComponent) component).getBuddyIndex();
+                bloomFilters[i] = null;
             } else {
-                if (btreeCursors[i] == null || !btreeCursors[i].isBloomFilterAware()) {
+                if (btreeCursors[i] == null) {
                     // need to create a new one
-                    btreeCursors[i] = new BloomFilterAwareBTreePointSearchCursor(
-                            (IBTreeLeafFrame) lsmInitialState.getBTreeLeafFrameFactory().createFrame(), false,
-                            ((LSMRTreeDiskComponent) operationalComponents.get(i)).getBloomFilter());
+                    btreeCursors[i] = new BTreeRangeSearchCursor(
+                            (IBTreeLeafFrame) lsmInitialState.getBTreeLeafFrameFactory().createFrame(), false);
                 } else {
                     // reset
-                    ((BloomFilterAwareBTreePointSearchCursor) btreeCursors[i])
-                            .resetBloomFilter(((LSMRTreeDiskComponent) operationalComponents.get(i)).getBloomFilter());
                     btreeCursors[i].reset();
                 }
-                rtree = ((LSMRTreeDiskComponent) component).getRTree();
-                btree = ((LSMRTreeDiskComponent) component).getBTree();
+                rtree = ((LSMRTreeDiskComponent) component).getIndex();
+                btree = ((LSMRTreeDiskComponent) component).getBuddyIndex();
+                bloomFilters[i] = ((LSMRTreeDiskComponent) component).getBloomFilter();
             }
             if (rtreeCursors[i] == null) {
                 rtreeCursors[i] = new RTreeSearchCursor(
@@ -135,10 +137,8 @@ public abstract class LSMRTreeAbstractCursor implements ITreeIndexCursor {
                 rtreeCursors[i].reset();
             }
             if (rtreeAccessors[i] == null) {
-                rtreeAccessors[i] = (RTreeAccessor) rtree.createAccessor(NoOpOperationCallback.INSTANCE,
-                        NoOpOperationCallback.INSTANCE);
-                btreeAccessors[i] = (BTreeAccessor) btree.createAccessor(NoOpOperationCallback.INSTANCE,
-                        NoOpOperationCallback.INSTANCE);
+                rtreeAccessors[i] = rtree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
+                btreeAccessors[i] = btree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
             } else {
                 rtreeAccessors[i].reset(rtree, NoOpOperationCallback.INSTANCE);
                 btreeAccessors[i].reset(btree, NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);

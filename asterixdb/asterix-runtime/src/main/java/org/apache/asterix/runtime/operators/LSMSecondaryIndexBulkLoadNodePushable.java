@@ -92,7 +92,7 @@ public class LSMSecondaryIndexBulkLoadNodePushable extends AbstractLSMSecondaryI
         super.open();
         primaryIndexHelper.open();
         primaryIndex = (ILSMIndex) primaryIndexHelper.getIndexInstance();
-        diskComponents = new ILSMDiskComponent[primaryIndex.getImmutableComponents().size()];
+        diskComponents = new ILSMDiskComponent[primaryIndex.getDiskComponents().size()];
         secondaryIndexHelper.open();
         secondaryIndex = (ILSMIndex) secondaryIndexHelper.getIndexInstance();
 
@@ -199,8 +199,8 @@ public class LSMSecondaryIndexBulkLoadNodePushable extends AbstractLSMSecondaryI
         endCurrentComponent();
 
         component = secondaryIndex.createBulkLoadTarget();
-        componentBulkLoader = secondaryIndex.createComponentBulkLoader(component, 1.0f, false,
-                getNumDeletedTuples(componentPos), false, true, true);
+        int numTuples = getNumDeletedTuples(componentPos);
+        componentBulkLoader = component.createBulkLoader(1.0f, false, numTuples, false, true, true);
 
     }
 
@@ -221,7 +221,7 @@ public class LSMSecondaryIndexBulkLoadNodePushable extends AbstractLSMSecondaryI
     }
 
     private void activateComponents() throws HyracksDataException {
-        List<ILSMDiskComponent> primaryComponents = primaryIndex.getImmutableComponents();
+        List<ILSMDiskComponent> primaryComponents = primaryIndex.getDiskComponents();
         for (int i = diskComponents.length - 1; i >= 0; i--) {
             // start from the oldest component to the newest component
             if (diskComponents[i] != null && diskComponents[i].getComponentSize() > 0) {

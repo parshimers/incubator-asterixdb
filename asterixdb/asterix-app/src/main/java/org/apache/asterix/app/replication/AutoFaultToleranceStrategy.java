@@ -25,7 +25,6 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -70,7 +69,6 @@ import org.apache.asterix.util.FaultToleranceUtil;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hyracks.api.application.ICCServiceContext;
 import org.apache.hyracks.api.application.IClusterLifecycleListener.ClusterEventType;
-import org.apache.hyracks.api.config.IOption;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
@@ -168,9 +166,8 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
                 LOGGER.info("Partitions to recover: " + lostPartitions);
             }
             //For each replica, send a request to takeover the assigned partitions
-            for (Entry<String, List<Integer>> entry : partitionRecoveryPlan.entrySet()) {
-                String replica = entry.getKey();
-                Integer[] partitionsToTakeover = entry.getValue().toArray(new Integer[entry.getValue().size()]);
+            partitionRecoveryPlan.forEach((replica, value) -> {
+                Integer[] partitionsToTakeover = value.toArray(new Integer[value.size()]);
                 long requestId = clusterRequestId++;
                 TakeoverPartitionsRequestMessage takeoverRequest = new TakeoverPartitionsRequestMessage(requestId,
                         replica, partitionsToTakeover);
@@ -185,14 +182,14 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
                      */
                     LOGGER.log(Level.WARNING, "Failed to send takeover request: " + takeoverRequest, e);
                 }
-            }
+            });
         }
     }
 
     private boolean addActiveReplica(String replica, ClusterPartition partition,
             Map<String, List<Integer>> partitionRecoveryPlan) {
-        Map<String, Map<IOption, Object>> activeNcConfiguration = clusterManager.getActiveNcConfiguration();
-        if (activeNcConfiguration.containsKey(replica) && !failedNodes.contains(replica)) {
+        final Set<String> participantNodes = clusterManager.getParticipantNodes();
+        if (participantNodes.contains(replica) && !failedNodes.contains(replica)) {
             if (!partitionRecoveryPlan.containsKey(replica)) {
                 List<Integer> replicaPartitions = new ArrayList<>();
                 replicaPartitions.add(partition.getPartitionId());
@@ -498,7 +495,7 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
         //last node needed to start
         if(startupQueue.keySet().size() == nodeIds.size() -1){
             startupQueue.put(nodeId,state);
-            for(Entry<String,SystemState> nodeState: startupQueue.entrySet()){
+            for(Map.Entry<String,SystemState> nodeState: startupQueue.entrySet()){
                 List<INCLifecycleTask> tasks = buildStartupSequence(nodeState.getKey());
                 StartupTaskResponseMessage response = new StartupTaskResponseMessage(nodeState.getKey(), tasks);
                 try {

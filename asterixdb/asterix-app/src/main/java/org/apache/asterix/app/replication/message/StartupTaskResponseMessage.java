@@ -30,6 +30,7 @@ import org.apache.asterix.common.replication.INCLifecycleMessage;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.service.IControllerService;
 import org.apache.hyracks.control.nc.NCShutdownHook;
+import org.apache.hyracks.util.ExitUtil;
 
 public class StartupTaskResponseMessage implements INCLifecycleMessage, INcAddressedMessage {
 
@@ -52,9 +53,16 @@ public class StartupTaskResponseMessage implements INCLifecycleMessage, INcAddre
             Throwable exception = null;
             try {
                 for (INCLifecycleTask task : tasks) {
+                    if (LOGGER.isLoggable(Level.INFO)) {
+                        LOGGER.log(Level.INFO, "Starting startup task: " + task);
+                    }
                     task.perform(cs);
+                    if (LOGGER.isLoggable(Level.INFO)) {
+                        LOGGER.log(Level.INFO, "Completed startup task: " + task);
+                    }
                 }
             } catch (Throwable e) { //NOSONAR all startup failures should be reported to CC
+                LOGGER.log(Level.SEVERE, "Failed during startup task", e);
                 success = false;
                 exception = e;
             }
@@ -69,7 +77,7 @@ public class StartupTaskResponseMessage implements INCLifecycleMessage, INcAddre
         } finally {
             if (!success) {
                 // stop NC so that it can be started again
-                Runtime.getRuntime().exit(NCShutdownHook.FAILED_TO_STARTUP_EXIT_CODE); //NOSONAR startup failed
+                ExitUtil.exit(NCShutdownHook.FAILED_TO_STARTUP_EXIT_CODE);
             }
         }
     }

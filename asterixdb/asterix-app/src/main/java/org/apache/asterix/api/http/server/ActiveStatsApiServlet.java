@@ -33,9 +33,7 @@ import org.apache.hyracks.http.server.AbstractServlet;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import io.netty.handler.codec.http.HttpResponseStatus;
 
 public class ActiveStatsApiServlet extends AbstractServlet {
@@ -44,7 +42,7 @@ public class ActiveStatsApiServlet extends AbstractServlet {
     private static final int DEFAULT_EXPIRE_TIME = 2000;
     private final ActiveNotificationHandler activeNotificationHandler;
 
-    public ActiveStatsApiServlet(ConcurrentMap<String, Object> ctx, String[] paths, ICcApplicationContext appCtx) {
+    public ActiveStatsApiServlet(ICcApplicationContext appCtx, ConcurrentMap<String, Object> ctx, String... paths) {
         super(ctx, paths);
         this.activeNotificationHandler = (ActiveNotificationHandler) appCtx.getActiveNotificationHandler();
     }
@@ -67,9 +65,7 @@ public class ActiveStatsApiServlet extends AbstractServlet {
         String localPath = localPath(request);
         int expireTime;
         IActiveEntityEventsListener[] listeners = activeNotificationHandler.getEventListeners();
-        ObjectMapper om = new ObjectMapper();
-        om.enable(SerializationFeature.INDENT_OUTPUT);
-        ObjectNode resNode = om.createObjectNode();
+        ObjectNode resNode = OBJECT_MAPPER.createObjectNode();
         PrintWriter responseWriter = response.writer();
         try {
             response.setStatus(HttpResponseStatus.OK);
@@ -80,11 +76,13 @@ public class ActiveStatsApiServlet extends AbstractServlet {
             }
             long currentTime = System.currentTimeMillis();
             for (int iter1 = 0; iter1 < listeners.length; iter1++) {
-                resNode.putPOJO(listeners[iter1].getEntityId().toString(),
-                        constructNode(om, listeners[iter1], currentTime, expireTime));
+                if (listeners[iter1].isActive()) {
+                    resNode.putPOJO(listeners[iter1].getDisplayName(),
+                            constructNode(OBJECT_MAPPER, listeners[iter1], currentTime, expireTime));
+                }
             }
             // Construct Response
-            responseWriter.write(om.writerWithDefaultPrettyPrinter().writeValueAsString(resNode));
+            responseWriter.write(OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(resNode));
         } catch (Exception e) {
             LOGGER.log(Level.INFO, "exception thrown for " + request, e);
             response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);

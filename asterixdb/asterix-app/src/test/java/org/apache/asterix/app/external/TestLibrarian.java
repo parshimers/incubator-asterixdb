@@ -30,8 +30,6 @@ import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.test.common.ITestLibrarian;
 import org.apache.commons.io.FileUtils;
 import org.apache.hyracks.algebricks.common.utils.Pair;
-
-
 public class TestLibrarian implements ITestLibrarian {
 
     // The following list includes a library manager for the CC

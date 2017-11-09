@@ -22,6 +22,7 @@ package org.apache.asterix.app.message;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -29,7 +30,9 @@ import java.util.logging.Logger;
 import org.apache.asterix.algebra.base.ILangExtension;
 import org.apache.asterix.api.http.server.ResultUtil;
 import org.apache.asterix.app.cc.CCExtensionManager;
+import org.apache.asterix.app.translator.RequestParameters;
 import org.apache.asterix.common.api.IClusterManagementWork;
+import org.apache.asterix.common.cluster.IClusterStateManager;
 import org.apache.asterix.common.config.GlobalConfig;
 import org.apache.asterix.common.context.IStorageComponentProvider;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
@@ -41,7 +44,7 @@ import org.apache.asterix.lang.common.base.IParser;
 import org.apache.asterix.lang.common.base.Statement;
 import org.apache.asterix.messaging.CCMessageBroker;
 import org.apache.asterix.metadata.MetadataManager;
-import org.apache.asterix.runtime.utils.ClusterStateManager;
+import org.apache.asterix.translator.IRequestParameters;
 import org.apache.asterix.translator.IStatementExecutor;
 import org.apache.asterix.translator.IStatementExecutorContext;
 import org.apache.asterix.translator.IStatementExecutorFactory;
@@ -59,7 +62,7 @@ public final class ExecuteStatementRequestMessage implements ICcAddressedMessage
     //TODO: Make configurable: https://issues.apache.org/jira/browse/ASTERIXDB-2062
     public static final long DEFAULT_NC_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(5);
     //TODO: Make configurable: https://issues.apache.org/jira/browse/ASTERIXDB-2063
-    public static final long DEFAULT_QUERY_CANCELLATION_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(1);
+    public static final long DEFAULT_QUERY_CANCELLATION_WAIT_MILLIS = TimeUnit.MINUTES.toMillis(1);
     private final String requestNodeId;
     private final long requestMessageId;
     private final ILangExtension.Language lang;
@@ -68,10 +71,11 @@ public final class ExecuteStatementRequestMessage implements ICcAddressedMessage
     private final IStatementExecutor.ResultDelivery delivery;
     private final String clientContextID;
     private final String handleUrl;
+    private final Map<String, String> optionalParameters;
 
     public ExecuteStatementRequestMessage(String requestNodeId, long requestMessageId, ILangExtension.Language lang,
             String statementsText, SessionConfig sessionConfig, IStatementExecutor.ResultDelivery delivery,
-            String clientContextID, String handleUrl) {
+            String clientContextID, String handleUrl, Map<String, String> optionalParameters) {
         this.requestNodeId = requestNodeId;
         this.requestMessageId = requestMessageId;
         this.lang = lang;
@@ -80,6 +84,7 @@ public final class ExecuteStatementRequestMessage implements ICcAddressedMessage
         this.delivery = delivery;
         this.clientContextID = clientContextID;
         this.handleUrl = handleUrl;
+        this.optionalParameters = optionalParameters;
     }
 
     @Override
@@ -114,11 +119,14 @@ public final class ExecuteStatementRequestMessage implements ICcAddressedMessage
             MetadataManager.INSTANCE.init();
             IStatementExecutor translator = statementExecutorFactory.create(ccAppCtx, statements, sessionOutput,
                     compilationProvider, storageComponentProvider);
-            translator.compileAndExecute(ccAppCtx.getHcc(), null, delivery, outMetadata, new IStatementExecutor.Stats(),
-                    clientContextID, statementExecutorContext);
+            final IStatementExecutor.Stats stats = new IStatementExecutor.Stats();
+            final IRequestParameters requestParameters =
+                    new RequestParameters(null, delivery, stats, outMetadata, clientContextID, optionalParameters);
+            translator.compileAndExecute(ccApp.getHcc(), statementExecutorContext, requestParameters);
             outPrinter.close();
             responseMsg.setResult(outWriter.toString());
             responseMsg.setMetadata(outMetadata);
+            responseMsg.setStats(stats);
         } catch (AlgebricksException | HyracksException | TokenMgrError
                 | org.apache.asterix.aqlplus.parser.TokenMgrError pe) {
             // we trust that "our" exceptions are serializable and have a comprehensible error message
@@ -139,7 +147,9 @@ public final class ExecuteStatementRequestMessage implements ICcAddressedMessage
         if (ccSrv.getNodeManager().getNodeControllerState(requestNodeId) == null) {
             return "Node is not registerted with the CC";
         }
-        final IClusterManagementWork.ClusterState clusterState = ClusterStateManager.INSTANCE.getState();
+        ICcApplicationContext appCtx = (ICcApplicationContext) ccSrv.getApplicationContext();
+        IClusterStateManager csm = appCtx.getClusterStateManager();
+        final IClusterManagementWork.ClusterState clusterState = csm.getState();
         if (clusterState != IClusterManagementWork.ClusterState.ACTIVE) {
             return "Cannot execute request, cluster is " + clusterState;
         }

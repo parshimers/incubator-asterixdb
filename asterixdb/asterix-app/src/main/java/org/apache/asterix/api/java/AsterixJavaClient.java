@@ -23,7 +23,7 @@ import java.io.Reader;
 import java.util.List;
 
 import org.apache.asterix.api.common.APIFramework;
-import org.apache.asterix.app.translator.QueryTranslator;
+import org.apache.asterix.app.translator.RequestParameters;
 import org.apache.asterix.common.context.IStorageComponentProvider;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.common.utils.Job;
@@ -32,10 +32,12 @@ import org.apache.asterix.lang.common.base.IParser;
 import org.apache.asterix.lang.common.base.IParserFactory;
 import org.apache.asterix.lang.common.base.Statement;
 import org.apache.asterix.metadata.MetadataManager;
+import org.apache.asterix.translator.IRequestParameters;
 import org.apache.asterix.translator.IStatementExecutor;
 import org.apache.asterix.translator.IStatementExecutorFactory;
 import org.apache.asterix.translator.SessionConfig;
 import org.apache.asterix.translator.SessionConfig.OutputFormat;
+import org.apache.asterix.translator.SessionConfig.PlanFormat;
 import org.apache.asterix.translator.SessionOutput;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.job.JobSpecification;
@@ -79,11 +81,19 @@ public class AsterixJavaClient {
     }
 
     public void compile() throws Exception {
-        compile(true, false, false, false, false, false, false);
+        compile(true, false, true, false, false, false, false);
     }
 
     public void compile(boolean optimize, boolean printRewrittenExpressions, boolean printLogicalPlan,
             boolean printOptimizedPlan, boolean printPhysicalOpsOnly, boolean generateBinaryRuntime, boolean printJob)
+            throws Exception {
+        compile(optimize, printRewrittenExpressions, printLogicalPlan, printOptimizedPlan, printPhysicalOpsOnly,
+                generateBinaryRuntime, printJob, PlanFormat.STRING);
+    }
+
+    public void compile(boolean optimize, boolean printRewrittenExpressions, boolean printLogicalPlan,
+            boolean printOptimizedPlan, boolean printPhysicalOpsOnly, boolean generateBinaryRuntime, boolean printJob,
+            PlanFormat pformat)
             throws Exception {
         queryJobSpec = null;
         dmlJobs = null;
@@ -100,7 +110,7 @@ public class AsterixJavaClient {
         List<Statement> statements = parser.parse();
         MetadataManager.INSTANCE.init();
 
-        SessionConfig conf = new SessionConfig(OutputFormat.ADM, optimize, true, generateBinaryRuntime);
+        SessionConfig conf = new SessionConfig(OutputFormat.ADM, optimize, true, generateBinaryRuntime, pformat);
         conf.setOOBData(false, printRewrittenExpressions, printLogicalPlan, printOptimizedPlan, printJob);
         if (printPhysicalOpsOnly) {
             conf.set(SessionConfig.FORMAT_ONLY_PHYSICAL_OPS, true);
@@ -109,8 +119,10 @@ public class AsterixJavaClient {
 
         IStatementExecutor translator = statementExecutorFactory.create(appCtx, statements, output, compilationProvider,
                 storageComponentProvider);
-        translator.compileAndExecute(hcc, null, QueryTranslator.ResultDelivery.IMMEDIATE,
-                null, new IStatementExecutor.Stats());
+        final IRequestParameters requestParameters =
+                new RequestParameters(null, IStatementExecutor.ResultDelivery.IMMEDIATE, new IStatementExecutor.Stats(),
+                        null, null, null);
+        translator.compileAndExecute(hcc, null, requestParameters);
         writer.flush();
     }
 

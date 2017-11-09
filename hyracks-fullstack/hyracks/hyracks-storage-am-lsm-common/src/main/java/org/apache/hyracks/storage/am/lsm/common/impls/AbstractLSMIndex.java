@@ -31,13 +31,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.api.replication.IReplicationJob.ReplicationExecutionType;
 import org.apache.hyracks.api.replication.IReplicationJob.ReplicationOperation;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
-import org.apache.hyracks.storage.am.bloomfilter.impls.BloomFilter;
-import org.apache.hyracks.storage.am.common.api.ITreeIndex;
 import org.apache.hyracks.storage.am.common.impls.AbstractSearchPredicate;
+import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.lsm.common.api.IComponentFilterHelper;
@@ -45,6 +45,7 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent.ComponentState;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentFilterFrameFactory;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponent;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponentFactory;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMHarness;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperation;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperationCallback;
@@ -63,6 +64,7 @@ import org.apache.hyracks.storage.common.IIndexCursor;
 import org.apache.hyracks.storage.common.IModificationOperationCallback;
 import org.apache.hyracks.storage.common.ISearchOperationCallback;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
+import org.apache.hyracks.util.trace.ITracer;
 
 public abstract class AbstractLSMIndex implements ILSMIndex {
     protected final ILSMHarness lsmHarness;
@@ -90,13 +92,19 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
     protected boolean isActive;
     protected final AtomicBoolean[] flushRequests;
     protected boolean memoryComponentsAllocated = false;
+    protected ITracer tracer;
+    // Factory for creating on-disk index components during flush and merge.
+    protected final ILSMDiskComponentFactory componentFactory;
+    // Factory for creating on-disk index components during bulkload.
+    protected final ILSMDiskComponentFactory bulkLoadComponentFactory;
 
     public AbstractLSMIndex(IIOManager ioManager, List<IVirtualBufferCache> virtualBufferCaches,
             IBufferCache diskBufferCache, ILSMIndexFileManager fileManager, double bloomFilterFalsePositiveRate,
             ILSMMergePolicy mergePolicy, ILSMOperationTracker opTracker, ILSMIOOperationScheduler ioScheduler,
-            ILSMIOOperationCallback ioOpCallback, ILSMComponentFilterFrameFactory filterFrameFactory,
+            ILSMIOOperationCallback ioOpCallback, ILSMDiskComponentFactory componentFactory,
+            ILSMDiskComponentFactory bulkLoadComponentFactory, ILSMComponentFilterFrameFactory filterFrameFactory,
             LSMComponentFilterManager filterManager, int[] filterFields, boolean durable,
-            IComponentFilterHelper filterHelper, int[] treeFields) {
+            IComponentFilterHelper filterHelper, int[] treeFields, ITracer tracer) {
         this.ioManager = ioManager;
         this.virtualBufferCaches = virtualBufferCaches;
         this.diskBufferCache = diskBufferCache;
@@ -104,6 +112,8 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
         this.bloomFilterFalsePositiveRate = bloomFilterFalsePositiveRate;
         this.ioScheduler = ioScheduler;
         this.ioOpCallback = ioOpCallback;
+        this.componentFactory = componentFactory;
+        this.bulkLoadComponentFactory = bulkLoadComponentFactory;
         this.ioOpCallback.setNumOfMutableComponents(virtualBufferCaches.size());
         this.filterHelper = filterHelper;
         this.filterFrameFactory = filterFrameFactory;
@@ -112,7 +122,8 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
         this.filterFields = filterFields;
         this.inactiveDiskComponents = new LinkedList<>();
         this.durable = durable;
-        lsmHarness = new LSMHarness(this, mergePolicy, opTracker, diskBufferCache.isReplicationEnabled());
+        this.tracer = tracer;
+        lsmHarness = new LSMHarness(this, mergePolicy, opTracker, diskBufferCache.isReplicationEnabled(), tracer);
         isActive = false;
         diskComponents = new ArrayList<>();
         memoryComponents = new ArrayList<>();
@@ -126,13 +137,17 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
     // The constructor used by external indexes
     public AbstractLSMIndex(IIOManager ioManager, IBufferCache diskBufferCache, ILSMIndexFileManager fileManager,
             double bloomFilterFalsePositiveRate, ILSMMergePolicy mergePolicy, ILSMOperationTracker opTracker,
-            ILSMIOOperationScheduler ioScheduler, ILSMIOOperationCallback ioOpCallback, boolean durable) {
+            ILSMIOOperationScheduler ioScheduler, ILSMIOOperationCallback ioOpCallback,
+            ILSMDiskComponentFactory componentFactory, ILSMDiskComponentFactory bulkLoadComponentFactory,
+            boolean durable) {
         this.ioManager = ioManager;
         this.diskBufferCache = diskBufferCache;
         this.fileManager = fileManager;
         this.bloomFilterFalsePositiveRate = bloomFilterFalsePositiveRate;
         this.ioScheduler = ioScheduler;
         this.ioOpCallback = ioOpCallback;
+        this.componentFactory = componentFactory;
+        this.bulkLoadComponentFactory = bulkLoadComponentFactory;
         this.durable = durable;
         lsmHarness = new ExternalIndexHarness(this, mergePolicy, opTracker, diskBufferCache.isReplicationEnabled());
         isActive = false;
@@ -168,11 +183,14 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
         isActive = true;
     }
 
-    protected void loadDiskComponents() throws HyracksDataException {
+    private void loadDiskComponents() throws HyracksDataException {
         diskComponents.clear();
         List<LSMComponentFileReferences> validFileReferences = fileManager.cleanupAndGetValidFiles();
-        for (LSMComponentFileReferences lsmComonentFileReference : validFileReferences) {
-            ILSMDiskComponent component = loadComponent(lsmComonentFileReference);
+        for (LSMComponentFileReferences lsmComponentFileReferences : validFileReferences) {
+            ILSMDiskComponent component =
+                    createDiskComponent(componentFactory, lsmComponentFileReferences.getInsertIndexFileReference(),
+                            lsmComponentFileReferences.getDeleteIndexFileReference(),
+                            lsmComponentFileReferences.getBloomFilterFileReference(), false);
             diskComponents.add(component);
         }
     }
@@ -188,17 +206,16 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
             throw HyracksDataException.create(ErrorCode.CANNOT_DEACTIVATE_INACTIVE_INDEX);
         }
         if (flush) {
-            flushMemoryComponents();
+            flushMemoryComponent();
         }
         deactivateDiskComponents();
-        deactivateMemoryComponents();
+        deallocateMemoryComponents();
         isActive = false;
     }
 
-    // What if more than one memory component needs flushing??
-    protected void flushMemoryComponents() throws HyracksDataException {
+    protected void flushMemoryComponent() throws HyracksDataException {
         BlockingIOOperationCallbackWrapper cb = new BlockingIOOperationCallbackWrapper(ioOpCallback);
-        ILSMIndexAccessor accessor = createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+        ILSMIndexAccessor accessor = createAccessor(NoOpIndexAccessParameters.INSTANCE);
         accessor.scheduleFlush(cb);
         try {
             cb.waitForIO();
@@ -208,17 +225,16 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
         }
     }
 
-    protected void deactivateDiskComponents() throws HyracksDataException {
-        List<ILSMDiskComponent> immutableComponents = diskComponents;
-        for (ILSMDiskComponent c : immutableComponents) {
-            deactivateDiskComponent(c);
+    private void deactivateDiskComponents() throws HyracksDataException {
+        for (ILSMDiskComponent c : diskComponents) {
+            c.deactivateAndPurge();
         }
     }
 
-    protected void deactivateMemoryComponents() throws HyracksDataException {
+    private void deallocateMemoryComponents() throws HyracksDataException {
         if (memoryComponentsAllocated) {
             for (ILSMMemoryComponent c : memoryComponents) {
-                deactivateMemoryComponent(c);
+                c.deallocate();
             }
             memoryComponentsAllocated = false;
         }
@@ -233,10 +249,9 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
         fileManager.deleteDirs();
     }
 
-    protected void destroyDiskComponents() throws HyracksDataException {
-        List<ILSMDiskComponent> immutableComponents = diskComponents;
-        for (ILSMDiskComponent c : immutableComponents) {
-            destroyDiskComponent(c);
+    private void destroyDiskComponents() throws HyracksDataException {
+        for (ILSMDiskComponent c : diskComponents) {
+            c.destroy();
         }
     }
 
@@ -245,23 +260,27 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
         if (!isActive) {
             throw HyracksDataException.create(ErrorCode.CANNOT_CLEAR_INACTIVE_INDEX);
         }
-        clearMemoryComponents();
-        clearDiskComponents();
+        resetMemoryComponents();
+        deactivateAndDestroyDiskComponents();
     }
 
-    private void clearDiskComponents() throws HyracksDataException {
+    private void deactivateAndDestroyDiskComponents() throws HyracksDataException {
         for (ILSMDiskComponent c : diskComponents) {
-            clearDiskComponent(c);
+            c.deactivateAndDestroy();
         }
         diskComponents.clear();
     }
 
-    protected void clearMemoryComponents() throws HyracksDataException {
-        if (memoryComponentsAllocated) {
+    private void resetMemoryComponents() throws HyracksDataException {
+        if (memoryComponentsAllocated && memoryComponents != null) {
             for (ILSMMemoryComponent c : memoryComponents) {
-                clearMemoryComponent(c);
+                c.reset();
             }
         }
+    }
+
+    @Override
+    public void purge() throws HyracksDataException {
     }
 
     @Override
@@ -275,6 +294,7 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
             case UPDATE:
             case PHYSICALDELETE:
             case FLUSH:
+            case DELETE_MEMORY_COMPONENT:
             case DELETE:
             case UPSERT:
                 operationalComponents.add(memoryComponents.get(cmc));
@@ -302,6 +322,7 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
 
                 break;
             case MERGE:
+            case DELETE_DISK_COMPONENTS:
                 operationalComponents.addAll(ctx.getComponentsToBeMerged());
                 break;
             case FULL_MERGE:
@@ -326,29 +347,29 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
     @Override
     public void scheduleFlush(ILSMIndexOperationContext ctx, ILSMIOOperationCallback callback)
             throws HyracksDataException {
-        ILSMMemoryComponent flushingComponent = (ILSMMemoryComponent) ctx.getComponentHolder().get(0);
         LSMComponentFileReferences componentFileRefs = fileManager.getRelFlushFileReference();
         AbstractLSMIndexOperationContext opCtx =
                 createOpContext(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
-        opCtx.setOperation(IndexOperation.FLUSH);
-        opCtx.getComponentHolder().add(flushingComponent);
-        ILSMIOOperation flushOp = createFlushOperation(opCtx, flushingComponent, componentFileRefs, callback);
-        ioScheduler.scheduleOperation(flushOp);
+        opCtx.setOperation(ctx.getOperation());
+        opCtx.getComponentHolder().addAll(ctx.getComponentHolder());
+        ILSMIOOperation flushOp = createFlushOperation(opCtx, componentFileRefs, callback);
+        ioScheduler.scheduleOperation(TracedIOOperation.wrap(flushOp, tracer));
     }
 
     @Override
     public void scheduleMerge(ILSMIndexOperationContext ctx, ILSMIOOperationCallback callback)
             throws HyracksDataException {
+        List<ILSMComponent> mergingComponents = ctx.getComponentHolder();
         // merge must create a different op ctx
         AbstractLSMIndexOperationContext opCtx =
                 createOpContext(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
-        opCtx.setOperation(IndexOperation.MERGE);
-        List<ILSMComponent> mergingComponents = ctx.getComponentHolder();
+        opCtx.setOperation(ctx.getOperation());
+        opCtx.getComponentHolder().addAll(mergingComponents);
         ILSMDiskComponent firstComponent = (ILSMDiskComponent) mergingComponents.get(0);
         ILSMDiskComponent lastComponent = (ILSMDiskComponent) mergingComponents.get(mergingComponents.size() - 1);
         LSMComponentFileReferences mergeFileRefs = getMergeFileReferences(firstComponent, lastComponent);
-        ILSMIOOperation mergeOp = createMergeOperation(opCtx, mergingComponents, mergeFileRefs, callback);
-        ioScheduler.scheduleOperation(mergeOp);
+        ILSMIOOperation mergeOp = createMergeOperation(opCtx, mergeFileRefs, callback);
+        ioScheduler.scheduleOperation(TracedIOOperation.wrap(mergeOp, tracer));
     }
 
     private void addOperationalMutableComponents(List<ILSMComponent> operationalComponents) {
@@ -374,42 +395,46 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
         return createBulkLoader(fillLevel, verifyInput, numElementsHint);
     }
 
+    public IIndexBulkLoader createBulkLoader(float fillLevel, boolean verifyInput, long numElementsHint)
+            throws HyracksDataException {
+        return new LSMIndexDiskComponentBulkLoader(this, fillLevel, verifyInput, numElementsHint);
+    }
+
+    @Override
+    public ILSMDiskComponent createBulkLoadTarget() throws HyracksDataException {
+        LSMComponentFileReferences componentFileRefs = fileManager.getRelFlushFileReference();
+        return createDiskComponent(bulkLoadComponentFactory, componentFileRefs.getInsertIndexFileReference(),
+                componentFileRefs.getDeleteIndexFileReference(), componentFileRefs.getBloomFilterFileReference(), true);
+    }
+
+    protected ILSMDiskComponent createDiskComponent(ILSMDiskComponentFactory factory, FileReference insertFileReference,
+            FileReference deleteIndexFileReference, FileReference bloomFilterFileRef, boolean createComponent)
+            throws HyracksDataException {
+        ILSMDiskComponent component = factory.createComponent(this,
+                new LSMComponentFileReferences(insertFileReference, deleteIndexFileReference, bloomFilterFileRef));
+        component.activate(createComponent);
+        return component;
+    }
+
     @Override
     public final synchronized void allocateMemoryComponents() throws HyracksDataException {
         if (!isActive) {
             throw HyracksDataException.create(ErrorCode.CANNOT_ALLOCATE_MEMORY_FOR_INACTIVE_INDEX);
         }
-        if (memoryComponentsAllocated) {
+        if (memoryComponentsAllocated || memoryComponents == null) {
             return;
         }
         for (ILSMMemoryComponent c : memoryComponents) {
-            allocateMemoryComponent(c);
+            c.allocate();
         }
         memoryComponentsAllocated = true;
     }
 
-    protected void markAsValidInternal(ITreeIndex treeIndex) throws HyracksDataException {
-        int fileId = treeIndex.getFileId();
-        IBufferCache bufferCache = treeIndex.getBufferCache();
-        treeIndex.getPageManager().close();
-        // WARNING: flushing the metadata page should be done after releasing the write latch; otherwise, the page
-        // won't be flushed to disk because it won't be dirty until the write latch has been released.
-        // Force modified metadata page to disk.
-        // If the index is not durable, then the flush is not necessary.
-        if (durable) {
-            bufferCache.force(fileId, true);
-        }
-    }
-
-    protected void markAsValidInternal(IBufferCache bufferCache, BloomFilter filter) throws HyracksDataException {
-        if (durable) {
-            bufferCache.force(filter.getFileId(), true);
-        }
-    }
-
     @Override
     public void addDiskComponent(ILSMDiskComponent c) throws HyracksDataException {
-        diskComponents.add(0, c);
+        if (c != EmptyComponent.INSTANCE) {
+            diskComponents.add(0, c);
+        }
     }
 
     @Override
@@ -417,17 +442,19 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
             throws HyracksDataException {
         int swapIndex = diskComponents.indexOf(mergedComponents.get(0));
         diskComponents.removeAll(mergedComponents);
-        diskComponents.add(swapIndex, newComponent);
+        if (newComponent != EmptyComponent.INSTANCE) {
+            diskComponents.add(swapIndex, newComponent);
+        }
     }
 
     @Override
     public void changeMutableComponent() {
         currentMutableComponentId.set((currentMutableComponentId.get() + 1) % memoryComponents.size());
-        memoryComponents.get(currentMutableComponentId.get()).activate();
+        memoryComponents.get(currentMutableComponentId.get()).requestActivation();
     }
 
     @Override
-    public List<ILSMDiskComponent> getImmutableComponents() {
+    public List<ILSMDiskComponent> getDiskComponents() {
         return diskComponents;
     }
 
@@ -474,8 +501,10 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
     }
 
     @Override
-    public String toString() {
-        return "LSMIndex [" + fileManager.getBaseDir() + "]";
+    public final String toString() {
+        return "{\"class\" : \"" + getClass().getSimpleName() + "\", \"dir\" : \"" + fileManager.getBaseDir()
+                + "\", \"memory\" : " + (memoryComponents == null ? 0 : memoryComponents.size()) + ", \"disk\" : "
+                + diskComponents.size() + "}";
     }
 
     @Override
@@ -518,8 +547,8 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
         Set<String> componentFiles = new HashSet<>();
 
         //get set of files to be replicated for each component
-        for (ILSMComponent lsmComponent : lsmComponents) {
-            componentFiles.addAll(getLSMComponentPhysicalFiles(lsmComponent));
+        for (ILSMDiskComponent lsmComponent : lsmComponents) {
+            componentFiles.addAll(lsmComponent.getLSMComponentPhysicalFiles());
         }
 
         ReplicationExecutionType executionType;
@@ -606,11 +635,11 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
     public final void validate() throws HyracksDataException {
         if (memoryComponentsAllocated) {
             for (ILSMMemoryComponent c : memoryComponents) {
-                validateMemoryComponent(c);
+                c.validate();
             }
         }
         for (ILSMDiskComponent c : diskComponents) {
-            validateDiskComponent(c);
+            c.validate();
         }
     }
 
@@ -618,35 +647,26 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
     public long getMemoryAllocationSize() {
         long size = 0;
         for (ILSMMemoryComponent c : memoryComponents) {
-            size += getMemoryComponentSize(c);
+            size += c.getSize();
         }
         return size;
     }
 
-    public abstract Set<String> getLSMComponentPhysicalFiles(ILSMComponent newComponent);
+    @Override
+    public final ILSMDiskComponent flush(ILSMIOOperation operation) throws HyracksDataException {
+        ILSMIndexAccessor accessor = operation.getAccessor();
+        ILSMIndexOperationContext opCtx = accessor.getOpContext();
+        return opCtx.getOperation() == IndexOperation.DELETE_MEMORY_COMPONENT ? EmptyComponent.INSTANCE
+                : doFlush(operation);
+    }
 
-    protected abstract void allocateMemoryComponent(ILSMMemoryComponent c) throws HyracksDataException;
-
-    protected abstract IIndexBulkLoader createBulkLoader(float fillLevel, boolean verifyInput, long numElementsHint)
-            throws HyracksDataException;
-
-    protected abstract ILSMDiskComponent loadComponent(LSMComponentFileReferences refs) throws HyracksDataException;
-
-    protected abstract void deactivateMemoryComponent(ILSMMemoryComponent c) throws HyracksDataException;
-
-    protected abstract void deactivateDiskComponent(ILSMDiskComponent c) throws HyracksDataException;
-
-    protected abstract void destroyDiskComponent(ILSMDiskComponent c) throws HyracksDataException;
-
-    protected abstract void clearDiskComponent(ILSMDiskComponent c) throws HyracksDataException;
-
-    protected abstract void clearMemoryComponent(ILSMMemoryComponent c) throws HyracksDataException;
-
-    protected abstract void validateMemoryComponent(ILSMMemoryComponent c) throws HyracksDataException;
-
-    protected abstract void validateDiskComponent(ILSMDiskComponent c) throws HyracksDataException;
-
-    protected abstract long getMemoryComponentSize(ILSMMemoryComponent c);
+    @Override
+    public final ILSMDiskComponent merge(ILSMIOOperation operation) throws HyracksDataException {
+        ILSMIndexAccessor accessor = operation.getAccessor();
+        ILSMIndexOperationContext opCtx = accessor.getOpContext();
+        return opCtx.getOperation() == IndexOperation.DELETE_DISK_COMPONENTS ? EmptyComponent.INSTANCE
+                : doMerge(operation);
+    }
 
     protected abstract LSMComponentFileReferences getMergeFileReferences(ILSMDiskComponent firstComponent,
             ILSMDiskComponent lastComponent) throws HyracksDataException;
@@ -656,11 +676,13 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
             throws HyracksDataException;
 
     protected abstract ILSMIOOperation createFlushOperation(AbstractLSMIndexOperationContext opCtx,
-            ILSMMemoryComponent flushingComponent, LSMComponentFileReferences componentFileRefs,
-            ILSMIOOperationCallback callback) throws HyracksDataException;
+            LSMComponentFileReferences componentFileRefs, ILSMIOOperationCallback callback) throws HyracksDataException;
 
     protected abstract ILSMIOOperation createMergeOperation(AbstractLSMIndexOperationContext opCtx,
-            List<ILSMComponent> mergingComponents, LSMComponentFileReferences mergeFileRefs,
-            ILSMIOOperationCallback callback) throws HyracksDataException;
+            LSMComponentFileReferences mergeFileRefs, ILSMIOOperationCallback callback) throws HyracksDataException;
+
+    protected abstract ILSMDiskComponent doFlush(ILSMIOOperation operation) throws HyracksDataException;
+
+    protected abstract ILSMDiskComponent doMerge(ILSMIOOperation operation) throws HyracksDataException;
 
 }

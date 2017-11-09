@@ -21,13 +21,14 @@ package org.apache.hyracks.control.common.ipc;
 import java.net.InetSocketAddress;
 import java.util.logging.Logger;
 
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.ipc.api.IIPCHandle;
 import org.apache.hyracks.ipc.exceptions.IPCException;
 import org.apache.hyracks.ipc.impl.IPCSystem;
 
 public abstract class ControllerRemoteProxy {
     protected final IPCSystem ipc;
-    protected final InetSocketAddress inetSocketAddress;
+    private final InetSocketAddress inetSocketAddress;
     private final IControllerRemoteProxyIPCEventListener eventListener;
     private IIPCHandle ipcHandle;
 
@@ -36,33 +37,50 @@ public abstract class ControllerRemoteProxy {
     }
 
     protected ControllerRemoteProxy(IPCSystem ipc, InetSocketAddress inetSocketAddress,
-                                    IControllerRemoteProxyIPCEventListener eventListener) {
+            IControllerRemoteProxyIPCEventListener eventListener) {
         this.ipc = ipc;
         this.inetSocketAddress = inetSocketAddress;
-        this.eventListener = eventListener == null ? new IControllerRemoteProxyIPCEventListener() {} : eventListener;
+        this.eventListener = eventListener == null ? new IControllerRemoteProxyIPCEventListener() {
+        } : eventListener;
     }
 
-    protected IIPCHandle ensureIpcHandle() throws IPCException {
-        final boolean first = ipcHandle == null;
-        if (first || !ipcHandle.isConnected()) {
+    protected IIPCHandle ensureIpcHandle() throws HyracksDataException {
+        return ensureIpcHandle(getMaxRetries(ipcHandle == null));
+    }
+
+    protected IIPCHandle ensureIpcHandle(int maxRetries) throws HyracksDataException {
+        if (ipcHandle != null && ipcHandle.isConnected()) {
+            return ipcHandle;
+        }
+        try {
+            final boolean first = ipcHandle == null;
             if (!first) {
                 getLogger().warning("ipcHandle " + ipcHandle + " disconnected; retrying connection");
                 eventListener.ipcHandleDisconnected(ipcHandle);
             }
-            ipcHandle = ipc.getHandle(inetSocketAddress, getRetries(first));
-            if (ipcHandle.isConnected()) {
-                if (first) {
-                    eventListener.ipcHandleConnected(ipcHandle);
-                } else {
-                    getLogger().warning("ipcHandle " + ipcHandle + " restored");
-                    eventListener.ipcHandleRestored(ipcHandle);
-                }
+            ipcHandle = ipc.getHandle(inetSocketAddress, maxRetries);
+            if (first) {
+                eventListener.ipcHandleConnected(ipcHandle);
+            } else {
+                getLogger().warning("ipcHandle " + ipcHandle + " restored");
+                eventListener.ipcHandleRestored(ipcHandle);
             }
+        } catch (IPCException e) {
+            throw HyracksDataException.create(e);
         }
         return ipcHandle;
     }
 
-    protected abstract int getRetries(boolean first);
+    /**
+     * Maximum number of times to retry a failed connection attempt
+     * @param first true if the initial connection attempt (i.e. server start)
+     * @return the maximum number of retries, if any.  <0 means retry forever
+     */
+    protected abstract int getMaxRetries(boolean first);
 
     protected abstract Logger getLogger();
+
+    public InetSocketAddress getAddress() {
+        return inetSocketAddress;
+    }
 }

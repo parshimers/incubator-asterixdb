@@ -50,7 +50,6 @@ import org.apache.asterix.metadata.entities.InternalDatasetDetails.PartitioningS
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
-import org.apache.asterix.test.common.TestHelper;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.runtime.base.IPushRuntime;
 import org.apache.hyracks.api.comm.VSizeFrame;
@@ -114,7 +113,6 @@ public class ComponentRollbackTest {
     @BeforeClass
     public static void setUp() throws Exception {
         System.out.println("SetUp: ");
-        TestHelper.deleteExistingInstanceFiles();
         nc = new TestNodeController(null, false);
         nc.init();
         ncAppCtx = nc.getAppRuntimeContext();
@@ -125,7 +123,6 @@ public class ComponentRollbackTest {
     public static void tearDown() throws Exception {
         System.out.println("TearDown");
         nc.deInit();
-        TestHelper.deleteExistingInstanceFiles();
     }
 
     @Before

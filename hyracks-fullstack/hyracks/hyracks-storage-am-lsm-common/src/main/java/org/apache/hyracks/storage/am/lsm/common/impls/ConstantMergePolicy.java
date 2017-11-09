@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.storage.am.common.impls.IndexAccessParameters;
+import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent.ComponentState;
@@ -30,25 +32,26 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicy;
+import org.apache.hyracks.storage.common.IIndexAccessParameters;
 
 public class ConstantMergePolicy implements ILSMMergePolicy {
     private int numComponents;
 
     @Override
     public void diskComponentAdded(final ILSMIndex index, boolean fullMergeIsRequested) throws HyracksDataException {
-        List<ILSMDiskComponent> immutableComponents = index.getImmutableComponents();
+        List<ILSMDiskComponent> immutableComponents = index.getDiskComponents();
 
         if (!areComponentsMergable(immutableComponents)) {
             return;
         }
 
         if (fullMergeIsRequested) {
-            ILSMIndexAccessor accessor =
-                    index.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            IIndexAccessParameters iap =
+                    new IndexAccessParameters(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            ILSMIndexAccessor accessor = index.createAccessor(iap);
             accessor.scheduleFullMerge(index.getIOOperationCallback());
         } else if (immutableComponents.size() >= numComponents) {
-            ILSMIndexAccessor accessor =
-                    index.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            ILSMIndexAccessor accessor = index.createAccessor(NoOpIndexAccessParameters.INSTANCE);
             accessor.scheduleMerge(index.getIOOperationCallback(), immutableComponents);
         }
     }
@@ -84,7 +87,7 @@ public class ConstantMergePolicy implements ILSMMergePolicy {
          * there will be no new merge either in this situation.
          */
 
-        List<ILSMDiskComponent> immutableComponents = index.getImmutableComponents();
+        List<ILSMDiskComponent> immutableComponents = index.getDiskComponents();
         int totalImmutableComponentCount = immutableComponents.size();
 
         // [case 1]
@@ -104,8 +107,7 @@ public class ConstantMergePolicy implements ILSMMergePolicy {
             if (!areComponentsMergable(immutableComponents)) {
                 throw new IllegalStateException();
             }
-            ILSMIndexAccessor accessor =
-                    index.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            ILSMIndexAccessor accessor = index.createAccessor(NoOpIndexAccessParameters.INSTANCE);
             accessor.scheduleMerge(index.getIOOperationCallback(), immutableComponents);
             return true;
         }

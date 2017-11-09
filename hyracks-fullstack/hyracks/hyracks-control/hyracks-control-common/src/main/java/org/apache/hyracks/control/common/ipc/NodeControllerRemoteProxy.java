@@ -48,7 +48,8 @@ public class NodeControllerRemoteProxy extends ControllerRemoteProxy implements 
     }
 
     @Override
-    protected int getRetries(boolean first) {
+    protected int getMaxRetries(boolean first) {
+        // -1 == retry forever
         return 0;
     }
 

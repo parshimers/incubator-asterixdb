@@ -23,13 +23,11 @@ import java.io.InputStream;
 import java.util.Random;
 
 import org.apache.asterix.api.common.AsterixHyracksIntegrationUtil;
-import org.apache.asterix.common.config.GlobalConfig;
-import org.apache.asterix.common.configuration.AsterixConfiguration;
-import org.apache.asterix.common.configuration.Property;
+import org.apache.asterix.common.config.StorageProperties;
 import org.apache.asterix.common.utils.Servlets;
 import org.apache.asterix.test.common.TestExecutor;
-import org.apache.asterix.test.common.TestHelper;
 import org.apache.asterix.testframework.context.TestCaseContext;
+import org.apache.hyracks.control.common.controllers.NCConfig;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -53,9 +51,8 @@ public class RecoveryManagerTest {
     public void setUp() throws Exception {
         // Read default test configurations
         // override memory config to enforce dataset eviction
-        ac.getProperty().add(new Property("storage.memorycomponent.globalbudget", "128MB", ""));
-        ac.getProperty().add(new Property("storage.memorycomponent.numpages", "32", ""));
-        integrationUtil.
+        integrationUtil.addOption(StorageProperties.Option.STORAGE_MEMORYCOMPONENT_GLOBALBUDGET,"128MB");
+        integrationUtil.addOption(StorageProperties.Option.STORAGE_MEMORYCOMPONENT_NUMPAGES,32);
         // Write test config file
         integrationUtil.setGracefulShutdown(false);
         integrationUtil.init(true);

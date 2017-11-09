@@ -74,6 +74,8 @@ public class ErrorCode {
 
     public static final int INSTANTIATION_ERROR = 100;
 
+    public static final int EXTERNAL_UDF_RESULT_TYPE_ERROR = 200;
+
     // Compilation errors
     public static final int PARSE_ERROR = 1001;
     public static final int COMPILATION_TYPE_MISMATCH = 1002;
@@ -125,6 +127,11 @@ public class ErrorCode {
     public static final int DOWNGRADE_FAILED_LOCK_WAS_NOT_ACQUIRED = 1048;
     public static final int LOCK_WAS_ACQUIRED_DIFFERENT_OPERATION = 1049;
     public static final int NO_DATASET_WITH_NAME = 1050;
+    public static final int INDEX_ILLEGAL_ENFORCED_ON_CLOSED_FIELD = 1051;
+    public static final int INDEX_ILLEGAL_REPETITIVE_FIELD = 1052;
+    public static final int CANNOT_CREATE_SEC_PRIMARY_IDX_ON_EXT_DATASET = 1053;
+    public static final int COMPILATION_FAILED_DUE_TO_REPLICATE_OP = 1054;
+    public static final int COMPILATION_INCOMPATIBLE_FUNCTION_LANGUAGE = 1055;
 
     // Feed errors
     public static final int DATAFLOW_ILLEGAL_STATE = 3001;
@@ -222,7 +229,6 @@ public class ErrorCode {
     public static final int ACTIVE_ENTITY_LISTENER_IS_NOT_REGISTERED = 3097;
     public static final int CANNOT_DERIGESTER_ACTIVE_ENTITY_LISTENER = 3098;
     public static final int DOUBLE_INITIALIZATION_OF_ACTIVE_NOTIFICATION_HANDLER = 3099;
-    public static final int FAILED_TO_SHUTDOWN_EVENT_PROCESSOR = 3100;
     public static final int DOUBLE_RECOVERY_ATTEMPTS = 3101;
     public static final int UNREPORTED_TASK_FAILURE_EXCEPTION = 3102;
     public static final int ACTIVE_ENTITY_ALREADY_SUSPENDED = 3103;
@@ -233,6 +239,7 @@ public class ErrorCode {
     public static final int FEED_STOPPED_WHILE_WAITING_FOR_A_NEW_RECORD = 3108;
     public static final int METADATA_DROP_FUCTION_IN_USE = 3109;
     public static final int FEED_FAILED_WHILE_GETTING_A_NEW_RECORD = 3110;
+    public static final int FEED_START_FEED_WITHOUT_CONNECTION = 3111;
 
     // Lifecycle management errors
     public static final int DUPLICATE_PARTITION_ID = 4000;

@@ -34,7 +34,7 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.LSMOperationType;
 import org.apache.hyracks.storage.am.lsm.common.impls.DiskComponentMetadata;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMDiskComponentId;
-import org.apache.hyracks.storage.am.lsm.common.utils.ComponentMetadataUtil;
+import org.apache.hyracks.storage.am.lsm.common.util.ComponentUtils;
 
 // A single LSMIOOperationCallback per LSM index used to perform actions around Flush and Merge operations
 public abstract class AbstractLSMIOOperationCallback implements ILSMIOOperationCallback {
@@ -100,9 +100,9 @@ public abstract class AbstractLSMIOOperationCallback implements ILSMIOOperationC
         }
     }
 
-    public void putLSNIntoMetadata(ILSMDiskComponent index, List<ILSMComponent> oldComponents)
+    public void putLSNIntoMetadata(ILSMDiskComponent newComponent, List<ILSMComponent> oldComponents)
             throws HyracksDataException {
-        index.getMetadata().put(LSN_KEY, LongPointable.FACTORY.createPointable(getComponentLSN(oldComponents)));
+        newComponent.getMetadata().put(LSN_KEY, LongPointable.FACTORY.createPointable(getComponentLSN(oldComponents)));
     }
 
     public static long getTreeIndexLSN(DiskComponentMetadata md) throws HyracksDataException {
@@ -181,17 +181,18 @@ public abstract class AbstractLSMIOOperationCallback implements ILSMIOOperationC
     }
 
     @Override
-    public final void afterOperation(LSMOperationType opType, List<ILSMComponent> oldComponents,
+    public void afterOperation(LSMOperationType opType, List<ILSMComponent> oldComponents,
             ILSMDiskComponent newComponent) throws HyracksDataException {
         //TODO: Copying Filters and all content of the metadata pages for flush operation should be done here
         if (newComponent != null) {
             putLSNIntoMetadata(newComponent, oldComponents);
             putComponentIdIntoMetadata(newComponent, oldComponents);
             if (opType == LSMOperationType.MERGE) {
-                LongPointable markerLsn = LongPointable.FACTORY
-                        .createPointable(ComponentMetadataUtil.getLong(oldComponents.get(0).getMetadata(),
-                                ComponentMetadataUtil.MARKER_LSN_KEY, ComponentMetadataUtil.NOT_FOUND));
-                newComponent.getMetadata().put(ComponentMetadataUtil.MARKER_LSN_KEY, markerLsn);
+                // In case of merge, oldComponents are never null
+                LongPointable markerLsn =
+                        LongPointable.FACTORY.createPointable(ComponentUtils.getLong(oldComponents.get(0).getMetadata(),
+                                ComponentUtils.MARKER_LSN_KEY, ComponentUtils.NOT_FOUND));
+                newComponent.getMetadata().put(ComponentUtils.MARKER_LSN_KEY, markerLsn);
             }
 
         }

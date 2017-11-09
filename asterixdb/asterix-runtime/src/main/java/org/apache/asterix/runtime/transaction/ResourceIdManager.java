@@ -32,13 +32,15 @@ public class ResourceIdManager implements IResourceIdManager {
 
     private final AtomicLong globalResourceId = new AtomicLong();
     private Set<String> reportedNodes = ConcurrentHashMap.newKeySet();
+    private ClusterStateManager csm;
 
-    public ResourceIdManager() {
+    public ResourceIdManager(ClusterStateManager csm) {
+        this.csm = csm;
     }
 
     @Override
     public long createResourceId() {
-        return ClusterStateManager.INSTANCE.isClusterActive() ? globalResourceId.incrementAndGet() : -1;
+        return csm.isClusterActive() ? globalResourceId.incrementAndGet() : -1;
     }
 
     @Override
@@ -50,7 +52,7 @@ public class ResourceIdManager implements IResourceIdManager {
     public void report(String nodeId, long maxResourceId) throws HyracksDataException {
         globalResourceId.updateAndGet(prev -> Math.max(maxResourceId, prev));
         if (reportedNodes.add(nodeId)) {
-            ClusterStateManager.INSTANCE.refreshState();
+            csm.refreshState();
         }
     }
 

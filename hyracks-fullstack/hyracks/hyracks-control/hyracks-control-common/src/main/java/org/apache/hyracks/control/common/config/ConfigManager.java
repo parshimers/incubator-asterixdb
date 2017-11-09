@@ -71,7 +71,8 @@ public class ConfigManager implements IConfigManager, Serializable {
     private CompositeMap<IOption, Object> configurationMap = new CompositeMap<>(definedMap, defaultMap,
             new NoOpMapMutator());
     private EnumMap<Section, Map<String, IOption>> sectionMap = new EnumMap<>(Section.class);
-    private TreeMap<String, Map<IOption, Object>> nodeSpecificMap = new TreeMap<>();
+    @SuppressWarnings("squid:S1948") // TreeMap is serializable, and therefore so is its synchronized map
+    private Map<String, Map<IOption, Object>> nodeSpecificMap = Collections.synchronizedMap(new TreeMap<>());
     private transient ArrayListValuedHashMap<IOption, IConfigSetter> optionSetters = new ArrayListValuedHashMap<>();
     private final String[] args;
     private ConfigManagerApplicationConfig appConfig = new ConfigManagerApplicationConfig(this);
@@ -343,20 +344,20 @@ public class ConfigManager implements IConfigManager, Serializable {
 
     private void applyDefaults() {
         LOGGER.fine("applying defaults");
-        for (Map.Entry<Section, Map<String, IOption>> entry : sectionMap.entrySet()) {
-            if (entry.getKey() == Section.NC) {
-                entry.getValue().values().forEach(option -> getNodeNames()
+        sectionMap.forEach((key, value) -> {
+            if (key == Section.NC) {
+                value.values().forEach(option -> getNodeNames()
                         .forEach(node -> getOrDefault(getNodeEffectiveMap(node), option, node)));
                 for (Map.Entry<String, Map<IOption, Object>> nodeMap : nodeSpecificMap.entrySet()) {
-                    entry.getValue().values()
+                    value.values()
                             .forEach(option -> getOrDefault(
                                     new CompositeMap<>(nodeMap.getValue(), definedMap, new NoOpMapMutator()), option,
                                     nodeMap.getKey()));
                 }
             } else {
-                entry.getValue().values().forEach(option -> getOrDefault(configurationMap, option, null));
+                value.values().forEach(option -> getOrDefault(configurationMap, option, null));
             }
-        }
+        });
     }
 
     private Object getOrDefault(Map<IOption, Object> map, IOption option, String nodeId) {
@@ -449,21 +450,22 @@ public class ConfigManager implements IConfigManager, Serializable {
 
     public Ini toIni(boolean includeDefaults) {
         Ini ini = new Ini();
-        for (Map.Entry<IOption, Object> entry : (includeDefaults ? configurationMap : definedMap).entrySet()) {
-            if (entry.getValue() != null) {
-                final IOption option = entry.getKey();
-                ini.add(option.section().sectionName(), option.ini(), option.type().serializeToIni(entry.getValue()));
+        (includeDefaults ? configurationMap : definedMap).forEach((option, value) -> {
+            if (value != null) {
+                ini.add(option.section().sectionName(), option.ini(), option.type().serializeToIni(value));
             }
-        }
-        for (Map.Entry<String, Map<IOption, Object>> nodeMapEntry : nodeSpecificMap.entrySet()) {
-            String section = Section.NC.sectionName() + "/" + nodeMapEntry.getKey();
-            for (Map.Entry<IOption, Object> entry : nodeMapEntry.getValue().entrySet()) {
-                if (entry.getValue() != null) {
-                    final IOption option = entry.getKey();
-                    ini.add(section, option.ini(), option.type().serializeToIni(entry.getValue()));
+        });
+        nodeSpecificMap.forEach((key, nodeValueMap) -> {
+            String section = Section.NC.sectionName() + "/" + key;
+            synchronized (nodeValueMap) {
+                for (Map.Entry<IOption, Object> entry : nodeValueMap.entrySet()) {
+                    if (entry.getValue() != null) {
+                        final IOption option = entry.getKey();
+                        ini.add(section, option.ini(), option.type().serializeToIni(entry.getValue()));
+                    }
                 }
             }
-        }
+        });
         return ini;
     }
 

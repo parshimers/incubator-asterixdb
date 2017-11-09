@@ -121,6 +121,7 @@ public abstract class AbstractTreeIndex implements ITreeIndex {
         isActive = false;
     }
 
+    @Override
     public void purge() throws HyracksDataException {
         if (isActive) {
             throw HyracksDataException.create(ErrorCode.CANNOT_PURGE_ACTIVE_INDEX);
@@ -307,8 +308,7 @@ public abstract class AbstractTreeIndex implements ITreeIndex {
         ITreeIndexAccessor accessor;
 
         public TreeIndexInsertBulkLoader() throws HyracksDataException {
-            accessor =
-                    (ITreeIndexAccessor) createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            accessor = (ITreeIndexAccessor) createAccessor(NoOpIndexAccessParameters.INSTANCE);
         }
 
         @Override
@@ -340,5 +340,10 @@ public abstract class AbstractTreeIndex implements ITreeIndex {
     @Override
     public boolean hasMemoryComponents() {
         return true;
+    }
+
+    @Override
+    public String toString() {
+        return "{\"class\":\"" + getClass().getSimpleName() + "\",\"file\":\"" + file.getRelativePath() + "\"}";
     }
 }

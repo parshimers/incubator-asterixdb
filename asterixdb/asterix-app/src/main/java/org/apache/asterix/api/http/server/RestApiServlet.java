@@ -29,6 +29,7 @@ import java.util.logging.Logger;
 
 import org.apache.asterix.app.result.ResultReader;
 import org.apache.asterix.app.translator.QueryTranslator;
+import org.apache.asterix.app.translator.RequestParameters;
 import org.apache.asterix.common.config.GlobalConfig;
 import org.apache.asterix.common.context.IStorageComponentProvider;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
@@ -39,11 +40,13 @@ import org.apache.asterix.lang.common.base.IParser;
 import org.apache.asterix.lang.common.base.IParserFactory;
 import org.apache.asterix.lang.common.base.Statement;
 import org.apache.asterix.metadata.MetadataManager;
+import org.apache.asterix.translator.IRequestParameters;
 import org.apache.asterix.translator.IStatementExecutor;
 import org.apache.asterix.translator.IStatementExecutor.ResultDelivery;
 import org.apache.asterix.translator.IStatementExecutorFactory;
 import org.apache.asterix.translator.SessionConfig;
 import org.apache.asterix.translator.SessionConfig.OutputFormat;
+import org.apache.asterix.translator.SessionConfig.PlanFormat;
 import org.apache.asterix.translator.SessionOutput;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.dataset.IHyracksDataset;
@@ -54,7 +57,6 @@ import org.apache.hyracks.http.server.AbstractServlet;
 import org.apache.hyracks.http.server.utils.HttpUtil;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import io.netty.handler.codec.http.HttpMethod;
@@ -106,6 +108,8 @@ public abstract class RestApiServlet extends AbstractServlet {
                 format = OutputFormat.CSV;
             }
         }
+        PlanFormat planFormat =
+                PlanFormat.get(request.getParameter("plan-format"), "plan format", PlanFormat.STRING, LOGGER);
 
         // If it's JSON, check for the "lossless" flag
 
@@ -116,7 +120,7 @@ public abstract class RestApiServlet extends AbstractServlet {
 
         SessionOutput.ResultAppender appendHandle = (app, handle) -> app.append("{ \"").append("handle")
                 .append("\":" + " \"").append(handle).append("\" }");
-        SessionConfig sessionConfig = new SessionConfig(format);
+        SessionConfig sessionConfig = new SessionConfig(format, planFormat);
 
         // If it's JSON or ADM, check for the "wrapper-array" flag. Default is
         // "true" for JSON and "false" for ADM. (Not applicable for CSV.)
@@ -203,14 +207,16 @@ public abstract class RestApiServlet extends AbstractServlet {
             MetadataManager.INSTANCE.init();
             IStatementExecutor translator = statementExecutorFactory.create(appCtx, aqlStatements, sessionOutput,
                     compilationProvider, componentProvider);
-            translator.compileAndExecute(hcc, hds, resultDelivery, null, new IStatementExecutor.Stats());
+            final IRequestParameters requestParameters =
+                    new RequestParameters(hds, resultDelivery, new IStatementExecutor.Stats(), null, null, null);
+            translator.compileAndExecute(hcc, null, requestParameters);
         } catch (AsterixException | TokenMgrError | org.apache.asterix.aqlplus.parser.TokenMgrError pe) {
             response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);
             GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, pe.getMessage(), pe);
             String errorMessage = ResultUtil.buildParseExceptionMessage(pe, query);
             ObjectNode errorResp =
                     ResultUtil.getErrorResponse(2, errorMessage, "", ResultUtil.extractFullStackTrace(pe));
-            sessionOutput.out().write(new ObjectMapper().writeValueAsString(errorResp));
+            sessionOutput.out().write(OBJECT_MAPPER.writeValueAsString(errorResp));
         } catch (Exception e) {
             GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, e.getMessage(), e);
             response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);

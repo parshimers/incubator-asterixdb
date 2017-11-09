@@ -26,12 +26,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.HyracksException;
 import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.api.io.IIOManager;
+import org.apache.hyracks.storage.common.buffercache.CachedPage;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
 import org.apache.hyracks.storage.common.buffercache.ICachedPage;
 import org.apache.hyracks.storage.common.file.BufferedFileHandle;
@@ -76,10 +78,6 @@ public class BufferCacheTest {
 
         ICachedPage page = null;
 
-        // tryPin should fail
-        page = bufferCache.tryPin(BufferedFileHandle.getDiskPageId(fileId, testPageId));
-        Assert.assertNull(page);
-
         // pin page should succeed
         page = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, testPageId), true);
         page.acquireWriteLatch();
@@ -87,12 +85,6 @@ public class BufferCacheTest {
             for (int i = 0; i < num; i++) {
                 page.getBuffer().putInt(i * 4, i);
             }
-
-            // try pin should succeed
-            ICachedPage page2 = bufferCache.tryPin(BufferedFileHandle.getDiskPageId(fileId, testPageId));
-            Assert.assertNotNull(page2);
-            bufferCache.unpin(page2);
-
         } finally {
             page.releaseWriteLatch(true);
             bufferCache.unpin(page);
@@ -100,31 +92,11 @@ public class BufferCacheTest {
 
         bufferCache.closeFile(fileId);
 
-        // This code is commented because the method pinSanityCheck in the BufferCache is commented.
-        /*boolean exceptionThrown = false;
-
-        // tryPin should fail since file is not open
-        try {
-            page = bufferCache.tryPin(BufferedFileHandle.getDiskPageId(fileId, testPageId));
-        } catch (HyracksDataException e) {
-            exceptionThrown = true;
-        }
-        Assert.assertTrue(exceptionThrown);
-
-        // pin should fail since file is not open
-        exceptionThrown = false;
-        try {
-            page = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, testPageId), false);
-        } catch (HyracksDataException e) {
-            exceptionThrown = true;
-        }
-        Assert.assertTrue(exceptionThrown);*/
-
         // open file again
         bufferCache.openFile(fileId);
 
         // tryPin should succeed because page should still be cached
-        page = bufferCache.tryPin(BufferedFileHandle.getDiskPageId(fileId, testPageId));
+        page = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, testPageId), false);
         Assert.assertNotNull(page);
         page.acquireReadLatch();
         try {
@@ -312,6 +284,56 @@ public class BufferCacheTest {
         }
 
         bufferCache.close();
+    }
+
+    @Test
+    public void interruptedConcurrentReadTest() throws Exception {
+        TestStorageManagerComponentHolder.init(PAGE_SIZE, 200, MAX_OPEN_FILES);
+        IBufferCache bufferCache =
+                TestStorageManagerComponentHolder.getBufferCache(ctx.getJobletContext().getServiceContext());
+        IIOManager ioManager = TestStorageManagerComponentHolder.getIOManager();
+        String fileName = getFileName();
+        FileReference file = ioManager.resolve(fileName);
+        int fileId = bufferCache.createFile(file);
+        int testPageId = 0;
+        bufferCache.openFile(fileId);
+
+        final int expectedPinCount = 100;
+        final AtomicInteger actualPinCount = new AtomicInteger(0);
+        Thread innocentReader = new Thread(() -> {
+            Thread interruptedReader = null;
+            try {
+                for (int i = 0; i < expectedPinCount; i++) {
+                    ICachedPage aPage = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, testPageId), false);
+                    bufferCache.unpin(aPage);
+                    ((CachedPage) aPage).invalidate();
+                    actualPinCount.incrementAndGet();
+                    if (i % 10 == 0) {
+                        // start an interruptedReader that will cause the channel to closed
+                        interruptedReader = new Thread(() -> {
+                            try {
+                                Thread.currentThread().interrupt();
+                                bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, testPageId + 1), false);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        });
+                        interruptedReader.start();
+                    }
+                }
+                if (interruptedReader != null) {
+                    interruptedReader.join();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+        innocentReader.start();
+        innocentReader.join();
+        // make sure that all reads by the innocentReader succeeded
+        Assert.assertEquals(actualPinCount.get(), expectedPinCount);
+        // close file
+        bufferCache.closeFile(fileId);
     }
 
     @AfterClass

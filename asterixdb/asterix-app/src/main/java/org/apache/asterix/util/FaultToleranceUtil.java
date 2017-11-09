@@ -20,6 +20,7 @@ package org.apache.asterix.util;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -49,7 +50,7 @@ public class FaultToleranceUtil {
                 .map(Replica::getId).collect(Collectors.toList());
         String nodeIdAddress = StringUtils.EMPTY;
         int nodePort = -1;
-        Map<String, Map<IOption, Object>> activeNcConfiguration = clusterManager.getActiveNcConfiguration();
+        Map<String, Map<IOption, Object>> activeNcConfiguration = clusterManager.getNcConfiguration();
         // In case the node joined with a new IP address, we need to send it to the other replicas
         if (event == ClusterEventType.NODE_JOIN) {
             nodeIdAddress = (String)activeNcConfiguration.get(nodeId).get(NCConfig.Option.REPLICATION_LISTEN_ADDRESS);

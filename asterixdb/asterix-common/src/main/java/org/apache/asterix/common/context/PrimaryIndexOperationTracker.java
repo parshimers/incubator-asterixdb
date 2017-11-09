@@ -29,6 +29,7 @@ import org.apache.asterix.common.transactions.ILogManager;
 import org.apache.asterix.common.transactions.LogRecord;
 import org.apache.asterix.common.utils.TransactionUtil;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent.ComponentState;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
@@ -143,8 +144,7 @@ public class PrimaryIndexOperationTracker extends BaseOperationTracker {
     public synchronized void triggerScheduleFlush(LogRecord logRecord) throws HyracksDataException {
         for (ILSMIndex lsmIndex : dsInfo.getDatasetIndexes()) {
             //get resource
-            ILSMIndexAccessor accessor =
-                    lsmIndex.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            ILSMIndexAccessor accessor = lsmIndex.createAccessor(NoOpIndexAccessParameters.INSTANCE);
             //update resource lsn
             AbstractLSMIOOperationCallback ioOpCallback =
                     (AbstractLSMIOOperationCallback) lsmIndex.getIOOperationCallback();
@@ -184,6 +184,9 @@ public class PrimaryIndexOperationTracker extends BaseOperationTracker {
     public void cleanupNumActiveOperationsForAbortedJob(int numberOfActiveOperations) {
         numberOfActiveOperations *= -1;
         numActiveOperations.getAndAdd(numberOfActiveOperations);
+        if (numActiveOperations.get() < 0) {
+            throw new IllegalStateException("The number of active operations cannot be negative!");
+        }
     }
 
     public boolean isFlushOnExit() {

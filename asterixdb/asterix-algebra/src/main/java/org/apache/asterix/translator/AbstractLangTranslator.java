@@ -38,7 +38,6 @@ import org.apache.asterix.lang.common.statement.InsertStatement;
 import org.apache.asterix.metadata.dataset.hints.DatasetHints;
 import org.apache.asterix.metadata.entities.Dataverse;
 import org.apache.asterix.metadata.utils.MetadataConstants;
-import org.apache.asterix.runtime.utils.ClusterStateManager;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
@@ -53,7 +52,7 @@ public abstract class AbstractLangTranslator {
     public void validateOperation(ICcApplicationContext appCtx, Dataverse defaultDataverse, Statement stmt)
             throws AsterixException {
 
-        final IClusterStateManager clusterStateManager = ClusterStateManager.INSTANCE;
+        final IClusterStateManager clusterStateManager = appCtx.getClusterStateManager();
         final IGlobalRecoveryManager globalRecoveryManager = appCtx.getGlobalRecoveryManager();
         if (!(clusterStateManager.getState().equals(ClusterState.ACTIVE)
                 && globalRecoveryManager.isRecoveryCompleted())) {
@@ -155,13 +154,14 @@ public abstract class AbstractLangTranslator {
                 DatasetDecl datasetStmt = (DatasetDecl) stmt;
                 Map<String, String> hints = datasetStmt.getHints();
                 if (hints != null && !hints.isEmpty()) {
-                    Pair<Boolean, String> validationResult = null;
-                    StringBuffer errorMsgBuffer = new StringBuffer();
+                    StringBuilder errorMsgBuffer = new StringBuilder();
                     for (Entry<String, String> hint : hints.entrySet()) {
-                        validationResult = DatasetHints.validate(appCtx, hint.getKey(), hint.getValue());
+                        Pair<Boolean, String> validationResult = DatasetHints.validate(appCtx, hint.getKey(),
+                                hint.getValue());
                         if (!validationResult.first) {
-                            errorMsgBuffer.append("Dataset: " + datasetStmt.getName().getValue()
-                                    + " error in processing hint: " + hint.getKey() + " " + validationResult.second);
+                            errorMsgBuffer.append("Dataset: ").append(datasetStmt.getName().getValue())
+                                    .append(" error in processing hint: ").append(hint.getKey()).append(" ")
+                                    .append(validationResult.second);
                             errorMsgBuffer.append(" \n");
                         }
                     }

@@ -39,13 +39,14 @@ import org.apache.hyracks.storage.am.lsm.common.api.ITwoPCIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.LSMOperationType;
 import org.apache.hyracks.storage.common.IIndexCursor;
 import org.apache.hyracks.storage.common.ISearchPredicate;
+import org.apache.hyracks.util.trace.ITracer;
 
 public class ExternalIndexHarness extends LSMHarness {
     private static final Logger LOGGER = Logger.getLogger(ExternalIndexHarness.class.getName());
 
     public ExternalIndexHarness(ILSMIndex lsmIndex, ILSMMergePolicy mergePolicy, ILSMOperationTracker opTracker,
             boolean replicationEnabled) {
-        super(lsmIndex, mergePolicy, opTracker, replicationEnabled);
+        super(lsmIndex, mergePolicy, opTracker, replicationEnabled, ITracer.NONE);
     }
 
     @Override
@@ -135,7 +136,7 @@ public class ExternalIndexHarness extends LSMHarness {
                                 lsmIndex.scheduleReplication(null, componentsToBeReplicated, false,
                                         ReplicationOperation.DELETE, opType);
                             }
-                            ((ILSMDiskComponent) c).destroy();
+                            ((ILSMDiskComponent) c).deactivateAndDestroy();
                             break;
                         default:
                             break;
@@ -236,7 +237,7 @@ public class ExternalIndexHarness extends LSMHarness {
         try {
             newComponent = lsmIndex.merge(operation);
             operation.getCallback().afterOperation(LSMOperationType.MERGE, ctx.getComponentHolder(), newComponent);
-            lsmIndex.markAsValid(newComponent);
+            newComponent.markAsValid(lsmIndex.isDurable());
         } finally {
             exitComponents(ctx, LSMOperationType.MERGE, newComponent, false);
             operation.getCallback().afterFinalize(LSMOperationType.MERGE, newComponent);
@@ -248,7 +249,7 @@ public class ExternalIndexHarness extends LSMHarness {
 
     @Override
     public void addBulkLoadedComponent(ILSMDiskComponent c) throws HyracksDataException {
-        lsmIndex.markAsValid(c);
+        c.markAsValid(lsmIndex.isDurable());
         synchronized (opTracker) {
             lsmIndex.addDiskComponent(c);
             if (replicationEnabled) {
@@ -348,7 +349,7 @@ public class ExternalIndexHarness extends LSMHarness {
                 componentsToBeReplicated.add(diskComponent);
                 lsmIndex.scheduleReplication(null, componentsToBeReplicated, false, ReplicationOperation.DELETE, null);
             }
-            diskComponent.destroy();
+            diskComponent.deactivateAndDestroy();
         }
     }
 

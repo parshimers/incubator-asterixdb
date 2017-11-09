@@ -34,10 +34,8 @@ import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.lsm.invertedindex.api.IInPlaceInvertedIndex;
 import org.apache.hyracks.storage.am.lsm.invertedindex.api.IInvertedListCursor;
 import org.apache.hyracks.storage.am.lsm.invertedindex.tokenizers.IBinaryTokenizerFactory;
-import org.apache.hyracks.storage.common.IIndexAccessor;
+import org.apache.hyracks.storage.common.IIndexAccessParameters;
 import org.apache.hyracks.storage.common.IIndexBulkLoader;
-import org.apache.hyracks.storage.common.IModificationOperationCallback;
-import org.apache.hyracks.storage.common.ISearchOperationCallback;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
 
 public class InMemoryInvertedIndex implements IInPlaceInvertedIndex {
@@ -74,7 +72,7 @@ public class InMemoryInvertedIndex implements IInPlaceInvertedIndex {
             btreeCmpFactories[tokenTypeTraits.length + i] = invListCmpFactories[i];
         }
         this.btree = BTreeUtils.createBTree(virtualBufferCache, virtualFreePageManager, btreeTypeTraits,
-                btreeCmpFactories, BTreeLeafFrameType.REGULAR_NSM, btreeFileRef);
+                btreeCmpFactories, BTreeLeafFrameType.REGULAR_NSM, btreeFileRef, false);
     }
 
     @Override
@@ -148,7 +146,7 @@ public class InMemoryInvertedIndex implements IInPlaceInvertedIndex {
     @Override
     public long getMemoryAllocationSize() {
         IBufferCache virtualBufferCache = btree.getBufferCache();
-        return virtualBufferCache.getNumPages() * virtualBufferCache.getPageSize();
+        return (long) virtualBufferCache.getPageBudget() * virtualBufferCache.getPageSize();
     }
 
     @Override
@@ -167,14 +165,12 @@ public class InMemoryInvertedIndex implements IInPlaceInvertedIndex {
     }
 
     @Override
-    public IIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
-            ISearchOperationCallback searchCallback) throws HyracksDataException {
+    public InMemoryInvertedIndexAccessor createAccessor(IIndexAccessParameters iap) throws HyracksDataException {
         return new InMemoryInvertedIndexAccessor(this,
                 new InMemoryInvertedIndexOpContext(btree, tokenCmpFactories, tokenizerFactory));
     }
 
-    public IIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
-            ISearchOperationCallback searchCallback, int[] nonIndexFields) throws HyracksDataException {
+    public InMemoryInvertedIndexAccessor createAccessor(int[] nonIndexFields) throws HyracksDataException {
         return new InMemoryInvertedIndexAccessor(this,
                 new InMemoryInvertedIndexOpContext(btree, tokenCmpFactories, tokenizerFactory), nonIndexFields);
     }

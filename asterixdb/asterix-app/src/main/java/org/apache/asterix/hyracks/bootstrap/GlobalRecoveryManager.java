@@ -48,6 +48,8 @@ import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.api.job.JobSpecification;
+import org.apache.hyracks.control.nc.NCShutdownHook;
+import org.apache.hyracks.util.ExitUtil;
 
 public class GlobalRecoveryManager implements IGlobalRecoveryManager {
 
@@ -56,6 +58,7 @@ public class GlobalRecoveryManager implements IGlobalRecoveryManager {
     protected final ICCServiceContext serviceCtx;
     protected IHyracksClientConnection hcc;
     protected volatile boolean recoveryCompleted;
+    protected volatile boolean recovering;
 
     public GlobalRecoveryManager(ICCServiceContext serviceCtx, IHyracksClientConnection hcc,
             IStorageComponentProvider componentProvider) {
@@ -81,48 +84,56 @@ public class GlobalRecoveryManager implements IGlobalRecoveryManager {
     }
 
     @Override
-    public void startGlobalRecovery(ICcApplicationContext appCtx) throws HyracksDataException {
-        if (!recoveryCompleted) {
-            recover(appCtx);
+    public void startGlobalRecovery(ICcApplicationContext appCtx) {
+        if (!recoveryCompleted && !recovering) {
+            synchronized (this) {
+                if (!recovering) {
+                    recovering = true;
+                    /**
+                     * Perform recovery on a different thread to avoid deadlocks in
+                     * {@link org.apache.asterix.common.cluster.IClusterStateManager}
+                     */
+                    serviceCtx.getControllerService().getExecutor().submit(() -> {
+                        try {
+                            recover(appCtx);
+                        } catch (HyracksDataException e) {
+                            LOGGER.log(Level.SEVERE, "Global recovery failed. Shutting down...", e);
+                            ExitUtil.exit(NCShutdownHook.FAILED_TO_RECOVER_EXIT_CODE);
+                        }
+                    });
+                }
+            }
         }
     }
 
     protected void recover(ICcApplicationContext appCtx) throws HyracksDataException {
-        LOGGER.info("Starting Global Recovery");
-        MetadataTransactionContext mdTxnCtx = null;
         try {
+            LOGGER.info("Starting Global Recovery");
             MetadataManager.INSTANCE.init();
-            // Loop over datasets
-            mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
-            for (Dataverse dataverse : MetadataManager.INSTANCE.getDataverses(mdTxnCtx)) {
-                mdTxnCtx = recoverDataset(appCtx, mdTxnCtx, dataverse);
-            }
+            MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+            mdTxnCtx = doRecovery(appCtx, mdTxnCtx);
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+            recoveryCompleted = true;
+            recovering = false;
+            LOGGER.info("Global Recovery Completed. Refreshing cluster state...");
+            appCtx.getClusterStateManager().refreshState();
         } catch (Exception e) {
-            // This needs to be fixed <-- Needs to shutdown the system -->
-            /*
-             * Note: Throwing this illegal state exception will terminate this thread
-             * and feeds listeners will not be notified.
-             */
-            LOGGER.log(Level.SEVERE, "Global recovery was not completed successfully: ", e);
-            if (mdTxnCtx != null) {
-                try {
-                    MetadataManager.INSTANCE.abortTransaction(mdTxnCtx);
-                } catch (Exception e1) {
-                    LOGGER.log(Level.SEVERE, "Exception in aborting", e1);
-                    e1.addSuppressed(e);
-                    throw new IllegalStateException(e);
-                }
-            }
             throw HyracksDataException.create(e);
         }
-        recoveryCompleted = true;
-        LOGGER.info("Global Recovery Completed");
+    }
+
+    protected MetadataTransactionContext doRecovery(ICcApplicationContext appCtx, MetadataTransactionContext mdTxnCtx)
+            throws Exception {
+        // Loop over datasets
+        for (Dataverse dataverse : MetadataManager.INSTANCE.getDataverses(mdTxnCtx)) {
+            mdTxnCtx = recoverDataset(appCtx, mdTxnCtx, dataverse);
+        }
+        return mdTxnCtx;
     }
 
     @Override
     public void notifyStateChange(ClusterState newState) {
-        if (newState != ClusterState.ACTIVE) {
+        if (newState != ClusterState.ACTIVE && newState != ClusterState.RECOVERING) {
             recoveryCompleted = false;
         }
     }
@@ -132,8 +143,8 @@ public class GlobalRecoveryManager implements IGlobalRecoveryManager {
         if (!dataverse.getDataverseName().equals(MetadataConstants.METADATA_DATAVERSE_NAME)) {
             MetadataProvider metadataProvider = new MetadataProvider(appCtx, dataverse);
             try {
-                List<Dataset> datasets =
-                        MetadataManager.INSTANCE.getDataverseDatasets(mdTxnCtx, dataverse.getDataverseName());
+                List<Dataset> datasets = MetadataManager.INSTANCE.getDataverseDatasets(mdTxnCtx,
+                        dataverse.getDataverseName());
                 for (Dataset dataset : datasets) {
                     if (dataset.getDatasetType() == DatasetType.EXTERNAL) {
                         // External dataset
@@ -145,8 +156,8 @@ public class GlobalRecoveryManager implements IGlobalRecoveryManager {
                         TransactionState datasetState = dsd.getState();
                         if (!indexes.isEmpty()) {
                             if (datasetState == TransactionState.BEGIN) {
-                                List<ExternalFile> files =
-                                        MetadataManager.INSTANCE.getDatasetExternalFiles(mdTxnCtx, dataset);
+                                List<ExternalFile> files = MetadataManager.INSTANCE.getDatasetExternalFiles(mdTxnCtx,
+                                        dataset);
                                 // if persumed abort, roll backward
                                 // 1. delete all pending files
                                 for (ExternalFile file : files) {
@@ -157,8 +168,8 @@ public class GlobalRecoveryManager implements IGlobalRecoveryManager {
                             }
                             // 2. clean artifacts in NCs
                             metadataProvider.setMetadataTxnContext(mdTxnCtx);
-                            JobSpecification jobSpec =
-                                    ExternalIndexingOperations.buildAbortOp(dataset, indexes, metadataProvider);
+                            JobSpecification jobSpec = ExternalIndexingOperations.buildAbortOp(dataset, indexes,
+                                    metadataProvider);
                             executeHyracksJob(jobSpec);
                             // 3. correct the dataset state
                             ((ExternalDatasetDetails) dataset.getDatasetDetails()).setState(TransactionState.COMMIT);
@@ -166,13 +177,13 @@ public class GlobalRecoveryManager implements IGlobalRecoveryManager {
                             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
                             mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
                         } else if (datasetState == TransactionState.READY_TO_COMMIT) {
-                            List<ExternalFile> files =
-                                    MetadataManager.INSTANCE.getDatasetExternalFiles(mdTxnCtx, dataset);
+                            List<ExternalFile> files = MetadataManager.INSTANCE.getDatasetExternalFiles(mdTxnCtx,
+                                    dataset);
                             // if ready to commit, roll forward
                             // 1. commit indexes in NCs
                             metadataProvider.setMetadataTxnContext(mdTxnCtx);
-                            JobSpecification jobSpec =
-                                    ExternalIndexingOperations.buildRecoverOp(dataset, indexes, metadataProvider);
+                            JobSpecification jobSpec = ExternalIndexingOperations.buildRecoverOp(dataset, indexes,
+                                    metadataProvider);
                             executeHyracksJob(jobSpec);
                             // 2. add pending files in metadata
                             for (ExternalFile file : files) {
@@ -221,4 +232,5 @@ public class GlobalRecoveryManager implements IGlobalRecoveryManager {
     public boolean isRecoveryCompleted() {
         return recoveryCompleted;
     }
+
 }

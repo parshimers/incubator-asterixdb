@@ -31,6 +31,7 @@ import org.apache.hyracks.storage.am.btree.impls.BTree;
 import org.apache.hyracks.storage.am.btree.impls.BTree.BTreeAccessor;
 import org.apache.hyracks.storage.am.btree.impls.BTreeRangeSearchCursor;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
+import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent.LSMComponentType;
@@ -231,14 +232,13 @@ public class LSMBTreeRangeSearchCursor extends LSMIndexSearchCursor {
             }
             if (component.getType() == LSMComponentType.MEMORY) {
                 includeMutableComponent = true;
-                btree = ((LSMBTreeMemoryComponent) component).getBTree();
+                btree = (BTree) component.getIndex();
             } else {
-                btree = ((LSMBTreeDiskComponent) component).getBTree();
+                btree = (BTree) component.getIndex();
             }
 
             if (btreeAccessors[i] == null) {
-                btreeAccessors[i] = (BTreeAccessor) btree.createAccessor(NoOpOperationCallback.INSTANCE,
-                        NoOpOperationCallback.INSTANCE);
+                btreeAccessors[i] = btree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
             } else {
                 // re-use
                 btreeAccessors[i].reset(btree, NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);

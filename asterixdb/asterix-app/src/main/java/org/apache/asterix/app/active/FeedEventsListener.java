@@ -18,7 +18,6 @@
  */
 package org.apache.asterix.app.active;
 
-import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 
@@ -68,8 +67,8 @@ public class FeedEventsListener extends ActiveEntityEventsListener {
     @Override
     public synchronized void remove(Dataset dataset) throws HyracksDataException {
         super.remove(dataset);
-        feedConnections.removeIf(o -> o.getDataverseName().equals(dataset.getDataverseName())
-                && o.getDatasetName().equals(dataset.getDatasetName()));
+        feedConnections.removeIf(o -> o.getDataverseName().equals(dataset.getDataverseName()) && o.getDatasetName()
+                .equals(dataset.getDatasetName()));
     }
 
     public synchronized void addFeedConnection(FeedConnection feedConnection) {
@@ -81,17 +80,13 @@ public class FeedEventsListener extends ActiveEntityEventsListener {
     }
 
     @Override
-    protected void doStart(MetadataProvider mdProvider) throws HyracksDataException, AlgebricksException {
+    protected void doStart(MetadataProvider mdProvider) throws HyracksDataException {
         try {
-            ILangCompilationProvider compilationProvider = new AqlCompilationProvider();
-            IStorageComponentProvider storageComponentProvider = new StorageComponentProvider();
-            DefaultStatementExecutorFactory statementExecutorFactory = new DefaultStatementExecutorFactory();
-            Pair<JobSpecification, AlgebricksAbsolutePartitionConstraint> jobInfo = FeedOperations.buildStartFeedJob(
-                    ((QueryTranslator) statementExecutor).getSessionOutput(), mdProvider, feed, feedConnections,
-                    compilationProvider, storageComponentProvider, statementExecutorFactory, hcc);
+            Pair<JobSpecification, AlgebricksAbsolutePartitionConstraint> jobInfo =
+                    FeedOperations.buildStartFeedJob(mdProvider, feed, feedConnections, statementExecutor, hcc);
             JobSpecification feedJob = jobInfo.getLeft();
-            IActiveEntityEventSubscriber eventSubscriber =
-                    new WaitForStateSubscriber(this, Collections.singleton(ActivityState.RUNNING));
+            WaitForStateSubscriber eventSubscriber = new WaitForStateSubscriber(this, EnumSet.of(ActivityState.RUNNING,
+                    ActivityState.TEMPORARILY_FAILED, ActivityState.PERMANENTLY_FAILED));
             feedJob.setProperty(ActiveNotificationHandler.ACTIVE_ENTITY_PROPERTY_NAME, entityId);
             // TODO(Yingyi): currently we do not check IFrameWriter protocol violations for Feed jobs.
             // We will need to design general exception handling mechanism for feeds.
@@ -99,32 +94,31 @@ public class FeedEventsListener extends ActiveEntityEventsListener {
             boolean wait = Boolean.parseBoolean(mdProvider.getConfig().get(StartFeedStatement.WAIT_FOR_COMPLETION));
             JobUtils.runJob(hcc, feedJob, false);
             eventSubscriber.sync();
+            if (eventSubscriber.getFailure() != null) {
+                throw eventSubscriber.getFailure();
+            }
             if (wait) {
                 IActiveEntityEventSubscriber stoppedSubscriber = new WaitForStateSubscriber(this,
                         EnumSet.of(ActivityState.STOPPED, ActivityState.PERMANENTLY_FAILED));
                 stoppedSubscriber.sync();
             }
-        } catch (AlgebricksException e) {
-            throw e;
         } catch (Exception e) {
             throw HyracksDataException.create(e);
         }
     }
 
     @Override
-    protected Void doStop(MetadataProvider metadataProvider) throws HyracksDataException, AlgebricksException {
+    protected Void doStop(MetadataProvider metadataProvider) throws HyracksDataException {
         IActiveEntityEventSubscriber eventSubscriber =
                 new WaitForStateSubscriber(this, EnumSet.of(ActivityState.STOPPED, ActivityState.PERMANENTLY_FAILED));
         try {
             // Construct ActiveMessage
             for (int i = 0; i < getLocations().getLocations().length; i++) {
                 String intakeLocation = getLocations().getLocations()[i];
-                FeedOperations.SendStopMessageToNode(metadataProvider.getApplicationContext(), entityId, intakeLocation,
-                        i);
+                FeedOperations
+                        .SendStopMessageToNode(metadataProvider.getApplicationContext(), entityId, intakeLocation, i);
             }
             eventSubscriber.sync();
-        } catch (AlgebricksException e) {
-            throw e;
         } catch (Exception e) {
             throw HyracksDataException.create(e);
         }
@@ -133,17 +127,17 @@ public class FeedEventsListener extends ActiveEntityEventsListener {
 
     @Override
     protected void setRunning(MetadataProvider metadataProvider, boolean running)
-            throws HyracksDataException, AlgebricksException {
+            throws HyracksDataException {
         // No op
     }
 
     @Override
-    protected Void doSuspend(MetadataProvider metadataProvider) throws HyracksDataException, AlgebricksException {
+    protected Void doSuspend(MetadataProvider metadataProvider) throws HyracksDataException {
         throw new RuntimeDataException(ErrorCode.OPERATION_NOT_SUPPORTED);
     }
 
     @Override
-    protected void doResume(MetadataProvider metadataProvider) throws HyracksDataException, AlgebricksException {
+    protected void doResume(MetadataProvider metadataProvider) throws HyracksDataException {
         throw new RuntimeDataException(ErrorCode.OPERATION_NOT_SUPPORTED);
     }
 }

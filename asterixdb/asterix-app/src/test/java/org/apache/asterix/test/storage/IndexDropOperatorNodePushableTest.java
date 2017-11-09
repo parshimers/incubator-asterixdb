@@ -37,7 +37,6 @@ import org.apache.asterix.metadata.entities.InternalDatasetDetails;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
-import org.apache.asterix.test.common.TestHelper;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
@@ -68,13 +67,13 @@ public class IndexDropOperatorNodePushableTest {
     @Before
     public void setUp() throws Exception {
         System.out.println("SetUp: ");
-        TestHelper.deleteExistingInstanceFiles();
+        new TestNodeController(null,false).deInit();
     }
 
     @After
     public void tearDown() throws Exception {
         System.out.println("TearDown");
-        TestHelper.deleteExistingInstanceFiles();
+        new TestNodeController(null,false).deInit();
     }
 
     @Test

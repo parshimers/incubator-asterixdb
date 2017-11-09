@@ -68,7 +68,7 @@ import org.apache.hyracks.api.application.INCServiceContext;
 import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.lifecycle.ILifeCycleComponent;
-import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
+import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
 import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndex;
@@ -362,7 +362,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                                     try {
                                         maxDiskLastLsn =
                                                 ((AbstractLSMIOOperationCallback) lsmIndex.getIOOperationCallback())
-                                                        .getComponentLSN(lsmIndex.getImmutableComponents());
+                                                        .getComponentLSN(lsmIndex.getDiskComponents());
                                     } catch (HyracksDataException e) {
                                         datasetLifecycleManager.close(localResource.getPath());
                                         throw e;
@@ -499,7 +499,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         int abortedJobId = txnContext.getJobId().getId();
         // Obtain the first/last log record LSNs written by the Job
         long firstLSN = txnContext.getFirstLSN();
-        /**
+        /*
          * The effect of any log record with LSN below minFirstLSN has already been written to disk and
          * will not be rolled back. Therefore, we will set the first LSN of the job to the maximum of
          * minFirstLSN and the job's first LSN.
@@ -662,8 +662,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         try {
             ILSMIndex index =
                     (ILSMIndex) datasetLifecycleManager.getIndex(logRecord.getDatasetId(), logRecord.getResourceId());
-            ILSMIndexAccessor indexAccessor =
-                    index.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            ILSMIndexAccessor indexAccessor = index.createAccessor(NoOpIndexAccessParameters.INSTANCE);
             if (logRecord.getNewOp() == AbstractIndexModificationOperationCallback.INSERT_BYTE) {
                 indexAccessor.forceDelete(logRecord.getNewValue());
             } else if (logRecord.getNewOp() == AbstractIndexModificationOperationCallback.DELETE_BYTE) {
@@ -696,8 +695,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             int datasetId = logRecord.getDatasetId();
             long resourceId = logRecord.getResourceId();
             ILSMIndex index = (ILSMIndex) datasetLifecycleManager.getIndex(datasetId, resourceId);
-            ILSMIndexAccessor indexAccessor =
-                    index.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            ILSMIndexAccessor indexAccessor = index.createAccessor(NoOpIndexAccessParameters.INSTANCE);
             if (logRecord.getNewOp() == AbstractIndexModificationOperationCallback.INSERT_BYTE) {
                 indexAccessor.forceInsert(logRecord.getNewValue());
             } else if (logRecord.getNewOp() == AbstractIndexModificationOperationCallback.DELETE_BYTE) {

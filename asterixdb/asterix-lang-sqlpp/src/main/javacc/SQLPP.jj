@@ -626,34 +626,47 @@ CreateIndexStatement IndexSpecification() throws ParseException:
   Pair<Integer, Pair<List<String>, IndexedTypeExpression>> fieldPair = null;
   IndexParams indexType = null;
   boolean enforced = false;
+  boolean isPrimaryIdx = false;
 }
 {
-  <INDEX> indexName = Identifier()
-  ifNotExists = IfNotExists()
-  <ON> nameComponents = QualifiedName()
-  <LEFTPAREN> ( fieldPair = OpenField()
-    {
-      cis.addFieldExprPair(fieldPair.second);
-      cis.addFieldIndexIndicator(fieldPair.first);
-    }
-  ) (<COMMA> fieldPair = OpenField()
-    {
-      cis.addFieldExprPair(fieldPair.second);
-      cis.addFieldIndexIndicator(fieldPair.first);
-    }
-  )* <RIGHTPAREN> ( <TYPE> indexType = IndexType() )? ( <ENFORCED> { enforced = true; } )?
-    {
-      cis.setIndexName(new Identifier(indexName));
-      cis.setIfNotExists(ifNotExists);
-      cis.setDataverseName(nameComponents.first);
-      cis.setDatasetName(nameComponents.second);
-      if (indexType != null) {
-        cis.setIndexType(indexType.type);
-        cis.setGramLength(indexType.gramLength);
+  (
+    (<INDEX> indexName = Identifier()
+    ifNotExists = IfNotExists()
+    <ON> nameComponents = QualifiedName()
+    <LEFTPAREN> ( fieldPair = OpenField()
+      {
+        cis.addFieldExprPair(fieldPair.second);
+        cis.addFieldIndexIndicator(fieldPair.first);
       }
-      cis.setEnforced(enforced);
-      return cis;
+    ) (<COMMA> fieldPair = OpenField()
+      {
+        cis.addFieldExprPair(fieldPair.second);
+        cis.addFieldIndexIndicator(fieldPair.first);
+      }
+    )* <RIGHTPAREN> ( <TYPE> indexType = IndexType() )? ( <ENFORCED> { enforced = true; } )?)
+    |
+    (<PRIMARY> <INDEX> {isPrimaryIdx = true;}
+      (
+        (indexName = Identifier())? ifNotExists = IfNotExists()
+      )
+      <ON> nameComponents = QualifiedName() (<TYPE> <BTREE>)?
+    )
+  )
+  {
+    if (isPrimaryIdx && indexName == null) {
+      indexName = "primary_idx_" + nameComponents.second;
     }
+    cis.setIndexName(new Identifier(indexName));
+    cis.setIfNotExists(ifNotExists);
+    cis.setDataverseName(nameComponents.first);
+    cis.setDatasetName(nameComponents.second);
+    if (indexType != null) {
+      cis.setIndexType(indexType.type);
+      cis.setGramLength(indexType.gramLength);
+    }
+    cis.setEnforced(enforced);
+    return cis;
+  }
 }
 
 String CompactionPolicy() throws ParseException :
@@ -2484,13 +2497,16 @@ Expression FunctionCallExpr() throws ParseException:
   FunctionName funcName = null;
   String hint = null;
   boolean star = false;
+  boolean distinct = false;
 }
 {
   funcName = FunctionName()
     {
       hint = funcName.hint;
     }
-  <LEFTPAREN> ( ( tmp = Expression() | <MUL> { star = true; } )
+  <LEFTPAREN> (
+    ( <DISTINCT> { distinct = true; } )?
+    ( tmp = Expression() | <MUL> { star = true; } )
     {
       if(star){
         if(!funcName.function.toLowerCase().equals("count")){
@@ -2509,8 +2525,12 @@ Expression FunctionCallExpr() throws ParseException:
     }
   )*)? <RIGHTPAREN>
     {
+      String name = funcName.function;
+      if (distinct) {
+        name += "-distinct";
+      }
       // TODO use funcName.library
-      String fqFunctionName = funcName.library == null ? funcName.function : funcName.library + "#" + funcName.function;
+      String fqFunctionName = funcName.library == null ? name : funcName.library + "#" + name;
       FunctionSignature signature
         = lookupFunctionSignature(funcName.dataverse, fqFunctionName, arity);
       if (signature == null) {
@@ -3439,19 +3459,6 @@ SKIP:
 SKIP:
 {
     <"--" (~["\n","\r"])* ("\n"|"\r"|"\r\n")?>
-}
-
-<DEFAULT,IN_DBL_BRACE>
-SKIP:
-{
-    <"#" (~["\n"])* "\n">
-}
-
-
-<DEFAULT,IN_DBL_BRACE>
-SKIP:
-{
-    <"#" (~["\n","\r"])* ("\n"|"\r"|"\r\n")?>
 }
 
 <DEFAULT,IN_DBL_BRACE>

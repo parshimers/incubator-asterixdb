@@ -49,10 +49,12 @@ public abstract class AbstractIoOperation implements ILSMIOOperation {
         return callback;
     }
 
+    @Override
     public FileReference getTarget() {
         return target;
     }
 
+    @Override
     public ILSMIndexAccessor getAccessor() {
         return accessor;
     }
