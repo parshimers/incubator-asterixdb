@@ -25,10 +25,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.asterix.common.api.IClusterManagementWork;
+import org.apache.asterix.common.cluster.IClusterStateManager;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.metadata.cluster.AddNodeWork;
 import org.apache.asterix.metadata.cluster.RemoveNodeWork;
-import org.apache.asterix.runtime.utils.ClusterStateManager;
 
 public class ClusterWorkExecutor implements Runnable {
 
@@ -66,19 +66,6 @@ public class ClusterWorkExecutor implements Runnable {
                     }
                 }
 
-                for (int i = 0; i < nodesToAdd; i++) {
-//                    Node node = ClusterStateManager.INSTANCE.getAvailableSubstitutionNode();
-//                    if (node != null) {
-//                            addedNodes.add(node);
-//                            if (LOGGER.isLoggable(Level.INFO)) {
-//                                LOGGER.info("Added NC at:" + node.getId());
-//                            }
-//                    } else {
-                        if (LOGGER.isLoggable(Level.WARNING)) {
-                            LOGGER.warning("Unable to add NC: no more available nodes");
-                        }
-//                    }
-                }
 
             } catch (InterruptedException e) {
                 if (LOGGER.isLoggable(Level.SEVERE)) {

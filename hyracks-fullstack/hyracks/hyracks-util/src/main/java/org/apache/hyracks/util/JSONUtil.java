@@ -19,6 +19,7 @@
 package org.apache.hyracks.util;
 
 import java.io.IOException;
+import java.io.Writer;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -26,7 +27,9 @@ import java.util.logging.Logger;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
 public class JSONUtil {
@@ -36,17 +39,23 @@ public class JSONUtil {
     private static final String INDENT = "\t";
 
     private static final ObjectMapper SORTED_MAPPER = new ObjectMapper();
+    private static final ObjectWriter PRETTY_SORTED_WRITER;
 
     private JSONUtil() {
     }
 
     static {
         SORTED_MAPPER.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
+        SORTED_MAPPER.configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true);
+        PRETTY_SORTED_WRITER = SORTED_MAPPER.writerWithDefaultPrettyPrinter();
     }
 
     public static String convertNode(final JsonNode node) throws JsonProcessingException {
-        final Object obj = SORTED_MAPPER.treeToValue(node, Object.class);
-        return SORTED_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(obj);
+        return PRETTY_SORTED_WRITER.writeValueAsString(SORTED_MAPPER.treeToValue(node, Object.class));
+    }
+
+    public static void writeNode(final Writer writer, final JsonNode node) throws IOException {
+        PRETTY_SORTED_WRITER.writeValue(writer, SORTED_MAPPER.treeToValue(node, Object.class));
     }
 
     public static String indent(String str, int initialIndent) {

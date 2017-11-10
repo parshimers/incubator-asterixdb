@@ -23,18 +23,15 @@ import java.util.Objects;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperation;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
-import org.apache.hyracks.storage.am.lsm.common.api.ILSMMemoryComponent;
 
-public class FlushOperation extends AbstractIoOperation implements Comparable<FlushOperation> {
+public class FlushOperation extends AbstractIoOperation implements Comparable<ILSMIOOperation> {
 
-    protected final ILSMMemoryComponent flushingComponent;
-
-    public FlushOperation(ILSMIndexAccessor accessor, ILSMMemoryComponent flushingComponent, FileReference target,
-            ILSMIOOperationCallback callback, String indexIdentifier) {
+    public FlushOperation(ILSMIndexAccessor accessor, FileReference target, ILSMIOOperationCallback callback,
+            String indexIdentifier) {
         super(accessor, target, callback, indexIdentifier);
-        this.flushingComponent = flushingComponent;
     }
 
     @Override
@@ -49,17 +46,12 @@ public class FlushOperation extends AbstractIoOperation implements Comparable<Fl
     }
 
     @Override
-    public FileReference getTarget() {
-        return target;
-    }
-
-    @Override
     public ILSMIndexAccessor getAccessor() {
         return accessor;
     }
 
     public ILSMComponent getFlushingComponent() {
-        return flushingComponent;
+        return accessor.getOpContext().getComponentHolder().get(0);
     }
 
     @Override
@@ -68,21 +60,22 @@ public class FlushOperation extends AbstractIoOperation implements Comparable<Fl
     }
 
     @Override
-    public LSMIOOpertionType getIOOpertionType() {
-        return LSMIOOpertionType.FLUSH;
+    public LSMIOOperationType getIOOpertionType() {
+        return LSMIOOperationType.FLUSH;
     }
 
     @Override
-    public int compareTo(FlushOperation o) {
-        return target.getFile().getName().compareTo(o.getTarget().getFile().getName());
+    public int compareTo(ILSMIOOperation o) {
+        if (o instanceof FlushOperation) {
+            return target.getFile().getName().compareTo(((FlushOperation) o).getTarget().getFile().getName());
+        }
+        return -1;
     }
 
     @Override
     public boolean equals(Object o) {
-        if (!(o instanceof FlushOperation)) {
-            return false;
-        }
-        return Objects.equals(target.getFile().getName(), ((FlushOperation) o).target.getFile().getName());
+        return (o instanceof FlushOperation)
+                && Objects.equals(target.getFile().getName(), ((FlushOperation) o).target.getFile().getName());
     }
 
     @Override

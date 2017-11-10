@@ -37,7 +37,6 @@ import org.apache.asterix.metadata.cluster.AddNodeWorkResponse;
 import org.apache.asterix.metadata.cluster.RemoveNodeWork;
 import org.apache.asterix.metadata.cluster.RemoveNodeWorkResponse;
 import org.apache.asterix.runtime.utils.CcApplicationContext;
-import org.apache.asterix.runtime.utils.ClusterStateManager;
 import org.apache.hyracks.api.application.IClusterLifecycleListener;
 import org.apache.hyracks.api.config.IOption;
 import org.apache.hyracks.api.exceptions.HyracksException;
@@ -65,10 +64,11 @@ public class ClusterLifecycleListener implements IClusterLifecycleListener {
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("NC: " + nodeId + " joined");
         }
-        ClusterStateManager.INSTANCE.addNCConfiguration(nodeId, ncConfiguration);
+        IClusterStateManager csm = appCtx.getClusterStateManager();
+        csm.notifyNodeJoin(nodeId, ncConfiguration);
 
         //if metadata node rejoining, we need to rebind the proxy connection when it is active again.
-        if (!ClusterStateManager.INSTANCE.isMetadataNodeActive()) {
+        if (!csm.isMetadataNodeActive()) {
             MetadataManager.INSTANCE.rebindMetadataNode();
         }
 
@@ -83,10 +83,11 @@ public class ClusterLifecycleListener implements IClusterLifecycleListener {
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("NC: " + deadNode + " left");
             }
-            ClusterStateManager.INSTANCE.removeNCConfiguration(deadNode);
+            IClusterStateManager csm = appCtx.getClusterStateManager();
+            csm.notifyNodeFailure(deadNode);
 
             //if metadata node failed, we need to rebind the proxy connection when it is active again
-            if (!ClusterStateManager.INSTANCE.isMetadataNodeActive()) {
+            if (!csm.isMetadataNodeActive()) {
                 MetadataManager.INSTANCE.rebindMetadataNode();
             }
         }
@@ -148,21 +149,6 @@ public class ClusterLifecycleListener implements IClusterLifecycleListener {
         }
 
         List<String> addedNodes = new ArrayList<>();
-//        String asterixInstanceName = ClusterProperties.INSTANCE.getCluster().getInstanceName();
-        for (int i = 0; i < nodesToAdd; i++) {
-//            Node node = ClusterStateManager.INSTANCE.getAvailableSubstitutionNode();
-//            if (node != null) {
-//                    addedNodes.add(asterixInstanceName + "_" + node.getId());
-//                    if (LOGGER.isLoggable(Level.INFO)) {
-//                        LOGGER.info("Added NC at:" + node.getId());
-//                    }
-//            } else {
-//                if (LOGGER.isLoggable(Level.WARNING)) {
-//                    LOGGER.warning("Unable to add NC: no more available nodes");
-//                }
-//
-//            }
-        }
 
         for (AddNodeWork w : nodeAdditionRequests) {
             int n = w.getNumberOfNodesRequested();

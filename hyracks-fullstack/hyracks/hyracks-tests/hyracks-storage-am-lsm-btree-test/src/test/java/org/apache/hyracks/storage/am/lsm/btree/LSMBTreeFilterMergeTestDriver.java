@@ -42,7 +42,6 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentFilter;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
 import org.apache.hyracks.storage.am.lsm.common.impls.BlockingIOOperationCallbackWrapper;
-import org.apache.hyracks.storage.am.lsm.common.impls.NoOpIOOperationCallbackFactory;
 import org.apache.hyracks.storage.am.lsm.common.impls.StubIOOperationCallback;
 
 import junit.framework.Assert;
@@ -129,7 +128,7 @@ public abstract class LSMBTreeFilterMergeTestDriver extends OrderedIndexTestDriv
                 }
             }
 
-            List<ILSMDiskComponent> flushedComponents = ((LSMBTree) ctx.getIndex()).getImmutableComponents();
+            List<ILSMDiskComponent> flushedComponents = ((LSMBTree) ctx.getIndex()).getDiskComponents();
             MutablePair<ITupleReference, ITupleReference> expectedMergeMinMax = null;
             for (ILSMDiskComponent f : flushedComponents) {
                 Pair<ITupleReference, ITupleReference> componentMinMax = filterToMinMax(f.getLSMComponentFilter());
@@ -145,10 +144,10 @@ public abstract class LSMBTreeFilterMergeTestDriver extends OrderedIndexTestDriv
                     expectedMergeMinMax.setRight(componentMinMax.getRight());
                 }
             }
-            accessor.scheduleMerge(NoOpIOOperationCallbackFactory.INSTANCE.createIoOpCallback(),
-                    ((LSMBTree) ctx.getIndex()).getImmutableComponents());
+            accessor.scheduleMerge(((LSMBTree) ctx.getIndex()).getIOOperationCallback(),
+                    ((LSMBTree) ctx.getIndex()).getDiskComponents());
 
-            flushedComponents = ((LSMBTree) ctx.getIndex()).getImmutableComponents();
+            flushedComponents = ((LSMBTree) ctx.getIndex()).getDiskComponents();
             Pair<ITupleReference, ITupleReference> mergedMinMax =
                     filterToMinMax(flushedComponents.get(0).getLSMComponentFilter());
             Assert.assertEquals(0, TreeIndexTestUtils.compareFilterTuples(expectedMergeMinMax.getLeft(),

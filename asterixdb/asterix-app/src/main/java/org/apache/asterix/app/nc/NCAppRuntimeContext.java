@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 import org.apache.asterix.active.ActiveManager;
 import org.apache.asterix.api.common.AppRuntimeContextProviderForRecovery;
 import org.apache.asterix.common.api.IDatasetLifecycleManager;
+import org.apache.asterix.common.api.IDatasetMemoryManager;
 import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.cluster.ClusterPartition;
 import org.apache.asterix.common.config.ActiveProperties;
@@ -49,12 +50,16 @@ import org.apache.asterix.common.config.ReplicationProperties;
 import org.apache.asterix.common.config.StorageProperties;
 import org.apache.asterix.common.config.TransactionProperties;
 import org.apache.asterix.common.context.DatasetLifecycleManager;
+import org.apache.asterix.common.context.DatasetMemoryManager;
 import org.apache.asterix.common.context.IStorageComponentProvider;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.MetadataIndexImmutableProperties;
-import org.apache.asterix.common.replication.*;
+import org.apache.asterix.common.replication.IRemoteRecoveryManager;
+import org.apache.asterix.common.replication.IReplicaResourcesManager;
+import org.apache.asterix.common.replication.IReplicationChannel;
+import org.apache.asterix.common.replication.IReplicationManager;
 import org.apache.asterix.common.transactions.IAppRuntimeContextProvider;
 import org.apache.asterix.common.transactions.IRecoveryManager;
 import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
@@ -74,10 +79,14 @@ import org.apache.asterix.runtime.transaction.GlobalResourceIdFactoryProvider;
 import org.apache.asterix.transaction.management.resource.PersistentLocalResourceRepository;
 import org.apache.asterix.transaction.management.resource.PersistentLocalResourceRepositoryFactory;
 import org.apache.hyracks.api.application.INCServiceContext;
+import org.apache.hyracks.api.client.ClusterControllerInfo;
+import org.apache.hyracks.api.client.HyracksConnection;
+import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.api.lifecycle.ILifeCycleComponent;
 import org.apache.hyracks.api.lifecycle.ILifeCycleComponentManager;
+import org.apache.hyracks.control.nc.NodeControllerService;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperationScheduler;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicyFactory;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMOperationTracker;
@@ -113,26 +122,24 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     private MessagingProperties messagingProperties;
     private final NodeProperties nodeProperties;
     private ExecutorService threadExecutor;
+    private IDatasetMemoryManager datasetMemoryManager;
     private IDatasetLifecycleManager datasetLifecycleManager;
     private IBufferCache bufferCache;
     private ITransactionSubsystem txnSubsystem;
     private IMetadataNode metadataNodeStub;
-
     private ILSMIOOperationScheduler lsmIOScheduler;
     private PersistentLocalResourceRepository localResourceRepository;
     private IIOManager ioManager;
     private boolean isShuttingdown;
-
     private ActiveManager activeManager;
-
     private IReplicationChannel replicationChannel;
     private IReplicationManager replicationManager;
     private IRemoteRecoveryManager remoteRecoveryManager;
     private IReplicaResourcesManager replicaResourcesManager;
-
     private final ILibraryManager libraryManager;
     private final NCExtensionManager ncExtensionManager;
     private final IStorageComponentProvider componentProvider;
+    private IHyracksClientConnection hcc;
 
     public NCAppRuntimeContext(INCServiceContext ncServiceContext, List<AsterixExtension> extensions)
             throws AsterixException, InstantiationException, IllegalAccessException, ClassNotFoundException,
@@ -184,17 +191,21 @@ public class NCAppRuntimeContext implements INcApplicationContext {
         IAppRuntimeContextProvider asterixAppRuntimeContextProvider = new AppRuntimeContextProviderForRecovery(this);
         txnSubsystem = new TransactionSubsystem(getServiceContext(), getServiceContext().getNodeId(),
                 asterixAppRuntimeContextProvider, txnProperties);
-
         IRecoveryManager recoveryMgr = txnSubsystem.getRecoveryManager();
         SystemState systemState = recoveryMgr.getSystemState();
         if (initialRun || systemState == SystemState.PERMANENT_DATA_LOSS) {
             //delete any storage data before the resource factory is initialized
+            if (LOGGER.isLoggable(Level.WARNING)) {
+                LOGGER.log(Level.WARNING,
+                        "Deleting the storage dir. initialRun = " + initialRun + ", systemState = " + systemState);
+            }
             localResourceRepository.deleteStorageData(true);
         }
 
-        datasetLifecycleManager = new DatasetLifecycleManager(storageProperties, localResourceRepository,
-                MetadataIndexImmutableProperties.FIRST_AVAILABLE_USER_DATASET_ID, txnSubsystem.getLogManager(),
-                ioManager.getIODevices().size());
+        datasetMemoryManager = new DatasetMemoryManager(storageProperties);
+        datasetLifecycleManager =
+                new DatasetLifecycleManager(storageProperties, localResourceRepository, txnSubsystem.getLogManager(),
+                        datasetMemoryManager, ioManager.getIODevices().size());
 
         isShuttingdown = false;
 
@@ -283,8 +294,11 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     }
 
     @Override
-    public void preStop() throws Exception {
+    public synchronized void preStop() throws Exception {
         activeManager.shutdown();
+        if (metadataNodeStub != null) {
+            unexportMetadataNodeStub();
+        }
     }
 
     @Override
@@ -304,6 +318,11 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     @Override
     public IDatasetLifecycleManager getDatasetLifecycleManager() {
         return datasetLifecycleManager;
+    }
+
+    @Override
+    public IDatasetMemoryManager getDatasetMemoryManager() {
+        return datasetMemoryManager;
     }
 
     @Override
@@ -454,7 +473,7 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     }
 
     @Override
-    public void exportMetadataNodeStub() throws RemoteException {
+    public synchronized void exportMetadataNodeStub() throws RemoteException {
         if (metadataNodeStub == null) {
             metadataNodeStub = (IMetadataNode) UnicastRemoteObject.exportObject(MetadataNode.INSTANCE,
                     getMetadataProperties().getMetadataPort());
@@ -463,8 +482,9 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     }
 
     @Override
-    public void unexportMetadataNodeStub() throws RemoteException {
+    public synchronized void unexportMetadataNodeStub() throws RemoteException {
         UnicastRemoteObject.unexportObject(MetadataNode.INSTANCE, false);
+        metadataNodeStub = null;
     }
 
     public NCExtensionManager getNcExtensionManager() {
@@ -479,5 +499,23 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     @Override
     public INCServiceContext getServiceContext() {
         return ncServiceContext;
+    }
+
+    @Override
+    public IHyracksClientConnection getHcc() throws HyracksDataException {
+        if (hcc == null || !hcc.isConnected()) {
+            synchronized (this) {
+                if (hcc == null || !hcc.isConnected()) {
+                    try {
+                        NodeControllerService ncSrv = (NodeControllerService) ncServiceContext.getControllerService();
+                        ClusterControllerInfo ccInfo = ncSrv.getNodeParameters().getClusterControllerInfo();
+                        hcc = new HyracksConnection(ccInfo.getClientNetAddress(), ccInfo.getClientNetPort());
+                    } catch (Exception e) {
+                        throw HyracksDataException.create(e);
+                    }
+                }
+            }
+        }
+        return hcc;
     }
 }

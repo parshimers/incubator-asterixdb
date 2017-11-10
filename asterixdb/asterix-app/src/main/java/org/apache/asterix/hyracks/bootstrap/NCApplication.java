@@ -45,9 +45,6 @@ import org.apache.asterix.messaging.NCMessageBroker;
 import org.apache.asterix.transaction.management.resource.PersistentLocalResourceRepository;
 import org.apache.hyracks.api.application.INCServiceContext;
 import org.apache.hyracks.api.application.IServiceContext;
-import org.apache.hyracks.api.client.ClusterControllerInfo;
-import org.apache.hyracks.api.client.HyracksConnection;
-import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.config.IConfigManager;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.IFileDeviceResolver;
@@ -77,13 +74,17 @@ public class NCApplication extends BaseNCApplication {
     }
 
     @Override
-    public void start(IServiceContext serviceCtx, String[] args) throws Exception {
+    public void init(IServiceContext serviceCtx) throws Exception {
+        ncServiceCtx = (INCServiceContext) serviceCtx;
+        ncServiceCtx.setThreadFactory(
+                new AsterixThreadFactory(ncServiceCtx.getThreadFactory(), ncServiceCtx.getLifeCycleComponentManager()));
+    }
+
+    @Override
+    public void start(String[] args) throws Exception {
         if (args.length > 0) {
             throw new IllegalArgumentException("Unrecognized argument(s): " + Arrays.toString(args));
         }
-        this.ncServiceCtx = (INCServiceContext) serviceCtx;
-        ncServiceCtx.setThreadFactory(
-                new AsterixThreadFactory(ncServiceCtx.getThreadFactory(), ncServiceCtx.getLifeCycleComponentManager()));
         nodeId = this.ncServiceCtx.getNodeId();
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Starting Asterix node controller: " + nodeId);
@@ -96,7 +97,7 @@ public class NCApplication extends BaseNCApplication {
             System.setProperty("java.rmi.server.hostname",
                     (controllerService).getConfiguration().getClusterPublicAddress());
         }
-        runtimeContext = new NCAppRuntimeContext(this.ncServiceCtx, getExtensions());
+        runtimeContext = new NCAppRuntimeContext(ncServiceCtx, getExtensions());
         MetadataProperties metadataProperties = runtimeContext.getMetadataProperties();
         if (!metadataProperties.getNodeNames().contains(this.ncServiceCtx.getNodeId())) {
             if (LOGGER.isLoggable(Level.INFO)) {
@@ -292,11 +293,5 @@ public class NCApplication extends BaseNCApplication {
             int ioDeviceIndex = Math.abs(StoragePathUtil.getPartitionNumFromRelativePath(relPath) % devices.size());
             return devices.get(ioDeviceIndex);
         };
-    }
-
-    protected IHyracksClientConnection getHcc() throws Exception {
-        NodeControllerService ncSrv = (NodeControllerService) ncServiceCtx.getControllerService();
-        ClusterControllerInfo ccInfo = ncSrv.getNodeParameters().getClusterControllerInfo();
-        return new HyracksConnection(ccInfo.getClientNetAddress(), ccInfo.getClientNetPort());
     }
 }

@@ -19,6 +19,7 @@
 package org.apache.asterix.app.nc;
 
 import java.util.concurrent.Callable;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.asterix.common.config.ReplicationProperties;
@@ -48,6 +49,7 @@ import org.apache.hyracks.api.application.INCServiceContext;
  * Users of transaction sub-systems must obtain them from the provider.
  */
 public class TransactionSubsystem implements ITransactionSubsystem {
+    private static final Logger LOGGER = Logger.getLogger(TransactionSubsystem.class.getName());
     private final String id;
     private final ILogManager logManager;
     private final ILockManager lockManager;
@@ -74,6 +76,9 @@ public class TransactionSubsystem implements ITransactionSubsystem {
         final boolean replicationEnabled = repProperties.isReplicationEnabled();
 
         final CheckpointProperties checkpointProperties = new CheckpointProperties(txnProperties, id);
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.log(Level.INFO, "Checkpoint Properties: " + checkpointProperties);
+        }
         checkpointManager = CheckpointManagerFactory.create(this, checkpointProperties, replicationEnabled);
         final Checkpoint latestCheckpoint = checkpointManager.getLatest();
         if (latestCheckpoint != null && latestCheckpoint.getStorageVersion() != StorageConstants.VERSION) {
@@ -88,7 +93,6 @@ public class TransactionSubsystem implements ITransactionSubsystem {
             this.logManager = new LogManager(this);
         }
         this.recoveryManager = new RecoveryManager(this, serviceCtx);
-
         if (this.txnProperties.isCommitProfilerEnabled()) {
             ecp = new EntityCommitProfiler(this, this.txnProperties.getCommitProfilerReportInterval());
             getAsterixAppRuntimeContextProvider().getThreadExecutor().submit(ecp);

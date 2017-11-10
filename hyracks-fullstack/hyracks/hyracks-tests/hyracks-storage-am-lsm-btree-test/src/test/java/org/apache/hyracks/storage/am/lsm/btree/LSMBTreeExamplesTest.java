@@ -34,9 +34,11 @@ import org.apache.hyracks.dataflow.common.utils.TupleUtils;
 import org.apache.hyracks.storage.am.btree.OrderedIndexExamplesTest;
 import org.apache.hyracks.storage.am.common.TestOperationCallback;
 import org.apache.hyracks.storage.am.common.api.ITreeIndex;
+import org.apache.hyracks.storage.am.common.impls.IndexAccessParameters;
 import org.apache.hyracks.storage.am.lsm.btree.util.LSMBTreeTestHarness;
 import org.apache.hyracks.storage.am.lsm.btree.utils.LSMBTreeUtil;
 import org.apache.hyracks.storage.common.IIndexAccessor;
+import org.apache.hyracks.util.trace.ITracer;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -51,9 +53,9 @@ public class LSMBTreeExamplesTest extends OrderedIndexExamplesTest {
         return LSMBTreeUtil.createLSMTree(harness.getIOManager(), harness.getVirtualBufferCaches(),
                 harness.getFileReference(), harness.getDiskBufferCache(), typeTraits, cmpFactories,
                 bloomFilterKeyFields, harness.getBoomFilterFalsePositiveRate(), harness.getMergePolicy(),
-                harness.getOperationTracker(), harness.getIOScheduler(), harness.getIOOperationCallback(), true,
+                harness.getOperationTracker(), harness.getIOScheduler(), harness.getIOOperationCallbackFactory(), true,
                 filterTypeTraits, filterCmpFactories, btreeFields, filterFields, true,
-                harness.getMetadataPageManagerFactory());
+                harness.getMetadataPageManagerFactory(), false, ITracer.NONE);
     }
 
     @Before
@@ -109,8 +111,9 @@ public class LSMBTreeExamplesTest extends OrderedIndexExamplesTest {
         }
         ArrayTupleBuilder tb = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
-        IIndexAccessor indexAccessor =
-                treeIndex.createAccessor(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
+        IndexAccessParameters actx =
+                new IndexAccessParameters(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
+        IIndexAccessor indexAccessor = treeIndex.createAccessor(actx);
         int numInserts = 10000;
         for (int i = 0; i < numInserts; i++) {
             int f0 = rnd.nextInt() % numInserts;

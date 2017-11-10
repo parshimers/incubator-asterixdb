@@ -37,7 +37,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
  */
 public class QueryCancellationServlet extends AbstractServlet {
     private static final Logger LOGGER = Logger.getLogger(QueryCancellationServlet.class.getName());
-    private static final String CLIENT_CONTEXT_ID = "client_context_id";
+    protected static final String CLIENT_CONTEXT_ID = "client_context_id";
 
     public QueryCancellationServlet(ConcurrentMap<String, Object> ctx, String... paths) {
         super(ctx, paths);

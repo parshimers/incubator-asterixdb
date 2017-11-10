@@ -25,6 +25,7 @@ import org.apache.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import org.apache.hyracks.storage.am.btree.impls.BTree;
 import org.apache.hyracks.storage.am.btree.impls.BTreeOpContext;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
+import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMHarness;
@@ -62,14 +63,14 @@ public final class LSMRTreeOpContext extends AbstractLSMIndexOperationContext {
         for (int i = 0; i < mutableComponents.size(); i++) {
             LSMRTreeMemoryComponent mutableComponent = (LSMRTreeMemoryComponent) mutableComponents.get(i);
             if (allFields != null) {
-                mutableRTreeAccessors[i] = (RTree.RTreeAccessor) mutableComponent.getRTree()
-                        .createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE, allFields);
+                mutableRTreeAccessors[i] = mutableComponent.getIndex().createAccessor(NoOpOperationCallback.INSTANCE,
+                        NoOpOperationCallback.INSTANCE, allFields);
             } else {
-                mutableRTreeAccessors[i] = (RTree.RTreeAccessor) mutableComponent.getRTree()
-                        .createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+                mutableRTreeAccessors[i] =
+                        mutableComponent.getIndex().createAccessor(NoOpIndexAccessParameters.INSTANCE);
             }
-            mutableBTreeAccessors[i] = (BTree.BTreeAccessor) mutableComponent.getBTree()
-                    .createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            mutableBTreeAccessors[i] =
+                    mutableComponent.getBuddyIndex().createAccessor(NoOpIndexAccessParameters.INSTANCE);
 
             rtreeOpContexts[i] = mutableRTreeAccessors[i].getOpContext();
             btreeOpContexts[i] = mutableBTreeAccessors[i].getOpContext();

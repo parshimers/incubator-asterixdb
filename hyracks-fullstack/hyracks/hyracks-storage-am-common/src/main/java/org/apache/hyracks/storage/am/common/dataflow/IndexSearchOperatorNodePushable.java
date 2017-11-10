@@ -30,6 +30,8 @@ import org.apache.hyracks.api.dataflow.value.IMissingWriter;
 import org.apache.hyracks.api.dataflow.value.IMissingWriterFactory;
 import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.job.profiling.IOperatorStats;
+import org.apache.hyracks.control.common.job.profiling.OperatorStats;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAppender;
@@ -39,9 +41,11 @@ import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
 import org.apache.hyracks.storage.am.common.api.IIndexDataflowHelper;
 import org.apache.hyracks.storage.am.common.api.ISearchOperationCallbackFactory;
+import org.apache.hyracks.storage.am.common.impls.IndexAccessParameters;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.common.tuples.PermutingFrameTupleReference;
 import org.apache.hyracks.storage.common.IIndex;
+import org.apache.hyracks.storage.common.IIndexAccessParameters;
 import org.apache.hyracks.storage.common.IIndexAccessor;
 import org.apache.hyracks.storage.common.IIndexCursor;
 import org.apache.hyracks.storage.common.ISearchOperationCallback;
@@ -79,6 +83,7 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
     protected ArrayTupleBuilder nonFilterTupleBuild;
     protected final ISearchOperationCallbackFactory searchCallbackFactory;
     protected boolean failed = false;
+    private final IOperatorStats stats;
 
     public IndexSearchOperatorNodePushable(IHyracksTaskContext ctx, RecordDescriptor inputRecDesc, int partition,
             int[] minFilterFieldIndexes, int[] maxFilterFieldIndexes, IIndexDataflowHelperFactory indexHelperFactory,
@@ -104,6 +109,10 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
         if (maxFilterFieldIndexes != null && maxFilterFieldIndexes.length > 0) {
             maxFilterKey = new PermutingFrameTupleReference();
             maxFilterKey.setFieldPermutation(maxFilterFieldIndexes);
+        }
+        stats = new OperatorStats(getDisplayName());
+        if (ctx.getStatsCollector() != null) {
+            ctx.getStatsCollector().add(stats);
         }
     }
 
@@ -143,7 +152,8 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
             appender = new FrameTupleAppender(new VSizeFrame(ctx), true);
             ISearchOperationCallback searchCallback =
                     searchCallbackFactory.createSearchOperationCallback(indexHelper.getResource().getId(), ctx, null);
-            indexAccessor = index.createAccessor(NoOpOperationCallback.INSTANCE, searchCallback);
+            IIndexAccessParameters iap = new IndexAccessParameters(NoOpOperationCallback.INSTANCE, searchCallback);
+            indexAccessor = index.createAccessor(iap);
             cursor = createCursor();
             if (retainInput) {
                 frameTuple = new FrameTupleReference();
@@ -154,9 +164,9 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
     }
 
     protected void writeSearchResults(int tupleIndex) throws Exception {
-        boolean matched = false;
+        long matchingTupleCount = 0;
         while (cursor.hasNext()) {
-            matched = true;
+            matchingTupleCount++;
             tb.reset();
             cursor.next();
             if (retainInput) {
@@ -174,8 +184,9 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
             }
             FrameUtils.appendToWriter(writer, appender, tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize());
         }
+        stats.getTupleCounter().update(matchingTupleCount);
 
-        if (!matched && retainInput && retainMissing) {
+        if (matchingTupleCount == 0 && retainInput && retainMissing) {
             FrameUtils.appendConcatToWriter(writer, appender, accessor, tupleIndex,
                     nonMatchTupleBuild.getFieldEndOffsets(), nonMatchTupleBuild.getByteArray(), 0,
                     nonMatchTupleBuild.getSize());

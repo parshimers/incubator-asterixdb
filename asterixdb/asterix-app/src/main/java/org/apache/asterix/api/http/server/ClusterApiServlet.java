@@ -27,8 +27,8 @@ import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.runtime.utils.CcApplicationContext;
-import org.apache.asterix.runtime.utils.ClusterStateManager;
 import org.apache.hyracks.api.config.IOption;
 import org.apache.hyracks.api.config.Section;
 import org.apache.hyracks.control.common.config.ConfigUtils;
@@ -39,7 +39,6 @@ import org.apache.hyracks.http.server.AbstractServlet;
 import org.apache.hyracks.http.server.utils.HttpUtil;
 import org.apache.hyracks.util.JSONUtil;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -57,10 +56,11 @@ public class ClusterApiServlet extends AbstractServlet {
     protected static final String FULL_SHUTDOWN_URI_KEY = "fullShutdownUri";
     protected static final String VERSION_URI_KEY = "versionUri";
     protected static final String DIAGNOSTICS_URI_KEY = "diagnosticsUri";
-    private final ObjectMapper om = new ObjectMapper();
+    protected final ICcApplicationContext appCtx;
 
-    public ClusterApiServlet(ConcurrentMap<String, Object> ctx, String... paths) {
+    public ClusterApiServlet(ICcApplicationContext appCtx, ConcurrentMap<String, Object> ctx, String... paths) {
         super(ctx, paths);
+        this.appCtx = appCtx;
     }
 
     @Override
@@ -80,7 +80,7 @@ public class ClusterApiServlet extends AbstractServlet {
                 default:
                     throw new IllegalArgumentException();
             }
-            responseWriter.write(JSONUtil.convertNode(json));
+            JSONUtil.writeNode(responseWriter, json);
         } catch (IllegalArgumentException e) { // NOSONAR - exception not logged or rethrown
             response.setStatus(HttpResponseStatus.NOT_FOUND);
         } catch (Exception e) {
@@ -92,11 +92,11 @@ public class ClusterApiServlet extends AbstractServlet {
     }
 
     protected ObjectNode getClusterStateSummaryJSON() {
-        return ClusterStateManager.INSTANCE.getClusterStateSummary();
+        return appCtx.getClusterStateManager().getClusterStateSummary();
     }
 
     protected ObjectNode getClusterStateJSON(IServletRequest request, String pathToNode) {
-        ObjectNode json = ClusterStateManager.INSTANCE.getClusterStateDescription();
+        ObjectNode json = appCtx.getClusterStateManager().getClusterStateDescription();
         CcApplicationContext appConfig = (CcApplicationContext) ctx.get(ASTERIX_APP_CONTEXT_INFO_ATTR);
         json.putPOJO("config", ConfigUtils.getSectionOptionsForJSON(appConfig.getServiceContext().getAppConfig(),
                 Section.COMMON, getConfigSelector()));
@@ -115,7 +115,7 @@ public class ClusterApiServlet extends AbstractServlet {
         if (json.has("cc")) {
             cc = (ObjectNode) json.get("cc");
         } else {
-            cc = om.createObjectNode();
+            cc = OBJECT_MAPPER.createObjectNode();
             json.set("cc", cc);
         }
         cc.put(CONFIG_URI_KEY, clusterURL + "cc/config");

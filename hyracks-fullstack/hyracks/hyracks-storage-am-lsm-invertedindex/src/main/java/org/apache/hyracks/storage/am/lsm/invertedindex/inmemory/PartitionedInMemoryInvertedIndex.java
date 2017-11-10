@@ -37,9 +37,7 @@ import org.apache.hyracks.storage.am.lsm.invertedindex.search.InvertedListPartit
 import org.apache.hyracks.storage.am.lsm.invertedindex.search.PartitionedTOccurrenceSearcher;
 import org.apache.hyracks.storage.am.lsm.invertedindex.tokenizers.IBinaryTokenizerFactory;
 import org.apache.hyracks.storage.am.lsm.invertedindex.util.PartitionedInvertedIndexTokenizingTupleIterator;
-import org.apache.hyracks.storage.common.IIndexAccessor;
-import org.apache.hyracks.storage.common.IModificationOperationCallback;
-import org.apache.hyracks.storage.common.ISearchOperationCallback;
+import org.apache.hyracks.storage.common.IIndexAccessParameters;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
 
 public class PartitionedInMemoryInvertedIndex extends InMemoryInvertedIndex implements IPartitionedInvertedIndex {
@@ -88,15 +86,14 @@ public class PartitionedInMemoryInvertedIndex extends InMemoryInvertedIndex impl
     }
 
     @Override
-    public IIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
-            ISearchOperationCallback searchCallback) throws HyracksDataException {
+    public PartitionedInMemoryInvertedIndexAccessor createAccessor(IIndexAccessParameters iap)
+            throws HyracksDataException {
         return new PartitionedInMemoryInvertedIndexAccessor(this,
                 new PartitionedInMemoryInvertedIndexOpContext(btree, tokenCmpFactories, tokenizerFactory));
     }
 
     @Override
-    public IIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
-            ISearchOperationCallback searchCallback, int[] nonIndexFields) throws HyracksDataException {
+    public PartitionedInMemoryInvertedIndexAccessor createAccessor(int[] nonIndexFields) throws HyracksDataException {
         return new PartitionedInMemoryInvertedIndexAccessor(this,
                 new PartitionedInMemoryInvertedIndexOpContext(btree, tokenCmpFactories, tokenizerFactory),
                 nonIndexFields);

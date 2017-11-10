@@ -20,6 +20,7 @@ package org.apache.asterix.util;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -58,7 +59,7 @@ public class FaultToleranceUtil {
         ReplicaEventMessage msg = new ReplicaEventMessage(nodeId, nodeIdAddress, nodePort, event);
         for (String replica : primaryRemoteReplicas) {
             // If the remote replica is alive, send the event
-            if (activeNcConfiguration.containsKey(replica)) {
+            if (participantNodes.contains(replica)) {
                 try {
                     messageBroker.sendApplicationMessageToNC(msg, replica);
                 } catch (Exception e) {

@@ -10,7 +10,7 @@ RecordConstructor [
   (
     LiteralExpr [STRING] [count]
     :
-    FunctionCall OpenSocialNetworkData.sql-count@1[
+    FunctionCall asterix.sql-count@1[
       (
         SELECT ELEMENT [
         FieldAccessor [
@@ -26,7 +26,7 @@ RecordConstructor [
   )
 ]
 ]
-FROM [  FunctionCall Metadata.dataset@1[
+FROM [  FunctionCall asterix.dataset@1[
     LiteralExpr [STRING] [TweetMessages]
   ]
   AS Variable [ Name=$t ]

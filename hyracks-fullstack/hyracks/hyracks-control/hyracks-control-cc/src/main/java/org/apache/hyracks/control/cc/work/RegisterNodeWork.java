@@ -28,7 +28,6 @@ import org.apache.hyracks.api.config.IOption;
 import org.apache.hyracks.control.cc.ClusterControllerService;
 import org.apache.hyracks.control.cc.NodeControllerState;
 import org.apache.hyracks.control.cc.cluster.INodeManager;
-import org.apache.hyracks.control.common.base.INodeController;
 import org.apache.hyracks.control.common.controllers.NodeParameters;
 import org.apache.hyracks.control.common.controllers.NodeRegistration;
 import org.apache.hyracks.control.common.ipc.CCNCFunctions;
@@ -55,7 +54,8 @@ public class RegisterNodeWork extends SynchronizableWork {
         Map<IOption, Object> ncConfiguration = new HashMap<>();
         try {
             LOGGER.log(Level.WARNING, "Registering INodeController: id = " + id);
-            INodeController nc = new NodeControllerRemoteProxy(ccs.getClusterIPC(), reg.getNodeControllerAddress());
+            NodeControllerRemoteProxy nc =
+                    new NodeControllerRemoteProxy(ccs.getClusterIPC(), reg.getNodeControllerAddress());
             NodeControllerState state = new NodeControllerState(nc, reg);
             INodeManager nodeManager = ccs.getNodeManager();
             nodeManager.addNode(id, state);
@@ -67,7 +67,7 @@ public class RegisterNodeWork extends SynchronizableWork {
             NodeParameters params = new NodeParameters();
             params.setClusterControllerInfo(ccs.getClusterControllerInfo());
             params.setDistributedState(ccs.getContext().getDistributedState());
-            params.setHeartbeatPeriod(ccs.getCCConfig().getHeartbeatPeriod());
+            params.setHeartbeatPeriod(ccs.getCCConfig().getHeartbeatPeriodMillis());
             params.setProfileDumpPeriod(ccs.getCCConfig().getProfileDumpPeriod());
             result = new CCNCFunctions.NodeRegistrationResult(params, null);
             ccs.getJobIdFactory().ensureMinimumId(reg.getMaxJobId() + 1);

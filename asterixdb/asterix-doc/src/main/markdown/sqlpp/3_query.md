@@ -38,7 +38,7 @@ The following shows the (rich) grammar for the `SELECT` statement in SQL++.
 
     SelectClause       ::= <SELECT> ( <ALL> | <DISTINCT> )? ( SelectRegular | SelectValue )
     SelectRegular      ::= Projection ( "," Projection )*
-    SelectValue      ::= ( <VALUE> | <ELEMENT> | <RAW> ) Expression
+    SelectValue        ::= ( <VALUE> | <ELEMENT> | <RAW> ) Expression
     Projection         ::= ( Expression ( <AS> )? Identifier | "*" )
 
     FromClause         ::= <FROM> FromTerm ( "," FromTerm )*
@@ -57,13 +57,16 @@ The following shows the (rich) grammar for the `SELECT` statement in SQL++.
 
     WhereClause        ::= <WHERE> Expression
 
-    GroupbyClause      ::= <GROUP> <BY> ( Expression ( (<AS>)? Variable )? ( "," Expression ( (<AS>)? Variable )? )*
+    GroupbyClause      ::= <GROUP> <BY> Expression ( ( (<AS>)? Variable )?
+                           ( "," Expression ( (<AS>)? Variable )? )* )
                            ( <GROUP> <AS> Variable
-                             ("(" Variable <AS> VariableReference ("," Variable <AS> VariableReference )* ")")?
+                             ("(" Variable <AS> VariableReference
+                             ("," Variable <AS> VariableReference )* ")")?
                            )?
     HavingClause       ::= <HAVING> Expression
 
-    OrderbyClause      ::= <ORDER> <BY> Expression ( <ASC> | <DESC> )? ( "," Expression ( <ASC> | <DESC> )? )*
+    OrderbyClause      ::= <ORDER> <BY> Expression ( <ASC> | <DESC> )?
+                           ( "," Expression ( <ASC> | <DESC> )? )*
     LimitClause        ::= <LIMIT> Expression ( <OFFSET> Expression )?
 
 In this section, we will make use of two stored collections of objects (datasets), `GleambookUsers` and `GleambookMessages`, in a series of running examples to explain `SELECT` queries. The contents of the example collections are as follows:
@@ -1125,6 +1128,17 @@ Notice how the query forms groups where each group involves a message author and
 The query then uses the collection aggregate function ARRAY_COUNT to get the cardinality of each
 group of messages.
 
+Each aggregation function in SQL++ supports DISTINCT modifier that removes duplicate values from
+the input collection.
+
+##### Example
+
+    ARRAY_SUM(DISTINCT [1, 1, 2, 2, 3])
+
+This query returns:
+
+    6
+
 ### <a id="SQL-92_aggregation_functions">SQL-92 Aggregation Functions</a>
 For compatibility with the traditional SQL aggregation functions, SQL++ also offers SQL-92's
 aggregation function symbols (`COUNT`, `SUM`, `MAX`, `MIN`, and `AVG`) as supported syntactic sugar.
@@ -1151,6 +1165,8 @@ will rewrite as follows:
 The same sort of rewritings apply to the function symbols `SUM`, `MAX`, `MIN`, and `AVG`.
 In contrast to the SQL++ collection aggregate functions, these special SQL-92 function symbols
 can only be used in the same way they are in standard SQL (i.e., with the same restrictions).
+
+DISTINCT modifier is also supported for these aggregate functions.
 
 ### <a id="SQL-92_compliant_gby">SQL-92 Compliant GROUP BY Aggregations</a>
 SQL++ provides full support for SQL-92 `GROUP BY` aggregation queries.

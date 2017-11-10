@@ -22,22 +22,22 @@ package org.apache.asterix.common.ioopcallbacks;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.storage.am.common.api.IMetadataPageManager;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponent;
-import org.apache.hyracks.storage.am.lsm.rtree.impls.LSMRTreeDiskComponent;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.rtree.impls.LSMRTreeFileManager;
+import org.apache.hyracks.storage.am.rtree.impls.RTree;
 
 public class LSMRTreeIOOperationCallback extends AbstractLSMIOOperationCallback {
 
-    public LSMRTreeIOOperationCallback() {
-        super();
+    public LSMRTreeIOOperationCallback(ILSMIndex index) {
+        super(index);
     }
 
     @Override
     public long getComponentFileLSNOffset(ILSMDiskComponent diskComponent, String diskComponentFilePath)
             throws HyracksDataException {
         if (diskComponentFilePath.endsWith(LSMRTreeFileManager.RTREE_SUFFIX)) {
-            LSMRTreeDiskComponent rtreeComponent = (LSMRTreeDiskComponent) diskComponent;
             IMetadataPageManager metadataPageManager =
-                    (IMetadataPageManager) rtreeComponent.getRTree().getPageManager();
+                    (IMetadataPageManager) ((RTree) diskComponent.getIndex()).getPageManager();
             return metadataPageManager.getFileOffset(metadataPageManager.createMetadataFrame(), LSN_KEY);
         }
         return INVALID;

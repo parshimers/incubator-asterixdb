@@ -29,12 +29,14 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hyracks.api.client.NodeControllerInfo;
 import org.apache.hyracks.api.client.NodeStatus;
 import org.apache.hyracks.api.exceptions.ErrorCode;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.HyracksException;
 import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.api.job.resource.NodeCapacity;
@@ -44,6 +46,9 @@ import org.apache.hyracks.control.cc.job.IJobManager;
 import org.apache.hyracks.control.cc.job.JobRun;
 import org.apache.hyracks.control.cc.scheduler.IResourceManager;
 import org.apache.hyracks.control.common.controllers.CCConfig;
+import org.apache.hyracks.control.common.ipc.CCNCFunctions.AbortCCJobsFunction;
+import org.apache.hyracks.ipc.api.IIPCHandle;
+import org.apache.hyracks.ipc.exceptions.IPCException;
 
 public class NodeManager implements INodeManager {
     private static final Logger LOGGER = Logger.getLogger(NodeManager.class.getName());
@@ -93,6 +98,13 @@ public class NodeManager implements INodeManager {
             LOGGER.warning(
                     "Node with name " + nodeId + " has already registered; failing the node then re-registering.");
             removeDeadNode(nodeId);
+        } else {
+            try {
+                IIPCHandle ncIPCHandle = ccs.getClusterIPC().getHandle(ncState.getNodeController().getAddress());
+                ncIPCHandle.send(-1, new AbortCCJobsFunction(), null);
+            } catch (IPCException e) {
+                throw HyracksDataException.create(e);
+            }
         }
         LOGGER.warning("adding node to registry");
         nodeRegistry.put(nodeId, ncState);
@@ -123,11 +135,9 @@ public class NodeManager implements INodeManager {
     @Override
     public Map<String, NodeControllerInfo> getNodeControllerInfoMap() {
         Map<String, NodeControllerInfo> result = new LinkedHashMap<>();
-        for (Map.Entry<String, NodeControllerState> e : nodeRegistry.entrySet()) {
-            NodeControllerState ncState = e.getValue();
-            result.put(e.getKey(), new NodeControllerInfo(e.getKey(), NodeStatus.ALIVE, ncState.getDataPort(),
-                    ncState.getDatasetPort(), ncState.getMessagingPort(), ncState.getCapacity().getCores()));
-        }
+        nodeRegistry.forEach(
+                (key, ncState) -> result.put(key, new NodeControllerInfo(key, NodeStatus.ALIVE, ncState.getDataPort(),
+                        ncState.getDatasetPort(), ncState.getMessagingPort(), ncState.getCapacity().getCores())));
         return result;
     }
 
@@ -136,11 +146,13 @@ public class NodeManager implements INodeManager {
         Set<String> deadNodes = new HashSet<>();
         Set<JobId> affectedJobIds = new HashSet<>();
         Iterator<Map.Entry<String, NodeControllerState>> nodeIterator = nodeRegistry.entrySet().iterator();
+        long deadNodeNanosThreshold = TimeUnit.MILLISECONDS
+                .toNanos(ccConfig.getHeartbeatMaxMisses() * ccConfig.getHeartbeatPeriodMillis());
         while (nodeIterator.hasNext()) {
             Map.Entry<String, NodeControllerState> entry = nodeIterator.next();
             String nodeId = entry.getKey();
             NodeControllerState state = entry.getValue();
-            if (state.incrementLastHeartbeatDuration() >= ccConfig.getHeartbeatMaxMisses()) {
+            if (state.nanosSinceLastHeartbeat() >= deadNodeNanosThreshold) {
                 deadNodes.add(nodeId);
                 affectedJobIds.addAll(state.getActiveJobIds());
                 // Removes the node from node map.

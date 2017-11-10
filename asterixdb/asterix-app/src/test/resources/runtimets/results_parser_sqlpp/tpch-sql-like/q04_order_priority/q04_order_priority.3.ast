@@ -42,7 +42,7 @@ RecordConstructor [
   (
     LiteralExpr [STRING] [count]
     :
-    FunctionCall tpch.sql-count@1[
+    FunctionCall asterix.sql-count@1[
       (
         SELECT ELEMENT [
         LiteralExpr [LONG] [1]
@@ -55,7 +55,7 @@ RecordConstructor [
   )
 ]
 ]
-FROM [  FunctionCall Metadata.dataset@1[
+FROM [  FunctionCall asterix.dataset@1[
     LiteralExpr [STRING] [Orders]
   ]
   AS Variable [ Name=$o ]

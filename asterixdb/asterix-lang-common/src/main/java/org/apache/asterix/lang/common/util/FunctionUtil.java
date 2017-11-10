@@ -33,6 +33,7 @@ import org.apache.asterix.metadata.MetadataTransactionContext;
 import org.apache.asterix.metadata.declared.MetadataProvider;
 import org.apache.asterix.metadata.entities.Function;
 import org.apache.asterix.om.functions.BuiltinFunctions;
+import org.apache.hyracks.algebricks.core.algebra.functions.AlgebricksBuiltinFunctions;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import org.apache.hyracks.algebricks.core.algebra.functions.IFunctionInfo;
 
@@ -101,8 +102,9 @@ public class FunctionUtil {
             }
             String namespace = signature.getNamespace();
             // Checks the existence of the referred dataverse.
-            if (metadataProvider.findDataverse(namespace) == null
-                    && !namespace.equals(FunctionConstants.ASTERIX_NS)) {
+            if (!namespace.equals(FunctionConstants.ASTERIX_NS)
+                    && !namespace.equals(AlgebricksBuiltinFunctions.ALGEBRICKS_NS)
+                    && metadataProvider.findDataverse(namespace) == null) {
                 throw new CompilationException("In function call \"" + namespace + "." + signature.getName()
                         + "(...)\", the dataverse \"" + namespace + "\" cannot be found!");
             }
@@ -123,7 +125,8 @@ public class FunctionUtil {
                 throw new CompilationException(messageBuilder.toString());
             }
 
-            if (function.getLanguage().equalsIgnoreCase(Function.LANGUAGE_AQL)) {
+            if (function.getLanguage().equalsIgnoreCase(Function.LANGUAGE_AQL)
+                    || function.getLanguage().equalsIgnoreCase(Function.LANGUAGE_SQLPP)) {
                 FunctionDecl functionDecl = functionParser.getFunctionDecl(function);
                 if (functionDecl != null) {
                     if (functionDecls.contains(functionDecl)) {

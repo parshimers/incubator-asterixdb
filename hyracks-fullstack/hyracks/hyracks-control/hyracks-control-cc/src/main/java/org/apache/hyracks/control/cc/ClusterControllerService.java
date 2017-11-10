@@ -83,6 +83,7 @@ import org.apache.hyracks.control.common.work.WorkQueue;
 import org.apache.hyracks.ipc.api.IIPCI;
 import org.apache.hyracks.ipc.impl.IPCSystem;
 import org.apache.hyracks.ipc.impl.JavaSerializationBasedPayloadSerializerDeserializer;
+import org.apache.hyracks.util.ExitUtil;
 import org.xml.sax.InputSource;
 
 public class ClusterControllerService implements IControllerService {
@@ -137,6 +138,10 @@ public class ClusterControllerService implements IControllerService {
     private IJobManager jobManager;
 
     private ShutdownRun shutdownCallback;
+
+    static {
+        ExitUtil.init();
+    }
 
     public ClusterControllerService(final CCConfig config) throws Exception {
         this(config, getApplication(config));
@@ -193,16 +198,16 @@ public class ClusterControllerService implements IControllerService {
         clusterIPC = new IPCSystem(new InetSocketAddress(ccConfig.getClusterListenPort()), ccIPCI,
                 new CCNCFunctions.SerializerDeserializer());
         IIPCI ciIPCI = new ClientInterfaceIPCI(this, jobIdFactory);
-        clientIPC =
-                new IPCSystem(new InetSocketAddress(ccConfig.getClientListenAddress(), ccConfig.getClientListenPort()),
-                        ciIPCI, new JavaSerializationBasedPayloadSerializerDeserializer());
+        clientIPC = new IPCSystem(
+                new InetSocketAddress(ccConfig.getClientListenAddress(), ccConfig.getClientListenPort()), ciIPCI,
+                new JavaSerializationBasedPayloadSerializerDeserializer());
         webServer = new WebServer(this, ccConfig.getConsoleListenPort());
         clusterIPC.start();
         clientIPC.start();
         webServer.start();
         info = new ClusterControllerInfo(ccConfig.getClientListenAddress(), ccConfig.getClientListenPort(),
                 webServer.getListeningPort());
-        timer.schedule(sweeper, 0, ccConfig.getHeartbeatPeriod());
+        timer.schedule(sweeper, 0, ccConfig.getHeartbeatPeriodMillis());
         jobLog.open();
         startApplication();
 
@@ -216,15 +221,16 @@ public class ClusterControllerService implements IControllerService {
     private void startApplication() throws Exception {
         serviceCtx = new CCServiceContext(this, serverCtx, ccContext, ccConfig.getAppConfig());
         serviceCtx.addJobLifecycleListener(datasetDirectoryService);
+        application.init(serviceCtx);
         executor = Executors.newCachedThreadPool(serviceCtx.getThreadFactory());
-        application.start(serviceCtx, ccConfig.getAppArgsArray());
+        application.start(ccConfig.getAppArgsArray());
         IJobCapacityController jobCapacityController = application.getJobCapacityController();
 
         // Job manager is in charge of job lifecycle management.
         try {
-            Constructor<?> jobManagerConstructor =
-                    this.getClass().getClassLoader().loadClass(ccConfig.getJobManagerClass()).getConstructor(
-                            CCConfig.class, ClusterControllerService.class, IJobCapacityController.class);
+            Constructor<?> jobManagerConstructor = this.getClass().getClassLoader()
+                    .loadClass(ccConfig.getJobManagerClass())
+                    .getConstructor(CCConfig.class, ClusterControllerService.class, IJobCapacityController.class);
             jobManager = (IJobManager) jobManagerConstructor.newInstance(ccConfig, this, jobCapacityController);
         } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | NoSuchMethodException
                 | InvocationTargetException e) {
@@ -254,9 +260,9 @@ public class ClusterControllerService implements IControllerService {
     }
 
     private void connectNCs() {
-        getNCServices().entrySet().forEach(ncService -> {
+        getNCServices().forEach((key, value) -> {
             final TriggerNCWork triggerWork = new TriggerNCWork(ClusterControllerService.this,
-                    ncService.getValue().getLeft(), ncService.getValue().getRight(), ncService.getKey());
+                    value.getLeft(), value.getRight(), key);
             executor.submit(triggerWork);
         });
         serviceCtx.addClusterLifecycleListener(new IClusterLifecycleListener() {
@@ -286,10 +292,9 @@ public class ClusterControllerService implements IControllerService {
 
     private void terminateNCServices() throws Exception {
         List<ShutdownNCServiceWork> shutdownNCServiceWorks = new ArrayList<>();
-        getNCServices().entrySet().forEach(ncService -> {
-            if (ncService.getValue().getRight() != NCConfig.NCSERVICE_PORT_DISABLED) {
-                ShutdownNCServiceWork shutdownWork = new ShutdownNCServiceWork(ncService.getValue().getLeft(),
-                        ncService.getValue().getRight(), ncService.getKey());
+        getNCServices().forEach((key, value) -> {
+            if (value.getRight() != NCConfig.NCSERVICE_PORT_DISABLED) {
+                ShutdownNCServiceWork shutdownWork = new ShutdownNCServiceWork(value.getLeft(), value.getRight(), key);
                 workQueue.schedule(shutdownWork);
                 shutdownNCServiceWorks.add(shutdownWork);
             }
@@ -404,8 +409,8 @@ public class ClusterControllerService implements IControllerService {
 
         @Override
         public void getIPAddressNodeMap(Map<InetAddress, Set<String>> map) throws HyracksDataException {
-            GetIpAddressNodeNameMapWork ginmw =
-                    new GetIpAddressNodeNameMapWork(ClusterControllerService.this.getNodeManager(), map);
+            GetIpAddressNodeNameMapWork ginmw = new GetIpAddressNodeNameMapWork(
+                    ClusterControllerService.this.getNodeManager(), map);
             try {
                 workQueue.scheduleAndSync(ginmw);
             } catch (Exception e) {

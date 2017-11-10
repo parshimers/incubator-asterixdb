@@ -26,6 +26,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.asterix.common.cluster.IClusterStateManager;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.common.config.DatasetConfig.ExternalFilePendingOp;
 import org.apache.asterix.common.config.DatasetConfig.IndexType;
@@ -56,11 +57,13 @@ import org.apache.asterix.external.provider.AdapterFactoryProvider;
 import org.apache.asterix.external.util.ExternalDataConstants;
 import org.apache.asterix.external.util.FeedConstants;
 import org.apache.asterix.formats.base.IDataFormat;
+import org.apache.asterix.om.functions.IFunctionExtensionManager;
 import org.apache.asterix.formats.nontagged.BinaryComparatorFactoryProvider;
 import org.apache.asterix.formats.nontagged.LinearizeComparatorFactoryProvider;
 import org.apache.asterix.formats.nontagged.TypeTraitProvider;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.metadata.MetadataTransactionContext;
+import org.apache.asterix.metadata.bootstrap.MetadataBuiltinEntities;
 import org.apache.asterix.metadata.dataset.hints.DatasetHints.DatasetCardinalityHint;
 import org.apache.asterix.metadata.entities.Dataset;
 import org.apache.asterix.metadata.entities.DatasourceAdapter;
@@ -76,6 +79,7 @@ import org.apache.asterix.metadata.utils.DatasetUtil;
 import org.apache.asterix.metadata.utils.MetadataConstants;
 import org.apache.asterix.metadata.utils.SplitsAndConstraintsUtil;
 import org.apache.asterix.om.functions.BuiltinFunctions;
+import org.apache.asterix.om.functions.IFunctionManager;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.IAType;
@@ -84,7 +88,6 @@ import org.apache.asterix.runtime.base.AsterixTupleFilterFactory;
 import org.apache.asterix.runtime.formats.FormatUtils;
 import org.apache.asterix.runtime.job.listener.JobEventListenerFactory;
 import org.apache.asterix.runtime.operators.LSMSecondaryUpsertOperatorDescriptor;
-import org.apache.asterix.runtime.utils.ClusterStateManager;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
@@ -142,6 +145,7 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
     private final ICcApplicationContext appCtx;
     private final IStorageComponentProvider storageComponentProvider;
     private final StorageProperties storageProperties;
+    private final IFunctionManager functionManager;
     private final Dataverse defaultDataverse;
     private final LockList locks;
     private final Map<String, String> config;
@@ -160,9 +164,10 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
 
     public MetadataProvider(ICcApplicationContext appCtx, Dataverse defaultDataverse) {
         this.appCtx = appCtx;
-        this.defaultDataverse = defaultDataverse;
+        this.defaultDataverse = defaultDataverse == null ? MetadataBuiltinEntities.DEFAULT_DATAVERSE : defaultDataverse;
         this.storageComponentProvider = appCtx.getStorageComponentProvider();
         storageProperties = appCtx.getStorageProperties();
+        functionManager = ((IFunctionExtensionManager) appCtx.getExtensionManager()).getFunctionManager();
         locks = new LockList();
         config = new HashMap<>();
     }
@@ -258,7 +263,11 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
         return isTemporaryDatasetWriteJob;
     }
 
-    public IDataFormat getFormat() {
+    public IFunctionManager getFunctionManager() {
+        return functionManager;
+    }
+
+    public IDataFormat getDataFormat() {
         return FormatUtils.getDefaultFormat();
     }
 
@@ -295,7 +304,7 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
     }
 
     public INodeDomain findNodeDomain(String nodeGroupName) throws AlgebricksException {
-        return MetadataManagerUtil.findNodeDomain(mdTxnCtx, nodeGroupName);
+        return MetadataManagerUtil.findNodeDomain(appCtx.getClusterStateManager(), mdTxnCtx, nodeGroupName);
     }
 
     public List<String> findNodes(String nodeGroupName) throws AlgebricksException {
@@ -329,11 +338,11 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
 
     @Override
     public DataSource findDataSource(DataSourceId id) throws AlgebricksException {
-        return MetadataManagerUtil.findDataSource(mdTxnCtx, id);
+        return MetadataManagerUtil.findDataSource(appCtx.getClusterStateManager(), mdTxnCtx, id);
     }
 
     public DataSource lookupSourceInMetadata(DataSourceId aqlId) throws AlgebricksException {
-        return MetadataManagerUtil.lookupSourceInMetadata(mdTxnCtx, aqlId);
+        return MetadataManagerUtil.lookupSourceInMetadata(appCtx.getClusterStateManager(), mdTxnCtx, aqlId);
     }
 
     @Override
@@ -433,8 +442,11 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
             if (primaryIndex != null && (dataset.getDatasetType() != DatasetType.EXTERNAL)) {
                 isSecondary = !indexName.equals(primaryIndex.getIndexName());
             }
-            Index theIndex = isSecondary ? MetadataManager.INSTANCE.getIndex(mdTxnCtx, dataset.getDataverseName(),
-                    dataset.getDatasetName(), indexName) : primaryIndex;
+            Index theIndex =
+                    isSecondary
+                            ? MetadataManager.INSTANCE.getIndex(mdTxnCtx, dataset.getDataverseName(),
+                                    dataset.getDatasetName(), indexName)
+                            : primaryIndex;
             int numPrimaryKeys = dataset.getPrimaryKeys().size();
             RecordDescriptor outputRecDesc = JobGenHelper.mkRecordDescriptor(typeEnv, opSchema, context);
             Pair<IFileSplitProvider, AlgebricksPartitionConstraint> spPc =
@@ -709,8 +721,9 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
         int numPartitions = 0;
         List<String> nodeGroup =
                 MetadataManager.INSTANCE.getNodegroup(mdTxnCtx, dataset.getNodeGroupName()).getNodeNames();
+        IClusterStateManager csm = appCtx.getClusterStateManager();
         for (String nd : nodeGroup) {
-            numPartitions += ClusterStateManager.INSTANCE.getNodePartitionsCount(nd);
+            numPartitions += csm.getNodePartitionsCount(nd);
         }
         return numElementsHint / numPartitions;
     }
@@ -755,7 +768,8 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
     }
 
     public Pair<IFileSplitProvider, AlgebricksPartitionConstraint> splitAndConstraints(String dataverse) {
-        return SplitsAndConstraintsUtil.getDataverseSplitProviderAndConstraints(dataverse);
+        return SplitsAndConstraintsUtil.getDataverseSplitProviderAndConstraints(appCtx.getClusterStateManager(),
+                dataverse);
     }
 
     public FileSplit[] splitsForIndex(MetadataTransactionContext mdTxnCtx, Dataset dataset, String indexName)
@@ -777,7 +791,7 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
     }
 
     public AlgebricksAbsolutePartitionConstraint getClusterLocations() {
-        return ClusterStateManager.INSTANCE.getClusterLocations();
+        return appCtx.getClusterStateManager().getClusterLocations();
     }
 
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildExternalDataLookupRuntime(
@@ -862,13 +876,14 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
     }
 
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildExternalDatasetDataScannerRuntime(
-            JobSpecification jobSpec, IAType itemType, IAdapterFactory adapterFactory, IDataFormat format)
+            JobSpecification jobSpec, IAType itemType, IAdapterFactory adapterFactory)
             throws AlgebricksException {
         if (itemType.getTypeTag() != ATypeTag.OBJECT) {
             throw new AlgebricksException("Can only scan datasets of records.");
         }
 
-        ISerializerDeserializer<?> payloadSerde = format.getSerdeProvider().getSerializerDeserializer(itemType);
+        ISerializerDeserializer<?> payloadSerde =
+                getDataFormat().getSerdeProvider().getSerializerDeserializer(itemType);
         RecordDescriptor scannerDesc = new RecordDescriptor(new ISerializerDeserializer[] { payloadSerde });
 
         ExternalScanOperatorDescriptor dataScanner =
@@ -1495,7 +1510,7 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
             // Generate Output Record format
             ISerializerDeserializer<?>[] tokenKeyPairFields = new ISerializerDeserializer[numTokenKeyPairFields];
             ITypeTraits[] tokenKeyPairTypeTraits = new ITypeTraits[numTokenKeyPairFields];
-            ISerializerDeserializerProvider serdeProvider = FormatUtils.getDefaultFormat().getSerdeProvider();
+            ISerializerDeserializerProvider serdeProvider = getDataFormat().getSerdeProvider();
 
             // The order of the output record: propagated variables (including
             // PK and SK), token, and number of token.

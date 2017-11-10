@@ -30,13 +30,13 @@ import org.apache.asterix.active.IRetryPolicyFactory;
 import org.apache.asterix.app.active.ActiveEntityEventsListener;
 import org.apache.asterix.common.api.IMetadataLockManager;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
+import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.metadata.LockList;
 import org.apache.asterix.external.feed.watch.WaitForStateSubscriber;
 import org.apache.asterix.metadata.declared.MetadataProvider;
 import org.apache.asterix.metadata.entities.Dataset;
 import org.apache.asterix.translator.IStatementExecutor;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
-import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.job.JobId;
@@ -105,8 +105,14 @@ public class TestEventsListener extends ActiveEntityEventsListener {
 
     @SuppressWarnings("deprecation")
     @Override
-    protected void doStart(MetadataProvider metadataProvider) throws HyracksDataException, AlgebricksException {
+    protected void doStart(MetadataProvider metadataProvider) throws HyracksDataException {
         step(onStart);
+        try {
+            metadataProvider.getApplicationContext().getMetadataLockManager()
+                    .acquireDatasetReadLock(metadataProvider.getLocks(), "Default.type");
+        } catch (AsterixException e) {
+            throw HyracksDataException.create(e);
+        }
         failCompile(onStart);
         JobId jobId = jobIdFactory.create();
         Action startJob = clusterController.startActiveJob(jobId, entityId);
@@ -129,7 +135,7 @@ public class TestEventsListener extends ActiveEntityEventsListener {
         try {
             subscriber.sync();
             if (subscriber.getFailure() != null) {
-                throw HyracksDataException.create(subscriber.getFailure());
+                throw subscriber.getFailure();
             }
         } catch (Exception e) {
             throw HyracksDataException.create(e);
@@ -177,8 +183,7 @@ public class TestEventsListener extends ActiveEntityEventsListener {
     }
 
     @Override
-    protected void setRunning(MetadataProvider metadataProvider, boolean running)
-            throws HyracksDataException, AlgebricksException {
+    protected void setRunning(MetadataProvider metadataProvider, boolean running) throws HyracksDataException {
         try {
             IMetadataLockManager lockManager = metadataProvider.getApplicationContext().getMetadataLockManager();
             LockList locks = metadataProvider.getLocks();
@@ -191,12 +196,12 @@ public class TestEventsListener extends ActiveEntityEventsListener {
     }
 
     @Override
-    protected Void doSuspend(MetadataProvider metadataProvider) throws HyracksDataException, AlgebricksException {
+    protected Void doSuspend(MetadataProvider metadataProvider) throws HyracksDataException {
         return doStop(metadataProvider);
     }
 
     @Override
-    protected void doResume(MetadataProvider metadataProvider) throws HyracksDataException, AlgebricksException {
+    protected void doResume(MetadataProvider metadataProvider) throws HyracksDataException {
         doStart(metadataProvider);
     }
 }

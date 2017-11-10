@@ -15,20 +15,20 @@ RecordConstructor [
   (
     LiteralExpr [STRING] [count_cheaps]
     :
-    FunctionCall tpch.count@1[
+    FunctionCall asterix.count@1[
       Variable [ Name=$cheap ]
     ]
   )
   (
     LiteralExpr [STRING] [count_expensives]
     :
-    FunctionCall tpch.count@1[
+    FunctionCall asterix.count@1[
       Variable [ Name=$expensive ]
     ]
   )
 ]
 ]
-FROM [  FunctionCall Metadata.dataset@1[
+FROM [  FunctionCall asterix.dataset@1[
     LiteralExpr [STRING] [LineItem]
   ]
   AS Variable [ Name=$l ]

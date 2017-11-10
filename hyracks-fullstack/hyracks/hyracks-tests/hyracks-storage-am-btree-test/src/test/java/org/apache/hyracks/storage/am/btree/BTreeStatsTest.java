@@ -44,6 +44,7 @@ import org.apache.hyracks.storage.am.btree.api.IBTreeLeafFrame;
 import org.apache.hyracks.storage.am.btree.frames.BTreeNSMInteriorFrameFactory;
 import org.apache.hyracks.storage.am.btree.frames.BTreeNSMLeafFrameFactory;
 import org.apache.hyracks.storage.am.btree.impls.BTree;
+import org.apache.hyracks.storage.am.btree.tuples.BTreeTypeAwareTupleWriterFactory;
 import org.apache.hyracks.storage.am.btree.util.AbstractBTreeTest;
 import org.apache.hyracks.storage.am.common.TestOperationCallback;
 import org.apache.hyracks.storage.am.common.api.IMetadataPageManager;
@@ -53,7 +54,7 @@ import org.apache.hyracks.storage.am.common.api.ITreeIndexMetadataFrame;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexMetadataFrameFactory;
 import org.apache.hyracks.storage.am.common.frames.LIFOMetaDataFrameFactory;
 import org.apache.hyracks.storage.am.common.freepage.LinkedMetaDataPageManager;
-import org.apache.hyracks.storage.am.common.tuples.TypeAwareTupleWriterFactory;
+import org.apache.hyracks.storage.am.common.impls.IndexAccessParameters;
 import org.apache.hyracks.storage.am.common.util.TreeIndexBufferCacheWarmup;
 import org.apache.hyracks.storage.am.common.util.TreeIndexStats;
 import org.apache.hyracks.storage.am.common.util.TreeIndexStatsGatherer;
@@ -88,7 +89,7 @@ public class BTreeStatsTest extends AbstractBTreeTest {
         IBinaryComparatorFactory[] cmpFactories = new IBinaryComparatorFactory[keyFieldCount];
         cmpFactories[0] = PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY);
 
-        TypeAwareTupleWriterFactory tupleWriterFactory = new TypeAwareTupleWriterFactory(typeTraits);
+        BTreeTypeAwareTupleWriterFactory tupleWriterFactory = new BTreeTypeAwareTupleWriterFactory(typeTraits, false);
         ITreeIndexFrameFactory leafFrameFactory = new BTreeNSMLeafFrameFactory(tupleWriterFactory);
         ITreeIndexFrameFactory interiorFrameFactory = new BTreeNSMInteriorFrameFactory(tupleWriterFactory);
         ITreeIndexMetadataFrameFactory metaFrameFactory = new LIFOMetaDataFrameFactory();
@@ -125,8 +126,9 @@ public class BTreeStatsTest extends AbstractBTreeTest {
         accessor.reset(frame.getBuffer());
         FrameTupleReference tuple = new FrameTupleReference();
 
-        ITreeIndexAccessor indexAccessor =
-                btree.createAccessor(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
+        IndexAccessParameters actx =
+                new IndexAccessParameters(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
+        ITreeIndexAccessor indexAccessor = btree.createAccessor(actx);
         // 10000
         for (int i = 0; i < 100000; i++) {
 

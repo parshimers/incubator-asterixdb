@@ -30,17 +30,22 @@ import org.apache.hyracks.storage.am.bloomfilter.impls.BloomFilterFactory;
 import org.apache.hyracks.storage.am.btree.frames.BTreeNSMInteriorFrameFactory;
 import org.apache.hyracks.storage.am.btree.frames.BTreeNSMLeafFrameFactory;
 import org.apache.hyracks.storage.am.btree.impls.BTree;
+import org.apache.hyracks.storage.am.btree.tuples.BTreeTypeAwareTupleWriterFactory;
 import org.apache.hyracks.storage.am.common.api.IMetadataPageManagerFactory;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import org.apache.hyracks.storage.am.common.tuples.TypeAwareTupleWriterFactory;
 import org.apache.hyracks.storage.am.lsm.btree.impls.ExternalBTree;
 import org.apache.hyracks.storage.am.lsm.btree.impls.ExternalBTreeWithBuddy;
 import org.apache.hyracks.storage.am.lsm.btree.impls.LSMBTree;
+import org.apache.hyracks.storage.am.lsm.btree.impls.LSMBTreeDiskComponentFactory;
 import org.apache.hyracks.storage.am.lsm.btree.impls.LSMBTreeFileManager;
+import org.apache.hyracks.storage.am.lsm.btree.impls.LSMBTreeWithBloomFilterDiskComponentFactory;
+import org.apache.hyracks.storage.am.lsm.btree.impls.LSMBTreeWithBuddyDiskComponentFactory;
 import org.apache.hyracks.storage.am.lsm.btree.impls.LSMBTreeWithBuddyFileManager;
 import org.apache.hyracks.storage.am.lsm.btree.tuples.LSMBTreeCopyTupleWriterFactory;
 import org.apache.hyracks.storage.am.lsm.btree.tuples.LSMBTreeTupleWriterFactory;
-import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperationCallback;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponentFactory;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperationCallbackFactory;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperationScheduler;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexFileManager;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicy;
@@ -52,6 +57,7 @@ import org.apache.hyracks.storage.am.lsm.common.impls.ComponentFilterHelper;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentFilterManager;
 import org.apache.hyracks.storage.am.lsm.common.impls.TreeIndexFactory;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
+import org.apache.hyracks.util.trace.ITracer;
 
 public class LSMBTreeUtil {
 
@@ -62,17 +68,18 @@ public class LSMBTreeUtil {
             FileReference file, IBufferCache diskBufferCache, ITypeTraits[] typeTraits,
             IBinaryComparatorFactory[] cmpFactories, int[] bloomFilterKeyFields, double bloomFilterFalsePositiveRate,
             ILSMMergePolicy mergePolicy, ILSMOperationTracker opTracker, ILSMIOOperationScheduler ioScheduler,
-            ILSMIOOperationCallback ioOpCallback, boolean needKeyDupCheck, ITypeTraits[] filterTypeTraits,
+            ILSMIOOperationCallbackFactory ioOpCallbackFactory, boolean needKeyDupCheck, ITypeTraits[] filterTypeTraits,
             IBinaryComparatorFactory[] filterCmpFactories, int[] btreeFields, int[] filterFields, boolean durable,
-            IMetadataPageManagerFactory freePageManagerFactory) throws HyracksDataException {
+            IMetadataPageManagerFactory freePageManagerFactory, boolean updateAware, ITracer tracer)
+            throws HyracksDataException {
         LSMBTreeTupleWriterFactory insertTupleWriterFactory =
-                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, false);
+                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, false, updateAware);
         LSMBTreeTupleWriterFactory deleteTupleWriterFactory =
-                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, true);
+                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, true, updateAware);
         LSMBTreeCopyTupleWriterFactory copyTupleWriterFactory =
-                new LSMBTreeCopyTupleWriterFactory(typeTraits, cmpFactories.length);
+                new LSMBTreeCopyTupleWriterFactory(typeTraits, cmpFactories.length, updateAware);
         LSMBTreeTupleWriterFactory bulkLoadTupleWriterFactory =
-                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, false);
+                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, false, updateAware);
 
         ITreeIndexFrameFactory insertLeafFrameFactory = new BTreeNSMLeafFrameFactory(insertTupleWriterFactory);
         ITreeIndexFrameFactory copyTupleLeafFrameFactory = new BTreeNSMLeafFrameFactory(copyTupleWriterFactory);
@@ -85,9 +92,6 @@ public class LSMBTreeUtil {
         TreeIndexFactory<BTree> bulkLoadBTreeFactory =
                 new BTreeFactory(ioManager, diskBufferCache, freePageManagerFactory, interiorFrameFactory,
                         bulkLoadLeafFrameFactory, cmpFactories, typeTraits.length);
-
-        BloomFilterFactory bloomFilterFactory =
-                needKeyDupCheck ? new BloomFilterFactory(diskBufferCache, bloomFilterKeyFields) : null;
 
         ComponentFilterHelper filterHelper = null;
         LSMComponentFilterFrameFactory filterFrameFactory = null;
@@ -103,31 +107,45 @@ public class LSMBTreeUtil {
         ILSMIndexFileManager fileNameManager =
                 new LSMBTreeFileManager(ioManager, file, diskBTreeFactory, needKeyDupCheck);
 
+        ILSMDiskComponentFactory componentFactory;
+        ILSMDiskComponentFactory bulkLoadComponentFactory;
+        if (needKeyDupCheck) {
+            BloomFilterFactory bloomFilterFactory = new BloomFilterFactory(diskBufferCache, bloomFilterKeyFields);
+            componentFactory =
+                    new LSMBTreeWithBloomFilterDiskComponentFactory(diskBTreeFactory, bloomFilterFactory, filterHelper);
+            bulkLoadComponentFactory = new LSMBTreeWithBloomFilterDiskComponentFactory(bulkLoadBTreeFactory,
+                    bloomFilterFactory, filterHelper);
+        } else {
+            componentFactory = new LSMBTreeDiskComponentFactory(diskBTreeFactory, filterHelper);
+            bulkLoadComponentFactory = new LSMBTreeDiskComponentFactory(bulkLoadBTreeFactory, filterHelper);
+        }
+
         return new LSMBTree(ioManager, virtualBufferCaches, interiorFrameFactory, insertLeafFrameFactory,
-                deleteLeafFrameFactory, fileNameManager, diskBTreeFactory, bulkLoadBTreeFactory, bloomFilterFactory,
+                deleteLeafFrameFactory, diskBufferCache, fileNameManager, componentFactory, bulkLoadComponentFactory,
                 filterHelper, filterFrameFactory, filterManager, bloomFilterFalsePositiveRate, typeTraits.length,
-                cmpFactories, mergePolicy, opTracker, ioScheduler, ioOpCallback, needKeyDupCheck, btreeFields,
-                filterFields, durable);
+                cmpFactories, mergePolicy, opTracker, ioScheduler, ioOpCallbackFactory, needKeyDupCheck, btreeFields,
+                filterFields, durable, updateAware, tracer);
     }
 
     public static ExternalBTree createExternalBTree(IIOManager ioManager, FileReference file,
             IBufferCache diskBufferCache, ITypeTraits[] typeTraits, IBinaryComparatorFactory[] cmpFactories,
             int[] bloomFilterKeyFields, double bloomFilterFalsePositiveRate, ILSMMergePolicy mergePolicy,
-            ILSMOperationTracker opTracker, ILSMIOOperationScheduler ioScheduler, ILSMIOOperationCallback ioOpCallback,
-            boolean durable, IMetadataPageManagerFactory freePageManagerFactory) {
+            ILSMOperationTracker opTracker, ILSMIOOperationScheduler ioScheduler,
+            ILSMIOOperationCallbackFactory ioOpCallbackFactory, boolean durable,
+            IMetadataPageManagerFactory freePageManagerFactory) {
         LSMBTreeTupleWriterFactory insertTupleWriterFactory =
-                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, false);
+                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, false, false);
         LSMBTreeTupleWriterFactory deleteTupleWriterFactory =
-                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, true);
+                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, true, false);
         LSMBTreeCopyTupleWriterFactory copyTupleWriterFactory =
-                new LSMBTreeCopyTupleWriterFactory(typeTraits, cmpFactories.length);
+                new LSMBTreeCopyTupleWriterFactory(typeTraits, cmpFactories.length, false);
         ITreeIndexFrameFactory insertLeafFrameFactory = new BTreeNSMLeafFrameFactory(insertTupleWriterFactory);
         ITreeIndexFrameFactory copyTupleLeafFrameFactory = new BTreeNSMLeafFrameFactory(copyTupleWriterFactory);
         ITreeIndexFrameFactory deleteLeafFrameFactory = new BTreeNSMLeafFrameFactory(deleteTupleWriterFactory);
         ITreeIndexFrameFactory interiorFrameFactory = new BTreeNSMInteriorFrameFactory(insertTupleWriterFactory);
         // This is the tuple writer that can do both inserts and deletes
         LSMBTreeTupleWriterFactory transactionTupleWriterFactory =
-                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, false);
+                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, false, false);
         // This is the leaf frame factory for transaction components since it
         // can be used for both inserts and deletes
         ITreeIndexFrameFactory transactionLeafFrameFactory =
@@ -146,34 +164,42 @@ public class LSMBTreeUtil {
                         transactionLeafFrameFactory, cmpFactories, typeTraits.length);
         //TODO remove BloomFilter from external dataset's secondary LSMBTree index
         ILSMIndexFileManager fileNameManager = new LSMBTreeFileManager(ioManager, file, diskBTreeFactory, true);
+
+        ILSMDiskComponentFactory componentFactory =
+                new LSMBTreeWithBloomFilterDiskComponentFactory(diskBTreeFactory, bloomFilterFactory, null);
+        ILSMDiskComponentFactory bulkLoadComponentFactory =
+                new LSMBTreeWithBloomFilterDiskComponentFactory(bulkLoadBTreeFactory, bloomFilterFactory, null);
+        ILSMDiskComponentFactory transactionComponentFactory =
+                new LSMBTreeWithBloomFilterDiskComponentFactory(transactionBTreeFactory, bloomFilterFactory, null);
+
         // the disk only index uses an empty ArrayList for virtual buffer caches
         return new ExternalBTree(ioManager, interiorFrameFactory, insertLeafFrameFactory, deleteLeafFrameFactory,
-                fileNameManager, diskBTreeFactory, bulkLoadBTreeFactory, bloomFilterFactory,
-                bloomFilterFalsePositiveRate, cmpFactories, mergePolicy, opTracker, ioScheduler, ioOpCallback,
-                transactionBTreeFactory, durable);
+                diskBufferCache, fileNameManager, componentFactory, bulkLoadComponentFactory,
+                transactionComponentFactory, bloomFilterFalsePositiveRate, cmpFactories, mergePolicy, opTracker,
+                ioScheduler, ioOpCallbackFactory, durable);
     }
 
     public static ExternalBTreeWithBuddy createExternalBTreeWithBuddy(IIOManager ioManager, FileReference file,
             IBufferCache diskBufferCache, ITypeTraits[] typeTraits, IBinaryComparatorFactory[] cmpFactories,
             double bloomFilterFalsePositiveRate, ILSMMergePolicy mergePolicy, ILSMOperationTracker opTracker,
-            ILSMIOOperationScheduler ioScheduler, ILSMIOOperationCallback ioOpCallback, int[] buddyBTreeFields,
-            boolean durable, IMetadataPageManagerFactory freePageManagerFactory) {
+            ILSMIOOperationScheduler ioScheduler, ILSMIOOperationCallbackFactory ioOpCallbackFactory,
+            int[] buddyBTreeFields, boolean durable, IMetadataPageManagerFactory freePageManagerFactory) {
         ITypeTraits[] buddyBtreeTypeTraits = new ITypeTraits[buddyBTreeFields.length];
         IBinaryComparatorFactory[] buddyBtreeCmpFactories = new IBinaryComparatorFactory[buddyBTreeFields.length];
         for (int i = 0; i < buddyBtreeTypeTraits.length; i++) {
             buddyBtreeTypeTraits[i] = typeTraits[buddyBTreeFields[i]];
             buddyBtreeCmpFactories[i] = cmpFactories[buddyBTreeFields[i]];
         }
-        TypeAwareTupleWriterFactory buddyBtreeTupleWriterFactory =
-                new TypeAwareTupleWriterFactory(buddyBtreeTypeTraits);
+        BTreeTypeAwareTupleWriterFactory buddyBtreeTupleWriterFactory =
+                new BTreeTypeAwareTupleWriterFactory(buddyBtreeTypeTraits, false);
         ITreeIndexFrameFactory buddyBtreeInteriorFrameFactory =
                 new BTreeNSMInteriorFrameFactory(buddyBtreeTupleWriterFactory);
         ITreeIndexFrameFactory buddyBtreeLeafFrameFactory = new BTreeNSMLeafFrameFactory(buddyBtreeTupleWriterFactory);
 
         LSMBTreeTupleWriterFactory insertTupleWriterFactory =
-                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, false);
+                new LSMBTreeTupleWriterFactory(typeTraits, cmpFactories.length, false, false);
         LSMBTreeCopyTupleWriterFactory copyTupleWriterFactory =
-                new LSMBTreeCopyTupleWriterFactory(typeTraits, cmpFactories.length);
+                new LSMBTreeCopyTupleWriterFactory(typeTraits, cmpFactories.length, false);
         ITreeIndexFrameFactory insertLeafFrameFactory = new BTreeNSMLeafFrameFactory(insertTupleWriterFactory);
         ITreeIndexFrameFactory copyTupleLeafFrameFactory = new BTreeNSMLeafFrameFactory(copyTupleWriterFactory);
         ITreeIndexFrameFactory interiorFrameFactory = new BTreeNSMInteriorFrameFactory(insertTupleWriterFactory);
@@ -197,12 +223,15 @@ public class LSMBTreeUtil {
         ILSMIndexFileManager fileNameManager =
                 new LSMBTreeWithBuddyFileManager(ioManager, file, diskBTreeFactory, diskBuddyBTreeFactory);
 
+        ILSMDiskComponentFactory componentFactory = new LSMBTreeWithBuddyDiskComponentFactory(diskBTreeFactory,
+                diskBuddyBTreeFactory, bloomFilterFactory, null);
+        ILSMDiskComponentFactory bulkLoadComponentFactory = new LSMBTreeWithBuddyDiskComponentFactory(
+                bulkLoadBTreeFactory, diskBuddyBTreeFactory, bloomFilterFactory, null);
+
         // the disk only index uses an empty ArrayList for virtual buffer caches
-        ExternalBTreeWithBuddy lsmTree = new ExternalBTreeWithBuddy(ioManager, interiorFrameFactory,
-                insertLeafFrameFactory, buddyBtreeLeafFrameFactory, diskBufferCache, fileNameManager,
-                bulkLoadBTreeFactory, diskBTreeFactory, diskBuddyBTreeFactory, bloomFilterFactory,
-                bloomFilterFalsePositiveRate, mergePolicy, opTracker, ioScheduler, ioOpCallback, cmpFactories,
-                buddyBtreeCmpFactories, buddyBTreeFields, durable);
-        return lsmTree;
+        return new ExternalBTreeWithBuddy(ioManager, interiorFrameFactory, insertLeafFrameFactory,
+                buddyBtreeLeafFrameFactory, diskBufferCache, fileNameManager, componentFactory,
+                bulkLoadComponentFactory, bloomFilterFalsePositiveRate, mergePolicy, opTracker, ioScheduler,
+                ioOpCallbackFactory, cmpFactories, buddyBtreeCmpFactories, buddyBTreeFields, durable);
     }
 }
