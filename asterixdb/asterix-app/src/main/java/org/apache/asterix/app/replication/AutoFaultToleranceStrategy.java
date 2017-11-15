@@ -497,7 +497,7 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
             startupQueue.put(nodeId,state);
             for(Map.Entry<String,SystemState> nodeState: startupQueue.entrySet()){
                 List<INCLifecycleTask> tasks = buildStartupSequence(nodeState.getKey());
-                StartupTaskResponseMessage response = new StartupTaskResponseMessage(nodeState.getKey(), tasks);
+                RegistrationTasksResponseMessage response = new RegistrationTasksResponseMessage(nodeState.getKey(), tasks);
                 try {
                     messageBroker.sendApplicationMessageToNC(response, nodeState.getKey());
                 } catch (Exception e) {
@@ -508,7 +508,7 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
         }
         else if(failedNodes.size() > 0){
             List<INCLifecycleTask>  tasks = buildFailbackStartupSequence();
-            StartupTaskResponseMessage response = new StartupTaskResponseMessage(nodeId,tasks);
+            RegistrationTasksResponseMessage response = new RegistrationTasksResponseMessage(nodeId,tasks);
             try{
                 messageBroker.sendApplicationMessageToNC(response,msg.getNodeId());
             } catch (Exception e){

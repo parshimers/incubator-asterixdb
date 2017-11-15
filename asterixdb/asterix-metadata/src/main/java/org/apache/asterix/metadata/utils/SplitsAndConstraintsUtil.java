@@ -24,11 +24,7 @@ import java.util.List;
 
 import org.apache.asterix.common.cluster.ClusterPartition;
 import org.apache.asterix.common.cluster.IClusterStateManager;
-<<<<<<< HEAD
 import org.apache.asterix.common.exceptions.MetadataException;
-=======
-import org.apache.asterix.common.config.ClusterProperties;
->>>>>>> master
 import org.apache.asterix.common.utils.StoragePathUtil;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.metadata.MetadataTransactionContext;
@@ -72,8 +68,6 @@ public class SplitsAndConstraintsUtil {
         } catch (MetadataException me) {
             throw new AlgebricksException("Couldn't find node group " + dataset.getNodeGroupName());
         }
-        List<String> nodeList = nodeGroup.getNodeNames();
-        return getIndexSplits(clusterStateManager, dataset, indexName, nodeList);
     }
 
     public static FileSplit[] getIndexSplits(IClusterStateManager clusterStateManager, Dataset dataset, String indexName, String storagePathPrefix, List<String> nodes) {

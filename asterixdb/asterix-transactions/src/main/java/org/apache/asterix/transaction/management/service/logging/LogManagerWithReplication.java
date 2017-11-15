@@ -34,7 +34,7 @@ import org.apache.asterix.common.transactions.LogType;
 public class LogManagerWithReplication extends LogManager {
 
     private IReplicationManager replicationManager;
-    private final IReplicationStrategy replicationStrategy;
+    private IReplicationStrategy replicationStrategy;
     private final Set<Long> replicatedTxn = ConcurrentHashMap.newKeySet();
 
     public LogManagerWithReplication(ITransactionSubsystem txnSubsystem) {
