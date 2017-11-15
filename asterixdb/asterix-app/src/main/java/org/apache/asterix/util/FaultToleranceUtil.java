@@ -51,6 +51,7 @@ public class FaultToleranceUtil {
         String nodeIdAddress = StringUtils.EMPTY;
         int nodePort = -1;
         Map<String, Map<IOption, Object>> activeNcConfiguration = clusterManager.getActiveNcConfiguration();
+
         // In case the node joined with a new IP address, we need to send it to the other replicas
         if (event == ClusterEventType.NODE_JOIN) {
             nodeIdAddress = (String)activeNcConfiguration.get(nodeId).get(NCConfig.Option.REPLICATION_LISTEN_ADDRESS);
@@ -59,7 +60,7 @@ public class FaultToleranceUtil {
         ReplicaEventMessage msg = new ReplicaEventMessage(nodeId, nodeIdAddress, nodePort, event);
         for (String replica : primaryRemoteReplicas) {
             // If the remote replica is alive, send the event
-            if (participantNodes.contains(replica)) {
+            if (activeNcConfiguration.keySet().contains(replica)) {
                 try {
                     messageBroker.sendApplicationMessageToNC(msg, replica);
                 } catch (Exception e) {

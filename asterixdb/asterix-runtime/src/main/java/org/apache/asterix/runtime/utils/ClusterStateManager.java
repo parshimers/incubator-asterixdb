@@ -38,15 +38,8 @@ import org.apache.asterix.common.cluster.IClusterStateManager;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.replication.IFaultToleranceStrategy;
-import org.apache.asterix.common.config.ClusterProperties;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
-import org.apache.asterix.common.exceptions.AsterixException;
-import org.apache.asterix.common.exceptions.ErrorCode;
-import org.apache.asterix.common.replication.IFaultToleranceStrategy;
 import org.apache.asterix.common.transactions.IResourceIdManager;
-import org.apache.asterix.event.schema.cluster.Cluster;
-import org.apache.asterix.event.schema.cluster.Node;
->>>>>>> master
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import org.apache.hyracks.api.config.IOption;
 import org.apache.hyracks.api.config.Section;
@@ -84,10 +77,6 @@ public class ClusterStateManager implements IClusterStateManager {
     private Set<String> participantNodes = new HashSet<>();
     private IFaultToleranceStrategy ftStrategy;
     private ICcApplicationContext appCtx;
-
-    public ClusterStateManager() {
-        cluster = ClusterProperties.INSTANCE.getCluster();
-    }
 
     @Override
     public void setCcAppCtx(ICcApplicationContext appCtx) {
@@ -449,6 +438,11 @@ public class ClusterStateManager implements IClusterStateManager {
         }
     }
 
+    @Override
+    public Map<String, Map<IOption, Object>> getActiveNcConfiguration() {
+        return ncConfigMap;
+    }
+
     public synchronized Set<String> getNodesPendingRemoval() {
         return new HashSet<>(pendingRemoval);
     }
@@ -466,4 +460,5 @@ public class ClusterStateManager implements IClusterStateManager {
     public String getStoragePathPrefix() {
         return appCtx.getNodeProperties().getStorageSubdir();
     }
+
 }

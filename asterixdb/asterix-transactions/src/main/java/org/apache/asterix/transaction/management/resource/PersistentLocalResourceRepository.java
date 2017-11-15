@@ -115,6 +115,7 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         //initially the node active partitions are the same as the original partitions
         nodeOriginalPartitions = new HashSet<>(nodePartitions.length);
         nodeActivePartitions = new HashSet<>(nodePartitions.length);
+        nodeInactivePartitions = new HashSet<>(nodePartitions.length);
         for (ClusterPartition partition : nodePartitions) {
             nodeOriginalPartitions.add(partition.getPartitionId());
             nodeActivePartitions.add(partition.getPartitionId());
@@ -430,7 +431,6 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
     }
 
     /**
-     * @param mountPoint
      * @param nodeId
      * @param ioDeviceId
      * @return A file reference to the storage metadata file.
@@ -442,7 +442,6 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
     }
 
     /**
-     * @param mountPoint
      * @param nodeId
      * @param ioDeviceId
      * @return A file reference to the storage root directory if exists, otherwise null.

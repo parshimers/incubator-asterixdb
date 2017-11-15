@@ -59,6 +59,11 @@ import org.apache.asterix.app.external.ExternalLibraryUtils;
 import org.apache.asterix.app.replication.FaultToleranceStrategyFactory;
 import org.apache.asterix.common.api.AsterixThreadFactory;
 import org.apache.asterix.common.api.IClusterManagementWork;
+import org.apache.asterix.common.config.AsterixExtension;
+import org.apache.asterix.common.config.ExternalProperties;
+import org.apache.asterix.common.config.MetadataProperties;
+import org.apache.asterix.common.config.PropertiesAccessor;
+import org.apache.asterix.common.config.ReplicationProperties;
 import org.apache.asterix.common.context.IStorageComponentProvider;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.common.library.ILibraryManager;
@@ -74,6 +79,7 @@ import org.apache.asterix.metadata.api.IAsterixStateProxy;
 import org.apache.asterix.metadata.bootstrap.AsterixStateProxy;
 import org.apache.asterix.metadata.lock.MetadataLockManager;
 import org.apache.asterix.runtime.job.resource.JobCapacityController;
+import org.apache.asterix.runtime.transaction.ResourceIdManager;
 import org.apache.asterix.runtime.utils.CcApplicationContext;
 import org.apache.asterix.translator.IStatementExecutorContext;
 import org.apache.asterix.translator.IStatementExecutorFactory;
@@ -130,7 +136,6 @@ public class CCApplication extends BaseCCApplication {
         int port = ccServiceCtx.getCCContext().getClusterControllerInfo().getClientNetPort();
         hcc = new HyracksConnection(strIP, port);
         ILibraryManager libraryManager = new ExternalLibraryManager();
-        ResourceIdManager resourceIdManager = new ResourceIdManager();
         ReplicationProperties repProp = new ReplicationProperties(PropertiesAccessor.getInstance(ccServiceCtx.getAppConfig()));
         IReplicationStrategy repStrategy = ReplicationStrategyFactory.create(repProp.getReplicationStrategy(),repProp,getConfigManager());
         IFaultToleranceStrategy ftStrategy = FaultToleranceStrategyFactory
@@ -333,8 +338,7 @@ public class CCApplication extends BaseCCApplication {
     @Override
     public void startupCompleted() throws Exception {
         ccServiceCtx.getControllerService().getExecutor().submit(() -> {
-            appCtx.getClusterStateManager().waitForState(ClusterState.ACTIVE);
-            ClusterManagerProvider.getClusterManager().notifyStartupCompleted();
+            appCtx.getClusterStateManager().waitForState(IClusterManagementWork.ClusterState.ACTIVE);
             return null;
         });
     }

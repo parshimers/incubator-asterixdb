@@ -129,7 +129,7 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
         replicationThreads = Executors.newCachedThreadPool(ncServiceContext.getThreadFactory());
         Map<String, ClusterPartition[]> nodePartitions =
                 asterixAppRuntimeContextProvider.getAppContext().getMetadataProperties().getNodePartitions();
-        Set<String> nodeReplicationClients = replicationStrategy.getRemoteReplicas(nodeId).stream().map(Replica::getId).collect(Collectors.toSet());
+        Set<String> nodeReplicationClients = replicationStrategy.getRemotePrimaryReplicas(nodeId).stream().map(Replica::getId).collect(Collectors.toSet());
         List<Integer> clientsPartitions = new ArrayList<>();
         for (String clientId : nodeReplicationClients) {
             for (ClusterPartition clusterPartition : nodePartitions.get(clientId)) {

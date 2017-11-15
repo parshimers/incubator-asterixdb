@@ -26,6 +26,7 @@ import java.util.Map;
 
 import org.apache.asterix.common.api.IClusterManagementWork;
 import org.apache.asterix.common.cluster.ClusterPartition;
+import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.utils.StoragePathUtil;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
@@ -86,7 +87,7 @@ public class FeedUtils {
     }
 
     public static FileSplit[] splitsForAdapter(ICcApplicationContext appCtx, String dataverseName, String feedName,
-            AlgebricksPartitionConstraint partitionConstraints) throws AsterixException {
+                                               AlgebricksPartitionConstraint partitionConstraints) throws AsterixException {
         if (partitionConstraints.getPartitionConstraintType() == PartitionConstraintType.COUNT) {
             throw new AsterixException("Can't create file splits for adapter with count partitioning constraints");
         }

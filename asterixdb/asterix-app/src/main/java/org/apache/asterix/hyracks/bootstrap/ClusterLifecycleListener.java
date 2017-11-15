@@ -31,6 +31,7 @@ import java.util.logging.Logger;
 import org.apache.asterix.common.api.IClusterManagementWork;
 import org.apache.asterix.common.api.IClusterManagementWorkResponse;
 import org.apache.asterix.common.api.IClusterManagementWorkResponse.Status;
+import org.apache.asterix.common.cluster.IClusterStateManager;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.metadata.cluster.AddNodeWork;
 import org.apache.asterix.metadata.cluster.AddNodeWorkResponse;

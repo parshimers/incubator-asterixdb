@@ -2,52 +2,40 @@
   "metadata_node" : "asterix_nc1",
   "partitions" : {
     "0" : {
-      "partitionId" : 0,
-      "nodeId" : "asterix_nc1",
-      "storageSubDir" : "test_storage",
-      "activeNodeId" : "asterix_nc1",
       "active" : true,
       "activeNodeId" : "asterix_nc1",
       "iodeviceNum" : 0,
       "nodeId" : "asterix_nc1",
       "partitionId" : 0,
-      "pendingActivation" : false
+      "pendingActivation" : false,
+      "storageSubDir" : "test_storage"
     },
     "1" : {
-      "partitionId" : 1,
-      "nodeId" : "asterix_nc1",
-      "storageSubDir" : "test_storage",
-      "activeNodeId" : "asterix_nc1",
       "active" : true,
       "activeNodeId" : "asterix_nc1",
       "iodeviceNum" : 1,
       "nodeId" : "asterix_nc1",
       "partitionId" : 1,
-      "pendingActivation" : false
+      "pendingActivation" : false,
+      "storageSubDir" : "test_storage"
     },
     "2" : {
-      "partitionId" : 2,
-      "nodeId" : "asterix_nc2",
-      "storageSubDir" : "test_storage",
-      "activeNodeId" : "asterix_nc2",
       "active" : true,
       "activeNodeId" : "asterix_nc2",
       "iodeviceNum" : 0,
       "nodeId" : "asterix_nc2",
       "partitionId" : 2,
-      "pendingActivation" : false
+      "pendingActivation" : false,
+      "storageSubDir" : "test_storage"
     },
     "3" : {
-      "partitionId" : 3,
-      "nodeId" : "asterix_nc2",
-      "storageSubDir" : "test_storage",
-      "activeNodeId" : "asterix_nc2",
       "active" : true,
       "activeNodeId" : "asterix_nc2",
       "iodeviceNum" : 1,
       "nodeId" : "asterix_nc2",
       "partitionId" : 3,
-      "pendingActivation" : false
+      "pendingActivation" : false,
+      "storageSubDir" : "test_storage"
     }
   },
   "state" : "ACTIVE"

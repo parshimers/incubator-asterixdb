@@ -182,7 +182,7 @@ public class ReplicationManager implements IReplicationManager {
         for (Replica replica : replicaNodes) {
             replicas.put(replica.getId(), replica);
             //for each remote replica, get the list of replication clients
-            Set<Replica> nodeReplicationClients = replicationStrategy.getRemoteReplicas(replica.getId());
+            Set<Replica> nodeReplicationClients = replicationStrategy.getRemotePrimaryReplicas(replica.getId());
             //get the partitions of each client
             List<Integer> clientPartitions = new ArrayList<>();
             for (Replica client: nodeReplicationClients) {

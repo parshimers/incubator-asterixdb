@@ -372,7 +372,7 @@ public class TestNodeController {
             CcApplicationContext appCtx =
                     (CcApplicationContext) ExecutionTestUtil.integrationUtil.cc.getApplicationContext();
             FileSplit[] splits = SplitsAndConstraintsUtil.getIndexSplits(appCtx.getClusterStateManager(), dataset,
-                    index.getIndexName(), nodes);
+                    index.getIndexName(), appCtx.getNodeProperties().getStorageSubdir(), nodes);
             fileSplitProvider = new ConstantFileSplitProvider(Arrays.copyOfRange(splits, 0, 1));
         }
 

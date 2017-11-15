@@ -495,7 +495,7 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
         //last node needed to start
         if(startupQueue.keySet().size() == nodeIds.size() -1){
             startupQueue.put(nodeId,state);
-            for(Entry<String,SystemState> nodeState: startupQueue.entrySet()){
+            for(Map.Entry<String,SystemState> nodeState: startupQueue.entrySet()){
                 List<INCLifecycleTask> tasks = buildStartupSequence(nodeState.getKey());
                 StartupTaskResponseMessage response = new StartupTaskResponseMessage(nodeState.getKey(), tasks);
                 try {

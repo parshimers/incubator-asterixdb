@@ -37,10 +37,12 @@ import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.hyracks.bootstrap.CCApplication;
 import org.apache.asterix.hyracks.bootstrap.NCApplication;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hyracks.api.application.ICCApplication;
 import org.apache.hyracks.api.application.INCApplication;
 import org.apache.hyracks.api.client.HyracksConnection;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
+import org.apache.hyracks.api.config.IOption;
 import org.apache.hyracks.control.cc.ClusterControllerService;
 import org.apache.hyracks.control.common.config.ConfigManager;
 import org.apache.hyracks.control.common.controllers.CCConfig;
@@ -69,6 +71,8 @@ public class AsterixHyracksIntegrationUtil {
     private static String storagePath = DEFAULT_STORAGE_PATH;
     private ConfigManager configManager;
     private List<String> nodeNames;
+    List<Pair<IOption,Object>> opts = new ArrayList<>();
+
 
     public void init(boolean deleteOldInstanceData) throws Exception {
         final ICCApplication ccApplication = createCCApplication();
@@ -93,6 +97,7 @@ public class AsterixHyracksIntegrationUtil {
                     new NodeControllerService(fixupIODevices(createNCConfig(nodeId, ncConfigManager)), ncApplication));
         } ;
 
+        opts.stream().forEach(opt ->configManager.set(opt.getLeft(),opt.getRight()));
         cc.start();
 
         // Starts ncs.
@@ -303,4 +308,9 @@ public class AsterixHyracksIntegrationUtil {
             // ungraceful shutdown
         }
     }
+
+    public void addOption(IOption name, Object value){
+        opts.add(Pair.of(name,value));
+    }
+
 }
