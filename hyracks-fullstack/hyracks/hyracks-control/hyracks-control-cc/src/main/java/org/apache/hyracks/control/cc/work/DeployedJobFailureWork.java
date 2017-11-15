@@ -20,20 +20,20 @@ package org.apache.hyracks.control.cc.work;
 
 import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksException;
-import org.apache.hyracks.api.job.JobId;
+import org.apache.hyracks.api.job.DeployedJobSpecId;
 import org.apache.hyracks.control.common.work.SynchronizableWork;
 
-public class DistributedJobFailureWork extends SynchronizableWork {
-    protected final JobId jobId;
+public class DeployedJobFailureWork extends SynchronizableWork {
+    protected final DeployedJobSpecId deployedJobSpecId;
     protected final String nodeId;
 
-    public DistributedJobFailureWork(JobId jobId, String nodeId) {
-        this.jobId = jobId;
+    public DeployedJobFailureWork(DeployedJobSpecId deployedJobSpecId, String nodeId) {
+        this.deployedJobSpecId = deployedJobSpecId;
         this.nodeId = nodeId;
     }
 
     @Override
     public void doRun() throws HyracksException {
-        throw HyracksException.create(ErrorCode.DISTRIBUTED_JOB_FAILURE, jobId, nodeId);
+        throw HyracksException.create(ErrorCode.DEPLOYED_JOB_FAILURE, deployedJobSpecId, nodeId);
     }
 }

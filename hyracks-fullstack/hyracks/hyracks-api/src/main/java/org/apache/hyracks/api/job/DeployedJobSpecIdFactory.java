@@ -16,23 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.asterix.transaction.management.service.transaction;
+package org.apache.hyracks.api.job;
 
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.asterix.common.transactions.JobId;
+public class DeployedJobSpecIdFactory {
+    private final AtomicLong id = new AtomicLong(0);
 
-/**
- * Represents a factory to generate unique transaction IDs.
- */
-public class JobIdFactory {
-    private static final AtomicInteger Id = new AtomicInteger();
-
-    public static JobId generateJobId() {
-        return new JobId(Id.incrementAndGet());
+    public DeployedJobSpecId create() {
+        return new DeployedJobSpecId(id.getAndIncrement());
     }
 
-    public static void initJobId(int id) {
-        Id.set(id);
+    public long maxDeployedJobSpecId() {
+        return id.get();
     }
+
 }

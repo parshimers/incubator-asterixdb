@@ -16,16 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.asterix.test.common;
+package org.apache.asterix.app.nc.task;
 
-import java.io.IOException;
-import java.rmi.RemoteException;
+import org.apache.asterix.common.api.INCLifecycleTask;
+import org.apache.asterix.runtime.message.ReportLocalCountersMessage;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.service.IControllerService;
+import org.apache.hyracks.control.nc.NodeControllerService;
 
-import org.apache.asterix.common.exceptions.ACIDException;
-import org.apache.asterix.common.exceptions.AsterixException;
+public class ReportLocalCountersTask implements INCLifecycleTask {
 
-public interface ITestLibrarian {
-    public void install(String dvName, String libName, String libPath) throws IOException, Exception;
+    private static final long serialVersionUID = 1L;
 
-    public void uninstall(String dvName, String libName) throws RemoteException, AsterixException, ACIDException;
+    @Override
+    public void perform(IControllerService cs) throws HyracksDataException {
+        ReportLocalCountersMessage.send((NodeControllerService) cs);
+    }
+
+    @Override
+    public String toString() {
+        return "{ \"class\" : \"" + getClass().getSimpleName() + "\" }";
+    }
 }

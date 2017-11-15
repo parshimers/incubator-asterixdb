@@ -43,11 +43,12 @@ import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.lifecycle.ILifeCycleComponent;
 import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentIdGenerator;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMOperationTracker;
 import org.apache.hyracks.storage.am.lsm.common.api.IVirtualBufferCache;
-import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndex;
+import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentIdGenerator;
 import org.apache.hyracks.storage.common.IIndex;
 import org.apache.hyracks.storage.common.ILocalResourceRepository;
 import org.apache.hyracks.storage.common.LocalResource;
@@ -233,10 +234,12 @@ public class DatasetLifecycleManager implements IDatasetLifecycleManager, ILifeC
             dsr = datasets.get(did);
             if (dsr == null) {
                 DatasetInfo dsInfo = new DatasetInfo(did);
-                PrimaryIndexOperationTracker opTracker = new PrimaryIndexOperationTracker(did, logManager, dsInfo);
+                ILSMComponentIdGenerator idGenerator = new LSMComponentIdGenerator();
+                PrimaryIndexOperationTracker opTracker =
+                        new PrimaryIndexOperationTracker(did, logManager, dsInfo, idGenerator);
                 DatasetVirtualBufferCaches vbcs = new DatasetVirtualBufferCaches(did, storageProperties,
                         memoryManager.getNumPages(did), numPartitions);
-                dsr = new DatasetResource(dsInfo, opTracker, vbcs);
+                dsr = new DatasetResource(dsInfo, opTracker, vbcs, idGenerator);
                 datasets.put(did, dsr);
             }
             return dsr;
@@ -319,6 +322,11 @@ public class DatasetLifecycleManager implements IDatasetLifecycleManager, ILifeC
         return datasets.get(datasetId).getOpTracker();
     }
 
+    @Override
+    public ILSMComponentIdGenerator getComponentIdGenerator(int datasetId) {
+        return datasets.get(datasetId).getIdGenerator();
+    }
+
     private void validateDatasetLifecycleManagerState() throws HyracksDataException {
         if (stopped) {
             throw new HyracksDataException(DatasetLifecycleManager.class.getSimpleName() + " was stopped.");
@@ -354,7 +362,7 @@ public class DatasetLifecycleManager implements IDatasetLifecycleManager, ILifeC
                 for (IndexInfo iInfo : dsr.getIndexes().values()) {
                     AbstractLSMIOOperationCallback ioCallback =
                             (AbstractLSMIOOperationCallback) iInfo.getIndex().getIOOperationCallback();
-                    if (!(((AbstractLSMIndex) iInfo.getIndex()).isCurrentMutableComponentEmpty()
+                    if (!(iInfo.getIndex().isCurrentMutableComponentEmpty()
                             || ioCallback.hasPendingFlush() || opTracker.isFlushLogCreated()
                             || opTracker.isFlushOnExit())) {
                         long firstLSN = ioCallback.getFirstLSN();
@@ -403,6 +411,9 @@ public class DatasetLifecycleManager implements IDatasetLifecycleManager, ILifeC
                 ioOpCallback.updateLastLSN(logRecord.getLSN());
             }
         }
+
+        ILSMComponentIdGenerator idGenerator = getComponentIdGenerator(dsInfo.getDatasetID());
+        idGenerator.refresh();
 
         if (asyncFlush) {
             for (IndexInfo iInfo : dsInfo.getIndexes().values()) {

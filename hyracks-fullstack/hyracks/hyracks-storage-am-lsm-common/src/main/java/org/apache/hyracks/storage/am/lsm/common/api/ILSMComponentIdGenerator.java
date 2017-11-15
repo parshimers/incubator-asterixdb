@@ -16,23 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.asterix.runtime.message;
+package org.apache.hyracks.storage.am.lsm.common.api;
 
-import org.apache.asterix.common.api.INcApplicationContext;
-import org.apache.asterix.common.messaging.api.INcAddressedMessage;
-import org.apache.hyracks.api.exceptions.HyracksDataException;
-import org.apache.hyracks.control.nc.NodeControllerService;
+/**
+ * This interface generates component Ids for LSM components (both memory and disk components).
+ */
+public interface ILSMComponentIdGenerator {
 
-public class ReportMaxResourceIdRequestMessage implements INcAddressedMessage {
-    private static final long serialVersionUID = 1L;
+    /**
+     * @return An Id for LSM component
+     */
+    public ILSMComponentId getId();
 
-    @Override
-    public void handle(INcApplicationContext appCtx) throws HyracksDataException, InterruptedException {
-        ReportMaxResourceIdMessage.send((NodeControllerService) appCtx.getServiceContext().getControllerService());
-    }
+    /**
+     * Refresh the component Id generator to generate the next Id.
+     * {@link #getId()} would always return the same Id before this method is called.
+     */
+    public void refresh();
 
-    @Override
-    public String toString() {
-        return ReportMaxResourceIdRequestMessage.class.getSimpleName();
-    }
 }

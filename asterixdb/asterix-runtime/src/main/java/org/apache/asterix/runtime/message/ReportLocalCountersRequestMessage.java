@@ -16,49 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.asterix.common.transactions;
+package org.apache.asterix.runtime.message;
 
-import java.io.Serializable;
+import org.apache.asterix.common.api.INcApplicationContext;
+import org.apache.asterix.common.messaging.api.INcAddressedMessage;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.control.nc.NodeControllerService;
 
-public class JobId implements Serializable {
+public class ReportLocalCountersRequestMessage implements INcAddressedMessage {
     private static final long serialVersionUID = 1L;
-    /**
-     * The number of bytes used to represent {@link JobId} value.
-     */
-    public static final int BYTES = Integer.BYTES;
-
-    private int id;
-
-    public JobId(int id) {
-        this.id = id;
-    }
-
-    public int getId() {
-        return id;
-    }
 
     @Override
-    public int hashCode() {
-        return id;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (o == this) {
-            return true;
-        }
-        if (!(o instanceof JobId)) {
-            return false;
-        }
-        return ((JobId) o).id == id;
+    public void handle(INcApplicationContext appCtx) throws HyracksDataException, InterruptedException {
+        ReportLocalCountersMessage.send((NodeControllerService) appCtx.getServiceContext().getControllerService());
     }
 
     @Override
     public String toString() {
-        return "JID:" + id;
-    }
-
-    public void setId(int jobId) {
-        id = jobId;
+        return ReportLocalCountersRequestMessage.class.getSimpleName();
     }
 }

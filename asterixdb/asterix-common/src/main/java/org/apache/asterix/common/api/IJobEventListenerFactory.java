@@ -16,25 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.asterix.app.nc.task;
+package org.apache.asterix.common.api;
 
-import org.apache.asterix.common.api.INCLifecycleTask;
-import org.apache.asterix.runtime.message.ReportMaxResourceIdMessage;
-import org.apache.hyracks.api.exceptions.HyracksDataException;
-import org.apache.hyracks.api.service.IControllerService;
-import org.apache.hyracks.control.nc.NodeControllerService;
+import org.apache.asterix.common.transactions.TxnId;
+import org.apache.hyracks.api.job.IJobletEventListenerFactory;
 
-public class ReportMaxResourceIdTask implements INCLifecycleTask {
+/**
+ * an interface for JobEventListenerFactories to add Asterix transaction JobId getter
+ */
+public interface IJobEventListenerFactory extends IJobletEventListenerFactory {
 
-    private static final long serialVersionUID = 1L;
-
-    @Override
-    public void perform(IControllerService cs) throws HyracksDataException {
-        ReportMaxResourceIdMessage.send((NodeControllerService) cs);
-    }
-
-    @Override
-    public String toString() {
-        return "{ \"class\" : \"" + getClass().getSimpleName() + "\" }";
-    }
+    TxnId getTxnId(TxnId compiledTxnId);
 }

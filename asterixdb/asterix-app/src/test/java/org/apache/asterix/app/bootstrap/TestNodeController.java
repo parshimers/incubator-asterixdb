@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
-import org.apache.asterix.app.external.TestLibrarian;
+import org.apache.asterix.app.external.ExternalUDFLibrarian;
 import org.apache.asterix.app.nc.NCAppRuntimeContext;
 import org.apache.asterix.app.nc.TransactionSubsystem;
 import org.apache.asterix.common.config.DatasetConfig.IndexType;
@@ -40,6 +40,7 @@ import org.apache.asterix.common.dataflow.LSMInsertDeleteOperatorNodePushable;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.transactions.IRecoveryManager.ResourceType;
 import org.apache.asterix.common.transactions.ITransactionManager;
+import org.apache.asterix.common.transactions.TxnId;
 import org.apache.asterix.dataflow.data.nontagged.MissingWriterFactory;
 import org.apache.asterix.file.StorageComponentProvider;
 import org.apache.asterix.formats.nontagged.SerializerDeserializerProvider;
@@ -57,6 +58,7 @@ import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.runtime.formats.FormatUtils;
 import org.apache.asterix.runtime.formats.NonTaggedDataFormat;
+import org.apache.asterix.runtime.job.listener.JobEventListenerFactory;
 import org.apache.asterix.runtime.operators.LSMPrimaryUpsertOperatorNodePushable;
 import org.apache.asterix.runtime.utils.CcApplicationContext;
 import org.apache.asterix.test.runtime.ExecutionTestUtil;
@@ -137,7 +139,7 @@ public class TestNodeController {
             File outdir = new File(PATH_ACTUAL);
             outdir.mkdirs();
             // remove library directory
-            TestLibrarian.removeLibraryDir();
+            ExternalUDFLibrarian.removeLibraryDir();
             ExecutionTestUtil.setUp(cleanupOnStart,
                     testConfigFileName == null ? TEST_CONFIG_FILE_NAME : testConfigFileName,
                     ExecutionTestUtil.integrationUtil, runHDFS);
@@ -148,12 +150,12 @@ public class TestNodeController {
     }
 
     public void deInit() throws Exception {
-        TestLibrarian.removeLibraryDir();
+        ExternalUDFLibrarian.removeLibraryDir();
         ExecutionTestUtil.tearDown(cleanupOnStop);
     }
 
-    public org.apache.asterix.common.transactions.JobId getTxnJobId(IHyracksTaskContext ctx) {
-        return new org.apache.asterix.common.transactions.JobId((int) ctx.getJobletContext().getJobId().getId());
+    public TxnId getTxnJobId(IHyracksTaskContext ctx) {
+        return new TxnId(ctx.getJobletContext().getJobId().getId());
     }
 
     public Pair<LSMInsertDeleteOperatorNodePushable, CommitRuntime> getInsertPipeline(IHyracksTaskContext ctx,
@@ -297,6 +299,8 @@ public class TestNodeController {
         }
         JobId jobId = newJobId();
         IHyracksJobletContext jobletCtx = Mockito.mock(IHyracksJobletContext.class);
+        JobEventListenerFactory factory = new JobEventListenerFactory(new TxnId(jobId.getId()), true);
+        Mockito.when(jobletCtx.getJobletEventListenerFactory()).thenReturn(factory);
         Mockito.when(jobletCtx.getServiceContext()).thenReturn(ExecutionTestUtil.integrationUtil.ncs[0].getContext());
         Mockito.when(jobletCtx.getJobId()).thenReturn(jobId);
         ctx = Mockito.spy(ctx);
