@@ -90,7 +90,7 @@ public abstract class AbstractIndexModificationOperationCallback extends Abstrac
         indexRecord = new LogRecord();
         indexRecord.setTxnCtx(txnCtx);
         indexRecord.setLogType(LogType.UPDATE);
-        indexRecord.setJobId(txnCtx.getTxnId().getId());
+        indexRecord.setTxnId(txnCtx.getTxnId().getId());
         indexRecord.setDatasetId(datasetId.getId());
         indexRecord.setResourceId(resourceId);
         indexRecord.setResourcePartition(resourcePartition);
@@ -99,7 +99,7 @@ public abstract class AbstractIndexModificationOperationCallback extends Abstrac
         filterRecord.setTxnCtx(txnCtx);
         filterRecord.setLogType(LogType.FILTER);
         filterRecord.setDatasetId(datasetId.getId());
-        filterRecord.setJobId(txnCtx.getTxnId().getId());
+        filterRecord.setTxnId(txnCtx.getTxnId().getId());
         filterRecord.setResourceId(resourceId);
         filterRecord.setResourcePartition(resourcePartition);
         filterRecord.setNewOp(Operation.FILTER_MOD.value());
