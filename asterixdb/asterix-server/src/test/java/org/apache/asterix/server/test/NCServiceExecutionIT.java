@@ -253,6 +253,7 @@ public class NCServiceExecutionIT {
                     nc1.stop(); // we can't kill due to ASTERIXDB-1941
                     testExecutor.waitForClusterState("UNUSABLE", 60, TimeUnit.SECONDS); // wait for missed heartbeats...
                     nc1.start(); // this restarts the NC service
+                    testExecutor.startNC("asterix_nc1");
                     break;
 
                 case NC2:
@@ -260,6 +261,7 @@ public class NCServiceExecutionIT {
                     nc2.stop(); // we can't kill due to ASTERIXDB-1941
                     testExecutor.waitForClusterState("UNUSABLE", 60, TimeUnit.SECONDS); // wait for missed heartbeats...
                     nc2.start(); // this restarts the NC service
+                    testExecutor.startNC("asterix_nc2");
                     break;
 
                 default:

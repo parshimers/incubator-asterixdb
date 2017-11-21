@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.logging.Logger;
 
 import org.apache.asterix.app.external.ExternalUDFLibrarian;
@@ -66,12 +67,14 @@ import org.apache.asterix.transaction.management.opcallbacks.AbstractIndexModifi
 import org.apache.asterix.transaction.management.opcallbacks.PrimaryIndexModificationOperationCallbackFactory;
 import org.apache.asterix.transaction.management.runtime.CommitRuntime;
 import org.apache.asterix.transaction.management.service.logging.LogReader;
+import org.apache.avro.generic.GenericData;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.runtime.base.IPushRuntime;
 import org.apache.hyracks.algebricks.runtime.operators.std.EmptyTupleSourceRuntimeFactory;
 import org.apache.hyracks.api.comm.IFrameWriter;
 import org.apache.hyracks.api.comm.VSizeFrame;
+import org.apache.hyracks.api.config.IOption;
 import org.apache.hyracks.api.context.IHyracksJobletContext;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.ActivityId;
@@ -112,7 +115,7 @@ public class TestNodeController {
     protected static final String PATH_ACTUAL = "unittest" + File.separator;
     protected static final String PATH_BASE = FileUtil.joinPath("src", "test", "resources", "nodetests");
 
-    protected static final String TEST_CONFIG_FILE_NAME = "asterix-build-configuration.xml";
+    protected static final String TEST_CONFIG_FILE_NAME = "src/main/resources/cc.conf";
     protected static TransactionProperties txnProperties;
     private static final boolean cleanupOnStart = true;
     private static final boolean cleanupOnStop = true;
@@ -128,6 +131,7 @@ public class TestNodeController {
     private long jobCounter = 0L;
     private final String testConfigFileName;
     private final boolean runHDFS;
+    private final List<Pair<IOption, Object>> options = new ArrayList<>();
 
     public TestNodeController(String testConfigFileName, boolean runHDFS) {
         this.testConfigFileName = testConfigFileName;
@@ -142,7 +146,7 @@ public class TestNodeController {
             ExternalUDFLibrarian.removeLibraryDir();
             ExecutionTestUtil.setUp(cleanupOnStart,
                     testConfigFileName == null ? TEST_CONFIG_FILE_NAME : testConfigFileName,
-                    ExecutionTestUtil.integrationUtil, runHDFS);
+                    ExecutionTestUtil.integrationUtil, runHDFS,options);
         } catch (Throwable th) {
             th.printStackTrace();
             throw th;
@@ -153,6 +157,10 @@ public class TestNodeController {
         ExternalUDFLibrarian.removeLibraryDir();
         ExecutionTestUtil.tearDown(cleanupOnStop);
     }
+
+   public void setOpts(List<Pair<IOption,Object>> opts){
+        options.addAll(opts);
+   }
 
     public TxnId getTxnJobId(IHyracksTaskContext ctx) {
         return new TxnId(ctx.getJobletContext().getJobId().getId());

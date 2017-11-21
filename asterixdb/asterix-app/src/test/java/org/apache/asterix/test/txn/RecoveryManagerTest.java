@@ -41,10 +41,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 public class RecoveryManagerTest {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final String DEFAULT_TEST_CONFIG_FILE_NAME = "asterix-build-configuration.xml";
-    private static final String TEST_CONFIG_FILE_NAME = "asterix-test-configuration.xml";
+    private static final String TEST_CONFIG_FILE_NAME = "cc.conf";
     private static final String TEST_CONFIG_PATH =
-            System.getProperty("user.dir") + File.separator + "target" + File.separator + "config";
+            System.getProperty("user.dir") + File.separator + "src" + File.separator + "main" + File.separator + "resources";
     private static final String TEST_CONFIG_FILE_PATH = TEST_CONFIG_PATH + File.separator + TEST_CONFIG_FILE_NAME;
     private static final TestExecutor testExecutor = new TestExecutor();
     private static final AsterixHyracksIntegrationUtil integrationUtil = new AsterixHyracksIntegrationUtil();
@@ -58,7 +57,7 @@ public class RecoveryManagerTest {
         integrationUtil.addOption(StorageProperties.Option.STORAGE_MEMORYCOMPONENT_GLOBALBUDGET,"128MB");
         integrationUtil.addOption(StorageProperties.Option.STORAGE_MEMORYCOMPONENT_NUMPAGES,32);
         integrationUtil.setGracefulShutdown(false);
-        integrationUtil.init(true);
+        integrationUtil.init(true,TEST_CONFIG_FILE_PATH);
     }
 
     @After
@@ -80,7 +79,7 @@ public class RecoveryManagerTest {
         }
         // do ungraceful shutdown to enforce recovery
         integrationUtil.deinit(false);
-        integrationUtil.init(false);
+        integrationUtil.init(false,TEST_CONFIG_FILE_PATH);
         validateRecovery(datasetName);
 
         // create more datasets after recovery
@@ -92,7 +91,7 @@ public class RecoveryManagerTest {
         }
         // do ungraceful shutdown to enforce recovery again
         integrationUtil.deinit(false);
-        integrationUtil.init(false);
+        integrationUtil.init(false,TEST_CONFIG_FILE_PATH);
         validateRecovery(datasetName);
     }
 

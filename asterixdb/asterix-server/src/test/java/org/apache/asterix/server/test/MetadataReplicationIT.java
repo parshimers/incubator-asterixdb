@@ -36,16 +36,11 @@ import org.apache.hyracks.server.process.HyracksNCServiceProcess;
 import org.apache.hyracks.server.process.HyracksVirtualCluster;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-
-import static org.apache.asterix.server.test.NCServiceExecutionIT.APP_HOME;
-import static org.apache.asterix.server.test.NCServiceExecutionIT.ASTERIX_APP_DIR;
-import static org.apache.asterix.server.test.NCServiceExecutionIT.INSTANCE_DIR;
 
 @RunWith(Parameterized.class)
 public class MetadataReplicationIT {

@@ -1040,7 +1040,7 @@ public class TestExecutor {
                         killNC(nodeId, cUnit);
                         break;
                     case "start":
-                        startNC(nodeId, cUnit);
+                        startNC(nodeId);
                         break;
                 }
                 break;
@@ -1347,9 +1347,9 @@ public class TestExecutor {
         return executeJSON(fmt, ctxType.toUpperCase(), uri, params, responseCodeValidator);
     }
 
-    private void killNC(String nodeId, CompilationUnit cUnit) throws Exception {
+    public void killNC(String nodeId, CompilationUnit cUnit) throws Exception {
         //get node process id
-        OutputFormat fmt = OutputFormat.forCompilationUnit(cUnit);
+        OutputFormat fmt = OutputFormat.CLEAN_JSON;
         String endpoint = "/admin/cluster/node/" + nodeId + "/config";
         InputStream executeJSONGet = executeJSONGet(fmt, createEndpointURI(endpoint, null));
         StringWriter actual = new StringWriter();
@@ -1365,9 +1365,9 @@ public class TestExecutor {
         deleteNCTxnLogs(nodeId, cUnit);
     }
 
-    private void startNC(String nodeId, CompilationUnit cUnit) throws Exception {
+    public void startNC(String nodeId) throws Exception {
         //get node process id
-        OutputFormat fmt = OutputFormat.forCompilationUnit(cUnit);
+        OutputFormat fmt = OutputFormat.CLEAN_JSON;
         String endpoint = "/rest/startnode";
         List<Parameter> params = new ArrayList<>();
         Parameter node = new Parameter();

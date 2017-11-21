@@ -59,7 +59,7 @@ public class DmlTest {
         }
         outdir.mkdirs();
 
-        integrationUtil.init(true);
+        integrationUtil.init(true,AsterixHyracksIntegrationUtil.DEFAULT_CONF_FILE);
         Reader loadReader = new BufferedReader(
                 new InputStreamReader(new FileInputStream(LOAD_FOR_ENLIST_FILE), "UTF-8"));
         AsterixJavaClient asterixLoad =

@@ -177,9 +177,11 @@
                 <exclude>src/test/resources/fuzzyjoin/pub/fuzzy-join-aql*.dot</exclude>
                 <exclude>src/test/resources/fuzzyjoin/pub/fuzzy-join-aql*.json</exclude>
                 <exclude>data/**</exclude>
+                <exclude>src/test//resources/**/data/**</exclude>
                 <exclude>src/main/resources/queryui/**</exclude>
                 <exclude>src/main/resources/webui/**</exclude>
                 <exclude>src/test/resources/**/only*.xml</exclude>
+                <exclude>src/main/resources/sdk/**</exclude>
               </excludes>
             </configuration>
           </execution>
