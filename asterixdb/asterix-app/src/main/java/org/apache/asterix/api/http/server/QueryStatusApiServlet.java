@@ -29,6 +29,7 @@ import java.util.logging.Logger;
 
 import org.apache.asterix.app.result.ResultHandle;
 import org.apache.asterix.app.result.ResultReader;
+import org.apache.asterix.common.api.IApplicationContext;
 import org.apache.hyracks.api.dataset.DatasetJobRecord;
 import org.apache.hyracks.api.dataset.IHyracksDataset;
 import org.apache.hyracks.http.api.IServletRequest;
@@ -40,8 +41,8 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 public class QueryStatusApiServlet extends AbstractQueryApiServlet {
     private static final Logger LOGGER = Logger.getLogger(QueryStatusApiServlet.class.getName());
 
-    public QueryStatusApiServlet(ConcurrentMap<String, Object> ctx, String[] paths) {
-        super(ctx, paths);
+    public QueryStatusApiServlet(ConcurrentMap<String, Object> ctx, IApplicationContext appCtx, String... paths) {
+        super(appCtx, ctx, paths);
     }
 
     @Override

@@ -24,32 +24,42 @@ import java.util.List;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.primitive.LongPointable;
 import org.apache.hyracks.storage.am.common.api.IMetadataPageManager;
-import org.apache.hyracks.storage.am.common.api.ITreeIndex;
 import org.apache.hyracks.storage.am.common.freepage.MutableArrayValueReference;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentId;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentIdGenerator;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponent;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperation.LSMIOOperationType;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperationCallback;
-import org.apache.hyracks.storage.am.lsm.common.api.LSMOperationType;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMMemoryComponent;
+import org.apache.hyracks.storage.am.lsm.common.impls.DiskComponentMetadata;
+import org.apache.hyracks.storage.am.lsm.common.util.ComponentUtils;
+import org.apache.hyracks.storage.am.lsm.common.util.LSMComponentIdUtils;
 
 // A single LSMIOOperationCallback per LSM index used to perform actions around Flush and Merge operations
 public abstract class AbstractLSMIOOperationCallback implements ILSMIOOperationCallback {
     public static final MutableArrayValueReference LSN_KEY = new MutableArrayValueReference("LSN".getBytes());
     public static final long INVALID = -1L;
 
-    // First LSN per mutable component
-    protected long[] firstLSNs;
+    protected final ILSMIndex lsmIndex;
+    // First LSN per mutable component. TODO: move from hyracks to asterixdb
+    protected final long[] firstLSNs;
     // A boolean array to keep track of flush operations
-    protected boolean[] flushRequested;
-    // I think this was meant to be mutableLastLSNs
-    // protected long[] immutableLastLSNs;
-    protected long[] mutableLastLSNs;
+    protected final boolean[] flushRequested;
+    // TODO: move from hyracks to asterixdb
+    protected final long[] mutableLastLSNs;
     // Index of the currently flushing or next to be flushed component
     protected int readIndex;
     // Index of the currently being written to component
     protected int writeIndex;
 
-    @Override
-    public void setNumOfMutableComponents(int count) {
+    protected final ILSMComponentIdGenerator idGenerator;
+
+    public AbstractLSMIOOperationCallback(ILSMIndex lsmIndex, ILSMComponentIdGenerator idGenerator) {
+        this.lsmIndex = lsmIndex;
+        this.idGenerator = idGenerator;
+        int count = lsmIndex.getNumberOfAllMemoryComponents();
         mutableLastLSNs = new long[count];
         firstLSNs = new long[count];
         flushRequested = new boolean[count];
@@ -58,8 +68,8 @@ public abstract class AbstractLSMIOOperationCallback implements ILSMIOOperationC
     }
 
     @Override
-    public void beforeOperation(LSMOperationType opType) {
-        if (opType == LSMOperationType.FLUSH) {
+    public void beforeOperation(LSMIOOperationType opType) throws HyracksDataException {
+        if (opType == LSMIOOperationType.FLUSH) {
             /*
              * This method was called on the scheduleFlush operation.
              * We set the lastLSN to the last LSN for the index (the LSN for the flush log)
@@ -78,9 +88,9 @@ public abstract class AbstractLSMIOOperationCallback implements ILSMIOOperationC
     }
 
     @Override
-    public void afterFinalize(LSMOperationType opType, ILSMDiskComponent newComponent) {
+    public void afterFinalize(LSMIOOperationType opType, ILSMDiskComponent newComponent) {
         // The operation was complete and the next I/O operation for the LSM index didn't start yet
-        if (opType == LSMOperationType.FLUSH && newComponent != null) {
+        if (opType == LSMIOOperationType.FLUSH && newComponent != null) {
             synchronized (this) {
                 flushRequested[readIndex] = false;
                 // if the component which just finished flushing is the component that will be modified next,
@@ -93,22 +103,44 @@ public abstract class AbstractLSMIOOperationCallback implements ILSMIOOperationC
         }
     }
 
-    public abstract long getComponentLSN(List<? extends ILSMComponent> oldComponents) throws HyracksDataException;
-
-    public void putLSNIntoMetadata(ILSMDiskComponent index, List<ILSMComponent> oldComponents)
+    public void putLSNIntoMetadata(ILSMDiskComponent newComponent, List<ILSMComponent> oldComponents)
             throws HyracksDataException {
-        index.getMetadata().put(LSN_KEY, LongPointable.FACTORY.createPointable(getComponentLSN(oldComponents)));
+        newComponent.getMetadata().put(LSN_KEY, LongPointable.FACTORY.createPointable(getComponentLSN(oldComponents)));
     }
 
-    public static long getTreeIndexLSN(ITreeIndex treeIndex) throws HyracksDataException {
+    public static long getTreeIndexLSN(DiskComponentMetadata md) throws HyracksDataException {
         LongPointable pointable = new LongPointable();
-        IMetadataPageManager metadataPageManager = (IMetadataPageManager) treeIndex.getPageManager();
+        IMetadataPageManager metadataPageManager = md.getMetadataPageManager();
         metadataPageManager.get(metadataPageManager.createMetadataFrame(), LSN_KEY, pointable);
         return pointable.getLength() == 0 ? INVALID : pointable.longValue();
     }
 
-    public void updateLastLSN(long lastLSN) {
-        mutableLastLSNs[writeIndex] = lastLSN;
+    private ILSMComponentId getMergedComponentId(List<ILSMComponent> mergedComponents) throws HyracksDataException {
+        if (mergedComponents == null || mergedComponents.isEmpty()) {
+            return null;
+        }
+        return LSMComponentIdUtils.union(mergedComponents.get(0).getId(),
+                mergedComponents.get(mergedComponents.size() - 1).getId());
+
+    }
+
+    private void putComponentIdIntoMetadata(LSMIOOperationType opType, ILSMDiskComponent newComponent,
+            List<ILSMComponent> oldComponents) throws HyracksDataException {
+        // the id of flushed component is set when we copy the metadata of the memory component
+        if (opType == LSMIOOperationType.MERGE) {
+            ILSMComponentId componentId = getMergedComponentId(oldComponents);
+            LSMComponentIdUtils.persist(componentId, newComponent.getMetadata());
+        }
+    }
+
+    public synchronized void updateLastLSN(long lastLSN) {
+        if (!flushRequested[writeIndex]) {
+            //if the memory component pointed by writeIndex is being flushed, we should ignore this update call
+            //since otherwise the original LSN is overwritten.
+            //Moreover, since the memory component is already being flushed, the next scheduleFlush request must fail.
+            //See https://issues.apache.org/jira/browse/ASTERIXDB-1917
+            mutableLastLSNs[writeIndex] = lastLSN;
+        }
     }
 
     public void setFirstLSN(long firstLSN) {
@@ -133,6 +165,51 @@ public abstract class AbstractLSMIOOperationCallback implements ILSMIOOperationC
         return false;
     }
 
+    @Override
+    public void afterOperation(LSMIOOperationType opType, List<ILSMComponent> oldComponents,
+            ILSMDiskComponent newComponent) throws HyracksDataException {
+        //TODO: Copying Filters and all content of the metadata pages for flush operation should be done here
+        if (newComponent != null) {
+            putLSNIntoMetadata(newComponent, oldComponents);
+            putComponentIdIntoMetadata(opType, newComponent, oldComponents);
+            if (opType == LSMIOOperationType.MERGE) {
+                // In case of merge, oldComponents are never null
+                LongPointable markerLsn =
+                        LongPointable.FACTORY.createPointable(ComponentUtils.getLong(oldComponents.get(0).getMetadata(),
+                                ComponentUtils.MARKER_LSN_KEY, ComponentUtils.NOT_FOUND));
+                newComponent.getMetadata().put(ComponentUtils.MARKER_LSN_KEY, markerLsn);
+            }
+        }
+    }
+
+    public long getComponentLSN(List<? extends ILSMComponent> diskComponents) throws HyracksDataException {
+        if (diskComponents == null) {
+            // Implies a flush IO operation. --> moves the flush pointer
+            // Flush operation of an LSM index are executed sequentially.
+            synchronized (this) {
+                long lsn = mutableLastLSNs[readIndex];
+                return lsn;
+            }
+        }
+        // Get max LSN from the diskComponents. Implies a merge IO operation or Recovery operation.
+        long maxLSN = -1L;
+        for (ILSMComponent c : diskComponents) {
+            DiskComponentMetadata md = ((ILSMDiskComponent) c).getMetadata();
+            maxLSN = Math.max(getTreeIndexLSN(md), maxLSN);
+        }
+        return maxLSN;
+    }
+
+    @Override
+    public void recycled(ILSMMemoryComponent component) throws HyracksDataException {
+        component.resetId(idGenerator.getId());
+    }
+
+    @Override
+    public void allocated(ILSMMemoryComponent component) throws HyracksDataException {
+        component.resetId(idGenerator.getId());
+    }
+
     /**
      * @param component
      * @param componentFilePath
@@ -142,4 +219,5 @@ public abstract class AbstractLSMIOOperationCallback implements ILSMIOOperationC
      */
     public abstract long getComponentFileLSNOffset(ILSMDiskComponent component, String componentFilePath)
             throws HyracksDataException;
+
 }

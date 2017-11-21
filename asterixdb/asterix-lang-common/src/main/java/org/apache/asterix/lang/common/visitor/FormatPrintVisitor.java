@@ -47,6 +47,7 @@ import org.apache.asterix.lang.common.expression.FieldBinding;
 import org.apache.asterix.lang.common.expression.GbyVariableExpressionPair;
 import org.apache.asterix.lang.common.expression.IfExpr;
 import org.apache.asterix.lang.common.expression.IndexAccessor;
+import org.apache.asterix.lang.common.expression.IndexedTypeExpression;
 import org.apache.asterix.lang.common.expression.ListConstructor;
 import org.apache.asterix.lang.common.expression.LiteralExpr;
 import org.apache.asterix.lang.common.expression.OperatorExpr;
@@ -60,7 +61,6 @@ import org.apache.asterix.lang.common.expression.TypeReferenceExpression;
 import org.apache.asterix.lang.common.expression.UnaryExpr;
 import org.apache.asterix.lang.common.expression.UnorderedListTypeDefinition;
 import org.apache.asterix.lang.common.expression.VariableExpr;
-import org.apache.asterix.lang.common.literal.IntegerLiteral;
 import org.apache.asterix.lang.common.statement.CompactStatement;
 import org.apache.asterix.lang.common.statement.ConnectFeedStatement;
 import org.apache.asterix.lang.common.statement.CreateDataverseStatement;
@@ -98,7 +98,6 @@ import org.apache.asterix.lang.common.struct.OperatorType;
 import org.apache.asterix.lang.common.struct.QuantifiedPair;
 import org.apache.asterix.lang.common.struct.UnaryExprType;
 import org.apache.asterix.lang.common.visitor.base.ILangVisitor;
-import org.apache.asterix.metadata.utils.MetadataConstants;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.core.algebra.expressions.IExpressionAnnotation;
 
@@ -233,7 +232,7 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
             out.print("(");
             exprList.get(0).accept(this, step + 1);
             for (int i = 1; i < exprList.size(); i++) {
-                OperatorType opType = opList.get(i - 1);;
+                OperatorType opType = opList.get(i - 1);
                 if (i == 1) {
                     printHints(operatorExpr.getHints(), step + 1);
                 }
@@ -490,8 +489,7 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
             printConfiguration(externalDetails.getProperties());
         }
         Identifier nodeGroupName = dd.getNodegroupName();
-        if (nodeGroupName != null
-                && !nodeGroupName.getValue().equals(MetadataConstants.METADATA_DEFAULT_NODEGROUP_NAME)) {
+        if (nodeGroupName != null) {
             out.print(" on " + nodeGroupName.getValue());
         }
         Map<String, String> hints = dd.getHints();
@@ -659,18 +657,22 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
         out.print(skip(step) + CREATE + " index ");
         out.print(normalize(cis.getIndexName().getValue()) + " ");
         out.print(generateIfNotExists(cis.getIfNotExists()));
-        out.print(" on ");;
+        out.print(" on ");
         out.print(generateFullName(cis.getDataverseName(), cis.getDatasetName()));
 
         out.print(" (");
-        List<Pair<List<String>, TypeExpression>> fieldExprs = cis.getFieldExprs();
+        List<Pair<List<String>, IndexedTypeExpression>> fieldExprs = cis.getFieldExprs();
         int index = 0;
         int size = fieldExprs.size();
-        for (Pair<List<String>, TypeExpression> entry : fieldExprs) {
+        for (Pair<List<String>, IndexedTypeExpression> entry : fieldExprs) {
             printNestField(entry.first);
-            if (entry.second != null) {
+            IndexedTypeExpression typeExpr = entry.second;
+            if (typeExpr != null) {
                 out.print(":");
-                entry.second.accept(this, step);
+                typeExpr.getType().accept(this, step);
+                if (typeExpr.isUnknownable()) {
+                    out.print('?');
+                }
             }
             if (++index < size) {
                 out.print(",");
@@ -825,7 +827,8 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
     public Void visit(CreateFunctionStatement cfs, Integer step) throws CompilationException {
         out.print(skip(step) + CREATE + " function ");
         out.print(generateIfNotExists(cfs.getIfNotExists()));
-        out.print(this.generateFullName(cfs.getSignature().getNamespace(), cfs.getSignature().getName()));
+        out.print(
+                this.generateFullName(cfs.getFunctionSignature().getNamespace(), cfs.getFunctionSignature().getName()));
         out.print("(");
         printDelimitedStrings(cfs.getParamList(), COMMA);
         out.println(") {");

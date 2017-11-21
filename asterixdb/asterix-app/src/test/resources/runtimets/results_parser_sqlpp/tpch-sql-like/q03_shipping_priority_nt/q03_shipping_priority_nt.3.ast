@@ -24,17 +24,17 @@ RecordConstructor [
   )
 ]
 ]
-FROM [  FunctionCall Metadata.dataset@1[
+FROM [  FunctionCall asterix.dataset@1[
     LiteralExpr [STRING] [Customer]
   ]
   AS Variable [ Name=$c ]
 ,
-  FunctionCall Metadata.dataset@1[
+  FunctionCall asterix.dataset@1[
     LiteralExpr [STRING] [Orders]
   ]
   AS Variable [ Name=$o ]
 ,
-  FunctionCall Metadata.dataset@1[
+  FunctionCall asterix.dataset@1[
     LiteralExpr [STRING] [LineItem]
   ]
   AS Variable [ Name=$l ]
@@ -115,7 +115,7 @@ Groupby
     Variable [ Name=$o ]
     Field=o_shippriority
   ]
-  GROUP AS Variable [ Name=#1 ]
+  GROUP AS Variable [ Name=$g ]
   (
     c:=Variable [ Name=$c ]
     o:=Variable [ Name=$o ]
@@ -124,7 +124,7 @@ Groupby
 
 Let Variable [ Name=$revenue ]
   :=
-  FunctionCall tpch.sum@1[
+  FunctionCall asterix.sum@1[
     (
       SELECT ELEMENT [
       OperatorExpr [
@@ -143,7 +143,20 @@ Let Variable [ Name=$revenue ]
         ]
       ]
       ]
-      FROM [        Variable [ Name=$l ]
+      FROM [        (
+          SELECT ELEMENT [
+          FunctionCall asterix.resolve@-1[
+            LiteralExpr [STRING] [l]
+            Variable [ Name=$o_shippriority ]
+            Variable [ Name=$g ]
+            Variable [ Name=$o_orderdate ]
+            Variable [ Name=$l_orderkey ]
+          ]
+          ]
+          FROM [            Variable [ Name=$g ]
+            AS Variable [ Name=$g ]
+          ]
+        )
         AS Variable [ Name=$i ]
       ]
     )

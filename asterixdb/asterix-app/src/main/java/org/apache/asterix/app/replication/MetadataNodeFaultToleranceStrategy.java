@@ -35,17 +35,18 @@ import org.apache.asterix.app.nc.task.ExternalLibrarySetupTask;
 import org.apache.asterix.app.nc.task.LocalRecoveryTask;
 import org.apache.asterix.app.nc.task.MetadataBootstrapTask;
 import org.apache.asterix.app.nc.task.RemoteRecoveryTask;
-import org.apache.asterix.app.nc.task.ReportMaxResourceIdTask;
+import org.apache.asterix.app.nc.task.ReportLocalCountersTask;
 import org.apache.asterix.app.nc.task.StartLifecycleComponentsTask;
 import org.apache.asterix.app.nc.task.StartReplicationServiceTask;
 import org.apache.asterix.app.replication.message.NCLifecycleTaskReportMessage;
+import org.apache.asterix.app.replication.message.RegistrationTasksRequestMessage;
 import org.apache.asterix.app.replication.message.ReplayPartitionLogsRequestMessage;
 import org.apache.asterix.app.replication.message.ReplayPartitionLogsResponseMessage;
-import org.apache.asterix.app.replication.message.StartupTaskRequestMessage;
-import org.apache.asterix.app.replication.message.StartupTaskResponseMessage;
+import org.apache.asterix.app.replication.message.RegistrationTasksResponseMessage;
 import org.apache.asterix.common.api.INCLifecycleTask;
 import org.apache.asterix.common.cluster.ClusterPartition;
 import org.apache.asterix.common.cluster.IClusterStateManager;
+import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.common.messaging.api.ICCMessageBroker;
@@ -54,8 +55,8 @@ import org.apache.asterix.common.replication.INCLifecycleMessage;
 import org.apache.asterix.common.replication.IReplicationStrategy;
 import org.apache.asterix.common.replication.Replica;
 import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
-import org.apache.asterix.runtime.utils.AppContextInfo;
 import org.apache.asterix.util.FaultToleranceUtil;
+import org.apache.hyracks.api.application.ICCServiceContext;
 import org.apache.hyracks.api.application.IClusterLifecycleListener.ClusterEventType;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
@@ -66,6 +67,7 @@ public class MetadataNodeFaultToleranceStrategy implements IFaultToleranceStrate
     private String metadataNodeId;
     private IReplicationStrategy replicationStrategy;
     private ICCMessageBroker messageBroker;
+    private ICCServiceContext serviceCtx;
     private final Set<String> hotStandbyMetadataReplica = new HashSet<>();
     private final Set<String> failedNodes = new HashSet<>();
     private Set<String> pendingStartupCompletionNodes = new HashSet<>();
@@ -91,8 +93,8 @@ public class MetadataNodeFaultToleranceStrategy implements IFaultToleranceStrate
         }
         // If the failed node is the metadata node, ask its replicas to replay any committed jobs
         if (nodeId.equals(metadataNodeId)) {
-            int metadataPartitionId = AppContextInfo.INSTANCE.getMetadataProperties().getMetadataPartition()
-                    .getPartitionId();
+            ICcApplicationContext appCtx = (ICcApplicationContext) serviceCtx.getApplicationContext();
+            int metadataPartitionId = appCtx.getMetadataProperties().getMetadataPartition().getPartitionId();
             Set<Integer> metadataPartition = new HashSet<>(Arrays.asList(metadataPartitionId));
             Set<Replica> activeRemoteReplicas = replicationStrategy.getRemoteReplicas(metadataNodeId).stream()
                     .filter(replica -> !failedNodes.contains(replica.getId())).collect(Collectors.toSet());
@@ -110,20 +112,21 @@ public class MetadataNodeFaultToleranceStrategy implements IFaultToleranceStrate
     }
 
     @Override
-    public IFaultToleranceStrategy from(IReplicationStrategy replicationStrategy, ICCMessageBroker messageBroker) {
+    public IFaultToleranceStrategy from(ICCServiceContext serviceCtx, IReplicationStrategy replicationStrategy) {
         MetadataNodeFaultToleranceStrategy ft = new MetadataNodeFaultToleranceStrategy();
         ft.replicationStrategy = replicationStrategy;
-        ft.messageBroker = messageBroker;
+        ft.messageBroker = (ICCMessageBroker) serviceCtx.getMessageBroker();
+        ft.serviceCtx = serviceCtx;
         return ft;
     }
 
     @Override
     public synchronized void process(INCLifecycleMessage message) throws HyracksDataException {
         switch (message.getType()) {
-            case STARTUP_TASK_REQUEST:
-                process((StartupTaskRequestMessage) message);
+            case REGISTRATION_TASKS_REQUEST:
+                process((RegistrationTasksRequestMessage) message);
                 break;
-            case STARTUP_TASK_RESULT:
+            case REGISTRATION_TASKS_RESULT:
                 process((NCLifecycleTaskReportMessage) message);
                 break;
             case REPLAY_LOGS_RESPONSE:
@@ -147,7 +150,7 @@ public class MetadataNodeFaultToleranceStrategy implements IFaultToleranceStrate
         }
     }
 
-    private synchronized void process(StartupTaskRequestMessage msg) throws HyracksDataException {
+    private synchronized void process(RegistrationTasksRequestMessage msg) throws HyracksDataException {
         final String nodeId = msg.getNodeId();
         final SystemState state = msg.getState();
         final boolean isParticipant = replicationStrategy.isParticipant(nodeId);
@@ -157,7 +160,7 @@ public class MetadataNodeFaultToleranceStrategy implements IFaultToleranceStrate
         } else {
             tasks = buildParticipantStartupSequence(nodeId, state);
         }
-        StartupTaskResponseMessage response = new StartupTaskResponseMessage(nodeId, tasks);
+        RegistrationTasksResponseMessage response = new RegistrationTasksResponseMessage(nodeId, tasks);
         try {
             messageBroker.sendApplicationMessageToNC(response, msg.getNodeId());
         } catch (Exception e) {
@@ -196,7 +199,7 @@ public class MetadataNodeFaultToleranceStrategy implements IFaultToleranceStrate
             tasks.add(rt);
         }
         tasks.add(new ExternalLibrarySetupTask(false));
-        tasks.add(new ReportMaxResourceIdTask());
+        tasks.add(new ReportLocalCountersTask());
         tasks.add(new CheckpointTask());
         tasks.add(new StartLifecycleComponentsTask());
         return tasks;
@@ -231,7 +234,7 @@ public class MetadataNodeFaultToleranceStrategy implements IFaultToleranceStrate
             tasks.add(new MetadataBootstrapTask());
         }
         tasks.add(new ExternalLibrarySetupTask(isMetadataNode));
-        tasks.add(new ReportMaxResourceIdTask());
+        tasks.add(new ReportLocalCountersTask());
         tasks.add(new CheckpointTask());
         tasks.add(new StartLifecycleComponentsTask());
         if (isMetadataNode) {
@@ -247,8 +250,8 @@ public class MetadataNodeFaultToleranceStrategy implements IFaultToleranceStrate
         // Construct recovery plan: Node => Set of partitions to recover from it
         Map<String, Set<Integer>> recoveryPlan = new HashMap<>();
         // Recover metadata partition from any metadata hot standby replica
-        int metadataPartitionId = AppContextInfo.INSTANCE.getMetadataProperties().getMetadataPartition()
-                .getPartitionId();
+        ICcApplicationContext appCtx = (ICcApplicationContext) serviceCtx.getApplicationContext();
+        int metadataPartitionId = appCtx.getMetadataProperties().getMetadataPartition().getPartitionId();
         Set<Integer> metadataPartition = new HashSet<>(Arrays.asList(metadataPartitionId));
         recoveryPlan.put(hotStandbyMetadataReplica.iterator().next(), metadataPartition);
         return new RemoteRecoveryTask(recoveryPlan);

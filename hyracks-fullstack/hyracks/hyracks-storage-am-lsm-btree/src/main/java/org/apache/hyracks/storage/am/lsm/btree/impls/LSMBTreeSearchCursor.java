@@ -22,13 +22,11 @@ package org.apache.hyracks.storage.am.lsm.btree.impls;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
-import org.apache.hyracks.storage.am.common.api.ICursorInitialState;
-import org.apache.hyracks.storage.am.common.api.ISearchPredicate;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexCursor;
-import org.apache.hyracks.storage.am.common.api.IndexException;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
+import org.apache.hyracks.storage.common.ICursorInitialState;
+import org.apache.hyracks.storage.common.ISearchPredicate;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
-import org.apache.hyracks.storage.common.buffercache.ICachedPage;
 
 public class LSMBTreeSearchCursor implements ITreeIndexCursor {
 
@@ -39,50 +37,32 @@ public class LSMBTreeSearchCursor implements ITreeIndexCursor {
 
     private final LSMBTreePointSearchCursor pointCursor;
     private final LSMBTreeRangeSearchCursor rangeCursor;
+    private final LSMBTreeDiskComponentScanCursor scanCursor;
     private ITreeIndexCursor currentCursor;
 
     public LSMBTreeSearchCursor(ILSMIndexOperationContext opCtx) {
         pointCursor = new LSMBTreePointSearchCursor(opCtx);
         rangeCursor = new LSMBTreeRangeSearchCursor(opCtx);
+        scanCursor = new LSMBTreeDiskComponentScanCursor(opCtx);
     }
 
     @Override
-    public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws IndexException,
-            HyracksDataException {
-
+    public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
         LSMBTreeCursorInitialState lsmInitialState = (LSMBTreeCursorInitialState) initialState;
-
-        LSMBTreeSearchType searchType = LSMBTreeSearchType.RANGE;
         RangePredicate btreePred = (RangePredicate) searchPred;
-        if (btreePred.getLowKey() != null && btreePred.getHighKey() != null) {
-            if (btreePred.isLowKeyInclusive() && btreePred.isHighKeyInclusive()) {
-                if (btreePred.getLowKeyComparator().getKeyFieldCount() == btreePred.getHighKeyComparator()
-                        .getKeyFieldCount()) {
-                    if (btreePred.getLowKeyComparator().getKeyFieldCount() == lsmInitialState
-                            .getOriginalKeyComparator().getKeyFieldCount()) {
-                        if (lsmInitialState.getOriginalKeyComparator().compare(btreePred.getLowKey(),
-                                btreePred.getHighKey()) == 0) {
-                            searchType = LSMBTreeSearchType.POINT;
-                        }
-                    }
-                }
-            }
-        }
-        switch (searchType) {
-            case POINT:
-                currentCursor = pointCursor;
-                break;
-            case RANGE:
-                currentCursor = rangeCursor;
-                break;
-            default:
-                throw new HyracksDataException("Wrong search type");
-        }
+
+        currentCursor =
+                btreePred.isPointPredicate(lsmInitialState.getOriginalKeyComparator()) ? pointCursor : rangeCursor;
         currentCursor.open(lsmInitialState, searchPred);
     }
 
+    public void scan(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
+        currentCursor = scanCursor;
+        currentCursor.open(initialState, searchPred);
+    }
+
     @Override
-    public boolean hasNext() throws HyracksDataException, IndexException {
+    public boolean hasNext() throws HyracksDataException {
         return currentCursor.hasNext();
     }
 
@@ -100,7 +80,7 @@ public class LSMBTreeSearchCursor implements ITreeIndexCursor {
     }
 
     @Override
-    public void reset() throws HyracksDataException, IndexException {
+    public void reset() throws HyracksDataException {
         if (currentCursor != null) {
             currentCursor.reset();
         }
@@ -113,8 +93,13 @@ public class LSMBTreeSearchCursor implements ITreeIndexCursor {
     }
 
     @Override
-    public ICachedPage getPage() {
-        return currentCursor.getPage();
+    public ITupleReference getFilterMinTuple() {
+        return currentCursor.getFilterMinTuple();
+    }
+
+    @Override
+    public ITupleReference getFilterMaxTuple() {
+        return currentCursor.getFilterMaxTuple();
     }
 
     @Override
@@ -129,12 +114,8 @@ public class LSMBTreeSearchCursor implements ITreeIndexCursor {
     }
 
     @Override
-    public boolean exclusiveLatchNodes() {
-        return currentCursor.exclusiveLatchNodes();
+    public boolean isExclusiveLatchNodes() {
+        return currentCursor.isExclusiveLatchNodes();
     }
 
-    @Override
-    public void markCurrentTupleAsUpdated() throws HyracksDataException {
-        throw new HyracksDataException("Updating tuples is not supported with this cursor.");
-    }
 }

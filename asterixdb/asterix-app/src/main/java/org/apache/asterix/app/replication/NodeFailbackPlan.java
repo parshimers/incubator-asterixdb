@@ -25,6 +25,7 @@ import java.util.Set;
 
 import org.apache.asterix.app.replication.message.CompleteFailbackRequestMessage;
 import org.apache.asterix.app.replication.message.PreparePartitionsFailbackRequestMessage;
+import org.apache.asterix.app.replication.message.PreparePartitionsFailbackResponseMessage;
 
 public class NodeFailbackPlan {
 
@@ -162,11 +163,11 @@ public class NodeFailbackPlan {
          */
         for (String participant : participants) {
             Set<Integer> partitionToPrepareForFailback = new HashSet<>();
-            for (Map.Entry<Integer, String> entry : partition2nodeMap.entrySet()) {
-                if (entry.getValue().equals(participant)) {
-                    partitionToPrepareForFailback.add(entry.getKey());
+            partition2nodeMap.forEach((key, value) -> {
+                if (value.equals(participant)) {
+                    partitionToPrepareForFailback.add(key);
                 }
-            }
+            });
             PreparePartitionsFailbackRequestMessage msg = new PreparePartitionsFailbackRequestMessage(planId,
                     requestId++, participant, partitionToPrepareForFailback);
             if (participant.equals(nodeToReleaseMetadataManager)) {

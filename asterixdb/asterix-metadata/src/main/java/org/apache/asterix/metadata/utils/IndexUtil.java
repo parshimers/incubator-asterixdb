@@ -18,22 +18,29 @@
  */
 package org.apache.asterix.metadata.utils;
 
+import static org.apache.hyracks.storage.am.common.dataflow.IndexDropOperatorDescriptor.*;
+
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Set;
+
+import org.apache.asterix.common.config.DatasetConfig;
 import org.apache.asterix.common.config.OptimizationConfUtil;
 import org.apache.asterix.common.exceptions.CompilationException;
 import org.apache.asterix.common.exceptions.ErrorCode;
+import org.apache.asterix.common.transactions.TxnId;
 import org.apache.asterix.external.indexing.ExternalFile;
 import org.apache.asterix.metadata.declared.MetadataProvider;
 import org.apache.asterix.metadata.entities.Dataset;
 import org.apache.asterix.metadata.entities.Index;
-import org.apache.asterix.om.types.ARecordType;
+import org.apache.asterix.metadata.entities.InternalDatasetDetails;
+import org.apache.asterix.runtime.job.listener.JobEventListenerFactory;
+import org.apache.asterix.transaction.management.service.transaction.TxnIdFactory;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
-import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.core.rewriter.base.PhysicalOptimizationConfig;
 import org.apache.hyracks.api.dataflow.value.ITypeTraits;
+import org.apache.hyracks.api.job.IJobletEventListenerFactory;
 import org.apache.hyracks.api.job.JobSpecification;
-
-import java.util.Collections;
-import java.util.List;
 
 public class IndexUtil {
 
@@ -53,11 +60,18 @@ public class IndexUtil {
         return secondaryFilterFields(dataset, index, filterTypeTraits);
     }
 
+    public static Index getPrimaryIndex(Dataset dataset) {
+        InternalDatasetDetails id = (InternalDatasetDetails) dataset.getDatasetDetails();
+        return new Index(dataset.getDataverseName(), dataset.getDatasetName(), dataset.getDatasetName(),
+                DatasetConfig.IndexType.BTREE, id.getPartitioningKey(), id.getKeySourceIndicator(),
+                id.getPrimaryKeyType(), false, false, true, dataset.getPendingOp());
+    }
+
     public static int[] getBtreeFieldsIfFiltered(Dataset dataset, Index index) throws AlgebricksException {
         if (index.isPrimaryIndex()) {
             return DatasetUtil.createBTreeFieldsWhenThereisAFilter(dataset);
         }
-        int numPrimaryKeys = DatasetUtil.getPartitioningKeys(dataset).size();
+        int numPrimaryKeys = dataset.getPrimaryKeys().size();
         int numSecondaryKeys = index.getKeyFieldNames().size();
         int[] btreeFields = new int[numSecondaryKeys + numPrimaryKeys];
         for (int k = 0; k < btreeFields.length; k++) {
@@ -71,7 +85,7 @@ public class IndexUtil {
         if (filterTypeTraits == null) {
             return empty;
         }
-        int numPrimaryKeys = DatasetUtil.getPartitioningKeys(dataset).size();
+        int numPrimaryKeys = dataset.getPrimaryKeys().size();
         int numSecondaryKeys = index.getKeyFieldNames().size();
         switch (index.getIndexType()) {
             case BTREE:
@@ -90,59 +104,70 @@ public class IndexUtil {
     }
 
     public static JobSpecification buildDropIndexJobSpec(Index index, MetadataProvider metadataProvider,
-            Dataset dataset)
-            throws AlgebricksException {
-        ARecordType recordType =
-                (ARecordType) metadataProvider.findType(dataset.getItemTypeDataverseName(), dataset.getItemTypeName());
-        ARecordType metaType = DatasetUtil.getMetaType(metadataProvider, dataset);
-        ARecordType enforcedType = null;
-        ARecordType enforcedMetaType = null;
-        if (index.isEnforcingKeyFileds()) {
-            Pair<ARecordType, ARecordType> enforcedTypes =
-                    TypeUtil.createEnforcedType(recordType, metaType, Collections.singletonList(index));
-            enforcedType = enforcedTypes.first;
-            enforcedMetaType = enforcedTypes.second;
-        }
-        SecondaryIndexOperationsHelper secondaryIndexHelper =
-                SecondaryIndexOperationsHelper.createIndexOperationsHelper(dataset, index, metadataProvider,
-                        physicalOptimizationConfig, recordType, metaType, enforcedType, enforcedMetaType);
-        return secondaryIndexHelper.buildDropJobSpec();
+            Dataset dataset) throws AlgebricksException {
+        SecondaryIndexOperationsHelper secondaryIndexHelper = SecondaryIndexOperationsHelper
+                .createIndexOperationsHelper(dataset, index, metadataProvider, physicalOptimizationConfig);
+        return secondaryIndexHelper.buildDropJobSpec(EnumSet.noneOf(DropOption.class));
+    }
+
+    public static JobSpecification buildDropIndexJobSpec(Index index, MetadataProvider metadataProvider,
+            Dataset dataset, Set<DropOption> options) throws AlgebricksException {
+        SecondaryIndexOperationsHelper secondaryIndexHelper = SecondaryIndexOperationsHelper
+                .createIndexOperationsHelper(dataset, index, metadataProvider, physicalOptimizationConfig);
+        return secondaryIndexHelper.buildDropJobSpec(options);
     }
 
     public static JobSpecification buildSecondaryIndexCreationJobSpec(Dataset dataset, Index index,
-            ARecordType recType, ARecordType metaType, ARecordType enforcedType, ARecordType enforcedMetaType,
             MetadataProvider metadataProvider) throws AlgebricksException {
-        SecondaryIndexOperationsHelper secondaryIndexHelper =
-                SecondaryIndexOperationsHelper.createIndexOperationsHelper(dataset, index, metadataProvider,
-                        physicalOptimizationConfig, recType, metaType, enforcedType, enforcedMetaType);
+        SecondaryIndexOperationsHelper secondaryIndexHelper = SecondaryIndexOperationsHelper
+                .createIndexOperationsHelper(dataset, index, metadataProvider, physicalOptimizationConfig);
         return secondaryIndexHelper.buildCreationJobSpec();
     }
 
-    public static JobSpecification buildSecondaryIndexLoadingJobSpec(Dataset dataset, Index index, ARecordType recType,
-            ARecordType metaType, ARecordType enforcedType, ARecordType enforcedMetaType,
+    public static JobSpecification buildSecondaryIndexLoadingJobSpec(Dataset dataset, Index index,
             MetadataProvider metadataProvider) throws AlgebricksException {
-        SecondaryIndexOperationsHelper secondaryIndexHelper =
-                SecondaryIndexOperationsHelper.createIndexOperationsHelper(dataset, index, metadataProvider,
-                        physicalOptimizationConfig, recType, metaType, enforcedType, enforcedMetaType);
-        return secondaryIndexHelper.buildLoadingJobSpec();
+        return buildSecondaryIndexLoadingJobSpec(dataset, index, metadataProvider, null);
     }
 
-    public static JobSpecification buildSecondaryIndexLoadingJobSpec(Dataset dataset, Index index, ARecordType recType,
-            ARecordType metaType, ARecordType enforcedType, ARecordType enforcedMetaType,
+    public static JobSpecification buildSecondaryIndexLoadingJobSpec(Dataset dataset, Index index,
             MetadataProvider metadataProvider, List<ExternalFile> files) throws AlgebricksException {
-        SecondaryIndexOperationsHelper secondaryIndexHelper =
-                SecondaryIndexOperationsHelper.createIndexOperationsHelper(dataset, index, metadataProvider,
-                        physicalOptimizationConfig, recType, metaType, enforcedType, enforcedMetaType);
-        secondaryIndexHelper.setExternalFiles(files);
+        SecondaryIndexOperationsHelper secondaryIndexHelper;
+        if (dataset.isCorrelated()) {
+            secondaryIndexHelper = SecondaryCorrelatedTreeIndexOperationsHelper.createIndexOperationsHelper(dataset,
+                    index, metadataProvider, physicalOptimizationConfig);
+        } else {
+            secondaryIndexHelper = SecondaryTreeIndexOperationsHelper.createIndexOperationsHelper(dataset, index,
+                    metadataProvider, physicalOptimizationConfig);
+        }
+        if (files != null) {
+            secondaryIndexHelper.setExternalFiles(files);
+        }
         return secondaryIndexHelper.buildLoadingJobSpec();
     }
 
-    public static JobSpecification buildSecondaryIndexCompactJobSpec(Dataset dataset, Index index, ARecordType recType,
-            ARecordType metaType, ARecordType enforcedType, ARecordType enforcedMetaType,
+    public static JobSpecification buildSecondaryIndexCompactJobSpec(Dataset dataset, Index index,
             MetadataProvider metadataProvider) throws AlgebricksException {
-        SecondaryIndexOperationsHelper secondaryIndexHelper =
-                SecondaryIndexOperationsHelper.createIndexOperationsHelper(dataset, index, metadataProvider,
-                        physicalOptimizationConfig, recType, metaType, enforcedType, enforcedMetaType);
+        SecondaryIndexOperationsHelper secondaryIndexHelper = SecondaryIndexOperationsHelper
+                .createIndexOperationsHelper(dataset, index, metadataProvider, physicalOptimizationConfig);
         return secondaryIndexHelper.buildCompactJobSpec();
     }
+
+    /**
+     * Binds a job event listener to the job specification.
+     *
+     * @param spec,
+     *            the job specification.
+     * @param metadataProvider,
+     *            the metadata provider.
+     * @return the AsterixDB job id for transaction management.
+     */
+    public static TxnId bindJobEventListener(JobSpecification spec, MetadataProvider metadataProvider) {
+        TxnId txnId = TxnIdFactory.create();
+        metadataProvider.setTxnId(txnId);
+        boolean isWriteTransaction = metadataProvider.isWriteTransaction();
+        IJobletEventListenerFactory jobEventListenerFactory = new JobEventListenerFactory(txnId, isWriteTransaction);
+        spec.setJobletEventListenerFactory(jobEventListenerFactory);
+        return txnId;
+    }
+
 }

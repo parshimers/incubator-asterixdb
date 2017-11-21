@@ -53,6 +53,7 @@ import org.apache.hyracks.api.resources.IDeallocatable;
 import org.apache.hyracks.control.common.deployment.DeploymentUtils;
 import org.apache.hyracks.control.common.job.PartitionRequest;
 import org.apache.hyracks.control.common.job.PartitionState;
+import org.apache.hyracks.control.common.job.profiling.StatsCollector;
 import org.apache.hyracks.control.common.job.profiling.counters.Counter;
 import org.apache.hyracks.control.common.job.profiling.om.JobletProfile;
 import org.apache.hyracks.control.common.job.profiling.om.TaskProfile;
@@ -99,8 +100,11 @@ public class Joblet implements IHyracksJobletContext, ICounterContext {
 
     private boolean cleanupPending;
 
+    private final IJobletEventListenerFactory jobletEventListenerFactory;
+
     public Joblet(NodeControllerService nodeController, DeploymentId deploymentId, JobId jobId,
-            INCServiceContext serviceCtx, ActivityClusterGraph acg) {
+            INCServiceContext serviceCtx, ActivityClusterGraph acg,
+            IJobletEventListenerFactory jobletEventListenerFactory) {
         this.nodeController = nodeController;
         this.serviceCtx = serviceCtx;
         this.deploymentId = deploymentId;
@@ -116,9 +120,9 @@ public class Joblet implements IHyracksJobletContext, ICounterContext {
         deallocatableRegistry = new DefaultDeallocatableRegistry();
         fileFactory = new WorkspaceFileFactory(this, serviceCtx.getIoManager());
         cleanupPending = false;
-        IJobletEventListenerFactory jelf = acg.getJobletEventListenerFactory();
-        if (jelf != null) {
-            IJobletEventListener listener = jelf.createListener(this);
+        this.jobletEventListenerFactory = jobletEventListenerFactory;
+        if (jobletEventListenerFactory != null) {
+            IJobletEventListener listener = jobletEventListenerFactory.createListener(this);
             this.jobletEventListener = listener;
             listener.jobletStart();
         } else {
@@ -131,6 +135,11 @@ public class Joblet implements IHyracksJobletContext, ICounterContext {
     @Override
     public JobId getJobId() {
         return jobId;
+    }
+
+    @Override
+    public IJobletEventListenerFactory getJobletEventListenerFactory() {
+        return jobletEventListenerFactory;
     }
 
     public ActivityClusterGraph getActivityClusterGraph() {
@@ -185,12 +194,10 @@ public class Joblet implements IHyracksJobletContext, ICounterContext {
 
     public void dumpProfile(JobletProfile jProfile) {
         Map<String, Long> counters = jProfile.getCounters();
-        for (Map.Entry<String, Counter> e : counterMap.entrySet()) {
-            counters.put(e.getKey(), e.getValue().get());
-        }
+        counterMap.forEach((key, value) -> counters.put(key, value.get()));
         for (Task task : taskMap.values()) {
             TaskProfile taskProfile = new TaskProfile(task.getTaskAttemptId(),
-                    new Hashtable<>(task.getPartitionSendProfile()));
+                    new Hashtable<>(task.getPartitionSendProfile()), new StatsCollector());
             task.dumpProfile(taskProfile);
             jProfile.getTaskProfiles().put(task.getTaskAttemptId(), taskProfile);
         }

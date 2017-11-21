@@ -19,7 +19,6 @@
 
 package org.apache.hyracks.api.util;
 
-import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
@@ -29,8 +28,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import org.apache.hyracks.api.exceptions.ErrorCode;
 
 public class ErrorMessageUtil {
 
@@ -59,9 +56,9 @@ public class ErrorMessageUtil {
         Properties prop = new Properties();
         Map<Integer, String> errorMessageMap = new HashMap<>();
         prop.load(resourceStream);
-        for (Map.Entry<Object, Object> entry : prop.entrySet()) {
-            String key = (String) entry.getKey();
-            String msg = (String) entry.getValue();
+        prop.forEach((key1, value) -> {
+            String key = (String) key1;
+            String msg = (String) value;
             if (key.contains(COMMA)) {
                 String[] codes = key.split(COMMA);
                 for (String code : codes) {
@@ -70,7 +67,7 @@ public class ErrorMessageUtil {
             } else {
                 errorMessageMap.put(Integer.parseInt(key), msg);
             }
-        }
+        });
         return errorMessageMap;
     }
 
@@ -93,6 +90,10 @@ public class ErrorMessageUtil {
         try (Formatter fmt = new Formatter()) {
             if (!NONE.equals(component)) {
                 fmt.format("%1$s%2$04d: ", component, errorCode);
+            }
+            // if the message is already formatted, just return it
+            if (!fmt.toString().isEmpty() && message.startsWith(fmt.toString())) {
+                return message;
             }
             fmt.format(message == null ? "null" : message, (Object[]) params);
             return fmt.out().toString();

@@ -33,13 +33,14 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.replication.IReplicationManager;
+import org.apache.asterix.common.transactions.ILogBuffer;
 import org.apache.asterix.common.transactions.ILogManager;
 import org.apache.asterix.common.transactions.ILogReader;
 import org.apache.asterix.common.transactions.ILogRecord;
@@ -50,40 +51,49 @@ import org.apache.asterix.common.transactions.LogManagerProperties;
 import org.apache.asterix.common.transactions.LogType;
 import org.apache.asterix.common.transactions.MutableLong;
 import org.apache.asterix.common.transactions.TxnLogFile;
+import org.apache.asterix.common.utils.InterruptUtil;
 import org.apache.hyracks.api.lifecycle.ILifeCycleComponent;
 
 public class LogManager implements ILogManager, ILifeCycleComponent {
 
-    public static final boolean IS_DEBUG_MODE = false;// true
+    /*
+     * Constants
+     */
     private static final Logger LOGGER = Logger.getLogger(LogManager.class.getName());
+    private static final long SMALLEST_LOG_FILE_ID = 0;
+    private static final int INITIAL_LOG_SIZE = 0;
+    public static final boolean IS_DEBUG_MODE = false;// true
+    /*
+     * Finals
+     */
     private final ITransactionSubsystem txnSubsystem;
-
     private final LogManagerProperties logManagerProperties;
-    protected final long logFileSize;
-    protected final int logPageSize;
     private final int numLogPages;
     private final String logDir;
     private final String logFilePrefix;
     private final MutableLong flushLSN;
-    private LinkedBlockingQueue<LogBuffer> emptyQ;
-    private LinkedBlockingQueue<LogBuffer> flushQ;
-    private LinkedBlockingQueue<LogBuffer> stashQ;
-    protected final AtomicLong appendLSN;
-    private FileChannel appendChannel;
-    protected LogBuffer appendPage;
-    private LogFlusher logFlusher;
-    private Future<? extends Object> futureLogFlusher;
-    private static final long SMALLEST_LOG_FILE_ID = 0;
-    private static final int INITIAL_LOG_SIZE = 0;
     private final String nodeId;
-    protected LinkedBlockingQueue<ILogRecord> flushLogsQ;
     private final FlushLogsLogger flushLogsLogger;
     private final HashMap<Long, Integer> txnLogFileId2ReaderCount = new HashMap<>();
+    protected final long logFileSize;
+    protected final int logPageSize;
+    protected final AtomicLong appendLSN;
+    /*
+     * Mutables
+     */
+    private LinkedBlockingQueue<ILogBuffer> emptyQ;
+    private LinkedBlockingQueue<ILogBuffer> flushQ;
+    private LinkedBlockingQueue<ILogBuffer> stashQ;
+    private FileChannel appendChannel;
+    protected ILogBuffer appendPage;
+    private LogFlusher logFlusher;
+    private Future<? extends Object> futureLogFlusher;
+    protected LinkedBlockingQueue<ILogRecord> flushLogsQ;
 
     public LogManager(ITransactionSubsystem txnSubsystem) {
         this.txnSubsystem = txnSubsystem;
-        logManagerProperties = new LogManagerProperties(this.txnSubsystem.getTransactionProperties(),
-                this.txnSubsystem.getId());
+        logManagerProperties =
+                new LogManagerProperties(this.txnSubsystem.getTransactionProperties(), this.txnSubsystem.getId());
         logFileSize = logManagerProperties.getLogPartitionSize();
         logPageSize = logManagerProperties.getLogPageSize();
         numLogPages = logManagerProperties.getNumLogPages();
@@ -149,11 +159,11 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
             ITransactionContext txnCtx = logRecord.getTxnCtx();
             if (txnCtx.getTxnState() == ITransactionManager.ABORTED && logRecord.getLogType() != LogType.ABORT) {
                 throw new ACIDException(
-                        "Aborted job(" + txnCtx.getJobId() + ") tried to write non-abort type log record.");
+                        "Aborted txn(" + txnCtx.getTxnId() + ") tried to write non-abort type log record.");
             }
         }
 
-        /**
+        /*
          * To eliminate the case where the modulo of the next appendLSN = 0 (the next
          * appendLSN = the first LSN of the next log file), we do not allow a log to be
          * written at the last offset of the current file.
@@ -178,7 +188,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     }
 
     protected void prepareNextPage(int logSize) {
-        appendPage.isFull(true);
+        appendPage.setFull();
         getAndInitNewPage(logSize);
     }
 
@@ -216,9 +226,9 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
 
     protected void prepareNextLogFile() {
         // Mark the page as the last page so that it will close the output file channel.
-        appendPage.isLastPage(true);
+        appendPage.setLastPage();
         // Make sure to flush whatever left in the log tail.
-        appendPage.isFull(true);
+        appendPage.setFull();
         //wait until all log records have been flushed in the current file
         synchronized (flushLSN) {
             try {
@@ -607,13 +617,11 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
      * The deadlock happens when PrimaryIndexOpeartionTracker.completeOperation results in generating a FLUSH log and there are no empty log buffers available to log it.
      */
     private class FlushLogsLogger extends Thread {
-        private ILogRecord logRecord;
-
         @Override
         public void run() {
             while (true) {
                 try {
-                    logRecord = flushLogsQ.take();
+                    ILogRecord logRecord = flushLogsQ.take();
                     appendToLogTail(logRecord);
                 } catch (ACIDException e) {
                     e.printStackTrace();
@@ -627,82 +635,62 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
 
 class LogFlusher implements Callable<Boolean> {
     private static final Logger LOGGER = Logger.getLogger(LogFlusher.class.getName());
-    private final static LogBuffer POISON_PILL = new LogBuffer(null, ILogRecord.JOB_TERMINATE_LOG_SIZE, null);
+    private static final ILogBuffer POISON_PILL = new LogBuffer(null, ILogRecord.JOB_TERMINATE_LOG_SIZE, null);
     private final LogManager logMgr;//for debugging
-    private final LinkedBlockingQueue<LogBuffer> emptyQ;
-    private final LinkedBlockingQueue<LogBuffer> flushQ;
-    private final LinkedBlockingQueue<LogBuffer> stashQ;
-    private LogBuffer flushPage;
-    private final AtomicBoolean isStarted;
-    private final AtomicBoolean terminateFlag;
+    private final LinkedBlockingQueue<ILogBuffer> emptyQ;
+    private final LinkedBlockingQueue<ILogBuffer> flushQ;
+    private final LinkedBlockingQueue<ILogBuffer> stashQ;
+    private volatile ILogBuffer flushPage;
+    private volatile boolean stopping;
+    private final Semaphore started;
 
-    public LogFlusher(LogManager logMgr, LinkedBlockingQueue<LogBuffer> emptyQ, LinkedBlockingQueue<LogBuffer> flushQ,
-            LinkedBlockingQueue<LogBuffer> stashQ) {
+    LogFlusher(LogManager logMgr, LinkedBlockingQueue<ILogBuffer> emptyQ, LinkedBlockingQueue<ILogBuffer> flushQ,
+            LinkedBlockingQueue<ILogBuffer> stashQ) {
         this.logMgr = logMgr;
         this.emptyQ = emptyQ;
         this.flushQ = flushQ;
         this.stashQ = stashQ;
-        flushPage = null;
-        isStarted = new AtomicBoolean(false);
-        terminateFlag = new AtomicBoolean(false);
-
+        this.started = new Semaphore(0);
     }
 
     public void terminate() {
-        //make sure the LogFlusher thread started before terminating it.
-        synchronized (isStarted) {
-            while (!isStarted.get()) {
-                try {
-                    isStarted.wait();
-                } catch (InterruptedException e) {
-                    //ignore
-                }
-            }
-        }
+        // make sure the LogFlusher thread started before terminating it.
+        InterruptUtil.doUninterruptibly(started::acquire);
 
-        terminateFlag.set(true);
-        if (flushPage != null) {
-            synchronized (flushPage) {
-                flushPage.isStop(true);
-                flushPage.notify();
-            }
+        stopping = true;
+
+        // we must tell any active flush, if any, to stop
+        final ILogBuffer currentFlushPage = this.flushPage;
+        if (currentFlushPage != null) {
+            currentFlushPage.stop();
         }
-        //[Notice]
-        //The return value doesn't need to be checked
-        //since terminateFlag will trigger termination if the flushQ is full.
-        flushQ.offer(POISON_PILL);
+        // finally we put a POISON_PILL onto the flushQ to indicate to the flusher it is time to exit
+        InterruptUtil.doUninterruptibly(() -> flushQ.put(POISON_PILL));
     }
 
     @Override
-    public Boolean call() {
-        synchronized (isStarted) {
-            isStarted.set(true);
-            isStarted.notify();
-        }
+    public Boolean call() throws InterruptedException {
+        started.release();
+        boolean interrupted = false;
         try {
             while (true) {
                 flushPage = null;
-                try {
-                    flushPage = flushQ.take();
-                    if (flushPage == POISON_PILL || terminateFlag.get()) {
-                        return true;
-                    }
-                } catch (InterruptedException e) {
-                    if (flushPage == null) {
-                        continue;
-                    }
+                interrupted = InterruptUtil.doUninterruptiblyGet(() -> flushPage = flushQ.take()) || interrupted;
+                if (flushPage == POISON_PILL) {
+                    return true;
                 }
-                flushPage.flush();
-                emptyQ.offer(flushPage.getLogPageSize() == logMgr.getLogPageSize() ? flushPage : stashQ.remove());
+                flushPage.flush(stopping);
+
+                // TODO(mblow): recycle large pages
+                emptyQ.add(flushPage.getLogPageSize() == logMgr.getLogPageSize() ? flushPage : stashQ.remove());
             }
         } catch (Exception e) {
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("-------------------------------------------------------------------------");
-                LOGGER.info("LogFlusher is terminating abnormally. System is in unusalbe state.");
-                LOGGER.info("-------------------------------------------------------------------------");
-            }
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "LogFlusher is terminating abnormally. System is in unusable state.", e);
             throw e;
+        } finally {
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 }

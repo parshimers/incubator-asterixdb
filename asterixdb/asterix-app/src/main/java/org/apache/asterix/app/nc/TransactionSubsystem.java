@@ -19,6 +19,7 @@
 package org.apache.asterix.app.nc;
 
 import java.util.concurrent.Callable;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.asterix.common.config.ReplicationProperties;
@@ -47,6 +48,7 @@ import org.apache.hyracks.api.application.INCServiceContext;
  * Users of transaction sub-systems must obtain them from the provider.
  */
 public class TransactionSubsystem implements ITransactionSubsystem {
+    private static final Logger LOGGER = Logger.getLogger(TransactionSubsystem.class.getName());
     private final String id;
     private final ILogManager logManager;
     private final ILockManager lockManager;
@@ -68,18 +70,20 @@ public class TransactionSubsystem implements ITransactionSubsystem {
         this.txnProperties = txnProperties;
         this.transactionManager = new TransactionManager(this);
         this.lockManager = new ConcurrentLockManager(txnProperties.getLockManagerShrinkTimer());
-        ReplicationProperties repProperties = asterixAppRuntimeContextProvider.getAppContext()
-                .getReplicationProperties();
+        ReplicationProperties repProperties =
+                asterixAppRuntimeContextProvider.getAppContext().getReplicationProperties();
         IReplicationStrategy replicationStrategy = repProperties.getReplicationStrategy();
         final boolean replicationEnabled = repProperties.isParticipant(id);
-
         final CheckpointProperties checkpointProperties = new CheckpointProperties(txnProperties, id);
+        if (LOGGER.isLoggable(Level.INFO)) {
+            LOGGER.log(Level.INFO, "Checkpoint Properties: " + checkpointProperties);
+        }
         checkpointManager = CheckpointManagerFactory.create(this, checkpointProperties, replicationEnabled);
         final Checkpoint latestCheckpoint = checkpointManager.getLatest();
         if (latestCheckpoint != null && latestCheckpoint.getStorageVersion() != StorageConstants.VERSION) {
             throw new IllegalStateException(
                     String.format("Storage version mismatch. Current version (%s). On disk version: (%s)",
-                            latestCheckpoint.getStorageVersion(), StorageConstants.VERSION));
+                            StorageConstants.VERSION, latestCheckpoint.getStorageVersion()));
         }
 
         if (replicationEnabled) {
@@ -88,7 +92,6 @@ public class TransactionSubsystem implements ITransactionSubsystem {
             this.logManager = new LogManager(this);
         }
         this.recoveryManager = new RecoveryManager(this, serviceCtx);
-
         if (this.txnProperties.isCommitProfilerEnabled()) {
             ecp = new EntityCommitProfiler(this, this.txnProperties.getCommitProfilerReportInterval());
             getAsterixAppRuntimeContextProvider().getThreadExecutor().submit(ecp);
@@ -183,8 +186,8 @@ public class TransactionSubsystem implements ITransactionSubsystem {
             long currentTimeStamp = System.currentTimeMillis();
             long currentEntityCommitCount = txnSubsystem.profilerEntityCommitLogCount;
 
-            LOGGER.severe("EntityCommitProfiler ReportRound[" + reportRound + "], AbsoluteTimeStamp["
-                    + currentTimeStamp + "], ActualRelativeTimeStamp[" + (currentTimeStamp - startTimeStamp)
+            LOGGER.severe("EntityCommitProfiler ReportRound[" + reportRound + "], AbsoluteTimeStamp[" + currentTimeStamp
+                    + "], ActualRelativeTimeStamp[" + (currentTimeStamp - startTimeStamp)
                     + "], ExpectedRelativeTimeStamp[" + (reportIntervalInSeconds * reportRound) + "], IIPS["
                     + ((currentEntityCommitCount - lastEntityCommitCount) / reportIntervalInSeconds) + "], IPS["
                     + (currentEntityCommitCount / (reportRound * reportIntervalInSeconds)) + "]");

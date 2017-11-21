@@ -1,4 +1,5 @@
 DataverseUse test
+Set compiler.groupmemory=32MB
 Query:
 SELECT ELEMENT [
 RecordConstructor [
@@ -10,11 +11,22 @@ RecordConstructor [
   (
     LiteralExpr [STRING] [lines]
     :
-    Variable [ Name=$i ]
+    (
+      SELECT ELEMENT [
+      FunctionCall asterix.resolve@-1[
+        LiteralExpr [STRING] [i]
+        Variable [ Name=$partkey ]
+        Variable [ Name=$g ]
+      ]
+      ]
+      FROM [        Variable [ Name=$g ]
+        AS Variable [ Name=$g ]
+      ]
+    )
   )
 ]
 ]
-FROM [  FunctionCall Metadata.dataset@1[
+FROM [  FunctionCall asterix.dataset@1[
     LiteralExpr [STRING] [Line]
   ]
   AS Variable [ Name=$i ]
@@ -26,7 +38,7 @@ Groupby
     Variable [ Name=$i ]
     Field=l_partkey
   ]
-  GROUP AS Variable [ Name=#1 ]
+  GROUP AS Variable [ Name=$g ]
   (
     i:=Variable [ Name=$i ]
   )

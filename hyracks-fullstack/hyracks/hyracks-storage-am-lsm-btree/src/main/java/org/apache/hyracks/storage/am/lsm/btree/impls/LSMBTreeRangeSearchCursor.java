@@ -20,6 +20,7 @@
 package org.apache.hyracks.storage.am.lsm.btree.impls;
 
 import java.util.Iterator;
+import java.util.PriorityQueue;
 
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
@@ -30,16 +31,16 @@ import org.apache.hyracks.storage.am.btree.impls.BTree;
 import org.apache.hyracks.storage.am.btree.impls.BTree.BTreeAccessor;
 import org.apache.hyracks.storage.am.btree.impls.BTreeRangeSearchCursor;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
-import org.apache.hyracks.storage.am.common.api.ICursorInitialState;
-import org.apache.hyracks.storage.am.common.api.IIndexCursor;
-import org.apache.hyracks.storage.am.common.api.ISearchOperationCallback;
-import org.apache.hyracks.storage.am.common.api.ISearchPredicate;
-import org.apache.hyracks.storage.am.common.api.IndexException;
+import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent.LSMComponentType;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMIndexSearchCursor;
+import org.apache.hyracks.storage.common.ICursorInitialState;
+import org.apache.hyracks.storage.common.IIndexCursor;
+import org.apache.hyracks.storage.common.ISearchOperationCallback;
+import org.apache.hyracks.storage.common.ISearchPredicate;
 
 public class LSMBTreeRangeSearchCursor extends LSMIndexSearchCursor {
     private final ArrayTupleReference copyTuple;
@@ -49,7 +50,7 @@ public class LSMBTreeRangeSearchCursor extends LSMIndexSearchCursor {
     private RangePredicate predicate;
     private BTreeAccessor[] btreeAccessors;
     private ArrayTupleBuilder tupleBuilder;
-    private boolean proceed = true;
+    private boolean canCallProceed = true;
 
     public LSMBTreeRangeSearchCursor(ILSMIndexOperationContext opCtx) {
         this(opCtx, false);
@@ -62,124 +63,145 @@ public class LSMBTreeRangeSearchCursor extends LSMIndexSearchCursor {
     }
 
     @Override
-    public void reset() throws HyracksDataException, IndexException {
+    public void reset() throws HyracksDataException {
         super.reset();
-        proceed = true;
+        canCallProceed = true;
     }
 
     @Override
     public void next() throws HyracksDataException {
         outputElement = outputPriorityQueue.poll();
-        needPush = true;
-        proceed = false;
+        needPushElementIntoQueue = true;
+        canCallProceed = false;
     }
 
+    /**
+     * Checks the priority queue and resets and the top element if required.
+     * PriorityQueue can hold one element from each cursor.
+     * The boolean variable canCallProceedMethod controls whether we can call proceed() method for this element.
+     * i.e. it can return this element if proceed() succeeds.
+     * If proceed fails, that is most-likely that there is ongoing operations in the in-memory component.
+     * After resolving in-memory component issue, it progresses again.
+     * Also, in order to not release the same element again, it keeps the previous output and checks it
+     * against the current head in the queue.
+     */
     @Override
-    protected void checkPriorityQueue() throws HyracksDataException, IndexException {
-        while (!outputPriorityQueue.isEmpty() || needPush == true) {
+    protected void checkPriorityQueue() throws HyracksDataException {
+        while (!outputPriorityQueue.isEmpty() || needPushElementIntoQueue) {
             if (!outputPriorityQueue.isEmpty()) {
-                PriorityQueueElement checkElement = outputPriorityQueue.peek();
-                if (proceed && !searchCallback.proceed(checkElement.getTuple())) {
+                PriorityQueueElement queueHead = outputPriorityQueue.peek();
+                if (canCallProceed) {
+                    // if there are no memory components. no need to lock at all
+                    // since whatever the search reads will never changes
                     if (includeMutableComponent) {
-                        PriorityQueueElement mutableElement = null;
-                        boolean mutableElementFound = false;
-                        // scan the PQ for the mutable component's element
-                        Iterator<PriorityQueueElement> it = outputPriorityQueue.iterator();
-                        while (it.hasNext()) {
-                            mutableElement = it.next();
-                            if (mutableElement.getCursorIndex() == 0) {
-                                mutableElementFound = true;
-                                it.remove();
-                                break;
-                            }
-                        }
-                        if (mutableElementFound) {
-                            // copy the in-mem tuple
-                            if (tupleBuilder == null) {
-                                tupleBuilder = new ArrayTupleBuilder(cmp.getKeyFieldCount());
-                            }
-                            TupleUtils.copyTuple(tupleBuilder, mutableElement.getTuple(), cmp.getKeyFieldCount());
-                            copyTuple.reset(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray());
-
-                            // unlatch/unpin
-                            rangeCursors[0].reset();
-
-                            // reconcile
-                            if (checkElement.getCursorIndex() == 0) {
+                        if (!searchCallback.proceed(queueHead.getTuple())) {
+                            // In case proceed() fails and there is an in-memory component,
+                            // we can't simply use this element since there might be a change.
+                            PriorityQueueElement mutableElement = removeMutable(outputPriorityQueue);
+                            if (mutableElement != null) {
+                                // Copies the current queue head
+                                if (tupleBuilder == null) {
+                                    tupleBuilder = new ArrayTupleBuilder(cmp.getKeyFieldCount());
+                                }
+                                TupleUtils.copyTuple(tupleBuilder, queueHead.getTuple(), cmp.getKeyFieldCount());
+                                copyTuple.reset(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray());
+                                // Unlatches/unpins the leaf page of the index.
+                                rangeCursors[0].reset();
+                                // Reconcile.
                                 searchCallback.reconcile(copyTuple);
-                            } else {
-                                searchCallback.reconcile(checkElement.getTuple());
-                                searchCallback.complete(checkElement.getTuple());
-                            }
-                            // retraverse
-                            reusablePred.setLowKey(copyTuple, true);
-                            btreeAccessors[0].search(rangeCursors[0], reusablePred);
-                            boolean isNotExhaustedCursor = pushIntoPriorityQueue(mutableElement);
-
-                            if (checkElement.getCursorIndex() == 0) {
-                                if (!isNotExhaustedCursor || cmp.compare(copyTuple, mutableElement.getTuple()) != 0) {
-                                    searchCallback.complete(copyTuple);
+                                // Re-traverses the index.
+                                reusablePred.setLowKey(copyTuple, true);
+                                btreeAccessors[0].search(rangeCursors[0], reusablePred);
+                                //------
+                                includeMutableComponent = pushIntoQueueFromCursorAndReplaceThisElement(mutableElement);
+                                // now that we have completed the search and we have latches over the pages,
+                                // it is safe to complete the operation.. but as per the API of the callback
+                                // we only complete if we're producing this tuple
+                                // get head again
+                                queueHead = outputPriorityQueue.peek();
+                                /*
+                                 * We need to restart in one of two cases:
+                                 * 1. no more elements in the priority queue.
+                                 * 2. the key of the head has changed (which means we need to call proceed)
+                                 */
+                                if (queueHead == null || cmp.compare(copyTuple, queueHead.getTuple()) != 0) {
+                                    // cancel since we're not continuing
                                     searchCallback.cancel(copyTuple);
                                     continue;
                                 }
                                 searchCallback.complete(copyTuple);
+                                // it is safe to proceed now
+                            } else {
+                                // There are no more elements in the memory component.. can safely skip locking for the
+                                // remaining operations
+                                includeMutableComponent = false;
                             }
-                        } else {
-                            // the mutable cursor is exhausted
-                            searchCallback.reconcile(checkElement.getTuple());
                         }
-                    } else {
-                        searchCallback.reconcile(checkElement.getTuple());
                     }
                 }
-                // If there is no previous tuple or the previous tuple can be ignored
+
+                // If there is no previous tuple or the previous tuple can be ignored.
+                // This check is needed not to release the same tuple again.
                 if (outputElement == null) {
-                    if (isDeleted(checkElement) && !returnDeletedTuples) {
+                    if (isDeleted(queueHead) && !returnDeletedTuples) {
                         // If the key has been deleted then pop it and set needPush to true.
                         // We cannot push immediately because the tuple may be
                         // modified if hasNext() is called
                         outputElement = outputPriorityQueue.poll();
-                        searchCallback.cancel(checkElement.getTuple());
-                        needPush = true;
-                        proceed = false;
+                        needPushElementIntoQueue = true;
+                        canCallProceed = false;
                     } else {
                         break;
                     }
                 } else {
                     // Compare the previous tuple and the head tuple in the PQ
-                    if (compare(cmp, outputElement.getTuple(), checkElement.getTuple()) == 0) {
+                    if (compare(cmp, outputElement.getTuple(), queueHead.getTuple()) == 0) {
                         // If the previous tuple and the head tuple are
                         // identical
                         // then pop the head tuple and push the next tuple from
                         // the tree of head tuple
-
                         // the head element of PQ is useless now
                         PriorityQueueElement e = outputPriorityQueue.poll();
-                        pushIntoPriorityQueue(e);
+                        pushIntoQueueFromCursorAndReplaceThisElement(e);
                     } else {
                         // If the previous tuple and the head tuple are different
                         // the info of previous tuple is useless
-                        if (needPush == true) {
-                            pushIntoPriorityQueue(outputElement);
-                            needPush = false;
+                        if (needPushElementIntoQueue == true) {
+                            pushIntoQueueFromCursorAndReplaceThisElement(outputElement);
+                            needPushElementIntoQueue = false;
                         }
-                        proceed = true;
+                        canCallProceed = true;
                         outputElement = null;
                     }
                 }
             } else {
                 // the priority queue is empty and needPush
-                pushIntoPriorityQueue(outputElement);
-                needPush = false;
+                pushIntoQueueFromCursorAndReplaceThisElement(outputElement);
+                needPushElementIntoQueue = false;
                 outputElement = null;
-                proceed = true;
+                canCallProceed = true;
             }
         }
+
+    }
+
+    private PriorityQueueElement removeMutable(PriorityQueue<PriorityQueueElement> outputPriorityQueue) {
+        // Scans the PQ for the mutable component's element and delete it
+        // since it can be changed.
+        // (i.e. we can't ensure that the element is the most current one.)
+        Iterator<PriorityQueueElement> it = outputPriorityQueue.iterator();
+        while (it.hasNext()) {
+            PriorityQueueElement mutableElement = it.next();
+            if (mutableElement.getCursorIndex() == 0) {
+                it.remove();
+                return mutableElement;
+            }
+        }
+        return null;
     }
 
     @Override
-    public void open(ICursorInitialState initialState, ISearchPredicate searchPred)
-            throws HyracksDataException, IndexException {
+    public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
         LSMBTreeCursorInitialState lsmInitialState = (LSMBTreeCursorInitialState) initialState;
         cmp = lsmInitialState.getOriginalKeyComparator();
         operationalComponents = lsmInitialState.getOperationalComponents();
@@ -210,14 +232,13 @@ public class LSMBTreeRangeSearchCursor extends LSMIndexSearchCursor {
             }
             if (component.getType() == LSMComponentType.MEMORY) {
                 includeMutableComponent = true;
-                btree = ((LSMBTreeMemoryComponent) component).getBTree();
+                btree = (BTree) component.getIndex();
             } else {
-                btree = ((LSMBTreeDiskComponent) component).getBTree();
+                btree = (BTree) component.getIndex();
             }
 
             if (btreeAccessors[i] == null) {
-                btreeAccessors[i] = (BTreeAccessor) btree.createAccessor(NoOpOperationCallback.INSTANCE,
-                        NoOpOperationCallback.INSTANCE);
+                btreeAccessors[i] = btree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
             } else {
                 // re-use
                 btreeAccessors[i].reset(btree, NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
@@ -226,6 +247,6 @@ public class LSMBTreeRangeSearchCursor extends LSMIndexSearchCursor {
         }
         setPriorityQueueComparator();
         initPriorityQueue();
-        proceed = true;
+        canCallProceed = true;
     }
 }

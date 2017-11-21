@@ -22,8 +22,8 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.asterix.common.api.IAppRuntimeContext;
 import org.apache.asterix.common.api.INCLifecycleTask;
+import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.service.IControllerService;
 
@@ -38,7 +38,7 @@ public class RemoteRecoveryTask implements INCLifecycleTask {
 
     @Override
     public void perform(IControllerService cs) throws HyracksDataException {
-        IAppRuntimeContext appContext = (IAppRuntimeContext) cs.getApplicationContext();
+        INcApplicationContext appContext = (INcApplicationContext) cs.getApplicationContext();
         appContext.getRemoteRecoveryManager().doRemoteRecoveryPlan(recoveryPlan);
     }
 
@@ -48,5 +48,10 @@ public class RemoteRecoveryTask implements INCLifecycleTask {
 
     private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
         in.defaultReadObject();
+    }
+
+    @Override
+    public String toString() {
+        return "{ \"class\" : \"" + getClass().getSimpleName() + "\", \"recovery-plan\" : " + recoveryPlan + " }";
     }
 }

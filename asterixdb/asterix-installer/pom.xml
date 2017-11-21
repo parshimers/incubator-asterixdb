@@ -21,12 +21,16 @@
   <parent>
     <artifactId>apache-asterixdb</artifactId>
     <groupId>org.apache.asterix</groupId>
-    <version>0.9.1-SNAPSHOT</version>
+    <version>0.9.3-SNAPSHOT</version>
   </parent>
   <artifactId>asterix-installer</artifactId>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <appendedResourcesDirectory>${basedir}/src/main/appended-resources</appendedResourcesDirectory>
+
+    <failsafe.test.excludes>**/DmlRecoveryIT.java</failsafe.test.excludes>
+    <cluster.test.excludes>**/AsterixClusterLifeCycleIT.java</cluster.test.excludes>
+    <cluster.extest.excludes>**/ClusterExecutionIT.java</cluster.extest.excludes>
   </properties>
 
   <licenses>
@@ -43,7 +47,6 @@
       <plugin>
         <groupId>org.apache.hyracks</groupId>
         <artifactId>license-automation-plugin</artifactId>
-        <version>${hyracks.version}</version>
         <executions>
           <execution>
             <phase>generate-resources</phase>
@@ -138,7 +141,6 @@
       <plugin>
         <groupId>org.jvnet.jaxb2.maven2</groupId>
         <artifactId>maven-jaxb2-plugin</artifactId>
-        <version>0.9.0</version>
         <executions>
           <execution>
             <id>configuration</id>
@@ -192,15 +194,16 @@
       </plugin>
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
-        <version>2.2-beta-5</version>
         <executions>
           <execution>
             <configuration>
-              <descriptor>src/main/assembly/binary-assembly.xml</descriptor>
+              <descriptors>
+                <descriptor>src/main/assembly/binary-assembly.xml</descriptor>
+              </descriptors>
             </configuration>
             <phase>package</phase>
             <goals>
-              <goal>attached</goal>
+              <goal>single</goal>
             </goals>
           </execution>
         </executions>
@@ -219,12 +222,6 @@
               <overwrite>true</overwrite>
               <resources>
                 <resource>
-                  <directory>../asterix-external-data/src/test/resources/openbeerdb</directory>
-                  <includes>
-                    <include>beer.csv</include>
-                  </includes>
-                </resource>
-                <resource>
                   <directory>../asterix-app/data/external-parser</directory>
                   <includes>
                     <include>jobads.new</include>
@@ -238,7 +235,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
-        <version>2.10</version>
         <executions>
           <execution>
             <id>copy-external-testlib</id>
@@ -306,8 +302,21 @@
             <exclude>src/test/resources/clusterts/id_rsa</exclude>
             <exclude>src/test/resources/clusterts/id_rsa.pub</exclude>
             <exclude>src/test/resources/clusterts/known_hosts</exclude>
+            <exclude>src/test/resources/docker/id_rsa</exclude>
+            <exclude>src/test/resources/docker/id_rsa.pub</exclude>
             <exclude>src/test/resources/transactionts/results/query_after_restart/big_object_20M/big_object_20M.1.adm.template</exclude>
             <exclude>src/test/resources/integrationts/restart/tweets.json</exclude> <!-- https://issues.apache.org/jira/browse/ASTERIXDB-1850 -->
+          </excludes>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <configuration>
+          <excludes combine.children="append">
+            <exclude>${failsafe.test.excludes}</exclude>
+            <exclude>${cluster.test.excludes}</exclude>
+            <exclude>${cluster.extest.excludes}</exclude>
           </excludes>
         </configuration>
       </plugin>
@@ -325,7 +334,7 @@
                   <pluginExecutionFilter>
                     <groupId>org.apache.hyracks</groupId>
                     <artifactId>license-automation-plugin</artifactId>
-                    <versionRange>${hyracks.version}</versionRange>
+                    <versionRange>[0.0,)</versionRange>
                     <goals>
                       <goal>generate</goal>
                     </goals>
@@ -392,7 +401,6 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-failsafe-plugin</artifactId>
-            <version>2.6</version>
             <configuration>
               <runOrder>alphabetical</runOrder>
               <forkMode>pertest</forkMode>

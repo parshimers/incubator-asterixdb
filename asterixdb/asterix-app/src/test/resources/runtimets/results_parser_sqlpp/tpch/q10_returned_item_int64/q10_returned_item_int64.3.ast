@@ -121,7 +121,7 @@ FROM [  (
       )
     ]
     ]
-    FROM [      FunctionCall Metadata.dataset@1[
+    FROM [      FunctionCall asterix.dataset@1[
         LiteralExpr [STRING] [LineItem]
       ]
       AS Variable [ Name=$l ]
@@ -195,17 +195,17 @@ FROM [  (
           )
         ]
         ]
-        FROM [          FunctionCall Metadata.dataset@1[
+        FROM [          FunctionCall asterix.dataset@1[
             LiteralExpr [STRING] [Orders]
           ]
           AS Variable [ Name=$o ]
 ,
-          FunctionCall Metadata.dataset@1[
+          FunctionCall asterix.dataset@1[
             LiteralExpr [STRING] [Customer]
           ]
           AS Variable [ Name=$c ]
 ,
-          FunctionCall Metadata.dataset@1[
+          FunctionCall asterix.dataset@1[
             LiteralExpr [STRING] [Nation]
           ]
           AS Variable [ Name=$n ]
@@ -328,19 +328,22 @@ Groupby
     Variable [ Name=$locn ]
     Field=c_comment
   ]
-  GROUP AS Variable [ Name=#1 ]
+  GROUP AS Variable [ Name=$g ]
   (
     locn:=Variable [ Name=$locn ]
   )
 
 Let Variable [ Name=$revenue ]
   :=
-  FunctionCall tpch.sum@1[
+  FunctionCall asterix.sum@1[
     (
       SELECT ELEMENT [
       OperatorExpr [
         FieldAccessor [
-          Variable [ Name=$i ]
+          FieldAccessor [
+            Variable [ Name=$i ]
+            Field=locn
+          ]
           Field=l_extendedprice
         ]
         *
@@ -348,13 +351,16 @@ Let Variable [ Name=$revenue ]
           LiteralExpr [LONG] [1]
           -
           FieldAccessor [
-            Variable [ Name=$i ]
+            FieldAccessor [
+              Variable [ Name=$i ]
+              Field=locn
+            ]
             Field=l_discount
           ]
         ]
       ]
       ]
-      FROM [        Variable [ Name=$locn ]
+      FROM [        Variable [ Name=$g ]
         AS Variable [ Name=$i ]
       ]
     )

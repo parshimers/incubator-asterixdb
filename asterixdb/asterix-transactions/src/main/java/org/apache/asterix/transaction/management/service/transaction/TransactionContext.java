@@ -18,39 +18,37 @@
  */
 package org.apache.asterix.transaction.management.service.transaction;
 
-import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.asterix.common.context.ITransactionOperationTracker;
 import org.apache.asterix.common.context.PrimaryIndexOperationTracker;
 import org.apache.asterix.common.exceptions.ACIDException;
-import org.apache.asterix.common.ioopcallbacks.AbstractLSMIOOperationCallback;
 import org.apache.asterix.common.transactions.AbstractOperationCallback;
 import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.ITransactionManager;
-import org.apache.asterix.common.transactions.JobId;
 import org.apache.asterix.common.transactions.LogRecord;
-import org.apache.asterix.common.transactions.MutableLong;
+import org.apache.asterix.common.transactions.TxnId;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
-import org.apache.hyracks.storage.am.common.api.IModificationOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.LSMOperationType;
+import org.apache.hyracks.storage.common.IModificationOperationCallback;
 
 /*
  * An object of TransactionContext is created and accessed(read/written) by multiple threads which work for
- * a single job identified by a jobId. Thus, the member variables in the object can be read/written
+ * a single job identified by a txnId. Thus, the member variables in the object can be read/written
  * concurrently. Please see each variable declaration to know which one is accessed concurrently and
  * which one is not.
  */
-public class TransactionContext implements ITransactionContext, Serializable {
+public class TransactionContext implements ITransactionContext {
 
     private static final long serialVersionUID = -6105616785783310111L;
 
-    // jobId is set once and read concurrently.
-    private final JobId jobId;
+    // txnId is set once and read concurrently.
+    private final TxnId txnId;
 
     // There are no concurrent writers on both firstLSN and lastLSN
     // since both values are updated by serialized log appenders.
@@ -76,7 +74,7 @@ public class TransactionContext implements ITransactionContext, Serializable {
 
     // indexMap is concurrently accessed by multiple threads,
     // so those threads are synchronized on indexMap object itself
-    private final Map<MutableLong, AbstractLSMIOOperationCallback> indexMap;
+    private final Map<Long, ITransactionOperationTracker> indexMap;
 
     // TODO: fix ComponentLSNs' issues.
     // primaryIndex, primaryIndexCallback, and primaryIndexOptracker will be
@@ -89,7 +87,6 @@ public class TransactionContext implements ITransactionContext, Serializable {
     // The following three variables are used as temporary variables in order to
     // avoid object creations.
     // Those are used in synchronized methods.
-    private final MutableLong tempResourceIdForRegister;
     private final LogRecord logRecord;
 
     private final AtomicInteger transactorNumActiveOperations;
@@ -98,8 +95,8 @@ public class TransactionContext implements ITransactionContext, Serializable {
     // creations.
     // also, the pool can throttle the number of concurrent active jobs at every
     // moment.
-    public TransactionContext(JobId jobId) throws ACIDException {
-        this.jobId = jobId;
+    public TransactionContext(TxnId txnId) throws ACIDException {
+        this.txnId = txnId;
         firstLSN = new AtomicLong(-1);
         lastLSN = new AtomicLong(-1);
         txnState = new AtomicInteger(ITransactionManager.ACTIVE);
@@ -108,7 +105,6 @@ public class TransactionContext implements ITransactionContext, Serializable {
         isMetadataTxn = false;
         indexMap = new HashMap<>();
         primaryIndex = null;
-        tempResourceIdForRegister = new MutableLong();
         logRecord = new LogRecord();
         transactorNumActiveOperations = new AtomicInteger(0);
     }
@@ -122,11 +118,18 @@ public class TransactionContext implements ITransactionContext, Serializable {
                 primaryIndexCallback = callback;
                 primaryIndexOpTracker = (PrimaryIndexOperationTracker) index.getOperationTracker();
             }
-            tempResourceIdForRegister.set(resourceId);
-            if (!indexMap.containsKey(tempResourceIdForRegister)) {
-                indexMap.put(new MutableLong(resourceId),
-                        ((AbstractLSMIOOperationCallback) index.getIOOperationCallback()));
+            if (!indexMap.containsKey(resourceId)) {
+                final ITransactionOperationTracker txnOpTracker =
+                        (ITransactionOperationTracker) index.getOperationTracker();
+                indexMap.put(resourceId, txnOpTracker);
+                txnOpTracker.beforeTransaction(resourceId);
             }
+        }
+    }
+
+    public PrimaryIndexOperationTracker getPrimaryIndexOpTracker() {
+        synchronized (indexMap) {
+            return primaryIndexOpTracker;
         }
     }
 
@@ -141,7 +144,11 @@ public class TransactionContext implements ITransactionContext, Serializable {
     @Override
     public void notifyOptracker(boolean isJobLevelCommit) {
         try {
-            if (isJobLevelCommit && isMetadataTxn) {
+            /**
+             * in case of transaction abort {@link TransactionContext#cleanupForAbort()} will
+             * clean the primaryIndexOpTracker state.
+             */
+            if (isJobLevelCommit && isMetadataTxn && txnState.get() != ITransactionManager.ABORTED) {
                 primaryIndexOpTracker.exclusiveJobCommitted();
             } else if (!isJobLevelCommit) {
                 primaryIndexOpTracker.completeOperation(null, LSMOperationType.MODIFICATION, null,
@@ -173,8 +180,8 @@ public class TransactionContext implements ITransactionContext, Serializable {
     }
 
     @Override
-    public JobId getJobId() {
-        return jobId;
+    public TxnId getTxnId() {
+        return txnId;
     }
 
     @Override
@@ -199,7 +206,7 @@ public class TransactionContext implements ITransactionContext, Serializable {
 
     @Override
     public int hashCode() {
-        return jobId.getId();
+        return Long.hashCode(txnId.getId());
     }
 
     @Override
@@ -220,7 +227,7 @@ public class TransactionContext implements ITransactionContext, Serializable {
     @Override
     public String prettyPrint() {
         StringBuilder sb = new StringBuilder();
-        sb.append("\n" + jobId + "\n");
+        sb.append("\n" + txnId + "\n");
         sb.append("isWriteTxn: " + isWriteTxn + "\n");
         sb.append("firstLSN: " + firstLSN.get() + "\n");
         sb.append("lastLSN: " + lastLSN.get() + "\n");
@@ -233,12 +240,6 @@ public class TransactionContext implements ITransactionContext, Serializable {
         return logRecord;
     }
 
-    public void cleanupForAbort() {
-        if (primaryIndexOpTracker != null) {
-            primaryIndexOpTracker.cleanupNumActiveOperationsForAbortedJob(transactorNumActiveOperations.get());
-        }
-    }
-
     @Override
     public void incrementNumActiveOperations() {
         transactorNumActiveOperations.incrementAndGet();
@@ -247,5 +248,24 @@ public class TransactionContext implements ITransactionContext, Serializable {
     @Override
     public void decrementNumActiveOperations() {
         transactorNumActiveOperations.decrementAndGet();
+    }
+
+    @Override
+    public void complete() {
+        try {
+            if (txnState.get() == ITransactionManager.ABORTED) {
+                cleanupForAbort();
+            }
+        } finally {
+            synchronized (indexMap) {
+                indexMap.forEach((resource, opTracker) -> opTracker.afterTransaction(resource));
+            }
+        }
+    }
+
+    private void cleanupForAbort() {
+        if (primaryIndexOpTracker != null) {
+            primaryIndexOpTracker.cleanupNumActiveOperationsForAbortedJob(transactorNumActiveOperations.get());
+        }
     }
 }

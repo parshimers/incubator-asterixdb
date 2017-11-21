@@ -29,9 +29,9 @@ import org.apache.asterix.common.transactions.LogRecord;
 import org.apache.asterix.common.transactions.LogType;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
-import org.apache.hyracks.storage.am.common.api.IModificationOperationCallback;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.common.tuples.SimpleTupleWriter;
+import org.apache.hyracks.storage.common.IModificationOperationCallback;
 
 public abstract class AbstractIndexModificationOperationCallback extends AbstractOperationCallback
         implements IModificationOperationCallback {
@@ -85,7 +85,7 @@ public abstract class AbstractIndexModificationOperationCallback extends Abstrac
         logRecord = new LogRecord();
         logRecord.setTxnCtx(txnCtx);
         logRecord.setLogType(LogType.UPDATE);
-        logRecord.setJobId(txnCtx.getJobId().getId());
+        logRecord.setTxnId(txnCtx.getTxnId().getId());
         logRecord.setDatasetId(datasetId.getId());
         logRecord.setResourceId(resourceId);
         logRecord.setResourcePartition(resourcePartition);

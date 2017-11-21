@@ -22,11 +22,12 @@ import java.rmi.RemoteException;
 import java.util.Map;
 
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
+import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.CompilationException;
 import org.apache.asterix.common.exceptions.ErrorCode;
-import org.apache.asterix.common.library.ILibraryManager;
+import org.apache.asterix.common.exceptions.MetadataException;
 import org.apache.asterix.external.api.IAdapterFactory;
 import org.apache.asterix.external.api.IDataSourceAdapter;
 import org.apache.asterix.external.api.IDataSourceAdapter.AdapterType;
@@ -36,7 +37,6 @@ import org.apache.asterix.external.provider.AdapterFactoryProvider;
 import org.apache.asterix.external.util.ExternalDataConstants;
 import org.apache.asterix.external.util.ExternalDataUtils;
 import org.apache.asterix.formats.nontagged.SerializerDeserializerProvider;
-import org.apache.asterix.metadata.MetadataException;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.metadata.MetadataTransactionContext;
 import org.apache.asterix.metadata.declared.MetadataProvider;
@@ -54,13 +54,16 @@ import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
 import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
 
 /**
- * A utility class for providing helper functions for feeds
- * TODO: Refactor this class.
+ * A utility class for providing helper functions for feeds TODO: Refactor this
+ * class.
  */
 public class FeedMetadataUtil {
 
+    private FeedMetadataUtil() {
+    }
+
     public static Dataset validateIfDatasetExists(MetadataProvider metadataProvider, String dataverse,
-            String datasetName, MetadataTransactionContext ctx) throws AlgebricksException {
+            String datasetName) throws AlgebricksException {
         Dataset dataset = metadataProvider.findDataset(dataverse, datasetName);
         if (dataset == null) {
             throw new CompilationException("Unknown target dataset :" + datasetName);
@@ -74,7 +77,7 @@ public class FeedMetadataUtil {
     }
 
     public static Feed validateIfFeedExists(String dataverse, String feedName, MetadataTransactionContext ctx)
-            throws CompilationException {
+            throws AlgebricksException {
         Feed feed = MetadataManager.INSTANCE.getFeed(ctx, dataverse, feedName);
         if (feed == null) {
             throw new CompilationException("Unknown source feed: " + feedName);
@@ -83,7 +86,7 @@ public class FeedMetadataUtil {
     }
 
     public static FeedPolicyEntity validateIfPolicyExists(String dataverse, String policyName,
-            MetadataTransactionContext ctx) throws CompilationException {
+            MetadataTransactionContext ctx) throws AlgebricksException {
         FeedPolicyEntity feedPolicy = MetadataManager.INSTANCE.getFeedPolicy(ctx, dataverse, policyName);
         if (feedPolicy == null) {
             feedPolicy =
@@ -95,14 +98,13 @@ public class FeedMetadataUtil {
         return feedPolicy;
     }
 
-    public static void validateFeed(Feed feed, MetadataTransactionContext mdTxnCtx, ILibraryManager libraryManager)
-            throws AsterixException {
+    public static void validateFeed(Feed feed, MetadataTransactionContext mdTxnCtx, ICcApplicationContext appCtx)
+            throws AlgebricksException {
         try {
             String adapterName = feed.getAdapterName();
             Map<String, String> configuration = feed.getAdapterConfiguration();
             ARecordType adapterOutputType = getOutputType(feed, configuration, ExternalDataConstants.KEY_TYPE_NAME);
             ARecordType metaType = getOutputType(feed, configuration, ExternalDataConstants.KEY_META_TYPE_NAME);
-            ExternalDataUtils.prepareFeed(configuration, feed.getDataverseName(), feed.getFeedName());
             ExternalDataUtils.prepareFeed(configuration, feed.getDataverseName(), feed.getFeedName());
             // Get adapter from metadata dataset <Metadata dataverse>
             DatasourceAdapter adapterEntity = MetadataManager.INSTANCE.getAdapter(mdTxnCtx,
@@ -123,7 +125,8 @@ public class FeedMetadataUtil {
                     case EXTERNAL:
                         String[] anameComponents = adapterName.split("#");
                         String libraryName = anameComponents[0];
-                        ClassLoader cl = libraryManager.getLibraryClassLoader(feed.getDataverseName(), libraryName);
+                        ClassLoader cl =
+                                appCtx.getLibraryManager().getLibraryClassLoader(feed.getDataverseName(), libraryName);
                         adapterFactory = (IAdapterFactory) cl.loadClass(adapterFactoryClassname).newInstance();
                         break;
                     default:
@@ -131,10 +134,10 @@ public class FeedMetadataUtil {
                 }
                 adapterFactory.setOutputType(adapterOutputType);
                 adapterFactory.setMetaType(metaType);
-                adapterFactory.configure(null, configuration);
+                adapterFactory.configure(appCtx.getServiceContext(), configuration);
             } else {
-                AdapterFactoryProvider.getAdapterFactory(libraryManager, adapterName, configuration, adapterOutputType,
-                        metaType);
+                AdapterFactoryProvider.getAdapterFactory(appCtx.getServiceContext(), adapterName, configuration,
+                        adapterOutputType, metaType);
             }
             if (metaType == null && configuration.containsKey(ExternalDataConstants.KEY_META_TYPE_NAME)) {
                 metaType = getOutputType(feed, configuration, ExternalDataConstants.KEY_META_TYPE_NAME);
@@ -160,7 +163,7 @@ public class FeedMetadataUtil {
 
     @SuppressWarnings("rawtypes")
     public static Triple<IAdapterFactory, RecordDescriptor, AdapterType> getPrimaryFeedFactoryAndOutput(Feed feed,
-            FeedPolicyAccessor policyAccessor, MetadataTransactionContext mdTxnCtx, ILibraryManager libraryManager)
+            FeedPolicyAccessor policyAccessor, MetadataTransactionContext mdTxnCtx, ICcApplicationContext appCtx)
             throws AlgebricksException {
         // This method needs to be re-visited
         String adapterName = null;
@@ -195,7 +198,8 @@ public class FeedMetadataUtil {
                     case EXTERNAL:
                         String[] anameComponents = adapterName.split("#");
                         String libraryName = anameComponents[0];
-                        ClassLoader cl = libraryManager.getLibraryClassLoader(feed.getDataverseName(), libraryName);
+                        ClassLoader cl =
+                                appCtx.getLibraryManager().getLibraryClassLoader(feed.getDataverseName(), libraryName);
                         adapterFactory = (IAdapterFactory) cl.loadClass(adapterFactoryClassname).newInstance();
                         break;
                     default:
@@ -203,10 +207,10 @@ public class FeedMetadataUtil {
                 }
                 adapterFactory.setOutputType(adapterOutputType);
                 adapterFactory.setMetaType(metaType);
-                adapterFactory.configure(null, configuration);
+                adapterFactory.configure(appCtx.getServiceContext(), configuration);
             } else {
-                adapterFactory = AdapterFactoryProvider.getAdapterFactory(libraryManager, adapterName, configuration,
-                        adapterOutputType, metaType);
+                adapterFactory = AdapterFactoryProvider.getAdapterFactory(appCtx.getServiceContext(), adapterName,
+                        configuration, adapterOutputType, metaType);
                 adapterType = IDataSourceAdapter.AdapterType.INTERNAL;
             }
             if (metaType == null) {
@@ -269,7 +273,7 @@ public class FeedMetadataUtil {
     }
 
     public static ARecordType getOutputType(IFeed feed, Map<String, String> configuration, String key)
-            throws MetadataException {
+            throws AlgebricksException {
         ARecordType outputType = null;
         String fqOutputType = configuration.get(key);
 
@@ -295,7 +299,7 @@ public class FeedMetadataUtil {
         try {
             ctx = MetadataManager.INSTANCE.beginTransaction();
             Datatype t = MetadataManager.INSTANCE.getDatatype(ctx, dataverseName, datatypeName);
-            if (t == null || t.getDatatype().getTypeTag() != ATypeTag.RECORD) {
+            if (t == null || t.getDatatype().getTypeTag() != ATypeTag.OBJECT) {
                 throw new MetadataException(ErrorCode.FEED_METADATA_UTIL_UNEXPECTED_FEED_DATATYPE, datatypeName);
             }
             outputType = (ARecordType) t.getDatatype();

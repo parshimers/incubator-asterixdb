@@ -38,6 +38,7 @@ import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.CompilationException;
 import org.apache.asterix.common.exceptions.ErrorCode;
+import org.apache.asterix.common.transactions.TxnId;
 import org.apache.asterix.common.utils.Job;
 import org.apache.asterix.common.utils.Job.SubmissionMode;
 import org.apache.asterix.compiler.provider.ILangCompilationProvider;
@@ -50,7 +51,6 @@ import org.apache.asterix.dataflow.data.common.PartialAggregationTypeComputer;
 import org.apache.asterix.external.feed.watch.FeedActivityDetails;
 import org.apache.asterix.formats.base.IDataFormat;
 import org.apache.asterix.jobgen.QueryLogicalExpressionJobGen;
-import org.apache.asterix.lang.aql.statement.SubscribeFeedStatement;
 import org.apache.asterix.lang.common.base.IAstPrintVisitorFactory;
 import org.apache.asterix.lang.common.base.IQueryRewriter;
 import org.apache.asterix.lang.common.base.IReturningStatement;
@@ -59,15 +59,16 @@ import org.apache.asterix.lang.common.base.Statement;
 import org.apache.asterix.lang.common.rewrites.LangRewritingContext;
 import org.apache.asterix.lang.common.statement.FunctionDecl;
 import org.apache.asterix.lang.common.statement.Query;
+import org.apache.asterix.lang.common.statement.StartFeedStatement;
 import org.apache.asterix.lang.common.util.FunctionUtil;
 import org.apache.asterix.metadata.declared.MetadataProvider;
 import org.apache.asterix.optimizer.base.FuzzyUtils;
 import org.apache.asterix.runtime.job.listener.JobEventListenerFactory;
-import org.apache.asterix.runtime.utils.AppContextInfo;
-import org.apache.asterix.transaction.management.service.transaction.JobIdFactory;
+import org.apache.asterix.transaction.management.service.transaction.TxnIdFactory;
 import org.apache.asterix.translator.CompiledStatements.ICompiledDmlStatement;
 import org.apache.asterix.translator.IStatementExecutor.Stats;
 import org.apache.asterix.translator.SessionConfig;
+import org.apache.asterix.translator.SessionOutput;
 import org.apache.asterix.utils.ResourceUtils;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
@@ -84,8 +85,10 @@ import org.apache.hyracks.algebricks.core.algebra.expressions.IExpressionEvalSiz
 import org.apache.hyracks.algebricks.core.algebra.expressions.IExpressionTypeComputer;
 import org.apache.hyracks.algebricks.core.algebra.expressions.IMergeAggregationExpressionFactory;
 import org.apache.hyracks.algebricks.core.algebra.expressions.IMissableTypeComputer;
+import org.apache.hyracks.algebricks.core.algebra.prettyprint.AbstractLogicalOperatorPrettyPrintVisitor;
 import org.apache.hyracks.algebricks.core.algebra.prettyprint.AlgebricksAppendable;
 import org.apache.hyracks.algebricks.core.algebra.prettyprint.LogicalOperatorPrettyPrintVisitor;
+import org.apache.hyracks.algebricks.core.algebra.prettyprint.LogicalOperatorPrettyPrintVisitorJson;
 import org.apache.hyracks.algebricks.core.algebra.prettyprint.PlanPrettyPrinter;
 import org.apache.hyracks.algebricks.core.rewriter.base.AlgebricksOptimizationContext;
 import org.apache.hyracks.algebricks.core.rewriter.base.IOptimizationContextFactory;
@@ -111,15 +114,17 @@ public class APIFramework {
     private static final int MIN_FRAME_LIMIT_FOR_SORT = 3;
     private static final int MIN_FRAME_LIMIT_FOR_GROUP_BY = 4;
     private static final int MIN_FRAME_LIMIT_FOR_JOIN = 5;
+    private static final String LPLAN = "Logical plan";
+    private static final String OPLAN = "Optimized logical plan";
 
     // A white list of supported configurable parameters.
-    private static final Set<String> CONFIGURABLE_PARAMETER_NAMES = ImmutableSet.of(
-            CompilerProperties.COMPILER_JOINMEMORY_KEY, CompilerProperties.COMPILER_GROUPMEMORY_KEY,
-            CompilerProperties.COMPILER_SORTMEMORY_KEY, CompilerProperties.COMPILER_PARALLELISM_KEY,
-            FunctionUtil.IMPORT_PRIVATE_FUNCTIONS, FuzzyUtils.SIM_FUNCTION_PROP_NAME,
-            FuzzyUtils.SIM_THRESHOLD_PROP_NAME, SubscribeFeedStatement.WAIT_FOR_COMPLETION,
-            FeedActivityDetails.FEED_POLICY_NAME, FeedActivityDetails.COLLECT_LOCATIONS, "inline_with", "hash_merge",
-            "output-record-type");
+    private static final Set<String> CONFIGURABLE_PARAMETER_NAMES =
+            ImmutableSet.of(CompilerProperties.COMPILER_JOINMEMORY_KEY, CompilerProperties.COMPILER_GROUPMEMORY_KEY,
+                    CompilerProperties.COMPILER_SORTMEMORY_KEY, CompilerProperties.COMPILER_PARALLELISM_KEY,
+                    FunctionUtil.IMPORT_PRIVATE_FUNCTIONS, FuzzyUtils.SIM_FUNCTION_PROP_NAME,
+                    FuzzyUtils.SIM_THRESHOLD_PROP_NAME, StartFeedStatement.WAIT_FOR_COMPLETION,
+                    FeedActivityDetails.FEED_POLICY_NAME, FeedActivityDetails.COLLECT_LOCATIONS, "inline_with",
+                    "hash_merge", "output-record-type");
 
     private final IRewriterFactory rewriterFactory;
     private final IAstPrintVisitorFactory astPrintVisitorFactory;
@@ -145,8 +150,7 @@ public class APIFramework {
                 IExpressionEvalSizeComputer expressionEvalSizeComputer,
                 IMergeAggregationExpressionFactory mergeAggregationExpressionFactory,
                 IExpressionTypeComputer expressionTypeComputer, IMissableTypeComputer missableTypeComputer,
-                IConflictingTypeResolver conflictingTypeResolver,
-                PhysicalOptimizationConfig physicalOptimizationConfig,
+                IConflictingTypeResolver conflictingTypeResolver, PhysicalOptimizationConfig physicalOptimizationConfig,
                 AlgebricksPartitionConstraint clusterLocations) {
             return new AlgebricksOptimizationContext(varCounter, expressionEvalSizeComputer,
                     mergeAggregationExpressionFactory, expressionTypeComputer, missableTypeComputer,
@@ -154,31 +158,39 @@ public class APIFramework {
         }
     }
 
-    private void printPlanPrefix(SessionConfig conf, String planName) {
-        if (conf.is(SessionConfig.FORMAT_HTML)) {
-            conf.out().println("<h4>" + planName + ":</h4>");
-            conf.out().println("<pre>");
+    private void printPlanPrefix(SessionOutput output, String planName) {
+        if (output.config().is(SessionConfig.FORMAT_HTML)) {
+            output.out().println("<h4>" + planName + ":</h4>");
+            if (LPLAN.equalsIgnoreCase(planName)) {
+                output.out().println("<pre class = query-plan>");
+            } else if (OPLAN.equalsIgnoreCase(planName)) {
+                output.out().println("<pre class = query-optimized-plan>");
+            } else {
+                output.out().println("<pre>");
+            }
         } else {
-            conf.out().println("----------" + planName + ":");
+            output.out().println("----------" + planName + ":");
         }
     }
 
-    private void printPlanPostfix(SessionConfig conf) {
-        if (conf.is(SessionConfig.FORMAT_HTML)) {
-            conf.out().println("</pre>");
+    private void printPlanPostfix(SessionOutput output) {
+        if (output.config().is(SessionConfig.FORMAT_HTML)) {
+            output.out().println("</pre>");
         }
     }
 
     public Pair<IReturningStatement, Integer> reWriteQuery(List<FunctionDecl> declaredFunctions,
-            MetadataProvider metadataProvider, IReturningStatement q, SessionConfig conf) throws CompilationException {
+            MetadataProvider metadataProvider, IReturningStatement q, SessionOutput output)
+            throws CompilationException {
         if (q == null) {
             return null;
         }
+        SessionConfig conf = output.config();
         if (!conf.is(SessionConfig.FORMAT_ONLY_PHYSICAL_OPS) && conf.is(SessionConfig.OOB_EXPR_TREE)) {
-            conf.out().println();
-            printPlanPrefix(conf, "Expression tree");
-            q.accept(astPrintVisitorFactory.createLangVisitor(conf.out()), 0);
-            printPlanPostfix(conf);
+            output.out().println();
+            printPlanPrefix(output, "Expression tree");
+            q.accept(astPrintVisitorFactory.createLangVisitor(output.out()), 0);
+            printPlanPostfix(output);
         }
         IQueryRewriter rw = rewriterFactory.createQueryRewriter();
         rw.rewrite(declaredFunctions, q, metadataProvider, new LangRewritingContext(q.getVarCounter()));
@@ -186,21 +198,22 @@ public class APIFramework {
     }
 
     public JobSpecification compileQuery(IClusterInfoCollector clusterInfoCollector, MetadataProvider metadataProvider,
-            Query rwQ, int varCounter, String outputDatasetName, SessionConfig conf, ICompiledDmlStatement statement)
+            Query rwQ, int varCounter, String outputDatasetName, SessionOutput output, ICompiledDmlStatement statement)
             throws AlgebricksException, RemoteException, ACIDException {
 
+        SessionConfig conf = output.config();
         if (!conf.is(SessionConfig.FORMAT_ONLY_PHYSICAL_OPS) && conf.is(SessionConfig.OOB_REWRITTEN_EXPR_TREE)) {
-            conf.out().println();
+            output.out().println();
 
-            printPlanPrefix(conf, "Rewritten expression tree");
+            printPlanPrefix(output, "Rewritten expression tree");
             if (rwQ != null) {
-                rwQ.accept(astPrintVisitorFactory.createLangVisitor(conf.out()), 0);
+                rwQ.accept(astPrintVisitorFactory.createLangVisitor(output.out()), 0);
             }
-            printPlanPostfix(conf);
+            printPlanPostfix(output);
         }
 
-        org.apache.asterix.common.transactions.JobId asterixJobId = JobIdFactory.generateJobId();
-        metadataProvider.setJobId(asterixJobId);
+        TxnId txnId = TxnIdFactory.create();
+        metadataProvider.setTxnId(txnId);
         ILangExpressionToPlanTranslator t =
                 translatorFactory.createExpressionToPlanTranslator(metadataProvider, varCounter);
 
@@ -213,16 +226,15 @@ public class APIFramework {
         }
 
         if (!conf.is(SessionConfig.FORMAT_ONLY_PHYSICAL_OPS) && conf.is(SessionConfig.OOB_LOGICAL_PLAN)) {
-            conf.out().println();
+            output.out().println();
 
-            printPlanPrefix(conf, "Logical plan");
+            printPlanPrefix(output, "Logical plan");
             if (rwQ != null || (statement != null && statement.getKind() == Statement.Kind.LOAD)) {
-                LogicalOperatorPrettyPrintVisitor pvisitor = new LogicalOperatorPrettyPrintVisitor(conf.out());
-                PlanPrettyPrinter.printPlan(plan, pvisitor, 0);
+                PlanPrettyPrinter.printPlan(plan, getPrettyPrintVisitor(output.config().getLpfmt(), output.out()), 0);
             }
-            printPlanPostfix(conf);
+            printPlanPostfix(output);
         }
-        CompilerProperties compilerProperties = AppContextInfo.INSTANCE.getCompilerProperties();
+        CompilerProperties compilerProperties = metadataProvider.getApplicationContext().getCompilerProperties();
         int frameSize = compilerProperties.getFrameSize();
         Map<String, String> querySpecificConfig = metadataProvider.getConfig();
         validateConfig(querySpecificConfig); // Validates the user-overridden query parameters.
@@ -243,9 +255,9 @@ public class APIFramework {
         HeuristicCompilerFactoryBuilder builder =
                 new HeuristicCompilerFactoryBuilder(OptimizationContextFactory.INSTANCE);
         builder.setPhysicalOptimizationConfig(OptimizationConfUtil.getPhysicalOptimizationConfig());
-        builder.setLogicalRewrites(ruleSetFactory.getLogicalRewrites());
-        builder.setPhysicalRewrites(ruleSetFactory.getPhysicalRewrites());
-        IDataFormat format = metadataProvider.getFormat();
+        builder.setLogicalRewrites(ruleSetFactory.getLogicalRewrites(metadataProvider.getApplicationContext()));
+        builder.setPhysicalRewrites(ruleSetFactory.getPhysicalRewrites(metadataProvider.getApplicationContext()));
+        IDataFormat format = metadataProvider.getDataFormat();
         ICompilerFactory compilerFactory = builder.create();
         builder.setExpressionEvalSizeComputer(format.getExpressionEvalSizeComputer());
         builder.setIMergeAggregationExpressionFactory(new MergeAggregationExpressionFactory());
@@ -266,15 +278,15 @@ public class APIFramework {
             if (conf.is(SessionConfig.OOB_OPTIMIZED_LOGICAL_PLAN)) {
                 if (conf.is(SessionConfig.FORMAT_ONLY_PHYSICAL_OPS)) {
                     // For Optimizer tests.
-                    AlgebricksAppendable buffer = new AlgebricksAppendable(conf.out());
+                    AlgebricksAppendable buffer = new AlgebricksAppendable(output.out());
                     PlanPrettyPrinter.printPhysicalOps(plan, buffer, 0);
                 } else {
-                    printPlanPrefix(conf, "Optimized logical plan");
+                    printPlanPrefix(output, "Optimized logical plan");
                     if (rwQ != null || (statement != null && statement.getKind() == Statement.Kind.LOAD)) {
-                        LogicalOperatorPrettyPrintVisitor pvisitor = new LogicalOperatorPrettyPrintVisitor(conf.out());
-                        PlanPrettyPrinter.printPlan(plan, pvisitor, 0);
+                        PlanPrettyPrinter.printPlan(plan,
+                                getPrettyPrintVisitor(output.config().getLpfmt(), output.out()), 0);
                     }
-                    printPlanPostfix(conf);
+                    printPlanPostfix(output);
                 }
             }
         }
@@ -282,7 +294,8 @@ public class APIFramework {
             try {
                 LogicalOperatorPrettyPrintVisitor pvisitor = new LogicalOperatorPrettyPrintVisitor();
                 PlanPrettyPrinter.printPlan(plan, pvisitor, 0);
-                ResultUtil.printResults(pvisitor.get().toString(), conf, new Stats(), null);
+                ResultUtil.printResults(metadataProvider.getApplicationContext(), pvisitor.get().toString(), output,
+                        new Stats(), null);
                 return null;
             } catch (IOException e) {
                 throw new AlgebricksException(e);
@@ -297,7 +310,7 @@ public class APIFramework {
         builder.setBinaryIntegerInspectorFactory(format.getBinaryIntegerInspectorFactory());
         builder.setComparatorFactoryProvider(format.getBinaryComparatorFactoryProvider());
         builder.setExpressionRuntimeProvider(
-                new ExpressionRuntimeProvider(QueryLogicalExpressionJobGen.INSTANCE));
+                new ExpressionRuntimeProvider(new QueryLogicalExpressionJobGen(metadataProvider.getFunctionManager())));
         builder.setHashFunctionFactoryProvider(format.getBinaryHashFunctionFactoryProvider());
         builder.setHashFunctionFamilyProvider(format.getBinaryHashFunctionFamilyProvider());
         builder.setMissingWriterFactory(format.getMissingWriterFactory());
@@ -326,8 +339,8 @@ public class APIFramework {
         builder.setNormalizedKeyComputerFactoryProvider(format.getNormalizedKeyComputerFactoryProvider());
 
         JobEventListenerFactory jobEventListenerFactory =
-                new JobEventListenerFactory(asterixJobId, metadataProvider.isWriteTransaction());
-        JobSpecification spec = compiler.createJob(AppContextInfo.INSTANCE, jobEventListenerFactory);
+                new JobEventListenerFactory(txnId, metadataProvider.isWriteTransaction());
+        JobSpecification spec = compiler.createJob(metadataProvider.getApplicationContext(), jobEventListenerFactory);
 
         // When the top-level statement is a query, the statement parameter is null.
         if (statement == null) {
@@ -338,19 +351,25 @@ public class APIFramework {
         }
 
         if (conf.is(SessionConfig.OOB_HYRACKS_JOB)) {
-            printPlanPrefix(conf, "Hyracks job");
+            printPlanPrefix(output, "Hyracks job");
             if (rwQ != null) {
                 try {
-                    conf.out().println(
+                    output.out().println(
                             new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(spec.toJSON()));
                 } catch (IOException e) {
                     throw new AlgebricksException(e);
                 }
-                conf.out().println(spec.getUserConstraints());
+                output.out().println(spec.getUserConstraints());
             }
-            printPlanPostfix(conf);
+            printPlanPostfix(output);
         }
         return spec;
+    }
+
+    private AbstractLogicalOperatorPrettyPrintVisitor getPrettyPrintVisitor(SessionConfig.PlanFormat planFormat,
+            PrintWriter out) {
+        return planFormat.equals(SessionConfig.PlanFormat.JSON) ? new LogicalOperatorPrettyPrintVisitorJson(out)
+                : new LogicalOperatorPrettyPrintVisitor(out);
     }
 
     public void executeJobArray(IHyracksClientConnection hcc, JobSpecification[] specs, PrintWriter out)
@@ -424,9 +443,7 @@ public class APIFramework {
         int perNodeParallelismMax = parallelism / numNodes + 1;
         List<String> allNodes = new ArrayList<>();
         Set<String> selectedNodesWithOneMorePartition = new HashSet<>();
-        for (Map.Entry<String, NodeControllerInfo> entry : ncMap.entrySet()) {
-            allNodes.add(entry.getKey());
-        }
+        ncMap.forEach((key, value) -> allNodes.add(key));
         Random random = new Random();
         for (int index = numNodesWithOneMorePartition; index >= 1; --index) {
             int pick = random.nextInt(index);
@@ -436,9 +453,8 @@ public class APIFramework {
 
         // Generates cluster locations, which has duplicates for a node if it contains more than one partitions.
         List<String> locations = new ArrayList<>();
-        for (Map.Entry<String, NodeControllerInfo> entry : ncMap.entrySet()) {
-            String nodeId = entry.getKey();
-            int availableCores = entry.getValue().getNumAvailableCores();
+        ncMap.forEach((nodeId, value) -> {
+            int availableCores = value.getNumAvailableCores();
             int nodeParallelism =
                     selectedNodesWithOneMorePartition.contains(nodeId) ? perNodeParallelismMax : perNodeParallelismMin;
             int coresToUse =
@@ -446,27 +462,20 @@ public class APIFramework {
             for (int count = 0; count < coresToUse; ++count) {
                 locations.add(nodeId);
             }
-        }
+        });
         return new AlgebricksAbsolutePartitionConstraint(locations.toArray(new String[0]));
     }
 
     // Gets the total number of available cores in the cluster.
     private static int getTotalNumCores(Map<String, NodeControllerInfo> ncMap) {
-        int sum = 0;
-        for (Map.Entry<String, NodeControllerInfo> entry : ncMap.entrySet()) {
-            sum += entry.getValue().getNumAvailableCores();
-        }
-        return sum;
+        return ncMap.values().stream().mapToInt(NodeControllerInfo::getNumAvailableCores).sum();
     }
 
     // Gets the frame limit.
     private static int getFrameLimit(String parameterName, String parameter, long memBudgetInConfiguration,
-            int frameSize,
-            int minFrameLimit)
-            throws AlgebricksException {
+            int frameSize, int minFrameLimit) throws AlgebricksException {
         IOptionType<Long> longBytePropertyInterpreter = OptionTypes.LONG_BYTE_UNIT;
-        long memBudget =
-                parameter == null ? memBudgetInConfiguration : longBytePropertyInterpreter.parse(parameter);
+        long memBudget = parameter == null ? memBudgetInConfiguration : longBytePropertyInterpreter.parse(parameter);
         int frameLimit = (int) (memBudget / frameSize);
         if (frameLimit < minFrameLimit) {
             throw AsterixException.create(ErrorCode.COMPILATION_BAD_QUERY_PARAMETER_VALUE, parameterName,

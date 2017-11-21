@@ -23,28 +23,28 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.common.TestOperationSelector;
 import org.apache.hyracks.storage.am.common.TestOperationSelector.TestOperation;
-import org.apache.hyracks.storage.am.common.api.IIndex;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexCursor;
-import org.apache.hyracks.storage.am.common.api.IndexException;
 import org.apache.hyracks.storage.am.common.datagen.DataGenThread;
-import org.apache.hyracks.storage.am.common.ophelpers.MultiComparator;
-import org.apache.hyracks.storage.am.lsm.common.impls.NoOpIOOperationCallback;
+import org.apache.hyracks.storage.am.lsm.common.impls.LSMTreeIndexAccessor;
 import org.apache.hyracks.storage.am.lsm.rtree.impls.AbstractLSMRTree;
-import org.apache.hyracks.storage.am.lsm.rtree.impls.LSMRTreeWithAntiMatterTuples.LSMRTreeWithAntiMatterTuplesAccessor;
+import org.apache.hyracks.storage.am.lsm.rtree.impls.LSMRTreeOpContext;
 import org.apache.hyracks.storage.am.rtree.impls.SearchPredicate;
+import org.apache.hyracks.storage.common.IIndex;
+import org.apache.hyracks.storage.common.MultiComparator;
 
 public class LSMRTreeWithAntiMatterTuplesTestWorker extends AbstractLSMRTreeTestWorker {
 
-    public LSMRTreeWithAntiMatterTuplesTestWorker(DataGenThread dataGen, TestOperationSelector opSelector,
-            IIndex index, int numBatches) throws HyracksDataException {
+    public LSMRTreeWithAntiMatterTuplesTestWorker(DataGenThread dataGen, TestOperationSelector opSelector, IIndex index,
+            int numBatches) throws HyracksDataException {
         super(dataGen, opSelector, index, numBatches);
     }
 
     @Override
-    public void performOp(ITupleReference tuple, TestOperation op) throws HyracksDataException, IndexException {
-        LSMRTreeWithAntiMatterTuplesAccessor accessor = (LSMRTreeWithAntiMatterTuplesAccessor) indexAccessor;
+    public void performOp(ITupleReference tuple, TestOperation op) throws HyracksDataException {
+        LSMTreeIndexAccessor accessor = (LSMTreeIndexAccessor) indexAccessor;
         ITreeIndexCursor searchCursor = accessor.createSearchCursor(false);
-        MultiComparator cmp = accessor.getMultiComparator();
+        LSMRTreeOpContext concreteCtx = (LSMRTreeOpContext) accessor.getCtx();
+        MultiComparator cmp = concreteCtx.getCurrentRTreeOpContext().getCmp();
         SearchPredicate rangePred = new SearchPredicate(tuple, cmp);
 
         switch (op) {
@@ -66,8 +66,8 @@ public class LSMRTreeWithAntiMatterTuplesTestWorker extends AbstractLSMRTreeTest
                 break;
 
             case MERGE:
-                accessor.scheduleMerge(NoOpIOOperationCallback.INSTANCE,
-                        ((AbstractLSMRTree) lsmRTree).getImmutableComponents());
+                accessor.scheduleMerge(((AbstractLSMRTree) lsmRTree).getIOOperationCallback(),
+                        ((AbstractLSMRTree) lsmRTree).getDiskComponents());
                 break;
 
             default:

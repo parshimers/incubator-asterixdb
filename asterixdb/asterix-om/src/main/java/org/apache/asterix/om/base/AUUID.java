@@ -24,12 +24,11 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.util.Arrays;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
-import org.apache.asterix.om.visitors.IOMVisitor;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class AUUID implements IAObject {
@@ -70,11 +69,6 @@ public class AUUID implements IAObject {
     }
 
     @Override
-    public void accept(IOMVisitor visitor) throws AsterixException {
-        visitor.visitAUUID(this);
-    }
-
-    @Override
     public boolean deepEqual(IAObject obj) {
         if (!(obj instanceof AUUID)) {
             return false;
@@ -91,13 +85,8 @@ public class AUUID implements IAObject {
     @Override
     public String toString() {
         StringBuilder buf = new StringBuilder(UUID_CHARS + 9);
-        buf.append("AUUID: {");
-        return appendLiteralOnly(buf).append('}').toString();
-    }
-
-    public String toSimpleString() {
-        StringBuilder buf = new StringBuilder(UUID_CHARS + 9);
-        return appendLiteralOnly(buf).toString();
+        buf.append("uuid: { ");
+        return appendLiteralOnly(buf).append(" }").toString();
     }
 
     public StringBuilder appendLiteralOnly(StringBuilder buf) {

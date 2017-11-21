@@ -19,6 +19,8 @@
 package org.apache.asterix.test.logging;
 
 import java.io.File;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -31,10 +33,12 @@ import org.apache.asterix.common.config.TransactionProperties;
 import org.apache.asterix.common.configuration.AsterixConfiguration;
 import org.apache.asterix.common.configuration.Property;
 import org.apache.asterix.common.dataflow.LSMInsertDeleteOperatorNodePushable;
+import org.apache.asterix.common.transactions.Checkpoint;
 import org.apache.asterix.common.transactions.DatasetId;
 import org.apache.asterix.common.transactions.ICheckpointManager;
 import org.apache.asterix.common.transactions.IRecoveryManager;
 import org.apache.asterix.common.transactions.ITransactionContext;
+import org.apache.asterix.common.transactions.ITransactionSubsystem;
 import org.apache.asterix.external.util.DataflowUtils;
 import org.apache.asterix.file.StorageComponentProvider;
 import org.apache.asterix.metadata.entities.Dataset;
@@ -46,6 +50,7 @@ import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.test.common.TestHelper;
 import org.apache.asterix.transaction.management.service.logging.LogManager;
+import org.apache.asterix.transaction.management.service.recovery.AbstractCheckpointManager;
 import org.apache.hyracks.api.comm.VSizeFrame;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAppender;
@@ -112,21 +117,22 @@ public class CheckpointingTest {
             TestNodeController nc = new TestNodeController(new File(TEST_CONFIG_FILE_PATH).getAbsolutePath(), false);
             StorageComponentProvider storageManager = new StorageComponentProvider();
             nc.init();
-            Dataset dataset = new Dataset(DATAVERSE_NAME, DATASET_NAME, DATAVERSE_NAME, DATA_TYPE_NAME,
-                    NODE_GROUP_NAME, null, null, new InternalDatasetDetails(null, PartitioningStrategy.HASH,
-                            Collections.emptyList(), null, null, null, false, null, false),
+            List<List<String>> partitioningKeys = new ArrayList<>();
+            partitioningKeys.add(Collections.singletonList("key"));
+            Dataset dataset = new Dataset(DATAVERSE_NAME, DATASET_NAME, DATAVERSE_NAME, DATA_TYPE_NAME, NODE_GROUP_NAME,
+                    NoMergePolicyFactory.NAME, null, new InternalDatasetDetails(null, PartitioningStrategy.HASH,
+                            partitioningKeys, null, null, null, false, null, false),
                     null, DatasetType.INTERNAL, DATASET_ID, 0);
             try {
-                nc.createPrimaryIndex(dataset, KEY_TYPES, RECORD_TYPE, META_TYPE, new NoMergePolicyFactory(), null,
-                        null, storageManager, KEY_INDEXES, KEY_INDICATOR_LIST);
+                nc.createPrimaryIndex(dataset, KEY_TYPES, RECORD_TYPE, META_TYPE, null, storageManager, KEY_INDEXES,
+                        KEY_INDICATOR_LIST);
                 IHyracksTaskContext ctx = nc.createTestContext(false);
                 nc.newJobId();
-                ITransactionContext txnCtx = nc.getTransactionManager().getTransactionContext(nc.getTxnJobId(), true);
+                ITransactionContext txnCtx =
+                        nc.getTransactionManager().getTransactionContext(nc.getTxnJobId(ctx), true);
                 // Prepare insert operation
-                LSMInsertDeleteOperatorNodePushable insertOp = nc
-                        .getInsertPipeline(ctx, dataset, KEY_TYPES, RECORD_TYPE, META_TYPE, new NoMergePolicyFactory(),
-                                null, null, KEY_INDEXES, KEY_INDICATOR_LIST, storageManager)
-                        .getLeft();
+                LSMInsertDeleteOperatorNodePushable insertOp = nc.getInsertPipeline(ctx, dataset, KEY_TYPES,
+                        RECORD_TYPE, META_TYPE, null, KEY_INDEXES, KEY_INDICATOR_LIST, storageManager).getLeft();
                 insertOp.open();
                 TupleGenerator tupleGenerator = new TupleGenerator(RECORD_TYPE, META_TYPE, KEY_INDEXES, KEY_INDICATOR,
                         RECORD_GEN_FUNCTION, UNIQUE_RECORD_FIELDS, META_GEN_FUNCTION, UNIQUE_META_FIELDS);
@@ -197,6 +203,56 @@ public class CheckpointingTest {
                 }
                 insertOp.close();
                 nc.getTransactionManager().completedTransaction(txnCtx, DatasetId.NULL, -1, true);
+            } finally {
+                nc.deInit();
+            }
+        } catch (Throwable e) {
+            e.printStackTrace();
+            Assert.fail(e.getMessage());
+        }
+    }
+
+    @Test
+    public void testCorruptedCheckpointFiles() {
+        try {
+            TestNodeController nc = new TestNodeController(new File(TEST_CONFIG_FILE_PATH).getAbsolutePath(), false);
+            nc.init();
+            try {
+                final ITransactionSubsystem txnSubsystem = nc.getTransactionSubsystem();
+                final AbstractCheckpointManager checkpointManager =
+                        (AbstractCheckpointManager) txnSubsystem.getCheckpointManager();
+                // Make a checkpoint with the current minFirstLSN
+                final long minFirstLSN = txnSubsystem.getRecoveryManager().getMinFirstLSN();
+                checkpointManager.tryCheckpoint(minFirstLSN);
+                // Get the just created checkpoint
+                final Checkpoint validCheckpoint = checkpointManager.getLatest();
+                // Make sure the valid checkout wouldn't force full recovery
+                Assert.assertTrue(validCheckpoint.getMinMCTFirstLsn() >= minFirstLSN);
+                // Add a corrupted (empty) checkpoint file with a timestamp > than current checkpoint
+                Path corruptedCheckpointPath = checkpointManager.getCheckpointPath(validCheckpoint.getTimeStamp() + 1);
+                File corruptedCheckpoint = corruptedCheckpointPath.toFile();
+                corruptedCheckpoint.createNewFile();
+                // Make sure the corrupted checkpoint file was created
+                Assert.assertTrue(corruptedCheckpoint.exists());
+                // Try to get the latest checkpoint again
+                Checkpoint cpAfterCorruption = checkpointManager.getLatest();
+                // Make sure the valid checkpoint was returned
+                Assert.assertEquals(validCheckpoint.getTimeStamp(), cpAfterCorruption.getTimeStamp());
+                // Make sure the corrupted checkpoint file was deleted
+                Assert.assertFalse(corruptedCheckpoint.exists());
+                // Corrupt the valid checkpoint by replacing its content
+                final Path validCheckpointPath = checkpointManager.getCheckpointPath(validCheckpoint.getTimeStamp());
+                File validCheckpointFile = validCheckpointPath.toFile();
+                Assert.assertTrue(validCheckpointFile.exists());
+                // Delete the valid checkpoint file and create it as an empty file
+                validCheckpointFile.delete();
+                validCheckpointFile.createNewFile();
+                // Make sure the returned checkpoint (the forged checkpoint) will enforce full recovery
+                Checkpoint forgedCheckpoint = checkpointManager.getLatest();
+                Assert.assertTrue(forgedCheckpoint.getMinMCTFirstLsn() < minFirstLSN);
+                // Make sure the forged checkpoint recovery will start from the first available log
+                final long readableSmallestLSN = txnSubsystem.getLogManager().getReadableSmallestLSN();
+                Assert.assertTrue(forgedCheckpoint.getMinMCTFirstLsn() <= readableSmallestLSN);
             } finally {
                 nc.deInit();
             }

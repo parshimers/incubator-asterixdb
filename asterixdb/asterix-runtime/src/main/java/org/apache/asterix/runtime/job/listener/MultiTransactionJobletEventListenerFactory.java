@@ -20,30 +20,48 @@ package org.apache.asterix.runtime.job.listener;
 
 import java.util.List;
 
-import org.apache.asterix.common.api.IAppRuntimeContext;
+import org.apache.asterix.common.api.IJobEventListenerFactory;
+import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.transactions.DatasetId;
 import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.ITransactionManager;
-import org.apache.asterix.common.transactions.JobId;
+import org.apache.asterix.common.transactions.TxnId;
 import org.apache.hyracks.api.context.IHyracksJobletContext;
 import org.apache.hyracks.api.job.IJobletEventListener;
 import org.apache.hyracks.api.job.IJobletEventListenerFactory;
+import org.apache.hyracks.api.job.JobParameterByteStore;
 import org.apache.hyracks.api.job.JobStatus;
 
 /**
  * This Joblet enable transactions on multiple datasets to take place in the same Hyracks Job
  * It takes a list of Transaction job ids instead of a single job Id
  */
-public class MultiTransactionJobletEventListenerFactory implements IJobletEventListenerFactory {
+public class MultiTransactionJobletEventListenerFactory implements IJobEventListenerFactory {
 
     private static final long serialVersionUID = 1L;
-    private final List<JobId> jobIds;
+    private final List<TxnId> txnIds;
     private final boolean transactionalWrite;
 
-    public MultiTransactionJobletEventListenerFactory(List<JobId> jobIds, boolean transactionalWrite) {
-        this.jobIds = jobIds;
+    public MultiTransactionJobletEventListenerFactory(List<TxnId> txnIds, boolean transactionalWrite) {
+        this.txnIds = txnIds;
         this.transactionalWrite = transactionalWrite;
+    }
+
+    //TODO: Enable this factory to be usable for Deployed Jobs
+    @Override
+    public TxnId getTxnId(TxnId compiledTxnId) {
+        return compiledTxnId;
+    }
+
+    @Override
+    public IJobletEventListenerFactory copyFactory() {
+        return new MultiTransactionJobletEventListenerFactory(txnIds, transactionalWrite);
+    }
+
+    @Override
+    public void updateListenerJobParameters(JobParameterByteStore jobParameterByteStore) {
+        //no op
     }
 
     @Override
@@ -54,10 +72,10 @@ public class MultiTransactionJobletEventListenerFactory implements IJobletEventL
             public void jobletFinish(JobStatus jobStatus) {
                 try {
                     ITransactionManager txnManager =
-                            ((IAppRuntimeContext) jobletContext.getServiceContext().getApplicationContext())
+                            ((INcApplicationContext) jobletContext.getServiceContext().getApplicationContext())
                                     .getTransactionSubsystem().getTransactionManager();
-                    for (JobId jobId : jobIds) {
-                        ITransactionContext txnContext = txnManager.getTransactionContext(jobId, false);
+                    for (TxnId txnId : txnIds) {
+                        ITransactionContext txnContext = txnManager.getTransactionContext(txnId, false);
                         txnContext.setWriteTxn(transactionalWrite);
                         txnManager.completedTransaction(txnContext, DatasetId.NULL, -1,
                                 !(jobStatus == JobStatus.FAILURE));
@@ -70,9 +88,9 @@ public class MultiTransactionJobletEventListenerFactory implements IJobletEventL
             @Override
             public void jobletStart() {
                 try {
-                    for (JobId jobId : jobIds) {
-                        ((IAppRuntimeContext) jobletContext.getServiceContext().getApplicationContext())
-                                .getTransactionSubsystem().getTransactionManager().getTransactionContext(jobId, true);
+                    for (TxnId txnId : txnIds) {
+                        ((INcApplicationContext) jobletContext.getServiceContext().getApplicationContext())
+                                .getTransactionSubsystem().getTransactionManager().getTransactionContext(txnId, true);
                     }
                 } catch (ACIDException e) {
                     throw new Error(e);

@@ -33,11 +33,11 @@ import org.apache.asterix.common.transactions.ILogBuffer;
 import org.apache.asterix.common.transactions.ILogRecord;
 import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.ITransactionSubsystem;
-import org.apache.asterix.common.transactions.JobId;
 import org.apache.asterix.common.transactions.LogRecord;
 import org.apache.asterix.common.transactions.LogSource;
 import org.apache.asterix.common.transactions.LogType;
 import org.apache.asterix.common.transactions.MutableLong;
+import org.apache.asterix.common.transactions.TxnId;
 import org.apache.asterix.transaction.management.service.transaction.TransactionManagementConstants.LockManagerConstants.LockMode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
@@ -50,18 +50,18 @@ public class LogBuffer implements ILogBuffer {
     private final int logPageSize;
     private final MutableLong flushLSN;
     private final AtomicBoolean full;
-    private int appendOffset;
+    protected int appendOffset;
     private int flushOffset;
-    private final ByteBuffer appendBuffer;
+    protected final ByteBuffer appendBuffer;
     private final ByteBuffer flushBuffer;
     private final ByteBuffer unlockBuffer;
     private boolean isLastPage;
-    private final LinkedBlockingQueue<ILogRecord> syncCommitQ;
-    private final LinkedBlockingQueue<ILogRecord> flushQ;
-    private final LinkedBlockingQueue<ILogRecord> remoteJobsQ;
+    protected final LinkedBlockingQueue<ILogRecord> syncCommitQ;
+    protected final LinkedBlockingQueue<ILogRecord> flushQ;
+    protected final LinkedBlockingQueue<ILogRecord> remoteJobsQ;
     private FileChannel fileChannel;
     private boolean stop;
-    private final JobId reusableJobId;
+    private final MutableTxnId reusableTxnId;
     private final DatasetId reusableDatasetId;
 
     public LogBuffer(ITransactionSubsystem txnSubsystem, int logPageSize, MutableLong flushLSN) {
@@ -79,7 +79,7 @@ public class LogBuffer implements ILogBuffer {
         syncCommitQ = new LinkedBlockingQueue<>(logPageSize / ILogRecord.JOB_TERMINATE_LOG_SIZE);
         flushQ = new LinkedBlockingQueue<>();
         remoteJobsQ = new LinkedBlockingQueue<>();
-        reusableJobId = new JobId(-1);
+        reusableTxnId = new MutableTxnId(-1);
         reusableDatasetId = new DatasetId(-1);
     }
 
@@ -88,36 +88,12 @@ public class LogBuffer implements ILogBuffer {
     ////////////////////////////////////
 
     @Override
-    public void append(ILogRecord logRecord, long appendLSN) {
-        logRecord.writeLogRecord(appendBuffer);
-        if (logRecord.getLogType() != LogType.FLUSH && logRecord.getLogType() != LogType.WAIT) {
-            logRecord.getTxnCtx().setLastLSN(appendLSN);
-        }
-        synchronized (this) {
-            appendOffset += logRecord.getLogSize();
-            if (IS_DEBUG_MODE) {
-                LOGGER.info("append()| appendOffset: " + appendOffset);
-            }
-            if (logRecord.getLogType() == LogType.JOB_COMMIT || logRecord.getLogType() == LogType.ABORT
-                    || logRecord.getLogType() == LogType.WAIT) {
-                logRecord.isFlushed(false);
-                syncCommitQ.offer(logRecord);
-            }
-            if (logRecord.getLogType() == LogType.FLUSH) {
-                logRecord.isFlushed(false);
-                flushQ.offer(logRecord);
-            }
-            this.notify();
-        }
-    }
-
-    @Override
-    public void appendWithReplication(ILogRecord logRecord, long appendLSN) {
+    public void append(ILogRecord logRecord, long appendLsn) {
         logRecord.writeLogRecord(appendBuffer);
 
         if (logRecord.getLogSource() == LogSource.LOCAL && logRecord.getLogType() != LogType.FLUSH
                 && logRecord.getLogType() != LogType.WAIT) {
-            logRecord.getTxnCtx().setLastLSN(appendLSN);
+            logRecord.getTxnCtx().setLastLSN(appendLsn);
         }
 
         synchronized (this) {
@@ -129,20 +105,21 @@ public class LogBuffer implements ILogBuffer {
                 if (logRecord.getLogType() == LogType.JOB_COMMIT || logRecord.getLogType() == LogType.ABORT
                         || logRecord.getLogType() == LogType.WAIT) {
                     logRecord.isFlushed(false);
-                    syncCommitQ.offer(logRecord);
+                    syncCommitQ.add(logRecord);
                 }
                 if (logRecord.getLogType() == LogType.FLUSH) {
                     logRecord.isFlushed(false);
-                    flushQ.offer(logRecord);
+                    flushQ.add(logRecord);
                 }
             } else if (logRecord.getLogSource() == LogSource.REMOTE
                     && (logRecord.getLogType() == LogType.JOB_COMMIT || logRecord.getLogType() == LogType.ABORT)) {
-                remoteJobsQ.offer(logRecord);
+                remoteJobsQ.add(logRecord);
             }
             this.notify();
         }
     }
 
+    @Override
     public void setFileChannel(FileChannel fileChannel) {
         this.fileChannel = fileChannel;
     }
@@ -155,19 +132,23 @@ public class LogBuffer implements ILogBuffer {
         }
     }
 
-    public synchronized void isFull(boolean full) {
-        this.full.set(full);
+    @Override
+    public synchronized void setFull() {
+        this.full.set(true);
         this.notify();
     }
 
-    public void isLastPage(boolean isLastPage) {
-        this.isLastPage = isLastPage;
+    @Override
+    public void setLastPage() {
+        this.isLastPage = true;
     }
 
+    @Override
     public boolean hasSpace(int logSize) {
         return appendOffset + logSize <= logPageSize;
     }
 
+    @Override
     public void reset() {
         appendBuffer.position(0);
         appendBuffer.limit(logPageSize);
@@ -187,29 +168,30 @@ public class LogBuffer implements ILogBuffer {
     ////////////////////////////////////
 
     @Override
-    public void flush() {
+    public void flush(boolean stopping) {
+        boolean interrupted = false;
         try {
             int endOffset;
             while (!full.get()) {
-                synchronized (this) {
-                    if (appendOffset - flushOffset == 0 && !full.get()) {
-                        try {
+                try {
+                    synchronized (this) {
+                        if (appendOffset - flushOffset == 0 && !full.get()) {
                             if (IS_DEBUG_MODE) {
                                 LOGGER.info("flush()| appendOffset: " + appendOffset + ", flushOffset: " + flushOffset
                                         + ", full: " + full.get());
                             }
-                            if (stop) {
+                            if (stopping || stop) {
                                 fileChannel.close();
                                 return;
                             }
-                            this.wait();
-                        } catch (InterruptedException e) {
-                            continue;
+                            wait();
                         }
+                        endOffset = appendOffset;
                     }
-                    endOffset = appendOffset;
-                }
                 internalFlush(flushOffset, endOffset);
+                } catch (InterruptedException e) {
+                    interrupted = true;
+                }
             }
             internalFlush(flushOffset, appendOffset);
             if (isLastPage) {
@@ -217,6 +199,10 @@ public class LogBuffer implements ILogBuffer {
             }
         } catch (IOException e) {
             throw new IllegalStateException(e);
+        } finally {
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 
@@ -249,15 +235,15 @@ public class LogBuffer implements ILogBuffer {
         if (endOffset > beginOffset) {
             logBufferTailReader.initializeScan(beginOffset, endOffset);
 
-            ITransactionContext txnCtx = null;
+            ITransactionContext txnCtx;
 
             LogRecord logRecord = logBufferTailReader.next();
             while (logRecord != null) {
                 if (logRecord.getLogSource() == LogSource.LOCAL) {
                     if (logRecord.getLogType() == LogType.ENTITY_COMMIT) {
-                        reusableJobId.setId(logRecord.getJobId());
+                        reusableTxnId.setId(logRecord.getTxnId());
                         reusableDatasetId.setId(logRecord.getDatasetId());
-                        txnCtx = txnSubsystem.getTransactionManager().getTransactionContext(reusableJobId, false);
+                        txnCtx = txnSubsystem.getTransactionManager().getTransactionContext(reusableTxnId, false);
                         txnSubsystem.getLockManager().unlock(reusableDatasetId, logRecord.getPKHashValue(),
                                 LockMode.ANY, txnCtx);
                         txnCtx.notifyOptracker(false);
@@ -266,8 +252,8 @@ public class LogBuffer implements ILogBuffer {
                         }
                     } else if (logRecord.getLogType() == LogType.JOB_COMMIT
                             || logRecord.getLogType() == LogType.ABORT) {
-                        reusableJobId.setId(logRecord.getJobId());
-                        txnCtx = txnSubsystem.getTransactionManager().getTransactionContext(reusableJobId, false);
+                        reusableTxnId.setId(logRecord.getTxnId());
+                        txnCtx = txnSubsystem.getTransactionManager().getTransactionContext(reusableTxnId, false);
                         txnCtx.notifyOptracker(true);
                         notifyJobTermination();
                     } else if (logRecord.getLogType() == LogType.FLUSH) {
@@ -345,15 +331,25 @@ public class LogBuffer implements ILogBuffer {
         }
     }
 
-    public boolean isStop() {
-        return stop;
+    @Override
+    public synchronized void stop() {
+        stop = true;
+        notifyAll();
     }
 
-    public void isStop(boolean stop) {
-        this.stop = stop;
-    }
-
+    @Override
     public int getLogPageSize() {
         return logPageSize;
+    }
+
+    private class MutableTxnId extends TxnId {
+
+        public MutableTxnId(long id) {
+            super(id);
+        }
+
+        public void setId(long id) {
+            this.id = id;
+        }
     }
 }

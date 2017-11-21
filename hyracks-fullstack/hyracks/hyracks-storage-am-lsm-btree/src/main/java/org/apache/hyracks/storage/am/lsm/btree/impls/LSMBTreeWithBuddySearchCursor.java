@@ -20,15 +20,15 @@ package org.apache.hyracks.storage.am.lsm.btree.impls;
 
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
-import org.apache.hyracks.storage.am.common.api.ICursorInitialState;
-import org.apache.hyracks.storage.am.common.api.ISearchPredicate;
-import org.apache.hyracks.storage.am.common.api.IndexException;
 import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentFilter;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
+import org.apache.hyracks.storage.common.ICursorInitialState;
+import org.apache.hyracks.storage.common.ISearchPredicate;
 
-public class LSMBTreeWithBuddySearchCursor extends LSMBTreeWithBuddyAbstractCursor{
+public class LSMBTreeWithBuddySearchCursor extends LSMBTreeWithBuddyAbstractCursor {
     private int currentCursor;
-    private PermutingTupleReference buddyBTreeTuple;
+    private final PermutingTupleReference buddyBTreeTuple;
 
     public LSMBTreeWithBuddySearchCursor(ILSMIndexOperationContext opCtx, int[] buddyBTreeFields) {
         super(opCtx);
@@ -64,17 +64,13 @@ public class LSMBTreeWithBuddySearchCursor extends LSMBTreeWithBuddyAbstractCurs
 
     private void searchNextCursor() throws HyracksDataException {
         if (currentCursor < numberOfTrees) {
-            try {
-                btreeCursors[currentCursor].reset();
-                btreeAccessors[currentCursor].search(btreeCursors[currentCursor], btreeRangePredicate);
-            } catch (IndexException e) {
-                throw new HyracksDataException(e);
-            }
+            btreeCursors[currentCursor].reset();
+            btreeAccessors[currentCursor].search(btreeCursors[currentCursor], btreeRangePredicate);
         }
     }
 
     @Override
-    public boolean hasNext() throws HyracksDataException, IndexException {
+    public boolean hasNext() throws HyracksDataException {
         if (foundNext) {
             return true;
         }
@@ -84,7 +80,11 @@ public class LSMBTreeWithBuddySearchCursor extends LSMBTreeWithBuddyAbstractCurs
                 ITupleReference currentTuple = btreeCursors[currentCursor].getTuple();
                 buddyBTreeTuple.reset(btreeCursors[currentCursor].getTuple());
                 boolean killerTupleFound = false;
-                for (int i = 0; i < currentCursor; i++) {
+                for (int i = 0; i < currentCursor && !killerTupleFound; i++) {
+                    if (buddyBtreeBloomFilters[i] != null
+                            && !buddyBtreeBloomFilters[i].contains(buddyBTreeTuple, hashes)) {
+                        continue;
+                    }
                     buddyBtreeCursors[i].reset();
                     buddyBtreeRangePredicate.setHighKey(buddyBTreeTuple, true);
                     buddyBtreeRangePredicate.setLowKey(buddyBTreeTuple, true);
@@ -92,7 +92,6 @@ public class LSMBTreeWithBuddySearchCursor extends LSMBTreeWithBuddyAbstractCurs
                     try {
                         if (buddyBtreeCursors[i].hasNext()) {
                             killerTupleFound = true;
-                            break;
                         }
                     } finally {
                         buddyBtreeCursors[i].close();
@@ -117,7 +116,26 @@ public class LSMBTreeWithBuddySearchCursor extends LSMBTreeWithBuddyAbstractCurs
     }
 
     @Override
-    public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException, IndexException {
+    public ITupleReference getFilterMinTuple() {
+        ILSMComponentFilter filter = getFilter();
+        return filter == null ? null : filter.getMinTuple();
+    }
+
+    @Override
+    public ITupleReference getFilterMaxTuple() {
+        ILSMComponentFilter filter = getFilter();
+        return filter == null ? null : filter.getMaxTuple();
+    }
+
+    private ILSMComponentFilter getFilter() {
+        if (currentCursor < 0) {
+            return null;
+        }
+        return operationalComponents.get(currentCursor).getLSMComponentFilter();
+    }
+
+    @Override
+    public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
         super.open(initialState, searchPred);
         searchNextCursor();
     }

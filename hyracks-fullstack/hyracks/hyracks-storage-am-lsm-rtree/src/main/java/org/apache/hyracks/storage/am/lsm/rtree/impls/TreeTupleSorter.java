@@ -22,12 +22,12 @@ package org.apache.hyracks.storage.am.lsm.rtree.impls;
 import org.apache.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
-import org.apache.hyracks.storage.am.common.api.ICursorInitialState;
-import org.apache.hyracks.storage.am.common.api.ISearchPredicate;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexCursor;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexFrame;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexTupleReference;
-import org.apache.hyracks.storage.am.common.ophelpers.MultiComparator;
+import org.apache.hyracks.storage.common.ICursorInitialState;
+import org.apache.hyracks.storage.common.ISearchPredicate;
+import org.apache.hyracks.storage.common.MultiComparator;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
 import org.apache.hyracks.storage.common.buffercache.ICachedPage;
 import org.apache.hyracks.storage.common.file.BufferedFileHandle;
@@ -75,8 +75,8 @@ public class TreeTupleSorter implements ITreeIndexCursor {
         // We don't latch pages since this code is only used by flush () before
         // bulk-loading the r-tree to disk and flush is not concurrent.
         //
-        ICachedPage node1 = bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, tPointers[currentTupleIndex * 2]),
-                false);
+        ICachedPage node1 =
+                bufferCache.pin(BufferedFileHandle.getDiskPageId(fileId, tPointers[currentTupleIndex * 2]), false);
         try {
             leafFrame1.setPage(node1);
             frameTuple1.resetByTupleOffset(leafFrame1.getBuffer().array(), tPointers[currentTupleIndex * 2 + 1]);
@@ -94,6 +94,16 @@ public class TreeTupleSorter implements ITreeIndexCursor {
     @Override
     public ITupleReference getTuple() {
         return frameTuple1;
+    }
+
+    @Override
+    public ITupleReference getFilterMinTuple() {
+        return null;
+    }
+
+    @Override
+    public ITupleReference getFilterMaxTuple() {
+        return null;
     }
 
     public void insertTupleEntry(int pageId, int tupleOffset) {
@@ -212,11 +222,6 @@ public class TreeTupleSorter implements ITreeIndexCursor {
     }
 
     @Override
-    public ICachedPage getPage() {
-        return null;
-    }
-
-    @Override
     public void setBufferCache(IBufferCache bufferCache) {
         // do nothing
     }
@@ -227,12 +232,7 @@ public class TreeTupleSorter implements ITreeIndexCursor {
     }
 
     @Override
-    public boolean exclusiveLatchNodes() {
+    public boolean isExclusiveLatchNodes() {
         return false;
-    }
-
-    @Override
-    public void markCurrentTupleAsUpdated() throws HyracksDataException {
-        throw new HyracksDataException("Updating tuples is not supported with this cursor.");
     }
 }

@@ -25,22 +25,23 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.asterix.common.config.ExternalProperties;
-import org.apache.asterix.runtime.utils.AppContextInfo;
+import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
 import org.apache.hyracks.http.server.StaticResourceServlet;
 import org.apache.hyracks.http.server.utils.HttpUtil;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import io.netty.handler.codec.http.HttpResponseStatus;
 
 public class QueryWebInterfaceServlet extends StaticResourceServlet {
     private static final Logger LOGGER = Logger.getLogger(QueryWebInterfaceServlet.class.getName());
+    private ICcApplicationContext appCtx;
 
-    public QueryWebInterfaceServlet(ConcurrentMap<String, Object> ctx, String[] paths) {
+    public QueryWebInterfaceServlet(ICcApplicationContext appCtx, ConcurrentMap<String, Object> ctx, String[] paths) {
         super(ctx, paths);
+        this.appCtx = appCtx;
     }
 
     @Override
@@ -57,10 +58,9 @@ public class QueryWebInterfaceServlet extends StaticResourceServlet {
     @Override
     protected void post(IServletRequest request, IServletResponse response) throws IOException {
         HttpUtil.setContentType(response, HttpUtil.ContentType.APPLICATION_JSON, HttpUtil.Encoding.UTF8);
-        ExternalProperties externalProperties = AppContextInfo.INSTANCE.getExternalProperties();
+        ExternalProperties externalProperties = appCtx.getExternalProperties();
         response.setStatus(HttpResponseStatus.OK);
-        ObjectMapper om = new ObjectMapper();
-        ObjectNode obj = om.createObjectNode();
+        ObjectNode obj = OBJECT_MAPPER.createObjectNode();
         try {
             PrintWriter out = response.writer();
             obj.put("api_port", String.valueOf(externalProperties.getAPIServerPort()));

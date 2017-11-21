@@ -19,13 +19,15 @@
 package org.apache.hyracks.storage.am.lsm.common.api;
 
 import java.util.List;
+import java.util.function.Predicate;
 
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IValueReference;
+import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
+import org.apache.hyracks.dataflow.common.data.accessors.FrameTupleReference;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
-import org.apache.hyracks.storage.am.common.api.IIndexCursor;
-import org.apache.hyracks.storage.am.common.api.ISearchPredicate;
-import org.apache.hyracks.storage.am.common.api.IndexException;
+import org.apache.hyracks.storage.common.IIndexCursor;
+import org.apache.hyracks.storage.common.ISearchPredicate;
 
 public interface ILSMHarness {
 
@@ -39,7 +41,7 @@ public interface ILSMHarness {
      * @throws HyracksDataException
      * @throws IndexException
      */
-    void forceModify(ILSMIndexOperationContext ctx, ITupleReference tuple) throws HyracksDataException, IndexException;
+    void forceModify(ILSMIndexOperationContext ctx, ITupleReference tuple) throws HyracksDataException;
 
     /**
      * Modify the index if the memory component is not full, wait for a new memory component if the current one is full
@@ -55,7 +57,7 @@ public interface ILSMHarness {
      * @throws IndexException
      */
     boolean modify(ILSMIndexOperationContext ctx, boolean tryOperation, ITupleReference tuple)
-            throws HyracksDataException, IndexException;
+            throws HyracksDataException;
 
     /**
      * Search the index
@@ -69,8 +71,7 @@ public interface ILSMHarness {
      * @throws HyracksDataException
      * @throws IndexException
      */
-    void search(ILSMIndexOperationContext ctx, IIndexCursor cursor, ISearchPredicate pred)
-            throws HyracksDataException, IndexException;
+    void search(ILSMIndexOperationContext ctx, IIndexCursor cursor, ISearchPredicate pred) throws HyracksDataException;
 
     /**
      * End the search
@@ -81,6 +82,25 @@ public interface ILSMHarness {
     void endSearch(ILSMIndexOperationContext ctx) throws HyracksDataException;
 
     /**
+     * Scan all disk components of the index
+     *
+     * @param ctx
+     *            the search operation context
+     * @param cursor
+     *            the index cursor
+     * @throws HyracksDataException
+     */
+    void scanDiskComponents(ILSMIndexOperationContext ctx, IIndexCursor cursor) throws HyracksDataException;
+
+    /**
+     * End the scan
+     *
+     * @param ctx
+     * @throws HyracksDataException
+     */
+    void endScanDiskComponents(ILSMIndexOperationContext ctx) throws HyracksDataException;
+
+    /**
      * Schedule a merge
      *
      * @param ctx
@@ -88,8 +108,7 @@ public interface ILSMHarness {
      * @throws HyracksDataException
      * @throws IndexException
      */
-    void scheduleMerge(ILSMIndexOperationContext ctx, ILSMIOOperationCallback callback)
-            throws HyracksDataException, IndexException;
+    void scheduleMerge(ILSMIndexOperationContext ctx, ILSMIOOperationCallback callback) throws HyracksDataException;
 
     /**
      * Schedule full merge
@@ -99,8 +118,7 @@ public interface ILSMHarness {
      * @throws HyracksDataException
      * @throws IndexException
      */
-    void scheduleFullMerge(ILSMIndexOperationContext ctx, ILSMIOOperationCallback callback)
-            throws HyracksDataException, IndexException;
+    void scheduleFullMerge(ILSMIndexOperationContext ctx, ILSMIOOperationCallback callback) throws HyracksDataException;
 
     /**
      * Perform a merge operation
@@ -110,7 +128,7 @@ public interface ILSMHarness {
      * @throws HyracksDataException
      * @throws IndexException
      */
-    void merge(ILSMIndexOperationContext ctx, ILSMIOOperation operation) throws HyracksDataException, IndexException;
+    void merge(ILSMIndexOperationContext ctx, ILSMIOOperation operation) throws HyracksDataException;
 
     /**
      * Schedule a flush
@@ -129,7 +147,7 @@ public interface ILSMHarness {
      * @throws HyracksDataException
      * @throws IndexException
      */
-    void flush(ILSMIndexOperationContext ctx, ILSMIOOperation operation) throws HyracksDataException, IndexException;
+    void flush(ILSMIndexOperationContext ctx, ILSMIOOperation operation) throws HyracksDataException;
 
     /**
      * Add bulk loaded component
@@ -139,7 +157,7 @@ public interface ILSMHarness {
      * @throws HyracksDataException
      * @throws IndexException
      */
-    void addBulkLoadedComponent(ILSMDiskComponent index) throws HyracksDataException, IndexException;
+    void addBulkLoadedComponent(ILSMDiskComponent index) throws HyracksDataException;
 
     /**
      * Get index operation tracker
@@ -198,5 +216,41 @@ public interface ILSMHarness {
      * @throws HyracksDataException
      */
     void forceUpdateMeta(ILSMIndexOperationContext ctx, IValueReference key, IValueReference value)
+            throws HyracksDataException;
+
+    /**
+     * Update the filter with the value in the passed tuple
+     *
+     * @param ctx
+     * @throws HyracksDataException
+     */
+    void updateFilter(ILSMIndexOperationContext ctx, ITupleReference tuple) throws HyracksDataException;
+
+    /**
+     * Perform batch operation on all tuples in the passed frame tuple accessor
+     *
+     * @param ctx
+     *            the operation ctx
+     * @param accessor
+     *            the frame tuple accessor
+     * @param tuple
+     *            the mutable tuple used to pass the tuple to the processor
+     * @param processor
+     *            the tuple processor
+     * @param frameOpCallback
+     *            the callback at the end of the frame
+     * @throws HyracksDataException
+     */
+    void batchOperate(ILSMIndexOperationContext ctx, FrameTupleAccessor accessor, FrameTupleReference tuple,
+            IFrameTupleProcessor processor, IFrameOperationCallback frameOpCallback) throws HyracksDataException;
+
+    /**
+     * Rollback components that match the passed predicate
+     *
+     * @param ctx
+     * @param predicate
+     * @throws HyracksDataException
+     */
+    void deleteComponents(ILSMIndexOperationContext ctx, Predicate<ILSMComponent> predicate)
             throws HyracksDataException;
 }

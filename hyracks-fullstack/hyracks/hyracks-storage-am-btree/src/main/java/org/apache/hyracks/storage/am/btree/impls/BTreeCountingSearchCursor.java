@@ -25,13 +25,13 @@ import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleReference;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.btree.api.IBTreeLeafFrame;
-import org.apache.hyracks.storage.am.common.api.ICursorInitialState;
-import org.apache.hyracks.storage.am.common.api.ISearchPredicate;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexCursor;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexTupleReference;
 import org.apache.hyracks.storage.am.common.ophelpers.FindTupleMode;
 import org.apache.hyracks.storage.am.common.ophelpers.FindTupleNoExactMatchPolicy;
-import org.apache.hyracks.storage.am.common.ophelpers.MultiComparator;
+import org.apache.hyracks.storage.common.ICursorInitialState;
+import org.apache.hyracks.storage.common.ISearchPredicate;
+import org.apache.hyracks.storage.common.MultiComparator;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
 import org.apache.hyracks.storage.common.buffercache.ICachedPage;
 import org.apache.hyracks.storage.common.file.BufferedFileHandle;
@@ -78,12 +78,7 @@ public class BTreeCountingSearchCursor implements ITreeIndexCursor {
     public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
         // in case open is called multiple times without closing
         if (page != null) {
-            if (exclusiveLatchNodes) {
-                page.releaseWriteLatch(isPageDirty);
-            } else {
-                page.releaseReadLatch();
-            }
-            bufferCache.unpin(page);
+            releasePage();
         }
 
         page = ((BTreeCursorInitialState) initialState).getPage();
@@ -114,6 +109,15 @@ public class BTreeCountingSearchCursor implements ITreeIndexCursor {
 
         tupleIndex = getLowKeyIndex();
         stopTupleIndex = getHighKeyIndex();
+    }
+
+    private void releasePage() throws HyracksDataException {
+        if (exclusiveLatchNodes) {
+            page.releaseWriteLatch(isPageDirty);
+        } else {
+            page.releaseReadLatch();
+        }
+        bufferCache.unpin(page);
     }
 
     private void fetchNextLeafPage(int nextLeafPage) throws HyracksDataException {
@@ -205,12 +209,7 @@ public class BTreeCountingSearchCursor implements ITreeIndexCursor {
     @Override
     public void close() throws HyracksDataException {
         if (page != null) {
-            if (exclusiveLatchNodes) {
-                page.releaseWriteLatch(isPageDirty);
-            } else {
-                page.releaseReadLatch();
-            }
-            bufferCache.unpin(page);
+            releasePage();
         }
         tupleBuilder.reset();
         tupleIndex = 0;
@@ -235,8 +234,13 @@ public class BTreeCountingSearchCursor implements ITreeIndexCursor {
     }
 
     @Override
-    public ICachedPage getPage() {
-        return page;
+    public ITupleReference getFilterMinTuple() {
+        return null;
+    }
+
+    @Override
+    public ITupleReference getFilterMaxTuple() {
+        return null;
     }
 
     @Override
@@ -250,17 +254,7 @@ public class BTreeCountingSearchCursor implements ITreeIndexCursor {
     }
 
     @Override
-    public boolean exclusiveLatchNodes() {
+    public boolean isExclusiveLatchNodes() {
         return exclusiveLatchNodes;
     }
-
-    @Override
-    public void markCurrentTupleAsUpdated() throws HyracksDataException {
-        if (exclusiveLatchNodes) {
-            isPageDirty = true;
-        } else {
-            throw new HyracksDataException("This cursor has not been created with the intention to allow updates.");
-        }
-    }
-
 }

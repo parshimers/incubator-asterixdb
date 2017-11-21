@@ -80,12 +80,12 @@ Let Variable [ Name=$t ]
       )
     ]
     ]
-    FROM [      FunctionCall Metadata.dataset@1[
+    FROM [      FunctionCall asterix.dataset@1[
         LiteralExpr [STRING] [Nation]
       ]
       AS Variable [ Name=$nation ]
 ,
-      FunctionCall Metadata.dataset@1[
+      FunctionCall asterix.dataset@1[
         LiteralExpr [STRING] [SelectedNation]
       ]
       AS Variable [ Name=$sn ]
@@ -128,12 +128,12 @@ Let Variable [ Name=$X ]
     FROM [      Variable [ Name=$t ]
       AS Variable [ Name=$n ]
 ,
-      FunctionCall Metadata.dataset@1[
+      FunctionCall asterix.dataset@1[
         LiteralExpr [STRING] [Customer]
       ]
       AS Variable [ Name=$customer ]
 ,
-      FunctionCall Metadata.dataset@1[
+      FunctionCall asterix.dataset@1[
         LiteralExpr [STRING] [Orders]
       ]
       AS Variable [ Name=$orders ]
@@ -186,7 +186,7 @@ Let Variable [ Name=$X ]
 
     Let Variable [ Name=$sum ]
       :=
-      FunctionCall tpch.sum@1[
+      FunctionCall asterix.sum@1[
         (
           SELECT ELEMENT [
           FieldAccessor [
@@ -194,7 +194,9 @@ Let Variable [ Name=$X ]
             Field=o_totalprice
           ]
           ]
-          FROM [            Variable [ Name=$orders ]
+          FROM [            FunctionCall asterix.dataset@1[
+              LiteralExpr [STRING] [orders]
+            ]
             AS Variable [ Name=$o ]
           ]
         )
@@ -231,7 +233,9 @@ RecordConstructor [
         )
       ]
       ]
-      FROM [        Variable [ Name=$x ]
+      FROM [        FunctionCall asterix.dataset@1[
+          LiteralExpr [STRING] [x]
+        ]
         AS Variable [ Name=$y ]
       ]
       Orderby

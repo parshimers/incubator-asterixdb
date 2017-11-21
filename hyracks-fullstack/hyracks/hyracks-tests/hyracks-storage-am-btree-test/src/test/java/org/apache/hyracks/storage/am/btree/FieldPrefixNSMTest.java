@@ -23,9 +23,6 @@ import java.io.DataOutput;
 import java.util.Random;
 import java.util.logging.Level;
 
-import org.junit.Assert;
-import org.junit.Test;
-
 import org.apache.hyracks.api.comm.IFrame;
 import org.apache.hyracks.api.comm.IFrameTupleAccessor;
 import org.apache.hyracks.api.comm.VSizeFrame;
@@ -43,17 +40,16 @@ import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import org.apache.hyracks.dataflow.common.data.accessors.FrameTupleReference;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
-import org.apache.hyracks.storage.am.btree.exceptions.BTreeException;
 import org.apache.hyracks.storage.am.btree.frames.BTreeFieldPrefixNSMLeafFrame;
+import org.apache.hyracks.storage.am.btree.tuples.BTreeTypeAwareTupleWriter;
 import org.apache.hyracks.storage.am.btree.util.AbstractBTreeTest;
-import org.apache.hyracks.storage.am.common.api.ITreeIndexTupleWriter;
-import org.apache.hyracks.storage.am.common.ophelpers.MultiComparator;
-import org.apache.hyracks.storage.am.common.tuples.TypeAwareTupleWriter;
 import org.apache.hyracks.storage.am.common.util.TreeIndexUtils;
+import org.apache.hyracks.storage.common.MultiComparator;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
 import org.apache.hyracks.storage.common.buffercache.ICachedPage;
 import org.apache.hyracks.storage.common.file.BufferedFileHandle;
-import org.apache.hyracks.storage.common.file.IFileMapProvider;
+import org.junit.Assert;
+import org.junit.Test;
 
 public class FieldPrefixNSMTest extends AbstractBTreeTest {
 
@@ -130,15 +126,13 @@ public class FieldPrefixNSMTest extends AbstractBTreeTest {
         rnd.setSeed(50);
 
         IBufferCache bufferCache = harness.getBufferCache();
-        IFileMapProvider fileMapProvider = harness.getFileMapProvider();
         bufferCache.createFile(harness.getFileReference());
-        int btreeFileId = fileMapProvider.lookupFileId(harness.getFileReference());
-        bufferCache.openFile(btreeFileId);
+        int btreeFileId = bufferCache.openFile(harness.getFileReference());
         IHyracksTaskContext ctx = harness.getHyracksTaskContext();
         ICachedPage page = bufferCache.pin(BufferedFileHandle.getDiskPageId(btreeFileId, 0), true);
         try {
 
-            ITreeIndexTupleWriter tupleWriter = new TypeAwareTupleWriter(typeTraits);
+            BTreeTypeAwareTupleWriter tupleWriter = new BTreeTypeAwareTupleWriter(typeTraits, false);
             BTreeFieldPrefixNSMLeafFrame frame = new BTreeFieldPrefixNSMLeafFrame(tupleWriter);
             frame.setPage(page);
             frame.initBuffer((byte) 0);
@@ -172,8 +166,6 @@ public class FieldPrefixNSMTest extends AbstractBTreeTest {
                 try {
                     int targetTupleIndex = frame.findInsertTupleIndex(tuple);
                     frame.insert(tuple, targetTupleIndex);
-                } catch (BTreeException e) {
-                    e.printStackTrace();
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -206,8 +198,8 @@ public class FieldPrefixNSMTest extends AbstractBTreeTest {
                     }
                 }
 
-                ITupleReference tuple = createTuple(ctx, savedFields[i][0], savedFields[i][1], savedFields[i][2],
-                        false);
+                ITupleReference tuple =
+                        createTuple(ctx, savedFields[i][0], savedFields[i][1], savedFields[i][2], false);
                 try {
                     int tupleIndex = frame.findDeleteTupleIndex(tuple);
                     frame.delete(tuple, tupleIndex);

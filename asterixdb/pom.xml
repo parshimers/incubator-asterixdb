@@ -21,7 +21,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.apache.asterix</groupId>
   <artifactId>apache-asterixdb</artifactId>
-  <version>0.9.1-SNAPSHOT</version>
+  <version>0.9.3-SNAPSHOT</version>
   <packaging>pom</packaging>
   <url>https://asterixdb.apache.org/</url>
 
@@ -43,29 +43,24 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <file.encoding>UTF-8</file.encoding>
     <jvm.extraargs />
     <jdk.version>1.8</jdk.version>
     <runSlowAQLTests>false</runSlowAQLTests>
     <appendedResourcesDirectory>${basedir}/src/main/appended-resources</appendedResourcesDirectory>
     <sonar.jacoco.reportPath>${env.PWD}/target/jacoco-merged.exec</sonar.jacoco.reportPath>
     <debug.suspend.flag>n</debug.suspend.flag>
+    <skip.surefire.tests>${skipTests}</skip.surefire.tests>
 
     <!-- Definition of tests in various categories which may be excluded -->
-    <optimizer.tests>**/optimizer/**/*Test.java</optimizer.tests>
-    <metadata.tests>**/metadata/*Test.java</metadata.tests>
-    <execution.tests>**/ExecutionTest.java</execution.tests>
     <repeated.tests>**/RepeatedTest.java</repeated.tests>
     <invalid.tests>**/DmlTest.java</invalid.tests>
-    <global.test.includes>**/*TestSuite.java,**/*Test.java,${execution.tests}</global.test.includes>
-    <global.test.excludes>${optimizer.tests},${metadata.tests},${invalid.tests},${repeated.tests}</global.test.excludes>
-
-    <failsafe.test.excludes>**/DmlRecoveryIT.java</failsafe.test.excludes>
-    <cluster.test.excludes>**/AsterixClusterLifeCycleIT.java</cluster.test.excludes>
-    <cluster.extest.excludes>**/ClusterExecutionIT.java</cluster.extest.excludes>
+    <global.test.includes>**/*TestSuite.java,**/*Test.java</global.test.includes>
+    <global.test.excludes>${invalid.tests},${repeated.tests}</global.test.excludes>
 
     <!-- Versions under dependencymanagement or used in many projects via properties -->
-    <algebricks.version>0.3.1-SNAPSHOT</algebricks.version>
-    <hyracks.version>0.3.1-SNAPSHOT</hyracks.version>
+    <algebricks.version>0.3.3-SNAPSHOT</algebricks.version>
+    <hyracks.version>0.3.3-SNAPSHOT</hyracks.version>
     <hadoop.version>2.2.0</hadoop.version>
     <jacoco.version>0.7.6.201602180812</jacoco.version>
   </properties>
@@ -75,7 +70,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
-        <version>3.0.0</version>
         <configuration>
           <excludes>
             <exclude>**/DEPENDENCIES</exclude>
@@ -85,7 +79,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>2.16</version>
         <configuration>
           <failIfNoTests>false</failIfNoTests>
           <systemPropertyVariables>
@@ -108,21 +101,17 @@
           <excludes>
             <exclude>${global.test.excludes},${test.excludes}</exclude>
           </excludes>
+          <skipTests>${skip.surefire.tests}</skipTests>
         </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
-        <version>2.6</version>
         <configuration>
           <runOrder>alphabetical</runOrder>
-          <forkMode>pertest</forkMode>
+          <forkCount>1</forkCount>
+          <reuseForks>false</reuseForks>
           <argLine>${coverageArgLine}</argLine>
-          <excludes>
-            <exclude>${failsafe.test.excludes}</exclude>
-            <exclude>${cluster.test.excludes}</exclude>
-            <exclude>${cluster.extest.excludes}</exclude>
-          </excludes>
         </configuration>
         <executions>
           <execution>
@@ -194,10 +183,6 @@
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-resources-plugin</artifactId>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
         <version>2.17</version>
         <executions>
@@ -226,7 +211,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>1.4.1</version>
+        <version>3.0.0-M1</version>
         <executions>
           <execution>
             <id>enforce-versions</id>
@@ -246,7 +231,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
-        <version>2.10</version>
         <configuration>
           <failOnWarning>true</failOnWarning>
           <outputXML>true</outputXML>
@@ -266,7 +250,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.6.1</version>
+          <version>3.7.0</version>
         </plugin>
         <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
         <plugin>
@@ -280,7 +264,7 @@
                   <pluginExecutionFilter>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-plugin-plugin</artifactId>
-                    <versionRange>[3.3,)</versionRange>
+                    <versionRange>[0.0,)</versionRange>
                     <goals>
                       <goal>descriptor</goal>
                     </goals>
@@ -293,7 +277,7 @@
                   <pluginExecutionFilter>
                     <groupId>org.apache.asterix</groupId>
                     <artifactId>record-manager-generator-maven-plugin</artifactId>
-                    <versionRange>[0.8.7-SNAPSHOT,)</versionRange>
+                    <versionRange>[0.0,)</versionRange>
                     <goals>
                       <goal>generate-record-manager</goal>
                     </goals>
@@ -306,7 +290,7 @@
                   <pluginExecutionFilter>
                     <groupId>org.apache.asterix</groupId>
                     <artifactId>asterix-evaluator-generator-maven-plugin</artifactId>
-                    <versionRange>[0.8.7-SNAPSHOT,)</versionRange>
+                    <versionRange>[0.0,)</versionRange>
                     <goals>
                       <goal>generate-evaluator</goal>
                     </goals>
@@ -319,7 +303,7 @@
                   <pluginExecutionFilter>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-jar-plugin</artifactId>
-                    <versionRange>[2.4,)</versionRange>
+                    <versionRange>[0.0,)</versionRange>
                     <goals>
                       <goal>test-jar</goal>
                     </goals>
@@ -332,7 +316,7 @@
                   <pluginExecutionFilter>
                     <groupId>org.apache.rat</groupId>
                     <artifactId>apache-rat-plugin</artifactId>
-                    <versionRange>[0.11,)</versionRange>
+                    <versionRange>[0.0,)</versionRange>
                     <goals>
                       <goal>check</goal>
                     </goals>
@@ -345,7 +329,7 @@
                   <pluginExecutionFilter>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-checkstyle-plugin</artifactId>
-                    <versionRange>[2.17,)</versionRange>
+                    <versionRange>[0.0,)</versionRange>
                     <goals>
                       <goal>check</goal>
                     </goals>
@@ -358,7 +342,7 @@
                   <pluginExecutionFilter>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>javacc-maven-plugin</artifactId>
-                    <versionRange>[2.6,)</versionRange>
+                    <versionRange>[0.0,)</versionRange>
                     <goals>
                       <goal>jjdoc</goal>
                     </goals>
@@ -371,7 +355,7 @@
                   <pluginExecutionFilter>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-dependency-plugin</artifactId>
-                    <versionRange>[2.10,)</versionRange>
+                    <versionRange>[0.0,)</versionRange>
                     <goals>
                       <goal>analyze-only</goal>
                     </goals>
@@ -385,14 +369,14 @@
           </configuration>
         </plugin>
         <plugin>
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>versions-maven-plugin</artifactId>
-            <version>2.1</version>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>versions-maven-plugin</artifactId>
+          <version>2.5</version>
         </plugin>
         <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-scm-plugin</artifactId>
-            <version>1.9.5</version>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-scm-plugin</artifactId>
+          <version>1.9.5</version>
         </plugin>
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
@@ -403,6 +387,81 @@
           <groupId>org.apache.rat</groupId>
           <artifactId>apache-rat-plugin</artifactId>
           <version>0.12</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>2.20.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-failsafe-plugin</artifactId>
+          <version>2.20.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.hyracks</groupId>
+          <artifactId>license-automation-plugin</artifactId>
+          <version>${hyracks.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-assembly-plugin</artifactId>
+          <version>3.1.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-antrun-plugin</artifactId>
+          <version>1.8</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>3.0.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>3.0.2</version>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>build-helper-maven-plugin</artifactId>
+          <version>3.0.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>3.0.2</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-dependency-plugin</artifactId>
+          <version>3.0.2</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-javadoc-plugin</artifactId>
+          <version>3.0.0-M1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-plugin-plugin</artifactId>
+          <version>3.5</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-site-plugin</artifactId>
+          <version>3.4</version>
+        </plugin>
+        <plugin>
+          <groupId>org.jvnet.jaxb2.maven2</groupId>
+          <artifactId>maven-jaxb2-plugin</artifactId>
+          <version>0.13.2</version>
+        </plugin>
+        <plugin>
+          <groupId>pl.project13.maven</groupId>
+          <artifactId>git-commit-id-plugin</artifactId>
+          <version>2.2.3</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -431,24 +490,6 @@
       <id>slow-aql-tests</id>
       <properties>
         <runSlowAQLTests>true</runSlowAQLTests>
-      </properties>
-    </profile>
-    <profile>
-      <id>optimizer-tests</id>
-      <properties>
-        <optimizer.tests />
-      </properties>
-    </profile>
-    <profile>
-      <id>metadata-tests</id>
-      <properties>
-        <metadata.tests />
-      </properties>
-    </profile>
-    <profile>
-      <id>execution-tests</id>
-      <properties>
-        <execution.tests />
       </properties>
     </profile>
     <profile>
@@ -483,12 +524,18 @@
       </properties>
     </profile>
     <profile>
-      <id>source-assembly</id>
+      <id>skip-assembly</id>
       <activation>
         <file>
-          <exists>src/main/assembly/source.xml</exists>
+          <missing>src/main/assembly/source.xml</missing>
         </file>
       </activation>
+      <properties>
+        <skip.assembly>true</skip.assembly>
+      </properties>
+    </profile>
+    <profile>
+      <id>release</id>
       <build>
         <plugins>
           <plugin>
@@ -511,17 +558,11 @@
                   <descriptors>
                     <descriptor>src/main/assembly/source.xml</descriptor>
                   </descriptors>
+                  <skipAssembly>${skip.assembly}</skipAssembly>
                 </configuration>
               </execution>
             </executions>
           </plugin>
-        </plugins>
-      </build>
-    </profile>
-    <profile>
-      <id>release</id>
-      <build>
-        <plugins>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-gpg-plugin</artifactId>
@@ -681,23 +722,6 @@
     <module>asterix-license</module>
   </modules>
 
-  <repositories>
-    <repository>
-      <releases>
-        <enabled>true</enabled>
-        <updatePolicy>always</updatePolicy>
-        <checksumPolicy>warn</checksumPolicy>
-      </releases>
-      <snapshots>
-        <enabled>false</enabled>
-        <updatePolicy>always</updatePolicy>
-        <checksumPolicy>fail</checksumPolicy>
-      </snapshots>
-      <!-- TODO (mblow): copy rome dependency & update this to third-party -->
-      <id>asterix-public</id>
-      <url>http://obelix.ics.uci.edu/nexus/content/repositories/asterix-public/</url>
-    </repository>
-  </repositories>
   <dependencyManagement>
     <dependencies>
       <dependency>
@@ -844,6 +868,11 @@
       </dependency>
       <dependency>
         <groupId>org.apache.hyracks</groupId>
+        <artifactId>hyracks-ipc</artifactId>
+        <version>${hyracks.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hyracks</groupId>
         <artifactId>algebricks-compiler</artifactId>
         <version>${algebricks.version}</version>
       </dependency>
@@ -909,17 +938,7 @@
       </dependency>
       <dependency>
         <groupId>org.apache.hyracks</groupId>
-        <artifactId>hyracks-cli</artifactId>
-        <version>${hyracks.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.hyracks</groupId>
         <artifactId>hyracks-dataflow-common</artifactId>
-        <version>${hyracks.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.hyracks</groupId>
-        <artifactId>hyracks-dataflow-hadoop</artifactId>
         <version>${hyracks.version}</version>
       </dependency>
       <dependency>
@@ -940,11 +959,6 @@
       <dependency>
         <groupId>org.apache.hyracks</groupId>
         <artifactId>hyracks-storage-am-rtree</artifactId>
-        <version>${hyracks.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.hyracks</groupId>
-        <artifactId>hyracks-storage-am-invertedindex</artifactId>
         <version>${hyracks.version}</version>
       </dependency>
       <dependency>
@@ -1001,6 +1015,12 @@
       <dependency>
         <groupId>org.apache.hyracks</groupId>
         <artifactId>hyracks-hdfs-2.x</artifactId>
+        <version>${hyracks.version}</version>
+        <type>test-jar</type>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hyracks</groupId>
+        <artifactId>hyracks-storage-am-lsm-btree-test</artifactId>
         <version>${hyracks.version}</version>
         <type>test-jar</type>
       </dependency>
@@ -1065,6 +1085,16 @@
         <version>18.0</version>
       </dependency>
       <dependency>
+        <groupId>com.rometools</groupId>
+        <artifactId>rome-fetcher</artifactId>
+        <version>1.7.4</version>
+      </dependency>
+      <dependency>
+        <groupId>com.rometools</groupId>
+        <artifactId>rome</artifactId>
+        <version>1.7.4</version>
+      </dependency>
+      <dependency>
         <groupId>log4j</groupId>
         <artifactId>log4j</artifactId>
         <version>1.2.17</version>
@@ -1120,4 +1150,5 @@
       </dependency>
     </dependencies>
   </dependencyManagement>
+
 </project>

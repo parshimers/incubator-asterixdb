@@ -18,8 +18,8 @@
  */
 package org.apache.asterix.app.nc.task;
 
-import org.apache.asterix.common.api.IAppRuntimeContext;
 import org.apache.asterix.common.api.INCLifecycleTask;
+import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.replication.IReplicationManager;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.service.IControllerService;
@@ -30,7 +30,7 @@ public class StartReplicationServiceTask implements INCLifecycleTask {
 
     @Override
     public void perform(IControllerService cs) throws HyracksDataException {
-        IAppRuntimeContext appContext = (IAppRuntimeContext) cs.getApplicationContext();
+        INcApplicationContext appContext = (INcApplicationContext) cs.getApplicationContext();
         try {
             //Open replication channel
             appContext.getReplicationChannel().start();
@@ -42,5 +42,10 @@ public class StartReplicationServiceTask implements INCLifecycleTask {
         } catch (Exception e) {
             throw HyracksDataException.create(e);
         }
+    }
+
+    @Override
+    public String toString() {
+        return "{ \"class\" : \"" + getClass().getSimpleName() + "\" }";
     }
 }

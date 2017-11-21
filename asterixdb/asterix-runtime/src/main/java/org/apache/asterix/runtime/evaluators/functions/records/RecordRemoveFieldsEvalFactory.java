@@ -118,7 +118,7 @@ class RecordRemoveFieldsEvalFactory implements IScalarEvaluatorFactory {
                     rbStack.clear();
                     processRecord(requiredRecType, recordPointable, listPointable, 0);
                     rbStack.get(0).write(out, true);
-                } catch (IOException | AsterixException e) {
+                } catch (IOException e) {
                     throw new HyracksDataException(e);
                 }
                 result.set(resultStorage);
@@ -126,7 +126,7 @@ class RecordRemoveFieldsEvalFactory implements IScalarEvaluatorFactory {
 
             private void processRecord(ARecordType requiredType, ARecordVisitablePointable srp,
                     AListVisitablePointable inputList, int nestedLevel)
-                    throws IOException, AsterixException, HyracksDataException {
+                    throws IOException {
                 if (rbStack.size() < (nestedLevel + 1)) {
                     rbStack.add(new RecordBuilder());
                 }
@@ -157,13 +157,13 @@ class RecordRemoveFieldsEvalFactory implements IScalarEvaluatorFactory {
             private void addKeptFieldToSubRecord(ARecordType requiredType, IVisitablePointable fieldNamePointable,
                     IVisitablePointable fieldValuePointable, IVisitablePointable fieldTypePointable,
                     AListVisitablePointable inputList, int nestedLevel)
-                    throws IOException, AsterixException, HyracksDataException {
+                    throws IOException {
 
                 runtimeRecordTypeInfo.reset(requiredType);
                 int pos = runtimeRecordTypeInfo.getFieldIndex(fieldNamePointable.getByteArray(),
                         fieldNamePointable.getStartOffset() + 1, fieldNamePointable.getLength() - 1);
                 if (pos >= 0) { // Closed field
-                    if (PointableHelper.sameType(ATypeTag.RECORD, fieldTypePointable)) {
+                    if (PointableHelper.sameType(ATypeTag.OBJECT, fieldTypePointable)) {
                         processRecord((ARecordType) requiredType.getFieldTypes()[pos],
                                 (ARecordVisitablePointable) fieldValuePointable, inputList, nestedLevel + 1);
                         tabvs.reset();
@@ -173,7 +173,7 @@ class RecordRemoveFieldsEvalFactory implements IScalarEvaluatorFactory {
                         rbStack.get(nestedLevel).addField(pos, fieldValuePointable);
                     }
                 } else { // Open field
-                    if (PointableHelper.sameType(ATypeTag.RECORD, fieldTypePointable)) {
+                    if (PointableHelper.sameType(ATypeTag.OBJECT, fieldTypePointable)) {
                         processRecord(null, (ARecordVisitablePointable) fieldValuePointable, inputList,
                                 nestedLevel + 1);
                         tabvs.reset();
@@ -192,7 +192,7 @@ class RecordRemoveFieldsEvalFactory implements IScalarEvaluatorFactory {
                 int pathLen = recordPath.size();
                 for (int i = 0; i < items.size(); i++) {
                     IVisitablePointable item = items.get(i);
-                    if (PointableHelper.sameType(ATypeTag.ORDEREDLIST, typeTags.get(i))) {
+                    if (PointableHelper.sameType(ATypeTag.ARRAY, typeTags.get(i))) {
                         List<IVisitablePointable> inputPathItems = ((AListVisitablePointable) item).getItems();
 
                         if (pathLen == inputPathItems.size()) {

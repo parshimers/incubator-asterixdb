@@ -18,30 +18,56 @@
  */
 package org.apache.asterix.runtime.job.listener;
 
-import org.apache.asterix.common.api.IAppRuntimeContext;
+import org.apache.asterix.common.api.IJobEventListenerFactory;
+import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.transactions.DatasetId;
 import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.ITransactionManager;
-import org.apache.asterix.common.transactions.JobId;
+import org.apache.asterix.common.transactions.TxnId;
 import org.apache.hyracks.api.context.IHyracksJobletContext;
 import org.apache.hyracks.api.job.IJobletEventListener;
 import org.apache.hyracks.api.job.IJobletEventListenerFactory;
+import org.apache.hyracks.api.job.JobParameterByteStore;
 import org.apache.hyracks.api.job.JobStatus;
 
-public class JobEventListenerFactory implements IJobletEventListenerFactory {
+public class JobEventListenerFactory implements IJobEventListenerFactory {
 
     private static final long serialVersionUID = 1L;
-    private final JobId jobId;
+
+    private TxnId txnId;
     private final boolean transactionalWrite;
 
-    public JobEventListenerFactory(JobId jobId, boolean transactionalWrite) {
-        this.jobId = jobId;
+    //To enable new Asterix TxnId for separate deployed job spec invocations
+    private static final byte[] TRANSACTION_ID_PARAMETER_NAME = "TxnIdParameter".getBytes();
+
+    public JobEventListenerFactory(TxnId txnId, boolean transactionalWrite) {
+        this.txnId = txnId;
         this.transactionalWrite = transactionalWrite;
     }
 
-    public JobId getJobId() {
-        return jobId;
+    public TxnId getTxnId() {
+        return txnId;
+    }
+
+    @Override
+    public TxnId getTxnId(TxnId compiledTxnId) {
+        return txnId;
+    }
+
+    @Override
+    public IJobletEventListenerFactory copyFactory() {
+        return new JobEventListenerFactory(txnId, transactionalWrite);
+    }
+
+    @Override
+    public void updateListenerJobParameters(JobParameterByteStore jobParameterByteStore) {
+        String AsterixTransactionIdString =
+                new String(jobParameterByteStore.getParameterValue(TRANSACTION_ID_PARAMETER_NAME, 0,
+                        TRANSACTION_ID_PARAMETER_NAME.length));
+        if (AsterixTransactionIdString.length() > 0) {
+            this.txnId = new TxnId(Integer.parseInt(AsterixTransactionIdString));
+        }
     }
 
     @Override
@@ -51,9 +77,9 @@ public class JobEventListenerFactory implements IJobletEventListenerFactory {
             @Override
             public void jobletFinish(JobStatus jobStatus) {
                 try {
-                    ITransactionManager txnManager = ((IAppRuntimeContext) jobletContext.getServiceContext()
+                    ITransactionManager txnManager = ((INcApplicationContext) jobletContext.getServiceContext()
                             .getApplicationContext()).getTransactionSubsystem().getTransactionManager();
-                    ITransactionContext txnContext = txnManager.getTransactionContext(jobId, false);
+                    ITransactionContext txnContext = txnManager.getTransactionContext(txnId, false);
                     txnContext.setWriteTxn(transactionalWrite);
                     txnManager.completedTransaction(txnContext, DatasetId.NULL, -1,
                             !(jobStatus == JobStatus.FAILURE));
@@ -65,8 +91,8 @@ public class JobEventListenerFactory implements IJobletEventListenerFactory {
             @Override
             public void jobletStart() {
                 try {
-                    ((IAppRuntimeContext) jobletContext.getServiceContext().getApplicationContext())
-                            .getTransactionSubsystem().getTransactionManager().getTransactionContext(jobId, true);
+                    ((INcApplicationContext) jobletContext.getServiceContext().getApplicationContext())
+                            .getTransactionSubsystem().getTransactionManager().getTransactionContext(txnId, true);
                 } catch (ACIDException e) {
                     throw new Error(e);
                 }

@@ -23,6 +23,7 @@ import java.util.Set;
 
 import org.apache.asterix.common.api.IClusterEventsSubscriber;
 import org.apache.asterix.common.config.ClusterProperties;
+import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.event.schema.cluster.Cluster;
 import org.apache.asterix.event.schema.cluster.Node;
@@ -57,12 +58,12 @@ public class ClusterManagerProvider {
     }
     private static class NoopClusterManager implements IClusterManager {
         @Override
-        public void addNode(Node node) throws AsterixException {
+        public void addNode(ICcApplicationContext appCtx, Node node) {
             // no-op
         }
 
         @Override
-        public void removeNode(Node node) throws AsterixException {
+        public void removeNode(Node node) {
             // no-op
         }
 
@@ -82,7 +83,7 @@ public class ClusterManagerProvider {
         }
 
         @Override
-        public void notifyStartupCompleted() throws Exception {
+        public void notifyStartupCompleted() {
             // no-op
         }
     }

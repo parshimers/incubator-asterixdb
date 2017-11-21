@@ -32,6 +32,7 @@ import org.apache.asterix.om.util.container.IObjectFactory;
 import org.apache.asterix.om.utils.NonTaggedFormatUtil;
 import org.apache.asterix.om.utils.RecordUtil;
 import org.apache.hyracks.api.dataflow.value.ITypeTraits;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.AbstractPointable;
 import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.data.std.api.IPointableFactory;
@@ -219,7 +220,7 @@ public class ARecordPointable extends AbstractPointable {
     // -----------------------
 
     public void getClosedFieldValue(ARecordType recordType, int fieldId, DataOutput dOut)
-            throws IOException, AsterixException {
+            throws IOException {
         if (isClosedFieldNull(recordType, fieldId)) {
             dOut.writeByte(ATypeTag.SERIALIZED_NULL_TYPE_TAG);
         } else if (isClosedFieldMissing(recordType, fieldId)) {
@@ -252,7 +253,7 @@ public class ARecordPointable extends AbstractPointable {
         return aType;
     }
 
-    public int getClosedFieldSize(ARecordType recordType, int fieldId) throws AsterixException {
+    public int getClosedFieldSize(ARecordType recordType, int fieldId) throws HyracksDataException {
         if (isClosedFieldNull(recordType, fieldId)) {
             return 0;
         }
@@ -286,7 +287,7 @@ public class ARecordPointable extends AbstractPointable {
     // -----------------------
 
     public void getOpenFieldValue(ARecordType recordType, int fieldId, DataOutput dOut)
-            throws IOException, AsterixException {
+            throws IOException {
         dOut.write(bytes, getOpenFieldValueOffset(recordType, fieldId), getOpenFieldValueSize(recordType, fieldId));
     }
 
@@ -294,7 +295,7 @@ public class ARecordPointable extends AbstractPointable {
         return getOpenFieldNameOffset(recordType, fieldId) + getOpenFieldNameSize(recordType, fieldId);
     }
 
-    public int getOpenFieldValueSize(ARecordType recordType, int fieldId) throws AsterixException {
+    public int getOpenFieldValueSize(ARecordType recordType, int fieldId) throws HyracksDataException {
         int offset = getOpenFieldValueOffset(recordType, fieldId);
         ATypeTag tag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(getOpenFieldTag(recordType, fieldId));
         return NonTaggedFormatUtil.getFieldValueLength(bytes, offset, tag, true);

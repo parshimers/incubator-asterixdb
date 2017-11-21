@@ -33,11 +33,12 @@ import org.apache.hyracks.dataflow.common.data.marshalling.IntegerSerializerDese
 import org.apache.hyracks.dataflow.common.utils.TupleUtils;
 import org.apache.hyracks.storage.am.btree.OrderedIndexExamplesTest;
 import org.apache.hyracks.storage.am.common.TestOperationCallback;
-import org.apache.hyracks.storage.am.common.api.IIndexAccessor;
 import org.apache.hyracks.storage.am.common.api.ITreeIndex;
-import org.apache.hyracks.storage.am.common.api.TreeIndexException;
+import org.apache.hyracks.storage.am.common.impls.IndexAccessParameters;
 import org.apache.hyracks.storage.am.lsm.btree.util.LSMBTreeTestHarness;
 import org.apache.hyracks.storage.am.lsm.btree.utils.LSMBTreeUtil;
+import org.apache.hyracks.storage.common.IIndexAccessor;
+import org.apache.hyracks.util.trace.ITracer;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -48,14 +49,13 @@ public class LSMBTreeExamplesTest extends OrderedIndexExamplesTest {
     @Override
     protected ITreeIndex createTreeIndex(ITypeTraits[] typeTraits, IBinaryComparatorFactory[] cmpFactories,
             int[] bloomFilterKeyFields, ITypeTraits[] filterTypeTraits, IBinaryComparatorFactory[] filterCmpFactories,
-            int[] btreeFields, int[] filterFields) throws TreeIndexException, HyracksDataException {
-        return LSMBTreeUtil.createLSMTree(harness.getIOManager(), harness.getVirtualBufferCaches(), harness
-                .getFileReference(),
-                harness.getDiskBufferCache(), harness.getDiskFileMapProvider(), typeTraits, cmpFactories,
+            int[] btreeFields, int[] filterFields) throws HyracksDataException {
+        return LSMBTreeUtil.createLSMTree(harness.getIOManager(), harness.getVirtualBufferCaches(),
+                harness.getFileReference(), harness.getDiskBufferCache(), typeTraits, cmpFactories,
                 bloomFilterKeyFields, harness.getBoomFilterFalsePositiveRate(), harness.getMergePolicy(),
-                harness.getOperationTracker(), harness.getIOScheduler(), harness.getIOOperationCallback(), true,
-                filterTypeTraits, filterCmpFactories, btreeFields, filterFields, true, harness
-                        .getMetadataPageManagerFactory());
+                harness.getOperationTracker(), harness.getIOScheduler(), harness.getIOOperationCallbackFactory(), true,
+                filterTypeTraits, filterCmpFactories, btreeFields, filterFields, true,
+                harness.getMetadataPageManagerFactory(), false, ITracer.NONE);
     }
 
     @Before
@@ -83,8 +83,8 @@ public class LSMBTreeExamplesTest extends OrderedIndexExamplesTest {
         typeTraits[0] = IntegerPointable.TYPE_TRAITS;
         typeTraits[1] = IntegerPointable.TYPE_TRAITS;
         // Declare field serdes.
-        ISerializerDeserializer[] fieldSerdes = { IntegerSerializerDeserializer.INSTANCE,
-                IntegerSerializerDeserializer.INSTANCE };
+        ISerializerDeserializer[] fieldSerdes =
+                { IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE };
 
         // Declare keys.
         int keyFieldCount = 1;
@@ -96,8 +96,8 @@ public class LSMBTreeExamplesTest extends OrderedIndexExamplesTest {
         bloomFilterKeyFields[0] = 0;
 
         ITypeTraits[] filterTypeTraits = { IntegerPointable.TYPE_TRAITS };
-        IBinaryComparatorFactory[] filterCmpFactories = { PointableBinaryComparatorFactory.of(
-                IntegerPointable.FACTORY) };
+        IBinaryComparatorFactory[] filterCmpFactories =
+                { PointableBinaryComparatorFactory.of(IntegerPointable.FACTORY) };
         int[] filterFields = { 1 };
         int[] btreeFields = { 1 };
         ITreeIndex treeIndex = createTreeIndex(typeTraits, cmpFactories, bloomFilterKeyFields, filterTypeTraits,
@@ -111,8 +111,9 @@ public class LSMBTreeExamplesTest extends OrderedIndexExamplesTest {
         }
         ArrayTupleBuilder tb = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference tuple = new ArrayTupleReference();
-        IIndexAccessor indexAccessor = treeIndex.createAccessor(TestOperationCallback.INSTANCE,
-                TestOperationCallback.INSTANCE);
+        IndexAccessParameters actx =
+                new IndexAccessParameters(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
+        IIndexAccessor indexAccessor = treeIndex.createAccessor(actx);
         int numInserts = 10000;
         for (int i = 0; i < numInserts; i++) {
             int f0 = rnd.nextInt() % numInserts;

@@ -19,6 +19,7 @@
 package org.apache.hyracks.control.nc.service;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
@@ -30,6 +31,7 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
@@ -124,15 +126,20 @@ public class NCService {
                 LOGGER.info("Using JAVA_OPTS from environment");
             } else {
                 LOGGER.info("Using default JAVA_OPTS");
-                long ramSize = ((com.sun.management.OperatingSystemMXBean) osMXBean).getTotalPhysicalMemorySize();
-                int proportionalRamSize = (int) Math.ceil(0.6 * ramSize / (1024 * 1024));
-                //if under 32bit JVM, use less than 1GB heap by default. otherwise use proportional ramsize.
-                int heapSize = "32".equals(System.getProperty("sun.arch.data.model"))
-                        ? (proportionalRamSize <= 1024 ? proportionalRamSize : 1024) : proportionalRamSize;
-                jvmargs = "-Xmx" + heapSize + "m";
+                jvmargs = "";
             }
         }
-        env.put("JAVA_OPTS", jvmargs);
+
+        // Sets up memory parameter if it is not specified.
+        if (!jvmargs.contains(" -Xmx")) {
+            long ramSize = ((com.sun.management.OperatingSystemMXBean) osMXBean).getTotalPhysicalMemorySize();
+            int proportionalRamSize = (int) Math.ceil(0.6 * ramSize / (1024 * 1024));
+            //if under 32bit JVM, use less than 1GB heap by default. otherwise use proportional ramsize.
+            int heapSize = "32".equals(System.getProperty("sun.arch.data.model"))
+                    ? (proportionalRamSize <= 1024 ? proportionalRamSize : 1024) : proportionalRamSize;
+            jvmargs = jvmargs + " -Xmx" + heapSize + "m";
+            env.put("JAVA_OPTS", jvmargs.trim());
+        }
         LOGGER.info("Setting JAVA_OPTS to " + jvmargs);
     }
 
@@ -165,8 +172,11 @@ public class NCService {
                     // If the directory IS there, all is well
                 }
                 File logfile = new File(config.logdir, "nc-" + ncId + ".log");
-                // Don't care if this succeeds or fails:
-                logfile.delete();
+                try (FileWriter writer = new FileWriter(logfile, true)) {
+                    writer.write("---------------------\n");
+                    writer.write(new Date() + "\n");
+                    writer.write("---------------------\n");
+                }
                 pb.redirectOutput(ProcessBuilder.Redirect.appendTo(logfile));
                 if (LOGGER.isLoggable(Level.INFO)) {
                     LOGGER.info("Logging to " + logfile.getCanonicalPath());
@@ -249,6 +259,11 @@ public class NCService {
             public void run() {
                 if (proc != null) {
                     proc.destroy();
+                    try {
+                        proc.waitFor();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
         });
