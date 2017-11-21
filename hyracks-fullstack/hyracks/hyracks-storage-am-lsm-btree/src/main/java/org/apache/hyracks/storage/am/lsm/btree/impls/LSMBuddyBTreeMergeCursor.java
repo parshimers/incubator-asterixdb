@@ -24,7 +24,7 @@ import org.apache.hyracks.storage.am.btree.impls.BTree;
 import org.apache.hyracks.storage.am.btree.impls.BTreeRangeSearchCursor;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexAccessor;
-import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
+import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMIndexSearchCursor;
@@ -62,9 +62,8 @@ public class LSMBuddyBTreeMergeCursor extends LSMIndexSearchCursor {
             ILSMComponent component = operationalComponents.get(i);
             IBTreeLeafFrame leafFrame = (IBTreeLeafFrame) lsmInitialState.getBuddyBTreeLeafFrameFactory().createFrame();
             rangeCursors[i] = new BTreeRangeSearchCursor(leafFrame, false);
-            BTree buddyBtree = ((LSMBTreeWithBuddyDiskComponent) component).getBuddyBTree();
-            btreeAccessors[i] =
-                    buddyBtree.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            BTree buddyBtree = ((LSMBTreeWithBuddyDiskComponent) component).getBuddyIndex();
+            btreeAccessors[i] = buddyBtree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
             btreeAccessors[i].search(rangeCursors[i], btreePredicate);
         }
         setPriorityQueueComparator();

@@ -64,7 +64,7 @@ import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.common.api.IIndexDataflowHelper;
 import org.apache.hyracks.storage.am.common.dataflow.IndexDataflowHelperFactory;
-import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
+import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.lsm.btree.impl.TestLsmBtree;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponent;
@@ -132,12 +132,12 @@ public class ComponentRollbackTest {
     public void createIndex() throws Exception {
         List<List<String>> partitioningKeys = new ArrayList<>();
         partitioningKeys.add(Collections.singletonList("key"));
-        dataset = new TestDataset(DATAVERSE_NAME, DATASET_NAME, DATAVERSE_NAME, DATA_TYPE_NAME,
-                NODE_GROUP_NAME, null, null, new InternalDatasetDetails(null, PartitioningStrategy.HASH,
+        dataset = new TestDataset(DATAVERSE_NAME, DATASET_NAME, DATAVERSE_NAME, DATA_TYPE_NAME, NODE_GROUP_NAME,
+                NoMergePolicyFactory.NAME, null, new InternalDatasetDetails(null, PartitioningStrategy.HASH,
                         partitioningKeys, null, null, null, false, null, false),
                 null, DatasetType.INTERNAL, DATASET_ID, 0);
-        PrimaryIndexInfo primaryIndexInfo = nc.createPrimaryIndex(dataset, KEY_TYPES, RECORD_TYPE, META_TYPE,
-                new NoMergePolicyFactory(), null, null, storageManager, KEY_INDEXES, KEY_INDICATORS_LIST);
+        PrimaryIndexInfo primaryIndexInfo = nc.createPrimaryIndex(dataset, KEY_TYPES, RECORD_TYPE, META_TYPE, null,
+                storageManager, KEY_INDEXES, KEY_INDICATORS_LIST);
         IndexDataflowHelperFactory iHelperFactory =
                 new IndexDataflowHelperFactory(nc.getStorageManager(), primaryIndexInfo.getFileSplitProvider());
         ctx = nc.createTestContext(false);
@@ -146,9 +146,9 @@ public class ComponentRollbackTest {
         lsmBtree = (TestLsmBtree) indexDataflowHelper.getIndexInstance();
         indexDataflowHelper.close();
         nc.newJobId();
-        txnCtx = nc.getTransactionManager().getTransactionContext(nc.getTxnJobId(), true);
-        insertOp = nc.getInsertPipeline(ctx, dataset, KEY_TYPES, RECORD_TYPE, META_TYPE, new NoMergePolicyFactory(),
-                null, null, KEY_INDEXES, KEY_INDICATORS_LIST, storageManager).getLeft();
+        txnCtx = nc.getTransactionManager().getTransactionContext(nc.getTxnJobId(ctx), true);
+        insertOp = nc.getInsertPipeline(ctx, dataset, KEY_TYPES, RECORD_TYPE, META_TYPE, null, KEY_INDEXES,
+                KEY_INDICATORS_LIST, storageManager).getLeft();
     }
 
     @After
@@ -174,7 +174,7 @@ public class ComponentRollbackTest {
             VSizeFrame frame = new VSizeFrame(ctx);
             FrameTupleAppender tupleAppender = new FrameTupleAppender(frame);
             for (int j = 0; j < TOTAL_NUM_OF_RECORDS; j++) {
-                // flush every 1000 records
+                // flush every RECORDS_PER_COMPONENT records
                 if (j % RECORDS_PER_COMPONENT == 0 && j + 1 != TOTAL_NUM_OF_RECORDS) {
                     if (tupleAppender.getTupleCount() > 0) {
                         tupleAppender.write(insertOp, true);
@@ -196,15 +196,16 @@ public class ComponentRollbackTest {
             Assert.assertEquals(9, diskComponents.size());
             Assert.assertTrue(memComponents.get(lsmBtree.getCurrentMemoryComponentIndex()).isModified());
             searchAndAssertCount(nc, ctx, dataset, storageManager, TOTAL_NUM_OF_RECORDS);
-            ILSMIndexAccessor lsmAccessor =
-                    lsmBtree.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            ILSMIndexAccessor lsmAccessor = lsmBtree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
+            dsLifecycleMgr.getComponentIdGenerator(DATASET_ID).refresh();
             // rollback a memory component
             lsmAccessor.deleteComponents(memoryComponentsPredicate);
             searchAndAssertCount(nc, ctx, dataset, storageManager, TOTAL_NUM_OF_RECORDS - RECORDS_PER_COMPONENT);
             // rollback the last disk component
-            lsmAccessor = lsmBtree.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            lsmAccessor = lsmBtree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
             long lsn = AbstractLSMIOOperationCallback.getTreeIndexLSN(diskComponents.get(0).getMetadata());
             DiskComponentLsnPredicate pred = new DiskComponentLsnPredicate(lsn);
+            dsLifecycleMgr.getComponentIdGenerator(DATASET_ID).refresh();
             lsmAccessor.deleteComponents(pred);
             searchAndAssertCount(nc, ctx, dataset, storageManager, TOTAL_NUM_OF_RECORDS - (2 * RECORDS_PER_COMPONENT));
         } catch (Throwable e) {
@@ -224,7 +225,7 @@ public class ComponentRollbackTest {
             VSizeFrame frame = new VSizeFrame(ctx);
             FrameTupleAppender tupleAppender = new FrameTupleAppender(frame);
             for (int j = 0; j < TOTAL_NUM_OF_RECORDS; j++) {
-                // flush every 1000 records
+                // flush every RECORDS_PER_COMPONENT records
                 if (j % RECORDS_PER_COMPONENT == 0 && j + 1 != TOTAL_NUM_OF_RECORDS) {
                     if (tupleAppender.getTupleCount() > 0) {
                         tupleAppender.write(insertOp, true);
@@ -246,17 +247,17 @@ public class ComponentRollbackTest {
             Assert.assertEquals(9, diskComponents.size());
             Assert.assertTrue(memComponents.get(lsmBtree.getCurrentMemoryComponentIndex()).isModified());
             searchAndAssertCount(nc, ctx, dataset, storageManager, TOTAL_NUM_OF_RECORDS);
-            ILSMIndexAccessor lsmAccessor =
-                    lsmBtree.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            ILSMIndexAccessor lsmAccessor = lsmBtree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
+            dsLifecycleMgr.getComponentIdGenerator(DATASET_ID).refresh();
             // rollback a memory component
             lsmAccessor.deleteComponents(memoryComponentsPredicate);
             searchAndAssertCount(nc, ctx, dataset, storageManager, TOTAL_NUM_OF_RECORDS - RECORDS_PER_COMPONENT);
 
             // insert again
             nc.newJobId();
-            txnCtx = nc.getTransactionManager().getTransactionContext(nc.getTxnJobId(), true);
-            insertOp = nc.getInsertPipeline(ctx, dataset, KEY_TYPES, RECORD_TYPE, META_TYPE, new NoMergePolicyFactory(),
-                    null, null, KEY_INDEXES, KEY_INDICATORS_LIST, storageManager).getLeft();
+            txnCtx = nc.getTransactionManager().getTransactionContext(nc.getTxnJobId(ctx), true);
+            insertOp = nc.getInsertPipeline(ctx, dataset, KEY_TYPES, RECORD_TYPE, META_TYPE, null, KEY_INDEXES,
+                    KEY_INDICATORS_LIST, storageManager).getLeft();
             insertOp.open();
             for (int j = 0; j < RECORDS_PER_COMPONENT; j++) {
                 ITupleReference tuple = tupleGenerator.next();
@@ -266,11 +267,13 @@ public class ComponentRollbackTest {
                 tupleAppender.write(insertOp, true);
             }
             insertOp.close();
+            nc.getTransactionManager().completedTransaction(txnCtx, DatasetId.NULL, -1, true);
             searchAndAssertCount(nc, ctx, dataset, storageManager, TOTAL_NUM_OF_RECORDS);
             // rollback the last disk component
-            lsmAccessor = lsmBtree.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            lsmAccessor = lsmBtree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
             long lsn = AbstractLSMIOOperationCallback.getTreeIndexLSN(diskComponents.get(0).getMetadata());
             DiskComponentLsnPredicate pred = new DiskComponentLsnPredicate(lsn);
+            dsLifecycleMgr.getComponentIdGenerator(DATASET_ID).refresh();
             lsmAccessor.deleteComponents(pred);
             searchAndAssertCount(nc, ctx, dataset, storageManager, TOTAL_NUM_OF_RECORDS - (2 * RECORDS_PER_COMPONENT));
         } catch (Throwable e) {
@@ -291,7 +294,7 @@ public class ComponentRollbackTest {
             VSizeFrame frame = new VSizeFrame(ctx);
             FrameTupleAppender tupleAppender = new FrameTupleAppender(frame);
             for (int j = 0; j < TOTAL_NUM_OF_RECORDS; j++) {
-                // flush every 1000 records
+                // flush every RECORDS_PER_COMPONENT records
                 if (j % RECORDS_PER_COMPONENT == 0 && j + 1 != TOTAL_NUM_OF_RECORDS) {
                     if (tupleAppender.getTupleCount() > 0) {
                         tupleAppender.write(insertOp, true);
@@ -316,8 +319,8 @@ public class ComponentRollbackTest {
             // wait till firstSearcher enter the components
             firstSearcher.waitUntilEntered();
             // now that we enetered, we will rollback
-            ILSMIndexAccessor lsmAccessor =
-                    lsmBtree.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            ILSMIndexAccessor lsmAccessor = lsmBtree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
+            dsLifecycleMgr.getComponentIdGenerator(DATASET_ID).refresh();
             // rollback a memory component
             lsmAccessor.deleteComponents(
                     c -> (c instanceof ILSMMemoryComponent && ((ILSMMemoryComponent) c).isModified()));
@@ -334,9 +337,10 @@ public class ComponentRollbackTest {
                     TOTAL_NUM_OF_RECORDS - RECORDS_PER_COMPONENT);
             // wait till firstSearcher enter the components
             secondSearcher.waitUntilEntered();
-            lsmAccessor = lsmBtree.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            lsmAccessor = lsmBtree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
             long lsn = AbstractLSMIOOperationCallback.getTreeIndexLSN(diskComponents.get(0).getMetadata());
             DiskComponentLsnPredicate pred = new DiskComponentLsnPredicate(lsn);
+            dsLifecycleMgr.getComponentIdGenerator(DATASET_ID).refresh();
             lsmAccessor.deleteComponents(pred);
             // now that the rollback has completed, we will unblock the search
             lsmBtree.addSearchCallback(sem -> sem.release());
@@ -360,7 +364,7 @@ public class ComponentRollbackTest {
             VSizeFrame frame = new VSizeFrame(ctx);
             FrameTupleAppender tupleAppender = new FrameTupleAppender(frame);
             for (int j = 0; j < TOTAL_NUM_OF_RECORDS; j++) {
-                // flush every 1000 records
+                // flush every RECORDS_PER_COMPONENT records
                 if (j % RECORDS_PER_COMPONENT == 0 && j + 1 != TOTAL_NUM_OF_RECORDS) {
                     if (tupleAppender.getTupleCount() > 0) {
                         tupleAppender.write(insertOp, true);
@@ -416,7 +420,7 @@ public class ComponentRollbackTest {
             VSizeFrame frame = new VSizeFrame(ctx);
             FrameTupleAppender tupleAppender = new FrameTupleAppender(frame);
             for (int j = 0; j < TOTAL_NUM_OF_RECORDS; j++) {
-                // flush every 1000 records
+                // flush every RECORDS_PER_COMPONENT records
                 if (j % RECORDS_PER_COMPONENT == 0 && j + 1 != TOTAL_NUM_OF_RECORDS) {
                     if (tupleAppender.getTupleCount() > 0) {
                         tupleAppender.write(insertOp, true);
@@ -439,8 +443,7 @@ public class ComponentRollbackTest {
             searchAndAssertCount(nc, ctx, dataset, storageManager, TOTAL_NUM_OF_RECORDS);
             // Now, we will start a full merge
             Merger merger = new Merger(lsmBtree);
-            ILSMIndexAccessor mergeAccessor =
-                    lsmBtree.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            ILSMIndexAccessor mergeAccessor = lsmBtree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
             // select the components to merge... the last three
             int numMergedComponents = 3;
             List<ILSMDiskComponent> mergedComponents = new ArrayList<>();
@@ -481,7 +484,7 @@ public class ComponentRollbackTest {
             VSizeFrame frame = new VSizeFrame(ctx);
             FrameTupleAppender tupleAppender = new FrameTupleAppender(frame);
             for (int j = 0; j < TOTAL_NUM_OF_RECORDS; j++) {
-                // flush every 1000 records
+                // flush every RECORDS_PER_COMPONENT records
                 if (j % RECORDS_PER_COMPONENT == 0 && j + 1 != TOTAL_NUM_OF_RECORDS) {
                     if (tupleAppender.getTupleCount() > 0) {
                         tupleAppender.write(insertOp, true);
@@ -541,7 +544,7 @@ public class ComponentRollbackTest {
             VSizeFrame frame = new VSizeFrame(ctx);
             FrameTupleAppender tupleAppender = new FrameTupleAppender(frame);
             for (int j = 0; j < TOTAL_NUM_OF_RECORDS; j++) {
-                // flush every 1000 records
+                // flush every RECORDS_PER_COMPONENT records
                 if (j % RECORDS_PER_COMPONENT == 0 && j + 1 != TOTAL_NUM_OF_RECORDS) {
                     if (tupleAppender.getTupleCount() > 0) {
                         tupleAppender.write(insertOp, true);
@@ -603,7 +606,7 @@ public class ComponentRollbackTest {
             VSizeFrame frame = new VSizeFrame(ctx);
             FrameTupleAppender tupleAppender = new FrameTupleAppender(frame);
             for (int j = 0; j < TOTAL_NUM_OF_RECORDS; j++) {
-                // flush every 1000 records
+                // flush every RECORDS_PER_COMPONENT records
                 if (j % RECORDS_PER_COMPONENT == 0 && j + 1 != TOTAL_NUM_OF_RECORDS) {
                     if (tupleAppender.getTupleCount() > 0) {
                         tupleAppender.write(insertOp, true);
@@ -626,8 +629,7 @@ public class ComponentRollbackTest {
             searchAndAssertCount(nc, ctx, dataset, storageManager, TOTAL_NUM_OF_RECORDS);
             // Now, we will start a merge
             Merger merger = new Merger(lsmBtree);
-            ILSMIndexAccessor mergeAccessor =
-                    lsmBtree.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            ILSMIndexAccessor mergeAccessor = lsmBtree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
             // select the components to merge... the last three
             int numMergedComponents = 3;
             List<ILSMDiskComponent> mergedComponents = new ArrayList<>();
@@ -675,7 +677,7 @@ public class ComponentRollbackTest {
             VSizeFrame frame = new VSizeFrame(ctx);
             FrameTupleAppender tupleAppender = new FrameTupleAppender(frame);
             for (int j = 0; j < TOTAL_NUM_OF_RECORDS; j++) {
-                // flush every 1000 records
+                // flush every RECORDS_PER_COMPONENT records
                 if (j % RECORDS_PER_COMPONENT == 0 && j + 1 != TOTAL_NUM_OF_RECORDS) {
                     if (tupleAppender.getTupleCount() > 0) {
                         tupleAppender.write(insertOp, true);
@@ -698,8 +700,7 @@ public class ComponentRollbackTest {
             searchAndAssertCount(nc, ctx, dataset, storageManager, TOTAL_NUM_OF_RECORDS);
             // Now, we will start a merge
             Merger merger = new Merger(lsmBtree);
-            ILSMIndexAccessor mergeAccessor =
-                    lsmBtree.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            ILSMIndexAccessor mergeAccessor = lsmBtree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
             // select the components to merge... the last three
             List<ILSMDiskComponent> mergedComponents = new ArrayList<>();
             long lsn = AbstractLSMIOOperationCallback.getTreeIndexLSN(diskComponents.get(0).getMetadata());
@@ -736,7 +737,7 @@ public class ComponentRollbackTest {
     }
 
     private class Rollerback {
-        private Thread task;
+        private final Thread task;
         private Exception failure;
 
         public Rollerback(TestLsmBtree lsmBtree, Predicate<ILSMComponent> predicate) {
@@ -744,8 +745,8 @@ public class ComponentRollbackTest {
             Runnable runnable = new Runnable() {
                 @Override
                 public void run() {
-                    ILSMIndexAccessor lsmAccessor =
-                            lsmBtree.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+                    ILSMIndexAccessor lsmAccessor = lsmBtree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
+                    dsLifecycleMgr.getComponentIdGenerator(DATASET_ID).refresh();
                     try {
                         lsmAccessor.deleteComponents(predicate);
                     } catch (HyracksDataException e) {
@@ -766,7 +767,7 @@ public class ComponentRollbackTest {
     }
 
     private class Searcher {
-        private ExecutorService executor = Executors.newSingleThreadExecutor();
+        private final ExecutorService executor = Executors.newSingleThreadExecutor();
         private Future<Boolean> task;
         private volatile boolean entered = false;
 

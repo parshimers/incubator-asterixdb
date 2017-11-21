@@ -20,9 +20,11 @@ package org.apache.hyracks.api.client;
 
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.hyracks.api.comm.NetworkAddress;
 import org.apache.hyracks.api.deployment.DeploymentId;
+import org.apache.hyracks.api.job.DeployedJobSpecId;
 import org.apache.hyracks.api.job.IActivityClusterGraphGeneratorFactory;
 import org.apache.hyracks.api.job.JobFlag;
 import org.apache.hyracks.api.job.JobId;
@@ -94,25 +96,27 @@ public interface IHyracksClientConnection extends IClusterInfoCollector {
      *            Flags
      * @throws Exception
      */
-    JobId distributeJob(JobSpecification jobSpec) throws Exception;
+    DeployedJobSpecId deployJobSpec(JobSpecification jobSpec) throws Exception;
 
     /**
-     * Destroy the distributed graph for a pre-distributed job
+     * Remove the deployed Job Spec
      *
-     * @param jobId
-     *            The id of the predistributed job
+     * @param deployedJobSpecId
+     *            The id of the deployed job spec
      * @throws Exception
      */
-    JobId destroyJob(JobId jobId) throws Exception;
+    DeployedJobSpecId undeployJobSpec(DeployedJobSpecId deployedJobSpecId) throws Exception;
 
     /**
-     * Used to run a pre-distributed job by id (the same JobId will be returned)
+     * Used to run a deployed Job Spec by id
      *
-     * @param jobId
-     *            The id of the predistributed job
+     * @param deployedJobSpecId
+     *            The id of the deployed job spec
+     * @param jobParameters
+     *            The serialized job parameters
      * @throws Exception
      */
-    JobId startJob(JobId jobId) throws Exception;
+    JobId startJob(DeployedJobSpecId deployedJobSpecId, Map<byte[], byte[]> jobParameters) throws Exception;
 
     /**
      * Start the specified Job.
@@ -211,7 +215,7 @@ public interface IHyracksClientConnection extends IClusterInfoCollector {
      *            id the subject node
      * @param includeStats
      * @param includeConfig
-     * @return serialized JSON containing the node details
+     * @return serialized JSON containing the node details, or null if the details are not available (e.g. NC down)
      * @throws Exception
      */
     String getNodeDetailsJSON(String nodeId, boolean includeStats, boolean includeConfig) throws Exception;

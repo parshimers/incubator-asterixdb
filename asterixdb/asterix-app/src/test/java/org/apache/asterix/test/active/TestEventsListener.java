@@ -107,6 +107,12 @@ public class TestEventsListener extends ActiveEntityEventsListener {
     @Override
     protected void doStart(MetadataProvider metadataProvider) throws HyracksDataException {
         step(onStart);
+        try {
+            metadataProvider.getApplicationContext().getMetadataLockManager()
+                    .acquireDatasetReadLock(metadataProvider.getLocks(), "Default.type");
+        } catch (AlgebricksException e) {
+            throw HyracksDataException.create(e);
+        }
         failCompile(onStart);
         JobId jobId = jobIdFactory.create();
         Action startJob = clusterController.startActiveJob(jobId, entityId);
@@ -177,8 +183,7 @@ public class TestEventsListener extends ActiveEntityEventsListener {
     }
 
     @Override
-    protected void setRunning(MetadataProvider metadataProvider, boolean running)
-            throws HyracksDataException {
+    protected void setRunning(MetadataProvider metadataProvider, boolean running) throws HyracksDataException {
         try {
             IMetadataLockManager lockManager = metadataProvider.getApplicationContext().getMetadataLockManager();
             LockList locks = metadataProvider.getLocks();

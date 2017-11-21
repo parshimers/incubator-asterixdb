@@ -86,21 +86,30 @@ public interface IIndex {
     void destroy() throws HyracksDataException;
 
     /**
+     * Purge the index files out of the buffer cache.
+     * Can only be called if the caller is absolutely sure the files don't contain dirty pages
+     *
+     * @throws HyracksDataException
+     *             if the index is active
+     */
+    void purge() throws HyracksDataException;
+
+    /**
      * Creates an {@link IIndexAccessor} for performing operations on this index.
      * An IIndexAccessor is not thread safe, but different IIndexAccessors can concurrently operate
      * on the same {@link IIndex}.
      *
      * @returns IIndexAccessor an accessor for this {@link IIndex}
-     * @param modificationCallback
-     *            the callback to be used for modification operations
-     * @param searchCallback
-     *            the callback to be used for search operations
+     * @param iap
+     *            an instance of the index access parameter class that contains modification callback,
+     *            search operation callback, etc
      * @throws HyracksDataException
      */
-    IIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
-            ISearchOperationCallback searchCallback) throws HyracksDataException;
+    IIndexAccessor createAccessor(IIndexAccessParameters iap) throws HyracksDataException;
 
     /**
+     * TODO: Get rid of this method
+     *
      * Strictly a test method
      *
      * Ensures that all pages (and tuples) of the index are logically consistent.
@@ -130,11 +139,8 @@ public interface IIndex {
             boolean checkIfEmptyIndex) throws HyracksDataException;
 
     /**
-     * @return true if the index needs memory components
-     */
-    public boolean hasMemoryComponents();
-
-    /**
+     * TODO: This should be moved to ILSMIndex since filters don't make sense in non LSM context
+     *
      * @return the number of filter fields
      */
     int getNumOfFilterFields();

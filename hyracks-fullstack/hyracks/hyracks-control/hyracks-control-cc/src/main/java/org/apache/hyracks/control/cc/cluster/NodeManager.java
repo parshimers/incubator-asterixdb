@@ -29,6 +29,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -134,11 +135,9 @@ public class NodeManager implements INodeManager {
     @Override
     public Map<String, NodeControllerInfo> getNodeControllerInfoMap() {
         Map<String, NodeControllerInfo> result = new LinkedHashMap<>();
-        for (Map.Entry<String, NodeControllerState> e : nodeRegistry.entrySet()) {
-            NodeControllerState ncState = e.getValue();
-            result.put(e.getKey(), new NodeControllerInfo(e.getKey(), NodeStatus.ALIVE, ncState.getDataPort(),
-                    ncState.getDatasetPort(), ncState.getMessagingPort(), ncState.getCapacity().getCores()));
-        }
+        nodeRegistry.forEach(
+                (key, ncState) -> result.put(key, new NodeControllerInfo(key, NodeStatus.ACTIVE, ncState.getDataPort(),
+                        ncState.getDatasetPort(), ncState.getMessagingPort(), ncState.getCapacity().getCores())));
         return result;
     }
 
@@ -147,11 +146,13 @@ public class NodeManager implements INodeManager {
         Set<String> deadNodes = new HashSet<>();
         Set<JobId> affectedJobIds = new HashSet<>();
         Iterator<Map.Entry<String, NodeControllerState>> nodeIterator = nodeRegistry.entrySet().iterator();
+        long deadNodeNanosThreshold = TimeUnit.MILLISECONDS
+                .toNanos(ccConfig.getHeartbeatMaxMisses() * ccConfig.getHeartbeatPeriodMillis());
         while (nodeIterator.hasNext()) {
             Map.Entry<String, NodeControllerState> entry = nodeIterator.next();
             String nodeId = entry.getKey();
             NodeControllerState state = entry.getValue();
-            if (state.incrementLastHeartbeatDuration() >= ccConfig.getHeartbeatMaxMisses()) {
+            if (state.nanosSinceLastHeartbeat() >= deadNodeNanosThreshold) {
                 deadNodes.add(nodeId);
                 affectedJobIds.addAll(state.getActiveJobIds());
                 // Removes the node from node map.

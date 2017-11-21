@@ -32,6 +32,7 @@ import java.util.logging.Logger;
 import org.apache.asterix.active.ActiveManager;
 import org.apache.asterix.api.common.AppRuntimeContextProviderForRecovery;
 import org.apache.asterix.common.api.IDatasetLifecycleManager;
+import org.apache.asterix.common.api.IDatasetMemoryManager;
 import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.cluster.ClusterPartition;
 import org.apache.asterix.common.config.ActiveProperties;
@@ -48,11 +49,11 @@ import org.apache.asterix.common.config.ReplicationProperties;
 import org.apache.asterix.common.config.StorageProperties;
 import org.apache.asterix.common.config.TransactionProperties;
 import org.apache.asterix.common.context.DatasetLifecycleManager;
+import org.apache.asterix.common.context.DatasetMemoryManager;
 import org.apache.asterix.common.context.IStorageComponentProvider;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.library.ILibraryManager;
-import org.apache.asterix.common.metadata.MetadataIndexImmutableProperties;
 import org.apache.asterix.common.replication.IRemoteRecoveryManager;
 import org.apache.asterix.common.replication.IReplicaResourcesManager;
 import org.apache.asterix.common.replication.IReplicationChannel;
@@ -119,6 +120,7 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     private MessagingProperties messagingProperties;
     private final NodeProperties nodeProperties;
     private ExecutorService threadExecutor;
+    private IDatasetMemoryManager datasetMemoryManager;
     private IDatasetLifecycleManager datasetLifecycleManager;
     private IBufferCache bufferCache;
     private ITransactionSubsystem txnSubsystem;
@@ -187,17 +189,21 @@ public class NCAppRuntimeContext implements INcApplicationContext {
         IAppRuntimeContextProvider asterixAppRuntimeContextProvider = new AppRuntimeContextProviderForRecovery(this);
         txnSubsystem = new TransactionSubsystem(getServiceContext(), getServiceContext().getNodeId(),
                 asterixAppRuntimeContextProvider, txnProperties);
-
         IRecoveryManager recoveryMgr = txnSubsystem.getRecoveryManager();
         SystemState systemState = recoveryMgr.getSystemState();
         if (initialRun || systemState == SystemState.PERMANENT_DATA_LOSS) {
             //delete any storage data before the resource factory is initialized
+            if (LOGGER.isLoggable(Level.WARNING)) {
+                LOGGER.log(Level.WARNING,
+                        "Deleting the storage dir. initialRun = " + initialRun + ", systemState = " + systemState);
+            }
             localResourceRepository.deleteStorageData(true);
         }
 
-        datasetLifecycleManager = new DatasetLifecycleManager(storageProperties, localResourceRepository,
-                MetadataIndexImmutableProperties.FIRST_AVAILABLE_USER_DATASET_ID, txnSubsystem.getLogManager(),
-                ioManager.getIODevices().size());
+        datasetMemoryManager = new DatasetMemoryManager(storageProperties);
+        datasetLifecycleManager =
+                new DatasetLifecycleManager(storageProperties, localResourceRepository, txnSubsystem.getLogManager(),
+                        datasetMemoryManager, ioManager.getIODevices().size());
 
         isShuttingdown = false;
 
@@ -310,6 +316,11 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     @Override
     public IDatasetLifecycleManager getDatasetLifecycleManager() {
         return datasetLifecycleManager;
+    }
+
+    @Override
+    public IDatasetMemoryManager getDatasetMemoryManager() {
+        return datasetMemoryManager;
     }
 
     @Override
@@ -470,7 +481,9 @@ public class NCAppRuntimeContext implements INcApplicationContext {
 
     @Override
     public synchronized void unexportMetadataNodeStub() throws RemoteException {
-        UnicastRemoteObject.unexportObject(MetadataNode.INSTANCE, false);
+        if (metadataNodeStub != null) {
+            UnicastRemoteObject.unexportObject(MetadataNode.INSTANCE, false);
+        }
         metadataNodeStub = null;
     }
 

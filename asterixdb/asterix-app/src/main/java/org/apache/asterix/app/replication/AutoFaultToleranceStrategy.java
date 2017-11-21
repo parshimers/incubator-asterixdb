@@ -25,7 +25,6 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -34,7 +33,7 @@ import org.apache.asterix.app.nc.task.BindMetadataNodeTask;
 import org.apache.asterix.app.nc.task.CheckpointTask;
 import org.apache.asterix.app.nc.task.ExternalLibrarySetupTask;
 import org.apache.asterix.app.nc.task.MetadataBootstrapTask;
-import org.apache.asterix.app.nc.task.ReportMaxResourceIdTask;
+import org.apache.asterix.app.nc.task.ReportLocalCountersTask;
 import org.apache.asterix.app.nc.task.StartFailbackTask;
 import org.apache.asterix.app.nc.task.StartLifecycleComponentsTask;
 import org.apache.asterix.app.nc.task.StartReplicationServiceTask;
@@ -44,8 +43,8 @@ import org.apache.asterix.app.replication.message.CompleteFailbackResponseMessag
 import org.apache.asterix.app.replication.message.NCLifecycleTaskReportMessage;
 import org.apache.asterix.app.replication.message.PreparePartitionsFailbackRequestMessage;
 import org.apache.asterix.app.replication.message.PreparePartitionsFailbackResponseMessage;
-import org.apache.asterix.app.replication.message.StartupTaskRequestMessage;
-import org.apache.asterix.app.replication.message.StartupTaskResponseMessage;
+import org.apache.asterix.app.replication.message.RegistrationTasksRequestMessage;
+import org.apache.asterix.app.replication.message.RegistrationTasksResponseMessage;
 import org.apache.asterix.app.replication.message.TakeoverMetadataNodeRequestMessage;
 import org.apache.asterix.app.replication.message.TakeoverMetadataNodeResponseMessage;
 import org.apache.asterix.app.replication.message.TakeoverPartitionsRequestMessage;
@@ -67,7 +66,6 @@ import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.util.FaultToleranceUtil;
 import org.apache.hyracks.api.application.ICCServiceContext;
 import org.apache.hyracks.api.application.IClusterLifecycleListener.ClusterEventType;
-import org.apache.hyracks.api.config.IOption;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
@@ -163,9 +161,8 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
                 LOGGER.info("Partitions to recover: " + lostPartitions);
             }
             //For each replica, send a request to takeover the assigned partitions
-            for (Entry<String, List<Integer>> entry : partitionRecoveryPlan.entrySet()) {
-                String replica = entry.getKey();
-                Integer[] partitionsToTakeover = entry.getValue().toArray(new Integer[entry.getValue().size()]);
+            partitionRecoveryPlan.forEach((replica, value) -> {
+                Integer[] partitionsToTakeover = value.toArray(new Integer[value.size()]);
                 long requestId = clusterRequestId++;
                 TakeoverPartitionsRequestMessage takeoverRequest = new TakeoverPartitionsRequestMessage(requestId,
                         replica, partitionsToTakeover);
@@ -180,7 +177,7 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
                      */
                     LOGGER.log(Level.WARNING, "Failed to send takeover request: " + takeoverRequest, e);
                 }
-            }
+            });
         }
     }
 
@@ -434,10 +431,10 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
     @Override
     public synchronized void process(INCLifecycleMessage message) throws HyracksDataException {
         switch (message.getType()) {
-            case STARTUP_TASK_REQUEST:
-                process((StartupTaskRequestMessage) message);
+            case REGISTRATION_TASKS_REQUEST:
+                process((RegistrationTasksRequestMessage) message);
                 break;
-            case STARTUP_TASK_RESULT:
+            case REGISTRATION_TASKS_RESULT:
                 process((NCLifecycleTaskReportMessage) message);
                 break;
             case TAKEOVER_PARTITION_RESPONSE:
@@ -486,7 +483,7 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
         currentMetadataNode = clusterManager.getCurrentMetadataNodeId();
     }
 
-    private synchronized void process(StartupTaskRequestMessage msg) throws HyracksDataException {
+    private synchronized void process(RegistrationTasksRequestMessage msg) throws HyracksDataException {
         final String nodeId = msg.getNodeId();
         final SystemState state = msg.getState();
         List<INCLifecycleTask> tasks;
@@ -496,7 +493,7 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
             // failed node returned. Need to start failback process
             tasks = buildFailbackStartupSequence();
         }
-        StartupTaskResponseMessage response = new StartupTaskResponseMessage(nodeId, tasks);
+        RegistrationTasksResponseMessage response = new RegistrationTasksResponseMessage(nodeId, tasks);
         try {
             messageBroker.sendApplicationMessageToNC(response, msg.getNodeId());
         } catch (Exception e) {
@@ -507,7 +504,7 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
     private List<INCLifecycleTask> buildFailbackStartupSequence() {
         final List<INCLifecycleTask> tasks = new ArrayList<>();
         tasks.add(new StartFailbackTask());
-        tasks.add(new ReportMaxResourceIdTask());
+        tasks.add(new ReportLocalCountersTask());
         tasks.add(new StartLifecycleComponentsTask());
         return tasks;
     }
@@ -520,7 +517,7 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
             tasks.add(new MetadataBootstrapTask());
         }
         tasks.add(new ExternalLibrarySetupTask(isMetadataNode));
-        tasks.add(new ReportMaxResourceIdTask());
+        tasks.add(new ReportLocalCountersTask());
         tasks.add(new CheckpointTask());
         tasks.add(new StartLifecycleComponentsTask());
         if (isMetadataNode) {

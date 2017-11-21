@@ -168,7 +168,7 @@ public class NCConfig extends ControllerConfig {
                 case MESSAGING_PUBLIC_PORT:
                     return "Public IP port to announce messaging listener";
                 case CLUSTER_CONNECT_RETRIES:
-                    return "Number of attempts to contact CC before giving up";
+                    return "Number of attempts to retry contacting CC before giving up";
                 case IODEVICES:
                     return "Comma separated list of IO Device mount points";
                 case NET_THREAD_COUNT:
@@ -247,12 +247,7 @@ public class NCConfig extends ControllerConfig {
         return appArgs.toArray(new String[appArgs.size()]);
     }
 
-    public ConfigManager getConfigManager() {
-        return configManager;
-    }
-
-    @Override
-    public IApplicationConfig getAppConfig() {
+    public IApplicationConfig getNodeScopedAppConfig() {
         return appConfig;
     }
 

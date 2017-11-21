@@ -45,6 +45,7 @@ import org.apache.hyracks.util.JSONUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
+
 import io.netty.handler.codec.http.HttpResponseStatus;
 
 public class DiagnosticsApiServlet extends NodeControllerDetailsApiServlet {
@@ -105,10 +106,9 @@ public class DiagnosticsApiServlet extends NodeControllerDetailsApiServlet {
         Map<String, Future<JsonNode>> ncData;
         ncData = new HashMap<>();
         ncData.put("threaddump",
-                executor.submit(() -> fixupKeys((ObjectNode) OBJECT_MAPPER.readTree(hcc.getThreadDump(nc)))));
-        ncData.put("config",
-                executor.submit(
-                        () -> fixupKeys((ObjectNode) OBJECT_MAPPER.readTree(hcc.getNodeDetailsJSON(nc, false, true)))));
+                executor.submit(() -> fixupKeys((ObjectNode) OBJECT_MAPPER.readTree(processThreadDump(nc)))));
+        ncData.put("config", executor
+                .submit(() -> fixupKeys((ObjectNode) OBJECT_MAPPER.readTree(processNodeDetails(nc, false, true)))));
         ncData.put("stats", executor.submit(() -> fixupKeys(processNodeStats(hcc, nc))));
         return ncData;
     }
@@ -117,22 +117,39 @@ public class DiagnosticsApiServlet extends NodeControllerDetailsApiServlet {
         Map<String, Future<JsonNode>> ccFutureData;
         ccFutureData = new HashMap<>();
         ccFutureData.put("threaddump",
-                executor.submit(() -> fixupKeys((ObjectNode) OBJECT_MAPPER.readTree(hcc.getThreadDump(null)))));
-        ccFutureData.put("config",
-                executor.submit(() -> fixupKeys(
-                        (ObjectNode) OBJECT_MAPPER.readTree(hcc.getNodeDetailsJSON(null, false, true)))));
-        ccFutureData.put("stats",
-                executor.submit(() -> fixupKeys(
-                        (ObjectNode) OBJECT_MAPPER.readTree(hcc.getNodeDetailsJSON(null, true, false)))));
+                executor.submit(() -> fixupKeys((ObjectNode) OBJECT_MAPPER.readTree(processThreadDump(null)))));
+        ccFutureData.put("config", executor.submit(
+                () -> fixupKeys((ObjectNode) OBJECT_MAPPER.readTree(processNodeDetails(null, false, true)))));
+        ccFutureData.put("stats", executor.submit(
+                () -> fixupKeys((ObjectNode) OBJECT_MAPPER.readTree(processNodeDetails(null, true, false)))));
         return ccFutureData;
     }
 
     protected Map<String, JsonNode> resolveFutures(Map<String, Future<JsonNode>> futureMap)
-            throws ExecutionException, InterruptedException {
+            throws InterruptedException {
         Map<String, JsonNode> result = new HashMap<>();
-        for (Map.Entry<String, Future<JsonNode>> entry : futureMap.entrySet()) {
-            result.put(entry.getKey(), entry.getValue().get());
-        }
+        resolveFutures(futureMap, result, result);
         return result;
     }
+
+    protected void resolveFutures(Map<String, Future<JsonNode>> futureMap, Map<String, JsonNode> outputMap,
+            Map<String, JsonNode> errorMap) throws InterruptedException {
+        for (Map.Entry<String, Future<JsonNode>> entry : futureMap.entrySet()) {
+            try {
+                outputMap.put(entry.getKey(), entry.getValue().get());
+            } catch (ExecutionException e) {
+                LOGGER.log(Level.WARNING, "unexpected exception obtaining value for " + entry.getKey(), e);
+                errorMap.put(entry.getKey(), new TextNode(String.valueOf(e)));
+            }
+        }
+    }
+
+    protected String processNodeDetails(String node, boolean includeStats, boolean includeConfig) throws Exception {
+        return checkNullDetail(node, hcc.getNodeDetailsJSON(node, includeStats, includeConfig));
+    }
+
+    protected String processThreadDump(String node) throws Exception {
+        return checkNullDetail(node, hcc.getThreadDump(node));
+    }
+
 }

@@ -18,7 +18,12 @@
  */
 package org.apache.asterix.external.util;
 
+import org.apache.asterix.om.functions.BuiltinFunctions;
+import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
+
 public class FeedConstants {
+
+    public static final FunctionIdentifier FEED_COLLECT_FUN = BuiltinFunctions.FEED_COLLECT;
 
     public final static String FEEDS_METADATA_DV = "feeds_metadata";
     public final static String FAILED_TUPLE_DATASET = "failed_tuple";
@@ -31,7 +36,6 @@ public class FeedConstants {
         public static final String INTAKE_TIMESTAMP = "intake-timestamp";
         public static final String COMPUTE_TIMESTAMP = "compute-timestamp";
         public static final String STORE_TIMESTAMP = "store-timestamp";
-
     }
 
     public static final class MessageConstants {

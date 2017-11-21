@@ -43,6 +43,7 @@ import org.apache.hyracks.api.util.HyracksConstants;
 import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import org.apache.hyracks.dataflow.common.utils.TaskUtil;
 import org.apache.hyracks.dataflow.std.base.AbstractUnaryInputUnaryOutputOperatorNodePushable;
+import org.apache.hyracks.util.trace.ITracer;
 
 public class FeedMetaStoreNodePushable extends AbstractUnaryInputUnaryOutputOperatorNodePushable {
 
@@ -85,6 +86,10 @@ public class FeedMetaStoreNodePushable extends AbstractUnaryInputUnaryOutputOper
 
     private final FeedMetaOperatorDescriptor opDesc;
 
+    private final ITracer tracer;
+
+    private final long traceCategory;
+
     public FeedMetaStoreNodePushable(IHyracksTaskContext ctx, IRecordDescriptorProvider recordDescProvider,
             int partition, int nPartitions, IOperatorDescriptor coreOperator, FeedConnectionId feedConnectionId,
             Map<String, String> feedPolicyProperties, FeedMetaOperatorDescriptor feedMetaOperatorDescriptor)
@@ -101,6 +106,8 @@ public class FeedMetaStoreNodePushable extends AbstractUnaryInputUnaryOutputOper
         TaskUtil.put(HyracksConstants.KEY_MESSAGE, message, ctx);
         this.recordDescProvider = recordDescProvider;
         this.opDesc = feedMetaOperatorDescriptor;
+        tracer = ctx.getJobletContext().getServiceContext().getTracer();
+        traceCategory = tracer.getRegistry().get("Process-Frame");
     }
 
     @Override
@@ -136,12 +143,15 @@ public class FeedMetaStoreNodePushable extends AbstractUnaryInputUnaryOutputOper
 
     @Override
     public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
+        long tid = tracer.durationB("Ingestion-Store", traceCategory, null);
         try {
             FeedUtils.processFeedMessage(buffer, message, fta);
             writer.nextFrame(buffer);
         } catch (Exception e) {
-            e.printStackTrace();
-            throw new HyracksDataException(e);
+            LOGGER.log(Level.WARNING, "Failure Processing a frame at store side", e);
+            throw HyracksDataException.create(e);
+        } finally {
+            tracer.durationE(tid, traceCategory, null);
         }
     }
 

@@ -29,11 +29,14 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.asterix.app.external.ExternalUDFLibrarian;
 import org.apache.asterix.common.api.IClusterManagementWork.ClusterState;
+import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.config.GlobalConfig;
 import org.apache.asterix.common.config.PropertiesAccessor;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.common.exceptions.AsterixException;
+import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.hyracks.bootstrap.CCApplication;
 import org.apache.asterix.hyracks.bootstrap.NCApplication;
 import org.apache.commons.io.FileUtils;
@@ -63,6 +66,7 @@ public class AsterixHyracksIntegrationUtil {
     public ClusterControllerService cc;
     public NodeControllerService[] ncs = new NodeControllerService[0];
     public IHyracksClientConnection hcc;
+    protected boolean gracefulShutdown = true;
 
     private static final String DEFAULT_STORAGE_PATH = joinPath("target", "io", "dir");
     private static String storagePath = DEFAULT_STORAGE_PATH;
@@ -90,7 +94,7 @@ public class AsterixHyracksIntegrationUtil {
             ncApplication.registerConfig(ncConfigManager);
             nodeControllers.add(
                     new NodeControllerService(fixupIODevices(createNCConfig(nodeId, ncConfigManager)), ncApplication));
-        } ;
+        }
 
         cc.start();
 
@@ -119,6 +123,26 @@ public class AsterixHyracksIntegrationUtil {
         ((ICcApplicationContext) cc.getApplicationContext()).getClusterStateManager().waitForState(ClusterState.ACTIVE);
         hcc = new HyracksConnection(cc.getConfig().getClientListenAddress(), cc.getConfig().getClientListenPort());
         this.ncs = nodeControllers.toArray(new NodeControllerService[nodeControllers.size()]);
+    }
+
+    public void init(boolean deleteOldInstanceData, String externalLibPath) throws Exception {
+        List<ILibraryManager> libraryManagers = new ArrayList<>();
+        ExternalUDFLibrarian librarian = new ExternalUDFLibrarian(libraryManagers);
+        librarian.cleanup();
+        init(deleteOldInstanceData);
+        if (externalLibPath != null && externalLibPath.length() != 0) {
+            libraryManagers.add(((ICcApplicationContext) cc.getApplicationContext()).getLibraryManager());
+            for (NodeControllerService nc : ncs) {
+                INcApplicationContext runtimeCtx = (INcApplicationContext) nc.getApplicationContext();
+                libraryManagers.add(runtimeCtx.getLibraryManager());
+            }
+            librarian.install(System.getProperty("external.lib.dataverse", "test"),
+                    System.getProperty("external.lib.libname", "testlib"), externalLibPath);
+        }
+    }
+
+    public ClusterControllerService getClusterControllerService() {
+        return cc;
     }
 
     protected CCConfig createCCConfig(ConfigManager configManager) throws IOException {
@@ -154,6 +178,9 @@ public class AsterixHyracksIntegrationUtil {
     }
 
     protected INCApplication createNCApplication() {
+        if (!gracefulShutdown) {
+            return new UngracefulShutdownNCApplication();
+        }
         return new NCApplication();
     }
 
@@ -162,7 +189,7 @@ public class AsterixHyracksIntegrationUtil {
         ncConfig.getConfigManager().processConfig();
 
         // get initial partitions from config
-        String[] nodeStores = ncConfig.getAppConfig().getStringArray(NCConfig.Option.IODEVICES);
+        String[] nodeStores = ncConfig.getNodeScopedAppConfig().getStringArray(NCConfig.Option.IODEVICES);
         if (nodeStores == null) {
             throw new IllegalStateException("Couldn't find stores for NC: " + ncConfig.getNodeId());
         }
@@ -223,6 +250,10 @@ public class AsterixHyracksIntegrationUtil {
         storagePath = path;
     }
 
+    public void setGracefulShutdown(boolean gracefulShutdown) {
+        this.gracefulShutdown = gracefulShutdown;
+    }
+
     public static void restoreDefaultStoragePath() {
         storagePath = DEFAULT_STORAGE_PATH;
     }
@@ -259,14 +290,15 @@ public class AsterixHyracksIntegrationUtil {
     public static void main(String[] args) throws Exception {
         AsterixHyracksIntegrationUtil integrationUtil = new AsterixHyracksIntegrationUtil();
         try {
-            integrationUtil.run(Boolean.getBoolean("cleanup.start"), Boolean.getBoolean("cleanup.shutdown"));
+            integrationUtil.run(Boolean.getBoolean("cleanup.start"), Boolean.getBoolean("cleanup.shutdown"),
+                    System.getProperty("external.lib", ""));
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Unexpected exception", e);
             System.exit(1);
         }
     }
 
-    protected void run(boolean cleanupOnStart, boolean cleanupOnShutdown) throws Exception {
+    protected void run(boolean cleanupOnStart, boolean cleanupOnShutdown, String loadExternalLibs) throws Exception {
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
@@ -279,9 +311,16 @@ public class AsterixHyracksIntegrationUtil {
         });
         System.setProperty(GlobalConfig.CONFIG_FILE_PROPERTY, "asterix-build-configuration.xml");
 
-        init(cleanupOnStart);
+        init(cleanupOnStart, loadExternalLibs);
         while (true) {
             Thread.sleep(10000);
+        }
+    }
+
+    private class UngracefulShutdownNCApplication extends NCApplication {
+        @Override
+        public void stop() throws Exception {
+            // ungraceful shutdown
         }
     }
 }

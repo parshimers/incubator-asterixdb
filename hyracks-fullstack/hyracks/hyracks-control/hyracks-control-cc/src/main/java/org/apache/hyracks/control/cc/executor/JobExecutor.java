@@ -47,6 +47,7 @@ import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksException;
 import org.apache.hyracks.api.job.ActivityCluster;
 import org.apache.hyracks.api.job.ActivityClusterGraph;
+import org.apache.hyracks.api.job.DeployedJobSpecId;
 import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.api.job.JobStatus;
 import org.apache.hyracks.api.partitions.PartitionId;
@@ -65,8 +66,8 @@ import org.apache.hyracks.control.cc.partitions.PartitionMatchMaker;
 import org.apache.hyracks.control.cc.work.JobCleanupWork;
 import org.apache.hyracks.control.common.job.PartitionState;
 import org.apache.hyracks.control.common.job.TaskAttemptDescriptor;
-import org.apache.hyracks.control.common.work.NoOpCallback;
 import org.apache.hyracks.control.common.work.IResultCallback;
+import org.apache.hyracks.control.common.work.NoOpCallback;
 
 public class JobExecutor {
     private static final Logger LOGGER = Logger.getLogger(JobExecutor.class.getName());
@@ -77,7 +78,7 @@ public class JobExecutor {
 
     private final PartitionConstraintSolver solver;
 
-    private final boolean predistributed;
+    private final DeployedJobSpecId deployedJobSpecId;
 
     private final Map<PartitionId, TaskCluster> partitionProducingTaskClusterMap;
 
@@ -88,10 +89,10 @@ public class JobExecutor {
     private boolean cancelled = false;
 
     public JobExecutor(ClusterControllerService ccs, JobRun jobRun, Collection<Constraint> constraints,
-            boolean predistributed) {
+            DeployedJobSpecId deployedJobSpecId) {
         this.ccs = ccs;
         this.jobRun = jobRun;
-        this.predistributed = predistributed;
+        this.deployedJobSpecId = deployedJobSpecId;
         solver = new PartitionConstraintSolver();
         partitionProducingTaskClusterMap = new HashMap<>();
         inProgressTaskClusters = new HashSet<>();
@@ -99,8 +100,8 @@ public class JobExecutor {
         random = new Random();
     }
 
-    public boolean isPredistributed() {
-        return predistributed;
+    public boolean isDeployed() {
+        return deployedJobSpecId != null;
     }
 
     public JobRun getJobRun() {
@@ -379,14 +380,13 @@ public class JobExecutor {
         tcAttempt.initializePendingTaskCounter();
         tcAttempts.add(tcAttempt);
 
-        /**
+        /*
          * Improvement for reducing master/slave message communications, for each TaskAttemptDescriptor,
          * we set the NetworkAddress[][] partitionLocations, in which each row is for an incoming connector descriptor
          * and each column is for an input channel of the connector.
          */
         INodeManager nodeManager = ccs.getNodeManager();
-        for (Map.Entry<String, List<TaskAttemptDescriptor>> e : taskAttemptMap.entrySet()) {
-            List<TaskAttemptDescriptor> tads = e.getValue();
+        taskAttemptMap.forEach((key, tads) -> {
             for (TaskAttemptDescriptor tad : tads) {
                 TaskAttemptId taid = tad.getTaskAttemptId();
                 int attempt = taid.getAttempt();
@@ -401,7 +401,7 @@ public class JobExecutor {
                 for (int i = 0; i < inPartitionCounts.length; ++i) {
                     ConnectorDescriptorId cdId = inConnectors.get(i).getConnectorId();
                     IConnectorPolicy policy = jobRun.getConnectorPolicyMap().get(cdId);
-                    /**
+                    /*
                      * carry sender location information into a task
                      * when it is not the case that it is an re-attempt and the send-side
                      * is materialized blocking.
@@ -419,7 +419,7 @@ public class JobExecutor {
                 }
                 tad.setInputPartitionLocations(partitionLocations);
             }
-        }
+        });
 
         tcAttempt.setStatus(TaskClusterAttempt.TaskClusterStatus.RUNNING);
         tcAttempt.setStartTime(System.currentTimeMillis());
@@ -503,7 +503,7 @@ public class JobExecutor {
                 new HashMap<>(jobRun.getConnectorPolicyMap());
         INodeManager nodeManager = ccs.getNodeManager();
         try {
-            byte[] acgBytes = predistributed ? null : JavaSerializationUtils.serialize(acg);
+            byte[] acgBytes = isDeployed() ? null : JavaSerializationUtils.serialize(acg);
             for (Map.Entry<String, List<TaskAttemptDescriptor>> entry : taskAttemptMap.entrySet()) {
                 String nodeId = entry.getKey();
                 final List<TaskAttemptDescriptor> taskDescriptors = entry.getValue();
@@ -516,7 +516,8 @@ public class JobExecutor {
                     }
                     byte[] jagBytes = changed ? acgBytes : null;
                     node.getNodeController().startTasks(deploymentId, jobId, jagBytes, taskDescriptors,
-                            connectorPolicies, jobRun.getFlags());
+                            connectorPolicies, jobRun.getFlags(),
+                            ccs.createOrGetJobParameterByteStore(jobId).getParameterMap(), deployedJobSpecId);
                 }
             }
         } catch (Exception e) {
@@ -560,12 +561,11 @@ public class JobExecutor {
         final JobId jobId = jobRun.getJobId();
         LOGGER.info("Abort map for job: " + jobId + ": " + abortTaskAttemptMap);
         INodeManager nodeManager = ccs.getNodeManager();
-        for (Map.Entry<String, List<TaskAttemptId>> entry : abortTaskAttemptMap.entrySet()) {
-            final NodeControllerState node = nodeManager.getNodeControllerState(entry.getKey());
-            final List<TaskAttemptId> abortTaskAttempts = entry.getValue();
+        abortTaskAttemptMap.forEach((key, abortTaskAttempts) -> {
+            final NodeControllerState node = nodeManager.getNodeControllerState(key);
             if (node != null) {
                 if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info("Aborting: " + abortTaskAttempts + " at " + entry.getKey());
+                    LOGGER.info("Aborting: " + abortTaskAttempts + " at " + key);
                 }
                 try {
                     node.getNodeController().abortTasks(jobId, abortTaskAttempts);
@@ -573,7 +573,7 @@ public class JobExecutor {
                     LOGGER.log(Level.SEVERE, e.getMessage(), e);
                 }
             }
-        }
+        });
         inProgressTaskClusters.remove(tcAttempt.getTaskCluster());
         TaskCluster tc = tcAttempt.getTaskCluster();
         PartitionMatchMaker pmm = jobRun.getPartitionMatchMaker();

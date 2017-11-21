@@ -19,8 +19,10 @@
 package org.apache.asterix.utils;
 
 import static org.apache.asterix.app.translator.QueryTranslator.abort;
+import static org.apache.hyracks.storage.am.common.dataflow.IndexDropOperatorDescriptor.DropOption;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -32,7 +34,7 @@ import org.apache.asterix.active.IActiveEntityEventsListener;
 import org.apache.asterix.app.active.ActiveNotificationHandler;
 import org.apache.asterix.common.api.IMetadataLockManager;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
-import org.apache.asterix.common.transactions.JobId;
+import org.apache.asterix.common.transactions.TxnId;
 import org.apache.asterix.common.utils.JobUtils;
 import org.apache.asterix.dataflow.data.nontagged.MissingWriterFactory;
 import org.apache.asterix.metadata.MetadataManager;
@@ -45,7 +47,7 @@ import org.apache.asterix.metadata.utils.DatasetUtil;
 import org.apache.asterix.metadata.utils.IndexUtil;
 import org.apache.asterix.rebalance.IDatasetRebalanceCallback;
 import org.apache.asterix.runtime.job.listener.JobEventListenerFactory;
-import org.apache.asterix.transaction.management.service.transaction.JobIdFactory;
+import org.apache.asterix.transaction.management.service.transaction.TxnIdFactory;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraintHelper;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
@@ -273,21 +275,21 @@ public class RebalanceUtil {
     private static void populateDataToRebalanceTarget(Dataset source, Dataset target, MetadataProvider metadataProvider,
             IHyracksClientConnection hcc) throws Exception {
         JobSpecification spec = new JobSpecification();
-        JobId jobId = JobIdFactory.generateJobId();
-        JobEventListenerFactory jobEventListenerFactory = new JobEventListenerFactory(jobId, true);
+        TxnId txnId = TxnIdFactory.create();
+        JobEventListenerFactory jobEventListenerFactory = new JobEventListenerFactory(txnId, true);
         spec.setJobletEventListenerFactory(jobEventListenerFactory);
 
         // The pipeline starter.
         IOperatorDescriptor starter = DatasetUtil.createDummyKeyProviderOp(spec, source, metadataProvider);
 
         // Creates primary index scan op.
-        IOperatorDescriptor primaryScanOp = DatasetUtil.createPrimaryIndexScanOp(spec, metadataProvider, source, jobId);
+        IOperatorDescriptor primaryScanOp = DatasetUtil.createPrimaryIndexScanOp(spec, metadataProvider, source, txnId);
 
         // Creates secondary BTree upsert op.
         IOperatorDescriptor upsertOp = createPrimaryIndexUpsertOp(spec, metadataProvider, source, target);
 
         // The final commit operator.
-        IOperatorDescriptor commitOp = createUpsertCommitOp(spec, metadataProvider, jobId, target);
+        IOperatorDescriptor commitOp = createUpsertCommitOp(spec, metadataProvider, txnId, target);
 
         // Connects empty-tuple-source and scan.
         spec.connect(new OneToOneConnectorDescriptor(spec), starter, 0, primaryScanOp, 0);
@@ -324,11 +326,11 @@ public class RebalanceUtil {
 
     // Creates the commit operator for populating the target dataset.
     private static IOperatorDescriptor createUpsertCommitOp(JobSpecification spec, MetadataProvider metadataProvider,
-            JobId jobId, Dataset target) throws AlgebricksException {
+            TxnId txnId, Dataset target) throws AlgebricksException {
         int[] primaryKeyFields = getPrimaryKeyPermutationForUpsert(target);
         return new AlgebricksMetaOperatorDescriptor(spec, 1, 0,
                 new IPushRuntimeFactory[] {
-                        target.getCommitRuntimeFactory(metadataProvider, jobId, primaryKeyFields, true) },
+                        target.getCommitRuntimeFactory(metadataProvider, txnId, primaryKeyFields, true) },
                 new RecordDescriptor[] { target.getPrimaryRecordDescriptor(metadataProvider) });
     }
 
@@ -338,7 +340,8 @@ public class RebalanceUtil {
         List<JobSpecification> jobs = new ArrayList<>();
         List<Index> indexes = metadataProvider.getDatasetIndexes(dataset.getDataverseName(), dataset.getDatasetName());
         for (Index index : indexes) {
-            jobs.add(IndexUtil.buildDropIndexJobSpec(index, metadataProvider, dataset, true));
+            jobs.add(IndexUtil.buildDropIndexJobSpec(index, metadataProvider, dataset,
+                    EnumSet.of(DropOption.IF_EXISTS, DropOption.WAIT_ON_IN_USE)));
         }
         for (JobSpecification jobSpec : jobs) {
             JobUtils.runJob(hcc, jobSpec, true);

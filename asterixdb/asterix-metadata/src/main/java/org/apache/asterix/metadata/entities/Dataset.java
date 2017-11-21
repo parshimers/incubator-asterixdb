@@ -30,6 +30,7 @@ import java.util.stream.IntStream;
 import org.apache.asterix.active.IActiveEntityEventsListener;
 import org.apache.asterix.active.IActiveNotificationHandler;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
+import org.apache.asterix.common.context.DatasetLSMComponentIdGeneratorFactory;
 import org.apache.asterix.common.context.CorrelatedPrefixMergePolicyFactory;
 import org.apache.asterix.common.context.IStorageComponentProvider;
 import org.apache.asterix.common.dataflow.NoOpFrameOperationCallbackFactory;
@@ -41,7 +42,7 @@ import org.apache.asterix.common.ioopcallbacks.LSMInvertedIndexIOOperationCallba
 import org.apache.asterix.common.ioopcallbacks.LSMRTreeIOOperationCallbackFactory;
 import org.apache.asterix.common.metadata.IDataset;
 import org.apache.asterix.common.transactions.IRecoveryManager.ResourceType;
-import org.apache.asterix.common.transactions.JobId;
+import org.apache.asterix.common.transactions.TxnId;
 import org.apache.asterix.common.utils.JobUtils;
 import org.apache.asterix.common.utils.JobUtils.ProgressState;
 import org.apache.asterix.external.feed.management.FeedConnectionId;
@@ -63,6 +64,7 @@ import org.apache.asterix.metadata.utils.IndexUtil;
 import org.apache.asterix.metadata.utils.InvertedIndexResourceFactoryProvider;
 import org.apache.asterix.metadata.utils.MetadataUtil;
 import org.apache.asterix.metadata.utils.RTreeResourceFactoryProvider;
+import org.apache.asterix.om.functions.BuiltinFunctions;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.utils.RecordUtil;
@@ -85,6 +87,10 @@ import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.core.algebra.base.ILogicalOperator;
+import org.apache.hyracks.algebricks.core.algebra.base.LogicalExpressionTag;
+import org.apache.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
+import org.apache.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression;
+import org.apache.hyracks.algebricks.core.algebra.operators.logical.UnnestOperator;
 import org.apache.hyracks.algebricks.data.IBinaryComparatorFactoryProvider;
 import org.apache.hyracks.algebricks.data.ISerializerDeserializerProvider;
 import org.apache.hyracks.algebricks.data.ITypeTraitProvider;
@@ -102,6 +108,7 @@ import org.apache.hyracks.storage.am.common.api.ISearchOperationCallbackFactory;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallbackFactory;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.lsm.common.api.IFrameOperationCallbackFactory;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentIdGeneratorFactory;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperationCallbackFactory;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicyFactory;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMOperationTrackerFactory;
@@ -289,8 +296,31 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
                 && Objects.equals(datasetName, otherDataset.datasetName);
     }
 
-    public boolean allow(ILogicalOperator topOp, byte operation) {//NOSONAR: this method is meant to be extended
-        return !hasMetaPart();
+    public boolean allow(ILogicalOperator topOp, byte operation) {
+        if (!hasMetaPart()) {
+            return true;
+        }
+        if (topOp.getInputs().get(0).getValue().getOperatorTag() != LogicalOperatorTag.ASSIGN) {
+            return false;
+        }
+        ILogicalOperator op = topOp.getInputs().get(0).getValue();
+        while ((!op.getInputs().isEmpty())
+                && op.getInputs().get(0).getValue().getOperatorTag() != LogicalOperatorTag.UNNEST) {
+            op = op.getInputs().get(0).getValue();
+        }
+        if (op.getInputs().isEmpty()) {
+            return false;
+        }
+        UnnestOperator unnestOp = (UnnestOperator) op.getInputs().get(0).getValue();
+        if (unnestOp.getExpressionRef().getValue().getExpressionTag() != LogicalExpressionTag.FUNCTION_CALL) {
+            return false;
+        }
+        AbstractFunctionCallExpression functionCall =
+                (AbstractFunctionCallExpression) unnestOp.getExpressionRef().getValue();
+        if (functionCall.getFunctionIdentifier() != BuiltinFunctions.FEED_COLLECT) {
+            return false;
+        }
+        return operation == DatasetUtil.OP_UPSERT;
     }
 
     /**
@@ -477,15 +507,15 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
             case BTREE:
                 return getDatasetType() == DatasetType.EXTERNAL
                         && !index.getIndexName().equals(IndexingConstants.getFilesIndexName(getDatasetName()))
-                                ? LSMBTreeWithBuddyIOOperationCallbackFactory.INSTANCE
-                                : LSMBTreeIOOperationCallbackFactory.INSTANCE;
+                                ? new LSMBTreeWithBuddyIOOperationCallbackFactory(getComponentIdGeneratorFactory())
+                                : new LSMBTreeIOOperationCallbackFactory(getComponentIdGeneratorFactory());
             case RTREE:
-                return LSMRTreeIOOperationCallbackFactory.INSTANCE;
+                return new LSMRTreeIOOperationCallbackFactory(getComponentIdGeneratorFactory());
             case LENGTH_PARTITIONED_NGRAM_INVIX:
             case LENGTH_PARTITIONED_WORD_INVIX:
             case SINGLE_PARTITION_NGRAM_INVIX:
             case SINGLE_PARTITION_WORD_INVIX:
-                return LSMInvertedIndexIOOperationCallbackFactory.INSTANCE;
+                return new LSMInvertedIndexIOOperationCallbackFactory(getComponentIdGeneratorFactory());
             default:
                 throw new CompilationException(ErrorCode.COMPILATION_UNKNOWN_INDEX_TYPE,
                         index.getIndexType().toString());
@@ -504,12 +534,16 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
                 : new SecondaryIndexOperationTrackerFactory(getDatasetId());
     }
 
+    public ILSMComponentIdGeneratorFactory getComponentIdGeneratorFactory() {
+        return new DatasetLSMComponentIdGeneratorFactory(getDatasetId());
+    }
+
     /**
      * Get search callback factory for this dataset with the passed index and operation
      *
      * @param index
      *            the index
-     * @param jobId
+     * @param txnId
      *            the job id being compiled
      * @param op
      *            the operation this search is part of
@@ -521,7 +555,7 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
      *             if the callback factory could not be created
      */
     public ISearchOperationCallbackFactory getSearchCallbackFactory(IStorageComponentProvider storageComponentProvider,
-            Index index, JobId jobId, IndexOperation op, int[] primaryKeyFields) throws AlgebricksException {
+            Index index, TxnId txnId, IndexOperation op, int[] primaryKeyFields) throws AlgebricksException {
         if (getDatasetDetails().isTemp()) {
             return NoOpOperationCallbackFactory.INSTANCE;
         } else if (index.isPrimaryIndex()) {
@@ -530,10 +564,15 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
              * we may acquire very short duration lock(i.e., instant lock) for readers.
              */
             return (op == IndexOperation.UPSERT)
-                    ? new LockThenSearchOperationCallbackFactory(jobId, getDatasetId(), primaryKeyFields,
+                    ? new LockThenSearchOperationCallbackFactory(txnId, getDatasetId(), primaryKeyFields,
                             storageComponentProvider.getTransactionSubsystemProvider(), ResourceType.LSM_BTREE)
-                    : new PrimaryIndexInstantSearchOperationCallbackFactory(jobId, getDatasetId(), primaryKeyFields,
+                    : new PrimaryIndexInstantSearchOperationCallbackFactory(txnId, getDatasetId(), primaryKeyFields,
                             storageComponentProvider.getTransactionSubsystemProvider(), ResourceType.LSM_BTREE);
+        } else if (index.getKeyFieldNames().isEmpty()) {
+            // this is the case where the index is secondary primary index and locking is required
+            // since the secondary primary index replaces the dataset index (which locks)
+            return new PrimaryIndexInstantSearchOperationCallbackFactory(txnId, getDatasetId(), primaryKeyFields,
+                    storageComponentProvider.getTransactionSubsystemProvider(), ResourceType.LSM_BTREE);
         }
         return new SecondaryIndexSearchOperationCallbackFactory();
     }
@@ -543,7 +582,7 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
      *
      * @param index
      *            the index
-     * @param jobId
+     * @param txnId
      *            the job id of the job being compiled
      * @param op
      *            the operation performed for this callback
@@ -555,31 +594,31 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
      *             If the callback factory could not be created
      */
     public IModificationOperationCallbackFactory getModificationCallbackFactory(
-            IStorageComponentProvider componentProvider, Index index, JobId jobId, IndexOperation op,
+            IStorageComponentProvider componentProvider, Index index, TxnId txnId, IndexOperation op,
             int[] primaryKeyFields) throws AlgebricksException {
         if (getDatasetDetails().isTemp()) {
             return op == IndexOperation.DELETE || op == IndexOperation.INSERT || op == IndexOperation.UPSERT
                     ? index.isPrimaryIndex()
-                            ? new TempDatasetPrimaryIndexModificationOperationCallbackFactory(jobId, datasetId,
+                            ? new TempDatasetPrimaryIndexModificationOperationCallbackFactory(txnId, datasetId,
                                     primaryKeyFields, componentProvider.getTransactionSubsystemProvider(),
                                     Operation.get(op), index.resourceType())
-                            : new TempDatasetSecondaryIndexModificationOperationCallbackFactory(jobId, getDatasetId(),
+                            : new TempDatasetSecondaryIndexModificationOperationCallbackFactory(txnId, getDatasetId(),
                                     primaryKeyFields, componentProvider.getTransactionSubsystemProvider(),
                                     Operation.get(op), index.resourceType())
                     : NoOpOperationCallbackFactory.INSTANCE;
         } else if (index.isPrimaryIndex()) {
             return op == IndexOperation.UPSERT
-                    ? new UpsertOperationCallbackFactory(jobId, getDatasetId(), primaryKeyFields,
+                    ? new UpsertOperationCallbackFactory(txnId, getDatasetId(), primaryKeyFields,
                             componentProvider.getTransactionSubsystemProvider(), Operation.get(op),
                             index.resourceType())
                     : op == IndexOperation.DELETE || op == IndexOperation.INSERT
-                            ? new PrimaryIndexModificationOperationCallbackFactory(jobId, getDatasetId(),
+                            ? new PrimaryIndexModificationOperationCallbackFactory(txnId, getDatasetId(),
                                     primaryKeyFields, componentProvider.getTransactionSubsystemProvider(),
                                     Operation.get(op), index.resourceType())
                             : NoOpOperationCallbackFactory.INSTANCE;
         } else {
             return op == IndexOperation.DELETE || op == IndexOperation.INSERT || op == IndexOperation.UPSERT
-                    ? new SecondaryIndexModificationOperationCallbackFactory(jobId, getDatasetId(), primaryKeyFields,
+                    ? new SecondaryIndexModificationOperationCallbackFactory(txnId, getDatasetId(), primaryKeyFields,
                             componentProvider.getTransactionSubsystemProvider(), Operation.get(op),
                             index.resourceType())
                     : NoOpOperationCallbackFactory.INSTANCE;
@@ -626,7 +665,7 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
      *
      * @param metadataProvider,
      *            the metadata provider.
-     * @param jobId,
+     * @param txnId,
      *            the AsterixDB job id for transaction management.
      * @param primaryKeyFieldPermutation,
      *            the primary key field permutation according to the input.
@@ -635,10 +674,10 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
      * @return the commit runtime factory for inserting/upserting/deleting operations on this dataset.
      * @throws AlgebricksException
      */
-    public IPushRuntimeFactory getCommitRuntimeFactory(MetadataProvider metadataProvider, JobId jobId,
+    public IPushRuntimeFactory getCommitRuntimeFactory(MetadataProvider metadataProvider, TxnId txnId,
             int[] primaryKeyFieldPermutation, boolean isSink) throws AlgebricksException {
         int[] datasetPartitions = getDatasetPartitions(metadataProvider);
-        return new CommitRuntimeFactory(jobId, datasetId, primaryKeyFieldPermutation,
+        return new CommitRuntimeFactory(txnId, datasetId, primaryKeyFieldPermutation,
                 metadataProvider.isTemporaryDatasetWriteJob(), metadataProvider.isWriteTransaction(), datasetPartitions,
                 isSink);
     }
@@ -702,7 +741,7 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
         ISerializerDeserializer[] primaryRecFields =
                 new ISerializerDeserializer[numPrimaryKeys + 1 + (hasMetaPart() ? 1 : 0)];
         ITypeTraits[] primaryTypeTraits = new ITypeTraits[numPrimaryKeys + 1 + (hasMetaPart() ? 1 : 0)];
-        ISerializerDeserializerProvider serdeProvider = metadataProvider.getFormat().getSerdeProvider();
+        ISerializerDeserializerProvider serdeProvider = metadataProvider.getDataFormat().getSerdeProvider();
         List<Integer> indicators = null;
         if (hasMetaPart()) {
             indicators = ((InternalDatasetDetails) getDatasetDetails()).getKeySourceIndicator();

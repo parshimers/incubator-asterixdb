@@ -50,6 +50,7 @@ import org.apache.hyracks.storage.am.rtree.api.IRTreeLeafFrame;
 import org.apache.hyracks.storage.am.rtree.frames.RTreeNSMFrame;
 import org.apache.hyracks.storage.am.rtree.frames.RTreeNSMInteriorFrame;
 import org.apache.hyracks.storage.am.rtree.tuples.RTreeTypeAwareTupleWriter;
+import org.apache.hyracks.storage.common.IIndexAccessParameters;
 import org.apache.hyracks.storage.common.IIndexBulkLoader;
 import org.apache.hyracks.storage.common.IIndexCursor;
 import org.apache.hyracks.storage.common.IModificationOperationCallback;
@@ -756,13 +757,12 @@ public class RTree extends AbstractTreeIndex {
     }
 
     @Override
-    public ITreeIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
-            ISearchOperationCallback searchCallback) {
-        return new RTreeAccessor(this, modificationCallback, searchCallback);
+    public RTreeAccessor createAccessor(IIndexAccessParameters iap) {
+        return new RTreeAccessor(this, iap.getModificationCallback(), iap.getSearchOperationCallback());
     }
 
-    public ITreeIndexAccessor createAccessor(IModificationOperationCallback modificationCallback,
-                                             ISearchOperationCallback searchCallback, int[] nonIndexFields) {
+    public RTreeAccessor createAccessor(IModificationOperationCallback modificationCallback,
+            ISearchOperationCallback searchCallback, int[] nonIndexFields) {
         return new RTreeAccessor(this, modificationCallback, searchCallback, nonIndexFields);
     }
 
@@ -807,7 +807,7 @@ public class RTree extends AbstractTreeIndex {
         }
 
         @Override
-        public ITreeIndexCursor createSearchCursor(boolean exclusive) {
+        public RTreeSearchCursor createSearchCursor(boolean exclusive) {
             return new RTreeSearchCursor((IRTreeInteriorFrame) interiorFrameFactory.createFrame(),
                     (IRTreeLeafFrame) leafFrameFactory.createFrame());
         }
@@ -1008,7 +1008,7 @@ public class RTree extends AbstractTreeIndex {
 
                     int finalPageId = freePageManager.takePage(metaFrame);
                     n.pageId = finalPageId;
-                    bufferCache.setPageDiskId(n.page, BufferedFileHandle.getDiskPageId(getFileId(), finalPageId));
+                    n.page.setDiskPageId(BufferedFileHandle.getDiskPageId(getFileId(), finalPageId));
                     //else we are looking at a leaf
                 }
                 //set next guide MBR
@@ -1071,9 +1071,8 @@ public class RTree extends AbstractTreeIndex {
                 } else {
                     prevNodeFrontierPages.set(level, finalPageId);
                 }
-                bufferCache.setPageDiskId(frontier.page, BufferedFileHandle.getDiskPageId(getFileId(), finalPageId));
+                frontier.page.setDiskPageId(BufferedFileHandle.getDiskPageId(getFileId(), finalPageId));
                 pagesToWrite.add(frontier.page);
-
                 lowerFrame = prevInteriorFrame;
                 lowerFrame.setPage(frontier.page);
 
