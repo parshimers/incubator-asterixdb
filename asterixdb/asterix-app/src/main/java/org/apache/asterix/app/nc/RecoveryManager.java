@@ -713,7 +713,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                 // redo, upsert the new value
                 indexAccessor.forceUpsert(logRecord.getNewValue());
             } else if (logRecord.getNewOp() == AbstractIndexModificationOperationCallback.FILTER_BYTE) {
-                indexAccessor.updateFilter(logRecord.getNewValue());
+                indexAccessor.updateFilter(logRecord.getNewValue(),false);
 
             } else {
                 throw new IllegalStateException("Unsupported OperationType: " + logRecord.getNewOp());

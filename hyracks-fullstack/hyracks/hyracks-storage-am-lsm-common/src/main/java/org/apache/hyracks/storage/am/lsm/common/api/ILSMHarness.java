@@ -219,14 +219,6 @@ public interface ILSMHarness {
             throws HyracksDataException;
 
     /**
-     * Update the filter with the value in the passed tuple
-     *
-     * @param ctx
-     * @throws HyracksDataException
-     */
-    void updateFilter(ILSMIndexOperationContext ctx, ITupleReference tuple) throws HyracksDataException;
-
-    /**
      * Update the filter with the value in the passed tuple, also give the tuple to the modification callback
      *
      * @param ctx

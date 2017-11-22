@@ -659,26 +659,19 @@ public class LSMHarness implements ILSMHarness {
         }
     }
 
-    @Override
-    public void updateFilter(ILSMIndexOperationContext ctx, ITupleReference tuple) throws HyracksDataException {
-        if (!lsmIndex.isMemoryComponentsAllocated()) {
-            lsmIndex.allocateMemoryComponents();
-        }
-        lsmIndex.updateFilter(ctx, tuple);
-    }
 
     @Override
     public void updateFilter(ILSMIndexOperationContext ctx, ITupleReference tuple, boolean callback)
             throws HyracksDataException {
         if (!callback) {
-            updateFilter(ctx, tuple);
+            updateFilter(ctx, tuple, callback);
             return;
         }
 
         if (!lsmIndex.isMemoryComponentsAllocated()) {
             lsmIndex.allocateMemoryComponents();
         }
-        ctx.getModificationCallback().logFilter(tuple);
+        ctx.getModificationCallback().found(tuple, null);
         lsmIndex.updateFilter(ctx, tuple);
     }
 

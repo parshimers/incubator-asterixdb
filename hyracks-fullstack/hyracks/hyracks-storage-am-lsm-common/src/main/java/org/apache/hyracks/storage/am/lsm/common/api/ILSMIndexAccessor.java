@@ -257,7 +257,7 @@ public interface ILSMIndexAccessor extends IIndexAccessor {
      * @param tuple
      * @throws HyracksDataException
      */
-    void updateFilter(ITupleReference tuple) throws HyracksDataException;
+    void updateFilter(ITupleReference tuple, boolean logToCallback) throws HyracksDataException;
 
     /**
      * Delete components that match the passed predicate

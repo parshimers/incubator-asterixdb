@@ -96,8 +96,12 @@ public class PrimaryIndexModificationOperationCallback extends AbstractIndexModi
     @Override
     public void found(ITupleReference before, ITupleReference after) throws HyracksDataException {
         try {
-            int pkHash = computePrimaryKeyHashValue(after, primaryKeyFields);
-            log(pkHash, after, before);
+            if (indexOp.equals(Operation.FILTER_MOD)) {
+                logFilter(before);
+            } else {
+                int pkHash = computePrimaryKeyHashValue(after, primaryKeyFields);
+                log(pkHash, after, before);
+            }
         } catch (ACIDException e) {
             throw HyracksDataException.create(e);
         }

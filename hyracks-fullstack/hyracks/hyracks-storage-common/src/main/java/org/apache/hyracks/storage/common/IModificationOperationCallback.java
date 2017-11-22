@@ -50,5 +50,4 @@ public interface IModificationOperationCallback {
      */
     void found(ITupleReference before, ITupleReference after) throws HyracksDataException;
 
-    void logFilter(ITupleReference after) throws HyracksDataException;
 }
