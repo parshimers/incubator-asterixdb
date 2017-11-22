@@ -52,10 +52,9 @@ public class MetadataTest {
 
     @BeforeClass
     public static void setUp() throws Exception {
-        System.setProperty(GlobalConfig.CONFIG_FILE_PROPERTY, TEST_CONFIG_FILE_NAME);
         File outdir = new File(PATH_ACTUAL);
         outdir.mkdirs();
-        integrationUtil.init(true,AsterixHyracksIntegrationUtil.DEFAULT_CONF_FILE);
+        integrationUtil.init(true,TEST_CONFIG_FILE_NAME);
     }
 
     @AfterClass
