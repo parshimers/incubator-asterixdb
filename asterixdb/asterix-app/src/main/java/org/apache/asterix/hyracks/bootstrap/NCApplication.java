@@ -223,19 +223,6 @@ public class NCApplication extends BaseNCApplication {
         //Delete working area files from failed jobs
         runtimeContext.getIoManager().deleteWorkspaceFiles();
 
-        //Reclaim storage for temporary datasets.
-        String storageDirName = runtimeContext.getNodeProperties().getStorageSubdir();
-        String[] ioDevices = ((PersistentLocalResourceRepository) runtimeContext.getLocalResourceRepository())
-                .getStorageMountingPoints();
-        for (String ioDevice : ioDevices) {
-            String tempDatasetsDir =
-                    ioDevice + storageDirName + File.separator + StoragePathUtil.TEMP_DATASETS_STORAGE_FOLDER;
-            File tmpDsDir = new File(tempDatasetsDir);
-            if (tmpDsDir.exists()) {
-                IoUtil.delete(tmpDsDir);
-            }
-        }
-
         //TODO
         //Reclaim storage for orphaned index artifacts in NCs.
         //Note: currently LSM indexes invalid components are deleted when an index is activated.
@@ -248,43 +235,6 @@ public class NCApplication extends BaseNCApplication {
             ncConfig.getConfigManager().ensureNode(nodeId);
             String asterixInstanceName = metadataProperties.getInstanceName();
             TransactionProperties txnProperties = runtimeContext.getTransactionProperties();
-//            Node self = null;
-//            List<Node> nodes;
-//            if (cluster.getSubstituteNodes() != null) {
-//                nodes = cluster.getSubstituteNodes().getNode();
-//            } else {
-//                throw new IllegalStateException("Unknown node joining the cluster");
-//            }
-//                    String storageDirName = runtimeContext.getNodeProperties().getStorageSubdir();
-//                    String nodeIoDevices = node.getIodevices() == null ? cluster.getIodevices() : node.getIodevices();
-//                    String[] ioDevicePaths = nodeIoDevices.trim().split(",");
-//                    for (int i = 0; i < ioDevicePaths.length; i++) {
-//                        // construct full store path
-//                        ioDevicePaths[i] += File.separator + storeDir;
-//                    }
-//                    metadataProperties.getStores().put(nodeId, ioDevicePaths);
-//
-//                    String coredumpPath = node.getLogDir() == null ? cluster.getLogDir() : node.getLogDir();
-//                    metadataProperties.getCoredumpPaths().put(nodeId, coredumpPath);
-//
-//                    String txnLogDir = node.getTxnLogDir() == null ? cluster.getTxnLogDir() : node.getTxnLogDir();
-//                    txnProperties.getLogDirectories().put(nodeId, txnLogDir);
-//
-//                    if (LOGGER.isLoggable(Level.INFO)) {
-//                        LOGGER.info("Store set to : " + storeDir);
-//                        LOGGER.info("Coredump dir set to : " + coredumpPath);
-//                        LOGGER.info("Transaction log dir set to :" + txnLogDir);
-//                    }
-//                    self = node;
-//                    break;
-//                }
-//            }
-//            if (self != null) {
-//                cluster.getSubstituteNodes().getNode().remove(self);
-//                cluster.getNode().add(self);
-//            } else {
-//                throw new IllegalStateException("Unknown node joining the cluster");
-//            }
         }
     }
 

@@ -79,6 +79,8 @@ import org.apache.hyracks.api.context.IHyracksJobletContext;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.ActivityId;
 import org.apache.hyracks.api.dataflow.OperatorDescriptorId;
+import org.apache.hyracks.api.dataflow.TaskAttemptId;
+import org.apache.hyracks.api.dataflow.TaskId;
 import org.apache.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
 import org.apache.hyracks.api.dataflow.value.ITypeTraits;
@@ -124,11 +126,10 @@ public class TestNodeController {
     public static final int DEFAULT_HYRACKS_CC_CLIENT_PORT = 1098;
     public static final int DEFAULT_HYRACKS_CC_CLUSTER_PORT = 1099;
     public static final int KB32 = 32768;
-    public static final int PARTITION = 0;
     public static final double BLOOM_FILTER_FALSE_POSITIVE_RATE = 0.01;
     public static final TransactionSubsystemProvider TXN_SUBSYSTEM_PROVIDER = TransactionSubsystemProvider.INSTANCE;
     // Mutables
-    private long jobCounter = 0L;
+    private long jobCounter = 100L;
     private final String testConfigFileName;
     private final boolean runHDFS;
     private final List<Pair<IOption, Object>> options = new ArrayList<>();
@@ -163,7 +164,11 @@ public class TestNodeController {
    }
 
     public TxnId getTxnJobId(IHyracksTaskContext ctx) {
-        return new TxnId(ctx.getJobletContext().getJobId().getId());
+        return getTxnJobId(ctx.getJobletContext().getJobId());
+    }
+
+    public TxnId getTxnJobId(JobId jobId) {
+        return new TxnId(jobId.getId());
     }
 
     public Pair<LSMInsertDeleteOperatorNodePushable, CommitRuntime> getInsertPipeline(IHyracksTaskContext ctx,
@@ -185,12 +190,14 @@ public class TestNodeController {
         IRecordDescriptorProvider recordDescProvider = primaryIndexInfo.getInsertRecordDescriptorProvider();
         IIndexDataflowHelperFactory indexHelperFactory = new IndexDataflowHelperFactory(
                 storageComponentProvider.getStorageManager(), primaryIndexInfo.getFileSplitProvider());
-        LSMInsertDeleteOperatorNodePushable insertOp = new LSMInsertDeleteOperatorNodePushable(ctx, PARTITION,
-                primaryIndexInfo.primaryIndexInsertFieldsPermutations,
-                recordDescProvider.getInputRecordDescriptor(new ActivityId(new OperatorDescriptorId(0), 0), 0), op,
-                true, indexHelperFactory, modOpCallbackFactory, null);
-        CommitRuntime commitOp = new CommitRuntime(ctx, getTxnJobId(ctx), dataset.getDatasetId(),
-                primaryIndexInfo.primaryKeyIndexes, false, true, PARTITION, true);
+        LSMInsertDeleteOperatorNodePushable insertOp =
+                new LSMInsertDeleteOperatorNodePushable(ctx, ctx.getTaskAttemptId().getTaskId().getPartition(),
+                        primaryIndexInfo.primaryIndexInsertFieldsPermutations,
+                        recordDescProvider.getInputRecordDescriptor(new ActivityId(new OperatorDescriptorId(0), 0), 0),
+                        op, true, indexHelperFactory, modOpCallbackFactory, null);
+        CommitRuntime commitOp =
+                new CommitRuntime(ctx, getTxnJobId(ctx), dataset.getDatasetId(), primaryIndexInfo.primaryKeyIndexes,
+                        true, ctx.getTaskAttemptId().getTaskId().getPartition(), true);
         insertOp.setOutputFrameWriter(0, commitOp, primaryIndexInfo.rDesc);
         commitOp.setInputRecordDescriptor(0, primaryIndexInfo.rDesc);
         return Pair.of(insertOp, commitOp);
@@ -211,7 +218,8 @@ public class TestNodeController {
                 null, null, true, true, indexDataflowHelperFactory, false, false, null,
                 NoOpOperationCallbackFactory.INSTANCE, filterFields, filterFields, false);
         BTreeSearchOperatorNodePushable searchOp =
-                searchOpDesc.createPushRuntime(ctx, primaryIndexInfo.getSearchRecordDescriptorProvider(), PARTITION, 1);
+                searchOpDesc.createPushRuntime(ctx, primaryIndexInfo.getSearchRecordDescriptorProvider(),
+                        ctx.getTaskAttemptId().getTaskId().getPartition(), 1);
         emptyTupleOp.setOutputFrameWriter(0, searchOp,
                 primaryIndexInfo.getSearchRecordDescriptorProvider().getInputRecordDescriptor(null, 0));
         searchOp.setOutputFrameWriter(0, countOp, primaryIndexInfo.rDesc);
@@ -244,7 +252,7 @@ public class TestNodeController {
 
     public PrimaryIndexInfo createPrimaryIndex(Dataset dataset, IAType[] primaryKeyTypes, ARecordType recordType,
             ARecordType metaType, int[] filterFields, IStorageComponentProvider storageComponentProvider,
-            int[] primaryKeyIndexes, List<Integer> primaryKeyIndicators)
+            int[] primaryKeyIndexes, List<Integer> primaryKeyIndicators, int partition)
             throws AlgebricksException, HyracksDataException, RemoteException, ACIDException {
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         org.apache.hyracks.algebricks.common.utils.Pair<ILSMMergePolicyFactory, Map<String, String>> mergePolicy =
@@ -261,9 +269,9 @@ public class TestNodeController {
                     recordType, metaType, mergePolicy.first, mergePolicy.second);
             IndexBuilderFactory indexBuilderFactory =
                     new IndexBuilderFactory(storageComponentProvider.getStorageManager(),
-                            primaryIndexInfo.getFileSplitProvider(), resourceFactory, !dataset.isTemp());
-            IHyracksTaskContext ctx = createTestContext(false);
-            IIndexBuilder indexBuilder = indexBuilderFactory.create(ctx, 0);
+                            primaryIndexInfo.getFileSplitProvider(), resourceFactory, true);
+            IHyracksTaskContext ctx = createTestContext(newJobId(), partition, false);
+            IIndexBuilder indexBuilder = indexBuilderFactory.create(ctx, partition);
             indexBuilder.build();
         } finally {
             mdProvider.getLocks().unlock();
@@ -300,12 +308,12 @@ public class TestNodeController {
         return primaryIndexTypeTraits;
     }
 
-    public IHyracksTaskContext createTestContext(boolean withMessaging) throws HyracksDataException {
+    public IHyracksTaskContext createTestContext(JobId jobId, int partition, boolean withMessaging)
+            throws HyracksDataException {
         IHyracksTaskContext ctx = TestUtils.create(KB32);
         if (withMessaging) {
             TaskUtil.put(HyracksConstants.KEY_MESSAGE, new VSizeFrame(ctx), ctx);
         }
-        JobId jobId = newJobId();
         IHyracksJobletContext jobletCtx = Mockito.mock(IHyracksJobletContext.class);
         JobEventListenerFactory factory = new JobEventListenerFactory(new TxnId(jobId.getId()), true);
         Mockito.when(jobletCtx.getJobletEventListenerFactory()).thenReturn(factory);
@@ -314,6 +322,9 @@ public class TestNodeController {
         ctx = Mockito.spy(ctx);
         Mockito.when(ctx.getJobletContext()).thenReturn(jobletCtx);
         Mockito.when(ctx.getIoManager()).thenReturn(ExecutionTestUtil.integrationUtil.ncs[0].getIoManager());
+        TaskAttemptId taskId =
+                new TaskAttemptId(new TaskId(new ActivityId(new OperatorDescriptorId(0), 0), partition), 0);
+        Mockito.when(ctx.getTaskAttemptId()).thenReturn(taskId);
         return ctx;
     }
 
@@ -385,7 +396,7 @@ public class TestNodeController {
                     (CcApplicationContext) ExecutionTestUtil.integrationUtil.cc.getApplicationContext();
             FileSplit[] splits = SplitsAndConstraintsUtil.getIndexSplits(appCtx.getClusterStateManager(), dataset,
                     index.getIndexName(), appCtx.getNodeProperties().getStorageSubdir(), nodes);
-            fileSplitProvider = new ConstantFileSplitProvider(Arrays.copyOfRange(splits, 0, 1));
+            fileSplitProvider = new ConstantFileSplitProvider(splits);
         }
 
         public Index getIndex() {
@@ -456,12 +467,13 @@ public class TestNodeController {
         IRecordDescriptorProvider recordDescProvider = primaryIndexInfo.getInsertRecordDescriptorProvider();
         IIndexDataflowHelperFactory indexHelperFactory = new IndexDataflowHelperFactory(
                 storageComponentProvider.getStorageManager(), primaryIndexInfo.getFileSplitProvider());
-        LSMPrimaryUpsertOperatorNodePushable insertOp = new LSMPrimaryUpsertOperatorNodePushable(ctx, PARTITION,
-                indexHelperFactory, primaryIndexInfo.primaryIndexInsertFieldsPermutations,
-                recordDescProvider.getInputRecordDescriptor(new ActivityId(new OperatorDescriptorId(0), 0), 0),
-                modificationCallbackFactory, searchCallbackFactory, keyIndexes.length, recordType, -1,
-                frameOpCallbackFactory == null ? dataset.getFrameOpCallbackFactory() : frameOpCallbackFactory,
-                MissingWriterFactory.INSTANCE, hasSecondaries);
+        LSMPrimaryUpsertOperatorNodePushable insertOp =
+                new LSMPrimaryUpsertOperatorNodePushable(ctx, ctx.getTaskAttemptId().getTaskId().getPartition(),
+                        indexHelperFactory, primaryIndexInfo.primaryIndexInsertFieldsPermutations,
+                        recordDescProvider.getInputRecordDescriptor(new ActivityId(new OperatorDescriptorId(0), 0), 0),
+                        modificationCallbackFactory, searchCallbackFactory, keyIndexes.length, recordType, -1,
+                        frameOpCallbackFactory == null ? dataset.getFrameOpCallbackFactory() : frameOpCallbackFactory,
+                        MissingWriterFactory.INSTANCE, hasSecondaries);
         RecordDescriptor upsertOutRecDesc = getUpsertOutRecDesc(primaryIndexInfo.rDesc, dataset,
                 filterFields == null ? 0 : filterFields.length, recordType, metaType);
         // fix pk fields
@@ -471,7 +483,7 @@ public class TestNodeController {
             pkFieldsInCommitOp[i] = diff + i;
         }
         CommitRuntime commitOp = new CommitRuntime(ctx, getTxnJobId(ctx), dataset.getDatasetId(), pkFieldsInCommitOp,
-                false, true, PARTITION, true);
+                true, ctx.getTaskAttemptId().getTaskId().getPartition(), true);
         insertOp.setOutputFrameWriter(0, commitOp, upsertOutRecDesc);
         commitOp.setInputRecordDescriptor(0, upsertOutRecDesc);
         return Pair.of(insertOp, commitOp);

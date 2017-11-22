@@ -32,11 +32,12 @@ import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.common.config.TransactionProperties;
 import org.apache.asterix.common.dataflow.LSMInsertDeleteOperatorNodePushable;
 import org.apache.asterix.common.transactions.Checkpoint;
-import org.apache.asterix.common.transactions.DatasetId;
 import org.apache.asterix.common.transactions.ICheckpointManager;
 import org.apache.asterix.common.transactions.IRecoveryManager;
 import org.apache.asterix.common.transactions.ITransactionContext;
+import org.apache.asterix.common.transactions.ITransactionManager;
 import org.apache.asterix.common.transactions.ITransactionSubsystem;
+import org.apache.asterix.common.transactions.TransactionOptions;
 import org.apache.asterix.external.util.DataflowUtils;
 import org.apache.asterix.file.StorageComponentProvider;
 import org.apache.asterix.metadata.entities.Dataset;
@@ -53,6 +54,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hyracks.api.comm.VSizeFrame;
 import org.apache.hyracks.api.config.IOption;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
+import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.lsm.common.impls.NoMergePolicyFactory;
@@ -117,15 +119,15 @@ public class CheckpointingTest {
             partitioningKeys.add(Collections.singletonList("key"));
             Dataset dataset = new Dataset(DATAVERSE_NAME, DATASET_NAME, DATAVERSE_NAME, DATA_TYPE_NAME, NODE_GROUP_NAME,
                     NoMergePolicyFactory.NAME, null, new InternalDatasetDetails(null, PartitioningStrategy.HASH,
-                            partitioningKeys, null, null, null, false, null, false),
+                            partitioningKeys, null, null, null, false, null),
                     null, DatasetType.INTERNAL, DATASET_ID, 0);
             try {
                 nc.createPrimaryIndex(dataset, KEY_TYPES, RECORD_TYPE, META_TYPE, null, storageManager, KEY_INDEXES,
-                        KEY_INDICATOR_LIST);
-                IHyracksTaskContext ctx = nc.createTestContext(false);
-                nc.newJobId();
-                ITransactionContext txnCtx =
-                        nc.getTransactionManager().getTransactionContext(nc.getTxnJobId(ctx), true);
+                        KEY_INDICATOR_LIST, 0);
+                JobId jobId = nc.newJobId();
+                IHyracksTaskContext ctx = nc.createTestContext(jobId, 0, false);
+                ITransactionContext txnCtx = nc.getTransactionManager().beginTransaction(nc.getTxnJobId(ctx),
+                        new TransactionOptions(ITransactionManager.AtomicityLevel.ENTITY_LEVEL));
                 // Prepare insert operation
                 LSMInsertDeleteOperatorNodePushable insertOp = nc.getInsertPipeline(ctx, dataset, KEY_TYPES,
                         RECORD_TYPE, META_TYPE, null, KEY_INDEXES, KEY_INDICATOR_LIST, storageManager).getLeft();
@@ -198,7 +200,7 @@ public class CheckpointingTest {
                     tupleAppender.write(insertOp, true);
                 }
                 insertOp.close();
-                nc.getTransactionManager().completedTransaction(txnCtx, DatasetId.NULL, -1, true);
+                nc.getTransactionManager().commitTransaction(txnCtx.getTxnId());
             } finally {
                 nc.deInit();
             }
