@@ -106,55 +106,6 @@
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-failsafe-plugin</artifactId>
-        <configuration>
-          <runOrder>alphabetical</runOrder>
-          <forkCount>1</forkCount>
-          <reuseForks>false</reuseForks>
-          <argLine>${coverageArgLine}</argLine>
-        </configuration>
-        <executions>
-          <execution>
-            <goals>
-              <goal>integration-test</goal>
-              <goal>verify</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.rat</groupId>
-        <artifactId>apache-rat-plugin</artifactId>
-        <executions>
-          <execution>
-            <phase>validate</phase>
-            <goals>
-              <goal>check</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <addDefaultLicenseMatchers>false</addDefaultLicenseMatchers>
-          <consoleOutput>true</consoleOutput>
-          <licenses>
-            <license implementation="org.apache.rat.analysis.license.ApacheSoftwareLicense20"/>
-          </licenses>
-          <licenseFamilies>
-            <licenseFamily implementation="org.apache.rat.license.Apache20LicenseFamily"/>
-          </licenseFamilies>
-          <excludeSubProjects>true</excludeSubProjects>
-          <excludes combine.children="append">
-            <exclude>src/main/licenses/**</exclude>
-            <exclude>**/*.iml</exclude>
-            <exclude>**/*.adm</exclude>
-            <exclude>asterix-experiments/**</exclude> <!-- in case -DskipExperiments -->
-            <exclude>asterix-installer/**</exclude> <!-- in case -DskipInstaller -->
-            <exclude>asterix-yarn/**</exclude> <!-- in case -DskipYarn -->
-          </excludes>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
           <source>${jdk.version}</source>
@@ -658,39 +609,6 @@
         </plugins>
       </build>
     </profile>
-    <profile>
-      <id>include-managix</id>
-      <activation>
-        <property>
-          <name>!skipManagix</name>
-        </property>
-      </activation>
-      <modules>
-        <module>asterix-installer</module>
-      </modules>
-    </profile>
-    <profile>
-      <id>include-yarn</id>
-      <activation>
-        <property>
-          <name>!skipYarn</name>
-        </property>
-      </activation>
-      <modules>
-        <module>asterix-yarn</module>
-      </modules>
-    </profile>
-    <profile>
-      <id>include-experiments</id>
-      <activation>
-        <property>
-          <name>!skipExperiments</name>
-        </property>
-      </activation>
-      <modules>
-        <module>asterix-experiments</module>
-      </modules>
-    </profile>
   </profiles>
 
   <modules>
@@ -711,7 +629,6 @@
     <module>asterix-test-framework</module>
     <module>asterix-maven-plugins</module>
     <module>asterix-server</module>
-    <module>asterix-events</module>
     <module>asterix-doc</module>
     <module>asterix-fuzzyjoin</module>
     <module>asterix-replication</module>

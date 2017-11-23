@@ -28,6 +28,7 @@ import org.apache.hyracks.api.config.IConfigManager;
 import org.apache.hyracks.api.config.Section;
 import org.apache.hyracks.api.job.resource.DefaultJobCapacityController;
 import org.apache.hyracks.api.job.resource.IJobCapacityController;
+import org.apache.hyracks.control.common.config.ConfigManager;
 import org.apache.hyracks.control.common.controllers.CCConfig;
 import org.apache.hyracks.control.common.controllers.ControllerConfig;
 import org.apache.hyracks.control.common.controllers.NCConfig;
@@ -35,6 +36,7 @@ import org.apache.hyracks.control.common.controllers.NCConfig;
 public class BaseCCApplication implements ICCApplication {
     private static final Logger LOGGER = Logger.getLogger(BaseCCApplication.class.getName());
     public static final ICCApplication INSTANCE = new BaseCCApplication();
+    private static IConfigManager configManager;
 
     protected BaseCCApplication() {
     }
@@ -68,6 +70,7 @@ public class BaseCCApplication implements ICCApplication {
 
     @Override
     public void registerConfig(IConfigManager configManager) {
+        this.configManager = configManager;
         configManager.addIniParamOptions(ControllerConfig.Option.CONFIG_FILE, ControllerConfig.Option.CONFIG_FILE_URL);
         configManager.addCmdLineSections(Section.CC, Section.COMMON);
         configManager.setUsageFilter(getUsageFilter());
@@ -82,6 +85,11 @@ public class BaseCCApplication implements ICCApplication {
     protected void configureLoggingLevel(Level level) {
         LOGGER.info("Setting Hyracks log level to " + level);
         Logger.getLogger("org.apache.hyracks").setLevel(level);
+    }
+
+    @Override
+    public IConfigManager getConfigManager() {
+        return configManager;
     }
 
 }

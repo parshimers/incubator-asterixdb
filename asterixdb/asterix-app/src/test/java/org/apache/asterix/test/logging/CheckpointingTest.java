@@ -30,8 +30,6 @@ import org.apache.asterix.app.data.gen.TupleGenerator;
 import org.apache.asterix.app.data.gen.TupleGenerator.GenerationFunction;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.common.config.TransactionProperties;
-import org.apache.asterix.common.configuration.AsterixConfiguration;
-import org.apache.asterix.common.configuration.Property;
 import org.apache.asterix.common.dataflow.LSMInsertDeleteOperatorNodePushable;
 import org.apache.asterix.common.transactions.Checkpoint;
 import org.apache.asterix.common.transactions.ICheckpointManager;
@@ -52,7 +50,9 @@ import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.test.common.TestHelper;
 import org.apache.asterix.transaction.management.service.logging.LogManager;
 import org.apache.asterix.transaction.management.service.recovery.AbstractCheckpointManager;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hyracks.api.comm.VSizeFrame;
+import org.apache.hyracks.api.config.IOption;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAppender;
@@ -67,10 +67,9 @@ import org.junit.Test;
 
 public class CheckpointingTest {
 
-    private static final String DEFAULT_TEST_CONFIG_FILE_NAME = "asterix-build-configuration.xml";
-    private static final String TEST_CONFIG_FILE_NAME = "asterix-test-configuration.xml";
+    private static final String TEST_CONFIG_FILE_NAME = "cc.conf";
     private static final String TEST_CONFIG_PATH =
-            System.getProperty("user.dir") + File.separator + "target" + File.separator + "config";
+            System.getProperty("user.dir") + File.separator + "src" + File.separator + "main" + File.separator + "resources";
     private static final String TEST_CONFIG_FILE_PATH = TEST_CONFIG_PATH + File.separator + TEST_CONFIG_FILE_NAME;
     private static final IAType[] KEY_TYPES = { BuiltinType.AINT32 };
     private static final ARecordType RECORD_TYPE = new ARecordType("TestRecordType", new String[] { "key", "value" },
@@ -94,17 +93,6 @@ public class CheckpointingTest {
     @Before
     public void setUp() throws Exception {
         System.out.println("SetUp: ");
-        TestHelper.deleteExistingInstanceFiles();
-        // Read default test configurations
-        AsterixConfiguration ac = TestHelper.getConfigurations(DEFAULT_TEST_CONFIG_FILE_NAME);
-        // Set log file size to 2MB
-        ac.getProperty().add(new Property(TransactionProperties.TXN_LOG_PARTITIONSIZE_KEY,
-                String.valueOf(TXN_LOG_PARTITION_SIZE), ""));
-        // Disable checkpointing by making checkpoint thread wait max wait time
-        ac.getProperty().add(new Property(TransactionProperties.TXN_LOG_CHECKPOINT_POLLFREQUENCY_KEY,
-                String.valueOf(Integer.MAX_VALUE), ""));
-        // Write test config file
-        TestHelper.writeConfigurations(ac, TEST_CONFIG_FILE_PATH);
     }
 
     @After
@@ -113,10 +101,18 @@ public class CheckpointingTest {
         TestHelper.deleteExistingInstanceFiles();
     }
 
+    private List<Pair<IOption, Object>> setOpts (){
+        List<Pair<IOption, Object>> opts = new ArrayList<>();
+        opts.add(Pair.of(TransactionProperties.Option.TXN_LOG_PARTITIONSIZE,TXN_LOG_PARTITION_SIZE));
+        opts.add(Pair.of(TransactionProperties.Option.TXN_LOG_CHECKPOINT_POLLFREQUENCY,Integer.MAX_VALUE));
+        return opts;
+    }
+
     @Test
     public void testDeleteOldLogFiles() {
         try {
             TestNodeController nc = new TestNodeController(new File(TEST_CONFIG_FILE_PATH).getAbsolutePath(), false);
+            nc.setOpts(setOpts());
             StorageComponentProvider storageManager = new StorageComponentProvider();
             nc.init();
             List<List<String>> partitioningKeys = new ArrayList<>();

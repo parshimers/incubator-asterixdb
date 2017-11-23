@@ -65,9 +65,9 @@ public class ClusterStateManagerTest {
         ClusterStateManager csm = new ClusterStateManager();
         CcApplicationContext ccAppCtx = ccAppContext(csm);
         // prepare fixed topology
-        ccAppCtx.getMetadataProperties().getClusterPartitions().put(0, new ClusterPartition(0, NC1, 0));
-        ccAppCtx.getMetadataProperties().getClusterPartitions().put(1, new ClusterPartition(1, NC2, 0));
-        ccAppCtx.getMetadataProperties().getClusterPartitions().put(2, new ClusterPartition(2, NC3, 0));
+        ccAppCtx.getMetadataProperties().getClusterPartitions().put(0, new ClusterPartition(0, NC1, 0, "storage"));
+        ccAppCtx.getMetadataProperties().getClusterPartitions().put(1, new ClusterPartition(1, NC2, 0,"storage"));
+        ccAppCtx.getMetadataProperties().getClusterPartitions().put(2, new ClusterPartition(2, NC3, 0, "storage"));
         for (ClusterPartition cp : ccAppCtx.getMetadataProperties().getClusterPartitions().values()) {
             ccAppCtx.getMetadataProperties().getNodePartitions().put(cp.getNodeId(), new ClusterPartition[] { cp });
         }
@@ -189,7 +189,7 @@ public class ClusterStateManagerTest {
             throws HyracksException, AlgebricksException {
         csm.notifyNodeJoin(nodeId, Collections.emptyMap());
         if (registerPartitions) {
-            csm.registerNodePartitions(nodeId, new ClusterPartition[] { new ClusterPartition(partitionId, nodeId, 0) });
+            csm.registerNodePartitions(nodeId, new ClusterPartition[] { new ClusterPartition(partitionId, nodeId, 0,"storage") });
         }
     }
 

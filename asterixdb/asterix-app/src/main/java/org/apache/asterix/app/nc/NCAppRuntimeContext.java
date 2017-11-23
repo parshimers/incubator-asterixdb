@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import org.apache.asterix.active.ActiveManager;
 import org.apache.asterix.api.common.AppRuntimeContextProviderForRecovery;
@@ -54,10 +55,12 @@ import org.apache.asterix.common.context.IStorageComponentProvider;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.library.ILibraryManager;
+import org.apache.asterix.common.metadata.MetadataIndexImmutableProperties;
 import org.apache.asterix.common.replication.IRemoteRecoveryManager;
 import org.apache.asterix.common.replication.IReplicaResourcesManager;
 import org.apache.asterix.common.replication.IReplicationChannel;
 import org.apache.asterix.common.replication.IReplicationManager;
+import org.apache.asterix.common.replication.Replica;
 import org.apache.asterix.common.transactions.IAppRuntimeContextProvider;
 import org.apache.asterix.common.transactions.IRecoveryManager;
 import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
@@ -211,13 +214,13 @@ public class NCAppRuntimeContext implements INcApplicationContext {
                 activeProperties.getMemoryComponentGlobalBudget(), compilerProperties.getFrameSize(),
                 this.ncServiceContext);
 
-        if (replicationProperties.isParticipant(getServiceContext().getNodeId())) {
+        if (replicationProperties.isReplicationEnabled()) {
             String nodeId = getServiceContext().getNodeId();
 
-            replicaResourcesManager = new ReplicaResourcesManager(localResourceRepository, metadataProperties);
+            replicaResourcesManager = new ReplicaResourcesManager(localResourceRepository, metadataProperties, nodeProperties);
 
-            replicationManager = new ReplicationManager(nodeId, replicationProperties, replicaResourcesManager,
-                    txnSubsystem.getLogManager(), asterixAppRuntimeContextProvider);
+            replicationManager = new ReplicationManager(nodeId, replicationProperties, nodeProperties, replicaResourcesManager,
+                    txnSubsystem.getLogManager(), asterixAppRuntimeContextProvider, ncServiceContext);
 
             //pass replication manager to replication required object
             //LogManager to replicate logs
@@ -230,7 +233,7 @@ public class NCAppRuntimeContext implements INcApplicationContext {
              * add the partitions that will be replicated in this node as inactive partitions
              */
             //get nodes which replicate to this node
-            Set<String> remotePrimaryReplicas = replicationProperties.getRemotePrimaryReplicasIds(nodeId);
+            Set<String> remotePrimaryReplicas = replicationManager.getReplicationStrategy().getRemotePrimaryReplicas(nodeId).stream().map(Replica::getId).collect(Collectors.toSet());
             for (String clientId : remotePrimaryReplicas) {
                 //get the partitions of each client
                 ClusterPartition[] clientPartitions = metadataProperties.getNodePartitions().get(clientId);
@@ -241,7 +244,7 @@ public class NCAppRuntimeContext implements INcApplicationContext {
 
             //initialize replication channel
             replicationChannel = new ReplicationChannel(nodeId, replicationProperties, txnSubsystem.getLogManager(),
-                    replicaResourcesManager, replicationManager, getServiceContext(), asterixAppRuntimeContextProvider);
+                    replicaResourcesManager, replicationManager, getServiceContext(), asterixAppRuntimeContextProvider, replicationManager.getReplicationStrategy());
 
             remoteRecoveryManager = new RemoteRecoveryManager(replicationManager, this, replicationProperties);
 

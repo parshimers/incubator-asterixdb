@@ -42,7 +42,6 @@ import org.apache.asterix.external.util.ExternalDataConstants;
 import org.apache.asterix.external.util.IdentitiyResolverFactory;
 import org.apache.asterix.file.StorageComponentProvider;
 import org.apache.asterix.test.base.AsterixTestHelper;
-import org.apache.asterix.test.common.TestHelper;
 import org.apache.asterix.test.runtime.HDFSCluster;
 import org.apache.asterix.translator.IStatementExecutorFactory;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
@@ -75,7 +74,7 @@ public class OptimizerTest {
 
     private static final ArrayList<String> ignore = AsterixTestHelper.readTestListFile(FILENAME_IGNORE, PATH_BASE);
     private static final ArrayList<String> only = AsterixTestHelper.readTestListFile(FILENAME_ONLY, PATH_BASE);
-    protected static String TEST_CONFIG_FILE_NAME = "asterix-build-configuration.xml";
+    protected static final String TEST_CONFIG_FILE_NAME = "src/main/resources/cc.conf";
     private static final ILangCompilationProvider aqlCompilationProvider = new AqlCompilationProvider();
     private static final ILangCompilationProvider sqlppCompilationProvider = new SqlppCompilationProvider();
     protected static ILangCompilationProvider extensionLangCompilationProvider = null;
@@ -86,13 +85,12 @@ public class OptimizerTest {
 
     @BeforeClass
     public static void setUp() throws Exception {
-        System.setProperty(GlobalConfig.CONFIG_FILE_PROPERTY, TEST_CONFIG_FILE_NAME);
         final File outdir = new File(PATH_ACTUAL);
         outdir.mkdirs();
 
         HDFSCluster.getInstance().setup();
 
-        integrationUtil.init(true);
+        integrationUtil.init(true,TEST_CONFIG_FILE_NAME);
         // Set the node resolver to be the identity resolver that expects node names
         // to be node controller ids; a valid assumption in test environment.
         System.setProperty(ExternalDataConstants.NODE_RESOLVER_FACTORY_PROPERTY,
@@ -157,14 +155,14 @@ public class OptimizerTest {
             String queryFileShort =
                     queryFile.getPath().substring(PATH_QUERIES.length()).replace(SEPARATOR.charAt(0), '/');
             if (!only.isEmpty()) {
-                boolean toRun = TestHelper.isInPrefixList(only, queryFileShort);
+                boolean toRun = true; //TestHelper.isInPrefixList(only, queryFileShort);
                 if (!toRun) {
                     LOGGER.info("SKIP TEST: \"" + queryFile.getPath()
                             + "\" \"only.txt\" not empty and not in \"only.txt\".");
                 }
                 Assume.assumeTrue(toRun);
             }
-            boolean skipped = TestHelper.isInPrefixList(ignore, queryFileShort);
+            boolean skipped = true; //TestHelper.isInPrefixList(ignore, queryFileShort);
             if (skipped) {
                 LOGGER.info("SKIP TEST: \"" + queryFile.getPath() + "\" in \"ignore.txt\".");
             }

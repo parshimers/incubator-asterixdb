@@ -41,6 +41,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import org.apache.asterix.common.api.IDatasetLifecycleManager;
 import org.apache.asterix.common.cluster.ClusterPartition;
@@ -48,12 +49,7 @@ import org.apache.asterix.common.config.ReplicationProperties;
 import org.apache.asterix.common.context.IndexInfo;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.ioopcallbacks.AbstractLSMIOOperationCallback;
-import org.apache.asterix.common.replication.IReplicaResourcesManager;
-import org.apache.asterix.common.replication.IReplicationChannel;
-import org.apache.asterix.common.replication.IReplicationManager;
-import org.apache.asterix.common.replication.IReplicationStrategy;
-import org.apache.asterix.common.replication.IReplicationThread;
-import org.apache.asterix.common.replication.ReplicaEvent;
+import org.apache.asterix.common.replication.*;
 import org.apache.asterix.common.storage.IndexFileProperties;
 import org.apache.asterix.common.transactions.IAppRuntimeContextProvider;
 import org.apache.asterix.common.transactions.ILogManager;
@@ -73,6 +69,8 @@ import org.apache.asterix.replication.storage.LSMIndexFileProperties;
 import org.apache.asterix.replication.storage.ReplicaResourcesManager;
 import org.apache.asterix.transaction.management.resource.PersistentLocalResourceRepository;
 import org.apache.hyracks.api.application.INCServiceContext;
+import org.apache.hyracks.control.common.controllers.NCConfig;
+import org.apache.hyracks.control.nc.NodeControllerService;
 import org.apache.hyracks.storage.am.lsm.common.api.LSMOperationType;
 import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndex;
 import org.apache.hyracks.util.StorageUtil;
@@ -105,10 +103,12 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
     private final Object flushLogslock = new Object();
     private final IDatasetLifecycleManager dsLifecycleManager;
     private final PersistentLocalResourceRepository localResourceRep;
+    private final IReplicationStrategy replicationStrategy;
+    private final NCConfig ncConfig;
 
     public ReplicationChannel(String nodeId, ReplicationProperties replicationProperties, ILogManager logManager,
-            IReplicaResourcesManager replicaResoucesManager, IReplicationManager replicationManager,
-            INCServiceContext ncServiceContext, IAppRuntimeContextProvider asterixAppRuntimeContextProvider) {
+                              IReplicaResourcesManager replicaResoucesManager, IReplicationManager replicationManager,
+                              INCServiceContext ncServiceContext, IAppRuntimeContextProvider asterixAppRuntimeContextProvider, IReplicationStrategy replicationStrategy) {
         this.logManager = logManager;
         this.localNodeID = nodeId;
         this.replicaResourcesManager = (ReplicaResourcesManager) replicaResoucesManager;
@@ -118,6 +118,8 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
         this.dsLifecycleManager = asterixAppRuntimeContextProvider.getDatasetLifecycleManager();
         this.localResourceRep =
                 (PersistentLocalResourceRepository) asterixAppRuntimeContextProvider.getLocalResourceRepository();
+        this.replicationStrategy = replicationStrategy;
+        this.ncConfig = ((NodeControllerService) ncServiceContext.getControllerService()).getConfiguration();
         lsmComponentRemoteLSN2LocalLSNMappingTaskQ = new LinkedBlockingQueue<>();
         pendingNotificationRemoteLogsQ = new LinkedBlockingQueue<>();
         lsmComponentId2PropertiesMap = new ConcurrentHashMap<>();
@@ -127,7 +129,7 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
         replicationThreads = Executors.newCachedThreadPool(ncServiceContext.getThreadFactory());
         Map<String, ClusterPartition[]> nodePartitions =
                 asterixAppRuntimeContextProvider.getAppContext().getMetadataProperties().getNodePartitions();
-        Set<String> nodeReplicationClients = replicationProperties.getRemotePrimaryReplicasIds(nodeId);
+        Set<String> nodeReplicationClients = replicationStrategy.getRemotePrimaryReplicas(nodeId).stream().map(Replica::getId).collect(Collectors.toSet());
         List<Integer> clientsPartitions = new ArrayList<>();
         for (String clientId : nodeReplicationClients) {
             for (ClusterPartition clusterPartition : nodePartitions.get(clientId)) {
@@ -142,8 +144,8 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
     public void run() {
         Thread.currentThread().setName("Replication Channel Thread");
 
-        String nodeIP = replicationProperties.getReplicaIPAddress(localNodeID);
-        int dataPort = replicationProperties.getDataReplicationPort(localNodeID);
+        String nodeIP = replicationProperties.getNodeIpFromId(localNodeID);
+        int dataPort = ncConfig.getReplicationPublicPort();
         try {
             serverSocketChannel = ServerSocketChannel.open();
             serverSocketChannel.configureBlocking(true);
@@ -258,7 +260,7 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
                 }
             } catch (Exception e) {
                 if (LOGGER.isLoggable(Level.WARNING)) {
-                    LOGGER.log(Level.WARNING, "Unexpectedly error during replication.", e);
+                    LOGGER.log(Level.WARNING, "Unexpected error during replication.", e);
                 }
             } finally {
                 if (socketChannel.isOpen()) {
@@ -383,9 +385,8 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
             Map<Integer, ClusterPartition> clusterPartitions =
                     appContextProvider.getAppContext().getMetadataProperties().getClusterPartitions();
 
-            final IReplicationStrategy repStrategy = replicationProperties.getReplicationStrategy();
             // Flush replicated datasets to generate the latest LSM components
-            dsLifecycleManager.flushDataset(repStrategy);
+            dsLifecycleManager.flushDataset(replicationStrategy);
             for (Integer partitionId : partitionIds) {
                 ClusterPartition partition = clusterPartitions.get(partitionId);
                 filesList = replicaResourcesManager.getPartitionIndexesFiles(partition.getPartitionId(), false);
@@ -393,7 +394,7 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
                 for (String filePath : filesList) {
                     // Send only files of datasets that are replciated.
                     IndexFileProperties indexFileRef = localResourceRep.getIndexFileRef(filePath);
-                    if (!repStrategy.isMatch(indexFileRef.getDatasetId())) {
+                    if (!replicationStrategy.isMatch(indexFileRef.getDatasetId())) {
                         continue;
                     }
                     String relativeFilePath = StoragePathUtil.getIndexFileRelativePath(filePath);

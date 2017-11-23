@@ -19,7 +19,6 @@
 package org.apache.asterix.test.common;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,13 +28,6 @@ import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-import javax.xml.bind.JAXBContext;
-import javax.xml.bind.JAXBException;
-import javax.xml.bind.Marshaller;
-import javax.xml.bind.Unmarshaller;
-
-import org.apache.asterix.common.configuration.AsterixConfiguration;
-import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.commons.compress.utils.IOUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.hyracks.util.file.FileUtil;
@@ -54,62 +46,6 @@ public final class TestHelper {
         return false;
     }
 
-    public static void unzip(String sourceFile, String outputDir) throws IOException {
-        if (System.getProperty("os.name").toLowerCase().startsWith("win")) {
-            try (ZipFile zipFile = new ZipFile(sourceFile)) {
-                Enumeration<? extends ZipEntry> entries = zipFile.entries();
-                while (entries.hasMoreElements()) {
-                    ZipEntry entry = entries.nextElement();
-                    File entryDestination = new File(outputDir, entry.getName());
-                    if (!entry.isDirectory()) {
-                        entryDestination.getParentFile().mkdirs();
-                        try (InputStream in = zipFile.getInputStream(entry);
-                                OutputStream out = new FileOutputStream(entryDestination)) {
-                            IOUtils.copy(in, out);
-                        }
-                    }
-                }
-            }
-        } else {
-            Process process = new ProcessBuilder("unzip", "-d", outputDir, sourceFile).start();
-            try {
-                process.waitFor();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IOException(e);
-            }
-        }
-    }
-
-    public static AsterixConfiguration getConfigurations(String fileName)
-            throws IOException, JAXBException, AsterixException {
-        try (InputStream is = TestHelper.class.getClassLoader().getResourceAsStream(fileName)) {
-            if (is != null) {
-                JAXBContext ctx = JAXBContext.newInstance(AsterixConfiguration.class);
-                Unmarshaller unmarshaller = ctx.createUnmarshaller();
-                return (AsterixConfiguration) unmarshaller.unmarshal(is);
-            } else {
-                throw new AsterixException("Could not find configuration file " + fileName);
-            }
-        }
-    }
-
-    public static void writeConfigurations(AsterixConfiguration ac, String fileName)
-            throws FileNotFoundException, IOException, JAXBException {
-        File configFile = new File(fileName);
-        if (!configFile.exists()) {
-            configFile.getParentFile().mkdirs();
-            configFile.createNewFile();
-        } else {
-            configFile.delete();
-        }
-        try (FileOutputStream os = new FileOutputStream(fileName)) {
-            JAXBContext ctx = JAXBContext.newInstance(AsterixConfiguration.class);
-            Marshaller marshaller = ctx.createMarshaller();
-            marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
-            marshaller.marshal(ac, os);
-        }
-    }
 
     public static void deleteExistingInstanceFiles() {
         for (String dirName : TEST_DIRS) {

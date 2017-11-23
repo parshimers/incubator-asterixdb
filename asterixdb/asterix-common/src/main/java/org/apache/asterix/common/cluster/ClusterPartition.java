@@ -22,15 +22,17 @@ public class ClusterPartition implements Cloneable {
     private final int partitionId;
     private final String nodeId;
     private final int ioDeviceNum;
+    private final String storageSubDir;
     private String activeNodeId = null;
     private boolean active = false;
     /* a flag indicating if the partition was dynamically added to the cluster and pending first time activation */
     private boolean pendingActivation = false;
 
-    public ClusterPartition(int partitionId, String nodeId, int ioDeviceNum) {
+    public ClusterPartition(int partitionId, String nodeId, int ioDeviceNum, String storageSubDir) {
         this.partitionId = partitionId;
         this.nodeId = nodeId;
         this.ioDeviceNum = ioDeviceNum;
+        this.storageSubDir = storageSubDir;
     }
 
     public int getPartitionId() {
@@ -43,6 +45,10 @@ public class ClusterPartition implements Cloneable {
 
     public int getIODeviceNum() {
         return ioDeviceNum;
+    }
+
+    public String getStorageSubDir() {
+        return storageSubDir;
     }
 
     public String getActiveNodeId() {
@@ -71,7 +77,7 @@ public class ClusterPartition implements Cloneable {
 
     @Override
     public ClusterPartition clone() {
-        return new ClusterPartition(partitionId, nodeId, ioDeviceNum);
+        return new ClusterPartition(partitionId, nodeId, ioDeviceNum, storageSubDir);
     }
 
     @Override

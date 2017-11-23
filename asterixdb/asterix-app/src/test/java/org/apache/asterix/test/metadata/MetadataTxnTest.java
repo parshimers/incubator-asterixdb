@@ -53,14 +53,14 @@ import org.junit.Test;
 
 public class MetadataTxnTest {
 
-    private static final String TEST_CONFIG_FILE_NAME = "asterix-build-configuration.xml";
+    protected static final String TEST_CONFIG_FILE_NAME = "src/main/resources/cc.conf";
     private static final TestExecutor testExecutor = new TestExecutor();
     private static final AsterixHyracksIntegrationUtil integrationUtil = new AsterixHyracksIntegrationUtil();
 
     @Before
     public void setUp() throws Exception {
         System.setProperty(GlobalConfig.CONFIG_FILE_PROPERTY, TEST_CONFIG_FILE_NAME);
-        integrationUtil.init(true);
+        integrationUtil.init(true,TEST_CONFIG_FILE_NAME);
     }
 
     @After

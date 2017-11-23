@@ -58,7 +58,6 @@ import org.apache.asterix.app.result.ResultHandle;
 import org.apache.asterix.app.result.ResultReader;
 import org.apache.asterix.common.api.IMetadataLockManager;
 import org.apache.asterix.common.cluster.IClusterStateManager;
-import org.apache.asterix.common.config.ClusterProperties;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.common.config.DatasetConfig.ExternalFilePendingOp;
 import org.apache.asterix.common.config.DatasetConfig.IndexType;
@@ -2926,7 +2925,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             String fromDatasetName, String toDataverseName, String toDatasetName) {
         // Constructs AsterixDB parameters, e.g., URL, source dataset and sink dataset.
         ExternalProperties externalProperties = appCtx.getExternalProperties();
-        String clientIP = ClusterProperties.INSTANCE.getCluster().getMasterNode().getClientIp();
+        String clientIP = appCtx.getServiceContext().getCCContext().getClusterControllerInfo().getClientNetAddress();
         StringBuilder asterixdbParameterBuilder = new StringBuilder();
         asterixdbParameterBuilder.append(
                 "pregelix.asterixdb.url=" + "http://" + clientIP + ":" + externalProperties.getAPIServerPort() + ",");

@@ -54,35 +54,35 @@ public class NCServiceExecutionIT {
     // Important paths and files for this test.
 
     // The "target" subdirectory of asterix-server. All outputs go here.
-    private static final String TARGET_DIR = StringUtils
-            .join(new String[] { "target" }, File.separator);
+    public static final String TARGET_DIR = StringUtils
+            .join(new String[] { "../asterix-server/target" }, File.separator);
 
     // Directory where the NCs create and store all data, as configured by
     // src/test/resources/NCServiceExecutionIT/cc.conf.
-    private static final String INSTANCE_DIR = StringUtils
+    public static final String INSTANCE_DIR = StringUtils
             .join(new String[] { TARGET_DIR, "tmp" }, File.separator);
 
     // The log directory, where all CC, NCService, and NC logs are written. CC and
     // NCService logs are configured on the HyracksVirtualCluster below. NC logs
     // are configured in src/test/resources/NCServiceExecutionIT/ncservice*.conf.
-    private static final String LOG_DIR = StringUtils
+    public static final String LOG_DIR = StringUtils
             .join(new String[] { TARGET_DIR, "failsafe-reports" }, File.separator);
 
     // Directory where *.conf files are located.
-    private static final String CONF_DIR = StringUtils
+    public static final String CONF_DIR = StringUtils
             .join(new String[] { TARGET_DIR, "test-classes", "NCServiceExecutionIT" },
                     File.separator);
 
     // The app.home specified for HyracksVirtualCluster. The NCService expects
     // to find the NC startup script in ${app.home}/bin.
-    private static final String APP_HOME = StringUtils
+    public static final String APP_HOME = StringUtils
             .join(new String[] { TARGET_DIR, "appassembler" }, File.separator);
 
     // Path to the asterix-app directory. This is used as the current working
     // directory for the CC and NCService processes, which allows relative file
     // paths in "load" statements in test queries to find the right data. It is
     // also used for HDFSCluster.
-    private static final String ASTERIX_APP_DIR = StringUtils
+    public static final String ASTERIX_APP_DIR = StringUtils
             .join(new String[] { "..", "asterix-app" },
                     File.separator);
 
@@ -94,7 +94,7 @@ public class NCServiceExecutionIT {
 
     // Path that actual results are written to. We create and clean this directory
     // here, and also pass it to TestExecutor which writes the test output there.
-    private static final String ACTUAL_RESULTS_DIR = StringUtils
+    public static final String ACTUAL_RESULTS_DIR = StringUtils
             .join(new String[] { TARGET_DIR, "ittest" }, File.separator);
 
     private static final Logger LOGGER = Logger.getLogger(NCServiceExecutionIT.class.getName());
@@ -154,6 +154,8 @@ public class NCServiceExecutionIT {
         testExecutor.waitForClusterActive(30, TimeUnit.SECONDS);
         clusterActive = true;
     }
+
+
 
     @AfterClass
     public static void tearDown() throws Exception {
@@ -251,6 +253,7 @@ public class NCServiceExecutionIT {
                     nc1.stop(); // we can't kill due to ASTERIXDB-1941
                     testExecutor.waitForClusterState("UNUSABLE", 60, TimeUnit.SECONDS); // wait for missed heartbeats...
                     nc1.start(); // this restarts the NC service
+                    testExecutor.startNC("asterix_nc1");
                     break;
 
                 case NC2:
@@ -258,6 +261,7 @@ public class NCServiceExecutionIT {
                     nc2.stop(); // we can't kill due to ASTERIXDB-1941
                     testExecutor.waitForClusterState("UNUSABLE", 60, TimeUnit.SECONDS); // wait for missed heartbeats...
                     nc2.start(); // this restarts the NC service
+                    testExecutor.startNC("asterix_nc2");
                     break;
 
                 default:

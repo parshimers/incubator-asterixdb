@@ -32,11 +32,12 @@ import java.util.stream.Collectors;
 import org.apache.asterix.common.api.IDatasetLifecycleManager;
 import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.cluster.ClusterPartition;
-import org.apache.asterix.common.config.ClusterProperties;
 import org.apache.asterix.common.config.ReplicationProperties;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.replication.IRemoteRecoveryManager;
 import org.apache.asterix.common.replication.IReplicationManager;
+import org.apache.asterix.common.replication.IReplicationStrategy;
+import org.apache.asterix.common.replication.Replica;
 import org.apache.asterix.common.transactions.ILogManager;
 import org.apache.asterix.common.transactions.IRecoveryManager;
 import org.apache.asterix.replication.storage.ReplicaResourcesManager;
@@ -50,28 +51,30 @@ public class RemoteRecoveryManager implements IRemoteRecoveryManager {
     private final INcApplicationContext runtimeContext;
     private final ReplicationProperties replicationProperties;
     private Map<String, Set<String>> failbackRecoveryReplicas;
+    private IReplicationStrategy replicationStrategy;
 
     public RemoteRecoveryManager(IReplicationManager replicationManager, INcApplicationContext runtimeContext,
             ReplicationProperties replicationProperties) {
         this.replicationManager = replicationManager;
         this.runtimeContext = runtimeContext;
         this.replicationProperties = replicationProperties;
+        this.replicationStrategy = replicationManager.getReplicationStrategy();
     }
 
     private Map<String, Set<String>> constructRemoteRecoveryPlan() {
         //1. identify which replicas reside in this node
         String localNodeId = runtimeContext.getTransactionSubsystem().getId();
 
-        Set<String> nodes = replicationProperties.getNodeReplicasIds(localNodeId);
+        Set<Replica> replicas = replicationStrategy.getRemoteReplicasAndSelf(localNodeId);
         Map<String, Set<String>> recoveryCandidates = new HashMap<>();
         Map<String, Integer> candidatesScore = new HashMap<>();
 
         //2. identify which nodes has backup per lost node data
-        for (String node : nodes) {
-            Set<String> locations = replicationProperties.getNodeReplicasIds(node);
+        for (Replica node : replicas) {
+            Set<Replica> locations = replicationStrategy.getRemoteReplicasAndSelf(node.getId());
 
             //since the local node just started, remove it from candidates
-            locations.remove(localNodeId);
+            locations.remove(new Replica(localNodeId, "", -1));
 
             //remove any dead replicas
             Set<String> deadReplicas = replicationManager.getDeadReplicasIds();
@@ -84,14 +87,15 @@ public class RemoteRecoveryManager implements IRemoteRecoveryManager {
                 throw new IllegalStateException("Could not find any ACTIVE replica to recover " + node + " data.");
             }
 
-            for (String location : locations) {
+            for (Replica locationRep : locations) {
+                String location = locationRep.getId();
                 if (candidatesScore.containsKey(location)) {
                     candidatesScore.put(location, candidatesScore.get(location) + 1);
                 } else {
                     candidatesScore.put(location, 1);
                 }
             }
-            recoveryCandidates.put(node, locations);
+            recoveryCandidates.put(node.getId(), locations.stream().map(Replica::getId).collect(Collectors.toSet()));
         }
 
         Map<String, Set<String>> recoveryList = new HashMap<>();
@@ -192,7 +196,7 @@ public class RemoteRecoveryManager implements IRemoteRecoveryManager {
 
                 //3. remove any existing storage data and initialize storage metadata
                 resourceRepository.deleteStorageData(true);
-                resourceRepository.initializeNewUniverse(ClusterProperties.INSTANCE.getStorageDirectoryName());
+                resourceRepository.initializeNewUniverse(runtimeContext.getNodeProperties().getStorageSubdir());
 
                 //4. select remote replicas to recover from per lost replica data
                 failbackRecoveryReplicas = constructRemoteRecoveryPlan();
@@ -296,7 +300,7 @@ public class RemoteRecoveryManager implements IRemoteRecoveryManager {
 
                 //2. remove any existing storage data and initialize storage metadata
                 resourceRepository.deleteStorageData(true);
-                resourceRepository.initializeNewUniverse(ClusterProperties.INSTANCE.getStorageDirectoryName());
+                resourceRepository.initializeNewUniverse(runtimeContext.getNodeProperties().getStorageSubdir());
 
                 /*** Start Recovery Per Lost Replica ***/
                 for (Entry<String, Set<Integer>> remoteReplica : recoveryPlan.entrySet()) {

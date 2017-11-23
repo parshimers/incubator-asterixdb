@@ -28,18 +28,13 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.asterix.common.api.IClusterEventsSubscriber;
 import org.apache.asterix.common.api.IClusterManagementWork;
 import org.apache.asterix.common.api.IClusterManagementWorkResponse;
 import org.apache.asterix.common.api.IClusterManagementWorkResponse.Status;
 import org.apache.asterix.common.cluster.IClusterStateManager;
-import org.apache.asterix.common.config.ClusterProperties;
-import org.apache.asterix.common.exceptions.AsterixException;
-import org.apache.asterix.event.schema.cluster.Node;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.metadata.cluster.AddNodeWork;
 import org.apache.asterix.metadata.cluster.AddNodeWorkResponse;
-import org.apache.asterix.metadata.cluster.ClusterManagerProvider;
 import org.apache.asterix.metadata.cluster.RemoveNodeWork;
 import org.apache.asterix.metadata.cluster.RemoveNodeWorkResponse;
 import org.apache.asterix.runtime.utils.CcApplicationContext;
@@ -81,17 +76,6 @@ public class ClusterLifecycleListener implements IClusterLifecycleListener {
         Set<String> nodeAddition = new HashSet<>();
         nodeAddition.add(nodeId);
         updateProgress(ClusterEventType.NODE_JOIN, nodeAddition);
-        Set<IClusterEventsSubscriber> subscribers =
-                ClusterManagerProvider.getClusterManager().getRegisteredClusterEventSubscribers();
-        Set<IClusterManagementWork> work = new HashSet<>();
-        for (IClusterEventsSubscriber sub : subscribers) {
-            Set<IClusterManagementWork> workRequest = sub.notifyNodeJoin(nodeId);
-            work.addAll(workRequest);
-        }
-        if (!work.isEmpty()) {
-            executeWorkSet(work);
-        }
-
     }
 
     @Override
@@ -109,13 +93,7 @@ public class ClusterLifecycleListener implements IClusterLifecycleListener {
             }
         }
         updateProgress(ClusterEventType.NODE_FAILURE, deadNodeIds);
-        Set<IClusterEventsSubscriber> subscribers =
-                ClusterManagerProvider.getClusterManager().getRegisteredClusterEventSubscribers();
         Set<IClusterManagementWork> work = new HashSet<>();
-        for (IClusterEventsSubscriber sub : subscribers) {
-            Set<IClusterManagementWork> workRequest = sub.notifyNodeFailure(deadNodeIds);
-            work.addAll(workRequest);
-        }
         if (!work.isEmpty()) {
             executeWorkSet(work);
         }
@@ -172,30 +150,6 @@ public class ClusterLifecycleListener implements IClusterLifecycleListener {
         }
 
         List<String> addedNodes = new ArrayList<>();
-        String asterixInstanceName = ClusterProperties.INSTANCE.getCluster().getInstanceName();
-        IClusterStateManager csm = appCtx.getClusterStateManager();
-        for (int i = 0; i < nodesToAdd; i++) {
-            Node node = csm.getAvailableSubstitutionNode();
-            if (node != null) {
-                try {
-                    ClusterManagerProvider.getClusterManager().addNode(appCtx, node);
-                    addedNodes.add(asterixInstanceName + "_" + node.getId());
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("Added NC at:" + node.getId());
-                    }
-                } catch (Exception e) {
-                    if (LOGGER.isLoggable(Level.WARNING)) {
-                        LOGGER.warning("Unable to add NC at:" + node.getId());
-                    }
-                    e.printStackTrace();
-                }
-            } else {
-                if (LOGGER.isLoggable(Level.WARNING)) {
-                    LOGGER.warning("Unable to add NC: no more available nodes");
-                }
-
-            }
-        }
 
         for (AddNodeWork w : nodeAdditionRequests) {
             int n = w.getNumberOfNodesRequested();

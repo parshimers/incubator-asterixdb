@@ -33,7 +33,6 @@ import java.util.List;
 import org.apache.asterix.common.utils.Servlets;
 import org.apache.asterix.test.base.TestMethodTracer;
 import org.apache.asterix.test.common.TestExecutor;
-import org.apache.asterix.test.common.TestHelper;
 import org.apache.asterix.testframework.context.TestCaseContext.OutputFormat;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
@@ -78,7 +77,6 @@ public class SampleLocalClusterIT {
                 new File(TARGET_DIR).list((dir, name) -> name.matches("asterix-server.*-binary-assembly.zip"))[0] };
         String installerZip = joinPath(pathElements);
 
-        TestHelper.unzip(installerZip, OUTPUT_DIR);
     }
 
     private static List<File> findLogFiles(File directory, List<File> fileList) {

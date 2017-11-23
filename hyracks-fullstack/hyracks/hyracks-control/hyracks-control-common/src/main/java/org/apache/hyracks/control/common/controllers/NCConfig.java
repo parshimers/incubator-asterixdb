@@ -39,184 +39,8 @@ import org.apache.hyracks.util.file.FileUtil;
 public class NCConfig extends ControllerConfig {
     private static final long serialVersionUID = 3L;
 
-    public enum Option implements IOption {
-        ADDRESS(STRING, InetAddress.getLoopbackAddress().getHostAddress()),
-        PUBLIC_ADDRESS(STRING, ADDRESS),
-        CLUSTER_LISTEN_ADDRESS(STRING, ADDRESS),
-        CLUSTER_LISTEN_PORT(INTEGER, 0),
-        NCSERVICE_ADDRESS(STRING, PUBLIC_ADDRESS),
-        NCSERVICE_PORT(INTEGER, 9090),
-        CLUSTER_ADDRESS(STRING, (String) null),
-        CLUSTER_PORT(INTEGER, 1099),
-        CLUSTER_PUBLIC_ADDRESS(STRING, PUBLIC_ADDRESS),
-        CLUSTER_PUBLIC_PORT(INTEGER, CLUSTER_LISTEN_PORT),
-        NODE_ID(STRING, (String) null),
-        DATA_LISTEN_ADDRESS(STRING, ADDRESS),
-        DATA_LISTEN_PORT(INTEGER, 0),
-        DATA_PUBLIC_ADDRESS(STRING, PUBLIC_ADDRESS),
-        DATA_PUBLIC_PORT(INTEGER, DATA_LISTEN_PORT),
-        RESULT_LISTEN_ADDRESS(STRING, ADDRESS),
-        RESULT_LISTEN_PORT(INTEGER, 0),
-        RESULT_PUBLIC_ADDRESS(STRING, PUBLIC_ADDRESS),
-        RESULT_PUBLIC_PORT(INTEGER, RESULT_LISTEN_PORT),
-        MESSAGING_LISTEN_ADDRESS(STRING, ADDRESS),
-        MESSAGING_LISTEN_PORT(INTEGER, 0),
-        MESSAGING_PUBLIC_ADDRESS(STRING, PUBLIC_ADDRESS),
-        MESSAGING_PUBLIC_PORT(INTEGER, MESSAGING_LISTEN_PORT),
-        CLUSTER_CONNECT_RETRIES(INTEGER, 5),
-        IODEVICES(
-                STRING_ARRAY,
-                appConfig -> new String[] {
-                        FileUtil.joinPath(appConfig.getString(ControllerConfig.Option.DEFAULT_DIR), "iodevice") },
-                "<value of " + ControllerConfig.Option.DEFAULT_DIR.cmdline() + ">/iodevice"),
-        NET_THREAD_COUNT(INTEGER, 1),
-        NET_BUFFER_COUNT(INTEGER, 1),
-        RESULT_TTL(LONG, 86400000L),
-        RESULT_SWEEP_THRESHOLD(LONG, 60000L),
-        RESULT_MANAGER_MEMORY(INTEGER_BYTE_UNIT, -1),
-        @SuppressWarnings("RedundantCast") // not redundant- false positive from IDEA
-        APP_CLASS(STRING, (String) null),
-        NCSERVICE_PID(INTEGER, -1),
-        COMMAND(STRING, "hyracksnc"),
-        JVM_ARGS(STRING, (String) null),
-        TRACE_CATEGORIES(STRING_ARRAY, new String[0]);
-
-        private final IOptionType parser;
-        private final String defaultValueDescription;
-        private Object defaultValue;
-
-        <T> Option(IOptionType<T> parser, Option defaultOption) {
-            this.parser = parser;
-            this.defaultValue = defaultOption;
-            defaultValueDescription = null;
-        }
-
-        <T> Option(IOptionType<T> parser, T defaultValue) {
-            this.parser = parser;
-            this.defaultValue = defaultValue;
-            defaultValueDescription = null;
-        }
-
-        <T> Option(IOptionType<T> parser, Function<IApplicationConfig, T> defaultValue,
-                String defaultValueDescription) {
-            this.parser = parser;
-            this.defaultValue = defaultValue;
-            this.defaultValueDescription = defaultValueDescription;
-        }
-
-        @Override
-        public Section section() {
-            switch (this) {
-                case NODE_ID:
-                    return Section.LOCALNC;
-                default:
-                    return Section.NC;
-            }
-        }
-
-        @Override
-        public String description() {
-            switch (this) {
-                case ADDRESS:
-                    return "Default IP Address to bind listeners on this NC.  All services will bind on this address "
-                            + "unless a service-specific listen address is supplied.";
-                case CLUSTER_LISTEN_ADDRESS:
-                    return "IP Address to bind cluster listener on this NC";
-                case PUBLIC_ADDRESS:
-                    return "Default public address that other processes should use to contact this NC.  All services "
-                            + "will advertise this address unless a service-specific public address is supplied.";
-                case NCSERVICE_ADDRESS:
-                    return "Address the CC should use to contact the NCService associated with this NC";
-                case NCSERVICE_PORT:
-                    return "Port the CC should use to contact the NCService associated with this NC (-1 to not use " +
-                            "NCService to start this NC)";
-                case CLUSTER_ADDRESS:
-                    return "Cluster Controller address (required unless specified in config file)";
-                case CLUSTER_PORT:
-                    return "Cluster Controller port";
-                case CLUSTER_LISTEN_PORT:
-                    return "IP port to bind cluster listener";
-                case CLUSTER_PUBLIC_ADDRESS:
-                    return "Public IP Address to announce cluster listener";
-                case CLUSTER_PUBLIC_PORT:
-                    return "Public IP port to announce cluster listener";
-                case NODE_ID:
-                    return "Logical name of node controller unique within the cluster (required unless specified in "
-                            + "config file)";
-                case DATA_LISTEN_ADDRESS:
-                    return "IP Address to bind data listener";
-                case DATA_LISTEN_PORT:
-                    return "IP port to bind data listener";
-                case DATA_PUBLIC_ADDRESS:
-                    return "Public IP Address to announce data listener";
-                case DATA_PUBLIC_PORT:
-                    return "Public IP port to announce data listener";
-                case RESULT_LISTEN_ADDRESS:
-                    return "IP Address to bind dataset result distribution listener";
-                case RESULT_LISTEN_PORT:
-                    return "IP port to bind dataset result distribution listener";
-                case RESULT_PUBLIC_ADDRESS:
-                    return "Public IP Address to announce dataset result distribution listener";
-                case RESULT_PUBLIC_PORT:
-                    return "Public IP port to announce dataset result distribution listener";
-                case MESSAGING_LISTEN_ADDRESS:
-                    return "IP Address to bind messaging listener";
-                case MESSAGING_LISTEN_PORT:
-                    return "IP port to bind messaging listener";
-                case MESSAGING_PUBLIC_ADDRESS:
-                    return "Public IP Address to announce messaging listener";
-                case MESSAGING_PUBLIC_PORT:
-                    return "Public IP port to announce messaging listener";
-                case CLUSTER_CONNECT_RETRIES:
-                    return "Number of attempts to retry contacting CC before giving up";
-                case IODEVICES:
-                    return "Comma separated list of IO Device mount points";
-                case NET_THREAD_COUNT:
-                    return "Number of threads to use for Network I/O";
-                case NET_BUFFER_COUNT:
-                    return "Number of network buffers per input/output channel";
-                case RESULT_TTL:
-                    return "Limits the amount of time results for asynchronous jobs should be retained by the system "
-                            + "in milliseconds";
-                case RESULT_SWEEP_THRESHOLD:
-                    return "The duration within which an instance of the result cleanup should be invoked in "
-                            + "milliseconds";
-                case RESULT_MANAGER_MEMORY:
-                    return "Memory usable for result caching at this Node Controller in bytes";
-                case APP_CLASS:
-                    return "Application NC Main Class";
-                case NCSERVICE_PID:
-                    return "PID of the NCService which launched this NCDriver";
-                case COMMAND:
-                    return "Command NCService should invoke to start the NCDriver";
-                case JVM_ARGS:
-                    return "JVM args to pass to the NCDriver";
-                case TRACE_CATEGORIES:
-                    return "Categories for tracing";
-                default:
-                    throw new IllegalStateException("NYI: " + this);
-            }
-        }
-
-        @Override
-        public IOptionType type() {
-            return parser;
-        }
-
-        @Override
-        public Object defaultValue() {
-            return defaultValue;
-        }
-
-        public void setDefaultValue(Object defaultValue) {
-            this.defaultValue = defaultValue;
-        }
-
-        @Override
-        public String usageDefaultOverride(IApplicationConfig accessor, Function<IOption, String> optionPrinter) {
-            return defaultValueDescription;
-        }
-
+    public String getReplicationPublicAddress() {
+        return appConfig.getString(Option.REPLICATION_LISTEN_ADDRESS);
     }
 
     public static final int NCSERVICE_PORT_DISABLED = -1;
@@ -426,6 +250,198 @@ public class NCConfig extends ControllerConfig {
     public void setMessagingPublicPort(int messagingPublicPort) {
         configManager.set(nodeId, Option.MESSAGING_PUBLIC_PORT, messagingPublicPort);
     }
+
+    public int getReplicationPublicPort() {
+        return appConfig.getInt(Option.REPLICATION_LISTEN_PORT);
+    }
+
+    public enum Option implements IOption {
+        ADDRESS(STRING, InetAddress.getLoopbackAddress().getHostAddress()),
+        PUBLIC_ADDRESS(STRING, ADDRESS),
+        CLUSTER_LISTEN_ADDRESS(STRING, ADDRESS),
+        CLUSTER_LISTEN_PORT(INTEGER, 0),
+        NCSERVICE_ADDRESS(STRING, PUBLIC_ADDRESS),
+        NCSERVICE_PORT(INTEGER, 9090),
+        CLUSTER_ADDRESS(STRING, (String) null),
+        CLUSTER_PORT(INTEGER, 1099),
+        CLUSTER_PUBLIC_ADDRESS(STRING, PUBLIC_ADDRESS),
+        CLUSTER_PUBLIC_PORT(INTEGER, CLUSTER_LISTEN_PORT),
+        NODE_ID(STRING, (String) null),
+        DATA_LISTEN_ADDRESS(STRING, ADDRESS),
+        DATA_LISTEN_PORT(INTEGER, 0),
+        DATA_PUBLIC_ADDRESS(STRING, PUBLIC_ADDRESS),
+        DATA_PUBLIC_PORT(INTEGER, DATA_LISTEN_PORT),
+        RESULT_LISTEN_ADDRESS(STRING, ADDRESS),
+        RESULT_LISTEN_PORT(INTEGER, 0),
+        RESULT_PUBLIC_ADDRESS(STRING, PUBLIC_ADDRESS),
+        RESULT_PUBLIC_PORT(INTEGER, RESULT_LISTEN_PORT),
+        MESSAGING_LISTEN_ADDRESS(STRING, ADDRESS),
+        MESSAGING_LISTEN_PORT(INTEGER, 0),
+        MESSAGING_PUBLIC_ADDRESS(STRING, PUBLIC_ADDRESS),
+        MESSAGING_PUBLIC_PORT(INTEGER, MESSAGING_LISTEN_PORT),
+        REPLICATION_LISTEN_ADDRESS(STRING, PUBLIC_ADDRESS),
+        REPLICATION_LISTEN_PORT(INTEGER, 2000),
+        CLUSTER_CONNECT_RETRIES(INTEGER, 5),
+        IODEVICES(
+                STRING_ARRAY,
+                appConfig -> new String[] {
+                        FileUtil.joinPath(appConfig.getString(ControllerConfig.Option.DEFAULT_DIR), "iodevice") },
+                "<value of " + ControllerConfig.Option.DEFAULT_DIR.cmdline() + ">/iodevice"),
+        NET_THREAD_COUNT(INTEGER, 1),
+        NET_BUFFER_COUNT(INTEGER, 1),
+        RESULT_TTL(LONG, 86400000L),
+        RESULT_SWEEP_THRESHOLD(LONG, 60000L),
+        RESULT_MANAGER_MEMORY(INTEGER_BYTE_UNIT, -1),
+        @SuppressWarnings("RedundantCast") // not redundant- false positive from IDEA
+        APP_CLASS(STRING, (String) null),
+        NCSERVICE_PID(INTEGER, -1),
+        COMMAND(STRING, "hyracksnc"),
+        JVM_ARGS(STRING, (String) null),
+        TRACE_CATEGORIES(STRING_ARRAY, new String[0]);
+
+        private final IOptionType parser;
+        private final String defaultValueDescription;
+        private Object defaultValue;
+
+        <T> Option(IOptionType<T> parser, Option defaultOption) {
+            this.parser = parser;
+            this.defaultValue = defaultOption;
+            defaultValueDescription = null;
+        }
+
+        <T> Option(IOptionType<T> parser, T defaultValue) {
+            this.parser = parser;
+            this.defaultValue = defaultValue;
+            defaultValueDescription = null;
+        }
+
+        <T> Option(IOptionType<T> parser, Function<IApplicationConfig, T> defaultValue,
+                String defaultValueDescription) {
+            this.parser = parser;
+            this.defaultValue = defaultValue;
+            this.defaultValueDescription = defaultValueDescription;
+        }
+
+        @Override
+        public Section section() {
+            switch (this) {
+                case NODE_ID:
+                    return Section.LOCALNC;
+                default:
+                    return Section.NC;
+            }
+        }
+
+        @Override
+        public String description() {
+            switch (this) {
+                case ADDRESS:
+                    return "Default IP Address to bind listeners on this NC.  All services will bind on this address "
+                            + "unless a service-specific listen address is supplied.";
+                case CLUSTER_LISTEN_ADDRESS:
+                    return "IP Address to bind cluster listener on this NC";
+                case PUBLIC_ADDRESS:
+                    return "Default public address that other processes should use to contact this NC.  All services "
+                            + "will advertise this address unless a service-specific public address is supplied.";
+                case NCSERVICE_ADDRESS:
+                    return "Address the CC should use to contact the NCService associated with this NC";
+                case NCSERVICE_PORT:
+                    return "Port the CC should use to contact the NCService associated with this NC (-1 to not use " +
+                            "NCService to start this NC)";
+                case CLUSTER_ADDRESS:
+                    return "Cluster Controller address (required unless specified in config file)";
+                case CLUSTER_PORT:
+                    return "Cluster Controller port";
+                case CLUSTER_LISTEN_PORT:
+                    return "IP port to bind cluster listener";
+                case CLUSTER_PUBLIC_ADDRESS:
+                    return "Public IP Address to announce cluster listener";
+                case CLUSTER_PUBLIC_PORT:
+                    return "Public IP port to announce cluster listener";
+                case NODE_ID:
+                    return "Logical name of node controller unique within the cluster (required unless specified in "
+                            + "config file)";
+                case DATA_LISTEN_ADDRESS:
+                    return "IP Address to bind data listener";
+                case DATA_LISTEN_PORT:
+                    return "IP port to bind data listener";
+                case DATA_PUBLIC_ADDRESS:
+                    return "Public IP Address to announce data listener";
+                case DATA_PUBLIC_PORT:
+                    return "Public IP port to announce data listener";
+                case RESULT_LISTEN_ADDRESS:
+                    return "IP Address to bind dataset result distribution listener";
+                case RESULT_LISTEN_PORT:
+                    return "IP port to bind dataset result distribution listener";
+                case RESULT_PUBLIC_ADDRESS:
+                    return "Public IP Address to announce dataset result distribution listener";
+                case RESULT_PUBLIC_PORT:
+                    return "Public IP port to announce dataset result distribution listener";
+                case MESSAGING_LISTEN_ADDRESS:
+                    return "IP Address to bind messaging listener";
+                case MESSAGING_LISTEN_PORT:
+                    return "IP port to bind messaging listener";
+                case MESSAGING_PUBLIC_ADDRESS:
+                    return "Public IP Address to announce messaging listener";
+                case MESSAGING_PUBLIC_PORT:
+                    return "Public IP port to announce messaging listener";
+                case REPLICATION_LISTEN_ADDRESS:
+                    return "Replication bind address";
+                case REPLICATION_LISTEN_PORT:
+                    return "Port to listen on for replication service";
+                case CLUSTER_CONNECT_RETRIES:
+                    return "Number of attempts to retry contacting CC before giving up";
+                case IODEVICES:
+                    return "Comma separated list of IO Device mount points";
+                case NET_THREAD_COUNT:
+                    return "Number of threads to use for Network I/O";
+                case NET_BUFFER_COUNT:
+                    return "Number of network buffers per input/output channel";
+                case RESULT_TTL:
+                    return "Limits the amount of time results for asynchronous jobs should be retained by the system "
+                            + "in milliseconds";
+                case RESULT_SWEEP_THRESHOLD:
+                    return "The duration within which an instance of the result cleanup should be invoked in "
+                            + "milliseconds";
+                case RESULT_MANAGER_MEMORY:
+                    return "Memory usable for result caching at this Node Controller in bytes";
+                case APP_CLASS:
+                    return "Application NC Main Class";
+                case NCSERVICE_PID:
+                    return "PID of the NCService which launched this NCDriver";
+                case COMMAND:
+                    return "Command NCService should invoke to start the NCDriver";
+                case JVM_ARGS:
+                    return "JVM args to pass to the NCDriver";
+                case TRACE_CATEGORIES:
+                    return "Categories for tracing";
+                default:
+                    throw new IllegalStateException("NYI: " + this);
+            }
+        }
+
+        @Override
+        public IOptionType type() {
+            return parser;
+        }
+
+        @Override
+        public Object defaultValue() {
+            return defaultValue;
+        }
+
+        public void setDefaultValue(Object defaultValue) {
+            this.defaultValue = defaultValue;
+        }
+
+        @Override
+        public String usageDefaultOverride(IApplicationConfig accessor, Function<IOption, String> optionPrinter) {
+            return defaultValueDescription;
+        }
+
+    }
+
+    ;
 
     public int getClusterConnectRetries() {
         return appConfig.getInt(Option.CLUSTER_CONNECT_RETRIES);

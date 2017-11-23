@@ -284,16 +284,19 @@ public class ClusterControllerService implements IControllerService {
             @Override
             public void notifyNodeFailure(Collection<String> deadNodeIds) throws HyracksException {
                 LOGGER.log(Level.WARNING, "Getting notified that nodes: " + deadNodeIds + " has failed");
-                for (String nodeId : deadNodeIds) {
-                    Pair<String, Integer> ncService = getNCService(nodeId);
-                    if (ncService.getRight() != NCConfig.NCSERVICE_PORT_DISABLED) {
-                        final TriggerNCWork triggerWork = new TriggerNCWork(ClusterControllerService.this,
-                                ncService.getLeft(), ncService.getRight(), nodeId);
-                        executor.submit(triggerWork);
-                    }
-                }
             }
         });
+    }
+
+    public boolean startNC(String nodeId) {
+        Pair<String, Integer> ncServiceAddress = getNCService(nodeId);
+        if (ncServiceAddress == null) {
+            return false;
+        }
+        final TriggerNCWork startNc = new TriggerNCWork(ClusterControllerService.this, ncServiceAddress.getLeft(), ncServiceAddress.getRight(), nodeId);
+        executor.submit(startNc);
+        return true;
+
     }
 
     private void terminateNCServices() throws Exception {

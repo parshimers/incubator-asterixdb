@@ -38,11 +38,12 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.asterix.common.cluster.ClusterPartition;
-import org.apache.asterix.common.config.ClusterProperties;
 import org.apache.asterix.common.config.MetadataProperties;
+import org.apache.asterix.common.config.NodeProperties;
 import org.apache.asterix.common.replication.IReplicaResourcesManager;
 import org.apache.asterix.common.utils.StoragePathUtil;
 import org.apache.asterix.metadata.utils.SplitsAndConstraintsUtil;
+import org.apache.asterix.runtime.utils.ClusterStateManager;
 import org.apache.asterix.transaction.management.resource.PersistentLocalResourceRepository;
 import org.apache.commons.io.FileUtils;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
@@ -56,11 +57,13 @@ public class ReplicaResourcesManager implements IReplicaResourcesManager {
     public static final long REPLICA_INDEX_CREATION_LSN = -1;
     private final PersistentLocalResourceRepository localRepository;
     private final Map<String, ClusterPartition[]> nodePartitions;
+    private final String storagePath;
 
     public ReplicaResourcesManager(ILocalResourceRepository localRepository,
-            MetadataProperties metadataProperties) {
+                                   MetadataProperties metadataProperties, NodeProperties nodeProperties) {
         this.localRepository = (PersistentLocalResourceRepository) localRepository;
         nodePartitions = metadataProperties.getNodePartitions();
+        storagePath = nodeProperties.getStorageSubdir();
     }
 
     public void deleteIndexFile(LSMIndexFileProperties afp) {
@@ -84,7 +87,7 @@ public class ReplicaResourcesManager implements IReplicaResourcesManager {
         String partitionPath = localRepository.getPartitionPath(fileProperties.getPartition());
         //get index path
         String indexPath = SplitsAndConstraintsUtil.getIndexPath(partitionPath, fileProperties.getPartition(),
-                fileProperties.getDataverse(), fileProperties.getIdxName());
+                fileProperties.getDataverse(), fileProperties.getIdxName(), storagePath);
 
         Path path = Paths.get(indexPath);
         if (!Files.exists(path)) {
@@ -245,9 +248,8 @@ public class ReplicaResourcesManager implements IReplicaResourcesManager {
      */
     public Set<File> getPartitionIndexes(int partition) {
         Set<File> partitionIndexes = new HashSet<File>();
-        String storageDirName = ClusterProperties.INSTANCE.getStorageDirectoryName();
         String partitionStoragePath = localRepository.getPartitionPath(partition)
-                + StoragePathUtil.prepareStoragePartitionPath(storageDirName, partition);
+                + StoragePathUtil.prepareStoragePartitionPath(storagePath, partition);
         File partitionRoot = new File(partitionStoragePath);
         if (partitionRoot.exists() && partitionRoot.isDirectory()) {
             File[] dataverseFileList = partitionRoot.listFiles();

@@ -100,7 +100,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         logMgr = (LogManager) txnSubsystem.getLogManager();
         ReplicationProperties repProperties =
                 txnSubsystem.getAsterixAppRuntimeContextProvider().getAppContext().getReplicationProperties();
-        replicationEnabled = repProperties.isParticipant(txnSubsystem.getId());
+        replicationEnabled = repProperties.isReplicationEnabled();
         localResourceRepository = (PersistentLocalResourceRepository) txnSubsystem.getAsterixAppRuntimeContextProvider()
                 .getLocalResourceRepository();
         cachedEntityCommitsPerJobSize = txnSubsystem.getTransactionProperties().getJobRecoveryMemorySize();
