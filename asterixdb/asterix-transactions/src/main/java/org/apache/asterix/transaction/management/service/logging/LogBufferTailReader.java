@@ -46,7 +46,7 @@ public class LogBufferTailReader {
         RecordReadStatus status = logRecord.readLogRecord(buffer);
         //underflow is not expected because we are at the very tail of the current log buffer
         if (status != RecordReadStatus.OK) {
-            throw new IllegalStateException();
+            throw new IllegalStateException("Corrupted transaction log, record at log tail has status: "+status.name());
         }
         return logRecord;
     }
