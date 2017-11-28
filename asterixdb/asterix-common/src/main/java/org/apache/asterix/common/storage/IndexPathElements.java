@@ -16,19 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.asterix.common.storage;
 
-package org.apache.hyracks.tests.unit;
+public class IndexPathElements {
 
-import org.apache.hyracks.api.context.IHyracksTaskContext;
-import org.apache.hyracks.api.exceptions.HyracksDataException;
-import org.apache.hyracks.dataflow.std.sort.AbstractSortRunGenerator;
-import org.apache.hyracks.dataflow.std.sort.HybridTopKSortRunGenerator;
+    private final String datasetName;
+    private final String indexName;
+    private final String rebalanceCount;
 
-public class HybridSortRunGenerator extends AbstractRunGeneratorTest {
-    @Override
-    AbstractSortRunGenerator getSortRunGenerator(IHyracksTaskContext ctx, int frameLimit, int numOfInputRecord)
-            throws HyracksDataException {
-        return new HybridTopKSortRunGenerator(ctx, frameLimit, numOfInputRecord, SortFields, null, ComparatorFactories,
-                RecordDesc);
+    public IndexPathElements(String datasetName, String indexName, String rebalanceCount) {
+        this.datasetName = datasetName;
+        this.indexName = indexName;
+        this.rebalanceCount = rebalanceCount;
+    }
+
+    public String getDatasetName() {
+        return datasetName;
+    }
+
+    public String getIndexName() {
+        return indexName;
+    }
+
+    public String getRebalanceCount() {
+        return rebalanceCount;
     }
 }

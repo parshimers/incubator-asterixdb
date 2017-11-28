@@ -56,9 +56,10 @@ import org.apache.asterix.common.cluster.ClusterPartition;
 import org.apache.asterix.common.config.NodeProperties;
 import org.apache.asterix.common.config.ReplicationProperties;
 import org.apache.asterix.common.dataflow.LSMIndexUtil;
-import org.apache.asterix.common.replication.*;
 import org.apache.asterix.common.replication.Replica.ReplicaState;
-import org.apache.asterix.common.storage.IndexFileProperties;
+import org.apache.asterix.common.replication.ReplicaEvent;
+import org.apache.asterix.common.replication.ReplicationJob;
+import org.apache.asterix.common.storage.DatasetResourceReference;
 import org.apache.asterix.common.transactions.IAppRuntimeContextProvider;
 import org.apache.asterix.common.transactions.ILogManager;
 import org.apache.asterix.common.transactions.ILogRecord;
@@ -287,7 +288,7 @@ public class ReplicationManager implements IReplicationManager {
             //all of the job's files belong to a single storage partition.
             //get any of them to determine the partition from the file path.
             String jobFile = job.getJobFiles().iterator().next();
-            IndexFileProperties indexFileRef = localResourceRepo.getIndexFileRef(jobFile);
+            DatasetResourceReference indexFileRef = localResourceRepo.getLocalResourceReference(jobFile);
             if (!replicationStrategy.isMatch(indexFileRef.getDatasetId())) {
                 return;
             }
