@@ -43,8 +43,6 @@ import org.apache.asterix.common.config.NodeProperties;
 import org.apache.asterix.common.replication.IReplicaResourcesManager;
 import org.apache.asterix.common.utils.StorageConstants;
 import org.apache.asterix.common.utils.StoragePathUtil;
-import org.apache.asterix.metadata.utils.SplitsAndConstraintsUtil;
-import org.apache.asterix.runtime.utils.ClusterStateManager;
 import org.apache.asterix.transaction.management.resource.PersistentLocalResourceRepository;
 import org.apache.commons.io.FileUtils;
 import org.apache.hyracks.api.exceptions.HyracksDataException;

@@ -23,6 +23,7 @@ import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.asterix.api.common.AsterixHyracksIntegrationUtil;
 import org.apache.asterix.common.TestDataUtil;
 import org.apache.asterix.common.config.GlobalConfig;
@@ -108,7 +109,7 @@ public class RecoveryManagerTest {
         final long countBeforeRecovery = TestDataUtil.getDatasetCount(datasetName);
         // do ungraceful shutdown to enforce recovery
         integrationUtil.deinit(false);
-        integrationUtil.init(false);
+        integrationUtil.init(false,TEST_CONFIG_FILE_PATH);
         final long countAfterRecovery = TestDataUtil.getDatasetCount(datasetName);
         Assert.assertEquals(countBeforeRecovery, countAfterRecovery);
     }

@@ -480,7 +480,7 @@ public class TestNodeController {
             CcApplicationContext appCtx =
                     (CcApplicationContext) ExecutionTestUtil.integrationUtil.cc.getApplicationContext();
             FileSplit[] splits = SplitsAndConstraintsUtil.getIndexSplits(appCtx.getClusterStateManager(),
-                    primaryIndexInfo.dataset, secondaryIndex.getIndexName(), nodes);
+                    primaryIndexInfo.dataset, secondaryIndex.getIndexName(), appCtx.getNodeProperties().getStorageSubdir(), nodes);
             fileSplitProvider = new ConstantFileSplitProvider(splits);
             ITypeTraits[] secondaryIndexTypeTraits = createSecondaryIndexTypeTraits(primaryIndexInfo.recordType,
                     primaryIndexInfo.metaType, primaryIndexInfo.primaryKeyTypes,

@@ -49,12 +49,12 @@ import org.apache.asterix.common.config.ReplicationProperties;
 import org.apache.asterix.common.context.IndexInfo;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.ioopcallbacks.AbstractLSMIOOperationCallback;
-import org.apache.asterix.common.storage.IndexFileProperties;
 import org.apache.asterix.common.replication.IReplicaResourcesManager;
 import org.apache.asterix.common.replication.IReplicationChannel;
 import org.apache.asterix.common.replication.IReplicationManager;
 import org.apache.asterix.common.replication.IReplicationStrategy;
 import org.apache.asterix.common.replication.IReplicationThread;
+import org.apache.asterix.common.replication.Replica;
 import org.apache.asterix.common.replication.ReplicaEvent;
 import org.apache.asterix.common.storage.DatasetResourceReference;
 import org.apache.asterix.common.transactions.IAppRuntimeContextProvider;
@@ -400,7 +400,7 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
                 for (String filePath : filesList) {
                     // Send only files of datasets that are replciated.
                     DatasetResourceReference indexFileRef = localResourceRep.getLocalResourceReference(filePath);
-                    if (!repStrategy.isMatch(indexFileRef.getDatasetId())) {
+                    if (!replicationStrategy.isMatch(indexFileRef.getDatasetId())) {
                         continue;
                     }
                     String relativeFilePath = StoragePathUtil.getIndexFileRelativePath(filePath);

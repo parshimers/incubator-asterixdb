@@ -42,12 +42,11 @@ import org.junit.Test;
 
 public class MigrateStorageResourcesTaskTest {
 
-    private static final String DEFAULT_TEST_CONFIG_FILE_NAME = "asterix-build-configuration.xml";
+    private static final String DEFAULT_TEST_CONFIG_FILE_NAME = "src/main/resources/cc.conf";
     private static final AsterixHyracksIntegrationUtil integrationUtil = new AsterixHyracksIntegrationUtil();
 
     @Before
     public void setUp() throws Exception {
-        System.setProperty(GlobalConfig.CONFIG_FILE_PROPERTY, DEFAULT_TEST_CONFIG_FILE_NAME);
     }
 
     @After
@@ -62,7 +61,7 @@ public class MigrateStorageResourcesTaskTest {
                         + pathElements.getDatasetName() + StoragePathUtil.DATASET_INDEX_NAME_SEPARATOR + pathElements
                         .getIndexName();
         StoragePathUtil.setIndexPathProvider(legacyIndexPathProvider);
-        integrationUtil.init(true);
+        integrationUtil.init(true,DEFAULT_TEST_CONFIG_FILE_NAME);
         // create dataset and insert data using legacy structure
         String datasetName = "ds";
         TestDataUtil.createIdOnlyDataset(datasetName);
@@ -83,7 +82,7 @@ public class MigrateStorageResourcesTaskTest {
         // remove the legacy path provider to use the new default structure
         StoragePathUtil.setIndexPathProvider(null);
         // start the NCs to do the migration
-        integrationUtil.init(false);
+        integrationUtil.init(false,DEFAULT_TEST_CONFIG_FILE_NAME);
         final long countAfterMigration = TestDataUtil.getDatasetCount(datasetName);
         // ensure data migrated to new structure without issues
         Assert.assertEquals(countBeforeMigration, countAfterMigration);
