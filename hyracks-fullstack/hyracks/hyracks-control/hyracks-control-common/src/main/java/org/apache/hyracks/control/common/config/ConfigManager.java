@@ -29,6 +29,7 @@ import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -72,7 +73,7 @@ public class ConfigManager implements IConfigManager, Serializable {
             new NoOpMapMutator());
     private EnumMap<Section, Map<String, IOption>> sectionMap = new EnumMap<>(Section.class);
     @SuppressWarnings("squid:S1948") // TreeMap is serializable, and therefore so is its synchronized map
-    private Map<String, Map<IOption, Object>> nodeSpecificMap = Collections.synchronizedMap(new TreeMap<>());
+    private Map<String, Map<IOption, Object>> nodeSpecificMap = Collections.synchronizedMap(new LinkedHashMap<>());
     private transient ArrayListValuedHashMap<IOption, IConfigSetter> optionSetters = new ArrayListValuedHashMap<>();
     private final String[] args;
     private ConfigManagerApplicationConfig appConfig = new ConfigManagerApplicationConfig(this);
