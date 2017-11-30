@@ -16,16 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.hyracks.algebricks.examples.piglet.types;
 
-public class CharArrayType extends Type {
-    public static final Type INSTANCE = new CharArrayType();
+drop  dataverse test if exists;
+create  dataverse test;
 
-    private CharArrayType() {
-    }
+use test;
 
-    @Override
-    public Tag getTag() {
-        return Tag.CHAR_ARRAY;
-    }
-}
+create type UserType as {
+  id: string
+};
+
+create type MessageType as {
+  id: string
+};
+
+create dataset GleambookUsers(UserType) primary key id;
+
+create dataset GleambookMessages(MessageType) primary key id;
+
+select meta(user).id as id, count(*) as count
+from `GleambookUsers` user, `GleambookMessages` message
+where meta(user).id = message.author_id
+group by meta(user).id;
+
+drop  dataverse test;
+

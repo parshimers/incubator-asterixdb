@@ -435,7 +435,9 @@ public class ConfigManager implements IConfigManager, Serializable {
     }
 
     public List<String> getNodeNames() {
-        return Collections.unmodifiableList(new ArrayList<>(nodeSpecificMap.keySet()));
+        List<String> nodeNames = new ArrayList<>(nodeSpecificMap.keySet());
+        Collections.sort(nodeNames);
+        return Collections.unmodifiableList(nodeNames);
     }
 
     public IApplicationConfig getNodeEffectiveConfig(String nodeId) {

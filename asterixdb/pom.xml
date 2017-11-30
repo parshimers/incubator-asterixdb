@@ -123,6 +123,37 @@
         </executions>
       </plugin>
       <plugin>
+        <groupId>org.apache.rat</groupId>
+        <artifactId>apache-rat-plugin</artifactId>
+        <executions>
+          <execution>
+            <phase>validate</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <addDefaultLicenseMatchers>false</addDefaultLicenseMatchers>
+          <consoleOutput>true</consoleOutput>
+          <licenses>
+            <license implementation="org.apache.rat.analysis.license.ApacheSoftwareLicense20"/>
+          </licenses>
+          <licenseFamilies>
+            <licenseFamily implementation="org.apache.rat.license.Apache20LicenseFamily"/>
+          </licenseFamilies>
+          <excludeSubProjects>true</excludeSubProjects>
+          <excludes combine.children="append">
+            <exclude>src/main/licenses/**</exclude>
+            <exclude>**/*.iml</exclude>
+            <exclude>**/*.json</exclude>
+            <exclude>**/*.adm</exclude>
+            <exclude>**/*.template</exclude>
+            <exclude>asterix-installer/**</exclude> <!-- in case -DskipInstaller -->
+          </excludes>
+        </configuration>
+      </plugin>
+      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
