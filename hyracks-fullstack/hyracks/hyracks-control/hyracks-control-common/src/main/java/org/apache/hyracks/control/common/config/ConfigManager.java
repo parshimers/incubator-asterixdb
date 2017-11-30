@@ -73,7 +73,7 @@ public class ConfigManager implements IConfigManager, Serializable {
             new NoOpMapMutator());
     private EnumMap<Section, Map<String, IOption>> sectionMap = new EnumMap<>(Section.class);
     @SuppressWarnings("squid:S1948") // TreeMap is serializable, and therefore so is its synchronized map
-    private Map<String, Map<IOption, Object>> nodeSpecificMap = Collections.synchronizedMap(new LinkedHashMap<>());
+    private Map<String, Map<IOption, Object>> nodeSpecificMap = Collections.synchronizedMap(new TreeMap<>());
     private transient ArrayListValuedHashMap<IOption, IConfigSetter> optionSetters = new ArrayListValuedHashMap<>();
     private final String[] args;
     private ConfigManagerApplicationConfig appConfig = new ConfigManagerApplicationConfig(this);
@@ -436,9 +436,7 @@ public class ConfigManager implements IConfigManager, Serializable {
     }
 
     public List<String> getNodeNames() {
-        List<String> nodeNames = new ArrayList<>(nodeSpecificMap.keySet());
-        Collections.sort(nodeNames);
-        return Collections.unmodifiableList(nodeNames);
+        return Collections.unmodifiableList(new ArrayList<>(nodeSpecificMap.keySet()));
     }
 
     public IApplicationConfig getNodeEffectiveConfig(String nodeId) {
