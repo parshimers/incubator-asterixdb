@@ -40,10 +40,10 @@ import org.apache.asterix.common.transactions.Checkpoint;
 import org.apache.asterix.common.transactions.IRecoveryManager;
 import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
 import org.apache.asterix.common.utils.PrintUtil;
+import org.apache.asterix.common.utils.StorageConstants;
 import org.apache.asterix.common.utils.StoragePathUtil;
 import org.apache.asterix.messaging.MessagingChannelInterfaceFactory;
 import org.apache.asterix.messaging.NCMessageBroker;
-import org.apache.asterix.transaction.management.resource.PersistentLocalResourceRepository;
 import org.apache.asterix.utils.CompatibilityUtil;
 import org.apache.hyracks.api.application.INCServiceContext;
 import org.apache.hyracks.api.application.IServiceContext;
@@ -117,22 +117,13 @@ public class NCApplication extends BaseNCApplication {
         if (latestCheckpoint != null) {
             CompatibilityUtil.ensureCompatibility(controllerService, latestCheckpoint.getStorageVersion());
         }
-        IRecoveryManager recoveryMgr = runtimeContext.getTransactionSubsystem().getRecoveryManager();
-        final SystemState stateOnStartup = recoveryMgr.getSystemState();
-        if (stateOnStartup == SystemState.PERMANENT_DATA_LOSS) {
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info("System state: " + SystemState.PERMANENT_DATA_LOSS);
-                LOGGER.info("Node ID: " + nodeId);
-                LOGGER.info("Stores: " + PrintUtil.toString(metadataProperties.getStores()));
-                LOGGER.info("Root Metadata Store: " + metadataProperties.getStores().get(nodeId)[0]);
-            }
-            PersistentLocalResourceRepository localResourceRepository =
-                    (PersistentLocalResourceRepository) runtimeContext.getLocalResourceRepository();
-            localResourceRepository.initializeNewUniverse(runtimeContext.getNodeProperties().getStorageSubdir());
+        if (LOGGER.isLoggable(Level.INFO)) {
+            IRecoveryManager recoveryMgr = runtimeContext.getTransactionSubsystem().getRecoveryManager();
+            LOGGER.info("System state: " + recoveryMgr.getSystemState());
+            LOGGER.info("Node ID: " + nodeId);
+            LOGGER.info("Stores: " + PrintUtil.toString(metadataProperties.getStores()));
         }
-
         webManager = new WebManager();
-
         performLocalCleanUp();
     }
 

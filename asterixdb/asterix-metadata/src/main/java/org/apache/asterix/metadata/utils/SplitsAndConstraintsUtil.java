@@ -41,15 +41,13 @@ public class SplitsAndConstraintsUtil {
     private SplitsAndConstraintsUtil() {
     }
 
-    private static FileSplit[] getDataverseSplits(IClusterStateManager clusterStateManager, String storagePath, String dataverseName) {
-        File relPathFile = new File(dataverseName);
+    private static FileSplit[] getDataverseSplits(IClusterStateManager clusterStateManager, String dataverseName) {
         List<FileSplit> splits = new ArrayList<>();
         // get all partitions
         ClusterPartition[] clusterPartition = clusterStateManager.getClusterPartitons();
         for (int j = 0; j < clusterPartition.length; j++) {
-            File f = new File(
-                    StoragePathUtil.prepareStoragePartitionPath(storagePath, clusterPartition[j].getPartitionId())
-                            + File.separator + relPathFile);
+            File f = new File(StoragePathUtil.prepareStoragePartitionPath(clusterPartition[j].getPartitionId()),
+                    dataverseName);
             splits.add(StoragePathUtil.getFileSplitForClusterPartition(clusterPartition[j], f.getPath()));
         }
         return splits.toArray(new FileSplit[] {});
@@ -69,9 +67,10 @@ public class SplitsAndConstraintsUtil {
         }
     }
 
-    public static FileSplit[] getIndexSplits(IClusterStateManager clusterStateManager, Dataset dataset, String indexName, String storagePathPrefix, List<String> nodes) {
-        File relPathFile = new File(StoragePathUtil.prepareDataverseIndexName(dataset.getDataverseName(),
-                dataset.getDatasetName(), indexName, dataset.getRebalanceCount()));
+    public static FileSplit[] getIndexSplits(IClusterStateManager clusterStateManager, Dataset dataset,
+            String indexName, List<String> nodes) {
+        final String relPath = StoragePathUtil.prepareDataverseIndexName(dataset.getDataverseName(),
+                dataset.getDatasetName(), indexName, dataset.getRebalanceCount());
         List<FileSplit> splits = new ArrayList<>();
         for (String nd : nodes) {
             int numPartitions = clusterStateManager.getNodePartitionsCount(nd);
@@ -82,9 +81,8 @@ public class SplitsAndConstraintsUtil {
             }
 
             for (int k = 0; k < numPartitions; k++) {
-                // format: 'storage dir name'/partition_#/dataverse/dataset_idx_index
-                File f = new File(StoragePathUtil.prepareStoragePartitionPath(storagePathPrefix,
-                        nodePartitions[k].getPartitionId()) + File.separator + relPathFile);
+                File f = new File(StoragePathUtil.prepareStoragePartitionPath(nodePartitions[k].getPartitionId()),
+                        relPath);
                 splits.add(StoragePathUtil.getFileSplitForClusterPartition(nodePartitions[k], f.getPath()));
             }
         }
@@ -95,10 +93,5 @@ public class SplitsAndConstraintsUtil {
             IClusterStateManager clusterStateManager, String storagePath, String dataverse) {
         FileSplit[] splits = getDataverseSplits(clusterStateManager, storagePath, dataverse);
         return StoragePathUtil.splitProviderAndPartitionConstraints(splits);
-    }
-
-    public static String getIndexPath(String partitionPath, int partition, String dataverse, String fullIndexName, String storagePathPrefix) {
-        return partitionPath + StoragePathUtil.prepareStoragePartitionPath(storagePathPrefix, partition) + File.separator
-                + StoragePathUtil.prepareDataverseIndexName(dataverse, fullIndexName);
     }
 }

@@ -32,8 +32,8 @@ import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.common.config.GlobalConfig;
 import org.apache.asterix.common.config.MetadataProperties;
 import org.apache.asterix.common.context.AsterixVirtualBufferCacheProvider;
-import org.apache.asterix.common.context.DatasetLSMComponentIdGeneratorFactory;
 import org.apache.asterix.common.context.CorrelatedPrefixMergePolicyFactory;
+import org.apache.asterix.common.context.DatasetLSMComponentIdGeneratorFactory;
 import org.apache.asterix.common.context.IStorageComponentProvider;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.exceptions.MetadataException;
@@ -313,8 +313,7 @@ public class MetadataBootstrap {
         }
         ClusterPartition metadataPartition = appContext.getMetadataProperties().getMetadataPartition();
         int metadataDeviceId = metadataPartition.getIODeviceNum();
-        String metadataPartitionPath = StoragePathUtil.prepareStoragePartitionPath(
-                appContext.getNodeProperties().getStorageSubdir(), metadataPartition.getPartitionId());
+        String metadataPartitionPath = StoragePathUtil.prepareStoragePartitionPath(metadataPartition.getPartitionId());
         String resourceName = metadataPartitionPath + File.separator + index.getFileNameRelativePath();
         FileReference file = ioManager.getFileReference(metadataDeviceId, resourceName);
         index.setFile(file);
