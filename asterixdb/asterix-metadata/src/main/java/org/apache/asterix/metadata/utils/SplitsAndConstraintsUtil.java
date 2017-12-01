@@ -61,7 +61,7 @@ public class SplitsAndConstraintsUtil {
                 throw new AlgebricksException("Couldn't find node group " + dataset.getNodeGroupName());
             }
             List<String> nodeList = nodeGroup.getNodeNames();
-            return getIndexSplits(csm, dataset, indexName, storagePathPrefix, nodeList);
+            return getIndexSplits(csm, dataset, indexName, nodeList);
         } catch (MetadataException me) {
             throw new AlgebricksException("Couldn't find node group " + dataset.getNodeGroupName());
         }
@@ -90,8 +90,8 @@ public class SplitsAndConstraintsUtil {
     }
 
     public static Pair<IFileSplitProvider, AlgebricksPartitionConstraint> getDataverseSplitProviderAndConstraints(
-            IClusterStateManager clusterStateManager, String storagePath, String dataverse) {
-        FileSplit[] splits = getDataverseSplits(clusterStateManager, storagePath, dataverse);
+            IClusterStateManager clusterStateManager, String dataverse) {
+        FileSplit[] splits = getDataverseSplits(clusterStateManager, dataverse);
         return StoragePathUtil.splitProviderAndPartitionConstraints(splits);
     }
 }
