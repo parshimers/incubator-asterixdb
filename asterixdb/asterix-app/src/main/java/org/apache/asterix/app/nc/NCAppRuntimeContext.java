@@ -162,7 +162,7 @@ public class NCAppRuntimeContext implements INcApplicationContext {
         if (extensions != null) {
             allExtensions.addAll(extensions);
         }
-        allExtensions.addAll(new ExtensionProperties(propertiesAccessor).getExtensions());
+        allExtensions.addAll(propertiesAccessor.getExtensions());
         ncExtensionManager = new NCExtensionManager(allExtensions);
         componentProvider = new StorageComponentProvider();
         resourceIdFactory = new GlobalResourceIdFactoryProvider(ncServiceContext).createResourceIdFactory();

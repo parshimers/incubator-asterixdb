@@ -308,7 +308,7 @@ public class ConfigManager implements IConfigManager, Serializable {
                     .parseSectionName(section.getParent() == null ? section.getName() : section.getParent().getName());
             String node;
             if (rootSection == Section.EXTENSION) {
-                parseExtensionIniSection(section);
+                parseExtensionIniSection(rootSection);
                 continue;
             } else if (rootSection == Section.NC) {
                 node = section.getName().equals(section.getSimpleName()) ? null : section.getSimpleName();
@@ -333,7 +333,7 @@ public class ConfigManager implements IConfigManager, Serializable {
         }
     }
 
-    private void parseExtensionIniSection(Profile.Section section) {
+    private void parseExtensionIniSection(Section section) {
         // TODO(mblow): parse extensions
     }
 

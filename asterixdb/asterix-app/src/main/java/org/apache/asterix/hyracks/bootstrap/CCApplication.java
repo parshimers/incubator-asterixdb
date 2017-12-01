@@ -147,7 +147,7 @@ public class CCApplication extends BaseCCApplication {
         appCtx = new CcApplicationContext(ccServiceCtx, getHcc(), libraryManager, () -> MetadataManager.INSTANCE,
                 globalRecoveryManager, ftStrategy, new ActiveNotificationHandler(), componentProvider,
                 new MetadataLockManager());
-        ccExtensionManager = new CCExtensionManager(getExtensions());
+        ccExtensionManager = new CCExtensionManager(PropertiesAccessor.getInstance(ccServiceCtx.getAppConfig()).getExtensions());
         appCtx.setExtensionManager(ccExtensionManager);
         final CCConfig ccConfig = controllerService.getCCConfig();
         if (System.getProperty("java.rmi.server.hostname") == null) {
