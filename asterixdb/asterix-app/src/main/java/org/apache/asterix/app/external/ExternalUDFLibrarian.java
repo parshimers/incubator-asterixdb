@@ -47,6 +47,38 @@ public class ExternalUDFLibrarian implements IExternalUDFLibrarian {
         this.libraryManagers = libraryManagers;
     }
 
+    public static void removeLibraryDir() throws IOException {
+        File installLibDir = ExternalLibraryUtils.getLibraryInstallDir();
+        FileUtils.deleteQuietly(installLibDir);
+    }
+
+    public static void unzip(String sourceFile, String outputDir) throws IOException {
+        if (System.getProperty("os.name").toLowerCase().startsWith("win")) {
+            try (ZipFile zipFile = new ZipFile(sourceFile)) {
+                Enumeration<? extends ZipEntry> entries = zipFile.entries();
+                while (entries.hasMoreElements()) {
+                    ZipEntry entry = entries.nextElement();
+                    File entryDestination = new File(outputDir, entry.getName());
+                    if (!entry.isDirectory()) {
+                        entryDestination.getParentFile().mkdirs();
+                        try (InputStream in = zipFile.getInputStream(entry);
+                             OutputStream out = new FileOutputStream(entryDestination)) {
+                            IOUtils.copy(in, out);
+                        }
+                    }
+                }
+            }
+        } else {
+            Process process = new ProcessBuilder("unzip", "-d", outputDir, sourceFile).start();
+            try {
+                process.waitFor();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException(e);
+            }
+        }
+    }
+
     @Override
     public void install(String dvName, String libName, String libPath) throws Exception {
         // get the directory of the to be installed libraries
@@ -84,11 +116,6 @@ public class ExternalUDFLibrarian implements IExternalUDFLibrarian {
         }
     }
 
-    public static void removeLibraryDir() throws IOException {
-        File installLibDir = ExternalLibraryUtils.getLibraryInstallDir();
-        FileUtils.deleteQuietly(installLibDir);
-    }
-
     public void cleanup() throws AsterixException, RemoteException, ACIDException {
         for (ILibraryManager libraryManager : libraryManagers) {
             List<Pair<String, String>> libs = libraryManager.getAllLibraries();
@@ -100,32 +127,5 @@ public class ExternalUDFLibrarian implements IExternalUDFLibrarian {
         // get the directory of the to be installed libraries
         File installLibDir = ExternalLibraryUtils.getLibraryInstallDir();
         FileUtils.deleteQuietly(installLibDir);
-    }
-
-    public static void unzip(String sourceFile, String outputDir) throws IOException {
-        if (System.getProperty("os.name").toLowerCase().startsWith("win")) {
-            try (ZipFile zipFile = new ZipFile(sourceFile)) {
-                Enumeration<? extends ZipEntry> entries = zipFile.entries();
-                while (entries.hasMoreElements()) {
-                    ZipEntry entry = entries.nextElement();
-                    File entryDestination = new File(outputDir, entry.getName());
-                    if (!entry.isDirectory()) {
-                        entryDestination.getParentFile().mkdirs();
-                        try (InputStream in = zipFile.getInputStream(entry);
-                             OutputStream out = new FileOutputStream(entryDestination)) {
-                            IOUtils.copy(in, out);
-                        }
-                    }
-                }
-            }
-        } else {
-            Process process = new ProcessBuilder("unzip", "-d", outputDir, sourceFile).start();
-            try {
-                process.waitFor();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IOException(e);
-            }
-        }
     }
 }

@@ -55,28 +55,43 @@ import org.apache.hyracks.control.nc.NodeControllerService;
 import org.kohsuke.args4j.CmdLineException;
 
 public class AsterixHyracksIntegrationUtil {
-    static class LoggerHolder {
-        static final Logger LOGGER = Logger.getLogger(AsterixHyracksIntegrationUtil.class.getName());
-
-        private LoggerHolder() {
-        }
-    }
-
     public static final int DEFAULT_HYRACKS_CC_CLIENT_PORT = 1098;
     public static final int DEFAULT_HYRACKS_CC_CLUSTER_PORT = 1099;
-
+    public static final String DEFAULT_CONF_FILE = (joinPath("asterixdb", "asterix-app", "src", "test", "resources", "cc.conf"));
+    private static final String DEFAULT_STORAGE_PATH = joinPath("target", "io", "dir");
+    private static String storagePath = DEFAULT_STORAGE_PATH;
     public ClusterControllerService cc;
     public NodeControllerService[] ncs = new NodeControllerService[2];
     public IHyracksClientConnection hcc;
     protected boolean gracefulShutdown = true;
-
-    private static final String DEFAULT_STORAGE_PATH = joinPath("target", "io", "dir");
-    public static final String DEFAULT_CONF_FILE = (joinPath("asterixdb", "asterix-app", "src", "test", "resources", "cc.conf"));
-    private static String storagePath = DEFAULT_STORAGE_PATH;
+    List<Pair<IOption, Object>> opts = new ArrayList<>();
     private ConfigManager configManager;
     private List<String> nodeNames;
-    List<Pair<IOption, Object>> opts = new ArrayList<>();
 
+    public static void setStoragePath(String path) {
+        storagePath = path;
+    }
+
+    public static void restoreDefaultStoragePath() {
+        storagePath = DEFAULT_STORAGE_PATH;
+    }
+
+    /**
+     * main method to run a simple 2 node cluster in-process
+     * suggested VM arguments: <code>-enableassertions -Xmx2048m -Dfile.encoding=UTF-8</code>
+     *
+     * @param args unused
+     */
+    public static void main(String[] args) throws Exception {
+        AsterixHyracksIntegrationUtil integrationUtil = new AsterixHyracksIntegrationUtil();
+        try {
+            integrationUtil.run(Boolean.getBoolean("cleanup.start"), Boolean.getBoolean("cleanup.shutdown"),
+                    System.getProperty("external.lib", ""), System.getProperty("conf.path", DEFAULT_CONF_FILE));
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Unexpected exception", e);
+            System.exit(1);
+        }
+    }
 
     public void init(boolean deleteOldInstanceData, String confFile) throws Exception {
         final ICCApplication ccApplication = createCCApplication();
@@ -253,16 +268,8 @@ public class AsterixHyracksIntegrationUtil {
         }
     }
 
-    public static void setStoragePath(String path) {
-        storagePath = path;
-    }
-
     public void setGracefulShutdown(boolean gracefulShutdown) {
         this.gracefulShutdown = gracefulShutdown;
-    }
-
-    public static void restoreDefaultStoragePath() {
-        storagePath = DEFAULT_STORAGE_PATH;
     }
 
     protected String getDefaultStoragePath() {
@@ -287,24 +294,6 @@ public class AsterixHyracksIntegrationUtil {
         }
     }
 
-    /**
-     * main method to run a simple 2 node cluster in-process
-     * suggested VM arguments: <code>-enableassertions -Xmx2048m -Dfile.encoding=UTF-8</code>
-     *
-     * @param args
-     *            unused
-     */
-    public static void main(String[] args) throws Exception {
-        AsterixHyracksIntegrationUtil integrationUtil = new AsterixHyracksIntegrationUtil();
-        try {
-            integrationUtil.run(Boolean.getBoolean("cleanup.start"), Boolean.getBoolean("cleanup.shutdown"),
-                    System.getProperty("external.lib", ""), System.getProperty("conf.path", DEFAULT_CONF_FILE));
-        } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Unexpected exception", e);
-            System.exit(1);
-        }
-    }
-
     protected void run(boolean cleanupOnStart, boolean cleanupOnShutdown, String loadExternalLibs, String confFile) throws Exception {
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
@@ -323,15 +312,22 @@ public class AsterixHyracksIntegrationUtil {
         }
     }
 
+    public void addOption(IOption name, Object value) {
+        opts.add(Pair.of(name, value));
+    }
+
+    static class LoggerHolder {
+        static final Logger LOGGER = Logger.getLogger(AsterixHyracksIntegrationUtil.class.getName());
+
+        private LoggerHolder() {
+        }
+    }
+
     private class UngracefulShutdownNCApplication extends NCApplication {
         @Override
         public void stop() throws Exception {
             // ungraceful shutdown
         }
-    }
-
-    public void addOption(IOption name, Object value) {
-        opts.add(Pair.of(name, value));
     }
 
 }
