@@ -221,14 +221,13 @@ public class NCAppRuntimeContext implements INcApplicationContext {
                 this.ncServiceContext);
 
         if (replicationProperties.isReplicationEnabled()) {
-=======
 
             replicaResourcesManager = new ReplicaResourcesManager(localResourceRepository, metadataProperties, nodeProperties);
 
             replicationManager = new ReplicationManager(nodeId, replicationProperties, nodeProperties, replicaResourcesManager,
                     txnSubsystem.getLogManager(), asterixAppRuntimeContextProvider, ncServiceContext);
 
-        if (replicationProperties.isParticipant(getServiceContext().getNodeId())) {
+        if (replicationManager.getReplicationStrategy().isParticipant(getServiceContext().getNodeId())) {
 
             //pass replication manager to replication required object
             //LogManager to replicate logs
