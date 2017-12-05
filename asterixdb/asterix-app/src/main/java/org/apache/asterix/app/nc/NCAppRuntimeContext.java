@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -61,6 +62,7 @@ import org.apache.asterix.common.replication.IReplicaResourcesManager;
 import org.apache.asterix.common.replication.IReplicationChannel;
 import org.apache.asterix.common.replication.IReplicationManager;
 import org.apache.asterix.common.replication.Replica;
+import org.apache.asterix.common.storage.IStorageSubsystem;
 import org.apache.asterix.common.transactions.IAppRuntimeContextProvider;
 import org.apache.asterix.common.transactions.IRecoveryManager;
 import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
@@ -141,6 +143,7 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     private final NCExtensionManager ncExtensionManager;
     private final IStorageComponentProvider componentProvider;
     private IHyracksClientConnection hcc;
+    private IStorageSubsystem storageSubsystem;
 
     public NCAppRuntimeContext(INCServiceContext ncServiceContext, List<AsterixExtension> extensions)
             throws AsterixException, InstantiationException, IllegalAccessException, ClassNotFoundException,
@@ -207,20 +210,25 @@ public class NCAppRuntimeContext implements INcApplicationContext {
         datasetLifecycleManager =
                 new DatasetLifecycleManager(storageProperties, localResourceRepository, txnSubsystem.getLogManager(),
                         datasetMemoryManager, ioManager.getIODevices().size());
-
+        final String nodeId = getServiceContext().getNodeId();
+        final ClusterPartition[] nodePartitions = metadataProperties.getNodePartitions().get(nodeId);
+        final Set<Integer> nodePartitionsIds = Arrays.stream(nodePartitions).map(ClusterPartition::getPartitionId)
+                .collect(Collectors.toSet());
+        storageSubsystem = new StorageSubsystem(nodePartitionsIds);
         isShuttingdown = false;
-
         activeManager = new ActiveManager(threadExecutor, getServiceContext().getNodeId(),
                 activeProperties.getMemoryComponentGlobalBudget(), compilerProperties.getFrameSize(),
                 this.ncServiceContext);
 
         if (replicationProperties.isReplicationEnabled()) {
-            String nodeId = getServiceContext().getNodeId();
+=======
 
             replicaResourcesManager = new ReplicaResourcesManager(localResourceRepository, metadataProperties, nodeProperties);
 
             replicationManager = new ReplicationManager(nodeId, replicationProperties, nodeProperties, replicaResourcesManager,
                     txnSubsystem.getLogManager(), asterixAppRuntimeContextProvider, ncServiceContext);
+
+        if (replicationProperties.isParticipant(getServiceContext().getNodeId())) {
 
             //pass replication manager to replication required object
             //LogManager to replicate logs
@@ -251,6 +259,7 @@ public class NCAppRuntimeContext implements INcApplicationContext {
             bufferCache = new BufferCache(ioManager, prs, pcp, new FileMapManager(),
                     storageProperties.getBufferCacheMaxOpenFiles(), getServiceContext().getThreadFactory(),
                     replicationManager);
+            }
         } else {
             bufferCache = new BufferCache(ioManager, prs, pcp, new FileMapManager(),
                     storageProperties.getBufferCacheMaxOpenFiles(), getServiceContext().getThreadFactory());
@@ -520,5 +529,10 @@ public class NCAppRuntimeContext implements INcApplicationContext {
             }
         }
         return hcc;
+    }
+
+    @Override
+    public IStorageSubsystem getStorageSubsystem() {
+        return storageSubsystem;
     }
 }

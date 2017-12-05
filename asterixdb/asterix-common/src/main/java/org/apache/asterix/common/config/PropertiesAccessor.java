@@ -41,6 +41,7 @@ import java.util.logging.Logger;
 import org.apache.asterix.common.cluster.ClusterPartition;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
+import org.apache.asterix.common.utils.ConfigUtil;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.config.IApplicationConfig;
@@ -79,6 +80,7 @@ public class PropertiesAccessor implements IApplicationConfig {
         for (String ncName : cfg.getNCNames()) {
             configureNc(configManager, ncName, uniquePartitionId);
         }
+<<<<<<< HEAD
         for (String section : cfg.getSectionNames()) {
             if (section.startsWith(AsterixProperties.SECTION_PREFIX_EXTENSION)) {
                 String className = AsterixProperties.getSectionId(AsterixProperties.SECTION_PREFIX_EXTENSION,

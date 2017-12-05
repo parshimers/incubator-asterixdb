@@ -327,6 +327,7 @@ public class AsterixHyracksIntegrationUtil {
         @Override
         public void stop() throws Exception {
             // ungraceful shutdown
+            webManager.stop();
         }
     }
 
