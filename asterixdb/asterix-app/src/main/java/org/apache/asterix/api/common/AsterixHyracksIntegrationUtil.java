@@ -95,7 +95,11 @@ public class AsterixHyracksIntegrationUtil {
 
     public void init(boolean deleteOldInstanceData, String confFile) throws Exception {
         final ICCApplication ccApplication = createCCApplication();
-        configManager = new ConfigManager(new String[]{"-config-file", confFile});
+        if(confFile == null){
+            configManager = new ConfigManager();
+        } else {
+            configManager = new ConfigManager(new String[]{"-config-file", confFile});
+        }
         ccApplication.registerConfig(configManager);
         final CCConfig ccConfig = createCCConfig(configManager);
         cc = new ClusterControllerService(ccConfig, ccApplication);
@@ -110,7 +114,12 @@ public class AsterixHyracksIntegrationUtil {
             // mark this NC as virtual in the CC's config manager, so he doesn't try to contact NCService...
             configManager.set(nodeId, NCConfig.Option.NCSERVICE_PORT, NCConfig.NCSERVICE_PORT_DISABLED);
             final INCApplication ncApplication = createNCApplication();
-            ConfigManager ncConfigManager = new ConfigManager(new String[]{"-config-file", confFile});
+            ConfigManager ncConfigManager;
+            if(confFile == null){
+                ncConfigManager = new ConfigManager();
+            } else {
+                ncConfigManager = new ConfigManager(new String[]{"-config-file", confFile});
+            }
             ncApplication.registerConfig(ncConfigManager);
             nodeControllers.add(
                     new NodeControllerService(fixupIODevices(createNCConfig(nodeId, ncConfigManager)), ncApplication));
@@ -307,6 +316,24 @@ public class AsterixHyracksIntegrationUtil {
         });
 
         init(cleanupOnStart, loadExternalLibs, confFile);
+        while (true) {
+            Thread.sleep(10000);
+        }
+    }
+
+    protected void run(boolean cleanupOnStart, boolean cleanupOnShutdown, String loadExternalLibs) throws Exception {
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            @Override
+            public void run() {
+                try {
+                    deinit(cleanupOnShutdown);
+                } catch (Exception e) {
+                    LOGGER.log(Level.WARNING, "Unexpected exception on shutdown", e);
+                }
+            }
+        });
+
+        init(cleanupOnStart, loadExternalLibs);
         while (true) {
             Thread.sleep(10000);
         }

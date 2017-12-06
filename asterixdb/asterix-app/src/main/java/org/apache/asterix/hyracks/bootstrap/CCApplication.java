@@ -25,9 +25,9 @@ import static org.apache.asterix.api.http.server.ServletConstants.ASTERIX_APP_CO
 import static org.apache.asterix.api.http.server.ServletConstants.HYRACKS_CONNECTION_ATTR;
 import static org.apache.asterix.common.api.IClusterManagementWork.ClusterState.SHUTTING_DOWN;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Properties;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -79,7 +79,6 @@ import org.apache.asterix.metadata.api.IAsterixStateProxy;
 import org.apache.asterix.metadata.bootstrap.AsterixStateProxy;
 import org.apache.asterix.metadata.lock.MetadataLockManager;
 import org.apache.asterix.runtime.job.resource.JobCapacityController;
-import org.apache.asterix.runtime.transaction.ResourceIdManager;
 import org.apache.asterix.runtime.utils.CcApplicationContext;
 import org.apache.asterix.translator.IStatementExecutorContext;
 import org.apache.asterix.translator.IStatementExecutorFactory;
@@ -147,7 +146,10 @@ public class CCApplication extends BaseCCApplication {
         appCtx = new CcApplicationContext(ccServiceCtx, getHcc(), libraryManager, () -> MetadataManager.INSTANCE,
                 globalRecoveryManager, ftStrategy, new ActiveNotificationHandler(), componentProvider,
                 new MetadataLockManager());
-        ccExtensionManager = new CCExtensionManager(PropertiesAccessor.getInstance(ccServiceCtx.getAppConfig()).getExtensions());
+        List<AsterixExtension> extensions = new ArrayList<>();
+        extensions.addAll(this.getExtensions());
+        extensions.addAll(PropertiesAccessor.getInstance(ccServiceCtx.getAppConfig()).getExtensions());
+        ccExtensionManager = new CCExtensionManager(extensions);
         appCtx.setExtensionManager(ccExtensionManager);
         final CCConfig ccConfig = controllerService.getCCConfig();
         if (System.getProperty("java.rmi.server.hostname") == null) {
