@@ -113,8 +113,9 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
     private final NCConfig ncConfig;
 
     public ReplicationChannel(String nodeId, ReplicationProperties replicationProperties, ILogManager logManager,
-                              IReplicaResourcesManager replicaResoucesManager, IReplicationManager replicationManager,
-                              INCServiceContext ncServiceContext, IAppRuntimeContextProvider asterixAppRuntimeContextProvider, IReplicationStrategy replicationStrategy) {
+            IReplicaResourcesManager replicaResoucesManager, IReplicationManager replicationManager,
+            INCServiceContext ncServiceContext, IAppRuntimeContextProvider asterixAppRuntimeContextProvider,
+            IReplicationStrategy replicationStrategy) {
         this.logManager = logManager;
         this.localNodeID = nodeId;
         this.replicaResourcesManager = (ReplicaResourcesManager) replicaResoucesManager;
@@ -135,7 +136,8 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
         replicationThreads = Executors.newCachedThreadPool(ncServiceContext.getThreadFactory());
         Map<String, ClusterPartition[]> nodePartitions =
                 asterixAppRuntimeContextProvider.getAppContext().getMetadataProperties().getNodePartitions();
-        Set<String> nodeReplicationClients = replicationStrategy.getRemotePrimaryReplicas(nodeId).stream().map(Replica::getId).collect(Collectors.toSet());
+        Set<String> nodeReplicationClients = replicationStrategy.getRemotePrimaryReplicas(nodeId).stream()
+                .map(Replica::getId).collect(Collectors.toSet());
         List<Integer> clientsPartitions = new ArrayList<>();
         for (String clientId : nodeReplicationClients) {
             for (ClusterPartition clusterPartition : nodePartitions.get(clientId)) {

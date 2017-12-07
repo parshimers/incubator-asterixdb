@@ -41,7 +41,6 @@ import java.util.logging.Logger;
 import org.apache.asterix.common.cluster.ClusterPartition;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
-import org.apache.asterix.common.utils.ConfigUtil;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.config.IApplicationConfig;
@@ -82,8 +81,7 @@ public class PropertiesAccessor implements IApplicationConfig {
         }
         for (String section : cfg.getSectionNames()) {
             if (section.startsWith(AsterixProperties.SECTION_PREFIX_EXTENSION)) {
-                String className = AsterixProperties.getSectionId(AsterixProperties.SECTION_PREFIX_EXTENSION,
-                        section);
+                String className = AsterixProperties.getSectionId(AsterixProperties.SECTION_PREFIX_EXTENSION, section);
                 configureExtension(className, section);
             }
         }
@@ -126,7 +124,8 @@ public class PropertiesAccessor implements IApplicationConfig {
             // Construct final storage path from iodevice dir + storage subdirs
             nodeStores[i] = iodevices[i] + File.separator + storageSubdir;
             // Create ClusterPartition instances for this NC.
-            ClusterPartition partition = new ClusterPartition(uniquePartitionId.getAndIncrement(), ncId, i, storageSubdir);
+            ClusterPartition partition =
+                    new ClusterPartition(uniquePartitionId.getAndIncrement(), ncId, i, storageSubdir);
             ClusterPartition orig = clusterPartitions.put(partition.getPartitionId(), partition);
             if (orig != null) {
                 throw AsterixException.create(ErrorCode.DUPLICATE_PARTITION_ID, partition.getPartitionId(), ncId,

@@ -57,7 +57,8 @@ import org.kohsuke.args4j.CmdLineException;
 public class AsterixHyracksIntegrationUtil {
     public static final int DEFAULT_HYRACKS_CC_CLIENT_PORT = 1098;
     public static final int DEFAULT_HYRACKS_CC_CLUSTER_PORT = 1099;
-    public static final String DEFAULT_CONF_FILE = (joinPath("asterixdb", "asterix-app", "src", "test", "resources", "cc.conf"));
+    public static final String DEFAULT_CONF_FILE =
+            (joinPath("asterixdb", "asterix-app", "src", "test", "resources", "cc.conf"));
     private static final String DEFAULT_STORAGE_PATH = joinPath("target", "io", "dir");
     private static String storagePath = DEFAULT_STORAGE_PATH;
     public ClusterControllerService cc;
@@ -80,7 +81,8 @@ public class AsterixHyracksIntegrationUtil {
      * main method to run a simple 2 node cluster in-process
      * suggested VM arguments: <code>-enableassertions -Xmx2048m -Dfile.encoding=UTF-8</code>
      *
-     * @param args unused
+     * @param args
+     *            unused
      */
     public static void main(String[] args) throws Exception {
         AsterixHyracksIntegrationUtil integrationUtil = new AsterixHyracksIntegrationUtil();
@@ -95,10 +97,10 @@ public class AsterixHyracksIntegrationUtil {
 
     public void init(boolean deleteOldInstanceData, String confFile) throws Exception {
         final ICCApplication ccApplication = createCCApplication();
-        if(confFile == null){
+        if (confFile == null) {
             configManager = new ConfigManager();
         } else {
-            configManager = new ConfigManager(new String[]{"-config-file", confFile});
+            configManager = new ConfigManager(new String[] { "-config-file", confFile });
         }
         ccApplication.registerConfig(configManager);
         final CCConfig ccConfig = createCCConfig(configManager);
@@ -115,16 +117,15 @@ public class AsterixHyracksIntegrationUtil {
             configManager.set(nodeId, NCConfig.Option.NCSERVICE_PORT, NCConfig.NCSERVICE_PORT_DISABLED);
             final INCApplication ncApplication = createNCApplication();
             ConfigManager ncConfigManager;
-            if(confFile == null){
+            if (confFile == null) {
                 ncConfigManager = new ConfigManager();
             } else {
-                ncConfigManager = new ConfigManager(new String[]{"-config-file", confFile});
+                ncConfigManager = new ConfigManager(new String[] { "-config-file", confFile });
             }
             ncApplication.registerConfig(ncConfigManager);
             nodeControllers.add(
                     new NodeControllerService(fixupIODevices(createNCConfig(nodeId, ncConfigManager)), ncApplication));
-        }
-        ;
+        } ;
 
         opts.stream().forEach(opt -> configManager.set(opt.getLeft(), opt.getRight()));
         cc.start();
@@ -303,7 +304,8 @@ public class AsterixHyracksIntegrationUtil {
         }
     }
 
-    protected void run(boolean cleanupOnStart, boolean cleanupOnShutdown, String loadExternalLibs, String confFile) throws Exception {
+    protected void run(boolean cleanupOnStart, boolean cleanupOnShutdown, String loadExternalLibs, String confFile)
+            throws Exception {
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {

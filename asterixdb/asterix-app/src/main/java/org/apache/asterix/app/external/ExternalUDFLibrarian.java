@@ -52,6 +52,7 @@ public class ExternalUDFLibrarian implements IExternalUDFLibrarian {
         FileUtils.deleteQuietly(installLibDir);
     }
 
+    @SuppressWarnings("squid:AS134")
     public static void unzip(String sourceFile, String outputDir) throws IOException {
         if (System.getProperty("os.name").toLowerCase().startsWith("win")) {
             try (ZipFile zipFile = new ZipFile(sourceFile)) {
@@ -62,7 +63,7 @@ public class ExternalUDFLibrarian implements IExternalUDFLibrarian {
                     if (!entry.isDirectory()) {
                         entryDestination.getParentFile().mkdirs();
                         try (InputStream in = zipFile.getInputStream(entry);
-                             OutputStream out = new FileOutputStream(entryDestination)) {
+                                OutputStream out = new FileOutputStream(entryDestination)) {
                             IOUtils.copy(in, out);
                         }
                     }
@@ -88,8 +89,8 @@ public class ExternalUDFLibrarian implements IExternalUDFLibrarian {
             installLibDir.mkdir();
         }
         // copy the library file into the directory
-        File destinationDir = new File(
-                installLibDir.getAbsolutePath() + File.separator + dvName + File.separator + libName);
+        File destinationDir =
+                new File(installLibDir.getAbsolutePath() + File.separator + dvName + File.separator + libName);
         FileUtils.deleteQuietly(destinationDir);
         destinationDir.mkdirs();
         try {

@@ -58,7 +58,9 @@ public class ChainedDeclusteringReplicationStrategy implements IReplicationStrat
         //find nodes to the right of this node
         while (remoteReplicas.size() != numberOfRemoteReplicas) {
             String replica = repProp.getNodeIds().get(++nodeIndex % repProp.getNodeIds().size());
-            remoteReplicas.add(new Replica(replica, configManager.getNodeEffectiveConfig(replica).getString(NCConfig.Option.REPLICATION_LISTEN_ADDRESS), configManager.getNodeEffectiveConfig(replica).getInt(NCConfig.Option.REPLICATION_LISTEN_PORT)));
+            remoteReplicas.add(new Replica(replica,
+                    configManager.getNodeEffectiveConfig(replica).getString(NCConfig.Option.REPLICATION_LISTEN_ADDRESS),
+                    configManager.getNodeEffectiveConfig(replica).getInt(NCConfig.Option.REPLICATION_LISTEN_PORT)));
         }
 
         return remoteReplicas;
@@ -67,7 +69,9 @@ public class ChainedDeclusteringReplicationStrategy implements IReplicationStrat
     @Override
     public Set<Replica> getRemoteReplicasAndSelf(String nodeId) {
         Set<Replica> replicas = getRemoteReplicas(nodeId);
-        replicas.add(new Replica(nodeId,configManager.getNodeEffectiveConfig(nodeId).getString(NCConfig.Option.REPLICATION_LISTEN_ADDRESS),configManager.getNodeEffectiveConfig(nodeId).getInt(NCConfig.Option.REPLICATION_LISTEN_PORT)));
+        replicas.add(new Replica(nodeId,
+                configManager.getNodeEffectiveConfig(nodeId).getString(NCConfig.Option.REPLICATION_LISTEN_ADDRESS),
+                configManager.getNodeEffectiveConfig(nodeId).getInt(NCConfig.Option.REPLICATION_LISTEN_PORT)));
         return replicas;
 
     }
@@ -81,18 +85,21 @@ public class ChainedDeclusteringReplicationStrategy implements IReplicationStrat
         //find nodes to the left of this node
         while (clientReplicas.size() != remotePrimaryReplicasCount) {
             String replica = repProp.getNodeIds().get(Math.abs(--nodeIndex % repProp.getNodeIds().size()));
-            clientReplicas.add(new Replica(replica, configManager.getNodeEffectiveConfig(replica).getString(NCConfig.Option.REPLICATION_LISTEN_ADDRESS), configManager.getNodeEffectiveConfig(replica).getInt(NCConfig.Option.REPLICATION_LISTEN_PORT)));
+            clientReplicas.add(new Replica(replica,
+                    configManager.getNodeEffectiveConfig(replica).getString(NCConfig.Option.REPLICATION_LISTEN_ADDRESS),
+                    configManager.getNodeEffectiveConfig(replica).getInt(NCConfig.Option.REPLICATION_LISTEN_PORT)));
         }
 
         return clientReplicas;
     }
 
     @Override
-    public ChainedDeclusteringReplicationStrategy from(ReplicationProperties repProp, IConfigManager configManager)  throws HyracksDataException {
+    public ChainedDeclusteringReplicationStrategy from(ReplicationProperties repProp, IConfigManager configManager)
+            throws HyracksDataException {
         ChainedDeclusteringReplicationStrategy cd = new ChainedDeclusteringReplicationStrategy();
         cd.repProp = repProp;
         cd.replicationFactor = repProp.getReplicationFactor();
-        cd.configManager = (ConfigManager)configManager;
+        cd.configManager = (ConfigManager) configManager;
         return cd;
     }
 }

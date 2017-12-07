@@ -433,8 +433,11 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
         if (primaryIndex != null && (dataset.getDatasetType() != DatasetType.EXTERNAL)) {
             isSecondary = !indexName.equals(primaryIndex.getIndexName());
         }
-        Index theIndex = isSecondary ? MetadataManager.INSTANCE.getIndex(mdTxnCtx, dataset.getDataverseName(),
-                dataset.getDatasetName(), indexName) : primaryIndex;
+        Index theIndex =
+                isSecondary
+                        ? MetadataManager.INSTANCE.getIndex(mdTxnCtx, dataset.getDataverseName(),
+                                dataset.getDatasetName(), indexName)
+                        : primaryIndex;
         int numPrimaryKeys = dataset.getPrimaryKeys().size();
         RecordDescriptor outputRecDesc = JobGenHelper.mkRecordDescriptor(typeEnv, opSchema, context);
         Pair<IFileSplitProvider, AlgebricksPartitionConstraint> spPc =
@@ -444,8 +447,8 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
             primaryKeyFields[i] = i;
         }
 
-        ISearchOperationCallbackFactory searchCallbackFactory = dataset.getSearchCallbackFactory(
-                storageComponentProvider, theIndex, IndexOperation.SEARCH, primaryKeyFields);
+        ISearchOperationCallbackFactory searchCallbackFactory = dataset
+                .getSearchCallbackFactory(storageComponentProvider, theIndex, IndexOperation.SEARCH, primaryKeyFields);
         IStorageManager storageManager = getStorageComponentProvider().getStorageManager();
         IIndexDataflowHelperFactory indexHelperFactory = new IndexDataflowHelperFactory(storageManager, spPc.first);
         BTreeSearchOperatorDescriptor btreeSearchOp;
@@ -743,7 +746,8 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
 
     public FileSplit[] splitsForIndex(MetadataTransactionContext mdTxnCtx, Dataset dataset, String indexName)
             throws AlgebricksException {
-        return SplitsAndConstraintsUtil.getIndexSplits(dataset, indexName, appCtx.getNodeProperties().getStorageSubdir(), mdTxnCtx, appCtx.getClusterStateManager());
+        return SplitsAndConstraintsUtil.getIndexSplits(dataset, indexName,
+                appCtx.getNodeProperties().getStorageSubdir(), mdTxnCtx, appCtx.getClusterStateManager());
     }
 
     public DatasourceAdapter getAdapter(MetadataTransactionContext mdTxnCtx, String dataverseName, String adapterName)
@@ -787,8 +791,8 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
             // Create the out record descriptor, appContext and fileSplitProvider for the
             // files index
             RecordDescriptor outRecDesc = JobGenHelper.mkRecordDescriptor(typeEnv, opSchema, context);
-            ISearchOperationCallbackFactory searchOpCallbackFactory = dataset
-                    .getSearchCallbackFactory(storageComponentProvider, fileIndex, IndexOperation.SEARCH, null);
+            ISearchOperationCallbackFactory searchOpCallbackFactory =
+                    dataset.getSearchCallbackFactory(storageComponentProvider, fileIndex, IndexOperation.SEARCH, null);
             // Create the operator
             ExternalLookupOperatorDescriptor op = new ExternalLookupOperatorDescriptor(jobSpec, adapterFactory,
                     outRecDesc, indexDataflowHelperFactory, searchOpCallbackFactory,
@@ -957,8 +961,8 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
         for (i = 0; i < numKeys; i++) {
             primaryKeyFields[i] = i;
         }
-        IModificationOperationCallbackFactory modificationCallbackFactory = dataset.getModificationCallbackFactory(
-                storageComponentProvider, primaryIndex, indexOp, primaryKeyFields);
+        IModificationOperationCallbackFactory modificationCallbackFactory = dataset
+                .getModificationCallbackFactory(storageComponentProvider, primaryIndex, indexOp, primaryKeyFields);
         IIndexDataflowHelperFactory idfh =
                 new IndexDataflowHelperFactory(storageComponentProvider.getStorageManager(), splitsAndConstraint.first);
         IOperatorDescriptor op;

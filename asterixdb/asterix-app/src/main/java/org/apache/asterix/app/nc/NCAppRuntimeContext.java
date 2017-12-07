@@ -41,7 +41,6 @@ import org.apache.asterix.common.config.ActiveProperties;
 import org.apache.asterix.common.config.AsterixExtension;
 import org.apache.asterix.common.config.BuildProperties;
 import org.apache.asterix.common.config.CompilerProperties;
-import org.apache.asterix.common.config.ExtensionProperties;
 import org.apache.asterix.common.config.ExternalProperties;
 import org.apache.asterix.common.config.MessagingProperties;
 import org.apache.asterix.common.config.MetadataProperties;
@@ -56,7 +55,6 @@ import org.apache.asterix.common.context.IStorageComponentProvider;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.library.ILibraryManager;
-import org.apache.asterix.common.metadata.MetadataIndexImmutableProperties;
 import org.apache.asterix.common.replication.IRemoteRecoveryManager;
 import org.apache.asterix.common.replication.IReplicaResourcesManager;
 import org.apache.asterix.common.replication.IReplicationChannel;
@@ -207,13 +205,12 @@ public class NCAppRuntimeContext implements INcApplicationContext {
         }
 
         datasetMemoryManager = new DatasetMemoryManager(storageProperties);
-        datasetLifecycleManager =
-                new DatasetLifecycleManager(storageProperties, localResourceRepository, txnSubsystem.getLogManager(),
-                        datasetMemoryManager, ioManager.getIODevices().size());
+        datasetLifecycleManager = new DatasetLifecycleManager(storageProperties, localResourceRepository,
+                txnSubsystem.getLogManager(), datasetMemoryManager, ioManager.getIODevices().size());
         final String nodeId = getServiceContext().getNodeId();
         final ClusterPartition[] nodePartitions = metadataProperties.getNodePartitions().get(nodeId);
-        final Set<Integer> nodePartitionsIds = Arrays.stream(nodePartitions).map(ClusterPartition::getPartitionId)
-                .collect(Collectors.toSet());
+        final Set<Integer> nodePartitionsIds =
+                Arrays.stream(nodePartitions).map(ClusterPartition::getPartitionId).collect(Collectors.toSet());
         storageSubsystem = new StorageSubsystem(nodePartitionsIds);
         isShuttingdown = false;
         activeManager = new ActiveManager(threadExecutor, getServiceContext().getNodeId(),
@@ -222,42 +219,46 @@ public class NCAppRuntimeContext implements INcApplicationContext {
 
         if (replicationProperties.isReplicationEnabled()) {
 
-            replicaResourcesManager = new ReplicaResourcesManager(localResourceRepository, metadataProperties, nodeProperties);
+            replicaResourcesManager =
+                    new ReplicaResourcesManager(localResourceRepository, metadataProperties);
 
-            replicationManager = new ReplicationManager(nodeId, replicationProperties, nodeProperties, replicaResourcesManager,
-                    txnSubsystem.getLogManager(), asterixAppRuntimeContextProvider, ncServiceContext);
+            replicationManager =
+                    new ReplicationManager(nodeId, replicationProperties, replicaResourcesManager,
+                            txnSubsystem.getLogManager(), asterixAppRuntimeContextProvider, ncServiceContext);
 
-        if (replicationManager.getReplicationStrategy().isParticipant(getServiceContext().getNodeId())) {
+            if (replicationManager.getReplicationStrategy().isParticipant(getServiceContext().getNodeId())) {
 
-            //pass replication manager to replication required object
-            //LogManager to replicate logs
-            txnSubsystem.getLogManager().setReplicationManager(replicationManager);
+                //pass replication manager to replication required object
+                //LogManager to replicate logs
+                txnSubsystem.getLogManager().setReplicationManager(replicationManager);
 
-            //PersistentLocalResourceRepository to replicate metadata files and delete backups on drop index
-            localResourceRepository.setReplicationManager(replicationManager);
+                //PersistentLocalResourceRepository to replicate metadata files and delete backups on drop index
+                localResourceRepository.setReplicationManager(replicationManager);
 
-            /*
-             * add the partitions that will be replicated in this node as inactive partitions
-             */
-            //get nodes which replicate to this node
-            Set<String> remotePrimaryReplicas = replicationManager.getReplicationStrategy().getRemotePrimaryReplicas(nodeId).stream().map(Replica::getId).collect(Collectors.toSet());
-            for (String clientId : remotePrimaryReplicas) {
-                //get the partitions of each client
-                ClusterPartition[] clientPartitions = metadataProperties.getNodePartitions().get(clientId);
-                for (ClusterPartition partition : clientPartitions) {
-                    localResourceRepository.addInactivePartition(partition.getPartitionId());
+                /*
+                 * add the partitions that will be replicated in this node as inactive partitions
+                 */
+                //get nodes which replicate to this node
+                Set<String> remotePrimaryReplicas = replicationManager.getReplicationStrategy()
+                        .getRemotePrimaryReplicas(nodeId).stream().map(Replica::getId).collect(Collectors.toSet());
+                for (String clientId : remotePrimaryReplicas) {
+                    //get the partitions of each client
+                    ClusterPartition[] clientPartitions = metadataProperties.getNodePartitions().get(clientId);
+                    for (ClusterPartition partition : clientPartitions) {
+                        localResourceRepository.addInactivePartition(partition.getPartitionId());
+                    }
                 }
-            }
 
-            //initialize replication channel
-            replicationChannel = new ReplicationChannel(nodeId, replicationProperties, txnSubsystem.getLogManager(),
-                    replicaResourcesManager, replicationManager, getServiceContext(), asterixAppRuntimeContextProvider, replicationManager.getReplicationStrategy());
+                //initialize replication channel
+                replicationChannel = new ReplicationChannel(nodeId, replicationProperties, txnSubsystem.getLogManager(),
+                        replicaResourcesManager, replicationManager, getServiceContext(),
+                        asterixAppRuntimeContextProvider, replicationManager.getReplicationStrategy());
 
-            remoteRecoveryManager = new RemoteRecoveryManager(replicationManager, this, replicationProperties);
+                remoteRecoveryManager = new RemoteRecoveryManager(replicationManager, this, replicationProperties);
 
-            bufferCache = new BufferCache(ioManager, prs, pcp, new FileMapManager(),
-                    storageProperties.getBufferCacheMaxOpenFiles(), getServiceContext().getThreadFactory(),
-                    replicationManager);
+                bufferCache = new BufferCache(ioManager, prs, pcp, new FileMapManager(),
+                        storageProperties.getBufferCacheMaxOpenFiles(), getServiceContext().getThreadFactory(),
+                        replicationManager);
             }
         } else {
             bufferCache = new BufferCache(ioManager, prs, pcp, new FileMapManager(),

@@ -147,7 +147,8 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
         if (!lostPartitions.isEmpty()) {
             for (ClusterPartition partition : lostPartitions) {
                 //find replicas for this partitions
-                Set<String> partitionReplicas = replicationStrategy.getRemoteReplicas(partition.getNodeId()).stream().map(Replica::getId).collect(Collectors.toSet());
+                Set<String> partitionReplicas = replicationStrategy.getRemoteReplicas(partition.getNodeId()).stream()
+                        .map(Replica::getId).collect(Collectors.toSet());
                 //find a replica that is still active
                 for (String replica : partitionReplicas) {
                     //TODO (mhubail) currently this assigns the partition to the first found active replica.
@@ -169,8 +170,8 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
             partitionRecoveryPlan.forEach((replica, value) -> {
                 Integer[] partitionsToTakeover = value.toArray(new Integer[value.size()]);
                 long requestId = clusterRequestId++;
-                TakeoverPartitionsRequestMessage takeoverRequest = new TakeoverPartitionsRequestMessage(requestId,
-                        replica, partitionsToTakeover);
+                TakeoverPartitionsRequestMessage takeoverRequest =
+                        new TakeoverPartitionsRequestMessage(requestId, replica, partitionsToTakeover);
                 pendingTakeoverRequests.put(requestId, takeoverRequest);
                 try {
                     messageBroker.sendApplicationMessageToNC(takeoverRequest, replica);
@@ -208,9 +209,8 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
         planId2FailbackPlanMap.put(plan.getPlanId(), plan);
 
         //get all partitions this node requires to resync
-        ICcApplicationContext appCtx = (ICcApplicationContext) serviceCtx.getApplicationContext();
-        ReplicationProperties replicationProperties = appCtx.getReplicationProperties();
-        Set<String> nodeReplicas = replicationStrategy.getRemoteReplicas(failingBackNodeId).stream().map(Replica::getId).collect(Collectors.toSet());
+        Set<String> nodeReplicas = replicationStrategy.getRemoteReplicas(failingBackNodeId).stream().map(Replica::getId)
+                .collect(Collectors.toSet());
         clusterManager.getClusterPartitons();
         for (String replicaId : nodeReplicas) {
             ClusterPartition[] nodePartitions = clusterManager.getNodePartitions(replicaId);
@@ -497,14 +497,14 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
             startupQueue.put(nodeId, state);
             for (Map.Entry<String, SystemState> nodeState : startupQueue.entrySet()) {
                 List<INCLifecycleTask> tasks = buildStartupSequence(nodeState.getKey());
-                RegistrationTasksResponseMessage response = new RegistrationTasksResponseMessage(nodeState.getKey(), tasks);
+                RegistrationTasksResponseMessage response =
+                        new RegistrationTasksResponseMessage(nodeState.getKey(), tasks);
                 try {
                     messageBroker.sendApplicationMessageToNC(response, nodeState.getKey());
                 } catch (Exception e) {
                     throw HyracksDataException.create(e);
                 }
             }
-
         } else if (failedNodes.size() > 0) {
             List<INCLifecycleTask> tasks = buildFailbackStartupSequence();
             RegistrationTasksResponseMessage response = new RegistrationTasksResponseMessage(nodeId, tasks);

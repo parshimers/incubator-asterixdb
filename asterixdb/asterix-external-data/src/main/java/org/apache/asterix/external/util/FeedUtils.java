@@ -86,7 +86,7 @@ public class FeedUtils {
     }
 
     public static FileSplit[] splitsForAdapter(ICcApplicationContext appCtx, String dataverseName, String feedName,
-                                               AlgebricksPartitionConstraint partitionConstraints) throws AsterixException {
+            AlgebricksPartitionConstraint partitionConstraints) throws AsterixException {
         if (partitionConstraints.getPartitionConstraintType() == PartitionConstraintType.COUNT) {
             throw new AsterixException("Can't create file splits for adapter with count partitioning constraints");
         }

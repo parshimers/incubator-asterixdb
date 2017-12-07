@@ -52,7 +52,7 @@ public class ClusterLifecycleListener implements IClusterLifecycleListener {
 
     public ClusterLifecycleListener(ICcApplicationContext appCtx) {
         this.appCtx = appCtx;
-        eventHandler = new ClusterWorkExecutor(appCtx, workRequestQueue);
+        eventHandler = new ClusterWorkExecutor(workRequestQueue);
         Thread t = new Thread(eventHandler);
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Starting cluster event handler");

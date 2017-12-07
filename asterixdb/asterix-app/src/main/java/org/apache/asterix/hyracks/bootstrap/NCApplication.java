@@ -188,8 +188,8 @@ public class NCApplication extends BaseNCApplication {
         final NodeProperties nodeProperties = runtimeContext.getNodeProperties();
         IRecoveryManager recoveryMgr = runtimeContext.getTransactionSubsystem().getRecoveryManager();
         SystemState state = recoveryMgr.getSystemState();
-        if (state == SystemState.PERMANENT_DATA_LOSS && (nodeProperties.isInitialRun() || nodeProperties
-                .isVirtualNc())) {
+        if (state == SystemState.PERMANENT_DATA_LOSS
+                && (nodeProperties.isInitialRun() || nodeProperties.isVirtualNc())) {
             state = SystemState.BOOTSTRAPPING;
         }
         // Request registration tasks from CC
@@ -215,8 +215,8 @@ public class NCApplication extends BaseNCApplication {
         StorageProperties storageProperties = runtimeContext.getStorageProperties();
         // Deducts the reserved buffer cache size and memory component size from the maxium heap size,
         // and deducts one core for processing heartbeats.
-        long memorySize = Runtime.getRuntime().maxMemory() - storageProperties.getBufferCacheSize() - storageProperties
-                .getMemoryComponentGlobalBudget();
+        long memorySize = Runtime.getRuntime().maxMemory() - storageProperties.getBufferCacheSize()
+                - storageProperties.getMemoryComponentGlobalBudget();
         int allCores = Runtime.getRuntime().availableProcessors();
         int maximumCoresForComputation = allCores > 1 ? allCores - 1 : allCores;
         return new NodeCapacity(memorySize, maximumCoresForComputation);
@@ -236,8 +236,6 @@ public class NCApplication extends BaseNCApplication {
         if (!metadataProperties.getNodeNames().contains(nodeId)) {
             NCConfig ncConfig = ((NodeControllerService) ncServiceCtx.getControllerService()).getConfiguration();
             ncConfig.getConfigManager().ensureNode(nodeId);
-            String asterixInstanceName = metadataProperties.getInstanceName();
-            TransactionProperties txnProperties = runtimeContext.getTransactionProperties();
         }
     }
 

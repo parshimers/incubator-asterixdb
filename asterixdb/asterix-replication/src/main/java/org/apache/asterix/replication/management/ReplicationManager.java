@@ -53,7 +53,6 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import org.apache.asterix.common.cluster.ClusterPartition;
-import org.apache.asterix.common.config.NodeProperties;
 import org.apache.asterix.common.config.ReplicationProperties;
 import org.apache.asterix.common.dataflow.LSMIndexUtil;
 import org.apache.asterix.common.replication.IReplicaResourcesManager;
@@ -142,21 +141,20 @@ public class ReplicationManager implements IReplicationManager {
     private IReplicationStrategy replicationStrategy;
     private final PersistentLocalResourceRepository localResourceRepo;
     private NCConfig ncConfig;
-    private NodeProperties nodeProperties;
 
     //TODO this class needs to be refactored by moving its private classes to separate files
     //and possibly using MessageBroker to send/receive remote replicas events.
     public ReplicationManager(String nodeId, ReplicationProperties replicationProperties,
-                              NodeProperties nodeProperties, IReplicaResourcesManager remoteResoucesManager, ILogManager logManager,
-                              IAppRuntimeContextProvider asterixAppRuntimeContextProvider, INCServiceContext ncServiceContext) {
+            IReplicaResourcesManager remoteResoucesManager, ILogManager logManager,
+            IAppRuntimeContextProvider asterixAppRuntimeContextProvider, INCServiceContext ncServiceContext) {
         this.nodeId = nodeId;
         this.ncConfig = ((NodeControllerService) ncServiceContext.getControllerService()).getConfiguration();
         this.replicationProperties = replicationProperties;
-        this.nodeProperties = nodeProperties;
         try {
-            replicationStrategy = ReplicationStrategyFactory.create(replicationProperties.getReplicationStrategy(), replicationProperties, ncConfig.getConfigManager());
+            replicationStrategy = ReplicationStrategyFactory.create(replicationProperties.getReplicationStrategy(),
+                    replicationProperties, ncConfig.getConfigManager());
         } catch (HyracksDataException e) {
-            e.printStackTrace();
+            LOGGER.warning("Unable to initialize replication strategy");
         }
         this.replicaResourcesManager = (ReplicaResourcesManager) remoteResoucesManager;
         this.asterixAppRuntimeContextProvider = asterixAppRuntimeContextProvider;
@@ -640,7 +638,8 @@ public class ReplicationManager implements IReplicationManager {
      * @throws IOException
      */
     private void sendShutdownNotifiction() throws IOException {
-        Replica replica = new Replica(nodeId, NetworkingUtil.getHostAddress(hostIPAddressFirstOctet), ncConfig.getReplicationPublicPort());
+        Replica replica = new Replica(nodeId, NetworkingUtil.getHostAddress(hostIPAddressFirstOctet),
+                ncConfig.getReplicationPublicPort());
         ReplicaEvent event = new ReplicaEvent(replica, ClusterEventType.NODE_SHUTTING_DOWN);
         ByteBuffer buffer = ReplicationProtocol.writeReplicaEventRequest(event);
         Map<String, SocketChannel> replicaSockets = getActiveRemoteReplicasSockets();
@@ -717,7 +716,7 @@ public class ReplicationManager implements IReplicationManager {
         Replica replica = replicas.get(replicaId);
 
         ReplicaStateChecker connector = new ReplicaStateChecker(replica, replicationProperties.getReplicationTimeOut(),
-                this, replicationProperties, suspendReplication);
+                this, suspendReplication);
         Future<? extends Object> ft = asterixAppRuntimeContextProvider.getThreadExecutor().submit(connector);
 
         if (!async) {
@@ -872,8 +871,8 @@ public class ReplicationManager implements IReplicationManager {
         SocketChannel sc = SocketChannel.open();
         sc.configureBlocking(true);
         IApplicationConfig config = ncConfig.getConfigManager().getNodeEffectiveConfig(replicaId);
-        System.out.println(new InetSocketAddress(config.getString(NCConfig.Option.REPLICATION_LISTEN_ADDRESS), config.getInt(NCConfig.Option.REPLICATION_LISTEN_PORT)).toString());
-        sc.connect(new InetSocketAddress(config.getString(NCConfig.Option.REPLICATION_LISTEN_ADDRESS), config.getInt(NCConfig.Option.REPLICATION_LISTEN_PORT)));
+        sc.connect(new InetSocketAddress(config.getString(NCConfig.Option.REPLICATION_LISTEN_ADDRESS),
+                config.getInt(NCConfig.Option.REPLICATION_LISTEN_PORT)));
         return sc;
     }
 

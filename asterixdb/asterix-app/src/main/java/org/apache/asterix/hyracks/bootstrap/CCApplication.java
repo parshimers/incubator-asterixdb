@@ -137,10 +137,11 @@ public class CCApplication extends BaseCCApplication {
         int port = ccServiceCtx.getCCContext().getClusterControllerInfo().getClientNetPort();
         hcc = new HyracksConnection(strIP, port);
         ILibraryManager libraryManager = new ExternalLibraryManager();
-        ReplicationProperties repProp = new ReplicationProperties(PropertiesAccessor.getInstance(ccServiceCtx.getAppConfig()));
-        IReplicationStrategy repStrategy = ReplicationStrategyFactory.create(repProp.getReplicationStrategy(), repProp, getConfigManager());
-        IFaultToleranceStrategy ftStrategy = FaultToleranceStrategyFactory
-                .create(ccServiceCtx, repProp, repStrategy);
+        ReplicationProperties repProp =
+                new ReplicationProperties(PropertiesAccessor.getInstance(ccServiceCtx.getAppConfig()));
+        IReplicationStrategy repStrategy =
+                ReplicationStrategyFactory.create(repProp.getReplicationStrategy(), repProp, getConfigManager());
+        IFaultToleranceStrategy ftStrategy = FaultToleranceStrategyFactory.create(ccServiceCtx, repProp, repStrategy);
         ExternalLibraryUtils.setUpExternaLibraries(libraryManager, false);
         componentProvider = new StorageComponentProvider();
         GlobalRecoveryManager globalRecoveryManager = createGlobalRecoveryManager();

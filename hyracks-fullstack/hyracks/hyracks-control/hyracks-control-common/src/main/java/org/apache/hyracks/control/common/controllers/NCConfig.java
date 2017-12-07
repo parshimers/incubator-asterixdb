@@ -333,6 +333,7 @@ public class NCConfig extends ControllerConfig {
         }
 
         @Override
+        @SuppressWarnings("squid:MethodCyclomaticComplexity")
         public String description() {
             switch (this) {
                 case ADDRESS:

@@ -25,8 +25,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.asterix.common.api.IClusterManagementWork;
-import org.apache.asterix.common.cluster.IClusterStateManager;
-import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.metadata.cluster.AddNodeWork;
 import org.apache.asterix.metadata.cluster.RemoveNodeWork;
 
@@ -34,11 +32,9 @@ public class ClusterWorkExecutor implements Runnable {
 
     private static final Logger LOGGER = Logger.getLogger(ClusterWorkExecutor.class.getName());
 
-    private final ICcApplicationContext appCtx;
     private final LinkedBlockingQueue<Set<IClusterManagementWork>> inbox;
 
-    public ClusterWorkExecutor(ICcApplicationContext appCtx, LinkedBlockingQueue<Set<IClusterManagementWork>> inbox) {
-        this.appCtx = appCtx;
+    public ClusterWorkExecutor(LinkedBlockingQueue<Set<IClusterManagementWork>> inbox) {
         this.inbox = inbox;
     }
 
@@ -65,7 +61,6 @@ public class ClusterWorkExecutor implements Runnable {
                             break;
                     }
                 }
-
 
             } catch (InterruptedException e) {
                 if (LOGGER.isLoggable(Level.SEVERE)) {

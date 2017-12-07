@@ -18,7 +18,6 @@
  */
 package org.apache.asterix.app.replication;
 
-
 import org.apache.asterix.common.config.ReplicationProperties;
 import org.apache.asterix.common.replication.IFaultToleranceStrategy;
 import org.apache.asterix.common.replication.IReplicationStrategy;
@@ -26,17 +25,17 @@ import org.apache.hyracks.api.application.ICCServiceContext;
 
 public class FaultToleranceStrategyFactory {
 
-
     private FaultToleranceStrategyFactory() {
         throw new AssertionError();
     }
 
-    public static IFaultToleranceStrategy create(ICCServiceContext serviceCtx, ReplicationProperties repProp, IReplicationStrategy strategy) {
+    public static IFaultToleranceStrategy create(ICCServiceContext serviceCtx, ReplicationProperties repProp,
+            IReplicationStrategy strategy) {
         Class<? extends IFaultToleranceStrategy> clazz;
         if (!repProp.isReplicationEnabled()) {
             clazz = NoFaultToleranceStrategy.class;
         } else {
-            if (repProp.getReplicationStrategy().equals("metadata_only")) {
+            if ("metadata_only".equals(repProp.getReplicationStrategy())) {
                 clazz = MetadataNodeFaultToleranceStrategy.class;
             } else {
                 clazz = AutoFaultToleranceStrategy.class;

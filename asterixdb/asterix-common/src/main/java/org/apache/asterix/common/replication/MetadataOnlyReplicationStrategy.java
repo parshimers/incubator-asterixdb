@@ -34,7 +34,6 @@ import org.apache.hyracks.control.common.controllers.NCConfig;
 
 public class MetadataOnlyReplicationStrategy implements IReplicationStrategy {
 
-
     private String metadataPrimaryReplicaId;
     private Replica metadataPrimaryReplica;
     private Set<Replica> metadataNodeReplicas;
@@ -54,7 +53,7 @@ public class MetadataOnlyReplicationStrategy implements IReplicationStrategy {
     }
 
     @Override
-    public Set<Replica> getRemoteReplicasAndSelf(String nodeId){
+    public Set<Replica> getRemoteReplicasAndSelf(String nodeId) {
 
         if (nodeId.equals(metadataPrimaryReplicaId)) {
             Set<Replica> replicasAndSelf = new HashSet<>();
@@ -81,11 +80,16 @@ public class MetadataOnlyReplicationStrategy implements IReplicationStrategy {
     }
 
     @Override
-    public MetadataOnlyReplicationStrategy from(ReplicationProperties p, IConfigManager configManager) throws HyracksDataException {
+    public MetadataOnlyReplicationStrategy from(ReplicationProperties p, IConfigManager configManager)
+            throws HyracksDataException {
         MetadataOnlyReplicationStrategy st = new MetadataOnlyReplicationStrategy();
         st.metadataProperties = p.getMetadataProperties();
         st.metadataPrimaryReplicaId = st.metadataProperties.getMetadataNodeName();
-        st.metadataPrimaryReplica = new Replica(st.metadataPrimaryReplicaId, ((ConfigManager) configManager).getNodeEffectiveConfig(st.metadataPrimaryReplicaId).getString(NCConfig.Option.REPLICATION_LISTEN_ADDRESS), ((ConfigManager) configManager).getNodeEffectiveConfig(st.metadataPrimaryReplicaId).getInt(NCConfig.Option.REPLICATION_LISTEN_PORT));
+        st.metadataPrimaryReplica = new Replica(st.metadataPrimaryReplicaId,
+                ((ConfigManager) configManager).getNodeEffectiveConfig(st.metadataPrimaryReplicaId)
+                        .getString(NCConfig.Option.REPLICATION_LISTEN_ADDRESS),
+                ((ConfigManager) configManager).getNodeEffectiveConfig(st.metadataPrimaryReplicaId)
+                        .getInt(NCConfig.Option.REPLICATION_LISTEN_PORT));
         final Set<Replica> replicas = new HashSet<>();
         Set<String> candidateSet = new HashSet<>();
         candidateSet.addAll(((ConfigManager) (configManager)).getNodeNames());
@@ -93,7 +97,11 @@ public class MetadataOnlyReplicationStrategy implements IReplicationStrategy {
         String[] candidateAry = new String[candidateSet.size()];
         candidateSet.toArray(candidateAry);
         for (int i = 0; i < candidateAry.length && i < p.getReplicationFactor(); i++) {
-            replicas.add(new Replica(candidateAry[i], ((ConfigManager) configManager).getNodeEffectiveConfig(candidateAry[i]).getString(NCConfig.Option.REPLICATION_LISTEN_ADDRESS), ((ConfigManager) configManager).getNodeEffectiveConfig(candidateAry[i]).getInt(NCConfig.Option.REPLICATION_LISTEN_PORT)));
+            replicas.add(new Replica(candidateAry[i],
+                    ((ConfigManager) configManager).getNodeEffectiveConfig(candidateAry[i])
+                            .getString(NCConfig.Option.REPLICATION_LISTEN_ADDRESS),
+                    ((ConfigManager) configManager).getNodeEffectiveConfig(candidateAry[i])
+                            .getInt(NCConfig.Option.REPLICATION_LISTEN_PORT)));
         }
         st.metadataNodeReplicas = replicas;
         return st;

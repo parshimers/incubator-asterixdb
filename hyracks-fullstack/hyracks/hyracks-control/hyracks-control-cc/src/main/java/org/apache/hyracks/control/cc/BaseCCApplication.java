@@ -70,7 +70,6 @@ public class BaseCCApplication implements ICCApplication {
 
     @Override
     public void registerConfig(IConfigManager configManager) {
-        this.configManager = configManager;
         configManager.addIniParamOptions(ControllerConfig.Option.CONFIG_FILE, ControllerConfig.Option.CONFIG_FILE_URL);
         configManager.addCmdLineSections(Section.CC, Section.COMMON);
         configManager.setUsageFilter(getUsageFilter());

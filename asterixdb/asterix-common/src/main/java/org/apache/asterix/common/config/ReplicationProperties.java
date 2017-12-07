@@ -36,11 +36,7 @@ public class ReplicationProperties extends AbstractProperties {
         return accessor.getBoolean(Option.REPLICATION_ENABLED);
     }
 
-    private static final int REPLICATION_DATAPORT_DEFAULT = 2000;
-
     private static final int REPLICATION_TIME_OUT_DEFAULT = 15;
-
-    private static final String NODE_IP_ADDRESS_DEFAULT = "127.0.0.1";
 
     public ReplicationProperties(PropertiesAccessor accessor) throws HyracksDataException {
         super(accessor);
@@ -87,21 +83,28 @@ public class ReplicationProperties extends AbstractProperties {
     }
 
     public enum Option implements IOption {
-        REPLICATION_MAX_REMOTE_RECOVERY_ATTEMPTS(INTEGER, 5,
+        REPLICATION_MAX_REMOTE_RECOVERY_ATTEMPTS(
+                INTEGER,
+                5,
                 "The maximum number of times to attempt to recover from a replica on failure before giving up"),
-        REPLICATION_LOG_BUFFER_PAGESIZE(INTEGER_BYTE_UNIT, StorageUtil.getIntSizeInBytes(128,
-                StorageUnit.KILOBYTE), "The size in bytes of each log buffer page"),
+        REPLICATION_LOG_BUFFER_PAGESIZE(
+                INTEGER_BYTE_UNIT,
+                StorageUtil.getIntSizeInBytes(128, StorageUnit.KILOBYTE),
+                "The size in bytes of each log buffer page"),
         REPLICATION_LOG_BUFFER_NUMPAGES(INTEGER, 8, "The number of log buffer pages"),
-        REPLICATION_LOG_BATCHSIZE(INTEGER_BYTE_UNIT, StorageUtil.getIntSizeInBytes(4, StorageUnit.KILOBYTE),
+        REPLICATION_LOG_BATCHSIZE(
+                INTEGER_BYTE_UNIT,
+                StorageUtil.getIntSizeInBytes(4, StorageUnit.KILOBYTE),
                 "The size in bytes to replicate in each batch"),
-        REPLICATION_TIMEOUT(INTEGER, REPLICATION_TIME_OUT_DEFAULT,
+        REPLICATION_TIMEOUT(
+                INTEGER,
+                REPLICATION_TIME_OUT_DEFAULT,
                 "The time in seconds to timeout when trying to contact a replica, before assuming it is dead"),
 
         REPLICATION_ENABLED(BOOLEAN, false, "Whether or not data replication is enabled"),
         REPLICATION_FACTOR(INTEGER, 3, "Number of node controller faults to tolerate with replication"),
         REPLICATION_STRATEGY(STRING, "chained_declustering", "Replication strategy to choose"),
-        REPLICATION_PORT(INTEGER, 2000, "port on which to run replication related communications"),
-        ;
+        REPLICATION_PORT(INTEGER, 2000, "port on which to run replication related communications"),;
 
         private final IOptionType type;
         private final Object defaultValue;

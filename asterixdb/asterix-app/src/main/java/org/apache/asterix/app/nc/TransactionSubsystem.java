@@ -62,7 +62,7 @@ public class TransactionSubsystem implements ITransactionSubsystem {
     private EntityCommitProfiler ecp;
 
     public TransactionSubsystem(INCServiceContext serviceCtx, String id,
-                                IAppRuntimeContextProvider asterixAppRuntimeContextProvider, TransactionProperties txnProperties)
+            IAppRuntimeContextProvider asterixAppRuntimeContextProvider, TransactionProperties txnProperties)
             throws ACIDException {
         this.asterixAppRuntimeContextProvider = asterixAppRuntimeContextProvider;
         this.id = id;

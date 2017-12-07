@@ -39,7 +39,6 @@ import java.util.logging.Logger;
 
 import org.apache.asterix.common.cluster.ClusterPartition;
 import org.apache.asterix.common.config.MetadataProperties;
-import org.apache.asterix.common.config.NodeProperties;
 import org.apache.asterix.common.replication.IReplicaResourcesManager;
 import org.apache.asterix.common.utils.StorageConstants;
 import org.apache.asterix.common.utils.StoragePathUtil;
@@ -57,13 +56,11 @@ public class ReplicaResourcesManager implements IReplicaResourcesManager {
     public static final long REPLICA_INDEX_CREATION_LSN = -1;
     private final PersistentLocalResourceRepository localRepository;
     private final Map<String, ClusterPartition[]> nodePartitions;
-    private final String storagePath;
 
     public ReplicaResourcesManager(ILocalResourceRepository localRepository,
-                                   MetadataProperties metadataProperties, NodeProperties nodeProperties) {
+                                   MetadataProperties metadataProperties) {
         this.localRepository = (PersistentLocalResourceRepository) localRepository;
         nodePartitions = metadataProperties.getNodePartitions();
-        storagePath = nodeProperties.getStorageSubdir();
     }
 
     public void deleteIndexFile(LSMIndexFileProperties afp) throws HyracksDataException {

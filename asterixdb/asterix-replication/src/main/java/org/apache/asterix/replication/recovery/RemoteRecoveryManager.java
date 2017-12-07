@@ -80,7 +80,7 @@ public class RemoteRecoveryManager implements IRemoteRecoveryManager {
             //remove any dead replicas
             Set<String> deadReplicas = replicationManager.getDeadReplicasIds();
             for (String deadReplica : deadReplicas) {
-                locations.remove(deadReplica);
+                locations.remove(new Replica(deadReplica, "", -1));
             }
 
             //no active replicas to recover from
