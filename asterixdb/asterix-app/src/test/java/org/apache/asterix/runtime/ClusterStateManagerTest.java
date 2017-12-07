@@ -30,7 +30,6 @@ import org.apache.asterix.common.api.IClusterManagementWork.ClusterState;
 import org.apache.asterix.common.cluster.ClusterPartition;
 import org.apache.asterix.common.cluster.IGlobalRecoveryManager;
 import org.apache.asterix.common.config.MetadataProperties;
-import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.metadata.IMetadataBootstrap;
 import org.apache.asterix.runtime.transaction.ResourceIdManager;
 import org.apache.asterix.runtime.utils.CcApplicationContext;
@@ -65,9 +64,9 @@ public class ClusterStateManagerTest {
         ClusterStateManager csm = new ClusterStateManager();
         CcApplicationContext ccAppCtx = ccAppContext(csm);
         // prepare fixed topology
-        ccAppCtx.getMetadataProperties().getClusterPartitions().put(0, new ClusterPartition(0, NC1, 0, "storage"));
-        ccAppCtx.getMetadataProperties().getClusterPartitions().put(1, new ClusterPartition(1, NC2, 0,"storage"));
-        ccAppCtx.getMetadataProperties().getClusterPartitions().put(2, new ClusterPartition(2, NC3, 0, "storage"));
+        ccAppCtx.getMetadataProperties().getClusterPartitions().put(0, new ClusterPartition(0, NC1, 0));
+        ccAppCtx.getMetadataProperties().getClusterPartitions().put(1, new ClusterPartition(1, NC2, 0));
+        ccAppCtx.getMetadataProperties().getClusterPartitions().put(2, new ClusterPartition(2, NC3, 0));
         for (ClusterPartition cp : ccAppCtx.getMetadataProperties().getClusterPartitions().values()) {
             ccAppCtx.getMetadataProperties().getNodePartitions().put(cp.getNodeId(), new ClusterPartition[] { cp });
         }
@@ -189,7 +188,7 @@ public class ClusterStateManagerTest {
             throws HyracksException, AlgebricksException {
         csm.notifyNodeJoin(nodeId, Collections.emptyMap());
         if (registerPartitions) {
-            csm.registerNodePartitions(nodeId, new ClusterPartition[] { new ClusterPartition(partitionId, nodeId, 0,"storage") });
+            csm.registerNodePartitions(nodeId, new ClusterPartition[] { new ClusterPartition(partitionId, nodeId, 0) });
         }
     }
 

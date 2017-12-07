@@ -125,7 +125,7 @@ public class PropertiesAccessor implements IApplicationConfig {
             nodeStores[i] = iodevices[i] + File.separator + storageSubdir;
             // Create ClusterPartition instances for this NC.
             ClusterPartition partition =
-                    new ClusterPartition(uniquePartitionId.getAndIncrement(), ncId, i, storageSubdir);
+                    new ClusterPartition(uniquePartitionId.getAndIncrement(), ncId, i);
             ClusterPartition orig = clusterPartitions.put(partition.getPartitionId(), partition);
             if (orig != null) {
                 throw AsterixException.create(ErrorCode.DUPLICATE_PARTITION_ID, partition.getPartitionId(), ncId,
