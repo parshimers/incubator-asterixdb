@@ -91,7 +91,7 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
     private Map<String, SystemState> startupQueue = new HashMap<>();
 
     @Override
-    public void notifyNodeJoin(String nodeId) throws HyracksDataException {
+    public void notifyNodeJoin(String nodeId) {
         pendingStartupCompletionNodes.add(nodeId);
     }
 
@@ -140,8 +140,6 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
     private synchronized void requestPartitionsTakeover(String failedNodeId) {
         //replica -> list of partitions to takeover
         Map<String, List<Integer>> partitionRecoveryPlan = new HashMap<>();
-        ICcApplicationContext appCtx = (ICcApplicationContext) serviceCtx.getApplicationContext();
-        ReplicationProperties replicationProperties = appCtx.getReplicationProperties();
         //collect the partitions of the failed NC
         List<ClusterPartition> lostPartitions = getNodeAssignedPartitions(failedNodeId);
         if (!lostPartitions.isEmpty()) {
@@ -505,7 +503,7 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
                     throw HyracksDataException.create(e);
                 }
             }
-        } else if (failedNodes.size() > 0) {
+        } else if (!failedNodes.isEmpty()) {
             List<INCLifecycleTask> tasks = buildFailbackStartupSequence();
             RegistrationTasksResponseMessage response = new RegistrationTasksResponseMessage(nodeId, tasks);
             try {

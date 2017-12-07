@@ -53,8 +53,8 @@ public class SplitsAndConstraintsUtil {
         return splits.toArray(new FileSplit[] {});
     }
 
-    public static FileSplit[] getIndexSplits(Dataset dataset, String indexName, String storagePathPrefix,
-            MetadataTransactionContext mdTxnCtx, IClusterStateManager csm) throws AlgebricksException {
+    public static FileSplit[] getIndexSplits(Dataset dataset, String indexName, MetadataTransactionContext mdTxnCtx,
+            IClusterStateManager csm) throws AlgebricksException {
         try {
             NodeGroup nodeGroup = MetadataManager.INSTANCE.getNodegroup(mdTxnCtx, dataset.getNodeGroupName());
             if (nodeGroup == null) {
