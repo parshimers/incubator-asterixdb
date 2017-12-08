@@ -36,20 +36,18 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.apache.hyracks.server.process.HyracksVirtualCluster;
+import org.apache.hyracks.util.file.FileUtil;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 public class NCServiceIT {
 
-    private static final String TARGET_DIR = StringUtils
-            .join(new String[]{".", "target"}, File.separator);
-    private static final String LOG_DIR = StringUtils
-            .join(new String[]{TARGET_DIR, "failsafe-reports"}, File.separator);
-    private static final String RESOURCE_DIR = StringUtils
-            .join(new String[]{TARGET_DIR, "test-classes", "NCServiceIT"}, File.separator);
-    private static final String APP_HOME = StringUtils
-            .join(new String[]{TARGET_DIR, "appassembler"}, File.separator);
+    private static final String TARGET_DIR = FileUtil.joinPath(".", "target", File.separator);
+    private static final String LOG_DIR = FileUtil.joinPath(TARGET_DIR, "failsafe-reports", File.separator);
+    private static final String RESOURCE_DIR = FileUtil.joinPath(TARGET_DIR, "test-classes", "NCServiceIT",
+            File.separator);
+    private static final String APP_HOME = FileUtil.joinPath(TARGET_DIR, "appassembler", File.separator);
     private static final Logger LOGGER = Logger.getLogger(NCServiceIT.class.getName());
 
     private static HyracksVirtualCluster cluster = null;
@@ -57,14 +55,8 @@ public class NCServiceIT {
     @BeforeClass
     public static void setUp() throws Exception {
         cluster = new HyracksVirtualCluster(new File(APP_HOME), null);
-        cluster.addNCService(
-                new File(RESOURCE_DIR, "nc-red.conf"),
-                new File(LOG_DIR, "nc-red.log")
-        );
-        cluster.addNCService(
-                new File(RESOURCE_DIR, "nc-blue.conf"),
-                new File(LOG_DIR, "nc-blue.log")
-        );
+        cluster.addNCService(new File(RESOURCE_DIR, "nc-red.conf"), new File(LOG_DIR, "nc-red.log"));
+        cluster.addNCService(new File(RESOURCE_DIR, "nc-blue.conf"), new File(LOG_DIR, "nc-blue.log"));
 
         try {
             Thread.sleep(2000);
@@ -72,10 +64,7 @@ public class NCServiceIT {
         }
 
         // Start CC
-        cluster.start(
-                new File(RESOURCE_DIR, "cc.conf"),
-                new File(LOG_DIR, "cc.log")
-        );
+        cluster.start(new File(RESOURCE_DIR, "cc.conf"), new File(LOG_DIR, "cc.log"));
 
         try {
             Thread.sleep(10000);
@@ -137,7 +126,7 @@ public class NCServiceIT {
     @Test
     public void isXmxOverrideCorrect() throws Exception {
         ArrayNode inputArgs = (ArrayNode) getEndpoint("/rest/nodes/red").get("input-arguments");
-        for (Iterator<JsonNode> it = inputArgs.elements(); it.hasNext(); ) {
+        for (Iterator<JsonNode> it = inputArgs.elements(); it.hasNext();) {
             String s = it.next().asText();
             if (s.startsWith("-Xmx") && s.endsWith("m")) {
                 String digits = s.substring(4, 8);
