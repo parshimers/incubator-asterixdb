@@ -21,10 +21,12 @@ package org.apache.hyracks.server.test;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.util.Iterator;
 import java.util.logging.Logger;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import junit.framework.Assert;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpResponse;
@@ -108,15 +110,20 @@ public class NCServiceIT {
         }
     }
 
+    private JsonNode getEndpoint(String endpoint) throws Exception {
+        ObjectMapper om = new ObjectMapper();
+        String localhost = InetAddress.getLoopbackAddress().getHostAddress();
+        String response = getHttp("http://" + localhost + ":12345"+endpoint);
+        JsonNode result = om.readTree(response);
+        JsonNode nodes = result.get("result");
+        return nodes;
+    }
+
     @Test
     public void IsNodelistCorrect() throws Exception {
         // Ping the nodelist HTTP API
 
-        ObjectMapper om = new ObjectMapper();
-        String localhost = InetAddress.getLoopbackAddress().getHostAddress();
-        String response = getHttp("http://" + localhost + ":12345/rest/nodes");
-        JsonNode result = om.readTree(response);
-        JsonNode nodes = result.get("result");
+        JsonNode nodes = getEndpoint("/rest/nodes");
         int numNodes = nodes.size();
         Assert.assertEquals("Wrong number of nodes!", 2, numNodes);
         for (int i = 0; i < nodes.size(); i++) {
@@ -127,6 +134,21 @@ public class NCServiceIT {
             }
             Assert.fail("Unexpected node ID '" + id + "'!");
         }
+    }
+
+    @Test
+    public void isXmxOverrideCorrect() throws Exception {
+        ArrayNode inputArgs = (ArrayNode) getEndpoint("/rest/nodes/red").get("input-arguments");
+        for (Iterator<JsonNode> it = inputArgs.elements(); it.hasNext(); ) {
+            String s = it.next().asText();
+            if(s.startsWith("-Xmx") && s.endsWith("m")){
+                String digits = s.substring(4,8);
+                Assert.assertEquals("1234",digits);
+            }
+        }
+
+
+
     }
 
     public static void main(String[] args) throws Exception {
