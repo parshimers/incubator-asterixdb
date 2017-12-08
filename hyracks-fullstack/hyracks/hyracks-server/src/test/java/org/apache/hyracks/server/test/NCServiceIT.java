@@ -43,13 +43,13 @@ import org.junit.Test;
 public class NCServiceIT {
 
     private static final String TARGET_DIR = StringUtils
-            .join(new String[] { ".", "target" }, File.separator);
+            .join(new String[]{".", "target"}, File.separator);
     private static final String LOG_DIR = StringUtils
-            .join(new String[] { TARGET_DIR, "failsafe-reports" }, File.separator);
+            .join(new String[]{TARGET_DIR, "failsafe-reports"}, File.separator);
     private static final String RESOURCE_DIR = StringUtils
-            .join(new String[] { TARGET_DIR, "test-classes", "NCServiceIT" }, File.separator);
+            .join(new String[]{TARGET_DIR, "test-classes", "NCServiceIT"}, File.separator);
     private static final String APP_HOME = StringUtils
-            .join(new String[] { TARGET_DIR, "appassembler" }, File.separator);
+            .join(new String[]{TARGET_DIR, "appassembler"}, File.separator);
     private static final Logger LOGGER = Logger.getLogger(NCServiceIT.class.getName());
 
     private static HyracksVirtualCluster cluster = null;
@@ -68,8 +68,7 @@ public class NCServiceIT {
 
         try {
             Thread.sleep(2000);
-        }
-        catch (InterruptedException ignored) {
+        } catch (InterruptedException ignored) {
         }
 
         // Start CC
@@ -80,8 +79,7 @@ public class NCServiceIT {
 
         try {
             Thread.sleep(10000);
-        }
-        catch (InterruptedException ignored) {
+        } catch (InterruptedException ignored) {
         }
     }
 
@@ -113,7 +111,7 @@ public class NCServiceIT {
     private JsonNode getEndpoint(String endpoint) throws Exception {
         ObjectMapper om = new ObjectMapper();
         String localhost = InetAddress.getLoopbackAddress().getHostAddress();
-        String response = getHttp("http://" + localhost + ":12345"+endpoint);
+        String response = getHttp("http://" + localhost + ":12345" + endpoint);
         JsonNode result = om.readTree(response);
         JsonNode nodes = result.get("result");
         return nodes;
@@ -141,14 +139,11 @@ public class NCServiceIT {
         ArrayNode inputArgs = (ArrayNode) getEndpoint("/rest/nodes/red").get("input-arguments");
         for (Iterator<JsonNode> it = inputArgs.elements(); it.hasNext(); ) {
             String s = it.next().asText();
-            if(s.startsWith("-Xmx") && s.endsWith("m")){
-                String digits = s.substring(4,8);
-                Assert.assertEquals("1234",digits);
+            if (s.startsWith("-Xmx") && s.endsWith("m")) {
+                String digits = s.substring(4, 8);
+                Assert.assertEquals("1234", digits);
             }
         }
-
-
-
     }
 
     public static void main(String[] args) throws Exception {
