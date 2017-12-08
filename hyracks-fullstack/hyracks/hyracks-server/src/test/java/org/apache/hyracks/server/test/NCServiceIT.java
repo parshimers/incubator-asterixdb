@@ -43,11 +43,11 @@ import org.junit.Test;
 
 public class NCServiceIT {
 
-    private static final String TARGET_DIR = FileUtil.joinPath(".", "target", File.separator);
-    private static final String LOG_DIR = FileUtil.joinPath(TARGET_DIR, "failsafe-reports", File.separator);
+    private static final String TARGET_DIR = FileUtil.joinPath(".", "target");
+    private static final String LOG_DIR = FileUtil.joinPath(TARGET_DIR, "failsafe-reports");
     private static final String RESOURCE_DIR = FileUtil.joinPath(TARGET_DIR, "test-classes", "NCServiceIT",
             File.separator);
-    private static final String APP_HOME = FileUtil.joinPath(TARGET_DIR, "appassembler", File.separator);
+    private static final String APP_HOME = FileUtil.joinPath(TARGET_DIR, "appassembler");
     private static final Logger LOGGER = Logger.getLogger(NCServiceIT.class.getName());
 
     private static HyracksVirtualCluster cluster = null;
