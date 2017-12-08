@@ -138,8 +138,8 @@ public class NCService {
             int heapSize = "32".equals(System.getProperty("sun.arch.data.model"))
                     ? (proportionalRamSize <= 1024 ? proportionalRamSize : 1024) : proportionalRamSize;
             jvmargs = jvmargs + " -Xmx" + heapSize + "m";
-            env.put("JAVA_OPTS", jvmargs.trim());
         }
+        env.put("JAVA_OPTS", jvmargs.trim());
         LOGGER.info("Setting JAVA_OPTS to " + jvmargs);
     }
 
