@@ -44,19 +44,16 @@ import static org.apache.asterix.server.test.NCServiceExecutionIT.TARGET_DIR;
 import static org.apache.asterix.server.test.NCServiceExecutionIT.ASTERIX_APP_DIR;
 import static org.apache.asterix.server.test.NCServiceExecutionIT.LOG_DIR;
 
-
 @RunWith(Parameterized.class)
 public class ReplicationIT {
 
     private static final String PATH_BASE = FileUtil.joinPath("src", "test", "resources", "integrationts",
             "replication");
-    public static final String CONF_DIR = StringUtils
-            .join(new String[] { TARGET_DIR, "test-classes", "ReplicationIT" },
-                    File.separator);
+    public static final String CONF_DIR = StringUtils.join(new String[] { TARGET_DIR, "test-classes", "ReplicationIT" },
+            File.separator);
     private static final String PATH_ACTUAL = FileUtil.joinPath("target", "ittest");
     private static final Logger LOGGER = Logger.getLogger(ReplicationIT.class.getName());
-    private static String reportPath = new File(
-            FileUtil.joinPath("target", "failsafe-reports")).getAbsolutePath();
+    private static String reportPath = new File(FileUtil.joinPath("target", "failsafe-reports")).getAbsolutePath();
 
     private final TestExecutor testExecutor = new TestExecutor();
     private TestCaseContext tcCtx;
@@ -74,7 +71,6 @@ public class ReplicationIT {
     @Rule
     public TestRule retainLogs = new RetainLogsRule(NCServiceExecutionIT.ASTERIX_APP_DIR, reportPath, this);
 
-
     @Before
     public void before() throws Exception {
         LOGGER.info("Creating new instance...");
@@ -86,18 +82,12 @@ public class ReplicationIT {
         // HDFSCluster requires the input directory to end with a file separator.
 
         cluster = new HyracksVirtualCluster(new File(APP_HOME), new File(ASTERIX_APP_DIR));
-        nc1 = cluster.addNCService(
-                new File(CONF_DIR, "ncservice1.conf"),
-                new File(LOG_DIR, "ncservice1.log"));
+        nc1 = cluster.addNCService(new File(CONF_DIR, "ncservice1.conf"), new File(LOG_DIR, "ncservice1.log"));
 
-        nc2 = cluster.addNCService(
-                new File(CONF_DIR, "ncservice2.conf"),
-                new File(LOG_DIR, "ncservice2.log"));
+        nc2 = cluster.addNCService(new File(CONF_DIR, "ncservice2.conf"), new File(LOG_DIR, "ncservice2.log"));
 
         // Start CC
-        cc = cluster.start(
-                new File(CONF_DIR, "cc.conf"),
-                new File(LOG_DIR, "cc.log"));
+        cc = cluster.start(new File(CONF_DIR, "cc.conf"), new File(LOG_DIR, "cc.log"));
 
         LOGGER.info("Instance created.");
         testExecutor.waitForClusterActive(30, TimeUnit.SECONDS);

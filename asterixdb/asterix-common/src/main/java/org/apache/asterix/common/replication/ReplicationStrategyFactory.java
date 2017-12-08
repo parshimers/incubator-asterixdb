@@ -29,8 +29,7 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 public class ReplicationStrategyFactory {
 
-    private static final Map<String, Class<? extends IReplicationStrategy>>
-    BUILT_IN_REPLICATION_STRATEGY = new HashMap<>();
+    private static final Map<String, Class<? extends IReplicationStrategy>> BUILT_IN_REPLICATION_STRATEGY = new HashMap<>();
 
     static {
         BUILT_IN_REPLICATION_STRATEGY.put("no_replication", NoReplicationStrategy.class);
@@ -46,9 +45,8 @@ public class ReplicationStrategyFactory {
             throws HyracksDataException {
         String strategyName = name.toLowerCase();
         if (!BUILT_IN_REPLICATION_STRATEGY.containsKey(strategyName)) {
-            throw new RuntimeDataException(ErrorCode.UNSUPPORTED_REPLICATION_STRATEGY,
-                    String.format("%s. Available strategies: %s", strategyName,
-                            BUILT_IN_REPLICATION_STRATEGY.keySet().toString()));
+            throw new RuntimeDataException(ErrorCode.UNSUPPORTED_REPLICATION_STRATEGY, String.format(
+                    "%s. Available strategies: %s", strategyName, BUILT_IN_REPLICATION_STRATEGY.keySet().toString()));
         }
         Class<? extends IReplicationStrategy> clazz = BUILT_IN_REPLICATION_STRATEGY.get(strategyName);
         try {

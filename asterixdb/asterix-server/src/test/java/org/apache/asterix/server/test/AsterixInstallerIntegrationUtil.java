@@ -34,48 +34,43 @@ public class AsterixInstallerIntegrationUtil {
     // Important paths and files for this test.
 
     // The "target" subdirectory of asterix-server. All outputs go here.
-    private static final String TARGET_DIR = StringUtils
-            .join(new String[] { "target" }, File.separator);
+    private static final String TARGET_DIR = StringUtils.join(new String[] { "target" }, File.separator);
 
     // Directory where the NCs create and store all data, as configured by
     // src/test/resources/NCServiceExecutionIT/cc.conf.
-    private static final String INSTANCE_DIR = StringUtils
-            .join(new String[] { TARGET_DIR, "tmp" }, File.separator);
+    private static final String INSTANCE_DIR = StringUtils.join(new String[] { TARGET_DIR, "tmp" }, File.separator);
 
     // The log directory, where all CC, NCService, and NC logs are written. CC and
     // NCService logs are configured on the HyracksVirtualCluster below. NC logs
     // are configured in src/test/resources/NCServiceExecutionIT/ncservice*.conf.
-    private static final String LOG_DIR = StringUtils
-            .join(new String[] { TARGET_DIR, "failsafe-reports" }, File.separator);
+    private static final String LOG_DIR = StringUtils.join(new String[] { TARGET_DIR, "failsafe-reports" },
+            File.separator);
 
     // Directory where *.conf files are located.
     private static final String CONF_DIR = StringUtils
-            .join(new String[] { TARGET_DIR, "test-classes", "NCServiceExecutionIT" },
-                    File.separator);
+            .join(new String[] { TARGET_DIR, "test-classes", "NCServiceExecutionIT" }, File.separator);
 
     // The app.home specified for HyracksVirtualCluster. The NCService expects
     // to find the NC startup script in ${app.home}/bin.
-    private static final String APP_HOME = StringUtils
-            .join(new String[] { TARGET_DIR, "appassembler" }, File.separator);
+    private static final String APP_HOME = StringUtils.join(new String[] { TARGET_DIR, "appassembler" },
+            File.separator);
 
     // Path to the asterix-app directory. This is used as the current working
     // directory for the CC and NCService processes, which allows relative file
     // paths in "load" statements in test queries to find the right data. It is
     // also used for HDFSCluster.
-    private static final String ASTERIX_APP_DIR = StringUtils
-            .join(new String[] { "..", "asterix-app" },
-                    File.separator);
+    private static final String ASTERIX_APP_DIR = StringUtils.join(new String[] { "..", "asterix-app" },
+            File.separator);
 
     // Path to the actual AQL test files, which we borrow from asterix-app. This is
     // passed to TestExecutor.
     protected static final String TESTS_DIR = StringUtils
-            .join(new String[] { ASTERIX_APP_DIR, "src", "test", "resources", "runtimets" },
-                    File.separator);
+            .join(new String[] { ASTERIX_APP_DIR, "src", "test", "resources", "runtimets" }, File.separator);
 
     // Path that actual results are written to. We create and clean this directory
     // here, and also pass it to TestExecutor which writes the test output there.
-    private static final String ACTUAL_RESULTS_DIR = StringUtils
-            .join(new String[] { TARGET_DIR, "ittest" }, File.separator);
+    private static final String ACTUAL_RESULTS_DIR = StringUtils.join(new String[] { TARGET_DIR, "ittest" },
+            File.separator);
 
     private static final Logger LOGGER = Logger.getLogger(AsterixInstallerIntegrationUtil.class.getName());
 
@@ -97,7 +92,6 @@ public class AsterixInstallerIntegrationUtil {
 
     private static final TestExecutor testExecutor = new TestExecutor();
 
-
     public static void deinit() throws Exception {
     }
 
@@ -112,26 +106,18 @@ public class AsterixInstallerIntegrationUtil {
         }
 
         cluster = new HyracksVirtualCluster(new File(APP_HOME), new File(ASTERIX_APP_DIR));
-        nc1 = cluster.addNCService(
-                new File(CONF_DIR, "ncservice1.conf"),
-                new File(LOG_DIR, "ncservice1.log"));
+        nc1 = cluster.addNCService(new File(CONF_DIR, "ncservice1.conf"), new File(LOG_DIR, "ncservice1.log"));
 
-        nc2 = cluster.addNCService(
-                new File(CONF_DIR, "ncservice2.conf"),
-                new File(LOG_DIR, "ncservice2.log"));
+        nc2 = cluster.addNCService(new File(CONF_DIR, "ncservice2.conf"), new File(LOG_DIR, "ncservice2.log"));
 
     }
-
 
     public static void createInstance() throws Exception {
         // Start CC
-        cc = cluster.start(
-                new File(CONF_DIR, "cc.conf"),
-                new File(LOG_DIR, "cc.log"));
+        cc = cluster.start(new File(CONF_DIR, "cc.conf"), new File(LOG_DIR, "cc.log"));
 
         testExecutor.waitForClusterActive(30, TimeUnit.SECONDS);
     }
-
 
     //public static void transformIntoRequiredState(AsterixInstance.State state) throws Exception {
     //}
@@ -139,7 +125,6 @@ public class AsterixInstallerIntegrationUtil {
     private static void deleteInstance() throws Exception {
         cluster.stop();
     }
-
 
     public static void installLibrary(String libraryName, String libraryDataverse, String libraryPath)
             throws Exception {
@@ -149,7 +134,7 @@ public class AsterixInstallerIntegrationUtil {
     }
 
     public static void executeCommand(String command) throws Exception {
-   //     cmdHandler.processCommand(command.trim().split(" "));
+        //     cmdHandler.processCommand(command.trim().split(" "));
     }
 
 }

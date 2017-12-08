@@ -347,8 +347,8 @@ public class NCConfig extends ControllerConfig {
                 case NCSERVICE_ADDRESS:
                     return "Address the CC should use to contact the NCService associated with this NC";
                 case NCSERVICE_PORT:
-                    return "Port the CC should use to contact the NCService associated with this NC (-1 to not use " +
-                            "NCService to start this NC)";
+                    return "Port the CC should use to contact the NCService associated with this NC (-1 to not use "
+                            + "NCService to start this NC)";
                 case CLUSTER_ADDRESS:
                     return "Cluster Controller address (required unless specified in config file)";
                 case CLUSTER_PORT:

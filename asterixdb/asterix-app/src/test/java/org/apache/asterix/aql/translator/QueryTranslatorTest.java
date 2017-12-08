@@ -72,7 +72,6 @@ public class QueryTranslatorTest {
         when(mockServiceContext.getAppConfig()).thenReturn(mockApplicationConfig);
         when(mockApplicationConfig.getBoolean(CCConfig.Option.ENFORCE_FRAME_WRITER_PROTOCOL)).thenReturn(true);
 
-
         IStatementExecutor aqlTranslator = new DefaultStatementExecutorFactory().create(mockAsterixAppContextInfo,
                 statements, mockSessionOutput, new AqlCompilationProvider(), new StorageComponentProvider());
         List<String> parameters = new ArrayList<>();

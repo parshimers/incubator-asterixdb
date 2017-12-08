@@ -57,8 +57,7 @@ public class ReplicaResourcesManager implements IReplicaResourcesManager {
     private final PersistentLocalResourceRepository localRepository;
     private final Map<String, ClusterPartition[]> nodePartitions;
 
-    public ReplicaResourcesManager(ILocalResourceRepository localRepository,
-                                   MetadataProperties metadataProperties) {
+    public ReplicaResourcesManager(ILocalResourceRepository localRepository, MetadataProperties metadataProperties) {
         this.localRepository = (PersistentLocalResourceRepository) localRepository;
         nodePartitions = metadataProperties.getNodePartitions();
     }
@@ -155,8 +154,7 @@ public class ReplicaResourcesManager implements IReplicaResourcesManager {
             Set<File> remoteIndexes = getReplicaIndexes(replicaId);
             for (File indexFolder : remoteIndexes) {
                 if (getReplicaIndexMaxLSN(indexFolder) < targetLSN) {
-                    File localResource = new File(
-                            indexFolder + File.separator + StorageConstants.METADATA_FILE_NAME);
+                    File localResource = new File(indexFolder + File.separator + StorageConstants.METADATA_FILE_NAME);
                     LocalResource resource = PersistentLocalResourceRepository.readLocalResource(localResource);
                     laggingReplicaIndexes.put(resource.getId(), indexFolder.getAbsolutePath());
                 }

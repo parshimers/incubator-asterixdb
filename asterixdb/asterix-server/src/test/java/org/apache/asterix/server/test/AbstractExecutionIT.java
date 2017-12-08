@@ -61,12 +61,10 @@ public abstract class AbstractExecutionIT {
 
     private static final List<String> badTestCases = new ArrayList<>();
 
-    private static String reportPath =
-            new File(FileUtil.joinPath("target", "failsafe-reports")).getAbsolutePath();
+    private static String reportPath = new File(FileUtil.joinPath("target", "failsafe-reports")).getAbsolutePath();
 
     @Rule
-    public TestRule retainLogs = new RetainLogsRule(
-            NCServiceExecutionIT.LOG_DIR, reportPath, this);
+    public TestRule retainLogs = new RetainLogsRule(NCServiceExecutionIT.LOG_DIR, reportPath, this);
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -79,45 +77,40 @@ public abstract class AbstractExecutionIT {
 
         //This is nasty but there is no very nice way to set a system property on each NC that I can figure.
         //The main issue is that we need the NC resolver to be the IdentityResolver and not the DNSResolver.
-/*        FileUtils
+        /*        FileUtils
                 .copyFile(
                         new File(StringUtils.join(new String[] { "src", "test", "resources", "integrationts",
                                 "asterix-configuration.xml" }, File.separator)),
                         new File(NCServiceExecutionIT.ASTERIX_APP_DIR + "/conf/asterix-configuration.xml"));*/
 
-        File externalTestsJar = new File(StringUtils.join(
-                new String[] { "..", "asterix-external-data", "target" }, File.separator)).listFiles(
-                (dir, name) -> name.matches("asterix-external-data-.*-tests.jar"))[0];
+        File externalTestsJar = new File(
+                StringUtils.join(new String[] { "..", "asterix-external-data", "target" }, File.separator))
+                        .listFiles((dir, name) -> name.matches("asterix-external-data-.*-tests.jar"))[0];
 
-        FileUtils.copyFile(externalTestsJar, new File(
-                NCServiceExecutionIT.APP_HOME + "/repo",
-                externalTestsJar.getName()));
+        FileUtils.copyFile(externalTestsJar,
+                new File(NCServiceExecutionIT.APP_HOME + "/repo", externalTestsJar.getName()));
 
         //AsterixLifecycleIT.setUp();
         NCServiceExecutionIT.setUp();
 
-
         //AsterixLifecycleIT.restartInstance();
 
-        FileUtils.copyDirectoryStructure(
-                new File(FileUtil.joinPath("..", "asterix-app", "data")),
+        FileUtils.copyDirectoryStructure(new File(FileUtil.joinPath("..", "asterix-app", "data")),
                 new File(NCServiceExecutionIT.ASTERIX_APP_DIR + "/clusters/local/working_dir/data"));
 
-        FileUtils.copyDirectoryStructure(
-                new File(FileUtil.joinPath("..", "asterix-app", "target", "data")),
+        FileUtils.copyDirectoryStructure(new File(FileUtil.joinPath("..", "asterix-app", "target", "data")),
                 new File(NCServiceExecutionIT.ASTERIX_APP_DIR + "/clusters/local/working_dir/target/data"));
 
-//        FileUtils.copyDirectoryStructure(new File(FileUtil.joinPath("target", "data")),
-//                new File(NCServiceExecutionIT.ASTERIX_APP_DIR
-//                        + "/clusters/local/working_dir/target/data/csv"));
+        //        FileUtils.copyDirectoryStructure(new File(FileUtil.joinPath("target", "data")),
+        //                new File(NCServiceExecutionIT.ASTERIX_APP_DIR
+        //                        + "/clusters/local/working_dir/target/data/csv"));
 
         // Set the node resolver to be the identity resolver that expects node names
         // to be node controller ids; a valid assumption in test environment.
         System.setProperty(ExternalDataConstants.NODE_RESOLVER_FACTORY_PROPERTY,
                 IdentitiyResolverFactory.class.getName());
 
-        reportPath = new File(FileUtil.joinPath("target", "failsafe-reports"))
-                .getAbsolutePath();
+        reportPath = new File(FileUtil.joinPath("target", "failsafe-reports")).getAbsolutePath();
     }
 
     @AfterClass

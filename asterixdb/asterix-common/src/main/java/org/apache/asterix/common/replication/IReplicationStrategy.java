@@ -54,7 +54,6 @@ public interface IReplicationStrategy {
         return !getRemoteReplicas(nodeId).isEmpty() || !getRemotePrimaryReplicas(nodeId).isEmpty();
     }
 
-
     /**
      * @param p
      * @return A replication strategy based on the passed configurations.

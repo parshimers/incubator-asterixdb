@@ -45,7 +45,7 @@ public class StartNodeApiServlet extends AbstractServlet {
         ObjectMapper om = new ObjectMapper();
         ObjectNode jsonObject = om.createObjectNode();
         jsonObject.put("date", new Date().toString());
-        jsonObject.put("status",ccs.startNC(nodeId));
+        jsonObject.put("status", ccs.startNC(nodeId));
         final PrintWriter writer = response.writer();
         writer.print(jsonObject.toString());
         writer.close();

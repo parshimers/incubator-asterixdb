@@ -56,12 +56,12 @@ public class MigrateStorageResourcesTaskTest {
 
     @Test
     public void storageStructureMigration() throws Exception {
-        Function<IndexPathElements, String> legacyIndexPathProvider = (pathElements) ->
-                (pathElements.getRebalanceCount().equals("0") ? "" : pathElements.getRebalanceCount() + File.separator)
-                        + pathElements.getDatasetName() + StorageConstants.LEGACY_DATASET_INDEX_NAME_SEPARATOR
-                        + pathElements.getIndexName();
+        Function<IndexPathElements, String> legacyIndexPathProvider = (
+                pathElements) -> (pathElements.getRebalanceCount().equals("0") ? ""
+                        : pathElements.getRebalanceCount() + File.separator) + pathElements.getDatasetName()
+                        + StorageConstants.LEGACY_DATASET_INDEX_NAME_SEPARATOR + pathElements.getIndexName();
         StoragePathUtil.setIndexPathProvider(legacyIndexPathProvider);
-        integrationUtil.init(true,DEFAULT_TEST_CONFIG_FILE_NAME);
+        integrationUtil.init(true, DEFAULT_TEST_CONFIG_FILE_NAME);
         // create dataset and insert data using legacy structure
         String datasetName = "ds";
         TestDataUtil.createIdOnlyDataset(datasetName);
@@ -71,18 +71,18 @@ public class MigrateStorageResourcesTaskTest {
         integrationUtil.deinit(false);
         // forge a checkpoint with old version to force migration to new storage structure on all ncs
         final INcApplicationContext nc1AppCtx = (INcApplicationContext) integrationUtil.ncs[0].getApplicationContext();
-        final AbstractCheckpointManager nc1CheckpointManager =
-                (AbstractCheckpointManager) nc1AppCtx.getTransactionSubsystem().getCheckpointManager();
+        final AbstractCheckpointManager nc1CheckpointManager = (AbstractCheckpointManager) nc1AppCtx
+                .getTransactionSubsystem().getCheckpointManager();
         forgeOldVersionCheckpoint(nc1CheckpointManager);
         final INcApplicationContext nc2AppCtx = (INcApplicationContext) integrationUtil.ncs[1].getApplicationContext();
-        final AbstractCheckpointManager nc2CheckpointManager =
-                (AbstractCheckpointManager) nc2AppCtx.getTransactionSubsystem().getCheckpointManager();
+        final AbstractCheckpointManager nc2CheckpointManager = (AbstractCheckpointManager) nc2AppCtx
+                .getTransactionSubsystem().getCheckpointManager();
         forgeOldVersionCheckpoint(nc2CheckpointManager);
 
         // remove the legacy path provider to use the new default structure
         StoragePathUtil.setIndexPathProvider(null);
         // start the NCs to do the migration
-        integrationUtil.init(false,DEFAULT_TEST_CONFIG_FILE_NAME);
+        integrationUtil.init(false, DEFAULT_TEST_CONFIG_FILE_NAME);
         final long countAfterMigration = TestDataUtil.getDatasetCount(datasetName);
         // ensure data migrated to new structure without issues
         Assert.assertEquals(countBeforeMigration, countAfterMigration);

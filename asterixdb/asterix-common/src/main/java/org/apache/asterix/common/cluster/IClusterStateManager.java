@@ -223,5 +223,5 @@ public interface IClusterStateManager {
      */
     boolean cancelRemovePending(String nodeId);
 
-    Map<String,Map<IOption,Object>> getActiveNcConfiguration();
+    Map<String, Map<IOption, Object>> getActiveNcConfiguration();
 }

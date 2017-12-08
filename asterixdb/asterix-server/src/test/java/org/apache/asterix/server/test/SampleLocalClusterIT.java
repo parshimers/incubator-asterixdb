@@ -78,12 +78,12 @@ public class SampleLocalClusterIT {
                 new File(TARGET_DIR).list((dir, name) -> name.matches("asterix-server.*-binary-assembly.zip"))[0] };
         String installerZip = joinPath(pathElements);
 
-        TestHelper.unzip(installerZip,OUTPUT_DIR);
+        TestHelper.unzip(installerZip, OUTPUT_DIR);
 
     }
 
     private static List<File> findLogFiles(File directory, List<File> fileList) {
-        File [] match = directory.listFiles(pathname -> pathname.isDirectory() || pathname.toString().endsWith(".log"));
+        File[] match = directory.listFiles(pathname -> pathname.isDirectory() || pathname.toString().endsWith(".log"));
         if (match != null) {
             for (File file : match) {
                 if (file.isDirectory()) {
@@ -119,8 +119,7 @@ public class SampleLocalClusterIT {
     public void test1_sanityQuery() throws Exception {
         TestExecutor testExecutor = new TestExecutor();
         InputStream resultStream = testExecutor.executeQuery("1+1", OutputFormat.ADM,
-                new URI("http", null, "127.0.0.1", 19002, Servlets.AQL_QUERY, null, null),
-                Collections.emptyList());
+                new URI("http", null, "127.0.0.1", 19002, Servlets.AQL_QUERY, null, null), Collections.emptyList());
         StringWriter sw = new StringWriter();
         IOUtils.copy(resultStream, sw);
         Assert.assertEquals("2", sw.toString().trim());
@@ -128,8 +127,8 @@ public class SampleLocalClusterIT {
 
     @Test
     public void test2_stopCluster() throws Exception {
-        Process process =
-                new ProcessBuilder(joinPath(LOCAL_SAMPLES_DIR, "bin/stop-sample-cluster.sh")).inheritIO().start();
+        Process process = new ProcessBuilder(joinPath(LOCAL_SAMPLES_DIR, "bin/stop-sample-cluster.sh")).inheritIO()
+                .start();
         Assert.assertEquals(0, process.waitFor());
         try {
             new URL("http://127.0.0.1:19002").openConnection().connect();

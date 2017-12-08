@@ -44,21 +44,21 @@ public class ExecutionTestUtil {
 
     protected static final String PATH_ACTUAL = "rttest" + File.separator;
 
-
     public static TestGroup FailedGroup;
 
     public static AsterixHyracksIntegrationUtil integrationUtil = new AsterixHyracksIntegrationUtil();
 
     public static List<ILibraryManager> setUp(boolean cleanup) throws Exception {
-        return setUp(cleanup,  AsterixHyracksIntegrationUtil.DEFAULT_CONF_FILE,integrationUtil, true,null);
+        return setUp(cleanup, AsterixHyracksIntegrationUtil.DEFAULT_CONF_FILE, integrationUtil, true, null);
     }
 
     public static List<ILibraryManager> setUp(boolean cleanup, String configFile) throws Exception {
-        return setUp(cleanup, configFile, integrationUtil, true,null);
+        return setUp(cleanup, configFile, integrationUtil, true, null);
     }
 
     public static List<ILibraryManager> setUp(boolean cleanup, String configFile,
-            AsterixHyracksIntegrationUtil alternateIntegrationUtil, boolean startHdfs, List<Pair<IOption,Object>> opts) throws Exception {
+            AsterixHyracksIntegrationUtil alternateIntegrationUtil, boolean startHdfs, List<Pair<IOption, Object>> opts)
+            throws Exception {
         System.out.println("Starting setup");
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("Starting setup");
@@ -68,12 +68,12 @@ public class ExecutionTestUtil {
             LOGGER.info("initializing pseudo cluster");
         }
         integrationUtil = alternateIntegrationUtil;
-        if(opts!=null){
-            for(Pair<IOption,Object> p: opts){
-                integrationUtil.addOption(p.getLeft(),p.getRight());
+        if (opts != null) {
+            for (Pair<IOption, Object> p : opts) {
+                integrationUtil.addOption(p.getLeft(), p.getRight());
             }
         }
-        integrationUtil.init(cleanup,configFile);
+        integrationUtil.init(cleanup, configFile);
 
         if (LOGGER.isLoggable(Level.INFO)) {
             LOGGER.info("initializing HDFS");

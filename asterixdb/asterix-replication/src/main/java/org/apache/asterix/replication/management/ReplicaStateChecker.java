@@ -38,7 +38,7 @@ public class ReplicaStateChecker implements Callable<Void> {
     private final boolean suspendReplication;
 
     public ReplicaStateChecker(Replica replica, int replicationTimeOut, ReplicationManager replicationManager,
-                               boolean suspendReplication) {
+            boolean suspendReplication) {
         this.replica = replica;
         this.replicationTimeOut = replicationTimeOut;
         this.replicationManager = replicationManager;
@@ -50,8 +50,8 @@ public class ReplicaStateChecker implements Callable<Void> {
         Thread.currentThread().setName("ReplicaConnector Thread");
 
         long startTime = System.currentTimeMillis();
-        InetSocketAddress replicaAddress =
-                InetSocketAddress.createUnresolved(replica.getClusterIp(), replica.getPort());
+        InetSocketAddress replicaAddress = InetSocketAddress.createUnresolved(replica.getClusterIp(),
+                replica.getPort());
 
         while (true) {
             try (SocketChannel connection = SocketChannel.open()) {

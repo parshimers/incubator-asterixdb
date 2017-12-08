@@ -66,10 +66,9 @@ public class RecoveryIT {
         File outdir = new File(PATH_ACTUAL);
         outdir.mkdirs();
 
-        File externalTestsJar = new File(StringUtils.join(
-                new String[] { "..", "asterix-external-data", "target" }, File.separator)).listFiles(
-                (dir, name) -> name.matches("asterix-external-data-.*-tests.jar"))[0];
-
+        File externalTestsJar = new File(
+                StringUtils.join(new String[] { "..", "asterix-external-data", "target" }, File.separator))
+                        .listFiles((dir, name) -> name.matches("asterix-external-data-.*-tests.jar"))[0];
 
         asterixInstallerPath = new File(System.getProperty("user.dir"));
         installerTargetPath = new File(new File(asterixInstallerPath.getParentFile(), "asterix-server"), "target");
@@ -85,22 +84,20 @@ public class RecoveryIT {
 
         LOGGER.info("NCSERVICE_HOME=" + ncServiceHomePath);
 
-        FileUtils.copyFile(externalTestsJar, new File(
-                ncServiceHomePath + "/repo",
-                externalTestsJar.getName()));
+        FileUtils.copyFile(externalTestsJar, new File(ncServiceHomePath + "/repo", externalTestsJar.getName()));
 
         pb = new ProcessBuilder();
         env = pb.environment();
         env.put("NCSERVICE_HOME", ncServiceHomePath);
-        env.put("JAVA_HOME",System.getProperty("java.home"));
+        env.put("JAVA_HOME", System.getProperty("java.home"));
         scriptHomePath = asterixInstallerPath + File.separator + "src" + File.separator + "test" + File.separator
                 + "resources" + File.separator + "transactionts" + File.separator + "scripts";
         env.put("SCRIPT_HOME", scriptHomePath);
 
-        TestExecutor.executeScript(pb, scriptHomePath + File.separator + "setup_teardown" + File.separator
-                + "configure_and_validate.sh");
-        TestExecutor.executeScript(pb, scriptHomePath + File.separator + "setup_teardown" + File.separator
-                + "stop_and_delete.sh");
+        TestExecutor.executeScript(pb,
+                scriptHomePath + File.separator + "setup_teardown" + File.separator + "configure_and_validate.sh");
+        TestExecutor.executeScript(pb,
+                scriptHomePath + File.separator + "setup_teardown" + File.separator + "stop_and_delete.sh");
         HDFSCluster.getInstance().setup(HDFS_BASE);
     }
 
@@ -111,8 +108,8 @@ public class RecoveryIT {
         File dataCopyDir = new File(
                 ncServiceHomePath + File.separator + ".." + File.separator + ".." + File.separator + "data");
         FileUtils.deleteDirectory(dataCopyDir);
-        TestExecutor.executeScript(pb, scriptHomePath + File.separator + "setup_teardown" + File.separator
-                + "stop_and_delete.sh");
+        TestExecutor.executeScript(pb,
+                scriptHomePath + File.separator + "setup_teardown" + File.separator + "stop_and_delete.sh");
         HDFSCluster.getInstance().cleanup();
     }
 

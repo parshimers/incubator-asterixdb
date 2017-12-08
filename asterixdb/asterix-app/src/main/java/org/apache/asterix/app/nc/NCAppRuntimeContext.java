@@ -183,12 +183,11 @@ public class NCAppRuntimeContext implements INcApplicationContext {
 
         metadataMergePolicyFactory = new PrefixMergePolicyFactory();
 
-        ILocalResourceRepositoryFactory persistentLocalResourceRepositoryFactory =
-                new PersistentLocalResourceRepositoryFactory(ioManager, getServiceContext().getNodeId(),
-                        metadataProperties);
+        ILocalResourceRepositoryFactory persistentLocalResourceRepositoryFactory = new PersistentLocalResourceRepositoryFactory(
+                ioManager, getServiceContext().getNodeId(), metadataProperties);
 
-        localResourceRepository =
-                (PersistentLocalResourceRepository) persistentLocalResourceRepositoryFactory.createRepository();
+        localResourceRepository = (PersistentLocalResourceRepository) persistentLocalResourceRepositoryFactory
+                .createRepository();
 
         IAppRuntimeContextProvider asterixAppRuntimeContextProvider = new AppRuntimeContextProviderForRecovery(this);
         txnSubsystem = new TransactionSubsystem(getServiceContext(), getServiceContext().getNodeId(),
@@ -209,8 +208,8 @@ public class NCAppRuntimeContext implements INcApplicationContext {
                 txnSubsystem.getLogManager(), datasetMemoryManager, ioManager.getIODevices().size());
         final String nodeId = getServiceContext().getNodeId();
         final ClusterPartition[] nodePartitions = metadataProperties.getNodePartitions().get(nodeId);
-        final Set<Integer> nodePartitionsIds =
-                Arrays.stream(nodePartitions).map(ClusterPartition::getPartitionId).collect(Collectors.toSet());
+        final Set<Integer> nodePartitionsIds = Arrays.stream(nodePartitions).map(ClusterPartition::getPartitionId)
+                .collect(Collectors.toSet());
         storageSubsystem = new StorageSubsystem(nodePartitionsIds);
         isShuttingdown = false;
         activeManager = new ActiveManager(threadExecutor, getServiceContext().getNodeId(),
@@ -219,12 +218,10 @@ public class NCAppRuntimeContext implements INcApplicationContext {
 
         if (replicationProperties.isReplicationEnabled()) {
 
-            replicaResourcesManager =
-                    new ReplicaResourcesManager(localResourceRepository, metadataProperties);
+            replicaResourcesManager = new ReplicaResourcesManager(localResourceRepository, metadataProperties);
 
-            replicationManager =
-                    new ReplicationManager(nodeId, replicationProperties, replicaResourcesManager,
-                            txnSubsystem.getLogManager(), asterixAppRuntimeContextProvider, ncServiceContext);
+            replicationManager = new ReplicationManager(nodeId, replicationProperties, replicaResourcesManager,
+                    txnSubsystem.getLogManager(), asterixAppRuntimeContextProvider, ncServiceContext);
 
             if (replicationManager.getReplicationStrategy().isParticipant(getServiceContext().getNodeId())) {
 

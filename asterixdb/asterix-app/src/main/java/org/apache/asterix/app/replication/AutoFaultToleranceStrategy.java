@@ -168,8 +168,8 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
             partitionRecoveryPlan.forEach((replica, value) -> {
                 Integer[] partitionsToTakeover = value.toArray(new Integer[value.size()]);
                 long requestId = clusterRequestId++;
-                TakeoverPartitionsRequestMessage takeoverRequest =
-                        new TakeoverPartitionsRequestMessage(requestId, replica, partitionsToTakeover);
+                TakeoverPartitionsRequestMessage takeoverRequest = new TakeoverPartitionsRequestMessage(requestId,
+                        replica, partitionsToTakeover);
                 pendingTakeoverRequests.put(requestId, takeoverRequest);
                 try {
                     messageBroker.sendApplicationMessageToNC(takeoverRequest, replica);
@@ -495,8 +495,8 @@ public class AutoFaultToleranceStrategy implements IFaultToleranceStrategy {
             startupQueue.put(nodeId, state);
             for (Map.Entry<String, SystemState> nodeState : startupQueue.entrySet()) {
                 List<INCLifecycleTask> tasks = buildStartupSequence(nodeState.getKey());
-                RegistrationTasksResponseMessage response =
-                        new RegistrationTasksResponseMessage(nodeState.getKey(), tasks);
+                RegistrationTasksResponseMessage response = new RegistrationTasksResponseMessage(nodeState.getKey(),
+                        tasks);
                 try {
                     messageBroker.sendApplicationMessageToNC(response, nodeState.getKey());
                 } catch (Exception e) {

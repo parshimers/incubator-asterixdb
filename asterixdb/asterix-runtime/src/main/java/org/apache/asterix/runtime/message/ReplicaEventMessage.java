@@ -54,7 +54,7 @@ public class ReplicaEventMessage implements INcAddressedMessage {
 
     @Override
     public void handle(INcApplicationContext appContext) throws HyracksDataException, InterruptedException {
-        Replica replica = new Replica(nodeId,nodeIPAddress,nodePort);
+        Replica replica = new Replica(nodeId, nodeIPAddress, nodePort);
         appContext.getReplicationManager().reportReplicaEvent(new ReplicaEvent(replica, event));
     }
 

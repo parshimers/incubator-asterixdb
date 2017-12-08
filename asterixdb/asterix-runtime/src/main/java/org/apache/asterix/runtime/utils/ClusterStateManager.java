@@ -171,8 +171,8 @@ public class ClusterStateManager implements IClusterStateManager {
         }
         resetClusterPartitionConstraint();
         // if the cluster has no registered partitions or all partitions are pending activation -> UNUSABLE
-        if (clusterPartitions.isEmpty() || clusterPartitions.values().stream()
-                .allMatch(ClusterPartition::isPendingActivation)) {
+        if (clusterPartitions.isEmpty()
+                || clusterPartitions.values().stream().allMatch(ClusterPartition::isPendingActivation)) {
             LOGGER.info("Cluster does not have any registered partitions");
             setState(ClusterState.UNUSABLE);
             return;
@@ -252,7 +252,6 @@ public class ClusterStateManager implements IClusterStateManager {
     public synchronized ClusterState getState() {
         return state;
     }
-
 
     @Override
     public synchronized Set<String> getParticipantNodes() {

@@ -41,8 +41,8 @@ public class RecoveryManagerTest {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String TEST_CONFIG_FILE_NAME = "cc.conf";
-    private static final String TEST_CONFIG_PATH =
-            System.getProperty("user.dir") + File.separator + "src" + File.separator + "main" + File.separator + "resources";
+    private static final String TEST_CONFIG_PATH = System.getProperty("user.dir") + File.separator + "src"
+            + File.separator + "main" + File.separator + "resources";
     private static final String TEST_CONFIG_FILE_PATH = TEST_CONFIG_PATH + File.separator + TEST_CONFIG_FILE_NAME;
     private static final AsterixHyracksIntegrationUtil integrationUtil = new AsterixHyracksIntegrationUtil();
 
@@ -50,10 +50,10 @@ public class RecoveryManagerTest {
     public void setUp() throws Exception {
         // Read default test configurations
         // Write test config file
-        integrationUtil.addOption(StorageProperties.Option.STORAGE_MEMORYCOMPONENT_GLOBALBUDGET,"128MB");
-        integrationUtil.addOption(StorageProperties.Option.STORAGE_MEMORYCOMPONENT_NUMPAGES,32);
+        integrationUtil.addOption(StorageProperties.Option.STORAGE_MEMORYCOMPONENT_GLOBALBUDGET, "128MB");
+        integrationUtil.addOption(StorageProperties.Option.STORAGE_MEMORYCOMPONENT_NUMPAGES, 32);
         integrationUtil.setGracefulShutdown(false);
-        integrationUtil.init(true,TEST_CONFIG_FILE_PATH);
+        integrationUtil.init(true, TEST_CONFIG_FILE_PATH);
     }
 
     @After
@@ -74,7 +74,7 @@ public class RecoveryManagerTest {
         final long countBeforeFirstRecovery = TestDataUtil.getDatasetCount(datasetName);
         // do ungraceful shutdown to enforce recovery
         integrationUtil.deinit(false);
-        integrationUtil.init(false,TEST_CONFIG_FILE_PATH);
+        integrationUtil.init(false, TEST_CONFIG_FILE_PATH);
         final long countAfterFirstRecovery = TestDataUtil.getDatasetCount(datasetName);
         Assert.assertEquals(countBeforeFirstRecovery, countAfterFirstRecovery);
         // create more datasets after recovery
@@ -87,7 +87,7 @@ public class RecoveryManagerTest {
         final long countBeforeSecondRecovery = TestDataUtil.getDatasetCount(datasetName);
         // do ungraceful shutdown to enforce recovery again
         integrationUtil.deinit(false);
-        integrationUtil.init(false,TEST_CONFIG_FILE_PATH);
+        integrationUtil.init(false, TEST_CONFIG_FILE_PATH);
         final long countAfterSecondRecovery = TestDataUtil.getDatasetCount(datasetName);
         Assert.assertEquals(countBeforeSecondRecovery, countAfterSecondRecovery);
     }
@@ -109,7 +109,7 @@ public class RecoveryManagerTest {
         final long countBeforeRecovery = TestDataUtil.getDatasetCount(datasetName);
         // do ungraceful shutdown to enforce recovery
         integrationUtil.deinit(false);
-        integrationUtil.init(false,TEST_CONFIG_FILE_PATH);
+        integrationUtil.init(false, TEST_CONFIG_FILE_PATH);
         final long countAfterRecovery = TestDataUtil.getDatasetCount(datasetName);
         Assert.assertEquals(countBeforeRecovery, countAfterRecovery);
     }

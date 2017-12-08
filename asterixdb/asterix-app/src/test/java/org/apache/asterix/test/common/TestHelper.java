@@ -46,7 +46,6 @@ public final class TestHelper {
         return false;
     }
 
-
     public static void deleteExistingInstanceFiles() {
         for (String dirName : TEST_DIRS) {
             File f = new File(FileUtil.joinPath(TEST_DIR_BASE_PATH, dirName));
@@ -66,7 +65,7 @@ public final class TestHelper {
                     if (!entry.isDirectory()) {
                         entryDestination.getParentFile().mkdirs();
                         try (InputStream in = zipFile.getInputStream(entry);
-                             OutputStream out = new FileOutputStream(entryDestination)) {
+                                OutputStream out = new FileOutputStream(entryDestination)) {
                             IOUtils.copy(in, out);
                         }
                     }

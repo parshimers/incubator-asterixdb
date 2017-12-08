@@ -57,8 +57,8 @@ import org.kohsuke.args4j.CmdLineException;
 public class AsterixHyracksIntegrationUtil {
     public static final int DEFAULT_HYRACKS_CC_CLIENT_PORT = 1098;
     public static final int DEFAULT_HYRACKS_CC_CLUSTER_PORT = 1099;
-    public static final String DEFAULT_CONF_FILE =
-            joinPath("asterixdb", "asterix-app", "src", "test", "resources", "cc.conf");
+    public static final String DEFAULT_CONF_FILE = joinPath("asterixdb", "asterix-app", "src", "test", "resources",
+            "cc.conf");
     private static final String DEFAULT_STORAGE_PATH = joinPath("target", "io", "dir");
     private static String storagePath = DEFAULT_STORAGE_PATH;
     public ClusterControllerService cc;

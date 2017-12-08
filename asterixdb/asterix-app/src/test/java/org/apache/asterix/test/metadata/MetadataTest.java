@@ -54,7 +54,7 @@ public class MetadataTest {
     public static void setUp() throws Exception {
         File outdir = new File(PATH_ACTUAL);
         outdir.mkdirs();
-        integrationUtil.init(true,TEST_CONFIG_FILE_NAME);
+        integrationUtil.init(true, TEST_CONFIG_FILE_NAME);
     }
 
     @AfterClass
