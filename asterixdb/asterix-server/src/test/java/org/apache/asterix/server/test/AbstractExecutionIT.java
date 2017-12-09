@@ -41,6 +41,8 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static org.apache.hyracks.util.file.FileUtil.joinPath;
+
 /**
  * Runs the runtime test cases under 'asterix-app/src/test/resources/runtimets'.
  */
@@ -49,9 +51,8 @@ public abstract class AbstractExecutionIT {
 
     protected static final Logger LOGGER = Logger.getLogger(AbstractExecutionIT.class.getName());
 
-    protected static final String PATH_ACTUAL = "target" + File.separator + "ittest" + File.separator;
-    protected static final String PATH_BASE = StringUtils
-            .join(new String[] { "..", "asterix-app", "src", "test", "resources", "runtimets" }, File.separator);
+    protected static final String PATH_ACTUAL = joinPath("target", "ittest");
+    protected static final String PATH_BASE = joinPath("..", "asterix-app", "src", "test", "resources", "runtimets");
 
     protected static final String HDFS_BASE = "../asterix-app/";
 
@@ -61,7 +62,7 @@ public abstract class AbstractExecutionIT {
 
     private static final List<String> badTestCases = new ArrayList<>();
 
-    private static String reportPath = new File(FileUtil.joinPath("target", "failsafe-reports")).getAbsolutePath();
+    private static String reportPath = new File(joinPath("target", "failsafe-reports")).getAbsolutePath();
 
     @Rule
     public TestRule retainLogs = new RetainLogsRule(NCServiceExecutionIT.LOG_DIR, reportPath, this);
@@ -75,30 +76,19 @@ public abstract class AbstractExecutionIT {
         File outdir = new File(PATH_ACTUAL);
         outdir.mkdirs();
 
-        //This is nasty but there is no very nice way to set a system property on each NC that I can figure.
-        //The main issue is that we need the NC resolver to be the IdentityResolver and not the DNSResolver.
-        /*        FileUtils
-                .copyFile(
-                        new File(StringUtils.join(new String[] { "src", "test", "resources", "integrationts",
-                                "asterix-configuration.xml" }, File.separator)),
-                        new File(NCServiceExecutionIT.ASTERIX_APP_DIR + "/conf/asterix-configuration.xml"));*/
-
-        File externalTestsJar = new File(
-                StringUtils.join(new String[] { "..", "asterix-external-data", "target" }, File.separator))
+        File externalTestsJar =
+                new File(StringUtils.join(new String[] { "..", "asterix-external-data", "target" }, File.separator))
                         .listFiles((dir, name) -> name.matches("asterix-external-data-.*-tests.jar"))[0];
 
         FileUtils.copyFile(externalTestsJar,
                 new File(NCServiceExecutionIT.APP_HOME + "/repo", externalTestsJar.getName()));
 
-        //AsterixLifecycleIT.setUp();
         NCServiceExecutionIT.setUp();
 
-        //AsterixLifecycleIT.restartInstance();
-
-        FileUtils.copyDirectoryStructure(new File(FileUtil.joinPath("..", "asterix-app", "data")),
+        FileUtils.copyDirectoryStructure(new File(joinPath("..", "asterix-app", "data")),
                 new File(NCServiceExecutionIT.ASTERIX_APP_DIR + "/clusters/local/working_dir/data"));
 
-        FileUtils.copyDirectoryStructure(new File(FileUtil.joinPath("..", "asterix-app", "target", "data")),
+        FileUtils.copyDirectoryStructure(new File(joinPath("..", "asterix-app", "target", "data")),
                 new File(NCServiceExecutionIT.ASTERIX_APP_DIR + "/clusters/local/working_dir/target/data"));
 
         //        FileUtils.copyDirectoryStructure(new File(FileUtil.joinPath("target", "data")),
@@ -110,7 +100,7 @@ public abstract class AbstractExecutionIT {
         System.setProperty(ExternalDataConstants.NODE_RESOLVER_FACTORY_PROPERTY,
                 IdentitiyResolverFactory.class.getName());
 
-        reportPath = new File(FileUtil.joinPath("target", "failsafe-reports")).getAbsolutePath();
+        reportPath = new File(joinPath("target", "failsafe-reports")).getAbsolutePath();
     }
 
     @AfterClass

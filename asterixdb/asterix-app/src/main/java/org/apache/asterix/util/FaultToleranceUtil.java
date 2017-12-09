@@ -59,7 +59,7 @@ public class FaultToleranceUtil {
         ReplicaEventMessage msg = new ReplicaEventMessage(nodeId, nodeIdAddress, nodePort, event);
         for (String replica : primaryRemoteReplicas) {
             // If the remote replica is alive, send the event
-            if (activeNcConfiguration.keySet().contains(replica)) {
+            if (activeNcConfiguration.containsKey(replica)) {
                 try {
                     messageBroker.sendApplicationMessageToNC(msg, replica);
                 } catch (Exception e) {

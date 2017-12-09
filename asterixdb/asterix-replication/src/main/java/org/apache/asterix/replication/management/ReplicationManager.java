@@ -154,7 +154,7 @@ public class ReplicationManager implements IReplicationManager {
             replicationStrategy = ReplicationStrategyFactory.create(replicationProperties.getReplicationStrategy(),
                     replicationProperties, ncConfig.getConfigManager());
         } catch (HyracksDataException e) {
-            LOGGER.warning("Unable to initialize replication strategy");
+            LOGGER.warning("Unable to initialize replication strategy: " + e.getMessage());
         }
         this.replicaResourcesManager = (ReplicaResourcesManager) remoteResoucesManager;
         this.asterixAppRuntimeContextProvider = asterixAppRuntimeContextProvider;

@@ -73,7 +73,6 @@ public class PropertiesAccessor implements IApplicationConfig {
         clusterPartitions = Collections.synchronizedSortedMap(new TreeMap<>());
         extensions = new ArrayList<>();
         ConfigManager configManager = ((ConfigManagerApplicationConfig) cfg).getConfigManager();
-        LOGGER.info("using new-style configuration");
         MutableInt uniquePartitionId = new MutableInt(0);
         // Iterate through each configured NC.
         for (String ncName : cfg.getNCNames()) {

@@ -63,7 +63,7 @@ public class SplitsAndConstraintsUtil {
             List<String> nodeList = nodeGroup.getNodeNames();
             return getIndexSplits(csm, dataset, indexName, nodeList);
         } catch (MetadataException me) {
-            throw new AlgebricksException("Couldn't find node group " + dataset.getNodeGroupName());
+            throw new AlgebricksException(me);
         }
     }
 

@@ -29,17 +29,17 @@ public class FaultToleranceStrategyFactory {
         throw new AssertionError();
     }
 
+    public static final String STRATEGY_NAME = "metadata_only";
+
     public static IFaultToleranceStrategy create(ICCServiceContext serviceCtx, ReplicationProperties repProp,
             IReplicationStrategy strategy) {
         Class<? extends IFaultToleranceStrategy> clazz;
         if (!repProp.isReplicationEnabled()) {
             clazz = NoFaultToleranceStrategy.class;
+        } else if (STRATEGY_NAME.equals(repProp.getReplicationStrategy())) {
+            clazz = MetadataNodeFaultToleranceStrategy.class;
         } else {
-            if ("metadata_only".equals(repProp.getReplicationStrategy())) {
-                clazz = MetadataNodeFaultToleranceStrategy.class;
-            } else {
-                clazz = AutoFaultToleranceStrategy.class;
-            }
+            clazz = AutoFaultToleranceStrategy.class;
         }
         try {
             return clazz.newInstance().from(serviceCtx, strategy);

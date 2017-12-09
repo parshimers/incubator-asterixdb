@@ -41,6 +41,6 @@ public class HyracksCCProcess extends HyracksServerProcess {
     protected void addJvmArgs(List<String> cList) {
         // CC needs more than default memory
         cList.add("-Xmx1024m");
-        cList.add("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005");
+//        cList.add("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005");
     }
 }

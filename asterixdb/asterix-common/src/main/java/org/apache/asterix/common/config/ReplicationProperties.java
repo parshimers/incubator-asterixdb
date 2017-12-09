@@ -32,56 +32,6 @@ import static org.apache.hyracks.control.common.config.OptionTypes.*;
 
 public class ReplicationProperties extends AbstractProperties {
 
-    public boolean isReplicationEnabled() {
-        return accessor.getBoolean(Option.REPLICATION_ENABLED);
-    }
-
-    private static final int REPLICATION_TIME_OUT_DEFAULT = 15;
-
-    public ReplicationProperties(PropertiesAccessor accessor) throws HyracksDataException {
-        super(accessor);
-    }
-
-    public int getMaxRemoteRecoveryAttempts() {
-        return accessor.getInt(Option.REPLICATION_MAX_REMOTE_RECOVERY_ATTEMPTS);
-    }
-
-    public int getReplicationFactor() {
-        return accessor.getInt(Option.REPLICATION_FACTOR);
-    }
-
-    public List<String> getNodeIds() {
-        return accessor.getNCNames();
-    }
-
-    public int getLogBufferPageSize() {
-        return accessor.getInt(Option.REPLICATION_LOG_BUFFER_PAGESIZE);
-    }
-
-    public int getLogBufferNumOfPages() {
-        return accessor.getInt(Option.REPLICATION_LOG_BUFFER_NUMPAGES);
-    }
-
-    public int getLogBatchSize() {
-        return accessor.getInt(Option.REPLICATION_LOG_BATCHSIZE);
-    }
-
-    public String getNodeIpFromId(String id) {
-        return accessor.getNCEffectiveConfig(id).getString(NCConfig.Option.PUBLIC_ADDRESS);
-    }
-
-    public String getReplicationStrategy() {
-        return accessor.getString(Option.REPLICATION_STRATEGY);
-    }
-
-    public int getReplicationTimeOut() {
-        return accessor.getInt(Option.REPLICATION_TIMEOUT);
-    }
-
-    public MetadataProperties getMetadataProperties() {
-        return new MetadataProperties(accessor);
-    }
-
     public enum Option implements IOption {
         REPLICATION_MAX_REMOTE_RECOVERY_ATTEMPTS(
                 INTEGER,
@@ -145,6 +95,56 @@ public class ReplicationProperties extends AbstractProperties {
                     return config.getStatic(this);
             }
         }
+    }
+
+    public boolean isReplicationEnabled() {
+        return accessor.getBoolean(Option.REPLICATION_ENABLED);
+    }
+
+    private static final int REPLICATION_TIME_OUT_DEFAULT = 15;
+
+    public ReplicationProperties(PropertiesAccessor accessor) throws HyracksDataException {
+        super(accessor);
+    }
+
+    public int getMaxRemoteRecoveryAttempts() {
+        return accessor.getInt(Option.REPLICATION_MAX_REMOTE_RECOVERY_ATTEMPTS);
+    }
+
+    public int getReplicationFactor() {
+        return accessor.getInt(Option.REPLICATION_FACTOR);
+    }
+
+    public List<String> getNodeIds() {
+        return accessor.getNCNames();
+    }
+
+    public int getLogBufferPageSize() {
+        return accessor.getInt(Option.REPLICATION_LOG_BUFFER_PAGESIZE);
+    }
+
+    public int getLogBufferNumOfPages() {
+        return accessor.getInt(Option.REPLICATION_LOG_BUFFER_NUMPAGES);
+    }
+
+    public int getLogBatchSize() {
+        return accessor.getInt(Option.REPLICATION_LOG_BATCHSIZE);
+    }
+
+    public String getNodeIpFromId(String id) {
+        return accessor.getNCEffectiveConfig(id).getString(NCConfig.Option.PUBLIC_ADDRESS);
+    }
+
+    public String getReplicationStrategy() {
+        return accessor.getString(Option.REPLICATION_STRATEGY);
+    }
+
+    public int getReplicationTimeOut() {
+        return accessor.getInt(Option.REPLICATION_TIMEOUT);
+    }
+
+    public MetadataProperties getMetadataProperties() {
+        return new MetadataProperties(accessor);
     }
 
 }

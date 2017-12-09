@@ -69,8 +69,8 @@ public class TransactionSubsystem implements ITransactionSubsystem {
         this.txnProperties = txnProperties;
         this.transactionManager = new TransactionManager(this);
         this.lockManager = new ConcurrentLockManager(txnProperties.getLockManagerShrinkTimer());
-        ReplicationProperties repProperties = asterixAppRuntimeContextProvider.getAppContext()
-                .getReplicationProperties();
+        ReplicationProperties repProperties =
+                asterixAppRuntimeContextProvider.getAppContext().getReplicationProperties();
         final boolean replicationEnabled = repProperties.isReplicationEnabled();
 
         final CheckpointProperties checkpointProperties = new CheckpointProperties(txnProperties, id);
@@ -83,11 +83,7 @@ public class TransactionSubsystem implements ITransactionSubsystem {
             transactionManager.ensureMaxTxnId(latestCheckpoint.getMaxTxnId());
         }
 
-        if (replicationEnabled) {
-            this.logManager = new LogManagerWithReplication(this);
-        } else {
-            this.logManager = new LogManager(this);
-        }
+        this.logManager = replicationEnabled ? new LogManagerWithReplication(this) : new LogManager(this);
         this.recoveryManager = new RecoveryManager(this, serviceCtx);
         if (this.txnProperties.isCommitProfilerEnabled()) {
             ecp = new EntityCommitProfiler(this, this.txnProperties.getCommitProfilerReportInterval());

@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import org.apache.asterix.test.base.AsterixTestHelper;
+import org.apache.asterix.test.common.TestHelper;
 import org.apache.hyracks.util.file.FileUtil;
 import org.junit.Assume;
 import org.junit.internal.AssumptionViolatedException;
@@ -54,14 +55,14 @@ class ParserTestUtil {
         try {
             String queryFileShort = queryFile.getPath().substring(pathQueries.length()).replace(sep, '/');
             if (!only.isEmpty()) {
-                boolean toRun = true; //TestHelper.isInPrefixList(only, queryFileShort);
+                boolean toRun = TestHelper.isInPrefixList(only, queryFileShort);
                 if (!toRun) {
                     logger.info("SKIP TEST: \"" + queryFile.getPath()
                             + "\" \"only.txt\" not empty and not in \"only.txt\".");
                 }
                 Assume.assumeTrue(toRun);
             }
-            boolean skipped = true; //TestHelper.isInPrefixList(ignore, queryFileShort);
+            boolean skipped = TestHelper.isInPrefixList(ignore, queryFileShort);
             if (skipped) {
                 logger.info("SKIP TEST: \"" + queryFile.getPath() + "\" in \"ignore.txt\".");
             }
