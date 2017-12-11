@@ -121,6 +121,7 @@
                 </includes>
               </inputFiles>
               <outputDir>target/data</outputDir>
+              <skip>${skip.testResources}</skip>
             </configuration>
           </execution>
         </executions>
@@ -436,6 +437,11 @@
     <dependency>
       <groupId>javax.xml.bind</groupId>
       <artifactId>jaxb-api</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-compress</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>

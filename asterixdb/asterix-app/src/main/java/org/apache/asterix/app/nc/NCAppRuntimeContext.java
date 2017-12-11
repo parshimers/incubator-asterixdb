@@ -61,6 +61,8 @@ import org.apache.asterix.common.replication.IReplicationChannel;
 import org.apache.asterix.common.replication.IReplicationManager;
 import org.apache.asterix.common.replication.Replica;
 import org.apache.asterix.common.storage.IStorageSubsystem;
+import org.apache.asterix.common.storage.IIndexCheckpointManagerProvider;
+import org.apache.asterix.common.storage.IReplicaManager;
 import org.apache.asterix.common.transactions.IAppRuntimeContextProvider;
 import org.apache.asterix.common.transactions.IRecoveryManager;
 import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
@@ -141,7 +143,8 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     private final NCExtensionManager ncExtensionManager;
     private final IStorageComponentProvider componentProvider;
     private IHyracksClientConnection hcc;
-    private IStorageSubsystem storageSubsystem;
+    private IIndexCheckpointManagerProvider indexCheckpointManagerProvider;
+    private IReplicaManager replicaManager;
 
     public NCAppRuntimeContext(INCServiceContext ncServiceContext, List<AsterixExtension> extensions)
             throws AsterixException, InstantiationException, IllegalAccessException, ClassNotFoundException,
@@ -182,9 +185,10 @@ public class NCAppRuntimeContext implements INcApplicationContext {
         lsmIOScheduler = AsynchronousScheduler.INSTANCE;
 
         metadataMergePolicyFactory = new PrefixMergePolicyFactory();
+        indexCheckpointManagerProvider = new IndexCheckpointManagerProvider(ioManager);
 
         ILocalResourceRepositoryFactory persistentLocalResourceRepositoryFactory = new PersistentLocalResourceRepositoryFactory(
-                ioManager, getServiceContext().getNodeId(), metadataProperties);
+                ioManager, getServiceContext().getNodeId(), metadataProperties, indexCheckpointManagerProvider);
 
         localResourceRepository = (PersistentLocalResourceRepository) persistentLocalResourceRepositoryFactory
                 .createRepository();
@@ -202,15 +206,14 @@ public class NCAppRuntimeContext implements INcApplicationContext {
             }
             localResourceRepository.deleteStorageData();
         }
-
         datasetMemoryManager = new DatasetMemoryManager(storageProperties);
         datasetLifecycleManager = new DatasetLifecycleManager(storageProperties, localResourceRepository,
-                txnSubsystem.getLogManager(), datasetMemoryManager, ioManager.getIODevices().size());
+                txnSubsystem.getLogManager(), datasetMemoryManager, indexCheckpointManagerProvider, ioManager.getIODevices().size());
         final String nodeId = getServiceContext().getNodeId();
         final ClusterPartition[] nodePartitions = metadataProperties.getNodePartitions().get(nodeId);
         final Set<Integer> nodePartitionsIds = Arrays.stream(nodePartitions).map(ClusterPartition::getPartitionId)
                 .collect(Collectors.toSet());
-        storageSubsystem = new StorageSubsystem(nodePartitionsIds);
+        replicaManager = new ReplicaManager(nodePartitionsIds);
         isShuttingdown = false;
         activeManager = new ActiveManager(threadExecutor, getServiceContext().getNodeId(),
                 activeProperties.getMemoryComponentGlobalBudget(), compilerProperties.getFrameSize(),
@@ -218,7 +221,8 @@ public class NCAppRuntimeContext implements INcApplicationContext {
 
         if (replicationProperties.isReplicationEnabled()) {
 
-            replicaResourcesManager = new ReplicaResourcesManager(localResourceRepository, metadataProperties);
+            replicaResourcesManager = new ReplicaResourcesManager(localResourceRepository, metadataProperties,
+                    indexCheckpointManagerProvider);
 
             replicationManager = new ReplicationManager(nodeId, replicationProperties, replicaResourcesManager,
                     txnSubsystem.getLogManager(), asterixAppRuntimeContextProvider, ncServiceContext);
@@ -529,7 +533,12 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     }
 
     @Override
-    public IStorageSubsystem getStorageSubsystem() {
-        return storageSubsystem;
+    public IReplicaManager getReplicaManager() {
+        return replicaManager;
+    }
+
+    @Override
+    public IIndexCheckpointManagerProvider getIndexCheckpointManagerProvider() {
+        return indexCheckpointManagerProvider;
     }
 }
