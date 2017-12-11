@@ -16,24 +16,4 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.asterix.replication.storage;
-
-public class LSMComponentLSNSyncTask {
-
-    private String componentFilePath;
-    private String componentId;
-
-    public LSMComponentLSNSyncTask(String componentId, String componentFilePath) {
-        this.componentId = componentId;
-        this.componentFilePath = componentFilePath;
-    }
-
-    public String getComponentFilePath() {
-        return componentFilePath;
-    }
-
-    public String getComponentId() {
-        return componentId;
-    }
-
-}
+nc:asterix_nc1 /addReplica 0 asterix_nc2
