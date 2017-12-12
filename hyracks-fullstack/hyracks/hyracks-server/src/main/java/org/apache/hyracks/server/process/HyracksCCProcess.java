@@ -24,6 +24,7 @@ import java.util.List;
 import org.apache.hyracks.control.cc.CCDriver;
 
 public class HyracksCCProcess extends HyracksServerProcess {
+    @SuppressWarnings("squid:CommentedOutCodeLine")
 
     public HyracksCCProcess(File configFile, File logFile, File appHome, File workingDir) {
         this.configFile = configFile;

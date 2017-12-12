@@ -155,7 +155,7 @@ public class ReplicationManager implements IReplicationManager {
         try {
             replicationStrategy = ReplicationStrategyFactory.create(replicationProperties.getReplicationStrategy(),
                     replicationProperties, ncConfig.getConfigManager());
-        } catch (HyracksDataException e) {
+        } catch (HyracksDataException e) { //NOSONAR
             LOGGER.warning("Unable to initialize replication strategy: " + e.getMessage());
         }
         this.replicaResourcesManager = (ReplicaResourcesManager) remoteResoucesManager;
@@ -322,7 +322,7 @@ public class ReplicationManager implements IReplicationManager {
                         //send LSMComponent properties
                         LSMComponentJob = (ILSMIndexReplicationJob) job;
                         LSMComponentProperties lsmCompProp = new LSMComponentProperties(LSMComponentJob, nodeId);
-                        requestBuffer = ReplicationProtocol.writeLSMComponentPropertiesRequest(lsmCompProp,
+                        requestBuffer = ReplicationProtocol.writeLSMComponentPropertiesRequest(lsmCompProp, //NOSONAR
                                 requestBuffer);
                         sendRequest(replicasSockets, requestBuffer);
                     }

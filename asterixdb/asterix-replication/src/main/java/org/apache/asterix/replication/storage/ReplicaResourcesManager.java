@@ -125,17 +125,6 @@ public class ReplicaResourcesManager implements IReplicaResourcesManager {
         return minRemoteLSN;
     }
 
-/*    public Map<Long, String> getLaggingReplicaIndexesId2PathMap(String replicaId, long targetLSN) throws IOException {
-        Map<Long, String> laggingReplicaIndexes = new HashMap<Long, String>();
-        try {
-            //for every index in replica
-            Set<File> remoteIndexes = getReplicaIndexes(replicaId);
-            for (File indexFolder : remoteIndexes) {
-                if (getReplicaIndexMaxLSN(indexFolder) < targetLSN) {
-                    File localResource = new File(indexFolder + File.separator + StorageConstants.METADATA_FILE_NAME);
-                    LocalResource resource = PersistentLocalResourceRepository.readLocalResource(localResource);
-                    laggingReplicaIndexes.put(resource.getId(), indexFolder.getAbsolutePath());
-*/
     public Map<Long, DatasetResourceReference> getLaggingReplicaIndexesId2PathMap(String replicaId, long targetLSN)
             throws HyracksDataException {
         Map<Long, DatasetResourceReference> laggingReplicaIndexes = new HashMap<>();

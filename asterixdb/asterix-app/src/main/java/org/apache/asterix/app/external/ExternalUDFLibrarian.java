@@ -38,6 +38,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 
 public class ExternalUDFLibrarian implements IExternalUDFLibrarian {
+    @SuppressWarnings("squid:AS134")
 
     // The following list includes a library manager for the CC
     // and library managers for NCs (one-per-NC).

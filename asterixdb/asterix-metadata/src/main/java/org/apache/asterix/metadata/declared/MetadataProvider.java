@@ -1080,8 +1080,8 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
             // Index parameters.
             Index secondaryIndex = MetadataManager.INSTANCE.getIndex(mdTxnCtx, dataset.getDataverseName(),
                     dataset.getDatasetName(), indexName);
-            Pair<IFileSplitProvider, AlgebricksPartitionConstraint> splitsAndConstraint = getSplitProviderAndConstraints(
-                    dataset, secondaryIndex.getIndexName());
+            Pair<IFileSplitProvider, AlgebricksPartitionConstraint> splitsAndConstraint =
+                    getSplitProviderAndConstraints(dataset, secondaryIndex.getIndexName());
             // prepare callback
             IModificationOperationCallbackFactory modificationCallbackFactory = dataset.getModificationCallbackFactory(
                     storageComponentProvider, secondaryIndex, indexOp, modificationCallbackPrimaryKeyFields);
@@ -1285,8 +1285,8 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
             // Index parameters.
             Index secondaryIndex = MetadataManager.INSTANCE.getIndex(mdTxnCtx, dataset.getDataverseName(),
                     dataset.getDatasetName(), indexName);
-            Pair<IFileSplitProvider, AlgebricksPartitionConstraint> splitsAndConstraint = getSplitProviderAndConstraints(
-                    dataset, secondaryIndex.getIndexName());
+            Pair<IFileSplitProvider, AlgebricksPartitionConstraint> splitsAndConstraint =
+                    getSplitProviderAndConstraints(dataset, secondaryIndex.getIndexName());
 
             // prepare callback
             IModificationOperationCallbackFactory modificationCallbackFactory = dataset.getModificationCallbackFactory(
@@ -1448,8 +1448,8 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
             IBinaryTokenizerFactory tokenizerFactory = NonTaggedFormatUtil.getBinaryTokenizerFactory(
                     secondaryKeyType.getTypeTag(), indexType, secondaryIndex.getGramLength());
 
-            Pair<IFileSplitProvider, AlgebricksPartitionConstraint> splitsAndConstraint = getSplitProviderAndConstraints(
-                    dataset, secondaryIndex.getIndexName());
+            Pair<IFileSplitProvider, AlgebricksPartitionConstraint> splitsAndConstraint =
+                    getSplitProviderAndConstraints(dataset, secondaryIndex.getIndexName());
 
             // Generate Output Record format
             ISerializerDeserializer<?>[] tokenKeyPairFields = new ISerializerDeserializer[numTokenKeyPairFields];

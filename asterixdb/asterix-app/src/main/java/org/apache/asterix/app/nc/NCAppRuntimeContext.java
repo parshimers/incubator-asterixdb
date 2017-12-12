@@ -186,11 +186,12 @@ public class NCAppRuntimeContext implements INcApplicationContext {
         metadataMergePolicyFactory = new PrefixMergePolicyFactory();
         indexCheckpointManagerProvider = new IndexCheckpointManagerProvider(ioManager);
 
-        ILocalResourceRepositoryFactory persistentLocalResourceRepositoryFactory = new PersistentLocalResourceRepositoryFactory(
-                ioManager, getServiceContext().getNodeId(), metadataProperties, indexCheckpointManagerProvider);
+        ILocalResourceRepositoryFactory persistentLocalResourceRepositoryFactory =
+                new PersistentLocalResourceRepositoryFactory(ioManager, getServiceContext().getNodeId(),
+                        metadataProperties, indexCheckpointManagerProvider);
 
-        localResourceRepository = (PersistentLocalResourceRepository) persistentLocalResourceRepositoryFactory
-                .createRepository();
+        localResourceRepository =
+                (PersistentLocalResourceRepository) persistentLocalResourceRepositoryFactory.createRepository();
 
         IAppRuntimeContextProvider asterixAppRuntimeContextProvider = new AppRuntimeContextProviderForRecovery(this);
         txnSubsystem = new TransactionSubsystem(getServiceContext(), getServiceContext().getNodeId(),
@@ -206,12 +207,13 @@ public class NCAppRuntimeContext implements INcApplicationContext {
             localResourceRepository.deleteStorageData();
         }
         datasetMemoryManager = new DatasetMemoryManager(storageProperties);
-        datasetLifecycleManager = new DatasetLifecycleManager(storageProperties, localResourceRepository,
-                txnSubsystem.getLogManager(), datasetMemoryManager, indexCheckpointManagerProvider, ioManager.getIODevices().size());
+        datasetLifecycleManager =
+                new DatasetLifecycleManager(storageProperties, localResourceRepository, txnSubsystem.getLogManager(),
+                        datasetMemoryManager, indexCheckpointManagerProvider, ioManager.getIODevices().size());
         final String nodeId = getServiceContext().getNodeId();
         final ClusterPartition[] nodePartitions = metadataProperties.getNodePartitions().get(nodeId);
-        final Set<Integer> nodePartitionsIds = Arrays.stream(nodePartitions).map(ClusterPartition::getPartitionId)
-                .collect(Collectors.toSet());
+        final Set<Integer> nodePartitionsIds =
+                Arrays.stream(nodePartitions).map(ClusterPartition::getPartitionId).collect(Collectors.toSet());
         replicaManager = new ReplicaManager(nodePartitionsIds);
         isShuttingdown = false;
         activeManager = new ActiveManager(threadExecutor, getServiceContext().getNodeId(),

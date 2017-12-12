@@ -29,7 +29,8 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 public class ReplicationStrategyFactory {
 
-    private static final Map<String, Class<? extends IReplicationStrategy>> BUILT_IN_REPLICATION_STRATEGY = new HashMap<>();
+    private static final Map<String, Class<? extends IReplicationStrategy>> BUILT_IN_REPLICATION_STRATEGY =
+            new HashMap<>();
 
     static {
         BUILT_IN_REPLICATION_STRATEGY.put("no_replication", NoReplicationStrategy.class);

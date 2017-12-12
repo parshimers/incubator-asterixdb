@@ -55,6 +55,7 @@ import org.apache.hyracks.control.nc.NodeControllerService;
 import org.kohsuke.args4j.CmdLineException;
 
 public class AsterixHyracksIntegrationUtil {
+    @SuppressWarnings("squid:ClassVariableVisibilityCheck,squid:AS00112")
     public static final int DEFAULT_HYRACKS_CC_CLIENT_PORT = 1098;
     public static final int DEFAULT_HYRACKS_CC_CLUSTER_PORT = 1099;
     public static final String DEFAULT_CONF_FILE = joinPath("asterixdb", "asterix-app", "src", "test", "resources",
