@@ -129,7 +129,7 @@ public class MultiPartitionLSMIndexTest {
         System.out.println("SetUp: ");
         TestHelper.deleteExistingInstanceFiles();
         String configPath = System.getProperty("user.dir") + File.separator + "src" + File.separator + "test"
-                + File.separator + "resources" + File.separator + "cc.conf";
+                + File.separator + "resources" + File.separator + "cc-multipart.conf";
         nc = new TestNodeController(configPath, false);
         nc.init();
         ncAppCtx = nc.getAppRuntimeContext();

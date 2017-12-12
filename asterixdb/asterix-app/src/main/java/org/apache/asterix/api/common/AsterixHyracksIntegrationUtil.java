@@ -62,9 +62,9 @@ public class AsterixHyracksIntegrationUtil {
             "cc.conf");
     private static final String DEFAULT_STORAGE_PATH = joinPath("target", "io", "dir");
     private static String storagePath = DEFAULT_STORAGE_PATH;
-    public ClusterControllerService cc;
-    public NodeControllerService[] ncs = new NodeControllerService[2];
-    public IHyracksClientConnection hcc;
+    public ClusterControllerService cc; //NOSONAR
+    public NodeControllerService[] ncs = new NodeControllerService[2]; //NOSONAR
+    public IHyracksClientConnection hcc; //NOSONAR
     protected boolean gracefulShutdown = true;
     List<Pair<IOption, Object>> opts = new ArrayList<>();
     private ConfigManager configManager;
@@ -96,7 +96,7 @@ public class AsterixHyracksIntegrationUtil {
         }
     }
 
-    public void init(boolean deleteOldInstanceData, String confFile) throws Exception {
+    public void init(boolean deleteOldInstanceData, String confFile) throws Exception { //NOSONAR
         final ICCApplication ccApplication = createCCApplication();
         if (confFile == null) {
             configManager = new ConfigManager();

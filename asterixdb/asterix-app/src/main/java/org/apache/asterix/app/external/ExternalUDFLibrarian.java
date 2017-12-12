@@ -63,7 +63,7 @@ public class ExternalUDFLibrarian implements IExternalUDFLibrarian {
                     File entryDestination = new File(outputDir, entry.getName());
                     if (!entry.isDirectory()) {
                         entryDestination.getParentFile().mkdirs();
-                        try (InputStream in = zipFile.getInputStream(entry);
+                        try (InputStream in = zipFile.getInputStream(entry); //NOSONAR
                                 OutputStream out = new FileOutputStream(entryDestination)) {
                             IOUtils.copy(in, out);
                         }
