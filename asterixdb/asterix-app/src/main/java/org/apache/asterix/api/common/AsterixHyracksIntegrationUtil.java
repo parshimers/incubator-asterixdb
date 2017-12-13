@@ -54,7 +54,7 @@ import org.apache.hyracks.control.common.controllers.NCConfig;
 import org.apache.hyracks.control.nc.NodeControllerService;
 import org.kohsuke.args4j.CmdLineException;
 
-@SuppressWarnings("squid:ClassVariableVisibilityCheck,squid:AS00112")
+@SuppressWarnings({"squid:ClassVariableVisibilityCheck","squid:S00112"})
 public class AsterixHyracksIntegrationUtil {
     public static final int DEFAULT_HYRACKS_CC_CLIENT_PORT = 1098;
     public static final int DEFAULT_HYRACKS_CC_CLUSTER_PORT = 1099;

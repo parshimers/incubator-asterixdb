@@ -37,7 +37,7 @@ import org.apache.commons.compress.utils.IOUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 
-@SuppressWarnings("squid:AS134")
+@SuppressWarnings("squid:S134")
 public class ExternalUDFLibrarian implements IExternalUDFLibrarian {
 
     // The following list includes a library manager for the CC
@@ -53,7 +53,6 @@ public class ExternalUDFLibrarian implements IExternalUDFLibrarian {
         FileUtils.deleteQuietly(installLibDir);
     }
 
-    @SuppressWarnings("squid:AS134")
     public static void unzip(String sourceFile, String outputDir) throws IOException {
         if (System.getProperty("os.name").toLowerCase().startsWith("win")) {
             try (ZipFile zipFile = new ZipFile(sourceFile)) {

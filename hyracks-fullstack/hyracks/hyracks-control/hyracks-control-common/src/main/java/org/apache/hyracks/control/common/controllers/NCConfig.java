@@ -172,6 +172,10 @@ public class NCConfig extends ControllerConfig {
                     return "Public IP Address to announce messaging listener";
                 case MESSAGING_PUBLIC_PORT:
                     return "Public IP port to announce messaging listener";
+                case REPLICATION_PUBLIC_ADDRESS:
+                    return "Public address to advertise for replication service";
+                case REPLICATION_PUBLIC_PORT:
+                    return "Public port to advertise for replication service";
                 case REPLICATION_LISTEN_ADDRESS:
                     return "Replication bind address";
                 case REPLICATION_LISTEN_PORT:
