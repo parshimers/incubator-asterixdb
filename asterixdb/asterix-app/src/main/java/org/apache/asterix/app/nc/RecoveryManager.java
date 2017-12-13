@@ -43,11 +43,14 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.asterix.common.api.IDatasetLifecycleManager;
+import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.config.ReplicationProperties;
 import org.apache.asterix.common.dataflow.DatasetLocalResource;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.ioopcallbacks.AbstractLSMIOOperationCallback;
 import org.apache.asterix.common.replication.IReplicaResourcesManager;
+import org.apache.asterix.common.storage.DatasetResourceReference;
+import org.apache.asterix.common.storage.IIndexCheckpointManagerProvider;
 import org.apache.asterix.common.transactions.Checkpoint;
 import org.apache.asterix.common.transactions.IAppRuntimeContextProvider;
 import org.apache.asterix.common.transactions.ICheckpointManager;
@@ -294,6 +297,8 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
 
         IAppRuntimeContextProvider appRuntimeContext = txnSubsystem.getAsterixAppRuntimeContextProvider();
         IDatasetLifecycleManager datasetLifecycleManager = appRuntimeContext.getDatasetLifecycleManager();
+        final IIndexCheckpointManagerProvider indexCheckpointManagerProvider =
+                ((INcApplicationContext) (serviceCtx.getApplicationContext())).getIndexCheckpointManagerProvider();
 
         Map<Long, LocalResource> resourcesMap = localResourceRepository.loadAndGetAllResources();
         Map<Long, Long> resourceId2MaxLSNMap = new HashMap<>();
@@ -363,18 +368,15 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                                     index = (ILSMIndex) localResourceMetadata.createInstance(serviceCtx);
                                     datasetLifecycleManager.register(localResource.getPath(), index);
                                     datasetLifecycleManager.open(localResource.getPath());
-
-                                    //#. get maxDiskLastLSN
-                                    ILSMIndex lsmIndex = index;
                                     try {
+                                        final DatasetResourceReference resourceReference =
+                                                DatasetResourceReference.of(localResource);
                                         maxDiskLastLsn =
-                                                ((AbstractLSMIOOperationCallback) lsmIndex.getIOOperationCallback())
-                                                        .getComponentLSN(lsmIndex.getDiskComponents());
+                                                indexCheckpointManagerProvider.get(resourceReference).getLowWatermark();
                                     } catch (HyracksDataException e) {
                                         datasetLifecycleManager.close(localResource.getPath());
                                         throw e;
                                     }
-
                                     //#. set resourceId and maxDiskLastLSN to the map
                                     resourceId2MaxLSNMap.put(resourceId, maxDiskLastLsn);
                                 } else {
@@ -449,7 +451,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         return minFirstLSN;
     }
 
-    private long getRemoteMinFirstLSN() {
+    private long getRemoteMinFirstLSN() throws HyracksDataException {
         IReplicaResourcesManager remoteResourcesManager =
                 txnSubsystem.getAsterixAppRuntimeContextProvider().getAppContext().getReplicaResourcesManager();
         return remoteResourcesManager.getPartitionsMinLSN(localResourceRepository.getInactivePartitions());

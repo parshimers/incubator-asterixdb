@@ -57,6 +57,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import org.apache.asterix.app.external.IExternalUDFLibrarian;
 import org.apache.asterix.common.api.Duration;
@@ -107,13 +108,13 @@ public class TestExecutor {
     // see
     // https://stackoverflow.com/questions/417142/what-is-the-maximum-length-of-a-url-in-different-browsers/417184
     private static final long MAX_URL_LENGTH = 2000l;
-    private static final Pattern JAVA_BLOCK_COMMENT_PATTERN = Pattern.compile("/\\*.*\\*/",
-            Pattern.MULTILINE | Pattern.DOTALL);
-    private static final Pattern JAVA_SHELL_SQL_LINE_COMMENT_PATTERN = Pattern.compile("^(//|#|--).*$",
-            Pattern.MULTILINE);
+    private static final Pattern JAVA_BLOCK_COMMENT_PATTERN =
+            Pattern.compile("/\\*.*\\*/", Pattern.MULTILINE | Pattern.DOTALL);
+    private static final Pattern JAVA_SHELL_SQL_LINE_COMMENT_PATTERN =
+            Pattern.compile("^(//|#|--).*$", Pattern.MULTILINE);
     private static final Pattern REGEX_LINES_PATTERN = Pattern.compile("^(-)?/(.*)/([im]*)$");
-    private static final Pattern POLL_TIMEOUT_PATTERN = Pattern.compile("polltimeoutsecs=(\\d+)(\\D|$)",
-            Pattern.MULTILINE);
+    private static final Pattern POLL_TIMEOUT_PATTERN =
+            Pattern.compile("polltimeoutsecs=(\\d+)(\\D|$)", Pattern.MULTILINE);
     private static final Pattern POLL_DELAY_PATTERN = Pattern.compile("polldelaysecs=(\\d+)(\\D|$)", Pattern.MULTILINE);
     private static final Pattern HANDLE_VARIABLE_PATTERN = Pattern.compile("handlevariable=(\\w+)");
     private static final Pattern VARIABLE_REF_PATTERN = Pattern.compile("\\$(\\w+)");
@@ -129,6 +130,8 @@ public class TestExecutor {
 
     private static Method managixExecuteMethod = null;
     private static final HashMap<Integer, ITestServer> runningTestServers = new HashMap<>();
+    private static Map<String, InetSocketAddress> ncEndPoints;
+    private static Map<String, InetSocketAddress> replicationAddress;
 
     /*
      * Instance members
@@ -158,6 +161,14 @@ public class TestExecutor {
         this.librarian = librarian;
     }
 
+    public void setNcEndPoints(Map<String, InetSocketAddress> ncEndPoints) {
+        this.ncEndPoints = ncEndPoints;
+    }
+
+    public void setNcReplicationAddress(Map<String, InetSocketAddress> replicationAddress) {
+        this.replicationAddress = replicationAddress;
+    }
+
     /**
      * Probably does not work well with symlinks.
      */
@@ -175,10 +186,10 @@ public class TestExecutor {
     public void runScriptAndCompareWithResult(File scriptFile, PrintWriter print, File expectedFile, File actualFile,
             ComparisonEnum compare) throws Exception {
         System.err.println("Expected results file: " + expectedFile.toString());
-        BufferedReader readerExpected = new BufferedReader(
-                new InputStreamReader(new FileInputStream(expectedFile), "UTF-8"));
-        BufferedReader readerActual = new BufferedReader(
-                new InputStreamReader(new FileInputStream(actualFile), "UTF-8"));
+        BufferedReader readerExpected =
+                new BufferedReader(new InputStreamReader(new FileInputStream(expectedFile), "UTF-8"));
+        BufferedReader readerActual =
+                new BufferedReader(new InputStreamReader(new FileInputStream(actualFile), "UTF-8"));
         boolean regex = false;
         try {
             if (ComparisonEnum.BINARY.equals(compare)) {
@@ -361,10 +372,10 @@ public class TestExecutor {
     public void runScriptAndCompareWithResultRegex(File scriptFile, File expectedFile, File actualFile)
             throws Exception {
         String lineExpected, lineActual;
-        try (BufferedReader readerExpected = new BufferedReader(
-                new InputStreamReader(new FileInputStream(expectedFile), "UTF-8"));
-                BufferedReader readerActual = new BufferedReader(
-                        new InputStreamReader(new FileInputStream(actualFile), "UTF-8"))) {
+        try (BufferedReader readerExpected =
+                new BufferedReader(new InputStreamReader(new FileInputStream(expectedFile), "UTF-8"));
+                BufferedReader readerActual =
+                        new BufferedReader(new InputStreamReader(new FileInputStream(actualFile), "UTF-8"))) {
             StringBuilder actual = new StringBuilder();
             while ((lineActual = readerActual.readLine()) != null) {
                 actual.append(lineActual).append('\n');
@@ -704,8 +715,8 @@ public class TestExecutor {
     // Insert and Delete statements are executed here
     public void executeUpdate(String str, URI uri) throws Exception {
         // Create a method instance.
-        HttpUriRequest request = RequestBuilder.post(uri).setEntity(new StringEntity(str, StandardCharsets.UTF_8))
-                .build();
+        HttpUriRequest request =
+                RequestBuilder.post(uri).setEntity(new StringEntity(str, StandardCharsets.UTF_8)).build();
 
         // Execute the method.
         executeAndCheckHttpRequest(request);
@@ -715,10 +726,10 @@ public class TestExecutor {
     public InputStream executeAnyAQLAsync(String statement, boolean defer, OutputFormat fmt, URI uri,
             Map<String, Object> variableCtx) throws Exception {
         // Create a method instance.
-        HttpUriRequest request = RequestBuilder.post(uri)
-                .addParameter("mode", defer ? "asynchronous-deferred" : "asynchronous")
-                .setEntity(new StringEntity(statement, StandardCharsets.UTF_8)).setHeader("Accept", fmt.mimeType())
-                .build();
+        HttpUriRequest request =
+                RequestBuilder.post(uri).addParameter("mode", defer ? "asynchronous-deferred" : "asynchronous")
+                        .setEntity(new StringEntity(statement, StandardCharsets.UTF_8))
+                        .setHeader("Accept", fmt.mimeType()).build();
 
         String handleVar = getHandleVariable(statement);
 
@@ -744,8 +755,8 @@ public class TestExecutor {
     // create function statement
     public void executeDDL(String str, URI uri) throws Exception {
         // Create a method instance.
-        HttpUriRequest request = RequestBuilder.post(uri).setEntity(new StringEntity(str, StandardCharsets.UTF_8))
-                .build();
+        HttpUriRequest request =
+                RequestBuilder.post(uri).setEntity(new StringEntity(str, StandardCharsets.UTF_8)).build();
 
         // Execute the method.
         executeAndCheckHttpRequest(request);
@@ -755,8 +766,8 @@ public class TestExecutor {
     // and returns the contents as a string
     // This string is later passed to REST API for execution.
     public String readTestFile(File testFile) throws Exception {
-        BufferedReader reader = new BufferedReader(
-                new InputStreamReader(new FileInputStream(testFile), StandardCharsets.UTF_8));
+        BufferedReader reader =
+                new BufferedReader(new InputStreamReader(new FileInputStream(testFile), StandardCharsets.UTF_8));
         String line;
         StringBuilder stringBuilder = new StringBuilder();
         String ls = System.getProperty("line.separator");
@@ -811,8 +822,8 @@ public class TestExecutor {
 
     private static String getProcessOutput(Process p) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        Future<Integer> future = Executors.newSingleThreadExecutor()
-                .submit(() -> IOUtils.copy(p.getInputStream(), new OutputStream() {
+        Future<Integer> future =
+                Executors.newSingleThreadExecutor().submit(() -> IOUtils.copy(p.getInputStream(), new OutputStream() {
                     @Override
                     public void write(int b) throws IOException {
                         baos.write(b);
@@ -1002,7 +1013,7 @@ public class TestExecutor {
                         ctx.extension(), cUnit.getOutputDir().getCompare());
                 break;
             case "server": // (start <test server name> <port>
-                               // [<arg1>][<arg2>][<arg3>]...|stop (<port>|all))
+                           // [<arg1>][<arg2>][<arg3>]...|stop (<port>|all))
                 try {
                     lines = statement.trim().split("\n");
                     String[] command = lines[lines.length - 1].trim().split(" ");
@@ -1050,7 +1061,7 @@ public class TestExecutor {
                 }
                 break;
             case "lib": // expected format <dataverse-name> <library-name>
-                            // <library-directory>
+                        // <library-directory>
                         // TODO: make this case work well with entity names containing spaces by
                         // looking for \"
                 lines = statement.split("\n");
@@ -1139,7 +1150,10 @@ public class TestExecutor {
                 // we only reach here if the loop is over
                 testLoops.remove(testFile);
                 break;
-
+            case "sto":
+                command = stripJavaComments(statement).trim().split(" ");
+                executeStorageCommand(command);
+                break;
             default:
                 throw new IllegalArgumentException("No statements of type " + ctx.getType());
         }
@@ -1206,9 +1220,8 @@ public class TestExecutor {
             final URI uri = getEndpoint(Servlets.QUERY_SERVICE);
             if (DELIVERY_IMMEDIATE.equals(delivery)) {
                 resultStream = executeQueryService(statement, fmt, uri, params, true, null, true);
-                resultStream = METRICS_QUERY_TYPE.equals(reqType) ?
-                        ResultExtractor.extractMetrics(resultStream) :
-                        ResultExtractor.extract(resultStream);
+                resultStream = METRICS_QUERY_TYPE.equals(reqType) ? ResultExtractor.extractMetrics(resultStream)
+                        : ResultExtractor.extract(resultStream);
             } else {
                 String handleVar = getHandleVariable(statement);
                 resultStream = executeQueryService(statement, fmt, uri, upsertParam(params, "mode", delivery), true);
@@ -1462,7 +1475,7 @@ public class TestExecutor {
                         if (failedGroup != null) {
                             failedGroup.getTestCase().add(testCaseCtx.getTestCase());
                         }
-                        throw new Exception("Test \"" + testFile + "\" FAILED!", e);
+                        fail(testCaseCtx, pb, testFile, e);
                     }
                 } finally {
                     if (numOfFiles == testFileCtxs.size()) {
@@ -1479,6 +1492,10 @@ public class TestExecutor {
                 }
             }
         }
+    }
+
+    protected void fail(TestCaseContext testCaseCtx, ProcessBuilder pb, File testFile, Exception e) throws Exception {
+        throw new Exception("Test \"" + testFile + "\" FAILED!", e);
     }
 
     protected boolean isUnExpected(Exception e, List<String> expectedErrors, int numOfErrors, MutableInt queryCount) {
@@ -1507,15 +1524,26 @@ public class TestExecutor {
     }
 
     protected URI createEndpointURI(String path, String query) throws URISyntaxException {
-        int endpointIdx = Math.abs(endpointSelector++ % endpoints.size());
-        InetSocketAddress endpoint = endpoints.get(endpointIdx);
+        InetSocketAddress endpoint;
+        if (!path.startsWith("nc:")) {
+            int endpointIdx = Math.abs(endpointSelector++ % endpoints.size());
+            endpoint = endpoints.get(endpointIdx);
+        } else {
+            final String[] tokens = path.split(" ");
+            if (tokens.length != 2) {
+                throw new IllegalArgumentException("Unrecognized http pattern");
+            }
+            String nodeId = tokens[0].substring(3);
+            endpoint = getNcEndPoint(nodeId);
+            path = tokens[1];
+        }
         URI uri = new URI("http", null, endpoint.getHostString(), endpoint.getPort(), path, query, null);
         LOGGER.fine("Created endpoint URI: " + uri);
         return uri;
     }
 
     public URI getEndpoint(String servlet) throws URISyntaxException {
-        return createEndpointURI(getPath(servlet).replaceAll("/\\*$", ""), null);
+        return createEndpointURI(Servlets.getAbsolutePath(getPath(servlet)), null);
     }
 
     public static String stripJavaComments(String text) {
@@ -1617,6 +1645,41 @@ public class TestExecutor {
                     + timeUnit.name().toLowerCase());
         }
         LOGGER.info("Cluster state now " + desiredState);
+    }
+
+    private void executeStorageCommand(String[] command) throws Exception {
+        String srcNode = command[0];
+        String api = command[1];
+        final URI endpoint = getEndpoint(srcNode + " " + Servlets.getAbsolutePath(Servlets.STORAGE) + api);
+        String partition = command[2];
+        String destNode = command[3];
+        final InetSocketAddress destAddress = getNcReplicationAddress(destNode);
+        List<Parameter> parameters = new ArrayList<>(3);
+        Stream.of("partition", "host", "port").forEach(arg -> {
+            Parameter p = new Parameter();
+            p.setName(arg);
+            parameters.add(p);
+        });
+        parameters.get(0).setValue(partition);
+        parameters.get(1).setValue(destAddress.getHostName());
+        parameters.get(2).setValue(String.valueOf(destAddress.getPort()));
+        final HttpUriRequest httpUriRequest = constructPostMethod(endpoint, parameters);
+        final HttpResponse httpResponse = executeHttpRequest(httpUriRequest);
+        Assert.assertEquals(HttpStatus.SC_OK, httpResponse.getStatusLine().getStatusCode());
+    }
+
+    private InetSocketAddress getNcEndPoint(String nodeId) {
+        if (ncEndPoints == null || !ncEndPoints.containsKey(nodeId)) {
+            throw new IllegalStateException("No end point specified for node: " + nodeId);
+        }
+        return ncEndPoints.get(nodeId);
+    }
+
+    private InetSocketAddress getNcReplicationAddress(String nodeId) {
+        if (replicationAddress == null || !replicationAddress.containsKey(nodeId)) {
+            throw new IllegalStateException("No replication address specified for node: " + nodeId);
+        }
+        return replicationAddress.get(nodeId);
     }
 
     abstract static class TestLoop extends Exception {

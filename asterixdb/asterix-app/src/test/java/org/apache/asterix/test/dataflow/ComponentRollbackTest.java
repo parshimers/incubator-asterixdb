@@ -18,6 +18,7 @@
  */
 package org.apache.asterix.test.dataflow;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -27,6 +28,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 import java.util.function.Predicate;
 
 import org.apache.asterix.app.bootstrap.TestNodeController;
@@ -37,6 +39,7 @@ import org.apache.asterix.app.data.gen.TupleGenerator.GenerationFunction;
 import org.apache.asterix.app.nc.NCAppRuntimeContext;
 import org.apache.asterix.common.api.IDatasetLifecycleManager;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
+import org.apache.asterix.common.context.PrimaryIndexOperationTracker;
 import org.apache.asterix.common.dataflow.LSMInsertDeleteOperatorNodePushable;
 import org.apache.asterix.common.ioopcallbacks.AbstractLSMIOOperationCallback;
 import org.apache.asterix.common.transactions.ITransactionContext;
@@ -67,9 +70,11 @@ import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.common.api.IIndexDataflowHelper;
 import org.apache.hyracks.storage.am.common.dataflow.IndexDataflowHelperFactory;
 import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
+import org.apache.hyracks.storage.am.lsm.btree.impl.ITestOpCallback;
 import org.apache.hyracks.storage.am.lsm.btree.impl.TestLsmBtree;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponent;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMemoryComponent;
 import org.apache.hyracks.storage.am.lsm.common.impls.NoMergePolicyFactory;
@@ -112,12 +117,24 @@ public class ComponentRollbackTest {
     private static IIndexDataflowHelper indexDataflowHelper;
     private static ITransactionContext txnCtx;
     private static LSMInsertDeleteOperatorNodePushable insertOp;
+    public static final ITestOpCallback<Semaphore> ALLOW_CALLBACK = new ITestOpCallback<Semaphore>() {
+        @Override
+        public void before(Semaphore smeaphore) {
+            smeaphore.release();
+        }
+
+        @Override
+        public void after() {
+        }
+    };
 
     @BeforeClass
     public static void setUp() throws Exception {
         System.out.println("SetUp: ");
         TestHelper.deleteExistingInstanceFiles();
-        nc = new TestNodeController(null, false);
+        String configPath = System.getProperty("user.dir") + File.separator + "src" + File.separator + "test"
+                + File.separator + "resources" + File.separator + "multi-partition-test-configuration.xml";
+        nc = new TestNodeController(configPath, false);
         nc.init();
         ncAppCtx = nc.getAppRuntimeContext();
         dsLifecycleMgr = ncAppCtx.getDatasetLifecycleManager();
@@ -135,10 +152,11 @@ public class ComponentRollbackTest {
         List<List<String>> partitioningKeys = new ArrayList<>();
         partitioningKeys.add(Collections.singletonList("key"));
         int partition = 0;
-        dataset = new TestDataset(DATAVERSE_NAME, DATASET_NAME, DATAVERSE_NAME, DATA_TYPE_NAME, NODE_GROUP_NAME,
-                NoMergePolicyFactory.NAME, null, new InternalDatasetDetails(null, PartitioningStrategy.HASH,
-                        partitioningKeys, null, null, null, false, null),
-                null, DatasetType.INTERNAL, DATASET_ID, 0);
+        dataset =
+                new TestDataset(DATAVERSE_NAME, DATASET_NAME, DATAVERSE_NAME, DATA_TYPE_NAME, NODE_GROUP_NAME,
+                        NoMergePolicyFactory.NAME, null, new InternalDatasetDetails(null, PartitioningStrategy.HASH,
+                                partitioningKeys, null, null, null, false, null),
+                        null, DatasetType.INTERNAL, DATASET_ID, 0);
         PrimaryIndexInfo primaryIndexInfo = nc.createPrimaryIndex(dataset, KEY_TYPES, RECORD_TYPE, META_TYPE, null,
                 storageManager, KEY_INDEXES, KEY_INDICATORS_LIST, partition);
         IndexDataflowHelperFactory iHelperFactory =
@@ -152,7 +170,7 @@ public class ComponentRollbackTest {
         txnCtx = nc.getTransactionManager().beginTransaction(nc.getTxnJobId(ctx),
                 new TransactionOptions(ITransactionManager.AtomicityLevel.ENTITY_LEVEL));
         insertOp = nc.getInsertPipeline(ctx, dataset, KEY_TYPES, RECORD_TYPE, META_TYPE, null, KEY_INDEXES,
-                KEY_INDICATORS_LIST, storageManager).getLeft();
+                KEY_INDICATORS_LIST, storageManager, null).getLeft();
     }
 
     @After
@@ -161,10 +179,10 @@ public class ComponentRollbackTest {
     }
 
     static void allowAllOps(TestLsmBtree lsmBtree) {
-        lsmBtree.addModifyCallback(sem -> sem.release());
-        lsmBtree.addFlushCallback(sem -> sem.release());
-        lsmBtree.addSearchCallback(sem -> sem.release());
-        lsmBtree.addMergeCallback(sem -> sem.release());
+        lsmBtree.addModifyCallback(ALLOW_CALLBACK);
+        lsmBtree.addFlushCallback(ALLOW_CALLBACK);
+        lsmBtree.addSearchCallback(ALLOW_CALLBACK);
+        lsmBtree.addMergeCallback(ALLOW_CALLBACK);
     }
 
     @Test
@@ -183,7 +201,7 @@ public class ComponentRollbackTest {
                     if (tupleAppender.getTupleCount() > 0) {
                         tupleAppender.write(insertOp, true);
                     }
-                    dsLifecycleMgr.flushDataset(dataset.getDatasetId(), false);
+                    flush(false);
                 }
                 ITupleReference tuple = tupleGenerator.next();
                 DataflowUtils.addTupleToFrame(tupleAppender, tuple, insertOp);
@@ -201,12 +219,17 @@ public class ComponentRollbackTest {
             Assert.assertTrue(memComponents.get(lsmBtree.getCurrentMemoryComponentIndex()).isModified());
             searchAndAssertCount(nc, 0, dataset, storageManager, TOTAL_NUM_OF_RECORDS);
             ILSMIndexAccessor lsmAccessor = lsmBtree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
+            dsLifecycleMgr.getComponentIdGenerator(DATASET_ID).refresh();
+            ((AbstractLSMIOOperationCallback) lsmBtree.getIOOperationCallback()).updateLastLSN(0);
             // rollback a memory component
             lsmAccessor.deleteComponents(memoryComponentsPredicate);
             searchAndAssertCount(nc, 0, dataset, storageManager, TOTAL_NUM_OF_RECORDS - RECORDS_PER_COMPONENT);
             // rollback the last disk component
             lsmAccessor = lsmBtree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
             long lsn = AbstractLSMIOOperationCallback.getTreeIndexLSN(diskComponents.get(0).getMetadata());
+
+            dsLifecycleMgr.getComponentIdGenerator(DATASET_ID).refresh();
+            ((AbstractLSMIOOperationCallback) lsmBtree.getIOOperationCallback()).updateLastLSN(0);
             DiskComponentLsnPredicate pred = new DiskComponentLsnPredicate(lsn);
             lsmAccessor.deleteComponents(pred);
             searchAndAssertCount(nc, 0, dataset, storageManager, TOTAL_NUM_OF_RECORDS - (2 * RECORDS_PER_COMPONENT));
@@ -214,6 +237,16 @@ public class ComponentRollbackTest {
             e.printStackTrace();
             Assert.fail(e.getMessage());
         }
+    }
+
+    public void flush(boolean async) throws Exception {
+        flush(dsLifecycleMgr, lsmBtree, dataset, async);
+    }
+
+    public static void flush(IDatasetLifecycleManager dsLifecycleMgr, TestLsmBtree lsmBtree, Dataset dataset,
+            boolean async) throws Exception {
+        waitForOperations(lsmBtree);
+        dsLifecycleMgr.flushDataset(dataset.getDatasetId(), async);
     }
 
     @Test
@@ -232,7 +265,7 @@ public class ComponentRollbackTest {
                     if (tupleAppender.getTupleCount() > 0) {
                         tupleAppender.write(insertOp, true);
                     }
-                    dsLifecycleMgr.flushDataset(dataset.getDatasetId(), false);
+                    flush(false);
                 }
                 ITupleReference tuple = tupleGenerator.next();
                 DataflowUtils.addTupleToFrame(tupleAppender, tuple, insertOp);
@@ -249,6 +282,9 @@ public class ComponentRollbackTest {
             Assert.assertTrue(memComponents.get(lsmBtree.getCurrentMemoryComponentIndex()).isModified());
             searchAndAssertCount(nc, 0, dataset, storageManager, TOTAL_NUM_OF_RECORDS);
             ILSMIndexAccessor lsmAccessor = lsmBtree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
+
+            dsLifecycleMgr.getComponentIdGenerator(DATASET_ID).refresh();
+            ((AbstractLSMIOOperationCallback) lsmBtree.getIOOperationCallback()).updateLastLSN(0);
             // rollback a memory component
             lsmAccessor.deleteComponents(memoryComponentsPredicate);
             searchAndAssertCount(nc, 0, dataset, storageManager, TOTAL_NUM_OF_RECORDS - RECORDS_PER_COMPONENT);
@@ -258,7 +294,7 @@ public class ComponentRollbackTest {
             txnCtx = nc.getTransactionManager().beginTransaction(nc.getTxnJobId(ctx),
                     new TransactionOptions(ITransactionManager.AtomicityLevel.ENTITY_LEVEL));
             insertOp = nc.getInsertPipeline(ctx, dataset, KEY_TYPES, RECORD_TYPE, META_TYPE, null, KEY_INDEXES,
-                    KEY_INDICATORS_LIST, storageManager).getLeft();
+                    KEY_INDICATORS_LIST, storageManager, null).getLeft();
             insertOp.open();
             for (int j = 0; j < RECORDS_PER_COMPONENT; j++) {
                 ITupleReference tuple = tupleGenerator.next();
@@ -273,6 +309,9 @@ public class ComponentRollbackTest {
             // rollback the last disk component
             lsmAccessor = lsmBtree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
             long lsn = AbstractLSMIOOperationCallback.getTreeIndexLSN(diskComponents.get(0).getMetadata());
+
+            dsLifecycleMgr.getComponentIdGenerator(DATASET_ID).refresh();
+            ((AbstractLSMIOOperationCallback) lsmBtree.getIOOperationCallback()).updateLastLSN(0);
             DiskComponentLsnPredicate pred = new DiskComponentLsnPredicate(lsn);
             lsmAccessor.deleteComponents(pred);
             searchAndAssertCount(nc, 0, dataset, storageManager, TOTAL_NUM_OF_RECORDS - (2 * RECORDS_PER_COMPONENT));
@@ -299,7 +338,7 @@ public class ComponentRollbackTest {
                     if (tupleAppender.getTupleCount() > 0) {
                         tupleAppender.write(insertOp, true);
                     }
-                    dsLifecycleMgr.flushDataset(dataset.getDatasetId(), false);
+                    flush(false);
                 }
                 ITupleReference tuple = tupleGenerator.next();
                 DataflowUtils.addTupleToFrame(tupleAppender, tuple, insertOp);
@@ -320,11 +359,14 @@ public class ComponentRollbackTest {
             firstSearcher.waitUntilEntered();
             // now that we enetered, we will rollback
             ILSMIndexAccessor lsmAccessor = lsmBtree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
+
+            dsLifecycleMgr.getComponentIdGenerator(DATASET_ID).refresh();
+            ((AbstractLSMIOOperationCallback) lsmBtree.getIOOperationCallback()).updateLastLSN(0);
             // rollback a memory component
             lsmAccessor.deleteComponents(
                     c -> (c instanceof ILSMMemoryComponent && ((ILSMMemoryComponent) c).isModified()));
             // now that the rollback has completed, we will unblock the search
-            lsmBtree.addSearchCallback(sem -> sem.release());
+            lsmBtree.addSearchCallback(ALLOW_CALLBACK);
             lsmBtree.allowSearch(1);
             Assert.assertTrue(firstSearcher.result());
             // search now and ensure
@@ -338,10 +380,13 @@ public class ComponentRollbackTest {
             secondSearcher.waitUntilEntered();
             lsmAccessor = lsmBtree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
             long lsn = AbstractLSMIOOperationCallback.getTreeIndexLSN(diskComponents.get(0).getMetadata());
+
+            dsLifecycleMgr.getComponentIdGenerator(DATASET_ID).refresh();
+            ((AbstractLSMIOOperationCallback) lsmBtree.getIOOperationCallback()).updateLastLSN(0);
             DiskComponentLsnPredicate pred = new DiskComponentLsnPredicate(lsn);
             lsmAccessor.deleteComponents(pred);
             // now that the rollback has completed, we will unblock the search
-            lsmBtree.addSearchCallback(sem -> sem.release());
+            lsmBtree.addSearchCallback(ALLOW_CALLBACK);
             lsmBtree.allowSearch(1);
             Assert.assertTrue(secondSearcher.result());
             searchAndAssertCount(nc, 0, dataset, storageManager, TOTAL_NUM_OF_RECORDS - (2 * RECORDS_PER_COMPONENT));
@@ -367,7 +412,7 @@ public class ComponentRollbackTest {
                     if (tupleAppender.getTupleCount() > 0) {
                         tupleAppender.write(insertOp, true);
                     }
-                    dsLifecycleMgr.flushDataset(dataset.getDatasetId(), false);
+                    flush(false);
                 }
                 ITupleReference tuple = tupleGenerator.next();
                 DataflowUtils.addTupleToFrame(tupleAppender, tuple, insertOp);
@@ -386,7 +431,7 @@ public class ComponentRollbackTest {
             // disable flushes
             lsmBtree.clearFlushCallbacks();
             Flusher firstFlusher = new Flusher(lsmBtree);
-            dsLifecycleMgr.flushDataset(dataset.getDatasetId(), true);
+            flush(true);
             firstFlusher.waitUntilCount(1);
             // now that we enetered, we will rollback. This will not proceed since it is waiting for the flush to complete
             Rollerback rollerback = new Rollerback(lsmBtree, memoryComponentsPredicate);
@@ -423,7 +468,7 @@ public class ComponentRollbackTest {
                     if (tupleAppender.getTupleCount() > 0) {
                         tupleAppender.write(insertOp, true);
                     }
-                    dsLifecycleMgr.flushDataset(dataset.getDatasetId(), false);
+                    flush(false);
                 }
                 ITupleReference tuple = tupleGenerator.next();
                 DataflowUtils.addTupleToFrame(tupleAppender, tuple, insertOp);
@@ -487,7 +532,7 @@ public class ComponentRollbackTest {
                     if (tupleAppender.getTupleCount() > 0) {
                         tupleAppender.write(insertOp, true);
                     }
-                    dsLifecycleMgr.flushDataset(dataset.getDatasetId(), false);
+                    flush(false);
                 }
                 ITupleReference tuple = tupleGenerator.next();
                 DataflowUtils.addTupleToFrame(tupleAppender, tuple, insertOp);
@@ -508,7 +553,7 @@ public class ComponentRollbackTest {
             lsmBtree.clearFlushCallbacks();
             lsmBtree.clearSearchCallbacks();
             Flusher firstFlusher = new Flusher(lsmBtree);
-            dsLifecycleMgr.flushDataset(dataset.getDatasetId(), true);
+            flush(true);
             firstFlusher.waitUntilCount(1);
             Searcher firstSearcher = new Searcher(nc, 0, dataset, storageManager, lsmBtree, TOTAL_NUM_OF_RECORDS);
             // wait till firstSearcher enter the components
@@ -517,7 +562,7 @@ public class ComponentRollbackTest {
             Rollerback rollerback = new Rollerback(lsmBtree, memoryComponentsPredicate);
             //unblock the flush
             lsmBtree.allowFlush(1);
-            lsmBtree.addSearchCallback(sem -> sem.release());
+            lsmBtree.addSearchCallback(ALLOW_CALLBACK);
             lsmBtree.allowSearch(1);
             Assert.assertTrue(firstSearcher.result());
             // ensure current mem component is not modified
@@ -547,7 +592,7 @@ public class ComponentRollbackTest {
                     if (tupleAppender.getTupleCount() > 0) {
                         tupleAppender.write(insertOp, true);
                     }
-                    dsLifecycleMgr.flushDataset(dataset.getDatasetId(), false);
+                    flush(false);
                 }
                 ITupleReference tuple = tupleGenerator.next();
                 DataflowUtils.addTupleToFrame(tupleAppender, tuple, insertOp);
@@ -567,7 +612,7 @@ public class ComponentRollbackTest {
             // disable searches
             lsmBtree.clearFlushCallbacks();
             Flusher firstFlusher = new Flusher(lsmBtree);
-            dsLifecycleMgr.flushDataset(dataset.getDatasetId(), true);
+            flush(true);
             firstFlusher.waitUntilCount(1);
             lsmBtree.clearSearchCallbacks();
             Searcher firstSearcher = new Searcher(nc, 0, dataset, storageManager, lsmBtree, TOTAL_NUM_OF_RECORDS);
@@ -576,7 +621,7 @@ public class ComponentRollbackTest {
             // now that we enetered, we will rollback
             Rollerback rollerback = new Rollerback(lsmBtree, memoryComponentsPredicate);
             // The rollback will be waiting for the flush to complete
-            lsmBtree.addSearchCallback(sem -> sem.release());
+            lsmBtree.addSearchCallback(ALLOW_CALLBACK);
             lsmBtree.allowSearch(1);
             Assert.assertTrue(firstSearcher.result());
             //unblock the flush
@@ -609,7 +654,7 @@ public class ComponentRollbackTest {
                     if (tupleAppender.getTupleCount() > 0) {
                         tupleAppender.write(insertOp, true);
                     }
-                    dsLifecycleMgr.flushDataset(dataset.getDatasetId(), false);
+                    flush(false);
                 }
                 ITupleReference tuple = tupleGenerator.next();
                 DataflowUtils.addTupleToFrame(tupleAppender, tuple, insertOp);
@@ -648,7 +693,7 @@ public class ComponentRollbackTest {
             // unblock the merge
             lsmBtree.allowMerge(1);
             // unblock the search
-            lsmBtree.addSearchCallback(sem -> sem.release());
+            lsmBtree.addSearchCallback(ALLOW_CALLBACK);
             lsmBtree.allowSearch(1);
             Assert.assertTrue(firstSearcher.result());
             rollerback.complete();
@@ -680,7 +725,7 @@ public class ComponentRollbackTest {
                     if (tupleAppender.getTupleCount() > 0) {
                         tupleAppender.write(insertOp, true);
                     }
-                    dsLifecycleMgr.flushDataset(dataset.getDatasetId(), false);
+                    flush(false);
                 }
                 ITupleReference tuple = tupleGenerator.next();
                 DataflowUtils.addTupleToFrame(tupleAppender, tuple, insertOp);
@@ -716,7 +761,7 @@ public class ComponentRollbackTest {
             // now that we enetered, we will rollback
             Rollerback rollerBack = new Rollerback(lsmBtree, new DiskComponentLsnPredicate(lsn));
             // unblock the search
-            lsmBtree.addSearchCallback(sem -> sem.release());
+            lsmBtree.addSearchCallback(ALLOW_CALLBACK);
             lsmBtree.allowSearch(1);
             Assert.assertTrue(firstSearcher.result());
             // even though rollback has been called, it is still waiting for the merge to complete
@@ -745,6 +790,8 @@ public class ComponentRollbackTest {
                 public void run() {
                     ILSMIndexAccessor lsmAccessor = lsmBtree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
                     try {
+                        dsLifecycleMgr.getComponentIdGenerator(DATASET_ID).refresh();
+                        ((AbstractLSMIOOperationCallback) lsmBtree.getIOOperationCallback()).updateLastLSN(0);
                         lsmAccessor.deleteComponents(predicate);
                     } catch (HyracksDataException e) {
                         failure = e;
@@ -770,10 +817,18 @@ public class ComponentRollbackTest {
 
         public Searcher(TestNodeController nc, int partition, Dataset dataset, StorageComponentProvider storageManager,
                 TestLsmBtree lsmBtree, int numOfRecords) {
-            lsmBtree.addSearchCallback(sem -> {
-                synchronized (Searcher.this) {
-                    entered = true;
-                    Searcher.this.notifyAll();
+            lsmBtree.addSearchCallback(new ITestOpCallback<Semaphore>() {
+
+                @Override
+                public void before(Semaphore sem) {
+                    synchronized (Searcher.this) {
+                        entered = true;
+                        Searcher.this.notifyAll();
+                    }
+                }
+
+                @Override
+                public void after() {
                 }
             });
             Callable<Boolean> callable = new Callable<Boolean>() {
@@ -801,10 +856,18 @@ public class ComponentRollbackTest {
         private volatile int count = 0;
 
         public Merger(TestLsmBtree lsmBtree) {
-            lsmBtree.addMergeCallback(sem -> {
-                synchronized (Merger.this) {
-                    count++;
-                    Merger.this.notifyAll();
+            lsmBtree.addMergeCallback(new ITestOpCallback<Semaphore>() {
+
+                @Override
+                public void before(Semaphore smeaphore) {
+                    synchronized (Merger.this) {
+                        count++;
+                        Merger.this.notifyAll();
+                    }
+                }
+
+                @Override
+                public void after() {
                 }
             });
         }
@@ -820,10 +883,18 @@ public class ComponentRollbackTest {
         private volatile int count = 0;
 
         public Flusher(TestLsmBtree lsmBtree) {
-            lsmBtree.addFlushCallback(sem -> {
-                synchronized (Flusher.this) {
-                    count++;
-                    Flusher.this.notifyAll();
+            lsmBtree.addFlushCallback(new ITestOpCallback<Semaphore>() {
+
+                @Override
+                public void before(Semaphore smeaphore) {
+                    synchronized (Flusher.this) {
+                        count++;
+                        Flusher.this.notifyAll();
+                    }
+                }
+
+                @Override
+                public void after() {
                 }
             });
         }
@@ -867,6 +938,20 @@ public class ComponentRollbackTest {
         emptyTupleOp.open();
         emptyTupleOp.close();
         Assert.assertEquals(numOfRecords, countOp.getCount());
+    }
+
+    public static void waitForOperations(ILSMIndex index) throws InterruptedException {
+        // wait until number of activeOperation reaches 0
+        PrimaryIndexOperationTracker opTracker = (PrimaryIndexOperationTracker) index.getOperationTracker();
+        long maxWaitTime = 60000L; // 1 minute
+        long before = System.currentTimeMillis();
+        while (opTracker.getNumActiveOperations() > 0) {
+            Thread.sleep(5); // NOSONAR: Test code with a timeout
+            if (System.currentTimeMillis() - before > maxWaitTime) {
+                throw new IllegalStateException(
+                        (System.currentTimeMillis() - before) + "ms passed without completing the frame operation");
+            }
+        }
     }
 
     public static TestTupleCounterFrameWriter create(RecordDescriptor recordDescriptor,
