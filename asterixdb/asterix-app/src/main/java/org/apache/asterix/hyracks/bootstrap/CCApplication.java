@@ -60,6 +60,7 @@ import org.apache.asterix.app.external.ExternalLibraryUtils;
 import org.apache.asterix.app.replication.FaultToleranceStrategyFactory;
 import org.apache.asterix.common.api.AsterixThreadFactory;
 import org.apache.asterix.common.api.IClusterManagementWork;
+import org.apache.asterix.common.api.INodeJobTracker;
 import org.apache.asterix.common.config.AsterixExtension;
 import org.apache.asterix.common.config.ExternalProperties;
 import org.apache.asterix.common.config.MetadataProperties;
@@ -168,6 +169,9 @@ public class CCApplication extends BaseCCApplication {
         configureServers();
         webManager.start();
         ccServiceCtx.addClusterLifecycleListener(new ClusterLifecycleListener(appCtx));
+        final INodeJobTracker nodeJobTracker = appCtx.getNodeJobTracker();
+        ccServiceCtx.addJobLifecycleListener(nodeJobTracker);
+        ccServiceCtx.addClusterLifecycleListener(nodeJobTracker);
 
         jobCapacityController = new JobCapacityController(controllerService.getResourceManager());
     }
