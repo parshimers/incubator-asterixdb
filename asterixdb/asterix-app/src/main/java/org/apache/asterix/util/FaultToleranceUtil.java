@@ -53,8 +53,8 @@ public class FaultToleranceUtil {
 
         // In case the node joined with a new IP address, we need to send it to the other replicas
         if (event == ClusterEventType.NODE_JOIN) {
-            nodeIdAddress = (String) activeNcConfiguration.get(nodeId).get(NCConfig.Option.REPLICATION_LISTEN_ADDRESS);
-            nodePort = (int) activeNcConfiguration.get(nodeId).get(NCConfig.Option.REPLICATION_LISTEN_PORT);
+            nodeIdAddress = (String) activeNcConfiguration.get(nodeId).get(NCConfig.Option.REPLICATION_PUBLIC_ADDRESS);
+            nodePort = (int) activeNcConfiguration.get(nodeId).get(NCConfig.Option.REPLICATION_PUBLIC_PORT);
         }
         ReplicaEventMessage msg = new ReplicaEventMessage(nodeId, nodeIdAddress, nodePort, event);
         for (String replica : primaryRemoteReplicas) {

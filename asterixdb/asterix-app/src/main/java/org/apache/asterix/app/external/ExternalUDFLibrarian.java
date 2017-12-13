@@ -37,8 +37,8 @@ import org.apache.commons.compress.utils.IOUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 
+@SuppressWarnings("squid:AS134")
 public class ExternalUDFLibrarian implements IExternalUDFLibrarian {
-    @SuppressWarnings("squid:AS134")
 
     // The following list includes a library manager for the CC
     // and library managers for NCs (one-per-NC).
@@ -63,7 +63,7 @@ public class ExternalUDFLibrarian implements IExternalUDFLibrarian {
                     File entryDestination = new File(outputDir, entry.getName());
                     if (!entry.isDirectory()) {
                         entryDestination.getParentFile().mkdirs();
-                        try (InputStream in = zipFile.getInputStream(entry); //NOSONAR
+                        try (InputStream in = zipFile.getInputStream(entry);
                                 OutputStream out = new FileOutputStream(entryDestination)) {
                             IOUtils.copy(in, out);
                         }

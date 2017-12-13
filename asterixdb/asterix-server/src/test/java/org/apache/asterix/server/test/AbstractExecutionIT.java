@@ -91,10 +91,6 @@ public abstract class AbstractExecutionIT {
         FileUtils.copyDirectoryStructure(new File(joinPath("..", "asterix-app", "target", "data")),
                 new File(NCServiceExecutionIT.ASTERIX_APP_DIR + "/clusters/local/working_dir/target/data"));
 
-        //        FileUtils.copyDirectoryStructure(new File(FileUtil.joinPath("target", "data")),
-        //                new File(NCServiceExecutionIT.ASTERIX_APP_DIR
-        //                        + "/clusters/local/working_dir/target/data/csv"));
-
         // Set the node resolver to be the identity resolver that expects node names
         // to be node controller ids; a valid assumption in test environment.
         System.setProperty(ExternalDataConstants.NODE_RESOLVER_FACTORY_PROPERTY,

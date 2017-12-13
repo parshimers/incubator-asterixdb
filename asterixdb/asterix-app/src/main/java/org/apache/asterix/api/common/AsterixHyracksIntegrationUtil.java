@@ -54,17 +54,17 @@ import org.apache.hyracks.control.common.controllers.NCConfig;
 import org.apache.hyracks.control.nc.NodeControllerService;
 import org.kohsuke.args4j.CmdLineException;
 
+@SuppressWarnings("squid:ClassVariableVisibilityCheck,squid:AS00112")
 public class AsterixHyracksIntegrationUtil {
-    @SuppressWarnings("squid:ClassVariableVisibilityCheck,squid:AS00112")
     public static final int DEFAULT_HYRACKS_CC_CLIENT_PORT = 1098;
     public static final int DEFAULT_HYRACKS_CC_CLUSTER_PORT = 1099;
     public static final String DEFAULT_CONF_FILE = joinPath("asterixdb", "asterix-app", "src", "test", "resources",
             "cc.conf");
     private static final String DEFAULT_STORAGE_PATH = joinPath("target", "io", "dir");
     private static String storagePath = DEFAULT_STORAGE_PATH;
-    public ClusterControllerService cc; //NOSONAR
-    public NodeControllerService[] ncs = new NodeControllerService[2]; //NOSONAR
-    public IHyracksClientConnection hcc; //NOSONAR
+    public ClusterControllerService cc;
+    public NodeControllerService[] ncs = new NodeControllerService[2];
+    public IHyracksClientConnection hcc;
     protected boolean gracefulShutdown = true;
     List<Pair<IOption, Object>> opts = new ArrayList<>();
     private ConfigManager configManager;
