@@ -54,7 +54,6 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import org.apache.asterix.common.cluster.ClusterPartition;
-import org.apache.asterix.common.config.ClusterProperties;
 import org.apache.asterix.common.config.ReplicationProperties;
 import org.apache.asterix.common.replication.IPartitionReplica;
 import org.apache.asterix.common.replication.IReplicaResourcesManager;
@@ -1185,21 +1184,21 @@ public class ReplicationManager implements IReplicationManager {
                 buffer.reset();
             }
         }
-        //move the buffer position to the sent limit
+        //move the bufeer position to the sent limit
         buffer.position(buffer.limit());
     }
 
     @Override
     public void register(IPartitionReplica replica) {
         // find the replica node based on ip and replication port
-        final Optional<Node> replicaNode = ClusterProperties.INSTANCE.getCluster().getNode().stream()
-                .filter(node -> node.getClusterIp().equals(replica.getIdentifier().getLocation().getHostString())
-                        && node.getReplicationPort().intValue() == replica.getIdentifier().getLocation().getPort())
-                .findAny();
+        Optional <Replica> replicaNode =  replicationStrategy.getRemoteReplicasAndSelf(nodeId).stream().filter(node -> node
+                .getClusterIp().equals(replica
+                .getIdentifier().getLocation().getHostString()) && node.getPort() == replica.getIdentifier()
+                .getLocation().getPort()).findAny();
         if (!replicaNode.isPresent()) {
             throw new IllegalStateException("Couldn't find node for replica: " + replica);
         }
-        Replica replicaRef = new Replica(replicaNode.get());
+        Replica replicaRef = replicaNode.get();
         final String replicaId = replicaRef.getId();
         replicas.putIfAbsent(replicaId, replicaRef);
         replica2PartitionsMap.computeIfAbsent(replicaId, k -> new HashSet<>());

@@ -28,6 +28,7 @@ import java.nio.channels.AsynchronousCloseException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -121,6 +122,7 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
     private final PersistentLocalResourceRepository localResourceRep;
     private final IReplicationStrategy replicationStrategy;
     private final NCConfig ncConfig;
+    private Set nodeHostedPartitions;
     private final IIndexCheckpointManagerProvider indexCheckpointManagerProvider;
     private final INcApplicationContext appCtx;
 

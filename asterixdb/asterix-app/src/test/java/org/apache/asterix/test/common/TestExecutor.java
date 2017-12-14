@@ -129,7 +129,6 @@ public class TestExecutor {
     public static final String DELIVERY_IMMEDIATE = "immediate";
     private static final String METRICS_QUERY_TYPE = "metrics";
 
-    private static Method managixExecuteMethod = null;
     private static final HashMap<Integer, ITestServer> runningTestServers = new HashMap<>();
     private static Map<String, InetSocketAddress> ncEndPoints;
     private static Map<String, InetSocketAddress> replicationAddress;

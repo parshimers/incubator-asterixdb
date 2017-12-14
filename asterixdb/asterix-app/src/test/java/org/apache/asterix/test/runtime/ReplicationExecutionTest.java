@@ -25,7 +25,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.asterix.common.api.INcApplicationContext;
-import org.apache.asterix.common.config.ClusterProperties;
 import org.apache.asterix.test.common.TestExecutor;
 import org.apache.asterix.testframework.context.TestCaseContext;
 import org.apache.hyracks.control.common.controllers.NCConfig;
@@ -53,18 +52,20 @@ public class ReplicationExecutionTest {
     public void before() throws Exception {
         LangExecutionUtil.setUp(TEST_CONFIG_FILE_NAME, testExecutor);
         if (!configured) {
-        final NodeControllerService[] ncs = ExecutionTestUtil.integrationUtil.ncs;
-        Map<String, InetSocketAddress> ncEndPoints = new HashMap<>();
-        Map<String, InetSocketAddress> replicationAddress = new HashMap<>();
-        final String ip = InetAddress.getLoopbackAddress().getHostAddress();
-        for (NodeControllerService nc : ncs) {
-            final String nodeId = nc.getId();
-            final INcApplicationContext appCtx = (INcApplicationContext) nc.getApplicationContext();
-            int apiPort = appCtx.getExternalProperties().getNcApiPort();
-            int replicationPort = (int) appCtx.getServiceContext().getAppConfig().get(NCConfig.Option
-                    .REPLICATION_LISTEN_PORT);
-            ncEndPoints.put(nodeId, InetSocketAddress.createUnresolved(ip, apiPort));
-            replicationAddress.put(nodeId, InetSocketAddress.createUnresolved(ip, replicationPort));
+            final NodeControllerService[] ncs = ExecutionTestUtil.integrationUtil.ncs;
+            Map<String, InetSocketAddress> ncEndPoints = new HashMap<>();
+            Map<String, InetSocketAddress> replicationAddress = new HashMap<>();
+            final String ip = InetAddress.getLoopbackAddress().getHostAddress();
+            for (NodeControllerService nc : ncs) {
+                final String nodeId = nc.getId();
+                final INcApplicationContext appCtx = (INcApplicationContext) nc.getApplicationContext();
+                int apiPort = appCtx.getExternalProperties().getNcApiPort();
+                int replicationPort = (int) appCtx.getServiceContext().getAppConfig().get(NCConfig.Option.REPLICATION_LISTEN_PORT);
+                ncEndPoints.put(nodeId, InetSocketAddress.createUnresolved(ip, apiPort));
+                replicationAddress.put(nodeId, InetSocketAddress.createUnresolved(ip, replicationPort));
+            }
+            testExecutor.setNcEndPoints(ncEndPoints);
+            testExecutor.setNcReplicationAddress(replicationAddress);
             configured = true;
         }
     }

@@ -65,12 +65,6 @@ public class MetadataOnlyReplicationStrategy implements IReplicationStrategy {
     }
 
     @Override
-    public boolean isParticipant(String nodeId) {
-        Set<String> participantNodes = metadataNodeReplicas.stream().map(Replica::getId).collect(Collectors.toSet());
-        return nodeId.equals(metadataPrimaryReplicaId) || participantNodes.contains(nodeId);
-    }
-
-    @Override
     public Set<Replica> getRemotePrimaryReplicas(String nodeId) {
         if (metadataNodeReplicas.stream().map(Replica::getId).filter(replicaId -> replicaId.equals(nodeId))
                 .count() != 0) {
