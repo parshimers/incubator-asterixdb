@@ -150,7 +150,6 @@ public class CCApplication extends BaseCCApplication {
         appCtx = createApplicationContext(libraryManager, globalRecoveryManager, ftStrategy);
         List<AsterixExtension> extensions = new ArrayList<>();
         extensions.addAll(this.getExtensions());
-        extensions.addAll(PropertiesAccessor.getInstance(ccServiceCtx.getAppConfig()).getExtensions());
         ccExtensionManager = new CCExtensionManager(extensions);
         appCtx.setExtensionManager(ccExtensionManager);
         final CCConfig ccConfig = controllerService.getCCConfig();
