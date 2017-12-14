@@ -158,13 +158,13 @@ public class ReplicationManager implements IReplicationManager {
             replicationStrategy = ReplicationStrategyFactory.create(replicationProperties.getReplicationStrategy(),
                     replicationProperties, ncConfig.getConfigManager());
         } catch (HyracksDataException e) {
-            LOGGER.log(Level.WARNING,"Couldn't initialize replication strategy",e);
+            LOGGER.log(Level.WARNING, "Couldn't initialize replication strategy", e);
         }
         this.replicaResourcesManager = (ReplicaResourcesManager) remoteResoucesManager;
         this.asterixAppRuntimeContextProvider = asterixAppRuntimeContextProvider;
         this.logManager = logManager;
-        localResourceRepo = (PersistentLocalResourceRepository) asterixAppRuntimeContextProvider
-                .getLocalResourceRepository();
+        localResourceRepo =
+                (PersistentLocalResourceRepository) asterixAppRuntimeContextProvider.getLocalResourceRepository();
         this.hostIPAddressFirstOctet = ncConfig.getPublicAddress().substring(0, 3);
         this.indexCheckpointManagerProvider =
                 asterixAppRuntimeContextProvider.getAppContext().getIndexCheckpointManagerProvider();
@@ -186,8 +186,8 @@ public class ReplicationManager implements IReplicationManager {
         replicationListenerThreads = Executors.newCachedThreadPool();
         replicationJobsProcessor = new ReplicationJobsProccessor();
 
-        Map<String, ClusterPartition[]> nodePartitions = asterixAppRuntimeContextProvider.getAppContext()
-                .getMetadataProperties().getNodePartitions();
+        Map<String, ClusterPartition[]> nodePartitions =
+                asterixAppRuntimeContextProvider.getAppContext().getMetadataProperties().getNodePartitions();
         replica2PartitionsMap = new HashMap<>(replicaNodes.size());
         for (Replica replica : replicaNodes) {
             replicas.put(replica.getId(), replica);
@@ -360,8 +360,8 @@ public class ReplicationManager implements IReplicationManager {
                                     NetworkingUtil.transferBufferToChannel(socketChannel, requestBuffer);
                                     NetworkingUtil.sendFile(fileChannel, socketChannel);
                                     if (asterixFileProperties.requiresAck()) {
-                                        ReplicationRequestType responseType = waitForResponse(socketChannel,
-                                                responseBuffer);
+                                        ReplicationRequestType responseType =
+                                                waitForResponse(socketChannel, responseBuffer);
                                         if (responseType != ReplicationRequestType.ACK) {
                                             throw new IOException(
                                                     "Could not receive ACK from replica " + entry.getKey());
@@ -1030,10 +1030,10 @@ public class ReplicationManager implements IReplicationManager {
                 //2. send request to remote replicas that have lagging indexes.
                 ReplicaIndexFlushRequest laggingIndexesResponse = null;
                 try (SocketChannel socketChannel = getReplicaSocket(replicaId)) {
-                    ReplicaIndexFlushRequest laggingIndexesRequest = new ReplicaIndexFlushRequest(
-                            laggingIndexes.keySet());
-                    requestBuffer = ReplicationProtocol.writeGetReplicaIndexFlushRequest(requestBuffer,
-                            laggingIndexesRequest);
+                    ReplicaIndexFlushRequest laggingIndexesRequest =
+                            new ReplicaIndexFlushRequest(laggingIndexes.keySet());
+                    requestBuffer =
+                            ReplicationProtocol.writeGetReplicaIndexFlushRequest(requestBuffer, laggingIndexesRequest);
                     NetworkingUtil.transferBufferToChannel(socketChannel, requestBuffer);
 
                     //3. remote replicas will respond with indexes that were not flushed.
@@ -1191,10 +1191,10 @@ public class ReplicationManager implements IReplicationManager {
     @Override
     public void register(IPartitionReplica replica) {
         // find the replica node based on ip and replication port
-        Optional <Replica> replicaNode =  replicationStrategy.getRemoteReplicasAndSelf(nodeId).stream().filter(node -> node
-                .getClusterIp().equals(replica
-                .getIdentifier().getLocation().getHostString()) && node.getPort() == replica.getIdentifier()
-                .getLocation().getPort()).findAny();
+        Optional<Replica> replicaNode = replicationStrategy.getRemoteReplicasAndSelf(nodeId).stream()
+                .filter(node -> node.getClusterIp().equals(replica.getIdentifier().getLocation().getHostString())
+                        && node.getPort() == replica.getIdentifier().getLocation().getPort())
+                .findAny();
         if (!replicaNode.isPresent()) {
             throw new IllegalStateException("Couldn't find node for replica: " + replica);
         }
@@ -1340,8 +1340,8 @@ public class ReplicationManager implements IReplicationManager {
             Thread.currentThread().setName("TxnLogs Replication Listener Thread");
             LOGGER.log(Level.INFO, "Started listening on socket: " + replicaSocket.socket().getRemoteSocketAddress());
 
-            try (BufferedReader incomingResponse = new BufferedReader(
-                    new InputStreamReader(replicaSocket.socket().getInputStream()))) {
+            try (BufferedReader incomingResponse =
+                    new BufferedReader(new InputStreamReader(replicaSocket.socket().getInputStream()))) {
                 while (true) {
                     String responseLine = incomingResponse.readLine();
                     if (responseLine == null) {
