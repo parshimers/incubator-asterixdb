@@ -25,11 +25,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.asterix.common.api.INcApplicationContext;
+import org.apache.asterix.common.config.ClusterProperties;
 import org.apache.asterix.test.common.TestExecutor;
 import org.apache.asterix.testframework.context.TestCaseContext;
 import org.apache.hyracks.control.common.controllers.NCConfig;
 import org.apache.hyracks.control.nc.NodeControllerService;
-import org.junit.AfterClass;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,10 +42,17 @@ import org.junit.runners.Parameterized.Parameters;
 public class ReplicationExecutionTest {
     protected static final String TEST_CONFIG_FILE_NAME = "src/main/resources/cc-rep.conf";
     private static final TestExecutor testExecutor = new TestExecutor();
+    private static boolean configured = false;
 
     @BeforeClass
-    public static void setUp() throws Exception {
+    public static void setUp() {
+        LangExecutionUtil.setCheckStorageDistribution(false);
+    }
+
+    @Before
+    public void before() throws Exception {
         LangExecutionUtil.setUp(TEST_CONFIG_FILE_NAME, testExecutor);
+        if (!configured) {
         final NodeControllerService[] ncs = ExecutionTestUtil.integrationUtil.ncs;
         Map<String, InetSocketAddress> ncEndPoints = new HashMap<>();
         Map<String, InetSocketAddress> replicationAddress = new HashMap<>();
@@ -56,13 +65,12 @@ public class ReplicationExecutionTest {
                     .REPLICATION_LISTEN_PORT);
             ncEndPoints.put(nodeId, InetSocketAddress.createUnresolved(ip, apiPort));
             replicationAddress.put(nodeId, InetSocketAddress.createUnresolved(ip, replicationPort));
+            configured = true;
         }
-        testExecutor.setNcEndPoints(ncEndPoints);
-        testExecutor.setNcReplicationAddress(replicationAddress);
     }
 
-    @AfterClass
-    public static void tearDown() throws Exception {
+    @After
+    public void after() throws Exception {
         LangExecutionUtil.tearDown();
     }
 

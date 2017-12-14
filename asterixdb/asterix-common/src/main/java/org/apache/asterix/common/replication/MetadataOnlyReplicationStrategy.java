@@ -106,4 +106,9 @@ public class MetadataOnlyReplicationStrategy implements IReplicationStrategy {
         st.metadataNodeReplicas = replicas;
         return st;
     }
+
+    @Override
+    public boolean isParticipant(String nodeId) {
+        return true;
+    }
 }
