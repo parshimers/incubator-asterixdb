@@ -547,4 +547,20 @@ public class DatasetUtil {
         MetadataManager.INSTANCE.addNodegroup(mdTxnCtx, new NodeGroup(nodeGroup, new ArrayList<>(ncNames)));
         return nodeGroup;
     }
+
+    // This doesn't work if the dataset  or the dataverse name contains a '.'
+    public static Pair<String, String> getDatasetInfo(MetadataProvider metadata, String datasetArg) {
+        String first;
+        String second;
+        int i = datasetArg.indexOf('.');
+        if (i > 0 && i < datasetArg.length() - 1) {
+            first = datasetArg.substring(0, i);
+            second = datasetArg.substring(i + 1);
+        }
+        else {
+            first = metadata.getDefaultDataverse() == null ? null : metadata.getDefaultDataverse().getDataverseName();
+            second = datasetArg;
+        }
+        return new Pair<>(first, second);
+    }
 }

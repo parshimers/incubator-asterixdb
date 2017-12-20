@@ -134,7 +134,7 @@ public class BuiltinFunctions {
     private static final Map<IFunctionInfo, IResultTypeComputer> funTypeComputer = new HashMap<>();
 
     private static final Set<IFunctionInfo> builtinAggregateFunctions = new HashSet<>();
-    private static final Set<IFunctionInfo> datasetFunctions = new HashSet<>();
+    private static final Map<IFunctionInfo, IFunctionToDataSourceRewriter> datasourceFunctions = new HashMap<>();
     private static final Set<IFunctionInfo> similarityFunctions = new HashSet<>();
     private static final Set<IFunctionInfo> globalAggregateFunctions = new HashSet<>();
     private static final Map<IFunctionInfo, IFunctionInfo> aggregateToLocalAggregate = new HashMap<>();
@@ -871,8 +871,6 @@ public class BuiltinFunctions {
             FunctionIdentifier.VARARGS);
     public static final FunctionIdentifier META_KEY = new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "meta-key",
             FunctionIdentifier.VARARGS);
-    public static final FunctionIdentifier RESOLVE = new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "resolve",
-            FunctionIdentifier.VARARGS);
 
     public static IFunctionInfo getAsterixFunctionInfo(FunctionIdentifier fid) {
         return registeredFunctions.get(fid);
@@ -1184,7 +1182,7 @@ public class BuiltinFunctions {
         addPrivateFunction(OPEN_RECORD_CONSTRUCTOR, OpenRecordConstructorResultType.INSTANCE, true);
         addPrivateFunction(FIELD_ACCESS_BY_INDEX, FieldAccessByIndexResultType.INSTANCE, true);
         addPrivateFunction(FIELD_ACCESS_NESTED, FieldAccessNestedResultType.INSTANCE, true);
-        addPrivateFunction(FIELD_ACCESS_BY_NAME, FieldAccessByNameResultType.INSTANCE, true);
+        addFunction(FIELD_ACCESS_BY_NAME, FieldAccessByNameResultType.INSTANCE, true);
         addFunction(GET_RECORD_FIELDS, OrderedListOfAnyTypeComputer.INSTANCE, true);
         addFunction(GET_RECORD_FIELD_VALUE, FieldAccessNestedResultType.INSTANCE, true);
         addFunction(RECORD_PAIRS, RecordPairsTypeComputer.INSTANCE, true);
@@ -1270,7 +1268,6 @@ public class BuiltinFunctions {
         // meta() function
         addFunction(META, OpenARecordTypeComputer.INSTANCE, true);
         addPrivateFunction(META_KEY, AnyTypeComputer.INSTANCE, false);
-        addFunction(RESOLVE, AnyTypeComputer.INSTANCE, false);
 
         addPrivateFunction(COLLECTION_TO_SEQUENCE, CollectionToSequenceTypeComputer.INSTANCE, true);
 
@@ -1282,13 +1279,6 @@ public class BuiltinFunctions {
 
         // unnesting function
         addPrivateFunction(SCAN_COLLECTION, CollectionMemberResultType.INSTANCE, true);
-
-        String metadataFunctionLoaderClassName = "org.apache.asterix.metadata.functions.MetadataBuiltinFunctions";
-        try {
-            Class.forName(metadataFunctionLoaderClassName);
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
 
     }
 
@@ -1530,27 +1520,17 @@ public class BuiltinFunctions {
     }
 
     static {
-        datasetFunctions.add(getAsterixFunctionInfo(DATASET));
-        datasetFunctions.add(getAsterixFunctionInfo(FEED_COLLECT));
-        datasetFunctions.add(getAsterixFunctionInfo(FEED_INTERCEPT));
-        datasetFunctions.add(getAsterixFunctionInfo(INDEX_SEARCH));
-    }
-
-    static {
-        addUnnestFun(DATASET, false);
-        addUnnestFun(FEED_COLLECT, false);
-        addUnnestFun(FEED_INTERCEPT, false);
         addUnnestFun(RANGE, true);
         addUnnestFun(SCAN_COLLECTION, false);
         addUnnestFun(SUBSET_COLLECTION, false);
     }
 
-    public static void addDatasetFunction(FunctionIdentifier fi) {
-        datasetFunctions.add(getAsterixFunctionInfo(fi));
+    public static void addDatasourceFunction(FunctionIdentifier fi, IFunctionToDataSourceRewriter transformer) {
+        datasourceFunctions.put(getAsterixFunctionInfo(fi), transformer);
     }
 
-    public static boolean isDatasetFunction(FunctionIdentifier fi) {
-        return datasetFunctions.contains(getAsterixFunctionInfo(fi));
+    public static IFunctionToDataSourceRewriter getDatasourceTransformer(FunctionIdentifier fi) {
+        return datasourceFunctions.getOrDefault(getAsterixFunctionInfo(fi), IFunctionToDataSourceRewriter.NOOP);
     }
 
     public static boolean isBuiltinCompilerFunction(FunctionSignature signature, boolean includePrivateFunctions) {

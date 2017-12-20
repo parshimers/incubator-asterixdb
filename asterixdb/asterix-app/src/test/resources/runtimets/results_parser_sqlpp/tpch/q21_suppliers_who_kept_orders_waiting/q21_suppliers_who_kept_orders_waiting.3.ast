@@ -325,7 +325,7 @@ FROM [  (
         ]
         ]
         FROM [          FunctionCall asterix.dataset@1[
-            LiteralExpr [STRING] [LineItem]
+            LiteralExpr [STRING] [tpch.LineItem]
           ]
           AS Variable [ Name=$l ]
 ,
@@ -351,12 +351,12 @@ FROM [  (
             ]
             ]
             FROM [              FunctionCall asterix.dataset@1[
-                LiteralExpr [STRING] [Nation]
+                LiteralExpr [STRING] [tpch.Nation]
               ]
               AS Variable [ Name=$n ]
 ,
               FunctionCall asterix.dataset@1[
-                LiteralExpr [STRING] [Supplier]
+                LiteralExpr [STRING] [tpch.Supplier]
               ]
               AS Variable [ Name=$s ]
             ]
@@ -376,7 +376,7 @@ FROM [  (
           AS Variable [ Name=$ns ]
 ,
           FunctionCall asterix.dataset@1[
-            LiteralExpr [STRING] [Orders]
+            LiteralExpr [STRING] [tpch.Orders]
           ]
           AS Variable [ Name=$o ]
 ,
@@ -481,23 +481,16 @@ Groupby
 
 Let Variable [ Name=$numwait ]
   :=
-  FunctionCall asterix.sql-count@1[
+  FunctionCall asterix.count@1[
     (
       SELECT ELEMENT [
-      (
-        SELECT ELEMENT [
-        FieldAccessor [
-          Variable [ Name=#1 ]
-          Field=t4
-        ]
-        ]
-        FROM [          Variable [ Name=$g ]
-          AS Variable [ Name=$g ]
-        ]
-      )
+      FunctionCall asterix.field-access-by-name@2[
+        Variable [ Name=$g ]
+        LiteralExpr [STRING] [t4]
+      ]
       ]
       FROM [        Variable [ Name=$g ]
-        AS Variable [ Name=#1 ]
+        AS Variable [ Name=$g ]
       ]
     )
   ]
