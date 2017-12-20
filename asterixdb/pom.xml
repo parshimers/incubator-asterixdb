@@ -94,6 +94,7 @@
             -enableassertions -Xmx${test.heap.size}m
             -Dfile.encoding=UTF-8
             -Djava.util.logging.config.file=${user.home}/logging.properties
+            -Dlog4j.configurationFile=${basedir}/../asterix-app/src/test/resources/log4j2-test.xml
             -DrunSlowAQLTests=${runSlowAQLTests}
             -Xdebug
             -Xrunjdwp:transport=dt_socket,server=y,address=8000,suspend=${debug.suspend.flag}
@@ -150,7 +151,9 @@
           <excludes combine.children="append">
             <exclude>src/main/licenses/**</exclude>
             <exclude>**/*.iml</exclude>
+            <exclude>**/*.json</exclude>
             <exclude>**/*.adm</exclude>
+            <exclude>**/*.template</exclude>
             <exclude>asterix-installer/**</exclude> <!-- in case -DskipInstaller -->
           </excludes>
         </configuration>
@@ -680,17 +683,6 @@
         </plugins>
       </build>
     </profile>
-    <profile>
-      <id>include-managix</id>
-      <activation>
-        <property>
-          <name>!skipManagix</name>
-        </property>
-      </activation>
-      <modules>
-        <module>asterix-installer</module>
-      </modules>
-    </profile>
   </profiles>
 
   <modules>
@@ -711,7 +703,6 @@
     <module>asterix-test-framework</module>
     <module>asterix-maven-plugins</module>
     <module>asterix-server</module>
-    <module>asterix-events</module>
     <module>asterix-doc</module>
     <module>asterix-fuzzyjoin</module>
     <module>asterix-replication</module>

@@ -27,8 +27,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import org.apache.asterix.active.ActiveManager;
@@ -41,7 +39,6 @@ import org.apache.asterix.common.config.ActiveProperties;
 import org.apache.asterix.common.config.AsterixExtension;
 import org.apache.asterix.common.config.BuildProperties;
 import org.apache.asterix.common.config.CompilerProperties;
-import org.apache.asterix.common.config.ExtensionProperties;
 import org.apache.asterix.common.config.ExternalProperties;
 import org.apache.asterix.common.config.MessagingProperties;
 import org.apache.asterix.common.config.MetadataProperties;
@@ -60,6 +57,7 @@ import org.apache.asterix.common.replication.IRemoteRecoveryManager;
 import org.apache.asterix.common.replication.IReplicaResourcesManager;
 import org.apache.asterix.common.replication.IReplicationChannel;
 import org.apache.asterix.common.replication.IReplicationManager;
+import org.apache.asterix.common.replication.Replica;
 import org.apache.asterix.common.storage.IIndexCheckpointManagerProvider;
 import org.apache.asterix.common.storage.IReplicaManager;
 import org.apache.asterix.common.transactions.IAppRuntimeContextProvider;
@@ -106,9 +104,12 @@ import org.apache.hyracks.storage.common.buffercache.IPageReplacementStrategy;
 import org.apache.hyracks.storage.common.file.FileMapManager;
 import org.apache.hyracks.storage.common.file.ILocalResourceRepositoryFactory;
 import org.apache.hyracks.storage.common.file.IResourceIdFactory;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class NCAppRuntimeContext implements INcApplicationContext {
-    private static final Logger LOGGER = Logger.getLogger(NCAppRuntimeContext.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger();
 
     private ILSMMergePolicyFactory metadataMergePolicyFactory;
     private final INCServiceContext ncServiceContext;
@@ -165,7 +166,7 @@ public class NCAppRuntimeContext implements INcApplicationContext {
         if (extensions != null) {
             allExtensions.addAll(extensions);
         }
-        allExtensions.addAll(new ExtensionProperties(propertiesAccessor).getExtensions());
+        allExtensions.addAll(propertiesAccessor.getExtensions());
         ncExtensionManager = new NCExtensionManager(allExtensions);
         componentProvider = new StorageComponentProvider();
         resourceIdFactory = new GlobalResourceIdFactoryProvider(ncServiceContext).createResourceIdFactory();
@@ -189,6 +190,7 @@ public class NCAppRuntimeContext implements INcApplicationContext {
         ILocalResourceRepositoryFactory persistentLocalResourceRepositoryFactory =
                 new PersistentLocalResourceRepositoryFactory(ioManager, getServiceContext().getNodeId(),
                         metadataProperties, indexCheckpointManagerProvider);
+
         localResourceRepository =
                 (PersistentLocalResourceRepository) persistentLocalResourceRepositoryFactory.createRepository();
 
@@ -199,8 +201,8 @@ public class NCAppRuntimeContext implements INcApplicationContext {
         SystemState systemState = recoveryMgr.getSystemState();
         if (initialRun || systemState == SystemState.PERMANENT_DATA_LOSS) {
             //delete any storage data before the resource factory is initialized
-            if (LOGGER.isLoggable(Level.WARNING)) {
-                LOGGER.log(Level.WARNING,
+            if (LOGGER.isWarnEnabled()) {
+                LOGGER.log(Level.WARN,
                         "Deleting the storage dir. initialRun = " + initialRun + ", systemState = " + systemState);
             }
             localResourceRepository.deleteStorageData();
@@ -213,49 +215,54 @@ public class NCAppRuntimeContext implements INcApplicationContext {
         final ClusterPartition[] nodePartitions = metadataProperties.getNodePartitions().get(nodeId);
         final Set<Integer> nodePartitionsIds = Arrays.stream(nodePartitions).map(ClusterPartition::getPartitionId)
                 .collect(Collectors.toSet());
-        replicaManager = new ReplicaManager(nodePartitionsIds);
+        replicaManager = new ReplicaManager(this, nodePartitionsIds);
         isShuttingdown = false;
         activeManager = new ActiveManager(threadExecutor, getServiceContext().getNodeId(),
                 activeProperties.getMemoryComponentGlobalBudget(), compilerProperties.getFrameSize(),
                 this.ncServiceContext);
 
-        if (replicationProperties.isParticipant(getServiceContext().getNodeId())) {
+        if (replicationProperties.isReplicationEnabled()) {
 
             replicaResourcesManager = new ReplicaResourcesManager(localResourceRepository, metadataProperties,
                     indexCheckpointManagerProvider);
 
             replicationManager = new ReplicationManager(nodeId, replicationProperties, replicaResourcesManager,
-                    txnSubsystem.getLogManager(), asterixAppRuntimeContextProvider);
+                    txnSubsystem.getLogManager(), asterixAppRuntimeContextProvider, ncServiceContext);
 
-            //pass replication manager to replication required object
-            //LogManager to replicate logs
-            txnSubsystem.getLogManager().setReplicationManager(replicationManager);
+            if (replicationManager.getReplicationStrategy().isParticipant(getServiceContext().getNodeId())) {
 
-            //PersistentLocalResourceRepository to replicated metadata files and delete backups on drop index
-            localResourceRepository.setReplicationManager(replicationManager);
+                //pass replication manager to replication required object
+                //LogManager to replicate logs
+                txnSubsystem.getLogManager().setReplicationManager(replicationManager);
 
-            /*
-             * add the partitions that will be replicated in this node as inactive partitions
-             */
-            //get nodes which replicated to this node
-            Set<String> remotePrimaryReplicas = replicationProperties.getRemotePrimaryReplicasIds(nodeId);
-            for (String clientId : remotePrimaryReplicas) {
-                //get the partitions of each client
-                ClusterPartition[] clientPartitions = metadataProperties.getNodePartitions().get(clientId);
-                for (ClusterPartition partition : clientPartitions) {
-                    localResourceRepository.addInactivePartition(partition.getPartitionId());
+                //PersistentLocalResourceRepository to replicate metadata files and delete backups on drop index
+                localResourceRepository.setReplicationManager(replicationManager);
+
+                /*
+                 * add the partitions that will be replicated in this node as inactive partitions
+                 */
+                //get nodes which replicate to this node
+                Set<String> remotePrimaryReplicas = replicationManager.getReplicationStrategy()
+                        .getRemotePrimaryReplicas(nodeId).stream().map(Replica::getId).collect(Collectors.toSet());
+                for (String clientId : remotePrimaryReplicas) {
+                    //get the partitions of each client
+                    ClusterPartition[] clientPartitions = metadataProperties.getNodePartitions().get(clientId);
+                    for (ClusterPartition partition : clientPartitions) {
+                        localResourceRepository.addInactivePartition(partition.getPartitionId());
+                    }
                 }
+
+                //initialize replication channel
+                replicationChannel = new ReplicationChannel(nodeId, replicationProperties, txnSubsystem.getLogManager(),
+                        replicaResourcesManager, replicationManager, getServiceContext(),
+                        asterixAppRuntimeContextProvider, replicationManager.getReplicationStrategy());
+
+                remoteRecoveryManager = new RemoteRecoveryManager(replicationManager, this, replicationProperties);
+
+                bufferCache = new BufferCache(ioManager, prs, pcp, new FileMapManager(),
+                        storageProperties.getBufferCacheMaxOpenFiles(), getServiceContext().getThreadFactory(),
+                        replicationManager);
             }
-
-            //initialize replication channel
-            replicationChannel = new ReplicationChannel(nodeId, replicationProperties, txnSubsystem.getLogManager(),
-                    replicaResourcesManager, replicationManager, getServiceContext(), asterixAppRuntimeContextProvider);
-
-            remoteRecoveryManager = new RemoteRecoveryManager(replicationManager, this, replicationProperties);
-
-            bufferCache = new BufferCache(ioManager, prs, pcp, new FileMapManager(),
-                    storageProperties.getBufferCacheMaxOpenFiles(), getServiceContext().getThreadFactory(),
-                    replicationManager);
         } else {
             bufferCache = new BufferCache(ioManager, prs, pcp, new FileMapManager(),
                     storageProperties.getBufferCacheMaxOpenFiles(), getServiceContext().getThreadFactory());
@@ -454,9 +461,7 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     @Override
     public void initializeMetadata(boolean newUniverse) throws Exception {
         IAsterixStateProxy proxy;
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Bootstrapping metadata");
-        }
+        LOGGER.info("Bootstrapping metadata");
         MetadataNode.INSTANCE.initialize(this, ncExtensionManager.getMetadataTupleTranslatorProvider(),
                 ncExtensionManager.getMetadataExtensions());
 
@@ -472,10 +477,7 @@ public class NCAppRuntimeContext implements INcApplicationContext {
         MetadataBootstrap.startUniverse(getServiceContext(), newUniverse);
         MetadataBootstrap.startDDLRecovery();
         ncExtensionManager.initializeMetadata(getServiceContext());
-
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("Metadata node bound");
-        }
+        LOGGER.info("Metadata node bound");
     }
 
     @Override

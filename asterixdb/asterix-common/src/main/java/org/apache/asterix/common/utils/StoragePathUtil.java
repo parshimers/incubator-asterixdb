@@ -33,12 +33,12 @@ import org.apache.hyracks.api.io.FileSplit;
 import org.apache.hyracks.api.io.MappedFileSplit;
 import org.apache.hyracks.dataflow.std.file.ConstantFileSplitProvider;
 import org.apache.hyracks.dataflow.std.file.IFileSplitProvider;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class StoragePathUtil {
 
-    private static final Logger LOGGER = Logger.getLogger(StoragePathUtil.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger();
     private static Function<IndexPathElements, String> indexPathProvider;
 
     private StoragePathUtil() {
@@ -90,10 +90,18 @@ public class StoragePathUtil {
 
     /**
      * @param fileAbsolutePath
-     * @return the file relative path starting from the partition directory
+     * @return the file's index relative path starting from the storage directory
      */
     public static String getIndexFileRelativePath(String fileAbsolutePath) {
         return ResourceReference.of(fileAbsolutePath).getRelativePath().toString();
+    }
+
+    /**
+     * @param fileAbsolutePath
+     * @return the file's relative path starting from the storage directory
+     */
+    public static String getFileRelativePath(String fileAbsolutePath) {
+        return ResourceReference.of(fileAbsolutePath).getFileRelativePath().toString();
     }
 
     /**
@@ -118,7 +126,7 @@ public class StoragePathUtil {
                 if (!success) {
                     throw new HyracksDataException("Unable to create spill file " + fileName);
                 } else {
-                    if (LOGGER.isEnabledFor(Level.INFO)) {
+                    if (LOGGER.isInfoEnabled()) {
                         LOGGER.info("Created spill file " + file.getAbsolutePath());
                     }
                 }

@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.logging.Logger;
 
 import org.apache.asterix.builders.IARecordBuilder;
 import org.apache.asterix.builders.RecordBuilder;
@@ -90,9 +89,11 @@ import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicyFactory;
 import org.apache.hyracks.storage.am.lsm.common.dataflow.LSMTreeIndexCompactOperatorDescriptor;
 import org.apache.hyracks.storage.common.IResourceFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class DatasetUtil {
-    private static final Logger LOGGER = Logger.getLogger(DatasetUtil.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger();
     /*
      * Dataset related operations
      */
@@ -545,5 +546,21 @@ public class DatasetUtil {
         }
         MetadataManager.INSTANCE.addNodegroup(mdTxnCtx, new NodeGroup(nodeGroup, new ArrayList<>(ncNames)));
         return nodeGroup;
+    }
+
+    // This doesn't work if the dataset  or the dataverse name contains a '.'
+    public static Pair<String, String> getDatasetInfo(MetadataProvider metadata, String datasetArg) {
+        String first;
+        String second;
+        int i = datasetArg.indexOf('.');
+        if (i > 0 && i < datasetArg.length() - 1) {
+            first = datasetArg.substring(0, i);
+            second = datasetArg.substring(i + 1);
+        }
+        else {
+            first = metadata.getDefaultDataverse() == null ? null : metadata.getDefaultDataverse().getDataverseName();
+            second = datasetArg;
+        }
+        return new Pair<>(first, second);
     }
 }

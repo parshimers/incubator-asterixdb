@@ -24,6 +24,7 @@ import java.io.RandomAccessFile;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.AsynchronousCloseException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
@@ -37,8 +38,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Predicate;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import org.apache.asterix.common.api.IDatasetLifecycleManager;
@@ -54,6 +53,7 @@ import org.apache.asterix.common.replication.IReplicationChannel;
 import org.apache.asterix.common.replication.IReplicationManager;
 import org.apache.asterix.common.replication.IReplicationStrategy;
 import org.apache.asterix.common.replication.IReplicationThread;
+import org.apache.asterix.common.replication.Replica;
 import org.apache.asterix.common.replication.ReplicaEvent;
 import org.apache.asterix.common.storage.DatasetResourceReference;
 import org.apache.asterix.common.storage.IIndexCheckpointManager;
@@ -71,6 +71,10 @@ import org.apache.asterix.replication.functions.ReplicaIndexFlushRequest;
 import org.apache.asterix.replication.functions.ReplicationProtocol;
 import org.apache.asterix.replication.functions.ReplicationProtocol.ReplicationRequestType;
 import org.apache.asterix.replication.logging.RemoteLogMapping;
+import org.apache.asterix.replication.messaging.CheckpointPartitionIndexesTask;
+import org.apache.asterix.replication.messaging.DeleteFileTask;
+import org.apache.asterix.replication.messaging.PartitionResourcesListTask;
+import org.apache.asterix.replication.messaging.ReplicateFileTask;
 import org.apache.asterix.replication.storage.LSMComponentLSNSyncTask;
 import org.apache.asterix.replication.storage.LSMComponentProperties;
 import org.apache.asterix.replication.storage.LSMIndexFileProperties;
@@ -78,6 +82,8 @@ import org.apache.asterix.replication.storage.ReplicaResourcesManager;
 import org.apache.asterix.transaction.management.resource.PersistentLocalResourceRepository;
 import org.apache.asterix.transaction.management.service.logging.LogBuffer;
 import org.apache.hyracks.api.application.INCServiceContext;
+import org.apache.hyracks.control.common.controllers.NCConfig;
+import org.apache.hyracks.control.nc.NodeControllerService;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.storage.am.lsm.common.api.LSMOperationType;
 import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndex;
@@ -85,13 +91,16 @@ import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndexFileManage
 import org.apache.hyracks.storage.common.LocalResource;
 import org.apache.hyracks.util.StorageUtil;
 import org.apache.hyracks.util.StorageUtil.StorageUnit;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * This class is used to receive and process replication requests from remote replicas or replica events from CC
  */
 public class ReplicationChannel extends Thread implements IReplicationChannel {
 
-    private static final Logger LOGGER = Logger.getLogger(ReplicationChannel.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger();
     private static final int LOG_REPLICATION_END_HANKSHAKE_LOG_SIZE = 1;
     private final ExecutorService replicationThreads;
     private final String localNodeID;
@@ -108,16 +117,20 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
     private final Map<Long, RemoteLogMapping> localLsn2RemoteMapping;
     private final Map<String, RemoteLogMapping> replicaUniqueLSN2RemoteMapping;
     private final LSMComponentsSyncService lsmComponentLSNMappingService;
-    private final Set<Integer> nodeHostedPartitions;
     private final ReplicationNotifier replicationNotifier;
     private final Object flushLogslock = new Object();
     private final IDatasetLifecycleManager dsLifecycleManager;
     private final PersistentLocalResourceRepository localResourceRep;
+    private final IReplicationStrategy replicationStrategy;
+    private final NCConfig ncConfig;
+    private Set nodeHostedPartitions;
     private final IIndexCheckpointManagerProvider indexCheckpointManagerProvider;
+    private final INcApplicationContext appCtx;
 
     public ReplicationChannel(String nodeId, ReplicationProperties replicationProperties, ILogManager logManager,
             IReplicaResourcesManager replicaResoucesManager, IReplicationManager replicationManager,
-            INCServiceContext ncServiceContext, IAppRuntimeContextProvider asterixAppRuntimeContextProvider) {
+            INCServiceContext ncServiceContext, IAppRuntimeContextProvider asterixAppRuntimeContextProvider,
+            IReplicationStrategy replicationStrategy) {
         this.logManager = logManager;
         this.localNodeID = nodeId;
         this.replicaResourcesManager = (ReplicaResourcesManager) replicaResoucesManager;
@@ -125,8 +138,10 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
         this.replicationProperties = replicationProperties;
         this.appContextProvider = asterixAppRuntimeContextProvider;
         this.dsLifecycleManager = asterixAppRuntimeContextProvider.getDatasetLifecycleManager();
-        this.localResourceRep =
-                (PersistentLocalResourceRepository) asterixAppRuntimeContextProvider.getLocalResourceRepository();
+        this.localResourceRep = (PersistentLocalResourceRepository) asterixAppRuntimeContextProvider
+                .getLocalResourceRepository();
+        this.replicationStrategy = replicationStrategy;
+        this.ncConfig = ((NodeControllerService) ncServiceContext.getControllerService()).getConfiguration();
         lsmComponentRemoteLSN2LocalLSNMappingTaskQ = new LinkedBlockingQueue<>();
         pendingNotificationRemoteLogsQ = new LinkedBlockingQueue<>();
         lsmComponentId2PropertiesMap = new ConcurrentHashMap<>();
@@ -135,9 +150,10 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
         lsmComponentLSNMappingService = new LSMComponentsSyncService();
         replicationNotifier = new ReplicationNotifier();
         replicationThreads = Executors.newCachedThreadPool(ncServiceContext.getThreadFactory());
-        Map<String, ClusterPartition[]> nodePartitions =
-                asterixAppRuntimeContextProvider.getAppContext().getMetadataProperties().getNodePartitions();
-        Set<String> nodeReplicationClients = replicationProperties.getRemotePrimaryReplicasIds(nodeId);
+        Map<String, ClusterPartition[]> nodePartitions = asterixAppRuntimeContextProvider.getAppContext()
+                .getMetadataProperties().getNodePartitions();
+        Set<String> nodeReplicationClients = replicationStrategy.getRemotePrimaryReplicas(nodeId).stream()
+                .map(Replica::getId).collect(Collectors.toSet());
         List<Integer> clientsPartitions = new ArrayList<>();
         for (String clientId : nodeReplicationClients) {
             for (ClusterPartition clusterPartition : nodePartitions.get(clientId)) {
@@ -148,31 +164,34 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
         nodeHostedPartitions.addAll(clientsPartitions);
         this.indexCheckpointManagerProvider =
                 ((INcApplicationContext) ncServiceContext.getApplicationContext()).getIndexCheckpointManagerProvider();
+        this.appCtx = (INcApplicationContext) ncServiceContext.getApplicationContext();
     }
 
     @Override
     public void run() {
         Thread.currentThread().setName("Replication Channel Thread");
 
-        String nodeIP = replicationProperties.getReplicaIPAddress(localNodeID);
-        int dataPort = replicationProperties.getDataReplicationPort(localNodeID);
+        String nodeIP = replicationProperties.getNodeIpFromId(localNodeID);
+        int dataPort = ncConfig.getReplicationPublicPort();
         try {
             serverSocketChannel = ServerSocketChannel.open();
             serverSocketChannel.configureBlocking(true);
-            InetSocketAddress replicationChannelAddress =
-                    new InetSocketAddress(InetAddress.getByName(nodeIP), dataPort);
+            InetSocketAddress replicationChannelAddress = new InetSocketAddress(InetAddress.getByName(nodeIP),
+                    dataPort);
             serverSocketChannel.socket().bind(replicationChannelAddress);
             lsmComponentLSNMappingService.start();
             replicationNotifier.start();
             LOGGER.log(Level.INFO, "opened Replication Channel @ IP Address: " + nodeIP + ":" + dataPort);
 
             //start accepting replication requests
-            while (true) {
+            while (serverSocketChannel.isOpen()) {
                 SocketChannel socketChannel = serverSocketChannel.accept();
                 socketChannel.configureBlocking(true);
                 //start a new thread to handle the request
                 replicationThreads.execute(new ReplicationThread(socketChannel));
             }
+        } catch (AsynchronousCloseException e) {
+            LOGGER.warn("Replication channel closed", e);
         } catch (IOException e) {
             throw new IllegalStateException(
                     "Could not open replication channel @ IP Address: " + nodeIP + ":" + dataPort, e);
@@ -187,9 +206,8 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
         if (remainingFile == 0) {
             if (lsmCompProp.getOpType() == LSMOperationType.FLUSH && lsmCompProp.getReplicaLSN() != null
                     && replicaUniqueLSN2RemoteMapping.containsKey(lsmCompProp.getNodeUniqueLSN())) {
-                int remainingIndexes =
-                        replicaUniqueLSN2RemoteMapping.get(lsmCompProp.getNodeUniqueLSN()).numOfFlushedIndexes
-                                .decrementAndGet();
+                int remainingIndexes = replicaUniqueLSN2RemoteMapping
+                        .get(lsmCompProp.getNodeUniqueLSN()).numOfFlushedIndexes.decrementAndGet();
                 if (remainingIndexes == 0) {
                     /**
                      * Note: there is a chance that this will never be removed because some
@@ -209,10 +227,8 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
 
     @Override
     public void close() throws IOException {
-        if (!serverSocketChannel.isOpen()) {
-            serverSocketChannel.close();
-            LOGGER.log(Level.INFO, "Replication channel closed.");
-        }
+        serverSocketChannel.close();
+        LOGGER.log(Level.INFO, "Replication channel closed.");
     }
 
     /**
@@ -235,8 +251,8 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
         public void run() {
             Thread.currentThread().setName("Replication Thread");
             try {
-                ReplicationRequestType replicationFunction =
-                        ReplicationProtocol.getRequestType(socketChannel, inBuffer);
+                ReplicationRequestType replicationFunction = ReplicationProtocol.getRequestType(socketChannel,
+                        inBuffer);
                 while (replicationFunction != ReplicationRequestType.GOODBYE) {
                     switch (replicationFunction) {
                         case REPLICATE_LOG:
@@ -263,23 +279,31 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
                         case FLUSH_INDEX:
                             handleFlushIndex();
                             break;
+                        case PARTITION_RESOURCES_REQUEST:
+                            handleGetPartitionResources();
+                            break;
+                        case REPLICATE_RESOURCE_FILE:
+                            handleReplicateResourceFile();
+                            break;
+                        case DELETE_RESOURCE_FILE:
+                            handleDeleteResourceFile();
+                            break;
+                        case CHECKPOINT_PARTITION:
+                            handleCheckpointPartition();
+                            break;
                         default:
                             throw new IllegalStateException("Unknown replication request");
                     }
                     replicationFunction = ReplicationProtocol.getRequestType(socketChannel, inBuffer);
                 }
             } catch (Exception e) {
-                if (LOGGER.isLoggable(Level.WARNING)) {
-                    LOGGER.log(Level.WARNING, "Unexpectedly error during replication.", e);
-                }
+                LOGGER.warn("Unexpectedly error during replication.", e);
             } finally {
                 if (socketChannel.isOpen()) {
                     try {
                         socketChannel.close();
                     } catch (IOException e) {
-                        if (LOGGER.isLoggable(Level.WARNING)) {
-                            LOGGER.log(Level.WARNING, "Filed to close replication socket.", e);
-                        }
+                        LOGGER.warn("Filed to close replication socket.", e);
                     }
                 }
             }
@@ -300,8 +324,8 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
             Set<Integer> datasetsToForceFlush = new HashSet<>();
             for (IndexInfo iInfo : openIndexesInfo) {
                 if (requestedIndexesToBeFlushed.contains(iInfo.getResourceId())) {
-                    AbstractLSMIOOperationCallback ioCallback =
-                            (AbstractLSMIOOperationCallback) iInfo.getIndex().getIOOperationCallback();
+                    AbstractLSMIOOperationCallback ioCallback = (AbstractLSMIOOperationCallback) iInfo.getIndex()
+                            .getIOOperationCallback();
                     //if an index has a pending flush, then the request to flush it will succeed.
                     if (ioCallback.hasPendingFlush()) {
                         //remove index to indicate that it will be flushed
@@ -395,12 +419,11 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
             List<String> filesList;
             Set<Integer> partitionIds = request.getPartitionIds();
             Set<String> requesterExistingFiles = request.getExistingFiles();
-            Map<Integer, ClusterPartition> clusterPartitions =
-                    appContextProvider.getAppContext().getMetadataProperties().getClusterPartitions();
+            Map<Integer, ClusterPartition> clusterPartitions = appContextProvider.getAppContext()
+                    .getMetadataProperties().getClusterPartitions();
 
-            final IReplicationStrategy repStrategy = replicationProperties.getReplicationStrategy();
             // Flush replicated datasets to generate the latest LSM components
-            dsLifecycleManager.flushDataset(repStrategy);
+            dsLifecycleManager.flushDataset(replicationStrategy);
             for (Integer partitionId : partitionIds) {
                 ClusterPartition partition = clusterPartitions.get(partitionId);
                 filesList = replicaResourcesManager.getPartitionIndexesFiles(partition.getPartitionId(), false);
@@ -408,7 +431,7 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
                 for (String filePath : filesList) {
                     // Send only files of datasets that are replciated.
                     DatasetResourceReference indexFileRef = localResourceRep.getLocalResourceReference(filePath);
-                    if (!repStrategy.isMatch(indexFileRef.getDatasetId())) {
+                    if (!replicationStrategy.isMatch(indexFileRef.getDatasetId())) {
                         continue;
                     }
                     String relativeFilePath = StoragePathUtil.getIndexFileRelativePath(filePath);
@@ -476,10 +499,7 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
                 switch (remoteLog.getLogType()) {
                     case LogType.UPDATE:
                     case LogType.ENTITY_COMMIT:
-                        //if the log partition belongs to a partitions hosted on this node, replicated it
-                        if (nodeHostedPartitions.contains(remoteLog.getResourcePartition())) {
-                            logManager.log(remoteLog);
-                        }
+                        logManager.log(remoteLog);
                         break;
                     case LogType.JOB_COMMIT:
                     case LogType.ABORT:
@@ -513,7 +533,7 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
                         }
                         break;
                     default:
-                        LOGGER.severe("Unsupported LogType: " + remoteLog.getLogType());
+                        LOGGER.error("Unsupported LogType: " + remoteLog.getLogType());
                 }
             }
         }
@@ -542,8 +562,13 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
         }
 
         @Override
-        public SocketChannel getReplicationClientSocket() {
+        public SocketChannel getChannel() {
             return socketChannel;
+        }
+
+        @Override
+        public ByteBuffer getReusableBuffer() {
+            return outBuffer;
         }
 
         private void checkpointReplicaIndexes(RemoteLogMapping remoteLogMapping, int datasetId) {
@@ -565,8 +590,32 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
                     }
                 }
             } catch (Exception e) {
-                LOGGER.log(Level.SEVERE, "Failed to checkpoint replica indexes", e);
+                LOGGER.error("Failed to checkpoint replica indexes", e);
             }
+        }
+
+        private void handleGetPartitionResources() throws IOException {
+            final PartitionResourcesListTask task = (PartitionResourcesListTask) ReplicationProtocol
+                    .readMessage(ReplicationRequestType.PARTITION_RESOURCES_REQUEST, socketChannel, inBuffer);
+            task.perform(appCtx, this);
+        }
+
+        private void handleReplicateResourceFile() throws HyracksDataException {
+            ReplicateFileTask task = (ReplicateFileTask) ReplicationProtocol
+                    .readMessage(ReplicationRequestType.REPLICATE_RESOURCE_FILE, socketChannel, inBuffer);
+            task.perform(appCtx, this);
+        }
+
+        private void handleDeleteResourceFile() throws HyracksDataException {
+            DeleteFileTask task = (DeleteFileTask) ReplicationProtocol
+                    .readMessage(ReplicationRequestType.DELETE_RESOURCE_FILE, socketChannel, inBuffer);
+            task.perform(appCtx, this);
+        }
+
+        private void handleCheckpointPartition() throws HyracksDataException {
+            CheckpointPartitionIndexesTask task = (CheckpointPartitionIndexesTask) ReplicationProtocol
+                    .readMessage(ReplicationRequestType.CHECKPOINT_PARTITION, socketChannel, inBuffer);
+            task.perform(appCtx, this);
         }
     }
 
@@ -581,15 +630,13 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
                 try {
                     LogRecord logRecord = pendingNotificationRemoteLogsQ.take();
                     //send ACK to requester
-                    logRecord.getReplicationThread().getReplicationClientSocket().socket().getOutputStream()
+                    logRecord.getReplicationThread().getChannel().socket().getOutputStream()
                             .write((localNodeID + ReplicationProtocol.JOB_REPLICATION_ACK + logRecord.getTxnId()
                                     + System.lineSeparator()).getBytes());
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 } catch (IOException e) {
-                    if (LOGGER.isLoggable(Level.WARNING)) {
-                        LOGGER.log(Level.WARNING, "Failed to send job replication ACK", e);
-                    }
+                    LOGGER.warn("Failed to send job replication ACK", e);
                 }
             }
         }
@@ -614,9 +661,7 @@ public class ReplicationChannel extends Thread implements IReplicationChannel {
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 } catch (Exception e) {
-                    if (LOGGER.isLoggable(Level.SEVERE)) {
-                        LOGGER.log(Level.SEVERE, "Unexpected exception during LSN synchronization", e);
-                    }
+                    LOGGER.error("Unexpected exception during LSN synchronization", e);
                 }
             }
         }

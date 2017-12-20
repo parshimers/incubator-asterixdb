@@ -27,8 +27,10 @@ import java.util.Map;
 import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.test.common.TestExecutor;
 import org.apache.asterix.testframework.context.TestCaseContext;
+import org.apache.hyracks.control.common.controllers.NCConfig;
 import org.apache.hyracks.control.nc.NodeControllerService;
-import org.junit.AfterClass;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -37,30 +39,39 @@ import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class ReplicationExecutionTest {
-    protected static final String TEST_CONFIG_FILE_NAME = "asterix-build-configuration.xml";
+    protected static final String TEST_CONFIG_FILE_NAME = "src/main/resources/cc-rep.conf";
     private static final TestExecutor testExecutor = new TestExecutor();
+    private static boolean configured = false;
 
     @BeforeClass
-    public static void setUp() throws Exception {
-        LangExecutionUtil.setUp(TEST_CONFIG_FILE_NAME, testExecutor);
-        final NodeControllerService[] ncs = ExecutionTestUtil.integrationUtil.ncs;
-        Map<String, InetSocketAddress> ncEndPoints = new HashMap<>();
-        Map<String, InetSocketAddress> replicationAddress = new HashMap<>();
-        final String ip = InetAddress.getLoopbackAddress().getHostAddress();
-        for (NodeControllerService nc : ncs) {
-            final String nodeId = nc.getId();
-            final INcApplicationContext appCtx = (INcApplicationContext) nc.getApplicationContext();
-            int apiPort = appCtx.getExternalProperties().getNcApiPort();
-            int replicationPort = appCtx.getReplicationProperties().getDataReplicationPort(nodeId);
-            ncEndPoints.put(nodeId, InetSocketAddress.createUnresolved(ip, apiPort));
-            replicationAddress.put(nodeId, InetSocketAddress.createUnresolved(ip, replicationPort));
-        }
-        testExecutor.setNcEndPoints(ncEndPoints);
-        testExecutor.setNcReplicationAddress(replicationAddress);
+    public static void setUp() {
+        LangExecutionUtil.setCheckStorageDistribution(false);
     }
 
-    @AfterClass
-    public static void tearDown() throws Exception {
+    @Before
+    public void before() throws Exception {
+        LangExecutionUtil.setUp(TEST_CONFIG_FILE_NAME, testExecutor);
+        if (!configured) {
+            final NodeControllerService[] ncs = ExecutionTestUtil.integrationUtil.ncs;
+            Map<String, InetSocketAddress> ncEndPoints = new HashMap<>();
+            Map<String, InetSocketAddress> replicationAddress = new HashMap<>();
+            final String ip = InetAddress.getLoopbackAddress().getHostAddress();
+            for (NodeControllerService nc : ncs) {
+                final String nodeId = nc.getId();
+                final INcApplicationContext appCtx = (INcApplicationContext) nc.getApplicationContext();
+                int apiPort = appCtx.getExternalProperties().getNcApiPort();
+                int replicationPort = (int) appCtx.getServiceContext().getAppConfig().get(NCConfig.Option.REPLICATION_LISTEN_PORT);
+                ncEndPoints.put(nodeId, InetSocketAddress.createUnresolved(ip, apiPort));
+                replicationAddress.put(nodeId, InetSocketAddress.createUnresolved(ip, replicationPort));
+            }
+            testExecutor.setNcEndPoints(ncEndPoints);
+            testExecutor.setNcReplicationAddress(replicationAddress);
+            configured = true;
+        }
+    }
+
+    @After
+    public void after() throws Exception {
         LangExecutionUtil.tearDown();
     }
 

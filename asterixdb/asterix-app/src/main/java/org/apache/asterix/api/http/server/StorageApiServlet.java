@@ -25,19 +25,21 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Predicate;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.replication.IPartitionReplica;
 import org.apache.asterix.common.storage.IReplicaManager;
 import org.apache.asterix.common.storage.ReplicaIdentifier;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
 import org.apache.hyracks.http.server.AbstractServlet;
 import org.apache.hyracks.http.server.utils.HttpUtil;
 import org.apache.hyracks.util.JSONUtil;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -47,7 +49,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 
 public class StorageApiServlet extends AbstractServlet {
 
-    private static final Logger LOGGER = Logger.getLogger(StorageApiServlet.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger();
     private final INcApplicationContext appCtx;
 
     public StorageApiServlet(ConcurrentMap<String, Object> ctx, INcApplicationContext appCtx, String... paths) {
@@ -90,6 +92,9 @@ public class StorageApiServlet extends AbstractServlet {
                 break;
             case "/removeReplica":
                 processRemoveReplica(request, response);
+                break;
+            case "/promote":
+                processPromote(request, response);
                 break;
             default:
                 sendError(response, HttpResponseStatus.NOT_FOUND);
@@ -159,5 +164,15 @@ public class StorageApiServlet extends AbstractServlet {
         }
         final InetSocketAddress replicaAddress = new InetSocketAddress(host, Integer.valueOf(port));
         return ReplicaIdentifier.of(Integer.valueOf(partition), replicaAddress);
+    }
+
+    private void processPromote(IServletRequest request, IServletResponse response) throws HyracksDataException {
+        final String partition = request.getParameter("partition");
+        if (partition == null) {
+            response.setStatus(HttpResponseStatus.BAD_REQUEST);
+            return;
+        }
+        appCtx.getReplicaManager().promote(Integer.valueOf(partition));
+        response.setStatus(HttpResponseStatus.OK);
     }
 }
