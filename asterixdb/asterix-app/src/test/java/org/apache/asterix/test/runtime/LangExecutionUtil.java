@@ -31,16 +31,17 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import org.apache.asterix.common.config.NodeProperties;
 import org.apache.asterix.app.external.ExternalUDFLibrarian;
-import org.apache.asterix.common.config.ClusterProperties;
 import org.apache.asterix.common.library.ILibraryManager;
+import org.apache.asterix.common.utils.StorageConstants;
 import org.apache.asterix.test.common.TestExecutor;
 import org.apache.asterix.testframework.context.TestCaseContext;
 import org.apache.commons.lang.SystemUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hyracks.api.io.IODeviceHandle;
-import org.apache.hyracks.util.ThreadDumpUtil;
 import org.apache.hyracks.control.nc.NodeControllerService;
+import org.apache.hyracks.util.ThreadDumpUtil;
 
 /**
  * Utils for running SQL++ or AQL runtime tests.
@@ -48,8 +49,8 @@ import org.apache.hyracks.control.nc.NodeControllerService;
 public class LangExecutionUtil {
 
     private static final String PATH_ACTUAL = "target" + File.separator + "rttest" + File.separator;
-    private static final String PATH_BASE =
-            StringUtils.join(new String[] { "src", "test", "resources", "runtimets" }, File.separator);
+    private static final String PATH_BASE = StringUtils.join(new String[] { "src", "test", "resources", "runtimets" },
+            File.separator);
 
     private static final boolean cleanupOnStart = true;
     private static final boolean cleanupOnStop = true;
@@ -58,6 +59,7 @@ public class LangExecutionUtil {
 
     private static ExternalUDFLibrarian librarian;
     private static final int repeat = Integer.getInteger("test.repeat", 1);
+    private static boolean checkStorageDistribution = true;
 
     public static void setUp(String configFile, TestExecutor executor) throws Exception {
         testExecutor = executor;
@@ -125,7 +127,9 @@ public class LangExecutionUtil {
                 testExecutor.executeTest(PATH_ACTUAL, tcCtx, null, false, ExecutionTestUtil.FailedGroup);
 
                 try {
-                    checkStorageFiles();
+                    if (checkStorageDistribution) {
+                        checkStorageFiles();
+                    }
                 } finally {
                     testExecutor.cleanup(tcCtx.toString(), badTestCases);
                 }
@@ -152,7 +156,7 @@ public class LangExecutionUtil {
             File[] dataDirs = ioDevice.getMount().listFiles();
             for (File dataDir : dataDirs) {
                 String dirName = dataDir.getName();
-                if (!dirName.equals(ClusterProperties.DEFAULT_STORAGE_DIR_NAME)) {
+                if (!dirName.equals(StorageConstants.STORAGE_ROOT_DIR_NAME)) {
                     // Skips non-storage directories.
                     continue;
                 }
@@ -210,8 +214,8 @@ public class LangExecutionUtil {
         String processId = processName.split("@")[0];
 
         // Checks whether there are leaked run files from operators.
-        Process process =
-                Runtime.getRuntime().exec(new String[] { "bash", "-c", "lsof -p " + processId + "|grep waf|wc -l" });
+        Process process = Runtime.getRuntime()
+                .exec(new String[] { "bash", "-c", "lsof -p " + processId + "|grep waf|wc -l" });
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
             int runFileCount = Integer.parseInt(reader.readLine().trim());
             if (runFileCount != 0) {
@@ -222,9 +226,13 @@ public class LangExecutionUtil {
         }
     }
 
+    public static void setCheckStorageDistribution(boolean checkStorageDistribution) {
+        LangExecutionUtil.checkStorageDistribution = checkStorageDistribution;
+    }
+
     private static void outputLeakedOpenFiles(String processId) throws IOException {
-        Process process =
-                Runtime.getRuntime().exec(new String[] { "bash", "-c", "lsof -p " + processId + "|grep waf" });
+        Process process = Runtime.getRuntime()
+                .exec(new String[] { "bash", "-c", "lsof -p " + processId + "|grep waf" });
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
             String line;
             while ((line = reader.readLine()) != null) {

@@ -23,15 +23,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
 import org.apache.asterix.active.IActiveEntityEventsListener;
 import org.apache.asterix.active.IActiveNotificationHandler;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
-import org.apache.asterix.common.context.DatasetLSMComponentIdGeneratorFactory;
 import org.apache.asterix.common.context.CorrelatedPrefixMergePolicyFactory;
+import org.apache.asterix.common.context.DatasetLSMComponentIdGeneratorFactory;
 import org.apache.asterix.common.context.IStorageComponentProvider;
 import org.apache.asterix.common.dataflow.NoOpFrameOperationCallbackFactory;
 import org.apache.asterix.common.exceptions.CompilationException;
@@ -42,7 +40,6 @@ import org.apache.asterix.common.ioopcallbacks.LSMInvertedIndexIOOperationCallba
 import org.apache.asterix.common.ioopcallbacks.LSMRTreeIOOperationCallbackFactory;
 import org.apache.asterix.common.metadata.IDataset;
 import org.apache.asterix.common.transactions.IRecoveryManager.ResourceType;
-import org.apache.asterix.common.transactions.TxnId;
 import org.apache.asterix.common.utils.JobUtils;
 import org.apache.asterix.common.utils.JobUtils.ProgressState;
 import org.apache.asterix.external.feed.management.FeedConnectionId;
@@ -76,8 +73,6 @@ import org.apache.asterix.transaction.management.opcallbacks.PrimaryIndexOperati
 import org.apache.asterix.transaction.management.opcallbacks.SecondaryIndexModificationOperationCallbackFactory;
 import org.apache.asterix.transaction.management.opcallbacks.SecondaryIndexOperationTrackerFactory;
 import org.apache.asterix.transaction.management.opcallbacks.SecondaryIndexSearchOperationCallbackFactory;
-import org.apache.asterix.transaction.management.opcallbacks.TempDatasetPrimaryIndexModificationOperationCallbackFactory;
-import org.apache.asterix.transaction.management.opcallbacks.TempDatasetSecondaryIndexModificationOperationCallbackFactory;
 import org.apache.asterix.transaction.management.opcallbacks.UpsertOperationCallbackFactory;
 import org.apache.asterix.transaction.management.resource.DatasetLocalResourceFactory;
 import org.apache.asterix.transaction.management.runtime.CommitRuntimeFactory;
@@ -113,6 +108,9 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperationCallbackFacto
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicyFactory;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMOperationTrackerFactory;
 import org.apache.hyracks.storage.common.IResourceFactory;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -126,7 +124,7 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
      * Constants
      */
     private static final long serialVersionUID = 1L;
-    private static final Logger LOGGER = Logger.getLogger(Dataset.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger();
     //TODO: Remove Singletons
     private static final BTreeResourceFactoryProvider bTreeResourceFactoryProvider =
             BTreeResourceFactoryProvider.INSTANCE;
@@ -543,8 +541,6 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
      *
      * @param index
      *            the index
-     * @param txnId
-     *            the job id being compiled
      * @param op
      *            the operation this search is part of
      * @param primaryKeyFields
@@ -555,23 +551,21 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
      *             if the callback factory could not be created
      */
     public ISearchOperationCallbackFactory getSearchCallbackFactory(IStorageComponentProvider storageComponentProvider,
-            Index index, TxnId txnId, IndexOperation op, int[] primaryKeyFields) throws AlgebricksException {
-        if (getDatasetDetails().isTemp()) {
-            return NoOpOperationCallbackFactory.INSTANCE;
-        } else if (index.isPrimaryIndex()) {
-            /**
+            Index index, IndexOperation op, int[] primaryKeyFields) throws AlgebricksException {
+        if (index.isPrimaryIndex()) {
+            /*
              * Due to the read-committed isolation level,
              * we may acquire very short duration lock(i.e., instant lock) for readers.
              */
             return (op == IndexOperation.UPSERT)
-                    ? new LockThenSearchOperationCallbackFactory(txnId, getDatasetId(), primaryKeyFields,
+                    ? new LockThenSearchOperationCallbackFactory(getDatasetId(), primaryKeyFields,
                             storageComponentProvider.getTransactionSubsystemProvider(), ResourceType.LSM_BTREE)
-                    : new PrimaryIndexInstantSearchOperationCallbackFactory(txnId, getDatasetId(), primaryKeyFields,
+                    : new PrimaryIndexInstantSearchOperationCallbackFactory(getDatasetId(), primaryKeyFields,
                             storageComponentProvider.getTransactionSubsystemProvider(), ResourceType.LSM_BTREE);
         } else if (index.getKeyFieldNames().isEmpty()) {
             // this is the case where the index is secondary primary index and locking is required
             // since the secondary primary index replaces the dataset index (which locks)
-            return new PrimaryIndexInstantSearchOperationCallbackFactory(txnId, getDatasetId(), primaryKeyFields,
+            return new PrimaryIndexInstantSearchOperationCallbackFactory(getDatasetId(), primaryKeyFields,
                     storageComponentProvider.getTransactionSubsystemProvider(), ResourceType.LSM_BTREE);
         }
         return new SecondaryIndexSearchOperationCallbackFactory();
@@ -582,8 +576,6 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
      *
      * @param index
      *            the index
-     * @param txnId
-     *            the job id of the job being compiled
      * @param op
      *            the operation performed for this callback
      * @param primaryKeyFields
@@ -594,31 +586,20 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
      *             If the callback factory could not be created
      */
     public IModificationOperationCallbackFactory getModificationCallbackFactory(
-            IStorageComponentProvider componentProvider, Index index, TxnId txnId, IndexOperation op,
+            IStorageComponentProvider componentProvider, Index index, IndexOperation op,
             int[] primaryKeyFields) throws AlgebricksException {
-        if (getDatasetDetails().isTemp()) {
-            return op == IndexOperation.DELETE || op == IndexOperation.INSERT || op == IndexOperation.UPSERT
-                    ? index.isPrimaryIndex()
-                            ? new TempDatasetPrimaryIndexModificationOperationCallbackFactory(txnId, datasetId,
-                                    primaryKeyFields, componentProvider.getTransactionSubsystemProvider(),
-                                    Operation.get(op), index.resourceType())
-                            : new TempDatasetSecondaryIndexModificationOperationCallbackFactory(txnId, getDatasetId(),
-                                    primaryKeyFields, componentProvider.getTransactionSubsystemProvider(),
-                                    Operation.get(op), index.resourceType())
-                    : NoOpOperationCallbackFactory.INSTANCE;
-        } else if (index.isPrimaryIndex()) {
-            return op == IndexOperation.UPSERT
-                    ? new UpsertOperationCallbackFactory(txnId, getDatasetId(), primaryKeyFields,
+        if (index.isPrimaryIndex()) {
+            return op == IndexOperation.UPSERT ? new UpsertOperationCallbackFactory(getDatasetId(), primaryKeyFields,
                             componentProvider.getTransactionSubsystemProvider(), Operation.get(op),
                             index.resourceType())
                     : op == IndexOperation.DELETE || op == IndexOperation.INSERT
-                            ? new PrimaryIndexModificationOperationCallbackFactory(txnId, getDatasetId(),
+                            ? new PrimaryIndexModificationOperationCallbackFactory(getDatasetId(),
                                     primaryKeyFields, componentProvider.getTransactionSubsystemProvider(),
                                     Operation.get(op), index.resourceType())
                             : NoOpOperationCallbackFactory.INSTANCE;
         } else {
             return op == IndexOperation.DELETE || op == IndexOperation.INSERT || op == IndexOperation.UPSERT
-                    ? new SecondaryIndexModificationOperationCallbackFactory(txnId, getDatasetId(), primaryKeyFields,
+                    ? new SecondaryIndexModificationOperationCallbackFactory(getDatasetId(), primaryKeyFields,
                             componentProvider.getTransactionSubsystemProvider(), Operation.get(op),
                             index.resourceType())
                     : NoOpOperationCallbackFactory.INSTANCE;
@@ -631,7 +612,7 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
         try {
             return mapper.writeValueAsString(toMap());
         } catch (JsonProcessingException e) {
-            LOGGER.log(Level.WARNING, "Unable to convert map to json String", e);
+            LOGGER.log(Level.WARN, "Unable to convert map to json String", e);
             return dataverseName + "." + datasetName;
         }
     }
@@ -665,8 +646,6 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
      *
      * @param metadataProvider,
      *            the metadata provider.
-     * @param txnId,
-     *            the AsterixDB job id for transaction management.
      * @param primaryKeyFieldPermutation,
      *            the primary key field permutation according to the input.
      * @param isSink,
@@ -674,20 +653,15 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
      * @return the commit runtime factory for inserting/upserting/deleting operations on this dataset.
      * @throws AlgebricksException
      */
-    public IPushRuntimeFactory getCommitRuntimeFactory(MetadataProvider metadataProvider, TxnId txnId,
+    public IPushRuntimeFactory getCommitRuntimeFactory(MetadataProvider metadataProvider,
             int[] primaryKeyFieldPermutation, boolean isSink) throws AlgebricksException {
         int[] datasetPartitions = getDatasetPartitions(metadataProvider);
-        return new CommitRuntimeFactory(txnId, datasetId, primaryKeyFieldPermutation,
-                metadataProvider.isTemporaryDatasetWriteJob(), metadataProvider.isWriteTransaction(), datasetPartitions,
-                isSink);
+        return new CommitRuntimeFactory(datasetId, primaryKeyFieldPermutation,
+                metadataProvider.isWriteTransaction(), datasetPartitions, isSink);
     }
 
     public IFrameOperationCallbackFactory getFrameOpCallbackFactory() {
         return NoOpFrameOperationCallbackFactory.INSTANCE;
-    }
-
-    public boolean isTemp() {
-        return getDatasetDetails().isTemp();
     }
 
     public boolean isCorrelated() {

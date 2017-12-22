@@ -23,12 +23,10 @@ import org.apache.asterix.common.api.IJobEventListenerFactory;
 import org.apache.asterix.common.context.ITransactionSubsystemProvider;
 import org.apache.asterix.common.dataflow.DatasetLocalResource;
 import org.apache.asterix.common.exceptions.ACIDException;
-import org.apache.asterix.common.transactions.AbstractOperationCallback;
 import org.apache.asterix.common.transactions.AbstractOperationCallbackFactory;
 import org.apache.asterix.common.transactions.DatasetId;
 import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.ITransactionSubsystem;
-import org.apache.asterix.common.transactions.TxnId;
 import org.apache.asterix.transaction.management.opcallbacks.AbstractIndexModificationOperationCallback.Operation;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.IOperatorNodePushable;
@@ -46,9 +44,9 @@ public class SecondaryIndexModificationOperationCallbackFactory extends Abstract
     private static final long serialVersionUID = 1L;
     private final Operation indexOp;
 
-    public SecondaryIndexModificationOperationCallbackFactory(TxnId txnId, int datasetId, int[] primaryKeyFields,
+    public SecondaryIndexModificationOperationCallbackFactory(int datasetId, int[] primaryKeyFields,
             ITransactionSubsystemProvider txnSubsystemProvider, Operation indexOp, byte resourceType) {
-        super(txnId, datasetId, primaryKeyFields, txnSubsystemProvider, resourceType);
+        super(datasetId, primaryKeyFields, txnSubsystemProvider, resourceType);
         this.indexOp = indexOp;
     }
 
@@ -66,12 +64,12 @@ public class SecondaryIndexModificationOperationCallbackFactory extends Abstract
         try {
             IJobletEventListenerFactory fact = ctx.getJobletContext().getJobletEventListenerFactory();
             ITransactionContext txnCtx = txnSubsystem.getTransactionManager()
-                    .getTransactionContext(((IJobEventListenerFactory) fact).getTxnId(txnId), false);
+                    .getTransactionContext(((IJobEventListenerFactory) fact).getTxnId(datasetId));
             DatasetLocalResource aResource = (DatasetLocalResource) resource.getResource();
             IModificationOperationCallback modCallback = new SecondaryIndexModificationOperationCallback(
                     new DatasetId(datasetId), primaryKeyFields, txnCtx, txnSubsystem.getLockManager(), txnSubsystem,
                     resource.getId(), aResource.getPartition(), resourceType, indexOp);
-            txnCtx.registerIndexAndCallback(resource.getId(), index, (AbstractOperationCallback) modCallback, false);
+            txnCtx.register(resource.getId(), index, modCallback, false);
             return modCallback;
         } catch (ACIDException e) {
             throw HyracksDataException.create(e);

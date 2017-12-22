@@ -25,8 +25,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import org.apache.asterix.app.nc.task.BindMetadataNodeTask;
@@ -38,6 +36,8 @@ import org.apache.asterix.app.nc.task.RemoteRecoveryTask;
 import org.apache.asterix.app.nc.task.ReportLocalCountersTask;
 import org.apache.asterix.app.nc.task.StartLifecycleComponentsTask;
 import org.apache.asterix.app.nc.task.StartReplicationServiceTask;
+import org.apache.asterix.app.replication.message.MetadataNodeRequestMessage;
+import org.apache.asterix.app.replication.message.MetadataNodeResponseMessage;
 import org.apache.asterix.app.replication.message.NCLifecycleTaskReportMessage;
 import org.apache.asterix.app.replication.message.RegistrationTasksRequestMessage;
 import org.apache.asterix.app.replication.message.ReplayPartitionLogsRequestMessage;
@@ -59,10 +59,13 @@ import org.apache.asterix.util.FaultToleranceUtil;
 import org.apache.hyracks.api.application.ICCServiceContext;
 import org.apache.hyracks.api.application.IClusterLifecycleListener.ClusterEventType;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class MetadataNodeFaultToleranceStrategy implements IFaultToleranceStrategy {
 
-    private static final Logger LOGGER = Logger.getLogger(MetadataNodeFaultToleranceStrategy.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger();
     private IClusterStateManager clusterManager;
     private String metadataNodeId;
     private IReplicationStrategy replicationStrategy;
@@ -104,7 +107,7 @@ public class MetadataNodeFaultToleranceStrategy implements IFaultToleranceStrate
                 try {
                     messageBroker.sendApplicationMessageToNC(msg, replica.getId());
                 } catch (Exception e) {
-                    LOGGER.log(Level.WARNING, "Failed sending an application message to an NC", e);
+                    LOGGER.log(Level.WARN, "Failed sending an application message to an NC", e);
                     continue;
                 }
             }
@@ -132,6 +135,9 @@ public class MetadataNodeFaultToleranceStrategy implements IFaultToleranceStrate
             case REPLAY_LOGS_RESPONSE:
                 process((ReplayPartitionLogsResponseMessage) message);
                 break;
+            case METADATA_NODE_RESPONSE:
+                process((MetadataNodeResponseMessage) message);
+                break;
             default:
                 throw new RuntimeDataException(ErrorCode.UNSUPPORTED_MESSAGE_TYPE, message.getType().name());
         }
@@ -143,9 +149,29 @@ public class MetadataNodeFaultToleranceStrategy implements IFaultToleranceStrate
         this.metadataNodeId = clusterManager.getCurrentMetadataNodeId();
     }
 
+    @Override
+    public void notifyMetadataNodeChange(String node) throws HyracksDataException {
+        if (metadataNodeId.equals(node)) {
+            return;
+        }
+        // if current metadata node is active, we need to unbind its metadata proxy object
+        if (clusterManager.isMetadataNodeActive()) {
+            MetadataNodeRequestMessage msg = new MetadataNodeRequestMessage(false);
+            try {
+                messageBroker.sendApplicationMessageToNC(msg, metadataNodeId);
+                // when the current node responses, we will bind to the new one
+                metadataNodeId = node;
+            } catch (Exception e) {
+                throw HyracksDataException.create(e);
+            }
+        } else {
+            requestMetadataNodeTakeover(node);
+        }
+    }
+
     private synchronized void process(ReplayPartitionLogsResponseMessage msg) {
         hotStandbyMetadataReplica.add(msg.getNodeId());
-        if (LOGGER.isLoggable(Level.INFO)) {
+        if (LOGGER.isInfoEnabled()) {
             LOGGER.info("Hot Standby Metadata Replicas: " + hotStandbyMetadataReplica);
         }
     }
@@ -186,7 +212,7 @@ public class MetadataNodeFaultToleranceStrategy implements IFaultToleranceStrate
             }
             clusterManager.refreshState();
         } else {
-            LOGGER.log(Level.SEVERE, msg.getNodeId() + " failed to complete startup. ", msg.getException());
+            LOGGER.log(Level.ERROR, msg.getNodeId() + " failed to complete startup. ", msg.getException());
         }
     }
 
@@ -209,6 +235,9 @@ public class MetadataNodeFaultToleranceStrategy implements IFaultToleranceStrate
         final List<INCLifecycleTask> tasks = new ArrayList<>();
         switch (state) {
             case PERMANENT_DATA_LOSS:
+                if (failedNodes.isEmpty()) { //bootstrap
+                    break;
+                }
                 // If the metadata node (or replica) failed and lost its data
                 // => Metadata Remote Recovery from standby replica
                 tasks.add(getMetadataPartitionRecoveryPlan());
@@ -255,5 +284,21 @@ public class MetadataNodeFaultToleranceStrategy implements IFaultToleranceStrate
         Set<Integer> metadataPartition = new HashSet<>(Arrays.asList(metadataPartitionId));
         recoveryPlan.put(hotStandbyMetadataReplica.iterator().next(), metadataPartition);
         return new RemoteRecoveryTask(recoveryPlan);
+    }
+
+    private void process(MetadataNodeResponseMessage response) throws HyracksDataException {
+        clusterManager.updateMetadataNode(response.getNodeId(), response.isExported());
+        if (!response.isExported()) {
+            requestMetadataNodeTakeover(metadataNodeId);
+        }
+    }
+
+    private void requestMetadataNodeTakeover(String node) throws HyracksDataException {
+        MetadataNodeRequestMessage msg = new MetadataNodeRequestMessage(true);
+        try {
+            messageBroker.sendApplicationMessageToNC(msg, node);
+        } catch (Exception e) {
+            throw HyracksDataException.create(e);
+        }
     }
 }

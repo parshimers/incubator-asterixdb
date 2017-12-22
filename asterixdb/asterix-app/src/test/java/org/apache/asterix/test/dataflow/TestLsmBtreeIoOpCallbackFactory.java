@@ -18,17 +18,25 @@
  */
 package org.apache.asterix.test.dataflow;
 
-import org.apache.asterix.common.ioopcallbacks.AbstractLSMIndexIOOperationCallbackFactory;
+import java.util.List;
+
 import org.apache.asterix.common.ioopcallbacks.LSMBTreeIOOperationCallback;
+import org.apache.asterix.common.ioopcallbacks.LSMBTreeIOOperationCallbackFactory;
+import org.apache.asterix.common.storage.IIndexCheckpointManager;
+import org.apache.asterix.common.storage.IIndexCheckpointManagerProvider;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.storage.am.lsm.btree.impl.TestLsmBtree;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentIdGenerator;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentIdGeneratorFactory;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperation.LSMIOOperationType;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMMemoryComponent;
 import org.apache.hyracks.storage.am.lsm.common.impls.EmptyComponent;
 
-public class TestLsmBtreeIoOpCallbackFactory extends AbstractLSMIndexIOOperationCallbackFactory {
+public class TestLsmBtreeIoOpCallbackFactory extends LSMBTreeIOOperationCallbackFactory {
 
     private static final long serialVersionUID = 1L;
 
@@ -52,7 +60,7 @@ public class TestLsmBtreeIoOpCallbackFactory extends AbstractLSMIndexIOOperation
         // Whenever this is called, it resets the counter
         // However, the counters for the failed operations are never reset since we expect them
         // To be always 0
-        return new TestLsmBtreeIoOpCallback(index, getComponentIdGenerator());
+        return new TestLsmBtreeIoOpCallback(index, getComponentIdGenerator(), getIndexCheckpointManagerProvider());
     }
 
     public int getTotalFlushes() {
@@ -92,12 +100,33 @@ public class TestLsmBtreeIoOpCallbackFactory extends AbstractLSMIndexIOOperation
     }
 
     public class TestLsmBtreeIoOpCallback extends LSMBTreeIOOperationCallback {
-        public TestLsmBtreeIoOpCallback(ILSMIndex index, ILSMComponentIdGenerator idGenerator) {
-            super(index, idGenerator);
+        private final TestLsmBtree lsmBtree;
+
+        public TestLsmBtreeIoOpCallback(ILSMIndex index, ILSMComponentIdGenerator idGenerator,
+                IIndexCheckpointManagerProvider checkpointManagerProvider) {
+            super(index, idGenerator, checkpointManagerProvider);
+            lsmBtree = (TestLsmBtree) index;
         }
 
         @Override
-        public void afterFinalize(LSMIOOperationType opType, ILSMDiskComponent newComponent) {
+        public void beforeOperation(LSMIOOperationType opType) throws HyracksDataException {
+            lsmBtree.beforeIoOperationCalled();
+            super.beforeOperation(opType);
+            lsmBtree.beforeIoOperationReturned();
+        }
+
+        @Override
+        public void afterOperation(LSMIOOperationType opType, List<ILSMComponent> oldComponents,
+                ILSMDiskComponent newComponent) throws HyracksDataException {
+            lsmBtree.afterIoOperationCalled();
+            super.afterOperation(opType, oldComponents, newComponent);
+            lsmBtree.afterIoOperationReturned();
+        }
+
+        @Override
+        public void afterFinalize(LSMIOOperationType opType, ILSMDiskComponent newComponent)
+                throws HyracksDataException {
+            lsmBtree.afterIoFinalizeCalled();
             super.afterFinalize(opType, newComponent);
             synchronized (TestLsmBtreeIoOpCallbackFactory.this) {
                 if (newComponent != null) {
@@ -119,6 +148,21 @@ public class TestLsmBtreeIoOpCallbackFactory extends AbstractLSMIndexIOOperation
                 }
                 TestLsmBtreeIoOpCallbackFactory.this.notifyAll();
             }
+            lsmBtree.afterIoFinalizeReturned();
+        }
+
+        @Override
+        public void recycled(ILSMMemoryComponent component, boolean advance) throws HyracksDataException {
+            lsmBtree.recycledCalled(component);
+            super.recycled(component, advance);
+            lsmBtree.recycledReturned(component);
+        }
+
+        @Override
+        public void allocated(ILSMMemoryComponent component) throws HyracksDataException {
+            lsmBtree.allocatedCalled(component);
+            super.allocated(component);
+            lsmBtree.allocatedReturned(component);
         }
 
         private void recordFailure(LSMIOOperationType opType) {

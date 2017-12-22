@@ -18,14 +18,14 @@
  */
 package org.apache.asterix.runtime.job.listener;
 
-import java.util.List;
+import java.util.Map;
 
 import org.apache.asterix.common.api.IJobEventListenerFactory;
 import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.exceptions.ACIDException;
-import org.apache.asterix.common.transactions.DatasetId;
 import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.ITransactionManager;
+import org.apache.asterix.common.transactions.TransactionOptions;
 import org.apache.asterix.common.transactions.TxnId;
 import org.apache.hyracks.api.context.IHyracksJobletContext;
 import org.apache.hyracks.api.job.IJobletEventListener;
@@ -40,23 +40,22 @@ import org.apache.hyracks.api.job.JobStatus;
 public class MultiTransactionJobletEventListenerFactory implements IJobEventListenerFactory {
 
     private static final long serialVersionUID = 1L;
-    private final List<TxnId> txnIds;
+    private final Map<Integer, TxnId> txnIdMap;
     private final boolean transactionalWrite;
 
-    public MultiTransactionJobletEventListenerFactory(List<TxnId> txnIds, boolean transactionalWrite) {
-        this.txnIds = txnIds;
+    public MultiTransactionJobletEventListenerFactory(Map<Integer, TxnId> txnIdMap, boolean transactionalWrite) {
+        this.txnIdMap = txnIdMap;
         this.transactionalWrite = transactionalWrite;
     }
 
-    //TODO: Enable this factory to be usable for Deployed Jobs
     @Override
-    public TxnId getTxnId(TxnId compiledTxnId) {
-        return compiledTxnId;
+    public TxnId getTxnId(int datasetId) {
+        return txnIdMap.get(datasetId);
     }
 
     @Override
     public IJobletEventListenerFactory copyFactory() {
-        return new MultiTransactionJobletEventListenerFactory(txnIds, transactionalWrite);
+        return new MultiTransactionJobletEventListenerFactory(txnIdMap, transactionalWrite);
     }
 
     @Override
@@ -74,11 +73,14 @@ public class MultiTransactionJobletEventListenerFactory implements IJobEventList
                     ITransactionManager txnManager =
                             ((INcApplicationContext) jobletContext.getServiceContext().getApplicationContext())
                                     .getTransactionSubsystem().getTransactionManager();
-                    for (TxnId txnId : txnIds) {
-                        ITransactionContext txnContext = txnManager.getTransactionContext(txnId, false);
+                    for (TxnId subTxnId : txnIdMap.values()) {
+                        ITransactionContext txnContext = txnManager.getTransactionContext(subTxnId);
                         txnContext.setWriteTxn(transactionalWrite);
-                        txnManager.completedTransaction(txnContext, DatasetId.NULL, -1,
-                                !(jobStatus == JobStatus.FAILURE));
+                        if (jobStatus != JobStatus.FAILURE) {
+                            txnManager.commitTransaction(subTxnId);
+                        } else {
+                            txnManager.abortTransaction(subTxnId);
+                        }
                     }
                 } catch (ACIDException e) {
                     throw new Error(e);
@@ -88,9 +90,12 @@ public class MultiTransactionJobletEventListenerFactory implements IJobEventList
             @Override
             public void jobletStart() {
                 try {
-                    for (TxnId txnId : txnIds) {
+                    TransactionOptions options =
+                            new TransactionOptions(ITransactionManager.AtomicityLevel.ENTITY_LEVEL);
+                    for (TxnId subTxnId : txnIdMap.values()) {
                         ((INcApplicationContext) jobletContext.getServiceContext().getApplicationContext())
-                                .getTransactionSubsystem().getTransactionManager().getTransactionContext(txnId, true);
+                                .getTransactionSubsystem().getTransactionManager()
+                                .beginTransaction(subTxnId, options);
                     }
                 } catch (ACIDException e) {
                     throw new Error(e);

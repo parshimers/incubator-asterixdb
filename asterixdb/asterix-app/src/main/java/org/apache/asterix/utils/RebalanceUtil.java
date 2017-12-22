@@ -26,8 +26,6 @@ import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
 import org.apache.asterix.active.IActiveEntityEventsListener;
@@ -62,12 +60,15 @@ import org.apache.hyracks.api.job.JobSpecification;
 import org.apache.hyracks.dataflow.common.data.partition.FieldHashPartitionComputerFactory;
 import org.apache.hyracks.dataflow.std.connectors.MToNPartitioningConnectorDescriptor;
 import org.apache.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * A utility class for the rebalance operation.
  */
 public class RebalanceUtil {
-    private static final Logger LOGGER = Logger.getLogger(RebalanceUtil.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger();
 
     private RebalanceUtil() {
 
@@ -173,7 +174,7 @@ public class RebalanceUtil {
                 work.run();
                 done = true;
             } catch (InterruptedException e) {
-                LOGGER.log(Level.WARNING, "Retry with attempt " + (++retryCount), e);
+                LOGGER.log(Level.WARN, "Retry with attempt " + (++retryCount), e);
                 interruptedException = e;
             }
         } while (!done);
@@ -283,13 +284,13 @@ public class RebalanceUtil {
         IOperatorDescriptor starter = DatasetUtil.createDummyKeyProviderOp(spec, source, metadataProvider);
 
         // Creates primary index scan op.
-        IOperatorDescriptor primaryScanOp = DatasetUtil.createPrimaryIndexScanOp(spec, metadataProvider, source, txnId);
+        IOperatorDescriptor primaryScanOp = DatasetUtil.createPrimaryIndexScanOp(spec, metadataProvider, source);
 
         // Creates secondary BTree upsert op.
         IOperatorDescriptor upsertOp = createPrimaryIndexUpsertOp(spec, metadataProvider, source, target);
 
         // The final commit operator.
-        IOperatorDescriptor commitOp = createUpsertCommitOp(spec, metadataProvider, txnId, target);
+        IOperatorDescriptor commitOp = createUpsertCommitOp(spec, metadataProvider, target);
 
         // Connects empty-tuple-source and scan.
         spec.connect(new OneToOneConnectorDescriptor(spec), starter, 0, primaryScanOp, 0);
@@ -326,11 +327,11 @@ public class RebalanceUtil {
 
     // Creates the commit operator for populating the target dataset.
     private static IOperatorDescriptor createUpsertCommitOp(JobSpecification spec, MetadataProvider metadataProvider,
-            TxnId txnId, Dataset target) throws AlgebricksException {
+            Dataset target) throws AlgebricksException {
         int[] primaryKeyFields = getPrimaryKeyPermutationForUpsert(target);
         return new AlgebricksMetaOperatorDescriptor(spec, 1, 0,
                 new IPushRuntimeFactory[] {
-                        target.getCommitRuntimeFactory(metadataProvider, txnId, primaryKeyFields, true) },
+                        target.getCommitRuntimeFactory(metadataProvider, primaryKeyFields, true) },
                 new RecordDescriptor[] { target.getPrimaryRecordDescriptor(metadataProvider) });
     }
 

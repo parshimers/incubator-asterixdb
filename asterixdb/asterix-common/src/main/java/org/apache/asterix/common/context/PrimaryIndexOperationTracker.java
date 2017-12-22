@@ -73,7 +73,7 @@ public class PrimaryIndexOperationTracker extends BaseOperationTracker {
     public void afterOperation(ILSMIndex index, LSMOperationType opType, ISearchOperationCallback searchCallback,
             IModificationOperationCallback modificationCallback) throws HyracksDataException {
         // Searches are immediately considered complete, because they should not prevent the execution of flushes.
-        if (opType == LSMOperationType.FLUSH || opType == LSMOperationType.REPLICATE) {
+        if (opType == LSMOperationType.REPLICATE) {
             completeOperation(index, opType, searchCallback, modificationCallback);
         }
     }
@@ -160,12 +160,6 @@ public class PrimaryIndexOperationTracker extends BaseOperationTracker {
         flushLogCreated = false;
     }
 
-    @Override
-    public void exclusiveJobCommitted() throws HyracksDataException {
-        numActiveOperations.set(0);
-        flushIfRequested();
-    }
-
     public int getNumActiveOperations() {
         return numActiveOperations.get();
     }
@@ -174,7 +168,7 @@ public class PrimaryIndexOperationTracker extends BaseOperationTracker {
         //modificationCallback can be NoOpOperationCallback when redo/undo operations are executed.
         if (modificationCallback != NoOpOperationCallback.INSTANCE) {
             numActiveOperations.incrementAndGet();
-            ((AbstractOperationCallback) modificationCallback).incrementLocalNumActiveOperations();
+            ((AbstractOperationCallback) modificationCallback).beforeOperation();
         }
     }
 
@@ -182,7 +176,7 @@ public class PrimaryIndexOperationTracker extends BaseOperationTracker {
         //modificationCallback can be NoOpOperationCallback when redo/undo operations are executed.
         if (modificationCallback != NoOpOperationCallback.INSTANCE) {
             numActiveOperations.decrementAndGet();
-            ((AbstractOperationCallback) modificationCallback).decrementLocalNumActiveOperations();
+            ((AbstractOperationCallback) modificationCallback).afterOperation();
         }
     }
 

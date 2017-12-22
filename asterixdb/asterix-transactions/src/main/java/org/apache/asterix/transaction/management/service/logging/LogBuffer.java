@@ -23,7 +23,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Logger;
 
 import org.apache.asterix.common.context.PrimaryIndexOperationTracker;
 import org.apache.asterix.common.exceptions.ACIDException;
@@ -40,11 +39,13 @@ import org.apache.asterix.common.transactions.MutableLong;
 import org.apache.asterix.common.transactions.TxnId;
 import org.apache.asterix.transaction.management.service.transaction.TransactionManagementConstants.LockManagerConstants.LockMode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class LogBuffer implements ILogBuffer {
 
     public static final boolean IS_DEBUG_MODE = false;//true
-    private static final Logger LOGGER = Logger.getLogger(LogBuffer.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger();
     private final ITransactionSubsystem txnSubsystem;
     private final LogBufferTailReader logBufferTailReader;
     private final int logPageSize;
@@ -111,8 +112,8 @@ public class LogBuffer implements ILogBuffer {
                     logRecord.isFlushed(false);
                     flushQ.add(logRecord);
                 }
-            } else if (logRecord.getLogSource() == LogSource.REMOTE
-                    && (logRecord.getLogType() == LogType.JOB_COMMIT || logRecord.getLogType() == LogType.ABORT)) {
+            } else if (logRecord.getLogSource() == LogSource.REMOTE && (logRecord.getLogType() == LogType.JOB_COMMIT
+                    || logRecord.getLogType() == LogType.ABORT || logRecord.getLogType() == LogType.FLUSH)) {
                 remoteJobsQ.add(logRecord);
             }
             this.notify();
@@ -234,39 +235,36 @@ public class LogBuffer implements ILogBuffer {
     private void batchUnlock(int beginOffset, int endOffset) throws ACIDException {
         if (endOffset > beginOffset) {
             logBufferTailReader.initializeScan(beginOffset, endOffset);
-
             ITransactionContext txnCtx;
-
             LogRecord logRecord = logBufferTailReader.next();
             while (logRecord != null) {
                 if (logRecord.getLogSource() == LogSource.LOCAL) {
                     if (logRecord.getLogType() == LogType.ENTITY_COMMIT) {
                         reusableTxnId.setId(logRecord.getTxnId());
                         reusableDatasetId.setId(logRecord.getDatasetId());
-                        txnCtx = txnSubsystem.getTransactionManager().getTransactionContext(reusableTxnId, false);
+                        txnCtx = txnSubsystem.getTransactionManager().getTransactionContext(reusableTxnId);
                         txnSubsystem.getLockManager().unlock(reusableDatasetId, logRecord.getPKHashValue(),
                                 LockMode.ANY, txnCtx);
-                        txnCtx.notifyOptracker(false);
+                        txnCtx.notifyEntityCommitted();
                         if (txnSubsystem.getTransactionProperties().isCommitProfilerEnabled()) {
                             txnSubsystem.incrementEntityCommitCount();
                         }
+                    } else if (logRecord.getLogType() == LogType.UPDATE) {
+                        reusableTxnId.setId(logRecord.getTxnId());
+                        txnCtx = txnSubsystem.getTransactionManager().getTransactionContext(reusableTxnId);
+                        txnCtx.notifyUpdateCommitted(logRecord.getResourceId());
                     } else if (logRecord.getLogType() == LogType.JOB_COMMIT
                             || logRecord.getLogType() == LogType.ABORT) {
-                        reusableTxnId.setId(logRecord.getTxnId());
-                        txnCtx = txnSubsystem.getTransactionManager().getTransactionContext(reusableTxnId, false);
-                        txnCtx.notifyOptracker(true);
                         notifyJobTermination();
                     } else if (logRecord.getLogType() == LogType.FLUSH) {
                         notifyFlushTermination();
                     } else if (logRecord.getLogType() == LogType.WAIT) {
                         notifyWaitTermination();
                     }
-                } else if (logRecord.getLogSource() == LogSource.REMOTE) {
-                    if (logRecord.getLogType() == LogType.JOB_COMMIT || logRecord.getLogType() == LogType.ABORT) {
-                        notifyReplicationTermination();
-                    }
+                } else if (logRecord.getLogSource() == LogSource.REMOTE && (logRecord.getLogType() == LogType.JOB_COMMIT
+                        || logRecord.getLogType() == LogType.ABORT || logRecord.getLogType() == LogType.FLUSH)) {
+                    notifyReplicationTermination();
                 }
-
                 logRecord = logBufferTailReader.next();
             }
         }
@@ -297,10 +295,12 @@ public class LogBuffer implements ILogBuffer {
 
     public void notifyFlushTermination() throws ACIDException {
         LogRecord logRecord = null;
-        try {
-            logRecord = (LogRecord) flushQ.take();
-        } catch (InterruptedException e) {
-            //ignore
+        while (logRecord == null) {
+            try {
+                logRecord = (LogRecord) flushQ.take();
+            } catch (InterruptedException e) { //NOSONAR LogFlusher should survive interrupts
+                //ignore
+            }
         }
         synchronized (logRecord) {
             logRecord.isFlushed(true);
@@ -318,10 +318,12 @@ public class LogBuffer implements ILogBuffer {
 
     public void notifyReplicationTermination() {
         LogRecord logRecord = null;
-        try {
-            logRecord = (LogRecord) remoteJobsQ.take();
-        } catch (InterruptedException e) {
-            //ignore
+        while (logRecord == null) {
+            try {
+                logRecord = (LogRecord) remoteJobsQ.take();
+            } catch (InterruptedException e) { //NOSONAR LogFlusher should survive interrupts
+                //ignore
+            }
         }
         logRecord.isFlushed(true);
         IReplicationThread replicationThread = logRecord.getReplicationThread();

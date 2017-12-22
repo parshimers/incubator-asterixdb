@@ -26,7 +26,6 @@ import org.apache.asterix.common.transactions.AbstractOperationCallbackFactory;
 import org.apache.asterix.common.transactions.DatasetId;
 import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.ITransactionSubsystem;
-import org.apache.asterix.common.transactions.TxnId;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.IOperatorNodePushable;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
@@ -34,26 +33,26 @@ import org.apache.hyracks.api.job.IJobletEventListenerFactory;
 import org.apache.hyracks.storage.am.common.api.ISearchOperationCallbackFactory;
 import org.apache.hyracks.storage.common.ISearchOperationCallback;
 
-public class PrimaryIndexInstantSearchOperationCallbackFactory extends AbstractOperationCallbackFactory implements
-        ISearchOperationCallbackFactory {
+public class PrimaryIndexInstantSearchOperationCallbackFactory extends AbstractOperationCallbackFactory
+        implements ISearchOperationCallbackFactory {
 
     private static final long serialVersionUID = 1L;
 
-    public PrimaryIndexInstantSearchOperationCallbackFactory(TxnId txnId, int datasetId, int[] entityIdFields,
+    public PrimaryIndexInstantSearchOperationCallbackFactory(int datasetId, int[] entityIdFields,
             ITransactionSubsystemProvider txnSubsystemProvider, byte resourceType) {
-        super(txnId, datasetId, entityIdFields, txnSubsystemProvider, resourceType);
+        super(datasetId, entityIdFields, txnSubsystemProvider, resourceType);
     }
 
     @Override
-    public ISearchOperationCallback createSearchOperationCallback(long resourceId, IHyracksTaskContext ctx, IOperatorNodePushable operatorNodePushable)
-            throws HyracksDataException {
+    public ISearchOperationCallback createSearchOperationCallback(long resourceId, IHyracksTaskContext ctx,
+            IOperatorNodePushable operatorNodePushable) throws HyracksDataException {
         ITransactionSubsystem txnSubsystem = txnSubsystemProvider.getTransactionSubsystem(ctx);
         try {
             IJobletEventListenerFactory fact = ctx.getJobletContext().getJobletEventListenerFactory();
             ITransactionContext txnCtx = txnSubsystem.getTransactionManager()
-                    .getTransactionContext(((IJobEventListenerFactory) fact).getTxnId(txnId), false);
-            return new PrimaryIndexInstantSearchOperationCallback(new DatasetId(datasetId), primaryKeyFields,
-                    txnSubsystem.getLockManager(), txnCtx);
+                    .getTransactionContext(((IJobEventListenerFactory) fact).getTxnId(datasetId));
+            return new PrimaryIndexInstantSearchOperationCallback(new DatasetId(datasetId), resourceId,
+                    primaryKeyFields, txnSubsystem.getLockManager(), txnCtx);
         } catch (ACIDException e) {
             throw new HyracksDataException(e);
         }
