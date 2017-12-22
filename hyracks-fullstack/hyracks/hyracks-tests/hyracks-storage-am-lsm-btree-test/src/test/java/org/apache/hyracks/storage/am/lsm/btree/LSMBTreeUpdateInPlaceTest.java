@@ -178,7 +178,7 @@ public class LSMBTreeUpdateInPlaceTest extends AbstractOperationCallbackTest {
         }
 
         @Override
-        public void logFilter(ITupleReference tuple){
+        public void after(ITupleReference tuple){
 
         }
     }

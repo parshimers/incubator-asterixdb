@@ -50,5 +50,11 @@ public interface IModificationOperationCallback {
      */
     void found(ITupleReference before, ITupleReference after) throws HyracksDataException;
 
-    void logFilter(ITupleReference after) throws HyracksDataException;
+    /**
+     * May be called after found(), with a tuple that is not part of the main index structure,
+     * yet is updated alongside.
+     * @param tuple
+     * @throws HyracksDataException
+     */
+    void after(ITupleReference tuple) throws HyracksDataException;
 }

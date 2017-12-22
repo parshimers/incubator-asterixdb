@@ -126,7 +126,7 @@ public abstract class AbstractIndexModificationOperationCallback extends Abstrac
         txnSubsystem.getLogManager().log(indexRecord);
     }
 
-    public void logFilter(ITupleReference newValue) throws HyracksDataException {
+    public void after(ITupleReference newValue) throws HyracksDataException {
         try {
             if (newValue != null) {
                 filterRecord.setNewValueSize(SimpleTupleWriter.INSTANCE.bytesRequired(newValue));

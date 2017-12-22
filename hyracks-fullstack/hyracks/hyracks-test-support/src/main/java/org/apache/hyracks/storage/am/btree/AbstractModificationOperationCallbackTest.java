@@ -102,7 +102,7 @@ public abstract class AbstractModificationOperationCallbackTest extends Abstract
         }
 
         @Override
-        public void logFilter(ITupleReference tuple) throws HyracksDataException {
+        public void after(ITupleReference tuple) throws HyracksDataException {
             Assert.assertEquals(0, cmp.compare(AbstractModificationOperationCallbackTest.this.tuple, tuple));
         }
 
