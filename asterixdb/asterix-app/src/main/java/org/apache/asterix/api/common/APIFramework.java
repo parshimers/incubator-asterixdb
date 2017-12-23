@@ -38,6 +38,7 @@ import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.CompilationException;
 import org.apache.asterix.common.exceptions.ErrorCode;
+import org.apache.asterix.common.transactions.TxnId;
 import org.apache.asterix.common.utils.Job;
 import org.apache.asterix.common.utils.Job.SubmissionMode;
 import org.apache.asterix.compiler.provider.ILangCompilationProvider;
@@ -63,7 +64,7 @@ import org.apache.asterix.lang.common.util.FunctionUtil;
 import org.apache.asterix.metadata.declared.MetadataProvider;
 import org.apache.asterix.optimizer.base.FuzzyUtils;
 import org.apache.asterix.runtime.job.listener.JobEventListenerFactory;
-import org.apache.asterix.transaction.management.service.transaction.JobIdFactory;
+import org.apache.asterix.transaction.management.service.transaction.TxnIdFactory;
 import org.apache.asterix.translator.CompiledStatements.ICompiledDmlStatement;
 import org.apache.asterix.translator.IStatementExecutor.Stats;
 import org.apache.asterix.translator.SessionConfig;
@@ -84,8 +85,10 @@ import org.apache.hyracks.algebricks.core.algebra.expressions.IExpressionEvalSiz
 import org.apache.hyracks.algebricks.core.algebra.expressions.IExpressionTypeComputer;
 import org.apache.hyracks.algebricks.core.algebra.expressions.IMergeAggregationExpressionFactory;
 import org.apache.hyracks.algebricks.core.algebra.expressions.IMissableTypeComputer;
+import org.apache.hyracks.algebricks.core.algebra.prettyprint.AbstractLogicalOperatorPrettyPrintVisitor;
 import org.apache.hyracks.algebricks.core.algebra.prettyprint.AlgebricksAppendable;
 import org.apache.hyracks.algebricks.core.algebra.prettyprint.LogicalOperatorPrettyPrintVisitor;
+import org.apache.hyracks.algebricks.core.algebra.prettyprint.LogicalOperatorPrettyPrintVisitorJson;
 import org.apache.hyracks.algebricks.core.algebra.prettyprint.PlanPrettyPrinter;
 import org.apache.hyracks.algebricks.core.rewriter.base.AlgebricksOptimizationContext;
 import org.apache.hyracks.algebricks.core.rewriter.base.IOptimizationContextFactory;
@@ -111,6 +114,8 @@ public class APIFramework {
     private static final int MIN_FRAME_LIMIT_FOR_SORT = 3;
     private static final int MIN_FRAME_LIMIT_FOR_GROUP_BY = 4;
     private static final int MIN_FRAME_LIMIT_FOR_JOIN = 5;
+    private static final String LPLAN = "Logical plan";
+    private static final String OPLAN = "Optimized logical plan";
 
     // A white list of supported configurable parameters.
     private static final Set<String> CONFIGURABLE_PARAMETER_NAMES =
@@ -156,7 +161,13 @@ public class APIFramework {
     private void printPlanPrefix(SessionOutput output, String planName) {
         if (output.config().is(SessionConfig.FORMAT_HTML)) {
             output.out().println("<h4>" + planName + ":</h4>");
-            output.out().println("<pre>");
+            if (LPLAN.equalsIgnoreCase(planName)) {
+                output.out().println("<pre class = query-plan>");
+            } else if (OPLAN.equalsIgnoreCase(planName)) {
+                output.out().println("<pre class = query-optimized-plan>");
+            } else {
+                output.out().println("<pre>");
+            }
         } else {
             output.out().println("----------" + planName + ":");
         }
@@ -201,8 +212,8 @@ public class APIFramework {
             printPlanPostfix(output);
         }
 
-        org.apache.asterix.common.transactions.JobId asterixJobId = JobIdFactory.generateJobId();
-        metadataProvider.setJobId(asterixJobId);
+        TxnId txnId = TxnIdFactory.create();
+        metadataProvider.setTxnId(txnId);
         ILangExpressionToPlanTranslator t =
                 translatorFactory.createExpressionToPlanTranslator(metadataProvider, varCounter);
 
@@ -219,8 +230,7 @@ public class APIFramework {
 
             printPlanPrefix(output, "Logical plan");
             if (rwQ != null || (statement != null && statement.getKind() == Statement.Kind.LOAD)) {
-                LogicalOperatorPrettyPrintVisitor pvisitor = new LogicalOperatorPrettyPrintVisitor(output.out());
-                PlanPrettyPrinter.printPlan(plan, pvisitor, 0);
+                PlanPrettyPrinter.printPlan(plan, getPrettyPrintVisitor(output.config().getLpfmt(), output.out()), 0);
             }
             printPlanPostfix(output);
         }
@@ -247,7 +257,7 @@ public class APIFramework {
         builder.setPhysicalOptimizationConfig(OptimizationConfUtil.getPhysicalOptimizationConfig());
         builder.setLogicalRewrites(ruleSetFactory.getLogicalRewrites(metadataProvider.getApplicationContext()));
         builder.setPhysicalRewrites(ruleSetFactory.getPhysicalRewrites(metadataProvider.getApplicationContext()));
-        IDataFormat format = metadataProvider.getFormat();
+        IDataFormat format = metadataProvider.getDataFormat();
         ICompilerFactory compilerFactory = builder.create();
         builder.setExpressionEvalSizeComputer(format.getExpressionEvalSizeComputer());
         builder.setIMergeAggregationExpressionFactory(new MergeAggregationExpressionFactory());
@@ -273,9 +283,8 @@ public class APIFramework {
                 } else {
                     printPlanPrefix(output, "Optimized logical plan");
                     if (rwQ != null || (statement != null && statement.getKind() == Statement.Kind.LOAD)) {
-                        LogicalOperatorPrettyPrintVisitor pvisitor =
-                                new LogicalOperatorPrettyPrintVisitor(output.out());
-                        PlanPrettyPrinter.printPlan(plan, pvisitor, 0);
+                        PlanPrettyPrinter.printPlan(plan,
+                                getPrettyPrintVisitor(output.config().getLpfmt(), output.out()), 0);
                     }
                     printPlanPostfix(output);
                 }
@@ -300,7 +309,8 @@ public class APIFramework {
         builder.setBinaryBooleanInspectorFactory(format.getBinaryBooleanInspectorFactory());
         builder.setBinaryIntegerInspectorFactory(format.getBinaryIntegerInspectorFactory());
         builder.setComparatorFactoryProvider(format.getBinaryComparatorFactoryProvider());
-        builder.setExpressionRuntimeProvider(new ExpressionRuntimeProvider(QueryLogicalExpressionJobGen.INSTANCE));
+        builder.setExpressionRuntimeProvider(
+                new ExpressionRuntimeProvider(new QueryLogicalExpressionJobGen(metadataProvider.getFunctionManager())));
         builder.setHashFunctionFactoryProvider(format.getBinaryHashFunctionFactoryProvider());
         builder.setHashFunctionFamilyProvider(format.getBinaryHashFunctionFamilyProvider());
         builder.setMissingWriterFactory(format.getMissingWriterFactory());
@@ -329,7 +339,7 @@ public class APIFramework {
         builder.setNormalizedKeyComputerFactoryProvider(format.getNormalizedKeyComputerFactoryProvider());
 
         JobEventListenerFactory jobEventListenerFactory =
-                new JobEventListenerFactory(asterixJobId, metadataProvider.isWriteTransaction());
+                new JobEventListenerFactory(txnId, metadataProvider.isWriteTransaction());
         JobSpecification spec = compiler.createJob(metadataProvider.getApplicationContext(), jobEventListenerFactory);
 
         // When the top-level statement is a query, the statement parameter is null.
@@ -354,6 +364,12 @@ public class APIFramework {
             printPlanPostfix(output);
         }
         return spec;
+    }
+
+    private AbstractLogicalOperatorPrettyPrintVisitor getPrettyPrintVisitor(SessionConfig.PlanFormat planFormat,
+            PrintWriter out) {
+        return planFormat.equals(SessionConfig.PlanFormat.JSON) ? new LogicalOperatorPrettyPrintVisitorJson(out)
+                : new LogicalOperatorPrettyPrintVisitor(out);
     }
 
     public void executeJobArray(IHyracksClientConnection hcc, JobSpecification[] specs, PrintWriter out)

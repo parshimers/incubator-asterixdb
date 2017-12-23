@@ -49,10 +49,11 @@ import org.apache.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexTupleReference;
 import org.apache.hyracks.storage.am.common.frames.FrameOpSpaceStatus;
 import org.apache.hyracks.storage.am.common.impls.AbstractTreeIndex;
-import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
+import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.common.impls.NodeFrontier;
 import org.apache.hyracks.storage.am.common.impls.TreeIndexDiskOrderScanCursor;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
+import org.apache.hyracks.storage.common.IIndexAccessParameters;
 import org.apache.hyracks.storage.common.IIndexAccessor;
 import org.apache.hyracks.storage.common.IIndexBulkLoader;
 import org.apache.hyracks.storage.common.IIndexCursor;
@@ -118,7 +119,7 @@ public class BTree extends AbstractTreeIndex {
         // Stack validation protocol:
         //      * parent pushes the validation information onto the stack before validation
         //      * child pops the validation information off of the stack after validating
-        BTreeAccessor accessor = createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+        BTreeAccessor accessor = createAccessor(NoOpIndexAccessParameters.INSTANCE);
         PageValidationInfo pvi = accessor.ctx.createPageValidationInfo(null);
         accessor.ctx.getValidationInfos().addFirst(pvi);
         if (isActive) {
@@ -818,9 +819,8 @@ public class BTree extends AbstractTreeIndex {
     }
 
     @Override
-    public BTreeAccessor createAccessor(IModificationOperationCallback modificationCallback,
-            ISearchOperationCallback searchCallback) {
-        return new BTreeAccessor(this, modificationCallback, searchCallback);
+    public BTreeAccessor createAccessor(IIndexAccessParameters iap) {
+        return new BTreeAccessor(this, iap.getModificationCallback(), iap.getSearchOperationCallback());
     }
 
     public BTreeAccessor createAccessor(IModificationOperationCallback modificationCallback,
@@ -1135,7 +1135,7 @@ public class BTree extends AbstractTreeIndex {
 
                 ((IBTreeInteriorFrame) interiorFrame).deleteGreatest();
                 int finalPageId = freePageManager.takePage(metaFrame);
-                bufferCache.setPageDiskId(frontier.page, BufferedFileHandle.getDiskPageId(getFileId(), finalPageId));
+                frontier.page.setDiskPageId(BufferedFileHandle.getDiskPageId(getFileId(), finalPageId));
                 pagesToWrite.add(frontier.page);
                 splitKey.setLeftPage(finalPageId);
 
@@ -1156,7 +1156,7 @@ public class BTree extends AbstractTreeIndex {
             if (level < 1) {
                 ICachedPage lastLeaf = nodeFrontiers.get(level).page;
                 int lastLeafPage = nodeFrontiers.get(level).pageId;
-                setPageDpid(lastLeaf, nodeFrontiers.get(level).pageId);
+                lastLeaf.setDiskPageId(BufferedFileHandle.getDiskPageId(getFileId(), nodeFrontiers.get(level).pageId));
                 queue.put(lastLeaf);
                 nodeFrontiers.get(level).page = null;
                 persistFrontiers(level + 1, lastLeafPage);
@@ -1171,7 +1171,7 @@ public class BTree extends AbstractTreeIndex {
             }
             ((IBTreeInteriorFrame) interiorFrame).setRightmostChildPageId(rightPage);
             int finalPageId = freePageManager.takePage(metaFrame);
-            setPageDpid(frontier.page, finalPageId);
+            frontier.page.setDiskPageId(BufferedFileHandle.getDiskPageId(getFileId(), finalPageId));
             queue.put(frontier.page);
             frontier.pageId = finalPageId;
 
@@ -1192,10 +1192,6 @@ public class BTree extends AbstractTreeIndex {
         @Override
         public void abort() throws HyracksDataException {
             super.handleException();
-        }
-
-        private void setPageDpid(ICachedPage page, int pageId) {
-            bufferCache.setPageDiskId(page, BufferedFileHandle.getDiskPageId(getFileId(), pageId));
         }
     }
 

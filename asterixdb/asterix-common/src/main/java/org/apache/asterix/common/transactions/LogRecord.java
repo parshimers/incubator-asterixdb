@@ -32,10 +32,10 @@ import org.apache.hyracks.storage.am.common.tuples.SimpleTupleWriter;
 /**
  * == LogRecordFormat ==
  * ---------------------------
- * [Header1] (6 bytes) : for all log types
+ * [Header1] (10 bytes) : for all log types
  * LogSource(1)
  * LogType(1)
- * JobId(4)
+ * TxnId(8)
  * ---------------------------
  * [Header2] (8 bytes) : for entity_commit, upsert_entity_commit, filter and update log types
  * DatasetId(4) //stored in dataset_dataset in Metadata Node
@@ -59,18 +59,6 @@ import org.apache.hyracks.storage.am.common.tuples.SimpleTupleWriter;
  * [Tail] (8 bytes) : for all log types
  * Checksum(8)
  * ---------------------------
- * = LogSize =
- * 1) JOB_COMMIT_LOG_SIZE: 14 bytes (Header1(6) + Tail(8))
- * 2) ENTITY_COMMIT || UPSERT_ENTITY_COMMIT: (Header1(6) + Header2(8) + Header3(8) + Tail(8)) + PKValueSize
- * --> ENTITY_COMMIT_LOG_BASE_SIZE = 30
- * 3) UPDATE: (Header1(6) + Header2(8) + Header3(8) + Header4(20) + Body(9) + Tail(8)) + PKValueSize + NewValueSize
- * --> UPDATE_LOG_BASE_SIZE = 51
- * 4) FILTER: (Header1(6) + Header2(8) + Body(9) + Tail(8))
- * --> FILTER_LOG_BASE_SIZE = 43
- * 4) FLUSH: 18 bytes (Header1(6) + DatasetId(4) + Tail(8))
- * 5) WAIT_LOG_SIZE: 14 bytes (Header1(6) + Tail(8))
- * --> WAIT_LOG only requires LogType Field, but in order to conform the log reader protocol
- * it also includes LogSource and JobId fields.
  */
 
 public class LogRecord implements ILogRecord {
@@ -78,7 +66,7 @@ public class LogRecord implements ILogRecord {
     // ------------- fields in a log record (begin) ------------//
     private byte logSource;
     private byte logType;
-    private int jobId;
+    private long txnId;
     private int datasetId;
     private int PKHashValue;
     private int PKValueSize;
@@ -134,7 +122,7 @@ public class LogRecord implements ILogRecord {
     private void doWriteLogRecord(ByteBuffer buffer) {
         buffer.put(logSource);
         buffer.put(logType);
-        buffer.putInt(jobId);
+        buffer.putLong(txnId);
         switch (logType) {
             case LogType.ENTITY_COMMIT:
                 writeEntityInfo(buffer);
@@ -266,7 +254,7 @@ public class LogRecord implements ILogRecord {
         }
         logSource = buffer.get();
         logType = buffer.get();
-        jobId = buffer.getInt();
+        txnId = buffer.getLong();
         switch (logType) {
             case LogType.FLUSH:
                 if (buffer.remaining() < ILogRecord.DS_LEN) {
@@ -507,7 +495,7 @@ public class LogRecord implements ILogRecord {
         builder.append(" LSN : ").append(LSN);
         builder.append(" LogType : ").append(LogType.toString(logType));
         builder.append(" LogSize : ").append(logSize);
-        builder.append(" JobId : ").append(jobId);
+        builder.append(" TxnId : ").append(txnId);
         if (logType == LogType.ENTITY_COMMIT || logType == LogType.UPDATE) {
             builder.append(" DatasetId : ").append(datasetId);
             builder.append(" ResourcePartition : ").append(resourcePartition);
@@ -556,13 +544,13 @@ public class LogRecord implements ILogRecord {
     }
 
     @Override
-    public int getJobId() {
-        return jobId;
+    public long getTxnId() {
+        return txnId;
     }
 
     @Override
-    public void setJobId(int jobId) {
-        this.jobId = jobId;
+    public void setTxnId(long jobId) {
+        this.txnId = jobId;
     }
 
     @Override
