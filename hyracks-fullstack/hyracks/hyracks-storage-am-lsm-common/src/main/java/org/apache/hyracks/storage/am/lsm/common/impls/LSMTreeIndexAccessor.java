@@ -213,7 +213,7 @@ public class LSMTreeIndexAccessor implements ILSMIndexAccessor {
 
     public void updateFilter(ITupleReference tuple, boolean callback) throws HyracksDataException {
         ctx.setOperation(IndexOperation.UPSERT);
-        lsmHarness.updateFilter(ctx, tuple, true);
+        lsmHarness.updateFilter(ctx, tuple, callback);
     }
 
     public void batchOperate(FrameTupleAccessor accessor, FrameTupleReference tuple, IFrameTupleProcessor processor,

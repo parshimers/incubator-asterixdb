@@ -53,7 +53,7 @@ public interface IModificationOperationCallback {
     /**
      * May be called along with found, to take action on a tuple that is not part of the index
      * itself but is part of an ancillary structure that is updated alongside the index
-     * 
+     *
      * @param after
      * @throws HyracksDataException
      */

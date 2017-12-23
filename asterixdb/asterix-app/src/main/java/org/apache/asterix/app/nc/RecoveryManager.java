@@ -277,6 +277,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         jobEntityWinners.add(logRecord);
     }
 
+    @SuppressWarnings({"squid:MethodCyclomaticComplexity","squid:S134"})
     private synchronized void startRecoveryRedoPhase(Set<Integer> partitions, ILogReader logReader,
             long lowWaterMarkLSN, Set<Long> winnerTxnSet) throws IOException, ACIDException {
         int redoCount = 0;
