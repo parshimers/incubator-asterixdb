@@ -97,7 +97,7 @@ public abstract class AbstractIndexModificationOperationCallback extends Abstrac
         filterRecord.setTxnCtx(txnCtx);
         filterRecord.setLogType(LogType.FILTER);
         filterRecord.setDatasetId(datasetId.getId());
-        filterRecord.setTxnId(txnCtx.getJobId().getId());
+        filterRecord.setTxnId(txnCtx.getTxnId().getId());
         filterRecord.setResourceId(resourceId);
         filterRecord.setResourcePartition(resourcePartition);
         filterRecord.setNewOp(Operation.FILTER_MOD.value());
@@ -124,7 +124,7 @@ public abstract class AbstractIndexModificationOperationCallback extends Abstrac
         txnSubsystem.getLogManager().log(indexRecord);
     }
 
-    public void logFilter(ITupleReference newValue) throws HyracksDataException {
+    public void after(ITupleReference newValue) throws HyracksDataException {
         try {
             if (newValue != null) {
                 filterRecord.setNewValueSize(SimpleTupleWriter.INSTANCE.bytesRequired(newValue));

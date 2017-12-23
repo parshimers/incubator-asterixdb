@@ -549,8 +549,8 @@ public class LogRecord implements ILogRecord {
     }
 
     @Override
-    public void setTxnId(long jobId) {
-        this.txnId = jobId;
+    public void setTxnId(long txnId) {
+        this.txnId = txnId;
     }
 
     @Override
