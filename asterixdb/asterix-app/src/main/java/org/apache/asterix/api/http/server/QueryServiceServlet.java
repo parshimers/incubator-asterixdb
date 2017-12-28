@@ -109,6 +109,14 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
         }
     }
 
+    @Override
+    protected void options(IServletRequest request, IServletResponse response) throws Exception {
+        // .. Quick Mocking the options for CORS, not sure if the headers are needed or not
+        response.setHeader("Access-Control-Allow-Origin", "*");
+        response.setHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+        response.setStatus(HttpResponseStatus.OK);
+    }
+
     public enum Parameter {
         STATEMENT("statement"),
         FORMAT("format"),
@@ -452,6 +460,9 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
             if (optionalParamProvider != null) {
                 optionalParams = optionalParamProvider.apply(request);
             }
+            // CORS
+            response.setHeader("Access-Control-Allow-Origin", "*");
+            response.setHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
             response.setStatus(execution.getHttpStatus());
             executeStatement(statementsText, sessionOutput, delivery, stats, param, execution, optionalParams);
             if (ResultDelivery.IMMEDIATE == delivery || ResultDelivery.DEFERRED == delivery) {
