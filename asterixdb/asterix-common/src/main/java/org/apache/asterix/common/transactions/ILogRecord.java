@@ -57,8 +57,8 @@ public interface ILogRecord {
     int JOB_TERMINATE_LOG_SIZE = ALL_RECORD_HEADER_LEN + CHKSUM_LEN;
     int ENTITY_COMMIT_LOG_BASE_SIZE = ALL_RECORD_HEADER_LEN + ENTITYCOMMIT_UPDATE_HEADER_LEN + CHKSUM_LEN;
     int UPDATE_LOG_BASE_SIZE = ENTITY_COMMIT_LOG_BASE_SIZE + UPDATE_LSN_HEADER + UPDATE_BODY_HEADER;
-    int FILTER_LOG_BASE_SIZE = ALL_RECORD_HEADER_LEN + FILTER_UPDATE_HEADER_LEN + UPDATE_BODY_HEADER
-            + UPDATE_LSN_HEADER + CHKSUM_LEN;
+    int FILTER_LOG_BASE_SIZE =
+            ALL_RECORD_HEADER_LEN + FILTER_UPDATE_HEADER_LEN + UPDATE_BODY_HEADER + UPDATE_LSN_HEADER + CHKSUM_LEN;
     int FLUSH_LOG_SIZE = ALL_RECORD_HEADER_LEN + DatasetId.BYTES + CHKSUM_LEN;
     int WAIT_LOG_SIZE = ALL_RECORD_HEADER_LEN + CHKSUM_LEN;
     int MARKER_BASE_LOG_SIZE =
@@ -72,104 +72,104 @@ public interface ILogRecord {
 
     void setTxnCtx(ITransactionContext txnCtx);
 
-     boolean isFlushed();
+    boolean isFlushed();
 
-     void isFlushed(boolean isFlushed);
+    void isFlushed(boolean isFlushed);
 
-     byte getLogType();
+    byte getLogType();
 
-     void setLogType(byte logType);
+    void setLogType(byte logType);
 
     long getTxnId();
 
     void setTxnId(long jobId);
 
-     int getDatasetId();
+    int getDatasetId();
 
-     void setDatasetId(int datasetId);
+    void setDatasetId(int datasetId);
 
-     int getPKHashValue();
+    int getPKHashValue();
 
-     void setPKHashValue(int PKHashValue);
+    void setPKHashValue(int PKHashValue);
 
-     long getResourceId();
+    long getResourceId();
 
-     void setResourceId(long resourceId);
+    void setResourceId(long resourceId);
 
-     int getLogSize();
+    int getLogSize();
 
-     void setLogSize(int logSize);
+    void setLogSize(int logSize);
 
-     byte getNewOp();
+    byte getNewOp();
 
-     void setNewOp(byte newOp);
+    void setNewOp(byte newOp);
 
-     void setNewValueSize(int newValueSize);
+    void setNewValueSize(int newValueSize);
 
-     ITupleReference getNewValue();
+    ITupleReference getNewValue();
 
-     void setNewValue(ITupleReference newValue);
+    void setNewValue(ITupleReference newValue);
 
-     long getChecksum();
+    long getChecksum();
 
-     void setChecksum(long checksum);
+    void setChecksum(long checksum);
 
-     long getLSN();
+    long getLSN();
 
-     void setLSN(long LSN);
+    void setLSN(long LSN);
 
-     String getLogRecordForDisplay();
+    String getLogRecordForDisplay();
 
-     void computeAndSetLogSize();
+    void computeAndSetLogSize();
 
-     int getPKValueSize();
+    int getPKValueSize();
 
-     ITupleReference getPKValue();
+    ITupleReference getPKValue();
 
-     void setPKFields(int[] primaryKeyFields);
+    void setPKFields(int[] primaryKeyFields);
 
-     void computeAndSetPKValueSize();
+    void computeAndSetPKValueSize();
 
-     void setPKValue(ITupleReference PKValue);
+    void setPKValue(ITupleReference PKValue);
 
-     String getNodeId();
+    String getNodeId();
 
-     void readRemoteLog(ByteBuffer buffer);
+    void readRemoteLog(ByteBuffer buffer);
 
-     void setReplicationThread(IReplicationThread replicationThread);
+    void setReplicationThread(IReplicationThread replicationThread);
 
-     void setLogSource(byte logSource);
+    void setLogSource(byte logSource);
 
-     byte getLogSource();
+    byte getLogSource();
 
-     int getRemoteLogSize();
+    int getRemoteLogSize();
 
-     void setNodeId(String nodeId);
+    void setNodeId(String nodeId);
 
-     int getResourcePartition();
+    int getResourcePartition();
 
-     void setResourcePartition(int resourcePartition);
+    void setResourcePartition(int resourcePartition);
 
-     void setReplicated(boolean replicated);
+    void setReplicated(boolean replicated);
 
     /**
      * @return a flag indicating whether the log record should be sent to remote replicas
      */
-     boolean isReplicated();
+    boolean isReplicated();
 
-     void writeRemoteLogRecord(ByteBuffer buffer);
+    void writeRemoteLogRecord(ByteBuffer buffer);
 
-     ITupleReference getOldValue();
+    ITupleReference getOldValue();
 
-     void setOldValue(ITupleReference tupleBefore);
+    void setOldValue(ITupleReference tupleBefore);
 
-     void setOldValueSize(int beforeSize);
+    void setOldValueSize(int beforeSize);
 
-     boolean isMarker();
+    boolean isMarker();
 
-     ByteBuffer getMarker();
+    ByteBuffer getMarker();
 
-     void logAppended(long lsn);
+    void logAppended(long lsn);
 
-     long getPreviousMarkerLSN();
+    long getPreviousMarkerLSN();
 }
