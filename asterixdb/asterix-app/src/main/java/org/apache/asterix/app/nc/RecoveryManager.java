@@ -507,10 +507,10 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             long localMinFirstLSN = getLocalMinFirstLSN();
             firstLSN = Math.max(firstLSN, localMinFirstLSN);
             List<Long> logFileIds = logMgr.getLogFileIds();
-            if(logFileIds.size() > 0){
+            if (!logFileIds.isEmpty()) {
                 Collections.sort(logFileIds);
                 long minLog = logFileIds.get(0);
-                firstLSN = Math.max(firstLSN,minLog);
+                firstLSN = Math.max(firstLSN, minLog);
             }
 
         } catch (HyracksDataException e) {
