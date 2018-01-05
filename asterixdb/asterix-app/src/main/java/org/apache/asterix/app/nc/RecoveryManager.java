@@ -497,155 +497,156 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
     public void rollbackTransaction(ITransactionContext txnContext) throws ACIDException {
         long abortedTxnId = txnContext.getTxnId().getId();
         // Obtain the first/last log record LSNs written by the Job
-        long firstLSN = txnContext.getFirstLSN();
+        try {
+            logMgr.logScanLock().lock();
+            long firstLSN = txnContext.getFirstLSN();
         /*
          * The effect of any log record with LSN below minFirstLSN has already been written to disk and
          * will not be rolled back. Therefore, we will set the first LSN of the job to the maximum of
          * minFirstLSN and the job's first LSN.
          */
-        try {
-            long localMinFirstLSN = getLocalMinFirstLSN();
-            firstLSN = Math.max(firstLSN, localMinFirstLSN);
-            List<Long> logFileIds = logMgr.getLogFileIds();
-            if (!logFileIds.isEmpty()) {
-                Collections.sort(logFileIds);
-                long minLog = logFileIds.get(0);
-                firstLSN = Math.max(firstLSN, minLog);
-            }
+            try {
+                long localMinFirstLSN = getLocalMinFirstLSN();
+                firstLSN = Math.max(firstLSN, localMinFirstLSN);
+                List<Long> logFileIds = logMgr.getLogFileIds();
 
-        } catch (HyracksDataException e) {
-            throw new ACIDException(e);
-        }
-        long lastLSN = txnContext.getLastLSN();
-        if (LOGGER.isInfoEnabled()) {
-            LOGGER.info("rollbacking transaction log records from " + firstLSN + " to " + lastLSN);
-        }
-        // check if the transaction actually wrote some logs.
-        if (firstLSN == TransactionManagementConstants.LogManagerConstants.TERMINAL_LSN || firstLSN > lastLSN) {
+            } catch (HyracksDataException e) {
+                throw new ACIDException(e);
+            }
+            long lastLSN = txnContext.getLastLSN();
             if (LOGGER.isInfoEnabled()) {
-                LOGGER.info("no need to roll back as there were no operations by the txn " + txnContext.getTxnId());
+                LOGGER.info("rollbacking transaction log records from " + firstLSN + " to " + lastLSN);
             }
-            return;
-        }
-
-        // While reading log records from firstLsn to lastLsn, collect uncommitted txn's Lsns
-        if (LOGGER.isInfoEnabled()) {
-            LOGGER.info("collecting loser transaction's LSNs from " + firstLSN + " to " + lastLSN);
-        }
-
-        Map<TxnEntityId, List<Long>> jobLoserEntity2LSNsMap = new HashMap<>();
-        TxnEntityId tempKeyTxnEntityId = new TxnEntityId(-1, -1, -1, null, -1, false);
-        int updateLogCount = 0;
-        int entityCommitLogCount = 0;
-        long logTxnId;
-        long currentLSN = -1;
-        TxnEntityId loserEntity;
-        List<Long> undoLSNSet = null;
-        //get active partitions on this node
-        Set<Integer> activePartitions = localResourceRepository.getActivePartitions();
-        ILogReader logReader = logMgr.getLogReader(false);
-        try {
-            logReader.setPosition(firstLSN);
-            ILogRecord logRecord = null;
-            while (currentLSN < lastLSN) {
-                logRecord = logReader.next();
-                if (logRecord == null) {
-                    break;
-                } else {
-                    currentLSN = logRecord.getLSN();
-
-                    if (IS_DEBUG_MODE) {
-                        LOGGER.info(logRecord.getLogRecordForDisplay());
-                    }
+            // check if the transaction actually wrote some logs.
+            if (firstLSN == TransactionManagementConstants.LogManagerConstants.TERMINAL_LSN || firstLSN > lastLSN) {
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info("no need to roll back as there were no operations by the txn " + txnContext.getTxnId());
                 }
-                logTxnId = logRecord.getTxnId();
-                if (logTxnId != abortedTxnId) {
-                    continue;
-                }
-                tempKeyTxnEntityId.setTxnId(logTxnId, logRecord.getDatasetId(), logRecord.getPKHashValue(),
-                        logRecord.getPKValue(), logRecord.getPKValueSize());
-                switch (logRecord.getLogType()) {
-                    case LogType.UPDATE:
-                        if (activePartitions.contains(logRecord.getResourcePartition())) {
-                            undoLSNSet = jobLoserEntity2LSNsMap.get(tempKeyTxnEntityId);
-                            if (undoLSNSet == null) {
-                                loserEntity = new TxnEntityId(logTxnId, logRecord.getDatasetId(),
-                                        logRecord.getPKHashValue(), logRecord.getPKValue(), logRecord.getPKValueSize(),
-                                        true);
-                                undoLSNSet = new LinkedList<>();
-                                jobLoserEntity2LSNsMap.put(loserEntity, undoLSNSet);
-                            }
-                            undoLSNSet.add(currentLSN);
-                            updateLogCount++;
-                            if (IS_DEBUG_MODE) {
-                                LOGGER.info(Thread.currentThread().getId() + "======> update[" + currentLSN + "]:"
-                                        + tempKeyTxnEntityId);
-                            }
-                        }
-                        break;
-                    case LogType.ENTITY_COMMIT:
-                        if (activePartitions.contains(logRecord.getResourcePartition())) {
-                            jobLoserEntity2LSNsMap.remove(tempKeyTxnEntityId);
-                            entityCommitLogCount++;
-                            if (IS_DEBUG_MODE) {
-                                LOGGER.info(Thread.currentThread().getId() + "======> entity_commit[" + currentLSN + "]"
-                                        + tempKeyTxnEntityId);
-                            }
-                        }
-                        break;
-                    case LogType.JOB_COMMIT:
-                        throw new ACIDException("Unexpected LogType(" + logRecord.getLogType() + ") during abort.");
-                    case LogType.ABORT:
-                    case LogType.FLUSH:
-                    case LogType.WAIT:
-                    case LogType.MARKER:
-                        //ignore
-                        break;
-                    default:
-                        throw new ACIDException("Unsupported LogType: " + logRecord.getLogType());
-                }
+                return;
             }
 
-            if (currentLSN != lastLSN) {
-                throw new ACIDException("LastLSN mismatch: lastLSN(" + lastLSN + ") vs currentLSN(" + currentLSN
-                        + ") during abort( " + txnContext.getTxnId() + ")");
+            // While reading log records from firstLsn to lastLsn, collect uncommitted txn's Lsns
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info("collecting loser transaction's LSNs from " + firstLSN + " to " + lastLSN);
             }
 
-            //undo loserTxn's effect
-            LOGGER.log(Level.INFO, "undoing loser transaction's effect");
-
-            IDatasetLifecycleManager datasetLifecycleManager = txnSubsystem.getAsterixAppRuntimeContextProvider()
-                    .getDatasetLifecycleManager();
-            //TODO sort loser entities by smallest LSN to undo in one pass.
-            Iterator<Entry<TxnEntityId, List<Long>>> iter = jobLoserEntity2LSNsMap.entrySet().iterator();
-            int undoCount = 0;
-            while (iter.hasNext()) {
-                Map.Entry<TxnEntityId, List<Long>> loserEntity2LSNsMap = iter.next();
-                undoLSNSet = loserEntity2LSNsMap.getValue();
-                // The step below is important since the upsert operations must be done in reverse order.
-                Collections.reverse(undoLSNSet);
-                for (long undoLSN : undoLSNSet) {
-                    //here, all the log records are UPDATE type. So, we don't need to check the type again.
-                    //read the corresponding log record to be undone.
-                    logRecord = logReader.read(undoLSN);
+            Map<TxnEntityId, List<Long>> jobLoserEntity2LSNsMap = new HashMap<>();
+            TxnEntityId tempKeyTxnEntityId = new TxnEntityId(-1, -1, -1, null, -1, false);
+            int updateLogCount = 0;
+            int entityCommitLogCount = 0;
+            long logTxnId;
+            long currentLSN = -1;
+            TxnEntityId loserEntity;
+            List<Long> undoLSNSet = null;
+            //get active partitions on this node
+            Set<Integer> activePartitions = localResourceRepository.getActivePartitions();
+            ILogReader logReader = logMgr.getLogReader(false);
+            try {
+                logReader.setPosition(firstLSN);
+                ILogRecord logRecord = null;
+                while (currentLSN < lastLSN) {
+                    logRecord = logReader.next();
                     if (logRecord == null) {
-                        throw new ACIDException("IllegalState exception during abort( " + txnContext.getTxnId() + ")");
-                    }
-                    if (IS_DEBUG_MODE) {
-                        LOGGER.info(logRecord.getLogRecordForDisplay());
-                    }
-                    undo(logRecord, datasetLifecycleManager);
-                    undoCount++;
-                }
-            }
+                        break;
+                    } else {
+                        currentLSN = logRecord.getLSN();
 
-            if (LOGGER.isInfoEnabled()) {
-                LOGGER.info("undone loser transaction's effect");
-                LOGGER.info("[RecoveryManager's rollback log count] update/entityCommit/undo:" + updateLogCount + "/"
-                        + entityCommitLogCount + "/" + undoCount);
+                        if (IS_DEBUG_MODE) {
+                            LOGGER.info(logRecord.getLogRecordForDisplay());
+                        }
+                    }
+                    logTxnId = logRecord.getTxnId();
+                    if (logTxnId != abortedTxnId) {
+                        continue;
+                    }
+                    tempKeyTxnEntityId.setTxnId(logTxnId, logRecord.getDatasetId(), logRecord.getPKHashValue(),
+                            logRecord.getPKValue(), logRecord.getPKValueSize());
+                    switch (logRecord.getLogType()) {
+                        case LogType.UPDATE:
+                            if (activePartitions.contains(logRecord.getResourcePartition())) {
+                                undoLSNSet = jobLoserEntity2LSNsMap.get(tempKeyTxnEntityId);
+                                if (undoLSNSet == null) {
+                                    loserEntity = new TxnEntityId(logTxnId, logRecord.getDatasetId(),
+                                            logRecord.getPKHashValue(), logRecord.getPKValue(),
+                                            logRecord.getPKValueSize(), true);
+                                    undoLSNSet = new LinkedList<>();
+                                    jobLoserEntity2LSNsMap.put(loserEntity, undoLSNSet);
+                                }
+                                undoLSNSet.add(currentLSN);
+                                updateLogCount++;
+                                if (IS_DEBUG_MODE) {
+                                    LOGGER.info(Thread.currentThread().getId() + "======> update[" + currentLSN + "]:"
+                                            + tempKeyTxnEntityId);
+                                }
+                            }
+                            break;
+                        case LogType.ENTITY_COMMIT:
+                            if (activePartitions.contains(logRecord.getResourcePartition())) {
+                                jobLoserEntity2LSNsMap.remove(tempKeyTxnEntityId);
+                                entityCommitLogCount++;
+                                if (IS_DEBUG_MODE) {
+                                    LOGGER.info(Thread.currentThread().getId() + "======> entity_commit[" + currentLSN
+                                            + "]" + tempKeyTxnEntityId);
+                                }
+                            }
+                            break;
+                        case LogType.JOB_COMMIT:
+                            throw new ACIDException("Unexpected LogType(" + logRecord.getLogType() + ") during abort.");
+                        case LogType.ABORT:
+                        case LogType.FLUSH:
+                        case LogType.WAIT:
+                        case LogType.MARKER:
+                            //ignore
+                            break;
+                        default:
+                            throw new ACIDException("Unsupported LogType: " + logRecord.getLogType());
+                    }
+                }
+
+                if (currentLSN != lastLSN) {
+                    throw new ACIDException("LastLSN mismatch: lastLSN(" + lastLSN + ") vs currentLSN(" + currentLSN
+                            + ") during abort( " + txnContext.getTxnId() + ")");
+                }
+
+                //undo loserTxn's effect
+                LOGGER.log(Level.INFO, "undoing loser transaction's effect");
+
+                IDatasetLifecycleManager datasetLifecycleManager =
+                        txnSubsystem.getAsterixAppRuntimeContextProvider().getDatasetLifecycleManager();
+                //TODO sort loser entities by smallest LSN to undo in one pass.
+                Iterator<Entry<TxnEntityId, List<Long>>> iter = jobLoserEntity2LSNsMap.entrySet().iterator();
+                int undoCount = 0;
+                while (iter.hasNext()) {
+                    Map.Entry<TxnEntityId, List<Long>> loserEntity2LSNsMap = iter.next();
+                    undoLSNSet = loserEntity2LSNsMap.getValue();
+                    // The step below is important since the upsert operations must be done in reverse order.
+                    Collections.reverse(undoLSNSet);
+                    for (long undoLSN : undoLSNSet) {
+                        //here, all the log records are UPDATE type. So, we don't need to check the type again.
+                        //read the corresponding log record to be undone.
+                        logRecord = logReader.read(undoLSN);
+                        if (logRecord == null) {
+                            throw new ACIDException(
+                                    "IllegalState exception during abort( " + txnContext.getTxnId() + ")");
+                        }
+                        if (IS_DEBUG_MODE) {
+                            LOGGER.info(logRecord.getLogRecordForDisplay());
+                        }
+                        undo(logRecord, datasetLifecycleManager);
+                        undoCount++;
+                    }
+                }
+
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info("undone loser transaction's effect");
+                    LOGGER.info("[RecoveryManager's rollback log count] update/entityCommit/undo:" + updateLogCount
+                            + "/" + entityCommitLogCount + "/" + undoCount);
+                }
+            } finally {
+                logReader.close();
             }
         } finally {
-            logReader.close();
+            logMgr.logScanLock().unlock();
         }
     }
 

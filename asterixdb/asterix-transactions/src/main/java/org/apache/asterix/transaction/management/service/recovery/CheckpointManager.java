@@ -62,19 +62,24 @@ public class CheckpointManager extends AbstractCheckpointManager {
     @Override
     public synchronized long tryCheckpoint(long checkpointTargetLSN) throws HyracksDataException {
         LOGGER.info("Attemping soft checkpoint...");
-        final long minFirstLSN = txnSubsystem.getRecoveryManager().getMinFirstLSN();
-        boolean checkpointSucceeded = minFirstLSN >= checkpointTargetLSN;
-        if (!checkpointSucceeded) {
-            // Flush datasets with indexes behind target checkpoint LSN
-            IDatasetLifecycleManager datasetLifecycleManager = txnSubsystem.getAsterixAppRuntimeContextProvider()
-                    .getDatasetLifecycleManager();
-            datasetLifecycleManager.scheduleAsyncFlushForLaggingDatasets(checkpointTargetLSN);
+        try {
+            txnSubsystem.getLogManager().logScanLock().lock();
+            final long minFirstLSN = txnSubsystem.getRecoveryManager().getMinFirstLSN();
+            boolean checkpointSucceeded = minFirstLSN >= checkpointTargetLSN;
+            if (!checkpointSucceeded) {
+                // Flush datasets with indexes behind target checkpoint LSN
+                IDatasetLifecycleManager datasetLifecycleManager =
+                        txnSubsystem.getAsterixAppRuntimeContextProvider().getDatasetLifecycleManager();
+                datasetLifecycleManager.scheduleAsyncFlushForLaggingDatasets(checkpointTargetLSN);
+            }
+            capture(minFirstLSN, false);
+            if (checkpointSucceeded) {
+                txnSubsystem.getLogManager().deleteOldLogFiles(minFirstLSN);
+                LOGGER.info(String.format("soft checkpoint succeeded at LSN(%s)", minFirstLSN));
+            }
+            return minFirstLSN;
+        } finally {
+            txnSubsystem.getLogManager().logScanLock().unlock();
         }
-        capture(minFirstLSN, false);
-        if (checkpointSucceeded) {
-            txnSubsystem.getLogManager().deleteOldLogFiles(minFirstLSN);
-            LOGGER.info(String.format("soft checkpoint succeeded at LSN(%s)", minFirstLSN));
-        }
-        return minFirstLSN;
     }
 }

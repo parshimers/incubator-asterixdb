@@ -35,6 +35,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.replication.IReplicationManager;
@@ -89,6 +91,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     private LogFlusher logFlusher;
     private Future<? extends Object> futureLogFlusher;
     protected LinkedBlockingQueue<ILogRecord> flushLogsQ;
+    private Lock logScanLock;
 
     public LogManager(ITransactionSubsystem txnSubsystem) {
         this.txnSubsystem = txnSubsystem;
@@ -104,6 +107,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
         nodeId = txnSubsystem.getId();
         flushLogsQ = new LinkedBlockingQueue<>();
         flushLogsLogger = new FlushLogsLogger();
+        logScanLock = new ReentrantLock();
         initializeLogManager(SMALLEST_LOG_FILE_ID);
     }
 
@@ -630,6 +634,11 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
                 }
             }
         }
+    }
+
+    @Override
+    public Lock logScanLock(){
+        return logScanLock;
     }
 }
 

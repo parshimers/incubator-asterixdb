@@ -20,6 +20,8 @@ package org.apache.asterix.common.transactions;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.replication.IReplicationManager;
@@ -32,35 +34,35 @@ public interface ILogManager {
      * @param logRecord
      * @throws ACIDException
      */
-    public void log(ILogRecord logRecord) throws ACIDException;
+    void log(ILogRecord logRecord) throws ACIDException;
 
     /**
      * @param isRecoveryMode
      * @returnLogReader instance which enables reading the log files
      */
-    public ILogReader getLogReader(boolean isRecoveryMode);
+    ILogReader getLogReader(boolean isRecoveryMode);
 
     /**
      * @return the last LSN the log manager used
      */
-    public long getAppendLSN();
+    long getAppendLSN();
 
     /**
      * Deletes all log partitions which have a maximum LSN less than checkpointLSN
      *
      * @param checkpointLSN
      */
-    public void deleteOldLogFiles(long checkpointLSN);
+    void deleteOldLogFiles(long checkpointLSN);
 
     /**
      * @return the smallest readable LSN on the current log partitions
      */
-    public long getReadableSmallestLSN();
+    long getReadableSmallestLSN();
 
     /**
      * @return The local NC ID
      */
-    public String getNodeId();
+    String getNodeId();
 
     /**
      * Delete all log files and start new log partition > LSNtoStartFrom
@@ -68,23 +70,23 @@ public interface ILogManager {
      * @param LSNtoStartFrom
      * @throws IOException
      */
-    public void renewLogFilesAndStartFromLSN(long LSNtoStartFrom) throws IOException;
+    void renewLogFilesAndStartFromLSN(long LSNtoStartFrom) throws IOException;
 
     /**
      * @return the log page size in bytes
      */
-    public int getLogPageSize();
+    int getLogPageSize();
 
     /**
      * @param replicationManager
      *            the replication manager to be used to replicate logs
      */
-    public void setReplicationManager(IReplicationManager replicationManager);
+    void setReplicationManager(IReplicationManager replicationManager);
 
     /**
      * @return the number of log pages
      */
-    public int getNumLogPages();
+    int getNumLogPages();
 
     /**
      * Opens a file channel to the log file which contains {@code LSN}.
@@ -95,7 +97,7 @@ public interface ILogManager {
      * @throws IOException
      *             if the log file does not exist.
      */
-    public TxnLogFile getLogFile(long LSN) throws IOException;
+    TxnLogFile getLogFile(long LSN) throws IOException;
 
     /**
      * Closes the log file.
@@ -104,10 +106,12 @@ public interface ILogManager {
      * @param fileChannel
      * @throws IOException
      */
-    public void closeLogFile(TxnLogFile logFileRef, FileChannel fileChannel) throws IOException;
+    void closeLogFile(TxnLogFile logFileRef, FileChannel fileChannel) throws IOException;
 
     /**
      * Deletes all current log files and start the next log file partition
      */
     void renewLogFiles();
+
+    Lock logScanLock();
 }
