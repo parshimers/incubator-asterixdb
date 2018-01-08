@@ -24,7 +24,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.CRC32;
 
 import org.apache.asterix.common.context.PrimaryIndexOperationTracker;
-import org.apache.asterix.common.replication.IReplicationThread;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.common.tuples.SimpleTupleReference;
 import org.apache.hyracks.storage.am.common.tuples.SimpleTupleWriter;
@@ -96,18 +95,19 @@ public class LogRecord implements ILogRecord {
     private final CRC32 checksumGen;
     private int[] PKFields;
     private PrimaryIndexOperationTracker opTracker;
-    private IReplicationThread replicationThread;
+
     /**
      * The fields (numOfFlushedIndexes and nodeId) are used for remote flush logs only
      * to indicate the source of the log and how many indexes were flushed using its LSN.
      */
-    private int numOfFlushedIndexes;
-    private String nodeId;
-    private boolean replicated = false;
+    private final AtomicBoolean replicated;
+    private boolean replicate = false;
+    private ILogRequester requester;
 
     public LogRecord(ILogMarkerCallback callback) {
         this.callback = callback;
         isFlushed = new AtomicBoolean(false);
+        replicated = new AtomicBoolean(false);
         readPKValue = new PrimaryKeyTupleReference();
         readNewValue = SimpleTupleWriter.INSTANCE.createTupleReference();
         readOldValue = SimpleTupleWriter.INSTANCE.createTupleReference();
@@ -194,9 +194,6 @@ public class LogRecord implements ILogRecord {
         doWriteLogRecord(buffer);
         if (logType == LogType.FLUSH) {
             buffer.putLong(LSN);
-            buffer.putInt(numOfFlushedIndexes);
-            buffer.putInt(nodeId.length());
-            buffer.put(nodeId.getBytes());
         }
     }
 
@@ -401,12 +398,6 @@ public class LogRecord implements ILogRecord {
 
         if (logType == LogType.FLUSH) {
             LSN = buffer.getLong();
-            numOfFlushedIndexes = buffer.getInt();
-            //read serialized node id
-            int nodeIdLength = buffer.getInt();
-            byte[] nodeIdBytes = new byte[nodeIdLength];
-            buffer.get(nodeIdBytes);
-            nodeId = new String(nodeIdBytes);
         }
     }
 
@@ -594,10 +585,6 @@ public class LogRecord implements ILogRecord {
         if (logType == LogType.FLUSH) {
             //LSN
             remoteLogSize += Long.BYTES;
-            //num of indexes
-            remoteLogSize += Integer.BYTES;
-            //serialized node id String
-            remoteLogSize += Integer.BYTES + nodeId.length();
         }
         remoteLogSize -= CHKSUM_LEN;
         return remoteLogSize;
@@ -680,25 +667,6 @@ public class LogRecord implements ILogRecord {
     }
 
     @Override
-    public String getNodeId() {
-        return nodeId;
-    }
-
-    @Override
-    public void setNodeId(String nodeId) {
-        this.nodeId = nodeId;
-    }
-
-    public IReplicationThread getReplicationThread() {
-        return replicationThread;
-    }
-
-    @Override
-    public void setReplicationThread(IReplicationThread replicationThread) {
-        this.replicationThread = replicationThread;
-    }
-
-    @Override
     public void setLogSource(byte logSource) {
         this.logSource = logSource;
     }
@@ -706,14 +674,6 @@ public class LogRecord implements ILogRecord {
     @Override
     public byte getLogSource() {
         return logSource;
-    }
-
-    public int getNumOfFlushedIndexes() {
-        return numOfFlushedIndexes;
-    }
-
-    public void setNumOfFlushedIndexes(int numOfFlushedIndexes) {
-        this.numOfFlushedIndexes = numOfFlushedIndexes;
     }
 
     public void setPKFieldCnt(int pKFieldCnt) {
@@ -735,13 +695,13 @@ public class LogRecord implements ILogRecord {
     }
 
     @Override
-    public void setReplicated(boolean replicate) {
-        this.replicated = replicate;
+    public void setReplicated(boolean replicated) {
+        this.replicated.set(replicated);
     }
 
     @Override
     public boolean isReplicated() {
-        return replicated;
+        return replicated.get();
     }
 
     @Override
@@ -782,5 +742,23 @@ public class LogRecord implements ILogRecord {
     @Override
     public ByteBuffer getMarker() {
         return marker;
+    }
+
+    @Override
+    public void setReplicate(boolean replicate) {
+        this.replicate = replicate;
+    }
+
+    @Override
+    public boolean isReplicate() {
+        return replicate;
+    }
+
+    public ILogRequester getRequester() {
+        return requester;
+    }
+
+    public void setRequester(ILogRequester requester) {
+        this.requester = requester;
     }
 }
