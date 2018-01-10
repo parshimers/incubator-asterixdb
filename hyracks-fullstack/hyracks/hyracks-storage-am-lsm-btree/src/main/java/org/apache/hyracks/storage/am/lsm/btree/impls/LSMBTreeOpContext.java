@@ -86,15 +86,9 @@ public final class LSMBTreeOpContext extends AbstractLSMIndexOperationContext {
         mutableBTreeOpCtxs = new BTreeOpContext[mutableComponents.size()];
         for (int i = 0; i < mutableComponents.size(); i++) {
             LSMBTreeMemoryComponent mutableComponent = (LSMBTreeMemoryComponent) mutableComponents.get(i);
-            mutableBTrees[i] = mutableComponent.getIndex();
-            if (allFields != null) {
-                mutableBTreeAccessors[i] = mutableBTrees[i].createAccessor(modificationCallback,
-                        NoOpOperationCallback.INSTANCE, allFields);
-            } else {
-                IIndexAccessParameters iap =
-                        new IndexAccessParameters(modificationCallback, NoOpOperationCallback.INSTANCE);
-                mutableBTreeAccessors[i] = mutableBTrees[i].createAccessor(iap);
-            }
+            mutableBTrees[i] = mutableComponent.getBTree();
+            mutableBTreeAccessors[i] = (BTree.BTreeAccessor) mutableBTrees[i].createAccessor(modificationCallback,
+                    NoOpOperationCallback.INSTANCE);
             mutableBTreeOpCtxs[i] = mutableBTreeAccessors[i].getOpContext();
         }
         this.insertLeafFrameFactory = insertLeafFrameFactory;

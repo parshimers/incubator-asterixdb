@@ -293,7 +293,6 @@ public class LSMRTree extends AbstractLSMRTree {
         if (ctx.getIndexTuple() != null) {
             ctx.getIndexTuple().reset(tuple);
             indexTuple = ctx.getIndexTuple();
-            ctx.getCurrentMutableRTreeAccessor().getOpContext().resetNonIndexFieldsTuple(tuple);
         } else {
             indexTuple = tuple;
         }
