@@ -33,7 +33,7 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMemoryComponent;
 import org.apache.hyracks.storage.am.common.api.IExtendedModificationOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndexOperationContext;
-import org.apache.hyracks.storage.am.lsm.common.impls.LSMNoOpOperationCallback;
+import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.rtree.impls.RTree;
 import org.apache.hyracks.storage.am.rtree.impls.RTreeOpContext;
 import org.apache.hyracks.storage.common.ISearchOperationCallback;
@@ -68,9 +68,9 @@ public final class LSMRTreeOpContext extends AbstractLSMIndexOperationContext {
         for (int i = 0; i < mutableComponents.size(); i++) {
             LSMRTreeMemoryComponent mutableComponent = (LSMRTreeMemoryComponent) mutableComponents.get(i);
             mutableRTreeAccessors[i] = mutableComponent.getIndex().createAccessor(
-                    new IndexAccessParameters(LSMNoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE));
+                    new IndexAccessParameters(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE));
             mutableBTreeAccessors[i] = mutableComponent.getBuddyIndex().createAccessor(
-                    new IndexAccessParameters(LSMNoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE));
+                    new IndexAccessParameters(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE));
 
             rtreeOpContexts[i] = mutableRTreeAccessors[i].getOpContext();
             btreeOpContexts[i] = mutableBTreeAccessors[i].getOpContext();

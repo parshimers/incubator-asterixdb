@@ -60,7 +60,7 @@ public class PrefixMergePolicy implements ILSMMergePolicy {
 
         if (fullMergeIsRequested) {
             ILSMIndexAccessor accessor = index.createAccessor
-                    (LSMNoOpIndexAccessParameters.INSTANCE);
+                    (NoOpIndexAccessParameters.INSTANCE);
             accessor.scheduleFullMerge(index.getIOOperationCallback());
             return;
         }
@@ -246,7 +246,7 @@ public class PrefixMergePolicy implements ILSMMergePolicy {
         // Reverse the components order back to its original order
         Collections.reverse(mergableComponents);
         ILSMIndexAccessor accessor = index.createAccessor
-                (LSMNoOpIndexAccessParameters.INSTANCE);
+                (NoOpIndexAccessParameters.INSTANCE);
         accessor.scheduleMerge(index.getIOOperationCallback(), mergableComponents);
     }
 

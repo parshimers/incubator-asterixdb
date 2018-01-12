@@ -26,6 +26,7 @@ import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.common.api.IMetadataPageManager;
 import org.apache.hyracks.storage.am.common.api.ITreeIndex;
 import org.apache.hyracks.storage.am.common.freepage.MutableArrayValueReference;
+import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentFilter;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentFilterFrameFactory;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentFilterManager;
@@ -81,7 +82,7 @@ public class LSMComponentFilterManager implements ILSMComponentFilterManager {
         List<ITupleReference> filterTuples = new ArrayList<>();
         filterTuples.add(filterFrame.getMinTuple());
         filterTuples.add(filterFrame.getMaxTuple());
-        updateFilter(filter, filterTuples, LSMNoOpOperationCallback.INSTANCE);
+        updateFilter(filter, filterTuples, NoOpOperationCallback.INSTANCE);
         return true;
     }
 

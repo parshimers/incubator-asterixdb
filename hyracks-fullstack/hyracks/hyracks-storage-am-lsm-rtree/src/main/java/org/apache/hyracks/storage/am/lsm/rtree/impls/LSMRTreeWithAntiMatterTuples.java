@@ -53,7 +53,7 @@ import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndexOperationC
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentFileReferences;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentFilterManager;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMIndexSearchCursor;
-import org.apache.hyracks.storage.am.lsm.common.impls.LSMNoOpOperationCallback;
+import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMTreeIndexAccessor;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMTreeIndexAccessor.ICursorFactory;
 import org.apache.hyracks.storage.am.lsm.common.impls.MergeOperation;
@@ -167,7 +167,7 @@ public class LSMRTreeWithAntiMatterTuples extends AbstractLSMRTree {
             filterTuples.add(flushingComponent.getLSMComponentFilter().getMinTuple());
             filterTuples.add(flushingComponent.getLSMComponentFilter().getMaxTuple());
             getFilterManager().updateFilter(component.getLSMComponentFilter(), filterTuples,
-                    LSMNoOpOperationCallback.INSTANCE);
+                    NoOpOperationCallback.INSTANCE);
             getFilterManager().writeFilter(component.getLSMComponentFilter(), component.getMetadataHolder());
         }
         flushingComponent.getMetadata().copy(component.getMetadata());
@@ -205,7 +205,7 @@ public class LSMRTreeWithAntiMatterTuples extends AbstractLSMRTree {
                 filterTuples.add(mergeOp.getMergingComponents().get(i).getLSMComponentFilter().getMaxTuple());
             }
             getFilterManager().updateFilter(component.getLSMComponentFilter(), filterTuples,
-                    LSMNoOpOperationCallback.INSTANCE);
+                    NoOpOperationCallback.INSTANCE);
             getFilterManager().writeFilter(component.getLSMComponentFilter(), component.getMetadataHolder());
         }
 
@@ -216,7 +216,8 @@ public class LSMRTreeWithAntiMatterTuples extends AbstractLSMRTree {
 
     @Override
     public ILSMIndexAccessor createAccessor(IIndexAccessParameters iap) {
-        LSMRTreeOpContext opCtx = createOpContext(((IExtendedModificationOperationCallback) (iap.getModificationCallback())),
+        LSMRTreeOpContext opCtx =
+                createOpContext(((IExtendedModificationOperationCallback) iap.getModificationCallback()),
                 iap.getSearchOperationCallback());
         return new LSMTreeIndexAccessor(getHarness(), opCtx, cursorFactory);
     }

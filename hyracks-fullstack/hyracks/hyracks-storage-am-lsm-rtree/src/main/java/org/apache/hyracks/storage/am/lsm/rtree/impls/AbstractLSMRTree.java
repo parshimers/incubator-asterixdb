@@ -236,15 +236,6 @@ public abstract class AbstractLSMRTree extends AbstractLSMIndex implements ITree
                 comparatorFields, linearizerArray, getFilterCmpFactories(), tracer);
     }
 
-    protected LSMRTreeOpContext createRecoveryOpContext
-            (IExtendedModificationOperationCallback modCallback,
-                    ISearchOperationCallback searchCallback) {
-        return new LSMRTreeOpContext(this, memoryComponents, rtreeLeafFrameFactory, rtreeInteriorFrameFactory,
-                btreeLeafFrameFactory, modCallback, searchCallback,
-                getTreeFields(), null, getHarness(),
-                comparatorFields, linearizerArray, getFilterCmpFactories(), tracer);
-    }
-
     @Override
     public IBinaryComparatorFactory[] getComparatorFactories() {
         return rtreeCmpFactories;

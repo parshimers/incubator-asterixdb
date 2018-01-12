@@ -56,7 +56,7 @@ import org.apache.hyracks.storage.am.lsm.common.api.IVirtualBufferCache;
 import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndexOperationContext;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentFileReferences;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentFilterManager;
-import org.apache.hyracks.storage.am.lsm.common.impls.LSMNoOpOperationCallback;
+import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.rtree.frames.RTreeFrameFactory;
 import org.apache.hyracks.storage.am.rtree.impls.RTree.RTreeAccessor;
 import org.apache.hyracks.storage.am.rtree.impls.RTreeSearchCursor;
@@ -201,7 +201,7 @@ public class LSMRTree extends AbstractLSMRTree {
             filterTuples.add(flushingComponent.getLSMComponentFilter().getMinTuple());
             filterTuples.add(flushingComponent.getLSMComponentFilter().getMaxTuple());
             getFilterManager().updateFilter(component.getLSMComponentFilter(), filterTuples,
-                    LSMNoOpOperationCallback.INSTANCE);
+                    NoOpOperationCallback.INSTANCE);
             getFilterManager().writeFilter(component.getLSMComponentFilter(), component.getMetadataHolder());
         }
         // Note. If we change the filter to write to metadata object, we don't need the if block above
@@ -269,7 +269,7 @@ public class LSMRTree extends AbstractLSMRTree {
                 filterTuples.add(mergeOp.getMergingComponents().get(i).getLSMComponentFilter().getMaxTuple());
             }
             getFilterManager().updateFilter(mergedComponent.getLSMComponentFilter(), filterTuples,
-                    LSMNoOpOperationCallback.INSTANCE);
+                    NoOpOperationCallback.INSTANCE);
             getFilterManager().writeFilter(mergedComponent.getLSMComponentFilter(),
                     mergedComponent.getMetadataHolder());
         }

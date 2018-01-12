@@ -151,7 +151,6 @@ public class LogRecord implements ILogRecord {
                 buffer.put(newOp);
                 buffer.putInt(newValueSize);
                 writeTuple(buffer, newValue, newValueSize);
-                System.out.println(newValueSize);
                 break;
             case LogType.FLUSH:
                 buffer.putInt(datasetId);
