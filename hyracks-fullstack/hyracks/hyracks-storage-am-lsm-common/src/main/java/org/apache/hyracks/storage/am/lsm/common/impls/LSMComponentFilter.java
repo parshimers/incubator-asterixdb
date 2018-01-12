@@ -79,10 +79,8 @@ public class LSMComponentFilter implements ILSMComponentFilter {
         } else {
             int c = cmp.compare(tuple, minTuple);
             if (c < 0) {
-                if (!logged) {
-                    opCallback.after(tuple);
-                    logged = true;
-                }
+                opCallback.after(tuple);
+                logged = true;
                 int numBytes = tupleWriter.bytesRequired(tuple);
                 if (minTupleBytes.length < numBytes) {
                     minTupleBytes = new byte[numBytes];
@@ -99,7 +97,6 @@ public class LSMComponentFilter implements ILSMComponentFilter {
             maxTupleBytes = new byte[numBytes];
             if (!logged) {
                 opCallback.after(tuple);
-                logged = true;
             }
             tupleWriter.writeTuple(tuple, maxTupleBytes, 0);
             maxTupleBuf = ByteBuffer.wrap(maxTupleBytes);
