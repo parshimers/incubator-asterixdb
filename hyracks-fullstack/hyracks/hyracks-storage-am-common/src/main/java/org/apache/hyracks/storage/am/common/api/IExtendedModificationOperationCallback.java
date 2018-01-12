@@ -23,7 +23,7 @@ import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.common.IModificationOperationCallback;
 
 public interface IExtendedModificationOperationCallback extends
-        IModificationOperationCallback{
+        IModificationOperationCallback {
     /**
      * Called after the action taken in found, to take action on a tuple that is not part of the index
      * itself but is part of an ancillary structure that is updated alongside the index. An example would

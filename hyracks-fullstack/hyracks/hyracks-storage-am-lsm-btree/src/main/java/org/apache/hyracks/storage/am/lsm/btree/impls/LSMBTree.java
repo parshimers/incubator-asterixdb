@@ -375,7 +375,7 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
 
     @Override
     public ILSMIndexAccessor createAccessor(IIndexAccessParameters iap) {
-        return createAccessor(createOpContext(((IExtendedModificationOperationCallback) (iap.getModificationCallback())),
+        return createAccessor(createOpContext((IExtendedModificationOperationCallback) iap.getModificationCallback(),
                 iap.getSearchOperationCallback()));
     }
 

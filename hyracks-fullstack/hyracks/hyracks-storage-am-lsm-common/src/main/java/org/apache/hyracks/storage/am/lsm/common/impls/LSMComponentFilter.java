@@ -64,9 +64,8 @@ public class LSMComponentFilter implements ILSMComponentFilter {
     }
 
     @Override
-    public void update(ITupleReference tuple, MultiComparator cmp,
-            IExtendedModificationOperationCallback opCallback) throws
-            HyracksDataException {
+    public void update(ITupleReference tuple, MultiComparator cmp, IExtendedModificationOperationCallback opCallback)
+            throws HyracksDataException {
         boolean logged = false;
         if (minTuple == null) {
             int numBytes = tupleWriter.bytesRequired(tuple);
@@ -80,7 +79,7 @@ public class LSMComponentFilter implements ILSMComponentFilter {
         } else {
             int c = cmp.compare(tuple, minTuple);
             if (c < 0) {
-                if(!logged) {
+                if (!logged) {
                     opCallback.after(tuple);
                     logged = true;
                 }
@@ -98,7 +97,7 @@ public class LSMComponentFilter implements ILSMComponentFilter {
         if (maxTuple == null) {
             int numBytes = tupleWriter.bytesRequired(tuple);
             maxTupleBytes = new byte[numBytes];
-            if(!logged) {
+            if (!logged) {
                 opCallback.after(tuple);
                 logged = true;
             }
@@ -109,7 +108,7 @@ public class LSMComponentFilter implements ILSMComponentFilter {
         } else {
             int c = cmp.compare(tuple, maxTuple);
             if (c > 0) {
-                if(!logged) {
+                if (!logged) {
                     opCallback.after(tuple);
                 }
                 int numBytes = tupleWriter.bytesRequired(tuple);
