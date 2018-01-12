@@ -42,7 +42,7 @@ import org.apache.asterix.common.utils.TransactionUtil;
 import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.lifecycle.ILifeCycleComponent;
-import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
+import org.apache.hyracks.storage.am.lsm.common.impls.LSMNoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentIdGenerator;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
@@ -217,7 +217,7 @@ public class DatasetLifecycleManager implements IDatasetLifecycleManager, ILifeC
 
     private static void flushAndWaitForIO(DatasetInfo dsInfo, IndexInfo iInfo) throws HyracksDataException {
         if (iInfo.isOpen()) {
-            ILSMIndexAccessor accessor = iInfo.getIndex().createAccessor(NoOpIndexAccessParameters.INSTANCE);
+            ILSMIndexAccessor accessor = iInfo.getIndex().createAccessor(LSMNoOpIndexAccessParameters.INSTANCE);
             accessor.scheduleFlush(iInfo.getIndex().getIOOperationCallback());
         }
 
@@ -425,7 +425,7 @@ public class DatasetLifecycleManager implements IDatasetLifecycleManager, ILifeC
 
         if (asyncFlush) {
             for (IndexInfo iInfo : dsInfo.getIndexes().values()) {
-                ILSMIndexAccessor accessor = iInfo.getIndex().createAccessor(NoOpIndexAccessParameters.INSTANCE);
+                ILSMIndexAccessor accessor = iInfo.getIndex().createAccessor(LSMNoOpIndexAccessParameters.INSTANCE);
                 accessor.scheduleFlush(iInfo.getIndex().getIOOperationCallback());
             }
         } else {

@@ -51,6 +51,7 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexFileManager;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicy;
+import org.apache.hyracks.storage.am.common.api.IExtendedModificationOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMOperationTracker;
 import org.apache.hyracks.storage.am.lsm.common.api.IVirtualBufferCache;
 import org.apache.hyracks.storage.am.lsm.common.freepage.VirtualFreePageManager;
@@ -59,6 +60,7 @@ import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndexOperationC
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentFileReferences;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentFilterManager;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMIndexSearchCursor;
+import org.apache.hyracks.storage.am.lsm.common.impls.LSMNoOpOperationCallback;
 import org.apache.hyracks.storage.am.lsm.invertedindex.api.IInvertedIndex;
 import org.apache.hyracks.storage.am.lsm.invertedindex.inmemory.InMemoryInvertedIndex;
 import org.apache.hyracks.storage.am.lsm.invertedindex.inmemory.InMemoryInvertedIndexAccessor;
@@ -69,7 +71,6 @@ import org.apache.hyracks.storage.common.ICursorInitialState;
 import org.apache.hyracks.storage.common.IIndexAccessParameters;
 import org.apache.hyracks.storage.common.IIndexAccessor;
 import org.apache.hyracks.storage.common.IIndexCursor;
-import org.apache.hyracks.storage.common.IModificationOperationCallback;
 import org.apache.hyracks.storage.common.ISearchOperationCallback;
 import org.apache.hyracks.storage.common.ISearchPredicate;
 import org.apache.hyracks.storage.common.MultiComparator;
@@ -332,7 +333,8 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
             List<ITupleReference> filterTuples = new ArrayList<>();
             filterTuples.add(flushingComponent.getLSMComponentFilter().getMinTuple());
             filterTuples.add(flushingComponent.getLSMComponentFilter().getMaxTuple());
-            filterManager.updateFilter(component.getLSMComponentFilter(), filterTuples);
+            filterManager.updateFilter(component.getLSMComponentFilter(), filterTuples,
+                    LSMNoOpOperationCallback.INSTANCE);
             filterManager.writeFilter(component.getLSMComponentFilter(), component.getMetadataHolder());
         }
         flushingComponent.getMetadata().copy(component.getMetadata());
@@ -409,7 +411,8 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
                     filterTuples.add(max);
                 }
             }
-            getFilterManager().updateFilter(component.getLSMComponentFilter(), filterTuples);
+            getFilterManager().updateFilter(component.getLSMComponentFilter(), filterTuples,
+                    LSMNoOpOperationCallback.INSTANCE);
             getFilterManager().writeFilter(component.getLSMComponentFilter(), component.getMetadataHolder());
         }
 
@@ -428,14 +431,21 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
     @Override
     public ILSMIndexAccessor createAccessor(IIndexAccessParameters iap) throws HyracksDataException {
         return new LSMInvertedIndexAccessor(getHarness(),
-                createOpContext(iap.getModificationCallback(), iap.getSearchOperationCallback()));
+                createOpContext((IExtendedModificationOperationCallback) (iap.getModificationCallback()),
+                        iap.getSearchOperationCallback()));
     }
 
     @Override
-    protected LSMInvertedIndexOpContext createOpContext(IModificationOperationCallback modificationCallback,
+    protected LSMInvertedIndexOpContext createOpContext(IExtendedModificationOperationCallback modificationCallback,
             ISearchOperationCallback searchCallback) throws HyracksDataException {
         return new LSMInvertedIndexOpContext(this, memoryComponents, modificationCallback, searchCallback,
                 invertedIndexFieldsForNonBulkLoadOps, filterFieldsForNonBulkLoadOps, getFilterCmpFactories(), tracer);
+    }
+
+    protected LSMInvertedIndexOpContext createRecoveryOpContext(IExtendedModificationOperationCallback modificationCallback,
+            ISearchOperationCallback searchCallback) throws HyracksDataException {
+        return new LSMInvertedIndexOpContext(this, memoryComponents, modificationCallback, searchCallback,
+                invertedIndexFieldsForNonBulkLoadOps, null, null, tracer);
     }
 
     @Override

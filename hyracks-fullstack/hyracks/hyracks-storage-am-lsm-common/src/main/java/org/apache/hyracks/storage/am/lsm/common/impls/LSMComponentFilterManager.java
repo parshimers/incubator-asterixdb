@@ -30,6 +30,7 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentFilter;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentFilterFrameFactory;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentFilterManager;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentFilterReference;
+import org.apache.hyracks.storage.am.common.api.IExtendedModificationOperationCallback;
 import org.apache.hyracks.storage.common.MultiComparator;
 
 public class LSMComponentFilterManager implements ILSMComponentFilterManager {
@@ -42,11 +43,13 @@ public class LSMComponentFilterManager implements ILSMComponentFilterManager {
     }
 
     @Override
-    public void updateFilter(ILSMComponentFilter filter, List<ITupleReference> filterTuples)
+    public void updateFilter(ILSMComponentFilter filter,
+            List<ITupleReference> filterTuples,
+            IExtendedModificationOperationCallback operationCallback)
             throws HyracksDataException {
         MultiComparator filterCmp = MultiComparator.create(filter.getFilterCmpFactories());
         for (ITupleReference tuple : filterTuples) {
-            filter.update(tuple, filterCmp);
+            filter.update(tuple, filterCmp, operationCallback);
         }
     }
 
@@ -78,7 +81,7 @@ public class LSMComponentFilterManager implements ILSMComponentFilterManager {
         List<ITupleReference> filterTuples = new ArrayList<>();
         filterTuples.add(filterFrame.getMinTuple());
         filterTuples.add(filterFrame.getMaxTuple());
-        updateFilter(filter, filterTuples);
+        updateFilter(filter, filterTuples, LSMNoOpOperationCallback.INSTANCE);
         return true;
     }
 

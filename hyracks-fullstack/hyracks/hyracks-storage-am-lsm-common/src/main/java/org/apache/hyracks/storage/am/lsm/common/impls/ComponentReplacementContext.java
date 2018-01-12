@@ -31,7 +31,7 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentId;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
-import org.apache.hyracks.storage.common.IModificationOperationCallback;
+import org.apache.hyracks.storage.am.common.api.IExtendedModificationOperationCallback;
 import org.apache.hyracks.storage.common.ISearchOperationCallback;
 import org.apache.hyracks.storage.common.ISearchPredicate;
 import org.apache.hyracks.storage.common.MultiComparator;
@@ -90,7 +90,7 @@ public class ComponentReplacementContext implements ILSMIndexOperationContext {
     }
 
     @Override
-    public IModificationOperationCallback getModificationCallback() {
+    public IExtendedModificationOperationCallback getModificationCallback() {
         return null;
     }
 
@@ -212,5 +212,25 @@ public class ComponentReplacementContext implements ILSMIndexOperationContext {
     @Override
     public boolean isTracingEnabled() {
         return false;
+    }
+
+    @Override
+    public boolean isFilterSkipped() {
+        return false;
+    }
+
+    @Override
+    public void setFilterSkip(boolean skip){
+        //Do nada.
+    }
+
+    @Override
+    public boolean isRecovery() {
+        return false;
+    }
+
+    @Override
+    public void setRecovery(boolean recovery) {
+        //Do nada.
     }
 }

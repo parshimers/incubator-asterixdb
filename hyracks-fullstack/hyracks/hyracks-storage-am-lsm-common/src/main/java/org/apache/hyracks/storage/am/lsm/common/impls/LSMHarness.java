@@ -685,7 +685,8 @@ public class LSMHarness implements ILSMHarness {
 
     protected void triggerReplication(List<ILSMDiskComponent> lsmComponents, boolean bulkload, LSMOperationType opType)
             throws HyracksDataException {
-        ILSMIndexAccessor accessor = lsmIndex.createAccessor(NoOpIndexAccessParameters.INSTANCE);
+        ILSMIndexAccessor accessor = lsmIndex.createAccessor
+                (LSMNoOpIndexAccessParameters.INSTANCE);
         accessor.scheduleReplication(lsmComponents, bulkload, opType);
     }
 
@@ -715,21 +716,6 @@ public class LSMHarness implements ILSMHarness {
         if (!lsmIndex.isMemoryComponentsAllocated()) {
             lsmIndex.allocateMemoryComponents();
         }
-        lsmIndex.updateFilter(ctx, tuple);
-    }
-
-    @Override
-    public void updateFilter(ILSMIndexOperationContext ctx, ITupleReference tuple, boolean callback)
-            throws HyracksDataException {
-        if (!callback) {
-            updateFilter(ctx, tuple);
-            return;
-        }
-
-        if (!lsmIndex.isMemoryComponentsAllocated()) {
-            lsmIndex.allocateMemoryComponents();
-        }
-        ctx.getModificationCallback().after(tuple);
         lsmIndex.updateFilter(ctx, tuple);
     }
 

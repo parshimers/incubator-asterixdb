@@ -50,14 +50,4 @@ public interface IModificationOperationCallback {
      */
     void found(ITupleReference before, ITupleReference after) throws HyracksDataException;
 
-    /**
-     * Called after the action taken in found, to take action on a tuple that is not part of the index
-     * itself but is part of an ancillary structure that is updated alongside the index. An example would
-     * be a simple statistic on the index that records the minimum and maximum values.
-     *
-     * @param after The tuple to feed to the ancilliary structure
-     * @throws HyracksDataException
-     */
-
-    void after(ITupleReference after) throws HyracksDataException;
 }

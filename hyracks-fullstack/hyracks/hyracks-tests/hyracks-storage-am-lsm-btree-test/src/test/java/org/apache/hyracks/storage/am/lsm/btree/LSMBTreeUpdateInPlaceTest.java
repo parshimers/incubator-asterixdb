@@ -36,6 +36,7 @@ import org.apache.hyracks.storage.am.lsm.btree.util.LSMBTreeTestHarness;
 import org.apache.hyracks.storage.am.lsm.btree.utils.LSMBTreeUtil;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
+import org.apache.hyracks.storage.am.common.api.IExtendedModificationOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.impls.BlockingIOOperationCallbackWrapper;
 import org.apache.hyracks.storage.am.lsm.common.impls.NoOpOperationTrackerFactory;
 import org.apache.hyracks.storage.common.IIndexAccessor;
@@ -153,7 +154,8 @@ public class LSMBTreeUpdateInPlaceTest extends AbstractOperationCallbackTest {
         test((IIndexAccessor a) -> a.upsert(tuple), (IIndexAccessor a) -> a.upsert(tuple));
     }
 
-    private class VerifyingUpdateModificationCallback implements IModificationOperationCallback {
+    private class VerifyingUpdateModificationCallback implements
+            IExtendedModificationOperationCallback {
 
         private final ITupleReference tuple;
 

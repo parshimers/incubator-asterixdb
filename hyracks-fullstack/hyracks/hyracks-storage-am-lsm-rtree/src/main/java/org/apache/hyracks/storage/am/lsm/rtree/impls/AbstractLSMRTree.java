@@ -43,6 +43,7 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperationScheduler;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexFileManager;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicy;
+import org.apache.hyracks.storage.am.common.api.IExtendedModificationOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMOperationTracker;
 import org.apache.hyracks.storage.am.lsm.common.api.IVirtualBufferCache;
 import org.apache.hyracks.storage.am.lsm.common.freepage.VirtualFreePageManager;
@@ -52,7 +53,6 @@ import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentFilterManager;
 import org.apache.hyracks.storage.am.rtree.frames.RTreeFrameFactory;
 import org.apache.hyracks.storage.am.rtree.impls.RTree;
 import org.apache.hyracks.storage.common.IIndexCursor;
-import org.apache.hyracks.storage.common.IModificationOperationCallback;
 import org.apache.hyracks.storage.common.ISearchOperationCallback;
 import org.apache.hyracks.storage.common.ISearchPredicate;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
@@ -228,10 +228,20 @@ public abstract class AbstractLSMRTree extends AbstractLSMIndex implements ITree
     }
 
     @Override
-    protected LSMRTreeOpContext createOpContext(IModificationOperationCallback modCallback,
+    protected LSMRTreeOpContext createOpContext
+            (IExtendedModificationOperationCallback modCallback,
             ISearchOperationCallback searchCallback) {
         return new LSMRTreeOpContext(this, memoryComponents, rtreeLeafFrameFactory, rtreeInteriorFrameFactory,
                 btreeLeafFrameFactory, modCallback, searchCallback, getTreeFields(), getFilterFields(), getHarness(),
+                comparatorFields, linearizerArray, getFilterCmpFactories(), tracer);
+    }
+
+    protected LSMRTreeOpContext createRecoveryOpContext
+            (IExtendedModificationOperationCallback modCallback,
+                    ISearchOperationCallback searchCallback) {
+        return new LSMRTreeOpContext(this, memoryComponents, rtreeLeafFrameFactory, rtreeInteriorFrameFactory,
+                btreeLeafFrameFactory, modCallback, searchCallback,
+                getTreeFields(), null, getHarness(),
                 comparatorFields, linearizerArray, getFilterCmpFactories(), tracer);
     }
 

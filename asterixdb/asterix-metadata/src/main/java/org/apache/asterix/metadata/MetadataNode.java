@@ -110,7 +110,7 @@ import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.dataflow.common.utils.TupleUtils;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
 import org.apache.hyracks.storage.am.common.impls.IndexAccessParameters;
-import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
+import org.apache.hyracks.storage.am.lsm.common.impls.LSMNoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
@@ -1178,7 +1178,7 @@ public class MetadataNode implements IMetadataNode {
             String resourceName = index.getFile().toString();
             IIndex indexInstance = datasetLifecycleManager.get(resourceName);
             datasetLifecycleManager.open(resourceName);
-            IIndexAccessor indexAccessor = indexInstance.createAccessor(NoOpIndexAccessParameters.INSTANCE);
+            IIndexAccessor indexAccessor = indexInstance.createAccessor(LSMNoOpIndexAccessParameters.INSTANCE);
             IIndexCursor rangeCursor = indexAccessor.createSearchCursor(false);
 
             RangePredicate rangePred = null;
@@ -1198,7 +1198,7 @@ public class MetadataNode implements IMetadataNode {
             index = MetadataPrimaryIndexes.DATASET_DATASET;
             indexInstance = datasetLifecycleManager.get(resourceName);
             datasetLifecycleManager.open(resourceName);
-            indexAccessor = indexInstance.createAccessor(NoOpIndexAccessParameters.INSTANCE);
+            indexAccessor = indexInstance.createAccessor(LSMNoOpIndexAccessParameters.INSTANCE);
             rangeCursor = indexAccessor.createSearchCursor(false);
 
             rangePred = null;
@@ -1219,7 +1219,7 @@ public class MetadataNode implements IMetadataNode {
             index = MetadataPrimaryIndexes.INDEX_DATASET;
             indexInstance = datasetLifecycleManager.get(resourceName);
             datasetLifecycleManager.open(resourceName);
-            indexAccessor = indexInstance.createAccessor(NoOpIndexAccessParameters.INSTANCE);
+            indexAccessor = indexInstance.createAccessor(LSMNoOpIndexAccessParameters.INSTANCE);
             rangeCursor = indexAccessor.createSearchCursor(false);
 
             rangePred = null;
@@ -1254,7 +1254,7 @@ public class MetadataNode implements IMetadataNode {
         String resourceName = index.getFile().getRelativePath();
         IIndex indexInstance = datasetLifecycleManager.get(resourceName);
         datasetLifecycleManager.open(resourceName);
-        IIndexAccessor indexAccessor = indexInstance.createAccessor(NoOpIndexAccessParameters.INSTANCE);
+        IIndexAccessor indexAccessor = indexInstance.createAccessor(LSMNoOpIndexAccessParameters.INSTANCE);
         IIndexCursor rangeCursor = indexAccessor.createSearchCursor(false);
 
         IBinaryComparator[] searchCmps = null;
@@ -1292,7 +1292,7 @@ public class MetadataNode implements IMetadataNode {
             IIndex indexInstance = datasetLifecycleManager.get(resourceName);
             datasetLifecycleManager.open(resourceName);
             try {
-                IIndexAccessor indexAccessor = indexInstance.createAccessor(NoOpIndexAccessParameters.INSTANCE);
+                IIndexAccessor indexAccessor = indexInstance.createAccessor(LSMNoOpIndexAccessParameters.INSTANCE);
                 IIndexCursor rangeCursor = indexAccessor.createSearchCursor(false);
 
                 DatasetTupleTranslator tupleReaderWriter = tupleTranslatorProvider.getDatasetTupleTranslator(false);

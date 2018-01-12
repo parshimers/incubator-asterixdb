@@ -38,7 +38,6 @@ import org.apache.hyracks.api.replication.IReplicationJob.ReplicationOperation;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.common.impls.AbstractSearchPredicate;
 import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
-import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.lsm.common.api.IComponentFilterHelper;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
@@ -60,12 +59,12 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexFileManager;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMemoryComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicy;
+import org.apache.hyracks.storage.am.common.api.IExtendedModificationOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMOperationTracker;
 import org.apache.hyracks.storage.am.lsm.common.api.IVirtualBufferCache;
 import org.apache.hyracks.storage.am.lsm.common.api.LSMOperationType;
 import org.apache.hyracks.storage.common.IIndexBulkLoader;
 import org.apache.hyracks.storage.common.IIndexCursor;
-import org.apache.hyracks.storage.common.IModificationOperationCallback;
 import org.apache.hyracks.storage.common.ISearchOperationCallback;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
 import org.apache.hyracks.util.trace.ITracer;
@@ -357,7 +356,7 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
             throws HyracksDataException {
         LSMComponentFileReferences componentFileRefs = fileManager.getRelFlushFileReference();
         AbstractLSMIndexOperationContext opCtx =
-                createOpContext(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+                createOpContext(LSMNoOpOperationCallback.INSTANCE, LSMNoOpOperationCallback.INSTANCE);
         opCtx.setOperation(ctx.getOperation());
         opCtx.getComponentHolder().addAll(ctx.getComponentHolder());
         ILSMIOOperation flushOp = createFlushOperation(opCtx, componentFileRefs, callback);
@@ -370,7 +369,7 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
         List<ILSMComponent> mergingComponents = ctx.getComponentHolder();
         // merge must create a different op ctx
         AbstractLSMIndexOperationContext opCtx =
-                createOpContext(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+                createOpContext(LSMNoOpOperationCallback.INSTANCE, LSMNoOpOperationCallback.INSTANCE);
         opCtx.setOperation(ctx.getOperation());
         opCtx.getComponentHolder().addAll(mergingComponents);
         ILSMDiskComponent firstComponent = (ILSMDiskComponent) mergingComponents.get(0);
@@ -643,10 +642,15 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
 
     @Override
     public void updateFilter(ILSMIndexOperationContext ctx, ITupleReference tuple) throws HyracksDataException {
-        if (ctx.getFilterTuple() != null) {
-            ctx.getFilterTuple().reset(tuple);
-            memoryComponents.get(currentMutableComponentId.get()).getLSMComponentFilter().update(ctx.getFilterTuple(),
-                    ctx.getFilterCmp());
+        if (ctx.getFilterTuple() != null && !ctx.isFilterSkipped()) {
+            if (ctx.isRecovery()) {
+                memoryComponents.get(currentMutableComponentId.get()).getLSMComponentFilter().update(tuple,
+                        ctx.getFilterCmp(), ctx.getModificationCallback());
+            } else {
+                ctx.getFilterTuple().reset(tuple);
+                memoryComponents.get(currentMutableComponentId.get()).getLSMComponentFilter()
+                        .update(ctx.getFilterTuple(), ctx.getFilterCmp(), ctx.getModificationCallback());
+            }
         }
     }
 
@@ -715,7 +719,7 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
             ILSMDiskComponent lastComponent) throws HyracksDataException;
 
     protected abstract AbstractLSMIndexOperationContext createOpContext(
-            IModificationOperationCallback modificationCallback, ISearchOperationCallback searchCallback)
+            IExtendedModificationOperationCallback modificationCallback, ISearchOperationCallback searchCallback)
             throws HyracksDataException;
 
     protected abstract ILSMIOOperation createFlushOperation(AbstractLSMIndexOperationContext opCtx,

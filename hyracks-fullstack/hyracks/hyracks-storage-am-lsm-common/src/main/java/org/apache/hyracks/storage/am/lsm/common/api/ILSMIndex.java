@@ -44,7 +44,8 @@ public interface ILSMIndex extends IIndex {
     void deactivate(boolean flush) throws HyracksDataException;
 
     @Override
-    ILSMIndexAccessor createAccessor(IIndexAccessParameters iap) throws HyracksDataException;
+    ILSMIndexAccessor createAccessor(IIndexAccessParameters iap) throws
+            HyracksDataException;
 
     ILSMOperationTracker getOperationTracker();
 

@@ -31,10 +31,10 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.common.tuples.SimpleTupleWriter;
-import org.apache.hyracks.storage.common.IModificationOperationCallback;
+import org.apache.hyracks.storage.am.common.api.IExtendedModificationOperationCallback;
 
 public abstract class AbstractIndexModificationOperationCallback extends AbstractOperationCallback
-        implements IModificationOperationCallback {
+        implements IExtendedModificationOperationCallback {
     public static final byte INSERT_BYTE = 0x01;
     public static final byte DELETE_BYTE = 0x02;
     public static final byte UPSERT_BYTE = 0x03;
@@ -125,15 +125,11 @@ public abstract class AbstractIndexModificationOperationCallback extends Abstrac
     }
 
     public void after(ITupleReference newValue) throws HyracksDataException {
-        try {
-            if (newValue != null) {
-                filterRecord.setNewValueSize(SimpleTupleWriter.INSTANCE.bytesRequired(newValue));
-                filterRecord.setNewValue(newValue);
-                filterRecord.computeAndSetLogSize();
-                txnSubsystem.getLogManager().log(filterRecord);
-            }
-        } catch (ACIDException e) {
-            throw new HyracksDataException(e);
+        if (newValue != null) {
+            filterRecord.setNewValueSize(SimpleTupleWriter.INSTANCE.bytesRequired(newValue));
+            filterRecord.setNewValue(newValue);
+            filterRecord.computeAndSetLogSize();
+            txnSubsystem.getLogManager().log(filterRecord);
         }
     }
 

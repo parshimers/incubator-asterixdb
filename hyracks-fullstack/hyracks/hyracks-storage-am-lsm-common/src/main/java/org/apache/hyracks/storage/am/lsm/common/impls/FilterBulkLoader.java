@@ -77,6 +77,6 @@ public class FilterBulkLoader implements IChainedComponentBulkLoader {
 
     private void updateFilter(ITupleReference tuple) throws HyracksDataException {
         filterTuple.reset(tuple);
-        filter.update(filterTuple, filterCmp);
+        filter.update(filterTuple, filterCmp, LSMNoOpOperationCallback.INSTANCE);
     }
 }

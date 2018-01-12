@@ -16,23 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.hyracks.storage.am.lsm.common.api;
-
-import java.util.List;
+package org.apache.hyracks.storage.am.common.api;
 
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
-import org.apache.hyracks.storage.am.common.api.IExtendedModificationOperationCallback;
-import org.apache.hyracks.storage.am.common.api.ITreeIndex;
+import org.apache.hyracks.storage.common.IModificationOperationCallback;
 
-public interface ILSMComponentFilterManager {
+public interface IExtendedModificationOperationCallback extends
+        IModificationOperationCallback{
+    /**
+     * Called after the action taken in found, to take action on a tuple that is not part of the index
+     * itself but is part of an ancillary structure that is updated alongside the index. An example would
+     * be a simple statistic on the index that records the minimum and maximum values.
+     *
+     * @param after The tuple to feed to the ancilliary structure
+     * @throws HyracksDataException
+     */
 
-    void updateFilter(ILSMComponentFilter filter,
-            List<ITupleReference> filterTuples,
-            IExtendedModificationOperationCallback operationCallback) throws HyracksDataException;
-
-    boolean readFilter(ILSMComponentFilter filter, ITreeIndex index) throws HyracksDataException;
-
-    void writeFilter(ILSMComponentFilter filter, ITreeIndex index) throws HyracksDataException;
-
+    void after(ITupleReference after) throws HyracksDataException;
 }

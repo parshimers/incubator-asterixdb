@@ -166,7 +166,7 @@ public class LSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertUpdateDe
                     }
                     if (isFiltered && prevTuple != null) {
                         // need to update the filter of the new component with the previous value
-                        lsmAccessor.updateFilter(prevTuple, true);
+                        lsmAccessor.updateFilter(prevTuple);
                     }
                     writeOutput(index, recordWasInserted, recordWasDeleted);
                 } catch (Exception e) {

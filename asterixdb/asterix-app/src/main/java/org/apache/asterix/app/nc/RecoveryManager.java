@@ -71,6 +71,7 @@ import org.apache.hyracks.api.lifecycle.ILifeCycleComponent;
 import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
 import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndex;
 import org.apache.hyracks.storage.common.IIndex;
 import org.apache.hyracks.storage.common.LocalResource;
@@ -263,7 +264,6 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         jobEntityWinners.add(logRecord);
     }
 
-    @SuppressWarnings({"squid:MethodCyclomaticComplexity","squid:S134"})
     private synchronized void startRecoveryRedoPhase(Set<Integer> partitions, ILogReader logReader,
             long lowWaterMarkLSN, Set<Long> winnerTxnSet) throws IOException, ACIDException {
         int redoCount = 0;
@@ -620,6 +620,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                     case LogType.FLUSH:
                     case LogType.WAIT:
                     case LogType.MARKER:
+                    case LogType.FILTER:
                         //ignore
                         break;
                     default:
@@ -724,7 +725,11 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             int datasetId = logRecord.getDatasetId();
             long resourceId = logRecord.getResourceId();
             ILSMIndex index = (ILSMIndex) datasetLifecycleManager.getIndex(datasetId, resourceId);
-            ILSMIndexAccessor indexAccessor = index.createAccessor(NoOpIndexAccessParameters.INSTANCE);
+            ILSMIndexAccessor indexAccessor = index.createAccessor
+                    (NoOpIndexAccessParameters.INSTANCE);
+            ILSMIndexOperationContext opCtx = indexAccessor.getOpContext();
+            opCtx.setFilterSkip(true);
+            opCtx.setRecovery(true);
             if (logRecord.getNewOp() == AbstractIndexModificationOperationCallback.INSERT_BYTE) {
                 indexAccessor.forceInsert(logRecord.getNewValue());
             } else if (logRecord.getNewOp() == AbstractIndexModificationOperationCallback.DELETE_BYTE) {
@@ -733,8 +738,8 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                 // redo, upsert the new value
                 indexAccessor.forceUpsert(logRecord.getNewValue());
             } else if (logRecord.getNewOp() == AbstractIndexModificationOperationCallback.FILTER_BYTE) {
+                opCtx.setFilterSkip(false);
                 indexAccessor.updateFilter(logRecord.getNewValue());
-
             } else {
                 throw new IllegalStateException("Unsupported OperationType: " + logRecord.getNewOp());
             }

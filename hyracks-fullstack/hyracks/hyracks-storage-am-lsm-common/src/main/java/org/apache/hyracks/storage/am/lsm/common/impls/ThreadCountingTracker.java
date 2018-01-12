@@ -57,7 +57,8 @@ public class ThreadCountingTracker implements ILSMOperationTracker {
         // Flush will only be handled by last exiting thread.
         if (opType == LSMOperationType.MODIFICATION && threadRefCount.decrementAndGet() == 0
                 && index.hasFlushRequestForCurrentMutableComponent()) {
-            ILSMIndexAccessor accessor = index.createAccessor(NoOpIndexAccessParameters.INSTANCE);
+            ILSMIndexAccessor accessor = index.createAccessor
+                    (LSMNoOpIndexAccessParameters.INSTANCE);
             accessor.scheduleFlush(NoOpIOOperationCallbackFactory.INSTANCE.createIoOpCallback(index));
         }
     }

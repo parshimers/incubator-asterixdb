@@ -110,26 +110,14 @@
     </test-case>
 
     <test-case FilePath="recover_after_abort">
-<<<<<<< HEAD:asterixdb/asterix-server/src/test/resources/transactionts/testsuite.xml
       <compilation-unit name="primary_plus_multiple_correlated_secondary_indices">
         <output-dir compare="Text">primary_plus_multiple_secondary_indices</output-dir>
-=======
-      <compilation-unit name="temp_primary_index_only">
-        <output-dir compare="Text">primary_index_only</output-dir>
-        <expected-error>org.apache.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
->>>>>>> parent of f86a25b861... [ASTERIXDB-1952][TX][IDX]Log incoming filter vals:asterixdb/asterix-installer/src/test/resources/transactionts/testsuite.xml
       </compilation-unit>
     </test-case>
 
     <test-case FilePath="recover_after_abort">
-<<<<<<< HEAD:asterixdb/asterix-server/src/test/resources/transactionts/testsuite.xml
       <compilation-unit name="primary_index_only_filtered">
         <output-dir compare="Text">primary_index_only_filtered</output-dir>
-=======
-      <compilation-unit name="temp_primary_plus_default_secondary_index">
-        <output-dir compare="Text">primary_plus_default_secondary_index</output-dir>
-        <expected-error>org.apache.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
->>>>>>> parent of f86a25b861... [ASTERIXDB-1952][TX][IDX]Log incoming filter vals:asterixdb/asterix-installer/src/test/resources/transactionts/testsuite.xml
       </compilation-unit>
     </test-case>
 

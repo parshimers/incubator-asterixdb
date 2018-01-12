@@ -16,23 +16,34 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.hyracks.storage.am.lsm.common.api;
+package org.apache.hyracks.storage.am.lsm.common.impls;
 
-import java.util.List;
-
-import org.apache.hyracks.api.exceptions.HyracksDataException;
-import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
+import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.common.api.IExtendedModificationOperationCallback;
-import org.apache.hyracks.storage.am.common.api.ITreeIndex;
+import org.apache.hyracks.storage.common.IIndexAccessParameters;
+import org.apache.hyracks.storage.common.ISearchOperationCallback;
 
-public interface ILSMComponentFilterManager {
+import java.util.Map;
 
-    void updateFilter(ILSMComponentFilter filter,
-            List<ITupleReference> filterTuples,
-            IExtendedModificationOperationCallback operationCallback) throws HyracksDataException;
+public class LSMNoOpIndexAccessParameters implements IIndexAccessParameters {
+    public static final LSMNoOpIndexAccessParameters INSTANCE = new LSMNoOpIndexAccessParameters();
 
-    boolean readFilter(ILSMComponentFilter filter, ITreeIndex index) throws HyracksDataException;
+    private LSMNoOpIndexAccessParameters() {
+    }
 
-    void writeFilter(ILSMComponentFilter filter, ITreeIndex index) throws HyracksDataException;
+    @Override
+    public IExtendedModificationOperationCallback getModificationCallback() {
+        return LSMNoOpOperationCallback.INSTANCE;
+    }
+
+    @Override
+    public ISearchOperationCallback getSearchOperationCallback() {
+        return NoOpOperationCallback.INSTANCE;
+    }
+
+    @Override
+    public Map<String, Object> getParameters() {
+        return null;
+    }
 
 }

@@ -50,11 +50,13 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexFileManager;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicy;
+import org.apache.hyracks.storage.am.common.api.IExtendedModificationOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMOperationTracker;
 import org.apache.hyracks.storage.am.lsm.common.api.IVirtualBufferCache;
 import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndexOperationContext;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentFileReferences;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentFilterManager;
+import org.apache.hyracks.storage.am.lsm.common.impls.LSMNoOpOperationCallback;
 import org.apache.hyracks.storage.am.rtree.frames.RTreeFrameFactory;
 import org.apache.hyracks.storage.am.rtree.impls.RTree.RTreeAccessor;
 import org.apache.hyracks.storage.am.rtree.impls.RTreeSearchCursor;
@@ -198,7 +200,8 @@ public class LSMRTree extends AbstractLSMRTree {
             List<ITupleReference> filterTuples = new ArrayList<>();
             filterTuples.add(flushingComponent.getLSMComponentFilter().getMinTuple());
             filterTuples.add(flushingComponent.getLSMComponentFilter().getMaxTuple());
-            getFilterManager().updateFilter(component.getLSMComponentFilter(), filterTuples);
+            getFilterManager().updateFilter(component.getLSMComponentFilter(), filterTuples,
+                    LSMNoOpOperationCallback.INSTANCE);
             getFilterManager().writeFilter(component.getLSMComponentFilter(), component.getMetadataHolder());
         }
         // Note. If we change the filter to write to metadata object, we don't need the if block above
@@ -265,7 +268,8 @@ public class LSMRTree extends AbstractLSMRTree {
                 filterTuples.add(mergeOp.getMergingComponents().get(i).getLSMComponentFilter().getMinTuple());
                 filterTuples.add(mergeOp.getMergingComponents().get(i).getLSMComponentFilter().getMaxTuple());
             }
-            getFilterManager().updateFilter(mergedComponent.getLSMComponentFilter(), filterTuples);
+            getFilterManager().updateFilter(mergedComponent.getLSMComponentFilter(), filterTuples,
+                    LSMNoOpOperationCallback.INSTANCE);
             getFilterManager().writeFilter(mergedComponent.getLSMComponentFilter(),
                     mergedComponent.getMetadataHolder());
         }
@@ -278,7 +282,9 @@ public class LSMRTree extends AbstractLSMRTree {
     @Override
     public ILSMIndexAccessor createAccessor(IIndexAccessParameters iap) {
         return new LSMRTreeAccessor(getHarness(),
-                createOpContext(iap.getModificationCallback(), iap.getSearchOperationCallback()), buddyBTreeFields);
+                createOpContext((IExtendedModificationOperationCallback) (iap.getModificationCallback()),
+                        iap.getSearchOperationCallback()),
+                buddyBTreeFields);
     }
 
     // This function is modified for R-Trees without antimatter tuples to allow buddy B-Tree to have only primary keys

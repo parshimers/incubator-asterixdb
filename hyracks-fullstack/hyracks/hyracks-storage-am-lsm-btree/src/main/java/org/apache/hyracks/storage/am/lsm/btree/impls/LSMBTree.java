@@ -53,6 +53,7 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexFileManager;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicy;
+import org.apache.hyracks.storage.am.common.api.IExtendedModificationOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMOperationTracker;
 import org.apache.hyracks.storage.am.lsm.common.api.IVirtualBufferCache;
 import org.apache.hyracks.storage.am.lsm.common.freepage.VirtualFreePageManager;
@@ -60,12 +61,12 @@ import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndexOperationContext;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentFileReferences;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentFilterManager;
+import org.apache.hyracks.storage.am.lsm.common.impls.LSMNoOpOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMTreeIndexAccessor;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMTreeIndexAccessor.ICursorFactory;
 import org.apache.hyracks.storage.common.IIndexAccessParameters;
 import org.apache.hyracks.storage.common.IIndexAccessor;
 import org.apache.hyracks.storage.common.IIndexCursor;
-import org.apache.hyracks.storage.common.IModificationOperationCallback;
 import org.apache.hyracks.storage.common.ISearchOperationCallback;
 import org.apache.hyracks.storage.common.ISearchPredicate;
 import org.apache.hyracks.storage.common.MultiComparator;
@@ -292,7 +293,8 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
             List<ITupleReference> filterTuples = new ArrayList<>();
             filterTuples.add(flushingComponent.getLSMComponentFilter().getMinTuple());
             filterTuples.add(flushingComponent.getLSMComponentFilter().getMaxTuple());
-            getFilterManager().updateFilter(component.getLSMComponentFilter(), filterTuples);
+            getFilterManager().updateFilter(component.getLSMComponentFilter(), filterTuples,
+                    LSMNoOpOperationCallback.INSTANCE);
             getFilterManager().writeFilter(component.getLSMComponentFilter(), component.getMetadataHolder());
         }
         // Write metadata from memory component to disk
@@ -343,7 +345,8 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
                 filterTuples.add(mergeOp.getMergingComponents().get(i).getLSMComponentFilter().getMinTuple());
                 filterTuples.add(mergeOp.getMergingComponents().get(i).getLSMComponentFilter().getMaxTuple());
             }
-            getFilterManager().updateFilter(mergedComponent.getLSMComponentFilter(), filterTuples);
+            getFilterManager().updateFilter(mergedComponent.getLSMComponentFilter(), filterTuples,
+                    LSMNoOpOperationCallback.INSTANCE);
             getFilterManager().writeFilter(mergedComponent.getLSMComponentFilter(),
                     mergedComponent.getMetadataHolder());
         }
@@ -360,7 +363,7 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
     }
 
     @Override
-    public LSMBTreeOpContext createOpContext(IModificationOperationCallback modificationCallback,
+    public LSMBTreeOpContext createOpContext(IExtendedModificationOperationCallback modificationCallback,
             ISearchOperationCallback searchCallback) {
         int numBloomFilterKeyFields = hasBloomFilter
                 ? ((LSMBTreeWithBloomFilterDiskComponentFactory) componentFactory).getBloomFilterKeyFields().length
@@ -370,9 +373,20 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
                 getHarness(), getFilterCmpFactories(), tracer);
     }
 
+    private LSMBTreeOpContext createRecoveryOpContext(IExtendedModificationOperationCallback modificationCallback,
+            ISearchOperationCallback searchCallback) {
+        int numBloomFilterKeyFields = hasBloomFilter
+                ? ((LSMBTreeWithBloomFilterDiskComponentFactory) componentFactory).getBloomFilterKeyFields().length
+                : 0;
+        return new LSMBTreeOpContext(this, memoryComponents, insertLeafFrameFactory, deleteLeafFrameFactory,
+                modificationCallback, searchCallback, numBloomFilterKeyFields, getTreeFields(), null, getHarness(),
+                getFilterCmpFactories(), tracer);
+    }
+
     @Override
     public ILSMIndexAccessor createAccessor(IIndexAccessParameters iap) {
-        return createAccessor(createOpContext(iap.getModificationCallback(), iap.getSearchOperationCallback()));
+        return createAccessor(createOpContext(((IExtendedModificationOperationCallback) (iap.getModificationCallback())),
+                iap.getSearchOperationCallback()));
     }
 
     public ILSMIndexAccessor createAccessor(AbstractLSMIndexOperationContext opCtx) {

@@ -125,10 +125,12 @@ public class LogRecord implements ILogRecord {
         buffer.putLong(txnId);
         switch (logType) {
             case LogType.ENTITY_COMMIT:
-                writeEntityInfo(buffer);
+                writeEntityResource(buffer);
+                writeEntityValue(buffer);
                 break;
             case LogType.UPDATE:
-                writeEntityInfo(buffer);
+                writeEntityResource(buffer);
+                writeEntityValue(buffer);
                 buffer.putLong(resourceId);
                 buffer.putInt(logSize);
                 buffer.putInt(newValueFieldCount);
@@ -142,13 +144,14 @@ public class LogRecord implements ILogRecord {
                 }
                 break;
             case LogType.FILTER:
-                writeEntityInfoNoPK(buffer);
+                writeEntityResource(buffer);
                 buffer.putLong(resourceId);
                 buffer.putInt(logSize);
                 buffer.putInt(newValueFieldCount);
                 buffer.put(newOp);
                 buffer.putInt(newValueSize);
                 writeTuple(buffer, newValue, newValueSize);
+                System.out.println(newValueSize);
                 break;
             case LogType.FLUSH:
                 buffer.putInt(datasetId);
@@ -165,9 +168,7 @@ public class LogRecord implements ILogRecord {
         }
     }
 
-    private void writeEntityInfo(ByteBuffer buffer) {
-        buffer.putInt(resourcePartition);
-        buffer.putInt(datasetId);
+    private void writeEntityValue(ByteBuffer buffer) {
         buffer.putInt(PKHashValue);
         if (PKValueSize <= 0) {
             throw new IllegalStateException("Primary Key Size is less than or equal to 0");
@@ -176,7 +177,7 @@ public class LogRecord implements ILogRecord {
         writePKValue(buffer);
     }
 
-    private void writeEntityInfoNoPK(ByteBuffer buffer) {
+    private void writeEntityResource(ByteBuffer buffer) {
         buffer.putInt(resourcePartition);
         buffer.putInt(datasetId);
     }
@@ -270,14 +271,14 @@ public class LogRecord implements ILogRecord {
                 computeAndSetLogSize();
                 break;
             case LogType.ENTITY_COMMIT:
-                if (readEntityInfo(buffer)) {
+                if (readEntityResource(buffer) && readEntityValue(buffer)) {
                     computeAndSetLogSize();
                 } else {
                     return RecordReadStatus.TRUNCATED;
                 }
                 break;
             case LogType.UPDATE:
-                if (readEntityInfo(buffer)) {
+                if (readEntityResource(buffer) && readEntityValue(buffer)) {
                     RecordReadStatus updStatus = readUpdateInfo(buffer);
                     if (updStatus != RecordReadStatus.OK) {
                         return updStatus;
@@ -287,13 +288,8 @@ public class LogRecord implements ILogRecord {
                 }
                 break;
             case LogType.FILTER:
-                if (readEntityNoPKInfo(buffer)) {
-                    RecordReadStatus updStatus = readUpdateInfo(buffer);
-                    if (updStatus != RecordReadStatus.OK) {
-                        return updStatus;
-                    }
-                } else {
-                    return RecordReadStatus.TRUNCATED;
+                if (readEntityResource(buffer)) {
+                    return readUpdateInfo(buffer);
                 }
                 break;
             case LogType.MARKER:
@@ -324,13 +320,11 @@ public class LogRecord implements ILogRecord {
         return RecordReadStatus.OK;
     }
 
-    private boolean readEntityInfo(ByteBuffer buffer) {
+    private boolean readEntityValue(ByteBuffer buffer) {
         //attempt to read in the resourcePartition, dsid, PK hash and PK length
-        if (buffer.remaining() < ENTITYCOMMIT_UPDATE_HEADER_LEN) {
+        if (buffer.remaining() < ENTITY_VALUE_HEADER_LEN) {
             return false;
         }
-        resourcePartition = buffer.getInt();
-        datasetId = buffer.getInt();
         PKHashValue = buffer.getInt();
         PKValueSize = buffer.getInt();
         // attempt to read in the PK
@@ -344,9 +338,9 @@ public class LogRecord implements ILogRecord {
         return true;
     }
 
-    private boolean readEntityNoPKInfo(ByteBuffer buffer) {
-        //attempt to read in the resourcePartition, dsid, PK hash and PK length
-        if (buffer.remaining() < ENTITYCOMMIT_UPDATE_HEADER_LEN) {
+    private boolean readEntityResource(ByteBuffer buffer) {
+        //attempt to read in the resourcePartition and dsid
+        if (buffer.remaining() < ENTITY_RESOURCE_HEADER_LEN) {
             return false;
         }
         resourcePartition = buffer.getInt();

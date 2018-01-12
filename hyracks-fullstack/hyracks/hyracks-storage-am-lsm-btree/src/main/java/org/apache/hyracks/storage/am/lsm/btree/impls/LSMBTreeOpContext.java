@@ -34,9 +34,8 @@ import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMHarness;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMemoryComponent;
+import org.apache.hyracks.storage.am.common.api.IExtendedModificationOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndexOperationContext;
-import org.apache.hyracks.storage.common.IIndexAccessParameters;
-import org.apache.hyracks.storage.common.IModificationOperationCallback;
 import org.apache.hyracks.storage.common.ISearchOperationCallback;
 import org.apache.hyracks.storage.common.MultiComparator;
 import org.apache.hyracks.util.trace.ITracer;
@@ -66,7 +65,7 @@ public final class LSMBTreeOpContext extends AbstractLSMIndexOperationContext {
 
     public LSMBTreeOpContext(ILSMIndex index, List<ILSMMemoryComponent> mutableComponents,
             ITreeIndexFrameFactory insertLeafFrameFactory, ITreeIndexFrameFactory deleteLeafFrameFactory,
-            IModificationOperationCallback modificationCallback, ISearchOperationCallback searchCallback,
+            IExtendedModificationOperationCallback modificationCallback, ISearchOperationCallback searchCallback,
             int numBloomFilterKeyFields, int[] btreeFields, int[] filterFields, ILSMHarness lsmHarness,
             IBinaryComparatorFactory[] filterCmpFactories, ITracer tracer) {
         super(index, btreeFields, filterFields, filterCmpFactories, searchCallback, modificationCallback, tracer);
@@ -86,9 +85,9 @@ public final class LSMBTreeOpContext extends AbstractLSMIndexOperationContext {
         mutableBTreeOpCtxs = new BTreeOpContext[mutableComponents.size()];
         for (int i = 0; i < mutableComponents.size(); i++) {
             LSMBTreeMemoryComponent mutableComponent = (LSMBTreeMemoryComponent) mutableComponents.get(i);
-            mutableBTrees[i] = mutableComponent.getBTree();
-            mutableBTreeAccessors[i] = (BTree.BTreeAccessor) mutableBTrees[i].createAccessor(modificationCallback,
-                    NoOpOperationCallback.INSTANCE);
+            mutableBTrees[i] = mutableComponent.getIndex();
+            mutableBTreeAccessors[i] = mutableBTrees[i]
+                    .createAccessor(new IndexAccessParameters(modificationCallback, NoOpOperationCallback.INSTANCE));
             mutableBTreeOpCtxs[i] = mutableBTreeAccessors[i].getOpContext();
         }
         this.insertLeafFrameFactory = insertLeafFrameFactory;
