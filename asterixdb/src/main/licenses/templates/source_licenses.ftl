@@ -125,14 +125,14 @@ Source files in asterix-hivecompat are derived from portions of Apache Hive Quer
     SOFTWARE.
 </@license>
 
-<@license files="
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/output.component.ts
- asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js
- asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle
- asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js
- asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js
- asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js
- asterix-app/src/main/resources/dashboard/static/index.html"
+<@license files=[
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/query/output.component.ts",
+"asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle",
+"asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/index.html"]
  component=" File Saver portions of the AsterixDB Dashboard"
  licenseName=" the MIT license ">
 The MIT License
@@ -156,20 +156,20 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 </@license>
-<@license files="
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/datasets-collection/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/datatypes-collection/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/dataverses-collection/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/
- asterix-app/src/main/resources/dashboard/src/app/
- asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js
- asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle
- asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js
- asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js
- asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js
- asterix-app/src/main/resources/dashboard/static/index.html"
+<@license files=[
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/datasets-collection/",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/datatypes-collection/",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/dataverses-collection/",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/query/",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/",
+"asterix-app/src/main/resources/dashboard/src/app/",
+"asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle",
+"asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/index.html"]
  component="ReactiveX/rxjs"
  licenseName="Apache License 2.0">
                                Apache License
@@ -374,19 +374,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  See the License for the specific language governing permissions and
 limitations under the License.
 </@license>
-<@license files="
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/output.component.ts
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/output.component.html
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/output.component.scss
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/metadata.component.ts
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/metadata.component.html
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/metadata.component.scss
- asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js
- asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle
- asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js
- asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js
- asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js
- asterix-app/src/main/resources/dashboard/static/index.html"
+<@license files=[
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/query/output.component.ts",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/query/output.component.html",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/query/output.component.scss",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/query/metadata.component.ts",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/query/metadata.component.html",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/query/metadata.component.scss",
+"asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle",
+"asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/index.html"]
  component=" PrimeNG components of the AsterixDB dashboard"
  licenseName="The MIT License">
 
@@ -413,21 +413,21 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 </@license>
-<@license files="
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/datasets-collection/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/datatypes-collection/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/dataverses-collection/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/
- asterix-app/src/main/resources/dashboard/src/app/
- asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js
- asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle
- asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js
- asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js
- asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js
- asterix-app/src/main/resources/dashboard/static/index.html"
+<@license files=[
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/datasets-collection/",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/datatypes-collection/",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/dataverses-collection/",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/query/",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/",
+"asterix-app/src/main/resources/dashboard/src/app/",
+"asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle",
+"asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/index.html"]
  component="NGRX portions of the AsterixDB dashboard"
  licenseName=" The MIT License">
 
@@ -455,23 +455,23 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 </@license>
-<@license files="
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/input.component.ts
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/input.component.html
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/input.component.scss
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/codemirror.component.ts
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/codemirror.component.scss
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/input-metadata.component.ts
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/input-metadata.component.html
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/input-metadata.component.scss
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/codemirror-metadata.component.ts
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/codemirror-metadata.component.scss
- asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js
- asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle
- asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js
- asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js
- asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js
- asterix-app/src/main/resources/dashboard/static/index.html"
+<@license files=[
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/query/input.component.ts",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/query/input.component.html",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/query/input.component.scss",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/query/codemirror.component.ts",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/query/codemirror.component.scss",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/input-metadata.component.ts",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/input-metadata.component.html",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/input-metadata.component.scss",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/codemirror-metadata.component.ts",
+"asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/codemirror-metadata.component.scss",
+"asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle",
+"asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js",
+ "asterix-app/src/main/resources/dashboard/static/index.html"]
  component="Codemirror portions of the AsterixDB dashboard"
  licenseName="The MIT License">
 
@@ -497,14 +497,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 </@license>
-<@license files="
- asterix-app/src/main/resources/dashboard/src/
- asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js
- asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle
- asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js
- asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js
- asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js
- asterix-app/src/main/resources/dashboard/static/index.html"
+<@license files=[
+"asterix-app/src/main/resources/dashboard/src/",
+"asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle",
+"asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/index.html"]
  component="AngularJS portions of the AsterixDB dashboard"
  licenseName="The MIT License">
 
@@ -532,16 +532,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 </@license>
-<@license files="
- asterix-app/src/main/resources/dashboard/src/app/dashboard/
- asterix-app/src/main/resources/dashboard/src/app/material.module.ts
- asterix-app/src/main/resources/dashboard/src/main.ts
- asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js
- asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle
- asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js
- asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js
- asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js
- asterix-app/src/main/resources/dashboard/static/index.html"
+<@license files=[
+ "asterix-app/src/main/resources/dashboard/src/app/dashboard/",
+ "asterix-app/src/main/resources/dashboard/src/app/material.module.ts",
+ "asterix-app/src/main/resources/dashboard/src/main.ts",
+ "asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js",
+ "asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle",
+ "asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js",
+ "asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js",
+ "asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js",
+ "asterix-app/src/main/resources/dashboard/static/index.html"]
  component="Angular Material and HammerJS portions of the AsterixDB dashboard"
  licenseName="The MIT License">
 
@@ -566,14 +566,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 </@license>
-<@license files="
- asterix-app/src/main/resources/dashboard/src/
- asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js
- asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle
- asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js
- asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js
- asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js
- asterix-app/src/main/resources/dashboard/static/index.html"
+<@license files=[
+"asterix-app/src/main/resources/dashboard/src/",
+"asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle",
+"asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/index.html"]
  component="CoreJS portions of the AsterixDB dashboard"
  licenseName="The MIT License">
 
@@ -599,15 +599,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 </@license>
-<@license files="
- asterix-app/src/main/resources/dashboard/src/index.html
- asterix-app/src/main/resources/dashboard/static/roboto-v15-latin-regular.3d3a53586bd78d1069ae.svg
- asterix-app/src/main/resources/dashboard/static/roboto-v15-latin-regular.7e367be02cd17a96d513.woff2
- asterix-app/src/main/resources/dashboard/static/roboto-v15-latin-regular.9f916e330c478bbfa2a0.eot
- asterix-app/src/main/resources/dashboard/static/roboto-v15-latin-regular.16e1d930cf13fb7a9563.woff
- asterix-app/src/main/resources/dashboard/static/roboto-v15-latin-regular.38861cba61c66739c145.ttf
- asterix-app/src/main/resources/dashboard/static/index.html
-"
+<@license files=[
+"asterix-app/src/main/resources/dashboard/src/index.html",
+"asterix-app/src/main/resources/dashboard/static/roboto-v15-latin-regular.3d3a53586bd78d1069ae.svg",
+"asterix-app/src/main/resources/dashboard/static/roboto-v15-latin-regular.7e367be02cd17a96d513.woff2",
+"asterix-app/src/main/resources/dashboard/static/roboto-v15-latin-regular.9f916e330c478bbfa2a0.eot",
+"asterix-app/src/main/resources/dashboard/static/roboto-v15-latin-regular.16e1d930cf13fb7a9563.woff",
+"asterix-app/src/main/resources/dashboard/static/roboto-v15-latin-regular.38861cba61c66739c145.ttf",
+"asterix-app/src/main/resources/dashboard/static/index.html"]
+
  component="Roboto Font portions of the AsterixDB dashboard"
  licenseName="Apache License 2.0">
                                  Apache License
@@ -811,9 +811,9 @@ THE SOFTWARE.
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
 limitations under the License.</@license>
-<@license files="
- asterix-app/src/main/resources/dashboard/src/index.html
- asterix-app/src/main/resources/dashboard/static/index.html"
+<@license files=[
+" asterix-app/src/main/resources/dashboard/src/index.html",
+" asterix-app/src/main/resources/dashboard/static/index.html"]
  component="Font Awesome portions of the AsterixDB dashboard"
  licenseName="The MIT License">
 
@@ -851,14 +851,14 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 </@license>
 
-<@license files="
- asterix-app/src/main/resources/dashboard/src/
- asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js
- asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle
- asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js
- asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js
- asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js
- asterix-app/src/main/resources/dashboard/static/index.html"
+<@license files=[
+"asterix-app/src/main/resources/dashboard/src/",
+"asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle",
+"asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js",
+"asterix-app/src/main/resources/dashboard/static/index.html"]
  component="zonejs portions of the AsterixDB dashboard"
  licenseName=" The MIT License">
 

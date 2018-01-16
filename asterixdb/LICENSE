@@ -314,14 +314,14 @@
 
    Portions of the  File Saver portions of the AsterixDB Dashboard
        located at:
-         asterix-app/src/main/resources/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/output.component.ts
- asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js
- asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle
- asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js
- asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js
- asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js
- asterix-app/src/main/resources/dashboard/static/index.html
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/query/output.component.ts,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js,
+       and
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/index.html
 
    are available under  the MIT license :
 ---
@@ -348,20 +348,20 @@
 ---
    Portions of the ReactiveX/rxjs
        located at:
-         asterix-app/src/main/resources/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/datasets-collection/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/datatypes-collection/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/dataverses-collection/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/
- asterix-app/src/main/resources/dashboard/src/app/
- asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js
- asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle
- asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js
- asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js
- asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js
- asterix-app/src/main/resources/dashboard/static/index.html
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/datasets-collection/,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/datatypes-collection/,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/dataverses-collection/,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/query/,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js,
+       and
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/index.html
 
    are available under Apache License 2.0:
 ---
@@ -569,19 +569,19 @@
 ---
    Portions of the  PrimeNG components of the AsterixDB dashboard
        located at:
-         asterix-app/src/main/resources/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/output.component.ts
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/output.component.html
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/output.component.scss
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/metadata.component.ts
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/metadata.component.html
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/metadata.component.scss
- asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js
- asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle
- asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js
- asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js
- asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js
- asterix-app/src/main/resources/dashboard/static/index.html
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/query/output.component.ts,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/query/output.component.html,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/query/output.component.scss,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/query/metadata.component.ts,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/query/metadata.component.html,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/query/metadata.component.scss,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js,
+       and
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/index.html
 
    are available under The MIT License:
 ---
@@ -608,21 +608,21 @@
 ---
    Portions of the NGRX portions of the AsterixDB dashboard
        located at:
-         asterix-app/src/main/resources/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/datasets-collection/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/datatypes-collection/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/dataverses-collection/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/
- asterix-app/src/main/resources/dashboard/src/app/
- asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js
- asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle
- asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js
- asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js
- asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js
- asterix-app/src/main/resources/dashboard/static/index.html
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/datasets-collection/,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/datatypes-collection/,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/dataverses-collection/,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/query/,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js,
+       and
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/index.html
 
    are available under  The MIT License:
 ---
@@ -650,23 +650,23 @@
 ---
    Portions of the Codemirror portions of the AsterixDB dashboard
        located at:
-         asterix-app/src/main/resources/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/input.component.ts
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/input.component.html
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/input.component.scss
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/codemirror.component.ts
- asterix-app/src/main/resources/dashboard/src/app/dashboard/query/codemirror.component.scss
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/input-metadata.component.ts
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/input-metadata.component.html
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/input-metadata.component.scss
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/codemirror-metadata.component.ts
- asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/codemirror-metadata.component.scss
- asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js
- asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle
- asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js
- asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js
- asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js
- asterix-app/src/main/resources/dashboard/static/index.html
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/query/input.component.ts,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/query/input.component.html,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/query/input.component.scss,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/query/codemirror.component.ts,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/query/codemirror.component.scss,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/input-metadata.component.ts,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/input-metadata.component.html,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/input-metadata.component.scss,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/codemirror-metadata.component.ts,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/metadata/codemirror-metadata.component.scss,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js,
+       and
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/index.html
 
    are available under The MIT License:
 ---
@@ -692,14 +692,14 @@
 ---
    Portions of the AngularJS portions of the AsterixDB dashboard
        located at:
-         asterix-app/src/main/resources/
- asterix-app/src/main/resources/dashboard/src/
- asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js
- asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle
- asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js
- asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js
- asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js
- asterix-app/src/main/resources/dashboard/static/index.html
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js,
+       and
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/index.html
 
    are available under The MIT License:
 ---
@@ -727,16 +727,16 @@
 ---
    Portions of the Angular Material and HammerJS portions of the AsterixDB dashboard
        located at:
-         asterix-app/src/main/resources/
- asterix-app/src/main/resources/dashboard/src/app/dashboard/
- asterix-app/src/main/resources/dashboard/src/app/material.module.ts
- asterix-app/src/main/resources/dashboard/src/main.ts
- asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js
- asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle
- asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js
- asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js
- asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js
- asterix-app/src/main/resources/dashboard/static/index.html
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/dashboard/,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/app/material.module.ts,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/main.ts,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js,
+       and
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/index.html
 
    are available under The MIT License:
 ---
@@ -762,14 +762,14 @@
 ---
    Portions of the CoreJS portions of the AsterixDB dashboard
        located at:
-         asterix-app/src/main/resources/
- asterix-app/src/main/resources/dashboard/src/
- asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js
- asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle
- asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js
- asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js
- asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js
- asterix-app/src/main/resources/dashboard/static/index.html
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js,
+       and
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/index.html
 
    are available under The MIT License:
 ---
@@ -795,15 +795,14 @@
 ---
    Portions of the Roboto Font portions of the AsterixDB dashboard
        located at:
-         asterix-app/src/main/resources/
- asterix-app/src/main/resources/dashboard/src/index.html
- asterix-app/src/main/resources/dashboard/static/roboto-v15-latin-regular.3d3a53586bd78d1069ae.svg
- asterix-app/src/main/resources/dashboard/static/roboto-v15-latin-regular.7e367be02cd17a96d513.woff2
- asterix-app/src/main/resources/dashboard/static/roboto-v15-latin-regular.9f916e330c478bbfa2a0.eot
- asterix-app/src/main/resources/dashboard/static/roboto-v15-latin-regular.16e1d930cf13fb7a9563.woff
- asterix-app/src/main/resources/dashboard/static/roboto-v15-latin-regular.38861cba61c66739c145.ttf
- asterix-app/src/main/resources/dashboard/static/index.html
-
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/index.html,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/roboto-v15-latin-regular.3d3a53586bd78d1069ae.svg,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/roboto-v15-latin-regular.7e367be02cd17a96d513.woff2,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/roboto-v15-latin-regular.9f916e330c478bbfa2a0.eot,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/roboto-v15-latin-regular.16e1d930cf13fb7a9563.woff,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/roboto-v15-latin-regular.38861cba61c66739c145.ttf,
+       and
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/index.html
 
    are available under Apache License 2.0:
 ---
@@ -1012,9 +1011,9 @@
 
    Portions of the Font Awesome portions of the AsterixDB dashboard
        located at:
-         asterix-app/src/main/resources/
- asterix-app/src/main/resources/dashboard/src/index.html
- asterix-app/src/main/resources/dashboard/static/index.html
+         asterix-app/src/main/resources/ asterix-app/src/main/resources/dashboard/src/index.html,
+       and
+         asterix-app/src/main/resources/ asterix-app/src/main/resources/dashboard/static/index.html
 
    are available under The MIT License:
 ---
@@ -1054,14 +1053,14 @@
 
    Portions of the zonejs portions of the AsterixDB dashboard
        located at:
-         asterix-app/src/main/resources/
- asterix-app/src/main/resources/dashboard/src/
- asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js
- asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle
- asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js
- asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js
- asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js
- asterix-app/src/main/resources/dashboard/static/index.html
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/src/,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/main.37b7b7cad656490b195a.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/styles.9f50282210bba5318775.bundle,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/scripts.da68998bdd77aff4e764.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/polyfills.32ca5670d6503e090789.bundle.js,
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/inline.66bd6b83f86cf773a001.bundle.js,
+       and
+         asterix-app/src/main/resources/asterix-app/src/main/resources/dashboard/static/index.html
 
    are available under  The MIT License:
 ---
