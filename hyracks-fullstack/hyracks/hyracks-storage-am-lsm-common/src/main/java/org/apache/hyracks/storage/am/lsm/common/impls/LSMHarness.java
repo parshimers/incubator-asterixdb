@@ -19,6 +19,7 @@
 
 package org.apache.hyracks.storage.am.lsm.common.impls;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;

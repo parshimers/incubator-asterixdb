@@ -23,8 +23,10 @@
     </Console>
   </Appenders>
   <Loggers>
-    <Root level="WARN"/>
-    <Logger name="org.apache.hyracks" level="WARN">
+    <Root level="INFO">
+      <AppenderRef ref="Console"/>
+    </Root>
+    <Logger name="org.apache.hyracks" level="INFO">
       <AppenderRef ref="Console"/>
     </Logger>
   </Loggers>

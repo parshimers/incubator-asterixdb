@@ -316,40 +316,41 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
         RangePredicate rangePred = new RangePredicate(null, null, true, true, null, null);
         search(mergeOp.getAccessor().getOpContext(), cursor, rangePred);
         List<ILSMComponent> mergedComponents = mergeOp.getMergingComponents();
-        long numElements = 0L;
-        if (hasBloomFilter) {
-            //count elements in btree for creating Bloomfilter
-            for (int i = 0; i < mergedComponents.size(); ++i) {
-                numElements += ((AbstractLSMWithBloomFilterDiskComponent) mergedComponents.get(i)).getBloomFilter()
-                        .getNumElements();
-            }
-        }
-        ILSMDiskComponent mergedComponent =
-                createDiskComponent(componentFactory, mergeOp.getTarget(), null, mergeOp.getBloomFilterTarget(), true);
-
-        ILSMDiskComponentBulkLoader componentBulkLoader =
-                mergedComponent.createBulkLoader(1.0f, false, numElements, false, false, false);
-        try {
-            while (cursor.hasNext()) {
-                cursor.next();
-                ITupleReference frameTuple = cursor.getTuple();
-                componentBulkLoader.add(frameTuple);
-            }
-        } finally {
-            cursor.destroy();
-        }
-        if (mergedComponent.getLSMComponentFilter() != null) {
-            List<ITupleReference> filterTuples = new ArrayList<>();
-            for (int i = 0; i < mergeOp.getMergingComponents().size(); ++i) {
-                filterTuples.add(mergeOp.getMergingComponents().get(i).getLSMComponentFilter().getMinTuple());
-                filterTuples.add(mergeOp.getMergingComponents().get(i).getLSMComponentFilter().getMaxTuple());
-            }
-            getFilterManager().updateFilter(mergedComponent.getLSMComponentFilter(), filterTuples);
-            getFilterManager().writeFilter(mergedComponent.getLSMComponentFilter(),
-                    mergedComponent.getMetadataHolder());
-        }
-        componentBulkLoader.end();
-        return mergedComponent;
+        throw new HyracksDataException("die");
+//        long numElements = 0L;
+//        if (hasBloomFilter) {
+//            //count elements in btree for creating Bloomfilter
+//            for (int i = 0; i < mergedComponents.size(); ++i) {
+//                numElements += ((AbstractLSMWithBloomFilterDiskComponent) mergedComponents.get(i)).getBloomFilter()
+//                        .getNumElements();
+//            }
+//        }
+//        ILSMDiskComponent mergedComponent =
+//                createDiskComponent(componentFactory, mergeOp.getTarget(), null, mergeOp.getBloomFilterTarget(), true);
+//
+//        ILSMDiskComponentBulkLoader componentBulkLoader =
+//                mergedComponent.createBulkLoader(1.0f, false, numElements, false, false, false);
+//        try {
+//            while (cursor.hasNext()) {
+//                cursor.next();
+//                ITupleReference frameTuple = cursor.getTuple();
+//                componentBulkLoader.add(frameTuple);
+//            }
+//        } finally {
+//            cursor.destroy();
+//        }
+//        if (mergedComponent.getLSMComponentFilter() != null) {
+//            List<ITupleReference> filterTuples = new ArrayList<>();
+//            for (int i = 0; i < mergeOp.getMergingComponents().size(); ++i) {
+//                filterTuples.add(mergeOp.getMergingComponents().get(i).getLSMComponentFilter().getMinTuple());
+//                filterTuples.add(mergeOp.getMergingComponents().get(i).getLSMComponentFilter().getMaxTuple());
+//            }
+//            getFilterManager().updateFilter(mergedComponent.getLSMComponentFilter(), filterTuples);
+//            getFilterManager().writeFilter(mergedComponent.getLSMComponentFilter(),
+//                    mergedComponent.getMetadataHolder());
+//        }
+//        componentBulkLoader.end();
+//        return mergedComponent;
     }
 
     @Override

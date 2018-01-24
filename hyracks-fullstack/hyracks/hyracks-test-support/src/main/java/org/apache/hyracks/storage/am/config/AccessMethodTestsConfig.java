@@ -43,7 +43,7 @@ public class AccessMethodTestsConfig {
     public static final int BTREE_MULTITHREAD_NUM_OPERATIONS = 200;
     // Test params for LSMBTree only.
     public static final int LSM_BTREE_BULKLOAD_ROUNDS = 5;
-    public static final int LSM_BTREE_MAX_TREES_TO_MERGE = 10;
+    public static final int LSM_BTREE_MAX_TREES_TO_MERGE = Integer.MAX_VALUE;
     public static final int LSM_BTREE_NUM_MUTABLE_COMPONENTS = 2;
 
     // Mem configuration for RTree.
