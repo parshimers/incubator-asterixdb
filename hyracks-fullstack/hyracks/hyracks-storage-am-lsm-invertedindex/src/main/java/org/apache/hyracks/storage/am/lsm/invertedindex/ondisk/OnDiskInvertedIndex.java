@@ -37,7 +37,6 @@ import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.dataflow.common.utils.TupleUtils;
 import org.apache.hyracks.storage.am.btree.frames.BTreeLeafFrameType;
 import org.apache.hyracks.storage.am.btree.impls.BTree;
-import org.apache.hyracks.storage.am.btree.impls.DiskBTree;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
 import org.apache.hyracks.storage.am.btree.util.BTreeUtils;
 import org.apache.hyracks.storage.am.common.api.IIndexOperationContext;
@@ -91,7 +90,7 @@ public class OnDiskInvertedIndex implements IInPlaceInvertedIndex {
         btreeValueTypeTraits[3] = IntegerPointable.TYPE_TRAITS;
     }
 
-    protected DiskBTree btree;
+    protected BTree btree;
     protected int rootPageId = 0;
     protected IBufferCache bufferCache;
     protected int fileId = -1;
@@ -118,7 +117,7 @@ public class OnDiskInvertedIndex implements IInPlaceInvertedIndex {
         this.invListCmpFactories = invListCmpFactories;
         this.tokenTypeTraits = tokenTypeTraits;
         this.tokenCmpFactories = tokenCmpFactories;
-        this.btree = BTreeUtils.createDiskBTree(bufferCache, getBTreeTypeTraits(tokenTypeTraits), tokenCmpFactories,
+        this.btree = BTreeUtils.createBTree(bufferCache, getBTreeTypeTraits(tokenTypeTraits), tokenCmpFactories,
                 BTreeLeafFrameType.REGULAR_NSM, btreeFile, pageManagerFactory.createPageManager(bufferCache), false);
         this.numTokenFields = btree.getComparatorFactories().length;
         this.numInvListKeys = invListCmpFactories.length;
@@ -241,7 +240,7 @@ public class OnDiskInvertedIndex implements IInPlaceInvertedIndex {
         private final boolean verifyInput;
         private final MultiComparator allCmp;
 
-        private final IFIFOPageQueue queue;
+        private IFIFOPageQueue queue;
 
         public OnDiskInvertedIndexBulkLoader(float btreeFillFactor, boolean verifyInput, long numElementsHint,
                 boolean checkIfEmptyIndex, int startPageId) throws HyracksDataException {

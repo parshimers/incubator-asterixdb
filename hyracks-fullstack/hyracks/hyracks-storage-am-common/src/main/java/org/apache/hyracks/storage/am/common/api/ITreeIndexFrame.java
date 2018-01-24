@@ -118,8 +118,4 @@ public interface ITreeIndexFrame {
     public ITreeIndexTupleReference createTupleReference();
 
     public void setMultiComparator(MultiComparator cmp);
-
-    public ITupleReference getLeftmostTuple() throws HyracksDataException;
-
-    public ITupleReference getRightmostTuple() throws HyracksDataException;
 }
