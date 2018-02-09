@@ -28,6 +28,7 @@ import java.util.List;
 import org.apache.asterix.app.bootstrap.TestNodeController;
 import org.apache.asterix.app.data.gen.TupleGenerator;
 import org.apache.asterix.app.data.gen.TupleGenerator.GenerationFunction;
+import org.apache.asterix.app.nc.RecoveryManager;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.common.config.TransactionProperties;
 import org.apache.asterix.common.dataflow.LSMInsertDeleteOperatorNodePushable;
@@ -180,11 +181,54 @@ public class CheckpointingTest {
                  * At this point, the low-water mark is not in the initialLowWaterMarkFileId, so
                  * a checkpoint should delete it.
                  */
-                checkpointManager.tryCheckpoint(recoveryManager.getMinFirstLSN());
+                Thread t = new Thread(){
+                    public void run(){
+                    recoveryManager.rollbackTransaction
+                            (txnCtx);}
+                };
+                t.start();
 
-                // Validate initialLowWaterMarkFileId was deleted
-                for (Long fileId : logManager.getLogFileIds()) {
-                    Assert.assertNotEquals(initialLowWaterMarkFileId, fileId.longValue());
+                JobId jobId2 = nc.newJobId();
+                IHyracksTaskContext ctx2 = nc.createTestContext(jobId2, 0,
+                        false);
+                ITransactionContext txnCtx2 = nc.getTransactionManager()
+                        .beginTransaction(nc.getTxnJobId(ctx2),
+                        new TransactionOptions(ITransactionManager.AtomicityLevel.ENTITY_LEVEL));
+                // Prepare insert operation
+                LSMInsertDeleteOperatorNodePushable insertOp2 = nc
+                        .getInsertPipeline(ctx2, dataset, KEY_TYPES,
+                        RECORD_TYPE, META_TYPE, null, KEY_INDEXES, KEY_INDICATOR_LIST, storageManager, null).getLeft();
+                insertOp2.open();
+                VSizeFrame frame2 = new VSizeFrame(ctx2);
+                FrameTupleAppender tupleAppender2 = new FrameTupleAppender
+                        (frame2);
+                checkpointManager.tryCheckpoint(recoveryManager.getMinFirstLSN());
+                for (int i=0;i<4;i++){
+                    long lastCkpoint = recoveryManager.getMinFirstLSN();
+                    long lastFileId = logManager.getLogFileId(lastCkpoint);
+                    System.out.println("ckpoint: "+lastCkpoint);
+
+                    // Validate initialLowWaterMarkFileId was deleted
+                    for (Long fileId : logManager.getLogFileIds()) {
+                        Assert.assertNotEquals(initialLowWaterMarkFileId, fileId.longValue());
+                    }
+
+                    while (currentLowWaterMarkLogFileId == lastFileId) {
+                        ITupleReference tuple = tupleGenerator.next();
+                        DataflowUtils.addTupleToFrame(tupleAppender2, tuple,
+                                insertOp2);
+                        lowWaterMarkLSN = recoveryManager.getMinFirstLSN();
+                        currentLowWaterMarkLogFileId = logManager.getLogFileId(lowWaterMarkLSN);
+                    }
+                    checkpointManager.tryCheckpoint(recoveryManager.getMinFirstLSN());
+
+                    for (Long fileId : logManager.getLogFileIds()) {
+                        Assert.assertNotEquals(lastCkpoint, fileId.longValue());
+                    }
+                }
+                synchronized (recoveryManager) {
+                    ((RecoveryManager) recoveryManager).sleep = false;
+                    recoveryManager.notifyAll();
                 }
 
                 if (tupleAppender.getTupleCount() > 0) {
