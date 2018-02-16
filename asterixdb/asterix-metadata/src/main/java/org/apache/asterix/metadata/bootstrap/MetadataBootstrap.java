@@ -25,7 +25,6 @@ import java.util.HashMap;
 import java.util.List;
 
 import org.apache.asterix.common.api.INcApplicationContext;
-import org.apache.asterix.common.cluster.ClusterPartition;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.common.config.GlobalConfig;
 import org.apache.asterix.common.config.MetadataProperties;
@@ -44,6 +43,7 @@ import org.apache.asterix.external.dataset.adapter.AdapterIdentifier;
 import org.apache.asterix.external.indexing.ExternalFile;
 import org.apache.asterix.metadata.IDatasetDetails;
 import org.apache.asterix.metadata.MetadataManager;
+import org.apache.asterix.metadata.MetadataNode;
 import org.apache.asterix.metadata.MetadataTransactionContext;
 import org.apache.asterix.metadata.api.IMetadataIndex;
 import org.apache.asterix.metadata.entities.BuiltinTypeMap;
@@ -311,11 +311,10 @@ public class MetadataBootstrap {
         if (!appContext.getDatasetMemoryManager().reserve(index.getDatasetId().getId())) {
             throw new IllegalStateException("Failed to reserve memory for metadata dataset (" + datasetId + ")");
         }
-        ClusterPartition metadataPartition = appContext.getMetadataProperties().getMetadataPartition();
-        int metadataDeviceId = metadataPartition.getIODeviceNum();
-        String metadataPartitionPath = StoragePathUtil.prepareStoragePartitionPath(metadataPartition.getPartitionId());
+        String metadataPartitionPath =
+                StoragePathUtil.prepareStoragePartitionPath(MetadataNode.INSTANCE.getMetadataStoragePartition());
         String resourceName = metadataPartitionPath + File.separator + index.getFileNameRelativePath();
-        FileReference file = ioManager.getFileReference(metadataDeviceId, resourceName);
+        FileReference file = ioManager.resolve(resourceName);
         index.setFile(file);
         ITypeTraits[] typeTraits = index.getTypeTraits();
         IBinaryComparatorFactory[] cmpFactories = index.getKeyBinaryComparatorFactory();
@@ -335,13 +334,15 @@ public class MetadataBootstrap {
                 new LSMBTreeIOOperationCallbackFactory(idGeneratorProvider);
         IStorageComponentProvider storageComponentProvider = appContext.getStorageComponentProvider();
         if (isNewUniverse()) {
+            final double bloomFilterFalsePositiveRate =
+                    appContext.getStorageProperties().getBloomFilterFalsePositiveRate();
             LSMBTreeLocalResourceFactory lsmBtreeFactory = new LSMBTreeLocalResourceFactory(
                     storageComponentProvider.getStorageManager(), typeTraits, cmpFactories, null, null, null,
                     opTrackerFactory, ioOpCallbackFactory, storageComponentProvider.getMetadataPageManagerFactory(),
                     new AsterixVirtualBufferCacheProvider(datasetId),
                     storageComponentProvider.getIoOperationSchedulerProvider(),
                     appContext.getMetadataMergePolicyFactory(), GlobalConfig.DEFAULT_COMPACTION_POLICY_PROPERTIES, true,
-                    bloomFilterKeyFields, appContext.getBloomFilterFalsePositiveRate(), true, null);
+                    bloomFilterKeyFields, bloomFilterFalsePositiveRate, true, null);
             DatasetLocalResourceFactory dsLocalResourceFactory =
                     new DatasetLocalResourceFactory(datasetId, lsmBtreeFactory);
             // TODO(amoudi) Creating the index should be done through the same code path as

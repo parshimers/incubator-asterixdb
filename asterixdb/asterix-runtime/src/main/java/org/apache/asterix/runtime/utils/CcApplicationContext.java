@@ -24,6 +24,7 @@ import java.util.function.Supplier;
 import org.apache.asterix.common.api.ICoordinationService;
 import org.apache.asterix.common.api.IMetadataLockManager;
 import org.apache.asterix.common.api.INodeJobTracker;
+import org.apache.asterix.common.transactions.ITxnIdFactory;
 import org.apache.asterix.common.cluster.IClusterStateManager;
 import org.apache.asterix.common.cluster.IGlobalRecoveryManager;
 import org.apache.asterix.common.config.ActiveProperties;
@@ -85,6 +86,7 @@ public class CcApplicationContext implements ICcApplicationContext {
     private IMetadataLockManager mdLockManager;
     private IClusterStateManager clusterStateManager;
     private final INodeJobTracker nodeJobTracker;
+    private final ITxnIdFactory txnIdFactory;
 
     public CcApplicationContext(ICCServiceContext ccServiceCtx, IHyracksClientConnection hcc,
             ILibraryManager libraryManager, Supplier<IMetadataBootstrap> metadataBootstrapSupplier,
@@ -118,6 +120,8 @@ public class CcApplicationContext implements ICcApplicationContext {
         clusterStateManager.setCcAppCtx(this);
         this.resourceIdManager = new ResourceIdManager(clusterStateManager);
         nodeJobTracker = new NodeJobTracker();
+        txnIdFactory = new BulkTxnIdFactory();
+
     }
 
     @Override
@@ -264,5 +268,9 @@ public class CcApplicationContext implements ICcApplicationContext {
     @Override
     public ICoordinationService getCoordinationService() {
         return NoOpCoordinationService.INSTANCE;
+    }
+
+    public ITxnIdFactory getTxnIdFactory() {
+        return txnIdFactory;
     }
 }

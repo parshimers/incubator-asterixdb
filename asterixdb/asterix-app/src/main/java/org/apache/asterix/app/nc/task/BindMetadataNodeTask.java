@@ -27,21 +27,12 @@ import org.apache.hyracks.api.service.IControllerService;
 public class BindMetadataNodeTask implements INCLifecycleTask {
 
     private static final long serialVersionUID = 1L;
-    private final boolean exportStub;
-
-    public BindMetadataNodeTask(boolean exportStub) {
-        this.exportStub = exportStub;
-    }
 
     @Override
     public void perform(CcId ccId, IControllerService cs) throws HyracksDataException {
         INcApplicationContext appContext = (INcApplicationContext) cs.getApplicationContext();
         try {
-            if (exportStub) {
-                appContext.exportMetadataNodeStub();
-            } else {
-                appContext.unexportMetadataNodeStub();
-            }
+            appContext.bindMetadataNodeStub(ccId);
         } catch (Exception e) {
             throw HyracksDataException.create(e);
         }
@@ -49,6 +40,6 @@ public class BindMetadataNodeTask implements INCLifecycleTask {
 
     @Override
     public String toString() {
-        return "{ \"class\" : \"" + getClass().getSimpleName() + "\", \"export-stub\" : " + exportStub + " }";
+        return "{ \"class\" : \"" + getClass().getSimpleName() + "\" }";
     }
 }

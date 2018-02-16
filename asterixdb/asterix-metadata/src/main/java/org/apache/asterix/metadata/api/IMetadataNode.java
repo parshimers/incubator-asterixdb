@@ -806,5 +806,4 @@ public interface IMetadataNode extends Remote, Serializable {
 
     List<FeedConnection> getFeedConnections(TxnId txnId, String dataverseName, String feedName)
             throws AlgebricksException, RemoteException;
-
 }

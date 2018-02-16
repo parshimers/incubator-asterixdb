@@ -152,13 +152,13 @@ public class CCApplication extends BaseCCApplication {
         appCtx.setExtensionManager(ccExtensionManager);
         final CCConfig ccConfig = controllerService.getCCConfig();
         if (System.getProperty("java.rmi.server.hostname") == null) {
-            System.setProperty("java.rmi.server.hostname", ccConfig.getClusterListenAddress());
+            System.setProperty("java.rmi.server.hostname", ccConfig.getClusterPublicAddress());
         }
         MetadataProperties metadataProperties = appCtx.getMetadataProperties();
 
         setAsterixStateProxy(AsterixStateProxy.registerRemoteObject(metadataProperties.getMetadataCallbackPort()));
         ccServiceCtx.setDistributedState(proxy);
-        MetadataManager.initialize(proxy, metadataProperties);
+        MetadataManager.initialize(proxy, metadataProperties, appCtx);
         ccServiceCtx.addJobLifecycleListener(appCtx.getActiveNotificationHandler());
 
         // create event loop groups

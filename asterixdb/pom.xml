@@ -21,7 +21,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.apache.asterix</groupId>
   <artifactId>apache-asterixdb</artifactId>
-  <version>0.9.3-SNAPSHOT</version>
+  <version>0.9.4-SNAPSHOT</version>
   <packaging>pom</packaging>
   <url>https://asterixdb.apache.org/</url>
 
@@ -58,7 +58,7 @@
     <maven.test.skip>false</maven.test.skip>
     <skip.surefire.tests>${skipTests}</skip.surefire.tests>
     <skip.testResources>${maven.test.skip}</skip.testResources>
-    <testLog4jConfigFile>${root.dir}/asterix-app/src/test/resources/log4j2-test.xml</testLog4jConfigFile>
+    <testLog4jConfigFile>${root.dir}/asterix-app/src/test/resources/log4j2-asterixdb-test.xml</testLog4jConfigFile>
 
     <!-- Definition of tests in various categories which may be excluded -->
     <repeated.tests>**/RepeatedTest.java</repeated.tests>
@@ -73,8 +73,8 @@
     <itest.excludes>${global.itest.excludes}</itest.excludes>
 
     <!-- Versions under dependencymanagement or used in many projects via properties -->
-    <algebricks.version>0.3.3-SNAPSHOT</algebricks.version>
-    <hyracks.version>0.3.3-SNAPSHOT</hyracks.version>
+    <algebricks.version>0.3.4-SNAPSHOT</algebricks.version>
+    <hyracks.version>0.3.4-SNAPSHOT</hyracks.version>
     <hadoop.version>2.2.0</hadoop.version>
     <jacoco.version>0.7.6.201602180812</jacoco.version>
   </properties>
@@ -737,6 +737,13 @@
         </plugins>
       </build>
     </profile>
+    <profile>
+      <id>integration-tests-only</id>
+      <properties>
+        <test.includes/>
+        <failIfNoTests>false</failIfNoTests>
+      </properties>
+    </profile>
   </profiles>
 
   <modules>
@@ -998,6 +1005,12 @@
         <groupId>org.apache.hyracks</groupId>
         <artifactId>hyracks-server</artifactId>
         <version>${hyracks.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hyracks</groupId>
+        <artifactId>hyracks-server</artifactId>
+        <version>${hyracks.version}</version>
+        <type>test-jar</type>
       </dependency>
       <dependency>
         <groupId>org.apache.hyracks</groupId>

@@ -199,22 +199,20 @@ public class NCApplication extends BaseNCApplication {
                 && (nodeProperties.isInitialRun() || nodeProperties.isVirtualNc())) {
             state = SystemState.BOOTSTRAPPING;
         }
-        // Request registration tasks from CC
-        // TODO (mblow): multicc
+        // Request registration tasks from CC (we only do this from our primary CC, in the case of multiple CCs)
         final NodeControllerService ncControllerService = (NodeControllerService) ncServiceCtx.getControllerService();
-        RegistrationTasksRequestMessage.send(ncControllerService.getPrimaryClusterController().getCcId(),
-                ncControllerService, NodeStatus.BOOTING, state);
+        RegistrationTasksRequestMessage.send(ncControllerService.getPrimaryCcId(), ncControllerService,
+                NodeStatus.BOOTING, state);
         startupCompleted = true;
     }
 
     @Override
     public void onRegisterNode(CcId ccId) throws Exception {
-        // TODO (mblow): multicc
-        if (startupCompleted && ccId.equals(((NodeControllerService) ncServiceCtx.getControllerService())
-                .getPrimaryClusterController().getCcId())) {
+        if (startupCompleted) {
             /*
              * If the node completed its startup before, then this is a re-registration with
-             * the CC and therefore the system state should be HEALTHY and the node status is ACTIVE
+             * the primary (or supplemental) CC and therefore the system state should be HEALTHY and the node status
+             * is ACTIVE
              */
             RegistrationTasksRequestMessage.send(ccId, (NodeControllerService) ncServiceCtx.getControllerService(),
                     NodeStatus.ACTIVE, SystemState.HEALTHY);
@@ -224,19 +222,9 @@ public class NCApplication extends BaseNCApplication {
     @Override
     public NodeCapacity getCapacity() {
         StorageProperties storageProperties = runtimeContext.getStorageProperties();
-        // Deducts the reserved buffer cache size and memory component size from the maxium heap size,
-        // and deducts one core for processing heartbeats.
-        long memorySize = Runtime.getRuntime().maxMemory() - storageProperties.getBufferCacheSize()
-                - storageProperties.getMemoryComponentGlobalBudget();
-        if (memorySize <= 0) {
-            throw new IllegalStateException("Invalid node memory configuration, more memory budgeted than available "
-                    + "in JVM. Runtime max memory: " + Runtime.getRuntime().maxMemory() + " Buffer cache size: "
-                    + storageProperties.getBufferCacheSize() + " Memory component global budget: "
-                    + storageProperties.getMemoryComponentGlobalBudget());
-        }
+        final long memorySize = storageProperties.getJobExecutionMemoryBudget();
         int allCores = Runtime.getRuntime().availableProcessors();
-        int maximumCoresForComputation = allCores > 1 ? allCores - 1 : allCores;
-        return new NodeCapacity(memorySize, maximumCoresForComputation);
+        return new NodeCapacity(memorySize, allCores);
     }
 
     private void performLocalCleanUp() throws HyracksDataException {
