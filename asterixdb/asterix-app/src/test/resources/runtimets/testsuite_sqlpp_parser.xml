@@ -18,7 +18,7 @@
  !-->
 <!DOCTYPE test-suite [
 
-             <!ENTITY RecordsQueries SYSTEM "queries/objects/ObjectsQueries.xml">
+             <!ENTITY ObjectsQueries SYSTEM "queries/objects/ObjectsQueries.xml">
 
              ]>
 <test-suite
@@ -2465,21 +2465,6 @@
       </compilation-unit>
     </test-case>
   </test-group>
-  <!-- <test-group name="graph">
-        <test-case FilePath="graph">
-            <compilation-unit name="pregel-q01">
-                <output-dir compare="AST">pregel-q01</output-dir>
-            </compilation-unit>
-            <test-case FilePath="graph">
-            <compilation-unit name="pregel-q02">
-                <output-dir compare="AST">pregel-q02</output-dir>
-            </compilation-unit>
-            <test-case FilePath="graph">
-            <compilation-unit name="pregel-q03">
-                <output-dir compare="AST">pregel-q03</output-dir>
-            </compilation-unit>
-        </test-case>
-    </test-group> -->
   <test-group name="index-join">
     <test-case FilePath="index-join">
       <compilation-unit name="btree-index-nested-loop-join">
@@ -4396,7 +4381,7 @@
     </test-case>
   </test-group>
   <test-group name="records">
-    &RecordsQueries;
+    &ObjectsQueries;
   </test-group>
   <test-group name="scan">
     <test-case FilePath="scan">

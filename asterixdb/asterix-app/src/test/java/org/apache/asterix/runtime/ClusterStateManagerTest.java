@@ -207,7 +207,8 @@ public class ClusterStateManagerTest {
         Mockito.when(iccServiceContext.getAppConfig()).thenReturn(applicationConfig);
         Mockito.when(ccApplicationContext.getServiceContext()).thenReturn(iccServiceContext);
 
-        NcLifecycleCoordinator coordinator = new NcLifecycleCoordinator(ccApplicationContext.getServiceContext(), false);
+        NcLifecycleCoordinator coordinator =
+                new NcLifecycleCoordinator(ccApplicationContext.getServiceContext(), false);
         coordinator.bindTo(csm);
         Mockito.when(ccApplicationContext.getNcLifecycleCoordinator()).thenReturn(coordinator);
 
@@ -230,6 +231,7 @@ public class ClusterStateManagerTest {
     private MetadataProperties mockMetadataProperties() {
         SortedMap<Integer, ClusterPartition> clusterPartitions = Collections.synchronizedSortedMap(new TreeMap<>());
         Map<String, ClusterPartition[]> nodePartitionsMap = new ConcurrentHashMap<>();
+        nodePartitionsMap.put(METADATA_NODE, new ClusterPartition[] { new ClusterPartition(0, METADATA_NODE, 0) });
         MetadataProperties metadataProperties = Mockito.mock(MetadataProperties.class);
         Mockito.when(metadataProperties.getMetadataNodeName()).thenReturn(METADATA_NODE);
         Mockito.when(metadataProperties.getClusterPartitions()).thenReturn(clusterPartitions);

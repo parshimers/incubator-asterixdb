@@ -50,13 +50,14 @@ public class RegisterNodeWork extends SynchronizableWork {
     @Override
     protected void doRun() throws Exception {
         String id = reg.getNodeId();
+        // TODO(mblow): it seems we should close IPC handles when we're done with them (like here)
         IIPCHandle ncIPCHandle = ccs.getClusterIPC().getHandle(reg.getNodeControllerAddress());
         CCNCFunctions.NodeRegistrationResult result;
         Map<IOption, Object> ncConfiguration = new HashMap<>();
         try {
             LOGGER.log(Level.WARN, "Registering INodeController: id = " + id);
-            NodeControllerRemoteProxy nc =
-                    new NodeControllerRemoteProxy(ccs.getClusterIPC(), reg.getNodeControllerAddress());
+            NodeControllerRemoteProxy nc = new NodeControllerRemoteProxy(ccs.getCcId(),
+                    ccs.getClusterIPC().getReconnectingHandle(reg.getNodeControllerAddress()));
             NodeControllerState state = new NodeControllerState(nc, reg);
             INodeManager nodeManager = ccs.getNodeManager();
             nodeManager.addNode(id, state);
@@ -70,8 +71,8 @@ public class RegisterNodeWork extends SynchronizableWork {
             params.setDistributedState(ccs.getContext().getDistributedState());
             params.setHeartbeatPeriod(ccs.getCCConfig().getHeartbeatPeriodMillis());
             params.setProfileDumpPeriod(ccs.getCCConfig().getProfileDumpPeriod());
+            params.setRegistrationId(reg.getRegistrationId());
             result = new CCNCFunctions.NodeRegistrationResult(params, null);
-            ccs.getJobIdFactory().ensureMinimumId(reg.getMaxJobId() + 1);
         } catch (Exception e) {
             LOGGER.log(Level.WARN, "Node registration failed", e);
             result = new CCNCFunctions.NodeRegistrationResult(null, e);

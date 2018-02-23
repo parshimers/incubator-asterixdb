@@ -54,23 +54,18 @@ import org.apache.asterix.common.transactions.LogSource;
 import org.apache.asterix.common.transactions.LogType;
 import org.apache.asterix.common.transactions.MutableLong;
 import org.apache.asterix.common.transactions.TxnLogFile;
-import org.apache.asterix.common.utils.InvokeUtil;
 import org.apache.hyracks.api.lifecycle.ILifeCycleComponent;
+import org.apache.hyracks.api.util.InvokeUtil;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
 
 public class LogManager implements ILogManager, ILifeCycleComponent {
 
-    /*
-     * Constants
-     */
     private static final Logger LOGGER = org.apache.logging.log4j.LogManager.getLogger();
     private static final long SMALLEST_LOG_FILE_ID = 0;
     private static final int INITIAL_LOG_SIZE = 0;
-    public static final boolean IS_DEBUG_MODE = false;// true
-    /*
-     * Finals
-     */
+    private static final boolean IS_DEBUG_MODE = false;
+
     private final ITransactionSubsystem txnSubsystem;
     private final LogManagerProperties logManagerProperties;
     private final int numLogPages;
@@ -82,9 +77,8 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     private final long logFileSize;
     private final int logPageSize;
     private final AtomicLong appendLSN;
-    /*
-     * Mutables
-     */
+    private final long maxLogRecordSize;
+
     private LinkedBlockingQueue<ILogBuffer> emptyQ;
     private LinkedBlockingQueue<ILogBuffer> flushQ;
     private LinkedBlockingQueue<ILogBuffer> stashQ;
@@ -93,12 +87,14 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     private LogFlusher logFlusher;
     private Future<? extends Object> futureLogFlusher;
     protected LinkedBlockingQueue<ILogRecord> flushLogsQ;
+    private long currentLogFileId;
 
     public LogManager(ITransactionSubsystem txnSubsystem) {
         this.txnSubsystem = txnSubsystem;
         logManagerProperties =
                 new LogManagerProperties(this.txnSubsystem.getTransactionProperties(), this.txnSubsystem.getId());
         logFileSize = logManagerProperties.getLogPartitionSize();
+        maxLogRecordSize = logFileSize - 1;
         logPageSize = logManagerProperties.getLogPageSize();
         numLogPages = logManagerProperties.getNumLogPages();
         logDir = logManagerProperties.getLogDir();
@@ -192,6 +188,9 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     }
 
     private boolean fileHasSpace(int logSize) {
+        if (logSize > maxLogRecordSize) {
+            throw new ACIDException("Maximum log record size of (" + maxLogRecordSize + ") exceeded");
+        }
         /*
          * To eliminate the case where the modulo of the next appendLSN = 0 (the next
          * appendLSN = the first LSN of the next log file), we do not allow a log to be
@@ -239,17 +238,18 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     private void prepareNextLogFile() {
         final long nextFileBeginLsn = getNextFileFirstLsn();
         try {
+            closeCurrentLogFile();
             createNextLogFile();
-            setLogPosition(nextFileBeginLsn);
+            InvokeUtil.doIoUninterruptibly(() -> setLogPosition(nextFileBeginLsn));
+            // move appendLSN and flushLSN to the first LSN of the next log file
+            // only after the file was created and the channel was positioned successfully
+            appendLSN.set(nextFileBeginLsn);
+            flushLSN.set(nextFileBeginLsn);
+            LOGGER.info("Created new txn log file with id({}) starting with LSN = {}", currentLogFileId,
+                    nextFileBeginLsn);
         } catch (IOException e) {
             throw new ACIDException(e);
         }
-        // move appendLSN and flushLSN to the first LSN of the next log file
-        // only after the file was created and the channel was positioned successfully
-        appendLSN.set(nextFileBeginLsn);
-        flushLSN.set(nextFileBeginLsn);
-        LOGGER.info("Created new txn log file with id({}) starting with LSN = {}", getLogFileId(nextFileBeginLsn),
-                nextFileBeginLsn);
     }
 
     private long getNextFileFirstLsn() {
@@ -258,8 +258,6 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     }
 
     private void ensureLastPageFlushed() {
-        // Mark the page as the last page so that it will close the output file channel.
-        appendPage.setLastPage();
         // Make sure to flush whatever left in the log tail.
         appendPage.setFull();
         synchronized (flushLSN) {
@@ -301,6 +299,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     @Override
     public void stop(boolean dumpState, OutputStream os) {
         terminateLogFlusher();
+        closeCurrentLogFile();
         if (dumpState) {
             dumpState(os);
         }
@@ -353,7 +352,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
         try {
             if (fileLogDir.exists()) {
                 List<Long> logFileIds = getLogFileIds();
-                if (logFileIds == null) {
+                if (logFileIds.isEmpty()) {
                     fileId = nextLogFileId;
                     createFileIfNotExists(getLogFilePath(fileId));
                     if (LOGGER.isInfoEnabled()) {
@@ -387,6 +386,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     @Override
     public void renewLogFiles() {
         terminateLogFlusher();
+        closeCurrentLogFile();
         long lastMaxLogFileId = deleteAllLogFiles();
         initializeLogManager(lastMaxLogFileId + 1);
     }
@@ -395,9 +395,11 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     public void deleteOldLogFiles(long checkpointLSN) {
         Long checkpointLSNLogFileID = getLogFileId(checkpointLSN);
         List<Long> logFileIds = getLogFileIds();
-        if (logFileIds != null) {
+        if (!logFileIds.isEmpty()) {
             //sort log files from oldest to newest
             Collections.sort(logFileIds);
+            // remove the last one not to delete the current log file
+            logFileIds.remove(logFileIds.size() - 1);
             /**
              * At this point, any future LogReader should read from LSN >= checkpointLSN
              */
@@ -408,11 +410,10 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
                      * The log file which contains the checkpointLSN has been reached.
                      * The oldest log file being accessed by a LogReader has been reached.
                      */
-                    if (id >= checkpointLSNLogFileID || (txnLogFileId2ReaderCount.containsKey(id)
-                            && txnLogFileId2ReaderCount.get(id) > 0)) {
+                    if (id >= checkpointLSNLogFileID
+                            || (txnLogFileId2ReaderCount.containsKey(id) && txnLogFileId2ReaderCount.get(id) > 0)) {
                         break;
                     }
-
                     //delete old log file
                     File file = new File(getLogFilePath(id));
                     file.delete();
@@ -445,21 +446,16 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     }
 
     private long deleteAllLogFiles() {
-        if (appendChannel != null) {
-            try {
-                appendChannel.close();
-            } catch (IOException e) {
-                throw new IllegalStateException("Failed to close a fileChannel of a log file");
-            }
-        }
         txnLogFileId2ReaderCount.clear();
         List<Long> logFileIds = getLogFileIds();
-        if (logFileIds != null) {
+        if (!logFileIds.isEmpty()) {
             for (Long id : logFileIds) {
                 File file = new File(getLogFilePath(id));
+                LOGGER.info("Deleting log file: " + file.getAbsolutePath());
                 if (!file.delete()) {
                     throw new IllegalStateException("Failed to delete a file: " + file.getAbsolutePath());
                 }
+                LOGGER.info("log file: " + file.getAbsolutePath() + " was deleted successfully");
             }
             return logFileIds.get(logFileIds.size() - 1);
         } else {
@@ -471,29 +467,40 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
         File fileLogDir = new File(logDir);
         String[] logFileNames = null;
         List<Long> logFileIds = null;
-        if (fileLogDir.exists()) {
-            logFileNames = fileLogDir.list(new FilenameFilter() {
-                @Override
-                public boolean accept(File dir, String name) {
-                    if (name.startsWith(logFilePrefix)) {
-                        return true;
-                    }
-                    return false;
-                }
-            });
-            if (logFileNames != null && logFileNames.length != 0) {
-                logFileIds = new ArrayList<>();
-                for (String fileName : logFileNames) {
-                    logFileIds.add(Long.parseLong(fileName.substring(logFilePrefix.length() + 1)));
-                }
-                Collections.sort(logFileIds, new Comparator<Long>() {
-                    @Override
-                    public int compare(Long arg0, Long arg1) {
-                        return arg0.compareTo(arg1);
-                    }
-                });
-            }
+        if (!fileLogDir.exists()) {
+            LOGGER.log(Level.INFO, "log dir " + logDir + " doesn't exist.  returning empty list");
+            return Collections.emptyList();
         }
+        if (!fileLogDir.isDirectory()) {
+            throw new IllegalStateException("log dir " + logDir + " exists but it is not a directory");
+        }
+        logFileNames = fileLogDir.list(new FilenameFilter() {
+            @Override
+            public boolean accept(File dir, String name) {
+                if (name.startsWith(logFilePrefix)) {
+                    return true;
+                }
+                return false;
+            }
+        });
+        if (logFileNames == null) {
+            throw new IllegalStateException("listing of log dir (" + logDir + ") files returned null. "
+                    + "Either an IO error occurred or the dir was just deleted by another process/thread");
+        }
+        if (logFileNames.length == 0) {
+            LOGGER.log(Level.INFO, "the log dir (" + logDir + ") is empty. returning empty list");
+            return Collections.emptyList();
+        }
+        logFileIds = new ArrayList<>();
+        for (String fileName : logFileNames) {
+            logFileIds.add(Long.parseLong(fileName.substring(logFilePrefix.length() + 1)));
+        }
+        Collections.sort(logFileIds, new Comparator<Long>() {
+            @Override
+            public int compare(Long arg0, Long arg1) {
+                return arg0.compareTo(arg1);
+            }
+        });
         return logFileIds;
     }
 
@@ -537,15 +544,28 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
         final long fileId = getLogFileId(lsn);
         final Path targetFilePath = Paths.get(getLogFilePath(fileId));
         final long targetPosition = getLogFileOffset(lsn);
-        final RandomAccessFile raf = new RandomAccessFile(targetFilePath.toFile(), "rw"); // NOSONAR closed by LogBuffer
+        final RandomAccessFile raf = new RandomAccessFile(targetFilePath.toFile(), "rw"); // NOSONAR closed when full
         appendChannel = raf.getChannel();
         appendChannel.position(targetPosition);
+        currentLogFileId = fileId;
+    }
+
+    private void closeCurrentLogFile() {
+        if (appendChannel != null && appendChannel.isOpen()) {
+            try {
+                LOGGER.info("closing current log file with id({})", currentLogFileId);
+                appendChannel.close();
+            } catch (IOException e) {
+                LOGGER.error(() -> "failed to close log file with id(" + currentLogFileId + ")", e);
+                throw new ACIDException(e);
+            }
+        }
     }
 
     @Override
     public long getReadableSmallestLSN() {
         List<Long> logFileIds = getLogFileIds();
-        if (logFileIds != null) {
+        if (!logFileIds.isEmpty()) {
             return logFileIds.get(0) * logFileSize;
         } else {
             throw new IllegalStateException("Couldn't find any log files.");
@@ -560,14 +580,6 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     @Override
     public int getLogPageSize() {
         return logPageSize;
-    }
-
-    @Override
-    public void renewLogFilesAndStartFromLSN(long LSNtoStartFrom) throws IOException {
-        terminateLogFlusher();
-        deleteAllLogFiles();
-        long newLogFile = getLogFileId(LSNtoStartFrom);
-        initializeLogManager(newLogFile + 1);
     }
 
     @Override
@@ -674,7 +686,6 @@ class LogFlusher implements Callable<Boolean> {
     public void terminate() {
         // make sure the LogFlusher thread started before terminating it.
         InvokeUtil.doUninterruptibly(started::acquire);
-
         stopping = true;
 
         // we must tell any active flush, if any, to stop
@@ -687,7 +698,7 @@ class LogFlusher implements Callable<Boolean> {
     }
 
     @Override
-    public Boolean call() throws InterruptedException {
+    public Boolean call() {
         started.release();
         boolean interrupted = false;
         try {

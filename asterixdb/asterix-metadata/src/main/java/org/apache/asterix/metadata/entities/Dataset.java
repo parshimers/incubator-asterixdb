@@ -42,6 +42,7 @@ import org.apache.asterix.common.metadata.IDataset;
 import org.apache.asterix.common.transactions.IRecoveryManager.ResourceType;
 import org.apache.asterix.common.utils.JobUtils;
 import org.apache.asterix.common.utils.JobUtils.ProgressState;
+import org.apache.asterix.common.utils.StoragePathUtil;
 import org.apache.asterix.external.feed.management.FeedConnectionId;
 import org.apache.asterix.external.indexing.IndexingConstants;
 import org.apache.asterix.formats.nontagged.BinaryHashFunctionFactoryProvider;
@@ -70,6 +71,7 @@ import org.apache.asterix.transaction.management.opcallbacks.LockThenSearchOpera
 import org.apache.asterix.transaction.management.opcallbacks.PrimaryIndexInstantSearchOperationCallbackFactory;
 import org.apache.asterix.transaction.management.opcallbacks.PrimaryIndexModificationOperationCallbackFactory;
 import org.apache.asterix.transaction.management.opcallbacks.PrimaryIndexOperationTrackerFactory;
+import org.apache.asterix.transaction.management.opcallbacks.SecondaryIndexInstanctSearchOperationCallbackFactory;
 import org.apache.asterix.transaction.management.opcallbacks.SecondaryIndexModificationOperationCallbackFactory;
 import org.apache.asterix.transaction.management.opcallbacks.SecondaryIndexOperationTrackerFactory;
 import org.apache.asterix.transaction.management.opcallbacks.SecondaryIndexSearchOperationCallbackFactory;
@@ -539,6 +541,57 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
     /**
      * Get search callback factory for this dataset with the passed index and operation
      *
+     * @param storageComponentProvider
+     *            storage component provider
+     * @param index
+     *            the index
+     * @param op
+     *            the operation this search is part of
+     * @param primaryKeyFields
+     *            the primary key fields indexes for locking purposes
+     * @param primaryKeyFieldsInSecondaryIndex
+     *            the primary key fields indexes in the given secondary index (used for index-only plan)
+     * @param proceedIndexOnlyPlan
+     *            the given plan is an index-only plan? (used for index-only plan)
+     * @return
+     *         an instance of {@link org.apache.hyracks.storage.am.common.api.ISearchOperationCallbackFactory}
+     * @throws AlgebricksException
+     *             if the callback factory could not be created
+     */
+    public ISearchOperationCallbackFactory getSearchCallbackFactory(IStorageComponentProvider storageComponentProvider,
+            Index index, IndexOperation op, int[] primaryKeyFields, int[] primaryKeyFieldsInSecondaryIndex,
+            boolean proceedIndexOnlyPlan) throws AlgebricksException {
+        if (index.isPrimaryIndex()) {
+            /**
+            /*
+             * Due to the read-committed isolation level,
+             * we may acquire very short duration lock(i.e., instant lock) for readers.
+             */
+            return (op == IndexOperation.UPSERT)
+                    ? new LockThenSearchOperationCallbackFactory(getDatasetId(), primaryKeyFields,
+                            storageComponentProvider.getTransactionSubsystemProvider(), ResourceType.LSM_BTREE)
+                    : new PrimaryIndexInstantSearchOperationCallbackFactory(getDatasetId(), primaryKeyFields,
+                            storageComponentProvider.getTransactionSubsystemProvider(), ResourceType.LSM_BTREE);
+        } else if (proceedIndexOnlyPlan) {
+            // Index-only plan case: we need to execute instantTryLock on PK during a secondary-index search.
+            // TODO: ResourceType is never used in the Callbackfactory. Should we keep it?
+            return new SecondaryIndexInstanctSearchOperationCallbackFactory(getDatasetId(),
+                    primaryKeyFieldsInSecondaryIndex, storageComponentProvider.getTransactionSubsystemProvider(),
+                    index.resourceType());
+        } else if (index.getKeyFieldNames().isEmpty()) {
+            // this is the case where the index is secondary primary index and locking is required
+            // since the secondary primary index replaces the dataset index (which locks)
+            return new PrimaryIndexInstantSearchOperationCallbackFactory(getDatasetId(), primaryKeyFields,
+                    storageComponentProvider.getTransactionSubsystemProvider(), ResourceType.LSM_BTREE);
+        }
+        return new SecondaryIndexSearchOperationCallbackFactory();
+    }
+
+    /**
+     * Get search callback factory for this dataset with the passed index and operation
+     *
+     * @param storageComponentProvider
+     *            storage component provider
      * @param index
      *            the index
      * @param op
@@ -552,23 +605,7 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
      */
     public ISearchOperationCallbackFactory getSearchCallbackFactory(IStorageComponentProvider storageComponentProvider,
             Index index, IndexOperation op, int[] primaryKeyFields) throws AlgebricksException {
-        if (index.isPrimaryIndex()) {
-            /*
-             * Due to the read-committed isolation level,
-             * we may acquire very short duration lock(i.e., instant lock) for readers.
-             */
-            return (op == IndexOperation.UPSERT)
-                    ? new LockThenSearchOperationCallbackFactory(getDatasetId(), primaryKeyFields,
-                            storageComponentProvider.getTransactionSubsystemProvider(), ResourceType.LSM_BTREE)
-                    : new PrimaryIndexInstantSearchOperationCallbackFactory(getDatasetId(), primaryKeyFields,
-                            storageComponentProvider.getTransactionSubsystemProvider(), ResourceType.LSM_BTREE);
-        } else if (index.getKeyFieldNames().isEmpty()) {
-            // this is the case where the index is secondary primary index and locking is required
-            // since the secondary primary index replaces the dataset index (which locks)
-            return new PrimaryIndexInstantSearchOperationCallbackFactory(getDatasetId(), primaryKeyFields,
-                    storageComponentProvider.getTransactionSubsystemProvider(), ResourceType.LSM_BTREE);
-        }
-        return new SecondaryIndexSearchOperationCallbackFactory();
+        return getSearchCallbackFactory(storageComponentProvider, index, op, primaryKeyFields, null, false);
     }
 
     /**
@@ -586,16 +623,15 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
      *             If the callback factory could not be created
      */
     public IModificationOperationCallbackFactory getModificationCallbackFactory(
-            IStorageComponentProvider componentProvider, Index index, IndexOperation op,
-            int[] primaryKeyFields) throws AlgebricksException {
+            IStorageComponentProvider componentProvider, Index index, IndexOperation op, int[] primaryKeyFields)
+            throws AlgebricksException {
         if (index.isPrimaryIndex()) {
             return op == IndexOperation.UPSERT ? new UpsertOperationCallbackFactory(getDatasetId(), primaryKeyFields,
-                            componentProvider.getTransactionSubsystemProvider(), Operation.get(op),
-                            index.resourceType())
+                    componentProvider.getTransactionSubsystemProvider(), Operation.get(op), index.resourceType())
                     : op == IndexOperation.DELETE || op == IndexOperation.INSERT
-                            ? new PrimaryIndexModificationOperationCallbackFactory(getDatasetId(),
-                                    primaryKeyFields, componentProvider.getTransactionSubsystemProvider(),
-                                    Operation.get(op), index.resourceType())
+                            ? new PrimaryIndexModificationOperationCallbackFactory(getDatasetId(), primaryKeyFields,
+                                    componentProvider.getTransactionSubsystemProvider(), Operation.get(op),
+                                    index.resourceType())
                             : NoOpOperationCallbackFactory.INSTANCE;
         } else {
             return op == IndexOperation.DELETE || op == IndexOperation.INSERT || op == IndexOperation.UPSERT
@@ -656,8 +692,8 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
     public IPushRuntimeFactory getCommitRuntimeFactory(MetadataProvider metadataProvider,
             int[] primaryKeyFieldPermutation, boolean isSink) throws AlgebricksException {
         int[] datasetPartitions = getDatasetPartitions(metadataProvider);
-        return new CommitRuntimeFactory(datasetId, primaryKeyFieldPermutation,
-                metadataProvider.isWriteTransaction(), datasetPartitions, isSink);
+        return new CommitRuntimeFactory(datasetId, primaryKeyFieldPermutation, metadataProvider.isWriteTransaction(),
+                datasetPartitions, isSink);
     }
 
     public IFrameOperationCallbackFactory getFrameOpCallbackFactory() {
@@ -819,6 +855,10 @@ public class Dataset implements IMetadataEntity<Dataset>, IDataset {
     protected int[] getDatasetPartitions(MetadataProvider metadataProvider) throws AlgebricksException {
         FileSplit[] splitsForDataset =
                 metadataProvider.splitsForIndex(metadataProvider.getMetadataTxnContext(), this, getDatasetName());
-        return IntStream.range(0, splitsForDataset.length).toArray();
+        int[] partitions = new int[splitsForDataset.length];
+        for (int i = 0; i < partitions.length; i++) {
+            partitions[i] = StoragePathUtil.getPartitionNumFromRelativePath(splitsForDataset[i].getPath());
+        }
+        return partitions;
     }
 }

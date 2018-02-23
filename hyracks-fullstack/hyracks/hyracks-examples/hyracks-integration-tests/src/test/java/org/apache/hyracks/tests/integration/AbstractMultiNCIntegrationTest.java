@@ -143,7 +143,7 @@ public abstract class AbstractMultiNCIntegrationTest {
         hcc.cancelJob(jobId);
     }
 
-    protected void runTest(JobSpecification spec, String expectedErrorMessage) throws Exception {
+    protected JobId runTest(JobSpecification spec, String expectedErrorMessage) throws Exception {
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info(spec.toJSON().asText());
         }
@@ -195,6 +195,7 @@ public abstract class AbstractMultiNCIntegrationTest {
         // Waiting a second time should lead to the same behavior
         waitForCompletion(jobId, expectedErrorMessage);
         dumpOutputFiles();
+        return jobId;
     }
 
     protected void waitForCompletion(JobId jobId, String expectedErrorMessage) throws Exception {

@@ -24,7 +24,7 @@
   <parent>
     <groupId>org.apache.hyracks</groupId>
     <artifactId>hyracks</artifactId>
-    <version>0.3.3-SNAPSHOT</version>
+    <version>0.3.4-SNAPSHOT</version>
   </parent>
 
   <licenses>
@@ -42,6 +42,17 @@
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>test-jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
@@ -65,12 +76,6 @@
         <configuration>
           <runOrder>alphabetical</runOrder>
           <forkMode>pertest</forkMode>
-          <systemProperties>
-            <property>
-              <name>java.util.logging.config.file</name>
-              <value>src/test/resources/logging.properties</value>
-            </property>
-          </systemProperties>
         </configuration>
         <executions>
           <execution>

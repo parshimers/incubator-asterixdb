@@ -22,14 +22,14 @@
   <parent>
     <groupId>org.apache.asterix</groupId>
     <artifactId>asterix-maven-plugins</artifactId>
-    <version>0.9.3-SNAPSHOT</version>
+    <version>0.9.4-SNAPSHOT</version>
   </parent>
 
   <packaging>maven-plugin</packaging>
   <name>asterix-evaluator-generator-maven-plugin</name>
 
   <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <root.dir>${basedir}/../..</root.dir>
   </properties>
   <build>
     <plugins>

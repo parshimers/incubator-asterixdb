@@ -39,20 +39,20 @@ public class ResourceIdRequestMessage implements ICcAddressedMessage {
     public void handle(ICcApplicationContext appCtx) throws HyracksDataException, InterruptedException {
         try {
             ICCMessageBroker broker = (ICCMessageBroker) appCtx.getServiceContext().getMessageBroker();
-            ResourceIdRequestResponseMessage reponse = new ResourceIdRequestResponseMessage();
+            ResourceIdRequestResponseMessage response = new ResourceIdRequestResponseMessage();
             IClusterStateManager clusterStateManager = appCtx.getClusterStateManager();
-            if (!clusterStateManager.isClusterActive()) {
-                reponse.setResourceId(-1);
-                reponse.setException(new Exception("Cannot generate global resource id when cluster is not active."));
-            } else {
-                IResourceIdManager resourceIdManager = appCtx.getResourceIdManager();
-                reponse.setResourceId(resourceIdManager.createResourceId());
-                if (reponse.getResourceId() < 0) {
-                    reponse.setException(new Exception("One or more nodes has not reported max resource id."));
+            IResourceIdManager resourceIdManager = appCtx.getResourceIdManager();
+            response.setResourceId(resourceIdManager.createResourceId());
+            if (response.getResourceId() < 0) {
+                if (!(clusterStateManager.isClusterActive())) {
+                    response.setException(
+                            new Exception("Cannot generate global resource id when cluster is not active."));
+                } else {
+                    response.setException(new Exception("One or more nodes has not reported max resource id."));
+                    requestMaxResourceID(clusterStateManager, resourceIdManager, broker);
                 }
-                requestMaxResourceID(clusterStateManager, resourceIdManager, broker);
             }
-            broker.sendApplicationMessageToNC(reponse, src);
+            broker.sendApplicationMessageToNC(response, src);
         } catch (Exception e) {
             throw HyracksDataException.create(e);
         }
@@ -60,7 +60,7 @@ public class ResourceIdRequestMessage implements ICcAddressedMessage {
 
     private void requestMaxResourceID(IClusterStateManager clusterStateManager, IResourceIdManager resourceIdManager,
             ICCMessageBroker broker) throws Exception {
-        Set<String> getParticipantNodes = clusterStateManager.getParticipantNodes();
+        Set<String> getParticipantNodes = clusterStateManager.getParticipantNodes(true);
         ReportLocalCountersRequestMessage msg = new ReportLocalCountersRequestMessage();
         for (String nodeId : getParticipantNodes) {
             if (!resourceIdManager.reported(nodeId)) {

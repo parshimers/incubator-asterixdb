@@ -61,7 +61,6 @@ import org.apache.hyracks.storage.am.lsm.common.impls.LSMTreeIndexAccessor;
 import org.apache.hyracks.storage.common.IIndexAccessParameters;
 import org.apache.hyracks.storage.common.IIndexBulkLoader;
 import org.apache.hyracks.storage.common.IIndexCursor;
-import org.apache.hyracks.storage.common.IModificationOperationCallback;
 import org.apache.hyracks.storage.common.ISearchOperationCallback;
 import org.apache.hyracks.storage.common.ISearchPredicate;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
@@ -89,8 +88,8 @@ public class ExternalBTreeWithBuddy extends AbstractLSMIndex implements ITreeInd
             ILSMDiskComponentFactory bulkLoadComponentFactory, double bloomFilterFalsePositiveRate,
             ILSMMergePolicy mergePolicy, ILSMOperationTracker opTracker, ILSMIOOperationScheduler ioScheduler,
             ILSMIOOperationCallbackFactory ioOpCallbackFactory, IBinaryComparatorFactory[] btreeCmpFactories,
-            IBinaryComparatorFactory[] buddyBtreeCmpFactories, int[] buddyBTreeFields, boolean durable,
-            ITracer tracer) {
+            IBinaryComparatorFactory[] buddyBtreeCmpFactories, int[] buddyBTreeFields, boolean durable, ITracer tracer)
+            throws HyracksDataException {
         super(ioManager, diskBufferCache, fileManager, bloomFilterFalsePositiveRate, mergePolicy, opTracker,
                 ioScheduler, ioOpCallbackFactory, componentFactory, bulkLoadComponentFactory, durable, tracer);
         this.btreeCmpFactories = btreeCmpFactories;
@@ -331,9 +330,7 @@ public class ExternalBTreeWithBuddy extends AbstractLSMIndex implements ITreeInd
                 numElements += ((AbstractLSMWithBloomFilterDiskComponent) mergeOp.getMergingComponents().get(i))
                         .getBloomFilter().getNumElements();
             }
-
             componentBulkLoader = mergedComponent.createBulkLoader(1.0f, false, numElements, false, false, false);
-
             try {
                 while (buddyBtreeCursor.hasNext()) {
                     buddyBtreeCursor.next();
@@ -341,7 +338,7 @@ public class ExternalBTreeWithBuddy extends AbstractLSMIndex implements ITreeInd
                     componentBulkLoader.delete(tuple);
                 }
             } finally {
-                buddyBtreeCursor.destroy();
+                buddyBtreeCursor.close();
             }
         } else {
             componentBulkLoader = mergedComponent.createBulkLoader(1.0f, false, 0L, false, false, false);
@@ -354,7 +351,7 @@ public class ExternalBTreeWithBuddy extends AbstractLSMIndex implements ITreeInd
                 componentBulkLoader.add(frameTuple);
             }
         } finally {
-            cursor.destroy();
+            cursor.close();
         }
         componentBulkLoader.end();
         return mergedComponent;
@@ -635,8 +632,7 @@ public class ExternalBTreeWithBuddy extends AbstractLSMIndex implements ITreeInd
     }
 
     @Override
-    protected AbstractLSMIndexOperationContext createOpContext(IModificationOperationCallback modificationCallback,
-            ISearchOperationCallback searchCallback) {
+    protected AbstractLSMIndexOperationContext createOpContext(IIndexAccessParameters iap) {
         return null;
     }
 

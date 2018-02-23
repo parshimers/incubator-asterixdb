@@ -118,7 +118,7 @@ public class SqlppInlineUdfsVisitor extends AbstractInlineUdfsVisitor
 
     @Override
     public Boolean visit(Projection projection, List<FunctionDecl> funcs) throws CompilationException {
-        if (projection.star() == true) {
+        if (projection.star()) {
             return false;
         }
         Pair<Boolean, Expression> p = inlineUdfsInExpr(projection.getExpression(), funcs);
@@ -248,8 +248,7 @@ public class SqlppInlineUdfsVisitor extends AbstractInlineUdfsVisitor
         Map<Expression, Expression> varExprMap = new HashMap<>();
         for (LetClause lc : letClauses) {
             // inline let variables one by one iteratively.
-            lc.setBindingExpr(SqlppRewriteUtil.substituteExpression(lc.getBindingExpr(),
-                    varExprMap, context));
+            lc.setBindingExpr(SqlppRewriteUtil.substituteExpression(lc.getBindingExpr(), varExprMap, context));
             varExprMap.put(lc.getVarExpr(), lc.getBindingExpr());
         }
         return varExprMap;

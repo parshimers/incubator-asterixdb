@@ -25,7 +25,7 @@ import org.apache.hyracks.api.job.JobId;
 
 public interface IDatasetPartitionManager extends IDatasetManager {
     IFrameWriter createDatasetPartitionWriter(IHyracksTaskContext ctx, ResultSetId rsId, boolean orderedResult,
-            boolean asyncMode, int partition, int nPartitions) throws HyracksException;
+            boolean asyncMode, int partition, int nPartitions, long maxReads) throws HyracksException;
 
     void registerResultPartitionLocation(JobId jobId, ResultSetId rsId, int partition, int nPartitions,
             boolean orderedResult, boolean emptyResult) throws HyracksException;
@@ -38,8 +38,6 @@ public interface IDatasetPartitionManager extends IDatasetManager {
     void removePartition(JobId jobId, ResultSetId resultSetId, int partition);
 
     void abortReader(JobId jobId);
-
-    void abortAllReaders();
 
     void close();
 

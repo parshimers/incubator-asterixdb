@@ -19,32 +19,38 @@
 package org.apache.asterix.app.replication.message;
 
 import org.apache.asterix.common.api.INcApplicationContext;
+import org.apache.asterix.common.messaging.CcIdentifiedMessage;
 import org.apache.asterix.common.messaging.api.INCMessageBroker;
 import org.apache.asterix.common.messaging.api.INcAddressedMessage;
 import org.apache.asterix.common.replication.INCLifecycleMessage;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.util.ExceptionUtils;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-public class MetadataNodeRequestMessage implements INCLifecycleMessage, INcAddressedMessage {
+public class MetadataNodeRequestMessage extends CcIdentifiedMessage
+        implements INCLifecycleMessage, INcAddressedMessage {
 
     private static final long serialVersionUID = 1L;
     private static final Logger LOGGER = LogManager.getLogger();
     private final boolean export;
+    private final int partitionId;
 
-    public MetadataNodeRequestMessage(boolean export) {
+    public MetadataNodeRequestMessage(boolean export, int partitionId) {
         this.export = export;
+        this.partitionId = partitionId;
     }
 
     @Override
     public void handle(INcApplicationContext appContext) throws HyracksDataException, InterruptedException {
         INCMessageBroker broker = (INCMessageBroker) appContext.getServiceContext().getMessageBroker();
-        HyracksDataException hde = null;
+        Throwable hde = null;
         try {
             if (export) {
-                appContext.initializeMetadata(false);
+                appContext.initializeMetadata(false, partitionId);
                 appContext.exportMetadataNodeStub();
+                appContext.bindMetadataNodeStub(getCcId());
             } else {
                 appContext.unexportMetadataNodeStub();
             }
@@ -55,14 +61,14 @@ public class MetadataNodeRequestMessage implements INCLifecycleMessage, INcAddre
             MetadataNodeResponseMessage reponse =
                     new MetadataNodeResponseMessage(appContext.getTransactionSubsystem().getId(), export);
             try {
-                broker.sendMessageToCC(reponse);
+                broker.sendMessageToCC(getCcId(), reponse);
             } catch (Exception e) {
                 LOGGER.log(Level.ERROR, "Failed taking over metadata", e);
-                hde = HyracksDataException.suppress(hde, e);
+                hde = ExceptionUtils.suppress(hde, e);
             }
         }
         if (hde != null) {
-            throw hde;
+            throw HyracksDataException.create(hde);
         }
     }
 

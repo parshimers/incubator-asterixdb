@@ -182,8 +182,9 @@ public abstract class ActiveEntityEventsListener implements IActiveEntityControl
     protected void finish(ActiveEvent event) throws HyracksDataException {
         LOGGER.log(level, "the job " + jobId + " finished");
         if (numRegistered != numDeRegistered) {
-            LOGGER.log(Level.WARN, "the job " + jobId + " finished with reported runtime registrations = "
-                    + numRegistered + " and deregistrations = " + numDeRegistered + " on node controllers");
+            LOGGER.log(Level.WARN,
+                    "the job {} finished with reported runtime registrations = {} and deregistrations = {}", jobId,
+                    numRegistered, numDeRegistered);
         }
         jobId = null;
         Pair<JobStatus, List<Exception>> status = (Pair<JobStatus, List<Exception>>) event.getEventObject();
@@ -194,8 +195,7 @@ public abstract class ActiveEntityEventsListener implements IActiveEntityControl
             jobFailure = exceptions.isEmpty() ? new RuntimeDataException(ErrorCode.UNREPORTED_TASK_FAILURE_EXCEPTION)
                     : exceptions.get(0);
             setState((state == ActivityState.STOPPING) ? ActivityState.STOPPED : ActivityState.TEMPORARILY_FAILED);
-            if (prevState != ActivityState.SUSPENDING && prevState != ActivityState.RECOVERING
-                    && prevState != ActivityState.RESUMING && prevState != ActivityState.STOPPING) {
+            if (prevState == ActivityState.RUNNING) {
                 recover();
             }
         } else {
@@ -353,7 +353,7 @@ public abstract class ActiveEntityEventsListener implements IActiveEntityControl
     }
 
     @Override
-    public synchronized void recover() throws HyracksDataException {
+    public synchronized void recover() {
         LOGGER.log(level, "Recover is called on " + entityId);
         if (retryPolicyFactory == NoRetryPolicyFactory.INSTANCE) {
             LOGGER.log(level, "But it has no recovery policy, so it is set to permanent failure");

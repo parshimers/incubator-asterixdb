@@ -21,18 +21,16 @@
   <parent>
     <groupId>org.apache.asterix</groupId>
     <artifactId>apache-asterixdb</artifactId>
-    <version>0.9.3-SNAPSHOT</version>
+    <version>0.9.4-SNAPSHOT</version>
   </parent>
   <artifactId>asterix-active</artifactId>
+  <properties>
+    <root.dir>${basedir}/..</root.dir>
+  </properties>
   <dependencies>
     <dependency>
       <groupId>org.apache.asterix</groupId>
       <artifactId>asterix-common</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.asterix</groupId>
-      <artifactId>asterix-transactions</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>

@@ -23,7 +23,6 @@ import java.rmi.RemoteException;
 import java.util.concurrent.Executor;
 
 import org.apache.asterix.common.context.IStorageComponentProvider;
-import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.replication.IReplicationChannel;
 import org.apache.asterix.common.replication.IReplicationManager;
 import org.apache.asterix.common.storage.IIndexCheckpointManagerProvider;
@@ -31,11 +30,11 @@ import org.apache.asterix.common.storage.IReplicaManager;
 import org.apache.asterix.common.transactions.ITransactionSubsystem;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.api.application.INCServiceContext;
+import org.apache.hyracks.api.control.CcId;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperationScheduler;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMergePolicyFactory;
-import org.apache.hyracks.storage.am.lsm.common.api.ILSMOperationTracker;
 import org.apache.hyracks.storage.common.ILocalResourceRepository;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
 import org.apache.hyracks.storage.common.file.IResourceIdFactory;
@@ -66,15 +65,11 @@ public interface INcApplicationContext extends IApplicationContext {
 
     IResourceIdFactory getResourceIdFactory();
 
-    ILSMOperationTracker getLSMBTreeOperationTracker(int datasetID);
-
-    void initialize(boolean initialRun) throws IOException, ACIDException, AlgebricksException;
+    void initialize(boolean initialRun) throws IOException, AlgebricksException;
 
     void setShuttingdown(boolean b);
 
     void deinitialize() throws HyracksDataException;
-
-    double getBloomFilterFalsePositiveRate();
 
     Object getActiveManager();
 
@@ -93,9 +88,10 @@ public interface INcApplicationContext extends IApplicationContext {
      * Initializes the metadata node and bootstraps the metadata.
      *
      * @param newUniverse
+     * @param partitionId
      * @throws Exception
      */
-    void initializeMetadata(boolean newUniverse) throws Exception;
+    void initializeMetadata(boolean newUniverse, int partitionId) throws Exception;
 
     /**
      * Unexports the metadata node from the RMI registry
@@ -103,6 +99,13 @@ public interface INcApplicationContext extends IApplicationContext {
      * @throws RemoteException
      */
     void unexportMetadataNodeStub() throws RemoteException;
+
+    /**
+     * Binds the exported metadata node to the CC's distributed state.
+     *
+     * @throws RemoteException
+     */
+    void bindMetadataNodeStub(CcId ccId) throws RemoteException;
 
     /**
      * @return instance of {@link org.apache.asterix.common.context.IStorageComponentProvider}
@@ -115,4 +118,6 @@ public interface INcApplicationContext extends IApplicationContext {
     IIndexCheckpointManagerProvider getIndexCheckpointManagerProvider();
 
     IReplicaManager getReplicaManager();
+
+    long getMaxTxnId();
 }

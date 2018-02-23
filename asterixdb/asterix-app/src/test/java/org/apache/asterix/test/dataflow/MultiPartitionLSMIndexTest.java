@@ -86,8 +86,8 @@ public class MultiPartitionLSMIndexTest {
     private static final IAType[] KEY_TYPES = { BuiltinType.AINT32 };
     private static final ARecordType RECORD_TYPE = new ARecordType("TestRecordType", new String[] { "key", "value" },
             new IAType[] { BuiltinType.AINT32, BuiltinType.AINT64 }, false);
-    private static final GenerationFunction[] RECORD_GEN_FUNCTION = { GenerationFunction.DETERMINISTIC,
-            GenerationFunction.DETERMINISTIC };
+    private static final GenerationFunction[] RECORD_GEN_FUNCTION =
+            { GenerationFunction.DETERMINISTIC, GenerationFunction.DETERMINISTIC };
     private static final boolean[] UNIQUE_RECORD_FIELDS = { true, false };
     private static final ARecordType META_TYPE = null;
     private static final GenerationFunction[] META_GEN_FUNCTION = null;
@@ -104,8 +104,8 @@ public class MultiPartitionLSMIndexTest {
     private static final String DATA_TYPE_NAME = "DUMMY";
     private static final String NODE_GROUP_NAME = "DEFAULT";
     private static final IndexType INDEX_TYPE = IndexType.BTREE;
-    private static final List<List<String>> INDEX_FIELD_NAMES = Arrays
-            .asList(Arrays.asList(RECORD_TYPE.getFieldNames()[1]));
+    private static final List<List<String>> INDEX_FIELD_NAMES =
+            Arrays.asList(Arrays.asList(RECORD_TYPE.getFieldNames()[1]));
     private static final List<Integer> INDEX_FIELD_INDICATORS = Arrays.asList(Index.RECORD_INDICATOR);
     private static final List<IAType> INDEX_FIELD_TYPES = Arrays.asList(BuiltinType.AINT64);
     private static final StorageComponentProvider storageManager = new StorageComponentProvider();
@@ -147,9 +147,9 @@ public class MultiPartitionLSMIndexTest {
     public void createIndex() throws Exception {
         List<List<String>> partitioningKeys = new ArrayList<>();
         partitioningKeys.add(Collections.singletonList("key"));
-        dataset = new TestDataset(DATAVERSE_NAME, DATASET_NAME, DATAVERSE_NAME, DATA_TYPE_NAME, NODE_GROUP_NAME,
-                NoMergePolicyFactory.NAME, null, new InternalDatasetDetails(null, PartitioningStrategy.HASH,
-                        partitioningKeys, null, null, null, false, null),
+        dataset = new TestDataset(DATAVERSE_NAME, DATASET_NAME, DATAVERSE_NAME, DATA_TYPE_NAME,
+                NODE_GROUP_NAME, NoMergePolicyFactory.NAME, null, new InternalDatasetDetails(null,
+                        PartitioningStrategy.HASH, partitioningKeys, null, null, null, false, null),
                 null, DatasetType.INTERNAL, DATASET_ID, 0);
         secondaryIndex = new Index(DATAVERSE_NAME, DATASET_NAME, INDEX_NAME, INDEX_TYPE, INDEX_FIELD_NAMES,
                 INDEX_FIELD_INDICATORS, INDEX_FIELD_TYPES, false, false, false, 0);
@@ -167,18 +167,18 @@ public class MultiPartitionLSMIndexTest {
             taskCtxs[i] = nc.createTestContext(jobId, i, false);
             PrimaryIndexInfo primaryIndexInfo = nc.createPrimaryIndex(dataset, KEY_TYPES, RECORD_TYPE, META_TYPE, null,
                     storageManager, KEY_INDEXES, KEY_INDICATORS_LIST, i);
-            SecondaryIndexInfo secondaryIndexInfo = nc.createSecondaryIndex(primaryIndexInfo, secondaryIndex,
-                    storageManager, i);
-            IndexDataflowHelperFactory iHelperFactory = new IndexDataflowHelperFactory(nc.getStorageManager(),
-                    primaryIndexInfo.getFileSplitProvider());
-            primaryIndexDataflowHelpers[i] = iHelperFactory.create(taskCtxs[i].getJobletContext().getServiceContext(),
-                    i);
+            SecondaryIndexInfo secondaryIndexInfo =
+                    nc.createSecondaryIndex(primaryIndexInfo, secondaryIndex, storageManager, i);
+            IndexDataflowHelperFactory iHelperFactory =
+                    new IndexDataflowHelperFactory(nc.getStorageManager(), primaryIndexInfo.getFileSplitProvider());
+            primaryIndexDataflowHelpers[i] =
+                    iHelperFactory.create(taskCtxs[i].getJobletContext().getServiceContext(), i);
             primaryIndexDataflowHelpers[i].open();
             primaryLsmBtrees[i] = (TestLsmBtree) primaryIndexDataflowHelpers[i].getIndexInstance();
-            iHelperFactory = new IndexDataflowHelperFactory(nc.getStorageManager(),
-                    secondaryIndexInfo.getFileSplitProvider());
-            secondaryIndexDataflowHelpers[i] = iHelperFactory.create(taskCtxs[i].getJobletContext().getServiceContext(),
-                    i);
+            iHelperFactory =
+                    new IndexDataflowHelperFactory(nc.getStorageManager(), secondaryIndexInfo.getFileSplitProvider());
+            secondaryIndexDataflowHelpers[i] =
+                    iHelperFactory.create(taskCtxs[i].getJobletContext().getServiceContext(), i);
             secondaryIndexDataflowHelpers[i].open();
             secondaryLsmBtrees[i] = (TestLsmBtree) secondaryIndexDataflowHelpers[i].getIndexInstance();
             secondaryIndexDataflowHelpers[i].close();
@@ -189,8 +189,8 @@ public class MultiPartitionLSMIndexTest {
         }
         // allow all operations
         for (int i = 0; i < NUM_PARTITIONS; i++) {
-            ComponentRollbackTest.allowAllOps(primaryLsmBtrees[i]);
-            ComponentRollbackTest.allowAllOps(secondaryLsmBtrees[i]);
+            StorageTestUtils.allowAllOps(primaryLsmBtrees[i]);
+            StorageTestUtils.allowAllOps(secondaryLsmBtrees[i]);
             actors[i].add(new Request(Request.Action.INSERT_OPEN));
         }
     }
@@ -224,9 +224,9 @@ public class MultiPartitionLSMIndexTest {
             }
             ensureDone(actors[0]);
             // search now and ensure partition 0 has all the records
-            ComponentRollbackTest.searchAndAssertCount(nc, 0, dataset, storageManager, TOTAL_NUM_OF_RECORDS);
+            StorageTestUtils.searchAndAssertCount(nc, 0, dataset, storageManager, TOTAL_NUM_OF_RECORDS);
             // and that partition 1 has no records
-            ComponentRollbackTest.searchAndAssertCount(nc, 1, dataset, storageManager, 0);
+            StorageTestUtils.searchAndAssertCount(nc, 1, dataset, storageManager, 0);
             // and that partition 0 has numFlushes disk components
             Assert.assertEquals(totalNumOfComponents, primaryLsmBtrees[0].getDiskComponents().size());
             // and that partition 1 has no disk components
@@ -251,7 +251,7 @@ public class MultiPartitionLSMIndexTest {
 
     /**
      * This test update partition 0, schedule flush and modify partition 1
-     * Then ensure that in partition 1, primary and secondary have different component ids
+     * Then ensure that in partition 1, primary and secondary have the same component ids
      */
     @Test
     public void testAllocateWhileFlushIsScheduled() {
@@ -400,7 +400,8 @@ public class MultiPartitionLSMIndexTest {
             AtomicBoolean arrivedAtSchduleFlush = new AtomicBoolean(false);
             AtomicBoolean finishedSchduleFlush = new AtomicBoolean(false);
             MutableBoolean proceedToScheduleFlush = new MutableBoolean(false);
-            addOpTrackerCallback(primaryLsmBtrees[0], new ITestOpCallback<Void>() {
+            // keep track of the flush of partition 1 since partitions 0 and 1 are flushed seperately
+            addOpTrackerCallback(primaryLsmBtrees[1], new ITestOpCallback<Void>() {
                 @Override
                 public void before(Void t) {
                     synchronized (arrivedAtSchduleFlush) {
@@ -655,7 +656,7 @@ public class MultiPartitionLSMIndexTest {
                         if (tupleAppender.getTupleCount() > 0) {
                             tupleAppender.write(insertOps[partition], true);
                         }
-                        ComponentRollbackTest.waitForOperations(primaryLsmBtrees[partition]);
+                        StorageTestUtils.waitForOperations(primaryLsmBtrees[partition]);
                         break;
                     default:
                         break;

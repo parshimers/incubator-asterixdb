@@ -173,10 +173,11 @@ public class DatasetUtil {
         return btreeFields;
     }
 
-    public static int getPositionOfPartitioningKeyField(Dataset dataset, String fieldExpr) {
+    public static int getPositionOfPartitioningKeyField(Dataset dataset, List<String> fieldExpr) {
         List<List<String>> partitioningKeys = dataset.getPrimaryKeys();
         for (int i = 0; i < partitioningKeys.size(); i++) {
-            if ((partitioningKeys.get(i).size() == 1) && partitioningKeys.get(i).get(0).equals(fieldExpr)) {
+            List<String> partitioningKey = partitioningKeys.get(i);
+            if (partitioningKey.equals(fieldExpr)) {
                 return i;
             }
         }
@@ -349,9 +350,8 @@ public class DatasetUtil {
         int[] highKeyFields = null;
         ITransactionSubsystemProvider txnSubsystemProvider = TransactionSubsystemProvider.INSTANCE;
         ISearchOperationCallbackFactory searchCallbackFactory = new PrimaryIndexInstantSearchOperationCallbackFactory(
-                dataset.getDatasetId(),
-                        dataset.getPrimaryBloomFilterFields(), txnSubsystemProvider,
-                        IRecoveryManager.ResourceType.LSM_BTREE);
+                dataset.getDatasetId(), dataset.getPrimaryBloomFilterFields(), txnSubsystemProvider,
+                IRecoveryManager.ResourceType.LSM_BTREE);
         IndexDataflowHelperFactory indexHelperFactory = new IndexDataflowHelperFactory(
                 metadataProvider.getStorageComponentProvider().getStorageManager(), primaryFileSplitProvider);
         BTreeSearchOperatorDescriptor primarySearchOp = new BTreeSearchOperatorDescriptor(spec,
@@ -556,8 +556,7 @@ public class DatasetUtil {
         if (i > 0 && i < datasetArg.length() - 1) {
             first = datasetArg.substring(0, i);
             second = datasetArg.substring(i + 1);
-        }
-        else {
+        } else {
             first = metadata.getDefaultDataverse() == null ? null : metadata.getDefaultDataverse().getDataverseName();
             second = datasetArg;
         }

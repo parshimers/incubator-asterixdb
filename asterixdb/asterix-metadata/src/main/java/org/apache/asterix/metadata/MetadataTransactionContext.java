@@ -152,13 +152,12 @@ public class MetadataTransactionContext extends MetadataCache {
 
     public void dropNodeGroup(String nodeGroupName) {
         NodeGroup nodeGroup = new NodeGroup(nodeGroupName, null);
-        droppedCache.addNodeGroupIfNotExists(nodeGroup);
+        droppedCache.addOrUpdateNodeGroup(nodeGroup);
         logAndApply(new MetadataLogicalOperation(nodeGroup, false));
     }
 
     public void dropFunction(FunctionSignature signature) {
-        Function function = new Function(signature.getNamespace(), signature.getName(), signature.getArity(), null,
-                null, null, null, null, null);
+        Function function = new Function(signature, null, null, null, null, null, null);
         droppedCache.addFunctionIfNotExists(function);
         logAndApply(new MetadataLogicalOperation(function, false));
     }

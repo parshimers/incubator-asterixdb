@@ -52,6 +52,7 @@ import java.util.stream.Stream;
 import org.apache.asterix.common.dataflow.DatasetLocalResource;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.replication.IReplicationManager;
+import org.apache.asterix.common.replication.IReplicationStrategy;
 import org.apache.asterix.common.replication.ReplicationJob;
 import org.apache.asterix.common.storage.DatasetResourceReference;
 import org.apache.asterix.common.storage.IIndexCheckpointManager;
@@ -81,7 +82,6 @@ import com.google.common.cache.CacheBuilder;
 
 public class PersistentLocalResourceRepository implements ILocalResourceRepository {
 
-    public static final Predicate<Path> INDEX_COMPONENTS = path -> !path.endsWith(StorageConstants.METADATA_FILE_NAME);
     private static final Logger LOGGER = LogManager.getLogger();
     private static final FilenameFilter LSM_INDEX_FILES_FILTER =
             (dir, name) -> !name.startsWith(INDEX_CHECKPOINT_FILE_PREFIX);
@@ -132,8 +132,8 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         storageRoots = new Path[ioManager.getIODevices().size()];
         final List<IODeviceHandle> ioDevices = ioManager.getIODevices();
         for (int i = 0; i < ioDevices.size(); i++) {
-            storageRoots[i] = Paths.get(ioDevices.get(i).getMount().getAbsolutePath(),
-                    StorageConstants.STORAGE_ROOT_DIR_NAME);
+            storageRoots[i] =
+                    Paths.get(ioDevices.get(i).getMount().getAbsolutePath(), StorageConstants.STORAGE_ROOT_DIR_NAME);
         }
         createStorageRoots();
         resourceCache = CacheBuilder.newBuilder().maximumSize(MAX_CACHED_RESOURCES).build();
@@ -343,18 +343,32 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         });
     }
 
-    public List<String> getPartitionIndexesFiles(int partition) throws HyracksDataException {
-        List<String> partitionFiles = new ArrayList<>();
-        Set<File> partitionIndexes = getPartitionIndexes(partition);
-        for (File indexDir : partitionIndexes) {
-            if (indexDir.isDirectory()) {
-                File[] indexFiles = indexDir.listFiles(LSM_INDEX_FILES_FILTER);
-                if (indexFiles != null) {
-                    Stream.of(indexFiles).map(File::getAbsolutePath).forEach(partitionFiles::add);
-                }
+    public List<String> getPartitionReplicatedFiles(int partition, IReplicationStrategy strategy)
+            throws HyracksDataException {
+        final List<String> partitionReplicatedFiles = new ArrayList<>();
+        final Set<File> replicatedIndexes = new HashSet<>();
+        final Map<Long, LocalResource> partitionResources = getPartitionResources(partition);
+        for (LocalResource lr : partitionResources.values()) {
+            DatasetLocalResource datasetLocalResource = (DatasetLocalResource) lr.getResource();
+            if (strategy.isMatch(datasetLocalResource.getDatasetId())) {
+                replicatedIndexes.add(ioManager.resolve(lr.getPath()).getFile());
             }
         }
-        return partitionFiles;
+        for (File indexDir : replicatedIndexes) {
+            partitionReplicatedFiles.addAll(getIndexFiles(indexDir));
+        }
+        return partitionReplicatedFiles;
+    }
+
+    private List<String> getIndexFiles(File indexDir) {
+        final List<String> indexFiles = new ArrayList<>();
+        if (indexDir.isDirectory()) {
+            File[] indexFilteredFiles = indexDir.listFiles(LSM_INDEX_FILES_FILTER);
+            if (indexFilteredFiles != null) {
+                Stream.of(indexFilteredFiles).map(File::getAbsolutePath).forEach(indexFiles::add);
+            }
+        }
+        return indexFiles;
     }
 
     private void createStorageRoots() {

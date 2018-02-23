@@ -28,6 +28,7 @@ import org.apache.hyracks.storage.am.btree.impls.BTree;
 import org.apache.hyracks.storage.am.btree.impls.BTree.BTreeAccessor;
 import org.apache.hyracks.storage.am.btree.impls.BTreeRangeSearchCursor;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
+import org.apache.hyracks.storage.am.common.api.ILSMIndexCursor;
 import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
@@ -40,12 +41,13 @@ import org.apache.hyracks.storage.am.rtree.impls.RTree;
 import org.apache.hyracks.storage.am.rtree.impls.RTree.RTreeAccessor;
 import org.apache.hyracks.storage.am.rtree.impls.RTreeSearchCursor;
 import org.apache.hyracks.storage.am.rtree.impls.SearchPredicate;
+import org.apache.hyracks.storage.common.EnforcedIndexCursor;
 import org.apache.hyracks.storage.common.ICursorInitialState;
-import org.apache.hyracks.storage.common.IIndexCursor;
+import org.apache.hyracks.storage.common.ISearchOperationCallback;
 import org.apache.hyracks.storage.common.ISearchPredicate;
 import org.apache.hyracks.storage.common.MultiComparator;
 
-public abstract class LSMRTreeAbstractCursor implements IIndexCursor {
+public abstract class LSMRTreeAbstractCursor extends EnforcedIndexCursor implements ILSMIndexCursor {
 
     protected boolean open;
     protected RTreeSearchCursor[] rtreeCursors;
@@ -53,7 +55,7 @@ public abstract class LSMRTreeAbstractCursor implements IIndexCursor {
     protected RTreeAccessor[] rtreeAccessors;
     protected BTreeAccessor[] btreeAccessors;
     protected BloomFilter[] bloomFilters;
-    private MultiComparator btreeCmp;
+    protected MultiComparator btreeCmp;
     protected int numberOfTrees;
     protected SearchPredicate rtreeSearchPredicate;
     protected RangePredicate btreeRangePredicate;
@@ -62,6 +64,7 @@ public abstract class LSMRTreeAbstractCursor implements IIndexCursor {
     protected ILSMHarness lsmHarness;
     protected boolean foundNext;
     protected final ILSMIndexOperationContext opCtx;
+    protected ISearchOperationCallback searchCallback;
     protected List<ILSMComponent> operationalComponents;
     protected long[] hashes = BloomFilter.createHashArray();
 
@@ -75,7 +78,7 @@ public abstract class LSMRTreeAbstractCursor implements IIndexCursor {
     }
 
     @Override
-    public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
+    public void doOpen(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
         LSMRTreeCursorInitialState lsmInitialState = (LSMRTreeCursorInitialState) initialState;
         if (btreeCmp == null) {
             btreeCmp = lsmInitialState.getBTreeCmp();
@@ -85,6 +88,7 @@ public abstract class LSMRTreeAbstractCursor implements IIndexCursor {
         operationalComponents = lsmInitialState.getOperationalComponents();
         lsmHarness = lsmInitialState.getLSMHarness();
         numberOfTrees = operationalComponents.size();
+        searchCallback = lsmInitialState.getSearchOperationCallback();
 
         int numComponenets = operationalComponents.size();
         if (rtreeCursors == null || rtreeCursors.length != numComponenets) {
@@ -152,7 +156,7 @@ public abstract class LSMRTreeAbstractCursor implements IIndexCursor {
     }
 
     @Override
-    public void destroy() throws HyracksDataException {
+    public void doDestroy() throws HyracksDataException {
         if (!open) {
             return;
         }
@@ -174,10 +178,14 @@ public abstract class LSMRTreeAbstractCursor implements IIndexCursor {
         open = false;
     }
 
+    @Override
+    public ITupleReference doGetTuple() {
+        return frameTuple;
+    }
 
     @Override
-    public ITupleReference getTuple() {
-        return frameTuple;
+    public boolean getSearchOperationCallbackProceedResult() {
+        return false;
     }
 
 }

@@ -22,7 +22,7 @@
   <parent>
     <artifactId>hyracks</artifactId>
     <groupId>org.apache.hyracks</groupId>
-    <version>0.3.3-SNAPSHOT</version>
+    <version>0.3.4-SNAPSHOT</version>
   </parent>
 
   <licenses>
@@ -38,7 +38,6 @@
   <name>hyracks-dist</name>
 
   <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <root.dir>${basedir}/../..</root.dir>
   </properties>
 

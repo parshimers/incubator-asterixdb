@@ -56,13 +56,13 @@ import org.apache.hyracks.api.job.profiling.counters.ICounter;
 import org.apache.hyracks.api.job.profiling.counters.ICounterContext;
 import org.apache.hyracks.api.partitions.PartitionId;
 import org.apache.hyracks.api.resources.IDeallocatable;
+import org.apache.hyracks.api.util.ExceptionUtils;
 import org.apache.hyracks.api.util.JavaSerializationUtils;
 import org.apache.hyracks.control.common.job.PartitionState;
 import org.apache.hyracks.control.common.job.profiling.StatsCollector;
 import org.apache.hyracks.control.common.job.profiling.counters.Counter;
 import org.apache.hyracks.control.common.job.profiling.om.PartitionProfile;
 import org.apache.hyracks.control.common.job.profiling.om.TaskProfile;
-import org.apache.hyracks.control.common.utils.ExceptionUtils;
 import org.apache.hyracks.control.nc.io.WorkspaceFileFactory;
 import org.apache.hyracks.control.nc.resources.DefaultDeallocatableRegistry;
 import org.apache.hyracks.control.nc.work.NotifyTaskCompleteWork;
@@ -437,12 +437,13 @@ public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
 
     @Override
     public void sendApplicationMessageToCC(byte[] message, DeploymentId deploymentId) throws Exception {
-        this.ncs.sendApplicationMessageToCC(message, deploymentId);
+        this.ncs.sendApplicationMessageToCC(getJobletContext().getJobId().getCcId(), message, deploymentId);
     }
 
     @Override
     public void sendApplicationMessageToCC(Serializable message, DeploymentId deploymentId) throws Exception {
-        this.ncs.sendApplicationMessageToCC(JavaSerializationUtils.serialize(message), deploymentId);
+        this.ncs.sendApplicationMessageToCC(getJobletContext().getJobId().getCcId(),
+                JavaSerializationUtils.serialize(message), deploymentId);
     }
 
     @Override
@@ -459,6 +460,7 @@ public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
     public byte[] getJobParameter(byte[] name, int start, int length) throws HyracksException {
         return ncs.createOrGetJobParameterByteStore(joblet.getJobId()).getParameterValue(name, start, length);
     }
+
     public Set<JobFlag> getJobFlags() {
         return jobFlags;
     }

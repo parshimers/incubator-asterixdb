@@ -135,7 +135,6 @@ import org.apache.asterix.lang.common.statement.NodeGroupDropStatement;
 import org.apache.asterix.lang.common.statement.NodegroupDecl;
 import org.apache.asterix.lang.common.statement.Query;
 import org.apache.asterix.lang.common.statement.RefreshExternalDatasetStatement;
-import org.apache.asterix.lang.common.statement.RunStatement;
 import org.apache.asterix.lang.common.statement.SetStatement;
 import org.apache.asterix.lang.common.statement.TypeDecl;
 import org.apache.asterix.lang.common.statement.TypeDropStatement;
@@ -390,7 +389,6 @@ Statement SingleStatement() throws ParseException:
     | stmt = ExplainStatement()
     | stmt = Query(false)
     | stmt = RefreshExternalDatasetStatement()
-    | stmt = RunStatement()
   )
   {
     return stmt;
@@ -600,27 +598,6 @@ RefreshExternalDatasetStatement RefreshExternalDatasetStatement() throws ParseEx
     redss.setDataverseName(nameComponents.first);
     redss.setDatasetName(nameComponents.second);
     return redss;
-    }
-}
-
-RunStatement RunStatement() throws ParseException:
-{
-  String system = null;
-  String tmp;
-  ArrayList<String> parameters = new  ArrayList<String>();
-  Pair<Identifier,Identifier> nameComponentsFrom = null;
-  Pair<Identifier,Identifier> nameComponentsTo = null;
-}
-{
-  <RUN> system = Identifier()<LEFTPAREN> ( tmp = Identifier() [<COMMA>]
-    {
-      parameters.add(tmp);
-    }
-  )*<RIGHTPAREN>
-  <FROM> Dataset() nameComponentsFrom  = QualifiedName()
-  <TO> Dataset() nameComponentsTo  = QualifiedName()
-    {
-      return new RunStatement(system, parameters, nameComponentsFrom.first, nameComponentsFrom.second, nameComponentsTo.first, nameComponentsTo.second);
     }
 }
 
@@ -2012,7 +1989,8 @@ Expression IsExpr() throws ParseException:
         (
             <NULL> { fn = BuiltinFunctions.IS_NULL; } |
             <MISSING> { fn = BuiltinFunctions.IS_MISSING; } |
-            <UNKNOWN> { fn = BuiltinFunctions.IS_UNKNOWN; }
+            <UNKNOWN> { fn = BuiltinFunctions.IS_UNKNOWN; } |
+            <VALUED> { not = !not; fn = BuiltinFunctions.IS_UNKNOWN; }
         )
       {
         FunctionSignature signature = new FunctionSignature(fn);
@@ -2499,15 +2477,12 @@ RecordConstructor RecordConstructor() throws ParseException:
 
 FieldBinding FieldBinding() throws ParseException:
 {
-    FieldBinding fb = new FieldBinding();
     Expression left, right;
 }
 {
     left = Expression() <COLON> right = Expression()
     {
-      fb.setLeftExpr(left);
-      fb.setRightExpr(right);
-      return fb;
+      return new FieldBinding(left, right);
     }
 }
 
@@ -2790,23 +2765,24 @@ Projection Projection() throws ParseException :
   Identifier identifier = null;
   String name = null;
   boolean star = false;
-  boolean exprStar = false;
+  boolean varStar = false;
 }
 {
   (
-    LOOKAHEAD(2)
-    expr = Expression() ((<AS>)? name = Identifier())?
-    | expr = Expression() <DOT> <MUL> {exprStar = true; }
-    | <MUL> {star = true; }
+    <MUL> {star = true; }
+    | LOOKAHEAD(3) expr = VariableRef() <DOT> <MUL> {varStar = true; }
+    | expr = Expression() ((<AS>)? name = Identifier())?
+      {
+        if (name == null) {
+          String generatedColumnIdentifier = ExpressionToVariableUtil.getGeneratedIdentifier(expr, false);
+          if (generatedColumnIdentifier != null) {
+            name = SqlppVariableUtil.toUserDefinedName(generatedColumnIdentifier);
+          }
+        }
+      }
   )
   {
-    if(!star && name == null){
-       String generatedColumnIdentifier = ExpressionToVariableUtil.getGeneratedIdentifier(expr, false);
-       if(generatedColumnIdentifier != null){
-            name = SqlppVariableUtil.toUserDefinedName(generatedColumnIdentifier);
-       }
-    }
-    return new Projection(expr, name, star, exprStar);
+    return new Projection(expr, name, star, varStar);
   }
 }
 
@@ -3293,6 +3269,7 @@ TOKEN [IGNORE_CASE]:
   | <USE : "use">
   | <USING : "using">
   | <VALUE : "value">
+  | <VALUED : "valued">
   | <WHEN : "when">
   | <WHERE : "where">
   | <WITH : "with">
@@ -3397,7 +3374,8 @@ TOKEN:
 TOKEN :
 {
     <#LETTER : ["A" - "Z", "a" - "z"]>
-  | <SPECIALCHARS : ["$", "_"]>
+  | <#IDENTIFIER_SPECIALCHARS_START : ["_"]>
+  | <#IDENTIFIER_SPECIALCHARS_REST : ["$"]>
 }
 
 <DEFAULT,IN_DBL_BRACE>
@@ -3448,7 +3426,8 @@ TOKEN :
 <DEFAULT,IN_DBL_BRACE>
 TOKEN :
 {
-    <IDENTIFIER : <LETTER> (<LETTER> | <DIGIT> | <SPECIALCHARS>)*>
+    <IDENTIFIER : ( <LETTER> | <IDENTIFIER_SPECIALCHARS_START> )
+                  ( <LETTER> | <DIGIT> | <IDENTIFIER_SPECIALCHARS_START> | <IDENTIFIER_SPECIALCHARS_REST> )*>
 }
 
 <DEFAULT,IN_DBL_BRACE>

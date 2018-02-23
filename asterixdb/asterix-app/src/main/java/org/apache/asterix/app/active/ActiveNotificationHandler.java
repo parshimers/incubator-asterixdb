@@ -209,7 +209,7 @@ public class ActiveNotificationHandler extends SingleThreadEventProcessor<Active
     }
 
     @Override
-    public synchronized void recover() throws HyracksDataException {
+    public synchronized void recover() {
         LOGGER.log(level, "Starting active recovery");
         for (IActiveEntityEventsListener listener : entityEventListeners.values()) {
             synchronized (listener) {
@@ -256,8 +256,7 @@ public class ActiveNotificationHandler extends SingleThreadEventProcessor<Active
         }
     }
 
-    public void resume(MetadataProvider mdProvider)
-            throws HyracksDataException, InterruptedException {
+    public void resume(MetadataProvider mdProvider) throws HyracksDataException, InterruptedException {
         LOGGER.log(level, "Resuming active events handler");
         for (IActiveEntityEventsListener listener : entityEventListeners.values()) {
             LOGGER.log(level, "Resuming " + listener.getEntityId());

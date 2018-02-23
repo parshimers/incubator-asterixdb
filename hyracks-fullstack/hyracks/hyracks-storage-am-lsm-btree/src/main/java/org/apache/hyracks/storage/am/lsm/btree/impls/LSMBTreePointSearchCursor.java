@@ -27,6 +27,7 @@ import org.apache.hyracks.storage.am.bloomfilter.impls.BloomFilter;
 import org.apache.hyracks.storage.am.btree.impls.BTree;
 import org.apache.hyracks.storage.am.btree.impls.BTree.BTreeAccessor;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
+import org.apache.hyracks.storage.am.common.api.ILSMIndexCursor;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexCursor;
 import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
@@ -36,12 +37,12 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentFilter;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMHarness;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMTreeTupleReference;
+import org.apache.hyracks.storage.common.EnforcedIndexCursor;
 import org.apache.hyracks.storage.common.ICursorInitialState;
-import org.apache.hyracks.storage.common.IIndexCursor;
 import org.apache.hyracks.storage.common.ISearchOperationCallback;
 import org.apache.hyracks.storage.common.ISearchPredicate;
 
-public class LSMBTreePointSearchCursor implements IIndexCursor {
+public class LSMBTreePointSearchCursor extends EnforcedIndexCursor implements ILSMIndexCursor {
 
     private ITreeIndexCursor[] btreeCursors;
     private final ILSMIndexOperationContext opCtx;
@@ -57,6 +58,7 @@ public class LSMBTreePointSearchCursor implements IIndexCursor {
     private int foundIn = -1;
     private ITupleReference frameTuple;
     private List<ILSMComponent> operationalComponents;
+    private boolean resultOfSearchCallbackProceed = false;
 
     private final long[] hashes = BloomFilter.createHashArray();
 
@@ -65,7 +67,7 @@ public class LSMBTreePointSearchCursor implements IIndexCursor {
     }
 
     @Override
-    public boolean hasNext() throws HyracksDataException {
+    public boolean doHasNext() throws HyracksDataException {
         if (nextHasBeenCalled) {
             return false;
         } else if (foundTuple) {
@@ -81,13 +83,16 @@ public class LSMBTreePointSearchCursor implements IIndexCursor {
                 btreeCursors[i].next();
                 // We use the predicate's to lock the key instead of the tuple that we get from cursor
                 // to avoid copying the tuple when we do the "unlatch dance".
-                if (reconciled || searchCallback.proceed(predicate.getLowKey())) {
+                if (!reconciled) {
+                    resultOfSearchCallbackProceed = searchCallback.proceed(predicate.getLowKey());
+                }
+                if (reconciled || resultOfSearchCallbackProceed) {
                     // if proceed is successful, then there's no need for doing the "unlatch dance"
                     if (((ILSMTreeTupleReference) btreeCursors[i].getTuple()).isAntimatter()) {
                         if (reconciled) {
                             searchCallback.cancel(predicate.getLowKey());
                         }
-                        btreeCursors[i].destroy();
+                        btreeCursors[i].close();
                         return false;
                     } else {
                         frameTuple = btreeCursors[i].getTuple();
@@ -108,7 +113,7 @@ public class LSMBTreePointSearchCursor implements IIndexCursor {
                         btreeCursors[i].next();
                         if (((ILSMTreeTupleReference) btreeCursors[i].getTuple()).isAntimatter()) {
                             searchCallback.cancel(predicate.getLowKey());
-                            btreeCursors[i].destroy();
+                            btreeCursors[i].close();
                             return false;
                         } else {
                             frameTuple = btreeCursors[i].getTuple();
@@ -119,7 +124,7 @@ public class LSMBTreePointSearchCursor implements IIndexCursor {
                         }
                     } else {
                         searchCallback.cancel(predicate.getLowKey());
-                        btreeCursors[i].destroy();
+                        btreeCursors[i].close();
                     }
                 } else {
                     frameTuple = btreeCursors[i].getTuple();
@@ -130,20 +135,16 @@ public class LSMBTreePointSearchCursor implements IIndexCursor {
                     return true;
                 }
             } else {
-                btreeCursors[i].destroy();
+                btreeCursors[i].close();
             }
         }
         return false;
     }
 
     @Override
-    public void close() throws HyracksDataException {
+    public void doClose() throws HyracksDataException {
         try {
-            if (btreeCursors != null) {
-                for (int i = 0; i < numBTrees; ++i) {
-                    btreeCursors[i].close();
-                }
-            }
+            closeCursors();
             nextHasBeenCalled = false;
             foundTuple = false;
         } finally {
@@ -154,7 +155,7 @@ public class LSMBTreePointSearchCursor implements IIndexCursor {
     }
 
     @Override
-    public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
+    public void doOpen(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
         LSMBTreeCursorInitialState lsmInitialState = (LSMBTreeCursorInitialState) initialState;
         operationalComponents = lsmInitialState.getOperationalComponents();
         lsmHarness = lsmInitialState.getLSMHarness();
@@ -193,26 +194,23 @@ public class LSMBTreePointSearchCursor implements IIndexCursor {
     }
 
     @Override
-    public void next() throws HyracksDataException {
+    public void doNext() throws HyracksDataException {
         nextHasBeenCalled = true;
     }
 
     @Override
-    public void destroy() throws HyracksDataException {
-        if (lsmHarness != null) {
-            try {
-                closeCursors();
-                btreeCursors = null;
-            } finally {
-                lsmHarness.endSearch(opCtx);
+    public void doDestroy() throws HyracksDataException {
+        if (btreeCursors != null) {
+            for (int i = 0; i < numBTrees; ++i) {
+                if (btreeCursors[i] != null) {
+                    btreeCursors[i].destroy();
+                }
             }
         }
-        nextHasBeenCalled = false;
-        foundTuple = false;
     }
 
     @Override
-    public ITupleReference getTuple() {
+    public ITupleReference doGetTuple() {
         return frameTuple;
     }
 
@@ -239,9 +237,14 @@ public class LSMBTreePointSearchCursor implements IIndexCursor {
         if (btreeCursors != null) {
             for (int i = 0; i < numBTrees; ++i) {
                 if (btreeCursors[i] != null) {
-                    btreeCursors[i].destroy();
+                    btreeCursors[i].close();
                 }
             }
         }
+    }
+
+    @Override
+    public boolean getSearchOperationCallbackProceedResult() {
+        return resultOfSearchCallbackProceed;
     }
 }

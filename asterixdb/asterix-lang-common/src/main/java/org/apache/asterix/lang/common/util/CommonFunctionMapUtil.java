@@ -53,6 +53,8 @@ public class CommonFunctionMapUtil {
         FUNCTION_NAME_MAP.put("isnull", "is-null"); // isnull, internal: is-null
         FUNCTION_NAME_MAP.put("ismissing", "is-missing"); // ismissing, internal: is-missing
         FUNCTION_NAME_MAP.put("isunknown", "is-unknown"); // isunknown, internal: is-unknown
+        FUNCTION_NAME_MAP.put("isatomic", "is-atomic"); // isatomic, internal: is-atomic
+        FUNCTION_NAME_MAP.put("isatom", "is-atomic"); // isatom, internal: is-atomic
         FUNCTION_NAME_MAP.put("isboolean", "is-boolean"); // isboolean, internal: is-boolean
         FUNCTION_NAME_MAP.put("isbool", "is-boolean"); // isbool, internal: is-boolean
         FUNCTION_NAME_MAP.put("isnumber", "is-number"); // isnumber, internal: is-number
@@ -71,7 +73,10 @@ public class CommonFunctionMapUtil {
         FUNCTION_NAME_MAP.put("tobigint", "to-bigint"); // tobigint, internal: to-bigint
 
         // Object functions
-        FUNCTION_NAME_MAP.put("record-merge", "object-merge"); // record-merge, internal: object-merge
+        // record-merge, internal: object-merge
+        FUNCTION_NAME_MAP.put("record-merge", "object-merge");
+        // record-concat, internal: object-concat
+        FUNCTION_NAME_MAP.put("record-concat", "object-concat");
         // record-get-fields, internal: object-get-fields
         FUNCTION_NAME_MAP.put("record-get-fields", "object-get-fields");
         // record-get-field-value, internal: object-get-field-value

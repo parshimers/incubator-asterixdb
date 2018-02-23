@@ -22,12 +22,13 @@ package org.apache.hyracks.storage.am.lsm.btree.impls;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
+import org.apache.hyracks.storage.am.common.api.ILSMIndexCursor;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
+import org.apache.hyracks.storage.common.EnforcedIndexCursor;
 import org.apache.hyracks.storage.common.ICursorInitialState;
-import org.apache.hyracks.storage.common.IIndexCursor;
 import org.apache.hyracks.storage.common.ISearchPredicate;
 
-public class LSMBTreeSearchCursor implements IIndexCursor {
+public class LSMBTreeSearchCursor extends EnforcedIndexCursor implements ILSMIndexCursor {
 
     public enum LSMBTreeSearchType {
         POINT,
@@ -37,7 +38,7 @@ public class LSMBTreeSearchCursor implements IIndexCursor {
     private final LSMBTreePointSearchCursor pointCursor;
     private final LSMBTreeRangeSearchCursor rangeCursor;
     private final LSMBTreeDiskComponentScanCursor scanCursor;
-    private IIndexCursor currentCursor;
+    private ILSMIndexCursor currentCursor;
 
     public LSMBTreeSearchCursor(ILSMIndexOperationContext opCtx) {
         pointCursor = new LSMBTreePointSearchCursor(opCtx);
@@ -46,40 +47,43 @@ public class LSMBTreeSearchCursor implements IIndexCursor {
     }
 
     @Override
-    public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
+    public void doOpen(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
         LSMBTreeCursorInitialState lsmInitialState = (LSMBTreeCursorInitialState) initialState;
         RangePredicate btreePred = (RangePredicate) searchPred;
-
-        currentCursor =
-                btreePred.isPointPredicate(lsmInitialState.getOriginalKeyComparator()) ? pointCursor : rangeCursor;
+        currentCursor = lsmInitialState.isDiskComponentScan() ? scanCursor
+                : btreePred.isPointPredicate(lsmInitialState.getOriginalKeyComparator()) ? pointCursor : rangeCursor;
         currentCursor.open(lsmInitialState, searchPred);
     }
 
-    public void scan(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
-        currentCursor = scanCursor;
-        currentCursor.open(initialState, searchPred);
-    }
-
     @Override
-    public boolean hasNext() throws HyracksDataException {
+    public boolean doHasNext() throws HyracksDataException {
         return currentCursor.hasNext();
     }
 
     @Override
-    public void next() throws HyracksDataException {
+    public void doNext() throws HyracksDataException {
         currentCursor.next();
     }
 
     @Override
-    public void destroy() throws HyracksDataException {
-        if (currentCursor != null) {
-            currentCursor.destroy();
+    public void doDestroy() throws HyracksDataException {
+        try {
+            pointCursor.destroy();
+        } finally {
+            try {
+                rangeCursor.destroy();
+            } finally {
+                try {
+                    scanCursor.destroy();
+                } finally {
+                    currentCursor = null;
+                }
+            }
         }
-        currentCursor = null;
     }
 
     @Override
-    public void close() throws HyracksDataException {
+    public void doClose() throws HyracksDataException {
         if (currentCursor != null) {
             currentCursor.close();
         }
@@ -87,7 +91,7 @@ public class LSMBTreeSearchCursor implements IIndexCursor {
     }
 
     @Override
-    public ITupleReference getTuple() {
+    public ITupleReference doGetTuple() {
         return currentCursor.getTuple();
     }
 
@@ -99,5 +103,10 @@ public class LSMBTreeSearchCursor implements IIndexCursor {
     @Override
     public ITupleReference getFilterMaxTuple() {
         return currentCursor.getFilterMaxTuple();
+    }
+
+    @Override
+    public boolean getSearchOperationCallbackProceedResult() {
+        return false;
     }
 }

@@ -22,7 +22,7 @@
   <parent>
     <artifactId>hyracks</artifactId>
     <groupId>org.apache.hyracks</groupId>
-    <version>0.3.3-SNAPSHOT</version>
+    <version>0.3.4-SNAPSHOT</version>
   </parent>
 
   <modelVersion>4.0.0</modelVersion>
@@ -79,6 +79,10 @@
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-core</artifactId>
     </dependency>
+      <dependency>
+          <groupId>commons-io</groupId>
+          <artifactId>commons-io</artifactId>
+      </dependency>
   </dependencies>
 
 </project>

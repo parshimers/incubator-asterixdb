@@ -21,10 +21,13 @@
   <parent>
     <groupId>org.apache.asterix</groupId>
     <artifactId>asterix-maven-plugins</artifactId>
-    <version>0.9.3-SNAPSHOT</version>
+    <version>0.9.4-SNAPSHOT</version>
   </parent>
   <artifactId>asterix-grammar-extension-maven-plugin</artifactId>
   <packaging>maven-plugin</packaging>
+  <properties>
+    <root.dir>${basedir}/../..</root.dir>
+  </properties>
   <dependencies>
     <dependency>
       <groupId>org.apache.maven</groupId>

@@ -21,7 +21,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.apache.asterix</groupId>
   <artifactId>apache-asterixdb</artifactId>
-  <version>0.9.3-SNAPSHOT</version>
+  <version>0.9.4-SNAPSHOT</version>
   <packaging>pom</packaging>
   <url>https://asterixdb.apache.org/</url>
 
@@ -42,30 +42,39 @@
   </licenses>
 
   <properties>
+    <root.dir>${basedir}</root.dir>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <file.encoding>UTF-8</file.encoding>
     <jvm.extraargs />
     <jdk.version>1.8</jdk.version>
     <javac.xlint.value>all</javac.xlint.value>
+    <source-format.goal>format</source-format.goal>
+    <source-format.skip>false</source-format.skip>
     <runSlowAQLTests>false</runSlowAQLTests>
-    <appendedResourcesDirectory>${basedir}/src/main/appended-resources</appendedResourcesDirectory>
+    <appendedResourcesDirectory>${root.dir}/src/main/appended-resources</appendedResourcesDirectory>
     <sonar.jacoco.reportPath>${env.PWD}/target/jacoco-merged.exec</sonar.jacoco.reportPath>
     <debug.suspend.flag>n</debug.suspend.flag>
     <skipTests>false</skipTests>
     <maven.test.skip>false</maven.test.skip>
     <skip.surefire.tests>${skipTests}</skip.surefire.tests>
     <skip.testResources>${maven.test.skip}</skip.testResources>
-    <testLog4jConfigFile>${basedir}/../asterix-app/src/test/resources/log4j2-test.xml</testLog4jConfigFile>
+    <testLog4jConfigFile>${root.dir}/asterix-app/src/test/resources/log4j2-asterixdb-test.xml</testLog4jConfigFile>
 
     <!-- Definition of tests in various categories which may be excluded -->
     <repeated.tests>**/RepeatedTest.java</repeated.tests>
     <invalid.tests>**/DmlTest.java</invalid.tests>
     <global.test.includes>**/*TestSuite.java,**/*Test.java</global.test.includes>
     <global.test.excludes>${invalid.tests},${repeated.tests}</global.test.excludes>
+    <test.includes>${global.test.includes}</test.includes>
+    <test.excludes>${global.test.excludes}</test.excludes>
+    <global.itest.includes>**/*IT.java,**/*IT.java,**/*ITCase.java</global.itest.includes>
+    <global.itest.excludes/>
+    <itest.includes>${global.itest.includes}</itest.includes>
+    <itest.excludes>${global.itest.excludes}</itest.excludes>
 
     <!-- Versions under dependencymanagement or used in many projects via properties -->
-    <algebricks.version>0.3.3-SNAPSHOT</algebricks.version>
-    <hyracks.version>0.3.3-SNAPSHOT</hyracks.version>
+    <algebricks.version>0.3.4-SNAPSHOT</algebricks.version>
+    <hyracks.version>0.3.4-SNAPSHOT</hyracks.version>
     <hadoop.version>2.2.0</hadoop.version>
     <jacoco.version>0.7.6.201602180812</jacoco.version>
   </properties>
@@ -88,26 +97,23 @@
           <failIfNoTests>false</failIfNoTests>
           <systemPropertyVariables>
             <skipFredSlowTests>true</skipFredSlowTests>
+            <log4j.configurationFile>${testLog4jConfigFile}</log4j.configurationFile>
           </systemPropertyVariables>
           <forkCount>1</forkCount>
           <reuseForks>false</reuseForks>
           <argLine>
             -enableassertions -Xmx${test.heap.size}m
             -Dfile.encoding=UTF-8
-            -Djava.util.logging.config.file=${user.home}/logging.properties
             -DrunSlowAQLTests=${runSlowAQLTests}
             -Xdebug
             -Xrunjdwp:transport=dt_socket,server=y,address=8000,suspend=${debug.suspend.flag}
             ${coverageArgLine}
           </argLine>
-          <systemProperties>
-            <log4j.configurationFile>${testLog4jConfigFile}</log4j.configurationFile>
-          </systemProperties>
           <includes>
-            <include>${global.test.includes},${test.includes}</include>
+            <include>${test.includes}</include>
           </includes>
           <excludes>
-            <exclude>${global.test.excludes},${test.excludes}</exclude>
+            <exclude>${test.excludes}</exclude>
           </excludes>
           <skipTests>${skip.surefire.tests}</skipTests>
         </configuration>
@@ -123,6 +129,12 @@
           <systemProperties>
             <log4j.configurationFile>${testLog4jConfigFile}</log4j.configurationFile>
           </systemProperties>
+          <includes>
+            <include>${itest.includes}</include>
+          </includes>
+          <excludes>
+            <exclude>${itest.excludes}</exclude>
+          </excludes>
         </configuration>
         <executions>
           <execution>
@@ -270,6 +282,21 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>net.revelc.code.formatter</groupId>
+        <artifactId>formatter-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>${source-format.goal}</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <configFile>${root.dir}/AsterixCodeFormatProfile.xml</configFile>
+          <skipFormatting>${source-format.skip}</skipFormatting>
+        </configuration>
+      </plugin>
     </plugins>
     <pluginManagement>
       <plugins>
@@ -390,6 +417,19 @@
                     <ignore />
                   </action>
                 </pluginExecution>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                   <groupId>net.revelc.code.formatter</groupId>
+                   <artifactId>formatter-maven-plugin</artifactId>
+                   <versionRange>[2.0.1,)</versionRange>
+                   <goals>
+                       <goal>format</goal>
+                   </goals>
+                   </pluginExecutionFilter>
+                   <action>
+                       <ignore></ignore>
+                   </action>
+                </pluginExecution>
               </pluginExecutions>
             </lifecycleMappingMetadata>
           </configuration>
@@ -496,6 +536,11 @@
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>javacc-maven-plugin</artifactId>
           <version>2.6</version>
+        </plugin>
+        <plugin>
+          <groupId>net.revelc.code.formatter</groupId>
+          <artifactId>formatter-maven-plugin</artifactId>
+          <version>2.0.1</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -691,6 +736,13 @@
           </plugin>
         </plugins>
       </build>
+    </profile>
+    <profile>
+      <id>integration-tests-only</id>
+      <properties>
+        <test.includes/>
+        <failIfNoTests>false</failIfNoTests>
+      </properties>
     </profile>
   </profiles>
 
@@ -953,6 +1005,12 @@
         <groupId>org.apache.hyracks</groupId>
         <artifactId>hyracks-server</artifactId>
         <version>${hyracks.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hyracks</groupId>
+        <artifactId>hyracks-server</artifactId>
+        <version>${hyracks.version}</version>
+        <type>test-jar</type>
       </dependency>
       <dependency>
         <groupId>org.apache.hyracks</groupId>

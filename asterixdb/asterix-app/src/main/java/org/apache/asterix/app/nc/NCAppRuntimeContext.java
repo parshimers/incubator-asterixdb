@@ -25,6 +25,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
@@ -77,6 +79,7 @@ import org.apache.hyracks.api.application.INCServiceContext;
 import org.apache.hyracks.api.client.ClusterControllerInfo;
 import org.apache.hyracks.api.client.HyracksConnection;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
+import org.apache.hyracks.api.control.CcId;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.api.lifecycle.ILifeCycleComponent;
@@ -109,15 +112,15 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     private ILSMMergePolicyFactory metadataMergePolicyFactory;
     private final INCServiceContext ncServiceContext;
     private final IResourceIdFactory resourceIdFactory;
-    private CompilerProperties compilerProperties;
-    private ExternalProperties externalProperties;
-    private MetadataProperties metadataProperties;
-    private StorageProperties storageProperties;
-    private TransactionProperties txnProperties;
-    private ActiveProperties activeProperties;
-    private BuildProperties buildProperties;
-    private ReplicationProperties replicationProperties;
-    private MessagingProperties messagingProperties;
+    private final CompilerProperties compilerProperties;
+    private final ExternalProperties externalProperties;
+    private final MetadataProperties metadataProperties;
+    private final StorageProperties storageProperties;
+    private final TransactionProperties txnProperties;
+    private final ActiveProperties activeProperties;
+    private final BuildProperties buildProperties;
+    private final ReplicationProperties replicationProperties;
+    private final MessagingProperties messagingProperties;
     private final NodeProperties nodeProperties;
     private ExecutorService threadExecutor;
     private IDatasetMemoryManager datasetMemoryManager;
@@ -203,8 +206,8 @@ public class NCAppRuntimeContext implements INcApplicationContext {
                         datasetMemoryManager, indexCheckpointManagerProvider, ioManager.getIODevices().size());
         final String nodeId = getServiceContext().getNodeId();
         final ClusterPartition[] nodePartitions = metadataProperties.getNodePartitions().get(nodeId);
-        final Set<Integer> nodePartitionsIds = Arrays.stream(nodePartitions).map(ClusterPartition::getPartitionId)
-                .collect(Collectors.toSet());
+        final Set<Integer> nodePartitionsIds =
+                Arrays.stream(nodePartitions).map(ClusterPartition::getPartitionId).collect(Collectors.toSet());
         replicaManager = new ReplicaManager(this, nodePartitionsIds);
         isShuttingdown = false;
         activeManager = new ActiveManager(threadExecutor, getServiceContext().getNodeId(),
@@ -303,11 +306,6 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     }
 
     @Override
-    public double getBloomFilterFalsePositiveRate() {
-        return storageProperties.getBloomFilterFalsePositiveRate();
-    }
-
-    @Override
     public ILSMIOOperationScheduler getLSMIOScheduler() {
         return lsmIOScheduler;
     }
@@ -373,11 +371,6 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     }
 
     @Override
-    public ILSMOperationTracker getLSMBTreeOperationTracker(int datasetID) {
-        return datasetLifecycleManager.getOperationTracker(datasetID);
-    }
-
-    @Override
     public ExecutorService getThreadExecutor() {
         return threadExecutor;
     }
@@ -413,21 +406,22 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     }
 
     @Override
-    public void initializeMetadata(boolean newUniverse) throws Exception {
-        IAsterixStateProxy proxy;
+    public void initializeMetadata(boolean newUniverse, int partitionId) throws Exception {
         LOGGER.info("Bootstrapping metadata");
         MetadataNode.INSTANCE.initialize(this, ncExtensionManager.getMetadataTupleTranslatorProvider(),
-                ncExtensionManager.getMetadataExtensions());
+                ncExtensionManager.getMetadataExtensions(), partitionId);
 
-        proxy = (IAsterixStateProxy) getServiceContext().getDistributedState();
-        if (proxy == null) {
+        //noinspection unchecked
+        ConcurrentHashMap<CcId, IAsterixStateProxy> proxyMap =
+                (ConcurrentHashMap<CcId, IAsterixStateProxy>) getServiceContext().getDistributedState();
+        if (proxyMap == null) {
             throw new IllegalStateException("Metadata node cannot access distributed state");
         }
 
         // This is a special case, we just give the metadataNode directly.
         // This way we can delay the registration of the metadataNode until
         // it is completely initialized.
-        MetadataManager.initialize(proxy, MetadataNode.INSTANCE);
+        MetadataManager.initialize(proxyMap.values(), MetadataNode.INSTANCE);
         MetadataBootstrap.startUniverse(getServiceContext(), newUniverse);
         MetadataBootstrap.startDDLRecovery();
         ncExtensionManager.initializeMetadata(getServiceContext());
@@ -440,7 +434,6 @@ public class NCAppRuntimeContext implements INcApplicationContext {
             metadataNodeStub = (IMetadataNode) UnicastRemoteObject.exportObject(MetadataNode.INSTANCE,
                     getMetadataProperties().getMetadataPort());
         }
-        ((IAsterixStateProxy) getServiceContext().getDistributedState()).setMetadataNode(metadataNodeStub);
     }
 
     @Override
@@ -449,6 +442,17 @@ public class NCAppRuntimeContext implements INcApplicationContext {
             UnicastRemoteObject.unexportObject(MetadataNode.INSTANCE, false);
         }
         metadataNodeStub = null;
+    }
+
+    @Override
+    public synchronized void bindMetadataNodeStub(CcId ccId) throws RemoteException {
+        if (metadataNodeStub == null) {
+            throw new IllegalStateException("Metadata node not exported");
+
+        }
+        //noinspection unchecked
+        ((ConcurrentMap<CcId, IAsterixStateProxy>) getServiceContext().getDistributedState()).get(ccId)
+                .setMetadataNode(metadataNodeStub);
     }
 
     public NCExtensionManager getNcExtensionManager() {
@@ -472,7 +476,9 @@ public class NCAppRuntimeContext implements INcApplicationContext {
                 if (hcc == null || !hcc.isConnected()) {
                     try {
                         NodeControllerService ncSrv = (NodeControllerService) ncServiceContext.getControllerService();
-                        ClusterControllerInfo ccInfo = ncSrv.getNodeParameters().getClusterControllerInfo();
+                        // TODO(mblow): multicc
+                        CcId primaryCcId = ncSrv.getPrimaryCcId();
+                        ClusterControllerInfo ccInfo = ncSrv.getNodeParameters(primaryCcId).getClusterControllerInfo();
                         hcc = new HyracksConnection(ccInfo.getClientNetAddress(), ccInfo.getClientNetPort());
                     } catch (Exception e) {
                         throw HyracksDataException.create(e);
@@ -496,5 +502,15 @@ public class NCAppRuntimeContext implements INcApplicationContext {
     @Override
     public ICoordinationService getCoordinationService() {
         return NoOpCoordinationService.INSTANCE;
+    }
+
+    @Override
+    public long getMaxTxnId() {
+        if (txnSubsystem == null) {
+            throw new IllegalStateException("cannot determine max txn id before txnSubsystem is initialized!");
+        }
+
+        return Math.max(MetadataManager.INSTANCE == null ? 0 : MetadataManager.INSTANCE.getMaxTxnId(),
+                txnSubsystem.getTransactionManager().getMaxTxnId());
     }
 }

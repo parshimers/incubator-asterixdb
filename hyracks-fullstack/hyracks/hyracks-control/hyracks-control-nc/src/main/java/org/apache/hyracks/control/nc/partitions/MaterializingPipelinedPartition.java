@@ -99,8 +99,8 @@ public class MaterializingPipelinedPartition implements IFrameWriter, IPartition
                         fRefCopy = fRef;
                     }
                     writer.open();
-                    IFileHandle readHandle = fRefCopy == null ? null :
-                            ioManager.open(fRefCopy, IIOManager.FileReadWriteMode.READ_ONLY,
+                    IFileHandle readHandle = fRefCopy == null ? null
+                            : ioManager.open(fRefCopy, IIOManager.FileReadWriteMode.READ_ONLY,
                                     IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
                     try {
                         if (readHandle == null) {
@@ -188,7 +188,8 @@ public class MaterializingPipelinedPartition implements IFrameWriter, IPartition
         eos = false;
         failed = false;
         deallocated = false;
-        manager.registerPartition(pid, taId, this, PartitionState.STARTED, false);
+        manager.registerPartition(pid, ctx.getJobletContext().getJobId().getCcId(), taId, this, PartitionState.STARTED,
+                false);
     }
 
     private void checkOrCreateFile() throws HyracksDataException {

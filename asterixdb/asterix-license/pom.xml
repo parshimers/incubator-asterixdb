@@ -23,7 +23,7 @@
   <parent>
     <groupId>org.apache.asterix</groupId>
     <artifactId>apache-asterixdb</artifactId>
-    <version>0.9.3-SNAPSHOT</version>
+    <version>0.9.4-SNAPSHOT</version>
   </parent>
 
   <licenses>
@@ -34,6 +34,10 @@
       <comments>A business-friendly OSS license</comments>
     </license>
   </licenses>
+
+  <properties>
+    <root.dir>${basedir}/..</root.dir>
+  </properties>
 
   <build>
     <plugins>

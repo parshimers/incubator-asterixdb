@@ -97,7 +97,6 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
     private final INCServiceContext serviceCtx;
     private final INcApplicationContext appCtx;
 
-
     public RecoveryManager(ITransactionSubsystem txnSubsystem, INCServiceContext serviceCtx) {
         this.serviceCtx = serviceCtx;
         this.txnSubsystem = txnSubsystem;
@@ -414,8 +413,8 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         long minFirstLSN = logMgr.getAppendLSN();
         if (!openIndexList.isEmpty()) {
             for (IIndex index : openIndexList) {
-                AbstractLSMIOOperationCallback ioCallback = (AbstractLSMIOOperationCallback) ((ILSMIndex) index)
-                        .getIOOperationCallback();
+                AbstractLSMIOOperationCallback ioCallback =
+                        (AbstractLSMIOOperationCallback) ((ILSMIndex) index).getIOOperationCallback();
                 if (!((AbstractLSMIndex) index).isCurrentMutableComponentEmpty() || ioCallback.hasPendingFlush()) {
                     firstLSN = ioCallback.getFirstLSN();
                     minFirstLSN = Math.min(minFirstLSN, firstLSN);
@@ -583,9 +582,9 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                         if (activePartitions.contains(logRecord.getResourcePartition())) {
                             undoLSNSet = jobLoserEntity2LSNsMap.get(tempKeyTxnEntityId);
                             if (undoLSNSet == null) {
-                                loserEntity = new TxnEntityId(logTxnId, logRecord.getDatasetId(),
-                                        logRecord.getPKHashValue(), logRecord.getPKValue(), logRecord.getPKValueSize(),
-                                        true);
+                                loserEntity =
+                                        new TxnEntityId(logTxnId, logRecord.getDatasetId(), logRecord.getPKHashValue(),
+                                                logRecord.getPKValue(), logRecord.getPKValueSize(), true);
                                 undoLSNSet = new LinkedList<>();
                                 jobLoserEntity2LSNsMap.put(loserEntity, undoLSNSet);
                             }
@@ -669,8 +668,6 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
 
     @Override
     public void stop(boolean dumpState, OutputStream os) throws IOException {
-        // Shutdown checkpoint
-        checkpointManager.doSharpCheckpoint();
     }
 
     @Override
@@ -680,33 +677,41 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
 
     private static void undo(ILogRecord logRecord, IDatasetLifecycleManager datasetLifecycleManager) {
         try {
-            ILSMIndex index = (ILSMIndex) datasetLifecycleManager.getIndex(logRecord.getDatasetId(),
-                    logRecord.getResourceId());
+            ILSMIndex index =
+                    (ILSMIndex) datasetLifecycleManager.getIndex(logRecord.getDatasetId(), logRecord.getResourceId());
             ILSMIndexAccessor indexAccessor = index.createAccessor(NoOpIndexAccessParameters.INSTANCE);
-            if (logRecord.getNewOp() == AbstractIndexModificationOperationCallback.INSERT_BYTE) {
-                indexAccessor.forceDelete(logRecord.getNewValue());
-            } else if (logRecord.getNewOp() == AbstractIndexModificationOperationCallback.DELETE_BYTE) {
-                indexAccessor.forceInsert(logRecord.getOldValue());
-            } else if (logRecord.getNewOp() == AbstractIndexModificationOperationCallback.UPSERT_BYTE) {
-                // undo, upsert the old value if found, otherwise, physical delete
-                if (logRecord.getOldValue() == null) {
-                    try {
-                        indexAccessor.forcePhysicalDelete(logRecord.getNewValue());
-                    } catch (HyracksDataException hde) {
-                        // Since we're undoing according the write-ahead log, the actual upserting tuple
-                        // might not have been written to memory yet.
-                        if (hde.getErrorCode() != ErrorCode.UPDATE_OR_DELETE_NON_EXISTENT_KEY) {
-                            throw hde;
-                        }
-                    }
+            try {
+                if (logRecord.getNewOp() == AbstractIndexModificationOperationCallback.INSERT_BYTE) {
+                    indexAccessor.forceDelete(logRecord.getNewValue());
+                } else if (logRecord.getNewOp() == AbstractIndexModificationOperationCallback.DELETE_BYTE) {
+                    indexAccessor.forceInsert(logRecord.getOldValue());
+                } else if (logRecord.getNewOp() == AbstractIndexModificationOperationCallback.UPSERT_BYTE) {
+                    // undo, upsert the old value if found, otherwise, physical delete
+                    undoUpsert(indexAccessor, logRecord);
                 } else {
-                    indexAccessor.forceUpsert(logRecord.getOldValue());
+                    throw new IllegalStateException("Unsupported OperationType: " + logRecord.getNewOp());
                 }
-            } else {
-                throw new IllegalStateException("Unsupported OperationType: " + logRecord.getNewOp());
+            } finally {
+                indexAccessor.destroy();
             }
         } catch (Exception e) {
             throw new IllegalStateException("Failed to undo", e);
+        }
+    }
+
+    private static void undoUpsert(ILSMIndexAccessor indexAccessor, ILogRecord logRecord) throws HyracksDataException {
+        if (logRecord.getOldValue() == null) {
+            try {
+                indexAccessor.forcePhysicalDelete(logRecord.getNewValue());
+            } catch (HyracksDataException hde) {
+                // Since we're undoing according the write-ahead log, the actual upserting tuple
+                // might not have been written to memory yet.
+                if (hde.getErrorCode() != ErrorCode.UPDATE_OR_DELETE_NON_EXISTENT_KEY) {
+                    throw hde;
+                }
+            }
+        } else {
+            indexAccessor.forceUpsert(logRecord.getOldValue());
         }
     }
 
