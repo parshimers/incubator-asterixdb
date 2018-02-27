@@ -45,11 +45,18 @@ public class AlgebricksMetaOperatorDescriptor extends AbstractSingleActivityOper
 
     public AlgebricksMetaOperatorDescriptor(IOperatorDescriptorRegistry spec, int inputArity, int outputArity,
             IPushRuntimeFactory[] runtimeFactories, RecordDescriptor[] internalRecordDescriptors) {
+        this(spec, inputArity, outputArity, runtimeFactories, internalRecordDescriptors, null, null);
+    }
+
+    public AlgebricksMetaOperatorDescriptor(IOperatorDescriptorRegistry spec, int inputArity, int outputArity,
+            IPushRuntimeFactory[] runtimeFactories, RecordDescriptor[] internalRecordDescriptors,
+            IPushRuntimeFactory[] outputRuntimeFactories, int[] outputPositions) {
         super(spec, inputArity, outputArity);
         if (outputArity == 1) {
             this.outRecDescs[0] = internalRecordDescriptors[internalRecordDescriptors.length - 1];
         }
-        this.pipeline = new AlgebricksPipeline(runtimeFactories, internalRecordDescriptors);
+        this.pipeline = new AlgebricksPipeline(runtimeFactories, internalRecordDescriptors, outputRuntimeFactories,
+                outputPositions);
     }
 
     public AlgebricksPipeline getPipeline() {
@@ -65,13 +72,7 @@ public class AlgebricksMetaOperatorDescriptor extends AbstractSingleActivityOper
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Asterix { \n");
-        for (IPushRuntimeFactory f : pipeline.getRuntimeFactories()) {
-            sb.append("  " + f.toString() + ";\n");
-        }
-        sb.append("}");
-        return sb.toString();
+        return "AlgebricksMeta " + Arrays.toString(pipeline.getRuntimeFactories());
     }
 
     @Override
@@ -87,7 +88,7 @@ public class AlgebricksMetaOperatorDescriptor extends AbstractSingleActivityOper
     private class SourcePushRuntime extends AbstractUnaryOutputSourceOperatorNodePushable {
         private final IHyracksTaskContext ctx;
 
-        public SourcePushRuntime(IHyracksTaskContext ctx) {
+        SourcePushRuntime(IHyracksTaskContext ctx) {
             this.ctx = ctx;
         }
 

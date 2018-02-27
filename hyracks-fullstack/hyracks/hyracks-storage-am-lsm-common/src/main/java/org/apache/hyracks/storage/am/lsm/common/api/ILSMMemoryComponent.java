@@ -76,7 +76,8 @@ public interface ILSMMemoryComponent extends ILSMComponent {
     void setState(ComponentState state);
 
     /**
-     * Allocates memory to this component, create and activate it
+     * Allocates memory to this component, create and activate it.
+     * This method is atomic. If an exception is thrown, then the call had no effect.
      *
      * @throws HyracksDataException
      */
@@ -106,7 +107,9 @@ public interface ILSMMemoryComponent extends ILSMComponent {
      * Reset the component Id of the memory component after it's recycled
      *
      * @param newId
+     * @param force
+     *      Whether to force reset the Id to skip sanity checks
      * @throws HyracksDataException
      */
-    void resetId(ILSMComponentId newId) throws HyracksDataException;
+    void resetId(ILSMComponentId newId, boolean force) throws HyracksDataException;
 }

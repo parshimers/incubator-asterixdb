@@ -136,30 +136,35 @@ public class LSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertUpdateDe
                     tb.reset();
                     boolean recordWasInserted = false;
                     boolean recordWasDeleted = false;
+                    boolean isDelete = isDeleteOperation(tuple, numOfPrimaryKeys);
                     resetSearchPredicate(index);
-                    if (isFiltered || hasSecondaries) {
+                    if (isFiltered || isDelete || hasSecondaries) {
                         lsmAccessor.search(cursor, searchPred);
-                        if (cursor.hasNext()) {
-                            cursor.next();
-                            prevTuple = cursor.getTuple();
+                        try {
+                            if (cursor.hasNext()) {
+                                cursor.next();
+                                prevTuple = cursor.getTuple();
+                                appendFilterToPrevTuple();
+                                appendPrevRecord();
+                                appendPreviousMeta();
+                                appendFilterToOutput();
+                            } else {
+                                appendPreviousTupleAsMissing();
+                            }
+                        } finally {
                             cursor.close(); // end the search
-                            appendFilterToPrevTuple();
-                            appendPrevRecord();
-                            appendPreviousMeta();
-                            appendFilterToOutput();
-                        } else {
-                            appendPreviousTupleAsMissing();
                         }
                     } else {
                         searchCallback.before(key); // lock
                         appendPreviousTupleAsMissing();
                     }
-                    if (isDeleteOperation(tuple, numOfPrimaryKeys)) {
+                    if (isDelete && prevTuple != null) {
                         // Only delete if it is a delete and not upsert
+                        // And previous tuple with the same key was found
                         abstractModCallback.setOp(Operation.DELETE);
                         lsmAccessor.forceDelete(tuple);
                         recordWasDeleted = true;
-                    } else {
+                    } else if (!isDelete) {
                         abstractModCallback.setOp(Operation.UPSERT);
                         lsmAccessor.forceUpsert(tuple);
                         recordWasInserted = true;
@@ -239,10 +244,8 @@ public class LSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertUpdateDe
                     appender.write(writer, true);
                 }
             };
-
-        } catch (Exception e) {
-            indexHelper.close();
-            throw new HyracksDataException(e);
+        } catch (Throwable e) { // NOSONAR: Re-thrown
+            throw HyracksDataException.create(e);
         }
     }
 
@@ -317,7 +320,6 @@ public class LSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertUpdateDe
         if (isFiltered) {
             writeMissingField();
         }
-        cursor.close();
     }
 
     /**
@@ -360,7 +362,9 @@ public class LSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertUpdateDe
     public void close() throws HyracksDataException {
         try {
             try {
-                cursor.destroy();
+                if (cursor != null) {
+                    cursor.destroy();
+                }
             } finally {
                 writer.close();
             }

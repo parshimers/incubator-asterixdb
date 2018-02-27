@@ -66,7 +66,7 @@ public interface IClusterStateManager {
     /**
      * Updates the active node and active state of the cluster partition with id {@code partitionNum}
      */
-    void updateClusterPartition(Integer partitionNum, String activeNode, boolean active);
+    void updateClusterPartition(int partitionNum, String activeNode, boolean active);
 
     /**
      * Updates the metadata node id and its state.
@@ -224,4 +224,18 @@ public interface IClusterStateManager {
     boolean cancelRemovePending(String nodeId);
 
     Map<String, Map<IOption, Object>> getActiveNcConfiguration();
+
+    /**
+     * Sets the cluster partition in which metadata datasets stored
+     *
+     * @param partition
+     */
+    void setMetadataPartitionId(ClusterPartition partition);
+
+    /**
+     * Gets the cluster partition in which metadata datasets are stored
+     *
+     * @return The metadata cluster partitions
+     */
+    ClusterPartition getMetadataPartition();
 }

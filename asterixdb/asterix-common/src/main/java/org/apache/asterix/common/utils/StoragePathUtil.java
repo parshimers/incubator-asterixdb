@@ -39,7 +39,6 @@ import org.apache.logging.log4j.Logger;
 public class StoragePathUtil {
 
     private static final Logger LOGGER = LogManager.getLogger();
-    private static Function<IndexPathElements, String> indexPathProvider;
 
     private StoragePathUtil() {
     }
@@ -74,16 +73,12 @@ public class StoragePathUtil {
     }
 
     private static String prepareFullIndexName(String datasetName, String idxName, long rebalanceCount) {
-        if (indexPathProvider != null) {
-            return indexPathProvider.apply(new IndexPathElements(datasetName, idxName, String.valueOf(rebalanceCount)));
-        }
         return datasetName + File.separator + rebalanceCount + File.separator + idxName;
     }
 
     public static int getPartitionNumFromRelativePath(String relativePath) {
-        int startIdx =
-                relativePath.indexOf(StorageConstants.PARTITION_DIR_PREFIX) + StorageConstants.PARTITION_DIR_PREFIX
-                        .length();
+        int startIdx = relativePath.indexOf(StorageConstants.PARTITION_DIR_PREFIX)
+                + StorageConstants.PARTITION_DIR_PREFIX.length();
         String partition = relativePath.substring(startIdx, relativePath.indexOf(File.separatorChar, startIdx));
         return Integer.parseInt(partition);
     }
@@ -147,9 +142,5 @@ public class StoragePathUtil {
      */
     public static String getIndexNameFromPath(String path) {
         return Paths.get(path).getFileName().toString();
-    }
-
-    public static void setIndexPathProvider(Function<IndexPathElements, String> indexPathProvider) {
-        StoragePathUtil.indexPathProvider = indexPathProvider;
     }
 }

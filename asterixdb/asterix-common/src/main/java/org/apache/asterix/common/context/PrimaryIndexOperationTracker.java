@@ -38,11 +38,13 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMemoryComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMOperationTracker;
 import org.apache.hyracks.storage.am.lsm.common.api.LSMOperationType;
+import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentId;
 import org.apache.hyracks.storage.common.IModificationOperationCallback;
 import org.apache.hyracks.storage.common.ISearchOperationCallback;
 
 public class PrimaryIndexOperationTracker extends BaseOperationTracker {
 
+    private final int partition;
     // Number of active operations on an ILSMIndex instance.
     private final AtomicInteger numActiveOperations;
     private final ILogManager logManager;
@@ -50,9 +52,10 @@ public class PrimaryIndexOperationTracker extends BaseOperationTracker {
     private boolean flushOnExit = false;
     private boolean flushLogCreated = false;
 
-    public PrimaryIndexOperationTracker(int datasetID, ILogManager logManager, DatasetInfo dsInfo,
+    public PrimaryIndexOperationTracker(int datasetID, int partition, ILogManager logManager, DatasetInfo dsInfo,
             ILSMComponentIdGenerator idGenerator) {
         super(datasetID, dsInfo);
+        this.partition = partition;
         this.logManager = logManager;
         this.numActiveOperations = new AtomicInteger();
         this.idGenerator = idGenerator;
@@ -84,14 +87,16 @@ public class PrimaryIndexOperationTracker extends BaseOperationTracker {
             throws HyracksDataException {
         if (opType == LSMOperationType.MODIFICATION || opType == LSMOperationType.FORCE_MODIFICATION) {
             decrementNumActiveOperations(modificationCallback);
-            if (numActiveOperations.get() == 0) {
-                flushIfRequested();
-            } else if (numActiveOperations.get() < 0) {
-                throw new HyracksDataException("The number of active operations cannot be negative!");
-            }
+            flushIfNeeded();
         } else if (opType == LSMOperationType.FLUSH || opType == LSMOperationType.MERGE
                 || opType == LSMOperationType.REPLICATE) {
             dsInfo.undeclareActiveIOOperation();
+        }
+    }
+
+    public synchronized void flushIfNeeded() throws HyracksDataException {
+        if (numActiveOperations.get() == 0) {
+            flushIfRequested();
         }
     }
 
@@ -100,7 +105,7 @@ public class PrimaryIndexOperationTracker extends BaseOperationTracker {
         // or if there is a flush scheduled by the checkpoint (flushOnExit), then schedule it
 
         boolean needsFlush = false;
-        Set<ILSMIndex> indexes = dsInfo.getDatasetIndexes();
+        Set<ILSMIndex> indexes = dsInfo.getDatasetPartitionOpenIndexes(partition);
 
         if (!flushOnExit) {
             for (ILSMIndex lsmIndex : indexes) {
@@ -113,6 +118,7 @@ public class PrimaryIndexOperationTracker extends BaseOperationTracker {
 
         if (needsFlush || flushOnExit) {
             //Make the current mutable components READABLE_UNWRITABLE to stop coming modify operations from entering them until the current flush is scheduled.
+            LSMComponentId primaryId = null;
             for (ILSMIndex lsmIndex : indexes) {
                 ILSMOperationTracker opTracker = lsmIndex.getOperationTracker();
                 synchronized (opTracker) {
@@ -120,7 +126,13 @@ public class PrimaryIndexOperationTracker extends BaseOperationTracker {
                     if (memComponent.getState() == ComponentState.READABLE_WRITABLE && memComponent.isModified()) {
                         memComponent.setState(ComponentState.READABLE_UNWRITABLE);
                     }
+                    if (lsmIndex.isPrimaryIndex()) {
+                        primaryId = (LSMComponentId) memComponent.getId();
+                    }
                 }
+            }
+            if (primaryId == null) {
+                throw new IllegalStateException("Primary index not found in dataset " + dsInfo.getDatasetID());
             }
             LogRecord logRecord = new LogRecord();
             flushOnExit = false;
@@ -129,7 +141,8 @@ public class PrimaryIndexOperationTracker extends BaseOperationTracker {
                  * Generate a FLUSH log.
                  * Flush will be triggered when the log is written to disk by LogFlusher.
                  */
-                TransactionUtil.formFlushLogRecord(logRecord, datasetID, this);
+                TransactionUtil.formFlushLogRecord(logRecord, datasetID, partition, primaryId.getMinId(),
+                        primaryId.getMaxId(), this);
                 try {
                     logManager.log(logRecord);
                 } catch (ACIDException e) {
@@ -146,7 +159,7 @@ public class PrimaryIndexOperationTracker extends BaseOperationTracker {
     //This method is called sequentially by LogPage.notifyFlushTerminator in the sequence flushes were scheduled.
     public synchronized void triggerScheduleFlush(LogRecord logRecord) throws HyracksDataException {
         idGenerator.refresh();
-        for (ILSMIndex lsmIndex : dsInfo.getDatasetIndexes()) {
+        for (ILSMIndex lsmIndex : dsInfo.getDatasetPartitionOpenIndexes(partition)) {
             //get resource
             ILSMIndexAccessor accessor = lsmIndex.createAccessor(NoOpIndexAccessParameters.INSTANCE);
             //update resource lsn
@@ -174,7 +187,9 @@ public class PrimaryIndexOperationTracker extends BaseOperationTracker {
     private void decrementNumActiveOperations(IModificationOperationCallback modificationCallback) {
         //modificationCallback can be NoOpOperationCallback when redo/undo operations are executed.
         if (modificationCallback != NoOpOperationCallback.INSTANCE) {
-            numActiveOperations.decrementAndGet();
+            if (numActiveOperations.decrementAndGet() < 0) {
+                throw new IllegalStateException("The number of active operations cannot be negative!");
+            }
             ((AbstractOperationCallback) modificationCallback).afterOperation();
         }
     }
@@ -197,6 +212,10 @@ public class PrimaryIndexOperationTracker extends BaseOperationTracker {
 
     public boolean isFlushLogCreated() {
         return flushLogCreated;
+    }
+
+    public int getPartition() {
+        return partition;
     }
 
 }

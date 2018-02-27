@@ -237,19 +237,40 @@ public abstract class AbstractLSMMemoryComponent extends AbstractLSMComponent im
 
     @Override
     public final void allocate() throws HyracksDataException {
+        boolean allocated = false;
         ((IVirtualBufferCache) getIndex().getBufferCache()).open();
-        doAllocate();
+        try {
+            doAllocate();
+            allocated = true;
+        } finally {
+            if (!allocated) {
+                ((IVirtualBufferCache) getIndex().getBufferCache()).close();
+            }
+        }
     }
 
     protected void doAllocate() throws HyracksDataException {
-        getIndex().create();
-        getIndex().activate();
+        boolean created = false;
+        boolean activated = false;
+        try {
+            getIndex().create();
+            created = true;
+            getIndex().activate();
+            activated = true;
+        } finally {
+            if (created && !activated) {
+                getIndex().destroy();
+            }
+        }
     }
 
     @Override
     public final void deallocate() throws HyracksDataException {
-        doDeallocate();
-        getIndex().getBufferCache().close();
+        try {
+            doDeallocate();
+        } finally {
+            getIndex().getBufferCache().close();
+        }
     }
 
     protected void doDeallocate() throws HyracksDataException {
@@ -275,8 +296,8 @@ public abstract class AbstractLSMMemoryComponent extends AbstractLSMComponent im
     }
 
     @Override
-    public void resetId(ILSMComponentId componentId) throws HyracksDataException {
-        if (this.componentId != null && !componentId.missing() // for backward compatibility
+    public void resetId(ILSMComponentId componentId, boolean force) throws HyracksDataException {
+        if (!force && this.componentId != null && !componentId.missing() // for backward compatibility
                 && this.componentId.compareTo(componentId) != IdCompareResult.LESS_THAN) {
             throw new IllegalStateException(
                     this + " receives illegal id. Old id " + this.componentId + ", new id " + componentId);

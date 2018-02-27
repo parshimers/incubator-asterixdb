@@ -32,6 +32,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.Inet4Address;
 import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -56,6 +57,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import org.apache.asterix.api.http.server.QueryServiceServlet;
 import org.apache.asterix.app.external.IExternalUDFLibrarian;
 import org.apache.asterix.common.api.Duration;
 import org.apache.asterix.common.config.GlobalConfig;
@@ -121,8 +123,11 @@ public class TestExecutor {
     private static final Pattern HTTP_PARAM_PATTERN = Pattern.compile("param (\\w+)=(.*)", Pattern.MULTILINE);
     private static final Pattern HTTP_BODY_PATTERN = Pattern.compile("body=(.*)", Pattern.MULTILINE);
     private static final Pattern HTTP_STATUSCODE_PATTERN = Pattern.compile("statuscode (.*)", Pattern.MULTILINE);
-
+    private static final Pattern MAX_RESULT_READS_PATTERN =
+            Pattern.compile("maxresultreads=(\\d+)(\\D|$)", Pattern.MULTILINE);
     public static final int TRUNCATE_THRESHOLD = 16384;
+    public static final Set<String> NON_CANCELLABLE =
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList("store", "validate")));
 
     public static final String DELIVERY_ASYNC = "async";
     public static final String DELIVERY_DEFERRED = "deferred";
@@ -184,9 +189,9 @@ public class TestExecutor {
         return path.delete();
     }
 
-    public void runScriptAndCompareWithResult(File scriptFile, PrintWriter print, File expectedFile, File actualFile,
+    public void runScriptAndCompareWithResult(File scriptFile, File expectedFile, File actualFile,
             ComparisonEnum compare) throws Exception {
-        System.err.println("Expected results file: " + expectedFile.toString());
+        LOGGER.info("Expected results file: {} ", expectedFile);
         BufferedReader readerExpected =
                 new BufferedReader(new InputStreamReader(new FileInputStream(expectedFile), "UTF-8"));
         BufferedReader readerActual =
@@ -252,7 +257,7 @@ public class TestExecutor {
                 throw createLineChangedException(scriptFile, "<EOF>", lineActual, num);
             }
         } catch (Exception e) {
-            System.err.println("Actual results file: " + actualFile.toString());
+            LOGGER.info("Actual results file: {}", actualFile);
             throw e;
         } finally {
             readerExpected.close();
@@ -555,7 +560,12 @@ public class TestExecutor {
 
     public InputStream executeQueryService(String str, OutputFormat fmt, URI uri, List<Parameter> params,
             boolean jsonEncoded, Predicate<Integer> responseCodeValidator, boolean cancellable) throws Exception {
-        final List<Parameter> newParams = upsertParam(params, "format", fmt.mimeType());
+        List<Parameter> newParams = upsertParam(params, "format", fmt.mimeType());
+        final Optional<String> maxReadsOptional = extractMaxResultReads(str);
+        if (maxReadsOptional.isPresent()) {
+            newParams = upsertParam(newParams, QueryServiceServlet.Parameter.MAX_RESULT_READS.str(),
+                    maxReadsOptional.get());
+        }
         HttpUriRequest method = jsonEncoded ? constructPostMethodJson(str, uri, "statement", newParams)
                 : constructPostMethodUrl(str, uri, "statement", newParams);
         // Set accepted output response type
@@ -938,8 +948,7 @@ public class TestExecutor {
                         + "_qar.adm");
                 writeOutputToFile(qarFile, resultStream);
                 qbcFile = getTestCaseQueryBeforeCrashFile(actualPath, testCaseCtx, cUnit);
-                runScriptAndCompareWithResult(testFile, new PrintWriter(System.err), qbcFile, qarFile,
-                        ComparisonEnum.TEXT);
+                runScriptAndCompareWithResult(testFile, qbcFile, qarFile, ComparisonEnum.TEXT);
                 break;
             case "txneu": // eu represents erroneous update
                 try {
@@ -947,12 +956,11 @@ public class TestExecutor {
                 } catch (Exception e) {
                     // An exception is expected.
                     failed = true;
-                    System.err.println("testFile " + testFile.toString() + " raised an exception: " + e);
+                    LOGGER.info("testFile {} raised an (expected) exception", testFile, e.toString());
                 }
                 if (!failed) {
-                    throw new Exception("Test \"" + testFile + "\" FAILED!\n  An exception" + "is expected.");
+                    throw new Exception("Test \"" + testFile + "\" FAILED; an exception was expected");
                 }
-                System.err.println("...but that was expected.");
                 break;
             case "script":
                 try {
@@ -962,7 +970,7 @@ public class TestExecutor {
                         throw new Exception(output);
                     }
                 } catch (Exception e) {
-                    throw new Exception("Test \"" + testFile + "\" FAILED!\n", e);
+                    throw new Exception("Test \"" + testFile + "\" FAILED!", e);
                 }
                 break;
             case "sleep":
@@ -975,12 +983,11 @@ public class TestExecutor {
                 } catch (Exception e) {
                     // expected error happens
                     failed = true;
-                    System.err.println("testFile " + testFile.toString() + " raised an exception: " + e);
+                    LOGGER.info("testFile {} raised an (expected) exception", testFile, e.toString());
                 }
                 if (!failed) {
-                    throw new Exception("Test \"" + testFile + "\" FAILED!\n  An exception is expected.");
+                    throw new Exception("Test \"" + testFile + "\" FAILED; an exception was expected");
                 }
-                System.err.println("...but that was expected.");
                 break;
             case "get":
             case "post":
@@ -996,7 +1003,7 @@ public class TestExecutor {
                         ctx.extension(), cUnit.getOutputDir().getCompare());
                 break;
             case "server": // (start <test server name> <port>
-                           // [<arg1>][<arg2>][<arg3>]...|stop (<port>|all))
+                               // [<arg1>][<arg2>][<arg3>]...|stop (<port>|all))
                 try {
                     lines = statement.trim().split("\n");
                     String[] command = lines[lines.length - 1].trim().split(" ");
@@ -1044,7 +1051,7 @@ public class TestExecutor {
                 }
                 break;
             case "lib": // expected format <dataverse-name> <library-name>
-                        // <library-directory>
+                            // <library-directory>
                         // TODO: make this case work well with entity names containing spaces by
                         // looking for \"
                 lines = statement.split("\n");
@@ -1142,6 +1149,10 @@ public class TestExecutor {
                 command = stripJavaComments(statement).trim().split(" ");
                 executeStorageCommand(command);
                 break;
+            case "port":
+                command = stripJavaComments(statement).trim().split(" ");
+                handlePortCommand(command);
+                break;
             default:
                 throw new IllegalArgumentException("No statements of type " + ctx.getType());
         }
@@ -1174,17 +1185,14 @@ public class TestExecutor {
         } else {
             if (expectedResultFile == null) {
                 if (testFile.getName().startsWith(DIAGNOSE)) {
-                    System.err.println("Diagnostic Output:");
-                    IOUtils.copy(resultStream, System.err);
-                    System.err.println();
+                    LOGGER.info("Diagnostic output: {}", IOUtils.toString(resultStream, StandardCharsets.UTF_8));
                 } else {
                     Assert.fail("no result file for " + testFile.toString() + "; queryCount: " + queryCount
                             + ", filectxs.size: " + numResultFiles);
                 }
             } else {
                 writeOutputToFile(actualResultFile, resultStream);
-                runScriptAndCompareWithResult(testFile, new PrintWriter(System.err), expectedResultFile,
-                        actualResultFile, compare);
+                runScriptAndCompareWithResult(testFile, expectedResultFile, actualResultFile, compare);
             }
         }
         queryCount.increment();
@@ -1215,7 +1223,7 @@ public class TestExecutor {
             }
             final URI uri = getEndpoint(Servlets.QUERY_SERVICE);
             if (DELIVERY_IMMEDIATE.equals(delivery)) {
-                resultStream = executeQueryService(statement, fmt, uri, params, true, null, true);
+                resultStream = executeQueryService(statement, fmt, uri, params, true, null, isCancellable(reqType));
                 resultStream = METRICS_QUERY_TYPE.equals(reqType) ? ResultExtractor.extractMetrics(resultStream)
                         : ResultExtractor.extract(resultStream);
             } else {
@@ -1228,9 +1236,7 @@ public class TestExecutor {
         }
         if (actualResultFile == null) {
             if (testFile.getName().startsWith(DIAGNOSE)) {
-                System.err.println("Diagnostic Output:");
-                IOUtils.copy(resultStream, System.err);
-                System.err.println();
+                LOGGER.info("Diagnostic output: {}", IOUtils.toString(resultStream, StandardCharsets.UTF_8));
             } else {
                 Assert.fail("no result file for " + testFile.toString() + "; queryCount: " + queryCount
                         + ", filectxs.size: " + numResultFiles);
@@ -1245,8 +1251,7 @@ public class TestExecutor {
                         + ", filectxs.size: " + numResultFiles);
             }
         }
-        runScriptAndCompareWithResult(testFile, new PrintWriter(System.err), expectedResultFile, actualResultFile,
-                compare);
+        runScriptAndCompareWithResult(testFile, expectedResultFile, actualResultFile, compare);
         if (!reqType.equals("validate")) {
             queryCount.increment();
         }
@@ -1264,65 +1269,76 @@ public class TestExecutor {
         long startTime = System.currentTimeMillis();
         long limitTime = startTime + TimeUnit.SECONDS.toMillis(timeoutSecs);
         ctx.setType(ctx.getType().substring("poll".length()));
-        boolean expectedException = false;
-        Exception finalException = null;
-        LOGGER.debug("polling for up to " + timeoutSecs + " seconds w/ " + retryDelaySecs + " second(s) delay");
-        int responsesReceived = 0;
-        final ExecutorService executorService = Executors.newSingleThreadExecutor();
-        while (true) {
-            try {
-                Future<Void> execution = executorService.submit(() -> {
-                    executeTestFile(testCaseCtx, ctx, variableCtx, statement, isDmlRecoveryTest, pb, cUnit, queryCount,
-                            expectedResultFileCtxs, testFile, actualPath);
-                    return null;
-                });
-                execution.get(limitTime - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
-                responsesReceived++;
-                finalException = null;
-                break;
-            } catch (TimeoutException e) {
-                if (responsesReceived == 0) {
-                    throw new Exception(
-                            "Poll limit (" + timeoutSecs + "s) exceeded without obtaining *any* result from server");
-                } else if (finalException != null) {
-                    throw new Exception("Poll limit (" + timeoutSecs
-                            + "s) exceeded without obtaining expected result; last exception:", finalException);
-                } else {
-                    throw new Exception("Poll limit (" + timeoutSecs + "s) exceeded without obtaining expected result");
+        try {
+            boolean expectedException = false;
+            Exception finalException = null;
+            LOGGER.debug("polling for up to " + timeoutSecs + " seconds w/ " + retryDelaySecs + " second(s) delay");
+            int responsesReceived = 0;
+            final ExecutorService executorService = Executors.newSingleThreadExecutor();
+            while (true) {
+                try {
+                    Future<Void> execution = executorService.submit(() -> {
+                        executeTestFile(testCaseCtx, ctx, variableCtx, statement, isDmlRecoveryTest, pb, cUnit,
+                                queryCount, expectedResultFileCtxs, testFile, actualPath);
+                        return null;
+                    });
+                    execution.get(limitTime - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+                    responsesReceived++;
+                    finalException = null;
+                    break;
+                } catch (TimeoutException e) {
+                    if (responsesReceived == 0) {
+                        throw new Exception("Poll limit (" + timeoutSecs
+                                + "s) exceeded without obtaining *any* result from server");
+                    } else if (finalException != null) {
+                        throw new Exception(
+                                "Poll limit (" + timeoutSecs
+                                        + "s) exceeded without obtaining expected result; last exception:",
+                                finalException);
+                    } else {
+                        throw new Exception(
+                                "Poll limit (" + timeoutSecs + "s) exceeded without obtaining expected result");
 
+                    }
+                } catch (ExecutionException ee) {
+                    Exception e;
+                    if (ee.getCause() instanceof Exception) {
+                        e = (Exception) ee.getCause();
+                    } else {
+                        e = ee;
+                    }
+                    if (e instanceof ComparisonException) {
+                        LOGGER.info("Comparison failure on poll: {}", e::getMessage);
+                    } else if (LOGGER.isDebugEnabled()) {
+                        LOGGER.debug("Received exception on poll", e);
+                    } else {
+                        LOGGER.info("Received exception on poll: {}", e::toString);
+                    }
+                    responsesReceived++;
+                    if (isExpected(e, cUnit)) {
+                        expectedException = true;
+                        finalException = e;
+                        break;
+                    }
+                    if ((System.currentTimeMillis() > limitTime)) {
+                        finalException = e;
+                        break;
+                    }
+                    LOGGER.debug("sleeping " + retryDelaySecs + " second(s) before polling again");
+                    TimeUnit.SECONDS.sleep(retryDelaySecs);
                 }
-            } catch (ExecutionException ee) {
-                Exception e;
-                if (ee.getCause() instanceof Exception) {
-                    e = (Exception) ee.getCause();
-                } else {
-                    e = ee;
-                }
-                if (e instanceof ComparisonException) {
-                    LOGGER.log(Level.INFO, "Comparison failure on poll: " + e.getMessage());
-                } else {
-                    LOGGER.log(Level.INFO, "received exception on poll", e);
-                }
-                responsesReceived++;
-                if (isExpected(e, cUnit)) {
-                    expectedException = true;
-                    finalException = e;
-                    break;
-                }
-                if ((System.currentTimeMillis() > limitTime)) {
-                    finalException = e;
-                    break;
-                }
-                LOGGER.debug("sleeping " + retryDelaySecs + " second(s) before polling again");
-                TimeUnit.SECONDS.sleep(retryDelaySecs);
             }
+            if (expectedException) {
+                throw finalException;
+            } else if (finalException != null) {
+                throw new Exception("Poll limit (" + timeoutSecs + "s) exceeded without obtaining expected result",
+                        finalException);
+            }
+
+        } finally {
+            ctx.setType("poll" + ctx.getType());
         }
-        if (expectedException) {
-            throw finalException;
-        } else if (finalException != null) {
-            throw new Exception("Poll limit (" + timeoutSecs + "s) exceeded without obtaining expected result",
-                    finalException);
-        }
+
     }
 
     public InputStream executeSqlppUpdateOrDdl(String statement, OutputFormat outputFormat) throws Exception {
@@ -1385,6 +1401,14 @@ public class TestExecutor {
             variableReferenceMatcher = VARIABLE_REF_PATTERN.matcher(tmpStmt);
         }
         return tmpStmt;
+    }
+
+    protected static Optional<String> extractMaxResultReads(String statement) {
+        final Matcher m = MAX_RESULT_READS_PATTERN.matcher(statement);
+        while (m.find()) {
+            return Optional.of(m.group(1));
+        }
+        return Optional.empty();
     }
 
     protected static Optional<String> extractBody(String statement) {
@@ -1490,6 +1514,10 @@ public class TestExecutor {
                     "Starting [TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName() + " ... ");
             Map<String, Object> variableCtx = new HashMap<>();
             List<TestFileContext> testFileCtxs = testCaseCtx.getTestFiles(cUnit);
+            if (testFileCtxs.isEmpty()) {
+                Assert.fail("No test files found for test: " + testCaseCtx.getTestCase().getFilePath() + "/"
+                        + cUnit.getName());
+            }
             List<TestFileContext> expectedResultFileCtxs = testCaseCtx.getExpectedResultFiles(cUnit);
             int[] savedQueryCounts = new int[numOfFiles + testFileCtxs.size()];
             for (ListIterator<TestFileContext> iter = testFileCtxs.listIterator(); iter.hasNext();) {
@@ -1514,28 +1542,26 @@ public class TestExecutor {
                         queryCount.setValue(savedQueryCounts[numOfFiles]);
                     }
                 } catch (Exception e) {
-                    System.err.println("testFile " + testFile.toString() + " raised an exception: " + e);
                     numOfErrors++;
-                    if (isUnExpected(e, expectedErrors, numOfErrors, queryCount)) {
-                        e.printStackTrace();
-                        System.err.println("...Unexpected!");
+                    boolean unexpected = isUnExpected(e, expectedErrors, numOfErrors, queryCount);
+                    if (unexpected) {
+                        LOGGER.error("testFile {} raised an unexpected exception", testFile, e);
                         if (failedGroup != null) {
                             failedGroup.getTestCase().add(testCaseCtx.getTestCase());
                         }
                         fail(true, testCaseCtx, cUnit, testFileCtxs, pb, testFile, e);
+                    } else {
+                        LOGGER.info("testFile {} raised an (expected) exception", testFile, e.toString());
                     }
-                } finally {
-                    if (numOfFiles == testFileCtxs.size()) {
-                        if (numOfErrors < cUnit.getExpectedError().size()) {
-                            System.err.println("...Unexpected!");
-                            Exception e = new Exception(
-                                    "Test \"" + cUnit.getName() + "\" FAILED!\nExpected error was not thrown...");
-                            System.err.println(e);
-                            throw e;
-                        }
-                        LOGGER.info("[TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName()
-                                + " PASSED ");
+                }
+                if (numOfFiles == testFileCtxs.size()) {
+                    if (numOfErrors < cUnit.getExpectedError().size()) {
+                        LOGGER.error("Test {} failed to raise (an) expected exception(s)", cUnit.getName());
+                        throw new Exception(
+                                "Test \"" + cUnit.getName() + "\" FAILED; expected exception was not thrown...");
                     }
+                    LOGGER.info(
+                            "[TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName() + " PASSED ");
                 }
             }
         }
@@ -1547,8 +1573,7 @@ public class TestExecutor {
             try {
                 // execute diagnostic files
                 Map<String, Object> variableCtx = new HashMap<>();
-                for (ListIterator<TestFileContext> iter = testFileCtxs.listIterator(); iter.hasNext();) {
-                    TestFileContext ctx = iter.next();
+                for (TestFileContext ctx : testFileCtxs) {
                     if (ctx.getFile().getName().startsWith(TestExecutor.DIAGNOSE)) {
                         // execute the file
                         final File file = ctx.getFile();
@@ -1572,11 +1597,9 @@ public class TestExecutor {
             // Get the expected exception
             expectedError = expectedErrors.get(numOfErrors - 1);
             if (e.toString().contains(expectedError)) {
-                System.err.println("...but that was expected.");
                 return false;
             } else {
-                System.err
-                        .println("Expected to find the following in error text:\n+++++\n" + expectedError + "\n+++++");
+                LOGGER.error("Expected to find the following in error text: +++++{}+++++", expectedError);
                 return true;
             }
         }
@@ -1630,14 +1653,18 @@ public class TestExecutor {
             InputStream resultStream = executeQueryService(
                     "select dv.DataverseName from Metadata.`Dataverse` as dv order by dv.DataverseName;",
                     getEndpoint(Servlets.QUERY_SERVICE), OutputFormat.CLEAN_JSON);
-            String out = IOUtils.toString(resultStream);
+            String out = IOUtils.toString(resultStream, StandardCharsets.UTF_8);
             ObjectMapper om = new ObjectMapper();
             om.setConfig(om.getDeserializationConfig().with(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT));
             JsonNode result;
             try {
                 result = om.readValue(out, ObjectNode.class).get("results");
             } catch (JsonMappingException e) {
-                result = om.createArrayNode();
+                LOGGER.warn("error mapping response '{}' to json", out, e);
+                result = null;
+            }
+            if (result == null) {
+                return;
             }
             for (int i = 0; i < result.size(); i++) {
                 JsonNode json = result.get(i);
@@ -1650,7 +1677,7 @@ public class TestExecutor {
             }
             if (!toBeDropped.isEmpty()) {
                 badtestcases.add(testCase);
-                LOGGER.warn("Last test left some garbage. Dropping dataverses: " + StringUtils.join(toBeDropped, ','));
+                LOGGER.info("Last test left some garbage. Dropping dataverses: " + StringUtils.join(toBeDropped, ','));
                 StringBuilder dropStatement = new StringBuilder();
                 for (String dv : toBeDropped) {
                     dropStatement.append("drop dataverse ");
@@ -1748,6 +1775,31 @@ public class TestExecutor {
         return replicationAddress.get(nodeId);
     }
 
+    private void handlePortCommand(String[] command) throws InterruptedException, TimeoutException {
+        if (command.length != 3) {
+            throw new IllegalStateException("Unrecognized port command. Expected (host port timeout(sec))");
+        }
+        String host = command[0];
+        int port = Integer.parseInt(command[1]);
+        int timeoutSec = Integer.parseInt(command[2]);
+        while (isPortActive(host, port)) {
+            TimeUnit.SECONDS.sleep(1);
+            timeoutSec--;
+            if (timeoutSec <= 0) {
+                throw new TimeoutException(
+                        "Port is still in use: " + host + ":" + port + " after " + command[2] + " secs");
+            }
+        }
+    }
+
+    private boolean isPortActive(String host, int port) {
+        try (Socket ignored = new Socket(host, port)) {
+            return true;
+        } catch (IOException ignored) {
+            return false;
+        }
+    }
+
     abstract static class TestLoop extends Exception {
 
         private final String target;
@@ -1791,5 +1843,9 @@ public class TestExecutor {
         public String getTarget() {
             return target;
         }
+    }
+
+    private static boolean isCancellable(String type) {
+        return !NON_CANCELLABLE.contains(type);
     }
 }

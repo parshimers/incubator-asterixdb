@@ -45,11 +45,7 @@ public class NodeJobTracker implements INodeJobTracker {
 
     @Override
     public synchronized void notifyJobCreation(JobId jobId, JobSpecification spec) {
-        final Set<String> matchedNodes = spec.getUserConstraints().stream().map(Constraint::getRValue)
-                .filter(ce -> ce.getTag() == ExpressionTag.CONSTANT).map(ConstantExpression.class::cast)
-                .map(ConstantExpression::getValue).map(Object::toString).filter(nodeJobs::containsKey)
-                .collect(Collectors.toSet());
-        matchedNodes.stream().map(nodeJobs::get).forEach(jobsSet -> jobsSet.add(jobId));
+        getJobParticipatingNodes(spec).stream().map(nodeJobs::get).forEach(jobsSet -> jobsSet.add(jobId));
     }
 
     @Override
@@ -74,8 +70,15 @@ public class NodeJobTracker implements INodeJobTracker {
 
     @Override
     public synchronized Set<JobId> getPendingJobs(String nodeId) {
-        return nodeJobs.containsKey(nodeId) ?
-                Collections.unmodifiableSet(nodeJobs.get(nodeId)) :
-                Collections.emptySet();
+        return nodeJobs.containsKey(nodeId) ? Collections.unmodifiableSet(nodeJobs.get(nodeId))
+                : Collections.emptySet();
+    }
+
+    @Override
+    public Set<String> getJobParticipatingNodes(JobSpecification spec) {
+        return spec.getUserConstraints().stream().map(Constraint::getRValue)
+                .filter(ce -> ce.getTag() == ExpressionTag.CONSTANT).map(ConstantExpression.class::cast)
+                .map(ConstantExpression::getValue).map(Object::toString).filter(nodeJobs::containsKey)
+                .collect(Collectors.toSet());
     }
 }

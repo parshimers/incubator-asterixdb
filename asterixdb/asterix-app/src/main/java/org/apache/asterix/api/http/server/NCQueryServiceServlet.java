@@ -41,11 +41,11 @@ import org.apache.asterix.common.messaging.api.INCMessageBroker;
 import org.apache.asterix.common.messaging.api.MessageFuture;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.translator.IStatementExecutor;
+import org.apache.asterix.translator.ResultProperties;
 import org.apache.asterix.translator.SessionOutput;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.hyracks.api.application.INCServiceContext;
 import org.apache.hyracks.api.dataset.ResultSetId;
-import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.ipc.exceptions.IPCException;
@@ -67,14 +67,12 @@ public class NCQueryServiceServlet extends QueryServiceServlet {
 
     @Override
     protected void executeStatement(String statementsText, SessionOutput sessionOutput,
-            IStatementExecutor.ResultDelivery delivery, IStatementExecutor.Stats stats, RequestParameters param,
+            ResultProperties resultProperties, IStatementExecutor.Stats stats, RequestParameters param,
             RequestExecutionState execution, Map<String, String> optionalParameters) throws Exception {
         // Running on NC -> send 'execute' message to CC
         INCServiceContext ncCtx = (INCServiceContext) serviceCtx;
         INCMessageBroker ncMb = (INCMessageBroker) ncCtx.getMessageBroker();
-        IStatementExecutor.ResultDelivery ccDelivery =
-                delivery == IStatementExecutor.ResultDelivery.IMMEDIATE ? IStatementExecutor.ResultDelivery.DEFERRED
-                        : delivery;
+        final IStatementExecutor.ResultDelivery delivery = resultProperties.getDelivery();
         ExecuteStatementResponseMessage responseMsg;
         MessageFuture responseFuture = ncMb.registerMessageFuture();
         final String handleUrl = getHandleUrl(param.host, param.path, delivery);
@@ -87,10 +85,10 @@ public class NCQueryServiceServlet extends QueryServiceServlet {
                 timeout = TimeUnit.NANOSECONDS.toMillis(Duration.parseDurationStringToNanos(param.timeout));
             }
             ExecuteStatementRequestMessage requestMsg = new ExecuteStatementRequestMessage(ncCtx.getNodeId(),
-                    responseFuture.getFutureId(), queryLanguage, statementsText, sessionOutput.config(), ccDelivery,
-                    param.clientContextID, handleUrl, optionalParameters);
+                    responseFuture.getFutureId(), queryLanguage, statementsText, sessionOutput.config(),
+                    resultProperties.getNcToCcResultProperties(), param.clientContextID, handleUrl, optionalParameters);
             execution.start();
-            ncMb.sendMessageToCC(requestMsg);
+            ncMb.sendMessageToPrimaryCC(requestMsg);
             try {
                 responseMsg = (ExecuteStatementResponseMessage) responseFuture.get(timeout, TimeUnit.MILLISECONDS);
             } catch (InterruptedException e) {
@@ -139,7 +137,8 @@ public class NCQueryServiceServlet extends QueryServiceServlet {
         try {
             CancelQueryRequest cancelQueryMessage =
                     new CancelQueryRequest(nodeId, cancelQueryFuture.getFutureId(), clientContextID);
-            messageBroker.sendMessageToCC(cancelQueryMessage);
+            // TODO(mblow): multicc -- need to send cancellation to the correct cc
+            messageBroker.sendMessageToPrimaryCC(cancelQueryMessage);
             if (wait) {
                 cancelQueryFuture.get(ExecuteStatementRequestMessage.DEFAULT_QUERY_CANCELLATION_WAIT_MILLIS,
                         TimeUnit.MILLISECONDS);
@@ -154,7 +153,7 @@ public class NCQueryServiceServlet extends QueryServiceServlet {
     @Override
     protected void handleExecuteStatementException(Throwable t, RequestExecutionState execution) {
         if (t instanceof TimeoutException
-                || (t instanceof HyracksDataException && ExceptionUtils.getRootCause(t) instanceof IPCException)) {
+                || ExceptionUtils.matchingCause(t, candidate -> candidate instanceof IPCException)) {
             GlobalConfig.ASTERIX_LOGGER.log(Level.WARN, t.toString(), t);
             execution.setStatus(ResultStatus.FAILED, HttpResponseStatus.SERVICE_UNAVAILABLE);
         } else {

@@ -162,11 +162,15 @@ import org.apache.asterix.runtime.evaluators.functions.GetJobParameterByNameDesc
 import org.apache.asterix.runtime.evaluators.functions.GramTokensDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.HashedGramTokensDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.HashedWordTokensDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.IfInfDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.IfNanOrInfDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.IfMissingDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.IfMissingOrNullDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.IfNanDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.IfNullDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.InjectFailureDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.IsArrayDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.IsAtomicDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.IsBooleanDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.IsMissingDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.IsNullDescriptor;
@@ -270,6 +274,8 @@ import org.apache.asterix.runtime.evaluators.functions.records.FieldAccessNested
 import org.apache.asterix.runtime.evaluators.functions.records.GetRecordFieldValueDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.records.GetRecordFieldsDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.records.RecordAddFieldsDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.records.RecordConcatDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.records.RecordConcatStrictDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.records.RecordMergeDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.records.RecordPairsDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.records.RecordRemoveFieldsDescriptor;
@@ -424,9 +430,11 @@ public final class FunctionCollection {
         fc.add(AndDescriptor.FACTORY);
         fc.add(OrDescriptor.FACTORY);
 
-        // Record constructors
+        // Record constructors / functions
         fc.add(ClosedRecordConstructorDescriptor.FACTORY);
         fc.add(OpenRecordConstructorDescriptor.FACTORY);
+        fc.add(RecordConcatDescriptor.FACTORY);
+        fc.add(RecordConcatStrictDescriptor.FACTORY);
 
         // List constructors
         fc.add(OrderedListConstructorDescriptor.FACTORY);
@@ -478,6 +486,9 @@ public final class FunctionCollection {
         fc.addGenerated(GetItemDescriptor.FACTORY);
 
         // Numeric functions
+        fc.add(IfInfDescriptor.FACTORY);
+        fc.add(IfNanDescriptor.FACTORY);
+        fc.add(IfNanOrInfDescriptor.FACTORY);
         fc.addGenerated(NumericUnaryMinusDescriptor.FACTORY);
         fc.addGenerated(NumericAddDescriptor.FACTORY);
         fc.addGenerated(NumericDivideDescriptor.FACTORY);
@@ -707,6 +718,7 @@ public final class FunctionCollection {
         fc.addGenerated(DurationFromIntervalDescriptor.FACTORY);
 
         // Type functions.
+        fc.addGenerated(IsAtomicDescriptor.FACTORY);
         fc.addGenerated(IsBooleanDescriptor.FACTORY);
         fc.addGenerated(IsNumberDescriptor.FACTORY);
         fc.addGenerated(IsStringDescriptor.FACTORY);

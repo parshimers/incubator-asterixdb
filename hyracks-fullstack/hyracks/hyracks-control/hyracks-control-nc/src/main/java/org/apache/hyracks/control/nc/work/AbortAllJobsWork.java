@@ -20,7 +20,9 @@ package org.apache.hyracks.control.nc.work;
 
 import java.util.Collection;
 
+import org.apache.hyracks.api.control.CcId;
 import org.apache.hyracks.api.dataset.IDatasetPartitionManager;
+import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.api.job.JobStatus;
 import org.apache.hyracks.control.common.work.SynchronizableWork;
 import org.apache.hyracks.control.nc.Joblet;
@@ -34,29 +36,33 @@ public class AbortAllJobsWork extends SynchronizableWork {
 
     private static final Logger LOGGER = LogManager.getLogger();
     private final NodeControllerService ncs;
+    private final CcId ccId;
 
-    public AbortAllJobsWork(NodeControllerService ncs) {
+    public AbortAllJobsWork(NodeControllerService ncs, CcId ccId) {
         this.ncs = ncs;
+        this.ccId = ccId;
     }
 
     @Override
     protected void doRun() throws Exception {
-        if (LOGGER.isInfoEnabled()) {
-            LOGGER.info("Aborting all tasks");
-        }
+        LOGGER.info("Aborting all tasks for controller {}", ccId);
         IDatasetPartitionManager dpm = ncs.getDatasetPartitionManager();
-        if (dpm != null) {
-            ncs.getDatasetPartitionManager().abortAllReaders();
-        } else {
+        if (dpm == null) {
             LOGGER.log(Level.WARN, "DatasetPartitionManager is null on " + ncs.getId());
         }
         Collection<Joblet> joblets = ncs.getJobletMap().values();
-        for (Joblet ji : joblets) {
-            Collection<Task> tasks = ji.getTaskMap().values();
+        // TODO(mblow): should we have one jobletmap per cc?
+        joblets.stream().filter(joblet -> joblet.getJobId().getCcId().equals(ccId)).forEach(joblet -> {
+            Collection<Task> tasks = joblet.getTaskMap().values();
             for (Task task : tasks) {
                 task.abort();
             }
-            ncs.getWorkQueue().schedule(new CleanupJobletWork(ncs, ji.getJobId(), JobStatus.FAILURE));
-        }
+            final JobId jobId = joblet.getJobId();
+            if (dpm != null) {
+                dpm.abortReader(jobId);
+                dpm.sweep(jobId);
+            }
+            ncs.getWorkQueue().schedule(new CleanupJobletWork(ncs, jobId, JobStatus.FAILURE));
+        });
     }
 }

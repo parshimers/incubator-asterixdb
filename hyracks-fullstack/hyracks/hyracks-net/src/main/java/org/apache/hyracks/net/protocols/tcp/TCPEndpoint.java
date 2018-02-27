@@ -21,7 +21,6 @@ package org.apache.hyracks.net.protocols.tcp;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
-import java.net.StandardSocketOptions;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -31,7 +30,14 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.hyracks.util.NetworkUtil;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 public class TCPEndpoint {
+
+    private static final Logger LOGGER = LogManager.getLogger();
+
     private final ITCPConnectionListener connectionListener;
 
     private final int nThreads;
@@ -107,10 +113,10 @@ public class TCPEndpoint {
             super("TCPEndpoint IO Thread");
             setDaemon(true);
             setPriority(Thread.NORM_PRIORITY);
-            this.pendingConnections = new ArrayList<InetSocketAddress>();
-            this.workingPendingConnections = new ArrayList<InetSocketAddress>();
-            this.incomingConnections = new ArrayList<SocketChannel>();
-            this.workingIncomingConnections = new ArrayList<SocketChannel>();
+            this.pendingConnections = new ArrayList<>();
+            this.workingPendingConnections = new ArrayList<>();
+            this.incomingConnections = new ArrayList<>();
+            this.workingIncomingConnections = new ArrayList<>();
             selector = Selector.open();
         }
 
@@ -123,8 +129,7 @@ public class TCPEndpoint {
                     if (!workingPendingConnections.isEmpty()) {
                         for (InetSocketAddress address : workingPendingConnections) {
                             SocketChannel channel = SocketChannel.open();
-                            channel.setOption(StandardSocketOptions.TCP_NODELAY, true);
-                            channel.configureBlocking(false);
+                            register(channel);
                             boolean connect = false;
                             boolean failure = false;
                             try {
@@ -149,8 +154,7 @@ public class TCPEndpoint {
                     }
                     if (!workingIncomingConnections.isEmpty()) {
                         for (SocketChannel channel : workingIncomingConnections) {
-                            channel.setOption(StandardSocketOptions.TCP_NODELAY, true);
-                            channel.configureBlocking(false);
+                            register(channel);
                             SelectionKey sKey = channel.register(selector, 0);
                             TCPConnection connection = new TCPConnection(TCPEndpoint.this, channel, sKey, selector);
                             sKey.attach(connection);
@@ -174,8 +178,10 @@ public class TCPEndpoint {
                                 try {
                                     connection.getEventListener().notifyIOReady(connection, readable, writable);
                                 } catch (Exception e) {
+                                    LOGGER.error("Unexpected tcp io error", e);
                                     connection.getEventListener().notifyIOError(e);
                                     connection.close();
+                                    connectionListener.connectionClosed(connection);
                                     continue;
                                 }
                             }
@@ -201,7 +207,7 @@ public class TCPEndpoint {
                         }
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    LOGGER.error("Error in TCPEndpoint {}", localAddress, e);
                 }
             }
         }
@@ -239,6 +245,11 @@ public class TCPEndpoint {
                 workingIncomingConnections.addAll(incomingConnections);
                 incomingConnections.clear();
             }
+        }
+
+        private void register(SocketChannel channel) throws IOException {
+            NetworkUtil.configure(channel);
+            channel.configureBlocking(false);
         }
     }
 }

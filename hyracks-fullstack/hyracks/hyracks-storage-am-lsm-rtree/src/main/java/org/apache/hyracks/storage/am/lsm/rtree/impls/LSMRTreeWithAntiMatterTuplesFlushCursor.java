@@ -22,12 +22,13 @@ package org.apache.hyracks.storage.am.lsm.rtree.impls;
 import org.apache.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
+import org.apache.hyracks.storage.am.common.api.ILSMIndexCursor;
+import org.apache.hyracks.storage.common.EnforcedIndexCursor;
 import org.apache.hyracks.storage.common.ICursorInitialState;
-import org.apache.hyracks.storage.common.IIndexCursor;
 import org.apache.hyracks.storage.common.ISearchPredicate;
 import org.apache.hyracks.storage.common.MultiComparator;
 
-public class LSMRTreeWithAntiMatterTuplesFlushCursor implements IIndexCursor {
+public class LSMRTreeWithAntiMatterTuplesFlushCursor extends EnforcedIndexCursor implements ILSMIndexCursor {
     private final TreeTupleSorter rTreeTupleSorter;
     private final TreeTupleSorter bTreeTupleSorter;
     private final int[] comparatorFields;
@@ -47,12 +48,23 @@ public class LSMRTreeWithAntiMatterTuplesFlushCursor implements IIndexCursor {
     }
 
     @Override
-    public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
-
+    public void doOpen(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
+        boolean rtreeOpen = false;
+        boolean btreeOpen = false;
+        try {
+            rTreeTupleSorter.open(initialState, searchPred);
+            rtreeOpen = true;
+            bTreeTupleSorter.open(initialState, searchPred);
+            btreeOpen = true;
+        } finally {
+            if (rtreeOpen && !btreeOpen) {
+                rTreeTupleSorter.close();
+            }
+        }
     }
 
     @Override
-    public boolean hasNext() throws HyracksDataException {
+    public boolean doHasNext() throws HyracksDataException {
         if (foundNext) {
             return true;
         }
@@ -123,22 +135,31 @@ public class LSMRTreeWithAntiMatterTuplesFlushCursor implements IIndexCursor {
     }
 
     @Override
-    public void next() throws HyracksDataException {
+    public void doNext() throws HyracksDataException {
         foundNext = false;
 
     }
 
     @Override
-    public void destroy() throws HyracksDataException {
+    public void doDestroy() throws HyracksDataException {
+        try {
+            rTreeTupleSorter.destroy();
+        } finally {
+            bTreeTupleSorter.destroy();
+        }
     }
 
     @Override
-    public void close() throws HyracksDataException {
-
+    public void doClose() throws HyracksDataException {
+        try {
+            rTreeTupleSorter.close();
+        } finally {
+            bTreeTupleSorter.close();
+        }
     }
 
     @Override
-    public ITupleReference getTuple() {
+    public ITupleReference doGetTuple() {
         return frameTuple;
     }
 
@@ -150,6 +171,11 @@ public class LSMRTreeWithAntiMatterTuplesFlushCursor implements IIndexCursor {
     @Override
     public ITupleReference getFilterMaxTuple() {
         return null;
+    }
+
+    @Override
+    public boolean getSearchOperationCallbackProceedResult() {
+        return false;
     }
 
 }

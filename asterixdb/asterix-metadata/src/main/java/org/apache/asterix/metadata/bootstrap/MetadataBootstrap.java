@@ -25,7 +25,6 @@ import java.util.HashMap;
 import java.util.List;
 
 import org.apache.asterix.common.api.INcApplicationContext;
-import org.apache.asterix.common.cluster.ClusterPartition;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.common.config.GlobalConfig;
 import org.apache.asterix.common.config.MetadataProperties;
@@ -44,6 +43,7 @@ import org.apache.asterix.external.dataset.adapter.AdapterIdentifier;
 import org.apache.asterix.external.indexing.ExternalFile;
 import org.apache.asterix.metadata.IDatasetDetails;
 import org.apache.asterix.metadata.MetadataManager;
+import org.apache.asterix.metadata.MetadataNode;
 import org.apache.asterix.metadata.MetadataTransactionContext;
 import org.apache.asterix.metadata.api.IMetadataIndex;
 import org.apache.asterix.metadata.entities.BuiltinTypeMap;
@@ -63,7 +63,6 @@ import org.apache.asterix.metadata.utils.MetadataConstants;
 import org.apache.asterix.metadata.utils.MetadataUtil;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.runtime.formats.NonTaggedDataFormat;
-import org.apache.asterix.runtime.utils.ClusterStateManager;
 import org.apache.asterix.transaction.management.opcallbacks.PrimaryIndexOperationTrackerFactory;
 import org.apache.asterix.transaction.management.opcallbacks.SecondaryIndexOperationTrackerFactory;
 import org.apache.asterix.transaction.management.resource.DatasetLocalResourceFactory;
@@ -110,14 +109,14 @@ public class MetadataBootstrap {
     private static String metadataNodeName;
     private static List<String> nodeNames;
     private static boolean isNewUniverse;
-    private static final IMetadataIndex[] PRIMARY_INDEXES = new IMetadataIndex[] {
-            MetadataPrimaryIndexes.DATAVERSE_DATASET, MetadataPrimaryIndexes.DATASET_DATASET,
-            MetadataPrimaryIndexes.DATATYPE_DATASET, MetadataPrimaryIndexes.INDEX_DATASET,
-            MetadataPrimaryIndexes.NODE_DATASET, MetadataPrimaryIndexes.NODEGROUP_DATASET,
-            MetadataPrimaryIndexes.FUNCTION_DATASET, MetadataPrimaryIndexes.DATASOURCE_ADAPTER_DATASET,
-            MetadataPrimaryIndexes.FEED_DATASET, MetadataPrimaryIndexes.FEED_POLICY_DATASET,
-            MetadataPrimaryIndexes.LIBRARY_DATASET, MetadataPrimaryIndexes.COMPACTION_POLICY_DATASET,
-            MetadataPrimaryIndexes.EXTERNAL_FILE_DATASET, MetadataPrimaryIndexes.FEED_CONNECTION_DATASET };
+    private static final IMetadataIndex[] PRIMARY_INDEXES =
+            new IMetadataIndex[] { MetadataPrimaryIndexes.DATAVERSE_DATASET, MetadataPrimaryIndexes.DATASET_DATASET,
+                    MetadataPrimaryIndexes.DATATYPE_DATASET, MetadataPrimaryIndexes.INDEX_DATASET,
+                    MetadataPrimaryIndexes.NODE_DATASET, MetadataPrimaryIndexes.NODEGROUP_DATASET,
+                    MetadataPrimaryIndexes.FUNCTION_DATASET, MetadataPrimaryIndexes.DATASOURCE_ADAPTER_DATASET,
+                    MetadataPrimaryIndexes.FEED_DATASET, MetadataPrimaryIndexes.FEED_POLICY_DATASET,
+                    MetadataPrimaryIndexes.LIBRARY_DATASET, MetadataPrimaryIndexes.COMPACTION_POLICY_DATASET,
+                    MetadataPrimaryIndexes.EXTERNAL_FILE_DATASET, MetadataPrimaryIndexes.FEED_CONNECTION_DATASET };
 
     private MetadataBootstrap() {
     }
@@ -267,9 +266,9 @@ public class MetadataBootstrap {
 
     private static void insertInitialCompactionPolicies(MetadataTransactionContext mdTxnCtx)
             throws AlgebricksException {
-        String[] builtInCompactionPolicyClassNames = new String[] { ConstantMergePolicyFactory.class.getName(),
-                PrefixMergePolicyFactory.class.getName(), NoMergePolicyFactory.class.getName(),
-                CorrelatedPrefixMergePolicyFactory.class.getName() };
+        String[] builtInCompactionPolicyClassNames =
+                new String[] { ConstantMergePolicyFactory.class.getName(), PrefixMergePolicyFactory.class.getName(),
+                        NoMergePolicyFactory.class.getName(), CorrelatedPrefixMergePolicyFactory.class.getName() };
         for (String policyClassName : builtInCompactionPolicyClassNames) {
             CompactionPolicy compactionPolicy = getCompactionPolicyEntity(policyClassName);
             MetadataManager.INSTANCE.addCompactionPolicy(mdTxnCtx, compactionPolicy);
@@ -289,8 +288,8 @@ public class MetadataBootstrap {
     private static CompactionPolicy getCompactionPolicyEntity(String compactionPolicyClassName)
             throws AlgebricksException {
         try {
-            String policyName = ((ILSMMergePolicyFactory) (Class.forName(compactionPolicyClassName).newInstance()))
-                    .getName();
+            String policyName =
+                    ((ILSMMergePolicyFactory) (Class.forName(compactionPolicyClassName).newInstance())).getName();
             return new CompactionPolicy(MetadataConstants.METADATA_DATAVERSE_NAME, policyName,
                     compactionPolicyClassName);
         } catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
@@ -312,11 +311,10 @@ public class MetadataBootstrap {
         if (!appContext.getDatasetMemoryManager().reserve(index.getDatasetId().getId())) {
             throw new IllegalStateException("Failed to reserve memory for metadata dataset (" + datasetId + ")");
         }
-        ClusterPartition metadataPartition = appContext.getMetadataProperties().getMetadataPartition();
-        int metadataDeviceId = metadataPartition.getIODeviceNum();
-        String metadataPartitionPath = StoragePathUtil.prepareStoragePartitionPath(metadataPartition.getPartitionId());
+        String metadataPartitionPath =
+                StoragePathUtil.prepareStoragePartitionPath(MetadataNode.INSTANCE.getMetadataStoragePartition());
         String resourceName = metadataPartitionPath + File.separator + index.getFileNameRelativePath();
-        FileReference file = ioManager.getFileReference(metadataDeviceId, resourceName);
+        FileReference file = ioManager.resolve(resourceName);
         index.setFile(file);
         ITypeTraits[] typeTraits = index.getTypeTraits();
         IBinaryComparatorFactory[] cmpFactories = index.getKeyBinaryComparatorFactory();
@@ -327,24 +325,26 @@ public class MetadataBootstrap {
         // We are unable to do this since IStorageManager needs a dataset to determine
         // the appropriate
         // objects
-        ILSMOperationTrackerFactory opTrackerFactory = index.isPrimaryIndex()
-                ? new PrimaryIndexOperationTrackerFactory(datasetId)
-                : new SecondaryIndexOperationTrackerFactory(datasetId);
-        ILSMComponentIdGeneratorFactory idGeneratorProvider = new DatasetLSMComponentIdGeneratorFactory(
-                index.getDatasetId().getId());
-        ILSMIOOperationCallbackFactory ioOpCallbackFactory = new LSMBTreeIOOperationCallbackFactory(
-                idGeneratorProvider);
+        ILSMOperationTrackerFactory opTrackerFactory =
+                index.isPrimaryIndex() ? new PrimaryIndexOperationTrackerFactory(datasetId)
+                        : new SecondaryIndexOperationTrackerFactory(datasetId);
+        ILSMComponentIdGeneratorFactory idGeneratorProvider =
+                new DatasetLSMComponentIdGeneratorFactory(index.getDatasetId().getId());
+        ILSMIOOperationCallbackFactory ioOpCallbackFactory =
+                new LSMBTreeIOOperationCallbackFactory(idGeneratorProvider);
         IStorageComponentProvider storageComponentProvider = appContext.getStorageComponentProvider();
         if (isNewUniverse()) {
+            final double bloomFilterFalsePositiveRate =
+                    appContext.getStorageProperties().getBloomFilterFalsePositiveRate();
             LSMBTreeLocalResourceFactory lsmBtreeFactory = new LSMBTreeLocalResourceFactory(
                     storageComponentProvider.getStorageManager(), typeTraits, cmpFactories, null, null, null,
                     opTrackerFactory, ioOpCallbackFactory, storageComponentProvider.getMetadataPageManagerFactory(),
                     new AsterixVirtualBufferCacheProvider(datasetId),
                     storageComponentProvider.getIoOperationSchedulerProvider(),
                     appContext.getMetadataMergePolicyFactory(), GlobalConfig.DEFAULT_COMPACTION_POLICY_PROPERTIES, true,
-                    bloomFilterKeyFields, appContext.getBloomFilterFalsePositiveRate(), true, null);
-            DatasetLocalResourceFactory dsLocalResourceFactory = new DatasetLocalResourceFactory(datasetId,
-                    lsmBtreeFactory);
+                    bloomFilterKeyFields, bloomFilterFalsePositiveRate, true, null);
+            DatasetLocalResourceFactory dsLocalResourceFactory =
+                    new DatasetLocalResourceFactory(datasetId, lsmBtreeFactory);
             // TODO(amoudi) Creating the index should be done through the same code path as
             // other indexes
             // This is to be done by having a metadata dataset associated with each index
@@ -364,8 +364,8 @@ public class MetadataBootstrap {
             if (index.getResourceId() != resource.getId()) {
                 throw new HyracksDataException("Resource Id doesn't match expected metadata index resource id");
             }
-            IndexDataflowHelper indexHelper = new IndexDataflowHelper(ncServiceCtx,
-                    storageComponentProvider.getStorageManager(), file);
+            IndexDataflowHelper indexHelper =
+                    new IndexDataflowHelper(ncServiceCtx, storageComponentProvider.getStorageManager(), file);
             indexHelper.open(); // Opening the index through the helper will ensure it gets instantiated
             indexHelper.close();
         }
@@ -420,8 +420,8 @@ public class MetadataBootstrap {
                 LOGGER.info("Dropped a pending dataverse: " + dataverse.getDataverseName());
             }
         } else {
-            List<Dataset> datasets = MetadataManager.INSTANCE.getDataverseDatasets(mdTxnCtx,
-                    dataverse.getDataverseName());
+            List<Dataset> datasets =
+                    MetadataManager.INSTANCE.getDataverseDatasets(mdTxnCtx, dataverse.getDataverseName());
             for (Dataset dataset : datasets) {
                 recoverDataset(mdTxnCtx, dataset);
             }
@@ -476,4 +476,5 @@ public class MetadataBootstrap {
     public static void setNewUniverse(boolean isNewUniverse) {
         MetadataBootstrap.isNewUniverse = isNewUniverse;
     }
+
 }

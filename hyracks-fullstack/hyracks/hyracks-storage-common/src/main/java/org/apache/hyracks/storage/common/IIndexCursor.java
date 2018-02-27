@@ -19,20 +19,27 @@
 
 package org.apache.hyracks.storage.common;
 
+import org.apache.hyracks.api.dataflow.IDestroyable;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 
 /**
  * Represents an index cursor. The expected use
  * cursor = new cursor();
- * while (more predicates){
- * -cursor.open(predicate);
- * -while (cursor.hasNext()){
- * --cursor.next()
+ * try{
+ * -while (more predicates){
+ * --cursor.open(predicate);
+ * --try{
+ * ---while (cursor.hasNext()){
+ * ----cursor.next()
+ * ---}
+ * --} finally{
+ * ---cursor.close();
+ * --}
  * -}
- * -cursor.close();
+ * } finally{
+ * -cursor.destroy();
  * }
- * cursor.destroy();
  * Each created cursor must have destroy called
  * Each successfully opened cursor must have close called
  *
@@ -44,12 +51,13 @@ import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
  * <li>DESTROYED</li>
  * </ul>
  * When a cursor object is created, it is in the CLOSED state.
- * CLOSED: The only legal calls are open() --> OPENED, or destroy() --> DESTROYED
+ * CLOSED: Legal calls are open() --> OPENED, or destroy() --> DESTROYED, close() --> no effect
  * OPENED: The only legal calls are hasNext(), next(), or close() --> CLOSED.
- * DESTROYED: All calls are illegal.
+ * DESTROYED: The only legal call is destroy() which has no effect.
+ *
  * Cursors must enforce the cursor state machine
  */
-public interface IIndexCursor {
+public interface IIndexCursor extends IDestroyable {
     /**
      * Opens the cursor
      * if open succeeds, close must be called.
@@ -76,15 +84,8 @@ public interface IIndexCursor {
     void next() throws HyracksDataException;
 
     /**
-     * Destroys the cursor allowing for release of resources.
-     * The cursor can't be used anymore after this call.
-     *
-     * @throws HyracksDataException
-     */
-    void destroy() throws HyracksDataException;
-
-    /**
-     * Close the cursor when done with it after a successful open
+     * Close the cursor. If the cursor is already closed then invoking this
+     * method has no effect.
      *
      * @throws HyracksDataException
      */
@@ -94,15 +95,4 @@ public interface IIndexCursor {
      * @return the tuple pointed to by the cursor
      */
     ITupleReference getTuple();
-
-    /**
-     * @return the min tuple of the current index's filter
-     */
-    ITupleReference getFilterMinTuple();
-
-    /**
-     *
-     * @return the max tuple of the current index's filter
-     */
-    ITupleReference getFilterMaxTuple();
 }

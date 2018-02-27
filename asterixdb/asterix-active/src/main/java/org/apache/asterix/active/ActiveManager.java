@@ -31,8 +31,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import org.apache.asterix.active.message.ActiveManagerMessage;
-import org.apache.asterix.active.message.ActiveStatsResponse;
 import org.apache.asterix.active.message.ActiveStatsRequestMessage;
+import org.apache.asterix.active.message.ActiveStatsResponse;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.common.memory.ConcurrentFramePool;
@@ -57,7 +57,7 @@ public class ActiveManager {
     private volatile boolean shutdown;
 
     public ActiveManager(ExecutorService executor, String nodeId, long activeMemoryBudget, int frameSize,
-                         INCServiceContext serviceCtx) throws HyracksDataException {
+            INCServiceContext serviceCtx) throws HyracksDataException {
         this.executor = executor;
         this.nodeId = nodeId;
         this.activeFramePool = new ConcurrentFramePool(nodeId, activeMemoryBudget, frameSize);
@@ -73,7 +73,9 @@ public class ActiveManager {
         if (shutdown) {
             throw new RuntimeDataException(ErrorCode.ACTIVE_MANAGER_SHUTDOWN);
         }
-        runtimes.putIfAbsent(runtime.getRuntimeId(), runtime);
+        if (runtimes.putIfAbsent(runtime.getRuntimeId(), runtime) != null) {
+            throw new IllegalStateException("Active Runtime " + runtime.getRuntimeId() + " is already registered");
+        }
     }
 
     public void deregisterRuntime(ActiveRuntimeId id) {
@@ -115,18 +117,17 @@ public class ActiveManager {
             if (runtime == null) {
                 LOGGER.warn("Request stats of a runtime that is not registered " + runtimeId);
                 // Send a failure message
-                ((NodeControllerService) serviceCtx.getControllerService())
-                        .sendApplicationMessageToCC(
-                                JavaSerializationUtils
-                                        .serialize(new ActiveStatsResponse(reqId, null,
-                                                new RuntimeDataException(ErrorCode.ACTIVE_MANAGER_INVALID_RUNTIME,
-                                                        runtimeId.toString()))), null);
+                ((NodeControllerService) serviceCtx.getControllerService()).sendApplicationMessageToCC(
+                        message.getCcId(),
+                        JavaSerializationUtils.serialize(new ActiveStatsResponse(reqId, null, new RuntimeDataException(
+                                ErrorCode.ACTIVE_MANAGER_INVALID_RUNTIME, runtimeId.toString()))),
+                        null);
                 return;
             }
             String stats = runtime.getStats();
             ActiveStatsResponse response = new ActiveStatsResponse(reqId, stats, null);
-            ((NodeControllerService) serviceCtx.getControllerService())
-                    .sendApplicationMessageToCC(JavaSerializationUtils.serialize(response), null);
+            ((NodeControllerService) serviceCtx.getControllerService()).sendApplicationMessageToCC(message.getCcId(),
+                    JavaSerializationUtils.serialize(response), null);
         } catch (Exception e) {
             throw HyracksDataException.create(e);
         }

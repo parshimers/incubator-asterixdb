@@ -22,6 +22,8 @@ package org.apache.hyracks.storage.am.lsm.btree.impls;
 import java.util.List;
 
 import org.apache.hyracks.api.dataflow.value.IBinaryComparatorFactory;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.util.CleanupUtils;
 import org.apache.hyracks.storage.am.btree.api.IBTreeLeafFrame;
 import org.apache.hyracks.storage.am.btree.impls.BTree;
 import org.apache.hyracks.storage.am.btree.impls.BTreeOpContext;
@@ -62,6 +64,7 @@ public final class LSMBTreeOpContext extends AbstractLSMIndexOperationContext {
      */
     private BTree.BTreeAccessor currentMutableBTreeAccessor;
     private BTreeOpContext currentMutableBTreeOpCtx;
+    private boolean destroyed = false;
 
     public LSMBTreeOpContext(ILSMIndex index, List<ILSMMemoryComponent> mutableComponents,
             ITreeIndexFrameFactory insertLeafFrameFactory, ITreeIndexFrameFactory deleteLeafFrameFactory,
@@ -168,5 +171,19 @@ public final class LSMBTreeOpContext extends AbstractLSMIndexOperationContext {
 
     public MultiComparator getCmp() {
         return cmp;
+    }
+
+    @Override
+    public void destroy() throws HyracksDataException {
+        if (destroyed) {
+            return;
+        }
+        destroyed = true;
+        Throwable failure = CleanupUtils.destroy(null, mutableBTreeAccessors);
+        failure = CleanupUtils.destroy(failure, mutableBTreeOpCtxs);
+        failure = CleanupUtils.destroy(failure, insertSearchCursor, memCursor);
+        if (failure != null) {
+            throw HyracksDataException.create(failure);
+        }
     }
 }

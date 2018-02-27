@@ -21,7 +21,7 @@
 
              <!ENTITY ComparisonQueries SYSTEM "queries/comparison/ComparisonQueries.xml">
              <!ENTITY DeepEqualQueries SYSTEM "queries/comparison/deep_equal/DeepEqualQueries.xml">
-             <!ENTITY RecordsQueries SYSTEM "queries/objects/ObjectsQueries.xml">
+             <!ENTITY ObjectsQueries SYSTEM "queries/objects/ObjectsQueries.xml">
              <!ENTITY TemporalQueries SYSTEM "queries/temporal/TemporalQueries.xml">
 
              ]>
@@ -68,233 +68,6 @@
     <test-case FilePath="external-indexing">
       <compilation-unit name="leftouterjoin-rtree">
         <output-dir compare="Text">leftouterjoin-rtree</output-dir>
-      </compilation-unit>
-    </test-case>
-  </test-group>
-  <test-group name="feeds">
-    <test-case FilePath="feeds">
-      <compilation-unit name="create-policy-from-file">
-        <output-dir compare="Text">create-policy-from-file</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="change-feed-with-meta-with-mixed-index">
-        <output-dir compare="Text">change-feed-with-meta-with-mixed-index</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="change-feed-with-meta-pk-in-meta-index-with-missing-after-ingest">
-        <output-dir compare="Text">change-feed-with-meta-pk-in-meta-index-with-missing-after-ingest</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="change-feed-with-meta-pk-in-meta-open-index-with-missing">
-        <output-dir compare="Text">change-feed-with-meta-pk-in-meta-open-index-with-missing</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="change-feed-with-meta-open-index-in-meta">
-        <output-dir compare="Text">change-feed-with-meta-open-index-in-meta</output-dir>
-        <expected-error>Typed open index can only be created on the record part</expected-error>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="change-feed-with-meta-pk-in-meta-open-index-in-value">
-        <output-dir compare="Text">change-feed-with-meta-pk-in-meta-open-index-in-value</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="change-feed-with-meta-pk-in-meta-index-after-ingest">
-        <output-dir compare="Text">change-feed-with-meta-pk-in-meta-index-after-ingest</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="change-feed-with-meta-pk-in-meta-index-in-meta">
-        <output-dir compare="Text">change-feed-with-meta-pk-in-meta-index-in-meta</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="change-feed-with-meta-csv">
-        <output-dir compare="Text">change-feed-with-meta-csv</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="drop-nonexistent-feed">
-        <output-dir compare="Text">drop-nonexistent-feed</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="twitter-feed">
-        <output-dir compare="Text">twitter-feed</output-dir>
-        <expected-error>Twitter4J library not found!</expected-error>
-        <expected-error>Unknown source feed: TwitterFeed</expected-error>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="revised-tweet-parser">
-        <output-dir compare="Text">revised-tweet-parser</output-dir>
-        <expected-error>Twitter4J library not found!</expected-error>
-        <expected-error>Unknown source feed: TwitterFeed</expected-error>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="connect-feed">
-        <output-dir compare="Text">connect-feed</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="change-feed-with-meta-pk-in-meta">
-        <output-dir compare="Text">change-feed-with-meta-pk-in-meta</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="feed-with-filtered-dataset">
-        <output-dir compare="Text">feed-with-filtered-dataset</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="change-feed">
-        <output-dir compare="Text">change-feed</output-dir>
-      </compilation-unit>
-    </test-case>
-    <!-- see ASTERIXDB-1881
-    <test-case FilePath="feeds">
-      <compilation-unit name="feed-with-meta-pk-in-meta">
-        <output-dir compare="Text">feed-with-meta-pk-in-meta</output-dir>
-      </compilation-unit>
-    </test-case>
-    -->
-    <test-case FilePath="feeds">
-      <compilation-unit name="feeds_07">
-        <output-dir compare="Text">feeds_07</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="drop-dataverse-with-disconnected-feed">
-        <output-dir compare="Text">drop-dataverse-with-disconnected-feed</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="feed-push-socket">
-        <output-dir compare="Text">feed-push-socket</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="upsert-feed">
-        <output-dir compare="Text">upsert-feed</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="feeds_01">
-        <output-dir compare="Text">feeds_01</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="feeds_02">
-        <output-dir compare="Text">feeds_02</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="feeds_03">
-        <output-dir compare="Text">feeds_03</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="feeds_08">
-        <output-dir compare="Text">feeds_08</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="feeds_09">
-        <output-dir compare="Text">feeds_09</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="feeds_10">
-        <output-dir compare="Text">feeds_10</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="feeds_11">
-        <output-dir compare="Text">feeds_11</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="feeds_12">
-        <output-dir compare="Text">feeds_12</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="issue_230_feeds">
-        <output-dir compare="Text">issue_230_feeds</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="start-feed">
-        <output-dir compare="Text">start-feed</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="start-started-feed">
-        <output-dir compare="Text">start-started-feed</output-dir>
-        <expected-error>experiments.TweetFeed(Feed) is already started</expected-error>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="stop-stopped-feed">
-        <output-dir compare="Text">stop-stopped-feed</output-dir>
-        <expected-error>new_experiments.TweetFeed(Feed) cannot be stopped because its state is STOPPED</expected-error>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="push-socket-with-auuid">
-        <output-dir compare="Text">push-socket-with-auuid</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="connect-feed-with-function">
-        <output-dir compare="Text">connect-feed-with-function</output-dir>
-        <expected-error>Incompatible function language</expected-error>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="disconnect-live-feed">
-        <output-dir compare="Text">disconnect-live-feed</output-dir>
-        <expected-error>This operation cannot be done when Feed</expected-error>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="connect-live-feed">
-        <output-dir compare="Text">connect-live-feed</output-dir>
-        <expected-error>This operation cannot be done when Feed</expected-error>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="record-reader-with-malformed-input-stream">
-        <output-dir compare="Text">record-reader-with-malformed-input-stream</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="feed-with-undefined-function">
-        <output-dir compare="Text">feed-with-undefined-function</output-dir>
-        <expected-error>Cannot find function</expected-error>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="drop-function-used-by-feed">
-        <output-dir compare="Text">drop-function-used-by-feed</output-dir>
-        <expected-error>Function experiments.test_func0@1 is being used. It cannot be dropped</expected-error>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="drop-function-no-longer-used-by-feed">
-        <output-dir compare="Text">drop-function-used-by-feed</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="feeds">
-      <compilation-unit name="drop-dataverse-with-function-used-by-feed">
-        <output-dir compare="Text">drop-dataverse-with-function-used-by-feed</output-dir>
-        <expected-error>Function fundv.test_func0@1 is being used. It cannot be dropped</expected-error>
       </compilation-unit>
     </test-case>
   </test-group>
@@ -2886,23 +2659,6 @@
       </compilation-unit>
     </test-case>
   </test-group>
-  <!-- <test-group name="graph">
-    <test-case FilePath="graph">
-      <compilation-unit name="pregel-q01">
-        <output-dir compare="Text">pregel-q01</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="graph">
-      <compilation-unit name="pregel-q02">
-        <output-dir compare="Text">pregel-q02</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="graph">
-      <compilation-unit name="pregel-q03">
-          <output-dir compare="Text">pregel-q03</output-dir>
-      </compilation-unit>
-    </test-case>
-  </test-group> -->
   <test-group name="index-join">
     <test-case FilePath="index-join">
       <compilation-unit name="btree-index-nested-loop-join">
@@ -2912,6 +2668,11 @@
     <test-case FilePath="index-join">
       <compilation-unit name="btree-primary-equi-join">
         <output-dir compare="Text">btree-primary-equi-join</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="btree-primary-to-secondary-indexonly-plan-equi-join_01">
+        <output-dir compare="Text">btree-primary-to-secondary-indexonly-plan-equi-join_01</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="index-join">
@@ -2930,13 +2691,58 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="index-join">
+      <compilation-unit name="btree-secondary-equi-join_04">
+        <output-dir compare="Text">btree-secondary-equi-join_04</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="btree-secondary-indexonly-plan-to-primary-equi-join_01">
+        <output-dir compare="Text">btree-secondary-indexonly-plan-to-primary-equi-join_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="btree-secondary-indexonly-plan-to-secondary-indexonly-plan-equi-join_01">
+        <output-dir compare="Text">btree-secondary-indexonly-plan-to-secondary-indexonly-plan-equi-join_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="btree-secondary-non-indexonly-plan-to-primary-equi-join_01">
+        <output-dir compare="Text">btree-secondary-non-indexonly-plan-to-primary-equi-join_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="btree-secondary-non-indexonly-plan-to-secondary-indexonly-plan-equi-join_01">
+        <output-dir compare="Text">btree-secondary-non-indexonly-plan-to-secondary-indexonly-plan-equi-join_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
       <compilation-unit name="btree-secondary-self-equi-join_01">
         <output-dir compare="Text">btree-secondary-self-equi-join_01</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="index-join">
-      <compilation-unit name="rtree-spatial-intersect-point">
-        <output-dir compare="Text">rtree-spatial-intersect-point</output-dir>
+      <compilation-unit name="rtree-spatial-intersect-point_01">
+        <output-dir compare="Text">rtree-spatial-intersect-point_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="rtree-spatial-intersect-point_02">
+        <output-dir compare="Text">rtree-spatial-intersect-point_02</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="rtree-spatial-intersect-point_03">
+        <output-dir compare="Text">rtree-spatial-intersect-point_03</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="rtree-spatial-intersect-point_04">
+        <output-dir compare="Text">rtree-spatial-intersect-point_04</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="rtree-spatial-intersect-point_05">
+        <output-dir compare="Text">rtree-spatial-intersect-point_05</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="index-join">
@@ -2964,6 +2770,26 @@
     <test-case FilePath="index-selection">
       <compilation-unit name="btree-index-rewrite-multiple">
         <output-dir compare="Text">btree-index-rewrite-multiple</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="btree-secondary-composite-index-indexonly-plan-01">
+        <output-dir compare="Text">btree-secondary-composite-index-indexonly-plan-01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="btree-secondary-composite-index-indexonly-plan-02">
+        <output-dir compare="Text">btree-secondary-composite-index-indexonly-plan-02</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="btree-secondary-composite-index-indexonly-plan-03">
+        <output-dir compare="Text">btree-secondary-composite-index-indexonly-plan-03</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="btree-secondary-index-indexonly-plan-01">
+        <output-dir compare="Text">btree-secondary-index-indexonly-plan-01</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="index-selection">
@@ -3084,6 +2910,21 @@
     <test-case FilePath="index-selection">
       <compilation-unit name="rtree-secondary-index-circular-query">
         <output-dir compare="Text">rtree-secondary-index-circular-query</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="rtree-secondary-index-indexonly-plan-01">
+        <output-dir compare="Text">rtree-secondary-index-indexonly-plan-01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="rtree-secondary-index-non-indexonly-plan-01">
+        <output-dir compare="Text">rtree-secondary-index-non-indexonly-plan-01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="rtree-secondary-index-non-indexonly-plan-02">
+        <output-dir compare="Text">rtree-secondary-index-non-indexonly-plan-02</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="index-selection">
@@ -3544,7 +3385,7 @@
       <test-case FilePath="open-index-enforced/error-checking">
         <compilation-unit name="object-type-collision">
           <output-dir compare="Text">object-type-collision</output-dir>
-          <expected-error>org.apache.asterix.common.exceptions.AsterixException: A field "[value]" is already defined with the type "string"</expected-error>
+          <expected-error>ASX1051: Cannot create enforced index on "[value]" field. The field is closed type.</expected-error>
         </compilation-unit>
       </test-case>
     </test-group>
@@ -3599,11 +3440,6 @@
       <test-case FilePath="open-index-enforced/index-leftouterjoin">
         <compilation-unit name="probe-pidx-with-join-btree-sidx2">
           <output-dir compare="Text">probe-pidx-with-join-btree-sidx2</output-dir>
-        </compilation-unit>
-      </test-case>
-      <test-case FilePath="open-index-enforced/index-leftouterjoin">
-        <compilation-unit name="probe-pidx-with-join-invidx-sidx1">
-          <output-dir compare="Text">probe-pidx-with-join-invidx-sidx1</output-dir>
         </compilation-unit>
       </test-case>
       <test-case FilePath="open-index-enforced/index-leftouterjoin">
@@ -3746,7 +3582,7 @@
   </test-group>
   <test-group name="nested-open-index">
     <test-group name="nested-open-index/index-join">
-      <test-case FilePath="index-join">
+      <test-case FilePath="nested-open-index/index-join">
         <compilation-unit name="btree-secondary-equi-join">
           <output-dir compare="Text">btree-secondary-equi-join</output-dir>
         </compilation-unit>
@@ -3796,11 +3632,6 @@
       <test-case FilePath="nested-open-index/index-leftouterjoin">
         <compilation-unit name="probe-pidx-with-join-btree-sidx2">
           <output-dir compare="Text">probe-pidx-with-join-btree-sidx2</output-dir>
-        </compilation-unit>
-      </test-case>
-      <test-case FilePath="nested-open-index/index-leftouterjoin">
-        <compilation-unit name="probe-pidx-with-join-invidx-sidx1">
-          <output-dir compare="Text">probe-pidx-with-join-invidx-sidx1</output-dir>
         </compilation-unit>
       </test-case>
       <test-case FilePath="nested-open-index/index-leftouterjoin">
@@ -3856,7 +3687,7 @@
         </compilation-unit>
       </test-case>
       <test-case FilePath="nested-open-index/index-selection">
-        <compilation-unit name="inverted-index-ngram-edit-distance-work-tokens">
+        <compilation-unit name="inverted-index-ngram-edit-distance-word-tokens">
           <output-dir compare="Text">inverted-index-ngram-edit-distance-word-tokens</output-dir>
         </compilation-unit>
       </test-case>
@@ -4310,8 +4141,8 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="nestrecords">
-      <compilation-unit name="global-datetime-use-index">
-        <output-dir compare="Text">global-datetime-use-index</output-dir>
+      <compilation-unit name="query-ASTERIXDB-1025">
+        <output-dir compare="Text">query-ASTERIXDB-1025</output-dir>
       </compilation-unit>
     </test-case>
   </test-group>
@@ -5052,7 +4883,7 @@
       </compilation-unit>
     </test-case>-->
   </test-group>
-  &RecordsQueries;
+  &ObjectsQueries;
   &DeepEqualQueries;
   <test-group name="scan">
     <test-case FilePath="scan">
@@ -6954,6 +6785,11 @@
   </test-group>
   <test-group name="index-leftouterjoin">
     <test-case FilePath="index-leftouterjoin">
+      <compilation-unit name="probe-pidx-with-join-btree-pidx1">
+        <output-dir compare="Text">probe-pidx-with-join-btree-pidx1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-leftouterjoin">
       <compilation-unit name="probe-pidx-with-join-btree-sidx1">
         <output-dir compare="Text">probe-pidx-with-join-btree-sidx1</output-dir>
       </compilation-unit>
@@ -6964,6 +6800,11 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="index-leftouterjoin">
+      <compilation-unit name="probe-pidx-with-join-btree-sidx3-indexonly-plan">
+        <output-dir compare="Text">probe-pidx-with-join-btree-sidx3-indexonly-plan</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-leftouterjoin">
       <compilation-unit name="probe-pidx-with-join-rtree-sidx1">
         <output-dir compare="Text">probe-pidx-with-join-rtree-sidx1</output-dir>
       </compilation-unit>
@@ -6971,6 +6812,26 @@
     <test-case FilePath="index-leftouterjoin">
       <compilation-unit name="probe-pidx-with-join-rtree-sidx2">
         <output-dir compare="Text">probe-pidx-with-join-rtree-sidx2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-leftouterjoin">
+      <compilation-unit name="probe-sidx-btree-indexonly-plan-with-join-btree-pidx1">
+        <output-dir compare="Text">probe-sidx-btree-indexonly-plan-with-join-btree-pidx1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-leftouterjoin">
+      <compilation-unit name="probe-sidx-btree-indexonly-plan-with-join-btree-sidx1-indexonly-plan">
+        <output-dir compare="Text">probe-sidx-btree-indexonly-plan-with-join-btree-sidx1-indexonly-plan</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-leftouterjoin">
+      <compilation-unit name="probe-sidx-btree-non-indexonly-plan-with-join-btree-pidx1">
+        <output-dir compare="Text">probe-sidx-btree-non-indexonly-plan-with-join-btree-pidx1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-leftouterjoin">
+      <compilation-unit name="probe-sidx-btree-non-indexonly-plan-with-join-btree-sidx1-indexonly-plan">
+        <output-dir compare="Text">probe-sidx-btree-non-indexonly-plan-with-join-btree-sidx1-indexonly-plan</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="index-leftouterjoin">
@@ -7262,6 +7123,11 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="filters">
+      <compilation-unit name="load-with-secondary-btree-index-only">
+        <output-dir compare="Text">load-with-secondary-btree-index-only</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="filters">
       <compilation-unit name="load-with-secondary-inverted-ngram">
         <output-dir compare="Text">load-with-secondary-inverted-ngram</output-dir>
       </compilation-unit>
@@ -7287,11 +7153,6 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="filters">
-      <compilation-unit name="insert-with-secondary-correlated-btree">
-        <output-dir compare="Text">insert-with-secondary-btree</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="filters">
       <compilation-unit name="insert-with-secondary-inverted-ngram">
         <output-dir compare="Text">insert-with-secondary-inverted-ngram</output-dir>
       </compilation-unit>
@@ -7307,7 +7168,7 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="filters">
-      <compilation-unit name="nested-filterequality-predicate">
+      <compilation-unit name="nested-filter-equality-predicate">
         <output-dir compare="Text">nested-filter-equality-predicate</output-dir>
       </compilation-unit>
     </test-case>

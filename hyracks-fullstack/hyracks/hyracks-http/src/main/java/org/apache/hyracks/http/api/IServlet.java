@@ -20,6 +20,8 @@ package org.apache.hyracks.http.api;
 
 import java.util.concurrent.ConcurrentMap;
 
+import org.apache.hyracks.http.server.HttpServer;
+
 /**
  * Represents a component that handles IServlet requests
  */
@@ -42,4 +44,15 @@ public interface IServlet {
      * @param response
      */
     void handle(IServletRequest request, IServletResponse response);
+
+    /**
+     * Get the handler for channel close events
+     *
+     * @param server
+     *            the http server
+     * @return the handler for channel close events
+     */
+    default IChannelClosedHandler getChannelClosedHandler(HttpServer server) {
+        return server.getChannelClosedHandler();
+    }
 }

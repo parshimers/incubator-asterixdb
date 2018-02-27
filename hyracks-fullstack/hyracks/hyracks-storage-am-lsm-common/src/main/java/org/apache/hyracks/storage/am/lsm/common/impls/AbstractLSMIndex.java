@@ -38,7 +38,6 @@ import org.apache.hyracks.api.replication.IReplicationJob.ReplicationOperation;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.common.impls.AbstractSearchPredicate;
 import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
-import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.lsm.common.api.IComponentFilterHelper;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
@@ -64,9 +63,9 @@ import org.apache.hyracks.storage.am.common.api.IExtendedModificationOperationCa
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMOperationTracker;
 import org.apache.hyracks.storage.am.lsm.common.api.IVirtualBufferCache;
 import org.apache.hyracks.storage.am.lsm.common.api.LSMOperationType;
+import org.apache.hyracks.storage.common.IIndexAccessParameters;
 import org.apache.hyracks.storage.common.IIndexBulkLoader;
 import org.apache.hyracks.storage.common.IIndexCursor;
-import org.apache.hyracks.storage.common.ISearchOperationCallback;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
 import org.apache.hyracks.util.trace.ITracer;
 import org.apache.logging.log4j.Level;
@@ -112,7 +111,7 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
             ILSMIOOperationCallbackFactory ioOpCallbackFactory, ILSMDiskComponentFactory componentFactory,
             ILSMDiskComponentFactory bulkLoadComponentFactory, ILSMComponentFilterFrameFactory filterFrameFactory,
             LSMComponentFilterManager filterManager, int[] filterFields, boolean durable,
-            IComponentFilterHelper filterHelper, int[] treeFields, ITracer tracer) {
+            IComponentFilterHelper filterHelper, int[] treeFields, ITracer tracer) throws HyracksDataException {
         this.ioManager = ioManager;
         this.virtualBufferCaches = virtualBufferCaches;
         this.diskBufferCache = diskBufferCache;
@@ -146,7 +145,7 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
             double bloomFilterFalsePositiveRate, ILSMMergePolicy mergePolicy, ILSMOperationTracker opTracker,
             ILSMIOOperationScheduler ioScheduler, ILSMIOOperationCallbackFactory ioOpCallbackFactory,
             ILSMDiskComponentFactory componentFactory, ILSMDiskComponentFactory bulkLoadComponentFactory,
-            boolean durable, ITracer tracer) {
+            boolean durable, ITracer tracer) throws HyracksDataException {
         this.ioManager = ioManager;
         this.diskBufferCache = diskBufferCache;
         this.fileManager = fileManager;
@@ -356,8 +355,7 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
     public void scheduleFlush(ILSMIndexOperationContext ctx, ILSMIOOperationCallback callback)
             throws HyracksDataException {
         LSMComponentFileReferences componentFileRefs = fileManager.getRelFlushFileReference();
-        AbstractLSMIndexOperationContext opCtx =
-                createOpContext(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+        AbstractLSMIndexOperationContext opCtx = createOpContext(NoOpIndexAccessParameters.INSTANCE);
         opCtx.setOperation(ctx.getOperation());
         opCtx.getComponentHolder().addAll(ctx.getComponentHolder());
         ILSMIOOperation flushOp = createFlushOperation(opCtx, componentFileRefs, callback);
@@ -369,8 +367,7 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
             throws HyracksDataException {
         List<ILSMComponent> mergingComponents = ctx.getComponentHolder();
         // merge must create a different op ctx
-        AbstractLSMIndexOperationContext opCtx =
-                createOpContext(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+        AbstractLSMIndexOperationContext opCtx = createOpContext(NoOpIndexAccessParameters.INSTANCE);
         opCtx.setOperation(ctx.getOperation());
         opCtx.getComponentHolder().addAll(mergingComponents);
         ILSMDiskComponent firstComponent = (ILSMDiskComponent) mergingComponents.get(0);
@@ -438,9 +435,29 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
         if (memoryComponentsAllocated || memoryComponents == null) {
             return;
         }
-        for (ILSMMemoryComponent c : memoryComponents) {
-            c.allocate();
-            ioOpCallback.allocated(c);
+        int i = 0;
+        boolean allocated = false;
+        try {
+            for (; i < memoryComponents.size(); i++) {
+                allocated = false;
+                ILSMMemoryComponent c = memoryComponents.get(i);
+                c.allocate();
+                allocated = true;
+                ioOpCallback.allocated(c);
+            }
+        } finally {
+            if (i < memoryComponents.size()) {
+                // something went wrong
+                if (allocated) {
+                    ILSMMemoryComponent c = memoryComponents.get(i);
+                    c.deallocate();
+                }
+                // deallocate all previous components
+                for (int j = i - 1; j >= 0; j--) {
+                    ILSMMemoryComponent c = memoryComponents.get(j);
+                    c.deallocate();
+                }
+            }
         }
         memoryComponentsAllocated = true;
     }
@@ -699,12 +716,17 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
         ILSMIndexOperationContext opCtx = accessor.getOpContext();
         if (opCtx.getOperation() == IndexOperation.DELETE_MEMORY_COMPONENT) {
             return EmptyComponent.INSTANCE;
-        } else {
-            if (LOGGER.isInfoEnabled()) {
-                FlushOperation flushOp = (FlushOperation) operation;
-                LOGGER.log(Level.INFO, "Flushing component with id: " + flushOp.getFlushingComponent().getId());
-            }
+        }
+        if (LOGGER.isInfoEnabled()) {
+            FlushOperation flushOp = (FlushOperation) operation;
+            LOGGER.log(Level.INFO, "Flushing component with id: " + flushOp.getFlushingComponent().getId());
+        }
+        try {
             return doFlush(operation);
+        } catch (Exception e) {
+            LOGGER.error("Fail to execute flush " + this, e);
+            cleanUpFiles(operation, e);
+            throw HyracksDataException.create(e);
         }
     }
 
@@ -712,15 +734,37 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
     public final ILSMDiskComponent merge(ILSMIOOperation operation) throws HyracksDataException {
         ILSMIndexAccessor accessor = operation.getAccessor();
         ILSMIndexOperationContext opCtx = accessor.getOpContext();
-        return opCtx.getOperation() == IndexOperation.DELETE_DISK_COMPONENTS ? EmptyComponent.INSTANCE
-                : doMerge(operation);
+        try {
+            return opCtx.getOperation() == IndexOperation.DELETE_DISK_COMPONENTS ? EmptyComponent.INSTANCE
+                    : doMerge(operation);
+        } catch (Exception e) {
+            LOGGER.error("Fail to execute merge " + this, e);
+            cleanUpFiles(operation, e);
+            throw HyracksDataException.create(e);
+        }
+    }
+
+    protected void cleanUpFiles(ILSMIOOperation operation, Exception e) {
+        LSMComponentFileReferences componentFiles = operation.getComponentFiles();
+        if (componentFiles == null) {
+            return;
+        }
+        FileReference[] files = componentFiles.getFileReferences();
+        for (FileReference file : files) {
+            try {
+                if (file != null) {
+                    diskBufferCache.deleteFile(file);
+                }
+            } catch (HyracksDataException hde) {
+                e.addSuppressed(hde);
+            }
+        }
     }
 
     protected abstract LSMComponentFileReferences getMergeFileReferences(ILSMDiskComponent firstComponent,
             ILSMDiskComponent lastComponent) throws HyracksDataException;
 
-    protected abstract AbstractLSMIndexOperationContext createOpContext(
-            IExtendedModificationOperationCallback modificationCallback, ISearchOperationCallback searchCallback)
+    protected abstract AbstractLSMIndexOperationContext createOpContext(IIndexExtendedAccessParameters iap)
             throws HyracksDataException;
 
     protected abstract ILSMIOOperation createFlushOperation(AbstractLSMIndexOperationContext opCtx,

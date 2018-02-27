@@ -23,13 +23,12 @@ import java.util.Iterator;
 import java.util.PriorityQueue;
 
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.util.CleanupUtils;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleReference;
 import org.apache.hyracks.dataflow.common.utils.TupleUtils;
-import org.apache.hyracks.storage.am.btree.api.IBTreeLeafFrame;
 import org.apache.hyracks.storage.am.btree.impls.BTree;
 import org.apache.hyracks.storage.am.btree.impls.BTree.BTreeAccessor;
-import org.apache.hyracks.storage.am.btree.impls.BTreeRangeSearchCursor;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
 import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
@@ -53,6 +52,7 @@ public class LSMBTreeRangeSearchCursor extends LSMIndexSearchCursor {
     private BTreeAccessor[] btreeAccessors;
     private ArrayTupleBuilder tupleBuilder;
     private boolean canCallProceed = true;
+    private boolean resultOfSearchCallbackProceed = false;
     private int tupleFromMemoryComponentCount = 0;
 
     public LSMBTreeRangeSearchCursor(ILSMIndexOperationContext opCtx) {
@@ -66,13 +66,13 @@ public class LSMBTreeRangeSearchCursor extends LSMIndexSearchCursor {
     }
 
     @Override
-    public void close() throws HyracksDataException {
-        super.close();
+    public void doClose() throws HyracksDataException {
+        super.doClose();
         canCallProceed = true;
     }
 
     @Override
-    public void next() throws HyracksDataException {
+    public void doNext() throws HyracksDataException {
         outputElement = outputPriorityQueue.poll();
         needPushElementIntoQueue = true;
         canCallProceed = false;
@@ -105,46 +105,49 @@ public class LSMBTreeRangeSearchCursor extends LSMIndexSearchCursor {
         while (!outputPriorityQueue.isEmpty() || needPushElementIntoQueue) {
             if (!outputPriorityQueue.isEmpty()) {
                 PriorityQueueElement queueHead = outputPriorityQueue.peek();
-                if (canCallProceed && includeMutableComponent && !searchCallback.proceed(queueHead.getTuple())) {
-                    // In case proceed() fails and there is an in-memory component,
-                    // we can't simply use this element since there might be a change.
-                    PriorityQueueElement mutableElement = remove(outputPriorityQueue, 0);
-                    if (mutableElement != null) {
-                        // Copies the current queue head
-                        if (tupleBuilder == null) {
-                            tupleBuilder = new ArrayTupleBuilder(cmp.getKeyFieldCount());
+                if (canCallProceed && includeMutableComponent) {
+                    resultOfSearchCallbackProceed = searchCallback.proceed(queueHead.getTuple());
+                    if (!resultOfSearchCallbackProceed) {
+                        // In case proceed() fails and there is an in-memory component,
+                        // we can't simply use this element since there might be a change.
+                        PriorityQueueElement mutableElement = remove(outputPriorityQueue, 0);
+                        if (mutableElement != null) {
+                            // Copies the current queue head
+                            if (tupleBuilder == null) {
+                                tupleBuilder = new ArrayTupleBuilder(cmp.getKeyFieldCount());
+                            }
+                            TupleUtils.copyTuple(tupleBuilder, queueHead.getTuple(), cmp.getKeyFieldCount());
+                            copyTuple.reset(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray());
+                            // Unlatches/unpins the leaf page of the index.
+                            rangeCursors[0].close();
+                            // Reconcile.
+                            searchCallback.reconcile(copyTuple);
+                            // Re-traverses the index.
+                            reusablePred.setLowKey(copyTuple, true);
+                            btreeAccessors[0].search(rangeCursors[0], reusablePred);
+                            pushIntoQueueFromCursorAndReplaceThisElement(mutableElement);
+                            // now that we have completed the search and we have latches over the pages,
+                            // it is safe to complete the operation.. but as per the API of the callback
+                            // we only complete if we're producing this tuple
+                            // get head again
+                            queueHead = outputPriorityQueue.peek();
+                            /*
+                             * We need to restart in one of two cases:
+                             * 1. no more elements in the priority queue.
+                             * 2. the key of the head has changed (which means we need to call proceed)
+                             */
+                            if (queueHead == null || cmp.compare(copyTuple, queueHead.getTuple()) != 0) {
+                                // cancel since we're not continuing
+                                searchCallback.cancel(copyTuple);
+                                continue;
+                            }
+                            searchCallback.complete(copyTuple);
+                            // it is safe to proceed now
+                        } else {
+                            // There are no more elements in the memory component.. can safely skip locking for the
+                            // remaining operations
+                            includeMutableComponent = false;
                         }
-                        TupleUtils.copyTuple(tupleBuilder, queueHead.getTuple(), cmp.getKeyFieldCount());
-                        copyTuple.reset(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray());
-                        // Unlatches/unpins the leaf page of the index.
-                        rangeCursors[0].close();
-                        // Reconcile.
-                        searchCallback.reconcile(copyTuple);
-                        // Re-traverses the index.
-                        reusablePred.setLowKey(copyTuple, true);
-                        btreeAccessors[0].search(rangeCursors[0], reusablePred);
-                        pushIntoQueueFromCursorAndReplaceThisElement(mutableElement);
-                        // now that we have completed the search and we have latches over the pages,
-                        // it is safe to complete the operation.. but as per the API of the callback
-                        // we only complete if we're producing this tuple
-                        // get head again
-                        queueHead = outputPriorityQueue.peek();
-                        /*
-                         * We need to restart in one of two cases:
-                         * 1. no more elements in the priority queue.
-                         * 2. the key of the head has changed (which means we need to call proceed)
-                         */
-                        if (queueHead == null || cmp.compare(copyTuple, queueHead.getTuple()) != 0) {
-                            // cancel since we're not continuing
-                            searchCallback.cancel(copyTuple);
-                            continue;
-                        }
-                        searchCallback.complete(copyTuple);
-                        // it is safe to proceed now
-                    } else {
-                        // There are no more elements in the memory component.. can safely skip locking for the
-                        // remaining operations
-                        includeMutableComponent = false;
                     }
                 }
 
@@ -269,7 +272,6 @@ public class LSMBTreeRangeSearchCursor extends LSMIndexSearchCursor {
                     TupleUtils.copyTuple(switchComponentTupleBuilders[i], element.getTuple(), cmp.getKeyFieldCount());
                 }
                 rangeCursors[i].close();
-                rangeCursors[i].destroy();
                 switchRequest[i] = true;
                 switchedElements[i] = element;
             }
@@ -320,7 +322,7 @@ public class LSMBTreeRangeSearchCursor extends LSMIndexSearchCursor {
     }
 
     @Override
-    public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
+    public void doOpen(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
         LSMBTreeCursorInitialState lsmInitialState = (LSMBTreeCursorInitialState) initialState;
         cmp = lsmInitialState.getOriginalKeyComparator();
         operationalComponents = lsmInitialState.getOperationalComponents();
@@ -333,37 +335,47 @@ public class LSMBTreeRangeSearchCursor extends LSMIndexSearchCursor {
         includeMutableComponent = false;
 
         int numBTrees = operationalComponents.size();
-        if (rangeCursors == null || rangeCursors.length != numBTrees) {
+        if (rangeCursors == null) {
             // object creation: should be relatively low
             rangeCursors = new IIndexCursor[numBTrees];
             btreeAccessors = new BTreeAccessor[numBTrees];
+        } else if (rangeCursors.length != numBTrees) {
+            // should destroy first
+            Throwable failure = CleanupUtils.destroy(null, btreeAccessors);
+            failure = CleanupUtils.destroy(failure, rangeCursors);
+            if (failure != null) {
+                throw HyracksDataException.create(failure);
+            }
+            rangeCursors = new IIndexCursor[numBTrees];
+            btreeAccessors = new BTreeAccessor[numBTrees];
         }
+
         for (int i = 0; i < numBTrees; i++) {
             ILSMComponent component = operationalComponents.get(i);
             BTree btree;
-            if (rangeCursors[i] == null) {
-                // create, should be relatively rare
-                IBTreeLeafFrame leafFrame = (IBTreeLeafFrame) lsmInitialState.getLeafFrameFactory().createFrame();
-                rangeCursors[i] = new BTreeRangeSearchCursor(leafFrame, false);
-            } else {
-                // re-use
-                rangeCursors[i].close();
-            }
-
             if (component.getType() == LSMComponentType.MEMORY) {
                 includeMutableComponent = true;
             }
             btree = (BTree) component.getIndex();
             if (btreeAccessors[i] == null) {
                 btreeAccessors[i] = btree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
+                rangeCursors[i] = btreeAccessors[i].createSearchCursor(false);
             } else {
                 // re-use
                 btreeAccessors[i].reset(btree, NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+                rangeCursors[i].close();
             }
             btreeAccessors[i].search(rangeCursors[i], searchPred);
         }
+
         setPriorityQueueComparator();
         initPriorityQueue();
         canCallProceed = true;
     }
+
+    @Override
+    public boolean getSearchOperationCallbackProceedResult() {
+        return resultOfSearchCallbackProceed;
+    }
+
 }

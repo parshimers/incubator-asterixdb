@@ -21,15 +21,10 @@
   <artifactId>asterix-server</artifactId>
   <name>asterix-server</name>
 
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <appendedResourcesDirectory>${basedir}/../src/main/appended-resources</appendedResourcesDirectory>
-  </properties>
-
   <parent>
     <groupId>org.apache.asterix</groupId>
     <artifactId>apache-asterixdb</artifactId>
-    <version>0.9.3-SNAPSHOT</version>
+    <version>0.9.4-SNAPSHOT</version>
   </parent>
 
   <licenses>
@@ -40,6 +35,10 @@
       <comments>A business-friendly OSS license</comments>
     </license>
   </licenses>
+
+  <properties>
+    <root.dir>${basedir}/..</root.dir>
+  </properties>
 
   <build>
     <plugins>
@@ -369,6 +368,7 @@
             <usedDependency>org.apache.hyracks:hyracks-control-cc</usedDependency>
             <usedDependency>org.apache.hyracks:hyracks-control-nc</usedDependency>
             <usedDependency>org.apache.hyracks:hyracks-nc-service</usedDependency>
+            <usedDependency>org.apache.asterix:asterix-external-data</usedDependency>
             <usedDependency>org.codehaus.mojo.appassembler:appassembler-booter</usedDependency>
           </usedDependencies>
         </configuration>
@@ -493,6 +493,22 @@
         </plugins>
       </build>
     </profile>
+    <profile>
+      <id>asterix-gerrit-integration-tests</id>
+      <properties>
+        <test.includes/>
+        <itest.includes>**/NCServiceExecutionIT.java,**/RecoveryIT.java</itest.includes>
+        <failIfNoTests>false</failIfNoTests>
+      </properties>
+    </profile>
+    <profile>
+      <id>asterix-gerrit-verify-no-app</id>
+      <properties>
+        <test.includes/>
+        <itest.excludes>**/NCServiceExecutionIT.java,**/RecoveryIT.java</itest.excludes>
+        <failIfNoTests>false</failIfNoTests>
+      </properties>
+    </profile>
   </profiles>
   <dependencies>
     <dependency>
@@ -515,6 +531,7 @@
     <dependency>
       <groupId>org.apache.hyracks</groupId>
       <artifactId>hyracks-server</artifactId>
+      <type>test-jar</type>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -552,6 +569,13 @@
       <version>${project.version}</version>
       <type>zip</type>
       <classifier>assembly</classifier>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.asterix</groupId>
+      <artifactId>asterix-external-data</artifactId>
+      <version>${project.version}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.asterix</groupId>

@@ -233,4 +233,9 @@ public class ComponentReplacementContext implements ILSMIndexOperationContext {
     public void setRecovery(boolean recovery) {
         //Do nada.
     }
+
+    @Override
+    public void destroy() throws HyracksDataException {
+        // No Op.. Nothing to destroy
+    }
 }

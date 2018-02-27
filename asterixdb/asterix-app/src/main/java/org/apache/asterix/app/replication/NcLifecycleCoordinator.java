@@ -27,12 +27,14 @@ import java.util.stream.Collectors;
 
 import org.apache.asterix.app.nc.task.BindMetadataNodeTask;
 import org.apache.asterix.app.nc.task.CheckpointTask;
+import org.apache.asterix.app.nc.task.ExportMetadataNodeTask;
 import org.apache.asterix.app.nc.task.ExternalLibrarySetupTask;
 import org.apache.asterix.app.nc.task.LocalRecoveryTask;
 import org.apache.asterix.app.nc.task.MetadataBootstrapTask;
 import org.apache.asterix.app.nc.task.ReportLocalCountersTask;
 import org.apache.asterix.app.nc.task.StartLifecycleComponentsTask;
 import org.apache.asterix.app.nc.task.StartReplicationServiceTask;
+import org.apache.asterix.app.nc.task.UpdateNodeStatusTask;
 import org.apache.asterix.app.replication.message.MetadataNodeRequestMessage;
 import org.apache.asterix.app.replication.message.MetadataNodeResponseMessage;
 import org.apache.asterix.app.replication.message.NCLifecycleTaskReportMessage;
@@ -144,35 +146,34 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
             return buildActiveNCRegTasks(isMetadataNode);
         }
         final List<INCLifecycleTask> tasks = new ArrayList<>();
+        tasks.add(new UpdateNodeStatusTask(NodeStatus.ACTIVE));
         if (state == SystemState.CORRUPTED) {
             //need to perform local recovery for node partitions
-            LocalRecoveryTask rt = new LocalRecoveryTask(
-                    Arrays.asList(clusterManager.getNodePartitions(nodeId)).stream()
-                            .map(ClusterPartition::getPartitionId).collect(Collectors.toSet()));
+            LocalRecoveryTask rt = new LocalRecoveryTask(Arrays.asList(clusterManager.getNodePartitions(nodeId))
+                    .stream().map(ClusterPartition::getPartitionId).collect(Collectors.toSet()));
             tasks.add(rt);
         }
         if (replicationEnabled) {
             tasks.add(new StartReplicationServiceTask());
         }
         if (isMetadataNode) {
-            tasks.add(new MetadataBootstrapTask());
+            tasks.add(new MetadataBootstrapTask(clusterManager.getMetadataPartition().getPartitionId()));
         }
         tasks.add(new ExternalLibrarySetupTask(isMetadataNode));
-        tasks.add(new ReportLocalCountersTask());
         tasks.add(new CheckpointTask());
         tasks.add(new StartLifecycleComponentsTask());
         if (isMetadataNode) {
-            tasks.add(new BindMetadataNodeTask(true));
+            tasks.add(new ExportMetadataNodeTask(true));
+            tasks.add(new BindMetadataNodeTask());
         }
+        tasks.add(new ReportLocalCountersTask());
         return tasks;
     }
 
     protected List<INCLifecycleTask> buildActiveNCRegTasks(boolean metadataNode) {
         final List<INCLifecycleTask> tasks = new ArrayList<>();
         if (metadataNode) {
-            // need to unbind from old distributed state then rebind to new one
-            tasks.add(new BindMetadataNodeTask(false));
-            tasks.add(new BindMetadataNodeTask(true));
+            tasks.add(new BindMetadataNodeTask());
         }
         tasks.add(new ReportLocalCountersTask());
         return tasks;
@@ -183,9 +184,10 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
         if (metadataNodeId.equals(node)) {
             return;
         }
-        // if current metadata node is active, we need to unbind its metadata proxy object
+        // if current metadata node is active, we need to unbind its metadata proxy objects
         if (clusterManager.isMetadataNodeActive()) {
-            MetadataNodeRequestMessage msg = new MetadataNodeRequestMessage(false);
+            MetadataNodeRequestMessage msg =
+                    new MetadataNodeRequestMessage(false, clusterManager.getMetadataPartition().getPartitionId());
             try {
                 messageBroker.sendApplicationMessageToNC(msg, metadataNodeId);
                 // when the current node responses, we will bind to the new one
@@ -208,7 +210,8 @@ public class NcLifecycleCoordinator implements INcLifecycleCoordinator {
     }
 
     private void requestMetadataNodeTakeover(String node) throws HyracksDataException {
-        MetadataNodeRequestMessage msg = new MetadataNodeRequestMessage(true);
+        MetadataNodeRequestMessage msg =
+                new MetadataNodeRequestMessage(true, clusterManager.getMetadataPartition().getPartitionId());
         try {
             messageBroker.sendApplicationMessageToNC(msg, node);
         } catch (Exception e) {

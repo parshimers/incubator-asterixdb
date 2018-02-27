@@ -16,23 +16,21 @@
  ! specific language governing permissions and limitations
  ! under the License.
  !-->
-
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.apache.hyracks</groupId>
   <artifactId>apache-hyracks</artifactId>
-  <version>0.3.3-SNAPSHOT</version>
+  <version>0.3.4-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>hyracks-ecosystem-full-stack</name>
   <url>https://asterixdb.apache.org/</url>
-
   <parent>
     <groupId>org.apache</groupId>
     <artifactId>apache</artifactId>
     <version>18</version>
     <relativePath />
   </parent>
-
   <licenses>
     <license>
       <name>Apache License, Version 2.0</name>
@@ -41,14 +39,12 @@
       <comments>A business-friendly OSS license</comments>
     </license>
   </licenses>
-
   <scm>
     <connection>scm:git:https://github.com/apache/asterixdb</connection>
     <developerConnection>scm:git:ssh://asterix-gerrit.ics.uci.edu:29418/asterixdb</developerConnection>
     <url>https://github.com/apache/asterixdb</url>
     <tag>HEAD</tag>
   </scm>
-
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <file.encoding>UTF-8</file.encoding>
@@ -56,16 +52,18 @@
     <javac.xlint.value>all</javac.xlint.value>
     <jvm.extraargs />
     <sonar.jacoco.reportPath>${env.PWD}/target/jacoco-merged.exec</sonar.jacoco.reportPath>
+    <source-format.goal>format</source-format.goal>
     <source-format.skip>false</source-format.skip>
+    <skipTests>false</skipTests>
     <skip.surefire.tests>${skipTests}</skip.surefire.tests>
     <skip.testResources>${maven.test.skip}</skip.testResources>
-
+    <testLog4jConfigFile>${root.dir}/src/test/resources/log4j2-hyracks-test.xml</testLog4jConfigFile>
     <!-- Definition of tests in various categories which may be excluded -->
-    <hanging.pregelix.tests>**/pregelix/**/FailureRecovery*.java</hanging.pregelix.tests>
     <hivesterix.perf.tests>**/hivesterix/perf/PerfTestSuite.java</hivesterix.perf.tests>
     <global.test.includes>**/*TestSuite.java,**/*Test.java</global.test.includes>
-    <global.test.excludes>**/Abstract*.java,${hanging.pregelix.tests},${hivesterix.perf.tests}
-    </global.test.excludes>
+    <global.test.excludes>**/Abstract*.java,${hivesterix.perf.tests}</global.test.excludes>
+    <test.includes>${global.test.includes}</test.includes>
+    <test.excludes>${global.test.excludes}</test.excludes>
     <!-- Versions under dependencymanagement or used in many projects via properties -->
     <hadoop.version>2.2.0</hadoop.version>
     <jacoco.version>0.7.6.201602180812</jacoco.version>
@@ -194,9 +192,13 @@
         <artifactId>log4j-core</artifactId>
         <version>2.10.0</version>
       </dependency>
+      <dependency>
+        <groupId>org.mockito</groupId>
+        <artifactId>mockito-all</artifactId>
+        <version>2.0.2-beta</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
-
   <build>
     <plugins>
       <plugin>
@@ -239,10 +241,10 @@
           <addDefaultLicenseMatchers>false</addDefaultLicenseMatchers>
           <consoleOutput>true</consoleOutput>
           <licenses>
-            <license implementation="org.apache.rat.analysis.license.ApacheSoftwareLicense20"/>
+            <license implementation="org.apache.rat.analysis.license.ApacheSoftwareLicense20" />
           </licenses>
           <licenseFamilies>
-            <licenseFamily implementation="org.apache.rat.license.Apache20LicenseFamily"/>
+            <licenseFamily implementation="org.apache.rat.license.Apache20LicenseFamily" />
           </licenseFamilies>
           <excludeSubProjects>true</excludeSubProjects>
           <excludes combine.children="append">
@@ -257,20 +259,28 @@
           <failIfNoTests>false</failIfNoTests>
           <forkCount>1</forkCount>
           <reuseForks>false</reuseForks>
-          <argLine>-enableassertions -Xmx2048m
-            -Dfile.encoding=UTF-8
-            -Djava.util.logging.config.file=${user.home}/logging.properties
-            -Xdebug
-            -Xrunjdwp:transport=dt_socket,server=y,address=8000,suspend=n
-            ${coverageArgLine}
+          <argLine>-enableassertions -Xmx2048m -Dfile.encoding=UTF-8 -Xdebug
+            -Xrunjdwp:transport=dt_socket,server=y,address=8000,suspend=n ${coverageArgLine} 
           </argLine>
+          <systemPropertyVariables>
+            <log4j.configurationFile>${testLog4jConfigFile}</log4j.configurationFile>
+          </systemPropertyVariables>
           <includes>
-            <include>${global.test.includes},${test.includes}</include>
+            <include>${test.includes}</include>
           </includes>
           <excludes combine.children="append">
-            <exclude>${global.test.excludes},${test.excludes}</exclude>
+            <exclude>${test.excludes}</exclude>
           </excludes>
           <skipTests>${skip.surefire.tests}</skipTests>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <configuration>
+          <systemPropertyVariables>
+            <log4j.configurationFile>${testLog4jConfigFile}</log4j.configurationFile>
+          </systemPropertyVariables>
         </configuration>
       </plugin>
       <plugin>
@@ -363,6 +373,21 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>net.revelc.code.formatter</groupId>
+        <artifactId>formatter-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>${source-format.goal}</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <configFile>${root.dir}/AsterixCodeFormatProfile.xml</configFile>
+          <skipFormatting>${source-format.skip}</skipFormatting>
+        </configuration>
+      </plugin>
     </plugins>
     <pluginManagement>
       <plugins>
@@ -426,6 +451,19 @@
                   </pluginExecutionFilter>
                   <action>
                     <ignore />
+                  </action>
+                </pluginExecution>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>net.revelc.code.formatter</groupId>
+                    <artifactId>formatter-maven-plugin</artifactId>
+                    <versionRange>[2.0.1,)</versionRange>
+                    <goals>
+                      <goal>format</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore></ignore>
                   </action>
                 </pluginExecution>
               </pluginExecutions>
@@ -500,42 +538,7 @@
       </plugins>
     </pluginManagement>
   </build>
-
   <profiles>
-    <profile>
-      <id>hanging-pregelix-tests</id>
-      <properties>
-        <hanging.pregelix.tests />
-      </properties>
-    </profile>
-    <profile>
-      <id>source-format</id>
-      <activation>
-        <activeByDefault>false</activeByDefault>
-      </activation>
-      <properties>
-        <source-format.goal>format</source-format.goal>
-      </properties>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>net.revelc.code.formatter</groupId>
-            <artifactId>formatter-maven-plugin</artifactId>
-            <executions>
-              <execution>
-                <goals>
-                  <goal>${source-format.goal}</goal>
-                </goals>
-              </execution>
-            </executions>
-            <configuration>
-              <configFile>${root.dir}/AsterixCodeFormatProfile.xml</configFile>
-              <skipFormatting>${source-format.skip}</skipFormatting>
-            </configuration>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
     <profile>
       <id>skip-assembly</id>
       <activation>
@@ -653,12 +656,17 @@
         <jdk.version>1.8</jdk.version>
       </properties>
     </profile>
+    <profile>
+      <id>integration-tests-only</id>
+      <properties>
+        <test.includes/>
+        <failIfNoTests>false</failIfNoTests>
+      </properties>
+    </profile>
   </profiles>
-
   <modules>
     <module>hyracks</module>
     <module>algebricks</module>
     <module>hyracks-fullstack-license</module>
   </modules>
-
 </project>

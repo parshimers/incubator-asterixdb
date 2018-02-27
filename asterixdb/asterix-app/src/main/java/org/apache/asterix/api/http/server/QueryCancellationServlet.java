@@ -46,7 +46,6 @@ public class QueryCancellationServlet extends AbstractServlet {
 
     @Override
     protected void delete(IServletRequest request, IServletResponse response) throws IOException {
-        // gets the parameter client_context_id from the request.
         String clientContextId = request.getParameter(CLIENT_CONTEXT_ID);
         if (clientContextId == null) {
             response.setStatus(HttpResponseStatus.BAD_REQUEST);
@@ -54,8 +53,8 @@ public class QueryCancellationServlet extends AbstractServlet {
         }
 
         // Retrieves the corresponding Hyracks job id.
-        IStatementExecutorContext runningQueries = (IStatementExecutorContext) ctx
-                .get(ServletConstants.RUNNING_QUERIES_ATTR);
+        IStatementExecutorContext runningQueries =
+                (IStatementExecutorContext) ctx.get(ServletConstants.RUNNING_QUERIES_ATTR);
         IHyracksClientConnection hcc = (IHyracksClientConnection) ctx.get(ServletConstants.HYRACKS_CONNECTION_ATTR);
         JobId jobId = runningQueries.getJobIdFromClientContextId(clientContextId);
 

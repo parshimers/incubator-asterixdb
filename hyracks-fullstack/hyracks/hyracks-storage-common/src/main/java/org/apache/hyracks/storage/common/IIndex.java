@@ -34,6 +34,7 @@ public interface IIndex {
      * Initializes the persistent state of an index.
      * An index cannot be created if it is in the activated state.
      * Calling create on an index that is deactivated has the effect of clearing the index.
+     * This method is atomic. If an exception is thrown, then the call had no effect.
      *
      * @throws HyracksDataException
      *             if there is an error in the BufferCache while (un)pinning pages, (un)latching pages,
@@ -133,7 +134,7 @@ public interface IIndex {
     /**
      * @param fillFactor
      * @param verifyInput
-     * @throws IndexException
+     * @throws HyracksDataException
      */
     public IIndexBulkLoader createBulkLoader(float fillFactor, boolean verifyInput, long numElementsHint,
             boolean checkIfEmptyIndex) throws HyracksDataException;

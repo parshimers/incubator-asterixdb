@@ -19,12 +19,16 @@
 package org.apache.hyracks.control.common.config;
 
 import java.net.MalformedURLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Stream;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hyracks.api.config.IOptionType;
 import org.apache.hyracks.util.StorageUtil;
 import org.apache.logging.log4j.Level;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class OptionTypes {
@@ -37,10 +41,14 @@ public class OptionTypes {
             }
             long result1 = StorageUtil.getByteValue(s);
             if (result1 > Integer.MAX_VALUE || result1 < Integer.MIN_VALUE) {
-                throw new IllegalArgumentException(
-                        "The given value: " + result1 + " is not within the int range.");
+                throw new IllegalArgumentException("The given value: " + result1 + " is not within the int range.");
             }
             return (int) result1;
+        }
+
+        @Override
+        public Integer parse(JsonNode node) {
+            return node.isNull() ? null : parse(node.asText());
         }
 
         @Override
@@ -50,12 +58,12 @@ public class OptionTypes {
 
         @Override
         public String serializeToHumanReadable(Object value) {
-            return value + " (" + StorageUtil.toHumanReadableSize((int)value) + ")";
+            return value + " (" + StorageUtil.toHumanReadableSize((int) value) + ")";
         }
 
         @Override
         public void serializeJSONField(String fieldName, Object value, ObjectNode node) {
-            node.put(fieldName, (int)value);
+            node.put(fieldName, (int) value);
         }
     };
 
@@ -66,18 +74,53 @@ public class OptionTypes {
         }
 
         @Override
+        public Long parse(JsonNode node) {
+            return node.isNull() ? null : parse(node.asText());
+        }
+
+        @Override
         public Class<Long> targetType() {
             return Long.class;
         }
 
         @Override
         public String serializeToHumanReadable(Object value) {
-            return value + " (" + StorageUtil.toHumanReadableSize((long)value) + ")";
+            return value + " (" + StorageUtil.toHumanReadableSize((long) value) + ")";
         }
 
         @Override
         public void serializeJSONField(String fieldName, Object value, ObjectNode node) {
-            node.put(fieldName, (long)value);
+            node.put(fieldName, (long) value);
+        }
+    };
+
+    public static final IOptionType<Short> SHORT = new IOptionType<Short>() {
+        @Override
+        public Short parse(String s) {
+            int value = Integer.decode(s);
+            return validateShort(value);
+        }
+
+        private Short validateShort(int value) {
+            if (value > Short.MAX_VALUE || value < Short.MIN_VALUE) {
+                throw new IllegalArgumentException("The given value " + value + " does not fit in a short");
+            }
+            return (short) value;
+        }
+
+        @Override
+        public Short parse(JsonNode node) {
+            return node.isNull() ? null : validateShort(node.asInt());
+        }
+
+        @Override
+        public Class<Short> targetType() {
+            return Short.class;
+        }
+
+        @Override
+        public void serializeJSONField(String fieldName, Object value, ObjectNode node) {
+            node.put(fieldName, (short) value);
         }
     };
 
@@ -88,13 +131,18 @@ public class OptionTypes {
         }
 
         @Override
+        public Integer parse(JsonNode node) {
+            return node.isNull() ? null : node.asInt();
+        }
+
+        @Override
         public Class<Integer> targetType() {
             return Integer.class;
         }
 
         @Override
         public void serializeJSONField(String fieldName, Object value, ObjectNode node) {
-            node.put(fieldName, (int)value);
+            node.put(fieldName, (int) value);
         }
     };
 
@@ -105,13 +153,18 @@ public class OptionTypes {
         }
 
         @Override
+        public Double parse(JsonNode node) {
+            return node.isNull() ? null : node.asDouble();
+        }
+
+        @Override
         public Class<Double> targetType() {
             return Double.class;
         }
 
         @Override
         public void serializeJSONField(String fieldName, Object value, ObjectNode node) {
-            node.put(fieldName, (double)value);
+            node.put(fieldName, (double) value);
         }
     };
 
@@ -122,13 +175,18 @@ public class OptionTypes {
         }
 
         @Override
+        public String parse(JsonNode node) {
+            return node.isNull() ? null : node.asText();
+        }
+
+        @Override
         public Class<String> targetType() {
             return String.class;
         }
 
         @Override
         public void serializeJSONField(String fieldName, Object value, ObjectNode node) {
-            node.put(fieldName, (String)value);
+            node.put(fieldName, (String) value);
         }
     };
 
@@ -139,13 +197,18 @@ public class OptionTypes {
         }
 
         @Override
+        public Long parse(JsonNode node) {
+            return node.isNull() ? null : node.asLong();
+        }
+
+        @Override
         public Class<Long> targetType() {
             return Long.class;
         }
 
         @Override
         public void serializeJSONField(String fieldName, Object value, ObjectNode node) {
-            node.put(fieldName, (long)value);
+            node.put(fieldName, (long) value);
         }
     };
 
@@ -156,13 +219,18 @@ public class OptionTypes {
         }
 
         @Override
+        public Boolean parse(JsonNode node) {
+            return node.isNull() ? null : node.asBoolean();
+        }
+
+        @Override
         public Class<Boolean> targetType() {
             return Boolean.class;
         }
 
         @Override
         public void serializeJSONField(String fieldName, Object value, ObjectNode node) {
-            node.put(fieldName, (boolean)value);
+            node.put(fieldName, (boolean) value);
         }
     };
 
@@ -180,18 +248,23 @@ public class OptionTypes {
         }
 
         @Override
+        public Level parse(JsonNode node) {
+            return node.isNull() ? null : parse(node.asText());
+        }
+
+        @Override
         public Class<Level> targetType() {
             return Level.class;
         }
 
         @Override
         public String serializeToJSON(Object value) {
-            return value == null ? null : ((Level)value).name();
+            return value == null ? null : ((Level) value).name();
         }
 
         @Override
         public String serializeToIni(Object value) {
-            return ((Level)value).name();
+            return ((Level) value).name();
         }
 
         @Override
@@ -200,25 +273,44 @@ public class OptionTypes {
         }
     };
 
-    public static final IOptionType<String []> STRING_ARRAY = new IOptionType<String []>() {
+    public static final IOptionType<String[]> STRING_ARRAY = new IOptionType<String[]>() {
         @Override
-        public String [] parse(String s) {
+        public String[] parse(String s) {
             return s == null ? null : s.split("\\s*,\\s*");
         }
 
         @Override
-        public Class<String []> targetType() {
-            return String [].class;
+        public String[] parse(JsonNode node) {
+            if (node.isNull()) {
+                return null;
+            }
+            List<String> strings = new ArrayList<>();
+            if (node instanceof ArrayNode) {
+                node.elements().forEachRemaining(n -> strings.add(n.asText()));
+                return strings.toArray(new String[strings.size()]);
+            } else {
+                return parse(node.asText());
+            }
+        }
+
+        @Override
+        public Class<String[]> targetType() {
+            return String[].class;
         }
 
         @Override
         public String serializeToIni(Object value) {
-            return String.join(",", (String [])value);
+            return String.join(",", (String[]) value);
         }
 
         @Override
         public void serializeJSONField(String fieldName, Object value, ObjectNode node) {
-            node.put(fieldName, value == null ? null : StringUtils.join((String [])value, ','));
+            if (value == null) {
+                node.putNull(fieldName);
+            } else {
+                ArrayNode array = node.putArray(fieldName);
+                Stream.of((String[]) value).forEachOrdered(array::add);
+            }
         }
     };
 
@@ -230,6 +322,11 @@ public class OptionTypes {
             } catch (MalformedURLException e) {
                 throw new IllegalArgumentException(e);
             }
+        }
+
+        @Override
+        public java.net.URL parse(JsonNode node) {
+            return node.isNull() ? null : parse(node.asText());
         }
 
         @Override

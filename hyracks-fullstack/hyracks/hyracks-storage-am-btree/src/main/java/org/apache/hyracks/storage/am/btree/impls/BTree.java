@@ -718,6 +718,7 @@ public class BTree extends AbstractTreeIndex {
                 }
                 if (restartOp) {
                     // Wait for the SMO to persistFrontiers before restarting.
+                    // We didn't release the pin on the page!!
                     treeLatch.readLock().lock();
                     treeLatch.readLock().unlock();
                     ctx.getPageLsns().removeLast();
@@ -827,8 +828,9 @@ public class BTree extends AbstractTreeIndex {
      * for now, we are reusing it while it is an inner class !!!!
      */
     public class BTreeAccessor implements ITreeIndexAccessor {
-        private BTree btree;
-        private BTreeOpContext ctx;
+        protected BTree btree;
+        protected BTreeOpContext ctx;
+        private boolean destroyed = false;
 
         public BTreeAccessor(BTree btree, IModificationOperationCallback modificationCalback,
                 ISearchOperationCallback searchCallback) {
@@ -877,6 +879,10 @@ public class BTree extends AbstractTreeIndex {
         public BTreeRangeSearchCursor createSearchCursor(boolean exclusive) {
             IBTreeLeafFrame leafFrame = (IBTreeLeafFrame) btree.getLeafFrameFactory().createFrame();
             return new BTreeRangeSearchCursor(leafFrame, exclusive);
+        }
+
+        public BTreeRangeSearchCursor createPointCursor(boolean exclusive) {
+            return createSearchCursor(exclusive);
         }
 
         @Override
@@ -972,6 +978,15 @@ public class BTree extends AbstractTreeIndex {
             if (ctx.getOpRestarts() >= MAX_RESTARTS) {
                 throw HyracksDataException.create(ErrorCode.OPERATION_EXCEEDED_MAX_RESTARTS, MAX_RESTARTS);
             }
+        }
+
+        @Override
+        public void destroy() throws HyracksDataException {
+            if (destroyed) {
+                return;
+            }
+            destroyed = true;
+            ctx.destroy();
         }
     }
 

@@ -18,13 +18,12 @@
  */
 package org.apache.asterix.runtime.job.listener;
 
-import static org.apache.asterix.common.transactions.ITransactionManager.AtomicityLevel;
-
 import org.apache.asterix.common.api.IJobEventListenerFactory;
 import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.ITransactionManager;
+import org.apache.asterix.common.transactions.ITransactionManager.AtomicityLevel;
 import org.apache.asterix.common.transactions.TransactionOptions;
 import org.apache.asterix.common.transactions.TxnId;
 import org.apache.hyracks.api.context.IHyracksJobletContext;
@@ -60,9 +59,8 @@ public class JobEventListenerFactory implements IJobEventListenerFactory {
 
     @Override
     public void updateListenerJobParameters(JobParameterByteStore jobParameterByteStore) {
-        String AsterixTransactionIdString =
-                new String(jobParameterByteStore.getParameterValue(TRANSACTION_ID_PARAMETER_NAME, 0,
-                        TRANSACTION_ID_PARAMETER_NAME.length));
+        String AsterixTransactionIdString = new String(jobParameterByteStore
+                .getParameterValue(TRANSACTION_ID_PARAMETER_NAME, 0, TRANSACTION_ID_PARAMETER_NAME.length));
         if (AsterixTransactionIdString.length() > 0) {
             this.txnId = new TxnId(Integer.parseInt(AsterixTransactionIdString));
         }
@@ -75,8 +73,9 @@ public class JobEventListenerFactory implements IJobEventListenerFactory {
             @Override
             public void jobletFinish(JobStatus jobStatus) {
                 try {
-                    ITransactionManager txnManager = ((INcApplicationContext) jobletContext.getServiceContext()
-                            .getApplicationContext()).getTransactionSubsystem().getTransactionManager();
+                    ITransactionManager txnManager =
+                            ((INcApplicationContext) jobletContext.getServiceContext().getApplicationContext())
+                                    .getTransactionSubsystem().getTransactionManager();
                     ITransactionContext txnContext = txnManager.getTransactionContext(txnId);
                     txnContext.setWriteTxn(transactionalWrite);
                     if (jobStatus != JobStatus.FAILURE) {

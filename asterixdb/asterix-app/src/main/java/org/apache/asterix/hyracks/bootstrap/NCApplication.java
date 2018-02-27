@@ -31,6 +31,7 @@ import org.apache.asterix.common.api.AsterixThreadFactory;
 import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.config.AsterixExtension;
 import org.apache.asterix.common.config.ExternalProperties;
+import org.apache.asterix.common.config.GlobalConfig;
 import org.apache.asterix.common.config.MessagingProperties;
 import org.apache.asterix.common.config.MetadataProperties;
 import org.apache.asterix.common.config.NodeProperties;
@@ -40,16 +41,17 @@ import org.apache.asterix.common.transactions.IRecoveryManager;
 import org.apache.asterix.common.transactions.IRecoveryManager.SystemState;
 import org.apache.asterix.common.utils.PrintUtil;
 import org.apache.asterix.common.utils.Servlets;
+import org.apache.asterix.common.utils.StorageConstants;
 import org.apache.asterix.common.utils.StoragePathUtil;
 import org.apache.asterix.messaging.MessagingChannelInterfaceFactory;
 import org.apache.asterix.messaging.NCMessageBroker;
 import org.apache.asterix.transaction.management.resource.PersistentLocalResourceRepository;
 import org.apache.asterix.util.MetadataBuiltinFunctions;
-import org.apache.asterix.utils.CompatibilityUtil;
 import org.apache.hyracks.api.application.INCServiceContext;
 import org.apache.hyracks.api.application.IServiceContext;
 import org.apache.hyracks.api.client.NodeStatus;
 import org.apache.hyracks.api.config.IConfigManager;
+import org.apache.hyracks.api.control.CcId;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.IFileDeviceResolver;
 import org.apache.hyracks.api.job.resource.NodeCapacity;
@@ -59,10 +61,10 @@ import org.apache.hyracks.control.nc.BaseNCApplication;
 import org.apache.hyracks.control.nc.NodeControllerService;
 import org.apache.hyracks.http.server.HttpServer;
 import org.apache.hyracks.http.server.WebManager;
+import org.apache.hyracks.util.LoggingConfigUtil;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.config.Configurator;
 
 public class NCApplication extends BaseNCApplication {
     private static final Logger LOGGER = LogManager.getLogger();
@@ -71,7 +73,6 @@ public class NCApplication extends BaseNCApplication {
     private INcApplicationContext runtimeContext;
     private String nodeId;
     private boolean stopInitiated;
-    private boolean startupCompleted;
     protected WebManager webManager;
 
     @Override
@@ -121,8 +122,10 @@ public class NCApplication extends BaseNCApplication {
                 new MessagingChannelInterfaceFactory((NCMessageBroker) messageBroker, messagingProperties);
         this.ncServiceCtx.setMessagingChannelInterfaceFactory(interfaceFactory);
         final Checkpoint latestCheckpoint = runtimeContext.getTransactionSubsystem().getCheckpointManager().getLatest();
-        if (latestCheckpoint != null) {
-            CompatibilityUtil.ensureCompatibility(controllerService, latestCheckpoint.getStorageVersion());
+        if (latestCheckpoint != null && latestCheckpoint.getStorageVersion() != StorageConstants.VERSION) {
+            throw new IllegalStateException(
+                    String.format("Storage version mismatch.. Current version (%s). On disk version: (%s)",
+                            StorageConstants.VERSION, latestCheckpoint.getStorageVersion()));
         }
         if (LOGGER.isInfoEnabled()) {
             IRecoveryManager recoveryMgr = runtimeContext.getTransactionSubsystem().getRecoveryManager();
@@ -137,7 +140,7 @@ public class NCApplication extends BaseNCApplication {
     @Override
     protected void configureLoggingLevel(Level level) {
         super.configureLoggingLevel(level);
-        Configurator.setLevel("org.apache.asterix", level);
+        LoggingConfigUtil.defaultIfMissing(GlobalConfig.ASTERIX_LOGGER_NAME, level);
     }
 
     protected void configureServers() throws Exception {
@@ -186,49 +189,24 @@ public class NCApplication extends BaseNCApplication {
         // configure servlets after joining the cluster, so we can create HyracksClientConnection
         configureServers();
         webManager.start();
-
-        // Since we don't pass initial run flag in AsterixHyracksIntegrationUtil, we use the virtualNC flag
-        final NodeProperties nodeProperties = runtimeContext.getNodeProperties();
-        IRecoveryManager recoveryMgr = runtimeContext.getTransactionSubsystem().getRecoveryManager();
-        SystemState state = recoveryMgr.getSystemState();
-        if (state == SystemState.PERMANENT_DATA_LOSS
-                && (nodeProperties.isInitialRun() || nodeProperties.isVirtualNc())) {
-            state = SystemState.BOOTSTRAPPING;
-        }
-        // Request registration tasks from CC
-        RegistrationTasksRequestMessage.send((NodeControllerService) ncServiceCtx.getControllerService(),
-                NodeStatus.BOOTING, state);
-        startupCompleted = true;
     }
 
     @Override
-    public void onRegisterNode() throws Exception {
-        if (startupCompleted) {
-            /*
-             * If the node completed its startup before, then this is a re-registration with
-             * the CC and therefore the system state should be HEALTHY and the node status is ACTIVE
-             */
-            RegistrationTasksRequestMessage.send((NodeControllerService) ncServiceCtx.getControllerService(),
-                    NodeStatus.ACTIVE, SystemState.HEALTHY);
-        }
+    public synchronized void onRegisterNode(CcId ccId) throws Exception {
+        final NodeControllerService ncs = (NodeControllerService) ncServiceCtx.getControllerService();
+        final NodeStatus currentStatus = ncs.getNodeStatus();
+        final SystemState systemState = isPendingStartupTasks(currentStatus, ncs.getPrimaryCcId(), ccId)
+                ? getCurrentSystemState() : SystemState.HEALTHY;
+        RegistrationTasksRequestMessage.send(ccId, (NodeControllerService) ncServiceCtx.getControllerService(),
+                currentStatus, systemState);
     }
 
     @Override
     public NodeCapacity getCapacity() {
         StorageProperties storageProperties = runtimeContext.getStorageProperties();
-        // Deducts the reserved buffer cache size and memory component size from the maxium heap size,
-        // and deducts one core for processing heartbeats.
-        long memorySize = Runtime.getRuntime().maxMemory() - storageProperties.getBufferCacheSize()
-                - storageProperties.getMemoryComponentGlobalBudget();
-        if (memorySize <= 0) {
-            throw new IllegalStateException("Invalid node memory configuration, more memory budgeted than available "
-                    + "in JVM. Runtime max memory: " + Runtime.getRuntime().maxMemory() + " Buffer cache size: "
-                    + storageProperties.getBufferCacheSize() + " Memory component global budget: "
-                    + storageProperties.getMemoryComponentGlobalBudget());
-        }
+        final long memorySize = storageProperties.getJobExecutionMemoryBudget();
         int allCores = Runtime.getRuntime().availableProcessors();
-        int maximumCoresForComputation = allCores > 1 ? allCores - 1 : allCores;
-        return new NodeCapacity(memorySize, maximumCoresForComputation);
+        return new NodeCapacity(memorySize, allCores);
     }
 
     private void performLocalCleanUp() throws HyracksDataException {
@@ -262,5 +240,21 @@ public class NCApplication extends BaseNCApplication {
             int ioDeviceIndex = Math.abs(StoragePathUtil.getPartitionNumFromRelativePath(relPath) % devices.size());
             return devices.get(ioDeviceIndex);
         };
+    }
+
+    private boolean isPendingStartupTasks(NodeStatus nodeStatus, CcId primaryCc, CcId registeredCc) {
+        return nodeStatus == NodeStatus.BOOTING && (primaryCc == null || primaryCc.equals(registeredCc));
+    }
+
+    private SystemState getCurrentSystemState() {
+        final NodeProperties nodeProperties = runtimeContext.getNodeProperties();
+        IRecoveryManager recoveryMgr = runtimeContext.getTransactionSubsystem().getRecoveryManager();
+        SystemState state = recoveryMgr.getSystemState();
+        // Since we don't pass initial run flag in AsterixHyracksIntegrationUtil, we use the virtualNC flag
+        if (state == SystemState.PERMANENT_DATA_LOSS
+                && (nodeProperties.isInitialRun() || nodeProperties.isVirtualNc())) {
+            state = SystemState.BOOTSTRAPPING;
+        }
+        return state;
     }
 }

@@ -24,11 +24,13 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.bloomfilter.impls.BloomFilter;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
+import org.apache.hyracks.storage.am.common.api.ILSMIndexCursor;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent.LSMComponentType;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentFilter;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMHarness;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
+import org.apache.hyracks.storage.common.EnforcedIndexCursor;
 import org.apache.hyracks.storage.common.ICursorInitialState;
 import org.apache.hyracks.storage.common.IIndexAccessor;
 import org.apache.hyracks.storage.common.IIndexCursor;
@@ -40,7 +42,7 @@ import org.apache.hyracks.storage.common.MultiComparator;
  * Searches the components one-by-one, completely consuming a cursor before moving on to the next one.
  * Therefore, the are no guarantees about sort order of the results.
  */
-public class LSMInvertedIndexSearchCursor implements IIndexCursor {
+public class LSMInvertedIndexSearchCursor extends EnforcedIndexCursor implements ILSMIndexCursor {
 
     private IIndexAccessor currentAccessor;
     private IIndexCursor currentCursor;
@@ -65,7 +67,7 @@ public class LSMInvertedIndexSearchCursor implements IIndexCursor {
     private final long[] hashes = BloomFilter.createHashArray();
 
     @Override
-    public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
+    public void doOpen(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
         LSMInvertedIndexSearchCursorInitialState lsmInitState = (LSMInvertedIndexSearchCursorInitialState) initialState;
         harness = lsmInitState.getLSMHarness();
         operationalComponents = lsmInitState.getOperationalComponents();
@@ -108,7 +110,7 @@ public class LSMInvertedIndexSearchCursor implements IIndexCursor {
                     return true;
                 }
             } finally {
-                deletedKeysBTreeCursors[i].destroy();
+                deletedKeysBTreeCursors[i].close();
             }
         }
         return false;
@@ -139,7 +141,7 @@ public class LSMInvertedIndexSearchCursor implements IIndexCursor {
     }
 
     @Override
-    public boolean hasNext() throws HyracksDataException {
+    public boolean doHasNext() throws HyracksDataException {
         if (!tupleConsumed) {
             return true;
         }
@@ -147,7 +149,7 @@ public class LSMInvertedIndexSearchCursor implements IIndexCursor {
             if (nextValidTuple()) {
                 return true;
             }
-            currentCursor.destroy();
+            currentCursor.close();
             accessorIndex++;
         }
         while (accessorIndex < indexAccessors.size()) {
@@ -159,28 +161,28 @@ public class LSMInvertedIndexSearchCursor implements IIndexCursor {
                 return true;
             }
             // Close as we go to release resources.
-            currentCursor.destroy();
+            currentCursor.close();
             accessorIndex++;
         }
         return false;
     }
 
     @Override
-    public void next() throws HyracksDataException {
+    public void doNext() throws HyracksDataException {
         // Mark the tuple as consumed, so hasNext() can move on.
         tupleConsumed = true;
     }
 
     @Override
-    public void destroy() throws HyracksDataException {
-        close();
+    public void doDestroy() throws HyracksDataException {
+        doClose();
     }
 
     @Override
-    public void close() throws HyracksDataException {
+    public void doClose() throws HyracksDataException {
         try {
             if (currentCursor != null) {
-                currentCursor.destroy();
+                currentCursor.close();
                 currentCursor = null;
             }
             accessorIndex = 0;
@@ -192,7 +194,7 @@ public class LSMInvertedIndexSearchCursor implements IIndexCursor {
     }
 
     @Override
-    public ITupleReference getTuple() {
+    public ITupleReference doGetTuple() {
         return currentCursor.getTuple();
     }
 
@@ -214,4 +216,10 @@ public class LSMInvertedIndexSearchCursor implements IIndexCursor {
         }
         return operationalComponents.get(accessorIndex).getLSMComponentFilter();
     }
+
+    @Override
+    public boolean getSearchOperationCallbackProceedResult() {
+        return false;
+    }
+
 }

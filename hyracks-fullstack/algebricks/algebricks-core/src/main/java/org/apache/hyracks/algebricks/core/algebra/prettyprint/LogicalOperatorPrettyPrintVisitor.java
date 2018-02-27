@@ -369,7 +369,7 @@ public class LogicalOperatorPrettyPrintVisitor extends AbstractLogicalOperatorPr
     @Override
     public Void visitSplitOperator(SplitOperator op, Integer indent) throws AlgebricksException {
         Mutable<ILogicalExpression> branchingExpression = op.getBranchingExpression();
-        addIndent(indent).append("split " + branchingExpression.getValue().accept(exprVisitor, indent));
+        addIndent(indent).append("split (" + branchingExpression.getValue().accept(exprVisitor, indent) + ")");
         return null;
     }
 
@@ -394,8 +394,7 @@ public class LogicalOperatorPrettyPrintVisitor extends AbstractLogicalOperatorPr
         if (op.getOperation() == Kind.UPSERT) {
             buffer.append(" out: ([record-before-upsert:" + op.getBeforeOpRecordVar()
                     + ((op.getBeforeOpAdditionalNonFilteringVars() != null)
-                            ? (", additional-before-upsert: " + op.getBeforeOpAdditionalNonFilteringVars())
-                            : "")
+                            ? (", additional-before-upsert: " + op.getBeforeOpAdditionalNonFilteringVars()) : "")
                     + "]) ");
         }
         if (op.isBulkload()) {

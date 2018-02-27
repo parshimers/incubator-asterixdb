@@ -22,14 +22,14 @@
   <parent>
     <artifactId>asterix-maven-plugins</artifactId>
     <groupId>org.apache.asterix</groupId>
-    <version>0.9.3-SNAPSHOT</version>
+    <version>0.9.4-SNAPSHOT</version>
   </parent>
 
   <packaging>maven-plugin</packaging>
   <name>record-manager-generator-maven-plugin</name>
 
   <properties>
-    <appendedResourcesDirectory>${basedir}/../../src/main/appended-resources</appendedResourcesDirectory>
+    <root.dir>${basedir}/../..</root.dir>
   </properties>
   <dependencies>
     <dependency>

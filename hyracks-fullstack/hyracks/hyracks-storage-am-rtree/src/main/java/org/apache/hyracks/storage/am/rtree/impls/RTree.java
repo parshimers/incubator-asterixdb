@@ -758,6 +758,7 @@ public class RTree extends AbstractTreeIndex {
     public class RTreeAccessor implements ITreeIndexAccessor {
         private RTree rtree;
         private RTreeOpContext ctx;
+        private boolean destroyed = false;
 
         public RTreeAccessor(RTree rtree, IModificationOperationCallback modificationCallback,
                 ISearchOperationCallback searchCallback) {
@@ -877,6 +878,15 @@ public class RTree extends AbstractTreeIndex {
                     bufferCache.unpin(node);
                 }
             }
+        }
+
+        @Override
+        public void destroy() throws HyracksDataException {
+            if (destroyed) {
+                return;
+            }
+            destroyed = true;
+            ctx.destroy();
         }
     }
 

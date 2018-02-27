@@ -26,11 +26,14 @@ import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.external.api.IRawRecord;
 import org.apache.asterix.external.api.IRecordDataParser;
 import org.apache.asterix.external.api.IRecordReader;
+import org.apache.asterix.external.util.DataflowUtils;
 import org.apache.asterix.external.util.ExternalDataConstants;
 import org.apache.asterix.external.util.FeedLogManager;
 import org.apache.hyracks.api.comm.IFrameWriter;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.util.CleanupUtils;
+import org.apache.hyracks.api.util.ExceptionUtils;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -74,7 +77,7 @@ public class FeedRecordDataFlowController<T> extends AbstractFeedDataFlowControl
                 setState(State.STARTED);
             }
         }
-        Exception failure = null;
+        Throwable failure = null;
         try {
             tupleForwarder.initialize(ctx, writer);
             while (hasNext()) {
@@ -111,7 +114,7 @@ public class FeedRecordDataFlowController<T> extends AbstractFeedDataFlowControl
                 failure = e;
                 tupleForwarder.fail();
             }
-        } catch (Exception e) {
+        } catch (Throwable e) {
             failure = e;
             tupleForwarder.fail();
             LOGGER.log(Level.WARN, "Failure while operating a feed source", e);
@@ -174,30 +177,12 @@ public class FeedRecordDataFlowController<T> extends AbstractFeedDataFlowControl
         }
     }
 
-    private Exception finish(Exception failure) {
-        HyracksDataException hde = null;
-        try {
-            recordReader.close();
-        } catch (Exception th) {
-            LOGGER.log(Level.WARN, "Failure during while operating a feed source", th);
-            hde = HyracksDataException.suppress(hde, th);
-        }
-        try {
-            tupleForwarder.close();
-        } catch (Exception th) {
-            hde = HyracksDataException.suppress(hde, th);
-        } finally {
-            closeSignal();
-        }
+    private Throwable finish(Throwable failure) {
+        Throwable th = CleanupUtils.close(recordReader, null);
+        th = DataflowUtils.close(tupleForwarder, th);
+        closeSignal();
         setState(State.STOPPED);
-        if (hde != null) {
-            if (failure != null) {
-                failure.addSuppressed(hde);
-            } else {
-                return hde;
-            }
-        }
-        return failure;
+        return ExceptionUtils.suppress(failure, th);
     }
 
     private boolean parseAndForward(IRawRecord<? extends T> record) throws IOException {
@@ -282,7 +267,7 @@ public class FeedRecordDataFlowController<T> extends AbstractFeedDataFlowControl
 
     @Override
     public String getStats() {
-        return "{\"" + INCOMING_RECORDS_COUNT_FIELD_NAME + "\": " + incomingRecordsCount + ", \"" +
-                FAILED_AT_PARSER_RECORDS_COUNT_FIELD_NAME + "\": " + failedRecordsCount + "}";
+        return "{\"" + INCOMING_RECORDS_COUNT_FIELD_NAME + "\": " + incomingRecordsCount + ", \""
+                + FAILED_AT_PARSER_RECORDS_COUNT_FIELD_NAME + "\": " + failedRecordsCount + "}";
     }
 }
