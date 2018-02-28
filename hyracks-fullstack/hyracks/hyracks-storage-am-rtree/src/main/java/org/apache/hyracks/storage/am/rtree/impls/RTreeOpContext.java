@@ -61,6 +61,7 @@ public class RTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
     private IModificationOperationCallback modificationCallback;
 
     private boolean destroyed = false;
+
     public RTreeOpContext(IRTreeLeafFrame leafFrame, IRTreeInteriorFrame interiorFrame, IPageManager freePageManager,
             IBinaryComparatorFactory[] cmpFactories, IModificationOperationCallback modificationCallback) {
 
@@ -190,6 +191,7 @@ public class RTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
     public RTreeCursorInitialState getCursorInitialState() {
         return cursorInitialState;
     }
+
     @Override
     public void destroy() throws HyracksDataException {
         if (destroyed) {
