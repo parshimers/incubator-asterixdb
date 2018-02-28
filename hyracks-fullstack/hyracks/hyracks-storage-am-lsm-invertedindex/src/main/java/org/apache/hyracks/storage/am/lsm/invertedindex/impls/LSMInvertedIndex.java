@@ -155,13 +155,12 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
         if (ctx.getIndexTuple() != null) {
             ctx.getIndexTuple().reset(tuple);
             indexTuple = ctx.getIndexTuple();
-            ((InMemoryInvertedIndexAccessor) (ctx.getCurrentMutableInvIndexAccessors())).resetLogTuple(tuple);
         } else {
             indexTuple = tuple;
         }
 
-        ctx.getModificationCallback().before(tuple);
-        ctx.getModificationCallback().found(null, tuple);
+        ctx.getModificationCallback().before(indexTuple);
+        ctx.getModificationCallback().found(null, indexTuple);
         switch (ctx.getOperation()) {
             case INSERT:
                 // Insert into the in-memory inverted index.

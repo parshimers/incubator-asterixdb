@@ -30,7 +30,6 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMemoryComponent;
 import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndexOperationContext;
 import org.apache.hyracks.storage.am.lsm.invertedindex.api.IInvertedIndexAccessor;
-import org.apache.hyracks.storage.common.IIndexAccessParameters;
 import org.apache.hyracks.storage.common.IIndexAccessor;
 import org.apache.hyracks.util.trace.ITracer;
 
@@ -60,14 +59,10 @@ public class LSMInvertedIndexOpContext extends AbstractLSMIndexOperationContext 
         for (int i = 0; i < mutableComponents.size(); i++) {
             LSMInvertedIndexMemoryComponent mutableComponent =
                     (LSMInvertedIndexMemoryComponent) mutableComponents.get(i);
-            if (allFields != null) {
-                mutableInvIndexAccessors[i] = mutableComponent.getIndex().createAccessor(iap, allFields);
-            } else {
-                mutableInvIndexAccessors[i] =
-                        mutableComponent.getIndex().createAccessor(NoOpIndexAccessParameters.INSTANCE);
-            }
-            deletedKeysBTreeAccessors[i] =
-                    mutableComponent.getBuddyIndex().createAccessor(NoOpIndexAccessParameters.INSTANCE);
+            mutableInvIndexAccessors[i] = (IInvertedIndexAccessor) mutableComponent.getInvIndex()
+                    .createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            deletedKeysBTreeAccessors[i] = mutableComponent.getDeletedKeysBTree()
+                    .createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
         }
         // Project away the document fields, leaving only the key fields.
         LSMInvertedIndexMemoryComponent c = (LSMInvertedIndexMemoryComponent) mutableComponents.get(0);
