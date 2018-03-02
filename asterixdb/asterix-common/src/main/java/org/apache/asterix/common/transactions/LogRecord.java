@@ -36,18 +36,20 @@ import org.apache.hyracks.storage.am.common.tuples.SimpleTupleWriter;
  * LogType(1)
  * TxnId(8)
  * ---------------------------
- * [Header2] (16 bytes + PKValueSize) : for entity_commit, upsert_entity_commit, and update log types
+ * [Header2] (8 bytes) : for entity_commit, upsert_entity_commit, filter and update log types
  * DatasetId(4) //stored in dataset_dataset in Metadata Node
  * ResourcePartition(4)
+ * ---------------------------
+ * [Header3] (8 bytes + PKValueSize) : for entity_commit, upsert_entity_commit, and update log types
  * PKHashValue(4)
  * PKValueSize(4)
  * PKValue(PKValueSize)
  * ---------------------------
- * [Header3] (12 bytes) : only for update log type
+ * [Header4] (12 bytes) : only for update, filter log type
  * ResourceId(8) //stored in .metadata of the corresponding index in NC node
  * LogRecordSize(4)
  * ---------------------------
- * [Body] (9 bytes + NewValueSize) : only for update log type
+ * [Body] (9 bytes + NewValueSize) : only for update, filter log type
  * FieldCnt(4)
  * NewOp(1)
  * NewValueSize(4)
@@ -57,7 +59,6 @@ import org.apache.hyracks.storage.am.common.tuples.SimpleTupleWriter;
  * Checksum(8)
  * ---------------------------
  */
-
 public class LogRecord implements ILogRecord {
 
     // ------------- fields in a log record (begin) ------------//
@@ -125,10 +126,12 @@ public class LogRecord implements ILogRecord {
         buffer.putLong(txnId);
         switch (logType) {
             case LogType.ENTITY_COMMIT:
-                writeEntityInfo(buffer);
+                writeEntityResource(buffer);
+                writeEntityValue(buffer);
                 break;
             case LogType.UPDATE:
-                writeEntityInfo(buffer);
+                writeEntityResource(buffer);
+                writeEntityValue(buffer);
                 buffer.putLong(resourceId);
                 buffer.putInt(logSize);
                 buffer.putInt(newValueFieldCount);
@@ -140,6 +143,15 @@ public class LogRecord implements ILogRecord {
                     buffer.putInt(oldValueFieldCount);
                     writeTuple(buffer, oldValue, oldValueSize);
                 }
+                break;
+           case LogType.FILTER:
+                writeEntityResource(buffer);
+                buffer.putLong(resourceId);
+                buffer.putInt(logSize);
+                buffer.putInt(newValueFieldCount);
+                buffer.put(newOp);
+                buffer.putInt(newValueSize);
+                writeTuple(buffer, newValue, newValueSize);
                 break;
             case LogType.FLUSH:
                 buffer.putInt(datasetId);
@@ -159,9 +171,7 @@ public class LogRecord implements ILogRecord {
         }
     }
 
-    private void writeEntityInfo(ByteBuffer buffer) {
-        buffer.putInt(resourcePartition);
-        buffer.putInt(datasetId);
+    private void writeEntityValue(ByteBuffer buffer) {
         buffer.putInt(PKHashValue);
         if (PKValueSize <= 0) {
             throw new IllegalStateException("Primary Key Size is less than or equal to 0");
@@ -170,6 +180,10 @@ public class LogRecord implements ILogRecord {
         writePKValue(buffer);
     }
 
+    private void writeEntityResource(ByteBuffer buffer) {
+        buffer.putInt(resourcePartition);
+        buffer.putInt(datasetId);
+    }
     @Override
     public void writeLogRecord(ByteBuffer buffer) {
         int beginOffset = buffer.position();
@@ -269,49 +283,20 @@ public class LogRecord implements ILogRecord {
                 computeAndSetLogSize();
                 break;
             case LogType.ENTITY_COMMIT:
-                if (readEntityInfo(buffer)) {
+                if (readEntityResource(buffer) && readEntityValue(buffer)) {
                     computeAndSetLogSize();
                 } else {
                     return RecordReadStatus.TRUNCATED;
                 }
                 break;
             case LogType.UPDATE:
-                if (readEntityInfo(buffer)) {
-                    if (buffer.remaining() < UPDATE_LSN_HEADER + UPDATE_BODY_HEADER) {
-                        return RecordReadStatus.TRUNCATED;
-                    }
-                    resourceId = buffer.getLong();
-                    logSize = buffer.getInt();
-                    newValueFieldCount = buffer.getInt();
-                    newOp = buffer.get();
-                    newValueSize = buffer.getInt();
-                    if (buffer.remaining() < newValueSize) {
-                        if (logSize > buffer.capacity()) {
-                            return RecordReadStatus.LARGE_RECORD;
-                        }
-                        return RecordReadStatus.TRUNCATED;
-                    }
-                    newValue = readTuple(buffer, readNewValue, newValueFieldCount, newValueSize);
-                    if (logSize > getUpdateLogSizeWithoutOldValue()) {
-                        // Prev Image exists
-                        if (buffer.remaining() < Integer.BYTES) {
-                            return RecordReadStatus.TRUNCATED;
-                        }
-                        oldValueSize = buffer.getInt();
-                        if (buffer.remaining() < Integer.BYTES) {
-                            return RecordReadStatus.TRUNCATED;
-                        }
-                        oldValueFieldCount = buffer.getInt();
-                        if (buffer.remaining() < oldValueSize) {
-                            return RecordReadStatus.TRUNCATED;
-                        }
-                        oldValue = readTuple(buffer, readOldValue, oldValueFieldCount, oldValueSize);
+                if (readEntityResource(buffer) && readEntityValue(buffer)) {
+                    RecordReadStatus updStatus = readUpdateInfo(buffer);
+                    if (updStatus != RecordReadStatus.OK) {
+                        return updStatus;
                     } else {
-                        oldValueSize = 0;
-                        oldValue = null;
+                        return RecordReadStatus.TRUNCATED;
                     }
-                } else {
-                    return RecordReadStatus.TRUNCATED;
                 }
                 break;
             case LogType.MARKER:
@@ -336,19 +321,22 @@ public class LogRecord implements ILogRecord {
                 marker.position(lenRemaining);
                 marker.flip();
                 break;
+            case LogType.FILTER:
+                if (readEntityResource(buffer)) {
+                    return readUpdateInfo(buffer);
+                }
+                break;
             default:
                 break;
         }
         return RecordReadStatus.OK;
     }
 
-    private boolean readEntityInfo(ByteBuffer buffer) {
+    private boolean readEntityValue(ByteBuffer buffer) {
         //attempt to read in the resourcePartition, dsid, PK hash and PK length
-        if (buffer.remaining() < ENTITYCOMMIT_UPDATE_HEADER_LEN) {
+        if (buffer.remaining() < ENTITY_VALUE_HEADER_LEN) {
             return false;
         }
-        resourcePartition = buffer.getInt();
-        datasetId = buffer.getInt();
         PKHashValue = buffer.getInt();
         PKValueSize = buffer.getInt();
         // attempt to read in the PK
@@ -360,6 +348,53 @@ public class LogRecord implements ILogRecord {
         }
         PKValue = readPKValue(buffer);
         return true;
+    }
+
+    private boolean readEntityResource(ByteBuffer buffer) {
+        //attempt to read in the resourcePartition and dsid
+        if (buffer.remaining() < ENTITY_RESOURCE_HEADER_LEN) {
+            return false;
+        }
+        resourcePartition = buffer.getInt();
+        datasetId = buffer.getInt();
+        return true;
+    }
+
+    private RecordReadStatus readUpdateInfo(ByteBuffer buffer) {
+        if (buffer.remaining() < UPDATE_LSN_HEADER + UPDATE_BODY_HEADER) {
+            return RecordReadStatus.TRUNCATED;
+        }
+        resourceId = buffer.getLong();
+        logSize = buffer.getInt();
+        newValueFieldCount = buffer.getInt();
+        newOp = buffer.get();
+        newValueSize = buffer.getInt();
+        if (buffer.remaining() < newValueSize) {
+            if (logSize > buffer.capacity()) {
+                return RecordReadStatus.LARGE_RECORD;
+            }
+            return RecordReadStatus.TRUNCATED;
+        }
+        newValue = readTuple(buffer, readNewValue, newValueFieldCount, newValueSize);
+        if (logSize > getUpdateLogSizeWithoutOldValue()) {
+            // Prev Image exists
+            if (buffer.remaining() < Integer.BYTES) {
+                return RecordReadStatus.TRUNCATED;
+            }
+            oldValueSize = buffer.getInt();
+            if (buffer.remaining() < Integer.BYTES) {
+                return RecordReadStatus.TRUNCATED;
+            }
+            oldValueFieldCount = buffer.getInt();
+            if (buffer.remaining() < oldValueSize) {
+                return RecordReadStatus.TRUNCATED;
+            }
+            oldValue = readTuple(buffer, readOldValue, oldValueFieldCount, oldValueSize);
+        } else {
+            oldValueSize = 0;
+            oldValue = null;
+        }
+        return RecordReadStatus.OK;
     }
 
     @Override
@@ -408,6 +443,10 @@ public class LogRecord implements ILogRecord {
         }
     }
 
+    private int getFilterLogSize() {
+        return FILTER_LOG_BASE_SIZE + newValueSize;
+    }
+
     private int getUpdateLogSizeWithoutOldValue() {
         return UPDATE_LOG_BASE_SIZE + PKValueSize + newValueSize;
     }
@@ -430,6 +469,9 @@ public class LogRecord implements ILogRecord {
                 break;
             case LogType.WAIT:
                 logSize = WAIT_LOG_SIZE;
+                break;
+            case LogType.FILTER:
+                logSize = getFilterLogSize();
                 break;
             case LogType.MARKER:
                 setMarkerLogSize();
@@ -504,8 +546,8 @@ public class LogRecord implements ILogRecord {
     }
 
     @Override
-    public void setTxnId(long jobId) {
-        this.txnId = jobId;
+    public void setTxnId(long txnId) {
+        this.txnId = txnId;
     }
 
     @Override

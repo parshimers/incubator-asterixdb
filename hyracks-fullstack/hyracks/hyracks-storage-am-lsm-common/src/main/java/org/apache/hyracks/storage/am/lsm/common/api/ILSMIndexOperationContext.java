@@ -82,4 +82,12 @@ public interface ILSMIndexOperationContext extends IIndexOperationContext {
      * @return true if performance tracing is enabled, false otherwise
      */
     boolean isTracingEnabled();
+
+    boolean isFilterSkipped();
+
+    void setFilterSkip(boolean skip);
+
+    boolean isRecovery();
+
+    void setRecovery(boolean recovery);
 }

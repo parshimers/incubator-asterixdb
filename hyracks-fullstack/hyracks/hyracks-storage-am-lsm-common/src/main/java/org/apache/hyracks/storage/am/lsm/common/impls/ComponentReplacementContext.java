@@ -214,6 +214,22 @@ public class ComponentReplacementContext implements ILSMIndexOperationContext {
         return false;
     }
 
+    @Override public boolean isFilterSkipped() {
+        return false;
+    }
+
+    @Override public void setFilterSkip(boolean skip) {
+        //not used in recovery
+    }
+
+    @Override public boolean isRecovery() {
+        return false;
+    }
+
+    @Override public void setRecovery(boolean recovery) {
+        //not used in recovery
+    }
+
     @Override
     public void destroy() throws HyracksDataException {
         // No Op.. Nothing to destroy

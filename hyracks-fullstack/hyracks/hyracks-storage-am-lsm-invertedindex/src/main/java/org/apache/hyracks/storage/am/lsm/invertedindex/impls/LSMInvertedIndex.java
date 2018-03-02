@@ -33,6 +33,7 @@ import org.apache.hyracks.storage.am.btree.impls.BTree;
 import org.apache.hyracks.storage.am.btree.impls.BTree.BTreeAccessor;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
 import org.apache.hyracks.storage.am.btree.util.BTreeUtils;
+import org.apache.hyracks.storage.am.common.api.IIndexExtendedAccessParameters;
 import org.apache.hyracks.storage.am.common.api.IIndexOperationContext;
 import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
@@ -432,11 +433,12 @@ public class LSMInvertedIndex extends AbstractLSMIndex implements IInvertedIndex
 
     @Override
     public ILSMIndexAccessor createAccessor(IIndexAccessParameters iap) throws HyracksDataException {
-        return new LSMInvertedIndexAccessor(getHarness(), createOpContext(iap));
+        return new LSMInvertedIndexAccessor(getHarness(), createOpContext((IIndexExtendedAccessParameters) iap));
     }
 
     @Override
-    protected LSMInvertedIndexOpContext createOpContext(IIndexAccessParameters iap) throws HyracksDataException {
+    protected LSMInvertedIndexOpContext createOpContext(IIndexExtendedAccessParameters iap)
+            throws HyracksDataException {
         return new LSMInvertedIndexOpContext(this, memoryComponents, iap, invertedIndexFieldsForNonBulkLoadOps,
                 filterFieldsForNonBulkLoadOps, getFilterCmpFactories(), tracer);
     }

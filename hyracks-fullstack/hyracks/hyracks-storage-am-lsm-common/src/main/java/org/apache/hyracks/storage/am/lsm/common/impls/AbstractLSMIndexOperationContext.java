@@ -23,6 +23,7 @@ import java.util.List;
 
 import org.apache.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.storage.am.common.api.IExtendedModificationOperationCallback;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
@@ -46,17 +47,20 @@ public abstract class AbstractLSMIndexOperationContext implements ILSMIndexOpera
     protected final List<ILSMDiskComponent> componentsToBeMerged;
     protected final List<ILSMDiskComponent> componentsToBeReplicated;
     protected final ISearchOperationCallback searchCallback;
-    protected final IModificationOperationCallback modificationCallback;
+    protected final IExtendedModificationOperationCallback modificationCallback;
     protected IndexOperation op;
     protected boolean accessingComponents = false;
     protected ISearchPredicate searchPredicate;
     protected final ITracer tracer;
     protected final long traceCategory;
     private long enterExitTime = 0L;
+    protected boolean skipFilter = false;
+    protected boolean recovery = false;
 
     public AbstractLSMIndexOperationContext(ILSMIndex index, int[] treeFields, int[] filterFields,
             IBinaryComparatorFactory[] filterCmpFactories, ISearchOperationCallback searchCallback,
-            IModificationOperationCallback modificationCallback, ITracer tracer) {
+            IExtendedModificationOperationCallback modificationCallback,
+            ITracer tracer) {
         this.index = index;
         this.searchCallback = searchCallback;
         this.modificationCallback = modificationCallback;
@@ -181,5 +185,25 @@ public abstract class AbstractLSMIndexOperationContext implements ILSMIndexOpera
     @Override
     public ILSMIndex getIndex() {
         return index;
+    }
+
+        @Override
+    public boolean isFilterSkipped() {
+        return skipFilter;
+    }
+
+    @Override
+    public void setFilterSkip(boolean skip) {
+        this.skipFilter = skip;
+    }
+
+    @Override
+    public boolean isRecovery() {
+        return recovery;
+    }
+
+    @Override
+    public void setRecovery(boolean recovery) {
+        this.recovery = recovery;
     }
 }

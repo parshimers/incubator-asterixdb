@@ -30,6 +30,7 @@ import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.btree.impls.BTree.BTreeAccessor;
 import org.apache.hyracks.storage.am.btree.impls.BTreeRangeSearchCursor;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
+import org.apache.hyracks.storage.am.common.api.IIndexExtendedAccessParameters;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.lsm.common.api.IComponentFilterHelper;
@@ -260,7 +261,7 @@ public class LSMRTreeWithAntiMatterTuples extends AbstractLSMRTree {
 
     @Override
     public ILSMIndexAccessor createAccessor(IIndexAccessParameters iap) {
-        LSMRTreeOpContext opCtx = createOpContext(iap);
+        LSMRTreeOpContext opCtx = createOpContext((IIndexExtendedAccessParameters) iap);
         return new LSMTreeIndexAccessor(getHarness(), opCtx, cursorFactory);
     }
 

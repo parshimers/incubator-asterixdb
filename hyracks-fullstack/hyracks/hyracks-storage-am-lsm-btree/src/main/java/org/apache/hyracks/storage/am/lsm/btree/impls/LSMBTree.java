@@ -32,6 +32,7 @@ import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.btree.impls.BTree;
 import org.apache.hyracks.storage.am.btree.impls.BTree.BTreeAccessor;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
+import org.apache.hyracks.storage.am.common.api.IIndexExtendedAccessParameters;
 import org.apache.hyracks.storage.am.common.api.IIndexOperationContext;
 import org.apache.hyracks.storage.am.common.api.IPageManager;
 import org.apache.hyracks.storage.am.common.api.ITreeIndex;
@@ -391,7 +392,7 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
     }
 
     @Override
-    public LSMBTreeOpContext createOpContext(IIndexAccessParameters iap) {
+    public LSMBTreeOpContext createOpContext(IIndexExtendedAccessParameters iap) {
         int numBloomFilterKeyFields = hasBloomFilter
                 ? ((LSMBTreeWithBloomFilterDiskComponentFactory) componentFactory).getBloomFilterKeyFields().length : 0;
         return new LSMBTreeOpContext(this, memoryComponents, insertLeafFrameFactory, deleteLeafFrameFactory,
@@ -401,7 +402,7 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
 
     @Override
     public ILSMIndexAccessor createAccessor(IIndexAccessParameters iap) {
-        return createAccessor(createOpContext(iap));
+        return createAccessor(createOpContext((IIndexExtendedAccessParameters) iap));
     }
 
     public ILSMIndexAccessor createAccessor(AbstractLSMIndexOperationContext opCtx) {

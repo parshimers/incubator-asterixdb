@@ -24,6 +24,7 @@ import java.util.List;
 import org.apache.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.util.CleanupUtils;
+import org.apache.hyracks.storage.am.common.api.IIndexExtendedAccessParameters;
 import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
@@ -52,7 +53,8 @@ public class LSMInvertedIndexOpContext extends AbstractLSMIndexOperationContext 
     private boolean destroyed = false;
 
     public LSMInvertedIndexOpContext(ILSMIndex index, List<ILSMMemoryComponent> mutableComponents,
-            IIndexAccessParameters iap, int[] invertedIndexFields, int[] filterFields,
+            IIndexExtendedAccessParameters iap, int[] invertedIndexFields,
+            int[] filterFields,
             IBinaryComparatorFactory[] filterComparatorFactories, ITracer tracer) throws HyracksDataException {
         super(index, invertedIndexFields, filterFields, filterComparatorFactories, iap.getSearchOperationCallback(),
                 iap.getModificationCallback(), tracer);

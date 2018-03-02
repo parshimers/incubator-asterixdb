@@ -21,11 +21,14 @@ package org.apache.hyracks.storage.am.common.impls;
 import java.util.Collections;
 import java.util.Map;
 
+import org.apache.hyracks.storage.am.common.api.IExtendedModificationOperationCallback;
+import org.apache.hyracks.storage.am.common.api.IIndexExtendedAccessParameters;
 import org.apache.hyracks.storage.common.IIndexAccessParameters;
 import org.apache.hyracks.storage.common.IModificationOperationCallback;
 import org.apache.hyracks.storage.common.ISearchOperationCallback;
 
-public class NoOpIndexAccessParameters implements IIndexAccessParameters {
+public class NoOpIndexAccessParameters implements
+        IIndexExtendedAccessParameters {
     public static final NoOpIndexAccessParameters INSTANCE = new NoOpIndexAccessParameters();
     // Immutable empty map not to cause getParameters().get() generate an exception
     private static final Map<String, Object> paramMap = Collections.emptyMap();
@@ -34,7 +37,7 @@ public class NoOpIndexAccessParameters implements IIndexAccessParameters {
     }
 
     @Override
-    public IModificationOperationCallback getModificationCallback() {
+    public IExtendedModificationOperationCallback getModificationCallback() {
         return NoOpOperationCallback.INSTANCE;
     }
 

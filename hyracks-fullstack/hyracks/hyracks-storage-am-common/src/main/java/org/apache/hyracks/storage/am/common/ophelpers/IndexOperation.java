@@ -25,6 +25,7 @@ public enum IndexOperation {
     DELETE,
     UPDATE,
     UPSERT,
+    FILTER_MOD,
     SEARCH,
     DISKORDERSCAN,
     PHYSICALDELETE,
