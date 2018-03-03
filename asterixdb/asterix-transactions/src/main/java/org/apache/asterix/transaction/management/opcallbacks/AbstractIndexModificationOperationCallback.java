@@ -134,6 +134,7 @@ public abstract class AbstractIndexModificationOperationCallback extends Abstrac
             txnSubsystem.getLogManager().log(filterRecord);
         }
     }
+
     /**
      * This call specifies the next operation to be performed. It is used to allow
      * a single operator to perform different operations per tuple

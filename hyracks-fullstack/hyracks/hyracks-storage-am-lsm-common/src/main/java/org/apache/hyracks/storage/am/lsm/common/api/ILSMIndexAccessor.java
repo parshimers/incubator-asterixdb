@@ -264,10 +264,10 @@ public interface ILSMIndexAccessor extends IIndexAccessor {
      */
     void deleteComponents(Predicate<ILSMComponent> predicate) throws HyracksDataException;
 
-     /**
-     * Update the filter of an LSM index
-     * @param tuple
-     * @throws HyracksDataException
-     */
+    /**
+    * Update the filter of an LSM index
+    * @param tuple
+    * @throws HyracksDataException
+    */
     void updateFilter(ITupleReference tuple) throws HyracksDataException;
 }

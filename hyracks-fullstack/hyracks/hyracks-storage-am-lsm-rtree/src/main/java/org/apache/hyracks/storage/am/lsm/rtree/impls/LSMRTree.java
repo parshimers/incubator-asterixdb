@@ -33,7 +33,6 @@ import org.apache.hyracks.data.std.primitive.IntegerPointable;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.btree.impls.BTree.BTreeAccessor;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
-import org.apache.hyracks.storage.am.common.api.IIndexExtendedAccessParameters;
 import org.apache.hyracks.storage.am.common.api.IIndexOperationContext;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
@@ -375,8 +374,7 @@ public class LSMRTree extends AbstractLSMRTree {
 
     @Override
     public ILSMIndexAccessor createAccessor(IIndexAccessParameters iap) {
-        return new LSMRTreeAccessor(getHarness(), createOpContext((IIndexExtendedAccessParameters) iap),
-                buddyBTreeFields);
+        return new LSMRTreeAccessor(getHarness(), createOpContext(iap), buddyBTreeFields);
     }
 
     // This function is modified for R-Trees without antimatter tuples to allow buddy B-Tree to have only primary keys

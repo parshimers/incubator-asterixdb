@@ -71,8 +71,7 @@ public final class LSMBTreeOpContext extends AbstractLSMIndexOperationContext {
 
     public LSMBTreeOpContext(ILSMIndex index, List<ILSMMemoryComponent> mutableComponents,
             ITreeIndexFrameFactory insertLeafFrameFactory, ITreeIndexFrameFactory deleteLeafFrameFactory,
-            IExtendedModificationOperationCallback modificationCallback,
-            ISearchOperationCallback searchCallback,
+            IExtendedModificationOperationCallback modificationCallback, ISearchOperationCallback searchCallback,
             int numBloomFilterKeyFields, int[] btreeFields, int[] filterFields, ILSMHarness lsmHarness,
             IBinaryComparatorFactory[] filterCmpFactories, ITracer tracer) {
         super(index, btreeFields, filterFields, filterCmpFactories, searchCallback, modificationCallback, tracer);

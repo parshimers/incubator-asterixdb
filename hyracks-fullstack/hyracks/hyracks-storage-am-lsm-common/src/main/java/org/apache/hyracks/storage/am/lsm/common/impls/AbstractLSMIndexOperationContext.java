@@ -59,8 +59,7 @@ public abstract class AbstractLSMIndexOperationContext implements ILSMIndexOpera
 
     public AbstractLSMIndexOperationContext(ILSMIndex index, int[] treeFields, int[] filterFields,
             IBinaryComparatorFactory[] filterCmpFactories, ISearchOperationCallback searchCallback,
-            IExtendedModificationOperationCallback modificationCallback,
-            ITracer tracer) {
+            IExtendedModificationOperationCallback modificationCallback, ITracer tracer) {
         this.index = index;
         this.searchCallback = searchCallback;
         this.modificationCallback = modificationCallback;
@@ -187,7 +186,7 @@ public abstract class AbstractLSMIndexOperationContext implements ILSMIndexOpera
         return index;
     }
 
-        @Override
+    @Override
     public boolean isFilterSkipped() {
         return skipFilter;
     }

@@ -36,7 +36,6 @@ import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.api.replication.IReplicationJob.ReplicationExecutionType;
 import org.apache.hyracks.api.replication.IReplicationJob.ReplicationOperation;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
-import org.apache.hyracks.storage.am.common.api.IIndexExtendedAccessParameters;
 import org.apache.hyracks.storage.am.common.impls.AbstractSearchPredicate;
 import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
@@ -759,8 +758,7 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
     protected abstract LSMComponentFileReferences getMergeFileReferences(ILSMDiskComponent firstComponent,
             ILSMDiskComponent lastComponent) throws HyracksDataException;
 
-    protected abstract AbstractLSMIndexOperationContext createOpContext
-            (IIndexExtendedAccessParameters iap)
+    protected abstract AbstractLSMIndexOperationContext createOpContext(IIndexAccessParameters iap)
             throws HyracksDataException;
 
     protected abstract ILSMIOOperation createFlushOperation(AbstractLSMIndexOperationContext opCtx,

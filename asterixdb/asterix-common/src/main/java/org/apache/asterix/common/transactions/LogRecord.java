@@ -144,7 +144,7 @@ public class LogRecord implements ILogRecord {
                     writeTuple(buffer, oldValue, oldValueSize);
                 }
                 break;
-           case LogType.FILTER:
+            case LogType.FILTER:
                 writeEntityResource(buffer);
                 buffer.putLong(resourceId);
                 buffer.putInt(logSize);
@@ -184,6 +184,7 @@ public class LogRecord implements ILogRecord {
         buffer.putInt(resourcePartition);
         buffer.putInt(datasetId);
     }
+
     @Override
     public void writeLogRecord(ByteBuffer buffer) {
         int beginOffset = buffer.position();
