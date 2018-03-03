@@ -3538,6 +3538,11 @@
   </test-group>
   <test-group name="misc">
     <test-case FilePath="misc">
+      <compilation-unit name="poll-dynamic">
+        <output-dir compare="Text">poll-dynamic</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="misc">
       <compilation-unit name="validate-expected">
         <output-dir compare="Text">validate-expected</output-dir>
       </compilation-unit>
@@ -5412,6 +5417,11 @@
         <output-dir compare="Text">query-ASTERIXDB-1674</output-dir>
       </compilation-unit>
     </test-case>
+    <test-case FilePath="quantifiers">
+        <compilation-unit name="query-ASTERIXDB-2307">
+        <output-dir compare="Text">query-ASTERIXDB-2307</output-dir>
+      </compilation-unit>
+    </test-case>
     <!--
         <test-case FilePath="quantifiers">
           <compilation-unit name="everysat_02">
@@ -6443,6 +6453,11 @@
     <test-case FilePath="string">
       <compilation-unit name="varlen-encoding">
         <output-dir compare="Text">varlen-encoding</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="string">
+      <compilation-unit name="utf8">
+        <output-dir compare="Text">utf8</output-dir>
       </compilation-unit>
     </test-case>
   </test-group>
