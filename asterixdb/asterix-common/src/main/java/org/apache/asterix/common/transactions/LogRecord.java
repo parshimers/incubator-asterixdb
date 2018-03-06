@@ -292,12 +292,7 @@ public class LogRecord implements ILogRecord {
                 break;
             case LogType.UPDATE:
                 if (readEntityResource(buffer) && readEntityValue(buffer)) {
-                    RecordReadStatus updStatus = readUpdateInfo(buffer);
-                    if (updStatus != RecordReadStatus.OK) {
-                        return updStatus;
-                    } else {
-                        return RecordReadStatus.TRUNCATED;
-                    }
+                    return readUpdateInfo(buffer);
                 }
                 break;
             case LogType.MARKER:
