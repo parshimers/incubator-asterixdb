@@ -29,6 +29,7 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentIdGenerator;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperation.LSMIOOperationType;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMMemoryComponent;
 import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMMemoryComponent;
 import org.apache.hyracks.storage.am.lsm.common.impls.DiskComponentMetadata;
@@ -49,24 +50,30 @@ public abstract class AbstractLSMIOOperationCallbackTest extends TestCase {
         Mockito.when(mockIndex.getCurrentMemoryComponent()).thenReturn(Mockito.mock(AbstractLSMMemoryComponent.class));
         LSMBTreeIOOperationCallback callback = new LSMBTreeIOOperationCallback(mockIndex, new LSMComponentIdGenerator(),
                 mockIndexCheckpointManagerProvider());
+        ILSMIndexOperationContext firstOpCtx = new TestLSMIndexOperationContext(mockIndex);
 
         //request to flush first component
         callback.updateLastLSN(1);
-        callback.beforeOperation(LSMIOOperationType.FLUSH);
+        firstOpCtx.setIoOperationType(LSMIOOperationType.FLUSH);
+        callback.beforeOperation(firstOpCtx);
 
+        ILSMIndexOperationContext secondOpCtx = new TestLSMIndexOperationContext(mockIndex);
         //request to flush second component
         callback.updateLastLSN(2);
-        callback.beforeOperation(LSMIOOperationType.FLUSH);
+        secondOpCtx.setIoOperationType(LSMIOOperationType.FLUSH);
+        callback.beforeOperation(secondOpCtx);
 
         Assert.assertEquals(1, callback.getComponentLSN(null));
         final ILSMDiskComponent diskComponent1 = mockDiskComponent();
-        callback.afterOperation(LSMIOOperationType.FLUSH, null, diskComponent1);
-        callback.afterFinalize(LSMIOOperationType.FLUSH, diskComponent1);
+        firstOpCtx.setNewComponent(diskComponent1);
+        callback.afterOperation(firstOpCtx);
+        callback.afterFinalize(firstOpCtx);
 
         Assert.assertEquals(2, callback.getComponentLSN(null));
         final ILSMDiskComponent diskComponent2 = mockDiskComponent();
-        callback.afterOperation(LSMIOOperationType.FLUSH, null, diskComponent2);
-        callback.afterFinalize(LSMIOOperationType.FLUSH, diskComponent2);
+        secondOpCtx.setNewComponent(diskComponent2);
+        callback.afterOperation(secondOpCtx);
+        callback.afterFinalize(secondOpCtx);
     }
 
     @Test
@@ -74,17 +81,20 @@ public abstract class AbstractLSMIOOperationCallbackTest extends TestCase {
         ILSMIndex mockIndex = Mockito.mock(ILSMIndex.class);
         Mockito.when(mockIndex.getNumberOfAllMemoryComponents()).thenReturn(2);
         Mockito.when(mockIndex.getCurrentMemoryComponent()).thenReturn(Mockito.mock(AbstractLSMMemoryComponent.class));
-
         LSMBTreeIOOperationCallback callback = new LSMBTreeIOOperationCallback(mockIndex, new LSMComponentIdGenerator(),
                 mockIndexCheckpointManagerProvider());
 
         //request to flush first component
+        ILSMIndexOperationContext firstOpCtx = new TestLSMIndexOperationContext(mockIndex);
         callback.updateLastLSN(1);
-        callback.beforeOperation(LSMIOOperationType.FLUSH);
+        firstOpCtx.setIoOperationType(LSMIOOperationType.FLUSH);
+        callback.beforeOperation(firstOpCtx);
 
         //request to flush second component
+        ILSMIndexOperationContext secondOpCtx = new TestLSMIndexOperationContext(mockIndex);
         callback.updateLastLSN(2);
-        callback.beforeOperation(LSMIOOperationType.FLUSH);
+        secondOpCtx.setIoOperationType(LSMIOOperationType.FLUSH);
+        callback.beforeOperation(secondOpCtx);
 
         //request to flush first component again
         //this call should fail
@@ -94,12 +104,14 @@ public abstract class AbstractLSMIOOperationCallbackTest extends TestCase {
 
         Assert.assertEquals(1, callback.getComponentLSN(null));
         final ILSMDiskComponent diskComponent1 = mockDiskComponent();
-        callback.afterOperation(LSMIOOperationType.FLUSH, null, diskComponent1);
-        callback.afterFinalize(LSMIOOperationType.FLUSH, diskComponent1);
+        firstOpCtx.setNewComponent(diskComponent1);
+        callback.afterOperation(firstOpCtx);
+        callback.afterFinalize(firstOpCtx);
         final ILSMDiskComponent diskComponent2 = mockDiskComponent();
+        secondOpCtx.setNewComponent(diskComponent2);
         Assert.assertEquals(2, callback.getComponentLSN(null));
-        callback.afterOperation(LSMIOOperationType.FLUSH, null, diskComponent2);
-        callback.afterFinalize(LSMIOOperationType.FLUSH, diskComponent2);
+        callback.afterOperation(secondOpCtx);
+        callback.afterFinalize(secondOpCtx);
     }
 
     @Test
@@ -111,30 +123,36 @@ public abstract class AbstractLSMIOOperationCallbackTest extends TestCase {
         LSMBTreeIOOperationCallback callback = new LSMBTreeIOOperationCallback(mockIndex, new LSMComponentIdGenerator(),
                 mockIndexCheckpointManagerProvider());
         //request to flush first component
+        ILSMIndexOperationContext firstOpCtx = new TestLSMIndexOperationContext(mockIndex);
         callback.updateLastLSN(1);
-        callback.beforeOperation(LSMIOOperationType.FLUSH);
+        firstOpCtx.setIoOperationType(LSMIOOperationType.FLUSH);
+        callback.beforeOperation(firstOpCtx);
 
         //request to flush second component
+        ILSMIndexOperationContext secondOpCtx = new TestLSMIndexOperationContext(mockIndex);
         callback.updateLastLSN(2);
-        callback.beforeOperation(LSMIOOperationType.FLUSH);
+        secondOpCtx.setIoOperationType(LSMIOOperationType.FLUSH);
+        callback.beforeOperation(secondOpCtx);
 
         Assert.assertEquals(1, callback.getComponentLSN(null));
 
         // the first flush is finished, but has not finalized yet (in codebase, these two calls
         // are not synchronized)
-        callback.afterOperation(LSMIOOperationType.FLUSH, null, mockDiskComponent());
+        firstOpCtx.setNewComponent(mockDiskComponent());
+        callback.afterOperation(firstOpCtx);
 
         //request to flush first component again
         callback.updateLastLSN(3);
 
         // the first flush is finalized (it may be called after afterOperation for a while)
-        callback.afterFinalize(LSMIOOperationType.FLUSH, mockDiskComponent());
+        callback.afterFinalize(firstOpCtx);
 
         // the second flush gets LSN 2
         Assert.assertEquals(2, callback.getComponentLSN(null));
         // the second flush is finished
-        callback.afterOperation(LSMIOOperationType.FLUSH, null, mockDiskComponent());
-        callback.afterFinalize(LSMIOOperationType.FLUSH, mockDiskComponent());
+        secondOpCtx.setNewComponent(mockDiskComponent());
+        callback.afterOperation(secondOpCtx);
+        callback.afterFinalize(secondOpCtx);
 
         // it should get new LSN 3
         Assert.assertEquals(3, callback.getComponentLSN(null));
@@ -179,14 +197,14 @@ public abstract class AbstractLSMIOOperationCallbackTest extends TestCase {
             // schedule a flush
             idGenerator.refresh();
             ILSMComponentId expectedId = idGenerator.getId();
-
             callback.updateLastLSN(0);
-            callback.beforeOperation(LSMIOOperationType.FLUSH);
+            ILSMIndexOperationContext opCtx = new TestLSMIndexOperationContext(mockIndex);
+            opCtx.setIoOperationType(LSMIOOperationType.FLUSH);
+            callback.beforeOperation(opCtx);
             callback.recycled(mockComponent, true);
-
-            final ILSMDiskComponent diskComponent = mockDiskComponent();
-            callback.afterOperation(LSMIOOperationType.FLUSH, null, diskComponent);
-            callback.afterFinalize(LSMIOOperationType.FLUSH, diskComponent);
+            opCtx.setNewComponent(mockDiskComponent());
+            callback.afterOperation(opCtx);
+            callback.afterFinalize(opCtx);
             checkMemoryComponent(expectedId, mockComponent);
         }
     }
@@ -200,19 +218,19 @@ public abstract class AbstractLSMIOOperationCallbackTest extends TestCase {
         Mockito.when(mockIndex.getCurrentMemoryComponent()).thenReturn(mockComponent);
         LSMBTreeIOOperationCallback callback =
                 new LSMBTreeIOOperationCallback(mockIndex, idGenerator, mockIndexCheckpointManagerProvider());
-
         ILSMComponentId id = idGenerator.getId();
         callback.allocated(mockComponent);
         checkMemoryComponent(id, mockComponent);
-
         Mockito.when(mockIndex.isMemoryComponentsAllocated()).thenReturn(true);
-
         for (int i = 0; i < 10; i++) {
             idGenerator.refresh();
             id = idGenerator.getId();
             callback.updateLastLSN(0);
+            // Huh! There is no beforeOperation?
+            ILSMIndexOperationContext opCtx = new TestLSMIndexOperationContext(mockIndex);
+            opCtx.setIoOperationType(LSMIOOperationType.FLUSH);
             callback.recycled(mockComponent, false);
-            callback.afterFinalize(LSMIOOperationType.FLUSH, null);
+            callback.afterFinalize(opCtx);
             checkMemoryComponent(id, mockComponent);
         }
     }
@@ -238,10 +256,12 @@ public abstract class AbstractLSMIOOperationCallbackTest extends TestCase {
         ILSMComponentId expectedId = idGenerator.getId();
 
         callback.updateLastLSN(0);
-        callback.beforeOperation(LSMIOOperationType.FLUSH);
-        final ILSMDiskComponent diskComponent = mockDiskComponent();
-        callback.afterOperation(LSMIOOperationType.FLUSH, null, diskComponent);
-        callback.afterFinalize(LSMIOOperationType.FLUSH, diskComponent);
+        ILSMIndexOperationContext firstOpCtx = new TestLSMIndexOperationContext(mockIndex);
+        firstOpCtx.setIoOperationType(LSMIOOperationType.FLUSH);
+        callback.beforeOperation(firstOpCtx);
+        firstOpCtx.setNewComponent(mockDiskComponent());
+        callback.afterOperation(firstOpCtx);
+        callback.afterFinalize(firstOpCtx);
 
         // another flush is to be scheduled before the component is recycled
         idGenerator.refresh();
@@ -253,10 +273,12 @@ public abstract class AbstractLSMIOOperationCallbackTest extends TestCase {
 
         // schedule the next flush
         callback.updateLastLSN(0);
-        callback.beforeOperation(LSMIOOperationType.FLUSH);
-        final ILSMDiskComponent diskComponent2 = mockDiskComponent();
-        callback.afterOperation(LSMIOOperationType.FLUSH, null, diskComponent2);
-        callback.afterFinalize(LSMIOOperationType.FLUSH, diskComponent2);
+        ILSMIndexOperationContext secondOpCtx = new TestLSMIndexOperationContext(mockIndex);
+        secondOpCtx.setIoOperationType(LSMIOOperationType.FLUSH);
+        callback.beforeOperation(secondOpCtx);
+        secondOpCtx.setNewComponent(mockDiskComponent());
+        callback.afterOperation(secondOpCtx);
+        callback.afterFinalize(secondOpCtx);
         callback.recycled(mockComponent, true);
         checkMemoryComponent(nextId, mockComponent);
     }

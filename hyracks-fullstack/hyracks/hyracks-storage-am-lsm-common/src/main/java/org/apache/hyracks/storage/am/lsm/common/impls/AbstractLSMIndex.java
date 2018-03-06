@@ -406,8 +406,10 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
 
     public IIndexBulkLoader createBulkLoader(float fillLevel, boolean verifyInput, long numElementsHint)
             throws HyracksDataException {
-        ioOpCallback.beforeOperation(LSMIOOperationType.LOAD);
-        return new LSMIndexDiskComponentBulkLoader(this, fillLevel, verifyInput, numElementsHint);
+        AbstractLSMIndexOperationContext opCtx = createOpContext(NoOpIndexAccessParameters.INSTANCE);
+        opCtx.setIoOperationType(LSMIOOperationType.LOAD);
+        ioOpCallback.beforeOperation(opCtx);
+        return new LSMIndexDiskComponentBulkLoader(this, opCtx, fillLevel, verifyInput, numElementsHint);
     }
 
     @Override
