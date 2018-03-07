@@ -74,6 +74,8 @@ public class CommonFunctionMapUtil {
         FUNCTION_NAME_MAP.put("tostring", "to-string"); // tostring, internal: to-string
         FUNCTION_NAME_MAP.put("todouble", "to-double"); // todouble, internal: to-double
         FUNCTION_NAME_MAP.put("tobigint", "to-bigint"); // tobigint, internal: to-bigint
+        FUNCTION_NAME_MAP.put("tonumber", "to-number"); // tonumber, internal: to-number
+        FUNCTION_NAME_MAP.put("tonum", "to-number"); // tonum, internal: to-number
 
         // Object functions
         // record-merge, internal: object-merge
@@ -88,6 +90,9 @@ public class CommonFunctionMapUtil {
         FUNCTION_NAME_MAP.put("record-add-fields", "object-add-fields");
         // record-remove-fields, internal: object-remove-fields
         FUNCTION_NAME_MAP.put("record-remove-fields", "object-remove-fields");
+
+        // Array/Mutliset functions
+        FUNCTION_NAME_MAP.put("array_length", "len");
     }
 
     private CommonFunctionMapUtil() {

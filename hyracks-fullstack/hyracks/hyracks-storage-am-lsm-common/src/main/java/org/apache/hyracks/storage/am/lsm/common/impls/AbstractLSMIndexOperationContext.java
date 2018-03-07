@@ -28,6 +28,7 @@ import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponent;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperation.LSMIOOperationType;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
 import org.apache.hyracks.storage.common.IModificationOperationCallback;
@@ -56,6 +57,8 @@ public abstract class AbstractLSMIndexOperationContext implements ILSMIndexOpera
     private long enterExitTime = 0L;
     protected boolean skipFilter = false;
     protected boolean recovery = false;
+    private LSMIOOperationType ioOpType = LSMIOOperationType.NOOP;
+    private ILSMDiskComponent newDiskComponent;
 
     public AbstractLSMIndexOperationContext(ILSMIndex index, int[] treeFields, int[] filterFields,
             IBinaryComparatorFactory[] filterCmpFactories, ISearchOperationCallback searchCallback,
@@ -204,5 +207,24 @@ public abstract class AbstractLSMIndexOperationContext implements ILSMIndexOpera
     @Override
     public void setRecovery(boolean recovery) {
         this.recovery = recovery;
+    }
+
+    public LSMIOOperationType getIoOperationType() {
+        return ioOpType;
+    }
+
+    @Override
+    public void setIoOperationType(LSMIOOperationType ioOpType) {
+        this.ioOpType = ioOpType;
+    }
+
+    @Override
+    public ILSMDiskComponent getNewComponent() {
+        return newDiskComponent;
+    }
+
+    @Override
+    public void setNewComponent(ILSMDiskComponent component) {
+        this.newDiskComponent = component;
     }
 }

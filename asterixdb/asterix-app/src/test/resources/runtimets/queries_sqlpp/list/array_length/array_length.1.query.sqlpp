@@ -16,28 +16,12 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.asterix.common.api;
 
-import java.util.concurrent.Callable;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ThreadFactory;
-
-public class ThreadExecutor implements Executor {
-    private final ExecutorService executorService;
-
-    public ThreadExecutor(ThreadFactory threadFactory) {
-        executorService = Executors.newCachedThreadPool(threadFactory);
-    }
-
-    @Override
-    public void execute(Runnable command) {
-        executorService.execute(command);
-    }
-
-    public <T> Future<T> submit(Callable<T> command) {
-        return executorService.submit(command);
-    }
-}
+[
+  is_missing(array_length(missing)),
+  is_null(array_length(null)),
+  array_length([]),
+  array_length([2]),
+  array_length([2,3]),
+  array_length([2,3,4])
+]
