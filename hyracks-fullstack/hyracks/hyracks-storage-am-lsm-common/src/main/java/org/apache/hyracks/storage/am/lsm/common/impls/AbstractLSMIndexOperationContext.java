@@ -128,7 +128,7 @@ public abstract class AbstractLSMIndexOperationContext implements ILSMIndexOpera
     }
 
     @Override
-    public IModificationOperationCallback getModificationCallback() {
+    public IExtendedModificationOperationCallback getModificationCallback() {
         return modificationCallback;
     }
 

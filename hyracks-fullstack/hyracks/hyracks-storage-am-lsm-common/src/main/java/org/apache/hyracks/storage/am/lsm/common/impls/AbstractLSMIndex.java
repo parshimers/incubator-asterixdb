@@ -659,12 +659,16 @@ public abstract class AbstractLSMIndex implements ILSMIndex {
 
     @Override
     public void updateFilter(ILSMIndexOperationContext ctx, ITupleReference tuple) throws HyracksDataException {
-        if (ctx.getFilterTuple() != null) {
-            ctx.getFilterTuple().reset(tuple);
-            memoryComponents.get(currentMutableComponentId.get()).getLSMComponentFilter().update(ctx.getFilterTuple(),
-                    ctx.getFilterCmp());
-        }
-    }
+       if (ctx.getFilterTuple() != null && !ctx.isFilterSkipped()) {
+            if (ctx.isRecovery()) {
+                memoryComponents.get(currentMutableComponentId.get()).getLSMComponentFilter().update(tuple,
+                        ctx.getFilterCmp(), ctx.getModificationCallback());
+            } else {
+                ctx.getFilterTuple().reset(tuple);
+                memoryComponents.get(currentMutableComponentId.get()).getLSMComponentFilter()
+                        .update(ctx.getFilterTuple(), ctx.getFilterCmp(), ctx.getModificationCallback());
+            }
+        }    }
 
     public int[] getFilterFields() {
         return filterFields;

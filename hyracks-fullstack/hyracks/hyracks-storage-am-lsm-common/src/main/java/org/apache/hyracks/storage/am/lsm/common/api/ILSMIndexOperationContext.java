@@ -20,6 +20,7 @@ package org.apache.hyracks.storage.am.lsm.common.api;
 
 import java.util.List;
 
+import org.apache.hyracks.storage.am.common.api.IExtendedModificationOperationCallback;
 import org.apache.hyracks.storage.am.common.api.IIndexOperationContext;
 import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import org.apache.hyracks.storage.common.IModificationOperationCallback;
@@ -34,7 +35,7 @@ public interface ILSMIndexOperationContext extends IIndexOperationContext {
 
     ISearchOperationCallback getSearchOperationCallback();
 
-    IModificationOperationCallback getModificationCallback();
+    IExtendedModificationOperationCallback getModificationCallback();
 
     void setCurrentMutableComponentId(int currentMutableComponentId);
 

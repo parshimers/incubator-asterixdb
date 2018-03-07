@@ -222,6 +222,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                 case LogType.FLUSH:
                 case LogType.WAIT:
                 case LogType.MARKER:
+                case LogType.FILTER:
                     break;
                 default:
                     throw new ACIDException("Unsupported LogType: " + logRecord.getLogType());

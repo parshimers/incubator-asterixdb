@@ -44,8 +44,8 @@ public abstract class AbstractIndexModificationOperationCallback extends Abstrac
     public enum Operation {
         INSERT(INSERT_BYTE),
         DELETE(DELETE_BYTE),
-        FILTER_MOD(FILTER_BYTE),
-        UPSERT(UPSERT_BYTE);
+        UPSERT(UPSERT_BYTE),
+        FILTER_MOD(FILTER_BYTE);
 
         private byte value;
 

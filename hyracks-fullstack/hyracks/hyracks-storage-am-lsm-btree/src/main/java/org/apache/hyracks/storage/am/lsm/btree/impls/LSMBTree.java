@@ -38,6 +38,7 @@ import org.apache.hyracks.storage.am.common.api.IPageManager;
 import org.apache.hyracks.storage.am.common.api.ITreeIndex;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
+import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.lsm.btree.tuples.LSMBTreeTupleReference;
 import org.apache.hyracks.storage.am.lsm.common.api.AbstractLSMWithBloomFilterDiskComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.IComponentFilterHelper;
@@ -303,7 +304,8 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
             List<ITupleReference> filterTuples = new ArrayList<>();
             filterTuples.add(flushingComponent.getLSMComponentFilter().getMinTuple());
             filterTuples.add(flushingComponent.getLSMComponentFilter().getMaxTuple());
-            getFilterManager().updateFilter(component.getLSMComponentFilter(), filterTuples);
+            getFilterManager().updateFilter(component.getLSMComponentFilter(), filterTuples,
+                    NoOpOperationCallback.INSTANCE);
             getFilterManager().writeFilter(component.getLSMComponentFilter(), component.getMetadataHolder());
         }
         // Write metadata from memory component to disk
@@ -353,7 +355,8 @@ public class LSMBTree extends AbstractLSMIndex implements ITreeIndex {
                     filterTuples.add(mergeOp.getMergingComponents().get(i).getLSMComponentFilter().getMinTuple());
                     filterTuples.add(mergeOp.getMergingComponents().get(i).getLSMComponentFilter().getMaxTuple());
                 }
-                getFilterManager().updateFilter(mergedComponent.getLSMComponentFilter(), filterTuples);
+                getFilterManager().updateFilter(mergedComponent.getLSMComponentFilter(), filterTuples,
+                        NoOpOperationCallback.INSTANCE);
                 getFilterManager().writeFilter(mergedComponent.getLSMComponentFilter(),
                         mergedComponent.getMetadataHolder());
             }

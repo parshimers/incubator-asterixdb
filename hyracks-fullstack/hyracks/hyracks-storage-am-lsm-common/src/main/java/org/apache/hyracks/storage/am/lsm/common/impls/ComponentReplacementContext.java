@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.storage.am.common.api.IExtendedModificationOperationCallback;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
@@ -90,7 +91,7 @@ public class ComponentReplacementContext implements ILSMIndexOperationContext {
     }
 
     @Override
-    public IModificationOperationCallback getModificationCallback() {
+    public IExtendedModificationOperationCallback getModificationCallback() {
         return null;
     }
 
