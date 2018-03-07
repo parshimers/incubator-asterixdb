@@ -45,8 +45,7 @@ public class LSMComponentFilterManager implements ILSMComponentFilterManager {
 
     @Override
     public void updateFilter(ILSMComponentFilter filter, List<ITupleReference> filterTuples,
-            IExtendedModificationOperationCallback opCallback)
-            throws HyracksDataException {
+            IExtendedModificationOperationCallback opCallback) throws HyracksDataException {
         MultiComparator filterCmp = MultiComparator.create(filter.getFilterCmpFactories());
         for (ITupleReference tuple : filterTuples) {
             filter.update(tuple, filterCmp, opCallback);
