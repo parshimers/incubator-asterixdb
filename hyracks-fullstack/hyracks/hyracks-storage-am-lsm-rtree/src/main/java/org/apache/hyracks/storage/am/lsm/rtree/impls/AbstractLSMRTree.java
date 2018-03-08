@@ -230,7 +230,7 @@ public abstract class AbstractLSMRTree extends AbstractLSMIndex implements ITree
     @Override
     protected LSMRTreeOpContext createOpContext(IIndexAccessParameters iap) {
         return new LSMRTreeOpContext(this, memoryComponents, rtreeLeafFrameFactory, rtreeInteriorFrameFactory,
-                btreeLeafFrameFactory, ((IExtendedModificationOperationCallback) iap.getModificationCallback()),
+                btreeLeafFrameFactory, (IExtendedModificationOperationCallback) iap.getModificationCallback(),
                 iap.getSearchOperationCallback(), getTreeFields(), getFilterFields(), getHarness(), comparatorFields,
                 linearizerArray, getFilterCmpFactories(), tracer);
     }
