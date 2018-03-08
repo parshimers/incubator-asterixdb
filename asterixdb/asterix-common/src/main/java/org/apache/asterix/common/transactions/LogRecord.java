@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.CRC32;
 
 import org.apache.asterix.common.context.PrimaryIndexOperationTracker;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.common.tuples.SimpleTupleReference;
 import org.apache.hyracks.storage.am.common.tuples.SimpleTupleWriter;
@@ -293,8 +294,9 @@ public class LogRecord implements ILogRecord {
             case LogType.UPDATE:
                 if (readEntityResource(buffer) && readEntityValue(buffer)) {
                     return readUpdateInfo(buffer);
+                } else {
+                    return RecordReadStatus.TRUNCATED;
                 }
-                break;
             case LogType.MARKER:
                 if (buffer.remaining() < DS_LEN + RS_PARTITION_LEN + PRVLSN_LEN + LOGRCD_SZ_LEN) {
                     return RecordReadStatus.TRUNCATED;
@@ -320,8 +322,9 @@ public class LogRecord implements ILogRecord {
             case LogType.FILTER:
                 if (readEntityResource(buffer)) {
                     return readUpdateInfo(buffer);
+                } else {
+                    return RecordReadStatus.TRUNCATED;
                 }
-                break;
             default:
                 break;
         }
