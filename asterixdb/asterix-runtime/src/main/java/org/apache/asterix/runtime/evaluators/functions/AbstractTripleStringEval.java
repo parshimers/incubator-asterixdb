@@ -20,7 +20,6 @@
 package org.apache.asterix.runtime.evaluators.functions;
 
 import java.io.DataOutput;
-import java.io.IOException;
 
 import org.apache.asterix.runtime.exceptions.TypeMismatchException;
 import org.apache.asterix.om.types.ATypeTag;
@@ -43,9 +42,9 @@ abstract class AbstractTripleStringEval implements IScalarEvaluator {
     private IScalarEvaluator eval2;
 
     // Argument pointables.
-    private IPointable argPtrFirst = new VoidPointable();
-    private IPointable argPtrSecond = new VoidPointable();
-    private IPointable argPtrThird = new VoidPointable();
+    final IPointable argPtrFirst = new VoidPointable();
+    final IPointable argPtrSecond = new VoidPointable();
+    final IPointable argPtrThird = new VoidPointable();
     private final UTF8StringPointable strPtr1st = new UTF8StringPointable();
     private final UTF8StringPointable strPtr2nd = new UTF8StringPointable();
     private final UTF8StringPointable strPtr3rd = new UTF8StringPointable();
@@ -55,7 +54,7 @@ abstract class AbstractTripleStringEval implements IScalarEvaluator {
     DataOutput dout = resultStorage.getDataOutput();
 
     // Function ID, for error reporting.
-    private final FunctionIdentifier funcID;
+    protected final FunctionIdentifier funcID;
 
     AbstractTripleStringEval(IHyracksTaskContext context, IScalarEvaluatorFactory eval0, IScalarEvaluatorFactory eval1,
             IScalarEvaluatorFactory eval2, FunctionIdentifier funcID) throws HyracksDataException {
@@ -87,7 +86,6 @@ abstract class AbstractTripleStringEval implements IScalarEvaluator {
         int len2 = argPtrThird.getLength();
 
         // Type check.
-        // Type check.
         if (bytes0[start0] != ATypeTag.SERIALIZED_STRING_TYPE_TAG) {
             throw new TypeMismatchException(funcID, 0, bytes0[start0], ATypeTag.SERIALIZED_STRING_TYPE_TAG);
         }
@@ -106,11 +104,7 @@ abstract class AbstractTripleStringEval implements IScalarEvaluator {
         // Resets the output storage.
         resultStorage.reset();
         // The actual processing.
-        try {
-            process(strPtr1st, strPtr2nd, strPtr3rd, result);
-        } catch (IOException e) {
-            throw new HyracksDataException(e);
-        }
+        process(strPtr1st, strPtr2nd, strPtr3rd, result);
     }
 
     /**
@@ -121,12 +115,11 @@ abstract class AbstractTripleStringEval implements IScalarEvaluator {
      * @param second
      *            , the second argument.
      * @param third
-     *            , the second argument.
+     *            , the third argument.
      * @param resultPointable
      *            , the result.
-     * @throws IOException
+     * @throws HyracksDataException
      */
     protected abstract void process(UTF8StringPointable first, UTF8StringPointable second, UTF8StringPointable third,
-            IPointable resultPointable) throws IOException;
-
+            IPointable resultPointable) throws HyracksDataException;
 }
