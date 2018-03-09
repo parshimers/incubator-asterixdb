@@ -122,13 +122,6 @@
     </test-case>
 
     <test-case FilePath="recover_after_abort">
-      <compilation-unit name="temp_primary_plus_default_secondary_index">
-        <output-dir compare="Text">primary_plus_default_secondary_index</output-dir>
-        <expected-error>org.apache.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
-      </compilation-unit>
-    </test-case>
-
-    <test-case FilePath="recover_after_abort">
       <compilation-unit name="primary_plus_default_secondary_index_filtered">
         <output-dir compare="Text">primary_plus_default_secondary_index_filtered</output-dir>
       </compilation-unit>
