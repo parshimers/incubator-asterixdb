@@ -46,4 +46,8 @@ public interface ICheckpointManager extends ILifeCycleComponent {
      * @throws HyracksDataException
      */
     long tryCheckpoint(long checkpointTargetLSN) throws HyracksDataException;
+
+    int unlockLSN(long lsn);
+
+    int lockLSN(long lsn);
 }

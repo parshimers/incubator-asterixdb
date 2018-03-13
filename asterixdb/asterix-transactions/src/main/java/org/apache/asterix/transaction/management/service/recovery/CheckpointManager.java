@@ -21,10 +21,14 @@ package org.apache.asterix.transaction.management.service.recovery;
 import org.apache.asterix.common.api.IDatasetLifecycleManager;
 import org.apache.asterix.common.transactions.CheckpointProperties;
 import org.apache.asterix.common.transactions.ICheckpointManager;
+import org.apache.asterix.common.transactions.ILogManager;
 import org.apache.asterix.common.transactions.ITransactionSubsystem;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * An implementation of {@link ICheckpointManager} that defines the logic
@@ -72,9 +76,43 @@ public class CheckpointManager extends AbstractCheckpointManager {
         }
         capture(minFirstLSN, false);
         if (checkpointSucceeded) {
-            txnSubsystem.getLogManager().deleteOldLogFiles(minFirstLSN);
-            LOGGER.info(String.format("soft checkpoint succeeded at LSN(%s)", minFirstLSN));
+            ILogManager logManager = txnSubsystem.getLogManager();
+            synchronized (logManager) {
+                for (Long l : lockedLSNs.keySet()) {
+                    if (minFirstLSN > l) {
+                        return minFirstLSN;
+                    }
+                }
+                logManager.deleteOldLogFiles(minFirstLSN);
+                LOGGER.info(String.format("soft checkpoint succeeded at LSN(%s)", minFirstLSN));
+            }
         }
         return minFirstLSN;
+    }
+
+    @Override
+    public int lockLSN(long lsn) {
+        synchronized (txnSubsystem.getLogManager()) {
+            if (!lockedLSNs.containsKey(lsn)) {
+                return lockedLSNs.put(lsn, 1);
+            } else {
+                return lockedLSNs.replace(lsn, lockedLSNs.get(lsn) + 1);
+            }
+        }
+    }
+
+    @Override
+    public int unlockLSN(long lsn) {
+        synchronized (txnSubsystem.getLogManager()) {
+            if (!lockedLSNs.containsKey(lsn)) {
+                return -1;
+            } else {
+                if (lockedLSNs.get(lsn) == 1) {
+                    return lockedLSNs.remove(lsn);
+                } else {
+                    return lockedLSNs.replace(lsn, lockedLSNs.get(lsn) - 1);
+                }
+            }
+        }
     }
 }

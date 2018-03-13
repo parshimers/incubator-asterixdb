@@ -566,7 +566,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     }
 
     @Override
-    public long getReadableSmallestLSN() {
+    public synchronized long getReadableSmallestLSN() {
         List<Long> logFileIds = getLogFileIds();
         if (!logFileIds.isEmpty()) {
             return logFileIds.get(0) * logFileSize;
@@ -606,7 +606,6 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
         RandomAccessFile raf = new RandomAccessFile(new File(logFilePath), "r");
         FileChannel newFileChannel = raf.getChannel();
         TxnLogFile logFile = new TxnLogFile(this, newFileChannel, fileId, fileId * logFileSize);
-        touchLogFile(fileId);
         return logFile;
     }
 
@@ -616,32 +615,6 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
             LOGGER.warn(() -> "Closing log file with id(" + logFileRef.getLogFileId() + ") with a closed channel.");
         }
         fileChannel.close();
-        untouchLogFile(logFileRef.getLogFileId());
-    }
-
-    private void touchLogFile(long fileId) {
-        synchronized (txnLogFileId2ReaderCount) {
-            if (txnLogFileId2ReaderCount.containsKey(fileId)) {
-                txnLogFileId2ReaderCount.put(fileId, txnLogFileId2ReaderCount.get(fileId) + 1);
-            } else {
-                txnLogFileId2ReaderCount.put(fileId, 1);
-            }
-        }
-    }
-
-    private void untouchLogFile(long fileId) {
-        synchronized (txnLogFileId2ReaderCount) {
-            if (txnLogFileId2ReaderCount.containsKey(fileId)) {
-                int newReaderCount = txnLogFileId2ReaderCount.get(fileId) - 1;
-                if (newReaderCount < 0) {
-                    throw new IllegalStateException(
-                            "Invalid log file reader count (ID=" + fileId + ", count: " + newReaderCount + ")");
-                }
-                txnLogFileId2ReaderCount.put(fileId, newReaderCount);
-            } else {
-                throw new IllegalStateException("Trying to close log file id(" + fileId + ") which was not opened.");
-            }
-        }
     }
 
     /**
