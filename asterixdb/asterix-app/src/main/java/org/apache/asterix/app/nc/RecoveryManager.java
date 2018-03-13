@@ -524,9 +524,11 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
          * minFirstLSN and the job's first LSN.
          */
         try {
-            long localMinFirstLSN = getLocalMinFirstLSN();
-            firstLSN = Math.max(firstLSN, localMinFirstLSN);
-            System.out.println("rollback: "+firstLSN);
+            synchronized (logMgr) {
+                long localMinFirstLSN = getLocalMinFirstLSN();
+                firstLSN = Math.max(firstLSN, localMinFirstLSN);
+                checkpointManager.lockLSN(firstLSN);
+            }
         } catch (HyracksDataException e) {
             throw new ACIDException(e);
         }
