@@ -557,10 +557,10 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         List<Long> undoLSNSet = null;
         //get active partitions on this node
         Set<Integer> activePartitions = appCtx.getReplicaManager().getPartitions();
-        System.out.println("rollback: "+firstLSN);
+        System.out.println("rollback: " + firstLSN);
         synchronized (this) {
             try {
-                while(sleep) {
+                while (sleep) {
                     wait(100);
                 }
             } catch (InterruptedException e) {

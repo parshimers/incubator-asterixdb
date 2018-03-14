@@ -89,6 +89,8 @@ public class CheckpointingTest {
     private static final String DATASET_NAME = "TestDS";
     private static final String DATA_TYPE_NAME = "DUMMY";
     private static final String NODE_GROUP_NAME = "DEFAULT";
+    private volatile boolean threadException = true;
+    private Throwable exception = null;
 
     @Before
     public void setUp() throws Exception {
@@ -181,32 +183,34 @@ public class CheckpointingTest {
                  * At this point, the low-water mark is not in the initialLowWaterMarkFileId, so
                  * a checkpoint should delete it.
                  */
-                Thread t = new Thread(){
-                    public void run(){
-                    recoveryManager.rollbackTransaction
-                            (txnCtx);}
+                Thread.UncaughtExceptionHandler h = new Thread.UncaughtExceptionHandler() {
+                    public void uncaughtException(Thread th, Throwable ex) {
+                        threadException = true;
+                        exception = ex;
+                    }
                 };
+
+                Thread t = new Thread(() -> {
+                    recoveryManager.rollbackTransaction(txnCtx);
+                });
+                t.setUncaughtExceptionHandler(h);
                 t.start();
 
                 JobId jobId2 = nc.newJobId();
-                IHyracksTaskContext ctx2 = nc.createTestContext(jobId2, 0,
-                        false);
-                ITransactionContext txnCtx2 = nc.getTransactionManager()
-                        .beginTransaction(nc.getTxnJobId(ctx2),
+                IHyracksTaskContext ctx2 = nc.createTestContext(jobId2, 0, false);
+                ITransactionContext txnCtx2 = nc.getTransactionManager().beginTransaction(nc.getTxnJobId(ctx2),
                         new TransactionOptions(ITransactionManager.AtomicityLevel.ENTITY_LEVEL));
                 // Prepare insert operation
-                LSMInsertDeleteOperatorNodePushable insertOp2 = nc
-                        .getInsertPipeline(ctx2, dataset, KEY_TYPES,
+                LSMInsertDeleteOperatorNodePushable insertOp2 = nc.getInsertPipeline(ctx2, dataset, KEY_TYPES,
                         RECORD_TYPE, META_TYPE, null, KEY_INDEXES, KEY_INDICATOR_LIST, storageManager, null).getLeft();
                 insertOp2.open();
                 VSizeFrame frame2 = new VSizeFrame(ctx2);
-                FrameTupleAppender tupleAppender2 = new FrameTupleAppender
-                        (frame2);
+                FrameTupleAppender tupleAppender2 = new FrameTupleAppender(frame2);
                 checkpointManager.tryCheckpoint(recoveryManager.getMinFirstLSN());
-                for (int i=0;i<4;i++){
+                for (int i = 0; i < 4; i++) {
                     long lastCkpoint = recoveryManager.getMinFirstLSN();
                     long lastFileId = logManager.getLogFileId(lastCkpoint);
-                    System.out.println("ckpoint: "+lastCkpoint);
+                    System.out.println("ckpoint: " + lastCkpoint);
 
                     // Validate initialLowWaterMarkFileId was deleted
                     for (Long fileId : logManager.getLogFileIds()) {
@@ -215,8 +219,7 @@ public class CheckpointingTest {
 
                     while (currentLowWaterMarkLogFileId == lastFileId) {
                         ITupleReference tuple = tupleGenerator.next();
-                        DataflowUtils.addTupleToFrame(tupleAppender2, tuple,
-                                insertOp2);
+                        DataflowUtils.addTupleToFrame(tupleAppender2, tuple, insertOp2);
                         lowWaterMarkLSN = recoveryManager.getMinFirstLSN();
                         currentLowWaterMarkLogFileId = logManager.getLogFileId(lowWaterMarkLSN);
                     }
@@ -236,6 +239,10 @@ public class CheckpointingTest {
                 }
                 insertOp.close();
                 nc.getTransactionManager().commitTransaction(txnCtx.getTxnId());
+                t.join();
+                if(threadException){
+                    throw exception;
+                }
             } finally {
                 nc.deInit();
             }
