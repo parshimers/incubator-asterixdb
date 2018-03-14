@@ -593,7 +593,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     }
 
     @Override
-    public TxnLogFile getLogFile(long LSN) throws IOException {
+    public synchronized TxnLogFile getLogFile(long LSN) throws IOException {
         long fileId = getLogFileId(LSN);
         String logFilePath = getLogFilePath(fileId);
         File file = new File(logFilePath);

@@ -66,6 +66,9 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
+
 public class CheckpointingTest {
 
     private static final String TEST_CONFIG_FILE_NAME = "cc-small-txn-log-partition.conf";
@@ -132,7 +135,7 @@ public class CheckpointingTest {
                 VSizeFrame frame = new VSizeFrame(ctx);
                 FrameTupleAppender tupleAppender = new FrameTupleAppender(frame);
 
-                IRecoveryManager recoveryManager = nc.getTransactionSubsystem().getRecoveryManager();
+                RecoveryManager recoveryManager = (RecoveryManager) nc.getTransactionSubsystem().getRecoveryManager();
                 ICheckpointManager checkpointManager = nc.getTransactionSubsystem().getCheckpointManager();
                 LogManager logManager = (LogManager) nc.getTransactionSubsystem().getLogManager();
                 // Number of log files after node startup should be one
@@ -184,43 +187,7 @@ public class CheckpointingTest {
                  * At this point, the low-water mark is not in the initialLowWaterMarkFileId, so
                  * a checkpoint should delete it.
                  */
-                Thread.UncaughtExceptionHandler h = new Thread.UncaughtExceptionHandler() {
-                    public void uncaughtException(Thread th, Throwable ex) {
-                        threadException = true;
-                        exception = ex;
-                    }
-                };
 
-                Thread t = new Thread(() -> {
-                    try {
-                        while (sleep) {
-                            Thread.sleep(200);
-                        }
-                    } catch (InterruptedException ex) {
-                    }
-                    recoveryManager.rollbackTransaction(txnCtx);
-                });
-
-                Thread tMon = new Thread(() -> {
-                    try {
-                        while (sleep) {
-                            t.sleep(200);
-                        }
-                    } catch (InterruptedException ex) {
-                    }
-                });
-
-                t.setUncaughtExceptionHandler(h);
-                synchronized (logManager){
-                    t.start();
-                    sleep = false;
-                    t.interrupt();
-                }
-                synchronized (logManager){
-                    t.sleep(200);
-                    sleep = true;
-                    tMon.start();
-                }
 
                 JobId jobId2 = nc.newJobId();
                 IHyracksTaskContext ctx2 = nc.createTestContext(jobId2, 0, false);
@@ -232,12 +199,13 @@ public class CheckpointingTest {
                 insertOp2.open();
                 VSizeFrame frame2 = new VSizeFrame(ctx2);
                 FrameTupleAppender tupleAppender2 = new FrameTupleAppender(frame2);
-                checkpointManager.tryCheckpoint(recoveryManager.getMinFirstLSN());
+                long origLSN = recoveryManager.getMinFirstLSN();
                 for (int i = 0; i < 4; i++) {
                     long lastCkpoint = recoveryManager.getMinFirstLSN();
                     long lastFileId = logManager.getLogFileId(lastCkpoint);
                     System.out.println("ckpoint: " + lastCkpoint);
 
+                    checkpointManager.tryCheckpoint(lowWaterMarkLSN);
                     // Validate initialLowWaterMarkFileId was deleted
                     for (Long fileId : logManager.getLogFileIds()) {
                         Assert.assertNotEquals(initialLowWaterMarkFileId, fileId.longValue());
@@ -249,14 +217,23 @@ public class CheckpointingTest {
                         lowWaterMarkLSN = recoveryManager.getMinFirstLSN();
                         currentLowWaterMarkLogFileId = logManager.getLogFileId(lowWaterMarkLSN);
                     }
-                    checkpointManager.tryCheckpoint(recoveryManager.getMinFirstLSN());
-
-                    for (Long fileId : logManager.getLogFileIds()) {
-                        Assert.assertNotEquals(lastCkpoint, fileId.longValue());
-                    }
                 }
-                   sleep = false;
-                   tMon.interrupt();
+                Thread.UncaughtExceptionHandler h = new Thread.UncaughtExceptionHandler() {
+                    public void uncaughtException(Thread th, Throwable ex) {
+                        threadException = true;
+                        exception = ex;
+                    }
+                };
+
+                RecoveryManager spyRecovery = spy(recoveryManager);
+                when(spyRecovery.getMinFirstLSN()).thenReturn(origLSN);
+                when(spyRecovery.getLocalMinFirstLSN()).thenReturn(origLSN);
+                Thread t = new Thread(() -> {
+                    spyRecovery.rollbackTransaction(txnCtx);
+                });
+                t.setUncaughtExceptionHandler(h);
+                logManager.deleteOldLogFiles(recoveryManager.getMinFirstLSN());
+                t.start();
 
                 if (tupleAppender.getTupleCount() > 0) {
                     tupleAppender.write(insertOp, true);
