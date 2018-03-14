@@ -96,7 +96,6 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
     private SystemState state;
     private final INCServiceContext serviceCtx;
     private final INcApplicationContext appCtx;
-    public volatile boolean sleep = true;
 
     public RecoveryManager(ITransactionSubsystem txnSubsystem, INCServiceContext serviceCtx) {
         this.serviceCtx = serviceCtx;
@@ -527,6 +526,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         try {
             long localMinFirstLSN = getLocalMinFirstLSN();
             firstLSN = Math.max(firstLSN, localMinFirstLSN);
+            System.out.println("rollback: "+firstLSN);
         } catch (HyracksDataException e) {
             throw new ACIDException(e);
         }
@@ -557,16 +557,6 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         List<Long> undoLSNSet = null;
         //get active partitions on this node
         Set<Integer> activePartitions = appCtx.getReplicaManager().getPartitions();
-        System.out.println("rollback: " + firstLSN);
-        synchronized (this) {
-            try {
-                while (sleep) {
-                    wait(100);
-                }
-            } catch (InterruptedException e) {
-
-            }
-        }
         ILogReader logReader = logMgr.getLogReader(false);
         try {
             logReader.setPosition(firstLSN);

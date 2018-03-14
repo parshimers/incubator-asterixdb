@@ -89,7 +89,8 @@ public class CheckpointingTest {
     private static final String DATASET_NAME = "TestDS";
     private static final String DATA_TYPE_NAME = "DUMMY";
     private static final String NODE_GROUP_NAME = "DEFAULT";
-    private volatile boolean threadException = true;
+    private volatile boolean threadException = false;
+    private volatile boolean sleep = true;
     private Throwable exception = null;
 
     @Before
@@ -191,10 +192,35 @@ public class CheckpointingTest {
                 };
 
                 Thread t = new Thread(() -> {
+                    try {
+                        while (sleep) {
+                            Thread.sleep(200);
+                        }
+                    } catch (InterruptedException ex) {
+                    }
                     recoveryManager.rollbackTransaction(txnCtx);
                 });
+
+                Thread tMon = new Thread(() -> {
+                    try {
+                        while (sleep) {
+                            t.sleep(200);
+                        }
+                    } catch (InterruptedException ex) {
+                    }
+                });
+
                 t.setUncaughtExceptionHandler(h);
-                t.start();
+                synchronized (logManager){
+                    t.start();
+                    sleep = false;
+                    t.interrupt();
+                }
+                synchronized (logManager){
+                    t.sleep(200);
+                    sleep = true;
+                    tMon.start();
+                }
 
                 JobId jobId2 = nc.newJobId();
                 IHyracksTaskContext ctx2 = nc.createTestContext(jobId2, 0, false);
@@ -229,10 +255,8 @@ public class CheckpointingTest {
                         Assert.assertNotEquals(lastCkpoint, fileId.longValue());
                     }
                 }
-                synchronized (recoveryManager) {
-                    ((RecoveryManager) recoveryManager).sleep = false;
-                    recoveryManager.notifyAll();
-                }
+                   sleep = false;
+                   tMon.interrupt();
 
                 if (tupleAppender.getTupleCount() > 0) {
                     tupleAppender.write(insertOp, true);
@@ -240,7 +264,7 @@ public class CheckpointingTest {
                 insertOp.close();
                 nc.getTransactionManager().commitTransaction(txnCtx.getTxnId());
                 t.join();
-                if(threadException){
+                if (threadException) {
                     throw exception;
                 }
             } finally {
