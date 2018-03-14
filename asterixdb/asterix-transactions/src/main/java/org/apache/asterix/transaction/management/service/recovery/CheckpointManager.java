@@ -108,9 +108,9 @@ public class CheckpointManager extends AbstractCheckpointManager {
                 return;
             } else {
                 if (lockedLSNs.get(lsn) == 1) {
-                    rlockedLSNs.remove(lsn);
+                    lockedLSNs.remove(lsn);
                 } else {
-                    rlockedLSNs.replace(lsn, lockedLSNs.get(lsn) - 1);
+                    lockedLSNs.replace(lsn, lockedLSNs.get(lsn) - 1);
                 }
             }
         }

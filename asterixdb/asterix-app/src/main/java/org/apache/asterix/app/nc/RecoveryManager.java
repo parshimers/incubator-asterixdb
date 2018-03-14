@@ -530,6 +530,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                 checkpointManager.lockLSN(firstLSN);
             }
         } catch (HyracksDataException e) {
+            checkpointManager.unlockLSN(firstLSN);
             throw new ACIDException(e);
         }
         long lastLSN = txnContext.getLastLSN();
@@ -660,6 +661,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                         + entityCommitLogCount + "/" + undoCount);
             }
         } finally {
+            checkpointManager.unlockLSN(firstLSN);
             logReader.close();
         }
     }
