@@ -32,6 +32,7 @@ import org.apache.asterix.app.nc.RecoveryManager;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.common.config.TransactionProperties;
 import org.apache.asterix.common.dataflow.LSMInsertDeleteOperatorNodePushable;
+import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.transactions.Checkpoint;
 import org.apache.asterix.common.transactions.ICheckpointManager;
 import org.apache.asterix.common.transactions.IRecoveryManager;
@@ -51,10 +52,12 @@ import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.test.common.TestHelper;
 import org.apache.asterix.transaction.management.service.logging.LogManager;
 import org.apache.asterix.transaction.management.service.recovery.AbstractCheckpointManager;
+import org.apache.asterix.transaction.management.service.recovery.CheckpointManager;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hyracks.api.comm.VSizeFrame;
 import org.apache.hyracks.api.config.IOption;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
@@ -185,13 +188,15 @@ public class CheckpointingTest {
 
                 /*
                  * At this point, the low-water mark is not in the initialLowWaterMarkFileId, so
-                 * a checkpoint should delete it.
+                 * a checkpoint should delete it. We will also start a second
+                  * job to ensure that the checkpointing coexists peacefully 
+                  * with other concurrent readers of the log that request 
+                  * deletions to be witheld
                  */
-
 
                 JobId jobId2 = nc.newJobId();
                 IHyracksTaskContext ctx2 = nc.createTestContext(jobId2, 0, false);
-                ITransactionContext txnCtx2 = nc.getTransactionManager().beginTransaction(nc.getTxnJobId(ctx2),
+                nc.getTransactionManager().beginTransaction(nc.getTxnJobId(ctx2),
                         new TransactionOptions(ITransactionManager.AtomicityLevel.ENTITY_LEVEL));
                 // Prepare insert operation
                 LSMInsertDeleteOperatorNodePushable insertOp2 = nc.getInsertPipeline(ctx2, dataset, KEY_TYPES,
@@ -199,7 +204,6 @@ public class CheckpointingTest {
                 insertOp2.open();
                 VSizeFrame frame2 = new VSizeFrame(ctx2);
                 FrameTupleAppender tupleAppender2 = new FrameTupleAppender(frame2);
-                long origLSN = recoveryManager.getMinFirstLSN();
                 for (int i = 0; i < 4; i++) {
                     long lastCkpoint = recoveryManager.getMinFirstLSN();
                     long lastFileId = logManager.getLogFileId(lastCkpoint);
@@ -225,22 +229,34 @@ public class CheckpointingTest {
                     }
                 };
 
-                RecoveryManager spyRecovery = spy(recoveryManager);
-                when(spyRecovery.getMinFirstLSN()).thenReturn(origLSN);
-                when(spyRecovery.getLocalMinFirstLSN()).thenReturn(origLSN);
                 Thread t = new Thread(() -> {
+                    RecoveryManager spyRecovery = spy(recoveryManager);
+                    try {
+                        when(spyRecovery.getLocalMinFirstLSN()).thenReturn(
+                                stallMinLocalLSN(Thread.currentThread(), checkpointManager, recoveryManager));
+                    } catch (HyracksDataException e) {
+                        e.printStackTrace();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                     spyRecovery.rollbackTransaction(txnCtx);
                 });
+                long lockedLSN = recoveryManager.getMinFirstLSN();
                 t.setUncaughtExceptionHandler(h);
-                logManager.deleteOldLogFiles(recoveryManager.getMinFirstLSN());
                 t.start();
+                logManager.deleteOldLogFiles(lockedLSN);
+                synchronized (t) {
+                    t.notifyAll();
+                }
+                t.join();
 
                 if (tupleAppender.getTupleCount() > 0) {
                     tupleAppender.write(insertOp, true);
                 }
                 insertOp.close();
                 nc.getTransactionManager().commitTransaction(txnCtx.getTxnId());
-                t.join();
+                checkpointManager.unlockLSN(lockedLSN);
+
                 if (threadException) {
                     throw exception;
                 }
@@ -251,6 +267,18 @@ public class CheckpointingTest {
             e.printStackTrace();
             Assert.fail(e.getMessage());
         }
+    }
+
+    private long stallMinLocalLSN(Thread t, ICheckpointManager checkpointManager, RecoveryManager recoveryManager)
+            throws InterruptedException, HyracksDataException {
+
+        long lsn = recoveryManager.getLocalMinFirstLSN();
+        checkpointManager.lockLSN(lsn);
+        synchronized (t) {
+            t.wait(2000);
+        }
+        return lsn;
+
     }
 
     @Test
