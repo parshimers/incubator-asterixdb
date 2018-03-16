@@ -189,8 +189,8 @@ public class CheckpointingTest {
                 /*
                  * At this point, the low-water mark is not in the initialLowWaterMarkFileId, so
                  * a checkpoint should delete it. We will also start a second
-                  * job to ensure that the checkpointing coexists peacefully 
-                  * with other concurrent readers of the log that request 
+                  * job to ensure that the checkpointing coexists peacefully
+                  * with other concurrent readers of the log that request
                   * deletions to be witheld
                  */
 
@@ -207,7 +207,6 @@ public class CheckpointingTest {
                 for (int i = 0; i < 4; i++) {
                     long lastCkpoint = recoveryManager.getMinFirstLSN();
                     long lastFileId = logManager.getLogFileId(lastCkpoint);
-                    System.out.println("ckpoint: " + lastCkpoint);
 
                     checkpointManager.tryCheckpoint(lowWaterMarkLSN);
                     // Validate initialLowWaterMarkFileId was deleted

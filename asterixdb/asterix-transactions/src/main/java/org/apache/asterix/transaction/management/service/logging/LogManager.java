@@ -567,7 +567,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     }
 
     @Override
-    public synchronized long getReadableSmallestLSN() {
+    public long getReadableSmallestLSN() {
         List<Long> logFileIds = getLogFileIds();
         if (!logFileIds.isEmpty()) {
             return logFileIds.get(0) * logFileSize;
@@ -597,7 +597,7 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     }
 
     @Override
-    public synchronized TxnLogFile getLogFile(long LSN) throws IOException {
+    public TxnLogFile getLogFile(long LSN) throws IOException {
         long fileId = getLogFileId(LSN);
         String logFilePath = getLogFilePath(fileId);
         File file = new File(logFilePath);

@@ -506,20 +506,29 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
 
     @Override
     public void replayReplicaPartitionLogs(Set<Integer> partitions, boolean flush) throws HyracksDataException {
-        long minLSN = getPartitionsMinLSN(partitions);
-        long readableSmallestLSN = logMgr.getReadableSmallestLSN();
-        if (minLSN < readableSmallestLSN) {
-            minLSN = readableSmallestLSN;
-        }
-
+        long minLSN = 0l;
+        boolean locked = false;
         //replay logs > minLSN that belong to these partitions
         try {
+            minLSN = getPartitionsMinLSN(partitions);
+            synchronized (this) {
+                long readableSmallestLSN = logMgr.getReadableSmallestLSN();
+                if (minLSN < readableSmallestLSN) {
+                    minLSN = readableSmallestLSN;
+                }
+                checkpointManager.lockLSN(minLSN);
+                locked = true;
+            }
             replayPartitionsLogs(partitions, logMgr.getLogReader(true), minLSN);
             if (flush) {
                 appCtx.getDatasetLifecycleManager().flushAllDatasets();
             }
         } catch (IOException | ACIDException e) {
             throw HyracksDataException.create(e);
+        } finally {
+            if (locked) {
+                checkpointManager.unlockLSN(minLSN);
+            }
         }
     }
 
@@ -580,7 +589,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
          * minFirstLSN and the job's first LSN.
          */
         try {
-            synchronized (logMgr) {
+            synchronized (this) {
                 long localMinFirstLSN = getLocalMinFirstLSN();
                 firstLSN = Math.max(firstLSN, localMinFirstLSN);
                 checkpointManager.lockLSN(firstLSN);

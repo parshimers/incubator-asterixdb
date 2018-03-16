@@ -76,14 +76,13 @@ public class CheckpointManager extends AbstractCheckpointManager {
         }
         capture(minFirstLSN, false);
         if (checkpointSucceeded) {
-            ILogManager logManager = txnSubsystem.getLogManager();
-            synchronized (logManager) {
+            synchronized (txnSubsystem.getRecoveryManager()) {
                 for (Long l : lockedLSNs.keySet()) {
                     if (minFirstLSN > l) {
                         return minFirstLSN;
                     }
                 }
-                logManager.deleteOldLogFiles(minFirstLSN);
+                txnSubsystem.getLogManager().deleteOldLogFiles(minFirstLSN);
                 LOGGER.info(String.format("soft checkpoint succeeded at LSN(%s)", minFirstLSN));
             }
         }
@@ -92,7 +91,7 @@ public class CheckpointManager extends AbstractCheckpointManager {
 
     @Override
     public void lockLSN(long lsn) {
-        synchronized (txnSubsystem.getLogManager()) {
+        synchronized (txnSubsystem.getRecoveryManager()) {
             if (!lockedLSNs.containsKey(lsn)) {
                 lockedLSNs.put(lsn, 1);
             } else {
@@ -102,10 +101,10 @@ public class CheckpointManager extends AbstractCheckpointManager {
     }
 
     @Override
-    public void unlockLSN(long lsn) {
-        synchronized (txnSubsystem.getLogManager()) {
+    public void unlockLSN(long lsn) throws IllegalStateException {
+        synchronized (txnSubsystem.getRecoveryManager()) {
             if (!lockedLSNs.containsKey(lsn)) {
-                return;
+                throw new IllegalStateException("Unlock on nonexisting LSN");
             } else {
                 if (lockedLSNs.get(lsn) == 1) {
                     lockedLSNs.remove(lsn);
