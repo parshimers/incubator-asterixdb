@@ -140,6 +140,14 @@ public class ErrorCode {
     public static final int INDEX_DOES_NOT_EXIST = 104;
     public static final int CANNOT_DROP_IN_USE_INDEX = 105;
     public static final int CANNOT_DEACTIVATE_PINNED_BLOOM_FILTER = 106;
+    public static final int PREDICATE_CANNOT_BE_NULL = 107;
+    public static final int FULLTEXT_ONLY_EXECUTABLE_FOR_STRING_OR_LIST = 108;
+    public static final int NOT_ENOUGH_BUDGET_FOR_TEXTSEARCH = 109;
+    public static final int CANNOT_CONTINUE_TEXT_SEARCH_HYRACKS_TASK_IS_NULL = 110;
+    public static final int CANNOT_CONTINUE_TEXT_SEARCH_BUFFER_MANAGER_IS_NULL = 111;
+    public static final int CANNOT_ADD_ELEMENT_TO_INVERTED_INDEX_SEARCH_RESULT = 112;
+    public static final int UNDEFINED_INVERTED_LIST_MERGE_TYPE = 113;
+    public static final int NODE_IS_NOT_ACTIVE = 114;
 
     // Compilation error codes.
     public static final int RULECOLLECTION_NOT_INSTANCE_OF_LIST = 10000;

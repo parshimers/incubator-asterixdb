@@ -53,6 +53,7 @@ public class RemoteLogsProcessor implements ILogRequester {
             switch (reusableLog.getLogType()) {
                 case LogType.UPDATE:
                 case LogType.ENTITY_COMMIT:
+                case LogType.FILTER:
                     logManager.log(reusableLog);
                     break;
                 case LogType.JOB_COMMIT:
@@ -67,7 +68,9 @@ public class RemoteLogsProcessor implements ILogRequester {
                     break;
                 case LogType.FLUSH:
                     RemoteLogRecord flushLog = new RemoteLogRecord();
-                    TransactionUtil.formFlushLogRecord(flushLog, reusableLog.getDatasetId(), null);
+                    TransactionUtil.formFlushLogRecord(flushLog, reusableLog.getDatasetId(),
+                            reusableLog.getResourcePartition(), reusableLog.getFlushingComponentMinId(),
+                            reusableLog.getFlushingComponentMaxId(), null);
                     flushLog.setRequester(this);
                     flushLog.setLogSource(LogSource.REMOTE);
                     flushLog.setMasterLsn(reusableLog.getLSN());

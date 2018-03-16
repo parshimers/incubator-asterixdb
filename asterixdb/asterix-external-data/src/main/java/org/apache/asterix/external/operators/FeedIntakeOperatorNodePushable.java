@@ -29,6 +29,7 @@ import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.util.CleanupUtils;
 import org.apache.hyracks.api.util.HyracksConstants;
 import org.apache.hyracks.dataflow.common.io.MessagingFrameTupleAppender;
 import org.apache.hyracks.dataflow.common.utils.TaskUtil;
@@ -44,7 +45,7 @@ import org.apache.logging.log4j.Logger;
 public class FeedIntakeOperatorNodePushable extends ActiveSourceOperatorNodePushable {
     private static final Logger LOGGER = LogManager.getLogger();
     // TODO: Make configurable https://issues.apache.org/jira/browse/ASTERIXDB-2065
-    public static final int DEFAULT_ABORT_TIMEOUT = 10000;
+    public static final int DEFAULT_ABORT_TIMEOUT = 60000;
     private final FeedIntakeOperatorDescriptor opDesc;
     private final FeedAdapter adapter;
     private boolean poisoned = false;
@@ -60,7 +61,7 @@ public class FeedIntakeOperatorNodePushable extends ActiveSourceOperatorNodePush
 
     @Override
     protected void start() throws HyracksDataException, InterruptedException {
-        String before = Thread.currentThread().getName();
+        Throwable failure = null;
         Thread.currentThread().setName("Intake Thread");
         try {
             writer.open();
@@ -80,12 +81,16 @@ public class FeedIntakeOperatorNodePushable extends ActiveSourceOperatorNodePush
             message.getBuffer().put(MessagingFrameTupleAppender.NULL_FEED_MESSAGE);
             message.getBuffer().flip();
             run();
-        } catch (Exception e) {
+        } catch (Throwable e) {
+            failure = e;
+            CleanupUtils.fail(writer, e);
             LOGGER.log(Level.WARN, "Failure during data ingestion", e);
-            throw e;
         } finally {
-            writer.close();
-            Thread.currentThread().setName(before);
+            failure = CleanupUtils.close(adapter, failure);
+            failure = CleanupUtils.close(writer, failure);
+        }
+        if (failure != null) {
+            throw HyracksDataException.create(failure);
         }
     }
 

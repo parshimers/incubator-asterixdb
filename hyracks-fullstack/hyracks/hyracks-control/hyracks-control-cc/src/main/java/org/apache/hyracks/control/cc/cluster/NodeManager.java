@@ -48,6 +48,7 @@ import org.apache.hyracks.control.common.controllers.CCConfig;
 import org.apache.hyracks.control.common.ipc.CCNCFunctions.AbortCCJobsFunction;
 import org.apache.hyracks.ipc.api.IIPCHandle;
 import org.apache.hyracks.ipc.exceptions.IPCException;
+import org.apache.hyracks.util.annotations.Idempotent;
 import org.apache.hyracks.util.annotations.NotThreadSafe;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -93,7 +94,7 @@ public class NodeManager implements INodeManager {
     }
 
     @Override
-    public void addNode(String nodeId, NodeControllerState ncState) throws HyracksException {
+    public synchronized void addNode(String nodeId, NodeControllerState ncState) throws HyracksException {
         LOGGER.warn("addNode(" + nodeId + ") called");
         if (nodeId == null || ncState == null) {
             throw HyracksException.create(ErrorCode.INVALID_INPUT_PARAMETER);
@@ -129,11 +130,15 @@ public class NodeManager implements INodeManager {
     }
 
     @Override
-    public void removeNode(String nodeId) throws HyracksException {
+    @Idempotent
+    public synchronized void removeNode(String nodeId) throws HyracksException {
         NodeControllerState ncState = nodeRegistry.remove(nodeId);
-        removeNodeFromIpAddressMap(nodeId, ncState);
-
-        // Updates the cluster capacity.
+        if (ncState == null) {
+            LOGGER.warn("request to remove unknown node {}; ignoring", nodeId);
+        } else {
+            removeNodeFromIpAddressMap(nodeId, ncState);
+        }
+        // Updates the cluster capacity (idempotent)
         resourceManager.update(nodeId, new NodeCapacity(0L, 0));
     }
 
@@ -147,7 +152,7 @@ public class NodeManager implements INodeManager {
     }
 
     @Override
-    public Pair<Collection<String>, Collection<JobId>> removeDeadNodes() throws HyracksException {
+    public synchronized Pair<Collection<String>, Collection<JobId>> removeDeadNodes() throws HyracksException {
         Set<String> deadNodes = new HashSet<>();
         Set<JobId> affectedJobIds = new HashSet<>();
         Iterator<Map.Entry<String, NodeControllerState>> nodeIterator = nodeRegistry.entrySet().iterator();
@@ -173,7 +178,7 @@ public class NodeManager implements INodeManager {
         return Pair.of(deadNodes, affectedJobIds);
     }
 
-    public void failNode(String nodeId) throws HyracksException {
+    public synchronized void failNode(String nodeId) throws HyracksException {
         NodeControllerState state = nodeRegistry.get(nodeId);
         Set<JobId> affectedJobIds = state.getActiveJobIds();
         // Removes the node from node map.
@@ -225,13 +230,15 @@ public class NodeManager implements INodeManager {
     }
 
     private void ensureNodeFailure(String nodeId, NodeControllerState state) {
-        try {
-            LOGGER.info("Requesting node {} to shutdown to ensure failure", nodeId);
-            state.getNodeController().shutdown(false);
-            LOGGER.info("Request to shutdown failed node {} succeeded. false positive heartbeat miss indication",
-                    nodeId);
-        } catch (Exception ignore) {
-            LOGGER.debug(() -> "Ignoring failure on ensuring node " + nodeId + " has failed", ignore);
-        }
+        ccs.getExecutor().submit(() -> {
+            try {
+                LOGGER.info("Requesting node {} to shutdown to ensure failure", nodeId);
+                state.getNodeController().shutdown(false);
+                LOGGER.warn("Request to shutdown failed node {} succeeded. false positive heartbeat miss indication",
+                        nodeId);
+            } catch (Exception ignore) {
+                LOGGER.debug(() -> "Ignoring failure on ensuring node " + nodeId + " has failed", ignore);
+            }
+        });
     }
 }

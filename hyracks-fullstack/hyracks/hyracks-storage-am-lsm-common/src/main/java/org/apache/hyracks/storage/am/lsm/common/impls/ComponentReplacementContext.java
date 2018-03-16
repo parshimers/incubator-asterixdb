@@ -23,12 +23,14 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.storage.am.common.api.IExtendedModificationOperationCallback;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent.LSMComponentType;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentId;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponent;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperation.LSMIOOperationType;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
 import org.apache.hyracks.storage.common.IModificationOperationCallback;
@@ -90,7 +92,7 @@ public class ComponentReplacementContext implements ILSMIndexOperationContext {
     }
 
     @Override
-    public IModificationOperationCallback getModificationCallback() {
+    public IExtendedModificationOperationCallback getModificationCallback() {
         return null;
     }
 
@@ -215,7 +217,47 @@ public class ComponentReplacementContext implements ILSMIndexOperationContext {
     }
 
     @Override
+    public boolean isFilterSkipped() {
+        return false;
+    }
+
+    @Override
+    public void setFilterSkip(boolean skip) {
+        //not used in recovery
+    }
+
+    @Override
+    public boolean isRecovery() {
+        return false;
+    }
+
+    @Override
+    public void setRecovery(boolean recovery) {
+        //not used in recovery
+    }
+
+    @Override
     public void destroy() throws HyracksDataException {
         // No Op.. Nothing to destroy
+    }
+
+    @Override
+    public LSMIOOperationType getIoOperationType() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setIoOperationType(LSMIOOperationType ioOpType) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ILSMDiskComponent getNewComponent() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setNewComponent(ILSMDiskComponent component) {
+        throw new UnsupportedOperationException();
     }
 }

@@ -146,16 +146,6 @@ public abstract class MetadataManager implements IMetadataManager {
     }
 
     @Override
-    public void lock(MetadataTransactionContext ctx, byte lockMode) throws RemoteException, ACIDException {
-        metadataNode.lock(ctx.getTxnId(), lockMode);
-    }
-
-    @Override
-    public void unlock(MetadataTransactionContext ctx, byte lockMode) throws RemoteException, ACIDException {
-        metadataNode.unlock(ctx.getTxnId(), lockMode);
-    }
-
-    @Override
     public void addDataverse(MetadataTransactionContext ctx, Dataverse dataverse) throws AlgebricksException {
         try {
             metadataNode.addDataverse(ctx.getTxnId(), dataverse);
@@ -297,7 +287,7 @@ public abstract class MetadataManager implements IMetadataManager {
     public List<Index> getDatasetIndexes(MetadataTransactionContext ctx, String dataverseName, String datasetName)
             throws AlgebricksException {
         List<Index> datasetIndexes = new ArrayList<>();
-        Dataset dataset = findDataset(ctx, dataverseName, datasetName);
+        Dataset dataset = getDataset(ctx, dataverseName, datasetName);
         if (dataset == null) {
             return datasetIndexes;
         }
@@ -959,14 +949,6 @@ public abstract class MetadataManager implements IMetadataManager {
         // reflect the dataset into the cache
         ctx.dropDataset(dataset.getDataverseName(), dataset.getDatasetName());
         ctx.addDataset(dataset);
-    }
-
-    public Dataset findDataset(MetadataTransactionContext ctx, String dataverseName, String datasetName) {
-        Dataset dataset = ctx.getDataset(dataverseName, datasetName);
-        if (dataset == null) {
-            dataset = cache.getDataset(dataverseName, datasetName);
-        }
-        return dataset;
     }
 
     @Override

@@ -18,6 +18,8 @@
  */
 package org.apache.asterix.common.context;
 
+import static org.apache.asterix.common.metadata.MetadataIndexImmutableProperties.METADATA_DATASETS_PARTITIONS;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -33,6 +35,7 @@ import org.apache.asterix.common.config.StorageProperties;
 import org.apache.asterix.common.dataflow.DatasetLocalResource;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.ioopcallbacks.AbstractLSMIOOperationCallback;
+import org.apache.asterix.common.metadata.MetadataIndexImmutableProperties;
 import org.apache.asterix.common.replication.IReplicationStrategy;
 import org.apache.asterix.common.storage.DatasetResourceReference;
 import org.apache.asterix.common.storage.IIndexCheckpointManagerProvider;
@@ -49,6 +52,7 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMOperationTracker;
 import org.apache.hyracks.storage.am.lsm.common.api.IVirtualBufferCache;
+import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentId;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentIdGenerator;
 import org.apache.hyracks.storage.common.IIndex;
 import org.apache.hyracks.storage.common.ILocalResourceRepository;
@@ -235,9 +239,11 @@ public class DatasetLifecycleManager implements IDatasetLifecycleManager, ILifeC
         synchronized (datasets) {
             dsr = datasets.get(did);
             if (dsr == null) {
-                DatasetInfo dsInfo = new DatasetInfo(did);
+                DatasetInfo dsInfo = new DatasetInfo(did, logManager);
+                int partitions = MetadataIndexImmutableProperties.isMetadataDataset(did) ? METADATA_DATASETS_PARTITIONS
+                        : numPartitions;
                 DatasetVirtualBufferCaches vbcs = new DatasetVirtualBufferCaches(did, storageProperties,
-                        memoryManager.getNumPages(did), numPartitions);
+                        memoryManager.getNumPages(did), partitions);
                 dsr = new DatasetResource(dsInfo, vbcs);
                 datasets.put(did, dsr);
             }
@@ -330,6 +336,9 @@ public class DatasetLifecycleManager implements IDatasetLifecycleManager, ILifeC
     @Override
     public synchronized ILSMComponentIdGenerator getComponentIdGenerator(int datasetId, int partition) {
         DatasetResource dataset = datasets.get(datasetId);
+        if (dataset == null) {
+            return null;
+        }
         ILSMComponentIdGenerator generator = dataset.getComponentIdGenerator(partition);
         if (generator == null) {
             populateOpTrackerAndIdGenerator(dataset, partition);
@@ -425,12 +434,26 @@ public class DatasetLifecycleManager implements IDatasetLifecycleManager, ILifeC
             }
             int partition = primaryOpTracker.getPartition();
             Collection<ILSMIndex> indexes = dsInfo.getDatasetPartitionOpenIndexes(partition);
+            ILSMIndex flushIndex = null;
+            for (ILSMIndex lsmIndex : indexes) {
+                if (!lsmIndex.isCurrentMutableComponentEmpty()) {
+                    flushIndex = lsmIndex;
+                    break;
+                }
+            }
+            if (flushIndex == null) {
+                // all open indexes are empty, nothing to flush
+                continue;
+            }
+            LSMComponentId componentId = (LSMComponentId) flushIndex.getCurrentMemoryComponent().getId();
             ILSMComponentIdGenerator idGenerator = getComponentIdGenerator(dsInfo.getDatasetID(), partition);
             idGenerator.refresh();
 
             if (dsInfo.isDurable()) {
+
                 synchronized (logRecord) {
-                    TransactionUtil.formFlushLogRecord(logRecord, dsInfo.getDatasetID(), null);
+                    TransactionUtil.formFlushLogRecord(logRecord, dsInfo.getDatasetID(), partition,
+                            componentId.getMinId(), componentId.getMaxId(), null);
                     try {
                         logManager.log(logRecord);
                     } catch (ACIDException e) {

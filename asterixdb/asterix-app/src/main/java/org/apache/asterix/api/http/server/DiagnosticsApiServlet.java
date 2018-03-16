@@ -18,6 +18,7 @@
  */
 package org.apache.asterix.api.http.server;
 
+import static org.apache.asterix.api.http.server.NodeControllerDetailsHelper.fixupKeys;
 import static org.apache.asterix.api.http.server.ServletConstants.HYRACKS_CONNECTION_ATTR;
 
 import java.io.IOException;
@@ -91,7 +92,9 @@ public class DiagnosticsApiServlet extends NodeControllerDetailsApiServlet {
             ncDataMap.put(nc, getNcDiagnosticFutures(nc));
         }
         ObjectNode result = OBJECT_MAPPER.createObjectNode();
-        result.putPOJO("cc", resolveFutures(ccFutureData));
+        if (!ccFutureData.isEmpty()) {
+            result.putPOJO("cc", resolveFutures(ccFutureData));
+        }
         List<Map<String, ?>> ncList = new ArrayList<>();
         for (Map.Entry<String, Map<String, Future<JsonNode>>> entry : ncDataMap.entrySet()) {
             final Map<String, JsonNode> ncMap = resolveFutures(entry.getValue());
@@ -133,7 +136,7 @@ public class DiagnosticsApiServlet extends NodeControllerDetailsApiServlet {
         return result;
     }
 
-    protected void resolveFutures(Map<String, Future<JsonNode>> futureMap, Map<String, JsonNode> outputMap,
+    public static void resolveFutures(Map<String, Future<JsonNode>> futureMap, Map<String, JsonNode> outputMap,
             Map<String, JsonNode> errorMap) throws InterruptedException {
         for (Map.Entry<String, Future<JsonNode>> entry : futureMap.entrySet()) {
             try {

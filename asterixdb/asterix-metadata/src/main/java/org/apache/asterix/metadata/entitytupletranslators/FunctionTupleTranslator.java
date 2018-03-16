@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.asterix.builders.OrderedListBuilder;
+import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.formats.nontagged.SerializerDeserializerProvider;
 import org.apache.asterix.metadata.bootstrap.MetadataPrimaryIndexes;
 import org.apache.asterix.metadata.bootstrap.MetadataRecordTypes;
@@ -136,9 +137,8 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
 
         }
 
-        return new Function(dataverseName, functionName, Integer.parseInt(arity), params, returnType, definition,
-                language, functionKind, dependencies);
-
+        FunctionSignature signature = new FunctionSignature(dataverseName, functionName, Integer.parseInt(arity));
+        return new Function(signature, params, returnType, definition, language, functionKind, dependencies);
     }
 
     @Override
@@ -183,7 +183,7 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         ArrayBackedValueStorage itemValue = new ArrayBackedValueStorage();
         listBuilder.reset((AOrderedListType) MetadataRecordTypes.FUNCTION_RECORDTYPE
                 .getFieldTypes()[MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_PARAM_LIST_FIELD_INDEX]);
-        for (String param : function.getParams()) {
+        for (String param : function.getArguments()) {
             itemValue.reset();
             aString.setValue(param);
             stringSerde.serialize(aString, itemValue.getDataOutput());

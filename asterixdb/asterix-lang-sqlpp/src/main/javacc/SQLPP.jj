@@ -157,6 +157,7 @@ import org.apache.asterix.lang.sqlpp.clause.SelectElement;
 import org.apache.asterix.lang.sqlpp.clause.SelectRegular;
 import org.apache.asterix.lang.sqlpp.clause.SelectSetOperation;
 import org.apache.asterix.lang.sqlpp.clause.UnnestClause;
+import org.apache.asterix.lang.common.clause.WhereClause;
 import org.apache.asterix.lang.sqlpp.expression.CaseExpression;
 import org.apache.asterix.lang.sqlpp.expression.SelectExpression;
 import org.apache.asterix.lang.sqlpp.optype.JoinType;
@@ -747,7 +748,8 @@ CreateFunctionStatement FunctionSpecification() throws ParseException:
   {
      beginPos = token;
   }
-  functionBodyExpr = Expression() <RIGHTBRACE>
+  (functionBodyExpr = SelectExpression(true) | functionBodyExpr = Expression())
+  <RIGHTBRACE>
     {
       endPos = token;
       functionBody = extractFragment(beginPos.beginLine, beginPos.beginColumn, endPos.beginLine, endPos.beginColumn);
@@ -1264,14 +1266,37 @@ Statement ConnectStatement() throws ParseException:
   List<FunctionSignature> appliedFunctions = new ArrayList<FunctionSignature>();
   Statement stmt = null;
   String policy = null;
+  String whereClauseBody = null;
+  WhereClause whereClause = null;
+  Token beginPos = null;
+  Token endPos = null;
 }
 {
   (
     <FEED> feedNameComponents = QualifiedName() <TO> Dataset() datasetNameComponents = QualifiedName()
-    (ApplyFunction(appliedFunctions))?  (policy = GetPolicy())?
+    (ApplyFunction(appliedFunctions))?
+    (policy = GetPolicy())?
+    (
+      <WHERE>
+      {
+        beginPos = token;
+        whereClause = new WhereClause();
+        Expression whereExpr;
+      }
+      whereExpr = Expression()
+      {
+        whereClause.setWhereExpr(whereExpr);
+      }
+    )?
+    {
+      if (whereClause != null) {
+        endPos = token;
+        whereClauseBody = extractFragment(beginPos.endLine, beginPos.endColumn, endPos.endLine, endPos.endColumn + 1);
+      }
+    }
       {
         stmt = new ConnectFeedStatement(feedNameComponents, datasetNameComponents, appliedFunctions,
-         policy, getVarCounter());
+         policy, whereClauseBody, getVarCounter());
       }
   )
   {
@@ -1710,16 +1735,19 @@ FunctionDecl FunctionDeclaration() throws ParseException:
   createNewScope();
 }
 {
-  <DECLARE> <FUNCTION> functionName = Identifier()
-  paramList = ParameterList()
-  <LEFTBRACE> funcBody = Expression() <RIGHTBRACE>
-    {
-      signature = new FunctionSignature(defaultDataverse, functionName, paramList.size());
-      getCurrentScope().addFunctionDescriptor(signature, false);
-      funcDecl = new FunctionDecl(signature, paramList, funcBody);
-      removeCurrentScope();
-      return funcDecl;
-    }
+  <DECLARE> <FUNCTION>
+    functionName = Identifier()
+    paramList = ParameterList()
+  <LEFTBRACE>
+    (funcBody = SelectExpression(true) | funcBody = Expression())
+  <RIGHTBRACE>
+  {
+    signature = new FunctionSignature(defaultDataverse, functionName, paramList.size());
+    getCurrentScope().addFunctionDescriptor(signature, false);
+    funcDecl = new FunctionDecl(signature, paramList, funcBody);
+    removeCurrentScope();
+    return funcDecl;
+  }
 }
 
 Query ExplainStatement() throws ParseException:
@@ -1785,19 +1813,19 @@ Expression OperatorExpr()throws ParseException:
         if (op == null) {
           op = new OperatorExpr();
           op.addOperand(operand);
-        op.setCurrentop(true);
+          op.setCurrentop(true);
         }
         try{
             op.addOperator(token.image.toLowerCase());
         } catch (Exception e){
             throw new ParseException(e.getMessage());
         }
-    }
+      }
 
-    operand = AndExpr()
-    {
-      op.addOperand(operand);
-    }
+      operand = AndExpr()
+      {
+        op.addOperand(operand);
+      }
 
     )*
 
@@ -2477,15 +2505,12 @@ RecordConstructor RecordConstructor() throws ParseException:
 
 FieldBinding FieldBinding() throws ParseException:
 {
-    FieldBinding fb = new FieldBinding();
     Expression left, right;
 }
 {
     left = Expression() <COLON> right = Expression()
     {
-      fb.setLeftExpr(left);
-      fb.setRightExpr(right);
-      return fb;
+      return new FieldBinding(left, right);
     }
 }
 
@@ -2768,23 +2793,24 @@ Projection Projection() throws ParseException :
   Identifier identifier = null;
   String name = null;
   boolean star = false;
-  boolean exprStar = false;
+  boolean varStar = false;
 }
 {
   (
-    LOOKAHEAD(2)
-    expr = Expression() ((<AS>)? name = Identifier())?
-    | expr = Expression() <DOT> <MUL> {exprStar = true; }
-    | <MUL> {star = true; }
+    <MUL> {star = true; }
+    | LOOKAHEAD(3) expr = VariableRef() <DOT> <MUL> {varStar = true; }
+    | expr = Expression() ((<AS>)? name = Identifier())?
+      {
+        if (name == null) {
+          String generatedColumnIdentifier = ExpressionToVariableUtil.getGeneratedIdentifier(expr, false);
+          if (generatedColumnIdentifier != null) {
+            name = SqlppVariableUtil.toUserDefinedName(generatedColumnIdentifier);
+          }
+        }
+      }
   )
   {
-    if(!star && name == null){
-       String generatedColumnIdentifier = ExpressionToVariableUtil.getGeneratedIdentifier(expr, false);
-       if(generatedColumnIdentifier != null){
-            name = SqlppVariableUtil.toUserDefinedName(generatedColumnIdentifier);
-       }
-    }
-    return new Projection(expr, name, star, exprStar);
+    return new Projection(expr, name, star, varStar);
   }
 }
 

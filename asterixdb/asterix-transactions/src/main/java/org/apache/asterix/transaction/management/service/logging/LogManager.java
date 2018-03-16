@@ -18,6 +18,8 @@
  */
 package org.apache.asterix.transaction.management.service.logging;
 
+import static org.apache.hyracks.util.ExitUtil.EC_IMMEDIATE_HALT;
+
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
@@ -55,7 +57,8 @@ import org.apache.asterix.common.transactions.LogType;
 import org.apache.asterix.common.transactions.MutableLong;
 import org.apache.asterix.common.transactions.TxnLogFile;
 import org.apache.hyracks.api.lifecycle.ILifeCycleComponent;
-import org.apache.hyracks.util.InvokeUtil;
+import org.apache.hyracks.api.util.InvokeUtil;
+import org.apache.hyracks.util.ExitUtil;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
 
@@ -158,7 +161,8 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     }
 
     synchronized void syncAppendToLogTail(ILogRecord logRecord) {
-        if (logRecord.getLogSource() == LogSource.LOCAL && logRecord.getLogType() != LogType.FLUSH) {
+        if (logRecord.getLogSource() == LogSource.LOCAL && logRecord.getLogType() != LogType.FLUSH
+                && logRecord.getLogType() != LogType.WAIT) {
             ITransactionContext txnCtx = logRecord.getTxnCtx();
             if (txnCtx.getTxnState() == ITransactionManager.ABORTED && logRecord.getLogType() != LogType.ABORT) {
                 throw new ACIDException(
@@ -687,8 +691,9 @@ class LogFlusher implements Callable<Boolean> {
                 emptyQ.add(flushPage.getLogPageSize() == logMgr.getLogPageSize() ? flushPage : stashQ.remove());
             }
         } catch (Exception e) {
-            LOGGER.log(Level.ERROR, "LogFlusher is terminating abnormally. System is in unusable state.", e);
-            throw e;
+            LOGGER.log(Level.ERROR, "LogFlusher is terminating abnormally. System is in unusable state; halting", e);
+            ExitUtil.halt(EC_IMMEDIATE_HALT);
+            throw new AssertionError("not reachable");
         } finally {
             if (interrupted) {
                 Thread.currentThread().interrupt();

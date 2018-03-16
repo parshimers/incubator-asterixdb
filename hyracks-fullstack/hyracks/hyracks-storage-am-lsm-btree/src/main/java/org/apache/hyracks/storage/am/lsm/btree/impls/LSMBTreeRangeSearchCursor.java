@@ -23,7 +23,7 @@ import java.util.Iterator;
 import java.util.PriorityQueue;
 
 import org.apache.hyracks.api.exceptions.HyracksDataException;
-import org.apache.hyracks.api.util.DestroyUtils;
+import org.apache.hyracks.api.util.CleanupUtils;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleReference;
 import org.apache.hyracks.dataflow.common.utils.TupleUtils;
@@ -52,6 +52,7 @@ public class LSMBTreeRangeSearchCursor extends LSMIndexSearchCursor {
     private BTreeAccessor[] btreeAccessors;
     private ArrayTupleBuilder tupleBuilder;
     private boolean canCallProceed = true;
+    private boolean resultOfSearchCallbackProceed = false;
     private int tupleFromMemoryComponentCount = 0;
 
     public LSMBTreeRangeSearchCursor(ILSMIndexOperationContext opCtx) {
@@ -104,46 +105,49 @@ public class LSMBTreeRangeSearchCursor extends LSMIndexSearchCursor {
         while (!outputPriorityQueue.isEmpty() || needPushElementIntoQueue) {
             if (!outputPriorityQueue.isEmpty()) {
                 PriorityQueueElement queueHead = outputPriorityQueue.peek();
-                if (canCallProceed && includeMutableComponent && !searchCallback.proceed(queueHead.getTuple())) {
-                    // In case proceed() fails and there is an in-memory component,
-                    // we can't simply use this element since there might be a change.
-                    PriorityQueueElement mutableElement = remove(outputPriorityQueue, 0);
-                    if (mutableElement != null) {
-                        // Copies the current queue head
-                        if (tupleBuilder == null) {
-                            tupleBuilder = new ArrayTupleBuilder(cmp.getKeyFieldCount());
+                if (canCallProceed && includeMutableComponent) {
+                    resultOfSearchCallbackProceed = searchCallback.proceed(queueHead.getTuple());
+                    if (!resultOfSearchCallbackProceed) {
+                        // In case proceed() fails and there is an in-memory component,
+                        // we can't simply use this element since there might be a change.
+                        PriorityQueueElement mutableElement = remove(outputPriorityQueue, 0);
+                        if (mutableElement != null) {
+                            // Copies the current queue head
+                            if (tupleBuilder == null) {
+                                tupleBuilder = new ArrayTupleBuilder(cmp.getKeyFieldCount());
+                            }
+                            TupleUtils.copyTuple(tupleBuilder, queueHead.getTuple(), cmp.getKeyFieldCount());
+                            copyTuple.reset(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray());
+                            // Unlatches/unpins the leaf page of the index.
+                            rangeCursors[0].close();
+                            // Reconcile.
+                            searchCallback.reconcile(copyTuple);
+                            // Re-traverses the index.
+                            reusablePred.setLowKey(copyTuple, true);
+                            btreeAccessors[0].search(rangeCursors[0], reusablePred);
+                            pushIntoQueueFromCursorAndReplaceThisElement(mutableElement);
+                            // now that we have completed the search and we have latches over the pages,
+                            // it is safe to complete the operation.. but as per the API of the callback
+                            // we only complete if we're producing this tuple
+                            // get head again
+                            queueHead = outputPriorityQueue.peek();
+                            /*
+                             * We need to restart in one of two cases:
+                             * 1. no more elements in the priority queue.
+                             * 2. the key of the head has changed (which means we need to call proceed)
+                             */
+                            if (queueHead == null || cmp.compare(copyTuple, queueHead.getTuple()) != 0) {
+                                // cancel since we're not continuing
+                                searchCallback.cancel(copyTuple);
+                                continue;
+                            }
+                            searchCallback.complete(copyTuple);
+                            // it is safe to proceed now
+                        } else {
+                            // There are no more elements in the memory component.. can safely skip locking for the
+                            // remaining operations
+                            includeMutableComponent = false;
                         }
-                        TupleUtils.copyTuple(tupleBuilder, queueHead.getTuple(), cmp.getKeyFieldCount());
-                        copyTuple.reset(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray());
-                        // Unlatches/unpins the leaf page of the index.
-                        rangeCursors[0].close();
-                        // Reconcile.
-                        searchCallback.reconcile(copyTuple);
-                        // Re-traverses the index.
-                        reusablePred.setLowKey(copyTuple, true);
-                        btreeAccessors[0].search(rangeCursors[0], reusablePred);
-                        pushIntoQueueFromCursorAndReplaceThisElement(mutableElement);
-                        // now that we have completed the search and we have latches over the pages,
-                        // it is safe to complete the operation.. but as per the API of the callback
-                        // we only complete if we're producing this tuple
-                        // get head again
-                        queueHead = outputPriorityQueue.peek();
-                        /*
-                         * We need to restart in one of two cases:
-                         * 1. no more elements in the priority queue.
-                         * 2. the key of the head has changed (which means we need to call proceed)
-                         */
-                        if (queueHead == null || cmp.compare(copyTuple, queueHead.getTuple()) != 0) {
-                            // cancel since we're not continuing
-                            searchCallback.cancel(copyTuple);
-                            continue;
-                        }
-                        searchCallback.complete(copyTuple);
-                        // it is safe to proceed now
-                    } else {
-                        // There are no more elements in the memory component.. can safely skip locking for the
-                        // remaining operations
-                        includeMutableComponent = false;
                     }
                 }
 
@@ -337,8 +341,8 @@ public class LSMBTreeRangeSearchCursor extends LSMIndexSearchCursor {
             btreeAccessors = new BTreeAccessor[numBTrees];
         } else if (rangeCursors.length != numBTrees) {
             // should destroy first
-            Throwable failure = DestroyUtils.destroy(null, btreeAccessors);
-            failure = DestroyUtils.destroy(failure, rangeCursors);
+            Throwable failure = CleanupUtils.destroy(null, btreeAccessors);
+            failure = CleanupUtils.destroy(failure, rangeCursors);
             if (failure != null) {
                 throw HyracksDataException.create(failure);
             }
@@ -368,4 +372,10 @@ public class LSMBTreeRangeSearchCursor extends LSMIndexSearchCursor {
         initPriorityQueue();
         canCallProceed = true;
     }
+
+    @Override
+    public boolean getSearchOperationCallbackProceedResult() {
+        return resultOfSearchCallbackProceed;
+    }
+
 }

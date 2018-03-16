@@ -40,17 +40,19 @@ public class FeedConnection implements IMetadataEntity<FeedConnection> {
     private String feedName;
     private String datasetName;
     private String policyName;
+    private String whereClauseBody;
     private String outputType;
     private List<FunctionSignature> appliedFunctions;
 
     public FeedConnection(String dataverseName, String feedName, String datasetName,
-            List<FunctionSignature> appliedFunctions, String policyName, String outputType) {
+            List<FunctionSignature> appliedFunctions, String policyName, String whereClauseBody, String outputType) {
         this.dataverseName = dataverseName;
         this.feedName = feedName;
         this.datasetName = datasetName;
         this.appliedFunctions = appliedFunctions;
         this.connectionId = feedName + ":" + datasetName;
         this.policyName = policyName;
+        this.whereClauseBody = whereClauseBody == null ? "" : whereClauseBody;
         this.outputType = outputType;
         this.feedId = new EntityId(FeedUtils.FEED_EXTENSION_NAME, dataverseName, feedName);
     }
@@ -105,6 +107,10 @@ public class FeedConnection implements IMetadataEntity<FeedConnection> {
         return policyName;
     }
 
+    public String getWhereClauseBody() {
+        return whereClauseBody;
+    }
+
     public String getOutputType() {
         return outputType;
     }
@@ -113,13 +119,7 @@ public class FeedConnection implements IMetadataEntity<FeedConnection> {
         return feedId;
     }
 
-    public boolean containsFunction(String dataverseName, String functionName, int arity) {
-        for (FunctionSignature signature : this.appliedFunctions) {
-            if (signature.getNamespace().equals(dataverseName) && signature.getName().equals(functionName)
-                    && signature.getArity() == arity) {
-                return true;
-            }
-        }
-        return false;
+    public boolean containsFunction(FunctionSignature signature) {
+        return appliedFunctions.contains(signature);
     }
 }

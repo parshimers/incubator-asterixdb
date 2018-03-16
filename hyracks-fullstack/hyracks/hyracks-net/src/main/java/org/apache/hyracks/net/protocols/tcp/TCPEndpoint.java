@@ -21,7 +21,6 @@ package org.apache.hyracks.net.protocols.tcp;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
-import java.net.StandardSocketOptions;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -31,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.hyracks.util.NetworkUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -63,18 +63,17 @@ public class TCPEndpoint {
             serverSocket.bind(localAddress);
             this.localAddress = (InetSocketAddress) serverSocket.getLocalSocketAddress();
         }
-
         ioThreads = new IOThread[nThreads];
         for (int i = 0; i < ioThreads.length; ++i) {
             ioThreads[i] = new IOThread();
         }
-
         if (localAddress != null) {
-            ioThreads[0].registerServerSocket(serverSocketChannel);
+            for (IOThread ioThread : ioThreads) {
+                ioThread.registerServerSocket(serverSocketChannel);
+            }
         }
-
-        for (int i = 0; i < ioThreads.length; ++i) {
-            ioThreads[i].start();
+        for (IOThread ioThread : ioThreads) {
+            ioThread.start();
         }
     }
 
@@ -98,6 +97,11 @@ public class TCPEndpoint {
         return localAddress;
     }
 
+    @Override
+    public String toString() {
+        return "TCPEndpoint [Local Address: " + localAddress + "]";
+    }
+
     private class IOThread extends Thread {
         private final List<InetSocketAddress> pendingConnections;
 
@@ -110,7 +114,7 @@ public class TCPEndpoint {
         private final Selector selector;
 
         public IOThread() throws IOException {
-            super("TCPEndpoint IO Thread");
+            super("TCPEndpoint IO Thread [" + localAddress + "]");
             setDaemon(true);
             setPriority(Thread.NORM_PRIORITY);
             this.pendingConnections = new ArrayList<>();
@@ -129,9 +133,7 @@ public class TCPEndpoint {
                     if (!workingPendingConnections.isEmpty()) {
                         for (InetSocketAddress address : workingPendingConnections) {
                             SocketChannel channel = SocketChannel.open();
-                            channel.setOption(StandardSocketOptions.TCP_NODELAY, true);
-                            channel.setOption(StandardSocketOptions.SO_KEEPALIVE, true);
-                            channel.configureBlocking(false);
+                            register(channel);
                             boolean connect = false;
                             boolean failure = false;
                             try {
@@ -156,9 +158,7 @@ public class TCPEndpoint {
                     }
                     if (!workingIncomingConnections.isEmpty()) {
                         for (SocketChannel channel : workingIncomingConnections) {
-                            channel.setOption(StandardSocketOptions.TCP_NODELAY, true);
-                            channel.setOption(StandardSocketOptions.SO_KEEPALIVE, true);
-                            channel.configureBlocking(false);
+                            register(channel);
                             SelectionKey sKey = channel.register(selector, 0);
                             TCPConnection connection = new TCPConnection(TCPEndpoint.this, channel, sKey, selector);
                             sKey.attach(connection);
@@ -182,10 +182,12 @@ public class TCPEndpoint {
                                 try {
                                     connection.getEventListener().notifyIOReady(connection, readable, writable);
                                 } catch (Exception e) {
-                                    LOGGER.error("Unexpected tcp io error", e);
+                                    LOGGER.error("Unexpected tcp io error in connection {}", connection, e);
                                     connection.getEventListener().notifyIOError(e);
                                     connection.close();
-                                    connectionListener.connectionClosed(connection);
+                                    synchronized (connectionListener) {
+                                        connectionListener.connectionClosed(connection);
+                                    }
                                     continue;
                                 }
                             }
@@ -199,6 +201,7 @@ public class TCPEndpoint {
                                 try {
                                     finishConnect = channel.finishConnect();
                                 } catch (IOException e) {
+                                    LOGGER.error("Failed to finish connect to channel {}", key.attachment(), e);
                                     key.cancel();
                                     synchronized (connectionListener) {
                                         connectionListener.connectionFailure((InetSocketAddress) key.attachment(), e);
@@ -211,7 +214,7 @@ public class TCPEndpoint {
                         }
                     }
                 } catch (Exception e) {
-                    LOGGER.error("Error in TCPEndpoint " + localAddress, e);
+                    LOGGER.error("Error in TCPEndpoint {}", TCPEndpoint.this, e);
                 }
             }
         }
@@ -249,6 +252,11 @@ public class TCPEndpoint {
                 workingIncomingConnections.addAll(incomingConnections);
                 incomingConnections.clear();
             }
+        }
+
+        private void register(SocketChannel channel) throws IOException {
+            NetworkUtil.configure(channel);
+            channel.configureBlocking(false);
         }
     }
 }

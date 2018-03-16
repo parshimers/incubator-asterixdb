@@ -53,6 +53,38 @@
 
  The function has an alias `isarray`.
 
+### is_atomic (isatomic, isatom) ###
+ * Syntax:
+
+        is_atomic(expr)
+
+ * Checks whether the given expression is evaluated to be a value of a [primitive](../datamodel.html#PrimitiveTypes) type.
+ * Arguments:
+    * `expr` : an expression (any type is allowed).
+ * Return Value:
+    * a `boolean` on whether the argument is a primitive type or not,
+    * a `missing` if the argument is a `missing` value,
+    * a `null` if the argument is a `null` value.
+
+ * Example:
+
+        {
+          "a": is_atomic(true),
+          "b": is_atomic(false),
+          "c": isatomic(null),
+          "d": isatomic(missing),
+          "e": isatomic("d"),
+          "f": isatom(4.0),
+          "g": isatom(5),
+          "h": isatom(["1", 2]),
+          "i": isatom({"a":1})
+        };
+
+* The expected result is:
+
+        { "a": true, "b": true, "c": null, "e": true, "f": true, "g": true, "h": false, "i": false }
+
+ The function has two aliases, `isatomic` or `isatom`.
 
 ### is_boolean (isboolean, isbool) ###
  * Syntax:
@@ -367,6 +399,40 @@
 
  The function has an alias `todouble`.
 
+### to_number ###
+  * Syntax:
+
+        to_number(expr)
+
+  * Converts input value to a numeric value
+  * Arguments:
+     * `expr` : an expression
+  * Return Value:
+     * if the argument is `missing` then `missing` is returned
+     * if the argument is `null` then `null` is returned
+     * if the argument is of numeric type then it is returned as is
+     * if the argument is of `boolean` type then `1` is returned if it is `true`, `0` if it is `false`
+     * if the argument is of `string` type and can be parsed as `bigint` then that `bigint` value is returned,
+       otherwise if it can be parsed as `double` then that `double` value is returned,
+       otherwise `null` is returned
+     * if the argument is of `array`/`multiset`/`object` type then `null` is returned
+     * type error is raised for all other input types
+
+ * Example:
+
+        {
+          "v1": to_number(false),
+          "v2": to_number(true),
+          "v3": to_number(10),
+          "v4": to_number(11.5),
+          "v5": to_number("12.5")
+        };
+
+ * The expected result is:
+
+        { "v1": 0, "v2": 1, "v3": 10, "v4": 11.5, "v5": 12.5 }
+
+ The function has an alias `tonumber`.
 
 ### to_string ###
   * Syntax:

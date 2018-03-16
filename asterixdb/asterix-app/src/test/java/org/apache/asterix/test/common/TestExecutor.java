@@ -50,6 +50,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
@@ -84,6 +85,7 @@ import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.client.StandardHttpRequestRetryHandler;
 import org.apache.http.protocol.HttpContext;
@@ -128,6 +130,12 @@ public class TestExecutor {
     public static final int TRUNCATE_THRESHOLD = 16384;
     public static final Set<String> NON_CANCELLABLE =
             Collections.unmodifiableSet(new HashSet<>(Arrays.asList("store", "validate")));
+
+    private final IPollTask plainExecutor = (testCaseCtx, ctx, variableCtx, statement, isDmlRecoveryTest, pb, cUnit,
+            queryCount, expectedResultFileCtxs, testFile, actualPath) -> {
+        executeTestFile(testCaseCtx, ctx, variableCtx, statement, isDmlRecoveryTest, pb, cUnit, queryCount,
+                expectedResultFileCtxs, testFile, actualPath);
+    };
 
     public static final String DELIVERY_ASYNC = "async";
     public static final String DELIVERY_DEFERRED = "deferred";
@@ -470,13 +478,25 @@ public class TestExecutor {
     }
 
     protected HttpResponse executeHttpRequest(HttpUriRequest method) throws Exception {
-        HttpClient client = HttpClients.custom().setRetryHandler(StandardHttpRequestRetryHandler.INSTANCE).build();
+        // https://issues.apache.org/jira/browse/ASTERIXDB-2315
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        CloseableHttpClient client =
+                HttpClients.custom().setRetryHandler(StandardHttpRequestRetryHandler.INSTANCE).build();
+        Future<HttpResponse> future = executor.submit(() -> {
+            try {
+                return client.execute(method, getHttpContext());
+            } catch (Exception e) {
+                GlobalConfig.ASTERIX_LOGGER.log(Level.ERROR, "Failure executing {}", method, e);
+                throw e;
+            }
+        });
         try {
-            return client.execute(method, getHttpContext());
+            return future.get();
         } catch (Exception e) {
-            GlobalConfig.ASTERIX_LOGGER.log(Level.ERROR, e.getMessage(), e);
-            e.printStackTrace();
+            client.close();
             throw e;
+        } finally {
+            executor.shutdownNow();
         }
     }
 
@@ -886,6 +906,11 @@ public class TestExecutor {
             case "pollget":
             case "pollquery":
                 poll(testCaseCtx, ctx, variableCtx, statement, isDmlRecoveryTest, pb, cUnit, queryCount,
+                        expectedResultFileCtxs, testFile, actualPath, ctx.getType().substring("poll".length()),
+                        plainExecutor);
+                break;
+            case "polldynamic":
+                polldynamic(testCaseCtx, ctx, variableCtx, statement, isDmlRecoveryTest, pb, cUnit, queryCount,
                         expectedResultFileCtxs, testFile, actualPath);
                 break;
             case "query":
@@ -923,16 +948,8 @@ public class TestExecutor {
                 break;
             case "validate":
                 // This is a query that validates the output against a previously executed query
-                key = getKey(statement);
-                expectedResultFile = (File) variableCtx.remove(key);
-                if (expectedResultFile == null) {
-                    throw new IllegalStateException("There is no stored result with the key: " + key);
-                }
-                actualResultFile = new File(actualPath, testCaseCtx.getTestCase().getFilePath() + File.separatorChar
-                        + cUnit.getName() + '.' + ctx.getSeqNum() + ".adm");
-                executeQuery(OutputFormat.forCompilationUnit(cUnit), statement, variableCtx, ctx.getType(), testFile,
-                        expectedResultFile, actualResultFile, queryCount, expectedResultFileCtxs.size(),
-                        cUnit.getParameter(), ComparisonEnum.TEXT);
+                validate(actualPath, testCaseCtx, cUnit, statement, variableCtx, testFile, ctx, queryCount,
+                        expectedResultFileCtxs);
                 break;
             case "txnqbc": // qbc represents query before crash
                 InputStream resultStream = executeQuery(statement, OutputFormat.forCompilationUnit(cUnit),
@@ -1158,6 +1175,21 @@ public class TestExecutor {
         }
     }
 
+    private void validate(String actualPath, TestCaseContext testCaseCtx, CompilationUnit cUnit, String statement,
+            Map<String, Object> variableCtx, File testFile, TestFileContext ctx, MutableInt queryCount,
+            List<TestFileContext> expectedResultFileCtxs) throws Exception {
+        String key = getKey(statement);
+        File expectedResultFile = (File) variableCtx.remove(key);
+        if (expectedResultFile == null) {
+            throw new IllegalStateException("There is no stored result with the key: " + key);
+        }
+        File actualResultFile = new File(actualPath, testCaseCtx.getTestCase().getFilePath() + File.separatorChar
+                + cUnit.getName() + '.' + ctx.getSeqNum() + ".adm");
+        executeQuery(OutputFormat.forCompilationUnit(cUnit), statement, variableCtx, "validate", testFile,
+                expectedResultFile, actualResultFile, queryCount, expectedResultFileCtxs.size(), cUnit.getParameter(),
+                ComparisonEnum.TEXT);
+    }
+
     protected void executeHttpRequest(OutputFormat fmt, String statement, Map<String, Object> variableCtx,
             String reqType, File testFile, File expectedResultFile, File actualResultFile, MutableInt queryCount,
             int numResultFiles, String extension, ComparisonEnum compare) throws Exception {
@@ -1259,29 +1291,88 @@ public class TestExecutor {
         actualResultFile.getParentFile().delete();
     }
 
-    private void poll(TestCaseContext testCaseCtx, TestFileContext ctx, Map<String, Object> variableCtx,
+    private void polldynamic(TestCaseContext testCaseCtx, TestFileContext ctx, Map<String, Object> variableCtx,
             String statement, boolean isDmlRecoveryTest, ProcessBuilder pb, CompilationUnit cUnit,
             MutableInt queryCount, List<TestFileContext> expectedResultFileCtxs, File testFile, String actualPath)
             throws Exception {
+        IExpectedResultPoller poller = getExpectedResultPoller(statement);
+        final String key = getKey(statement);
+        poll(testCaseCtx, ctx, variableCtx, statement, isDmlRecoveryTest, pb, cUnit, queryCount, expectedResultFileCtxs,
+                testFile, actualPath, "validate", new IPollTask() {
+                    @Override
+                    public void execute(TestCaseContext testCaseCtx, TestFileContext ctx,
+                            Map<String, Object> variableCtx, String statement, boolean isDmlRecoveryTest,
+                            ProcessBuilder pb, CompilationUnit cUnit, MutableInt queryCount,
+                            List<TestFileContext> expectedResultFileCtxs, File testFile, String actualPath)
+                            throws Exception {
+                        File actualResultFile = new File(actualPath, testCaseCtx.getTestCase().getFilePath()
+                                + File.separatorChar + cUnit.getName() + '.' + ctx.getSeqNum() + ".polled.adm");
+                        if (actualResultFile.exists() && !actualResultFile.delete()) {
+                            throw new Exception(
+                                    "Failed to delete an existing result file: " + actualResultFile.getAbsolutePath());
+                        }
+                        writeOutputToFile(actualResultFile,
+                                new ByteArrayInputStream(poller.poll().getBytes(StandardCharsets.UTF_8)));
+                        variableCtx.put(key, actualResultFile);
+                        validate(actualPath, testCaseCtx, cUnit, statement, variableCtx, testFile, ctx, queryCount,
+                                expectedResultFileCtxs);
+                    }
+                });
+    }
+
+    protected IExpectedResultPoller getExpectedResultPoller(String statement) {
+        String key = "poller=";
+        String value = null;
+        String[] lines = statement.split("\n");
+        for (String line : lines) {
+            if (line.contains(key)) {
+                value = line.substring(line.indexOf(key) + key.length()).trim();
+            }
+        }
+        if (value == null) {
+            throw new IllegalArgumentException("ERROR: poller=<...> must be present in poll-dynamic file");
+        }
+        String staticPoller = "static:";
+        if (value.startsWith(staticPoller)) {
+            String polled = value.substring(staticPoller.length());
+            return () -> polled;
+        }
+        throw new IllegalArgumentException("ERROR: unknown poller: " + value);
+    }
+
+    private void poll(TestCaseContext testCaseCtx, TestFileContext ctx, Map<String, Object> variableCtx,
+            String statement, boolean isDmlRecoveryTest, ProcessBuilder pb, CompilationUnit cUnit,
+            MutableInt queryCount, List<TestFileContext> expectedResultFileCtxs, File testFile, String actualPath,
+            String newType, IPollTask pollTask) throws Exception {
         // polltimeoutsecs=nnn, polldelaysecs=nnn
         int timeoutSecs = getTimeoutSecs(statement);
         int retryDelaySecs = getRetryDelaySecs(statement);
         long startTime = System.currentTimeMillis();
         long limitTime = startTime + TimeUnit.SECONDS.toMillis(timeoutSecs);
-        ctx.setType(ctx.getType().substring("poll".length()));
+        Semaphore endSemaphore = new Semaphore(1);
+        final ExecutorService executorService = Executors.newSingleThreadExecutor();
+        String originalType = ctx.getType();
+        ctx.setType(newType);
         try {
             boolean expectedException = false;
             Exception finalException = null;
             LOGGER.debug("polling for up to " + timeoutSecs + " seconds w/ " + retryDelaySecs + " second(s) delay");
             int responsesReceived = 0;
-            final ExecutorService executorService = Executors.newSingleThreadExecutor();
             while (true) {
                 try {
+                    endSemaphore.acquire();
+                    Semaphore startSemaphore = new Semaphore(0);
                     Future<Void> execution = executorService.submit(() -> {
-                        executeTestFile(testCaseCtx, ctx, variableCtx, statement, isDmlRecoveryTest, pb, cUnit,
-                                queryCount, expectedResultFileCtxs, testFile, actualPath);
+                        try {
+                            startSemaphore.release();
+                            pollTask.execute(testCaseCtx, ctx, variableCtx, statement, isDmlRecoveryTest, pb, cUnit,
+                                    queryCount, expectedResultFileCtxs, testFile, actualPath);
+                        } finally {
+                            endSemaphore.release();
+                        }
                         return null;
                     });
+                    startSemaphore.acquire();
                     execution.get(limitTime - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
                     responsesReceived++;
                     finalException = null;
@@ -1334,11 +1425,13 @@ public class TestExecutor {
                 throw new Exception("Poll limit (" + timeoutSecs + "s) exceeded without obtaining expected result",
                         finalException);
             }
-
         } finally {
-            ctx.setType("poll" + ctx.getType());
+            executorService.shutdownNow();
+            // ensure no leftover task is running. This avoids re-polling due to
+            // resetting the ctx type to poll while the last attempt is being made
+            endSemaphore.acquire();
+            ctx.setType(originalType);
         }
-
     }
 
     public InputStream executeSqlppUpdateOrDdl(String statement, OutputFormat outputFormat) throws Exception {
@@ -1514,6 +1607,10 @@ public class TestExecutor {
                     "Starting [TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName() + " ... ");
             Map<String, Object> variableCtx = new HashMap<>();
             List<TestFileContext> testFileCtxs = testCaseCtx.getTestFiles(cUnit);
+            if (testFileCtxs.isEmpty()) {
+                Assert.fail("No test files found for test: " + testCaseCtx.getTestCase().getFilePath() + "/"
+                        + cUnit.getName());
+            }
             List<TestFileContext> expectedResultFileCtxs = testCaseCtx.getExpectedResultFiles(cUnit);
             int[] savedQueryCounts = new int[numOfFiles + testFileCtxs.size()];
             for (ListIterator<TestFileContext> iter = testFileCtxs.listIterator(); iter.hasNext();) {
@@ -1649,14 +1746,18 @@ public class TestExecutor {
             InputStream resultStream = executeQueryService(
                     "select dv.DataverseName from Metadata.`Dataverse` as dv order by dv.DataverseName;",
                     getEndpoint(Servlets.QUERY_SERVICE), OutputFormat.CLEAN_JSON);
-            String out = IOUtils.toString(resultStream);
+            String out = IOUtils.toString(resultStream, StandardCharsets.UTF_8);
             ObjectMapper om = new ObjectMapper();
             om.setConfig(om.getDeserializationConfig().with(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT));
             JsonNode result;
             try {
                 result = om.readValue(out, ObjectNode.class).get("results");
             } catch (JsonMappingException e) {
-                result = om.createArrayNode();
+                LOGGER.warn("error mapping response '{}' to json", out, e);
+                result = null;
+            }
+            if (result == null) {
+                return;
             }
             for (int i = 0; i < result.size(); i++) {
                 JsonNode json = result.get(i);

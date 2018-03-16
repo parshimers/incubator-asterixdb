@@ -21,17 +21,21 @@ package org.apache.asterix.external.api;
 import org.apache.asterix.external.library.java.JTypeTag;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
+import java.util.List;
+
 public interface IFunctionHelper {
 
-    public IJObject getArgument(int index);
+    IJObject getArgument(int index);
 
-    public IJObject getResultObject();
+    IJObject getResultObject();
 
-    public void setResult(IJObject result) throws HyracksDataException;
+    void setResult(IJObject result) throws HyracksDataException;
 
-    public boolean isValidResult();
+    boolean isValidResult();
 
-    public IJObject getObject(JTypeTag jtypeTag) throws HyracksDataException;
+    IJObject getObject(JTypeTag jtypeTag) throws HyracksDataException;
 
-    public void reset();
+    void reset();
+
+    List<String> getParameters();
 }

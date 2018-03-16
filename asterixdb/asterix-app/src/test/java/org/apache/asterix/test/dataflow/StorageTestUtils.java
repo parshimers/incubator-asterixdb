@@ -29,6 +29,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.asterix.app.bootstrap.TestNodeController;
 import org.apache.asterix.app.bootstrap.TestNodeController.PrimaryIndexInfo;
@@ -37,6 +38,7 @@ import org.apache.asterix.app.data.gen.TupleGenerator;
 import org.apache.asterix.app.data.gen.TupleGenerator.GenerationFunction;
 import org.apache.asterix.common.api.IDatasetLifecycleManager;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
+import org.apache.asterix.common.context.DatasetInfo;
 import org.apache.asterix.common.context.PrimaryIndexOperationTracker;
 import org.apache.asterix.common.dataflow.LSMInsertDeleteOperatorNodePushable;
 import org.apache.asterix.common.exceptions.ACIDException;
@@ -57,6 +59,8 @@ import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.api.test.CountAnswer;
 import org.apache.hyracks.api.test.FrameWriterTestUtils;
 import org.apache.hyracks.api.test.FrameWriterTestUtils.FrameWriterOperation;
+import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
+import org.apache.hyracks.storage.am.lsm.btree.impl.AllowTestOpCallback;
 import org.apache.hyracks.storage.am.lsm.btree.impl.ITestOpCallback;
 import org.apache.hyracks.storage.am.lsm.btree.impl.TestLsmBtree;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
@@ -92,25 +96,20 @@ public class StorageTestUtils {
                     NoMergePolicyFactory.NAME, null, new InternalDatasetDetails(null, PartitioningStrategy.HASH,
                             PARTITIONING_KEYS, null, null, null, false, null),
                     null, DatasetType.INTERNAL, DATASET_ID, 0);
-    public static final ITestOpCallback<Semaphore> ALLOW_CALLBACK = new ITestOpCallback<Semaphore>() {
-        @Override
-        public void before(Semaphore smeaphore) {
-            smeaphore.release();
-        }
-
-        @Override
-        public void after() {
-        }
-    };
 
     private StorageTestUtils() {
     }
 
     static void allowAllOps(TestLsmBtree lsmBtree) {
-        lsmBtree.addModifyCallback(ALLOW_CALLBACK);
-        lsmBtree.addFlushCallback(ALLOW_CALLBACK);
-        lsmBtree.addSearchCallback(ALLOW_CALLBACK);
-        lsmBtree.addMergeCallback(ALLOW_CALLBACK);
+        lsmBtree.clearModifyCallbacks();
+        lsmBtree.clearFlushCallbacks();
+        lsmBtree.clearSearchCallbacks();
+        lsmBtree.clearMergeCallbacks();
+
+        lsmBtree.addModifyCallback(AllowTestOpCallback.INSTANCE);
+        lsmBtree.addFlushCallback(AllowTestOpCallback.INSTANCE);
+        lsmBtree.addSearchCallback(AllowTestOpCallback.INSTANCE);
+        lsmBtree.addMergeCallback(AllowTestOpCallback.INSTANCE);
     }
 
     public static PrimaryIndexInfo createPrimaryIndex(TestNodeController nc, int partition)
@@ -121,8 +120,20 @@ public class StorageTestUtils {
 
     public static LSMInsertDeleteOperatorNodePushable getInsertPipeline(TestNodeController nc, IHyracksTaskContext ctx)
             throws HyracksDataException, RemoteException, ACIDException, AlgebricksException {
+        return getInsertPipeline(nc, ctx, null);
+    }
+
+    public static LSMInsertDeleteOperatorNodePushable getInsertPipeline(TestNodeController nc, IHyracksTaskContext ctx,
+            Index secondaryIndex, IndexOperation op)
+            throws HyracksDataException, RemoteException, ACIDException, AlgebricksException {
         return nc.getInsertPipeline(ctx, DATASET, KEY_TYPES, RECORD_TYPE, META_TYPE, null, KEY_INDEXES,
-                KEY_INDICATORS_LIST, STORAGE_MANAGER, null).getLeft();
+                KEY_INDICATORS_LIST, STORAGE_MANAGER, secondaryIndex, op).getLeft();
+    }
+
+    public static LSMInsertDeleteOperatorNodePushable getInsertPipeline(TestNodeController nc, IHyracksTaskContext ctx,
+            Index secondaryIndex) throws HyracksDataException, RemoteException, ACIDException, AlgebricksException {
+        return nc.getInsertPipeline(ctx, DATASET, KEY_TYPES, RECORD_TYPE, META_TYPE, null, KEY_INDEXES,
+                KEY_INDICATORS_LIST, STORAGE_MANAGER, secondaryIndex).getLeft();
     }
 
     public static TupleGenerator getTupleGenerator() {
@@ -164,6 +175,35 @@ public class StorageTestUtils {
                 exceptionThrowingOperations, errorThrowingOperations);
         return new TestTupleCounterFrameWriter(recordDescriptor, openAnswer, nextAnswer, flushAnswer, failAnswer,
                 closeAnswer, deepCopyInputFrames);
+    }
+
+    public static void flushPartition(IDatasetLifecycleManager dslLifecycleMgr, TestLsmBtree lsmBtree, boolean async)
+            throws Exception {
+        flushPartition(dslLifecycleMgr, lsmBtree, DATASET, async);
+    }
+
+    public static void flushPartition(IDatasetLifecycleManager dslLifecycleMgr, TestLsmBtree lsmBtree, Dataset dataset,
+            boolean async) throws Exception {
+        waitForOperations(lsmBtree);
+        PrimaryIndexOperationTracker opTracker = (PrimaryIndexOperationTracker) lsmBtree.getOperationTracker();
+        opTracker.setFlushOnExit(true);
+        opTracker.flushIfNeeded();
+
+        long maxWaitTime = TimeUnit.MINUTES.toNanos(1); // 1min
+        // wait for log record is flushed, i.e., the flush is scheduled
+        long before = System.nanoTime();
+        while (opTracker.isFlushLogCreated()) {
+            Thread.sleep(5); // NOSONAR: Test code with a timeout
+            if (System.nanoTime() - before > maxWaitTime) {
+                throw new IllegalStateException(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - before)
+                        + "ms passed without scheduling the flush operation");
+            }
+        }
+
+        if (!async) {
+            DatasetInfo dsInfo = dslLifecycleMgr.getDatasetInfo(dataset.getDatasetId());
+            dsInfo.waitForIO();
+        }
     }
 
     public static void flush(IDatasetLifecycleManager dsLifecycleMgr, TestLsmBtree lsmBtree, boolean async)

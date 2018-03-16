@@ -28,7 +28,7 @@ import org.apache.asterix.common.transactions.ILogRecord;
 import org.apache.asterix.common.transactions.ITransactionSubsystem;
 import org.apache.asterix.common.transactions.LogSource;
 import org.apache.asterix.common.transactions.LogType;
-import org.apache.hyracks.util.InvokeUtil;
+import org.apache.hyracks.api.util.InvokeUtil;
 
 public class LogManagerWithReplication extends LogManager {
 
@@ -48,6 +48,7 @@ public class LogManagerWithReplication extends LogManager {
                 case LogType.ENTITY_COMMIT:
                 case LogType.UPDATE:
                 case LogType.FLUSH:
+                case LogType.FILTER:
                     shouldReplicate = replicationStrategy.isMatch(logRecord.getDatasetId());
                     if (shouldReplicate && !replicatedTxn.contains(logRecord.getTxnId())) {
                         replicatedTxn.add(logRecord.getTxnId());

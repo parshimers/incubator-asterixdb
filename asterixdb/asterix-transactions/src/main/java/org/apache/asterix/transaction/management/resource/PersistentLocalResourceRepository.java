@@ -52,11 +52,13 @@ import java.util.stream.Stream;
 import org.apache.asterix.common.dataflow.DatasetLocalResource;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.replication.IReplicationManager;
+import org.apache.asterix.common.replication.IReplicationStrategy;
 import org.apache.asterix.common.replication.ReplicationJob;
 import org.apache.asterix.common.storage.DatasetResourceReference;
 import org.apache.asterix.common.storage.IIndexCheckpointManager;
 import org.apache.asterix.common.storage.IIndexCheckpointManagerProvider;
 import org.apache.asterix.common.storage.ResourceReference;
+import org.apache.asterix.common.storage.ResourceStorageStats;
 import org.apache.asterix.common.utils.StorageConstants;
 import org.apache.asterix.common.utils.StoragePathUtil;
 import org.apache.commons.io.FileUtils;
@@ -342,18 +344,32 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         });
     }
 
-    public List<String> getPartitionIndexesFiles(int partition) throws HyracksDataException {
-        List<String> partitionFiles = new ArrayList<>();
-        Set<File> partitionIndexes = getPartitionIndexes(partition);
-        for (File indexDir : partitionIndexes) {
-            if (indexDir.isDirectory()) {
-                File[] indexFiles = indexDir.listFiles(LSM_INDEX_FILES_FILTER);
-                if (indexFiles != null) {
-                    Stream.of(indexFiles).map(File::getAbsolutePath).forEach(partitionFiles::add);
-                }
+    public List<String> getPartitionReplicatedFiles(int partition, IReplicationStrategy strategy)
+            throws HyracksDataException {
+        final List<String> partitionReplicatedFiles = new ArrayList<>();
+        final Set<File> replicatedIndexes = new HashSet<>();
+        final Map<Long, LocalResource> partitionResources = getPartitionResources(partition);
+        for (LocalResource lr : partitionResources.values()) {
+            DatasetLocalResource datasetLocalResource = (DatasetLocalResource) lr.getResource();
+            if (strategy.isMatch(datasetLocalResource.getDatasetId())) {
+                replicatedIndexes.add(ioManager.resolve(lr.getPath()).getFile());
             }
         }
-        return partitionFiles;
+        for (File indexDir : replicatedIndexes) {
+            partitionReplicatedFiles.addAll(getIndexFiles(indexDir));
+        }
+        return partitionReplicatedFiles;
+    }
+
+    private List<String> getIndexFiles(File indexDir) {
+        final List<String> indexFiles = new ArrayList<>();
+        if (indexDir.isDirectory()) {
+            File[] indexFilteredFiles = indexDir.listFiles(LSM_INDEX_FILES_FILTER);
+            if (indexFilteredFiles != null) {
+                Stream.of(indexFilteredFiles).map(File::getAbsolutePath).forEach(indexFiles::add);
+            }
+        }
+        return indexFiles;
     }
 
     private void createStorageRoots() {
@@ -378,6 +394,19 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         } catch (IOException | ParseException e) {
             throw HyracksDataException.create(e);
         }
+    }
+
+    public List<ResourceStorageStats> getStorageStats() throws HyracksDataException {
+        final List<DatasetResourceReference> allResources = loadAndGetAllResources().values().stream()
+                .map(DatasetResourceReference::of).collect(Collectors.toList());
+        final List<ResourceStorageStats> resourcesStats = new ArrayList<>();
+        for (DatasetResourceReference res : allResources) {
+            final ResourceStorageStats resourceStats = getResourceStats(res);
+            if (resourceStats != null) {
+                resourcesStats.add(resourceStats);
+            }
+        }
+        return resourcesStats;
     }
 
     private void deleteIndexMaskedFiles(File index) throws IOException {
@@ -448,6 +477,29 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
         }
     }
 
+    private ResourceStorageStats getResourceStats(DatasetResourceReference resource) {
+        try {
+            final FileReference resolvedPath = ioManager.resolve(resource.getRelativePath().toString());
+            long totalSize = 0;
+            final File[] indexFiles = resolvedPath.getFile().listFiles();
+            final Map<String, Long> componentsStats = new HashMap<>();
+            if (indexFiles != null) {
+                for (File file : indexFiles) {
+                    long fileSize = file.length();
+                    totalSize += fileSize;
+                    if (isComponentFile(resolvedPath.getFile(), file.getName())) {
+                        String componentId = getComponentId(file.getAbsolutePath());
+                        componentsStats.put(componentId, componentsStats.getOrDefault(componentId, 0L) + fileSize);
+                    }
+                }
+            }
+            return new ResourceStorageStats(resource, componentsStats, totalSize);
+        } catch (Exception e) {
+            LOGGER.warn("Couldn't get stats for resource {}", resource.getRelativePath(), e);
+        }
+        return null;
+    }
+
     /**
      * Gets a component id based on its unique timestamp.
      * e.g. a component file 2018-01-08-01-08-50-439_2018-01-08-01-08-50-439_b
@@ -463,5 +515,9 @@ public class PersistentLocalResourceRepository implements ILocalResourceReposito
 
     private static boolean isComponentMask(File mask) {
         return mask.getName().startsWith(StorageConstants.COMPONENT_MASK_FILE_PREFIX);
+    }
+
+    private static boolean isComponentFile(File indexDir, String fileName) {
+        return COMPONENT_FILES_FILTER.accept(indexDir, fileName);
     }
 }

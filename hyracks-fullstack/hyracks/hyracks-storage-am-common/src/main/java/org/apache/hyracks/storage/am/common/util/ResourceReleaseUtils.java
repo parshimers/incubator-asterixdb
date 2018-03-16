@@ -20,7 +20,6 @@ package org.apache.hyracks.storage.am.common.util;
 
 import java.util.List;
 
-import org.apache.hyracks.api.comm.IFrameWriter;
 import org.apache.hyracks.api.util.ExceptionUtils;
 import org.apache.hyracks.storage.am.common.api.IIndexDataflowHelper;
 import org.apache.hyracks.storage.common.IIndexCursor;
@@ -49,32 +48,6 @@ public class ResourceReleaseUtils {
         if (cursor != null) {
             try {
                 cursor.close();
-            } catch (Throwable th) { // NOSONAR Will be re-thrown
-                try {
-                    LOGGER.log(Level.WARN, "Failure closing a closeable resource", th);
-                } catch (Throwable loggingFailure) {
-                    // Do nothing
-                }
-                root = ExceptionUtils.suppress(root, th);
-            }
-        }
-        return root;
-    }
-
-    /**
-     * Close the AutoCloseable and suppress any Throwable thrown by the close call.
-     * This method must NEVER throw any Throwable
-     *
-     * @param closable
-     *            the resource to close
-     * @param root
-     *            the first exception encountered during release of resources
-     * @return the root Throwable if not null or a new Throwable if any was thrown, otherwise, it returns null
-     */
-    public static Throwable close(AutoCloseable closable, Throwable root) {
-        if (closable != null) {
-            try {
-                closable.close();
             } catch (Throwable th) { // NOSONAR Will be re-thrown
                 try {
                     LOGGER.log(Level.WARN, "Failure closing a closeable resource", th);
@@ -126,32 +99,6 @@ public class ResourceReleaseUtils {
     public static Throwable close(List<IIndexDataflowHelper> indexHelpers, Throwable root) {
         for (int i = 0; i < indexHelpers.size(); i++) {
             root = close(indexHelpers.get(i), root);
-        }
-        return root;
-    }
-
-    /**
-     * Close the IFrameWriter and suppress any Throwable thrown by the close call.
-     * This method must NEVER throw any Throwable
-     *
-     * @param writer
-     *            the writer to close
-     * @param root
-     *            the first exception encountered during release of resources
-     * @return the root Throwable if not null or a new Throwable if any was thrown, otherwise, it returns null
-     */
-    public static Throwable close(IFrameWriter writer, Throwable root) {
-        if (writer != null) {
-            try {
-                writer.close();
-            } catch (Throwable th) { // NOSONAR Will be re-thrown
-                try {
-                    LOGGER.log(Level.WARN, "Failure closing a closeable resource", th);
-                } catch (Throwable loggingFailure) {
-                    // Do nothing
-                }
-                root = ExceptionUtils.suppress(root, th);
-            }
         }
         return root;
     }

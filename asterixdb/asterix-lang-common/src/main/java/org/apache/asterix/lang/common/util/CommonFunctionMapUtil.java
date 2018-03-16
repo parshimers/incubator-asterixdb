@@ -39,7 +39,6 @@ public class CommonFunctionMapUtil {
         FUNCTION_NAME_MAP.put("upper", "uppercase"); // upper, internal: uppercase
         FUNCTION_NAME_MAP.put("title", "initcap"); // title, internal: initcap
         FUNCTION_NAME_MAP.put("regexp_contains", "matches"); // regexp_contains, internal: matches
-        FUNCTION_NAME_MAP.put("regexp_replace", "replace"); //regexp_replace, internal: replace
         FUNCTION_NAME_MAP.put("power", "caret"); //pow, internal: caret
         FUNCTION_NAME_MAP.put("int", "integer"); // int, internal: integer
 
@@ -53,6 +52,8 @@ public class CommonFunctionMapUtil {
         FUNCTION_NAME_MAP.put("isnull", "is-null"); // isnull, internal: is-null
         FUNCTION_NAME_MAP.put("ismissing", "is-missing"); // ismissing, internal: is-missing
         FUNCTION_NAME_MAP.put("isunknown", "is-unknown"); // isunknown, internal: is-unknown
+        FUNCTION_NAME_MAP.put("isatomic", "is-atomic"); // isatomic, internal: is-atomic
+        FUNCTION_NAME_MAP.put("isatom", "is-atomic"); // isatom, internal: is-atomic
         FUNCTION_NAME_MAP.put("isboolean", "is-boolean"); // isboolean, internal: is-boolean
         FUNCTION_NAME_MAP.put("isbool", "is-boolean"); // isbool, internal: is-boolean
         FUNCTION_NAME_MAP.put("isnumber", "is-number"); // isnumber, internal: is-number
@@ -64,14 +65,22 @@ public class CommonFunctionMapUtil {
         FUNCTION_NAME_MAP.put("isobj", "is-object"); // isobj, internal: is-object
         FUNCTION_NAME_MAP.put("ifmissing", "if-missing"); // ifmissing, internal: if-missing
         FUNCTION_NAME_MAP.put("ifnull", "if-null"); // ifnull, internal: if-null
-        FUNCTION_NAME_MAP.put("ifmissingornull", "if-missing-or-null"); // ifmissingornull, internal: is-missing-or-null
+        FUNCTION_NAME_MAP.put("ifmissingornull", "if-missing-or-null"); // ifmissingornull, internal: if-missing-or-null
+        FUNCTION_NAME_MAP.put("ifinf", "if-inf"); // ifinf, internal: if-inf
+        FUNCTION_NAME_MAP.put("ifnan", "if-nan"); // ifnan, internal: if-nan
+        FUNCTION_NAME_MAP.put("ifnanorinf", "if-nan-or-inf"); // ifnanorinf, internal: if-nan-or-inf
         FUNCTION_NAME_MAP.put("toboolean", "to-boolean"); // toboolean, internal: to-boolean
         FUNCTION_NAME_MAP.put("tostring", "to-string"); // tostring, internal: to-string
         FUNCTION_NAME_MAP.put("todouble", "to-double"); // todouble, internal: to-double
         FUNCTION_NAME_MAP.put("tobigint", "to-bigint"); // tobigint, internal: to-bigint
+        FUNCTION_NAME_MAP.put("tonumber", "to-number"); // tonumber, internal: to-number
+        FUNCTION_NAME_MAP.put("tonum", "to-number"); // tonum, internal: to-number
 
         // Object functions
-        FUNCTION_NAME_MAP.put("record-merge", "object-merge"); // record-merge, internal: object-merge
+        // record-merge, internal: object-merge
+        FUNCTION_NAME_MAP.put("record-merge", "object-merge");
+        // record-concat, internal: object-concat
+        FUNCTION_NAME_MAP.put("record-concat", "object-concat");
         // record-get-fields, internal: object-get-fields
         FUNCTION_NAME_MAP.put("record-get-fields", "object-get-fields");
         // record-get-field-value, internal: object-get-field-value
@@ -80,6 +89,9 @@ public class CommonFunctionMapUtil {
         FUNCTION_NAME_MAP.put("record-add-fields", "object-add-fields");
         // record-remove-fields, internal: object-remove-fields
         FUNCTION_NAME_MAP.put("record-remove-fields", "object-remove-fields");
+
+        // Array/Mutliset functions
+        FUNCTION_NAME_MAP.put("array_length", "len");
     }
 
     private CommonFunctionMapUtil() {

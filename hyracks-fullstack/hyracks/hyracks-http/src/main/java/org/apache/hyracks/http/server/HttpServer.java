@@ -28,7 +28,9 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.hyracks.http.api.IChannelClosedHandler;
 import org.apache.hyracks.http.api.IServlet;
+import org.apache.hyracks.util.MXHelper;
 import org.apache.hyracks.util.ThreadDumpUtil;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -62,6 +64,7 @@ public class HttpServer {
     private static final int STARTED = 2;
     private static final int STOPPING = 3;
     // Final members
+    private final IChannelClosedHandler closedHandler;
     private final Object lock = new Object();
     private final AtomicInteger threadId = new AtomicInteger();
     private final ConcurrentMap<String, Object> ctx;
@@ -73,18 +76,30 @@ public class HttpServer {
     private final ThreadPoolExecutor executor;
     // Mutable members
     private volatile int state = STOPPED;
-    private Channel channel;
+    private volatile Thread recoveryThread;
+    private volatile Channel channel;
     private Throwable cause;
 
     public HttpServer(EventLoopGroup bossGroup, EventLoopGroup workerGroup, int port) {
-        this(bossGroup, workerGroup, port, DEFAULT_NUM_EXECUTOR_THREADS, DEFAULT_REQUEST_QUEUE_SIZE);
+        this(bossGroup, workerGroup, port, DEFAULT_NUM_EXECUTOR_THREADS, DEFAULT_REQUEST_QUEUE_SIZE, null);
+    }
+
+    public HttpServer(EventLoopGroup bossGroup, EventLoopGroup workerGroup, int port,
+            IChannelClosedHandler closeHandler) {
+        this(bossGroup, workerGroup, port, DEFAULT_NUM_EXECUTOR_THREADS, DEFAULT_REQUEST_QUEUE_SIZE, closeHandler);
     }
 
     public HttpServer(EventLoopGroup bossGroup, EventLoopGroup workerGroup, int port, int numExecutorThreads,
             int requestQueueSize) {
+        this(bossGroup, workerGroup, port, numExecutorThreads, requestQueueSize, null);
+    }
+
+    public HttpServer(EventLoopGroup bossGroup, EventLoopGroup workerGroup, int port, int numExecutorThreads,
+            int requestQueueSize, IChannelClosedHandler closeHandler) {
         this.bossGroup = bossGroup;
         this.workerGroup = workerGroup;
         this.port = port;
+        this.closedHandler = closeHandler;
         ctx = new ConcurrentHashMap<>();
         servlets = new ArrayList<>();
         workQueue = new LinkedBlockingQueue<>(requestQueueSize);
@@ -132,6 +147,14 @@ public class HttpServer {
                 LOGGER.log(Level.ERROR, "Failure stopping an Http Server", e);
                 setFailed(e);
                 throw e;
+            }
+        }
+        // Should wait for the recovery thread outside synchronized block
+        Thread rt = recoveryThread;
+        if (rt != null) {
+            rt.join(TimeUnit.SECONDS.toMillis(5));
+            if (recoveryThread != null) {
+                LOGGER.log(Level.ERROR, "Failure stopping recovery thread of {}", this);
             }
         }
     }
@@ -209,6 +232,10 @@ public class HttpServer {
          * Note that it doesn't work for the case where multiple paths map to a single IServlet
          */
         Collections.sort(servlets, (l1, l2) -> l2.getPaths()[0].length() - l1.getPaths()[0].length());
+        channel = bind();
+    }
+
+    private Channel bind() throws InterruptedException {
         ServerBootstrap b = new ServerBootstrap();
         b.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)
                 .childOption(ChannelOption.RCVBUF_ALLOCATOR, new FixedRecvByteBufAllocator(RECEIVE_BUFFER_SIZE))
@@ -216,10 +243,75 @@ public class HttpServer {
                 .childOption(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
                 .childOption(ChannelOption.WRITE_BUFFER_WATER_MARK, WRITE_BUFFER_WATER_MARK)
                 .handler(new LoggingHandler(LogLevel.DEBUG)).childHandler(new HttpServerInitializer(this));
-        channel = b.bind(port).sync().channel();
+        Channel newChannel = b.bind(port).sync().channel();
+        newChannel.closeFuture().addListener(f -> {
+            // This listener is invoked from within a netty IO thread. Hence, we can never block it
+            // For simplicity, we will submit the recovery task to a different thread
+            synchronized (lock) {
+                if (state != STARTED) {
+                    return;
+                }
+                LOGGER.log(Level.WARN, "{} has stopped unexpectedly. Starting server recovery", this);
+                MXHelper.logFileDescriptors();
+                triggerRecovery();
+            }
+        });
+        return newChannel;
+    }
+
+    private void triggerRecovery() {
+        Thread rt = recoveryThread;
+        if (rt != null) {
+            try {
+                rt.join();
+            } catch (InterruptedException e) {
+                LOGGER.log(Level.WARN, this + " recovery was interrupted", e);
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        // try to revive the channel
+        recoveryThread = new Thread(this::recover);
+        recoveryThread.start();
+    }
+
+    public void recover() {
+        try {
+            synchronized (lock) {
+                while (state == STARTED) {
+                    try {
+                        channel = bind();
+                        break;
+                    } catch (InterruptedException e) {
+                        LOGGER.log(Level.WARN, this + " was interrupted while attempting to revive server channel", e);
+                        setFailed(e);
+                        Thread.currentThread().interrupt();
+                    } catch (Throwable th) {
+                        // sleep for 5s
+                        LOGGER.log(Level.WARN, this + " failed server recovery attempt. "
+                                + "Sleeping for 5s before starting the next attempt", th);
+                        try {
+                            // Wait on lock to allow stop request to be executed
+                            lock.wait(TimeUnit.SECONDS.toMillis(5));
+                        } catch (InterruptedException e) {
+                            LOGGER.log(Level.WARN, this + " interrupted while attempting to revive server channel", e);
+                            setFailed(e);
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                }
+            }
+        } finally {
+            recoveryThread = null;
+        }
     }
 
     protected void doStop() throws InterruptedException {
+        // stop recovery if it was ongoing
+        Thread rt = recoveryThread;
+        if (rt != null) {
+            rt.interrupt();
+        }
         // stop taking new requests
         executor.shutdown();
         try {
@@ -299,5 +391,15 @@ public class HttpServer {
 
     public int getWorkQueueSize() {
         return workQueue.size();
+    }
+
+    public IChannelClosedHandler getChannelClosedHandler() {
+        return closedHandler;
+    }
+
+    @Override
+    public String toString() {
+        return "{\"class\":\"" + getClass().getSimpleName() + "\",\"port\":" + port + ",\"state\":\"" + getState()
+                + "\"}";
     }
 }

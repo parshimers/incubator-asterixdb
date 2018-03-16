@@ -30,6 +30,7 @@ import org.apache.asterix.common.api.IDatasetLifecycleManager;
 import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.config.DatasetConfig.DatasetType;
 import org.apache.asterix.common.config.DatasetConfig.IndexType;
+import org.apache.asterix.common.context.PrimaryIndexOperationTracker;
 import org.apache.asterix.common.dataflow.LSMIndexUtil;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.functions.FunctionSignature;
@@ -126,8 +127,6 @@ import org.apache.hyracks.storage.common.MultiComparator;
 
 public class MetadataNode implements IMetadataNode {
     private static final long serialVersionUID = 1L;
-    private static final DatasetId METADATA_DATASET_ID =
-            new ImmutableDatasetId(MetadataPrimaryIndexes.PROPERTIES_METADATA.getDatasetId());
 
     // shared between core and extension
     private IDatasetLifecycleManager datasetLifecycleManager;
@@ -181,18 +180,6 @@ public class MetadataNode implements IMetadataNode {
     @Override
     public void abortTransaction(TxnId txnId) throws RemoteException, ACIDException {
         transactionSubsystem.getTransactionManager().abortTransaction(txnId);
-    }
-
-    @Override
-    public void lock(TxnId txnId, byte lockMode) throws ACIDException, RemoteException {
-        ITransactionContext txnCtx = transactionSubsystem.getTransactionManager().getTransactionContext(txnId);
-        transactionSubsystem.getLockManager().lock(METADATA_DATASET_ID, -1, lockMode, txnCtx);
-    }
-
-    @Override
-    public void unlock(TxnId txnId, byte lockMode) throws ACIDException, RemoteException {
-        ITransactionContext txnCtx = transactionSubsystem.getTransactionManager().getTransactionContext(txnId);
-        transactionSubsystem.getLockManager().unlock(METADATA_DATASET_ID, -1, lockMode, txnCtx);
     }
 
     // TODO(amoudi): make all metadata operations go through the generic methods
@@ -347,7 +334,6 @@ public class MetadataNode implements IMetadataNode {
             DatasetTupleTranslator tupleReaderWriter = tupleTranslatorProvider.getDatasetTupleTranslator(true);
             ITupleReference datasetTuple = tupleReaderWriter.getTupleFromMetadataEntity(dataset);
             insertTupleIntoIndex(txnId, MetadataPrimaryIndexes.DATASET_DATASET, datasetTuple);
-
             if (dataset.getDatasetType() == DatasetType.INTERNAL) {
                 // Add the primary index for the dataset.
                 InternalDatasetDetails id = (InternalDatasetDetails) dataset.getDatasetDetails();
@@ -490,13 +476,13 @@ public class MetadataNode implements IMetadataNode {
             LSMIndexUtil.checkAndSetFirstLSN((AbstractLSMIndex) lsmIndex, transactionSubsystem.getLogManager());
             switch (op) {
                 case INSERT:
-                    indexAccessor.insert(tuple);
+                    indexAccessor.forceInsert(tuple);
                     break;
                 case DELETE:
-                    indexAccessor.delete(tuple);
+                    indexAccessor.forceDelete(tuple);
                     break;
                 case UPSERT:
-                    indexAccessor.upsert(tuple);
+                    indexAccessor.forceUpsert(tuple);
                     break;
                 default:
                     throw new IllegalStateException("Unknown operation type: " + op);
