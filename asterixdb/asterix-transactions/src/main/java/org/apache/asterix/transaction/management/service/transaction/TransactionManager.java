@@ -108,7 +108,7 @@ public class TransactionManager implements ITransactionManager, ILifeCycleCompon
                 txnSubsystem.getRecoveryManager().rollbackTransaction(txnCtx);
                 txnCtx.setTxnState(ITransactionManager.ABORTED);
             }
-        } catch (ACIDException | HyracksDataException e) {
+        } catch (HyracksDataException e) {
             String msg = "Could not complete rollback! System is in an inconsistent state";
             if (LOGGER.isErrorEnabled()) {
                 LOGGER.log(Level.ERROR, msg, e);

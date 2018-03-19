@@ -63,7 +63,6 @@ public abstract class AbstractCheckpointManager implements ICheckpointManager {
     private final int historyToKeep;
     private final int lsnThreshold;
     private final int pollFrequency;
-    protected Map<TxnId, Long> securedLSNs;
     protected final ITransactionSubsystem txnSubsystem;
     private CheckpointThread checkpointer;
 
@@ -88,7 +87,6 @@ public abstract class AbstractCheckpointManager implements ICheckpointManager {
         pollFrequency = checkpointProperties.getPollFrequency();
         // We must keep at least the latest checkpoint
         historyToKeep = checkpointProperties.getHistoryToKeep() == 0 ? 1 : checkpointProperties.getHistoryToKeep();
-        securedLSNs = new HashMap<>();
     }
 
     @Override

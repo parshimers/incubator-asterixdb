@@ -76,7 +76,6 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     private final String logFilePrefix;
     private final MutableLong flushLSN;
     private final String nodeId;
-    private final HashMap<Long, Integer> txnLogFileId2ReaderCount = new HashMap<>();
     private final long logFileSize;
     private final int logPageSize;
     private final AtomicLong appendLSN;
@@ -407,27 +406,23 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
             /**
              * At this point, any future LogReader should read from LSN >= checkpointLSN
              */
-            synchronized (txnLogFileId2ReaderCount) {
                 for (Long id : logFileIds) {
                     /**
                      * Stop deletion if:
                      * The log file which contains the checkpointLSN has been reached.
                      * The oldest log file being accessed by a LogReader has been reached.
                      */
-                    if (id >= checkpointLSNLogFileID
-                            || (txnLogFileId2ReaderCount.containsKey(id) && txnLogFileId2ReaderCount.get(id) > 0)) {
+                if (id >= checkpointLSNLogFileID) {
                         break;
                     }
                     //delete old log file
                     File file = new File(getLogFilePath(id));
                     file.delete();
-                    txnLogFileId2ReaderCount.remove(id);
                     if (LOGGER.isInfoEnabled()) {
                         LOGGER.info("Deleted log file " + file.getAbsolutePath());
                     }
                 }
             }
-        }
     }
 
     private void terminateLogFlusher() {
@@ -450,7 +445,6 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
     }
 
     private long deleteAllLogFiles() {
-        txnLogFileId2ReaderCount.clear();
         List<Long> logFileIds = getLogFileIds();
         if (!logFileIds.isEmpty()) {
             for (Long id : logFileIds) {

@@ -27,6 +27,10 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * An implementation of {@link ICheckpointManager} that defines the logic
  * of checkpoints.
@@ -34,9 +38,11 @@ import org.apache.logging.log4j.Logger;
 public class CheckpointManager extends AbstractCheckpointManager {
 
     private static final Logger LOGGER = LogManager.getLogger();
+    private final Map<TxnId, Long> securedLSNs;
 
     public CheckpointManager(ITransactionSubsystem txnSubsystem, CheckpointProperties checkpointProperties) {
         super(txnSubsystem, checkpointProperties);
+        securedLSNs = new HashMap<>();
     }
 
     /**
@@ -64,6 +70,10 @@ public class CheckpointManager extends AbstractCheckpointManager {
     public synchronized long tryCheckpoint(long checkpointTargetLSN) throws HyracksDataException {
         LOGGER.info("Attemping soft checkpoint...");
         final long minFirstLSN = txnSubsystem.getRecoveryManager().getMinFirstLSN();
+        final long minSecuredLSN = getMinSecuredLSN();
+        if (minSecuredLSN != -1 && minFirstLSN >= getMinSecuredLSN()) {
+            return minFirstLSN;
+        }
         boolean checkpointSucceeded = minFirstLSN >= checkpointTargetLSN;
         if (!checkpointSucceeded) {
             // Flush datasets with indexes behind target checkpoint LSN
@@ -73,15 +83,14 @@ public class CheckpointManager extends AbstractCheckpointManager {
         }
         capture(minFirstLSN, false);
         if (checkpointSucceeded) {
-            for (Long l : securedLSNs.values()) {
-                if (minFirstLSN >= l) {
-                    return minFirstLSN;
-                }
-            }
             txnSubsystem.getLogManager().deleteOldLogFiles(minFirstLSN);
             LOGGER.info(String.format("soft checkpoint succeeded at LSN(%s)", minFirstLSN));
         }
         return minFirstLSN;
+    }
+
+    private synchronized long getMinSecuredLSN() {
+        return securedLSNs.values().size() > 0 ? Collections.min(securedLSNs.values()) : -1;
     }
 
     @Override
@@ -90,12 +99,7 @@ public class CheckpointManager extends AbstractCheckpointManager {
     }
 
     @Override
-    public synchronized void completed(TxnId id) throws IllegalStateException {
-        if (securedLSNs.containsKey(id)) {
-            securedLSNs.remove(id);
-        } else {
-            throw new IllegalStateException(
-                    "Attempt made to complete a " + "transaction which was not previously secured");
-        }
+    public synchronized void completed(TxnId id) {
+        securedLSNs.remove(id);
     }
 }

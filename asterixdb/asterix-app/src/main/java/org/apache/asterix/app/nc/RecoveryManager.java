@@ -508,9 +508,10 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
     }
 
     @Override
-    public void replayReplicaPartitionLogs(Set<Integer> partitions, boolean flush) throws HyracksDataException {
+    public synchronized void replayReplicaPartitionLogs(Set<Integer> partitions, boolean flush)
+            throws HyracksDataException {
         //replay logs > minLSN that belong to these partitions
-        TxnId randomDummyTxnId = new TxnId(ThreadLocalRandom.current().nextInt(Integer.MIN_VALUE, -1));
+        final TxnId randomDummyTxnId = new TxnId(ThreadLocalRandom.current().nextInt(Integer.MIN_VALUE, -1));
         try {
             checkpointManager.secure(randomDummyTxnId);
             long minLSN = getPartitionsMinLSN(partitions);
@@ -587,9 +588,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
          */
         try {
             long localMinFirstLSN = getLocalMinFirstLSN();
-            if (localMinFirstLSN > firstLSN) {
-                firstLSN = localMinFirstLSN;
-            }
+            firstLSN = Math.max(firstLSN, localMinFirstLSN);
         } catch (HyracksDataException e) {
             throw new ACIDException(e);
         }
