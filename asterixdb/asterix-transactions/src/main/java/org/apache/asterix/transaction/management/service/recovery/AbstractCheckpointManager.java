@@ -33,9 +33,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
 
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.transactions.Checkpoint;
@@ -66,7 +63,7 @@ public abstract class AbstractCheckpointManager implements ICheckpointManager {
     private final int historyToKeep;
     private final int lsnThreshold;
     private final int pollFrequency;
-    public Map<TxnId, Long> securedLSNs;
+    protected Map<TxnId, Long> securedLSNs;
     protected final ITransactionSubsystem txnSubsystem;
     private CheckpointThread checkpointer;
 
@@ -236,5 +233,4 @@ public abstract class AbstractCheckpointManager implements ICheckpointManager {
             }
         }
     }
-
 }

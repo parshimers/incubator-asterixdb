@@ -510,7 +510,9 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
     @Override
     public void replayReplicaPartitionLogs(Set<Integer> partitions, boolean flush) throws HyracksDataException {
         //replay logs > minLSN that belong to these partitions
+        TxnId randomDummyTxnId = new TxnId(ThreadLocalRandom.current().nextInt(Integer.MIN_VALUE, -1));
         try {
+            checkpointManager.secure(randomDummyTxnId);
             long minLSN = getPartitionsMinLSN(partitions);
             replayPartitionsLogs(partitions, logMgr.getLogReader(true), minLSN);
             if (flush) {
@@ -518,6 +520,8 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
             }
         } catch (IOException | ACIDException e) {
             throw HyracksDataException.create(e);
+        } finally {
+            checkpointManager.completed(randomDummyTxnId);
         }
     }
 
@@ -569,10 +573,14 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
 
     @Override
     public void rollbackTransaction(ITransactionContext txnContext) throws ACIDException {
-        TxnId abortedTxn = txnContext.getTxnId();
-        long abortedTxnId = abortedTxn.getId();
+        long abortedTxnId = txnContext.getTxnId().getId();
         // Obtain the first/last log record LSNs written by the Job
         long firstLSN = txnContext.getFirstLSN();
+        /*
+         * The effect of any log record with LSN below minFirstLSN has already been written to disk and
+         * will not be rolled back. Therefore, we will set the first LSN of the job to the maximum of
+         * minFirstLSN and the job's first LSN.
+         */
         try {
             long localMinFirstLSN = getLocalMinFirstLSN();
             if (localMinFirstLSN > firstLSN) {
@@ -581,11 +589,6 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         } catch (HyracksDataException e) {
             throw new ACIDException(e);
         }
-        /*
-         * The effect of any log record with LSN below minFirstLSN has already been written to disk and
-         * will not be rolled back. Therefore, we will set the first LSN of the job to the maximum of
-         * minFirstLSN and the job's first LSN.
-         */
         long lastLSN = txnContext.getLastLSN();
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("rollbacking transaction log records from " + firstLSN + " to " + lastLSN);
