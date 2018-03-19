@@ -23,6 +23,7 @@ import org.apache.asterix.common.transactions.CheckpointProperties;
 import org.apache.asterix.common.transactions.ICheckpointManager;
 import org.apache.asterix.common.transactions.ILogManager;
 import org.apache.asterix.common.transactions.ITransactionSubsystem;
+import org.apache.asterix.common.transactions.TxnId;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -76,42 +77,29 @@ public class CheckpointManager extends AbstractCheckpointManager {
         }
         capture(minFirstLSN, false);
         if (checkpointSucceeded) {
-            synchronized (txnSubsystem.getRecoveryManager()) {
-                for (Long l : lockedLSNs.keySet()) {
-                    if (minFirstLSN > l) {
-                        return minFirstLSN;
-                    }
+            for (Long l : securedLSNs.values()) {
+                if (minFirstLSN >= l) {
+                    return minFirstLSN;
                 }
-                txnSubsystem.getLogManager().deleteOldLogFiles(minFirstLSN);
-                LOGGER.info(String.format("soft checkpoint succeeded at LSN(%s)", minFirstLSN));
             }
+            txnSubsystem.getLogManager().deleteOldLogFiles(minFirstLSN);
+            LOGGER.info(String.format("soft checkpoint succeeded at LSN(%s)", minFirstLSN));
         }
         return minFirstLSN;
     }
 
     @Override
-    public void lockLSN(long lsn) {
-        synchronized (txnSubsystem.getRecoveryManager()) {
-            if (!lockedLSNs.containsKey(lsn)) {
-                lockedLSNs.put(lsn, 1);
-            } else {
-                lockedLSNs.replace(lsn, lockedLSNs.get(lsn) + 1);
-            }
-        }
+    public synchronized void secure(TxnId id) throws HyracksDataException {
+        securedLSNs.put(id, txnSubsystem.getRecoveryManager().getMinFirstLSN());
     }
 
     @Override
-    public void unlockLSN(long lsn) throws IllegalStateException {
-        synchronized (txnSubsystem.getRecoveryManager()) {
-            if (!lockedLSNs.containsKey(lsn)) {
-                throw new IllegalStateException("Unlock on nonexisting LSN");
-            } else {
-                if (lockedLSNs.get(lsn) == 1) {
-                    lockedLSNs.remove(lsn);
-                } else {
-                    lockedLSNs.replace(lsn, lockedLSNs.get(lsn) - 1);
-                }
-            }
+    public synchronized void completed(TxnId id) throws IllegalStateException {
+        if (securedLSNs.containsKey(id)) {
+            securedLSNs.remove(id);
+        } else {
+            throw new IllegalStateException(
+                    "Attempt made to complete a " + "transaction which was not previously secured");
         }
     }
 }

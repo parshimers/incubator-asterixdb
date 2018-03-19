@@ -30,6 +30,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -43,6 +44,7 @@ import org.apache.asterix.common.transactions.ICheckpointManager;
 import org.apache.asterix.common.transactions.ILogManager;
 import org.apache.asterix.common.transactions.ITransactionManager;
 import org.apache.asterix.common.transactions.ITransactionSubsystem;
+import org.apache.asterix.common.transactions.TxnId;
 import org.apache.asterix.common.utils.StorageConstants;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.logging.log4j.Level;
@@ -64,7 +66,7 @@ public abstract class AbstractCheckpointManager implements ICheckpointManager {
     private final int historyToKeep;
     private final int lsnThreshold;
     private final int pollFrequency;
-    protected final Map<Long, Integer> lockedLSNs;
+    public Map<TxnId, Long> securedLSNs;
     protected final ITransactionSubsystem txnSubsystem;
     private CheckpointThread checkpointer;
 
@@ -89,7 +91,7 @@ public abstract class AbstractCheckpointManager implements ICheckpointManager {
         pollFrequency = checkpointProperties.getPollFrequency();
         // We must keep at least the latest checkpoint
         historyToKeep = checkpointProperties.getHistoryToKeep() == 0 ? 1 : checkpointProperties.getHistoryToKeep();
-        lockedLSNs = new TreeMap<>();
+        securedLSNs = new HashMap<>();
     }
 
     @Override

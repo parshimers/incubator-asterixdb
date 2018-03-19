@@ -38,7 +38,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 import org.apache.asterix.common.api.IDatasetLifecycleManager;
@@ -59,6 +61,7 @@ import org.apache.asterix.common.transactions.IRecoveryManager;
 import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.ITransactionSubsystem;
 import org.apache.asterix.common.transactions.LogType;
+import org.apache.asterix.common.transactions.TxnId;
 import org.apache.asterix.transaction.management.opcallbacks.AbstractIndexModificationOperationCallback;
 import org.apache.asterix.transaction.management.resource.PersistentLocalResourceRepository;
 import org.apache.asterix.transaction.management.service.logging.LogManager;
@@ -506,29 +509,15 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
 
     @Override
     public void replayReplicaPartitionLogs(Set<Integer> partitions, boolean flush) throws HyracksDataException {
-        long minLSN = 0l;
-        boolean locked = false;
         //replay logs > minLSN that belong to these partitions
         try {
-            minLSN = getPartitionsMinLSN(partitions);
-            synchronized (this) {
-                long readableSmallestLSN = logMgr.getReadableSmallestLSN();
-                if (minLSN < readableSmallestLSN) {
-                    minLSN = readableSmallestLSN;
-                }
-                checkpointManager.lockLSN(minLSN);
-                locked = true;
-            }
+            long minLSN = getPartitionsMinLSN(partitions);
             replayPartitionsLogs(partitions, logMgr.getLogReader(true), minLSN);
             if (flush) {
                 appCtx.getDatasetLifecycleManager().flushAllDatasets();
             }
         } catch (IOException | ACIDException e) {
             throw HyracksDataException.create(e);
-        } finally {
-            if (locked) {
-                checkpointManager.unlockLSN(minLSN);
-            }
         }
     }
 
@@ -580,24 +569,23 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
 
     @Override
     public void rollbackTransaction(ITransactionContext txnContext) throws ACIDException {
-        long abortedTxnId = txnContext.getTxnId().getId();
+        TxnId abortedTxn = txnContext.getTxnId();
+        long abortedTxnId = abortedTxn.getId();
         // Obtain the first/last log record LSNs written by the Job
         long firstLSN = txnContext.getFirstLSN();
+        try {
+            long localMinFirstLSN = getLocalMinFirstLSN();
+            if (localMinFirstLSN > firstLSN) {
+                firstLSN = localMinFirstLSN;
+            }
+        } catch (HyracksDataException e) {
+            throw new ACIDException(e);
+        }
         /*
          * The effect of any log record with LSN below minFirstLSN has already been written to disk and
          * will not be rolled back. Therefore, we will set the first LSN of the job to the maximum of
          * minFirstLSN and the job's first LSN.
          */
-        try {
-            synchronized (this) {
-                long localMinFirstLSN = getLocalMinFirstLSN();
-                firstLSN = Math.max(firstLSN, localMinFirstLSN);
-                checkpointManager.lockLSN(firstLSN);
-            }
-        } catch (HyracksDataException e) {
-            checkpointManager.unlockLSN(firstLSN);
-            throw new ACIDException(e);
-        }
         long lastLSN = txnContext.getLastLSN();
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("rollbacking transaction log records from " + firstLSN + " to " + lastLSN);
@@ -727,7 +715,6 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
                         + entityCommitLogCount + "/" + undoCount);
             }
         } finally {
-            checkpointManager.unlockLSN(firstLSN);
             logReader.close();
         }
     }

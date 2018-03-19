@@ -39,7 +39,10 @@ import org.apache.asterix.common.transactions.IRecoveryManager;
 import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.ITransactionManager;
 import org.apache.asterix.common.transactions.ITransactionSubsystem;
+import org.apache.asterix.common.transactions.LogRecord;
 import org.apache.asterix.common.transactions.TransactionOptions;
+import org.apache.asterix.common.transactions.TxnId;
+import org.apache.asterix.common.utils.TransactionUtil;
 import org.apache.asterix.external.util.DataflowUtils;
 import org.apache.asterix.file.StorageComponentProvider;
 import org.apache.asterix.metadata.entities.Dataset;
@@ -53,6 +56,7 @@ import org.apache.asterix.test.common.TestHelper;
 import org.apache.asterix.transaction.management.service.logging.LogManager;
 import org.apache.asterix.transaction.management.service.recovery.AbstractCheckpointManager;
 import org.apache.asterix.transaction.management.service.recovery.CheckpointManager;
+import org.apache.asterix.transaction.management.service.transaction.TransactionManager;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hyracks.api.comm.VSizeFrame;
 import org.apache.hyracks.api.config.IOption;
@@ -64,11 +68,17 @@ import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.lsm.common.impls.NoMergePolicyFactory;
 import org.apache.hyracks.util.StorageUtil;
 import org.apache.hyracks.util.StorageUtil.StorageUnit;
+import org.apache.log4j.Level;
+import org.apache.zookeeper.txn.Txn;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.stubbing.Answer;
 
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyListOf;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
@@ -229,33 +239,26 @@ public class CheckpointingTest {
                 };
 
                 Thread t = new Thread(() -> {
-                    RecoveryManager spyRecovery = spy(recoveryManager);
-                    try {
-                        when(spyRecovery.getLocalMinFirstLSN()).thenReturn(
-                                stallMinLocalLSN(Thread.currentThread(), checkpointManager, recoveryManager));
-                    } catch (HyracksDataException e) {
-                        e.printStackTrace();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    spyRecovery.rollbackTransaction(txnCtx);
+                    TransactionManager spyTxnMgr = spy((TransactionManager) nc.getTransactionManager());
+                    doAnswer((Answer) i -> {
+                        stallAbortTxn(Thread.currentThread(), txnCtx, nc.getTransactionSubsystem(),
+                                (TxnId) i.getArguments()[0]);
+                        return null;
+                    }).when(spyTxnMgr).abortTransaction(any(TxnId.class));
+
+                    spyTxnMgr.abortTransaction(txnCtx.getTxnId());
                 });
-                long lockedLSN = recoveryManager.getMinFirstLSN();
                 t.setUncaughtExceptionHandler(h);
-                t.start();
-                logManager.deleteOldLogFiles(lockedLSN);
+                synchronized (t) {
+                    t.start();
+                    t.wait();
+                }
+                long lockedLSN = recoveryManager.getMinFirstLSN();
+                checkpointManager.tryCheckpoint(lockedLSN);
                 synchronized (t) {
                     t.notifyAll();
                 }
                 t.join();
-
-                if (tupleAppender.getTupleCount() > 0) {
-                    tupleAppender.write(insertOp, true);
-                }
-                insertOp.close();
-                nc.getTransactionManager().commitTransaction(txnCtx.getTxnId());
-                checkpointManager.unlockLSN(lockedLSN);
-
                 if (threadException) {
                     throw exception;
                 }
@@ -268,16 +271,30 @@ public class CheckpointingTest {
         }
     }
 
-    private long stallMinLocalLSN(Thread t, ICheckpointManager checkpointManager, RecoveryManager recoveryManager)
+    private void stallAbortTxn(Thread t, ITransactionContext txnCtx, ITransactionSubsystem txnSubsystem, TxnId txnId)
             throws InterruptedException, HyracksDataException {
 
-        long lsn = recoveryManager.getLocalMinFirstLSN();
-        checkpointManager.lockLSN(lsn);
-        synchronized (t) {
-            t.wait(2000);
+        try {
+            if (txnCtx.isWriteTxn()) {
+                LogRecord logRecord = new LogRecord();
+                TransactionUtil.formJobTerminateLogRecord(txnCtx, logRecord, false);
+                txnSubsystem.getLogManager().log(logRecord);
+                txnSubsystem.getCheckpointManager().secure(txnId);
+                synchronized (t) {
+                    t.notifyAll();
+                    t.wait(2000);
+                }
+                txnSubsystem.getRecoveryManager().rollbackTransaction(txnCtx);
+                txnCtx.setTxnState(ITransactionManager.ABORTED);
+            }
+        } catch (ACIDException | HyracksDataException e) {
+            String msg = "Could not complete rollback! System is in an inconsistent state";
+            throw new ACIDException(msg, e);
+        } finally {
+            txnCtx.complete();
+            txnSubsystem.getLockManager().releaseLocks(txnCtx);
+            txnSubsystem.getCheckpointManager().completed(txnId);
         }
-        return lsn;
-
     }
 
     @Test
