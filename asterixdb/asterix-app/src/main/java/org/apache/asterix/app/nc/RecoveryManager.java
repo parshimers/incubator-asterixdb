@@ -514,6 +514,10 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         try {
             checkpointManager.secure(randomDummyTxnId);
             long minLSN = getPartitionsMinLSN(partitions);
+            long readableSmallestLSN = logMgr.getReadableSmallestLSN();
+            if (minLSN < readableSmallestLSN) {
+                minLSN = readableSmallestLSN;
+            }
             replayPartitionsLogs(partitions, logMgr.getLogReader(true), minLSN);
             if (flush) {
                 appCtx.getDatasetLifecycleManager().flushAllDatasets();
