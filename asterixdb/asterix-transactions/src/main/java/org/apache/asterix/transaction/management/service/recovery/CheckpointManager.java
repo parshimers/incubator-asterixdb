@@ -90,7 +90,7 @@ public class CheckpointManager extends AbstractCheckpointManager {
     }
 
     private synchronized long getMinSecuredLSN() {
-        return securedLSNs.values().size() > 0 ? Collections.min(securedLSNs.values()) : -1;
+        return securedLSNs.isEmpty() ? Collections.min(securedLSNs.values()) : -1;
     }
 
     @Override
