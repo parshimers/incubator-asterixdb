@@ -406,23 +406,23 @@ public class LogManager implements ILogManager, ILifeCycleComponent {
             /**
              * At this point, any future LogReader should read from LSN >= checkpointLSN
              */
-                for (Long id : logFileIds) {
-                    /**
-                     * Stop deletion if:
-                     * The log file which contains the checkpointLSN has been reached.
-                     * The oldest log file being accessed by a LogReader has been reached.
-                     */
+            for (Long id : logFileIds) {
+                /**
+                 * Stop deletion if:
+                 * The log file which contains the checkpointLSN has been reached.
+                 * The oldest log file being accessed by a LogReader has been reached.
+                 */
                 if (id >= checkpointLSNLogFileID) {
-                        break;
-                    }
-                    //delete old log file
-                    File file = new File(getLogFilePath(id));
-                    file.delete();
-                    if (LOGGER.isInfoEnabled()) {
-                        LOGGER.info("Deleted log file " + file.getAbsolutePath());
-                    }
+                    break;
+                }
+                //delete old log file
+                File file = new File(getLogFilePath(id));
+                file.delete();
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info("Deleted log file " + file.getAbsolutePath());
                 }
             }
+        }
     }
 
     private void terminateLogFlusher() {

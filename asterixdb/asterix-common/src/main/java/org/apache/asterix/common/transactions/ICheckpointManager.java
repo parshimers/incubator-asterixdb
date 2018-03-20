@@ -46,7 +46,8 @@ public interface ICheckpointManager extends ILifeCycleComponent {
      * @throws HyracksDataException
      */
     long tryCheckpoint(long checkpointTargetLSN) throws HyracksDataException;
-/**
+
+    /**
      * Secures the current low-water mark until the transaction identified by {@code id} completes.
      *
      * @param id
