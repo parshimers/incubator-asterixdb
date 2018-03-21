@@ -270,7 +270,7 @@ public class CheckpointingTest {
                 txnSubsystem.getCheckpointManager().secure(txnId);
                 synchronized (t) {
                     t.notifyAll();
-                    t.wait(2000);
+                    t.wait();
                 }
                 txnSubsystem.getRecoveryManager().rollbackTransaction(txnCtx);
                 txnCtx.setTxnState(ITransactionManager.ABORTED);
