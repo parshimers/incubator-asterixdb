@@ -53,7 +53,6 @@ public interface ICheckpointManager extends ILifeCycleComponent {
      * @param id
      * @throws HyracksDataException
      */
-
     void secure(TxnId id) throws HyracksDataException;
 
     /**
@@ -61,6 +60,5 @@ public interface ICheckpointManager extends ILifeCycleComponent {
      *
      * @param id
      */
-
     void completed(TxnId id);
 }

@@ -39,6 +39,7 @@ public class CheckpointManager extends AbstractCheckpointManager {
 
     private static final Logger LOGGER = LogManager.getLogger();
     private final Map<TxnId, Long> securedLSNs;
+    public static final long NO_SECURED_LSN = -1l;
 
     public CheckpointManager(ITransactionSubsystem txnSubsystem, CheckpointProperties checkpointProperties) {
         super(txnSubsystem, checkpointProperties);
@@ -71,8 +72,8 @@ public class CheckpointManager extends AbstractCheckpointManager {
         LOGGER.info("Attemping soft checkpoint...");
         final long minFirstLSN = txnSubsystem.getRecoveryManager().getMinFirstLSN();
         final long minSecuredLSN = getMinSecuredLSN();
-        if (minSecuredLSN != -1 && minFirstLSN >= getMinSecuredLSN()) {
-            return minFirstLSN;
+        if (minSecuredLSN != NO_SECURED_LSN && minFirstLSN >= getMinSecuredLSN()) {
+            return minSecuredLSN;
         }
         boolean checkpointSucceeded = minFirstLSN >= checkpointTargetLSN;
         if (!checkpointSucceeded) {
@@ -90,7 +91,7 @@ public class CheckpointManager extends AbstractCheckpointManager {
     }
 
     private synchronized long getMinSecuredLSN() {
-        return securedLSNs.isEmpty() ? -1 : Collections.min(securedLSNs.values());
+        return securedLSNs.isEmpty() ? NO_SECURED_LSN : Collections.min(securedLSNs.values());
     }
 
     @Override

@@ -107,6 +107,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
     private SystemState state;
     private final INCServiceContext serviceCtx;
     private final INcApplicationContext appCtx;
+    private final TxnId recoveryTxnId = new TxnId(-1);
 
     public RecoveryManager(ITransactionSubsystem txnSubsystem, INCServiceContext serviceCtx) {
         this.serviceCtx = serviceCtx;
@@ -511,9 +512,8 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
     public synchronized void replayReplicaPartitionLogs(Set<Integer> partitions, boolean flush)
             throws HyracksDataException {
         //replay logs > minLSN that belong to these partitions
-        final TxnId randomDummyTxnId = new TxnId(ThreadLocalRandom.current().nextInt(Integer.MIN_VALUE, -1));
         try {
-            checkpointManager.secure(randomDummyTxnId);
+            checkpointManager.secure(recoveryTxnId);
             long minLSN = getPartitionsMinLSN(partitions);
             long readableSmallestLSN = logMgr.getReadableSmallestLSN();
             if (minLSN < readableSmallestLSN) {
@@ -526,7 +526,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         } catch (IOException | ACIDException e) {
             throw HyracksDataException.create(e);
         } finally {
-            checkpointManager.completed(randomDummyTxnId);
+            checkpointManager.completed(recoveryTxnId);
         }
     }
 
