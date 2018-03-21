@@ -107,7 +107,7 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
     private SystemState state;
     private final INCServiceContext serviceCtx;
     private final INcApplicationContext appCtx;
-    private final TxnId recoveryTxnId = new TxnId(-1);
+    private static final TxnId recoveryTxnId = new TxnId(-1);
 
     public RecoveryManager(ITransactionSubsystem txnSubsystem, INCServiceContext serviceCtx) {
         this.serviceCtx = serviceCtx;

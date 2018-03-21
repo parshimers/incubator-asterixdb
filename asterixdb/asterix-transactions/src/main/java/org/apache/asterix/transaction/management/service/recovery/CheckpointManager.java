@@ -38,8 +38,8 @@ import java.util.Map;
 public class CheckpointManager extends AbstractCheckpointManager {
 
     private static final Logger LOGGER = LogManager.getLogger();
+    private static final long NO_SECURED_LSN = -1l;
     private final Map<TxnId, Long> securedLSNs;
-    public static final long NO_SECURED_LSN = -1l;
 
     public CheckpointManager(ITransactionSubsystem txnSubsystem, CheckpointProperties checkpointProperties) {
         super(txnSubsystem, checkpointProperties);
@@ -70,11 +70,11 @@ public class CheckpointManager extends AbstractCheckpointManager {
     @Override
     public synchronized long tryCheckpoint(long checkpointTargetLSN) throws HyracksDataException {
         LOGGER.info("Attemping soft checkpoint...");
-        final long minFirstLSN = txnSubsystem.getRecoveryManager().getMinFirstLSN();
         final long minSecuredLSN = getMinSecuredLSN();
-        if (minSecuredLSN != NO_SECURED_LSN && minFirstLSN >= getMinSecuredLSN()) {
+        if (minSecuredLSN != NO_SECURED_LSN && checkpointTargetLSN >= minSecuredLSN) {
             return minSecuredLSN;
         }
+        final long minFirstLSN = txnSubsystem.getRecoveryManager().getMinFirstLSN();
         boolean checkpointSucceeded = minFirstLSN >= checkpointTargetLSN;
         if (!checkpointSucceeded) {
             // Flush datasets with indexes behind target checkpoint LSN
@@ -90,10 +90,6 @@ public class CheckpointManager extends AbstractCheckpointManager {
         return minFirstLSN;
     }
 
-    private synchronized long getMinSecuredLSN() {
-        return securedLSNs.isEmpty() ? NO_SECURED_LSN : Collections.min(securedLSNs.values());
-    }
-
     @Override
     public synchronized void secure(TxnId id) throws HyracksDataException {
         securedLSNs.put(id, txnSubsystem.getRecoveryManager().getMinFirstLSN());
@@ -102,5 +98,9 @@ public class CheckpointManager extends AbstractCheckpointManager {
     @Override
     public synchronized void completed(TxnId id) {
         securedLSNs.remove(id);
+    }
+
+    private synchronized long getMinSecuredLSN() {
+        return securedLSNs.isEmpty() ? NO_SECURED_LSN : Collections.min(securedLSNs.values());
     }
 }
