@@ -261,6 +261,7 @@ public class FieldCursorForDelimitedDataParser {
                             fEnd = p;
                             start = p + 1;
                             lastDelimiterPosition = p;
+                            startedQuote = false;
                             return true;
                         } else if (startedQuote) {
                             if (lastQuotePosition == p - 1 && lastDoubleQuotePosition != p - 1 && quoteCount % 2 == 0) {
