@@ -263,7 +263,7 @@ public class FieldCursorForDelimitedDataParser {
                             lastDelimiterPosition = p;
                             return true;
                         } else if (startedQuote) {
-                            if (lastQuotePosition == p - 1 && lastDoubleQuotePosition != p - 1) {
+                            if (lastQuotePosition == p - 1 && lastDoubleQuotePosition != p - 1 && quoteCount % 2 == 0) {
                                 // There is a quote right before the delimiter (e.g. ",)  and it is not two quote,
                                 // then the field contains a valid string.
                                 // We set the position of fStart to +1, fEnd to -1 to remove quote character
@@ -271,7 +271,6 @@ public class FieldCursorForDelimitedDataParser {
                                 fEnd = p - 1;
                                 start = p + 1;
                                 lastDelimiterPosition = p;
-                                startedQuote = false;
                                 return true;
                             } else if (lastQuotePosition < p - 1 && lastQuotePosition != lastDoubleQuotePosition
                                     && quoteCount == doubleQuoteCount * 2 + 2) {

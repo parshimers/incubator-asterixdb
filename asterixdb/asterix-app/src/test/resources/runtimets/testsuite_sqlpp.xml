@@ -8361,6 +8361,11 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="load">
+      <compilation-unit name="csv_escaped_delimiter">
+        <output-dir compare="Text">csv_escaped_delimiter</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="load">
       <compilation-unit name="issue14_query">
         <output-dir compare="Text">issue14_query</output-dir>
         <expected-error>Unspecified parameter: format</expected-error>
