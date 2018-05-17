@@ -150,6 +150,27 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <id>copy-resource2</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>
+                                ${basedir}/../src/main/licenses/content/templates/
+                            </outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${basedir}/src/node/static/
+                                    </directory>
+                                    <includes>
+                                        <include>3rdpartylicenses.txt</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>copy-license</id>
                         <phase>compile</phase>
                         <goals>
