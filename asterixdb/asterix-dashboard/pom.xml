@@ -76,6 +76,10 @@
                             <excludes combine.children="append">
                                 <exclude>src/main/resources/dashboard/static/*
                                 </exclude>
+                                <exclude>src/main/resources/licenses/*
+                                </exclude>
+                                <exclude>src/node/**
+                                </exclude>
                             </excludes>
                         </configuration>
                     </execution>
@@ -126,7 +130,7 @@
                 <executions>
                     <execution>
                         <id>copy-resource-one</id>
-                        <phase>generate-resources</phase>
+                        <phase>prepare-package</phase>
                         <goals>
                             <goal>copy-resources</goal>
                         </goals>
@@ -204,7 +208,7 @@
                 <artifactId>license-automation-plugin</artifactId>
                 <executions>
                     <execution>
-                        <phase>generate-resources</phase>
+                        <phase>prepare-package</phase>
                         <goals>
                             <goal>generate</goal>
                         </goals>
