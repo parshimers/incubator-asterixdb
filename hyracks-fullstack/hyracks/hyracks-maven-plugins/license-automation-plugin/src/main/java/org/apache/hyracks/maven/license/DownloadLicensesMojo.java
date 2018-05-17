@@ -19,6 +19,7 @@
 package org.apache.hyracks.maven.license;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.google.common.io.FileBackedOutputStream;
 import org.apache.commons.io.IOUtils;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -68,22 +70,30 @@ public class DownloadLicensesMojo extends LicenseMojo {
         }
     }
 
-    private void doDownload(int timeoutMillis, int id, String url, String fileName) {
+    private void doDownload(int timeoutMillis, int id, String urlStr, String fileName) {
         try {
-            HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-            conn.setConnectTimeout(timeoutMillis);
-            conn.setReadTimeout(timeoutMillis);
-            conn.setRequestMethod("GET");
-            final File outFile = new File(downloadDir, fileName);
-            getLog().info("[" + id + "] " + url + " -> " + outFile);
-            final InputStream is = conn.getInputStream();
-            try (FileOutputStream fos = new FileOutputStream(outFile);
-                    Writer writer = new OutputStreamWriter(fos, StandardCharsets.UTF_8)) {
-                IOUtils.copy(is, writer, conn.getContentEncoding());
+            URL url = new URL(urlStr);
+            if ("http".equals(url.getProtocol()) || "https".equals(url.getProtocol())) {
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setConnectTimeout(timeoutMillis);
+                conn.setReadTimeout(timeoutMillis);
+                conn.setRequestMethod("GET");
+                final File outFile = new File(downloadDir, fileName);
+                getLog().info("[" + id + "] " + urlStr + " -> " + outFile);
+                final InputStream is = conn.getInputStream();
+                try (FileOutputStream fos = new FileOutputStream(outFile);
+                        Writer writer = new OutputStreamWriter(fos, StandardCharsets.UTF_8)) {
+                    IOUtils.copy(is, writer, conn.getContentEncoding());
+                }
+                getLog().info("[" + id + "] ...done!");
+            } else if ("file".equals(url.getProtocol())) {
+                final File outFile = new File(downloadDir, fileName);
+                final File srcFile = new File(url.getFile());
+                IOUtils.copy(new FileInputStream(srcFile), new FileOutputStream(outFile));
+
             }
-            getLog().info("[" + id + "] ...done!");
         } catch (IOException e) {
-            getLog().warn("[" + id + "] ...error downloading " + url + ": " + e);
+            getLog().warn("[" + id + "] ...error downloading " + urlStr + ": " + e);
         }
     }
 }
