@@ -25,7 +25,6 @@ ${license.content}
 </#list>
 </@indent>
 
-<#if !asterixDashboardSkip!false>
 ===
    ASTERIXDB Dashboard JS COMPONENTS:
 
@@ -35,4 +34,3 @@ ${license.content}
     to the terms and condition of the following licenses.
 ===
 <#include "3rdpartylicenses.txt">
-</#if>
