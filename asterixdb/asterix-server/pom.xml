@@ -109,6 +109,7 @@
             <excludedScope>test</excludedScope>
           </excludedScopes>
           <excludes>
+            <exclude>org.apache.asterix:*</exclude>
             <exclude>org.apache.algebricks:*</exclude>
             <exclude>org.apache.hyracks:*</exclude>
           </excludes>
