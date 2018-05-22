@@ -87,9 +87,22 @@ public class DownloadLicensesMojo extends LicenseMojo {
                 }
                 getLog().info("[" + id + "] ...done!");
             } else if ("file".equals(url.getProtocol())) {
-                final File outFile = new File(downloadDir, fileName);
-                final File srcFile = new File(url.getFile());
-                IOUtils.copy(new FileInputStream(srcFile), new FileOutputStream(outFile));
+                FileOutputStream outFile = null;
+                FileInputStream srcFile = null;
+                try {
+                    outFile = new FileOutputStream(
+                            new File(downloadDir, fileName));
+                    srcFile = new FileInputStream(new File(url.getFile()));
+
+                    IOUtils.copy(srcFile, outFile);
+                } finally {
+                    if(srcFile != null){
+                        srcFile.close();
+                    }
+                    if(outFile!=null){
+                        outFile.close();
+                    }
+                }
 
             }
         } catch (IOException e) {
