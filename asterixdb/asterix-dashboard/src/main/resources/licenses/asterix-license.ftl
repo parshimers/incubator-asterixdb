@@ -24,12 +24,15 @@ ${license.content}
   </#if>
 </#list>
 </@indent>
+
+<#if !asterixDashboardSkip!false>
 ===
    ASTERIXDB Dashboard JS COMPONENTS:
 
-    includes a number packed of subcomponents under
+    includes a number of packed subcomponents under
     dashboard/static/ with separate copyright
     notices and license terms. Your use of these subcomponents is subject
     to the terms and condition of the following licenses.
 ===
 <#include "3rdpartylicenses.txt">
+</#if>

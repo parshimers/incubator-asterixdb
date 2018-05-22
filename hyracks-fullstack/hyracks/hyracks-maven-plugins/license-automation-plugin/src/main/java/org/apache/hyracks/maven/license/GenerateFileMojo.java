@@ -339,7 +339,7 @@ public class GenerateFileMojo extends LicenseMojo {
             File artifactFile = new File(p.getArtifactPath());
             if (!artifactFile.exists()) {
                 throw new MojoExecutionException("Artifact file " + artifactFile + " does not exist!");
-            } else if (!artifactFile.getName().endsWith(".jar") || !artifactFile.getName().endsWith(".pom")) {
+            } else if (!artifactFile.getName().endsWith(".jar")) {
                 getLog().info("Skipping unknown artifact file type: " + artifactFile);
                 continue;
             }
