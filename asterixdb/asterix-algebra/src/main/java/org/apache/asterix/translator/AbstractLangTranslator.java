@@ -18,11 +18,15 @@
  */
 package org.apache.asterix.translator;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.asterix.common.api.IClusterManagementWork.ClusterState;
+import org.apache.asterix.common.cluster.ClusterPartition;
 import org.apache.asterix.common.cluster.IClusterStateManager;
 import org.apache.asterix.common.cluster.IGlobalRecoveryManager;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
@@ -68,12 +72,22 @@ public abstract class AbstractLangTranslator {
                 }
                 Thread.currentThread().interrupt();
             }
-            if (!clusterStateManager.getState().equals(ClusterState.ACTIVE)) {
-                throw new AsterixException("Cluster is in " + ClusterState.UNUSABLE + " state."
-                        + "\n One or more Node Controllers have left or haven't joined yet.\n");
-            } else {
-                if (LOGGER.isInfoEnabled()) {
-                    LOGGER.info("Cluster is now " + ClusterState.ACTIVE);
+            synchronized (clusterStateManager) {
+                if (!clusterStateManager.getState().equals(ClusterState.ACTIVE)) {
+                    ClusterPartition[] configuredPartitions = clusterStateManager.getClusterPartitons();
+                    List<String> inactiveNodes = new ArrayList<>();
+                    for (ClusterPartition cp : configuredPartitions) {
+                        if (!cp.isActive()) {
+                            inactiveNodes.add(cp.getNodeId());
+                        }
+                    }
+                    throw new AsterixException("Not all node controllers required for query execution"
+                            + " have joined the cluster. Nodes " + inactiveNodes.toString() + " appear "
+                            + "missing, double check the logs on these machines and the cluster configuration");
+                } else {
+                    if (LOGGER.isInfoEnabled()) {
+                        LOGGER.info("Cluster is now " + ClusterState.ACTIVE);
+                    }
                 }
             }
         }
