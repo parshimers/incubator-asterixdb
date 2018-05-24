@@ -72,21 +72,22 @@ public abstract class AbstractLangTranslator {
                 }
                 Thread.currentThread().interrupt();
             }
-            if (!clusterStateManager.getState().equals(ClusterState.ACTIVE)) {
-                ClusterPartition[] configuredPartitions = clusterStateManager.getClusterPartitons();
-                List<String> inactiveNodes = new ArrayList<>();
-                for (ClusterPartition cp : configuredPartitions) {
-                    if (!cp.isActive()) {
-                        inactiveNodes.add(cp.getNodeId());
+            synchronized (clusterStateManager) {
+                if (!clusterStateManager.getState().equals(ClusterState.ACTIVE)) {
+                    ClusterPartition[] configuredPartitions = clusterStateManager.getClusterPartitons();
+                    List<String> inactiveNodes = new ArrayList<>();
+                    for (ClusterPartition cp : configuredPartitions) {
+                        if (!cp.isActive()) {
+                            inactiveNodes.add(cp.getNodeId());
+                        }
                     }
-                }
-                throw new AsterixException("Not all node controllers required" + " for query execution"
-                        + " have joined the cluster. Nodes " + Arrays.toString(inactiveNodes.toArray()) + " appear "
-                        + "missing," + "double check" + " the logs on these machines and the cluster "
-                        + "configuration");
-            } else {
-                if (LOGGER.isInfoEnabled()) {
-                    LOGGER.info("Cluster is now " + ClusterState.ACTIVE);
+                    throw new AsterixException("Not all node controllers required for query execution"
+                            + " have joined the cluster. Nodes " + inactiveNodes.toString() + " appear "
+                            + "missing, double check the logs on these machines and the cluster configuration");
+                } else {
+                    if (LOGGER.isInfoEnabled()) {
+                        LOGGER.info("Cluster is now " + ClusterState.ACTIVE);
+                    }
                 }
             }
         }
