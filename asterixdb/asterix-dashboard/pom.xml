@@ -89,10 +89,10 @@
         <groupId>com.github.eirslett</groupId>
         <artifactId>frontend-maven-plugin</artifactId>
         <configuration>
-          <nodeVersion>v8.9.0</nodeVersion>
+          <nodeVersion>v8.11.2</nodeVersion>
           <npmVersion>6.0.1</npmVersion>
-          <workingDirectory>src/node</workingDirectory>
-          <installDirectory>src/node</installDirectory>
+          <workingDirectory>target/dashboard</workingDirectory>
+          <installDirectory>target/dashboard</installDirectory>
         </configuration>
         <executions>
           <execution>
@@ -140,28 +140,7 @@
               </outputDirectory>
               <resources>
                 <resource>
-                  <directory>${basedir}/src/node/static/
-                  </directory>
-                  <includes>
-                    <include>3rdpartylicenses.txt</include>
-                  </includes>
-                </resource>
-              </resources>
-            </configuration>
-          </execution>
-          <execution>
-            <id>copy-resource2</id>
-            <phase>prepare-package</phase>
-            <goals>
-              <goal>copy-resources</goal>
-            </goals>
-            <configuration>
-              <outputDirectory>
-                ${basedir}/../src/main/licenses/content/templates/
-              </outputDirectory>
-              <resources>
-                <resource>
-                  <directory>${basedir}/src/node/static/
+                  <directory>${basedir}/target/dashboard/static/
                   </directory>
                   <includes>
                     <include>3rdpartylicenses.txt</include>
@@ -194,17 +173,35 @@
           </execution>
           <execution>
             <id>copy-static</id>
-            <phase>compile</phase>
+            <phase>prepare-package</phase>
             <goals>
               <goal>copy-resources</goal>
             </goals>
             <configuration>
               <outputDirectory>
-                ${basedir}/src/main/resources/dashboard/static
+                ${basedir}/target/classes/dashboard/static
               </outputDirectory>
               <resources>
                 <resource>
-                  <directory>${basedir}/src/node/static/
+                  <directory>${basedir}/target/node/static/
+                  </directory>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+          <execution>
+            <id>copy-node</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>
+                ${basedir}/target/dashboard
+              </outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${basedir}/src/node
                   </directory>
                 </resource>
               </resources>
