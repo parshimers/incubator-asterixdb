@@ -109,7 +109,7 @@
               <goal>npm</goal>
             </goals>
             <configuration>
-              <arguments>install --no-optional</arguments>
+              <arguments>install --cache ${basedir}/target/npm-cache --no-optional</arguments>
             </configuration>
           </execution>
           <execution>
@@ -151,7 +151,7 @@
           </execution>
           <execution>
             <id>copy-license</id>
-            <phase>compile</phase>
+            <phase>prepare-package</phase>
             <goals>
               <goal>copy-resources</goal>
             </goals>
@@ -173,17 +173,17 @@
           </execution>
           <execution>
             <id>copy-static</id>
-            <phase>prepare-package</phase>
+            <phase>process-classes</phase>
             <goals>
               <goal>copy-resources</goal>
             </goals>
             <configuration>
               <outputDirectory>
-                ${basedir}/target/classes/dashboard/static
+                ${basedir}/target/classes/dashboard/
               </outputDirectory>
               <resources>
                 <resource>
-                  <directory>${basedir}/target/node/static/
+                  <directory>${basedir}/target/dashboard/static/
                   </directory>
                 </resource>
               </resources>
@@ -217,7 +217,7 @@
           <includes>
             <include>**/dashboard/**</include>
             <include>**/*.class</include>
-            <include>**/META-INF/*</include>
+            <include>**/META-INF/**</include>
           </includes>
         </configuration>
       </plugin>
@@ -226,7 +226,7 @@
         <artifactId>license-automation-plugin</artifactId>
         <executions>
           <execution>
-            <phase>prepare-package</phase>
+            <phase>compile</phase>
             <goals>
               <goal>generate</goal>
             </goals>
