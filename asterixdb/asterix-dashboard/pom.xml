@@ -109,7 +109,7 @@
               <goal>npm</goal>
             </goals>
             <configuration>
-              <arguments>install --cache ${basedir}/target/npm-cache --no-optional</arguments>
+              <arguments>install --cache ${basedir}/.npm-cache --no-optional</arguments>
             </configuration>
           </execution>
           <execution>
