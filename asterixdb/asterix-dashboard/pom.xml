@@ -210,17 +210,6 @@
         </executions>
       </plugin>
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jar-plugin</artifactId>
-        <version>3.1.0</version>
-        <configuration>
-          <includes combine.children="append">
-            <include>**/dashboard/**</include>
-            <include>**/META-INF/**</include>
-          </includes>
-        </configuration>
-      </plugin>
-      <plugin>
         <groupId>org.apache.hyracks</groupId>
         <artifactId>license-automation-plugin</artifactId>
         <executions>
