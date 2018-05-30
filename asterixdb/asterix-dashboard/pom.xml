@@ -29,7 +29,6 @@
 
   <properties>
     <root.dir>${basedir}/..</root.dir>
-    <node.path>${user.home}/.node</node.path>
   </properties>
 
   <dependencies>
@@ -88,9 +87,10 @@
       <plugin>
         <groupId>com.github.eirslett</groupId>
         <artifactId>frontend-maven-plugin</artifactId>
+        <version>1.6</version>
         <configuration>
-          <nodeVersion>v8.11.2</nodeVersion>
-          <npmVersion>6.0.1</npmVersion>
+          <nodeVersion>v10.3.0</nodeVersion>
+          <npmVersion>6.1.0</npmVersion>
           <workingDirectory>target/dashboard</workingDirectory>
           <installDirectory>target/dashboard</installDirectory>
         </configuration>
@@ -214,9 +214,8 @@
         <artifactId>maven-jar-plugin</artifactId>
         <version>3.1.0</version>
         <configuration>
-          <includes>
+          <includes combine.children="append">
             <include>**/dashboard/**</include>
-            <include>**/*.class</include>
             <include>**/META-INF/**</include>
           </includes>
         </configuration>
