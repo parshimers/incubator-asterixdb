@@ -19,11 +19,8 @@
       "testTsconfig": "tsconfig.spec.json",
       "prefix": "app",
       "styles": [
-        "main.scss",
         "../node_modules/codemirror/lib/codemirror.css",
-        "../node_modules/codemirror/theme/monokai.css",
-        "../node_modules/primeng/resources/themes/omega/theme.css",
-        "../node_modules/primeng/resources/primeng.min.css"
+        "main.scss"
       ],
       "scripts": [
         "../node_modules/codemirror/lib/codemirror.js"

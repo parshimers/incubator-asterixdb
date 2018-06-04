@@ -26,18 +26,17 @@ export type Action = dataverseActions.All
 @Injectable()
 export class DataverseEffects {
   constructor(private actions: Actions,
-      private sqlService: SQLService) {}
+        private sqlService: SQLService) {}
 
-  /* Effect to load a collection of all Dataverses from AsterixDB
-  */
-  @Effect()
-    selectDataverses$: Observable<Action> = this.actions
-        .ofType(dataverseActions.SELECT_DATAVERSES)
-        .switchMap(query => {
-            return this.sqlService.selectDataverses()
-            .map(dataverse => new dataverseActions.SelectDataversesSuccess(dataverse))
-            .catch(err => of(new dataverseActions.SelectDataversesFail(err)));
-    });
+    /* Effect to load a collection of all Dataverses from AsterixDB */
+    @Effect()
+        selectDataverses$: Observable<Action> = this.actions
+            .ofType(dataverseActions.SELECT_DATAVERSES)
+            .switchMap(query => {
+                return this.sqlService.selectDataverses()
+                    .map(dataverse => new dataverseActions.SelectDataversesSuccess(dataverse))
+                    .catch(err => of(new dataverseActions.SelectDataversesFail(err)));
+        });
 
     /* Effect to create Dataverse from AsterixDB
     */
@@ -46,8 +45,8 @@ export class DataverseEffects {
         .ofType(dataverseActions.CREATE_DATAVERSE)
         .switchMap(dataverseName => {
             return this.sqlService.createDataverse((dataverseName as any).payload)
-            .map(dataverse => new dataverseActions.CreateDataverseSuccess(dataverse))
-            .catch(err => of(new dataverseActions.CreateDataverseFail(err)));
+                .map(dataverse => new dataverseActions.CreateDataverseSuccess(dataverse))
+                .catch(err => of(new dataverseActions.CreateDataverseFail(err)));
     });
 
     /* Effect to drop a Dataverse from AsterixDB
@@ -57,7 +56,7 @@ export class DataverseEffects {
         .ofType(dataverseActions.DROP_DATAVERSE)
         .switchMap(dataverseName => {
             return this.sqlService.dropDataverse((dataverseName as any).payload)
-            .map(dataverse => new dataverseActions.DropDataverseSuccess(dataverse))
-            .catch(err => of(new dataverseActions.DropDataverseFail(err)));
+                .map(dataverse => new dataverseActions.DropDataverseSuccess(dataverse))
+                .catch(err => of(new dataverseActions.DropDataverseFail(err)));
     });
 }

@@ -36,8 +36,8 @@ export class DatasetEffects {
         .ofType(datasetActions.SELECT_DATASETS)
         .switchMap(query => {
             return this.sqlService.selectDatasets()
-            .map(dataset => new datasetActions.SelectDatasetsSuccess(dataset))
-            .catch(err => of(new datasetActions.SelectDatasetsFail(err)));
+                .map(dataset => new datasetActions.SelectDatasetsSuccess(dataset))
+                .catch(err => of(new datasetActions.SelectDatasetsFail(err)));
     });
 
     /* Effect to create a Datasets from AsterixDB
@@ -47,8 +47,8 @@ export class DatasetEffects {
         .ofType(datasetActions.CREATE_DATASET)
         .switchMap(dataset => {
             return this.sqlService.createDataset((dataset as any).payload)
-            .map(dataset => new datasetActions.CreateDatasetSuccess(dataset))
-            .catch(err => of(new datasetActions.CreateDatasetFail(err)));
+                .map(dataset => new datasetActions.CreateDatasetSuccess(dataset))
+                .catch(err => of(new datasetActions.CreateDatasetFail(err)));
     });
 
     /* Effect to drop a Datasets from AsterixDB
@@ -57,9 +57,8 @@ export class DatasetEffects {
     dropDatasets$: Observable<Action> = this.actions
         .ofType(datasetActions.DROP_DATASET)
         .switchMap(dataset => {
-            console.log((dataset as any).payload)
             return this.sqlService.dropDataset((dataset as any).payload)
-            .map(dataset => new datasetActions.DropDatasetSuccess(dataset))
-            .catch(err => of(new datasetActions.DropDatasetFail(err)));
+                .map(dataset => new datasetActions.DropDatasetSuccess(dataset))
+                .catch(err => of(new datasetActions.DropDatasetFail(err)));
     });
 }

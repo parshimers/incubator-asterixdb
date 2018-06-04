@@ -18,16 +18,31 @@ import { AsterixDBQueryMessage, Dataset } from '../models/asterixDB.model';
 * Definition of App Actions
 */
 export const APP_MODE_CHANGE = '[App State] App Mode Change';
+export const APP_SIDE_MENU = '[App State] App Side Menu Mode Change';
+export const APP_QUERY_INPUT_INDEX = '[App State] App Query Input Index';
+export const APP_ACTIVE_DATAVERSE = '[App State] App Active Dataverse';
 
 /*
 * Guide Select Datasets for UI Helpers
 */
 export class ChangeMode implements Action {
-  readonly type = APP_MODE_CHANGE;
-  constructor(public payload: string) {}
+    readonly type = APP_MODE_CHANGE;
+    constructor(public payload: string) {}
+}
+
+export class setEditorIndex implements Action {
+    readonly type = APP_QUERY_INPUT_INDEX;
+    constructor(public payload: string) {}
+}
+
+export class setSideMenuVisible implements Action {
+    readonly type = APP_SIDE_MENU;
+    constructor(public payload: boolean) {}
 }
 
 /*
 * Exports of datasets actions
 */
-export type All = ChangeMode;
+export type All = ChangeMode |
+    setEditorIndex |
+    setSideMenuVisible;

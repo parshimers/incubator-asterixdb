@@ -34,86 +34,86 @@ export const DROP_DATAVERSE_FAIL        = '[Dataverse Collection] Drop Dataverse
 * Select Dataverses
 */
 export class SelectDataverses implements Action {
-  readonly type = SELECT_DATAVERSES;
-  constructor(public payload: string) {}
+    readonly type = SELECT_DATAVERSES;
+    constructor(public payload: string) {}
 }
 
 export class SelectDataversesSuccess implements Action {
-  readonly type = SELECT_DATAVERSES_SUCCESS;
-  constructor(public payload: AsterixDBQueryMessage[]) {}
+    readonly type = SELECT_DATAVERSES_SUCCESS;
+    constructor(public payload: AsterixDBQueryMessage[]) {}
 }
 
 export class SelectDataversesFail implements Action {
-  readonly type = SELECT_DATAVERSES_FAIL;
-  constructor(public payload: AsterixDBQueryMessage[]) {}
+    readonly type = SELECT_DATAVERSES_FAIL;
+    constructor(public payload: AsterixDBQueryMessage[]) {}
 }
 
 /*
 * Create Dataverse
 */
 export class CreateDataverse implements Action {
-  readonly type = CREATE_DATAVERSE;
-  constructor(public payload: string) {}
+    readonly type = CREATE_DATAVERSE;
+    constructor(public payload: string) {}
 }
 
 export class CreateDataverseSuccess implements Action {
-  readonly type = CREATE_DATAVERSE_SUCCESS;
-  constructor(public payload: Dataverse[]) {}
+    readonly type = CREATE_DATAVERSE_SUCCESS;
+    constructor(public payload: Dataverse[]) {}
 }
 
 export class CreateDataverseFail implements Action {
-  readonly type = CREATE_DATAVERSE_FAIL;
-  constructor(public payload: Dataverse) {}
+    readonly type = CREATE_DATAVERSE_FAIL;
+    constructor(public payload: Dataverse) {}
 }
 
 /*
 * Update Dataverse
 */
 export class UpdateDataverse implements Action {
-  readonly type = UPDATE_DATAVERSE;
-  constructor(public payload: Dataverse) {}
+    readonly type = UPDATE_DATAVERSE;
+    constructor(public payload: Dataverse) {}
 }
 
 export class UpdateDataverseSuccess implements Action {
-  readonly type = UPDATE_DATAVERSE_SUCCESS;
-  constructor(public payload: Dataverse[]) {}
+    readonly type = UPDATE_DATAVERSE_SUCCESS;
+    constructor(public payload: Dataverse[]) {}
 }
 
 export class UpdateDataverseFail implements Action {
-  readonly type = UPDATE_DATAVERSE_FAIL;
-  constructor(public payload: Dataverse) {}
+    readonly type = UPDATE_DATAVERSE_FAIL;
+    constructor(public payload: Dataverse) {}
 }
 
 /*
 * Drop Dataverse
 */
 export class DropDataverse implements Action {
-  readonly type = DROP_DATAVERSE;
-  constructor(public payload: string) {}
+    readonly type = DROP_DATAVERSE;
+    constructor(public payload: string) {}
 }
 
 export class DropDataverseSuccess implements Action {
-  readonly type = DROP_DATAVERSE_SUCCESS;
-  constructor(public payload: Dataverse[]) {}
+    readonly type = DROP_DATAVERSE_SUCCESS;
+    constructor(public payload: Dataverse[]) {}
 }
 
 export class DropDataverseFail implements Action {
-  readonly type = DROP_DATAVERSE_FAIL;
-  constructor(public payload: Dataverse) {}
+    readonly type = DROP_DATAVERSE_FAIL;
+    constructor(public payload: Dataverse) {}
 }
 
 /*
 * Exports of datasverses actions
 */
 export type All = SelectDataverses |
-  SelectDataversesSuccess |
-  SelectDataversesFail |
-  CreateDataverse |
-  CreateDataverseSuccess |
-  CreateDataverseFail |
-  UpdateDataverse |
-  UpdateDataverseSuccess |
-  UpdateDataverseFail |
-  DropDataverse |
-  DropDataverseSuccess |
-  DropDataverseFail;
+    SelectDataversesSuccess |
+    SelectDataversesFail |
+    CreateDataverse |
+    CreateDataverseSuccess |
+    CreateDataverseFail |
+    UpdateDataverse |
+    UpdateDataverseSuccess |
+    UpdateDataverseFail |
+    DropDataverse |
+    DropDataverseSuccess |
+    DropDataverseFail;

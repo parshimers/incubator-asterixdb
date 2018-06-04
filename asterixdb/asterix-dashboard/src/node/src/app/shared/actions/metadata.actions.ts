@@ -24,18 +24,18 @@ export const UPDATE_METADATA_TREE_FAIL    = '[Metadata Tree Query] UPDATE Metada
 * Construct Metadata Tree Actions
 */
 export class UpdateMetadataTree implements Action {
-  readonly type = UPDATE_METADATA_TREE
-  constructor() {}
+    readonly type = UPDATE_METADATA_TREE
+    constructor() {}
 }
 
 export class UpdateMetadataTreeSuccess implements Action {
-  readonly type = UPDATE_METADATA_TREE_SUCCESS;
-  constructor(public payload: any) {}
+    readonly type = UPDATE_METADATA_TREE_SUCCESS;
+    constructor(public payload: any) {}
 }
 
 export class UpdateMetadataTreeFail implements Action {
-  readonly type = UPDATE_METADATA_TREE_FAIL;
-  constructor(public payload: any) {}
+    readonly type = UPDATE_METADATA_TREE_FAIL;
+    constructor(public payload: any) {}
 }
 
 /*

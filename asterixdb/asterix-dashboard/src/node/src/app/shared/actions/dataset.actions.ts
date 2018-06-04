@@ -36,95 +36,95 @@ export const GUIDE_SELECT_DATASET     = '[Dataset Collection] Guide Select Datas
 * Guide Select Datasets for UI Helpers
 */
 export class GuideSelectDatasets implements Action {
-  readonly type = GUIDE_SELECT_DATASET;
-  constructor(public payload: string) {}
+    readonly type = GUIDE_SELECT_DATASET;
+    constructor(public payload: string) {}
 }
 
 /*
 * Select Datasets
 */
 export class SelectDatasets implements Action {
-  readonly type = SELECT_DATASETS;
-  constructor(public payload: string) {}
+    readonly type = SELECT_DATASETS;
+    constructor(public payload: string) {}
 }
 
 export class SelectDatasetsSuccess implements Action {
-  readonly type = SELECT_DATASETS_SUCCESS;
-  constructor(public payload: AsterixDBQueryMessage[]) {}
+    readonly type = SELECT_DATASETS_SUCCESS;
+    constructor(public payload: AsterixDBQueryMessage[]) {}
 }
 
 export class SelectDatasetsFail implements Action {
-  readonly type = SELECT_DATASETS_FAIL;
-  constructor(public payload: AsterixDBQueryMessage[]) {}
+    readonly type = SELECT_DATASETS_FAIL;
+    constructor(public payload: AsterixDBQueryMessage[]) {}
 }
 
 /*
 * Create Dataset
 */
 export class CreateDataset implements Action {
-  readonly type = CREATE_DATASET;
-  constructor(public payload: string) {}
+    readonly type = CREATE_DATASET;
+    constructor(public payload: string) {}
 }
 
 export class CreateDatasetSuccess implements Action {
-  readonly type = CREATE_DATASET_SUCCESS;
-  constructor(public payload: Dataset[]) {}
+    readonly type = CREATE_DATASET_SUCCESS;
+    constructor(public payload: Dataset[]) {}
 }
 
 export class CreateDatasetFail implements Action {
-  readonly type = CREATE_DATASET_FAIL;
-  constructor(public payload: Dataset) {}
+    readonly type = CREATE_DATASET_FAIL;
+    constructor(public payload: Dataset) {}
 }
 
 /*
 * Update Dataset
 */
 export class UpdateDataset implements Action {
-  readonly type = UPDATE_DATASET;
-  constructor(public payload: Dataset) {}
+    readonly type = UPDATE_DATASET;
+    constructor(public payload: Dataset) {}
 }
 
 export class UpdateDatasetSuccess implements Action {
-  readonly type = UPDATE_DATASET_SUCCESS;
-  constructor(public payload: Dataset[]) {}
+    readonly type = UPDATE_DATASET_SUCCESS;
+    constructor(public payload: Dataset[]) {}
 }
 
 export class UpdateDatasetFail implements Action {
-  readonly type = UPDATE_DATASET_FAIL;
-  constructor(public payload: Dataset) {}
+    readonly type = UPDATE_DATASET_FAIL;
+    constructor(public payload: Dataset) {}
 }
 
 /*
 * Drop Dataset
 */
 export class DropDataset implements Action {
-  readonly type = DROP_DATASET;
-  constructor(public payload: string) {}
+    readonly type = DROP_DATASET;
+    constructor(public payload: string) {}
 }
 
 export class DropDatasetSuccess implements Action {
-  readonly type = DROP_DATASET_SUCCESS;
-  constructor(public payload: Dataset[]) {}
+    readonly type = DROP_DATASET_SUCCESS;
+    constructor(public payload: Dataset[]) {}
 }
 
 export class DropDatasetFail implements Action {
-  readonly type = DROP_DATASET_FAIL;
-  constructor(public payload: Dataset) {}
+    readonly type = DROP_DATASET_FAIL;
+    constructor(public payload: Dataset) {}
 }
 
 /*
 * Exports of datasets actions
 */
 export type All = SelectDatasets |
-  SelectDatasetsSuccess |
-  SelectDatasetsFail |
-  CreateDataset |
-  CreateDatasetSuccess |
-  CreateDatasetFail |
-  UpdateDataset |
-  UpdateDatasetSuccess |
-  UpdateDatasetFail |
-  DropDataset |
-  DropDatasetSuccess |
-  DropDatasetFail | 
-  GuideSelectDatasets;
+    SelectDatasetsSuccess |
+    SelectDatasetsFail |
+    CreateDataset |
+    CreateDatasetSuccess |
+    CreateDatasetFail |
+    UpdateDataset |
+    UpdateDatasetSuccess |
+    UpdateDatasetFail |
+    DropDataset |
+    DropDatasetSuccess |
+    DropDatasetFail |
+    GuideSelectDatasets;

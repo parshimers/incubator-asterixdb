@@ -34,89 +34,89 @@ export const DROP_DATATYPE_FAIL       = '[Datatype Collection] Drop Datatypes Fa
 * Select Datatypes
 */
 export class SelectDatatypes implements Action {
-  readonly type = SELECT_DATATYPES;
-  constructor(public payload: string) {}
+    readonly type = SELECT_DATATYPES;
+    constructor(public payload: string) {}
 }
 
 export class SelectDatatypesSuccess implements Action {
-  readonly type = SELECT_DATATYPES_SUCCESS;
-  constructor(public payload: AsterixDBQueryMessage[]) {}
+    readonly type = SELECT_DATATYPES_SUCCESS;
+    constructor(public payload: AsterixDBQueryMessage[]) {}
 }
 
 export class SelectDatatypesFail implements Action {
-  readonly type = SELECT_DATATYPES_FAIL;
-  constructor(public payload: AsterixDBQueryMessage[]) {}
+    readonly type = SELECT_DATATYPES_FAIL;
+    constructor(public payload: AsterixDBQueryMessage[]) {}
 }
 
 /*
 * Create Datatype
 */
 export class CreateDatatype implements Action {
-  readonly type = CREATE_DATATYPE;
-  constructor(public payload: string) {}
+    readonly type = CREATE_DATATYPE;
+    constructor(public payload: string) {}
 }
 
 export class CreateDatatypeSuccess implements Action {
-  readonly type = CREATE_DATATYPE_SUCCESS;
-  constructor(public payload: Datatype[]) {}
+    readonly type = CREATE_DATATYPE_SUCCESS;
+    constructor(public payload: Datatype[]) {}
 }
 
 export class CreateDatatypeFail implements Action {
-  readonly type = CREATE_DATATYPE_FAIL;
-  constructor(public payload: Datatype) {}
+    readonly type = CREATE_DATATYPE_FAIL;
+    constructor(public payload: Datatype) {}
 }
 
 /*
 * Update Datatype
 */
 export class UpdateDatatype implements Action {
-  readonly type = UPDATE_DATATYPE;
-  constructor(public payload: Datatype) {}
+    readonly type = UPDATE_DATATYPE;
+    constructor(public payload: Datatype) {}
 }
 
 export class UpdateDatatypeSuccess implements Action {
-  readonly type = UPDATE_DATATYPE_SUCCESS;
-  constructor(public payload: Datatype[]) {}
+    readonly type = UPDATE_DATATYPE_SUCCESS;
+    constructor(public payload: Datatype[]) {}
 }
 
 export class UpdateDatatypeFail implements Action {
-  readonly type = UPDATE_DATATYPE_FAIL;
-  constructor(public payload: Datatype) {}
+    readonly type = UPDATE_DATATYPE_FAIL;
+    constructor(public payload: Datatype) {}
 }
 
 /*
 * Drop Datatype
 */
 export class DropDatatype implements Action {
-  readonly type = DROP_DATATYPE;
+    readonly type = DROP_DATATYPE;
 
-  constructor(public payload: string) {}
+    constructor(public payload: string) {}
 }
 
 export class DropDatatypeSuccess implements Action {
-  readonly type = DROP_DATATYPE_SUCCESS;
+    readonly type = DROP_DATATYPE_SUCCESS;
 
-  constructor(public payload: Datatype[]) {}
+    constructor(public payload: Datatype[]) {}
 }
 
 export class DropDatatypeFail implements Action {
-  readonly type = DROP_DATATYPE_FAIL;
+    readonly type = DROP_DATATYPE_FAIL;
 
-  constructor(public payload: Datatype) {}
+    constructor(public payload: Datatype) {}
 }
 
 /*
 * Exports of datastypes actions
 */
 export type All = SelectDatatypes |
-  SelectDatatypesSuccess |
-  SelectDatatypesFail |
-  CreateDatatype |
-  CreateDatatypeSuccess |
-  CreateDatatypeFail |
-  UpdateDatatype |
-  UpdateDatatypeSuccess |
-  UpdateDatatypeFail |
-  DropDatatype |
-  DropDatatypeSuccess |
-  DropDatatypeFail;
+    SelectDatatypesSuccess |
+    SelectDatatypesFail |
+    CreateDatatype |
+    CreateDatatypeSuccess |
+    CreateDatatypeFail |
+    UpdateDatatype |
+    UpdateDatatypeSuccess |
+    UpdateDatatypeFail |
+    DropDatatype |
+    DropDatatypeSuccess |
+    DropDatatypeFail;

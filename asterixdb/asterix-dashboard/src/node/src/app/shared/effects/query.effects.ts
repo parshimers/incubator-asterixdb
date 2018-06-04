@@ -27,27 +27,26 @@ export type Action = sqlQueryActions.All
 @Injectable()
 export class SQLQueryEffects {
   constructor(private actions: Actions,
-      private sqlService: SQLService) {}
+        private sqlService: SQLService) {}
 
-  /* Effect to Execute an SQL++ Query against the AsterixDB
-  */
-  @Effect()
-  executeQuery$: Observable<Action> = this.actions
-    .ofType(sqlQueryActions.EXECUTE_QUERY)
-    .switchMap(query => {
-        return this.sqlService.executeSQLQuery((query as any).payload)
-           .map(sqlQueryResult => new sqlQueryActions.ExecuteQuerySuccess(sqlQueryResult))
-           .catch(sqlQueryError => of(new sqlQueryActions.ExecuteQueryFail(sqlQueryError)));
-  });
+    /* Effect to Execute an SQL++ Query against the AsterixDB */
+    @Effect()
+    executeQuery$: Observable<Action> = this.actions
+        .ofType(sqlQueryActions.EXECUTE_QUERY)
+        .switchMap(query => {
+            return this.sqlService.executeSQLQuery((query as any).payload.queryString)
+                .map(sqlQueryResult => new sqlQueryActions.ExecuteQuerySuccess(sqlQueryResult))
+                .catch(sqlQueryError => of(new sqlQueryActions.ExecuteQueryFail(sqlQueryError)));
+    });
 
-  /* Effect to Execute an SQL++ Metadata Query against the AsterixDB
-  */
-  @Effect()
-  executeMetadataQuery$: Observable<Action> = this.actions
-    .ofType(sqlQueryActions.EXECUTE_METADATA_QUERY)
-    .switchMap(query => {
-        return this.sqlService.executeSQLQuery((query as any).payload)
-           .map(sqlMetadataQueryResult => new sqlQueryActions.ExecuteMetadataQuerySuccess(sqlMetadataQueryResult))
-           .catch(sqlMetadataQueryError => of(new sqlQueryActions.ExecuteMetadataQueryFail(sqlMetadataQueryError)));
-  });
+    /* Effect to Execute an SQL++ Metadata Query against the AsterixDB
+    */
+    @Effect()
+    executeMetadataQuery$: Observable<Action> = this.actions
+        .ofType(sqlQueryActions.EXECUTE_METADATA_QUERY)
+        .switchMap(query => {
+            return this.sqlService.executeSQLQuery((query as any).payload)
+                .map(sqlMetadataQueryResult => new sqlQueryActions.ExecuteMetadataQuerySuccess(sqlMetadataQueryResult))
+                .catch(sqlMetadataQueryError => of(new sqlQueryActions.ExecuteMetadataQueryFail(sqlMetadataQueryError)));
+    });
 }

@@ -11,7 +11,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, AfterViewInit} from '@angular/core';
 import { Router } from '@angular/router';
 import { Dataverse } from '../../shared/models/asterixDB.model'
 import { Store } from '@ngrx/store';
@@ -34,41 +34,32 @@ import { Subscription } from "rxjs/Rx";
 import * as fromRoot from '../../shared/reducers/dataverse.reducer';
 import { State } from '../../shared/reducers/dataverse.reducer';
 import * as sqlQueryActions from '../../shared/actions/query.actions'
+import { MatDrawer } from '@angular/material';
 /*
  * query component
  * has editor (codemirror) for writing some query
  */
 @Component({
-	moduleId: module.id,
-	selector: 'awc-query-container',
-	templateUrl:'query-container.component.html',
-	styleUrls: ['query-container.component.scss']
+    moduleId: module.id,
+    selector: 'awc-query-container',
+    templateUrl:'query-container.component.html',
+    styleUrls: ['query-container.component.scss']
 })
 
-export class QueryContainerComponent {
-	nodes = []
-	constructor(private store: Store<any>) {
+export class QueryContainerComponent implements AfterViewInit {
+    sideMenuVisible$: Observable<any>;
+    visible = false;
 
-		this.store.select(s => s.metadata.tree).subscribe((data: any[]) => {
-			this.nodes = []
-			for (let i = 0; i < data.length; i++) {
-				if (data[i]['DataverseName']) {
-				    let node = { id: 0, name:"", children:[] };
-				    node.id = i;
-				    node.name = data[i]['DataverseName'];
-						for (let j = 0; j < data[i]['Datasets'].length; j++) {
-							let children = { id: 0, name:"", children:[] };
-							children.id = j
-							children.name = data[i]['Datasets'][j]['DatasetName'];
-							node.children.push(children)
-						}
-						this.nodes.push(node)
-				}
-			}
-		});
-	}
+    constructor(private store: Store<any>) {}
 
-	treeCalc() {
-		this.store.dispatch(new metadataActions.UpdateMetadataTree());
-	}
+    ngAfterViewInit() {
+        this.sideMenuVisible$ = this.store.select(s => s.app.sideMenuVisible);
+        this.sideMenuVisible$.subscribe((data: any) => {
+            if (data === true) {
+                this.visible = true;
+            } else {
+                this.visible = false;
+            }
+        })
+    }
 }

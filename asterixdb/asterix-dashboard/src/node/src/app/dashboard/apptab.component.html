@@ -11,13 +11,16 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */ -->
-<div class="content">
-  <mat-tab-group class="menu">
-    <mat-tab label=">_ QUERY">
+<mat-tab-group class="menu">
+<mat-tab label=">_ QUERY">
+    <div class="query-tab">
       <awc-query-container></awc-query-container>
-    </mat-tab>
-    <mat-tab label="METADATA">
-      <awc-metadata-container></awc-metadata-container>
-    </mat-tab>
-  </mat-tab-group>
-</div>
+    </div>
+    <footer class="footer">
+      <div class="apache">
+        <img src="./assets/feather.png" style="height:20px">
+        <span class="caret">Apache Software Foundation - Asterixdb Dashboard</span>
+      </div>
+    </footer>
+  </mat-tab>
+</mat-tab-group>

@@ -17,7 +17,28 @@ import { DBSchema } from '@ngrx/db';
 * Persistent storage capability to the dashboard in case is needed.
 */
 export const schema: DBSchema = {
-  version: 1,
-  name: 'asterixDB_app',
-  stores: {},
+    version: 1,
+    name: 'asterixDB_app',
+    stores: {
+        query_history: {
+
+        }
+    },
 };
+
+// import { DBSchema } from '@ngrx/db';
+
+
+/**
+ * ngrx/db uses a simple schema config object to initialize stores in IndexedDB.
+ */
+//export const schema: DBSchema = {
+//  version: 1,
+//  name: 'books_app',
+//  stores: {
+//    books: {
+//      autoIncrement: true,
+//      primaryKey: 'id'
+//    }
+// }
+//};

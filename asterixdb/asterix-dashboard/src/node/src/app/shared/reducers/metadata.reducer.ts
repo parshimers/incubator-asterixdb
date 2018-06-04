@@ -19,38 +19,38 @@ export type Action = metadataTreeActions.All;
 ** Interfaces for the metadata tree in store/state
 */
 export interface State {
-  tree: any[],
-  loading: boolean,
-  loaded: boolean,
+    tree: any[],
+    loading: boolean,
+    loaded: boolean,
 };
 
 const initialState: State = {
-  tree: [],
-  loading: false,
-  loaded: false
+    tree: [],
+    loading: false,
+    loaded: false
 };
 
 export function metadataTreeReducer(state = initialState, action: Action) {
-  switch (action.type) {
-    case metadataTreeActions.UPDATE_METADATA_TREE: {
-      return Object.assign({}, state, {
-        tree: [],
-        loading: true,
-        loaded: false
-      });
-    }
+    switch (action.type) {
+        case metadataTreeActions.UPDATE_METADATA_TREE: {
+            return Object.assign({}, state, {
+                tree: [],
+                loading: true,
+                loaded: false
+            });
+        }
 
-    case metadataTreeActions.UPDATE_METADATA_TREE_SUCCESS: {
-      return Object.assign({}, state, {
-        tree: [...state.tree, action.payload],
-        loading: false,
-        loaded: true
-      });
+        case metadataTreeActions.UPDATE_METADATA_TREE_SUCCESS: {
+            return Object.assign({}, state, {
+                tree: [...state.tree, action.payload],
+                loading: false,
+                loaded: true
+            });
+        }
+        /*
+        * Just returns the current store/state object
+        */
+        default:
+            return state;
     }
-    /*
-    * Just returns the current store/state object
-    */
-    default:
-      return state;
-  }
 }

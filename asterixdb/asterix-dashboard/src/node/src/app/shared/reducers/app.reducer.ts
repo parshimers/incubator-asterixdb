@@ -20,54 +20,48 @@ export type Action = appActions.All;
 ** Interfaces for app state in store/state
 */
 export interface State {
-  loading: boolean,
-  loaded: boolean,
-  success: boolean,
-  sqlQueryString: string,
-  sqlQueryResult: AsterixDBQueryMessage[],
-  sqlQueryError: AsterixDBQueryMessage[],
-  sqlMetadataQueryString: string,
-  sqlMetadataQueryResult: AsterixDBQueryMessage[],
-  sqlMetadataQueryError: AsterixDBQueryMessage[]
+    currentQueryIndex: Number;
+    sideMenuVisible: boolean;
 };
 
 const initialState: State = {
-  loading: false,
-  loaded: false,
-  success: false,
-  sqlQueryString: "",
-  sqlQueryResult: [],
-  sqlQueryError: [],
-  sqlMetadataQueryString: "",
-  sqlMetadataQueryResult: [],
-  sqlMetadataQueryError: [],
+    currentQueryIndex: 0,
+    sideMenuVisible: false,
 };
 
 /*
 ** Reducer function for app state in store/state
 */
 export function appReducer(state = initialState, action: Action) {
-  switch (action.type) {
+    switch (action.type) {
+        /*
+        * Global side navigator open/close controller
+        */
+        case appActions.APP_SIDE_MENU: {
+            return Object.assign({}, state, {
+                sideMenuVisible: action.payload
+            });
+        }
 
-    /*
-    * Change the load state to true, and clear previous results
-    * to signaling that a EXECUTE a SQL++ Query is ongoing
-    */
-    case appActions.APP_MODE_CHANGE: {
-      return Object.assign({}, state, {
-        loading: false,
-        loaded: true,
-        success: false,
-        sqlQueryString: action.payload,
-        sqlQueryResult: [],
-        sqlQueryError: []
-      });
-    }
-    
-    /*
-    * Just returns the current store/state object
-    */
-    default:
-      return state;
-  }
+        /*
+        * Change the load state to true, and clear previous results
+        * to signaling that a EXECUTE a SQL++ Query is ongoing
+        */
+        case appActions.APP_MODE_CHANGE: {
+            return Object.assign({}, state, {
+            });
+        }
+
+        /*
+        * store the query currently in codemirror editor
+        */
+        case appActions.APP_QUERY_INPUT_INDEX: {
+            return Object.assign({}, state, {
+                    currentQueryIndex: action.payload
+                });
+            }
+
+        default:
+                return state;
+        }
 }

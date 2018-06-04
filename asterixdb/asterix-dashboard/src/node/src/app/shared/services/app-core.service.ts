@@ -21,18 +21,12 @@ import * as metadataActions from '../../shared/actions/metadata.actions'
 
 /*
 * Main application service to initialize,
-* load, set App status and initial data, and synchronize app level functionality
+* load, set App status and initial data, synchronize app level functionality
 */
 @Injectable()
 export class AppCoreService {
-	/*
-  	* Initialize and load metadata store structures
-	*/
-	constructor(private store: Store<any>) {
-		console.log('AsterixDB Web Console Core Service')
-		this.store.dispatch(new dataverseActions.SelectDataverses('-'));
-		this.store.dispatch(new datasetActions.SelectDatasets('-'));
-		this.store.dispatch(new datatypesActions.SelectDatatypes('-'));
-		this.store.dispatch(new indexesActions.SelectIndexes('-'));
-	}
+    /*
+      * Initialize and load metadata store structures
+    */
+    constructor(private store: Store<any>) {}
 }

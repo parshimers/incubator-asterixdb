@@ -11,8 +11,20 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-.index-dialog {    
-    font-family: "Roboto Mono", monospace;
-    font-size: 0.80rem;
-    font-weight: 500;
+
+.inspector-dialog {
+  font-size: 0.80rem;
+  font-weight: 500;
+}
+
+.header {
+  font-size: 1.0rem;
+  font-weight: 500;
+  color: rgb(145, 152, 158);
+  border-bottom: 1px solid rgb(145, 152, 158);
+}
+
+.content {
+  margin-left: auto !important;
+  margin-right: auto !important;
 }

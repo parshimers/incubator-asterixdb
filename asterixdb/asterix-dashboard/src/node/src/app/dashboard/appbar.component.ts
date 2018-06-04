@@ -12,14 +12,33 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 import { Component } from '@angular/core';
+import { Observable } from 'rxjs/Observable';
+import { Store } from '@ngrx/store';
+import * as appActions from '../shared/actions/app.actions'
 
 @Component({
-	moduleId: module.id,
-	selector: 'awc-bar',
-  templateUrl: 'appbar.component.html',
-	styleUrls: ['appbar.component.scss']
+    moduleId: module.id,
+    selector: 'awc-bar',
+    templateUrl: 'appbar.component.html',
+    styleUrls: ['appbar.component.scss']
 })
 
 export class AppBarComponent {
-	constructor() {}
+    sideMenuVisible$: Observable<any>;
+    sideMenuVisible: boolean;
+
+    constructor(private store: Store<any>) {
+        this.sideMenuVisible$ = this.store.select(s => s.app.sideMenuVisible);
+		this.sideMenuVisible$.subscribe((data: any) => {
+			if (data){
+                this.sideMenuVisible = data;
+			} else {
+			}
+        })
+    }
+
+    onClickMenu() {
+        this.sideMenuVisible = !this.sideMenuVisible;
+        this.store.dispatch(new appActions.setSideMenuVisible(this.sideMenuVisible));
+    }
 }

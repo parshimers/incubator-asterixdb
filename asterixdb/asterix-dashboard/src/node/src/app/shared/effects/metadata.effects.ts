@@ -27,15 +27,14 @@ export type Action = metadataActions.All
 @Injectable()
 export class MetadataEffects {
   constructor(private actions: Actions,
-      private metadataService: MetadataService) {}
+        private metadataService: MetadataService) {}
 
-  /* Effect to update and retrieve the Metadata Tree
-  */
-  @Effect()
-  calculateDBTree$: Observable<Action> = this.actions
-    .ofType(metadataActions.UPDATE_METADATA_TREE)
-    .switchMap(() => {
-        return this.metadataService.getMetadataTree()
-          .map(tree => new metadataActions.UpdateMetadataTreeSuccess(tree))
-    });
+    /* Effect to update and retrieve the Metadata Tree */
+    @Effect()
+    calculateDBTree$: Observable<Action> = this.actions
+        .ofType(metadataActions.UPDATE_METADATA_TREE)
+        .switchMap(() => {
+            return this.metadataService.getMetadataTree()
+            .map(tree => new metadataActions.UpdateMetadataTreeSuccess(tree))
+        });
 }

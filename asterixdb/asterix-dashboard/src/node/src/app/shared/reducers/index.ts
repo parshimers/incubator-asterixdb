@@ -25,25 +25,26 @@ import * as fromAppState from './app.reducer';
 ** Global Interfaces store/state
 */
 export interface ModelState {
-  dataverse: fromDataverse.State,
-  dataset: fromDataset.State,
-  datatype: fromDatatype.State,
-  index: fromIndex.State,
-  sqlQuery: fromQuery.State,
-  sqlMetadataQuery: fromQueryMetadata.State,
-  metadata: fromMetadata.State,
-  appState: fromAppState.State,
+    dataverse: fromDataverse.State,
+    dataset: fromDataset.State,
+    datatype: fromDatatype.State,
+    index: fromIndex.State,
+    sqlQuery: fromQuery.State,
+    sqlMetadataQuery: fromQueryMetadata.State,
+    metadata: fromMetadata.State,
+    appState: fromAppState.State,
 }
 
 /*
 ** Global Reducers configuration
 */
 export const reducers = {
-  dataverse: fromDataverse.dataverseReducer,
-  dataset: fromDataset.datasetReducer,
-  datatype: fromDatatype.datatypeReducer,
-  index: fromIndex.indexReducer,
-  sqlQuery: fromQuery.sqlReducer,
-  sqlMetadataQuery: fromQueryMetadata.sqlMetadataReducer,
-  metadata: fromMetadata.metadataTreeReducer
+    dataverse: fromDataverse.dataverseReducer,
+    dataset: fromDataset.datasetReducer,
+    datatype: fromDatatype.datatypeReducer,
+    index: fromIndex.indexReducer,
+    sqlQuery: fromQuery.sqlReducer,
+    sqlMetadataQuery: fromQueryMetadata.sqlMetadataReducer,
+    metadata: fromMetadata.metadataTreeReducer,
+    app: fromAppState.appReducer
 };

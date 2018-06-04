@@ -19,13 +19,13 @@ import { AppCoreService } from './shared/services/app-core.service'
  * Defines AsterixDB Dashboard application's layout
  */
 @Component({
-  selector: 'awc-root',
-  templateUrl: './app.component.html',
-  styleUrls: ['./app.component.scss']
+    selector: 'awc-root',
+    templateUrl: './app.component.html',
+    styleUrls: ['./app.component.scss']
 })
-export class AppComponent {
-  title = 'Asterix DB Web Console';
 
-  constructor(private appCoreService: AppCoreService) {
-  }
+export class AppComponent {
+    title = 'Asterix DB Web Console';
+
+    constructor(private appCoreService: AppCoreService) {}
 }

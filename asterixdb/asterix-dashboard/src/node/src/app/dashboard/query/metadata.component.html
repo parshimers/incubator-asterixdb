@@ -11,34 +11,42 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */ -->
-<mat-card class="metadata-card">
-  <mat-toolbar color="primary" class="metadata-selector">
-    <mat-icon class="example-icon">menu</mat-icon>
-    <span>METADATA GUIDE</span>
-    <span class="spacer"></span>
-  </mat-toolbar>
-    <div class="metadata-content-area">
-    <div class="metadata-tree">
-      <div class="metadata-all">
-          <p-tree [style]="{'width':'100%', 'border': 'none', 'font-family': 'Roboto Mono', 'font-size': '0.80rem',
-          'font-weight': '500'}" selectionMode="single" [value]="nodesAll" (onNodeSelect)="nodeSelectAll($event)"></p-tree>
+<div class="wrapper">
+  <mat-expansion-panel class="panel mat-elevation-z0">
+    <mat-expansion-panel-header class="header-dataverse">
+      <!--<mat-icon class="list-icon">developer_board</mat-icon>-->DATAVERSES</mat-expansion-panel-header>
+    <section class="section">
+      <li *ngFor="let dataverse of dataverses; index as i">
+        <mat-checkbox [labelPosition]="before" class="margin" (change)="generateFilter(dataverse.DataverseName, $event, value)" [(ngModel)]="dataverse.active">{{dataverse.DataverseName}}</mat-checkbox>
+      </li>
+      <div class="refresh">
+        <mat-icon class="list-icon">cached</mat-icon>
+        <button mat-button class="refresh-button" (click)="refreshMetadata()">REFRESH</button>
       </div>
-      <div class="metadata-datasets">
-          <p-tree [style]="{'width':'100%', 'border': 'none', 'font-family': 'Roboto Mono', 'font-size': '0.80rem',
-          'font-weight': '500'}" selectionMode="single" [value]="nodesDatasets" (onNodeSelect)="nodeSelectDataset($event)"></p-tree>
-      </div>
-      <div class="metadata-datatypes">
-          <p-tree [style]="{'width':'100%', 'border': 'none', 'font-family': 'Roboto Mono', 'font-size': '0.80rem',
-          'font-weight': '500'}" selectionMode="single" [value]="nodesDatatypes"></p-tree>
-      </div>
-      <div class="metadata-index">
-          <p-tree [style]="{'width':'100%', 'border': 'none', 'font-family': 'Roboto Mono', 'font-size': '0.80rem',
-          'font-weight': '500'}" selectionMode="single" [value]="nodesIndexes"></p-tree>
-      </div>
-
-    </div>
-  </div>
-  <!--<mat-card-actions class="actions">
-     <button mat-button class="refresh-button" (click)="menuRefresh()">COLLAPSE</button>
-  </mat-card-actions> -->
-</mat-card>
+    </section>
+  </mat-expansion-panel>
+  <mat-expansion-panel class="mat-elevation-z0" [expanded]="panelOpenState">
+    <mat-expansion-panel-header #datasetsPanel class="header">
+      <!--<mat-icon class="list-icon">view_headlines</mat-icon>-->DATASETS</mat-expansion-panel-header>
+    <section class="section">
+      <li *ngFor="let dataset of datasetsFiltered" (click)="openMetadataInspectorDialog(dataset)">
+        {{dataset.DatasetName}}</li>
+    </section>
+  </mat-expansion-panel>
+  <mat-expansion-panel class="mat-elevation-z0" [expanded]="panelOpenState">
+    <mat-expansion-panel-header class="header">
+      <!--<mat-icon class="list-icon">title</mat-icon>-->DATATYPES</mat-expansion-panel-header>
+    <section class="section">
+      <li *ngFor="let datatype of datatypesFiltered" (click)="openMetadataInspectorDialog(datatype)">
+        {{datatype.DatatypeName}}</li>
+    </section>
+  </mat-expansion-panel>
+  <mat-expansion-panel class="mat-elevation-z0" [expanded]="panelOpenState">
+    <mat-expansion-panel-header class="header">
+      <!--<mat-icon class="list-icon">sort_by_alpha</mat-icon>-->INDEX</mat-expansion-panel-header>
+    <section class="section">
+      <li *ngFor="let index of indexesFiltered" (click)="openMetadataInspectorDialog(index)">
+        {{index.IndexName}}</li>
+    </section>
+  </mat-expansion-panel>
+</div>

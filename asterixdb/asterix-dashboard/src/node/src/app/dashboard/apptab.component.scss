@@ -11,16 +11,18 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-.content {
-  width:95%;
-  margin: 0 auto;
+
+.query-tab {
+  width: 100%;
+  min-height: 900px;
+  margin: 0;
+  padding: 0;
+  background-color: white;
 }
 
-.menu {    
+.menu {
   /deep/ .mat-tab-label {
-      font-size: 0.80rem !important;
-      font-weight: 500  !important;
+    font-size: 0.80rem !important;
+    font-weight: 500 !important;
   }
 }
-
-
