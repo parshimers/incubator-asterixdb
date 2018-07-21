@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.ByteBuffer;
 
+import org.apache.asterix.api.http.server.ResultUtil;
 import org.apache.asterix.common.api.IApplicationContext;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.translator.IStatementExecutor.Stats;
@@ -107,7 +108,7 @@ public class ResultPrinter {
             }
             app.append("\r\n");
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 
@@ -122,7 +123,7 @@ public class ResultPrinter {
         try {
             output.resultPrefix(new AlgebricksAppendable(output.out()));
         } catch (AlgebricksException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
 
         if (conf.is(SessionConfig.FORMAT_WRAPPER_ARRAY)) {
@@ -154,7 +155,7 @@ public class ResultPrinter {
         try {
             output.resultPostfix(new AlgebricksAppendable(output.out()));
         } catch (AlgebricksException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
         if (conf.is(SessionConfig.FORMAT_HTML)) {
             output.out().println("</pre>");
@@ -180,6 +181,9 @@ public class ResultPrinter {
             // TODO(tillw): this is inefficient as well
             record = JSONUtil.quoteAndEscape(record);
         }
+        if (conf.is(SessionConfig.FORMAT_HTML)) {
+            record = ResultUtil.escapeHTML(record);
+        }
         output.out().print(record);
         stats.setCount(stats.getCount() + 1);
         // TODO(tillw) fix this approximation
@@ -196,32 +200,33 @@ public class ResultPrinter {
 
     public void print(ResultReader resultReader) throws HyracksDataException {
         printPrefix();
+        try {
+            final IFrameTupleAccessor fta = resultReader.getFrameTupleAccessor();
+            final IFrame frame = new VSizeFrame(resultDisplayFrameMgr);
 
-        final IFrameTupleAccessor fta = resultReader.getFrameTupleAccessor();
-        final IFrame frame = new VSizeFrame(resultDisplayFrameMgr);
-
-        while (resultReader.read(frame) > 0) {
-            final ByteBuffer frameBuffer = frame.getBuffer();
-            final byte[] frameBytes = frameBuffer.array();
-            fta.reset(frameBuffer);
-            final int last = fta.getTupleCount();
-            for (int tIndex = 0; tIndex < last; tIndex++) {
-                final int start = fta.getTupleStartOffset(tIndex);
-                int length = fta.getTupleEndOffset(tIndex) - start;
-                if (conf.fmt() == SessionConfig.OutputFormat.CSV
-                        && ((length > 0) && (frameBytes[start + length - 1] == '\n'))) {
-                    length--;
+            while (resultReader.read(frame) > 0) {
+                final ByteBuffer frameBuffer = frame.getBuffer();
+                final byte[] frameBytes = frameBuffer.array();
+                fta.reset(frameBuffer);
+                final int last = fta.getTupleCount();
+                for (int tIndex = 0; tIndex < last; tIndex++) {
+                    final int start = fta.getTupleStartOffset(tIndex);
+                    int length = fta.getTupleEndOffset(tIndex) - start;
+                    if (conf.fmt() == SessionConfig.OutputFormat.CSV
+                            && ((length > 0) && (frameBytes[start + length - 1] == '\n'))) {
+                        length--;
+                    }
+                    String result = new String(frameBytes, start, length, UTF_8);
+                    if (wrapArray && notFirst) {
+                        output.out().print(", ");
+                    }
+                    notFirst = true;
+                    displayRecord(result);
                 }
-                String result = new String(frameBytes, start, length, UTF_8);
-                if (wrapArray && notFirst) {
-                    output.out().print(", ");
-                }
-                notFirst = true;
-                displayRecord(result);
+                frameBuffer.clear();
             }
-            frameBuffer.clear();
+        } finally {
+            printPostfix();
         }
-
-        printPostfix();
     }
 }

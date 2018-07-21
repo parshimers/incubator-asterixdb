@@ -25,7 +25,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
+import java.util.Optional;
 
 import org.apache.hyracks.api.application.INCServiceContext;
 import org.apache.hyracks.api.client.NodeControllerInfo;
@@ -39,13 +39,30 @@ import org.apache.hyracks.api.dataflow.TaskId;
 import org.apache.hyracks.api.exceptions.HyracksException;
 import org.apache.hyracks.api.io.IODeviceHandle;
 import org.apache.hyracks.api.job.JobId;
+import org.apache.hyracks.api.util.CleanupUtils;
 import org.apache.hyracks.control.nc.io.DefaultDeviceResolver;
 import org.apache.hyracks.control.nc.io.IOManager;
+import org.apache.logging.log4j.core.Appender;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.appender.ConsoleAppender;
+import org.apache.logging.log4j.core.config.Configuration;
 
 public class TestUtils {
     public static IHyracksTaskContext create(int frameSize) {
+        IOManager ioManager = null;
         try {
-            IOManager ioManager = createIoManager();
+            ioManager = createIoManager();
+            return create(frameSize, ioManager);
+        } catch (Exception e) {
+            if (ioManager != null) {
+                CleanupUtils.close(ioManager, e);
+            }
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static IHyracksTaskContext create(int frameSize, IOManager ioManager) {
+        try {
             INCServiceContext serviceCtx = new TestNCServiceContext(ioManager, null);
             TestJobletContext jobletCtx = new TestJobletContext(frameSize, serviceCtx, new JobId(0));
             TaskAttemptId tid = new TaskAttemptId(new TaskId(new ActivityId(new OperatorDescriptorId(0), 0), 0), 0);
@@ -59,7 +76,7 @@ public class TestUtils {
     private static IOManager createIoManager() throws HyracksException {
         List<IODeviceHandle> devices = new ArrayList<>();
         devices.add(new IODeviceHandle(new File(System.getProperty("java.io.tmpdir")), "."));
-        return new IOManager(devices, Executors.newCachedThreadPool(), new DefaultDeviceResolver());
+        return new IOManager(devices, new DefaultDeviceResolver());
     }
 
     public static void compareWithResult(File expectedFile, File actualFile) throws Exception {
@@ -135,9 +152,32 @@ public class TestUtils {
             String ncId = ncNamePrefix + i;
             String ncAddress = addressPrefix + i;
             ncNameToNcInfos.put(ncId,
-                    new NodeControllerInfo(ncId, NodeStatus.ALIVE, new NetworkAddress(ncAddress, netPort),
+                    new NodeControllerInfo(ncId, NodeStatus.ACTIVE, new NetworkAddress(ncAddress, netPort),
                             new NetworkAddress(ncAddress, dataPort), new NetworkAddress(ncAddress, messagingPort), 2));
         }
         return ncNameToNcInfos;
+    }
+
+    public static void redirectLoggingToConsole() {
+        final LoggerContext context = LoggerContext.getContext(false);
+        final Configuration config = context.getConfiguration();
+
+        Appender appender = config.getAppender("Console");
+        if (appender == null) {
+            Optional<Appender> result =
+                    config.getAppenders().values().stream().filter(a -> a instanceof ConsoleAppender).findFirst();
+            if (!result.isPresent()) {
+                System.err.println(
+                        "ERROR: cannot find appender named 'Console'; unable to find alternate ConsoleAppender!");
+            } else {
+                appender = result.get();
+                System.err.println("ERROR: cannot find appender named 'Console'; using alternate ConsoleAppender named "
+                        + appender.getName());
+            }
+        }
+        if (appender != null) {
+            config.getRootLogger().addAppender(appender, null, null);
+            context.updateLoggers();
+        }
     }
 }

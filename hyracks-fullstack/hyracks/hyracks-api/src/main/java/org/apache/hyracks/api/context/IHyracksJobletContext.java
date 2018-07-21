@@ -21,6 +21,7 @@ package org.apache.hyracks.api.context;
 import org.apache.hyracks.api.application.INCServiceContext;
 import org.apache.hyracks.api.exceptions.HyracksException;
 import org.apache.hyracks.api.io.IWorkspaceFileFactory;
+import org.apache.hyracks.api.job.IJobletEventListenerFactory;
 import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.api.job.profiling.counters.ICounterContext;
 import org.apache.hyracks.api.resources.IDeallocatableRegistry;
@@ -30,9 +31,13 @@ public interface IHyracksJobletContext extends IWorkspaceFileFactory, IDeallocat
 
     JobId getJobId();
 
+    long getJobStartTime();
+
     ICounterContext getCounterContext();
 
     Object getGlobalJobData();
+
+    IJobletEventListenerFactory getJobletEventListenerFactory();
 
     Class<?> loadClass(String className) throws HyracksException;
 

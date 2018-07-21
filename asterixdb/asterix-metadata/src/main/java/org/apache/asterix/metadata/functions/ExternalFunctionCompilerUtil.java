@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.asterix.metadata.MetadataException;
+import org.apache.asterix.common.exceptions.MetadataException;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.metadata.MetadataTransactionContext;
 import org.apache.asterix.metadata.entities.Datatype;
@@ -52,7 +52,7 @@ public class ExternalFunctionCompilerUtil {
     private static Pattern unorderedListPattern = Pattern.compile("[{{*}}]");
 
     public static IFunctionInfo getExternalFunctionInfo(MetadataTransactionContext txnCtx, Function function)
-            throws MetadataException {
+            throws AlgebricksException {
 
         String functionKind = function.getKind();
         IFunctionInfo finfo = null;
@@ -69,15 +69,15 @@ public class ExternalFunctionCompilerUtil {
     }
 
     private static IFunctionInfo getScalarFunctionInfo(MetadataTransactionContext txnCtx, Function function)
-            throws MetadataException {
-        FunctionIdentifier fid = new FunctionIdentifier(function.getDataverseName(), function.getName(),
-                function.getArity());
+            throws AlgebricksException {
+        FunctionIdentifier fid =
+                new FunctionIdentifier(function.getDataverseName(), function.getName(), function.getArity());
         IResultTypeComputer typeComputer = getResultTypeComputer(txnCtx, function);
-        List<IAType> arguments = new ArrayList<IAType>();
-        IAType returnType = null;
-        List<String> paramTypes = function.getParams();
-        for (String paramType : paramTypes) {
-            arguments.add(getTypeInfo(paramType, txnCtx, function));
+        List<IAType> arguments = new ArrayList<>();
+        IAType returnType;
+        List<String> argumentTypes = function.getArguments();
+        for (String argumentType : argumentTypes) {
+            arguments.add(getTypeInfo(argumentType, txnCtx, function));
         }
 
         returnType = getTypeInfo(function.getReturnType(), txnCtx, function);
@@ -87,7 +87,7 @@ public class ExternalFunctionCompilerUtil {
     }
 
     private static IAType getTypeInfo(String paramType, MetadataTransactionContext txnCtx, Function function)
-            throws MetadataException {
+            throws AlgebricksException {
         if (paramType.equalsIgnoreCase(BuiltinType.AINT32.getDisplayName())) {
             return (BuiltinType.AINT32);
         } else if (paramType.equalsIgnoreCase(BuiltinType.AFLOAT.getDisplayName())) {
@@ -112,7 +112,7 @@ public class ExternalFunctionCompilerUtil {
     }
 
     private static IAType getCollectionType(String paramType, MetadataTransactionContext txnCtx, Function function)
-            throws MetadataException {
+            throws AlgebricksException {
 
         Matcher matcher = orderedListPattern.matcher(paramType);
         if (matcher.find()) {
@@ -129,7 +129,7 @@ public class ExternalFunctionCompilerUtil {
     }
 
     private static IResultTypeComputer getResultTypeComputer(final MetadataTransactionContext txnCtx,
-            final Function function) throws MetadataException {
+            final Function function) throws AlgebricksException {
 
         final IAType type = getTypeInfo(function.getReturnType(), txnCtx, function);
         switch (type.getTypeTag()) {
@@ -163,8 +163,7 @@ public class ExternalFunctionCompilerUtil {
                     @Override
                     public IAType computeType(ILogicalExpression expression, IVariableTypeEnvironment env,
                             IMetadataProvider<?, ?> metadataProvider) throws AlgebricksException {
-
-                        return new AUnorderedListType(type, type.getTypeName());
+                        return new AUnorderedListType(((AUnorderedListType) type).getItemType(), type.getTypeName());
                     }
 
                 };

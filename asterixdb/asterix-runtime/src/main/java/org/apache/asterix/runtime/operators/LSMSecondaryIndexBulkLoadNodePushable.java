@@ -19,26 +19,25 @@
 package org.apache.asterix.runtime.operators;
 
 import java.nio.ByteBuffer;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
+import org.apache.asterix.common.ioopcallbacks.LSMIOOperationCallback;
 import org.apache.asterix.runtime.operators.LSMSecondaryIndexCreationTupleProcessorNodePushable.DeletedTupleCounter;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
-import org.apache.hyracks.data.std.primitive.LongPointable;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.common.api.IIndexDataflowHelper;
 import org.apache.hyracks.storage.am.common.dataflow.IIndexDataflowHelperFactory;
 import org.apache.hyracks.storage.am.common.tuples.PermutingFrameTupleReference;
 import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponent;
-import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponentBulkLoader;
-import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponentId;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
-import org.apache.hyracks.storage.am.lsm.common.api.LSMOperationType;
-import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndex;
+import org.apache.hyracks.storage.am.lsm.common.impls.LSMIndexDiskComponentBulkLoader;
 
 /**
+ * Note: only used with correlated merge policy
  * This operator node is used to bulk load incoming tuples (scanned from the primary index)
  * into multiple disk components of the secondary index.
  * Incoming tuple format:
@@ -56,11 +55,8 @@ public class LSMSecondaryIndexBulkLoadNodePushable extends AbstractLSMSecondaryI
     private ILSMIndex primaryIndex;
     private ILSMIndex secondaryIndex;
 
-    private ILSMDiskComponent component;
-    private ILSMDiskComponentBulkLoader componentBulkLoader;
+    private LSMIndexDiskComponentBulkLoader componentBulkLoader;
     private int currentComponentPos = -1;
-
-    private ILSMDiskComponent[] diskComponents;
 
     public LSMSecondaryIndexBulkLoadNodePushable(IHyracksTaskContext ctx, int partition, RecordDescriptor inputRecDesc,
             IIndexDataflowHelperFactory primaryIndexHelperFactory,
@@ -92,7 +88,6 @@ public class LSMSecondaryIndexBulkLoadNodePushable extends AbstractLSMSecondaryI
         super.open();
         primaryIndexHelper.open();
         primaryIndex = (ILSMIndex) primaryIndexHelper.getIndexInstance();
-        diskComponents = new ILSMDiskComponent[primaryIndex.getImmutableComponents().size()];
         secondaryIndexHelper.open();
         secondaryIndex = (ILSMIndex) secondaryIndexHelper.getIndexInstance();
 
@@ -106,8 +101,6 @@ public class LSMSecondaryIndexBulkLoadNodePushable extends AbstractLSMSecondaryI
         } catch (HyracksDataException e) {
             closeException = e;
         }
-
-        activateComponents();
 
         try {
             if (primaryIndexHelper != null) {
@@ -184,24 +177,20 @@ public class LSMSecondaryIndexBulkLoadNodePushable extends AbstractLSMSecondaryI
     }
 
     private void endCurrentComponent() throws HyracksDataException {
-        if (component != null) {
-            // set disk component id
-
+        if (componentBulkLoader != null) {
             componentBulkLoader.end();
-            diskComponents[currentComponentPos] = component;
-
             componentBulkLoader = null;
-            component = null;
         }
     }
 
     private void loadNewComponent(int componentPos) throws HyracksDataException {
         endCurrentComponent();
-
-        component = secondaryIndex.createBulkLoadTarget();
-        componentBulkLoader = secondaryIndex.createComponentBulkLoader(component, 1.0f, false,
-                getNumDeletedTuples(componentPos), false, true, true);
-
+        int numTuples = getNumDeletedTuples(componentPos);
+        ILSMDiskComponent primaryComponent = primaryIndex.getDiskComponents().get(componentPos);
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put(LSMIOOperationCallback.KEY_FLUSHED_COMPONENT_ID, primaryComponent.getId());
+        componentBulkLoader = (LSMIndexDiskComponentBulkLoader) secondaryIndex.createBulkLoader(1.0f, false, numTuples,
+                false, parameters);
     }
 
     private void addAntiMatterTuple(ITupleReference tuple) throws HyracksDataException {
@@ -218,29 +207,6 @@ public class LSMSecondaryIndexBulkLoadNodePushable extends AbstractLSMSecondaryI
         sourceTuple.reset(tuple);
         componentBulkLoader.add(sourceTuple);
 
-    }
-
-    private void activateComponents() throws HyracksDataException {
-        List<ILSMDiskComponent> primaryComponents = primaryIndex.getImmutableComponents();
-        for (int i = diskComponents.length - 1; i >= 0; i--) {
-            // start from the oldest component to the newest component
-            if (diskComponents[i] != null && diskComponents[i].getComponentSize() > 0) {
-                secondaryIndex.getIOOperationCallback().afterOperation(LSMOperationType.FLUSH, null, diskComponents[i]);
-
-                // setting component id has to be place between afterOperation and addBulkLoadedComponent,
-                // since afterOperation would set a flush component id (but it's not invalid)
-                // and addBulkLoadedComponent would finalize the component
-                ILSMDiskComponentId primaryComponentId = primaryComponents.get(i).getComponentId();
-                //set component id
-                diskComponents[i].getMetadata().put(ILSMDiskComponentId.COMPONENT_ID_MIN_KEY,
-                        LongPointable.FACTORY.createPointable(primaryComponentId.getMinId()));
-                diskComponents[i].getMetadata().put(ILSMDiskComponentId.COMPONENT_ID_MAX_KEY,
-                        LongPointable.FACTORY.createPointable(primaryComponentId.getMaxId()));
-
-                ((AbstractLSMIndex) secondaryIndex).getLsmHarness().addBulkLoadedComponent(diskComponents[i]);
-
-            }
-        }
     }
 
     private int getNumDeletedTuples(int componentPos) {

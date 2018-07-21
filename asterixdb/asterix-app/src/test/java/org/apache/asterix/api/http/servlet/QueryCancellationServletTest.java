@@ -29,6 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.asterix.api.http.ctx.StatementExecutorContext;
 import org.apache.asterix.api.http.server.QueryCancellationServlet;
+import org.apache.asterix.api.http.server.ServletConstants;
 import org.apache.asterix.translator.IStatementExecutorContext;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.job.JobId;
@@ -46,8 +47,8 @@ public class QueryCancellationServletTest {
     @Test
     public void testDelete() throws Exception {
         // Creates a query cancellation servlet.
-        QueryCancellationServlet cancellationServlet = new QueryCancellationServlet(new ConcurrentHashMap<>(),
-                new String[] { "/" });
+        QueryCancellationServlet cancellationServlet =
+                new QueryCancellationServlet(new ConcurrentHashMap<>(), new String[] { "/" });
         // Adds mocked Hyracks client connection into the servlet context.
         IHyracksClientConnection mockHcc = mock(IHyracksClientConnection.class);
         cancellationServlet.ctx().put(ServletConstants.HYRACKS_CONNECTION_ATTR, mockHcc);

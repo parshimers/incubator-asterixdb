@@ -62,10 +62,6 @@ final class IPCHandle implements IIPCHandle {
         return system;
     }
 
-    void setRemoteAddress(InetSocketAddress remoteAddress) {
-        this.remoteAddress = remoteAddress;
-    }
-
     @Override
     public long send(long requestId, Object req, Exception exception) throws IPCException {
         if (!isConnected()) {
@@ -118,10 +114,21 @@ final class IPCHandle implements IIPCHandle {
     }
 
     synchronized boolean waitTillConnected() throws InterruptedException {
-        while (state != HandleState.CONNECTED && state != HandleState.CONNECT_FAILED) {
-            wait();
+        while (true) {
+            switch (state) {
+                case INITIAL:
+                case CONNECT_SENT:
+                case CONNECT_RECEIVED:
+                    // TODO: need a reasonable timeout here
+                    wait();
+                    break;
+                case CONNECTED:
+                case CLOSED:
+                    return state == HandleState.CONNECTED;
+                default:
+                    throw new IllegalStateException("unknown state: " + state);
+            }
         }
-        return state == HandleState.CONNECTED;
     }
 
     ByteBuffer getInBuffer() {
@@ -148,21 +155,21 @@ final class IPCHandle implements IIPCHandle {
             }
             system.getPerformanceCounters().addMessageReceivedCount(1);
 
-            if (state == HandleState.CONNECT_RECEIVED) {
+            final boolean error = message.getFlag() == Message.ERROR;
+            if (!error && state == HandleState.CONNECT_RECEIVED) {
                 remoteAddress = (InetSocketAddress) message.getPayload();
                 system.getConnectionManager().registerHandle(this);
                 setState(HandleState.CONNECTED);
                 system.getConnectionManager().ack(this, message);
-                continue;
-            } else if (state == HandleState.CONNECT_SENT) {
+            } else if (!error && state == HandleState.CONNECT_SENT) {
                 if (message.getFlag() == Message.INITIAL_ACK) {
                     setState(HandleState.CONNECTED);
                 } else {
                     throw new IllegalStateException();
                 }
-                continue;
+            } else {
+                system.deliverIncomingMessage(message);
             }
-            system.deliverIncomingMessage(message);
         }
         inBuffer.compact();
     }

@@ -19,12 +19,17 @@
 package org.apache.asterix.common.dataflow;
 
 import org.apache.asterix.common.api.IApplicationContext;
+import org.apache.asterix.common.api.IMetadataLockManager;
+import org.apache.asterix.common.api.INodeJobTracker;
+import org.apache.asterix.common.transactions.ITxnIdFactory;
+import org.apache.asterix.common.cluster.IClusterStateManager;
 import org.apache.asterix.common.cluster.IGlobalRecoveryManager;
+import org.apache.asterix.common.config.ExtensionProperties;
 import org.apache.asterix.common.context.IStorageComponentProvider;
-import org.apache.asterix.common.replication.IFaultToleranceStrategy;
+import org.apache.asterix.common.metadata.IMetadataBootstrap;
+import org.apache.asterix.common.replication.INcLifecycleCoordinator;
 import org.apache.asterix.common.transactions.IResourceIdManager;
 import org.apache.hyracks.api.application.ICCServiceContext;
-import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.job.IJobLifecycleListener;
 import org.apache.hyracks.storage.common.IStorageManager;
 
@@ -58,19 +63,14 @@ public interface ICcApplicationContext extends IApplicationContext {
     IGlobalRecoveryManager getGlobalRecoveryManager();
 
     /**
-     * @return the fault tolerance strategy in use for the cluster
+     * @return the NC lifecycle coordinator in use for the cluster
      */
-    IFaultToleranceStrategy getFaultToleranceStrategy();
+    INcLifecycleCoordinator getNcLifecycleCoordinator();
 
     /**
-     * @return the active lifecycle listener at Cluster controller
+     * @return the active notification handler at Cluster controller
      */
-    IJobLifecycleListener getActiveLifecycleListener();
-
-    /**
-     * @return a new instance of {@link IHyracksClientConnection}
-     */
-    IHyracksClientConnection getHcc();
+    IJobLifecycleListener getActiveNotificationHandler();
 
     /**
      * @return the cluster wide resource id manager
@@ -90,4 +90,41 @@ public interface ICcApplicationContext extends IApplicationContext {
      * @return the extension manager instance
      */
     Object getExtensionManager();
+
+    /**
+     * @return the metadata lock manager
+     */
+    IMetadataLockManager getMetadataLockManager();
+
+    /**
+     * @return the metadata bootstrap
+     */
+    IMetadataBootstrap getMetadataBootstrap();
+
+    /**
+     * @return the cluster state manager
+     */
+    IClusterStateManager getClusterStateManager();
+
+    /**
+     * Set the extension manager
+     *
+     * @param extensionManager
+     */
+    void setExtensionManager(Object extensionManager);
+
+    /**
+     * @return the extension properties
+     */
+    ExtensionProperties getExtensionProperties();
+
+    /**
+     * @return the node job tracker
+     */
+    INodeJobTracker getNodeJobTracker();
+
+    /**
+     * @return the transaction id factory
+     */
+    ITxnIdFactory getTxnIdFactory();
 }

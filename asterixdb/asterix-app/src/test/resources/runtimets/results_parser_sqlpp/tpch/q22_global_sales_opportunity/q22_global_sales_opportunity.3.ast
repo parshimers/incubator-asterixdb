@@ -27,7 +27,7 @@ FunctionDecl q22_customer_tmp([]) {
             Variable [ Name=$c ]
             Field=c_phone
           ]
-          LiteralExpr [LONG] [1]
+          LiteralExpr [LONG] [0]
           LiteralExpr [LONG] [2]
         ]
       )
@@ -42,7 +42,7 @@ FunctionDecl q22_customer_tmp([]) {
 Query:
 Let Variable [ Name=$avg ]
   :=
-  FunctionCall tpch.avg@1[
+  FunctionCall asterix.avg@1[
     (
       SELECT ELEMENT [
       FieldAccessor [
@@ -50,8 +50,8 @@ Let Variable [ Name=$avg ]
         Field=c_acctbal
       ]
       ]
-      FROM [        FunctionCall Metadata.dataset@1[
-          LiteralExpr [STRING] [Customer]
+      FROM [        FunctionCall asterix.dataset@1[
+          LiteralExpr [STRING] [tpch.Customer]
         ]
         AS Variable [ Name=$c ]
       ]
@@ -76,13 +76,12 @@ RecordConstructor [
   (
     LiteralExpr [STRING] [numcust]
     :
-    FunctionCall tpch.count@1[
+    FunctionCall asterix.count@1[
       (
         SELECT ELEMENT [
-        FunctionCall Metadata.resolve@-1[
-          LiteralExpr [STRING] [ct]
+        FunctionCall asterix.field-access-by-name@2[
           Variable [ Name=$g ]
-          Variable [ Name=$cntrycode ]
+          LiteralExpr [STRING] [ct]
         ]
         ]
         FROM [          Variable [ Name=$g ]
@@ -94,7 +93,7 @@ RecordConstructor [
   (
     LiteralExpr [STRING] [totacctbal]
     :
-    FunctionCall tpch.sum@1[
+    FunctionCall asterix.sum@1[
       (
         SELECT ELEMENT [
         FieldAccessor [
@@ -104,10 +103,9 @@ RecordConstructor [
         ]
         FROM [          (
             SELECT ELEMENT [
-            FunctionCall Metadata.resolve@-1[
-              LiteralExpr [STRING] [ct]
+            FunctionCall asterix.field-access-by-name@2[
               Variable [ Name=$g ]
-              Variable [ Name=$cntrycode ]
+              LiteralExpr [STRING] [ct]
             ]
             ]
             FROM [              Variable [ Name=$g ]

@@ -19,25 +19,26 @@
 
 package org.apache.asterix.lang.sqlpp.clause;
 
+import java.util.Objects;
+
 import org.apache.asterix.common.exceptions.CompilationException;
 import org.apache.asterix.lang.common.base.Clause;
 import org.apache.asterix.lang.common.base.Expression;
 import org.apache.asterix.lang.common.visitor.base.ILangVisitor;
 import org.apache.asterix.lang.sqlpp.visitor.base.ISqlppVisitor;
-import org.apache.commons.lang3.ObjectUtils;
 
 public class Projection implements Clause {
 
     private Expression expr;
     private String name;
     private boolean star;
-    private boolean exprStar;
+    private boolean varStar;
 
-    public Projection(Expression expr, String name, boolean star, boolean exprStar) {
+    public Projection(Expression expr, String name, boolean star, boolean varStar) {
         this.expr = expr;
         this.name = name;
         this.star = star;
-        this.exprStar = exprStar;
+        this.varStar = varStar;
     }
 
     @Override
@@ -74,18 +75,18 @@ public class Projection implements Clause {
         return star;
     }
 
-    public boolean exprStar() {
-        return exprStar;
+    public boolean varStar() {
+        return varStar;
     }
 
     @Override
     public String toString() {
-        return star ? "*" : (String.valueOf(expr) + (exprStar ? ".*" : (hasName() ? " as " + getName() : "")));
+        return star ? "*" : (String.valueOf(expr) + (varStar ? ".*" : (hasName() ? " as " + getName() : "")));
     }
 
     @Override
     public int hashCode() {
-        return ObjectUtils.hashCodeMulti(expr, exprStar, name, star);
+        return Objects.hash(expr, varStar, name, star);
     }
 
     @Override
@@ -97,7 +98,7 @@ public class Projection implements Clause {
             return false;
         }
         Projection target = (Projection) object;
-        return ObjectUtils.equals(expr, target.expr) && ObjectUtils.equals(exprStar, target.exprStar)
-                && ObjectUtils.equals(name, target.name) && ObjectUtils.equals(star, target.star);
+        return Objects.equals(expr, target.expr) && Objects.equals(name, target.name) && varStar == target.varStar
+                && star == target.star;
     }
 }

@@ -19,13 +19,16 @@
 package org.apache.hyracks.http.server;
 
 import java.io.IOException;
+import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
+import org.apache.hyracks.http.api.IChannelClosedHandler;
 import org.apache.hyracks.http.api.IServlet;
 import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.server.utils.HttpUtil;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
@@ -37,10 +40,13 @@ import io.netty.handler.codec.http.HttpVersion;
 
 public class HttpServerHandler<T extends HttpServer> extends SimpleChannelInboundHandler<Object> {
 
-    private static final Logger LOGGER = Logger.getLogger(HttpServerHandler.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger();
     protected final T server;
     protected final int chunkSize;
     protected HttpRequestHandler handler;
+    protected IChannelClosedHandler closeHandler;
+    protected Future<Void> task;
+    protected IServlet servlet;
 
     public HttpServerHandler(T server, int chunkSize) {
         this.server = server;
@@ -61,18 +67,32 @@ public class HttpServerHandler<T extends HttpServer> extends SimpleChannelInboun
     }
 
     @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        if (handler != null) {
+            handler.notifyChannelInactive();
+        }
+        if (closeHandler != null) {
+            closeHandler.channelClosed(server, servlet, task);
+        }
+        super.channelInactive(ctx);
+    }
+
+    @Override
     protected void channelRead0(ChannelHandlerContext ctx, Object msg) {
         FullHttpRequest request = (FullHttpRequest) msg;
+        handler = null;
+        task = null;
+        closeHandler = null;
         try {
-            IServlet servlet = server.getServlet(request);
+            servlet = server.getServlet(request);
             if (servlet == null) {
                 handleServletNotFound(ctx, request);
             } else {
                 submit(ctx, servlet, request);
             }
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Failure Submitting HTTP Request", e);
-            respond(ctx, request.protocolVersion(), HttpResponseStatus.INTERNAL_SERVER_ERROR);
+            LOGGER.log(Level.ERROR, "Failure Submitting HTTP Request", e);
+            respond(ctx, request.protocolVersion(), new HttpResponseStatus(500, e.getMessage()));
         }
     }
 
@@ -86,33 +106,34 @@ public class HttpServerHandler<T extends HttpServer> extends SimpleChannelInboun
         try {
             servletRequest = HttpUtil.toServletRequest(request);
         } catch (IllegalArgumentException e) {
-            LOGGER.log(Level.WARNING, "Failure Decoding Request", e);
+            LOGGER.log(Level.WARN, "Failure Decoding Request", e);
             respond(ctx, request.protocolVersion(), HttpResponseStatus.BAD_REQUEST);
             return;
         }
         handler = new HttpRequestHandler(ctx, servlet, servletRequest, chunkSize);
-        submit();
+        submit(servlet);
     }
 
-    private void submit() throws IOException {
+    private void submit(IServlet servlet) throws IOException {
         try {
-            server.getExecutor().submit(handler);
+            task = server.getExecutor(handler).submit(handler);
+            closeHandler = servlet.getChannelClosedHandler(server);
         } catch (RejectedExecutionException e) { // NOSONAR
-            LOGGER.log(Level.WARNING, "Request rejected by server executor service. " + e.getMessage());
+            LOGGER.log(Level.WARN, "Request rejected by server executor service. " + e.getMessage());
             handler.reject();
         }
     }
 
     protected void handleServletNotFound(ChannelHandlerContext ctx, FullHttpRequest request) {
-        if (LOGGER.isLoggable(Level.WARNING)) {
-            LOGGER.warning("No servlet for " + request.uri());
+        if (LOGGER.isWarnEnabled()) {
+            LOGGER.warn("No servlet for " + request.uri());
         }
         respond(ctx, request.protocolVersion(), HttpResponseStatus.NOT_FOUND);
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        LOGGER.log(Level.SEVERE, "Failure handling HTTP Request", cause);
+        LOGGER.log(Level.ERROR, "Failure handling HTTP Request", cause);
         ctx.close();
     }
 }

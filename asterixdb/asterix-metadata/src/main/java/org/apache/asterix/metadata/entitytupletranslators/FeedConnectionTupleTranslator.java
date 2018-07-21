@@ -22,6 +22,7 @@ package org.apache.asterix.metadata.entitytupletranslators;
 import java.io.ByteArrayInputStream;
 import java.io.DataInput;
 import java.io.DataInputStream;
+import java.io.DataOutput;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,10 +30,10 @@ import org.apache.asterix.builders.IARecordBuilder;
 import org.apache.asterix.builders.UnorderedListBuilder;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.formats.nontagged.SerializerDeserializerProvider;
-import org.apache.asterix.metadata.MetadataException;
 import org.apache.asterix.metadata.bootstrap.MetadataPrimaryIndexes;
 import org.apache.asterix.metadata.bootstrap.MetadataRecordTypes;
 import org.apache.asterix.metadata.entities.FeedConnection;
+import org.apache.asterix.om.base.AInt64;
 import org.apache.asterix.om.base.AMissing;
 import org.apache.asterix.om.base.ANull;
 import org.apache.asterix.om.base.ARecord;
@@ -40,6 +41,7 @@ import org.apache.asterix.om.base.AString;
 import org.apache.asterix.om.base.AUnorderedList;
 import org.apache.asterix.om.base.IACursor;
 import org.apache.asterix.om.types.AUnorderedListType;
+import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
@@ -53,6 +55,8 @@ public class FeedConnectionTupleTranslator extends AbstractTupleTranslator<FeedC
 
     public static final int FEED_CONN_PAYLOAD_TUPLE_FIELD_INDEX = 3;
 
+    protected final transient ArrayBackedValueStorage fieldName = new ArrayBackedValueStorage();
+
     private ISerializerDeserializer<ARecord> recordSerDes = SerializerDeserializerProvider.INSTANCE
             .getSerializerDeserializer(MetadataRecordTypes.FEED_CONNECTION_RECORDTYPE);
 
@@ -62,7 +66,7 @@ public class FeedConnectionTupleTranslator extends AbstractTupleTranslator<FeedC
 
     @Override
     public FeedConnection getMetadataEntityFromTuple(ITupleReference frameTuple)
-            throws MetadataException, HyracksDataException {
+            throws AlgebricksException, HyracksDataException {
         byte[] serRecord = frameTuple.getFieldData(FEED_CONN_PAYLOAD_TUPLE_FIELD_INDEX);
         int recordStartOffset = frameTuple.getFieldStart(FEED_CONN_PAYLOAD_TUPLE_FIELD_INDEX);
         int recordLength = frameTuple.getFieldLength(FEED_CONN_PAYLOAD_TUPLE_FIELD_INDEX);
@@ -95,18 +99,23 @@ public class FeedConnectionTupleTranslator extends AbstractTupleTranslator<FeedC
             cursor = ((AUnorderedList) feedConnRecord
                     .getValueByPos(MetadataRecordTypes.FEED_CONN_APPLIED_FUNCTIONS_FIELD_INDEX)).getCursor();
             while (cursor.next()) {
-                //TODO: allow different arity
-                functionSignature = new FunctionSignature(dataverseName, ((AString) cursor.get()).getStringValue(), 1);
+                String[] functionFullName = ((AString) cursor.get()).getStringValue().split("\\.");
+                functionSignature = new FunctionSignature(functionFullName[0], functionFullName[1], 1);
                 appliedFunctions.add(functionSignature);
             }
         }
 
-        return new FeedConnection(dataverseName, feedName, datasetName, appliedFunctions, policyName, outputType);
+        int whereClauseIdx = feedConnRecord.getType().getFieldIndex(MetadataRecordTypes.FIELD_NAME_WHERE_CLAUSE);
+        String whereClauseBody =
+                whereClauseIdx >= 0 ? ((AString) feedConnRecord.getValueByPos(whereClauseIdx)).getStringValue() : "";
+
+        return new FeedConnection(dataverseName, feedName, datasetName, appliedFunctions, policyName, whereClauseBody,
+                outputType);
     }
 
     @Override
     public ITupleReference getTupleFromMetadataEntity(FeedConnection me)
-            throws MetadataException, HyracksDataException {
+            throws AlgebricksException, HyracksDataException {
         tupleBuilder.reset();
 
         // key: dataverse
@@ -159,11 +168,26 @@ public class FeedConnectionTupleTranslator extends AbstractTupleTranslator<FeedC
         stringSerde.serialize(aString, fieldValue.getDataOutput());
         recordBuilder.addField(MetadataRecordTypes.FEED_CONN_POLICY_FIELD_INDEX, fieldValue);
 
+        // field: whereClauseBody
+        writeOpenPart(me);
+
         recordBuilder.write(tupleBuilder.getDataOutput(), true);
         tupleBuilder.addFieldEndOffset();
 
         tuple.reset(tupleBuilder.getFieldEndOffsets(), tupleBuilder.getByteArray());
         return tuple;
+    }
+
+    protected void writeOpenPart(FeedConnection fc) throws HyracksDataException {
+        if (fc.getWhereClauseBody() != null && fc.getWhereClauseBody().length() > 0) {
+            fieldName.reset();
+            aString.setValue(MetadataRecordTypes.FIELD_NAME_WHERE_CLAUSE);
+            stringSerde.serialize(aString, fieldName.getDataOutput());
+            fieldValue.reset();
+            aString.setValue(fc.getWhereClauseBody());
+            stringSerde.serialize(aString, fieldValue.getDataOutput());
+            recordBuilder.addField(fieldName, fieldValue);
+        }
     }
 
     private void writeAppliedFunctionsField(IARecordBuilder rb, FeedConnection fc, ArrayBackedValueStorage buffer)
@@ -177,7 +201,7 @@ public class FeedConnectionTupleTranslator extends AbstractTupleTranslator<FeedC
             List<FunctionSignature> appliedFunctions = fc.getAppliedFunctions();
             for (FunctionSignature af : appliedFunctions) {
                 listEleBuffer.reset();
-                aString.setValue(af.getName());
+                aString.setValue(af.getNamespace() + "." + af.getName());
                 stringSerde.serialize(aString, listEleBuffer.getDataOutput());
                 listBuilder.addItem(listEleBuffer);
             }

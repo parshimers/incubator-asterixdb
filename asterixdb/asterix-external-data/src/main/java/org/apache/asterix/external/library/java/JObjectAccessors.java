@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.dataflow.data.nontagged.serde.ABooleanSerializerDeserializer;
@@ -50,28 +49,28 @@ import org.apache.asterix.external.api.IJObject;
 import org.apache.asterix.external.api.IJObjectAccessor;
 import org.apache.asterix.external.api.IJRecordAccessor;
 import org.apache.asterix.external.library.TypeInfo;
-import org.apache.asterix.external.library.java.JObjects.JBoolean;
-import org.apache.asterix.external.library.java.JObjects.JByte;
-import org.apache.asterix.external.library.java.JObjects.JCircle;
-import org.apache.asterix.external.library.java.JObjects.JDate;
-import org.apache.asterix.external.library.java.JObjects.JDateTime;
-import org.apache.asterix.external.library.java.JObjects.JDouble;
-import org.apache.asterix.external.library.java.JObjects.JDuration;
-import org.apache.asterix.external.library.java.JObjects.JFloat;
-import org.apache.asterix.external.library.java.JObjects.JInt;
-import org.apache.asterix.external.library.java.JObjects.JInterval;
-import org.apache.asterix.external.library.java.JObjects.JLine;
-import org.apache.asterix.external.library.java.JObjects.JList;
-import org.apache.asterix.external.library.java.JObjects.JLong;
-import org.apache.asterix.external.library.java.JObjects.JOrderedList;
-import org.apache.asterix.external.library.java.JObjects.JPoint;
-import org.apache.asterix.external.library.java.JObjects.JPoint3D;
-import org.apache.asterix.external.library.java.JObjects.JPolygon;
-import org.apache.asterix.external.library.java.JObjects.JRecord;
-import org.apache.asterix.external.library.java.JObjects.JRectangle;
-import org.apache.asterix.external.library.java.JObjects.JString;
-import org.apache.asterix.external.library.java.JObjects.JTime;
-import org.apache.asterix.external.library.java.JObjects.JUnorderedList;
+import org.apache.asterix.external.library.java.base.JBoolean;
+import org.apache.asterix.external.library.java.base.JByte;
+import org.apache.asterix.external.library.java.base.JCircle;
+import org.apache.asterix.external.library.java.base.JDate;
+import org.apache.asterix.external.library.java.base.JDateTime;
+import org.apache.asterix.external.library.java.base.JDouble;
+import org.apache.asterix.external.library.java.base.JDuration;
+import org.apache.asterix.external.library.java.base.JFloat;
+import org.apache.asterix.external.library.java.base.JInt;
+import org.apache.asterix.external.library.java.base.JInterval;
+import org.apache.asterix.external.library.java.base.JLine;
+import org.apache.asterix.external.library.java.base.JList;
+import org.apache.asterix.external.library.java.base.JLong;
+import org.apache.asterix.external.library.java.base.JOrderedList;
+import org.apache.asterix.external.library.java.base.JPoint;
+import org.apache.asterix.external.library.java.base.JPoint3D;
+import org.apache.asterix.external.library.java.base.JPolygon;
+import org.apache.asterix.external.library.java.base.JRecord;
+import org.apache.asterix.external.library.java.base.JRectangle;
+import org.apache.asterix.external.library.java.base.JString;
+import org.apache.asterix.external.library.java.base.JTime;
+import org.apache.asterix.external.library.java.base.JUnorderedList;
 import org.apache.asterix.om.base.ACircle;
 import org.apache.asterix.om.base.ADuration;
 import org.apache.asterix.om.base.ALine;
@@ -92,8 +91,16 @@ import org.apache.asterix.om.types.TypeTagUtil;
 import org.apache.asterix.om.util.container.IObjectPool;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.util.string.UTF8StringReader;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class JObjectAccessors {
+
+    private static final Logger LOGGER = LogManager.getLogger();
+
+    private JObjectAccessors() {
+    }
 
     public static IJObjectAccessor createFlatJObjectAccessor(ATypeTag aTypeTag) {
         IJObjectAccessor accessor = null;
@@ -139,6 +146,21 @@ public class JObjectAccessors {
                 break;
             case DURATION:
                 accessor = new JDurationAccessor();
+                break;
+            case INTERVAL:
+                accessor = new JIntervalAccessor();
+                break;
+            case CIRCLE:
+                accessor = new JCircleAccessor();
+                break;
+            case POLYGON:
+                accessor = new JPolygonAccessor();
+                break;
+            case RECTANGLE:
+                accessor = new JRectangleAccessor();
+                break;
+            case TIME:
+                accessor = new JTimeAccessor();
                 break;
             case NULL:
                 accessor = new JNullAccessor();
@@ -200,18 +222,16 @@ public class JObjectAccessors {
         @Override
         public IJObject access(IVisitablePointable pointable, IObjectPool<IJObject, IAType> objPool)
                 throws HyracksDataException {
-            IJObject jObject = objPool.allocate(BuiltinType.ANULL);
-            return jObject;
+            return objPool.allocate(BuiltinType.ANULL);
         }
     }
 
-    public static class JMissingAccessor implements  IJObjectAccessor {
+    public static class JMissingAccessor implements IJObjectAccessor {
 
         @Override
         public IJObject access(IVisitablePointable pointable, IObjectPool<IJObject, IAType> objPool)
                 throws HyracksDataException {
-            IJObject jObject = objPool.allocate(BuiltinType.AMISSING);
-            return jObject;
+            return objPool.allocate(BuiltinType.AMISSING);
         }
     }
 
@@ -267,16 +287,14 @@ public class JObjectAccessors {
             int s = pointable.getStartOffset();
             int l = pointable.getLength();
 
-            String v = null;
+            String v;
             try {
                 v = reader.readUTF(new DataInputStream(new ByteArrayInputStream(b, s + 1, l - 1)));
             } catch (IOException e) {
-                throw new HyracksDataException(e);
+                throw HyracksDataException.create(e);
             }
-            JObjectUtil.getNormalizedString(v);
-
             IJObject jObject = objectPool.allocate(BuiltinType.ASTRING);
-            ((JString) jObject).setValue(JObjectUtil.getNormalizedString(v));
+            ((JString) jObject).setValue(v);
             return jObject;
         }
     }
@@ -539,8 +557,8 @@ public class JObjectAccessors {
                 }
 
             } catch (Exception e) {
-                e.printStackTrace();
-                throw new HyracksDataException(e);
+                LOGGER.log(Level.WARN, "Failure while accessing a java record", e);
+                throw HyracksDataException.create(e);
             }
             return jRecord;
         }
@@ -568,44 +586,29 @@ public class JObjectAccessors {
             JList list = pointable.ordered() ? new JOrderedList(listType) : new JUnorderedList(listType);
             IJObject listItem;
             int index = 0;
-            try {
-                for (IVisitablePointable itemPointable : items) {
-                    IVisitablePointable itemTagPointable = itemTags.get(index);
-                    ATypeTag itemTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER
-                            .deserialize(itemTagPointable.getByteArray()[itemTagPointable.getStartOffset()]);
-                    IAType fieldType;
-                    fieldType = TypeTagUtil.getBuiltinTypeByTag(itemTypeTag);
-                    typeInfo.reset(fieldType, itemTypeTag);
-                    switch (itemTypeTag) {
-                        case OBJECT:
-                            listItem = pointableVisitor.visit((ARecordVisitablePointable) itemPointable, typeInfo);
-                            break;
-                        case MULTISET:
-                        case ARRAY:
-                            listItem = pointableVisitor.visit((AListVisitablePointable) itemPointable, typeInfo);
-                            break;
-                        case ANY:
-                            throw new RuntimeDataException(ErrorCode.LIBRARY_JOBJECT_ACCESSOR_CANNOT_PARSE_TYPE,
-                                    listType.getTypeTag());
-                        default:
-                            listItem = pointableVisitor.visit((AFlatValuePointable) itemPointable, typeInfo);
-                    }
-                    list.add(listItem);
+            for (IVisitablePointable itemPointable : items) {
+                IVisitablePointable itemTagPointable = itemTags.get(index);
+                ATypeTag itemTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER
+                        .deserialize(itemTagPointable.getByteArray()[itemTagPointable.getStartOffset()]);
+                final IAType fieldType = TypeTagUtil.getBuiltinTypeByTag(itemTypeTag);
+                typeInfo.reset(fieldType, itemTypeTag);
+                switch (itemTypeTag) {
+                    case OBJECT:
+                        listItem = pointableVisitor.visit((ARecordVisitablePointable) itemPointable, typeInfo);
+                        break;
+                    case MULTISET:
+                    case ARRAY:
+                        listItem = pointableVisitor.visit((AListVisitablePointable) itemPointable, typeInfo);
+                        break;
+                    case ANY:
+                        throw new RuntimeDataException(ErrorCode.LIBRARY_JOBJECT_ACCESSOR_CANNOT_PARSE_TYPE,
+                                listType.getTypeTag());
+                    default:
+                        listItem = pointableVisitor.visit((AFlatValuePointable) itemPointable, typeInfo);
                 }
-            } catch (AsterixException exception) {
-                throw new HyracksDataException(exception);
+                list.add(listItem);
             }
             return list;
         }
-    }
-
-    public static class JUnorderedListAccessor implements IJObjectAccessor {
-
-        @Override
-        public IJObject access(IVisitablePointable pointable, IObjectPool<IJObject, IAType> objectPool)
-                throws HyracksDataException {
-            return null;
-        }
-
     }
 }

@@ -28,7 +28,6 @@ import org.apache.asterix.lang.common.base.Expression;
 import org.apache.asterix.lang.common.base.Expression.Kind;
 import org.apache.asterix.lang.common.base.ILangExpression;
 import org.apache.asterix.lang.common.base.Literal;
-import org.apache.asterix.lang.common.clause.LetClause;
 import org.apache.asterix.lang.common.expression.FieldBinding;
 import org.apache.asterix.lang.common.expression.LiteralExpr;
 import org.apache.asterix.lang.common.expression.RecordConstructor;
@@ -45,6 +44,11 @@ import org.apache.asterix.lang.sqlpp.util.SqlppVariableUtil;
 import org.apache.asterix.lang.sqlpp.visitor.SqlppSubstituteExpressionVisitor;
 import org.apache.asterix.lang.sqlpp.visitor.base.AbstractSqlppExpressionScopingVisitor;
 
+/**
+ * Syntactic sugar rewriting: inlines column aliases defines in SELECT clause into ORDER BY and LIMIT clauses. <br/>
+ * Note: column aliases are not cosidered new variables, but they can be referenced from ORDER BY and LIMIT clauses
+ *       because of this rewriting (like in SQL)
+ */
 public class InlineColumnAliasVisitor extends AbstractSqlppExpressionScopingVisitor {
 
     public InlineColumnAliasVisitor(LangRewritingContext context) {
@@ -67,18 +71,6 @@ public class InlineColumnAliasVisitor extends AbstractSqlppExpressionScopingVisi
         // Creates a substitution visitor.
         SqlppSubstituteExpressionVisitor visitor = new SqlppSubstituteExpressionVisitor(context, map);
 
-        // Rewrites GROUP BY/LET/HAVING clauses.
-        if (selectBlock.hasGroupbyClause()) {
-            selectBlock.getGroupbyClause().accept(visitor, arg);
-        }
-        if (selectBlock.hasLetClausesAfterGroupby()) {
-            for (LetClause letClause : selectBlock.getLetListAfterGroupby()) {
-                letClause.accept(visitor, arg);
-            }
-        }
-        if (selectBlock.hasHavingClause()) {
-            selectBlock.getHavingClause().accept(visitor, arg);
-        }
         SelectExpression selectExpression = (SelectExpression) arg;
 
         // For SET operation queries, column aliases will not substitute ORDER BY nor LIMIT expressions.
@@ -138,9 +130,12 @@ public class InlineColumnAliasVisitor extends AbstractSqlppExpressionScopingVisi
     private Map<Expression, Expression> mapProjections(List<Projection> projections) {
         Map<Expression, Expression> exprMap = new HashMap<>();
         for (Projection projection : projections) {
-            exprMap.put(
-                    new VariableExpr(new VarIdentifier(SqlppVariableUtil.toInternalVariableName(projection.getName()))),
-                    projection.getExpression());
+            if (!projection.star() && !projection.varStar()) {
+                exprMap.put(
+                        new VariableExpr(
+                                new VarIdentifier(SqlppVariableUtil.toInternalVariableName(projection.getName()))),
+                        projection.getExpression());
+            }
         }
         return exprMap;
     }

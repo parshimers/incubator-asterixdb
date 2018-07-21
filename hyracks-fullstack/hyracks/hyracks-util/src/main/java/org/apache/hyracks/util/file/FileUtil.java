@@ -19,15 +19,37 @@
 package org.apache.hyracks.util.file;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.regex.Pattern;
 
+import org.apache.commons.io.FileUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 public class FileUtil {
+
+    private static final Logger LOGGER = LogManager.getLogger();
+    private static final Object LOCK = new Object();
+    private static final int MAX_COPY_ATTEMPTS = 3;
 
     private FileUtil() {
     }
 
     public static String joinPath(String... elements) {
         return joinPath(File.separatorChar, elements);
+    }
+
+    public static void forceMkdirs(File dir) throws IOException {
+        File canonicalDir = dir.getCanonicalFile();
+        try {
+            FileUtils.forceMkdir(canonicalDir);
+        } catch (IOException e) {
+            LOGGER.warn("failure to create directory {}, retrying", dir, e);
+            synchronized (LOCK) {
+                FileUtils.forceMkdir(canonicalDir);
+            }
+        }
+
     }
 
     static String joinPath(char separatorChar, String... elements) {
@@ -40,6 +62,28 @@ public class FileUtil {
                     .replaceAll(escapedSeparator + "$", "");
         } else {
             return joined.replaceAll("(" + escapedSeparator + ")+", "$1").replaceAll(escapedSeparator + "$", "");
+        }
+    }
+
+    public static void safeCopyFile(File child, File destChild) throws IOException {
+        forceMkdirs(destChild.getParentFile());
+        IOException ioException = null;
+        while (true) {
+            try {
+                FileUtils.copyFile(child, destChild);
+                return;
+            } catch (IOException e) {
+                if (ioException == null) {
+                    ioException = e;
+                } else {
+                    ioException.addSuppressed(e);
+                }
+                if (ioException.getSuppressed().length >= MAX_COPY_ATTEMPTS) {
+                    LOGGER.warn("Unable to copy {} to {} after " + MAX_COPY_ATTEMPTS + " attempts; skipping file",
+                            child, destChild, e);
+                    return;
+                }
+            }
         }
     }
 }

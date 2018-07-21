@@ -20,6 +20,7 @@ package org.apache.asterix.external.library;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.asterix.common.exceptions.AsterixException;
@@ -28,7 +29,7 @@ import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.external.api.IFunctionHelper;
 import org.apache.asterix.external.api.IJObject;
 import org.apache.asterix.external.library.java.JObjectPointableVisitor;
-import org.apache.asterix.external.library.java.JObjects.JNull;
+import org.apache.asterix.external.library.java.base.JNull;
 import org.apache.asterix.external.library.java.JTypeTag;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
 import org.apache.asterix.om.pointables.AFlatValuePointable;
@@ -50,27 +51,28 @@ public class JavaFunctionHelper implements IFunctionHelper {
     private final IDataOutputProvider outputProvider;
     private final IJObject[] arguments;
     private IJObject resultHolder;
-    private final IObjectPool<IJObject, IAType> objectPool = new ListObjectPool<IJObject, IAType>(
-            JTypeObjectFactory.INSTANCE);
+    private final IObjectPool<IJObject, IAType> objectPool = new ListObjectPool<>(JTypeObjectFactory.INSTANCE);
     private final JObjectPointableVisitor pointableVisitor;
     private final PointableAllocator pointableAllocator;
     private final Map<Integer, TypeInfo> poolTypeInfo;
+    private final List<String> parameters;
 
     private boolean isValidResult = false;
 
-    public JavaFunctionHelper(IExternalFunctionInfo finfo, IDataOutputProvider outputProvider)
-            throws HyracksDataException {
+    public JavaFunctionHelper(IExternalFunctionInfo finfo, IDataOutputProvider outputProvider,
+            List<String> parameters) {
         this.finfo = finfo;
         this.outputProvider = outputProvider;
         this.pointableVisitor = new JObjectPointableVisitor();
         this.pointableAllocator = new PointableAllocator();
-        this.arguments = new IJObject[finfo.getParamList().size()];
+        this.arguments = new IJObject[finfo.getArgumentList().size()];
         int index = 0;
-        for (IAType param : finfo.getParamList()) {
+        for (IAType param : finfo.getArgumentList()) {
             this.arguments[index++] = objectPool.allocate(param);
         }
         this.resultHolder = objectPool.allocate(finfo.getReturnType());
-        this.poolTypeInfo = new HashMap<Integer, TypeInfo>();
+        this.poolTypeInfo = new HashMap<>();
+        this.parameters = parameters;
 
     }
 
@@ -81,14 +83,20 @@ public class JavaFunctionHelper implements IFunctionHelper {
 
     @Override
     public void setResult(IJObject result) throws HyracksDataException {
-        if (result == null) {
-            JNull.INSTANCE.serialize(outputProvider.getDataOutput(), true);
+        if (result == null || checkInvalidReturnValueType(result, finfo.getReturnType())) {
             isValidResult = false;
         } else {
             isValidResult = true;
             result.serialize(outputProvider.getDataOutput(), true);
             result.reset();
         }
+    }
+
+    private boolean checkInvalidReturnValueType(IJObject result, IAType expectedType) {
+        if (!expectedType.deepEqual(result.getIAType())) {
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -105,7 +113,7 @@ public class JavaFunctionHelper implements IFunctionHelper {
     public void setArgument(int index, IValueReference valueReference) throws IOException, AsterixException {
         IVisitablePointable pointable = null;
         IJObject jObject = null;
-        IAType type = finfo.getParamList().get(index);
+        IAType type = finfo.getArgumentList().get(index);
         switch (type.getTypeTag()) {
             case OBJECT:
                 pointable = pointableAllocator.allocateRecordValue(type);
@@ -182,4 +190,7 @@ public class JavaFunctionHelper implements IFunctionHelper {
         objectPool.reset();
     }
 
+    public List<String> getParameters() {
+        return parameters;
+    }
 }

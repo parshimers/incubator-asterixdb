@@ -79,8 +79,8 @@ public class TemporalDayAccessor extends AbstractScalarFunctionDynamicDescriptor
 
                     // for output: type integer
                     @SuppressWarnings("unchecked")
-                    private final ISerializerDeserializer<AInt64> intSerde = SerializerDeserializerProvider.INSTANCE
-                            .getSerializerDeserializer(BuiltinType.AINT64);
+                    private final ISerializerDeserializer<AInt64> intSerde =
+                            SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.AINT64);
                     private final AMutableInt64 aMutableInt64 = new AMutableInt64(0);
 
                     @Override
@@ -126,7 +126,7 @@ public class TemporalDayAccessor extends AbstractScalarFunctionDynamicDescriptor
                             aMutableInt64.setValue(day);
                             intSerde.serialize(aMutableInt64, out);
                         } catch (IOException e) {
-                            throw new HyracksDataException(e);
+                            throw HyracksDataException.create(e);
                         }
                         result.set(resultStorage);
                     }

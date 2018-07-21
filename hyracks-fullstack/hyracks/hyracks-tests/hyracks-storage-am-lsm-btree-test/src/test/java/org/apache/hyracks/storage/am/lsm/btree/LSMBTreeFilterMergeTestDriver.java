@@ -40,12 +40,10 @@ import org.apache.hyracks.storage.am.config.AccessMethodTestsConfig;
 import org.apache.hyracks.storage.am.lsm.btree.impls.LSMBTree;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentFilter;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponent;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperation;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperation.LSMIOOperationStatus;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
-import org.apache.hyracks.storage.am.lsm.common.impls.BlockingIOOperationCallbackWrapper;
-import org.apache.hyracks.storage.am.lsm.common.impls.NoOpIOOperationCallbackFactory;
-import org.apache.hyracks.storage.am.lsm.common.impls.StubIOOperationCallback;
-
-import junit.framework.Assert;
+import org.junit.Assert;
 
 /**
  * This test is the LSMBTreeMergeTest but using a filter, and at each step of the filter's lifecycle its value is
@@ -115,13 +113,14 @@ public abstract class LSMBTreeFilterMergeTestDriver extends OrderedIndexTestDriv
                             TreeIndexTestUtils.compareFilterTuples(obsMinMax.getRight(), minMax.getRight(), comp));
                 }
 
-                StubIOOperationCallback stub = new StubIOOperationCallback();
-                BlockingIOOperationCallbackWrapper waiter = new BlockingIOOperationCallbackWrapper(stub);
-                accessor.scheduleFlush(waiter);
-                waiter.waitForIO();
+                ILSMIOOperation flush = accessor.scheduleFlush();
+                flush.sync();
+                if (flush.getStatus() == LSMIOOperationStatus.FAILURE) {
+                    throw HyracksDataException.create(flush.getFailure());
+                }
                 if (minMax != null) {
                     Pair<ITupleReference, ITupleReference> obsMinMax =
-                            filterToMinMax(stub.getLastNewComponent().getLSMComponentFilter());
+                            filterToMinMax(flush.getNewComponent().getLSMComponentFilter());
                     Assert.assertEquals(0,
                             TreeIndexTestUtils.compareFilterTuples(obsMinMax.getLeft(), minMax.getLeft(), comp));
                     Assert.assertEquals(0,
@@ -129,7 +128,7 @@ public abstract class LSMBTreeFilterMergeTestDriver extends OrderedIndexTestDriv
                 }
             }
 
-            List<ILSMDiskComponent> flushedComponents = ((LSMBTree) ctx.getIndex()).getImmutableComponents();
+            List<ILSMDiskComponent> flushedComponents = ((LSMBTree) ctx.getIndex()).getDiskComponents();
             MutablePair<ITupleReference, ITupleReference> expectedMergeMinMax = null;
             for (ILSMDiskComponent f : flushedComponents) {
                 Pair<ITupleReference, ITupleReference> componentMinMax = filterToMinMax(f.getLSMComponentFilter());
@@ -145,10 +144,9 @@ public abstract class LSMBTreeFilterMergeTestDriver extends OrderedIndexTestDriv
                     expectedMergeMinMax.setRight(componentMinMax.getRight());
                 }
             }
-            accessor.scheduleMerge(NoOpIOOperationCallbackFactory.INSTANCE.createIoOpCallback(),
-                    ((LSMBTree) ctx.getIndex()).getImmutableComponents());
+            accessor.scheduleMerge(((LSMBTree) ctx.getIndex()).getDiskComponents());
 
-            flushedComponents = ((LSMBTree) ctx.getIndex()).getImmutableComponents();
+            flushedComponents = ((LSMBTree) ctx.getIndex()).getDiskComponents();
             Pair<ITupleReference, ITupleReference> mergedMinMax =
                     filterToMinMax(flushedComponents.get(0).getLSMComponentFilter());
             Assert.assertEquals(0, TreeIndexTestUtils.compareFilterTuples(expectedMergeMinMax.getLeft(),

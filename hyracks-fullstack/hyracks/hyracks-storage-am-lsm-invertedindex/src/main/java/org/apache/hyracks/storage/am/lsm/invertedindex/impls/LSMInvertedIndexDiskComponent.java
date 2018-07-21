@@ -18,55 +18,65 @@
  */
 package org.apache.hyracks.storage.am.lsm.invertedindex.impls;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.storage.am.bloomfilter.impls.BloomFilter;
 import org.apache.hyracks.storage.am.btree.impls.BTree;
 import org.apache.hyracks.storage.am.common.api.IMetadataPageManager;
+import org.apache.hyracks.storage.am.lsm.common.api.AbstractLSMWithBuddyDiskComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentFilter;
-import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMDiskComponent;
-import org.apache.hyracks.storage.am.lsm.invertedindex.api.IInPlaceInvertedIndex;
+import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndex;
+import org.apache.hyracks.storage.am.lsm.common.impls.IChainedComponentBulkLoader;
+import org.apache.hyracks.storage.am.lsm.common.impls.IndexWithBuddyBulkLoader;
+import org.apache.hyracks.storage.am.lsm.common.util.ComponentUtils;
 import org.apache.hyracks.storage.am.lsm.invertedindex.ondisk.OnDiskInvertedIndex;
+import org.apache.hyracks.storage.common.IIndexBulkLoader;
+import org.apache.hyracks.storage.common.buffercache.IBufferCache;
 
-public class LSMInvertedIndexDiskComponent extends AbstractLSMDiskComponent {
+public class LSMInvertedIndexDiskComponent extends AbstractLSMWithBuddyDiskComponent {
 
-    private final IInPlaceInvertedIndex invIndex;
+    private final OnDiskInvertedIndex invIndex;
     private final BTree deletedKeysBTree;
     private final BloomFilter bloomFilter;
 
-    public LSMInvertedIndexDiskComponent(IInPlaceInvertedIndex invIndex, BTree deletedKeysBTree,
-            BloomFilter bloomFilter, ILSMComponentFilter filter) throws HyracksDataException {
-        super((IMetadataPageManager) deletedKeysBTree.getPageManager(), filter);
+    public LSMInvertedIndexDiskComponent(AbstractLSMIndex lsmIndex, OnDiskInvertedIndex invIndex,
+            BTree deletedKeysBTree, BloomFilter bloomFilter, ILSMComponentFilter filter) {
+        super(lsmIndex, (IMetadataPageManager) deletedKeysBTree.getPageManager(), filter);
         this.invIndex = invIndex;
         this.deletedKeysBTree = deletedKeysBTree;
         this.bloomFilter = bloomFilter;
     }
 
     @Override
-    public void destroy() throws HyracksDataException {
-        invIndex.deactivate();
-        invIndex.destroy();
-        deletedKeysBTree.deactivate();
-        deletedKeysBTree.destroy();
-        bloomFilter.deactivate();
-        bloomFilter.destroy();
-    }
-
-    public IInPlaceInvertedIndex getInvIndex() {
+    public OnDiskInvertedIndex getIndex() {
         return invIndex;
     }
 
-    public BTree getDeletedKeysBTree() {
+    @Override
+    public BTree getMetadataHolder() {
+        return invIndex.getBTree();
+    }
+
+    @Override
+    public BTree getBuddyIndex() {
         return deletedKeysBTree;
     }
 
+    @Override
     public BloomFilter getBloomFilter() {
         return bloomFilter;
     }
 
     @Override
+    public IBufferCache getBloomFilterBufferCache() {
+        return invIndex.getBufferCache();
+    }
+
+    @Override
     public long getComponentSize() {
-        return ((OnDiskInvertedIndex) invIndex).getInvListsFile().getFile().length()
-                + ((OnDiskInvertedIndex) invIndex).getBTree().getFileReference().getFile().length()
+        return invIndex.getInvListsFile().getFile().length() + invIndex.getBTree().getFileReference().getFile().length()
                 + deletedKeysBTree.getFileReference().getFile().length()
                 + bloomFilter.getFileReference().getFile().length();
     }
@@ -74,5 +84,42 @@ public class LSMInvertedIndexDiskComponent extends AbstractLSMDiskComponent {
     @Override
     public int getFileReferenceCount() {
         return deletedKeysBTree.getBufferCache().getFileReferenceCount(deletedKeysBTree.getFileId());
+    }
+
+    @Override
+    public Set<String> getLSMComponentPhysicalFiles() {
+        Set<String> files = new HashSet<>();
+        files.add(invIndex.getInvListsFile().getFile().getAbsolutePath());
+        files.add(invIndex.getBTree().getFileReference().getFile().getAbsolutePath());
+        files.add(bloomFilter.getFileReference().getFile().getAbsolutePath());
+        files.add(deletedKeysBTree.getFileReference().getFile().getAbsolutePath());
+        return files;
+    }
+
+    @Override
+    public String toString() {
+        return getClass().getSimpleName() + ":" + invIndex.getInvListsFile().getRelativePath();
+    }
+
+    @Override
+    public void markAsValid(boolean persist) throws HyracksDataException {
+        ComponentUtils.markAsValid(getBloomFilterBufferCache(), getBloomFilter(), persist);
+
+        // Flush inverted index second.
+        invIndex.getBufferCache().force((invIndex).getInvListsFileId(), true);
+        ComponentUtils.markAsValid(getMetadataHolder(), persist);
+
+        // Flush deleted keys BTree.
+        ComponentUtils.markAsValid(getBuddyIndex(), persist);
+    }
+
+    @Override
+    protected IChainedComponentBulkLoader createMergeIndexBulkLoader(float fillFactor, boolean verifyInput,
+            long numElementsHint, boolean checkIfEmptyIndex) throws HyracksDataException {
+        IIndexBulkLoader indexBulkLoader =
+                invIndex.createMergeBulkLoader(fillFactor, verifyInput, numElementsHint, checkIfEmptyIndex);
+        IIndexBulkLoader buddyBulkLoader =
+                getBuddyIndex().createBulkLoader(fillFactor, verifyInput, numElementsHint, checkIfEmptyIndex);
+        return new IndexWithBuddyBulkLoader(indexBulkLoader, buddyBulkLoader);
     }
 }

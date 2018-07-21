@@ -19,7 +19,7 @@
 
 package org.apache.asterix.test.runtime;
 
-import static org.apache.hyracks.control.common.utils.ThreadDumpHelper.takeDumpJSON;
+import static org.apache.hyracks.util.ThreadDumpUtil.takeDumpJSONString;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -31,16 +31,16 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import org.apache.asterix.app.external.TestLibrarian;
-import org.apache.asterix.common.config.ClusterProperties;
+import org.apache.asterix.app.external.ExternalUDFLibrarian;
 import org.apache.asterix.common.library.ILibraryManager;
+import org.apache.asterix.common.utils.StorageConstants;
 import org.apache.asterix.test.common.TestExecutor;
 import org.apache.asterix.testframework.context.TestCaseContext;
-import org.apache.commons.lang.SystemUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.SystemUtils;
 import org.apache.hyracks.api.io.IODeviceHandle;
-import org.apache.hyracks.control.common.utils.ThreadDumpHelper;
 import org.apache.hyracks.control.nc.NodeControllerService;
+import org.apache.hyracks.util.ThreadDumpUtil;
 
 /**
  * Utils for running SQL++ or AQL runtime tests.
@@ -56,16 +56,17 @@ public class LangExecutionUtil {
     private static final List<String> badTestCases = new ArrayList<>();
     private static TestExecutor testExecutor;
 
-    private static TestLibrarian librarian;
+    private static ExternalUDFLibrarian librarian;
     private static final int repeat = Integer.getInteger("test.repeat", 1);
+    private static boolean checkStorageDistribution = true;
 
     public static void setUp(String configFile, TestExecutor executor) throws Exception {
         testExecutor = executor;
         File outdir = new File(PATH_ACTUAL);
         outdir.mkdirs();
         List<ILibraryManager> libraryManagers = ExecutionTestUtil.setUp(cleanupOnStart, configFile);
-        TestLibrarian.removeLibraryDir();
-        librarian = new TestLibrarian(libraryManagers);
+        ExternalUDFLibrarian.removeLibraryDir();
+        librarian = new ExternalUDFLibrarian(libraryManagers);
         testExecutor.setLibrarian(librarian);
         if (repeat != 1) {
             System.out.println("FYI: each test will be run " + repeat + " times.");
@@ -79,7 +80,7 @@ public class LangExecutionUtil {
             // Check whether there are leaked threads.
             checkThreadLeaks();
         } finally {
-            TestLibrarian.removeLibraryDir();
+            ExternalUDFLibrarian.removeLibraryDir();
             ExecutionTestUtil.tearDown(cleanupOnStop);
             ExecutionTestUtil.integrationUtil.removeTestStorageFiles();
             if (!badTestCases.isEmpty()) {
@@ -125,7 +126,9 @@ public class LangExecutionUtil {
                 testExecutor.executeTest(PATH_ACTUAL, tcCtx, null, false, ExecutionTestUtil.FailedGroup);
 
                 try {
-                    checkStorageFiles();
+                    if (checkStorageDistribution) {
+                        checkStorageFiles();
+                    }
                 } finally {
                     testExecutor.cleanup(tcCtx.toString(), badTestCases);
                 }
@@ -152,7 +155,7 @@ public class LangExecutionUtil {
             File[] dataDirs = ioDevice.getMount().listFiles();
             for (File dataDir : dataDirs) {
                 String dirName = dataDir.getName();
-                if (!dirName.equals(ClusterProperties.DEFAULT_STORAGE_DIR_NAME)) {
+                if (!dirName.equals(StorageConstants.STORAGE_ROOT_DIR_NAME)) {
                     // Skips non-storage directories.
                     continue;
                 }
@@ -189,8 +192,8 @@ public class LangExecutionUtil {
         return num;
     }
 
-    private static void checkThreadLeaks() throws IOException {
-        String threadDump = ThreadDumpHelper.takeDumpJSON(ManagementFactory.getThreadMXBean());
+    public static void checkThreadLeaks() throws IOException {
+        String threadDump = ThreadDumpUtil.takeDumpJSONString();
         // Currently we only do sanity check for threads used in the execution engine.
         // Later we should check if there are leaked storage threads as well.
         if (threadDump.contains("Operator") || threadDump.contains("SuperActivity")
@@ -200,7 +203,7 @@ public class LangExecutionUtil {
         }
     }
 
-    private static void checkOpenRunFileLeaks() throws IOException {
+    public static void checkOpenRunFileLeaks() throws IOException {
         if (SystemUtils.IS_OS_WINDOWS) {
             return;
         }
@@ -215,11 +218,15 @@ public class LangExecutionUtil {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
             int runFileCount = Integer.parseInt(reader.readLine().trim());
             if (runFileCount != 0) {
-                System.out.print(takeDumpJSON(ManagementFactory.getThreadMXBean()));
+                System.out.print(takeDumpJSONString());
                 outputLeakedOpenFiles(processId);
                 throw new AssertionError("There are " + runFileCount + " leaked run files.");
             }
         }
+    }
+
+    public static void setCheckStorageDistribution(boolean checkStorageDistribution) {
+        LangExecutionUtil.checkStorageDistribution = checkStorageDistribution;
     }
 
     private static void outputLeakedOpenFiles(String processId) throws IOException {

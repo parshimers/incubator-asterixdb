@@ -19,6 +19,8 @@
 package org.apache.hyracks.api.client;
 
 public enum NodeStatus {
-    ALIVE,
-    DEAD
+    ACTIVE, // node is ready to process tasks
+    BOOTING, // node is executing startup tasks
+    DEAD,
+    IDLE
 }

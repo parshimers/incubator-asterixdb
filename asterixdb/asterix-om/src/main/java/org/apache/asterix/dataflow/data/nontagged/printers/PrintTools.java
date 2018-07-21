@@ -22,6 +22,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 
+import org.apache.asterix.dataflow.data.nontagged.serde.ADoubleSerializerDeserializer;
+import org.apache.asterix.dataflow.data.nontagged.serde.AFloatSerializerDeserializer;
 import org.apache.asterix.dataflow.data.nontagged.serde.AInt32SerializerDeserializer;
 import org.apache.asterix.dataflow.data.nontagged.serde.AInt64SerializerDeserializer;
 import org.apache.asterix.om.base.temporal.GregorianCalendarSystem;
@@ -42,7 +44,7 @@ public class PrintTools {
             gCalInstance.getExtendStringRepUntilField(chrononTime, 0, ps, GregorianCalendarSystem.Fields.YEAR,
                     GregorianCalendarSystem.Fields.DAY, false);
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 
@@ -53,7 +55,7 @@ public class PrintTools {
             gCalInstance.getExtendStringRepUntilField(chrononTime, 0, ps, GregorianCalendarSystem.Fields.YEAR,
                     GregorianCalendarSystem.Fields.MILLISECOND, true);
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 
@@ -104,7 +106,7 @@ public class PrintTools {
                 ps.print("S");
             }
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 
@@ -137,7 +139,7 @@ public class PrintTools {
                 ps.print("M");
             }
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 
@@ -200,7 +202,7 @@ public class PrintTools {
                 ps.print("S");
             }
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 
@@ -211,7 +213,47 @@ public class PrintTools {
             gCalInstance.getExtendStringRepUntilField(time, 0, ps, GregorianCalendarSystem.Fields.HOUR,
                     GregorianCalendarSystem.Fields.MILLISECOND, true);
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
+        }
+    }
+
+    public static void printDoubleForJson(byte[] b, int s, PrintStream ps) throws HyracksDataException {
+        final double d = ADoubleSerializerDeserializer.getDouble(b, s + 1);
+        if (Double.isFinite(d)) {
+            ps.print(d);
+        } else {
+            ps.append('"');
+            ps.print(Double.isNaN(d) ? "NaN" : (d == Double.POSITIVE_INFINITY) ? "INF" : "-INF");
+            ps.append('"');
+        }
+    }
+
+    public static void printDouble(byte[] b, int s, PrintStream ps) throws HyracksDataException {
+        final double d = ADoubleSerializerDeserializer.getDouble(b, s + 1);
+        if (Double.isFinite(d)) {
+            ps.print(d);
+        } else {
+            ps.print(Double.isNaN(d) ? "NaN" : (d == Double.POSITIVE_INFINITY) ? "INF" : "-INF");
+        }
+    }
+
+    public static void printFloatForJson(byte[] b, int s, PrintStream ps) throws HyracksDataException {
+        final float f = AFloatSerializerDeserializer.getFloat(b, s + 1);
+        if (Float.isFinite(f)) {
+            ps.print(f);
+        } else {
+            ps.print('"');
+            ps.print(Float.isNaN(f) ? "NaN" : (f == Float.POSITIVE_INFINITY) ? "INF" : "-INF");
+            ps.print('"');
+        }
+    }
+
+    public static void printFloat(byte[] b, int s, PrintStream ps) throws HyracksDataException {
+        final float f = AFloatSerializerDeserializer.getFloat(b, s + 1);
+        if (Float.isFinite(f)) {
+            ps.print(f);
+        } else {
+            ps.print(Float.isNaN(f) ? "NaN" : (f == Float.POSITIVE_INFINITY) ? "INF" : "-INF");
         }
     }
 
@@ -315,6 +357,13 @@ public class PrintTools {
                                     break;
                             }
                             break;
+                        case 3:
+                            // special treatment for surrogates
+                            if (Character.isHighSurrogate(c)) {
+                                position += writeSupplementaryChar(os, b, maxPosition, position, c, sz);
+                                sz = 0;
+                            }
+                            break;
                     }
                     while (sz > 0) {
                         os.write(b[position]);
@@ -334,6 +383,24 @@ public class PrintTools {
         os.write('0');
         os.write(HexPrinter.hex((c >>> 4) & 0x0f, HexPrinter.CASE.LOWER_CASE));
         os.write(HexPrinter.hex(c & 0x0f, HexPrinter.CASE.LOWER_CASE));
+    }
+
+    /**
+     * Writes a supplementary char consisting of high and low surrogates
+     *
+     * @return The length of the surrogates
+     * @throws IOException
+     */
+    private static int writeSupplementaryChar(OutputStream os, byte[] src, int limit, int highSurrogatePos,
+            char highSurrogate, int highSurrogateSize) throws IOException {
+        final int lowSurrogatePos = highSurrogatePos + highSurrogateSize;
+        if (lowSurrogatePos >= limit) {
+            throw new IllegalStateException("malformed utf8 input");
+        }
+        final char lowSurrogate = UTF8StringUtil.charAt(src, lowSurrogatePos);
+        final int lowSurrogateSize = UTF8StringUtil.charSize(src, lowSurrogatePos);
+        os.write(new String(new char[] { highSurrogate, lowSurrogate }).getBytes());
+        return highSurrogateSize + lowSurrogateSize;
     }
 
 }

@@ -35,9 +35,9 @@ import org.apache.hyracks.storage.common.ISearchOperationCallback;
 public class PrimaryIndexInstantSearchOperationCallback extends AbstractOperationCallback
         implements ISearchOperationCallback {
 
-    public PrimaryIndexInstantSearchOperationCallback(DatasetId datasetId, int[] entityIdFields,
+    public PrimaryIndexInstantSearchOperationCallback(DatasetId datasetId, long resourceId, int[] entityIdFields,
             ILockManager lockManager, ITransactionContext txnCtx) {
-        super(datasetId, entityIdFields, txnCtx, lockManager);
+        super(datasetId, resourceId, entityIdFields, txnCtx, lockManager);
     }
 
     @Override
@@ -46,7 +46,7 @@ public class PrimaryIndexInstantSearchOperationCallback extends AbstractOperatio
         try {
             return lockManager.instantTryLock(datasetId, pkHash, LockMode.S, txnCtx);
         } catch (ACIDException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 
@@ -56,7 +56,7 @@ public class PrimaryIndexInstantSearchOperationCallback extends AbstractOperatio
         try {
             lockManager.lock(datasetId, pkHash, LockMode.S, txnCtx);
         } catch (ACIDException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 
@@ -70,7 +70,7 @@ public class PrimaryIndexInstantSearchOperationCallback extends AbstractOperatio
         try {
             lockManager.unlock(datasetId, pkHash, LockMode.S, txnCtx);
         } catch (ACIDException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 
@@ -80,7 +80,7 @@ public class PrimaryIndexInstantSearchOperationCallback extends AbstractOperatio
         try {
             lockManager.unlock(datasetId, pkHash, LockMode.S, txnCtx);
         } catch (ACIDException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 

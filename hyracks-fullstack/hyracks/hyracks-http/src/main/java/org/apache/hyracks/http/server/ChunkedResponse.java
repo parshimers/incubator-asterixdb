@@ -23,6 +23,9 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 
 import org.apache.hyracks.http.api.IServletResponse;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
@@ -50,7 +53,6 @@ import io.netty.handler.codec.http.LastHttpContent;
  * with headers, followed by the buffered bytes as the first chunk.
  * When chunking, an output buffer is allocated only when the previous buffer has been sent
  * If an error occurs after sending the first chunk, the connection will close abruptly.
- *
  * Here is a breakdown of the possible cases.
  * 1. smaller than chunkSize, no error -> full response
  * 2. smaller than chunkSize, error -> full response
@@ -58,6 +60,8 @@ import io.netty.handler.codec.http.LastHttpContent;
  * 4. larger than chunkSize, no error. -> header, data, empty response
  */
 public class ChunkedResponse implements IServletResponse {
+
+    private static final Logger LOGGER = LogManager.getLogger();
     private final ChannelHandlerContext ctx;
     private final ChunkedNettyOutputStream outputStream;
     private final PrintWriter writer;
@@ -109,6 +113,7 @@ public class ChunkedResponse implements IServletResponse {
         } else {
             // There was an error
             if (headerSent) {
+                LOGGER.log(Level.WARN, "Error after header write of chunked response");
                 if (error != null) {
                     error.release();
                 }
@@ -180,6 +185,11 @@ public class ChunkedResponse implements IServletResponse {
 
     @Override
     public void notifyChannelWritable() {
-        outputStream.resume();
+        outputStream.channelWritabilityChanged();
+    }
+
+    @Override
+    public void notifyChannelInactive() {
+        outputStream.channelWritabilityChanged();
     }
 }

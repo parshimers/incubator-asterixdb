@@ -20,6 +20,7 @@ package org.apache.hyracks.control.common.config;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.lang.reflect.Array;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,6 +31,7 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
@@ -39,9 +41,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import org.apache.commons.collections4.map.CompositeMap;
@@ -53,6 +54,9 @@ import org.apache.hyracks.api.config.IOption;
 import org.apache.hyracks.api.config.Section;
 import org.apache.hyracks.api.exceptions.HyracksException;
 import org.apache.hyracks.control.common.application.ConfigManagerApplicationConfig;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ini4j.Ini;
 import org.ini4j.Profile;
 import org.kohsuke.args4j.CmdLineException;
@@ -63,26 +67,35 @@ import org.kohsuke.args4j.OptionHandlerFilter;
 public class ConfigManager implements IConfigManager, Serializable {
 
     private static final long serialVersionUID = 1L;
-    private static final Logger LOGGER = Logger.getLogger(ConfigManager.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger();
 
     private HashSet<IOption> registeredOptions = new HashSet<>();
-    private HashMap<IOption, Object> definedMap = new HashMap<>();
-    private HashMap<IOption, Object> defaultMap = new HashMap<>();
-    private CompositeMap<IOption, Object> configurationMap = new CompositeMap<>(definedMap, defaultMap,
-            new NoOpMapMutator());
+    @SuppressWarnings("squid:S1948") // HashMap is serializable, and therefore so is its synchronized map
+    private Map<IOption, Object> definedMap = Collections.synchronizedMap(new HashMap<>());
+    @SuppressWarnings("squid:S1948") // HashMap is serializable, and therefore so is its synchronized map
+    private Map<IOption, Object> defaultMap = Collections.synchronizedMap(new HashMap<>());
+    @SuppressWarnings("squid:S1948") // CompositeMap and his encapsulated maps are serializable, therefore so is this
+    private Map<IOption, Object> configurationMap =
+            Collections.synchronizedMap(new CompositeMap<>(definedMap, defaultMap, new NoOpMapMutator()));
     private EnumMap<Section, Map<String, IOption>> sectionMap = new EnumMap<>(Section.class);
-    private TreeMap<String, Map<IOption, Object>> nodeSpecificMap = new TreeMap<>();
+    @SuppressWarnings("squid:S1948") // TreeMap is serializable, and therefore so is its synchronized map
+    private Map<String, Map<IOption, Object>> nodeSpecificDefinedMap = Collections.synchronizedMap(new TreeMap<>());
+    @SuppressWarnings("squid:S1948") // TreeMap is serializable, and therefore so is its synchronized map
+    private Map<String, Map<IOption, Object>> nodeSpecificDefaultMap = Collections.synchronizedMap(new TreeMap<>());
+    @SuppressWarnings("squid:S1948") // TreeMap is serializable, and therefore so is its synchronized map
+    private Map<String, Map<IOption, Object>> nodeEffectiveMaps = Collections.synchronizedMap(new HashMap<>());
     private transient ArrayListValuedHashMap<IOption, IConfigSetter> optionSetters = new ArrayListValuedHashMap<>();
     private final String[] args;
     private ConfigManagerApplicationConfig appConfig = new ConfigManagerApplicationConfig(this);
     private Set<String> allSections = new HashSet<>();
     private transient Collection<Consumer<List<String>>> argListeners = new ArrayList<>();
     private transient Collection<IOption> iniPointerOptions = new ArrayList<>();
-    private transient Collection<Section> cmdLineSections = new ArrayList<>();;
+    private transient Collection<Section> cmdLineSections = new ArrayList<>();
     private transient OptionHandlerFilter usageFilter;
     private transient SortedMap<Integer, List<IConfigurator>> configurators = new TreeMap<>();
     private boolean configured;
     private String versionString = "version undefined";
+    private transient Map<String, Set<Map.Entry<String, String>>> extensionOptions = new TreeMap<>();
 
     public ConfigManager() {
         this(null);
@@ -90,6 +103,7 @@ public class ConfigManager implements IConfigManager, Serializable {
 
     public ConfigManager(String[] args) {
         this.args = args;
+        checkJavaVersion();
         for (Section section : Section.values()) {
             allSections.add(section.sectionName());
         }
@@ -97,6 +111,14 @@ public class ConfigManager implements IConfigManager, Serializable {
         addConfigurator(ConfiguratorMetric.PARSE_INI, this::parseIni);
         addConfigurator(ConfiguratorMetric.PARSE_COMMAND_LINE, this::processCommandLine);
         addConfigurator(ConfiguratorMetric.APPLY_DEFAULTS, this::applyDefaults);
+    }
+
+    static void checkJavaVersion() {
+        final String javaVersion = System.getProperty("java.version");
+        LOGGER.info("Found JRE version " + javaVersion);
+        if (!javaVersion.startsWith("1.8")) {
+            throw new IllegalStateException("JRE version 1.8 is required");
+        }
     }
 
     @Override
@@ -132,7 +154,7 @@ public class ConfigManager implements IConfigManager, Serializable {
             if (configured) {
                 throw new IllegalStateException("configuration already processed");
             }
-            LOGGER.fine("registering option: " + option.toIniString());
+            LOGGER.debug("registering option: " + option.toIniString());
             Map<String, IOption> optionMap = sectionMap.computeIfAbsent(option.section(), section -> new HashMap<>());
             IOption prev = optionMap.put(option.ini(), option);
             if (prev != null) {
@@ -142,31 +164,46 @@ public class ConfigManager implements IConfigManager, Serializable {
                 }
             } else {
                 registeredOptions.add(option);
-                optionSetters.put(option,
-                        (node, value,
-                                isDefault) -> correctedMap(option.section() == Section.NC ? node : null, isDefault)
-                                        .put(option, value));
-                if (LOGGER.isLoggable(Level.FINE)) {
-                    optionSetters.put(option, (node, value, isDefault) -> LOGGER
-                            .fine((isDefault ? "defaulting" : "setting ") + option.toIniString() + " to " + value));
+                optionSetters.put(option, (node, value, isDefault) -> correctedMap(node, isDefault).put(option, value));
+                if (LOGGER.isDebugEnabled()) {
+                    optionSetters.put(option, (node, value, isDefault) -> LOGGER.debug("{} {} to {} for node {}",
+                            isDefault ? "defaulting" : "setting", option.toIniString(), value, node));
                 }
             }
         }
     }
 
     private Map<IOption, Object> correctedMap(String node, boolean isDefault) {
-        return node == null ? (isDefault ? defaultMap : definedMap)
-                : nodeSpecificMap.computeIfAbsent(node, this::createNodeSpecificMap);
+        if (node == null) {
+            return isDefault ? defaultMap : definedMap;
+        } else {
+            synchronized (this) {
+                ensureNode(node);
+                return isDefault ? nodeSpecificDefaultMap.get(node) : nodeSpecificDefinedMap.get(node);
+            }
+        }
     }
 
-    public void ensureNode(String nodeId) {
-        LOGGER.fine("ensureNode: " + nodeId);
-        nodeSpecificMap.computeIfAbsent(nodeId, this::createNodeSpecificMap);
+    public synchronized void ensureNode(String nodeId) {
+        LOGGER.debug("ensureNode: " + nodeId);
+        Map<IOption, Object> nodeDefinedMap =
+                nodeSpecificDefinedMap.computeIfAbsent(nodeId, this::createNodeSpecificMap);
+        Map<IOption, Object> nodeDefaultMap =
+                nodeSpecificDefaultMap.computeIfAbsent(nodeId, this::createNodeSpecificMap);
+        nodeEffectiveMaps.computeIfAbsent(nodeId, id -> Collections
+                .synchronizedMap(compositeFrom(Stream.of(nodeDefinedMap, nodeDefaultMap, definedMap))));
+    }
+
+    public synchronized void forgetNode(String nodeId) {
+        LOGGER.debug("forgetNode: " + nodeId);
+        nodeSpecificDefinedMap.remove(nodeId);
+        nodeSpecificDefaultMap.remove(nodeId);
+        nodeEffectiveMaps.remove(nodeId);
     }
 
     private Map<IOption, Object> createNodeSpecificMap(String nodeId) {
-        LOGGER.fine("createNodeSpecificMap: " + nodeId);
-        return new HashMap<>();
+        LOGGER.debug("createNodeSpecificMap: " + nodeId);
+        return Collections.synchronizedMap(new HashMap<>());
     }
 
     @Override
@@ -218,7 +255,7 @@ public class ConfigManager implements IConfigManager, Serializable {
         invokeSetters(option, option.type().parse(String.valueOf(value)), null);
     }
 
-    private void invokeSetters(IOption option, Object value, String nodeId) {
+    private synchronized void invokeSetters(IOption option, Object value, String nodeId) {
         optionSetters.get(option).forEach(setter -> setter.set(nodeId, value, false));
     }
 
@@ -248,7 +285,7 @@ public class ConfigManager implements IConfigManager, Serializable {
             cmdLineParser.addArgument(new Args4jSetter(o -> appArgs.add(String.valueOf(o)), true, String.class),
                     new Args4jArgument());
         }
-        LOGGER.fine("parsing cmdline: " + Arrays.toString(args));
+        LOGGER.debug("parsing cmdline: " + Arrays.toString(args));
         if (args == null || args.length == 0) {
             LOGGER.info("no command line args supplied");
             return appArgs;
@@ -260,7 +297,7 @@ public class ConfigManager implements IConfigManager, Serializable {
                 ConfigUtils.printUsage(e, usageFilter, System.err);
                 throw e;
             } else {
-                LOGGER.log(Level.FINE, "Ignoring parse exception due to -help", e);
+                LOGGER.log(Level.DEBUG, "Ignoring parse exception due to -help", e);
             }
         }
         if (bean.help) {
@@ -297,7 +334,7 @@ public class ConfigManager implements IConfigManager, Serializable {
                     .parseSectionName(section.getParent() == null ? section.getName() : section.getParent().getName());
             String node;
             if (rootSection == Section.EXTENSION) {
-                parseExtensionIniSection(section);
+                extensionOptions.put(section.getName(), section.entrySet());
                 continue;
             } else if (rootSection == Section.NC) {
                 node = section.getName().equals(section.getSimpleName()) ? null : section.getSimpleName();
@@ -315,15 +352,11 @@ public class ConfigManager implements IConfigManager, Serializable {
                     return;
                 }
                 final String value = iniOption.getValue();
-                LOGGER.fine("setting " + option.toIniString() + " to " + value);
+                LOGGER.debug("setting " + option.toIniString() + " to " + value);
                 final Object parsed = option.type().parse(value);
                 invokeSetters(option, parsed, node);
             }
         }
-    }
-
-    private void parseExtensionIniSection(Profile.Section section) {
-        // TODO(mblow): parse extensions
     }
 
     private void handleUnknownOption(Profile.Section section, String name) throws HyracksException {
@@ -342,24 +375,20 @@ public class ConfigManager implements IConfigManager, Serializable {
     }
 
     private void applyDefaults() {
-        LOGGER.fine("applying defaults");
-        for (Map.Entry<Section, Map<String, IOption>> entry : sectionMap.entrySet()) {
-            if (entry.getKey() == Section.NC) {
-                entry.getValue().values().forEach(option -> getNodeNames()
-                        .forEach(node -> getOrDefault(getNodeEffectiveMap(node), option, node)));
-                for (Map.Entry<String, Map<IOption, Object>> nodeMap : nodeSpecificMap.entrySet()) {
-                    entry.getValue().values()
-                            .forEach(option -> getOrDefault(
-                                    new CompositeMap<>(nodeMap.getValue(), definedMap, new NoOpMapMutator()), option,
-                                    nodeMap.getKey()));
-                }
-            } else {
-                entry.getValue().values().forEach(option -> getOrDefault(configurationMap, option, null));
+        LOGGER.debug("applying defaults");
+        sectionMap.forEach((key, value) -> {
+            value.values().forEach(
+                    option -> getNodeNames().forEach(node -> getOrDefault(getNodeEffectiveMap(node), option, node)));
+            for (Map.Entry<String, Map<IOption, Object>> nodeMap : nodeSpecificDefinedMap.entrySet()) {
+                value.values()
+                        .forEach(option -> getOrDefault(
+                                new CompositeMap<>(nodeMap.getValue(), definedMap, new NoOpMapMutator()), option,
+                                nodeMap.getKey()));
             }
-        }
+        });
     }
 
-    private Object getOrDefault(Map<IOption, Object> map, IOption option, String nodeId) {
+    private synchronized Object getOrDefault(Map<IOption, Object> map, IOption option, String nodeId) {
         if (map.containsKey(option)) {
             return map.get(option);
         } else {
@@ -416,7 +445,7 @@ public class ConfigManager implements IConfigManager, Serializable {
 
     @Override
     public Set<IOption> getOptions(Section section) {
-        return getSectionOptionMap(section).values().stream().collect(Collectors.toSet());
+        return new HashSet<>(getSectionOptionMap(section).values());
     }
 
     private Map<String, IOption> getSectionOptionMap(Section section) {
@@ -425,17 +454,18 @@ public class ConfigManager implements IConfigManager, Serializable {
     }
 
     public List<String> getNodeNames() {
-        return Collections.unmodifiableList(new ArrayList(nodeSpecificMap.keySet()));
+        return Collections.unmodifiableList(new ArrayList<>(nodeSpecificDefinedMap.keySet()));
     }
 
-    public IApplicationConfig getNodeEffectiveConfig(String nodeId) {
-        final Map<IOption, Object> nodeMap = nodeSpecificMap.computeIfAbsent(nodeId, this::createNodeSpecificMap);
+    public synchronized IApplicationConfig getNodeEffectiveConfig(String nodeId) {
+        ensureNode(nodeId);
+        final Map<IOption, Object> nodeMap = nodeSpecificDefaultMap.get(nodeId);
         Map<IOption, Object> nodeEffectiveMap = getNodeEffectiveMap(nodeId);
         return new ConfigManagerApplicationConfig(this) {
             @Override
             public Object getStatic(IOption option) {
                 if (!nodeEffectiveMap.containsKey(option)) {
-                    // we need to calculate the default the the context of the node specific map...
+                    // we need to calculate the default within the context of the node specific map...
                     nodeMap.put(option, getOrDefault(nodeEffectiveMap, option, nodeId));
                 }
                 return nodeEffectiveMap.get(option);
@@ -443,27 +473,42 @@ public class ConfigManager implements IConfigManager, Serializable {
         };
     }
 
-    private CompositeMap<IOption, Object> getNodeEffectiveMap(String nodeId) {
-        return new CompositeMap<>(nodeSpecificMap.get(nodeId), definedMap, new NoOpMapMutator());
+    private synchronized Map<IOption, Object> getNodeEffectiveMap(String nodeId) {
+        ensureNode(nodeId);
+        return nodeEffectiveMaps.get(nodeId);
     }
 
-    public Ini toIni(boolean includeDefaults) {
-        Ini ini = new Ini();
-        for (Map.Entry<IOption, Object> entry : (includeDefaults ? configurationMap : definedMap).entrySet()) {
-            if (entry.getValue() != null) {
-                final IOption option = entry.getKey();
-                ini.add(option.section().sectionName(), option.ini(), option.type().serializeToIni(entry.getValue()));
-            }
+    private synchronized CompositeMap<IOption, Object> compositeFrom(Stream<Map<IOption, Object>> stream) {
+        List<Map<IOption, Object>> list = stream.collect(Collectors.toList());
+        CompositeMap<IOption, Object> map = new CompositeMap<>();
+        map.setMutator(new NoOpMapMutator());
+        for (ListIterator<Map<IOption, Object>> iter = list.listIterator(list.size()); iter.hasPrevious();) {
+            map.addComposited(iter.previous());
         }
-        for (Map.Entry<String, Map<IOption, Object>> nodeMapEntry : nodeSpecificMap.entrySet()) {
-            String section = Section.NC.sectionName() + "/" + nodeMapEntry.getKey();
-            for (Map.Entry<IOption, Object> entry : nodeMapEntry.getValue().entrySet()) {
+        return map;
+    }
+
+    public synchronized Ini toIni(boolean includeDefaults) {
+        Ini ini = new Ini();
+        (includeDefaults ? configurationMap : definedMap).forEach((option, value) -> {
+            if (value != null) {
+                ini.add(option.section().sectionName(), option.ini(), option.type().serializeToIni(value));
+            }
+        });
+        for (String key : getNodeNames()) {
+            String section = Section.NC.sectionName() + "/" + key;
+            ensureNode(key);
+            Map<IOption, Object> nodeValueMap =
+                    includeDefaults ? getNodeEffectiveMap(key) : nodeSpecificDefinedMap.get(key);
+            for (Map.Entry<IOption, Object> entry : nodeValueMap.entrySet()) {
                 if (entry.getValue() != null) {
                     final IOption option = entry.getKey();
                     ini.add(section, option.ini(), option.type().serializeToIni(entry.getValue()));
                 }
             }
         }
+        extensionOptions.forEach((extension, options) -> options
+                .forEach(option -> ini.add(extension, option.getKey(), option.getValue())));
         return ini;
     }
 
@@ -471,8 +516,18 @@ public class ConfigManager implements IConfigManager, Serializable {
         set(null, option, value);
     }
 
-    public void set(String nodeId, IOption option, Object value) {
-        invokeSetters(option, value, nodeId);
+    public synchronized void set(String nodeId, IOption option, Object value) {
+        invokeSetters(option, copyIfArray(value), nodeId);
+    }
+
+    private Object copyIfArray(Object orig) {
+        if (orig == null || !orig.getClass().isArray()) {
+            return orig;
+        }
+        int arrayLength = Array.getLength(orig);
+        Object copy = Array.newInstance(orig.getClass().getComponentType(), arrayLength);
+        IntStream.range(0, arrayLength).forEach(i -> Array.set(copy, i, Array.get(orig, i)));
+        return copy;
     }
 
     public Object get(IOption option) {
@@ -480,7 +535,7 @@ public class ConfigManager implements IConfigManager, Serializable {
             throw new IllegalStateException("Option not registered with ConfigManager: " + option.toIniString() + "("
                     + option.getClass() + "." + option + ")");
         } else if (option.section() == Section.NC) {
-            LOGGER.warning("NC option " + option.toIniString() + " being accessed outside of NC-scoped configuration.");
+            LOGGER.warn("NC option " + option.toIniString() + " being accessed outside of NC-scoped configuration.");
         }
         return getOrDefault(configurationMap, option, null);
     }
@@ -504,7 +559,7 @@ public class ConfigManager implements IConfigManager, Serializable {
         if (description != null && !"".equals(description)) {
             usage.append(description).append(" ");
         } else {
-            LOGGER.warning("missing description for option: "
+            LOGGER.warn("missing description for option: "
                     + option.getClass().getName().substring(option.getClass().getName().lastIndexOf(".") + 1) + "."
                     + option.name());
         }
@@ -549,8 +604,9 @@ public class ConfigManager implements IConfigManager, Serializable {
         }
 
         @Override
-        public void resolveCollision(CompositeMap<IOption, Object> compositeMap, Map<IOption, Object> map,
-                Map<IOption, Object> map1, Collection<IOption> collection) {
+        public void resolveCollision(CompositeMap<IOption, Object> composite, Map<IOption, Object> existing,
+                Map<IOption, Object> added, Collection<IOption> intersect) {
+            LOGGER.debug("resolveCollision: {}, {}, {}, {}", composite, existing, added, intersect);
             // no-op
         }
     }

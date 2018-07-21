@@ -25,9 +25,11 @@ import org.apache.asterix.builders.OrderedListBuilder;
 import org.apache.asterix.om.functions.BuiltinFunctions;
 import org.apache.asterix.om.functions.IFunctionDescriptor;
 import org.apache.asterix.om.functions.IFunctionDescriptorFactory;
+import org.apache.asterix.om.functions.IFunctionTypeInferer;
 import org.apache.asterix.om.types.AOrderedListType;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.runtime.evaluators.base.AbstractScalarFunctionDynamicDescriptor;
+import org.apache.asterix.runtime.functions.FunctionTypeInferers;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
@@ -40,14 +42,19 @@ import org.apache.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 
 public class OrderedListConstructorDescriptor extends AbstractScalarFunctionDynamicDescriptor {
 
-    private static final long serialVersionUID = 1L;
     public static final IFunctionDescriptorFactory FACTORY = new IFunctionDescriptorFactory() {
         @Override
         public IFunctionDescriptor createFunctionDescriptor() {
             return new OrderedListConstructorDescriptor();
         }
+
+        @Override
+        public IFunctionTypeInferer createFunctionTypeInferer() {
+            return FunctionTypeInferers.SET_EXPRESSION_TYPE;
+        }
     };
 
+    private static final long serialVersionUID = 1L;
     private AOrderedListType oltype;
 
     @Override
@@ -69,9 +76,7 @@ public class OrderedListConstructorDescriptor extends AbstractScalarFunctionDyna
 
         private static final long serialVersionUID = 1L;
         private IScalarEvaluatorFactory[] args;
-
         private boolean selfDescList = false;
-
         private AOrderedListType orderedlistType;
 
         public OrderedListConstructorEvaluatorFactory(IScalarEvaluatorFactory[] args, AOrderedListType type) {
@@ -109,7 +114,7 @@ public class OrderedListConstructorDescriptor extends AbstractScalarFunctionDyna
                         builder.write(out, true);
                         result.set(resultStorage);
                     } catch (IOException ioe) {
-                        throw new HyracksDataException(ioe);
+                        throw HyracksDataException.create(ioe);
                     }
                 }
 
@@ -122,7 +127,7 @@ public class OrderedListConstructorDescriptor extends AbstractScalarFunctionDyna
                         }
 
                     } catch (IOException ioe) {
-                        throw new HyracksDataException(ioe);
+                        throw HyracksDataException.create(ioe);
                     }
                 }
 
@@ -135,13 +140,12 @@ public class OrderedListConstructorDescriptor extends AbstractScalarFunctionDyna
                         }
 
                     } catch (IOException ioe) {
-                        throw new HyracksDataException(ioe);
+                        throw HyracksDataException.create(ioe);
                     }
                 }
 
             };
 
         }
-
     }
 }

@@ -35,9 +35,9 @@ import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
  */
 public class CompiledStatements {
 
-    public static interface ICompiledStatement {
+    public interface ICompiledStatement {
 
-        public byte getKind();
+        Statement.Kind getKind();
     }
 
     public static class CompiledDatasetDropStatement implements ICompiledStatement {
@@ -58,7 +58,7 @@ public class CompiledStatements {
         }
 
         @Override
-        public byte getKind() {
+        public Statement.Kind getKind() {
             return Statement.Kind.DATASET_DROP;
         }
     }
@@ -82,7 +82,7 @@ public class CompiledStatements {
         }
 
         @Override
-        public byte getKind() {
+        public Statement.Kind getKind() {
             return Statement.Kind.CREATE_DATAVERSE;
         }
     }
@@ -99,7 +99,7 @@ public class CompiledStatements {
         }
 
         @Override
-        public byte getKind() {
+        public Statement.Kind getKind() {
             return Statement.Kind.NODEGROUP_DROP;
         }
     }
@@ -128,7 +128,7 @@ public class CompiledStatements {
         }
 
         @Override
-        public byte getKind() {
+        public Statement.Kind getKind() {
             return Statement.Kind.INDEX_DROP;
         }
     }
@@ -151,7 +151,7 @@ public class CompiledStatements {
         }
 
         @Override
-        public byte getKind() {
+        public Statement.Kind getKind() {
             return Statement.Kind.DATAVERSE_DROP;
         }
     }
@@ -168,7 +168,7 @@ public class CompiledStatements {
         }
 
         @Override
-        public byte getKind() {
+        public Statement.Kind getKind() {
             return Statement.Kind.TYPE_DROP;
         }
     }
@@ -208,7 +208,7 @@ public class CompiledStatements {
         }
 
         @Override
-        public byte getKind() {
+        public Statement.Kind getKind() {
             return Statement.Kind.CREATE_INDEX;
         }
     }
@@ -252,7 +252,7 @@ public class CompiledStatements {
         }
 
         @Override
-        public byte getKind() {
+        public Statement.Kind getKind() {
             return Statement.Kind.LOAD;
         }
     }
@@ -302,7 +302,7 @@ public class CompiledStatements {
         }
 
         @Override
-        public byte getKind() {
+        public Statement.Kind getKind() {
             return Statement.Kind.INSERT;
         }
     }
@@ -315,58 +315,8 @@ public class CompiledStatements {
         }
 
         @Override
-        public byte getKind() {
+        public Statement.Kind getKind() {
             return Statement.Kind.UPSERT;
-        }
-    }
-
-    public static class CompiledConnectFeedStatement implements ICompiledDmlStatement {
-        private final String dataverseName;
-        private final String feedName;
-        private final String datasetName;
-        private final String policyName;
-        private final Query query;
-        private final int varCounter;
-
-        public CompiledConnectFeedStatement(String dataverseName, String feedName, String datasetName,
-                String policyName, Query query, int varCounter) {
-            this.dataverseName = dataverseName;
-            this.feedName = feedName;
-            this.datasetName = datasetName;
-            this.policyName = policyName;
-            this.query = query;
-            this.varCounter = varCounter;
-        }
-
-        @Override
-        public String getDataverseName() {
-            return dataverseName;
-        }
-
-        public String getFeedName() {
-            return feedName;
-        }
-
-        @Override
-        public String getDatasetName() {
-            return datasetName;
-        }
-
-        public int getVarCounter() {
-            return varCounter;
-        }
-
-        public Query getQuery() {
-            return query;
-        }
-
-        @Override
-        public byte getKind() {
-            return Statement.Kind.CONNECT_FEED;
-        }
-
-        public String getPolicyName() {
-            return policyName;
         }
     }
 
@@ -399,41 +349,9 @@ public class CompiledStatements {
         }
 
         @Override
-        public byte getKind() {
+        public Statement.Kind getKind() {
             return Statement.Kind.SUBSCRIBE_FEED;
         }
-    }
-
-    public static class CompiledDisconnectFeedStatement implements ICompiledDmlStatement {
-        private final String dataverseName;
-        private final String datasetName;
-        private final String feedName;
-
-        public CompiledDisconnectFeedStatement(String dataverseName, String feedName, String datasetName) {
-            this.dataverseName = dataverseName;
-            this.feedName = feedName;
-            this.datasetName = datasetName;
-        }
-
-        @Override
-        public String getDataverseName() {
-            return dataverseName;
-        }
-
-        @Override
-        public String getDatasetName() {
-            return datasetName;
-        }
-
-        public String getFeedName() {
-            return feedName;
-        }
-
-        @Override
-        public byte getKind() {
-            return Statement.Kind.DISCONNECT_FEED;
-        }
-
     }
 
     public static class CompiledDeleteStatement implements ICompiledDmlStatement {
@@ -475,7 +393,7 @@ public class CompiledStatements {
         }
 
         @Override
-        public byte getKind() {
+        public Statement.Kind getKind() {
             return Statement.Kind.DELETE;
         }
 
@@ -499,7 +417,7 @@ public class CompiledStatements {
         }
 
         @Override
-        public byte getKind() {
+        public Statement.Kind getKind() {
             return Statement.Kind.COMPACT;
         }
     }

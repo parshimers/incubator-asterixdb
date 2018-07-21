@@ -18,18 +18,15 @@
  */
 package org.apache.asterix.api.http.server;
 
-import static org.apache.asterix.api.http.servlet.ServletConstants.HYRACKS_CONNECTION_ATTR;
+import static org.apache.asterix.api.http.server.ServletConstants.HYRACKS_CONNECTION_ATTR;
 
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
-import org.apache.asterix.file.StorageComponentProvider;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.metadata.MetadataTransactionContext;
 import org.apache.asterix.metadata.declared.MetadataProvider;
@@ -43,6 +40,9 @@ import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
 import org.apache.hyracks.http.server.AbstractServlet;
 import org.apache.hyracks.http.server.utils.HttpUtil;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -57,7 +57,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
  * in parallel from existing AsterixDB datasets.
  */
 public class ConnectorApiServlet extends AbstractServlet {
-    private static final Logger LOGGER = Logger.getLogger(ConnectorApiServlet.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger();
     private ICcApplicationContext appCtx;
 
     public ConnectorApiServlet(ConcurrentMap<String, Object> ctx, String[] paths, ICcApplicationContext appCtx) {
@@ -71,15 +71,14 @@ public class ConnectorApiServlet extends AbstractServlet {
         try {
             HttpUtil.setContentType(response, HttpUtil.ContentType.APPLICATION_JSON, HttpUtil.Encoding.UTF8);
         } catch (IOException e) {
-            LOGGER.log(Level.WARNING, "Failure setting content type", e);
+            LOGGER.log(Level.WARN, "Failure setting content type", e);
             response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);
             response.writer().write(e.toString());
             return;
         }
         PrintWriter out = response.writer();
         try {
-            ObjectMapper om = new ObjectMapper();
-            ObjectNode jsonResponse = om.createObjectNode();
+            ObjectNode jsonResponse = OBJECT_MAPPER.createObjectNode();
             String dataverseName = request.getParameter("dataverseName");
             String datasetName = request.getParameter("datasetName");
             if (dataverseName == null || datasetName == null) {
@@ -93,7 +92,7 @@ public class ConnectorApiServlet extends AbstractServlet {
             MetadataManager.INSTANCE.init();
             MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
             // Retrieves file splits of the dataset.
-            MetadataProvider metadataProvider = new MetadataProvider(appCtx, null, new StorageComponentProvider());
+            MetadataProvider metadataProvider = new MetadataProvider(appCtx, null);
             try {
                 metadataProvider.setMetadataTxnContext(mdTxnCtx);
                 Dataset dataset = metadataProvider.findDataset(dataverseName, datasetName);
@@ -104,7 +103,6 @@ public class ConnectorApiServlet extends AbstractServlet {
                     out.flush();
                     return;
                 }
-                boolean temp = dataset.getDatasetDetails().isTemp();
                 FileSplit[] fileSplits = metadataProvider.splitsForIndex(mdTxnCtx, dataset, datasetName);
                 ARecordType recordType = (ARecordType) metadataProvider.findType(dataset.getItemTypeDataverseName(),
                         dataset.getItemTypeName());
@@ -117,7 +115,7 @@ public class ConnectorApiServlet extends AbstractServlet {
                 }
                 pkStrBuf.delete(pkStrBuf.length() - 1, pkStrBuf.length());
                 // Constructs the returned json object.
-                formResponseObject(jsonResponse, fileSplits, recordType, pkStrBuf.toString(), temp,
+                formResponseObject(jsonResponse, fileSplits, recordType, pkStrBuf.toString(),
                         hcc.getNodeControllerInfos());
 
                 // Flush the cached contents of the dataset to file system.
@@ -131,7 +129,7 @@ public class ConnectorApiServlet extends AbstractServlet {
                 metadataProvider.getLocks().unlock();
             }
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Failure handling a request", e);
+            LOGGER.log(Level.WARN, "Failure handling a request", e);
             response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);
             out.write(e.toString());
         } finally {
@@ -140,11 +138,8 @@ public class ConnectorApiServlet extends AbstractServlet {
     }
 
     private void formResponseObject(ObjectNode jsonResponse, FileSplit[] fileSplits, ARecordType recordType,
-            String primaryKeys, boolean temp, Map<String, NodeControllerInfo> nodeMap) {
-        ObjectMapper om = new ObjectMapper();
-        ArrayNode partititons = om.createArrayNode();
-        // Whether the dataset is temp or not
-        jsonResponse.put("temp", temp);
+            String primaryKeys, Map<String, NodeControllerInfo> nodeMap) {
+        ArrayNode partititons = OBJECT_MAPPER.createArrayNode();
         // Adds a primary key.
         jsonResponse.put("keys", primaryKeys);
         // Adds record type.

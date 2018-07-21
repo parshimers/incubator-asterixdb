@@ -22,7 +22,7 @@ package org.apache.asterix.metadata;
 import java.util.ArrayList;
 
 import org.apache.asterix.common.functions.FunctionSignature;
-import org.apache.asterix.common.transactions.JobId;
+import org.apache.asterix.common.transactions.TxnId;
 import org.apache.asterix.external.dataset.adapter.AdapterIdentifier;
 import org.apache.asterix.metadata.entities.CompactionPolicy;
 import org.apache.asterix.metadata.entities.Dataset;
@@ -68,14 +68,14 @@ public class MetadataTransactionContext extends MetadataCache {
     protected MetadataCache droppedCache = new MetadataCache();
 
     protected ArrayList<MetadataLogicalOperation> opLog = new ArrayList<>();
-    private final JobId jobId;
+    private final TxnId txnId;
 
-    public MetadataTransactionContext(JobId jobId) {
-        this.jobId = jobId;
+    public MetadataTransactionContext(TxnId txnId) {
+        this.txnId = txnId;
     }
 
-    public JobId getJobId() {
-        return jobId;
+    public TxnId getTxnId() {
+        return txnId;
     }
 
     public void addDataverse(Dataverse dataverse) {
@@ -109,7 +109,7 @@ public class MetadataTransactionContext extends MetadataCache {
     }
 
     public void addAdapter(DatasourceAdapter adapter) {
-        droppedCache.dropAdapter(adapter);
+        droppedCache.dropAdapterIfExists(adapter);
         logAndApply(new MetadataLogicalOperation(adapter, true));
     }
 
@@ -152,13 +152,12 @@ public class MetadataTransactionContext extends MetadataCache {
 
     public void dropNodeGroup(String nodeGroupName) {
         NodeGroup nodeGroup = new NodeGroup(nodeGroupName, null);
-        droppedCache.addNodeGroupIfNotExists(nodeGroup);
+        droppedCache.addOrUpdateNodeGroup(nodeGroup);
         logAndApply(new MetadataLogicalOperation(nodeGroup, false));
     }
 
     public void dropFunction(FunctionSignature signature) {
-        Function function = new Function(signature.getNamespace(), signature.getName(), signature.getArity(), null,
-                null, null, null, null, 0);
+        Function function = new Function(signature, null, null, null, null, null, null);
         droppedCache.addFunctionIfNotExists(function);
         logAndApply(new MetadataLogicalOperation(function, false));
     }
@@ -228,13 +227,11 @@ public class MetadataTransactionContext extends MetadataCache {
     }
 
     public void addFeed(Feed feed) {
-        droppedCache.dropFeed(feed);
+        droppedCache.dropFeedIfExists(feed);
         logAndApply(new MetadataLogicalOperation(feed, true));
     }
 
-    public void dropFeed(String dataverseName, String feedName) {
-        Feed feed = null;
-        feed = new Feed(dataverseName, feedName, null, null);
+    public void dropFeed(Feed feed) {
         droppedCache.addFeedIfNotExists(feed);
         logAndApply(new MetadataLogicalOperation(feed, false));
     }
@@ -245,7 +242,8 @@ public class MetadataTransactionContext extends MetadataCache {
     }
 
     public void dropFeedConnection(String dataverseName, String feedName, String datasetName) {
-        FeedConnection feedConnection = new FeedConnection(dataverseName, feedName, datasetName, null, null, null);
+        FeedConnection feedConnection =
+                new FeedConnection(dataverseName, feedName, datasetName, null, null, null, null);
         droppedCache.addFeedConnectionIfNotExists(feedConnection);
         logAndApply(new MetadataLogicalOperation(feedConnection, false));
     }

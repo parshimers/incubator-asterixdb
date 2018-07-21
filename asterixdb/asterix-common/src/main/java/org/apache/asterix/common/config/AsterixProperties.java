@@ -34,15 +34,9 @@ public class AsterixProperties {
     }
 
     public static void registerConfigOptions(IConfigManager configManager) {
-        configManager.register(
-                NodeProperties.Option.class,
-                CompilerProperties.Option.class,
-                MetadataProperties.Option.class,
-                ExternalProperties.Option.class,
-                ActiveProperties.Option.class,
-                MessagingProperties.Option.class,
-                ReplicationProperties.Option.class,
-                StorageProperties.Option.class,
+        configManager.register(NodeProperties.Option.class, CompilerProperties.Option.class,
+                MetadataProperties.Option.class, ExternalProperties.Option.class, ActiveProperties.Option.class,
+                MessagingProperties.Option.class, ReplicationProperties.Option.class, StorageProperties.Option.class,
                 TransactionProperties.Option.class);
 
         // we need to process the old-style asterix config before we apply defaults!
@@ -50,7 +44,7 @@ public class AsterixProperties {
             try {
                 PropertiesAccessor.getInstance(configManager.getAppConfig());
             } catch (AsterixException e) {
-                throw new HyracksDataException(e);
+                throw HyracksDataException.create(e);
             }
         });
     }

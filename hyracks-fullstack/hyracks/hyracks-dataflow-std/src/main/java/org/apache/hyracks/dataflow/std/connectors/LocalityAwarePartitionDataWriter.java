@@ -54,7 +54,7 @@ public class LocalityAwarePartitionDataWriter implements IFrameWriter {
                 appenders[i] = new FrameTupleAppender();
                 appenders[i].reset(new VSizeFrame(ctx), true);
             } catch (IOException e) {
-                throw new HyracksDataException(e);
+                throw HyracksDataException.create(e);
             }
         }
         tupleAccessor = new FrameTupleAccessor(recordDescriptor);
@@ -104,7 +104,7 @@ public class LocalityAwarePartitionDataWriter implements IFrameWriter {
                     pWriters[i].fail();
                 } catch (Throwable th) {
                     if (failException == null) {
-                        failException = new HyracksDataException(th);
+                        failException = HyracksDataException.create(th);
                     } else {
                         failException.addSuppressed(th);
                     }
@@ -130,7 +130,7 @@ public class LocalityAwarePartitionDataWriter implements IFrameWriter {
                     appenders[i].write(pWriters[i], true);
                 } catch (Throwable th) {
                     if (closeException == null) {
-                        closeException = new HyracksDataException(th);
+                        closeException = HyracksDataException.create(th);
                     } else {
                         closeException.addSuppressed(th);
                     }
@@ -139,7 +139,7 @@ public class LocalityAwarePartitionDataWriter implements IFrameWriter {
                         pWriters[i].close();
                     } catch (Throwable th) {
                         if (closeException == null) {
-                            closeException = new HyracksDataException(th);
+                            closeException = HyracksDataException.create(th);
                         } else {
                             closeException.addSuppressed(th);
                         }

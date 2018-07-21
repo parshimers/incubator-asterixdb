@@ -58,7 +58,7 @@ public interface IActiveEntityEventsListener {
      * @param subscriber
      * @throws HyracksDataException
      */
-    void subscribe(IActiveEventSubscriber subscriber) throws HyracksDataException;
+    void subscribe(IActiveEntityEventSubscriber subscriber) throws HyracksDataException;
 
     /**
      * The most recent acquired stats for the active entity
@@ -79,4 +79,27 @@ public interface IActiveEntityEventsListener {
      * @throws HyracksDataException
      */
     void refreshStats(long timeout) throws HyracksDataException;
+
+    /**
+     * @return true, if entity is active, false otherwise
+     */
+    boolean isActive();
+
+    /**
+     * unregister the listener upon deletion of entity
+     *
+     * @throws HyracksDataException
+     */
+    void unregister() throws HyracksDataException;
+
+    /**
+     * Get the job failure for the last failed run
+     */
+    Exception getJobFailure();
+
+    /**
+     * Get the stats name that's used to form the stats JSON for the active entity
+     * @return the customized stats name for current active entity
+     */
+    String getDisplayName() throws HyracksDataException;
 }

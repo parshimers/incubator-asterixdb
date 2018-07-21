@@ -22,7 +22,6 @@ package org.apache.hyracks.storage.am.lsm.rtree.impls;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
-import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentFilter;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
 import org.apache.hyracks.storage.common.ICursorInitialState;
@@ -31,7 +30,8 @@ import org.apache.hyracks.storage.common.ISearchPredicate;
 public class LSMRTreeSearchCursor extends LSMRTreeAbstractCursor {
 
     private int currentCursor;
-    private PermutingTupleReference btreeTuple;
+    private final PermutingTupleReference btreeTuple;
+    private boolean resultOfsearchCallbackProceed = false;
 
     public LSMRTreeSearchCursor(ILSMIndexOperationContext opCtx, int[] buddyBTreeFields) {
         super(opCtx);
@@ -40,13 +40,13 @@ public class LSMRTreeSearchCursor extends LSMRTreeAbstractCursor {
     }
 
     @Override
-    public void close() throws HyracksDataException {
-        super.close();
+    public void doDestroy() throws HyracksDataException {
+        super.doDestroy();
         currentCursor = 0;
     }
 
     @Override
-    public void reset() throws HyracksDataException {
+    public void doClose() throws HyracksDataException {
         if (!open) {
             return;
         }
@@ -83,13 +83,13 @@ public class LSMRTreeSearchCursor extends LSMRTreeAbstractCursor {
 
     private void searchNextCursor() throws HyracksDataException {
         if (currentCursor < numberOfTrees) {
-            rtreeCursors[currentCursor].reset();
+            rtreeCursors[currentCursor].close();
             rtreeAccessors[currentCursor].search(rtreeCursors[currentCursor], rtreeSearchPredicate);
         }
     }
 
     @Override
-    public boolean hasNext() throws HyracksDataException {
+    public boolean doHasNext() throws HyracksDataException {
         if (foundNext) {
             return true;
         }
@@ -97,17 +97,22 @@ public class LSMRTreeSearchCursor extends LSMRTreeAbstractCursor {
             while (rtreeCursors[currentCursor].hasNext()) {
                 rtreeCursors[currentCursor].next();
                 ITupleReference currentTuple = rtreeCursors[currentCursor].getTuple();
+                // Call proceed() to do necessary operations before returning this tuple.
+                resultOfsearchCallbackProceed =
+                        currentCursor == 0 && includeMutableComponent ? searchCallback.proceed(currentTuple) : true;
                 btreeTuple.reset(rtreeCursors[currentCursor].getTuple());
                 boolean killerTupleFound = false;
-                for (int i = 0; i < currentCursor; i++) {
-                    btreeCursors[i].reset();
+                for (int i = 0; i < currentCursor && !killerTupleFound; i++) {
+                    if (bloomFilters[i] != null && bloomFilters[i].contains(btreeTuple, hashes)) {
+                        continue;
+                    }
+                    btreeCursors[i].close();
                     btreeRangePredicate.setHighKey(btreeTuple, true);
                     btreeRangePredicate.setLowKey(btreeTuple, true);
                     btreeAccessors[i].search(btreeCursors[i], btreeRangePredicate);
                     try {
                         if (btreeCursors[i].hasNext()) {
                             killerTupleFound = true;
-                            break;
                         }
                     } finally {
                         btreeCursors[i].close();
@@ -127,14 +132,19 @@ public class LSMRTreeSearchCursor extends LSMRTreeAbstractCursor {
     }
 
     @Override
-    public void next() throws HyracksDataException {
+    public void doNext() throws HyracksDataException {
         foundNext = false;
     }
 
     @Override
-    public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
-        super.open(initialState, searchPred);
+    public void doOpen(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
+        super.doOpen(initialState, searchPred);
         searchNextCursor();
+    }
+
+    @Override
+    public boolean getSearchOperationCallbackProceedResult() {
+        return resultOfsearchCallbackProceed;
     }
 
 }

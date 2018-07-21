@@ -18,11 +18,17 @@
  */
 package org.apache.hyracks.algebricks.common.constraints;
 
+import java.util.Arrays;
+
+import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
+import org.apache.hyracks.api.exceptions.ErrorCode;
+
 public class AlgebricksAbsolutePartitionConstraint extends AlgebricksPartitionConstraint {
     private final String[] locations;
 
     public AlgebricksAbsolutePartitionConstraint(String[] locations) {
-        this.locations = locations;
+        this.locations = locations.clone();
+        Arrays.sort(locations);
     }
 
     @Override
@@ -32,5 +38,30 @@ public class AlgebricksAbsolutePartitionConstraint extends AlgebricksPartitionCo
 
     public String[] getLocations() {
         return locations;
+    }
+
+    @Override
+    public String toString() {
+        return getPartitionConstraintType().toString() + ':' + Arrays.toString(locations);
+    }
+
+    @Override
+    public AlgebricksPartitionConstraint compose(AlgebricksPartitionConstraint that) throws AlgebricksException {
+        switch (that.getPartitionConstraintType()) {
+            case COUNT:
+                AlgebricksCountPartitionConstraint thatCount = (AlgebricksCountPartitionConstraint) that;
+                if (locations.length <= thatCount.getCount()) {
+                    return this;
+                }
+                break;
+            case ABSOLUTE:
+                AlgebricksAbsolutePartitionConstraint thatAbsolute = (AlgebricksAbsolutePartitionConstraint) that;
+                if (Arrays.equals(locations, thatAbsolute.locations)) {
+                    return this;
+                }
+                break;
+        }
+
+        throw AlgebricksException.create(ErrorCode.CANNOT_COMPOSE_PART_CONSTRAINTS, toString(), that.toString());
     }
 }

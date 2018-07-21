@@ -57,10 +57,10 @@ public class FullTextContainsEvaluator implements IScalarEvaluator {
 
     protected final ArrayBackedValueStorage resultStorage = new ArrayBackedValueStorage();
     protected final DataOutput out = resultStorage.getDataOutput();
-    protected final TaggedValuePointable argLeft = (TaggedValuePointable) TaggedValuePointable.FACTORY
-            .createPointable();
-    protected final TaggedValuePointable argRight = (TaggedValuePointable) TaggedValuePointable.FACTORY
-            .createPointable();
+    protected final TaggedValuePointable argLeft =
+            (TaggedValuePointable) TaggedValuePointable.FACTORY.createPointable();
+    protected final TaggedValuePointable argRight =
+            (TaggedValuePointable) TaggedValuePointable.FACTORY.createPointable();
     protected TaggedValuePointable[] argOptions;
     protected final IScalarEvaluator evalLeft;
     protected final IScalarEvaluator evalRight;
@@ -148,7 +148,7 @@ public class FullTextContainsEvaluator implements IScalarEvaluator {
             try {
                 nullSerde.serialize(ANull.NULL, out);
             } catch (HyracksDataException e) {
-                throw new HyracksDataException(e);
+                throw HyracksDataException.create(e);
             }
             result.set(resultStorage);
             return;
@@ -158,7 +158,7 @@ public class FullTextContainsEvaluator implements IScalarEvaluator {
             ABoolean b = fullTextContainsWithArg(typeTag2, argLeft, argRight) ? ABoolean.TRUE : ABoolean.FALSE;
             serde.serialize(b, out);
         } catch (HyracksDataException e1) {
-            throw new HyracksDataException(e1);
+            throw HyracksDataException.create(e1);
         }
         result.set(resultStorage);
     }
@@ -335,6 +335,8 @@ public class FullTextContainsEvaluator implements IScalarEvaluator {
      * for that option. (e.g., argOptions[0] = "mode", argOptions[1] = "all")
      */
     private void setFullTextOption(IPointable[] argOptions, int uniqueQueryTokenCount) throws HyracksDataException {
+        // By default, we conduct a conjunctive search.
+        occurrenceThreshold = uniqueQueryTokenCount;
         for (int i = 0; i < optionArgsLength; i = i + 2) {
             // mode option
             if (compareStrInByteArrayAndPointable(FullTextContainsDescriptor.getSearchModeOptionArray(), argOptions[i],

@@ -18,6 +18,11 @@
  */
 package org.apache.hyracks.maven.license;
 
+import static org.apache.hyracks.maven.license.ProjectFlag.ALTERNATE_LICENSE_FILE;
+import static org.apache.hyracks.maven.license.ProjectFlag.ALTERNATE_NOTICE_FILE;
+import static org.apache.hyracks.maven.license.ProjectFlag.IGNORE_MISSING_EMBEDDED_LICENSE;
+import static org.apache.hyracks.maven.license.ProjectFlag.IGNORE_MISSING_EMBEDDED_NOTICE;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -45,12 +50,6 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.regex.Pattern;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SequenceWriter;
-import freemarker.cache.FileTemplateLoader;
-import freemarker.template.Configuration;
-import freemarker.template.Template;
-import freemarker.template.TemplateException;
 import org.apache.commons.io.IOUtils;
 import org.apache.hyracks.maven.license.freemarker.IndentDirective;
 import org.apache.hyracks.maven.license.freemarker.LoadFileDirective;
@@ -63,13 +62,19 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.ProjectBuildingException;
 
-@Mojo(name = "generate",
-        requiresProject = true,
-        requiresDependencyResolution = ResolutionScope.TEST)
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SequenceWriter;
+import freemarker.cache.FileTemplateLoader;
+import freemarker.template.Configuration;
+import freemarker.template.Template;
+import freemarker.template.TemplateException;
+
+@Mojo(name = "generate", requiresProject = true, requiresDependencyResolution = ResolutionScope.TEST)
 public class GenerateFileMojo extends LicenseMojo {
 
-    public static final Pattern FOUNDATION_PATTERN = Pattern.compile("^\\s*This product includes software developed " +
-                    "(at|by) The Apache Software Foundation \\(http://www.apache.org/\\).\\s*$".replace(" ", "\\s+"),
+    public static final Pattern FOUNDATION_PATTERN = Pattern.compile(
+            "^\\s*This product includes software developed "
+                    + "(at|by) The Apache Software Foundation \\(http://www.apache.org/\\).\\s*$".replace(" ", "\\s+"),
             Pattern.DOTALL | Pattern.MULTILINE);
 
     public static final Comparator<String> WHITESPACE_NORMALIZED_COMPARATOR =
@@ -116,11 +121,14 @@ public class GenerateFileMojo extends LicenseMojo {
             persistLicenseMap();
             buildNoticeProjectMap();
             generateFiles();
+            if (seenWarning && failOnWarning) {
+                throw new MojoFailureException(
+                        "'failOnWarning' enabled and warning(s) (or error(s)) occurred during execution; see output");
+            }
         } catch (IOException | TemplateException | ProjectBuildingException e) {
             throw new MojoExecutionException("Unexpected exception: " + e, e);
         }
     }
-
 
     private void resolveLicenseContent() throws IOException {
         Set<LicenseSpec> licenseSpecs = new HashSet<>();
@@ -158,7 +166,7 @@ public class GenerateFileMojo extends LicenseMojo {
     private void combineCommonGavs() {
         for (LicensedProjects licensedProjects : licenseMap.values()) {
             Map<String, Project> projectMap = new HashMap<>();
-            for (Iterator<Project> iter = licensedProjects.getProjects().iterator(); iter.hasNext(); ) {
+            for (Iterator<Project> iter = licensedProjects.getProjects().iterator(); iter.hasNext();) {
                 Project project = iter.next();
                 if (projectMap.containsKey(project.gav())) {
                     Project first = projectMap.get(project.gav());
@@ -183,8 +191,8 @@ public class GenerateFileMojo extends LicenseMojo {
                 throw new IOException("Could not load template " + generation.getTemplate());
             }
 
-            outputDir.mkdirs();
             final File file = new File(outputDir, generation.getOutputFile());
+            file.getParentFile().mkdirs();
             getLog().info("Writing " + file + "...");
             try (final FileOutputStream fos = new FileOutputStream(file);
                     final Writer writer = new OutputStreamWriter(fos, StandardCharsets.UTF_8)) {
@@ -208,19 +216,17 @@ public class GenerateFileMojo extends LicenseMojo {
     private void readExtraMaps() throws IOException {
         final ObjectMapper objectMapper = new ObjectMapper();
         for (ExtraLicenseFile extraLicenseFile : extraLicenseMaps) {
-            for (LicensedProjects projects :
-                    objectMapper.readValue(extraLicenseFile.getFile(), LicensedProjects[].class)) {
+            for (LicensedProjects projects : objectMapper.readValue(extraLicenseFile.getFile(),
+                    LicensedProjects[].class)) {
                 LicenseSpec spec = urlToLicenseMap.get(projects.getLicense().getUrl());
                 if (spec != null) {
                     // TODO(mblow): probably we should always favor the extra map...
                     // propagate any license content we may have with what already has been loaded
-                    if (projects.getLicense().getContent() != null &&
-                            spec.getContent() == null) {
+                    if (projects.getLicense().getContent() != null && spec.getContent() == null) {
                         spec.setContent(projects.getLicense().getContent());
                     }
                     // propagate any license displayName we may have with what already has been loaded
-                    if (projects.getLicense().getDisplayName() != null &&
-                            spec.getDisplayName() == null) {
+                    if (projects.getLicense().getDisplayName() != null && spec.getDisplayName() == null) {
                         spec.setDisplayName(projects.getLicense().getDisplayName());
                     }
                 }
@@ -235,8 +241,8 @@ public class GenerateFileMojo extends LicenseMojo {
     private void persistLicenseMap() throws IOException {
         if (licenseMapOutputFile != null) {
             licenseMapOutputFile.getParentFile().mkdirs();
-            SequenceWriter sw = new ObjectMapper().writerWithDefaultPrettyPrinter()
-                    .writeValues(licenseMapOutputFile).init(true);
+            SequenceWriter sw =
+                    new ObjectMapper().writerWithDefaultPrettyPrinter().writeValues(licenseMapOutputFile).init(true);
             for (LicensedProjects entry : licenseMap.values()) {
                 sw.write(entry);
             }
@@ -251,7 +257,9 @@ public class GenerateFileMojo extends LicenseMojo {
             for (Project p : lps.getProjects()) {
                 String licenseText = p.getLicenseText();
                 if (licenseText == null) {
-                    getLog().warn("Using license other than from within artifact: " + p.gav());
+                    warnUnlessFlag(p.gav(), IGNORE_MISSING_EMBEDDED_LICENSE,
+                            "Using license other than from within artifact: " + p.gav() + " (" + lps.getLicense()
+                                    + ")");
                     licenseText = resolveLicenseContent(lps.getLicense(), false);
                 }
                 LicenseSpec spec = lps.getLicense();
@@ -310,18 +318,22 @@ public class GenerateFileMojo extends LicenseMojo {
     }
 
     private void resolveNoticeFiles() throws MojoExecutionException, IOException {
-        resolveArtifactFiles("NOTICE", entry -> entry.getName().matches("(.*/|^)" + "NOTICE" + "(.txt)?"),
-                Project::setNoticeText,
+        // TODO(mblow): this will match *any* NOTICE[.txt] file located within the artifact- this seems way too liberal
+        resolveArtifactFiles("NOTICE", IGNORE_MISSING_EMBEDDED_NOTICE, ALTERNATE_NOTICE_FILE,
+                entry -> entry.getName().matches("(.*/|^)" + "NOTICE" + "(.txt)?"), Project::setNoticeText,
                 text -> stripFoundationAssertionFromNotices ? FOUNDATION_PATTERN.matcher(text).replaceAll("") : text);
     }
 
     private void resolveLicenseFiles() throws MojoExecutionException, IOException {
-        resolveArtifactFiles("LICENSE", entry -> entry.getName().matches("(.*/|^)" + "LICENSE" + "(.txt)?"),
-                Project::setLicenseText, UnaryOperator.identity());
+        // TODO(mblow): this will match *any* LICENSE[.txt] file located within the artifact- this seems way too liberal
+        resolveArtifactFiles("LICENSE", IGNORE_MISSING_EMBEDDED_LICENSE, ALTERNATE_LICENSE_FILE,
+                entry -> entry.getName().matches("(.*/|^)" + "LICENSE" + "(.txt)?"), Project::setLicenseText,
+                UnaryOperator.identity());
     }
 
-    private void resolveArtifactFiles(final String name, Predicate<JarEntry> filter,
-                                      BiConsumer<Project, String> consumer, UnaryOperator<String> contentTransformer)
+    private void resolveArtifactFiles(final String name, final ProjectFlag ignoreFlag,
+            final ProjectFlag alternateFilenameFlag, final Predicate<JarEntry> filter,
+            final BiConsumer<Project, String> consumer, final UnaryOperator<String> contentTransformer)
             throws MojoExecutionException, IOException {
         for (Project p : getProjects()) {
             File artifactFile = new File(p.getArtifactPath());
@@ -331,11 +343,13 @@ public class GenerateFileMojo extends LicenseMojo {
                 getLog().info("Skipping unknown artifact file type: " + artifactFile);
                 continue;
             }
+            String alternateFilename = (String) getProjectFlag(p.gav(), alternateFilenameFlag);
+            Predicate<JarEntry> finalFilter =
+                    alternateFilename != null ? entry -> entry.getName().equals(alternateFilename) : filter;
             try (JarFile jarFile = new JarFile(artifactFile)) {
-                SortedMap<String, JarEntry> matches = gatherMatchingEntries(jarFile,
-                        filter);
+                SortedMap<String, JarEntry> matches = gatherMatchingEntries(jarFile, finalFilter);
                 if (matches.isEmpty()) {
-                    getLog().warn("No " + name + " file found for " + p.gav());
+                    warnUnlessFlag(p, ignoreFlag, "No " + name + " file found for " + p.gav());
                 } else {
                     if (matches.size() > 1) {
                         getLog().warn("Multiple " + name + " files found for " + p.gav() + ": " + matches.keySet()
@@ -343,15 +357,14 @@ public class GenerateFileMojo extends LicenseMojo {
                     } else {
                         getLog().info(p.gav() + " has " + name + " file: " + matches.keySet());
                     }
-                    resolveContent(p, jarFile, matches.values().iterator().next(),
-                            contentTransformer, consumer, name);
+                    resolveContent(p, jarFile, matches.values().iterator().next(), contentTransformer, consumer, name);
                 }
             }
         }
     }
 
     private void resolveContent(Project project, JarFile jarFile, JarEntry entry, UnaryOperator<String> transformer,
-                                BiConsumer<Project, String> contentConsumer, final String name) throws IOException {
+            BiConsumer<Project, String> contentConsumer, final String name) throws IOException {
         String text = IOUtils.toString(jarFile.getInputStream(entry), StandardCharsets.UTF_8);
         text = transformer.apply(text);
         text = LicenseUtil.trim(text);
@@ -375,4 +388,3 @@ public class GenerateFileMojo extends LicenseMojo {
         return matches;
     }
 }
-

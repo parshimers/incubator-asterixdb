@@ -18,23 +18,37 @@
  */
 package org.apache.hyracks.http.server;
 
+import static com.fasterxml.jackson.databind.MapperFeature.SORT_PROPERTIES_ALPHABETICALLY;
+import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import org.apache.hyracks.http.api.IServlet;
 import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
 import org.apache.hyracks.http.server.utils.HttpUtil;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
 
 public abstract class AbstractServlet implements IServlet {
-    private static final Logger LOGGER = Logger.getLogger(AbstractServlet.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger();
+    protected static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    static {
+        OBJECT_MAPPER.enable(SerializationFeature.INDENT_OUTPUT);
+        OBJECT_MAPPER.configure(SORT_PROPERTIES_ALPHABETICALLY, true);
+        OBJECT_MAPPER.configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
+    }
 
     protected final String[] paths;
     protected final ConcurrentMap<String, Object> ctx;
@@ -86,8 +100,14 @@ public abstract class AbstractServlet implements IServlet {
                 notAllowed(method, response);
             }
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Unhandled exception", e);
+            LOGGER.log(Level.WARN, "Unhandled exception", e);
             response.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR);
+        } catch (Throwable th) { //NOSONAR Just logging and then throwing again
+            try {
+                LOGGER.log(Level.WARN, "Unhandled throwable", th);
+            } catch (Throwable loggingFailure) {// NOSONAR... swallow logging failure
+            }
+            throw th;
         }
     }
 
@@ -97,7 +117,7 @@ public abstract class AbstractServlet implements IServlet {
         if (message != null) {
             response.writer().println(message);
         }
-        if (LOGGER.isLoggable(Level.INFO)) {
+        if (LOGGER.isInfoEnabled()) {
             LOGGER.info("sendError: status=" + status + ", message=" + message);
         }
     }

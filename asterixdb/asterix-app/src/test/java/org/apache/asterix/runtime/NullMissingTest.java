@@ -43,7 +43,8 @@ public class NullMissingTest {
 
     @Test
     public void test() throws Exception {
-        List<IFunctionDescriptorFactory> functions = FunctionCollection.getFunctionDescriptorFactories();
+        List<IFunctionDescriptorFactory> functions =
+                FunctionCollection.createDefaultFunctionCollection().getFunctionDescriptorFactories();
         int testedFunctions = 0;
         for (IFunctionDescriptorFactory func : functions) {
             String className = func.getClass().getName();
@@ -54,8 +55,9 @@ public class NullMissingTest {
                 ++testedFunctions;
             }
         }
-        // 208 is the current number of functions with generated code.
-        Assert.assertTrue(testedFunctions >= 208);
+        // 217 is the current number of functions with generated code.
+        Assert.assertTrue("expected >= 217 generated functions to be tested, but was " + testedFunctions,
+                testedFunctions >= 217);
     }
 
     private void testFunction(IFunctionDescriptorFactory funcFactory) throws Exception {

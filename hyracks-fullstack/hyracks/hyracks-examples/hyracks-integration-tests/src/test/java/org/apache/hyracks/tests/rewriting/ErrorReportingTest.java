@@ -37,9 +37,8 @@ import org.apache.hyracks.dataflow.std.base.AbstractSingleActivityOperatorDescri
 import org.apache.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
 import org.apache.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
 import org.apache.hyracks.tests.integration.AbstractIntegrationTest;
+import org.junit.Assert;
 import org.junit.Test;
-
-import junit.framework.Assert;
 
 public class ErrorReportingTest extends AbstractIntegrationTest {
 
@@ -139,7 +138,7 @@ class ExceptionRaisingOperatorDescriptor extends AbstractOperatorDescriptor {
         @Override
         public IOperatorNodePushable createPushRuntime(IHyracksTaskContext ctx,
                 IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions)
-                        throws HyracksDataException {
+                throws HyracksDataException {
             return new IOperatorNodePushable() {
 
                 @Override

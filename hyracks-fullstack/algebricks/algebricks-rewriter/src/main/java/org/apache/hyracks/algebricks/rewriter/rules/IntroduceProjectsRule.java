@@ -21,7 +21,7 @@ package org.apache.hyracks.algebricks.rewriter.rules;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,14 +29,12 @@ import java.util.Set;
 import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
-import org.apache.hyracks.algebricks.common.utils.Triple;
 import org.apache.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import org.apache.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import org.apache.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
 import org.apache.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.ProjectOperator;
-import org.apache.hyracks.algebricks.core.algebra.operators.logical.UnionAllOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.visitors.VariableUtilities;
 import org.apache.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
 
@@ -48,14 +46,14 @@ import org.apache.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
  * that the overall cost of the plan is reduced since project operators also add a cost.
  */
 public class IntroduceProjectsRule implements IAlgebraicRewriteRule {
-
-    private final Set<LogicalVariable> usedVars = new HashSet<>();
-    private final Set<LogicalVariable> liveVars = new HashSet<>();
-    private final Set<LogicalVariable> producedVars = new HashSet<>();
+    // preserve the original variable order using linked hash set
+    private final Set<LogicalVariable> usedVars = new LinkedHashSet<>();
+    private final Set<LogicalVariable> liveVars = new LinkedHashSet<>();
+    private final Set<LogicalVariable> producedVars = new LinkedHashSet<>();
     private final List<LogicalVariable> projectVars = new ArrayList<>();
     protected boolean hasRun = false;
     // Keep track of used variables after the current operator, including used variables in itself.
-    private final Map<AbstractLogicalOperator, HashSet<LogicalVariable>> allUsedVarsAfterOpMap = new HashMap<>();
+    private final Map<AbstractLogicalOperator, Set<LogicalVariable>> allUsedVarsAfterOpMap = new HashMap<>();
 
     @Override
     public boolean rewritePost(Mutable<ILogicalOperator> opRef, IOptimizationContext context) {
@@ -74,7 +72,7 @@ public class IntroduceProjectsRule implements IAlgebraicRewriteRule {
         // This is necessary since introduceProjects() may generate a wrong project if it doesn't have the information
         // for all paths in the plan in case there are two or more branches since it can only deal one path at a time.
         // So, a variable used in one path might be removed while the method traverses another path.
-        Set<LogicalVariable> parentUsedVars = new HashSet<>();
+        Set<LogicalVariable> parentUsedVars = new LinkedHashSet<>();
         collectUsedVars(opRef, parentUsedVars);
 
         // Introduce projects
@@ -89,7 +87,7 @@ public class IntroduceProjectsRule implements IAlgebraicRewriteRule {
     protected void collectUsedVars(Mutable<ILogicalOperator> opRef, Set<LogicalVariable> parentUsedVars)
             throws AlgebricksException {
         AbstractLogicalOperator op = (AbstractLogicalOperator) opRef.getValue();
-        HashSet<LogicalVariable> usedVarsPerOp = new HashSet<>();
+        Set<LogicalVariable> usedVarsPerOp = new LinkedHashSet<>();
         VariableUtilities.getUsedVariables(op, usedVarsPerOp);
         usedVarsPerOp.addAll(parentUsedVars);
 
@@ -117,7 +115,7 @@ public class IntroduceProjectsRule implements IAlgebraicRewriteRule {
         // In the top-down pass, maintain a set of variables that are used in op and all its parents.
         // This is a necessary step for the newly created project operator during this optimization,
         // since we already have all information from collectUsedVars() method for the other operators.
-        HashSet<LogicalVariable> parentsUsedVars = new HashSet<>();
+        Set<LogicalVariable> parentsUsedVars = new LinkedHashSet<>();
         parentsUsedVars.addAll(parentUsedVars);
         parentsUsedVars.addAll(usedVars);
 
@@ -177,16 +175,8 @@ public class IntroduceProjectsRule implements IAlgebraicRewriteRule {
             ProjectOperator projectOp = (ProjectOperator) op;
             List<LogicalVariable> projectVarsTemp = projectOp.getVariables();
             if (liveVars.size() == projectVarsTemp.size() && liveVars.containsAll(projectVarsTemp)) {
-                boolean eliminateProject = true;
-                // For UnionAll the variables must also be in exactly the correct order.
-                if (parentOp.getOperatorTag() == LogicalOperatorTag.UNIONALL) {
-                    eliminateProject = canEliminateProjectBelowUnion((UnionAllOperator) parentOp, projectOp,
-                            parentInputIndex);
-                }
-                if (eliminateProject) {
-                    // The existing project has become useless. Remove it.
-                    parentOp.getInputs().get(parentInputIndex).setValue(op.getInputs().get(0).getValue());
-                }
+                // The existing project has become useless. Remove it.
+                parentOp.getInputs().get(parentInputIndex).setValue(op.getInputs().get(0).getValue());
             }
         }
 
@@ -196,23 +186,4 @@ public class IntroduceProjectsRule implements IAlgebraicRewriteRule {
         return modified;
     }
 
-    private boolean canEliminateProjectBelowUnion(UnionAllOperator unionOp, ProjectOperator projectOp,
-            int unionInputIndex) throws AlgebricksException {
-        List<LogicalVariable> orderedLiveVars = new ArrayList<>();
-        VariableUtilities.getLiveVariables(projectOp.getInputs().get(0).getValue(), orderedLiveVars);
-        int numVars = orderedLiveVars.size();
-        for (int i = 0; i < numVars; i++) {
-            Triple<LogicalVariable, LogicalVariable, LogicalVariable> varTriple = unionOp.getVariableMappings().get(i);
-            if (unionInputIndex == 0) {
-                if (varTriple.first != orderedLiveVars.get(i)) {
-                    return false;
-                }
-            } else {
-                if (varTriple.second != orderedLiveVars.get(i)) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
 }

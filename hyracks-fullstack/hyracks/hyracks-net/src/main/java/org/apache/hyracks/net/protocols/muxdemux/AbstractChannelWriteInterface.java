@@ -21,17 +21,18 @@ package org.apache.hyracks.net.protocols.muxdemux;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Queue;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import org.apache.hyracks.api.comm.IBufferAcceptor;
 import org.apache.hyracks.api.comm.IChannelControlBlock;
 import org.apache.hyracks.api.comm.IChannelWriteInterface;
 import org.apache.hyracks.api.comm.ICloseableBufferAcceptor;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public abstract class AbstractChannelWriteInterface implements IChannelWriteInterface {
 
-    private static final Logger LOGGER = Logger.getLogger(AbstractChannelWriteInterface.class.getName());
+    public static final int REMOTE_WRITE_ERROR_CODE = 1;
+    private static final Logger LOGGER = LogManager.getLogger();
     protected final IChannelControlBlock ccb;
     protected final Queue<ByteBuffer> wiFullQueue;
     protected boolean channelWritabilityState;
@@ -129,13 +130,15 @@ public abstract class AbstractChannelWriteInterface implements IChannelWriteInte
         public void close() {
             synchronized (ccb) {
                 if (eos) {
-                    if (LOGGER.isLoggable(Level.WARNING)) {
-                        LOGGER.warning("Received duplicate close() on channel: " + ccb.getChannelId());
+                    if (LOGGER.isWarnEnabled()) {
+                        LOGGER.warn("Received duplicate close() on channel: " + ccb.getChannelId());
                     }
                     return;
                 }
                 eos = true;
-                adjustChannelWritability();
+                if (ecode != REMOTE_WRITE_ERROR_CODE) {
+                    adjustChannelWritability();
+                }
             }
         }
 

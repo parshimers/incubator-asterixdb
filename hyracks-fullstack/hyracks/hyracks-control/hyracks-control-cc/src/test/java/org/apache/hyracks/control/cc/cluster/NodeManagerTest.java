@@ -22,18 +22,26 @@ package org.apache.hyracks.control.cc.cluster;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.concurrent.Executors;
+
 import org.apache.hyracks.api.comm.NetworkAddress;
 import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksException;
 import org.apache.hyracks.api.job.resource.IReadOnlyClusterCapacity;
 import org.apache.hyracks.api.job.resource.NodeCapacity;
+import org.apache.hyracks.control.cc.ClusterControllerService;
 import org.apache.hyracks.control.cc.NodeControllerState;
 import org.apache.hyracks.control.cc.scheduler.IResourceManager;
 import org.apache.hyracks.control.cc.scheduler.ResourceManager;
 import org.apache.hyracks.control.common.controllers.CCConfig;
 import org.apache.hyracks.control.common.controllers.NCConfig;
+import org.apache.hyracks.control.common.ipc.NodeControllerRemoteProxy;
+import org.apache.hyracks.ipc.api.IIPCHandle;
+import org.apache.hyracks.ipc.exceptions.IPCException;
+import org.apache.hyracks.ipc.impl.IPCSystem;
 import org.junit.Assert;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 public class NodeManagerTest {
 
@@ -43,9 +51,12 @@ public class NodeManagerTest {
     private static final String NODE2 = "node2";
 
     @Test
-    public void testNormal() throws HyracksException {
+    public void testNormal() throws HyracksException, IPCException {
         IResourceManager resourceManager = new ResourceManager();
-        INodeManager nodeManager = new NodeManager(makeCCConfig(), resourceManager);
+        final CCConfig ccConfig = makeCCConfig();
+        final int coresMultiplier = 1;
+        ccConfig.setCoresMultiplier(coresMultiplier);
+        INodeManager nodeManager = new NodeManager(mockCcs(), ccConfig, resourceManager);
         NodeControllerState ncState1 = mockNodeControllerState(NODE1, false);
         NodeControllerState ncState2 = mockNodeControllerState(NODE2, false);
 
@@ -68,9 +79,41 @@ public class NodeManagerTest {
     }
 
     @Test
-    public void testException() throws HyracksException {
+    public void testAdjustedNodeCapacity() throws HyracksException, IPCException {
         IResourceManager resourceManager = new ResourceManager();
-        INodeManager nodeManager = new NodeManager(makeCCConfig(), resourceManager);
+        final CCConfig ccConfig = makeCCConfig();
+        final int coresMultiplier = 3;
+        ccConfig.setCoresMultiplier(coresMultiplier);
+        INodeManager nodeManager = new NodeManager(mockCcs(), ccConfig, resourceManager);
+        NodeControllerState ncState1 = mockNodeControllerState(NODE1, false);
+        NodeControllerState ncState2 = mockNodeControllerState(NODE2, false);
+
+        // verify state after adding two nodes
+        nodeManager.addNode(NODE1, ncState1);
+        nodeManager.addNode(NODE2, ncState2);
+        int activeNodes = 2;
+        // verify adjusted cores
+        Assert.assertEquals(NODE_CORES * activeNodes * coresMultiplier,
+                resourceManager.getCurrentCapacity().getAggregatedCores());
+        // verify unadjusted memory size
+        Assert.assertEquals(NODE_MEMORY_SIZE * activeNodes,
+                resourceManager.getCurrentCapacity().getAggregatedMemoryByteSize());
+        // verify state after removing a node.
+        nodeManager.removeNode(NODE1);
+        activeNodes = 1;
+        Assert.assertEquals(NODE_CORES * activeNodes * coresMultiplier,
+                resourceManager.getCurrentCapacity().getAggregatedCores());
+        Assert.assertEquals(NODE_MEMORY_SIZE * activeNodes,
+                resourceManager.getCurrentCapacity().getAggregatedMemoryByteSize());
+        // verify state after removing last node
+        nodeManager.removeNode(NODE2);
+        verifyEmptyCluster(resourceManager, nodeManager);
+    }
+
+    @Test
+    public void testException() throws HyracksException, IPCException {
+        IResourceManager resourceManager = new ResourceManager();
+        INodeManager nodeManager = new NodeManager(mockCcs(), makeCCConfig(), resourceManager);
         NodeControllerState ncState1 = mockNodeControllerState(NODE1, true);
 
         boolean invalidNetworkAddress = false;
@@ -86,10 +129,20 @@ public class NodeManagerTest {
         verifyEmptyCluster(resourceManager, nodeManager);
     }
 
+    private ClusterControllerService mockCcs() throws IPCException {
+        ClusterControllerService ccs = Mockito.mock(ClusterControllerService.class);
+        IPCSystem ipcSystem = Mockito.mock(IPCSystem.class);
+        IIPCHandle ipcHandle = Mockito.mock(IIPCHandle.class);
+        Mockito.when(ccs.getClusterIPC()).thenReturn(ipcSystem);
+        Mockito.when(ipcSystem.getHandle(Mockito.any(), Mockito.anyInt())).thenReturn(ipcHandle);
+        Mockito.when(ccs.getExecutor()).thenReturn(Executors.newCachedThreadPool());
+        return ccs;
+    }
+
     @Test
     public void testNullNode() throws HyracksException {
         IResourceManager resourceManager = new ResourceManager();
-        INodeManager nodeManager = new NodeManager(makeCCConfig(), resourceManager);
+        INodeManager nodeManager = new NodeManager(null, makeCCConfig(), resourceManager);
 
         boolean invalidParameter = false;
         // Verifies states after a failure during adding nodes.
@@ -112,6 +165,7 @@ public class NodeManagerTest {
 
     private NodeControllerState mockNodeControllerState(String nodeId, boolean invalidIpAddr) {
         NodeControllerState ncState = mock(NodeControllerState.class);
+        NodeControllerRemoteProxy ncProxy = Mockito.mock(NodeControllerRemoteProxy.class);
         String ipAddr = invalidIpAddr ? "255.255.255:255" : "127.0.0.2";
         NetworkAddress dataAddr = new NetworkAddress(ipAddr, 1001);
         NetworkAddress resultAddr = new NetworkAddress(ipAddr, 1002);
@@ -123,6 +177,7 @@ public class NodeManagerTest {
         NCConfig ncConfig = new NCConfig(nodeId);
         ncConfig.setDataPublicAddress(ipAddr);
         when(ncState.getNCConfig()).thenReturn(ncConfig);
+        Mockito.when(ncState.getNodeController()).thenReturn(ncProxy);
         return ncState;
     }
 

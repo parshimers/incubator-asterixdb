@@ -18,10 +18,15 @@
  */
 package org.apache.hyracks.maven.license;
 
+import static org.apache.hyracks.maven.license.LicenseUtil.toGav;
+import static org.apache.hyracks.maven.license.ProjectFlag.IGNORE_LICENSE_OVERRIDE;
+
 import java.io.File;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -33,6 +38,7 @@ import java.util.TreeSet;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
@@ -46,6 +52,7 @@ import org.apache.maven.model.License;
 import org.apache.maven.model.Model;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
@@ -59,7 +66,7 @@ public abstract class LicenseMojo extends AbstractMojo {
     protected List<Override> overrides = new ArrayList<>();
 
     @Parameter
-    protected String [] models = new String [0];
+    protected String[] models = new String[0];
 
     @Parameter
     protected List<LicenseSpec> licenses = new ArrayList<>();
@@ -73,32 +80,38 @@ public abstract class LicenseMojo extends AbstractMojo {
     @Parameter
     protected List<DependencySet> dependencySets = new ArrayList<>();
 
-    @Parameter( defaultValue = "${project}", readonly = true )
+    @Parameter(defaultValue = "${project}", readonly = true)
     protected MavenProject project;
 
-    @Parameter( property = "localRepository", required = true, readonly = true )
+    @Parameter(property = "localRepository", required = true, readonly = true)
     private ArtifactRepository localRepository;
 
-    @Parameter( property = "project.remoteArtifactRepositories", required = true, readonly = true )
+    @Parameter(property = "project.remoteArtifactRepositories", required = true, readonly = true)
     private List<ArtifactRepository> remoteRepositories;
 
-    @Component( role = MavenProjectBuilder.class )
+    @Component(role = MavenProjectBuilder.class)
     protected MavenProjectBuilder projectBuilder;
 
     @Component
     private ModelInheritanceAssembler assembler;
 
-    @Parameter( defaultValue = "${session}", required = true, readonly = true )
+    @Parameter(defaultValue = "${session}", required = true, readonly = true)
     protected MavenSession session;
 
     @Component
     protected ArtifactResolver artifactResolver;
 
-    @Parameter ( required = true )
+    @Parameter(required = true)
     private String location;
 
-    @Parameter ( required = true )
+    @Parameter(required = true)
     protected File licenseDirectory;
+
+    @Parameter
+    protected File warningTouchFile;
+
+    @Parameter
+    protected boolean failOnWarning;
 
     private Map<String, MavenProject> projectCache = new HashMap<>();
 
@@ -108,23 +121,114 @@ public abstract class LicenseMojo extends AbstractMojo {
 
     Map<String, LicenseSpec> urlToLicenseMap = new HashMap<>();
     Map<String, LicensedProjects> licenseMap = new TreeMap<>();
+    private Map<Pair<String, ProjectFlag>, Object> projectFlags = new HashMap<>();
+
+    protected boolean seenWarning;
 
     protected Map<String, LicensedProjects> getLicenseMap() {
         return licenseMap;
     }
 
-    protected void init() throws MojoExecutionException, MalformedURLException,
-            ProjectBuildingException {
+    protected void init() throws MojoExecutionException {
+        if (warningTouchFile != null) {
+            warningTouchFile.getParentFile().mkdirs();
+        }
+        interceptLogs();
         excludedScopes.add("system");
         excludePatterns = compileExcludePatterns();
         supplementModels = SupplementalModelHelper.loadSupplements(getLog(), models);
         buildUrlLicenseMap();
     }
 
+    private void interceptLogs() {
+        final Log originalLog = getLog();
+        setLog(new Log() {
+            public boolean isDebugEnabled() {
+                return originalLog.isDebugEnabled();
+            }
+
+            public void debug(CharSequence charSequence) {
+                originalLog.debug(charSequence);
+            }
+
+            public void debug(CharSequence charSequence, Throwable throwable) {
+                originalLog.debug(charSequence, throwable);
+            }
+
+            public void debug(Throwable throwable) {
+                originalLog.debug(throwable);
+            }
+
+            public boolean isInfoEnabled() {
+                return originalLog.isInfoEnabled();
+            }
+
+            public void info(CharSequence charSequence) {
+                originalLog.info(charSequence);
+            }
+
+            public void info(CharSequence charSequence, Throwable throwable) {
+                originalLog.info(charSequence, throwable);
+            }
+
+            public void info(Throwable throwable) {
+                originalLog.info(throwable);
+            }
+
+            public boolean isWarnEnabled() {
+                return originalLog.isWarnEnabled();
+            }
+
+            public void warn(CharSequence charSequence) {
+                seenWarning();
+                originalLog.warn(charSequence);
+            }
+
+            public void warn(CharSequence charSequence, Throwable throwable) {
+                seenWarning();
+                originalLog.warn(charSequence, throwable);
+            }
+
+            public void warn(Throwable throwable) {
+                seenWarning();
+                originalLog.warn(throwable);
+            }
+
+            public boolean isErrorEnabled() {
+                return originalLog.isErrorEnabled();
+            }
+
+            public void error(CharSequence charSequence) {
+                seenWarning();
+                originalLog.error(charSequence);
+            }
+
+            public void error(CharSequence charSequence, Throwable throwable) {
+                seenWarning();
+                originalLog.error(charSequence, throwable);
+            }
+
+            public void error(Throwable throwable) {
+                seenWarning();
+                originalLog.error(throwable);
+            }
+
+            private void seenWarning() {
+                seenWarning = true;
+                if (warningTouchFile != null) {
+                    try {
+                        FileUtils.touch(warningTouchFile);
+                    } catch (IOException e) {
+                        originalLog.error("unable to touch " + warningTouchFile, e);
+                    }
+                }
+            }
+        });
+    }
+
     protected void addDependenciesToLicenseMap() throws ProjectBuildingException {
         Map<MavenProject, List<Pair<String, String>>> dependencyLicenseMap = gatherDependencies();
-        for (Map.Entry<MavenProject, List<Pair<String, String>>> dep : dependencyLicenseMap.entrySet()) {
-            final MavenProject depProject = dep.getKey();
+        dependencyLicenseMap.forEach((depProject, value) -> {
             Set<String> locations = dependencySets.isEmpty() ? Collections.singleton(location)
                     : getIncludedLocation(depProject.getArtifact());
             if (isExcluded(depProject.getArtifact())) {
@@ -133,10 +237,10 @@ public abstract class LicenseMojo extends AbstractMojo {
                 getLog().debug("skipping " + depProject + " [not included in dependency sets]");
             } else {
                 for (String depLocation : locations) {
-                    addDependencyToLicenseMap(depProject, dep.getValue(), depLocation);
+                    addDependencyToLicenseMap(depProject, value, depLocation);
                 }
             }
-        }
+        });
     }
 
     private int getLicenseMetric(String url) {
@@ -145,7 +249,7 @@ public abstract class LicenseMojo extends AbstractMojo {
     }
 
     private void addDependencyToLicenseMap(MavenProject depProject, List<Pair<String, String>> depLicenses,
-                                           String depLocation) {
+            String depLocation) {
         final String depGav = toGav(depProject);
         getLog().debug("adding " + depGav + ", location: " + depLocation);
         final MutableBoolean usedMetric = new MutableBoolean(false);
@@ -153,17 +257,16 @@ public abstract class LicenseMojo extends AbstractMojo {
             Collections.sort(depLicenses, (o1, o2) -> {
                 final int metric1 = getLicenseMetric(o1.getLeft());
                 final int metric2 = getLicenseMetric(o2.getLeft());
-                usedMetric.setValue(usedMetric.booleanValue()
-                        || metric1 != LicenseSpec.UNDEFINED_LICENSE_METRIC
+                usedMetric.setValue(usedMetric.booleanValue() || metric1 != LicenseSpec.UNDEFINED_LICENSE_METRIC
                         || metric2 != LicenseSpec.UNDEFINED_LICENSE_METRIC);
                 return Integer.compare(metric1, metric2);
             });
             if (usedMetric.booleanValue()) {
-                getLog().info("Multiple licenses for " + depGav + ": " + depLicenses
-                        + "; taking lowest metric: " + depLicenses.get(0));
+                getLog().info("Multiple licenses for " + depGav + ": " + depLicenses + "; taking lowest metric: "
+                        + depLicenses.get(0));
             } else {
-                getLog().warn("Multiple licenses for " + depGav + ": " + depLicenses
-                        + "; taking first listed: " + depLicenses.get(0));
+                getLog().warn("Multiple licenses for " + depGav + ": " + depLicenses + "; taking first listed: "
+                        + depLicenses.get(0));
             }
         } else if (depLicenses.isEmpty()) {
             getLog().info("no license defined in model for " + depGav);
@@ -180,8 +283,7 @@ public abstract class LicenseMojo extends AbstractMojo {
             } catch (MalformedURLException e) {
                 // we encounter this a lot.  Log a warning, and use an annotated key
                 final String fakeLicenseUrl = depGav.replaceAll(":", "--") + "_" + licenseUrl;
-                getLog().info("- URL for " + depGav + " is malformed: " + licenseUrl + "; using: "
-                        + fakeLicenseUrl);
+                getLog().info("- URL for " + depGav + " is malformed: " + licenseUrl + "; using: " + fakeLicenseUrl);
                 licenseUrl = fakeLicenseUrl;
             }
         }
@@ -197,7 +299,7 @@ public abstract class LicenseMojo extends AbstractMojo {
             urlToLicenseMap.put(licenseUrl, license);
             for (String alias : license.getAliasUrls()) {
                 if (!urlToLicenseMap.containsKey(alias)) {
-                    urlToLicenseMap.put(alias ,license);
+                    urlToLicenseMap.put(alias, license);
                 }
             }
         } else if (license.getDisplayName() == null && spec.getDisplayName() != null) {
@@ -217,11 +319,11 @@ public abstract class LicenseMojo extends AbstractMojo {
 
     private void buildUrlLicenseMap() throws MojoExecutionException {
         for (LicenseSpec license : licenses) {
-            if (urlToLicenseMap.put(license.getUrl() ,license) != null) {
+            if (urlToLicenseMap.put(license.getUrl(), license) != null) {
                 throw new MojoExecutionException("Duplicate URL mapping: " + license.getUrl());
             }
             for (String alias : license.getAliasUrls()) {
-                if (urlToLicenseMap.put(alias ,license) != null) {
+                if (urlToLicenseMap.put(alias, license) != null) {
                     throw new MojoExecutionException("Duplicate URL mapping: " + alias);
                 }
             }
@@ -239,20 +341,19 @@ public abstract class LicenseMojo extends AbstractMojo {
             if (dep == null) {
                 getLog().warn("Unused override dependency " + gav + "; ignoring...");
             } else {
-                final List<Pair<String, String>> newLicense = Collections.singletonList(
-                        new ImmutablePair<>(override.getUrl(), override.getName()));
+                final List<Pair<String, String>> newLicense =
+                        Collections.singletonList(new ImmutablePair<>(override.getUrl(), override.getName()));
                 List<Pair<String, String>> prevLicense = dependencyLicenseMap.put(dep, newLicense);
-                getLog().warn("license list for " + toGav(dep)
-                        + " changed with <override>; was: " + prevLicense
+                getLog().warn("license list for " + toGav(dep) + " changed with <override>; was: " + prevLicense
                         + ", now: " + newLicense);
             }
         }
         return dependencyLicenseMap;
     }
 
-    private void gatherProjectDependencies(MavenProject project, Map<MavenProject,
-            List<Pair<String, String>>> dependencyLicenseMap, Map<String, MavenProject> dependencyGavMap)
-            throws ProjectBuildingException {
+    private void gatherProjectDependencies(MavenProject project,
+            Map<MavenProject, List<Pair<String, String>>> dependencyLicenseMap,
+            Map<String, MavenProject> dependencyGavMap) throws ProjectBuildingException {
         final Set dependencyArtifacts = project.getArtifacts();
         if (dependencyArtifacts != null) {
             for (Object depArtifactObj : dependencyArtifacts) {
@@ -265,8 +366,7 @@ public abstract class LicenseMojo extends AbstractMojo {
                     for (Object license : dep.getLicenses()) {
                         final License license1 = (License) license;
                         String url = license1.getUrl() != null ? license1.getUrl()
-                                : (license1.getName() != null ? license1.getName()
-                                : "LICENSE_EMPTY_NAME_URL");
+                                : (license1.getName() != null ? license1.getName() : "LICENSE_EMPTY_NAME_URL");
                         licenseUrls.add(new ImmutablePair<>(url, license1.getName()));
                     }
                     dependencyLicenseMap.put(dep, licenseUrls);
@@ -287,22 +387,22 @@ public abstract class LicenseMojo extends AbstractMojo {
                 throw new ProjectBuildingException(key, "Error creating dependent artifacts", e);
             }
 
-            Model supplement = supplementModels.get(
-                    SupplementalModelHelper.generateSupplementMapKey(depObj.getGroupId(), depObj.getArtifactId()));
+            Model supplement = supplementModels
+                    .get(SupplementalModelHelper.generateSupplementMapKey(depObj.getGroupId(), depObj.getArtifactId()));
+            registerVerified(depProj, supplement);
             if (supplement != null) {
                 Model merged = SupplementalModelHelper.mergeModels(assembler, depProj.getModel(), supplement);
-                Set<String> origLicenses = depProj.getModel().getLicenses().stream().map(License::getUrl)
-                        .collect(Collectors.toSet());
-                Set<String> newLicenses = merged.getLicenses().stream().map(License::getUrl)
-                        .collect(Collectors.toSet());
+                Set<String> origLicenses =
+                        depProj.getModel().getLicenses().stream().map(License::getUrl).collect(Collectors.toSet());
+                Set<String> newLicenses =
+                        merged.getLicenses().stream().map(License::getUrl).collect(Collectors.toSet());
                 if (!origLicenses.equals(newLicenses)) {
-                    getLog().warn("license list for " + toGav(depProj)
-                            + " changed with supplemental model; was: " + origLicenses
-                            + ", now: " + newLicenses);
+                    warnUnlessFlag(depProj, IGNORE_LICENSE_OVERRIDE, "license list for " + toGav(depProj)
+                            + " changed with supplemental model; was: " + origLicenses + ", now: " + newLicenses);
                 }
                 depProj = new MavenProject(merged);
-                depProj.setArtifact( depObj );
-                depProj.setVersion( depObj.getVersion() );
+                depProj.setArtifact(depObj);
+                depProj.setVersion(depObj.getVersion());
             }
             depProj.getArtifact().setScope(depObj.getScope());
             projectCache.put(key, depProj);
@@ -310,8 +410,34 @@ public abstract class LicenseMojo extends AbstractMojo {
         return depProj;
     }
 
-    private String toGav(MavenProject dep) {
-        return dep.getGroupId() + ":" + dep.getArtifactId() + ":" + dep.getVersion();
+    protected void warnUnlessFlag(MavenProject depProj, ProjectFlag flag, String message) {
+        warnUnlessFlag(toGav(depProj), flag, message);
+    }
+
+    protected void warnUnlessFlag(Project depProj, ProjectFlag flag, String message) {
+        warnUnlessFlag(depProj.gav(), flag, message);
+    }
+
+    protected void warnUnlessFlag(String gav, ProjectFlag flag, String message) {
+        if (projectFlags.containsKey(Pair.of(gav, flag))) {
+            getLog().info(message);
+        } else {
+            getLog().warn(message);
+        }
+    }
+
+    public Map<Pair<String, ProjectFlag>, Object> getProjectFlags() {
+        return projectFlags;
+    }
+
+    public Object getProjectFlag(String gav, ProjectFlag flag) {
+        return projectFlags.get(Pair.of(gav, flag));
+    }
+
+    private void registerVerified(MavenProject depObj, Model supplement) {
+        if (supplement != null) {
+            Arrays.stream(ProjectFlag.values()).forEach(flag -> flag.visit(depObj, supplement.getProperties(), this));
+        }
     }
 
     protected List<Pattern> compileExcludePatterns() {
@@ -355,4 +481,3 @@ public abstract class LicenseMojo extends AbstractMojo {
         return artifactResolver;
     }
 }
-

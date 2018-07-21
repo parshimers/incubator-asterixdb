@@ -91,7 +91,7 @@ public class HDFSReadOperatorDescriptor extends AbstractSingleActivityOperatorDe
             this.splitsFactory = new FileSplitsFactory(fileSplits);
             this.confFactory = new ConfFactory(conf);
         } catch (Exception e) {
-            throw new HyracksException(e);
+            throw HyracksException.create(e);
         }
         this.scheduledLocations = scheduledLocations;
         this.executed = new boolean[scheduledLocations.length];
@@ -103,7 +103,7 @@ public class HDFSReadOperatorDescriptor extends AbstractSingleActivityOperatorDe
     @Override
     public IOperatorNodePushable createPushRuntime(final IHyracksTaskContext ctx,
             IRecordDescriptorProvider recordDescProvider, final int partition, final int nPartitions)
-                    throws HyracksDataException {
+            throws HyracksDataException {
         final List<FileSplit> inputSplits = splitsFactory.getSplits();
 
         return new AbstractUnaryOutputSourceOperatorNodePushable() {
@@ -120,8 +120,8 @@ public class HDFSReadOperatorDescriptor extends AbstractSingleActivityOperatorDe
                     Job job = confFactory.getConf();
                     job.getConfiguration().setClassLoader(ctx.getJobletContext().getClassLoader());
                     IKeyValueParser parser = tupleParserFactory.createKeyValueParser(ctx);
-                    InputFormat inputFormat = ReflectionUtils.newInstance(job.getInputFormatClass(),
-                            job.getConfiguration());
+                    InputFormat inputFormat =
+                            ReflectionUtils.newInstance(job.getInputFormatClass(), job.getConfiguration());
                     int size = inputSplits.size();
                     for (int i = 0; i < size; i++) {
                         /**
@@ -156,7 +156,7 @@ public class HDFSReadOperatorDescriptor extends AbstractSingleActivityOperatorDe
                     parser.close(writer);
                 } catch (Throwable th) {
                     writer.fail();
-                    throw new HyracksDataException(th);
+                    throw HyracksDataException.create(th);
                 } finally {
                     writer.close();
                     Thread.currentThread().setContextClassLoader(ctxCL);

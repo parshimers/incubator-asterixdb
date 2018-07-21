@@ -19,8 +19,8 @@
 package org.apache.hyracks.control.nc.application;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.Serializable;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.hyracks.api.application.INCServiceContext;
 import org.apache.hyracks.api.application.IStateDumpHandler;
@@ -35,6 +35,9 @@ import org.apache.hyracks.control.common.utils.HyracksThreadFactory;
 import org.apache.hyracks.control.nc.NodeControllerService;
 import org.apache.hyracks.control.nc.io.IOManager;
 import org.apache.hyracks.control.nc.resources.memory.MemoryManager;
+import org.apache.hyracks.util.trace.ITracer;
+import org.apache.hyracks.util.trace.TraceCategoryRegistry;
+import org.apache.hyracks.util.trace.Tracer;
 
 public class NCServiceContext extends ServiceContext implements INCServiceContext {
     private final ILifeCycleComponentManager lccm;
@@ -44,23 +47,20 @@ public class NCServiceContext extends ServiceContext implements INCServiceContex
     private IStateDumpHandler sdh;
     private final NodeControllerService ncs;
     private IChannelInterfaceFactory messagingChannelInterfaceFactory;
+    private final ITracer tracer;
 
-    public NCServiceContext(NodeControllerService ncs, ServerContext serverCtx, IOManager ioManager,
-            String nodeId, MemoryManager memoryManager, ILifeCycleComponentManager lifeCyclecomponentManager,
-            IApplicationConfig appConfig) throws IOException {
+    public NCServiceContext(NodeControllerService ncs, ServerContext serverCtx, IOManager ioManager, String nodeId,
+            MemoryManager memoryManager, ILifeCycleComponentManager lifeCyclecomponentManager,
+            IApplicationConfig appConfig) {
         super(serverCtx, appConfig, new HyracksThreadFactory(nodeId));
         this.lccm = lifeCyclecomponentManager;
         this.nodeId = nodeId;
         this.ioManager = ioManager;
         this.memoryManager = memoryManager;
         this.ncs = ncs;
-        sdh = new IStateDumpHandler() {
-
-            @Override
-            public void dumpState(OutputStream os) throws IOException {
-                lccm.dumpState(os);
-            }
-        };
+        this.sdh = lccm::dumpState;
+        this.tracer = new Tracer(nodeId, ncs.getConfiguration().getTraceCategories(), new TraceCategoryRegistry());
+        this.distributedState = new ConcurrentHashMap<>();
     }
 
     @Override
@@ -94,6 +94,11 @@ public class NCServiceContext extends ServiceContext implements INCServiceContex
     @Override
     public IMemoryManager getMemoryManager() {
         return memoryManager;
+    }
+
+    @Override
+    public ITracer getTracer() {
+        return tracer;
     }
 
     @Override

@@ -74,8 +74,8 @@ public class StringToCodePointDescriptor extends AbstractScalarFunctionDynamicDe
                     private ArrayBackedValueStorage inputVal = new ArrayBackedValueStorage();
 
                     @SuppressWarnings("unchecked")
-                    private final ISerializerDeserializer<AInt64> int64Serde = SerializerDeserializerProvider.INSTANCE
-                            .getSerializerDeserializer(BuiltinType.AINT64);
+                    private final ISerializerDeserializer<AInt64> int64Serde =
+                            SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.AINT64);
                     private final AMutableInt64 aInt64 = new AMutableInt64(0);
 
                     @Override
@@ -108,7 +108,7 @@ public class StringToCodePointDescriptor extends AbstractScalarFunctionDynamicDe
                             }
                             result.set(resultStorage);
                         } catch (IOException e1) {
-                            throw new HyracksDataException(e1);
+                            throw HyracksDataException.create(e1);
                         }
                     }
                 };

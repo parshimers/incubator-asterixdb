@@ -24,7 +24,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.CRC32;
 
 import org.apache.asterix.common.context.PrimaryIndexOperationTracker;
-import org.apache.asterix.common.replication.IReplicationThread;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.common.tuples.SimpleTupleReference;
 import org.apache.hyracks.storage.am.common.tuples.SimpleTupleWriter;
@@ -32,23 +31,25 @@ import org.apache.hyracks.storage.am.common.tuples.SimpleTupleWriter;
 /**
  * == LogRecordFormat ==
  * ---------------------------
- * [Header1] (6 bytes) : for all log types
+ * [Header1] (10 bytes) : for all log types
  * LogSource(1)
  * LogType(1)
- * JobId(4)
+ * TxnId(8)
  * ---------------------------
- * [Header2] (16 bytes + PKValueSize) : for entity_commit, upsert_entity_commit, and update log types
+ * [Header2] (8 bytes) : for entity_commit, upsert_entity_commit, filter and update log types
  * DatasetId(4) //stored in dataset_dataset in Metadata Node
  * ResourcePartition(4)
+ * ---------------------------
+ * [Header3] (8 bytes + PKValueSize) : for entity_commit, upsert_entity_commit, and update log types
  * PKHashValue(4)
  * PKValueSize(4)
  * PKValue(PKValueSize)
  * ---------------------------
- * [Header3] (12 bytes) : only for update log type
+ * [Header4] (12 bytes) : only for update, filter log type
  * ResourceId(8) //stored in .metadata of the corresponding index in NC node
  * LogRecordSize(4)
  * ---------------------------
- * [Body] (9 bytes + NewValueSize) : only for update log type
+ * [Body] (9 bytes + NewValueSize) : only for update, filter log type
  * FieldCnt(4)
  * NewOp(1)
  * NewValueSize(4)
@@ -57,24 +58,13 @@ import org.apache.hyracks.storage.am.common.tuples.SimpleTupleWriter;
  * [Tail] (8 bytes) : for all log types
  * Checksum(8)
  * ---------------------------
- * = LogSize =
- * 1) JOB_COMMIT_LOG_SIZE: 14 bytes (Header1(6) + Tail(8))
- * 2) ENTITY_COMMIT || UPSERT_ENTITY_COMMIT: (Header1(6) + Header2(16) + Tail(8)) + PKValueSize
- * --> ENTITY_COMMIT_LOG_BASE_SIZE = 30
- * 3) UPDATE: (Header1(6) + Header2(16) + + Header3(20) + Body(9) + Tail(8)) + PKValueSize + NewValueSize
- * --> UPDATE_LOG_BASE_SIZE = 59
- * 4) FLUSH: 18 bytes (Header1(6) + DatasetId(4) + Tail(8))
- * 5) WAIT_LOG_SIZE: 14 bytes (Header1(6) + Tail(8))
- * --> WAIT_LOG only requires LogType Field, but in order to conform the log reader protocol
- * it also includes LogSource and JobId fields.
  */
-
 public class LogRecord implements ILogRecord {
 
     // ------------- fields in a log record (begin) ------------//
     private byte logSource;
     private byte logType;
-    private int jobId;
+    private long txnId;
     private int datasetId;
     private int PKHashValue;
     private int PKValueSize;
@@ -92,6 +82,8 @@ public class LogRecord implements ILogRecord {
     private long checksum;
     private long prevMarkerLSN;
     private ByteBuffer marker;
+    private long flushingComponentMinId;
+    private long flushingComponentMaxId;
     // ------------- fields in a log record (end) --------------//
     private final ILogMarkerCallback callback; // A callback for log mark operations
     private int PKFieldCnt;
@@ -104,18 +96,19 @@ public class LogRecord implements ILogRecord {
     private final CRC32 checksumGen;
     private int[] PKFields;
     private PrimaryIndexOperationTracker opTracker;
-    private IReplicationThread replicationThread;
+
     /**
      * The fields (numOfFlushedIndexes and nodeId) are used for remote flush logs only
      * to indicate the source of the log and how many indexes were flushed using its LSN.
      */
-    private int numOfFlushedIndexes;
-    private String nodeId;
-    private boolean replicated = false;
+    private final AtomicBoolean replicated;
+    private boolean replicate = false;
+    private ILogRequester requester;
 
     public LogRecord(ILogMarkerCallback callback) {
         this.callback = callback;
         isFlushed = new AtomicBoolean(false);
+        replicated = new AtomicBoolean(false);
         readPKValue = new PrimaryKeyTupleReference();
         readNewValue = SimpleTupleWriter.INSTANCE.createTupleReference();
         readOldValue = SimpleTupleWriter.INSTANCE.createTupleReference();
@@ -130,13 +123,15 @@ public class LogRecord implements ILogRecord {
     private void doWriteLogRecord(ByteBuffer buffer) {
         buffer.put(logSource);
         buffer.put(logType);
-        buffer.putInt(jobId);
+        buffer.putLong(txnId);
         switch (logType) {
             case LogType.ENTITY_COMMIT:
-                writeEntityInfo(buffer);
+                writeEntityResource(buffer);
+                writeEntityValue(buffer);
                 break;
             case LogType.UPDATE:
-                writeEntityInfo(buffer);
+                writeEntityResource(buffer);
+                writeEntityValue(buffer);
                 buffer.putLong(resourceId);
                 buffer.putInt(logSize);
                 buffer.putInt(newValueFieldCount);
@@ -149,8 +144,20 @@ public class LogRecord implements ILogRecord {
                     writeTuple(buffer, oldValue, oldValueSize);
                 }
                 break;
+            case LogType.FILTER:
+                writeEntityResource(buffer);
+                buffer.putLong(resourceId);
+                buffer.putInt(logSize);
+                buffer.putInt(newValueFieldCount);
+                buffer.put(newOp);
+                buffer.putInt(newValueSize);
+                writeTuple(buffer, newValue, newValueSize);
+                break;
             case LogType.FLUSH:
                 buffer.putInt(datasetId);
+                buffer.putInt(resourcePartition);
+                buffer.putLong(flushingComponentMinId);
+                buffer.putLong(flushingComponentMaxId);
                 break;
             case LogType.MARKER:
                 buffer.putInt(datasetId);
@@ -164,15 +171,18 @@ public class LogRecord implements ILogRecord {
         }
     }
 
-    private void writeEntityInfo(ByteBuffer buffer) {
-        buffer.putInt(resourcePartition);
-        buffer.putInt(datasetId);
+    private void writeEntityValue(ByteBuffer buffer) {
         buffer.putInt(PKHashValue);
         if (PKValueSize <= 0) {
             throw new IllegalStateException("Primary Key Size is less than or equal to 0");
         }
         buffer.putInt(PKValueSize);
         writePKValue(buffer);
+    }
+
+    private void writeEntityResource(ByteBuffer buffer) {
+        buffer.putInt(resourcePartition);
+        buffer.putInt(datasetId);
     }
 
     @Override
@@ -188,9 +198,6 @@ public class LogRecord implements ILogRecord {
         doWriteLogRecord(buffer);
         if (logType == LogType.FLUSH) {
             buffer.putLong(LSN);
-            buffer.putInt(numOfFlushedIndexes);
-            buffer.putInt(nodeId.length());
-            buffer.put(nodeId.getBytes());
         }
     }
 
@@ -248,16 +255,22 @@ public class LogRecord implements ILogRecord {
         }
         logSource = buffer.get();
         logType = buffer.get();
-        jobId = buffer.getInt();
+        txnId = buffer.getLong();
         switch (logType) {
             case LogType.FLUSH:
-                if (buffer.remaining() < ILogRecord.DS_LEN) {
+                if (buffer.remaining() < DS_LEN + RS_PARTITION_LEN + FLUSHING_COMPONENT_MINID_LEN
+                        + FLUSHING_COMPONENT_MAXID_LEN) {
                     return RecordReadStatus.TRUNCATED;
                 }
                 datasetId = buffer.getInt();
+                resourcePartition = buffer.getInt();
+                flushingComponentMinId = buffer.getLong();
+                flushingComponentMaxId = buffer.getLong();
                 resourceId = 0l;
-                // fall throuh
+                computeAndSetLogSize();
+                break;
             case LogType.WAIT:
+            case LogType.WAIT_FOR_FLUSHES:
                 computeAndSetLogSize();
                 break;
             case LogType.JOB_COMMIT:
@@ -267,51 +280,18 @@ public class LogRecord implements ILogRecord {
                 computeAndSetLogSize();
                 break;
             case LogType.ENTITY_COMMIT:
-                if (readEntityInfo(buffer)) {
+                if (readEntityResource(buffer) && readEntityValue(buffer)) {
                     computeAndSetLogSize();
                 } else {
                     return RecordReadStatus.TRUNCATED;
                 }
                 break;
             case LogType.UPDATE:
-                if (readEntityInfo(buffer)) {
-                    if (buffer.remaining() < UPDATE_LSN_HEADER + UPDATE_BODY_HEADER) {
-                        return RecordReadStatus.TRUNCATED;
-                    }
-                    resourceId = buffer.getLong();
-                    logSize = buffer.getInt();
-                    newValueFieldCount = buffer.getInt();
-                    newOp = buffer.get();
-                    newValueSize = buffer.getInt();
-                    if (buffer.remaining() < newValueSize) {
-                        if (logSize > buffer.capacity()) {
-                            return RecordReadStatus.LARGE_RECORD;
-                        }
-                        return RecordReadStatus.TRUNCATED;
-                    }
-                    newValue = readTuple(buffer, readNewValue, newValueFieldCount, newValueSize);
-                    if (logSize > getUpdateLogSizeWithoutOldValue()) {
-                        // Prev Image exists
-                        if (buffer.remaining() < Integer.BYTES) {
-                            return RecordReadStatus.TRUNCATED;
-                        }
-                        oldValueSize = buffer.getInt();
-                        if (buffer.remaining() < Integer.BYTES) {
-                            return RecordReadStatus.TRUNCATED;
-                        }
-                        oldValueFieldCount = buffer.getInt();
-                        if (buffer.remaining() < oldValueSize) {
-                            return RecordReadStatus.TRUNCATED;
-                        }
-                        oldValue = readTuple(buffer, readOldValue, oldValueFieldCount, oldValueSize);
-                    } else {
-                        oldValueSize = 0;
-                        oldValue = null;
-                    }
+                if (readEntityResource(buffer) && readEntityValue(buffer)) {
+                    return readUpdateInfo(buffer);
                 } else {
                     return RecordReadStatus.TRUNCATED;
                 }
-                break;
             case LogType.MARKER:
                 if (buffer.remaining() < DS_LEN + RS_PARTITION_LEN + PRVLSN_LEN + LOGRCD_SZ_LEN) {
                     return RecordReadStatus.TRUNCATED;
@@ -334,19 +314,23 @@ public class LogRecord implements ILogRecord {
                 marker.position(lenRemaining);
                 marker.flip();
                 break;
+            case LogType.FILTER:
+                if (readEntityResource(buffer)) {
+                    return readUpdateInfo(buffer);
+                } else {
+                    return RecordReadStatus.TRUNCATED;
+                }
             default:
                 break;
         }
         return RecordReadStatus.OK;
     }
 
-    private boolean readEntityInfo(ByteBuffer buffer) {
+    private boolean readEntityValue(ByteBuffer buffer) {
         //attempt to read in the resourcePartition, dsid, PK hash and PK length
-        if (buffer.remaining() < ENTITYCOMMIT_UPDATE_HEADER_LEN) {
+        if (buffer.remaining() < ENTITY_VALUE_HEADER_LEN) {
             return false;
         }
-        resourcePartition = buffer.getInt();
-        datasetId = buffer.getInt();
         PKHashValue = buffer.getInt();
         PKValueSize = buffer.getInt();
         // attempt to read in the PK
@@ -360,6 +344,53 @@ public class LogRecord implements ILogRecord {
         return true;
     }
 
+    private boolean readEntityResource(ByteBuffer buffer) {
+        //attempt to read in the resourcePartition and dsid
+        if (buffer.remaining() < ENTITY_RESOURCE_HEADER_LEN) {
+            return false;
+        }
+        resourcePartition = buffer.getInt();
+        datasetId = buffer.getInt();
+        return true;
+    }
+
+    private RecordReadStatus readUpdateInfo(ByteBuffer buffer) {
+        if (buffer.remaining() < UPDATE_LSN_HEADER + UPDATE_BODY_HEADER) {
+            return RecordReadStatus.TRUNCATED;
+        }
+        resourceId = buffer.getLong();
+        logSize = buffer.getInt();
+        newValueFieldCount = buffer.getInt();
+        newOp = buffer.get();
+        newValueSize = buffer.getInt();
+        if (buffer.remaining() < newValueSize) {
+            if (logSize > buffer.capacity()) {
+                return RecordReadStatus.LARGE_RECORD;
+            }
+            return RecordReadStatus.TRUNCATED;
+        }
+        newValue = readTuple(buffer, readNewValue, newValueFieldCount, newValueSize);
+        if (logSize > getUpdateLogSizeWithoutOldValue()) {
+            // Prev Image exists
+            if (buffer.remaining() < Integer.BYTES) {
+                return RecordReadStatus.TRUNCATED;
+            }
+            oldValueSize = buffer.getInt();
+            if (buffer.remaining() < Integer.BYTES) {
+                return RecordReadStatus.TRUNCATED;
+            }
+            oldValueFieldCount = buffer.getInt();
+            if (buffer.remaining() < oldValueSize) {
+                return RecordReadStatus.TRUNCATED;
+            }
+            oldValue = readTuple(buffer, readOldValue, oldValueFieldCount, oldValueSize);
+        } else {
+            oldValueSize = 0;
+            oldValue = null;
+        }
+        return RecordReadStatus.OK;
+    }
+
     @Override
     public void readRemoteLog(ByteBuffer buffer) {
         //read common fields
@@ -367,12 +398,6 @@ public class LogRecord implements ILogRecord {
 
         if (logType == LogType.FLUSH) {
             LSN = buffer.getLong();
-            numOfFlushedIndexes = buffer.getInt();
-            //read serialized node id
-            int nodeIdLength = buffer.getInt();
-            byte[] nodeIdBytes = new byte[nodeIdLength];
-            buffer.get(nodeIdBytes);
-            nodeId = new String(nodeIdBytes);
         }
     }
 
@@ -412,6 +437,10 @@ public class LogRecord implements ILogRecord {
         }
     }
 
+    private int getFilterLogSize() {
+        return FILTER_LOG_BASE_SIZE + newValueSize;
+    }
+
     private int getUpdateLogSizeWithoutOldValue() {
         return UPDATE_LOG_BASE_SIZE + PKValueSize + newValueSize;
     }
@@ -433,7 +462,11 @@ public class LogRecord implements ILogRecord {
                 logSize = FLUSH_LOG_SIZE;
                 break;
             case LogType.WAIT:
+            case LogType.WAIT_FOR_FLUSHES:
                 logSize = WAIT_LOG_SIZE;
+                break;
+            case LogType.FILTER:
+                logSize = getFilterLogSize();
                 break;
             case LogType.MARKER:
                 setMarkerLogSize();
@@ -454,7 +487,7 @@ public class LogRecord implements ILogRecord {
         builder.append(" LSN : ").append(LSN);
         builder.append(" LogType : ").append(LogType.toString(logType));
         builder.append(" LogSize : ").append(logSize);
-        builder.append(" JobId : ").append(jobId);
+        builder.append(" TxnId : ").append(txnId);
         if (logType == LogType.ENTITY_COMMIT || logType == LogType.UPDATE) {
             builder.append(" DatasetId : ").append(datasetId);
             builder.append(" ResourcePartition : ").append(resourcePartition);
@@ -503,13 +536,13 @@ public class LogRecord implements ILogRecord {
     }
 
     @Override
-    public int getJobId() {
-        return jobId;
+    public long getTxnId() {
+        return txnId;
     }
 
     @Override
-    public void setJobId(int jobId) {
-        this.jobId = jobId;
+    public void setTxnId(long txnId) {
+        this.txnId = txnId;
     }
 
     @Override
@@ -553,10 +586,6 @@ public class LogRecord implements ILogRecord {
         if (logType == LogType.FLUSH) {
             //LSN
             remoteLogSize += Long.BYTES;
-            //num of indexes
-            remoteLogSize += Integer.BYTES;
-            //serialized node id String
-            remoteLogSize += Integer.BYTES + nodeId.length();
         }
         remoteLogSize -= CHKSUM_LEN;
         return remoteLogSize;
@@ -639,25 +668,6 @@ public class LogRecord implements ILogRecord {
     }
 
     @Override
-    public String getNodeId() {
-        return nodeId;
-    }
-
-    @Override
-    public void setNodeId(String nodeId) {
-        this.nodeId = nodeId;
-    }
-
-    public IReplicationThread getReplicationThread() {
-        return replicationThread;
-    }
-
-    @Override
-    public void setReplicationThread(IReplicationThread replicationThread) {
-        this.replicationThread = replicationThread;
-    }
-
-    @Override
     public void setLogSource(byte logSource) {
         this.logSource = logSource;
     }
@@ -665,14 +675,6 @@ public class LogRecord implements ILogRecord {
     @Override
     public byte getLogSource() {
         return logSource;
-    }
-
-    public int getNumOfFlushedIndexes() {
-        return numOfFlushedIndexes;
-    }
-
-    public void setNumOfFlushedIndexes(int numOfFlushedIndexes) {
-        this.numOfFlushedIndexes = numOfFlushedIndexes;
     }
 
     public void setPKFieldCnt(int pKFieldCnt) {
@@ -694,13 +696,13 @@ public class LogRecord implements ILogRecord {
     }
 
     @Override
-    public void setReplicated(boolean replicate) {
-        this.replicated = replicate;
+    public void setReplicated(boolean replicated) {
+        this.replicated.set(replicated);
     }
 
     @Override
     public boolean isReplicated() {
-        return replicated;
+        return replicated.get();
     }
 
     @Override
@@ -741,5 +743,43 @@ public class LogRecord implements ILogRecord {
     @Override
     public ByteBuffer getMarker() {
         return marker;
+    }
+
+    @Override
+    public void setReplicate(boolean replicate) {
+        this.replicate = replicate;
+    }
+
+    @Override
+    public boolean isReplicate() {
+        return replicate;
+    }
+
+    public ILogRequester getRequester() {
+        return requester;
+    }
+
+    public void setRequester(ILogRequester requester) {
+        this.requester = requester;
+    }
+
+    @Override
+    public long getFlushingComponentMinId() {
+        return flushingComponentMinId;
+    }
+
+    @Override
+    public void setFlushingComponentMinId(long flushingComponentMinId) {
+        this.flushingComponentMinId = flushingComponentMinId;
+    }
+
+    @Override
+    public long getFlushingComponentMaxId() {
+        return flushingComponentMaxId;
+    }
+
+    @Override
+    public void setFlushingComponentMaxId(long flushingComponentMaxId) {
+        this.flushingComponentMaxId = flushingComponentMaxId;
     }
 }

@@ -21,7 +21,6 @@ package org.apache.asterix.external.library.java;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.external.api.IJListAccessor;
 import org.apache.asterix.external.api.IJObject;
 import org.apache.asterix.external.api.IJObjectAccessor;
@@ -41,8 +40,10 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 public class JObjectPointableVisitor implements IVisitablePointableVisitor<IJObject, TypeInfo> {
 
     private final Map<ATypeTag, IJObjectAccessor> flatJObjectAccessors = new HashMap<ATypeTag, IJObjectAccessor>();
-    private final Map<IVisitablePointable, IJRecordAccessor> raccessorToJObject = new HashMap<IVisitablePointable, IJRecordAccessor>();
-    private final Map<IVisitablePointable, IJListAccessor> laccessorToPrinter = new HashMap<IVisitablePointable, IJListAccessor>();
+    private final Map<IVisitablePointable, IJRecordAccessor> raccessorToJObject =
+            new HashMap<IVisitablePointable, IJRecordAccessor>();
+    private final Map<IVisitablePointable, IJListAccessor> laccessorToPrinter =
+            new HashMap<IVisitablePointable, IJListAccessor>();
 
     @Override
     public IJObject visit(AListVisitablePointable accessor, TypeInfo arg) throws HyracksDataException {

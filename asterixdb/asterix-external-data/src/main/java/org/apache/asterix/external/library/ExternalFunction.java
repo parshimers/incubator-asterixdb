@@ -27,7 +27,6 @@ import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.external.api.IExternalFunction;
 import org.apache.asterix.external.api.IFunctionFactory;
 import org.apache.asterix.external.api.IFunctionHelper;
-import org.apache.asterix.formats.nontagged.SerializerDeserializerProvider;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.EnumDeserializer;
@@ -36,7 +35,6 @@ import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
-import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.data.std.primitive.VoidPointable;
@@ -56,20 +54,21 @@ public abstract class ExternalFunction implements IExternalFunction {
     protected final JavaFunctionHelper functionHelper;
 
     public ExternalFunction(IExternalFunctionInfo finfo, IScalarEvaluatorFactory args[], IHyracksTaskContext context,
-            IApplicationContext appCtx)
-            throws HyracksDataException {
+            IApplicationContext appCtx) throws HyracksDataException {
         this.finfo = finfo;
         this.evaluatorFactories = args;
         argumentEvaluators = new IScalarEvaluator[args.length];
         for (int i = 0; i < args.length; i++) {
             argumentEvaluators[i] = args[i].createScalarEvaluator(context);
         }
-        functionHelper = new JavaFunctionHelper(finfo, resultBuffer);
 
+        ILibraryManager libraryManager = appCtx.getLibraryManager();
         String[] fnameComponents = finfo.getFunctionIdentifier().getName().split("#");
         String functionLibary = fnameComponents[0];
         String dataverse = finfo.getFunctionIdentifier().getNamespace();
-        ILibraryManager libraryManager = appCtx.getLibraryManager();
+
+        functionHelper = new JavaFunctionHelper(finfo, resultBuffer,
+                libraryManager.getFunctionParameters(dataverse, finfo.getFunctionIdentifier().getName()));
         ClassLoader libraryClassLoader = libraryManager.getLibraryClassLoader(dataverse, functionLibary);
         String classname = finfo.getFunctionBody().trim();
         Class<?> clazz;
@@ -78,17 +77,8 @@ public abstract class ExternalFunction implements IExternalFunction {
             externalFunctionFactory = (IFunctionFactory) clazz.newInstance();
             externalFunction = externalFunctionFactory.getExternalFunction();
         } catch (Exception e) {
-            throw new RuntimeDataException(ErrorCode.LIBRARY_EXTERNAL_FUNCTION_UNABLE_TO_LOAD_CLASS, e,
-                    classname);
+            throw new RuntimeDataException(ErrorCode.LIBRARY_EXTERNAL_FUNCTION_UNABLE_TO_LOAD_CLASS, e, classname);
         }
-    }
-
-    public static ISerializerDeserializer<?> getSerDe(Object typeInfo) {
-        return SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(typeInfo);
-    }
-
-    public IExternalFunctionInfo getFinfo() {
-        return finfo;
     }
 
     public void setArguments(IFrameTupleReference tuple) throws AlgebricksException, IOException {
@@ -96,7 +86,7 @@ public abstract class ExternalFunction implements IExternalFunction {
             argumentEvaluators[i].evaluate(tuple, inputVal);
 
             // Type-cast the source array based on the input type that this function wants to receive.
-            ATypeTag targetTypeTag = finfo.getParamList().get(i).getTypeTag();
+            ATypeTag targetTypeTag = finfo.getArgumentList().get(i).getTypeTag();
             ATypeTag sourceTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER
                     .deserialize(inputVal.getByteArray()[inputVal.getStartOffset()]);
             if (sourceTypeTag != targetTypeTag) {

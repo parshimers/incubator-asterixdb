@@ -45,7 +45,7 @@ import org.apache.hyracks.algebricks.core.algebra.properties.StructuralPropertie
 
 public class OperatorPropertiesUtil {
 
-    private static final String MOVABLE = "isMovable";
+    public static final String MOVABLE = "isMovable";
 
     private OperatorPropertiesUtil() {
     }
@@ -59,9 +59,15 @@ public class OperatorPropertiesUtil {
         return true;
     }
 
-    // Obs: doesn't return expected result for op. with nested plans.
-    private static void getFreeVariablesInOp(ILogicalOperator op, Set<LogicalVariable> freeVars)
+    /**
+     * Adds the free variables of the operator to the given set.
+     *
+     * @param op
+     * @param freeVars
+     */
+    public static void getFreeVariablesInOp(ILogicalOperator op, Set<LogicalVariable> freeVars)
             throws AlgebricksException {
+        // Obs: doesn't return expected result for op. with nested plans.
         VariableUtilities.getUsedVariables(op, freeVars);
         HashSet<LogicalVariable> produced = new HashSet<>();
         VariableUtilities.getProducedVariables(op, produced);
@@ -75,7 +81,7 @@ public class OperatorPropertiesUtil {
      * collection provided.
      *
      * @param op
-     * @param vars
+     * @param freeVars
      *            - The collection to which the free variables will be added.
      */
     public static void getFreeVariablesInSelfOrDesc(AbstractLogicalOperator op, Set<LogicalVariable> freeVars)
@@ -248,6 +254,16 @@ public class OperatorPropertiesUtil {
         }
     }
 
+    /**
+     * Recursively visits all descendants of the given operator and
+     * (re)computes and sets a type environment for each operator.
+     *
+     * @param r
+     *            a mutable logical operator
+     * @param context
+     *            optimization context
+     * @throws AlgebricksException
+     */
     public static void typeOpRec(Mutable<ILogicalOperator> r, IOptimizationContext context) throws AlgebricksException {
         AbstractLogicalOperator op = (AbstractLogicalOperator) r.getValue();
         for (Mutable<ILogicalOperator> i : op.getInputs()) {
@@ -345,9 +361,8 @@ public class OperatorPropertiesUtil {
             StructuralPropertiesVector partitionedPropertiesVector) {
         ILogicalOperator leftChild = op.getInputs().get(0).getValue();
         ILogicalOperator rightChild = op.getInputs().get(1).getValue();
-        boolean unPartitioned =
-                leftChild.getExecutionMode().equals(AbstractLogicalOperator.ExecutionMode.UNPARTITIONED) && rightChild
-                        .getExecutionMode().equals(AbstractLogicalOperator.ExecutionMode.UNPARTITIONED);
+        boolean unPartitioned = leftChild.getExecutionMode().equals(AbstractLogicalOperator.ExecutionMode.UNPARTITIONED)
+                && rightChild.getExecutionMode().equals(AbstractLogicalOperator.ExecutionMode.UNPARTITIONED);
         return unPartitioned ? StructuralPropertiesVector.EMPTY_PROPERTIES_VECTOR : partitionedPropertiesVector;
     }
 }

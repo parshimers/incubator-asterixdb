@@ -19,11 +19,13 @@
 
 package org.apache.hyracks.storage.am.lsm.invertedindex.ondisk;
 
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.storage.am.btree.impls.BTree;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
 import org.apache.hyracks.storage.am.common.api.IIndexOperationContext;
-import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
+import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
+import org.apache.hyracks.storage.am.lsm.invertedindex.impls.LSMInvertedIndexSearchCursorInitialState;
 import org.apache.hyracks.storage.common.IIndexAccessor;
 import org.apache.hyracks.storage.common.IIndexCursor;
 import org.apache.hyracks.storage.common.MultiComparator;
@@ -31,15 +33,17 @@ import org.apache.hyracks.storage.common.MultiComparator;
 public class OnDiskInvertedIndexOpContext implements IIndexOperationContext {
 
     private final RangePredicate btreePred = new RangePredicate(null, null, true, true, null, null);
-    private IIndexAccessor btreeAccessor;
-    private IIndexCursor btreeCursor;
-    private MultiComparator searchCmp;
+    private final IIndexAccessor btreeAccessor;
+    private final IIndexCursor btreeCursor;
+    private final MultiComparator searchCmp;
     // For prefix search on partitioned indexes.
     private MultiComparator prefixSearchCmp;
+    private boolean destroyed = false;
+    private LSMInvertedIndexSearchCursorInitialState cursorInitialState;
 
-    public OnDiskInvertedIndexOpContext(BTree btree) {
+    public OnDiskInvertedIndexOpContext(BTree btree) throws HyracksDataException {
         // TODO: Ignore opcallbacks for now.
-        btreeAccessor = btree.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+        btreeAccessor = btree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
         btreeCursor = btreeAccessor.createSearchCursor(false);
         searchCmp = MultiComparator.create(btree.getComparatorFactories());
         if (btree.getComparatorFactories().length > 1) {
@@ -80,5 +84,25 @@ public class OnDiskInvertedIndexOpContext implements IIndexOperationContext {
 
     public MultiComparator getPrefixSearchCmp() {
         return prefixSearchCmp;
+    }
+
+    @Override
+    public void destroy() throws HyracksDataException {
+        if (destroyed) {
+            return;
+        }
+        destroyed = true;
+        try {
+            btreeAccessor.destroy();
+        } finally {
+            btreeCursor.destroy();
+        }
+    }
+
+    public LSMInvertedIndexSearchCursorInitialState getCursorInitialState() {
+        if (cursorInitialState == null) {
+            cursorInitialState = new LSMInvertedIndexSearchCursorInitialState();
+        }
+        return cursorInitialState;
     }
 }

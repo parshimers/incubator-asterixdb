@@ -118,6 +118,10 @@ public class ValidateUtil {
             }
             List<String> fieldName = partitioningExprs.get(0);
             IAType fieldType = recType.getSubFieldType(fieldName);
+            if (fieldType == null) {
+                String unTypeField = fieldName.get(0) == null ? "" : fieldName.get(0);
+                throw new CompilationException(ErrorCode.COMPILATION_FIELD_NOT_FOUND, unTypeField);
+            }
             partitioningExprTypes.add(fieldType);
             ATypeTag pkTypeTag = fieldType.getTypeTag();
             if (pkTypeTag != ATypeTag.UUID) {
@@ -127,11 +131,19 @@ public class ValidateUtil {
         } else {
             partitioningExprTypes =
                     KeyFieldTypeUtil.getKeyTypes(recType, metaRecType, partitioningExprs, keySourceIndicators);
-            for (int fidx = 0; fidx < partitioningExprTypes.size(); ++fidx) {
-                IAType fieldType = partitioningExprTypes.get(fidx);
+            for (int i = 0; i < partitioningExprs.size(); i++) {
+                List<String> partitioningExpr = partitioningExprs.get(i);
+                IAType fieldType = partitioningExprTypes.get(i);
                 if (fieldType == null) {
                     throw new CompilationException(ErrorCode.COMPILATION_FIELD_NOT_FOUND,
-                            RecordUtil.toFullyQualifiedName(partitioningExprs.get(fidx)));
+                            RecordUtil.toFullyQualifiedName(partitioningExpr));
+                }
+                boolean nullable = KeyFieldTypeUtil.chooseSource(keySourceIndicators, i, recType, metaRecType)
+                        .isSubFieldNullable(partitioningExpr);
+                if (nullable) {
+                    // key field is nullable
+                    throw new CompilationException(ErrorCode.COMPILATION_PRIMARY_KEY_CANNOT_BE_NULLABLE,
+                            RecordUtil.toFullyQualifiedName(partitioningExpr));
                 }
                 switch (fieldType.getTypeTag()) {
                     case TINYINT:
@@ -151,7 +163,7 @@ public class ValidateUtil {
                         break;
                     case UNION:
                         throw new CompilationException(ErrorCode.COMPILATION_PRIMARY_KEY_CANNOT_BE_NULLABLE,
-                                RecordUtil.toFullyQualifiedName(partitioningExprs.get(fidx)));
+                                RecordUtil.toFullyQualifiedName(partitioningExpr));
                     default:
                         throw new CompilationException(ErrorCode.COMPILATION_ILLEGAL_PRIMARY_KEY_TYPE,
                                 fieldType.getTypeTag());
@@ -174,9 +186,9 @@ public class ValidateUtil {
      *            the type of the index that its key fields is being validated
      * @throws AlgebricksException
      */
-    public static void validateKeyFields(ARecordType recType, ARecordType metaRecType,
-            List<List<String>> keyFieldNames, List<Integer> keySourceIndicators, List<IAType> keyFieldTypes,
-            IndexType indexType) throws AlgebricksException {
+    public static void validateKeyFields(ARecordType recType, ARecordType metaRecType, List<List<String>> keyFieldNames,
+            List<Integer> keySourceIndicators, List<IAType> keyFieldTypes, IndexType indexType)
+            throws AlgebricksException {
         List<IAType> fieldTypes =
                 KeyFieldTypeUtil.getKeyTypes(recType, metaRecType, keyFieldNames, keySourceIndicators);
         int pos = 0;

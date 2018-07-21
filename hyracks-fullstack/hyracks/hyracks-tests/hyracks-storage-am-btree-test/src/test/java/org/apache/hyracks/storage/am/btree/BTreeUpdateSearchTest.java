@@ -19,7 +19,6 @@
 package org.apache.hyracks.storage.am.btree;
 
 import java.util.Random;
-import java.util.logging.Level;
 
 import org.apache.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
@@ -39,6 +38,7 @@ import org.apache.hyracks.storage.am.btree.frames.BTreeNSMLeafFrameFactory;
 import org.apache.hyracks.storage.am.btree.impls.BTree;
 import org.apache.hyracks.storage.am.btree.impls.BTreeRangeSearchCursor;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
+import org.apache.hyracks.storage.am.btree.tuples.BTreeTypeAwareTupleWriterFactory;
 import org.apache.hyracks.storage.am.btree.util.AbstractBTreeTest;
 import org.apache.hyracks.storage.am.common.TestOperationCallback;
 import org.apache.hyracks.storage.am.common.api.IMetadataPageManager;
@@ -48,7 +48,7 @@ import org.apache.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexMetadataFrameFactory;
 import org.apache.hyracks.storage.am.common.frames.LIFOMetaDataFrameFactory;
 import org.apache.hyracks.storage.am.common.freepage.LinkedMetaDataPageManager;
-import org.apache.hyracks.storage.am.common.tuples.TypeAwareTupleWriterFactory;
+import org.apache.hyracks.storage.am.common.impls.IndexAccessParameters;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
 import org.junit.Test;
 
@@ -74,7 +74,7 @@ public class BTreeUpdateSearchTest extends AbstractBTreeTest {
         ISerializerDeserializer[] recDescSers =
                 { IntegerSerializerDeserializer.INSTANCE, IntegerSerializerDeserializer.INSTANCE };
 
-        TypeAwareTupleWriterFactory tupleWriterFactory = new TypeAwareTupleWriterFactory(typeTraits);
+        BTreeTypeAwareTupleWriterFactory tupleWriterFactory = new BTreeTypeAwareTupleWriterFactory(typeTraits, false);
         ITreeIndexFrameFactory leafFrameFactory = new BTreeNSMLeafFrameFactory(tupleWriterFactory);
         ITreeIndexFrameFactory interiorFrameFactory = new BTreeNSMInteriorFrameFactory(tupleWriterFactory);
         ITreeIndexMetadataFrameFactory metaFrameFactory = new LIFOMetaDataFrameFactory();
@@ -92,83 +92,90 @@ public class BTreeUpdateSearchTest extends AbstractBTreeTest {
 
         long start = System.currentTimeMillis();
 
-        if (LOGGER.isLoggable(Level.INFO)) {
+        if (LOGGER.isInfoEnabled()) {
             LOGGER.info("INSERTING INTO TREE");
         }
 
         ArrayTupleBuilder tb = new ArrayTupleBuilder(fieldCount);
         ArrayTupleReference insertTuple = new ArrayTupleReference();
-        ITreeIndexAccessor indexAccessor =
-                btree.createAccessor(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
+        IndexAccessParameters actx =
+                new IndexAccessParameters(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
+        ITreeIndexAccessor indexAccessor = btree.createAccessor(actx);
+        try {
+            int numInserts = 10000;
+            for (int i = 0; i < numInserts; i++) {
+                int f0 = rnd.nextInt() % 10000;
+                int f1 = 5;
+                TupleUtils.createIntegerTuple(tb, insertTuple, f0, f1);
+                if (LOGGER.isInfoEnabled()) {
+                    if (i % 10000 == 0) {
+                        long end = System.currentTimeMillis();
+                        LOGGER.info("INSERTING " + i + " : " + f0 + " " + f1 + " " + (end - start));
+                    }
+                }
 
-        int numInserts = 10000;
-        for (int i = 0; i < numInserts; i++) {
-            int f0 = rnd.nextInt() % 10000;
-            int f1 = 5;
-            TupleUtils.createIntegerTuple(tb, insertTuple, f0, f1);
-            if (LOGGER.isLoggable(Level.INFO)) {
-                if (i % 10000 == 0) {
-                    long end = System.currentTimeMillis();
-                    LOGGER.info("INSERTING " + i + " : " + f0 + " " + f1 + " " + (end - start));
+                try {
+                    indexAccessor.insert(insertTuple);
+                } catch (HyracksDataException hde) {
+                    if (hde.getErrorCode() != ErrorCode.DUPLICATE_KEY) {
+                        hde.printStackTrace();
+                        throw hde;
+                    }
                 }
             }
+            long end = System.currentTimeMillis();
+            long duration = end - start;
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info("DURATION: " + duration);
+            }
 
+            // Update scan.
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info("UPDATE SCAN:");
+            }
+            // Set the cursor to X latch nodes.
+            RangePredicate nullPred = new RangePredicate(null, null, true, true, null, null);
+            ITreeIndexCursor updateScanCursor = new BTreeRangeSearchCursor(leafFrame, true);
             try {
-                indexAccessor.insert(insertTuple);
-            } catch (HyracksDataException hde) {
-                if (hde.getErrorCode() != ErrorCode.DUPLICATE_KEY) {
-                    hde.printStackTrace();
-                    throw hde;
+                indexAccessor.search(updateScanCursor, nullPred);
+                try {
+                    while (updateScanCursor.hasNext()) {
+                        updateScanCursor.next();
+                        ITupleReference tuple = updateScanCursor.getTuple();
+                        // Change the value field.
+                        IntegerPointable.setInteger(tuple.getFieldData(1), tuple.getFieldStart(1), 10);
+                    }
+                } finally {
+                    updateScanCursor.close();
                 }
+            } finally {
+                updateScanCursor.destroy();
             }
-        }
-        long end = System.currentTimeMillis();
-        long duration = end - start;
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("DURATION: " + duration);
-        }
-
-        // Update scan.
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("UPDATE SCAN:");
-        }
-        // Set the cursor to X latch nodes.
-        ITreeIndexCursor updateScanCursor = new BTreeRangeSearchCursor(leafFrame, true);
-        RangePredicate nullPred = new RangePredicate(null, null, true, true, null, null);
-        indexAccessor.search(updateScanCursor, nullPred);
-        try {
-            while (updateScanCursor.hasNext()) {
-                updateScanCursor.next();
-                ITupleReference tuple = updateScanCursor.getTuple();
-                // Change the value field.
-                IntegerPointable.setInteger(tuple.getFieldData(1), tuple.getFieldStart(1), 10);
+            // Ordered scan to verify the values.
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info("ORDERED SCAN:");
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            updateScanCursor.close();
-        }
-
-        // Ordered scan to verify the values.
-        if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info("ORDERED SCAN:");
-        }
-        // Set the cursor to X latch nodes.
-        ITreeIndexCursor scanCursor = new BTreeRangeSearchCursor(leafFrame, true);
-        indexAccessor.search(scanCursor, nullPred);
-        try {
-            while (scanCursor.hasNext()) {
-                scanCursor.next();
-                ITupleReference tuple = scanCursor.getTuple();
-                String rec = TupleUtils.printTuple(tuple, recDescSers);
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info(rec);
+            // Set the cursor to X latch nodes.
+            ITreeIndexCursor scanCursor = new BTreeRangeSearchCursor(leafFrame, true);
+            try {
+                indexAccessor.search(scanCursor, nullPred);
+                try {
+                    while (scanCursor.hasNext()) {
+                        scanCursor.next();
+                        ITupleReference tuple = scanCursor.getTuple();
+                        String rec = TupleUtils.printTuple(tuple, recDescSers);
+                        if (LOGGER.isInfoEnabled()) {
+                            LOGGER.info(rec);
+                        }
+                    }
+                } finally {
+                    scanCursor.close();
                 }
+            } finally {
+                scanCursor.destroy();
             }
-        } catch (Exception e) {
-            e.printStackTrace();
         } finally {
-            scanCursor.close();
+            indexAccessor.destroy();
         }
         btree.deactivate();
         btree.destroy();

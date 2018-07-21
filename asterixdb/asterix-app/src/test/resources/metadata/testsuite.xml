@@ -69,83 +69,83 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="basic">
-      <compilation-unit name="meta03_builtin_type">
+      <compilation-unit name="meta03/builtin_type">
         <output-dir compare="Text">meta03/builtin_type</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="basic">
-      <compilation-unit name="meta03_builtin_type_nullable">
+      <compilation-unit name="meta03/builtin_type_nullable">
         <output-dir compare="Text">meta03/builtin_type_nullable</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="basic">
-      <compilation-unit name="meta03_ordered_list">
+      <compilation-unit name="meta03/complex_type/ordered_list">
         <output-dir compare="Text">meta03/complex_type/ordered_list</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="basic">
-      <compilation-unit name="meta03_ordered_list_nullable">
-        <output-dir compare="Text">meta03/complex_type/ordered_list</output-dir>
+      <compilation-unit name="meta03/complex_type/ordered_list_nullable">
+        <output-dir compare="Text">meta03/complex_type/ordered_list_nullable</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="basic">
-      <compilation-unit name="meta03_record">
+      <compilation-unit name="meta03/complex_type/record">
         <output-dir compare="Text">meta03/complex_type/record</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="basic">
-      <compilation-unit name="meta03_record_nullable">
-        <output-dir compare="Text">meta03/complex_type/record</output-dir>
+      <compilation-unit name="meta03/complex_type/record_nullable">
+        <output-dir compare="Text">meta03/complex_type/record_nullable</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="basic">
-      <compilation-unit name="meta03_unordered_list">
+      <compilation-unit name="meta03/complex_type/unordered_list">
         <output-dir compare="Text">meta03/complex_type/unordered_list</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="basic">
-      <compilation-unit name="meta03_unordered_list_nullable">
-        <output-dir compare="Text">meta03/complex_type/unordered_list</output-dir>
+      <compilation-unit name="meta03/complex_type/unordered_list_nullable">
+        <output-dir compare="Text">meta03/complex_type/unordered_list_nullable</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="basic">
-      <compilation-unit name="meta04_builtin_type">
+      <compilation-unit name="meta04/builtin_type">
         <output-dir compare="Text">meta04/builtin_type</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="basic">
-      <compilation-unit name="meta04_builtin_type_nullable">
+      <compilation-unit name="meta04/builtin_type_nullable">
         <output-dir compare="Text">meta04/builtin_type_nullable</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="basic">
-      <compilation-unit name="meta04_ordered_list">
+      <compilation-unit name="meta04/complex_type/ordered_list">
         <output-dir compare="Text">meta04/complex_type/ordered_list</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="basic">
-      <compilation-unit name="meta04_ordered_list_nullable">
-        <output-dir compare="Text">meta04/complex_type/ordered_list</output-dir>
+      <compilation-unit name="meta04/complex_type/ordered_list_nullable">
+        <output-dir compare="Text">meta04/complex_type/ordered_list_nullable</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="basic">
-      <compilation-unit name="meta04_record">
+      <compilation-unit name="meta04/complex_type/record">
         <output-dir compare="Text">meta04/complex_type/record</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="basic">
-      <compilation-unit name="meta04_record_nullable">
-        <output-dir compare="Text">meta04/complex_type/record</output-dir>
+      <compilation-unit name="meta04/complex_type/record_nullable">
+        <output-dir compare="Text">meta04/complex_type/record_nullable</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="basic">
-      <compilation-unit name="meta04_unordered_list">
+      <compilation-unit name="meta04/complex_type/unordered_list">
         <output-dir compare="Text">meta04/complex_type/unordered_list</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="basic">
-      <compilation-unit name="meta04_unordered_list_nullable">
-        <output-dir compare="Text">meta04/complex_type/unordered_list</output-dir>
+      <compilation-unit name="meta04/complex_type/unordered_list_nullable">
+        <output-dir compare="Text">meta04/complex_type/unordered_list_nullable</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="basic">
@@ -324,11 +324,6 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="basic">
-      <compilation-unit name="temp_dataset">
-        <output-dir compare="Text">temp_dataset</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="basic">
       <compilation-unit name="issue_1419_drop_type_with_collection_1">
         <output-dir compare="Text">issue_1419_drop_type_with_collection</output-dir>
       </compilation-unit>
@@ -344,73 +339,73 @@
     <test-case FilePath="exception">
       <compilation-unit name="issue_239_drop_system_dataset_1">
         <output-dir compare="Text">none</output-dir>
-        <expected-error>Error: Invalid operation - Cannot drop a dataset belonging to the dataverse:Metadata</expected-error>
+        <expected-error>Invalid operation - Cannot drop a dataset belonging to the dataverse:Metadata</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="exception">
       <compilation-unit name="issue_239_drop_system_dataset_2">
         <output-dir compare="Text">none</output-dir>
-        <expected-error>Error: Invalid operation - Cannot drop a dataset belonging to the dataverse:Metadata</expected-error>
+        <expected-error>Invalid operation - Cannot drop a dataset belonging to the dataverse:Metadata</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="exception">
       <compilation-unit name="issue_239_drop_system_dataset_3">
         <output-dir compare="Text">none</output-dir>
-        <expected-error>Error: Invalid operation - Cannot drop a dataset belonging to the dataverse:Metadata</expected-error>
+        <expected-error>Invalid operation - Cannot drop a dataset belonging to the dataverse:Metadata</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="exception">
       <compilation-unit name="issue_239_drop_system_dataset_4">
         <output-dir compare="Text">none</output-dir>
-        <expected-error>Error: Invalid operation - Cannot drop a dataset belonging to the dataverse:Metadata</expected-error>
+        <expected-error>Invalid operation - Cannot drop a dataset belonging to the dataverse:Metadata</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="exception">
       <compilation-unit name="issue_239_drop_system_dataset_5">
         <output-dir compare="Text">none</output-dir>
-        <expected-error>Error: Invalid operation - Cannot drop a dataset belonging to the dataverse:Metadata</expected-error>
+        <expected-error>Invalid operation - Cannot drop a dataset belonging to the dataverse:Metadata</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="exception">
       <compilation-unit name="issue_239_drop_system_dataset_6">
         <output-dir compare="Text">none</output-dir>
-        <expected-error>Error: Invalid operation - Cannot drop a dataset belonging to the dataverse:Metadata</expected-error>
+        <expected-error>Invalid operation - Cannot drop a dataset belonging to the dataverse:Metadata</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="exception">
       <compilation-unit name="issue_239_drop_system_dataset_7">
         <output-dir compare="Text">none</output-dir>
-        <expected-error>Error: Invalid operation - Cannot drop a dataset belonging to the dataverse:Metadata</expected-error>
+        <expected-error>Invalid operation - Cannot drop a dataset belonging to the dataverse:Metadata</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="exception">
       <compilation-unit name="issue_239_drop_system_dataset_8">
         <output-dir compare="Text">none</output-dir>
-        <expected-error>Error: Invalid operation - Cannot drop a dataset belonging to the dataverse:Metadata</expected-error>
+        <expected-error>Invalid operation - Cannot drop a dataset belonging to the dataverse:Metadata</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="exception">
       <compilation-unit name="issue_251_dataset_hint_error_1">
         <output-dir compare="Text">none</output-dir>
-        <expected-error>Error: Invalid operation - Dataset: Book error in processing hint: TUPLE_SIZE Unknown hint</expected-error>
+        <expected-error>Invalid operation - Dataset: Book error in processing hint: TUPLE_SIZE Unknown hint</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="exception">
       <compilation-unit name="issue_251_dataset_hint_error_2">
         <output-dir compare="Text">none</output-dir>
-        <expected-error>Error: Invalid operation - Dataset: Book error in processing hint: SIZE Unknown hint</expected-error>
+        <expected-error>Invalid operation - Dataset: Book error in processing hint: SIZE Unknown hint</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="exception">
       <compilation-unit name="issue_272_create_index_error_1">
         <output-dir compare="Text">none</output-dir>
-        <expected-error>org.apache.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
+        <expected-error>There is no dataset with this name Foo in dataverse test</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="exception">
       <compilation-unit name="issue_272_create_index_error_2">
         <output-dir compare="Text">none</output-dir>
-        <expected-error>org.apache.hyracks.algebricks.common.exceptions.AlgebricksException</expected-error>
+        <expected-error>There is no dataset with this name Foo in dataverse test</expected-error>
       </compilation-unit>
     </test-case>
     <!-- This case should be fixed to return a proper message rather than NPE -->
@@ -449,37 +444,37 @@
     <test-case FilePath="exception">
       <compilation-unit name="issue_384_create_index_error_1">
         <output-dir compare="Text">none</output-dir>
-        <expected-error>Error: The field "[loc]" which is of type point cannot be indexed using the BTree index.</expected-error>
+        <expected-error>The field "[loc]" which is of type point cannot be indexed using the BTree index.</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="exception">
       <compilation-unit name="issue_384_create_index_error_2">
         <output-dir compare="Text">none</output-dir>
-        <expected-error>Error: The field "[age]" which is of type integer cannot be indexed using the RTree index.</expected-error>
+        <expected-error>The field "[age]" which is of type integer cannot be indexed using the RTree index.</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="exception">
       <compilation-unit name="issue_384_create_index_error_3">
         <output-dir compare="Text">none</output-dir>
-        <expected-error>Error: The field "[loc]" which is of type point cannot be indexed using the Length Partitioned Keyword index.</expected-error>
+        <expected-error>The field "[loc]" which is of type point cannot be indexed using the Length Partitioned Keyword index.</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="exception">
       <compilation-unit name="issue_384_create_index_error_4">
         <output-dir compare="Text">none</output-dir>
-        <expected-error>Error: The field "[loc]" which is of type point cannot be indexed using the Length Partitioned Keyword index.</expected-error>
+        <expected-error>The field "[loc]" which is of type point cannot be indexed using the Length Partitioned Keyword index.</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="exception">
       <compilation-unit name="issue_384_create_index_error_5">
         <output-dir compare="Text">none</output-dir>
-        <expected-error>Error: The field "[loc]" which is of type point cannot be indexed using the Length Partitioned N-Gram index.</expected-error>
+        <expected-error>The field "[loc]" which is of type point cannot be indexed using the Length Partitioned N-Gram index.</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="exception">
       <compilation-unit name="issue_384_create_index_error_6">
         <output-dir compare="Text">none</output-dir>
-        <expected-error>Error: The field "[loc]" which is of type point cannot be indexed using the Length Partitioned N-Gram index.</expected-error>
+        <expected-error>The field "[loc]" which is of type point cannot be indexed using the Length Partitioned N-Gram index.</expected-error>
       </compilation-unit>
     </test-case>
   </test-group>
@@ -487,7 +482,7 @@
     <test-case FilePath="transaction">
       <compilation-unit name="failure_previous_success">
         <output-dir compare="Text">failure_previous_success</output-dir>
-        <expected-error>org.apache.hyracks.algebricks.common.exceptions.AlgebricksException: A datatype with this name StreetType already exists</expected-error>
+        <expected-error>A datatype with this name StreetType already exists</expected-error>
       </compilation-unit>
       <compilation-unit name="verify_failure_previous_success">
         <output-dir compare="Text">verify_failure_previous_success</output-dir>
@@ -496,7 +491,7 @@
     <test-case FilePath="transaction">
       <compilation-unit name="failure_subsequent_no_execution">
         <output-dir compare="Text">failure_subsequent_no_execution</output-dir>
-        <expected-error>org.apache.hyracks.algebricks.common.exceptions.AlgebricksException: A nodegroup with this name group1 already exists</expected-error>
+        <expected-error>A nodegroup with this name group1 already exists</expected-error>
       </compilation-unit>
       <compilation-unit name="verify_failure_subsequent_no_execution">
         <output-dir compare="Text">verify_failure_subsequent_no_execution</output-dir>

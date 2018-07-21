@@ -20,11 +20,12 @@
 package org.apache.hyracks.storage.am.lsm.invertedindex.inmemory;
 
 import org.apache.hyracks.api.dataflow.value.IBinaryComparatorFactory;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.storage.am.btree.impls.BTree;
 import org.apache.hyracks.storage.am.btree.impls.BTree.BTreeAccessor;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
 import org.apache.hyracks.storage.am.common.api.IIndexOperationContext;
-import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
+import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.lsm.invertedindex.tokenizers.IBinaryTokenizer;
 import org.apache.hyracks.storage.am.lsm.invertedindex.tokenizers.IBinaryTokenizerFactory;
@@ -46,6 +47,7 @@ public class InMemoryInvertedIndexOpContext implements IIndexOperationContext {
     // To generate in-memory BTree tuples for insertions.
     private final IBinaryTokenizerFactory tokenizerFactory;
     private InvertedIndexTokenizingTupleIterator tupleIter;
+    private boolean destroyed = false;
 
     InMemoryInvertedIndexOpContext(BTree btree, IBinaryComparatorFactory[] tokenCmpFactories,
             IBinaryTokenizerFactory tokenizerFactory) {
@@ -67,8 +69,7 @@ public class InMemoryInvertedIndexOpContext implements IIndexOperationContext {
             case SEARCH: {
                 if (getBtreePred() == null) {
                     btreePred = new RangePredicate(null, null, true, true, null, null);
-                    btreeAccessor = (BTreeAccessor) btree.createAccessor(NoOpOperationCallback.INSTANCE,
-                            NoOpOperationCallback.INSTANCE);
+                    btreeAccessor = btree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
                     btreeCmp = MultiComparator.create(btree.getComparatorFactories());
                     tokenFieldsCmp = MultiComparator.create(tokenCmpFactories);
                 }
@@ -123,5 +124,16 @@ public class InMemoryInvertedIndexOpContext implements IIndexOperationContext {
 
     public void setTupleIter(InvertedIndexTokenizingTupleIterator tupleIter) {
         this.tupleIter = tupleIter;
+    }
+
+    @Override
+    public void destroy() throws HyracksDataException {
+        if (destroyed) {
+            return;
+        }
+        destroyed = true;
+        if (btreeAccessor != null) {
+            btreeAccessor.destroy();
+        }
     }
 }

@@ -18,61 +18,69 @@
  */
 package org.apache.hyracks.storage.am.lsm.common.impls;
 
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.storage.am.common.api.IExtendedModificationOperationCallback;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponent;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperation;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
-import org.apache.hyracks.storage.common.IModificationOperationCallback;
 import org.apache.hyracks.storage.common.ISearchOperationCallback;
 import org.apache.hyracks.storage.common.ISearchPredicate;
 import org.apache.hyracks.storage.common.MultiComparator;
+import org.apache.hyracks.util.trace.ITracer;
+import org.apache.hyracks.util.trace.ITracer.Scope;
+import org.apache.hyracks.util.trace.TraceUtils;
 
 public abstract class AbstractLSMIndexOperationContext implements ILSMIndexOperationContext {
 
+    protected final ILSMIndex index;
     protected final PermutingTupleReference indexTuple;
     protected final MultiComparator filterCmp;
     protected final PermutingTupleReference filterTuple;
-    protected final int[] allFields;
     protected final List<ILSMComponent> componentHolder;
     protected final List<ILSMDiskComponent> componentsToBeMerged;
     protected final List<ILSMDiskComponent> componentsToBeReplicated;
     protected final ISearchOperationCallback searchCallback;
-    protected final IModificationOperationCallback modificationCallback;
+    protected final IExtendedModificationOperationCallback modificationCallback;
     protected IndexOperation op;
     protected boolean accessingComponents = false;
     protected ISearchPredicate searchPredicate;
+    protected final ITracer tracer;
+    protected final long traceCategory;
+    private long enterExitTime = 0L;
+    protected boolean skipFilter = false;
+    protected boolean recovery = false;
+    private ILSMIOOperation ioOperation;
+    private Map<String, Object> parametersMap;
 
-    public AbstractLSMIndexOperationContext(int[] treeFields, int[] filterFields,
+    public AbstractLSMIndexOperationContext(ILSMIndex index, int[] treeFields, int[] filterFields,
             IBinaryComparatorFactory[] filterCmpFactories, ISearchOperationCallback searchCallback,
-            IModificationOperationCallback modificationCallback) {
+            IExtendedModificationOperationCallback modificationCallback, ITracer tracer) {
+        this.index = index;
         this.searchCallback = searchCallback;
         this.modificationCallback = modificationCallback;
-        this.componentHolder = new LinkedList<>();
-        this.componentsToBeMerged = new LinkedList<>();
-        this.componentsToBeReplicated = new LinkedList<>();
+        this.componentHolder = new ArrayList<>();
+        this.componentsToBeMerged = new ArrayList<>();
+        this.componentsToBeReplicated = new ArrayList<>();
         if (filterFields != null) {
             indexTuple = new PermutingTupleReference(treeFields);
             filterCmp = MultiComparator.create(filterCmpFactories);
             filterTuple = new PermutingTupleReference(filterFields);
-            allFields = new int[treeFields.length + filterFields.length];
-            for (int i = 0; i < treeFields.length; i++) {
-                allFields[i] = treeFields[i];
-            }
-            for (int i = treeFields.length; i < treeFields.length + filterFields.length; i++) {
-                allFields[i] = filterFields[i - treeFields.length];
-            }
         } else {
             indexTuple = null;
             filterCmp = null;
             filterTuple = null;
-            allFields = null;
         }
+        this.tracer = tracer;
+        this.traceCategory = tracer.getRegistry().get(TraceUtils.INDEX_OPERATIONS);
     }
 
     @Override
@@ -124,7 +132,7 @@ public abstract class AbstractLSMIndexOperationContext implements ILSMIndexOpera
     }
 
     @Override
-    public IModificationOperationCallback getModificationCallback() {
+    public IExtendedModificationOperationCallback getModificationCallback() {
         return modificationCallback;
     }
 
@@ -153,4 +161,73 @@ public abstract class AbstractLSMIndexOperationContext implements ILSMIndexOpera
     public ISearchPredicate getSearchPredicate() {
         return searchPredicate;
     }
+
+    @Override
+    public final boolean isTracingEnabled() {
+        return tracer.isEnabled(traceCategory);
+    }
+
+    @Override
+    public void logPerformanceCounters(int tupleCount) {
+        if (isTracingEnabled()) {
+            tracer.instant("store-counters", traceCategory, Scope.t,
+                    "{\"count\":" + tupleCount + ",\"enter-exit-duration-ns\":" + enterExitTime + "}");
+            resetCounters();
+        }
+    }
+
+    public void resetCounters() {
+        enterExitTime = 0L;
+    }
+
+    @Override
+    public void incrementEnterExitTime(long increment) {
+        enterExitTime += increment;
+    }
+
+    @Override
+    public ILSMIndex getIndex() {
+        return index;
+    }
+
+    @Override
+    public boolean isFilterSkipped() {
+        return skipFilter;
+    }
+
+    @Override
+    public void setFilterSkip(boolean skip) {
+        this.skipFilter = skip;
+    }
+
+    @Override
+    public boolean isRecovery() {
+        return recovery;
+    }
+
+    @Override
+    public void setRecovery(boolean recovery) {
+        this.recovery = recovery;
+    }
+
+    @Override
+    public ILSMIOOperation getIoOperation() {
+        return ioOperation;
+    }
+
+    @Override
+    public void setIoOperation(ILSMIOOperation ioOperation) {
+        this.ioOperation = ioOperation;
+    }
+
+    @Override
+    public void setParameters(Map<String, Object> map) {
+        this.parametersMap = map;
+    }
+
+    @Override
+    public Map<String, Object> getParameters() {
+        return parametersMap;
+    }
+
 }

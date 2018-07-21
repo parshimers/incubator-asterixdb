@@ -20,8 +20,6 @@
 package org.apache.hyracks.api.exceptions;
 
 import java.io.Serializable;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import org.apache.hyracks.api.util.ErrorMessageUtil;
 
@@ -31,16 +29,24 @@ import org.apache.hyracks.api.util.ErrorMessageUtil;
 public class HyracksDataException extends HyracksException {
 
     private static final long serialVersionUID = 1L;
-    private static final Logger LOGGER = Logger.getLogger(HyracksDataException.class.getName());
 
+    /**
+     * Wrap the failure cause in a HyracksDataException.
+     * If the cause is an InterruptedException, the thread is interrupted first.
+     * If the cause is already a HyracksDataException, then return it as it is.
+     *
+     * @param cause
+     *            the root failure
+     * @return the wrapped failure
+     */
     public static HyracksDataException create(Throwable cause) {
-        if (cause instanceof HyracksDataException || cause == null) {
-            return (HyracksDataException) cause;
+        if (cause == null) {
+            throw new NullPointerException("Attempt to wrap null in a HyracksDataException");
         }
-        if (cause instanceof InterruptedException && !Thread.currentThread().isInterrupted()) {
-            LOGGER.log(Level.WARNING,
-                    "Wrapping an InterruptedException in HyracksDataException and current thread is not interrupted",
-                    cause);
+        if (cause instanceof HyracksDataException) {
+            return (HyracksDataException) cause;
+        } else if (cause instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
         }
         return new HyracksDataException(cause);
     }
@@ -53,22 +59,15 @@ public class HyracksDataException extends HyracksException {
         return new HyracksDataException(ErrorCode.HYRACKS, code, ErrorCode.getErrorMessage(code), cause, params);
     }
 
-    public static HyracksDataException create(HyracksDataException e, String nodeId) {
-        return new HyracksDataException(e.getComponent(), e.getErrorCode(), e.getMessage(), e.getCause(), nodeId,
-                e.getParams());
-    }
-
-    public static HyracksDataException suppress(HyracksDataException root, Throwable th) {
-        if (root == null) {
-            return HyracksDataException.create(th);
-        }
-        root.addSuppressed(th);
-        return root;
-    }
-
     public HyracksDataException(String component, int errorCode, String message, Throwable cause, String nodeId,
             Serializable... params) {
         super(component, errorCode, message, cause, nodeId, params);
+    }
+
+    public HyracksDataException(String component, int errorCode, String message, Throwable cause, String nodeId,
+            StackTraceElement[] stackTrace, Serializable... params) {
+        super(component, errorCode, message, cause, nodeId, params);
+        setStackTrace(stackTrace);
     }
 
     /**
@@ -79,28 +78,8 @@ public class HyracksDataException extends HyracksException {
         super(message);
     }
 
-    /**
-     * @deprecated Error code is needed.
-     */
-    @Deprecated
-    public HyracksDataException(Throwable cause) {
+    protected HyracksDataException(Throwable cause) {
         super(cause);
-    }
-
-    /**
-     * @deprecated Error code is needed.
-     */
-    @Deprecated
-    public HyracksDataException(Throwable cause, String nodeId) {
-        super(cause, nodeId);
-    }
-
-    /**
-     * @deprecated Error code is needed.
-     */
-    @Deprecated
-    public HyracksDataException(String message, Throwable cause, String nodeId) {
-        super(message, cause, nodeId);
     }
 
     /**
@@ -124,7 +103,7 @@ public class HyracksDataException extends HyracksException {
     }
 
     public HyracksDataException(String component, int errorCode, Throwable cause, Serializable... params) {
-        super(component, errorCode, cause.getMessage(), cause, null, params);
+        super(component, errorCode, cause, params);
     }
 
     public HyracksDataException(String component, int errorCode, String message, Throwable cause,
@@ -132,4 +111,8 @@ public class HyracksDataException extends HyracksException {
         super(component, errorCode, message, cause, null, params);
     }
 
+    public static HyracksDataException create(HyracksDataException e, String nodeId) {
+        return new HyracksDataException(e.getComponent(), e.getErrorCode(), e.getMessage(), e.getCause(), nodeId,
+                e.getStackTrace(), e.getParams());
+    }
 }

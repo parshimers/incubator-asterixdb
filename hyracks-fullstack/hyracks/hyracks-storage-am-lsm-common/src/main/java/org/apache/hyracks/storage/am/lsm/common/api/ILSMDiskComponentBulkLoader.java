@@ -34,4 +34,16 @@ public interface ILSMDiskComponentBulkLoader extends IIndexBulkLoader {
      */
     void delete(ITupleReference tuple) throws HyracksDataException;
 
+    /**
+     * Releases all resources allocated during the bulkloading process
+     *
+     * @throws HyracksDataException
+     */
+    void cleanupArtifacts() throws HyracksDataException;
+
+    /**
+     * @return The operation this bulkLoader is operating under
+     */
+    ILSMIOOperation getOperation();
+
 }

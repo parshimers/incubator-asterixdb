@@ -30,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.maven.project.MavenProject;
 
 public class LicenseUtil {
 
@@ -56,11 +57,11 @@ public class LicenseUtil {
         }
     }
 
-    public static String process(String input, boolean unpad, boolean wrap) throws IOException {
+    public static String process(String input, boolean unpad, boolean wrap, boolean strict) throws IOException {
         try (BufferedReader reader = new BufferedReader(new StringReader(input))) {
             reader.mark(input.length() + 1);
             StringWriter sw = new StringWriter();
-            trim(sw, reader, unpad, wrap);
+            trim(sw, reader, unpad, wrap, strict);
             sw.append('\n');
             return sw.toString();
         }
@@ -75,23 +76,25 @@ public class LicenseUtil {
     }
 
     private static void trim(Writer out, BufferedReader reader) throws IOException {
-        trim(out, reader, true, true);
+        trim(out, reader, true, true, false);
     }
 
-    private static void trim(Writer out, BufferedReader reader, boolean unpad, boolean wrap) throws IOException {
+    private static void trim(Writer out, BufferedReader reader, boolean unpad, boolean wrap, boolean strict)
+            throws IOException {
         Pair<Integer, Integer> result = null;
         if (unpad || wrap) {
             result = analyze(reader);
             reader.reset();
         }
         doTrim(out, reader, unpad ? result.getLeft() : 0,
-                wrap && (result.getRight() > wrapThreshold) ? wrapLength : Integer.MAX_VALUE);
+                wrap && (result.getRight() > wrapThreshold) ? wrapLength : Integer.MAX_VALUE, strict);
     }
 
-    private static void doTrim(Writer out, BufferedReader reader, int extraPadding, int wrapLength) throws IOException {
+    private static void doTrim(Writer out, BufferedReader reader, int extraPadding, int wrapLength, boolean strict)
+            throws IOException {
         boolean head = true;
         int empty = 0;
-        for (String line = reader.readLine(); line != null; line = reader.readLine() ) {
+        for (String line = reader.readLine(); line != null; line = reader.readLine()) {
             if ("".equals(line.trim())) {
                 if (!head) {
                     empty++;
@@ -110,6 +113,8 @@ public class LicenseUtil {
                         out.append(trimmed.substring(0, cut));
                         out.append('\n');
                         trimmed = trimmed.substring(cut + 1);
+                    } else if (!strict) {
+                        break;
                     } else {
                         out.append(trimmed.substring(0, wrapLength));
                         out.append('\n');
@@ -136,9 +141,13 @@ public class LicenseUtil {
                 continue;
             }
             String fullyTrimmed = line.trim();
-            freeSpaces = Math.min(freeSpaces,  rightTrimmed.length() - fullyTrimmed.length());
+            freeSpaces = Math.min(freeSpaces, rightTrimmed.length() - fullyTrimmed.length());
             maxLineLength = Math.max(maxLineLength, fullyTrimmed.length());
         }
         return new ImmutablePair<>(freeSpaces, maxLineLength);
+    }
+
+    static String toGav(MavenProject dep) {
+        return dep.getGroupId() + ":" + dep.getArtifactId() + ":" + dep.getVersion();
     }
 }

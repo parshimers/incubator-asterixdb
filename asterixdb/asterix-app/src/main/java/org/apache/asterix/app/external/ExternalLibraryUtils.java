@@ -27,8 +27,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.Unmarshaller;
@@ -50,10 +48,13 @@ import org.apache.asterix.metadata.entities.Function;
 import org.apache.asterix.metadata.entities.Library;
 import org.apache.asterix.metadata.utils.MetadataUtil;
 import org.apache.asterix.runtime.formats.NonTaggedDataFormat;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class ExternalLibraryUtils {
 
-    private static final Logger LOGGER = Logger.getLogger(ExternalLibraryUtils.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger();
     private static final FilenameFilter nonHiddenFileNameFilter = (dir, name) -> !name.startsWith(".");
 
     private ExternalLibraryUtils() {
@@ -74,14 +75,11 @@ public class ExternalLibraryUtils {
             // get the list of files in the directory
             for (File dataverseDir : installLibDir.listFiles(File::isDirectory)) {
                 for (File libraryDir : dataverseDir.listFiles(File::isDirectory)) {
-                    // for each file (library), register library
-                    registerLibrary(externalLibraryManager, dataverseDir.getName(), libraryDir.getName());
-                    // is metadata node?
-                    if (isMetadataNode) {
-                        // get library file
-                        // install if needed (i,e, add the functions, adapters, datasources, parsers to the metadata)
-                        installLibraryIfNeeded(dataverseDir.getName(), libraryDir, uninstalledLibs);
-                    }
+                    // For each file (library), register classloader and configure its parameter.
+                    // If current node is Metadata Node, add the library to metadata.
+                    registerClassLoader(externalLibraryManager, dataverseDir.getName(), libraryDir.getName());
+                    configureLibrary(externalLibraryManager, dataverseDir.getName(), libraryDir, uninstalledLibs,
+                            isMetadataNode);
                 }
             }
         }
@@ -170,8 +168,7 @@ public class ExternalLibraryUtils {
                 // belong to the library?
                 if (adapter.getAdapterIdentifier().getName().startsWith(libraryName + "#")) {
                     // remove adapter <! we didn't check if there are feeds which use this adapter>
-                    MetadataManager.INSTANCE.dropAdapter(mdTxnCtx, dataverse,
-                            adapter.getAdapterIdentifier().getName());
+                    MetadataManager.INSTANCE.dropAdapter(mdTxnCtx, dataverse, adapter.getAdapterIdentifier().getName());
                 }
             }
             // drop the library itself
@@ -184,15 +181,9 @@ public class ExternalLibraryUtils {
         return true;
     }
 
-    /**
-     * Each element of a library is installed as part of a transaction. Any
-     * failure in installing an element does not effect installation of other
-     * libraries.
-     */
-    protected static void installLibraryIfNeeded(String dataverse, final File libraryDir,
-            Map<String, List<String>> uninstalledLibs) throws Exception {
-
-        String libraryName = libraryDir.getName().trim();
+    private static void addLibraryToMetadata(Map<String, List<String>> uninstalledLibs, String dataverse,
+            String libraryName, ExternalLibrary library) throws ACIDException, RemoteException {
+        // Modify metadata accordingly
         List<String> uninstalledLibsInDv = uninstalledLibs.get(dataverse);
         // was this library just un-installed?
         boolean wasUninstalled = uninstalledLibsInDv != null && uninstalledLibsInDv.contains(libraryName);
@@ -210,26 +201,9 @@ public class ExternalLibraryUtils {
 
             // Add library
             MetadataManager.INSTANCE.addLibrary(mdTxnCtx, new Library(dataverse, libraryName));
-            if (LOGGER.isLoggable(Level.INFO)) {
+            if (LOGGER.isInfoEnabled()) {
                 LOGGER.info("Added library " + libraryName + " to Metadata");
             }
-
-            // Get the descriptor
-            String[] libraryDescriptors = libraryDir.list((dir, name) -> name.endsWith(".xml"));
-
-            if (libraryDescriptors == null) {
-                throw new IOException("Unable to list files in directory " + libraryDir);
-            }
-
-            if (libraryDescriptors.length == 0) {
-                // should be fine. library was installed but its content was not added to metadata
-                MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
-                return;
-            } else if (libraryDescriptors.length > 1) {
-                throw new IllegalStateException("More than 1 library descriptors defined");
-            }
-
-            ExternalLibrary library = getLibrary(new File(libraryDir + File.separator + libraryDescriptors[0]));
 
             // Get the dataverse
             Dataverse dv = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverse);
@@ -240,22 +214,27 @@ public class ExternalLibraryUtils {
             // Add functions
             if (library.getLibraryFunctions() != null) {
                 for (LibraryFunction function : library.getLibraryFunctions().getLibraryFunction()) {
-                    String[] fargs = function.getArguments().trim().split(",");
+                    String[] fargs = function.getArgumentType().trim().split(",");
+                    String functionFullName = getExternalFunctionFullName(libraryName, function.getName().trim());
+                    String functionReturnType = function.getReturnType().trim();
+                    String functionDefinition = function.getDefinition().trim();
+                    String functionLanguage = library.getLanguage().trim();
+                    String functionType = function.getFunctionType().trim();
                     List<String> args = new ArrayList<>();
                     for (String arg : fargs) {
                         args.add(arg);
                     }
-                    Function f = new Function(dataverse, libraryName + "#" + function.getName().trim(), args.size(),
-                            args, function.getReturnType().trim(), function.getDefinition().trim(),
-                            library.getLanguage().trim(), function.getFunctionType().trim(), 0);
+                    FunctionSignature signature = new FunctionSignature(dataverse, functionFullName, args.size());
+                    Function f = new Function(signature, args, functionReturnType, functionDefinition, functionLanguage,
+                            functionType, null);
                     MetadataManager.INSTANCE.addFunction(mdTxnCtx, f);
-                    if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info("Installed function: " + libraryName + "#" + function.getName().trim());
+                    if (LOGGER.isInfoEnabled()) {
+                        LOGGER.info("Installed function: " + functionFullName);
                     }
                 }
             }
 
-            if (LOGGER.isLoggable(Level.INFO)) {
+            if (LOGGER.isInfoEnabled()) {
                 LOGGER.info("Installed functions in library :" + libraryName);
             }
 
@@ -263,26 +242,60 @@ public class ExternalLibraryUtils {
             if (library.getLibraryAdapters() != null) {
                 for (LibraryAdapter adapter : library.getLibraryAdapters().getLibraryAdapter()) {
                     String adapterFactoryClass = adapter.getFactoryClass().trim();
-                    String adapterName = libraryName + "#" + adapter.getName().trim();
+                    String adapterName = getExternalFunctionFullName(libraryName, adapter.getName().trim());
                     AdapterIdentifier aid = new AdapterIdentifier(dataverse, adapterName);
                     DatasourceAdapter dsa =
                             new DatasourceAdapter(aid, adapterFactoryClass, IDataSourceAdapter.AdapterType.EXTERNAL);
                     MetadataManager.INSTANCE.addAdapter(mdTxnCtx, dsa);
-                    if (LOGGER.isLoggable(Level.INFO)) {
+                    if (LOGGER.isInfoEnabled()) {
                         LOGGER.info("Installed adapter: " + adapterName);
                     }
                 }
             }
 
-            if (LOGGER.isLoggable(Level.INFO)) {
+            if (LOGGER.isInfoEnabled()) {
                 LOGGER.info("Installed adapters in library :" + libraryName);
             }
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
         } catch (Exception e) {
-            if (LOGGER.isLoggable(Level.SEVERE)) {
-                LOGGER.log(Level.SEVERE, "Exception in installing library " + libraryName, e);
+            if (LOGGER.isErrorEnabled()) {
+                LOGGER.log(Level.ERROR, "Exception in installing library " + libraryName, e);
             }
             MetadataManager.INSTANCE.abortTransaction(mdTxnCtx);
+        }
+    }
+
+    /**
+     * Each element of a library is installed as part of a transaction. Any
+     * failure in installing an element does not effect installation of other
+     * libraries.
+     */
+    protected static void configureLibrary(ILibraryManager libraryManager, String dataverse, final File libraryDir,
+            Map<String, List<String>> uninstalledLibs, boolean isMetadataNode) throws Exception {
+
+        String libraryName = libraryDir.getName().trim();
+        String[] libraryDescriptors = libraryDir.list((dir, name) -> name.endsWith(".xml"));
+
+        if (libraryDescriptors == null) {
+            throw new IOException("Unable to list files in directory " + libraryDir);
+        }
+
+        if (libraryDescriptors.length > 1) {
+            throw new IllegalStateException("More than 1 library descriptors defined");
+        }
+
+        // Prepare possible parameters
+        ExternalLibrary library = getLibrary(new File(libraryDir + File.separator + libraryDescriptors[0]));
+        if (library.getLibraryFunctions() != null) {
+            library.getLibraryFunctions().getLibraryFunction().forEach(fun -> {
+                if (fun.getParameters() != null) {
+                    libraryManager.addFunctionParameters(dataverse,
+                            getExternalFunctionFullName(libraryName, fun.getName()), fun.getParameters());
+                }
+            });
+        }
+        if (isMetadataNode) {
+            addLibraryToMetadata(uninstalledLibs, dataverse, libraryName, library);
         }
     }
 
@@ -293,8 +306,8 @@ public class ExternalLibraryUtils {
      * @param libraryName
      * @throws Exception
      */
-    protected static void registerLibrary(ILibraryManager externalLibraryManager, String dataverse, String libraryName)
-            throws Exception {
+    protected static void registerClassLoader(ILibraryManager externalLibraryManager, String dataverse,
+            String libraryName) throws Exception {
         // get the class loader
         ClassLoader classLoader = getLibraryClassLoader(dataverse, libraryName);
         // register it with the external library manager
@@ -326,7 +339,7 @@ public class ExternalLibraryUtils {
     private static ClassLoader getLibraryClassLoader(String dataverse, String libraryName) throws Exception {
         // Get a reference to the library directory
         File installDir = getLibraryInstallDir();
-        if (LOGGER.isLoggable(Level.INFO)) {
+        if (LOGGER.isInfoEnabled()) {
             LOGGER.info("Installing lirbary " + libraryName + " in dataverse " + dataverse + "."
                     + " Install Directory: " + installDir.getAbsolutePath());
         }
@@ -346,7 +359,7 @@ public class ExternalLibraryUtils {
         if (jarsInLibDir.length > 1) {
             throw new Exception("Incorrect library structure: found multiple library jars");
         }
-        if (jarsInLibDir.length < 0) {
+        if (jarsInLibDir.length <= 0) {
             throw new Exception("Incorrect library structure: could not find library jar");
         }
 
@@ -374,7 +387,7 @@ public class ExternalLibraryUtils {
             }
         }
 
-        if (LOGGER.isLoggable(Level.INFO)) {
+        if (LOGGER.isInfoEnabled()) {
             StringBuilder logMesg = new StringBuilder("Classpath for library " + libraryName + "\n");
             for (URL url : urls) {
                 logMesg.append(url.getFile() + "\n");
@@ -387,29 +400,23 @@ public class ExternalLibraryUtils {
     }
 
     /**
-     * @return the directory "$(ControllerConfig.defaultDir)/library": This needs to be improved
+     * @return the directory "System.getProperty("app.home", System.getProperty("user.home")/lib/udfs"
      */
     protected static File getLibraryInstallDir() {
-        // Check managix directory first. If not exists, check app home.
-        File installDir = new File(System.getProperty("user.dir"), "library");
-        if (!installDir.exists()) {
-            installDir = new File(System.getProperty("app.home", System.getProperty("user.home"))
-                    + File.separator + "lib" + File.separator + "udfs");
-        }
-        return installDir;
+        return new File(System.getProperty("app.home", System.getProperty("user.home")) + File.separator + "lib"
+                + File.separator + "udfs");
     }
 
     /**
-     * @return the directory "$(ControllerConfig.defaultDir)/uninstall": This needs to be improved
+     * @return the directory "System.getProperty("app.home", System.getProperty("user.home")/lib/udfs/uninstall"
      */
     protected static File getLibraryUninstallDir() {
-        // Check managix directory first. If not exists, check app home.
-        File uninstallDir = new File(System.getProperty("user.dir"), "uninstall");
-        if (!uninstallDir.exists()) {
-            uninstallDir = new File(System.getProperty("app.home", System.getProperty("user.home"))
-                    + File.separator + "lib" + File.separator + "udfs" + File.separator + "uninstall");
-        }
-        return uninstallDir;
+        return new File(System.getProperty("app.home", System.getProperty("user.home")) + File.separator + "lib"
+                + File.separator + "udfs" + File.separator + "uninstall");
+    }
+
+    public static String getExternalFunctionFullName(String libraryName, String functionName) {
+        return libraryName + "#" + functionName;
     }
 
 }

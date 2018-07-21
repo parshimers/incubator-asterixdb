@@ -18,13 +18,18 @@
  */
 package org.apache.asterix.transaction.management.service.recovery;
 
-import java.util.logging.Logger;
-
 import org.apache.asterix.common.api.IDatasetLifecycleManager;
 import org.apache.asterix.common.transactions.CheckpointProperties;
 import org.apache.asterix.common.transactions.ICheckpointManager;
 import org.apache.asterix.common.transactions.ITransactionSubsystem;
+import org.apache.asterix.common.transactions.TxnId;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * An implementation of {@link ICheckpointManager} that defines the logic
@@ -32,10 +37,13 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
  */
 public class CheckpointManager extends AbstractCheckpointManager {
 
-    private static final Logger LOGGER = Logger.getLogger(CheckpointManager.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger();
+    private static final long NO_SECURED_LSN = -1l;
+    private final Map<TxnId, Long> securedLSNs;
 
     public CheckpointManager(ITransactionSubsystem txnSubsystem, CheckpointProperties checkpointProperties) {
         super(txnSubsystem, checkpointProperties);
+        securedLSNs = new HashMap<>();
     }
 
     /**
@@ -45,8 +53,8 @@ public class CheckpointManager extends AbstractCheckpointManager {
     @Override
     public synchronized void doSharpCheckpoint() throws HyracksDataException {
         LOGGER.info("Starting sharp checkpoint...");
-        final IDatasetLifecycleManager datasetLifecycleManager = txnSubsystem.getAsterixAppRuntimeContextProvider()
-                .getDatasetLifecycleManager();
+        final IDatasetLifecycleManager datasetLifecycleManager =
+                txnSubsystem.getApplicationContext().getDatasetLifecycleManager();
         datasetLifecycleManager.flushAllDatasets();
         capture(SHARP_CHECKPOINT_LSN, true);
         txnSubsystem.getLogManager().renewLogFiles();
@@ -62,12 +70,16 @@ public class CheckpointManager extends AbstractCheckpointManager {
     @Override
     public synchronized long tryCheckpoint(long checkpointTargetLSN) throws HyracksDataException {
         LOGGER.info("Attemping soft checkpoint...");
+        final long minSecuredLSN = getMinSecuredLSN();
+        if (minSecuredLSN != NO_SECURED_LSN && checkpointTargetLSN >= minSecuredLSN) {
+            return minSecuredLSN;
+        }
         final long minFirstLSN = txnSubsystem.getRecoveryManager().getMinFirstLSN();
         boolean checkpointSucceeded = minFirstLSN >= checkpointTargetLSN;
         if (!checkpointSucceeded) {
             // Flush datasets with indexes behind target checkpoint LSN
-            IDatasetLifecycleManager datasetLifecycleManager = txnSubsystem.getAsterixAppRuntimeContextProvider()
-                    .getDatasetLifecycleManager();
+            IDatasetLifecycleManager datasetLifecycleManager =
+                    txnSubsystem.getApplicationContext().getDatasetLifecycleManager();
             datasetLifecycleManager.scheduleAsyncFlushForLaggingDatasets(checkpointTargetLSN);
         }
         capture(minFirstLSN, false);
@@ -76,5 +88,19 @@ public class CheckpointManager extends AbstractCheckpointManager {
             LOGGER.info(String.format("soft checkpoint succeeded at LSN(%s)", minFirstLSN));
         }
         return minFirstLSN;
+    }
+
+    @Override
+    public synchronized void secure(TxnId id) throws HyracksDataException {
+        securedLSNs.put(id, txnSubsystem.getRecoveryManager().getMinFirstLSN());
+    }
+
+    @Override
+    public synchronized void completed(TxnId id) {
+        securedLSNs.remove(id);
+    }
+
+    private synchronized long getMinSecuredLSN() {
+        return securedLSNs.isEmpty() ? NO_SECURED_LSN : Collections.min(securedLSNs.values());
     }
 }

@@ -22,8 +22,11 @@
   <parent>
     <groupId>org.apache.asterix</groupId>
     <artifactId>apache-asterixdb</artifactId>
-    <version>0.9.2-SNAPSHOT</version>
+    <version>0.9.4-SNAPSHOT</version>
   </parent>
+  <properties>
+    <root.dir>${basedir}/..</root.dir>
+  </properties>
   <build>
     <plugins>
       <plugin>
@@ -58,7 +61,6 @@
       <plugin>
         <groupId>org.apache.hyracks</groupId>
         <artifactId>license-automation-plugin</artifactId>
-        <version>${hyracks.version}</version>
         <executions>
           <execution>
             <phase>generate-resources</phase>
@@ -108,12 +110,13 @@
       </plugin>
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
-        <version>2.6</version>
         <executions>
           <execution>
             <configuration>
               <attach>true</attach>
-              <descriptor>src/main/assembly/assembly.xml</descriptor>
+              <descriptors>
+                <descriptor>src/main/assembly/assembly.xml</descriptor>
+              </descriptors>
             </configuration>
             <phase>package</phase>
             <goals>
@@ -125,7 +128,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
-        <version>2.10</version>
         <configuration>
           <usedDependencies combine.children="append">
             <usedDependency>org.codehaus.mojo.appassembler:appassembler-booter</usedDependency>
@@ -146,7 +148,7 @@
                   <pluginExecutionFilter>
                     <groupId>org.apache.hyracks</groupId>
                     <artifactId>license-automation-plugin</artifactId>
-                    <versionRange>${hyracks.version}</versionRange>
+                    <versionRange>[0.0,)</versionRange>
                     <goals>
                       <goal>generate</goal>
                     </goals>

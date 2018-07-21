@@ -39,7 +39,8 @@ public class InvertedIndexTokenizingTupleIterator {
     protected final IBinaryTokenizer tokenizer;
     protected ITupleReference inputTuple;
 
-    public InvertedIndexTokenizingTupleIterator(int tokensFieldCount, int invListFieldCount, IBinaryTokenizer tokenizer) {
+    public InvertedIndexTokenizingTupleIterator(int tokensFieldCount, int invListFieldCount,
+            IBinaryTokenizer tokenizer) {
         this.invListFieldCount = invListFieldCount;
         this.tupleBuilder = new ArrayTupleBuilder(tokensFieldCount + invListFieldCount);
         this.tupleReference = new ArrayTupleReference();
@@ -64,7 +65,7 @@ public class InvertedIndexTokenizingTupleIterator {
         try {
             token.serializeToken(tupleBuilder.getFieldData());
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
         tupleBuilder.addFieldEndOffset();
         // Add inverted-list element fields.

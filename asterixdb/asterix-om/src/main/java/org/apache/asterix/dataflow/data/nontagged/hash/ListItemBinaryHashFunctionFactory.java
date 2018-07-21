@@ -53,10 +53,11 @@ public class ListItemBinaryHashFunctionFactory implements IBinaryHashFunctionFac
     public IBinaryHashFunction createBinaryHashFunction(final ATypeTag itemTypeTag, final boolean ignoreCase) {
         return new IBinaryHashFunction() {
 
-            private IBinaryHashFunction lowerCaseStringHash = new PointableBinaryHashFunctionFactory(
-                    UTF8StringLowercasePointable.FACTORY).createBinaryHashFunction();
-            private IBinaryHashFunction genericBinaryHash = MurmurHash3BinaryHashFunctionFamily.INSTANCE
-                    .createBinaryHashFunction(0);
+            private IBinaryHashFunction lowerCaseStringHash =
+                    new PointableBinaryHashFunctionFactory(UTF8StringLowercasePointable.FACTORY)
+                            .createBinaryHashFunction();
+            private IBinaryHashFunction genericBinaryHash =
+                    MurmurHash3BinaryHashFunctionFamily.INSTANCE.createBinaryHashFunction(0);
             private GrowableArray taggedBytes = new GrowableArray();
 
             @Override
@@ -80,7 +81,7 @@ public class ListItemBinaryHashFunctionFactory implements IBinaryHashFunctionFac
                                 resetTaggedBytes(bytes, offset, length);
                                 return genericBinaryHash.hash(taggedBytes.getByteArray(), 0, length + 1);
                             } catch (IOException e) {
-                                throw new HyracksDataException(e);
+                                throw HyracksDataException.create(e);
                             }
                         } else {
                             return genericBinaryHash.hash(bytes, offset, length);

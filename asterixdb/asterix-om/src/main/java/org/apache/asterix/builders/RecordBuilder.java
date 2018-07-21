@@ -69,7 +69,7 @@ public class RecordBuilder implements IARecordBuilder {
     private int[] openFieldNameLengths;
 
     private int numberOfOpenFields;
-    private RuntimeRecordTypeInfo recTypeInfo;
+    private final RuntimeRecordTypeInfo recTypeInfo;
 
     public RecordBuilder() {
         this.closedPartOutputStream = new ByteArrayAccessibleOutputStream();
@@ -80,10 +80,10 @@ public class RecordBuilder implements IARecordBuilder {
         this.openFieldNameLengths = new int[DEFAULT_NUM_OPEN_FIELDS];
         this.numberOfOpenFields = 0;
 
-        this.utf8HashFunction = new PointableBinaryHashFunctionFactory(UTF8StringPointable.FACTORY)
-                .createBinaryHashFunction();
-        this.utf8Comparator = new PointableBinaryComparatorFactory(UTF8StringPointable.FACTORY)
-                .createBinaryComparator();
+        this.utf8HashFunction =
+                new PointableBinaryHashFunctionFactory(UTF8StringPointable.FACTORY).createBinaryHashFunction();
+        this.utf8Comparator =
+                new PointableBinaryComparatorFactory(UTF8StringPointable.FACTORY).createBinaryComparator();
 
         this.openPartOffsetArray = null;
         this.openPartOffsetArraySize = 0;
@@ -195,11 +195,11 @@ public class RecordBuilder implements IARecordBuilder {
         }
         if (numberOfOpenFields == openPartOffsets.length) {
             openPartOffsets = Arrays.copyOf(openPartOffsets, openPartOffsets.length + DEFAULT_NUM_OPEN_FIELDS);
-            openFieldNameLengths = Arrays.copyOf(openFieldNameLengths,
-                    openFieldNameLengths.length + DEFAULT_NUM_OPEN_FIELDS);
+            openFieldNameLengths =
+                    Arrays.copyOf(openFieldNameLengths, openFieldNameLengths.length + DEFAULT_NUM_OPEN_FIELDS);
         }
-        int fieldNameHashCode = utf8HashFunction.hash(name.getByteArray(), name.getStartOffset() + 1,
-                name.getLength() - 1);
+        int fieldNameHashCode =
+                utf8HashFunction.hash(name.getByteArray(), name.getStartOffset() + 1, name.getLength() - 1);
         if (recType != null) {
             int cFieldPos;
             cFieldPos = recTypeInfo.getFieldIndex(name.getByteArray(), name.getStartOffset() + 1, name.getLength() - 1);
@@ -296,18 +296,20 @@ public class RecordBuilder implements IARecordBuilder {
                 out.write(openPartOutputStream.getByteArray(), 0, openPartOutputStream.getLength());
             }
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 
     @Override
     public int getFieldId(String fieldName) {
-        for (int i = 0; i < recType.getFieldNames().length; i++) {
-            if (recType.getFieldNames()[i].equals(fieldName)) {
-                return i;
-            }
-        }
-        return -1;
+        return recType.getFieldIndex(fieldName);
     }
 
+    public IBinaryHashFunction getFieldNameHashFunction() {
+        return utf8HashFunction;
+    }
+
+    public IBinaryComparator getFieldNameComparator() {
+        return utf8Comparator;
+    }
 }

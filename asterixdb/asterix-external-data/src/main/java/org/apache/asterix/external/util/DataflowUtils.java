@@ -18,16 +18,8 @@
  */
 package org.apache.asterix.external.util;
 
-import java.util.Map;
-
-import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.common.exceptions.ErrorCode;
-import org.apache.asterix.external.api.ITupleForwarder;
-import org.apache.asterix.external.api.ITupleForwarder.TupleForwardPolicy;
-import org.apache.asterix.external.dataflow.CounterTimerTupleForwarder;
-import org.apache.asterix.external.dataflow.FeedTupleForwarder;
-import org.apache.asterix.external.dataflow.FrameFullTupleForwarder;
-import org.apache.asterix.external.dataflow.RateControlledTupleForwarder;
+import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.hyracks.api.comm.IFrameWriter;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
@@ -35,6 +27,10 @@ import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAppender;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 
 public class DataflowUtils {
+
+    private DataflowUtils() {
+    }
+
     public static void addTupleToFrame(FrameTupleAppender appender, ArrayTupleBuilder tb, IFrameWriter writer)
             throws HyracksDataException {
         if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
@@ -42,32 +38,6 @@ public class DataflowUtils {
             if (!appender.append(tb.getFieldEndOffsets(), tb.getByteArray(), 0, tb.getSize())) {
                 throw new RuntimeDataException(ErrorCode.UTIL_DATAFLOW_UTILS_TUPLE_TOO_LARGE);
             }
-        }
-    }
-
-    public static ITupleForwarder getTupleForwarder(Map<String, String> configuration, FeedLogManager feedLogManager)
-            throws HyracksDataException {
-        ITupleForwarder.TupleForwardPolicy policyType = null;
-        String propValue = configuration.get(ITupleForwarder.FORWARD_POLICY);
-        if (ExternalDataUtils.isFeed(configuration)) {
-            // TODO pass this value in the configuration and avoid this check for feeds
-            policyType = TupleForwardPolicy.FEED;
-        } else if (propValue == null) {
-            policyType = TupleForwardPolicy.FRAME_FULL;
-        } else {
-            policyType = TupleForwardPolicy.valueOf(propValue.trim().toUpperCase());
-        }
-        switch (policyType) {
-            case FEED:
-                return new FeedTupleForwarder(feedLogManager);
-            case FRAME_FULL:
-                return new FrameFullTupleForwarder();
-            case COUNTER_TIMER_EXPIRED:
-                return CounterTimerTupleForwarder.create(configuration);
-            case RATE_CONTROLLED:
-                return RateControlledTupleForwarder.create(configuration);
-            default:
-                throw new RuntimeDataException(ErrorCode.UTIL_DATAFLOW_UTILS_UNKNOWN_FORWARD_POLICY);
         }
     }
 

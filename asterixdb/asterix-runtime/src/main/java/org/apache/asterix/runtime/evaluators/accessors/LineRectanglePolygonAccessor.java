@@ -80,8 +80,8 @@ public class LineRectanglePolygonAccessor extends AbstractScalarFunctionDynamicD
                     private final AOrderedListType pointListType = new AOrderedListType(BuiltinType.APOINT, null);
                     private final AMutablePoint aPoint = new AMutablePoint(0, 0);
                     @SuppressWarnings("unchecked")
-                    private final ISerializerDeserializer<APoint> pointSerde = SerializerDeserializerProvider.INSTANCE
-                            .getSerializerDeserializer(BuiltinType.APOINT);
+                    private final ISerializerDeserializer<APoint> pointSerde =
+                            SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.APOINT);
 
                     @Override
                     public void evaluate(IFrameTupleReference tuple, IPointable result) throws HyracksDataException {
@@ -158,7 +158,7 @@ public class LineRectanglePolygonAccessor extends AbstractScalarFunctionDynamicD
                                         ATypeTag.SERIALIZED_POLYGON_TYPE_TAG);
                             }
                         } catch (IOException e) {
-                            throw new HyracksDataException(e);
+                            throw HyracksDataException.create(e);
                         }
                         result.set(resultStorage);
                     }

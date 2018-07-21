@@ -36,35 +36,35 @@ RecordConstructor [
   (
     LiteralExpr [STRING] [count_cheaps]
     :
-    FunctionCall tpch.count@1[
+    FunctionCall asterix.count@1[
       Variable [ Name=$cheaps ]
     ]
   )
   (
     LiteralExpr [STRING] [avg_expensive_discounts]
     :
-    FunctionCall tpch.avg@1[
+    FunctionCall asterix.avg@1[
       Variable [ Name=$expensives ]
     ]
   )
   (
     LiteralExpr [STRING] [sum_disc_prices]
     :
-    FunctionCall tpch.sum@1[
+    FunctionCall asterix.sum@1[
       Variable [ Name=$disc_prices ]
     ]
   )
   (
     LiteralExpr [STRING] [total_charges]
     :
-    FunctionCall tpch.sum@1[
+    FunctionCall asterix.sum@1[
       Variable [ Name=$charges ]
     ]
   )
 ]
 ]
-FROM [  FunctionCall Metadata.dataset@1[
-    LiteralExpr [STRING] [LineItem]
+FROM [  FunctionCall asterix.dataset@1[
+    LiteralExpr [STRING] [tpch.LineItem]
   ]
   AS Variable [ Name=$l ]
 ]
@@ -104,8 +104,8 @@ Let Variable [ Name=$expensives ]
       Field=l_discount
     ]
     ]
-    FROM [      FunctionCall Metadata.dataset@1[
-        LiteralExpr [STRING] [l]
+    FROM [      FunctionCall asterix.dataset@1[
+        LiteralExpr [STRING] [tpch.l]
       ]
       AS Variable [ Name=$i ]
     ]
@@ -125,8 +125,8 @@ Let Variable [ Name=$cheaps ]
     SELECT ELEMENT [
     Variable [ Name=$i ]
     ]
-    FROM [      FunctionCall Metadata.dataset@1[
-        LiteralExpr [STRING] [l]
+    FROM [      FunctionCall asterix.dataset@1[
+        LiteralExpr [STRING] [tpch.l]
       ]
       AS Variable [ Name=$i ]
     ]
@@ -169,8 +169,8 @@ Let Variable [ Name=$charges ]
       ]
     ]
     ]
-    FROM [      FunctionCall Metadata.dataset@1[
-        LiteralExpr [STRING] [l]
+    FROM [      FunctionCall asterix.dataset@1[
+        LiteralExpr [STRING] [tpch.l]
       ]
       AS Variable [ Name=$i ]
     ]
@@ -195,8 +195,8 @@ Let Variable [ Name=$disc_prices ]
       ]
     ]
     ]
-    FROM [      FunctionCall Metadata.dataset@1[
-        LiteralExpr [STRING] [l]
+    FROM [      FunctionCall asterix.dataset@1[
+        LiteralExpr [STRING] [tpch.l]
       ]
       AS Variable [ Name=$i ]
     ]

@@ -104,15 +104,15 @@ public class CreateRectangleDescriptor extends AbstractScalarFunctionDynamicDesc
                                             ADoubleSerializerDeserializer.getDouble(bytes0,
                                                     offset0 + APointSerializerDeserializer
                                                             .getCoordinateOffset(Coordinate.X)),
-                                    ADoubleSerializerDeserializer.getDouble(bytes0,
-                                            offset0 + APointSerializerDeserializer.getCoordinateOffset(Coordinate.Y)));
+                                            ADoubleSerializerDeserializer.getDouble(bytes0, offset0
+                                                    + APointSerializerDeserializer.getCoordinateOffset(Coordinate.Y)));
                             aPoint[1]
                                     .setValue(
                                             ADoubleSerializerDeserializer.getDouble(bytes1,
                                                     offset1 + APointSerializerDeserializer
                                                             .getCoordinateOffset(Coordinate.X)),
-                                    ADoubleSerializerDeserializer.getDouble(bytes1,
-                                            offset1 + APointSerializerDeserializer.getCoordinateOffset(Coordinate.Y)));
+                                            ADoubleSerializerDeserializer.getDouble(bytes1, offset1
+                                                    + APointSerializerDeserializer.getCoordinateOffset(Coordinate.Y)));
                             if (aPoint[0].getX() > aPoint[1].getX() && aPoint[0].getY() > aPoint[1].getY()) {
                                 aRectangle.setValue(aPoint[1], aPoint[0]);
                             } else if (aPoint[0].getX() < aPoint[1].getX() && aPoint[0].getY() < aPoint[1].getY()) {
@@ -124,7 +124,7 @@ public class CreateRectangleDescriptor extends AbstractScalarFunctionDynamicDesc
                             rectangle2DSerde.serialize(aRectangle, out);
                             result.set(resultStorage);
                         } catch (IOException e1) {
-                            throw new HyracksDataException(e1);
+                            throw HyracksDataException.create(e1);
                         }
                     }
                 };

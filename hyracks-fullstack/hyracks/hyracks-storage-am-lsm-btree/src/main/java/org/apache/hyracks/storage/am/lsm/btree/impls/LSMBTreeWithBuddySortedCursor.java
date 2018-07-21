@@ -25,6 +25,7 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentFilter;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
 import org.apache.hyracks.storage.common.ICursorInitialState;
 import org.apache.hyracks.storage.common.ISearchPredicate;
+import org.apache.hyracks.storage.common.util.IndexCursorUtils;
 
 public class LSMBTreeWithBuddySortedCursor extends LSMBTreeWithBuddyAbstractCursor {
     // TODO: This class can be removed and instead use a search cursor that uses
@@ -39,7 +40,7 @@ public class LSMBTreeWithBuddySortedCursor extends LSMBTreeWithBuddyAbstractCurs
             throws HyracksDataException {
         super(opCtx);
         this.buddyBtreeTuple = new PermutingTupleReference(buddyBTreeFields);
-        reset();
+        close();
     }
 
     public ILSMIndexOperationContext getOpCtx() {
@@ -47,12 +48,12 @@ public class LSMBTreeWithBuddySortedCursor extends LSMBTreeWithBuddyAbstractCurs
     }
 
     @Override
-    public void reset() throws HyracksDataException {
+    public void doClose() throws HyracksDataException {
         depletedBtreeCursors = new boolean[numberOfTrees];
         foundNext = false;
         try {
             for (int i = 0; i < numberOfTrees; i++) {
-                btreeCursors[i].reset();
+                btreeCursors[i].close();
                 btreeAccessors[i].search(btreeCursors[i], btreeRangePredicate);
                 if (btreeCursors[i].hasNext()) {
                     btreeCursors[i].next();
@@ -90,7 +91,7 @@ public class LSMBTreeWithBuddySortedCursor extends LSMBTreeWithBuddyAbstractCurs
     }
 
     @Override
-    public boolean hasNext() throws HyracksDataException {
+    public boolean doHasNext() throws HyracksDataException {
         while (!foundNext) {
             frameTuple = null;
 
@@ -127,7 +128,7 @@ public class LSMBTreeWithBuddySortedCursor extends LSMBTreeWithBuddyAbstractCurs
             boolean killed = false;
             buddyBtreeTuple.reset(frameTuple);
             for (int i = 0; i < foundIn; i++) {
-                buddyBtreeCursors[i].reset();
+                buddyBtreeCursors[i].close();
                 buddyBtreeRangePredicate.setHighKey(buddyBtreeTuple, true);
                 btreeRangePredicate.setLowKey(buddyBtreeTuple, true);
                 btreeAccessors[i].search(btreeCursors[i], btreeRangePredicate);
@@ -149,25 +150,32 @@ public class LSMBTreeWithBuddySortedCursor extends LSMBTreeWithBuddyAbstractCurs
     }
 
     @Override
-    public void next() throws HyracksDataException {
+    public void doNext() throws HyracksDataException {
         foundNext = false;
     }
 
     @Override
-    public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
-        super.open(initialState, searchPred);
-
+    public void doOpen(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
+        super.doOpen(initialState, searchPred);
         depletedBtreeCursors = new boolean[numberOfTrees];
         foundNext = false;
         for (int i = 0; i < numberOfTrees; i++) {
-            btreeCursors[i].reset();
-            btreeAccessors[i].search(btreeCursors[i], btreeRangePredicate);
-            if (btreeCursors[i].hasNext()) {
-                btreeCursors[i].next();
-            } else {
-                depletedBtreeCursors[i] = true;
+            btreeCursors[i].close();
+        }
+        IndexCursorUtils.open(btreeAccessors, btreeCursors, btreeRangePredicate);
+        try {
+            for (int i = 0; i < numberOfTrees; i++) {
+                if (btreeCursors[i].hasNext()) {
+                    btreeCursors[i].next();
+                } else {
+                    depletedBtreeCursors[i] = true;
+                }
             }
+        } catch (Throwable th) { // NOSONAR Must catch all failures to close before throwing
+            for (int i = 0; i < numberOfTrees; i++) {
+                IndexCursorUtils.close(btreeCursors[i], th);
+            }
+            throw HyracksDataException.create(th);
         }
     }
-
 }

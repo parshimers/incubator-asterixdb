@@ -21,6 +21,11 @@ package org.apache.asterix.runtime.utils;
 import java.io.IOException;
 import java.util.function.Supplier;
 
+import org.apache.asterix.common.api.ICoordinationService;
+import org.apache.asterix.common.api.IMetadataLockManager;
+import org.apache.asterix.common.api.INodeJobTracker;
+import org.apache.asterix.common.transactions.ITxnIdFactory;
+import org.apache.asterix.common.cluster.IClusterStateManager;
 import org.apache.asterix.common.cluster.IGlobalRecoveryManager;
 import org.apache.asterix.common.config.ActiveProperties;
 import org.apache.asterix.common.config.BuildProperties;
@@ -36,13 +41,17 @@ import org.apache.asterix.common.config.StorageProperties;
 import org.apache.asterix.common.config.TransactionProperties;
 import org.apache.asterix.common.context.IStorageComponentProvider;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
-import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.IMetadataBootstrap;
-import org.apache.asterix.common.replication.IFaultToleranceStrategy;
+import org.apache.asterix.common.replication.INcLifecycleCoordinator;
 import org.apache.asterix.common.transactions.IResourceIdManager;
+import org.apache.asterix.runtime.job.listener.NodeJobTracker;
+import org.apache.asterix.runtime.transaction.ResourceIdManager;
+import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.api.application.ICCServiceContext;
+import org.apache.hyracks.api.client.HyracksConnection;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.job.IJobLifecycleListener;
 import org.apache.hyracks.storage.common.IStorageManager;
 
@@ -72,19 +81,21 @@ public class CcApplicationContext implements ICcApplicationContext {
     private Supplier<IMetadataBootstrap> metadataBootstrapSupplier;
     private IHyracksClientConnection hcc;
     private Object extensionManager;
-    private IFaultToleranceStrategy ftStrategy;
+    private INcLifecycleCoordinator ftStrategy;
     private IJobLifecycleListener activeLifeCycleListener;
+    private IMetadataLockManager mdLockManager;
+    private IClusterStateManager clusterStateManager;
+    private final INodeJobTracker nodeJobTracker;
+    private final ITxnIdFactory txnIdFactory;
 
     public CcApplicationContext(ICCServiceContext ccServiceCtx, IHyracksClientConnection hcc,
-            ILibraryManager libraryManager, IResourceIdManager resourceIdManager,
-            Supplier<IMetadataBootstrap> metadataBootstrapSupplier, IGlobalRecoveryManager globalRecoveryManager,
-            IFaultToleranceStrategy ftStrategy, IJobLifecycleListener activeLifeCycleListener,
-            IStorageComponentProvider storageComponentProvider)
-            throws AsterixException, IOException {
+            ILibraryManager libraryManager, Supplier<IMetadataBootstrap> metadataBootstrapSupplier,
+            IGlobalRecoveryManager globalRecoveryManager, INcLifecycleCoordinator ftStrategy,
+            IJobLifecycleListener activeLifeCycleListener, IStorageComponentProvider storageComponentProvider,
+            IMetadataLockManager mdLockManager) throws AlgebricksException, IOException {
         this.ccServiceCtx = ccServiceCtx;
         this.hcc = hcc;
         this.libraryManager = libraryManager;
-        this.resourceIdManager = resourceIdManager;
         this.activeLifeCycleListener = activeLifeCycleListener;
         // Determine whether to use old-style asterix-configuration.xml or new-style configuration.
         // QQQ strip this out eventually
@@ -98,13 +109,19 @@ public class CcApplicationContext implements ICcApplicationContext {
         extensionProperties = new ExtensionProperties(propertiesAccessor);
         replicationProperties = new ReplicationProperties(propertiesAccessor);
         this.ftStrategy = ftStrategy;
-        this.hcc = hcc;
         this.buildProperties = new BuildProperties(propertiesAccessor);
         this.messagingProperties = new MessagingProperties(propertiesAccessor);
         this.nodeProperties = new NodeProperties(propertiesAccessor);
         this.metadataBootstrapSupplier = metadataBootstrapSupplier;
         this.globalRecoveryManager = globalRecoveryManager;
         this.storageComponentProvider = storageComponentProvider;
+        this.mdLockManager = mdLockManager;
+        clusterStateManager = new ClusterStateManager();
+        clusterStateManager.setCcAppCtx(this);
+        this.resourceIdManager = new ResourceIdManager(clusterStateManager);
+        nodeJobTracker = new NodeJobTracker();
+        txnIdFactory = new BulkTxnIdFactory();
+
     }
 
     @Override
@@ -148,7 +165,18 @@ public class CcApplicationContext implements ICcApplicationContext {
     }
 
     @Override
-    public IHyracksClientConnection getHcc() {
+    public IHyracksClientConnection getHcc() throws HyracksDataException {
+        if (!hcc.isConnected()) {
+            synchronized (this) {
+                if (!hcc.isConnected()) {
+                    try {
+                        hcc = new HyracksConnection(hcc.getHost(), hcc.getPort());
+                    } catch (Exception e) {
+                        throw HyracksDataException.create(e);
+                    }
+                }
+            }
+        }
         return hcc;
     }
 
@@ -177,10 +205,12 @@ public class CcApplicationContext implements ICcApplicationContext {
         return extensionManager;
     }
 
+    @Override
     public void setExtensionManager(Object extensionManager) {
         this.extensionManager = extensionManager;
     }
 
+    @Override
     public ExtensionProperties getExtensionProperties() {
         return extensionProperties;
     }
@@ -200,22 +230,47 @@ public class CcApplicationContext implements ICcApplicationContext {
         return resourceIdManager;
     }
 
+    @Override
     public IMetadataBootstrap getMetadataBootstrap() {
         return metadataBootstrapSupplier.get();
     }
 
     @Override
-    public IFaultToleranceStrategy getFaultToleranceStrategy() {
+    public INcLifecycleCoordinator getNcLifecycleCoordinator() {
         return ftStrategy;
     }
 
     @Override
-    public IJobLifecycleListener getActiveLifecycleListener() {
+    public IJobLifecycleListener getActiveNotificationHandler() {
         return activeLifeCycleListener;
     }
 
     @Override
     public IStorageComponentProvider getStorageComponentProvider() {
         return storageComponentProvider;
+    }
+
+    @Override
+    public IMetadataLockManager getMetadataLockManager() {
+        return mdLockManager;
+    }
+
+    @Override
+    public IClusterStateManager getClusterStateManager() {
+        return clusterStateManager;
+    }
+
+    @Override
+    public INodeJobTracker getNodeJobTracker() {
+        return nodeJobTracker;
+    }
+
+    @Override
+    public ICoordinationService getCoordinationService() {
+        return NoOpCoordinationService.INSTANCE;
+    }
+
+    public ITxnIdFactory getTxnIdFactory() {
+        return txnIdFactory;
     }
 }

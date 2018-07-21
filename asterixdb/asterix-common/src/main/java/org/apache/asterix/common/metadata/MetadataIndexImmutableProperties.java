@@ -19,13 +19,15 @@
 package org.apache.asterix.common.metadata;
 
 public class MetadataIndexImmutableProperties {
+
+    public static final int FIRST_AVAILABLE_EXTENSION_METADATA_DATASET_ID = 52;
+    public static final int FIRST_AVAILABLE_USER_DATASET_ID = 100;
+    public static final int METADATA_DATASETS_PARTITIONS = 1;
+    public static final int METADATA_DATASETS_COUNT = 14;
+
     private final String indexName;
     private final int datasetId;
     private final long resourceId;
-
-    // TODO(till? should we reconsider these numbers?!)
-    public static final int FIRST_AVAILABLE_EXTENSION_METADATA_DATASET_ID = 52;
-    public static final int FIRST_AVAILABLE_USER_DATASET_ID = 100;
 
     public MetadataIndexImmutableProperties(String indexName, int datasetId, long resourceId) {
         this.indexName = indexName;
@@ -48,5 +50,9 @@ public class MetadataIndexImmutableProperties {
     // Right now, we only have primary Metadata indexes. Hence, dataset name is always index name
     public String getDatasetName() {
         return indexName;
+    }
+
+    public static boolean isMetadataDataset(int datasetId) {
+        return datasetId >= 0 && datasetId < FIRST_AVAILABLE_USER_DATASET_ID;
     }
 }

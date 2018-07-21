@@ -20,6 +20,7 @@
 package org.apache.hyracks.storage.am.common.dataflow;
 
 import org.apache.hyracks.api.application.INCServiceContext;
+import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.storage.am.common.api.IIndexDataflowHelper;
@@ -29,9 +30,13 @@ import org.apache.hyracks.storage.common.IResource;
 import org.apache.hyracks.storage.common.IResourceLifecycleManager;
 import org.apache.hyracks.storage.common.IStorageManager;
 import org.apache.hyracks.storage.common.LocalResource;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class IndexDataflowHelper implements IIndexDataflowHelper {
 
+    private static final Logger LOGGER = LogManager.getLogger();
     private final INCServiceContext ctx;
     private final IResourceLifecycleManager<IIndex> lcManager;
     private final ILocalResourceRepository localResourceRepository;
@@ -68,8 +73,7 @@ public class IndexDataflowHelper implements IIndexDataflowHelper {
         // Get local resource
         LocalResource lr = getResource();
         if (lr == null) {
-            throw new HyracksDataException(
-                    "Index resource couldn't be found. Has it been created yet? Was it deleted?");
+            throw HyracksDataException.create(ErrorCode.INDEX_DOES_NOT_EXIST);
         }
         IResource resource = lr.getResource();
         index = resource.createInstance(ctx);
@@ -85,6 +89,7 @@ public class IndexDataflowHelper implements IIndexDataflowHelper {
 
     @Override
     public void destroy() throws HyracksDataException {
+        LOGGER.log(Level.INFO, "Dropping index " + resourceRef.getRelativePath() + " on node " + ctx.getNodeId());
         synchronized (lcManager) {
             index = lcManager.get(resourceRef.getRelativePath());
             if (index != null) {

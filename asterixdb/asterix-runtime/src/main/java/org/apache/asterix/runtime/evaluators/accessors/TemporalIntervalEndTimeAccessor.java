@@ -70,8 +70,8 @@ public class TemporalIntervalEndTimeAccessor extends AbstractScalarFunctionDynam
 
                     // possible output
                     @SuppressWarnings("unchecked")
-                    private final ISerializerDeserializer<ATime> timeSerde = SerializerDeserializerProvider.INSTANCE
-                            .getSerializerDeserializer(BuiltinType.ATIME);
+                    private final ISerializerDeserializer<ATime> timeSerde =
+                            SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.ATIME);
                     private final AMutableTime aTime = new AMutableTime(0);
 
                     @Override
@@ -83,8 +83,8 @@ public class TemporalIntervalEndTimeAccessor extends AbstractScalarFunctionDynam
                         resultStorage.reset();
                         try {
                             if (bytes[startOffset] == ATypeTag.SERIALIZED_INTERVAL_TYPE_TAG) {
-                                byte timeType = AIntervalSerializerDeserializer.getIntervalTimeType(bytes,
-                                        startOffset + 1);
+                                byte timeType =
+                                        AIntervalSerializerDeserializer.getIntervalTimeType(bytes, startOffset + 1);
                                 long endTime = AIntervalSerializerDeserializer.getIntervalEnd(bytes, startOffset + 1);
                                 if (timeType == ATypeTag.SERIALIZED_TIME_TYPE_TAG) {
                                     aTime.setValue((int) (endTime));
@@ -98,7 +98,7 @@ public class TemporalIntervalEndTimeAccessor extends AbstractScalarFunctionDynam
                                         ATypeTag.SERIALIZED_INTERVAL_TYPE_TAG);
                             }
                         } catch (IOException e) {
-                            throw new HyracksDataException(e);
+                            throw HyracksDataException.create(e);
                         }
                         result.set(resultStorage);
                     }

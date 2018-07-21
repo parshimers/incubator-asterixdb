@@ -19,6 +19,7 @@
 package org.apache.hyracks.storage.am.lsm.common.api;
 
 import java.util.List;
+import java.util.function.Predicate;
 
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IValueReference;
@@ -36,36 +37,34 @@ import org.apache.hyracks.storage.common.IIndexCursor;
 public interface ILSMIndexAccessor extends IIndexAccessor {
 
     /**
+     * @return the operation context associated with the accessor
+     */
+    ILSMIndexOperationContext getOpContext();
+
+    /**
      * Schedule a flush operation
      *
-     * @param callback
-     *            the IO operation callback
      * @throws HyracksDataException
      */
-    void scheduleFlush(ILSMIOOperationCallback callback) throws HyracksDataException;
+    ILSMIOOperation scheduleFlush() throws HyracksDataException;
 
     /**
      * Schedule a merge operation
      *
-     * @param callback
-     *            the merge operation callback
      * @param components
      *            the components to be merged
      * @throws HyracksDataException
      * @throws IndexException
      */
-    void scheduleMerge(ILSMIOOperationCallback callback, List<ILSMDiskComponent> components)
-            throws HyracksDataException;
+    ILSMIOOperation scheduleMerge(List<ILSMDiskComponent> components) throws HyracksDataException;
 
     /**
      * Schedule a full merge
      *
-     * @param callback
-     *            the merge operation callback
      * @throws HyracksDataException
      * @throws IndexException
      */
-    void scheduleFullMerge(ILSMIOOperationCallback callback) throws HyracksDataException;
+    ILSMIOOperation scheduleFullMerge() throws HyracksDataException;
 
     /**
      * Delete the tuple from the memory component only. Don't replace with antimatter tuple
@@ -187,17 +186,15 @@ public interface ILSMIndexAccessor extends IIndexAccessor {
      *
      * @param diskComponents
      *            the components to be replicated
-     * @param bulkload
-     *            true if the components were bulkloaded, false otherwise
      * @param opType
      *            the operation type
      * @throws HyracksDataException
      */
-    void scheduleReplication(List<ILSMDiskComponent> diskComponents, boolean bulkload, LSMOperationType opType)
+    void scheduleReplication(List<ILSMDiskComponent> diskComponents, LSMOperationType opType)
             throws HyracksDataException;
 
     /**
-     * Force a flush of the in-memory component.
+     * Flush an in-memory component.
      *
      * @throws HyracksDataException
      * @throws TreeIndexException
@@ -239,10 +236,30 @@ public interface ILSMIndexAccessor extends IIndexAccessor {
      * The returned tuples are first ordered on primary key, and then ordered on the descending order of
      * disk_component_position (older components get returned first)
      *
+     * If this method returns successfully, then the cursor has been opened. If an exception is thrown then
+     * the cursor was not opened
+     *
      * @param icursor
      *            Cursor over the index entries satisfying searchPred.
      * @throws HyracksDataException
      *             If the BufferCache throws while un/pinning or un/latching.
      */
     void scanDiskComponents(IIndexCursor cursor) throws HyracksDataException;
+
+    /**
+     * Delete components that match the passed predicate
+     * NOTE: This call can only be made when the caller knows that data modification has been stopped
+     *
+     * @param filter
+     * @throws HyracksDataException
+     */
+    void deleteComponents(Predicate<ILSMComponent> predicate) throws HyracksDataException;
+
+    /**
+     * Update the filter of an LSM index
+     *
+     * @param tuple
+     * @throws HyracksDataException
+     */
+    void updateFilter(ITupleReference tuple) throws HyracksDataException;
 }

@@ -23,6 +23,8 @@ import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleReference;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.dataflow.common.utils.TupleUtils;
+import org.apache.hyracks.storage.am.common.api.IExtendedModificationOperationCallback;
+import org.apache.hyracks.storage.am.common.impls.IndexAccessParameters;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.config.AccessMethodTestsConfig;
 import org.apache.hyracks.storage.common.IIndexAccessor;
@@ -61,7 +63,8 @@ public abstract class AbstractModificationOperationCallbackTest extends Abstract
 
     @Test
     public void modificationCallbackTest() throws Exception {
-        IIndexAccessor accessor = index.createAccessor(cb, NoOpOperationCallback.INSTANCE);
+        IndexAccessParameters actx = new IndexAccessParameters(cb, NoOpOperationCallback.INSTANCE);
+        IIndexAccessor accessor = index.createAccessor(actx);
 
         isFoundNull = true;
         for (int i = 0; i < AccessMethodTestsConfig.BTREE_NUM_TUPLES_TO_INSERT; i++) {
@@ -82,7 +85,7 @@ public abstract class AbstractModificationOperationCallbackTest extends Abstract
         }
     }
 
-    private class VeriyfingModificationCallback implements IModificationOperationCallback {
+    private class VeriyfingModificationCallback implements IExtendedModificationOperationCallback {
 
         @Override
         public void before(ITupleReference tuple) throws HyracksDataException {
@@ -97,6 +100,11 @@ public abstract class AbstractModificationOperationCallbackTest extends Abstract
                 Assert.assertEquals(0, cmp.compare(AbstractModificationOperationCallbackTest.this.tuple, before));
             }
             Assert.assertEquals(0, cmp.compare(AbstractModificationOperationCallbackTest.this.tuple, after));
+        }
+
+        @Override
+        public void after(ITupleReference tuple) throws HyracksDataException {
+            Assert.assertEquals(0, cmp.compare(AbstractModificationOperationCallbackTest.this.tuple, tuple));
         }
     }
 

@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.asterix.common.exceptions.CompilationException;
+import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.lang.common.base.IParser;
 import org.apache.asterix.lang.common.base.IParserFactory;
 import org.apache.asterix.lang.common.base.Statement;
@@ -40,8 +41,12 @@ public class FunctionParser {
     }
 
     public FunctionDecl getFunctionDecl(Function function) throws CompilationException {
+        if (!function.getLanguage().equals(Function.LANGUAGE_AQL)) {
+            throw new CompilationException(ErrorCode.COMPILATION_INCOMPATIBLE_FUNCTION_LANGUAGE, Function.LANGUAGE_AQL,
+                    function.getLanguage());
+        }
         String functionBody = function.getFunctionBody();
-        List<String> params = function.getParams();
+        List<String> arguments = function.getArguments();
         List<VarIdentifier> varIdentifiers = new ArrayList<VarIdentifier>();
 
         StringBuilder builder = new StringBuilder();
@@ -49,15 +54,15 @@ public class FunctionParser {
         builder.append(" declare function " + function.getName().split("@")[0]);
         builder.append("(");
         boolean first = true;
-        for (String param : params) {
-            VarIdentifier varId = new VarIdentifier(param);
+        for (String argument : arguments) {
+            VarIdentifier varId = new VarIdentifier(argument);
             varIdentifiers.add(varId);
             if (first) {
                 first = false;
             } else {
                 builder.append(",");
             }
-            builder.append(param);
+            builder.append(argument);
         }
         builder.append("){\n").append(functionBody).append("\n}");
 

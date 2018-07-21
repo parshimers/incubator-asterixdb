@@ -29,9 +29,11 @@ public class NodeParameters implements Serializable {
 
     private Serializable distributedState;
 
-    private int heartbeatPeriod;
+    private long heartbeatPeriod;
 
     private int profileDumpPeriod;
+
+    private int registrationId;
 
     public ClusterControllerInfo getClusterControllerInfo() {
         return ccInfo;
@@ -49,11 +51,11 @@ public class NodeParameters implements Serializable {
         this.distributedState = distributedState;
     }
 
-    public int getHeartbeatPeriod() {
+    public long getHeartbeatPeriod() {
         return heartbeatPeriod;
     }
 
-    public void setHeartbeatPeriod(int heartbeatPeriod) {
+    public void setHeartbeatPeriod(long heartbeatPeriod) {
         this.heartbeatPeriod = heartbeatPeriod;
     }
 
@@ -63,5 +65,13 @@ public class NodeParameters implements Serializable {
 
     public void setProfileDumpPeriod(int profileDumpPeriod) {
         this.profileDumpPeriod = profileDumpPeriod;
+    }
+
+    public int getRegistrationId() {
+        return registrationId;
+    }
+
+    public void setRegistrationId(int registrationId) {
+        this.registrationId = registrationId;
     }
 }

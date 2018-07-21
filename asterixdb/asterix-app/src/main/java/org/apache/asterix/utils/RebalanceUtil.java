@@ -19,32 +19,34 @@
 package org.apache.asterix.utils;
 
 import static org.apache.asterix.app.translator.QueryTranslator.abort;
+import static org.apache.hyracks.storage.am.common.dataflow.IndexDropOperatorDescriptor.DropOption;
 
+import java.rmi.RemoteException;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
-import org.apache.asterix.common.exceptions.AsterixException;
-import org.apache.asterix.common.transactions.JobId;
+import org.apache.asterix.active.IActiveEntityEventsListener;
+import org.apache.asterix.app.active.ActiveNotificationHandler;
+import org.apache.asterix.common.api.IMetadataLockManager;
+import org.apache.asterix.common.dataflow.ICcApplicationContext;
+import org.apache.asterix.common.exceptions.ExceptionUtils;
+import org.apache.asterix.common.transactions.TxnId;
 import org.apache.asterix.common.utils.JobUtils;
 import org.apache.asterix.dataflow.data.nontagged.MissingWriterFactory;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.metadata.MetadataTransactionContext;
-import org.apache.asterix.metadata.declared.MetadataManagerUtil;
+import org.apache.asterix.metadata.api.IActiveEntityController;
 import org.apache.asterix.metadata.declared.MetadataProvider;
 import org.apache.asterix.metadata.entities.Dataset;
 import org.apache.asterix.metadata.entities.Index;
-import org.apache.asterix.metadata.lock.LockList;
-import org.apache.asterix.metadata.lock.MetadataLockManager;
 import org.apache.asterix.metadata.utils.DatasetUtil;
 import org.apache.asterix.metadata.utils.IndexUtil;
 import org.apache.asterix.rebalance.IDatasetRebalanceCallback;
 import org.apache.asterix.runtime.job.listener.JobEventListenerFactory;
-import org.apache.asterix.transaction.management.service.transaction.JobIdFactory;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraintHelper;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
@@ -59,12 +61,15 @@ import org.apache.hyracks.api.job.JobSpecification;
 import org.apache.hyracks.dataflow.common.data.partition.FieldHashPartitionComputerFactory;
 import org.apache.hyracks.dataflow.std.connectors.MToNPartitioningConnectorDescriptor;
 import org.apache.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * A utility class for the rebalance operation.
  */
 public class RebalanceUtil {
-    private static final Logger LOGGER = Logger.getLogger(RebalanceUtil.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger();
 
     private RebalanceUtil() {
 
@@ -111,27 +116,35 @@ public class RebalanceUtil {
                 return;
             }
 
-            // Creates a node group for rebalance.
-            String nodeGroupName = DatasetUtil.createNodeGroupForNewDataset(sourceDataset.getDataverseName(),
-                    sourceDataset.getDatasetName(), sourceDataset.getRebalanceCount() + 1, targetNcNames,
-                    metadataProvider);
+            if (!targetNcNames.isEmpty()) {
+                // Creates a node group for rebalance.
+                String nodeGroupName = DatasetUtil.createNodeGroupForNewDataset(sourceDataset.getDataverseName(),
+                        sourceDataset.getDatasetName(), sourceDataset.getRebalanceCount() + 1, targetNcNames,
+                        metadataProvider);
+                // The target dataset for rebalance.
+                targetDataset = sourceDataset.getTargetDatasetForRebalance(nodeGroupName);
 
-            // The target dataset for rebalance.
-            targetDataset = sourceDataset.getTargetDatasetForRebalance(nodeGroupName);
-
-
-            // Rebalances the source dataset into the target dataset.
-            rebalance(sourceDataset, targetDataset, metadataProvider, hcc, datasetRebalanceCallback);
-
+                LOGGER.info("Rebalancing dataset {} from node group {} with nodes {} to node group {} with nodes {}",
+                        sourceDataset.getDatasetName(), sourceDataset.getNodeGroupName(), sourceNodes,
+                        targetDataset.getNodeGroupName(), targetNcNames);
+                // Rebalances the source dataset into the target dataset.
+                rebalance(sourceDataset, targetDataset, metadataProvider, hcc, datasetRebalanceCallback);
+            } else {
+                targetDataset = null;
+                // if this the last NC in the cluster, just drop the dataset
+                purgeDataset(sourceDataset, metadataProvider, hcc);
+            }
             // Complete the metadata transaction.
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
         } catch (Exception e) {
             abort(e, e, mdTxnCtx);
             throw e;
-        } finally {
-            metadataProvider.getLocks().reset();
         }
 
+        if (targetNcNames.isEmpty()) {
+            // Nothing else to do since the dataset was dropped.
+            return;
+        }
         // Up to this point, since the bulk part of a rebalance operation is done,
         // the following two operations will retry after interrupt and finally rethrow InterruptedException,
         // which means that they will always succeed and could possibly throw InterruptedException as the last step.
@@ -143,11 +156,12 @@ public class RebalanceUtil {
             // Executes the 2nd Metadata transaction for switching the metadata entity.
             // It detaches the source dataset and attaches the target dataset to metadata's point of view.
             runMetadataTransaction(metadataProvider,
-                () -> rebalanceSwitch(sourceDataset, targetDataset, metadataProvider, hcc));
+                    () -> rebalanceSwitch(sourceDataset, targetDataset, metadataProvider));
             // Executes the 3rd Metadata transaction to drop the source dataset files and the node group for
             // the source dataset.
             runMetadataTransaction(metadataProvider, () -> dropSourceDataset(sourceDataset, metadataProvider, hcc));
         });
+        LOGGER.info("Dataset {} rebalance completed successfully", datasetName);
     }
 
     @FunctionalInterface
@@ -164,9 +178,16 @@ public class RebalanceUtil {
             try {
                 work.run();
                 done = true;
-            } catch (InterruptedException e) {
-                LOGGER.log(Level.WARNING, "Retry with attempt " + (++retryCount), e);
-                interruptedException = e;
+            } catch (Exception e) {
+                Throwable rootCause = ExceptionUtils.getRootCause(e);
+                if (rootCause instanceof java.lang.InterruptedException) {
+                    interruptedException = (InterruptedException) rootCause;
+                    // clear the interrupted state from the thread
+                    Thread.interrupted();
+                    LOGGER.log(Level.WARN, "Retry with attempt " + (++retryCount), e);
+                    continue;
+                }
+                throw e;
             }
         } while (!done);
 
@@ -183,13 +204,9 @@ public class RebalanceUtil {
         try {
             // Performs the actual work.
             work.run();
-            // Complete the metadata transaction.
-            MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
         } catch (Exception e) {
             abort(e, e, mdTxnCtx);
             throw e;
-        } finally {
-            metadataProvider.getLocks().reset();
         }
     }
 
@@ -216,25 +233,32 @@ public class RebalanceUtil {
     }
 
     // Switches the metadata entity from the source dataset to the target dataset.
-    private static void rebalanceSwitch(Dataset source, Dataset target, MetadataProvider metadataProvider,
-            IHyracksClientConnection hcc) throws Exception {
+    private static void rebalanceSwitch(Dataset source, Dataset target, MetadataProvider metadataProvider)
+            throws AlgebricksException, RemoteException {
         MetadataTransactionContext mdTxnCtx = metadataProvider.getMetadataTxnContext();
-
-        // Acquires the metadata write lock for the source/target dataset.
-        writeLockDataset(metadataProvider.getLocks(), source);
-
-        Dataset sourceDataset = MetadataManagerUtil.findDataset(mdTxnCtx, source.getDataverseName(),
-                source.getDatasetName());
-
-        if (sourceDataset == null) {
-            // The dataset has already been dropped.
-            // In this case, we should drop the generated target dataset files.
-            dropDatasetFiles(target, metadataProvider, hcc);
-            return;
+        // upgrade lock
+        ICcApplicationContext appCtx = metadataProvider.getApplicationContext();
+        ActiveNotificationHandler activeNotificationHandler =
+                (ActiveNotificationHandler) appCtx.getActiveNotificationHandler();
+        IMetadataLockManager lockManager = appCtx.getMetadataLockManager();
+        lockManager.upgradeDatasetLockToWrite(metadataProvider.getLocks(), DatasetUtil.getFullyQualifiedName(source));
+        LOGGER.info("Updating dataset {} node group from {} to {}", source.getDatasetName(), source.getNodeGroupName(),
+                target.getNodeGroupName());
+        try {
+            // Updates the dataset entry in the metadata storage
+            MetadataManager.INSTANCE.updateDataset(mdTxnCtx, target);
+            for (IActiveEntityEventsListener listener : activeNotificationHandler.getEventListeners()) {
+                if (listener instanceof IActiveEntityController) {
+                    IActiveEntityController controller = (IActiveEntityController) listener;
+                    controller.replace(target);
+                }
+            }
+            MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+            LOGGER.info("dataset {} node group updated to {}", target.getDatasetName(), target.getNodeGroupName());
+        } finally {
+            lockManager.downgradeDatasetLockToExclusiveModify(metadataProvider.getLocks(),
+                    DatasetUtil.getFullyQualifiedName(target));
         }
-
-        // Updates the dataset entry in the metadata storage
-        MetadataManager.INSTANCE.updateDataset(mdTxnCtx, target);
     }
 
     // Drops the source dataset.
@@ -243,13 +267,17 @@ public class RebalanceUtil {
         // Drops the source dataset files. No need to lock the dataset entity here because the source dataset has
         // been detached at this point.
         dropDatasetFiles(source, metadataProvider, hcc);
-
-        // Drops the metadata entry of source dataset's node group.
-        String sourceNodeGroup = source.getNodeGroupName();
-        MetadataLockManager.INSTANCE.acquireNodeGroupWriteLock(metadataProvider.getLocks(), sourceNodeGroup);
-        MetadataManager.INSTANCE.dropNodegroup(metadataProvider.getMetadataTxnContext(), sourceNodeGroup, true);
+        tryDropDatasetNodegroup(source, metadataProvider);
+        MetadataManager.INSTANCE.commitTransaction(metadataProvider.getMetadataTxnContext());
     }
 
+    // Drops the metadata entry of source dataset's node group.
+    private static void tryDropDatasetNodegroup(Dataset source, MetadataProvider metadataProvider) throws Exception {
+        ICcApplicationContext appCtx = metadataProvider.getApplicationContext();
+        String sourceNodeGroup = source.getNodeGroupName();
+        appCtx.getMetadataLockManager().acquireNodeGroupWriteLock(metadataProvider.getLocks(), sourceNodeGroup);
+        MetadataManager.INSTANCE.dropNodegroup(metadataProvider.getMetadataTxnContext(), sourceNodeGroup, true);
+    }
 
     // Creates the files for the rebalance target dataset.
     private static void createRebalanceTarget(Dataset target, MetadataProvider metadataProvider,
@@ -262,21 +290,21 @@ public class RebalanceUtil {
     private static void populateDataToRebalanceTarget(Dataset source, Dataset target, MetadataProvider metadataProvider,
             IHyracksClientConnection hcc) throws Exception {
         JobSpecification spec = new JobSpecification();
-        JobId jobId = JobIdFactory.generateJobId();
-        JobEventListenerFactory jobEventListenerFactory = new JobEventListenerFactory(jobId, true);
+        TxnId txnId = metadataProvider.getTxnIdFactory().create();
+        JobEventListenerFactory jobEventListenerFactory = new JobEventListenerFactory(txnId, true);
         spec.setJobletEventListenerFactory(jobEventListenerFactory);
 
         // The pipeline starter.
         IOperatorDescriptor starter = DatasetUtil.createDummyKeyProviderOp(spec, source, metadataProvider);
 
         // Creates primary index scan op.
-        IOperatorDescriptor primaryScanOp = DatasetUtil.createPrimaryIndexScanOp(spec, metadataProvider, source, jobId);
+        IOperatorDescriptor primaryScanOp = DatasetUtil.createPrimaryIndexScanOp(spec, metadataProvider, source);
 
         // Creates secondary BTree upsert op.
         IOperatorDescriptor upsertOp = createPrimaryIndexUpsertOp(spec, metadataProvider, source, target);
 
         // The final commit operator.
-        IOperatorDescriptor commitOp = createUpsertCommitOp(spec, metadataProvider, jobId, target);
+        IOperatorDescriptor commitOp = createUpsertCommitOp(spec, metadataProvider, target);
 
         // Connects empty-tuple-source and scan.
         spec.connect(new OneToOneConnectorDescriptor(spec), starter, 0, primaryScanOp, 0);
@@ -301,8 +329,8 @@ public class RebalanceUtil {
         int numKeys = source.getPrimaryKeys().size();
         int numValues = source.hasMetaPart() ? 2 : 1;
         int[] fieldPermutation = IntStream.range(0, numKeys + numValues).toArray();
-        Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> upsertOpAndConstraints = DatasetUtil
-                .createPrimaryIndexUpsertOp(spec, metadataProvider, target,
+        Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> upsertOpAndConstraints =
+                DatasetUtil.createPrimaryIndexUpsertOp(spec, metadataProvider, target,
                         source.getPrimaryRecordDescriptor(metadataProvider), fieldPermutation,
                         MissingWriterFactory.INSTANCE);
         IOperatorDescriptor upsertOp = upsertOpAndConstraints.first;
@@ -313,11 +341,10 @@ public class RebalanceUtil {
 
     // Creates the commit operator for populating the target dataset.
     private static IOperatorDescriptor createUpsertCommitOp(JobSpecification spec, MetadataProvider metadataProvider,
-            JobId jobId, Dataset target) throws AlgebricksException {
+            Dataset target) throws AlgebricksException {
         int[] primaryKeyFields = getPrimaryKeyPermutationForUpsert(target);
         return new AlgebricksMetaOperatorDescriptor(spec, 1, 0,
-                new IPushRuntimeFactory[] {
-                        target.getCommitRuntimeFactory(metadataProvider, jobId, primaryKeyFields, true) },
+                new IPushRuntimeFactory[] { target.getCommitRuntimeFactory(metadataProvider, primaryKeyFields, true) },
                 new RecordDescriptor[] { target.getPrimaryRecordDescriptor(metadataProvider) });
     }
 
@@ -327,18 +354,12 @@ public class RebalanceUtil {
         List<JobSpecification> jobs = new ArrayList<>();
         List<Index> indexes = metadataProvider.getDatasetIndexes(dataset.getDataverseName(), dataset.getDatasetName());
         for (Index index : indexes) {
-            jobs.add(IndexUtil.buildDropIndexJobSpec(index, metadataProvider, dataset, true));
+            jobs.add(IndexUtil.buildDropIndexJobSpec(index, metadataProvider, dataset,
+                    EnumSet.of(DropOption.IF_EXISTS, DropOption.WAIT_ON_IN_USE)));
         }
         for (JobSpecification jobSpec : jobs) {
             JobUtils.runJob(hcc, jobSpec, true);
         }
-    }
-
-    // Acquires a read lock for the dataverse and a write lock for the dataset, in order to populate the dataset.
-    private static void writeLockDataset(LockList locks, Dataset dataset) throws AsterixException {
-        MetadataLockManager.INSTANCE.acquireDataverseReadLock(locks, dataset.getDataverseName());
-        MetadataLockManager.INSTANCE.acquireDatasetWriteLock(locks,
-                dataset.getDataverseName() + "." + dataset.getDatasetName());
     }
 
     // Creates and loads all secondary indexes for the rebalance target dataset.
@@ -349,13 +370,13 @@ public class RebalanceUtil {
                 continue;
             }
             // Creates the secondary index.
-            JobSpecification indexCreationJobSpec = IndexUtil.buildSecondaryIndexCreationJobSpec(target, index,
-                    metadataProvider);
+            JobSpecification indexCreationJobSpec =
+                    IndexUtil.buildSecondaryIndexCreationJobSpec(target, index, metadataProvider);
             JobUtils.runJob(hcc, indexCreationJobSpec, true);
 
             // Loads the secondary index.
-            JobSpecification indexLoadingJobSpec = IndexUtil.buildSecondaryIndexLoadingJobSpec(target, index,
-                    metadataProvider);
+            JobSpecification indexLoadingJobSpec =
+                    IndexUtil.buildSecondaryIndexLoadingJobSpec(target, index, metadataProvider);
             JobUtils.runJob(hcc, indexLoadingJobSpec, true);
         }
     }
@@ -380,5 +401,22 @@ public class RebalanceUtil {
             f++;
         }
         return pkIndexes;
+    }
+
+    private static void purgeDataset(Dataset dataset, MetadataProvider metadataProvider, IHyracksClientConnection hcc)
+            throws Exception {
+        runWithRetryAfterInterrupt(() -> {
+            // drop dataset files
+            dropDatasetFiles(dataset, metadataProvider, hcc);
+
+            // drop dataset entry from metadata
+            runMetadataTransaction(metadataProvider,
+                    () -> MetadataManager.INSTANCE.dropDataset(metadataProvider.getMetadataTxnContext(),
+                            dataset.getDataverseName(), dataset.getDatasetName()));
+            MetadataManager.INSTANCE.commitTransaction(metadataProvider.getMetadataTxnContext());
+            // try to drop the dataset's node group
+            runMetadataTransaction(metadataProvider, () -> tryDropDatasetNodegroup(dataset, metadataProvider));
+            MetadataManager.INSTANCE.commitTransaction(metadataProvider.getMetadataTxnContext());
+        });
     }
 }

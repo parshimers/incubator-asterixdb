@@ -47,7 +47,7 @@ public class ATimeParserFactory implements IValueParserFactory {
                 try {
                     out.writeInt(parseTimePart(buffer, start, length));
                 } catch (IOException ex) {
-                    throw new HyracksDataException(ex);
+                    throw HyracksDataException.create(ex);
                 }
             }
         };
@@ -63,7 +63,6 @@ public class ATimeParserFactory implements IValueParserFactory {
      * @throws HyracksDataException
      */
     public static int parseTimePart(String timeString, int start, int length) throws HyracksDataException {
-
         int offset = 0;
 
         int hour = 0, min = 0, sec = 0, millis = 0;
@@ -146,7 +145,8 @@ public class ATimeParserFactory implements IValueParserFactory {
             }
 
             // error is thrown if more than three digits are seen for the millisecond part
-            if (length > offset && timeString.charAt(start + offset) >= '0' && timeString.charAt(start + offset) <= '9') {
+            if (length > offset && timeString.charAt(start + offset) >= '0'
+                    && timeString.charAt(start + offset) <= '9') {
                 throw new HyracksDataException(timeErrorMessage + ": too many fields for millisecond.");
             }
         }
@@ -188,16 +188,17 @@ public class ATimeParserFactory implements IValueParserFactory {
             int temp_offset = (timeString.charAt(start + 3) == ':') ? 1 : 0;
 
             for (int i = 0; i < 2; i++) {
-                if ((timeString.charAt(start + temp_offset + 3 + i) >= '0' && timeString.charAt(start + temp_offset + 3
-                        + i) <= '9')) {
-                    timezoneMinute = (short) (timezoneMinute * 10 + timeString.charAt(start + temp_offset + 3 + i) - '0');
+                if ((timeString.charAt(start + temp_offset + 3 + i) >= '0'
+                        && timeString.charAt(start + temp_offset + 3 + i) <= '9')) {
+                    timezoneMinute =
+                            (short) (timezoneMinute * 10 + timeString.charAt(start + temp_offset + 3 + i) - '0');
                 } else {
                     throw new HyracksDataException(timeErrorMessage + ": Non-numeric value in timezone minute field");
                 }
             }
 
-            timezone = (int) (timezoneHour * GregorianCalendarSystem.CHRONON_OF_HOUR + timezoneMinute
-                    * GregorianCalendarSystem.CHRONON_OF_MINUTE);
+            timezone = (int) (timezoneHour * GregorianCalendarSystem.CHRONON_OF_HOUR
+                    + timezoneMinute * GregorianCalendarSystem.CHRONON_OF_MINUTE);
 
             if (timeString.charAt(start) == '+') {
                 timezone *= -1;
@@ -343,15 +344,16 @@ public class ATimeParserFactory implements IValueParserFactory {
             int temp_offset = (timeString[start + 3] == ':') ? 1 : 0;
 
             for (int i = 0; i < 2; i++) {
-                if ((timeString[start + temp_offset + 3 + i] >= '0' && timeString[start + temp_offset + 3 + i] <= '9')) {
+                if ((timeString[start + temp_offset + 3 + i] >= '0'
+                        && timeString[start + temp_offset + 3 + i] <= '9')) {
                     timezoneMinute = (short) (timezoneMinute * 10 + timeString[start + temp_offset + 3 + i] - '0');
                 } else {
                     throw new HyracksDataException(timeErrorMessage + ": Non-numeric value in timezone minute field");
                 }
             }
 
-            timezone = (int) (timezoneHour * GregorianCalendarSystem.CHRONON_OF_HOUR + timezoneMinute
-                    * GregorianCalendarSystem.CHRONON_OF_MINUTE);
+            timezone = (int) (timezoneHour * GregorianCalendarSystem.CHRONON_OF_HOUR
+                    + timezoneMinute * GregorianCalendarSystem.CHRONON_OF_MINUTE);
 
             if (timeString[start] == '+') {
                 timezone *= -1;
@@ -497,15 +499,16 @@ public class ATimeParserFactory implements IValueParserFactory {
             int temp_offset = (timeString[start + 3] == ':') ? 1 : 0;
 
             for (int i = 0; i < 2; i++) {
-                if ((timeString[start + temp_offset + 3 + i] >= '0' && timeString[start + temp_offset + 3 + i] <= '9')) {
+                if ((timeString[start + temp_offset + 3 + i] >= '0'
+                        && timeString[start + temp_offset + 3 + i] <= '9')) {
                     timezoneMinute = (short) (timezoneMinute * 10 + timeString[start + temp_offset + 3 + i] - '0');
                 } else {
                     throw new HyracksDataException(timeErrorMessage + ": Non-numeric value in timezone minute field");
                 }
             }
 
-            timezone = (int) (timezoneHour * GregorianCalendarSystem.CHRONON_OF_HOUR + timezoneMinute
-                    * GregorianCalendarSystem.CHRONON_OF_MINUTE);
+            timezone = (int) (timezoneHour * GregorianCalendarSystem.CHRONON_OF_HOUR
+                    + timezoneMinute * GregorianCalendarSystem.CHRONON_OF_MINUTE);
 
             if (timeString[start] == '+') {
                 timezone *= -1;

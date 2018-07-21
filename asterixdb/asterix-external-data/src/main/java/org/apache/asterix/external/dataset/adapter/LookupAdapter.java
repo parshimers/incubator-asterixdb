@@ -57,7 +57,7 @@ public final class LookupAdapter<T> implements IFrameWriter {
     public LookupAdapter(IRecordDataParser<T> dataParser, ILookupRecordReader<? extends T> recordReader,
             RecordDescriptor inRecDesc, RecordIdReader ridReader, boolean propagateInput, boolean retainNull,
             IMissingWriterFactory iNullWriterFactory, IHyracksTaskContext ctx, IFrameWriter writer)
-                    throws HyracksDataException {
+            throws HyracksDataException {
         this.dataParser = dataParser;
         this.recordReader = recordReader;
         this.propagateInput = propagateInput;
@@ -98,7 +98,7 @@ public final class LookupAdapter<T> implements IFrameWriter {
         try {
             recordReader.fail();
         } catch (Throwable th) {
-            throw new HyracksDataException(th);
+            throw HyracksDataException.create(th);
         } finally {
             writer.fail();
         }
@@ -138,7 +138,7 @@ public final class LookupAdapter<T> implements IFrameWriter {
                 tupleIndex++;
             }
         } catch (Exception e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 

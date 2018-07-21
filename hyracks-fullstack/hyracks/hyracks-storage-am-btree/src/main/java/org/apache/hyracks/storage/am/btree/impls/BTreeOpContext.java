@@ -24,6 +24,7 @@ import java.util.Deque;
 
 import org.apache.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.util.CleanupUtils;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleReference;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
@@ -38,7 +39,6 @@ import org.apache.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexMetadataFrame;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexTupleReference;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
-import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import org.apache.hyracks.storage.common.IIndexAccessor;
 import org.apache.hyracks.storage.common.IModificationOperationCallback;
 import org.apache.hyracks.storage.common.ISearchOperationCallback;
@@ -56,7 +56,6 @@ public class BTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
     private final IBTreeInteriorFrame interiorFrame;
     private final IPageManager freePageManager;
     private final ITreeIndexMetadataFrame metaFrame;
-    private PermutingTupleReference tupleWithNonIndexFields; // Optional, for filtered LSM Index transaction support
     private ITreeIndexFrameFactory leafFrameFactory;
     private IBTreeLeafFrame leafFrame;
     private IndexOperation op;
@@ -73,6 +72,7 @@ public class BTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
     private ISearchOperationCallback searchCallback;
     private ITupleAcceptor acceptor;
     private int smoCount;
+    private boolean destroyed = false;
 
     // Debug
     private final Deque<PageValidationInfo> validationInfos;
@@ -113,15 +113,6 @@ public class BTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
         this.interiorFrameTuple = getInteriorFrame().createTupleReference();
     }
 
-    public BTreeOpContext(IIndexAccessor accessor, ITreeIndexFrameFactory leafFrameFactory,
-            ITreeIndexFrameFactory interiorFrameFactory, IPageManager freePageManager,
-            IBinaryComparatorFactory[] cmpFactories, IModificationOperationCallback modificationCallback,
-            ISearchOperationCallback searchCallback, int[] nonIndexFields) {
-        this(accessor, leafFrameFactory, interiorFrameFactory, freePageManager, cmpFactories, modificationCallback,
-                searchCallback);
-        this.tupleWithNonIndexFields = new PermutingTupleReference(nonIndexFields);
-    }
-
     @Override
     public void reset() {
         if (pageLsns != null) {
@@ -142,7 +133,7 @@ public class BTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
     public void setOperation(IndexOperation newOp) {
         if (newOp == IndexOperation.SEARCH || newOp == IndexOperation.DISKORDERSCAN) {
             if (cursorInitialState == null) {
-                cursorInitialState = new BTreeCursorInitialState(null, searchCallback, accessor);
+                cursorInitialState = new BTreeCursorInitialState(searchCallback, accessor);
             }
         } else {
             // Insert, delete, update or upsert operation.
@@ -376,11 +367,15 @@ public class BTreeOpContext implements IIndexOperationContext, IExtraPageBlockHe
         this.leafFrameFactory = leafFrameFactory;
     }
 
-    public ITupleReference getTupleWithNonIndexFields() {
-        return tupleWithNonIndexFields;
-    }
-
-    public void resetNonIndexFieldsTuple(ITupleReference newValue) {
-        tupleWithNonIndexFields.reset(newValue);
+    @Override
+    public void destroy() throws HyracksDataException {
+        if (destroyed) {
+            return;
+        }
+        destroyed = true;
+        Throwable failure = CleanupUtils.destroy(null, accessor, cursor);
+        if (failure != null) {
+            throw HyracksDataException.create(failure);
+        }
     }
 }

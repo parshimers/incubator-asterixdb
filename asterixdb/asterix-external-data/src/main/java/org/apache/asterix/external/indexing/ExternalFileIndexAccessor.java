@@ -35,6 +35,7 @@ import org.apache.asterix.om.types.BuiltinType;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.util.CleanupUtils;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleReference;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
@@ -42,6 +43,7 @@ import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
 import org.apache.hyracks.storage.am.btree.util.BTreeUtils;
 import org.apache.hyracks.storage.am.common.api.IIndexDataflowHelper;
 import org.apache.hyracks.storage.am.common.api.ISearchOperationCallbackFactory;
+import org.apache.hyracks.storage.am.common.util.ResourceReleaseUtils;
 import org.apache.hyracks.storage.am.lsm.btree.impls.ExternalBTree;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
 import org.apache.hyracks.storage.common.IIndexCursor;
@@ -102,7 +104,7 @@ public class ExternalFileIndexAccessor {
         searchKeyTupleBuilder.reset();
         searchKeyTupleBuilder.addField(intSerde, currentFileNumber);
         searchKey.reset(searchKeyTupleBuilder.getFieldEndOffsets(), searchKeyTupleBuilder.getByteArray());
-        fileIndexSearchCursor.reset();
+        fileIndexSearchCursor.close();
 
         // Perform search
         fileIndexAccessor.search(fileIndexSearchCursor, searchPredicate);
@@ -135,12 +137,11 @@ public class ExternalFileIndexAccessor {
     }
 
     public void close() throws HyracksDataException {
-        if (index != null) {
-            try {
-                fileIndexSearchCursor.close();
-            } finally {
-                indexDataflowHelper.close();
-            }
+        Throwable failure = ResourceReleaseUtils.close(fileIndexSearchCursor, null);
+        failure = CleanupUtils.destroy(failure, fileIndexSearchCursor, fileIndexAccessor);
+        failure = ResourceReleaseUtils.close(indexDataflowHelper, failure);
+        if (failure != null) {
+            throw HyracksDataException.create(failure);
         }
     }
 

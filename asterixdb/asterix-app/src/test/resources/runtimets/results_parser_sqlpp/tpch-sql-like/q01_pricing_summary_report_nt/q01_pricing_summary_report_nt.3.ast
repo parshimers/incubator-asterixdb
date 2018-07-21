@@ -16,7 +16,7 @@ RecordConstructor [
   (
     LiteralExpr [STRING] [sum_qty]
     :
-    FunctionCall tpch.sum@1[
+    FunctionCall asterix.sum@1[
       (
         SELECT ELEMENT [
         FieldAccessor [
@@ -36,7 +36,7 @@ RecordConstructor [
   (
     LiteralExpr [STRING] [sum_base_price]
     :
-    FunctionCall tpch.sum@1[
+    FunctionCall asterix.sum@1[
       (
         SELECT ELEMENT [
         FieldAccessor [
@@ -56,7 +56,7 @@ RecordConstructor [
   (
     LiteralExpr [STRING] [sum_disc_price]
     :
-    FunctionCall tpch.sum@1[
+    FunctionCall asterix.sum@1[
       (
         SELECT ELEMENT [
         OperatorExpr [
@@ -90,7 +90,7 @@ RecordConstructor [
   (
     LiteralExpr [STRING] [sum_charge]
     :
-    FunctionCall tpch.sum@1[
+    FunctionCall asterix.sum@1[
       (
         SELECT ELEMENT [
         OperatorExpr [
@@ -136,7 +136,7 @@ RecordConstructor [
   (
     LiteralExpr [STRING] [ave_qty]
     :
-    FunctionCall tpch.avg@1[
+    FunctionCall asterix.avg@1[
       (
         SELECT ELEMENT [
         FieldAccessor [
@@ -156,7 +156,7 @@ RecordConstructor [
   (
     LiteralExpr [STRING] [ave_price]
     :
-    FunctionCall tpch.avg@1[
+    FunctionCall asterix.avg@1[
       (
         SELECT ELEMENT [
         FieldAccessor [
@@ -176,7 +176,7 @@ RecordConstructor [
   (
     LiteralExpr [STRING] [ave_disc]
     :
-    FunctionCall tpch.avg@1[
+    FunctionCall asterix.avg@1[
       (
         SELECT ELEMENT [
         FieldAccessor [
@@ -196,14 +196,12 @@ RecordConstructor [
   (
     LiteralExpr [STRING] [count_order]
     :
-    FunctionCall tpch.count@1[
+    FunctionCall asterix.count@1[
       (
         SELECT ELEMENT [
-        FunctionCall Metadata.resolve@-1[
-          LiteralExpr [STRING] [l]
+        FunctionCall asterix.field-access-by-name@2[
           Variable [ Name=$g ]
-          Variable [ Name=$l_linestatus ]
-          Variable [ Name=$l_returnflag ]
+          LiteralExpr [STRING] [l]
         ]
         ]
         FROM [          Variable [ Name=$g ]
@@ -214,8 +212,8 @@ RecordConstructor [
   )
 ]
 ]
-FROM [  FunctionCall Metadata.dataset@1[
-    LiteralExpr [STRING] [LineItem]
+FROM [  FunctionCall asterix.dataset@1[
+    LiteralExpr [STRING] [tpch.LineItem]
   ]
   AS Variable [ Name=$l ]
 ]

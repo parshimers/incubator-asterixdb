@@ -20,17 +20,17 @@
 package org.apache.hyracks.storage.am.lsm.btree.impls;
 
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.util.CleanupUtils;
+import org.apache.hyracks.api.util.ExceptionUtils;
 import org.apache.hyracks.data.std.api.IValueReference;
 import org.apache.hyracks.data.std.primitive.BooleanPointable;
 import org.apache.hyracks.data.std.primitive.IntegerPointable;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleReference;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
-import org.apache.hyracks.storage.am.btree.api.IBTreeLeafFrame;
 import org.apache.hyracks.storage.am.btree.impls.BTree;
 import org.apache.hyracks.storage.am.btree.impls.BTree.BTreeAccessor;
-import org.apache.hyracks.storage.am.btree.impls.BTreeRangeSearchCursor;
-import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
+import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.common.tuples.PermutingTupleReference;
 import org.apache.hyracks.storage.am.lsm.btree.tuples.LSMBTreeTupleReference;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
@@ -40,6 +40,7 @@ import org.apache.hyracks.storage.common.ICursorInitialState;
 import org.apache.hyracks.storage.common.IIndexCursor;
 import org.apache.hyracks.storage.common.ISearchPredicate;
 import org.apache.hyracks.storage.common.MultiComparator;
+import org.apache.hyracks.storage.common.util.IndexCursorUtils;
 
 public class LSMBTreeDiskComponentScanCursor extends LSMIndexSearchCursor {
 
@@ -63,48 +64,49 @@ public class LSMBTreeDiskComponentScanCursor extends LSMIndexSearchCursor {
     }
 
     @Override
-    public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
+    public void doOpen(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
         LSMBTreeCursorInitialState lsmInitialState = (LSMBTreeCursorInitialState) initialState;
         cmp = lsmInitialState.getOriginalKeyComparator();
         operationalComponents = lsmInitialState.getOperationalComponents();
         lsmHarness = lsmInitialState.getLSMHarness();
         includeMutableComponent = false;
-
         int numBTrees = operationalComponents.size();
         rangeCursors = new IIndexCursor[numBTrees];
         btreeAccessors = new BTreeAccessor[numBTrees];
         for (int i = 0; i < numBTrees; i++) {
             ILSMComponent component = operationalComponents.get(i);
-            IBTreeLeafFrame leafFrame = (IBTreeLeafFrame) lsmInitialState.getLeafFrameFactory().createFrame();
-            rangeCursors[i] = new BTreeRangeSearchCursor(leafFrame, false);
-            BTree btree = ((LSMBTreeDiskComponent) component).getBTree();
-
-            btreeAccessors[i] = (BTreeAccessor) btree.createAccessor(NoOpOperationCallback.INSTANCE,
-                    NoOpOperationCallback.INSTANCE);
-            btreeAccessors[i].search(rangeCursors[i], searchPred);
+            BTree btree = (BTree) component.getIndex();
+            btreeAccessors[i] = btree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
+            rangeCursors[i] = btreeAccessors[i].createSearchCursor(false);
         }
-
-        cursorIndexPointable = new IntegerPointable();
-        int length = IntegerPointable.TYPE_TRAITS.getFixedLength();
-        cursorIndexPointable.set(new byte[length], 0, length);
-
-        setPriorityQueueComparator();
-        initPriorityQueue();
+        IndexCursorUtils.open(btreeAccessors, rangeCursors, searchPred);
+        try {
+            cursorIndexPointable = new IntegerPointable();
+            int length = IntegerPointable.TYPE_TRAITS.getFixedLength();
+            cursorIndexPointable.set(new byte[length], 0, length);
+            setPriorityQueueComparator();
+            initPriorityQueue();
+        } catch (Throwable th) { // NOSONAR: Must call this on
+            for (int i = 0; i < numBTrees; i++) {
+                IndexCursorUtils.close(rangeCursors[i], th);
+            }
+            throw HyracksDataException.create(th);
+        }
     }
 
     @Override
-    public void next() throws HyracksDataException {
+    public void doNext() throws HyracksDataException {
         foundNext = false;
     }
 
     @Override
-    public boolean hasNext() throws HyracksDataException {
+    public boolean doHasNext() throws HyracksDataException {
         if (foundNext) {
             return true;
         }
-        while (super.hasNext()) {
-            super.next();
-            LSMBTreeTupleReference diskTuple = (LSMBTreeTupleReference) super.getTuple();
+        while (super.doHasNext()) {
+            super.doNext();
+            LSMBTreeTupleReference diskTuple = (LSMBTreeTupleReference) super.doGetTuple();
             if (diskTuple.isAntimatter()) {
                 if (setAntiMatterTuple(diskTuple, outputElement.getCursorIndex())) {
                     foundNext = true;
@@ -173,23 +175,28 @@ public class LSMBTreeDiskComponentScanCursor extends LSMIndexSearchCursor {
     }
 
     @Override
-    public ITupleReference getTuple() {
+    public ITupleReference doGetTuple() {
         return outputTuple;
     }
 
     @Override
-    public void close() throws HyracksDataException {
+    public void doDestroy() throws HyracksDataException {
+        Throwable failure = null;
         if (lsmHarness != null) {
-            try {
-                for (int i = 0; i < rangeCursors.length; i++) {
-                    rangeCursors[i].close();
-                }
+            if (rangeCursors != null) {
+                failure = CleanupUtils.destroy(failure, rangeCursors);
                 rangeCursors = null;
-            } finally {
+            }
+            try {
                 lsmHarness.endScanDiskComponents(opCtx);
+            } catch (Throwable th) { // NOSONAR. Don't lose the root cause
+                failure = ExceptionUtils.suppress(failure, th);
             }
         }
         foundNext = false;
+        if (failure != null) {
+            throw HyracksDataException.create(failure);
+        }
     }
 
     @Override

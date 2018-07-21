@@ -21,7 +21,6 @@ package org.apache.hyracks.storage.am.btree;
 
 import java.io.DataOutput;
 import java.util.Random;
-import java.util.logging.Level;
 
 import org.apache.hyracks.api.comm.IFrame;
 import org.apache.hyracks.api.comm.IFrameTupleAccessor;
@@ -41,9 +40,8 @@ import org.apache.hyracks.dataflow.common.data.accessors.FrameTupleReference;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.dataflow.common.data.marshalling.IntegerSerializerDeserializer;
 import org.apache.hyracks.storage.am.btree.frames.BTreeFieldPrefixNSMLeafFrame;
+import org.apache.hyracks.storage.am.btree.tuples.BTreeTypeAwareTupleWriter;
 import org.apache.hyracks.storage.am.btree.util.AbstractBTreeTest;
-import org.apache.hyracks.storage.am.common.api.ITreeIndexTupleWriter;
-import org.apache.hyracks.storage.am.common.tuples.TypeAwareTupleWriter;
 import org.apache.hyracks.storage.am.common.util.TreeIndexUtils;
 import org.apache.hyracks.storage.common.MultiComparator;
 import org.apache.hyracks.storage.common.buffercache.IBufferCache;
@@ -66,7 +64,7 @@ public class FieldPrefixNSMTest extends AbstractBTreeTest {
     private ITupleReference createTuple(IHyracksTaskContext ctx, int f0, int f1, int f2, boolean print)
             throws HyracksDataException {
         if (print) {
-            if (LOGGER.isLoggable(Level.INFO)) {
+            if (LOGGER.isInfoEnabled()) {
                 LOGGER.info("CREATING: " + f0 + " " + f1 + " " + f2);
             }
         }
@@ -133,7 +131,7 @@ public class FieldPrefixNSMTest extends AbstractBTreeTest {
         ICachedPage page = bufferCache.pin(BufferedFileHandle.getDiskPageId(btreeFileId, 0), true);
         try {
 
-            ITreeIndexTupleWriter tupleWriter = new TypeAwareTupleWriter(typeTraits);
+            BTreeTypeAwareTupleWriter tupleWriter = new BTreeTypeAwareTupleWriter(typeTraits, false);
             BTreeFieldPrefixNSMLeafFrame frame = new BTreeFieldPrefixNSMLeafFrame(tupleWriter);
             frame.setPage(page);
             frame.initBuffer((byte) 0);
@@ -153,7 +151,7 @@ public class FieldPrefixNSMTest extends AbstractBTreeTest {
             // insert records with random calls to compact and compress
             for (int i = 0; i < numRecords; i++) {
 
-                if (LOGGER.isLoggable(Level.INFO)) {
+                if (LOGGER.isInfoEnabled()) {
                     if ((i + 1) % 100 == 0) {
                         LOGGER.info("INSERTING " + (i + 1) + " / " + numRecords);
                     }
@@ -193,7 +191,7 @@ public class FieldPrefixNSMTest extends AbstractBTreeTest {
 
             // delete records with random calls to compact and compress
             for (int i = 0; i < numRecords; i++) {
-                if (LOGGER.isLoggable(Level.INFO)) {
+                if (LOGGER.isInfoEnabled()) {
                     if ((i + 1) % 100 == 0) {
                         LOGGER.info("DELETING " + (i + 1) + " / " + numRecords);
                     }

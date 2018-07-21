@@ -20,6 +20,7 @@ package org.apache.asterix.utils;
 
 import java.rmi.RemoteException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -31,41 +32,68 @@ import java.util.TreeSet;
 import org.apache.asterix.active.ActiveRuntimeId;
 import org.apache.asterix.active.EntityId;
 import org.apache.asterix.active.message.ActiveManagerMessage;
+import org.apache.asterix.active.message.ActiveManagerMessage.Kind;
 import org.apache.asterix.app.translator.DefaultStatementExecutorFactory;
-import org.apache.asterix.common.context.IStorageComponentProvider;
+import org.apache.asterix.app.translator.QueryTranslator;
+import org.apache.asterix.common.cluster.IClusterStateManager;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.common.dataflow.LSMTreeInsertDeleteOperatorDescriptor;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.exceptions.AsterixException;
+import org.apache.asterix.common.exceptions.CompilationException;
+import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.messaging.api.ICCMessageBroker;
-import org.apache.asterix.common.transactions.JobId;
+import org.apache.asterix.common.transactions.TxnId;
 import org.apache.asterix.common.utils.StoragePathUtil;
-import org.apache.asterix.compiler.provider.ILangCompilationProvider;
+import org.apache.asterix.compiler.provider.SqlppCompilationProvider;
 import org.apache.asterix.external.api.IAdapterFactory;
 import org.apache.asterix.external.feed.management.FeedConnectionId;
-import org.apache.asterix.external.feed.management.FeedConnectionRequest;
 import org.apache.asterix.external.feed.policy.FeedPolicyAccessor;
 import org.apache.asterix.external.feed.watch.FeedActivityDetails;
 import org.apache.asterix.external.operators.FeedCollectOperatorDescriptor;
 import org.apache.asterix.external.operators.FeedIntakeOperatorDescriptor;
 import org.apache.asterix.external.operators.FeedIntakeOperatorNodePushable;
 import org.apache.asterix.external.operators.FeedMetaOperatorDescriptor;
+import org.apache.asterix.external.util.ExternalDataUtils;
 import org.apache.asterix.external.util.FeedUtils;
 import org.apache.asterix.external.util.FeedUtils.FeedRuntimeType;
-import org.apache.asterix.lang.aql.statement.SubscribeFeedStatement;
+import org.apache.asterix.file.StorageComponentProvider;
+import org.apache.asterix.lang.common.base.Expression;
+import org.apache.asterix.lang.common.base.IParser;
+import org.apache.asterix.lang.common.base.IParserFactory;
 import org.apache.asterix.lang.common.base.Statement;
-import org.apache.asterix.lang.common.statement.DataverseDecl;
+import org.apache.asterix.lang.common.clause.LetClause;
+import org.apache.asterix.lang.common.clause.WhereClause;
+import org.apache.asterix.lang.common.expression.CallExpr;
+import org.apache.asterix.lang.common.expression.LiteralExpr;
+import org.apache.asterix.lang.common.expression.VariableExpr;
+import org.apache.asterix.lang.common.literal.IntegerLiteral;
+import org.apache.asterix.lang.common.literal.StringLiteral;
+import org.apache.asterix.lang.common.statement.InsertStatement;
+import org.apache.asterix.lang.common.statement.Query;
+import org.apache.asterix.lang.common.statement.UpsertStatement;
 import org.apache.asterix.lang.common.struct.Identifier;
+import org.apache.asterix.lang.common.struct.VarIdentifier;
 import org.apache.asterix.lang.common.util.FunctionUtil;
+import org.apache.asterix.lang.sqlpp.clause.FromClause;
+import org.apache.asterix.lang.sqlpp.clause.FromTerm;
+import org.apache.asterix.lang.sqlpp.clause.SelectBlock;
+import org.apache.asterix.lang.sqlpp.clause.SelectClause;
+import org.apache.asterix.lang.sqlpp.clause.SelectElement;
+import org.apache.asterix.lang.sqlpp.clause.SelectSetOperation;
+import org.apache.asterix.lang.sqlpp.expression.SelectExpression;
+import org.apache.asterix.lang.sqlpp.parser.SqlppParserFactory;
+import org.apache.asterix.lang.sqlpp.struct.SetOperationInput;
+import org.apache.asterix.lang.sqlpp.util.SqlppVariableUtil;
 import org.apache.asterix.metadata.declared.MetadataProvider;
 import org.apache.asterix.metadata.entities.Feed;
 import org.apache.asterix.metadata.entities.FeedConnection;
 import org.apache.asterix.metadata.entities.FeedPolicyEntity;
 import org.apache.asterix.metadata.feeds.FeedMetadataUtil;
 import org.apache.asterix.metadata.feeds.LocationConstraint;
+import org.apache.asterix.om.functions.BuiltinFunctions;
 import org.apache.asterix.runtime.job.listener.JobEventListenerFactory;
 import org.apache.asterix.runtime.job.listener.MultiTransactionJobletEventListenerFactory;
-import org.apache.asterix.runtime.utils.ClusterStateManager;
 import org.apache.asterix.runtime.utils.RuntimeUtils;
 import org.apache.asterix.translator.CompiledStatements;
 import org.apache.asterix.translator.IStatementExecutor;
@@ -108,6 +136,8 @@ import org.apache.hyracks.dataflow.std.misc.ReplicateOperatorDescriptor;
  */
 public class FeedOperations {
 
+    public static final String FEED_DATAFLOW_INTERMEIDATE_VAL_PREFIX = "val";
+
     private FeedOperations() {
     }
 
@@ -133,8 +163,10 @@ public class FeedOperations {
 
     public static JobSpecification buildRemoveFeedStorageJob(MetadataProvider metadataProvider, Feed feed)
             throws AsterixException {
-        JobSpecification spec = RuntimeUtils.createJobSpecification(metadataProvider.getApplicationContext());
-        AlgebricksAbsolutePartitionConstraint allCluster = ClusterStateManager.INSTANCE.getClusterLocations();
+        ICcApplicationContext appCtx = metadataProvider.getApplicationContext();
+        JobSpecification spec = RuntimeUtils.createJobSpecification(appCtx);
+        IClusterStateManager csm = appCtx.getClusterStateManager();
+        AlgebricksAbsolutePartitionConstraint allCluster = csm.getClusterLocations();
         Set<String> nodes = new TreeSet<>();
         for (String node : allCluster.getLocations()) {
             nodes.add(node);
@@ -142,7 +174,7 @@ public class FeedOperations {
         AlgebricksAbsolutePartitionConstraint locations =
                 new AlgebricksAbsolutePartitionConstraint(nodes.toArray(new String[nodes.size()]));
         FileSplit[] feedLogFileSplits =
-                FeedUtils.splitsForAdapter(feed.getDataverseName(), feed.getFeedName(), locations);
+                FeedUtils.splitsForAdapter(appCtx, feed.getDataverseName(), feed.getFeedName(), locations);
         org.apache.hyracks.algebricks.common.utils.Pair<IFileSplitProvider, AlgebricksPartitionConstraint> spC =
                 StoragePathUtil.splitProviderAndPartitionConstraints(feedLogFileSplits);
         FileRemoveOperatorDescriptor frod = new FileRemoveOperatorDescriptor(spec, spC.first, true);
@@ -151,30 +183,88 @@ public class FeedOperations {
         return spec;
     }
 
-    private static JobSpecification getConnectionJob(SessionOutput sessionOutput, MetadataProvider metadataProvider,
-            FeedConnection feedConnection, String[] locations, ILangCompilationProvider compilationProvider,
-            IStorageComponentProvider storageComponentProvider, DefaultStatementExecutorFactory qtFactory,
-            IHyracksClientConnection hcc) throws AlgebricksException, RemoteException, ACIDException {
-        DataverseDecl dataverseDecl = new DataverseDecl(new Identifier(feedConnection.getDataverseName()));
-        FeedConnectionRequest fcr =
-                new FeedConnectionRequest(FeedRuntimeType.INTAKE, feedConnection.getAppliedFunctions(),
-                        feedConnection.getDatasetName(), feedConnection.getPolicyName(), feedConnection.getFeedId());
-        SubscribeFeedStatement subscribeStmt = new SubscribeFeedStatement(locations, fcr);
-        subscribeStmt.initialize(metadataProvider.getMetadataTxnContext());
-        List<Statement> statements = new ArrayList<>();
-        statements.add(dataverseDecl);
-        statements.add(subscribeStmt);
-        IStatementExecutor translator = qtFactory.create(metadataProvider.getApplicationContext(), statements,
-                sessionOutput, compilationProvider, storageComponentProvider);
-        // configure the metadata provider
-        metadataProvider.getConfig().put(FunctionUtil.IMPORT_PRIVATE_FUNCTIONS, "" + Boolean.TRUE);
-        metadataProvider.getConfig().put(FeedActivityDetails.FEED_POLICY_NAME, "" + subscribeStmt.getPolicy());
-        metadataProvider.getConfig().put(FeedActivityDetails.COLLECT_LOCATIONS,
-                StringUtils.join(subscribeStmt.getLocations(), ','));
+    private static List<Expression> addArgs(Object... args) {
+        List<Expression> argExprs = new ArrayList<>();
+        for (Object arg : args) {
+            if (arg instanceof Integer) {
+                argExprs.add(new LiteralExpr(new IntegerLiteral((Integer) arg)));
+            } else if (arg instanceof String) {
+                argExprs.add(new LiteralExpr(new StringLiteral((String) arg)));
+            } else if (arg instanceof VariableExpr) {
+                argExprs.add((VariableExpr) arg);
+            }
+        }
+        return argExprs;
+    }
 
-        CompiledStatements.CompiledSubscribeFeedStatement csfs = new CompiledStatements.CompiledSubscribeFeedStatement(
-                subscribeStmt.getSubscriptionRequest(), subscribeStmt.getVarCounter());
-        return translator.rewriteCompileQuery(hcc, metadataProvider, subscribeStmt.getQuery(), csfs);
+    private static Query makeConnectionQuery(FeedConnection feedConnection) throws AlgebricksException {
+        // Construct from clause
+        VarIdentifier fromVarId = SqlppVariableUtil.toInternalVariableIdentifier(feedConnection.getFeedName());
+        VariableExpr fromTermLeftExpr = new VariableExpr(fromVarId);
+        // TODO: remove target feedid from args list (xikui)
+        // TODO: Get rid of this INTAKE
+        List<Expression> exprList = addArgs(feedConnection.getDataverseName(),
+                feedConnection.getFeedId().getEntityName(), feedConnection.getFeedId().getEntityName(),
+                FeedRuntimeType.INTAKE.toString(), feedConnection.getDatasetName(), feedConnection.getOutputType());
+        CallExpr datasrouceCallFunction = new CallExpr(new FunctionSignature(BuiltinFunctions.FEED_COLLECT), exprList);
+        FromTerm fromterm = new FromTerm(datasrouceCallFunction, fromTermLeftExpr, null, null);
+        FromClause fromClause = new FromClause(Arrays.asList(fromterm));
+        WhereClause whereClause = null;
+        if (feedConnection.getWhereClauseBody().length() != 0) {
+            String whereClauseExpr = feedConnection.getWhereClauseBody() + ";";
+            IParserFactory sqlppParserFactory = new SqlppParserFactory();
+            IParser sqlppParser = sqlppParserFactory.createParser(whereClauseExpr);
+            List<Statement> stmts = sqlppParser.parse();
+            if (stmts.size() != 1) {
+                throw new CompilationException("Exceptions happened in processing where clause.");
+            }
+            Query whereClauseQuery = (Query) stmts.get(0);
+            whereClause = new WhereClause(whereClauseQuery.getBody());
+        }
+
+        // TODO: This can be the place to add select predicate for ingestion
+        // Attaching functions
+        int varIdx = 1;
+        VariableExpr previousVarExpr = fromTermLeftExpr;
+        ArrayList<LetClause> letClauses = new ArrayList<>();
+        for (FunctionSignature funcSig : feedConnection.getAppliedFunctions()) {
+            VarIdentifier intermediateVar = SqlppVariableUtil
+                    .toInternalVariableIdentifier(FEED_DATAFLOW_INTERMEIDATE_VAL_PREFIX + String.valueOf(varIdx));
+            VariableExpr intermediateVarExpr = new VariableExpr(intermediateVar);
+            CallExpr functionCallExpr = new CallExpr(funcSig, addArgs(previousVarExpr));
+            previousVarExpr = intermediateVarExpr;
+            LetClause letClause = new LetClause(intermediateVarExpr, functionCallExpr);
+            letClauses.add(letClause);
+            varIdx++;
+        }
+        // Constructing select clause
+        SelectElement selectElement = new SelectElement(previousVarExpr);
+        SelectClause selectClause = new SelectClause(selectElement, null, false);
+        SelectBlock selectBlock = new SelectBlock(selectClause, fromClause, letClauses, whereClause, null, null, null);
+        SelectSetOperation selectSetOperation = new SelectSetOperation(new SetOperationInput(selectBlock, null), null);
+        SelectExpression body = new SelectExpression(null, selectSetOperation, null, null, true);
+        Query query = new Query(false, true, body, 0);
+        return query;
+    }
+
+    private static JobSpecification getConnectionJob(MetadataProvider metadataProvider, FeedConnection feedConn,
+            IStatementExecutor statementExecutor, IHyracksClientConnection hcc, Boolean insertFeed)
+            throws AlgebricksException, RemoteException, ACIDException {
+        metadataProvider.getConfig().put(FeedActivityDetails.FEED_POLICY_NAME, feedConn.getPolicyName());
+        Query feedConnQuery = makeConnectionQuery(feedConn);
+        CompiledStatements.ICompiledDmlStatement clfrqs;
+        if (insertFeed) {
+            InsertStatement stmtUpsert = new InsertStatement(new Identifier(feedConn.getDataverseName()),
+                    new Identifier(feedConn.getDatasetName()), feedConnQuery, -1, null, null);
+            clfrqs = new CompiledStatements.CompiledInsertStatement(feedConn.getDataverseName(),
+                    feedConn.getDatasetName(), feedConnQuery, stmtUpsert.getVarCounter(), null, null);
+        } else {
+            UpsertStatement stmtUpsert = new UpsertStatement(new Identifier(feedConn.getDataverseName()),
+                    new Identifier(feedConn.getDatasetName()), feedConnQuery, -1, null, null);
+            clfrqs = new CompiledStatements.CompiledUpsertStatement(feedConn.getDataverseName(),
+                    feedConn.getDatasetName(), feedConnQuery, stmtUpsert.getVarCounter(), null, null);
+        }
+        return statementExecutor.rewriteCompileQuery(hcc, metadataProvider, feedConnQuery, clfrqs);
     }
 
     private static JobSpecification combineIntakeCollectJobs(MetadataProvider metadataProvider, Feed feed,
@@ -206,7 +296,7 @@ public class FeedOperations {
         Map<ConnectorDescriptorId, ConnectorDescriptorId> connectorIdMapping = new HashMap<>();
         Map<OperatorDescriptorId, List<LocationConstraint>> operatorLocations = new HashMap<>();
         Map<OperatorDescriptorId, Integer> operatorCounts = new HashMap<>();
-        List<JobId> jobIds = new ArrayList<>();
+        Map<Integer, TxnId> txnIdMap = new HashMap<>();
         FeedMetaOperatorDescriptor metaOp;
 
         for (int iter1 = 0; iter1 < jobsList.size(); iter1++) {
@@ -257,8 +347,7 @@ public class FeedOperations {
 
             // copy connectors
             connectorIdMapping.clear();
-            for (Entry<ConnectorDescriptorId, IConnectorDescriptor> entry : subJob.getConnectorMap().entrySet()) {
-                IConnectorDescriptor connDesc = entry.getValue();
+            subJob.getConnectorMap().forEach((key, connDesc) -> {
                 ConnectorDescriptorId newConnId;
                 if (connDesc instanceof MToNPartitioningConnectorDescriptor) {
                     MToNPartitioningConnectorDescriptor m2nConn = (MToNPartitioningConnectorDescriptor) connDesc;
@@ -268,12 +357,12 @@ public class FeedOperations {
                 } else {
                     newConnId = jobSpec.createConnectorDescriptor(connDesc);
                 }
-                connectorIdMapping.put(entry.getKey(), newConnId);
-            }
+                connectorIdMapping.put(key, newConnId);
+            });
 
             // make connections between operators
-            for (Entry<ConnectorDescriptorId, Pair<Pair<IOperatorDescriptor, Integer>,
-                    Pair<IOperatorDescriptor, Integer>>> entry : subJob.getConnectorOperatorMap().entrySet()) {
+            for (Entry<ConnectorDescriptorId, Pair<Pair<IOperatorDescriptor, Integer>, Pair<IOperatorDescriptor, Integer>>> entry : subJob
+                    .getConnectorOperatorMap().entrySet()) {
                 ConnectorDescriptorId newId = connectorIdMapping.get(entry.getKey());
                 IConnectorDescriptor connDesc = jobSpec.getConnectorMap().get(newId);
                 Pair<IOperatorDescriptor, Integer> leftOp = entry.getValue().getLeft();
@@ -333,21 +422,25 @@ public class FeedOperations {
             }
 
             // set count constraints
-            for (Entry<OperatorDescriptorId, Integer> entry : operatorCounts.entrySet()) {
-                IOperatorDescriptor opDesc = jobSpec.getOperatorMap().get(entry.getKey());
-                if (!operatorLocations.keySet().contains(entry.getKey())) {
-                    PartitionConstraintHelper.addPartitionCountConstraint(jobSpec, opDesc, entry.getValue());
+            operatorCounts.forEach((key, value) -> {
+                IOperatorDescriptor opDesc = jobSpec.getOperatorMap().get(key);
+                if (!operatorLocations.keySet().contains(key)) {
+                    PartitionConstraintHelper.addPartitionCountConstraint(jobSpec, opDesc, value);
                 }
-            }
+            });
             // roots
             for (OperatorDescriptorId root : subJob.getRoots()) {
                 jobSpec.addRoot(jobSpec.getOperatorMap().get(operatorIdMapping.get(root)));
             }
-            jobIds.add(((JobEventListenerFactory) subJob.getJobletEventListenerFactory()).getJobId());
+            int datasetId = metadataProvider
+                    .findDataset(curFeedConnection.getDataverseName(), curFeedConnection.getDatasetName())
+                    .getDatasetId();
+            TxnId txnId = ((JobEventListenerFactory) subJob.getJobletEventListenerFactory()).getTxnId(datasetId);
+            txnIdMap.put(datasetId, txnId);
         }
 
         // jobEventListenerFactory
-        jobSpec.setJobletEventListenerFactory(new MultiTransactionJobletEventListenerFactory(jobIds, true));
+        jobSpec.setJobletEventListenerFactory(new MultiTransactionJobletEventListenerFactory(txnIdMap, true));
         // useConnectorSchedulingPolicy
         jobSpec.setUseConnectorPolicyForScheduling(jobsList.get(0).isUseConnectorPolicyForScheduling());
         // connectorAssignmentPolicy
@@ -355,24 +448,38 @@ public class FeedOperations {
         return jobSpec;
     }
 
+    private static IStatementExecutor getSQLPPTranslator(MetadataProvider metadataProvider,
+            SessionOutput sessionOutput) {
+        List<Statement> stmts = new ArrayList<>();
+        DefaultStatementExecutorFactory qtFactory = new DefaultStatementExecutorFactory();
+        IStatementExecutor translator = qtFactory.create(metadataProvider.getApplicationContext(), stmts, sessionOutput,
+                new SqlppCompilationProvider(), new StorageComponentProvider());
+        return translator;
+    }
+
     public static Pair<JobSpecification, AlgebricksAbsolutePartitionConstraint> buildStartFeedJob(
-            SessionOutput sessionOutput, MetadataProvider metadataProvider, Feed feed,
-            List<FeedConnection> feedConnections, ILangCompilationProvider compilationProvider,
-            IStorageComponentProvider storageComponentProvider, DefaultStatementExecutorFactory qtFactory,
-            IHyracksClientConnection hcc) throws Exception {
+            MetadataProvider metadataProvider, Feed feed, List<FeedConnection> feedConnections,
+            IStatementExecutor statementExecutor, IHyracksClientConnection hcc) throws Exception {
         FeedPolicyAccessor fpa = new FeedPolicyAccessor(new HashMap<>());
-        // TODO: Change the default Datasource to use all possible partitions
         Pair<JobSpecification, IAdapterFactory> intakeInfo = buildFeedIntakeJobSpec(feed, metadataProvider, fpa);
-        //TODO: Add feed policy accessor
         List<JobSpecification> jobsList = new ArrayList<>();
+        // TODO: Figure out a better way to handle insert/upsert per conn instead of per feed
+        Boolean insertFeed = ExternalDataUtils.isInsertFeed(feed.getConfiguration());
         // Construct the ingestion Job
         JobSpecification intakeJob = intakeInfo.getLeft();
         IAdapterFactory ingestionAdaptorFactory = intakeInfo.getRight();
         String[] ingestionLocations = ingestionAdaptorFactory.getPartitionConstraint().getLocations();
+        // Add metadata configs
+        metadataProvider.getConfig().put(FunctionUtil.IMPORT_PRIVATE_FUNCTIONS, Boolean.TRUE.toString());
+        metadataProvider.getConfig().put(FeedActivityDetails.COLLECT_LOCATIONS,
+                StringUtils.join(ingestionLocations, ','));
+        // TODO: Once we deprecated AQL, this extra queryTranslator can be removed.
+        IStatementExecutor translator =
+                getSQLPPTranslator(metadataProvider, ((QueryTranslator) statementExecutor).getSessionOutput());
         // Add connection job
         for (FeedConnection feedConnection : feedConnections) {
-            JobSpecification connectionJob = getConnectionJob(sessionOutput, metadataProvider, feedConnection,
-                    ingestionLocations, compilationProvider, storageComponentProvider, qtFactory, hcc);
+            JobSpecification connectionJob =
+                    getConnectionJob(metadataProvider, feedConnection, translator, hcc, insertFeed);
             jobsList.add(connectionJob);
         }
         return Pair.of(combineIntakeCollectJobs(metadataProvider, feed, intakeJob, jobsList, feedConnections,
@@ -381,7 +488,7 @@ public class FeedOperations {
 
     public static void SendStopMessageToNode(ICcApplicationContext appCtx, EntityId feedId, String intakeNodeLocation,
             Integer partition) throws Exception {
-        ActiveManagerMessage stopFeedMessage = new ActiveManagerMessage(ActiveManagerMessage.STOP_ACTIVITY,
+        ActiveManagerMessage stopFeedMessage = new ActiveManagerMessage(Kind.STOP_ACTIVITY,
                 new ActiveRuntimeId(feedId, FeedIntakeOperatorNodePushable.class.getSimpleName(), partition));
         SendActiveMessage(appCtx, stopFeedMessage, intakeNodeLocation);
     }

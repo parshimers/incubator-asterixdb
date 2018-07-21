@@ -67,7 +67,7 @@ public class TupleUtils {
     }
 
     public static void createIntegerTuple(ArrayTupleBuilder tupleBuilder, ArrayTupleReference tuple, boolean filtered,
-                                          final int... fields) throws HyracksDataException {
+            final int... fields) throws HyracksDataException {
         DataOutput dos = tupleBuilder.getDataOutput();
         tupleBuilder.reset();
         for (final int i : fields) {
@@ -88,8 +88,8 @@ public class TupleUtils {
 
     public static ITupleReference createIntegerTuple(boolean filtered, final int... fields)
             throws HyracksDataException {
-        ArrayTupleBuilder tupleBuilder = filtered ? new ArrayTupleBuilder(fields.length + 1)
-                : new ArrayTupleBuilder(fields.length);
+        ArrayTupleBuilder tupleBuilder =
+                filtered ? new ArrayTupleBuilder(fields.length + 1) : new ArrayTupleBuilder(fields.length);
         ArrayTupleReference tuple = new ArrayTupleReference();
         createIntegerTuple(tupleBuilder, tuple, fields);
         return tuple;
@@ -122,8 +122,8 @@ public class TupleUtils {
         StringBuilder strBuilder = new StringBuilder();
         int numPrintFields = Math.min(tuple.getFieldCount(), fields.length);
         for (int i = 0; i < numPrintFields; i++) {
-            ByteArrayInputStream inStream = new ByteArrayInputStream(tuple.getFieldData(i), tuple.getFieldStart(i),
-                    tuple.getFieldLength(i));
+            ByteArrayInputStream inStream =
+                    new ByteArrayInputStream(tuple.getFieldData(i), tuple.getFieldStart(i), tuple.getFieldLength(i));
             DataInput dataIn = new DataInputStream(inStream);
             Object o = fields[i].deserialize(dataIn);
             strBuilder.append(o.toString());
@@ -139,8 +139,8 @@ public class TupleUtils {
         int numFields = Math.min(tuple.getFieldCount(), fields.length);
         Object[] objs = new Object[numFields];
         for (int i = 0; i < numFields; i++) {
-            ByteArrayInputStream inStream = new ByteArrayInputStream(tuple.getFieldData(i), tuple.getFieldStart(i),
-                    tuple.getFieldLength(i));
+            ByteArrayInputStream inStream =
+                    new ByteArrayInputStream(tuple.getFieldData(i), tuple.getFieldStart(i), tuple.getFieldLength(i));
             DataInput dataIn = new DataInputStream(inStream);
             objs[i] = fields[i].deserialize(dataIn);
         }
@@ -163,5 +163,31 @@ public class TupleUtils {
         for (int i = 0; i < numFields; i++) {
             tupleBuilder.addField(tuple.getFieldData(i), tuple.getFieldStart(i), tuple.getFieldLength(i));
         }
+    }
+
+    public static boolean equalTuples(ITupleReference tuple1, ITupleReference tuple2, int numCmpFields) {
+        for (int i = 0; i < numCmpFields; i++) {
+            if (!equalFields(tuple1, tuple2, i)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static boolean equalFields(ITupleReference tuple1, ITupleReference tuple2, int fIdx) {
+        return equalFields(tuple1.getFieldData(fIdx), tuple1.getFieldStart(fIdx), tuple1.getFieldLength(fIdx),
+                tuple2.getFieldData(fIdx), tuple2.getFieldStart(fIdx), tuple2.getFieldLength(fIdx));
+    }
+
+    public static boolean equalFields(byte[] a, int aOffset, int aLength, byte[] b, int bOffset, int bLength) {
+        if (aLength != bLength) {
+            return false;
+        }
+        for (int i = 0; i < aLength; i++) {
+            if (a[aOffset + i] != b[bOffset + i]) {
+                return false;
+            }
+        }
+        return true;
     }
 }

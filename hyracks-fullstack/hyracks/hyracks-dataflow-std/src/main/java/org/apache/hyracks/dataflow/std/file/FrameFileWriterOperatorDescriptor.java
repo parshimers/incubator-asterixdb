@@ -57,7 +57,7 @@ public class FrameFileWriterOperatorDescriptor extends AbstractSingleActivityOpe
                 try {
                     out = new FileOutputStream(splits[partition].getFile(ioManager));
                 } catch (FileNotFoundException e) {
-                    throw new HyracksDataException(e);
+                    throw HyracksDataException.create(e);
                 }
             }
 
@@ -66,7 +66,7 @@ public class FrameFileWriterOperatorDescriptor extends AbstractSingleActivityOpe
                 try {
                     out.write(buffer.array());
                 } catch (IOException e) {
-                    throw new HyracksDataException(e);
+                    throw HyracksDataException.create(e);
                 }
             }
 
@@ -79,7 +79,7 @@ public class FrameFileWriterOperatorDescriptor extends AbstractSingleActivityOpe
                 try {
                     out.close();
                 } catch (IOException e) {
-                    throw new HyracksDataException(e);
+                    throw HyracksDataException.create(e);
                 }
             }
         };

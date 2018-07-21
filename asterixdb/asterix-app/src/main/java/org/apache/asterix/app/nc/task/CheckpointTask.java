@@ -18,9 +18,10 @@
  */
 package org.apache.asterix.app.nc.task;
 
-import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.api.INCLifecycleTask;
+import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.transactions.ICheckpointManager;
+import org.apache.hyracks.api.control.CcId;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.service.IControllerService;
 
@@ -29,9 +30,14 @@ public class CheckpointTask implements INCLifecycleTask {
     private static final long serialVersionUID = 1L;
 
     @Override
-    public void perform(IControllerService cs) throws HyracksDataException {
+    public void perform(CcId ccId, IControllerService cs) throws HyracksDataException {
         INcApplicationContext appContext = (INcApplicationContext) cs.getApplicationContext();
         ICheckpointManager checkpointMgr = appContext.getTransactionSubsystem().getCheckpointManager();
         checkpointMgr.doSharpCheckpoint();
+    }
+
+    @Override
+    public String toString() {
+        return "{ \"class\" : \"" + getClass().getSimpleName() + "\" }";
     }
 }

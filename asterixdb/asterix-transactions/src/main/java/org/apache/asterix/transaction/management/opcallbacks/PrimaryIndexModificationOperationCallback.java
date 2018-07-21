@@ -89,7 +89,7 @@ public class PrimaryIndexModificationOperationCallback extends AbstractIndexModi
                 lockManager.lock(datasetId, pkHash, LockMode.X, txnCtx);
             }
         } catch (ACIDException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 
@@ -99,13 +99,15 @@ public class PrimaryIndexModificationOperationCallback extends AbstractIndexModi
             int pkHash = computePrimaryKeyHashValue(after, primaryKeyFields);
             log(pkHash, after, before);
         } catch (ACIDException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 
     private void logWait() throws ACIDException {
-        logRecord.setLogType(LogType.WAIT);
-        logRecord.computeAndSetLogSize();
-        txnSubsystem.getLogManager().log(logRecord);
+        indexRecord.setLogType(LogType.WAIT);
+        indexRecord.computeAndSetLogSize();
+        txnSubsystem.getLogManager().log(indexRecord);
+        // set the log type back to UPDATE for normal updates
+        indexRecord.setLogType(LogType.UPDATE);
     }
 }

@@ -19,13 +19,17 @@
 package org.apache.hyracks.api.util;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileReference;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * This util class takes care of creation and deletion of files and directories
@@ -33,36 +37,40 @@ import org.apache.hyracks.api.io.FileReference;
  */
 public class IoUtil {
 
+    public static final String FILE_NOT_FOUND_MSG = "Deleting non-existing file!";
+    private static final Logger LOGGER = LogManager.getLogger();
+
     private IoUtil() {
     }
 
     /**
      * Delete a file
      *
-     * @param fileRef
-     *            the file to be deleted
-     * @throws HyracksDataException
-     *             if the file doesn't exist or if it couldn't be deleted
+     * @param fileRef the file to be deleted
+     * @throws HyracksDataException if the file couldn't be deleted
      */
     public static void delete(FileReference fileRef) throws HyracksDataException {
         delete(fileRef.getFile());
     }
 
     /**
-     * Delete a file
+     * Delete a file or directory
      *
-     * @param file
-     *            the file to be deleted
-     * @throws HyracksDataException
-     *             if the file doesn't exist or if it couldn't be deleted
+     * @param file the file to be deleted
+     * @throws HyracksDataException if the file (or directory if exists) couldn't be deleted
      */
     public static void delete(File file) throws HyracksDataException {
         try {
             if (file.isDirectory()) {
-                FileUtils.deleteDirectory(file);
-            } else {
-                Files.delete(file.toPath());
+                if (!file.exists()) {
+                    return;
+                } else if (!FileUtils.isSymlink(file)) {
+                    cleanDirectory(file);
+                }
             }
+            Files.delete(file.toPath());
+        } catch (NoSuchFileException | FileNotFoundException e) {
+            LOGGER.warn(() -> FILE_NOT_FOUND_MSG + ": " + e.getMessage(), e);
         } catch (IOException e) {
             throw HyracksDataException.create(ErrorCode.CANNOT_DELETE_FILE, e, file.getAbsolutePath());
         }
@@ -71,10 +79,8 @@ public class IoUtil {
     /**
      * Create a file on disk
      *
-     * @param fileRef
-     *            the file to create
-     * @throws HyracksDataException
-     *             if the file already exists or if it couldn't be created
+     * @param fileRef the file to create
+     * @throws HyracksDataException if the file already exists or if it couldn't be created
      */
     public static void create(FileReference fileRef) throws HyracksDataException {
         if (fileRef.getFile().exists()) {
@@ -89,4 +95,30 @@ public class IoUtil {
             throw HyracksDataException.create(ErrorCode.CANNOT_CREATE_FILE, e, fileRef.getAbsolutePath());
         }
     }
+
+    private static void cleanDirectory(final File directory) throws IOException {
+        final File[] files = verifiedListFiles(directory);
+        for (final File file : files) {
+            delete(file);
+        }
+    }
+
+    private static File[] verifiedListFiles(File directory) throws IOException {
+        if (!directory.exists()) {
+            final String message = directory + " does not exist";
+            throw new IllegalArgumentException(message);
+        }
+
+        if (!directory.isDirectory()) {
+            final String message = directory + " is not a directory";
+            throw new IllegalArgumentException(message);
+        }
+
+        final File[] files = directory.listFiles();
+        if (files == null) { // null if security restricted
+            throw new IOException("Failed to list contents of " + directory);
+        }
+        return files;
+    }
+
 }

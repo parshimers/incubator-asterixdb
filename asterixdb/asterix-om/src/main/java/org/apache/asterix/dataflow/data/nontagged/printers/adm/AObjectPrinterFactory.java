@@ -20,6 +20,7 @@ package org.apache.asterix.dataflow.data.nontagged.printers.adm;
 
 import java.io.PrintStream;
 
+import org.apache.asterix.dataflow.data.nontagged.printers.json.clean.AGeometryPrinterFactory;
 import org.apache.asterix.om.pointables.AListVisitablePointable;
 import org.apache.asterix.om.pointables.ARecordVisitablePointable;
 import org.apache.asterix.om.pointables.base.DefaultOpenFieldType;
@@ -116,6 +117,9 @@ public class AObjectPrinterFactory implements IPrinterFactory {
             case SHORTWITHOUTTYPEINFO:
                 ShortWithoutTypeInfoPrinterFactory.PRINTER.print(b, s, l, ps);
                 return true;
+            case GEOMETRY:
+                AGeometryPrinterFactory.PRINTER.print(b, s, l, ps);
+                return true;
             default:
                 return false;
         }
@@ -123,12 +127,12 @@ public class AObjectPrinterFactory implements IPrinterFactory {
 
     @Override
     public IPrinter createPrinter() {
-        final ARecordVisitablePointable rPointable = new ARecordVisitablePointable(
-                DefaultOpenFieldType.NESTED_OPEN_RECORD_TYPE);
-        final AListVisitablePointable olPointable = new AListVisitablePointable(
-                DefaultOpenFieldType.NESTED_OPEN_AORDERED_LIST_TYPE);
-        final AListVisitablePointable ulPointable = new AListVisitablePointable(
-                DefaultOpenFieldType.NESTED_OPEN_AUNORDERED_LIST_TYPE);
+        final ARecordVisitablePointable rPointable =
+                new ARecordVisitablePointable(DefaultOpenFieldType.NESTED_OPEN_RECORD_TYPE);
+        final AListVisitablePointable olPointable =
+                new AListVisitablePointable(DefaultOpenFieldType.NESTED_OPEN_AORDERED_LIST_TYPE);
+        final AListVisitablePointable ulPointable =
+                new AListVisitablePointable(DefaultOpenFieldType.NESTED_OPEN_AUNORDERED_LIST_TYPE);
         final Pair<PrintStream, ATypeTag> streamTag = new Pair<>(null, null);
 
         final IPrintVisitor visitor = new APrintVisitor();

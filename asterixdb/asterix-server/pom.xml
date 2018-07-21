@@ -20,10 +20,11 @@
   <modelVersion>4.0.0</modelVersion>
   <artifactId>asterix-server</artifactId>
   <name>asterix-server</name>
+
   <parent>
     <groupId>org.apache.asterix</groupId>
     <artifactId>apache-asterixdb</artifactId>
-    <version>0.9.2-SNAPSHOT</version>
+    <version>0.9.4-SNAPSHOT</version>
   </parent>
 
   <licenses>
@@ -36,7 +37,7 @@
   </licenses>
 
   <properties>
-    <appendedResourcesDirectory>${basedir}/../src/main/appended-resources</appendedResourcesDirectory>
+    <root.dir>${basedir}/..</root.dir>
   </properties>
 
   <build>
@@ -55,7 +56,6 @@
       <plugin>
         <groupId>org.apache.hyracks</groupId>
         <artifactId>license-automation-plugin</artifactId>
-        <version>${hyracks.version}</version>
         <executions>
           <execution>
             <phase>generate-resources</phase>
@@ -233,6 +233,7 @@
             <asterixAppLocation>repo/asterix-app-${project.version}.jar, within this assembly</asterixAppLocation>
             <hyracksControlCcLocation>repo/hyracks-control-cc-${project.version}.jar, within this assembly</hyracksControlCcLocation>
             <hivecompatLocation>repo/asterix-hivecompat-${project.version}.jar, within this assembly</hivecompatLocation>
+            <asterixDashboardLocation>repo/asterix-dashboard-${project.version}.jar, within this assembly</asterixDashboardLocation>
           </templateProperties>
         </configuration>
       </plugin>
@@ -319,7 +320,6 @@
       </plugin>
       <plugin>
         <artifactId>maven-antrun-plugin</artifactId>
-        <version>1.6</version>
         <executions>
           <execution>
             <id>process-test-classes</id>
@@ -337,7 +337,6 @@
       </plugin>
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
-        <version>2.6</version>
         <executions>
           <execution>
             <configuration>
@@ -359,7 +358,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
-        <version>2.10</version>
         <configuration>
           <ignoredDependencies combine.children="append">
             <ignoredDependency>org.apache.asterix:asterix-opt-bom:*</ignoredDependency>
@@ -371,7 +369,10 @@
             <usedDependency>org.apache.hyracks:hyracks-control-cc</usedDependency>
             <usedDependency>org.apache.hyracks:hyracks-control-nc</usedDependency>
             <usedDependency>org.apache.hyracks:hyracks-nc-service</usedDependency>
+            <usedDependency>org.apache.asterix:asterix-external-data</usedDependency>
             <usedDependency>org.codehaus.mojo.appassembler:appassembler-booter</usedDependency>
+            <usedDependency>org.apache.asterix:asterix-fuzzyjoin</usedDependency>
+            <usedDependency>org.apache.asterix:asterix-geo</usedDependency>
           </usedDependencies>
         </configuration>
       </plugin>
@@ -389,7 +390,7 @@
                   <pluginExecutionFilter>
                     <groupId>org.apache.hyracks</groupId>
                     <artifactId>license-automation-plugin</artifactId>
-                    <versionRange>${hyracks.version}</versionRange>
+                    <versionRange>[0.0,)</versionRange>
                     <goals>
                       <goal>generate</goal>
                     </goals>
@@ -495,6 +496,22 @@
         </plugins>
       </build>
     </profile>
+    <profile>
+      <id>asterix-gerrit-integration-tests</id>
+      <properties>
+        <test.includes/>
+        <itest.includes>**/NCServiceExecutionIT.java,**/RecoveryIT.java</itest.includes>
+        <failIfNoTests>false</failIfNoTests>
+      </properties>
+    </profile>
+    <profile>
+      <id>asterix-gerrit-verify-no-app</id>
+      <properties>
+        <test.includes/>
+        <itest.excludes>**/NCServiceExecutionIT.java,**/RecoveryIT.java</itest.excludes>
+        <failIfNoTests>false</failIfNoTests>
+      </properties>
+    </profile>
   </profiles>
   <dependencies>
     <dependency>
@@ -517,6 +534,7 @@
     <dependency>
       <groupId>org.apache.hyracks</groupId>
       <artifactId>hyracks-server</artifactId>
+      <type>test-jar</type>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -525,6 +543,11 @@
       <version>${project.version}</version>
       <type>test-jar</type>
       <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.asterix</groupId>
+      <artifactId>asterix-common</artifactId>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.asterix</groupId>
@@ -551,6 +574,23 @@
       <classifier>assembly</classifier>
     </dependency>
     <dependency>
+      <groupId>org.apache.asterix</groupId>
+      <artifactId>asterix-external-data</artifactId>
+      <version>${project.version}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.asterix</groupId>
+      <artifactId>asterix-external-data</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.plexus</groupId>
+      <artifactId>plexus-utils</artifactId>
+      <version>3.0.24</version>
+    </dependency>
+    <dependency>
       <groupId>commons-io</groupId>
       <artifactId>commons-io</artifactId>
     </dependency>
@@ -571,6 +611,29 @@
     <dependency>
       <groupId>org.apache.hyracks</groupId>
       <artifactId>hyracks-util</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.asterix</groupId>
+      <artifactId>asterix-fuzzyjoin</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hyracks</groupId>
+      <artifactId>hyracks-test-support</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.asterix</groupId>
+      <artifactId>asterix-geo</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
     </dependency>
   </dependencies>
 </project>

@@ -18,8 +18,8 @@
  */
 package org.apache.asterix.api.http.server;
 
-import static org.apache.asterix.api.http.servlet.ServletConstants.HYRACKS_CONNECTION_ATTR;
-import static org.apache.asterix.api.http.servlet.ServletConstants.HYRACKS_DATASET_ATTR;
+import static org.apache.asterix.api.http.server.ServletConstants.HYRACKS_CONNECTION_ATTR;
+import static org.apache.asterix.api.http.server.ServletConstants.HYRACKS_DATASET_ATTR;
 
 import java.io.PrintWriter;
 import java.util.UUID;
@@ -33,8 +33,13 @@ import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.api.dataset.IHyracksDataset;
 import org.apache.hyracks.client.dataset.HyracksDataset;
 import org.apache.hyracks.http.server.AbstractServlet;
+import org.apache.hyracks.ipc.exceptions.IPCException;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class AbstractQueryApiServlet extends AbstractServlet {
+    private static final Logger LOGGER = LogManager.getLogger();
     protected final IApplicationContext appCtx;
 
     public enum ResultFields {
@@ -46,7 +51,8 @@ public class AbstractQueryApiServlet extends AbstractServlet {
         RESULTS("results"),
         HANDLE("handle"),
         ERRORS("errors"),
-        METRICS("metrics");
+        METRICS("metrics"),
+        PLANS("plans");
 
         private final String str;
 
@@ -99,9 +105,19 @@ public class AbstractQueryApiServlet extends AbstractServlet {
     }
 
     protected IHyracksDataset getHyracksDataset() throws Exception { // NOSONAR
-        synchronized (ctx) {
-            IHyracksDataset hds = (IHyracksDataset) ctx.get(HYRACKS_DATASET_ATTR);
-            if (hds == null) {
+        try {
+            return doGetHyracksDataset();
+        } catch (IPCException e) {
+            LOGGER.log(Level.WARN, "Failed getting hyracks dataset connection. Resetting hyracks connection.", e);
+            ctx.put(HYRACKS_CONNECTION_ATTR, appCtx.getHcc());
+            return doGetHyracksDataset();
+        }
+    }
+
+    protected IHyracksDataset doGetHyracksDataset() throws Exception {
+        IHyracksDataset hds = (IHyracksDataset) ctx.get(HYRACKS_DATASET_ATTR);
+        if (hds == null) {
+            synchronized (ctx) {
                 hds = (IHyracksDataset) ctx.get(HYRACKS_DATASET_ATTR);
                 if (hds == null) {
                     hds = new HyracksDataset(getHyracksClientConnection(),
@@ -109,18 +125,16 @@ public class AbstractQueryApiServlet extends AbstractServlet {
                     ctx.put(HYRACKS_DATASET_ATTR, hds);
                 }
             }
-            return hds;
         }
+        return hds;
     }
 
     protected IHyracksClientConnection getHyracksClientConnection() throws Exception { // NOSONAR
-        synchronized (ctx) {
-            final IHyracksClientConnection hcc = (IHyracksClientConnection) ctx.get(HYRACKS_CONNECTION_ATTR);
-            if (hcc == null) {
-                throw new RuntimeDataException(ErrorCode.PROPERTY_NOT_SET, HYRACKS_CONNECTION_ATTR);
-            }
-            return hcc;
+        IHyracksClientConnection hcc = (IHyracksClientConnection) ctx.get(HYRACKS_CONNECTION_ATTR);
+        if (hcc == null) {
+            throw new RuntimeDataException(ErrorCode.PROPERTY_NOT_SET, HYRACKS_CONNECTION_ATTR);
         }
+        return hcc;
     }
 
     protected static UUID printRequestId(PrintWriter pw) {

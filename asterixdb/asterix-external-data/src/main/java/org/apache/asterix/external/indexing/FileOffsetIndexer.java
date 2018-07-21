@@ -42,11 +42,11 @@ public class FileOffsetIndexer implements IExternalIndexer {
     protected RecordReader<?, ? extends Writable> recordReader;
 
     @SuppressWarnings("unchecked")
-    private ISerializerDeserializer<IAObject> intSerde = SerializerDeserializerProvider.INSTANCE
-            .getSerializerDeserializer(BuiltinType.AINT32);
+    private ISerializerDeserializer<IAObject> intSerde =
+            SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.AINT32);
     @SuppressWarnings("unchecked")
-    private ISerializerDeserializer<IAObject> longSerde = SerializerDeserializerProvider.INSTANCE
-            .getSerializerDeserializer(BuiltinType.AINT64);
+    private ISerializerDeserializer<IAObject> longSerde =
+            SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.AINT64);
 
     @Override
     public void reset(IIndexingDatasource dataSource) throws HyracksDataException {
@@ -56,7 +56,7 @@ public class FileOffsetIndexer implements IExternalIndexer {
             recordReader = dataSource.getReader();
             offset.setValue(recordReader.getPos());
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 
@@ -68,7 +68,7 @@ public class FileOffsetIndexer implements IExternalIndexer {
             // Get position for next index(tb) call
             offset.setValue(recordReader.getPos());
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 

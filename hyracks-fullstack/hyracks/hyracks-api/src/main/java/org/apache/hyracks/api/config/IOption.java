@@ -20,6 +20,8 @@ package org.apache.hyracks.api.config;
 
 import java.util.function.Function;
 
+import org.apache.hyracks.util.StringUtil;
+
 public interface IOption {
 
     String name();
@@ -54,7 +56,9 @@ public interface IOption {
     /**
      * @return a true value indicates this option should not be advertised (e.g. command-line usage, documentation)
      */
-    default boolean hidden() { return false; }
+    default boolean hidden() {
+        return false;
+    }
 
     default String cmdline() {
         return "-" + name().toLowerCase().replace("_", "-");
@@ -62,6 +66,10 @@ public interface IOption {
 
     default String ini() {
         return name().toLowerCase().replace("_", ".");
+    }
+
+    default String camelCase() {
+        return StringUtil.toCamelCase(name());
     }
 
     default String toIniString() {

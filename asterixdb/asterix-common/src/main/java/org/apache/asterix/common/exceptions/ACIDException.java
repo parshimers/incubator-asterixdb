@@ -18,8 +18,6 @@
  */
 package org.apache.asterix.common.exceptions;
 
-import org.apache.asterix.common.transactions.ITransactionContext;
-
 /**
  * Represents an exception related to an unexpected behavior that prevents the
  * system from supporting ACID guarantees. The exception contains the
@@ -27,28 +25,9 @@ import org.apache.asterix.common.transactions.ITransactionContext;
  * ACIDException encountered during crash recovery shall not have a transaction
  * context as recovery does not happen as part of a transaction.
  */
-public class ACIDException extends Exception {
+public class ACIDException extends RuntimeException {
 
     private static final long serialVersionUID = -8855848112541877323L;
-    private ITransactionContext txnContext;
-
-    public ITransactionContext getTxnContext() {
-        return txnContext;
-    }
-
-    public void setTxnContext(ITransactionContext txnContext) {
-        this.txnContext = txnContext;
-    }
-
-    public ACIDException(ITransactionContext txnContext, String message) {
-        super(message);
-        this.txnContext = txnContext;
-    }
-
-    public ACIDException(ITransactionContext txnContext, String message, Throwable cause) {
-        super(message, cause);
-        this.txnContext = txnContext;
-    }
 
     public ACIDException(String message, Throwable cause) {
         super(message, cause);

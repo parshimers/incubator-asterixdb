@@ -18,13 +18,13 @@
  */
 package org.apache.asterix.external.adapter.factory;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import org.apache.asterix.common.api.IApplicationContext;
 import org.apache.asterix.common.api.INcApplicationContext;
+import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.external.api.IAdapterFactory;
 import org.apache.asterix.external.api.IDataFlowController;
@@ -37,6 +37,7 @@ import org.apache.asterix.external.dataflow.AbstractFeedDataFlowController;
 import org.apache.asterix.external.dataset.adapter.FeedAdapter;
 import org.apache.asterix.external.dataset.adapter.GenericAdapter;
 import org.apache.asterix.external.indexing.ExternalFile;
+import org.apache.asterix.external.parser.factory.ADMDataParserFactory;
 import org.apache.asterix.external.provider.DataflowControllerProvider;
 import org.apache.asterix.external.provider.DatasourceFactoryProvider;
 import org.apache.asterix.external.provider.ParserFactoryProvider;
@@ -46,6 +47,7 @@ import org.apache.asterix.external.util.ExternalDataUtils;
 import org.apache.asterix.external.util.FeedLogManager;
 import org.apache.asterix.external.util.FeedUtils;
 import org.apache.asterix.om.types.ARecordType;
+import org.apache.asterix.om.utils.RecordUtil;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.api.application.INCServiceContext;
@@ -53,11 +55,14 @@ import org.apache.hyracks.api.application.IServiceContext;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileSplit;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class GenericAdapterFactory implements IIndexingAdapterFactory, IAdapterFactory {
 
     private static final long serialVersionUID = 1L;
-    private static final Logger LOGGER = Logger.getLogger(GenericAdapterFactory.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger();
     private IExternalDataSourceFactory dataSourceFactory;
     private IDataParserFactory dataParserFactory;
     private ARecordType recordType;
@@ -92,8 +97,7 @@ public class GenericAdapterFactory implements IIndexingAdapterFactory, IAdapterF
     public synchronized IDataSourceAdapter createAdapter(IHyracksTaskContext ctx, int partition)
             throws HyracksDataException {
         INCServiceContext serviceCtx = ctx.getJobletContext().getServiceContext();
-        INcApplicationContext appCtx =
-                (INcApplicationContext) serviceCtx.getApplicationContext();
+        INcApplicationContext appCtx = (INcApplicationContext) serviceCtx.getApplicationContext();
         try {
             restoreExternalObjects(serviceCtx, appCtx.getLibraryManager());
         } catch (Exception e) {
@@ -152,15 +156,16 @@ public class GenericAdapterFactory implements IIndexingAdapterFactory, IAdapterF
         dataParserFactory.setMetaType(metaType);
         dataParserFactory.configure(configuration);
         ExternalDataCompatibilityUtils.validateCompatibility(dataSourceFactory, dataParserFactory);
-        configureFeedLogManager();
+        configureFeedLogManager(appCtx);
         nullifyExternalObjects();
     }
 
-    private void configureFeedLogManager() throws HyracksDataException, AlgebricksException {
+    private void configureFeedLogManager(IApplicationContext appCtx) throws HyracksDataException, AlgebricksException {
         this.isFeed = ExternalDataUtils.isFeed(configuration);
         if (isFeed) {
-            feedLogFileSplits = FeedUtils.splitsForAdapter(ExternalDataUtils.getDataverse(configuration),
-                    ExternalDataUtils.getFeedName(configuration), dataSourceFactory.getPartitionConstraint());
+            feedLogFileSplits = FeedUtils.splitsForAdapter((ICcApplicationContext) appCtx,
+                    ExternalDataUtils.getDataverse(configuration), ExternalDataUtils.getFeedName(configuration),
+                    dataSourceFactory.getPartitionConstraint());
         }
     }
 
@@ -200,5 +205,21 @@ public class GenericAdapterFactory implements IIndexingAdapterFactory, IAdapterF
      */
     public IExternalDataSourceFactory getDataSourceFactory() {
         return dataSourceFactory;
+    }
+
+    /**
+     * Use pre-configured datasource factory
+     * For function datasources
+     *
+     * @param dataSourceFactory
+     *            the function datasource factory
+     * @throws AlgebricksException
+     */
+    public void configure(IExternalDataSourceFactory dataSourceFactory) throws AlgebricksException {
+        this.dataSourceFactory = dataSourceFactory;
+        dataParserFactory = new ADMDataParserFactory();
+        dataParserFactory.setRecordType(RecordUtil.FULLY_OPEN_RECORD_TYPE);
+        dataParserFactory.configure(Collections.emptyMap());
+        configuration = Collections.emptyMap();
     }
 }

@@ -63,15 +63,46 @@ public interface ILSMMemoryComponent extends ILSMComponent {
     void setModified();
 
     /**
-     * request the component to be active
+     * Allocates memory to this component, create and activate it.
+     * This method is atomic. If an exception is thrown, then the call had no effect.
+     *
+     * @throws HyracksDataException
      */
-    void activate();
+    void allocate() throws HyracksDataException;
 
     /**
-     * Set the component state
+     * Deactivete the memory component, destroy it, and deallocates its memory
      *
-     * @param state
-     *            the new state
+     * @throws HyracksDataException
      */
-    void setState(ComponentState state);
+    void deallocate() throws HyracksDataException;
+
+    /**
+     * Test method
+     * TODO: Get rid of it
+     *
+     * @throws HyracksDataException
+     */
+    void validate() throws HyracksDataException;
+
+    /**
+     * @return the size of the memory component
+     */
+    long getSize();
+
+    /**
+     * Reset the component Id of the memory component after it's recycled
+     *
+     * @param newId
+     * @param force
+     *            Whether to force reset the Id to skip sanity checks
+     * @throws HyracksDataException
+     */
+    void resetId(ILSMComponentId newId, boolean force) throws HyracksDataException;
+
+    /**
+     * Set the component state to be unwritable to prevent future writers from non-force
+     * entry to the component
+     */
+    void setUnwritable();
 }

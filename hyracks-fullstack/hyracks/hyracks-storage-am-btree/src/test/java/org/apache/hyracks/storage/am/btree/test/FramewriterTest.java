@@ -67,10 +67,12 @@ import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
 @RunWith(PowerMockRunner.class)
+@PowerMockIgnore("javax.management.*")
 @PrepareForTest({ BTreeUtils.class, FrameTupleAccessor.class, ArrayTupleBuilder.class,
         IndexSearchOperatorNodePushable.class, FrameUtils.class, FrameTupleAppender.class })
 public class FramewriterTest {
@@ -336,10 +338,10 @@ public class FramewriterTest {
         int j = 0;
         for (int i = 0; i < indexAccessors.length; i++) {
             indexes[j] = Mockito.mock(ITreeIndex.class);
-            Mockito.when(indexes[j].createAccessor(Mockito.any(), Mockito.any())).thenReturn(indexAccessors[i]);
+            Mockito.when(indexes[j].createAccessor(Mockito.any())).thenReturn(indexAccessors[i]);
             j++;
             indexes[j] = Mockito.mock(ITreeIndex.class);
-            Mockito.when(indexes[j].createAccessor(Mockito.any(), Mockito.any()))
+            Mockito.when(indexes[j].createAccessor(Mockito.any()))
                     .thenThrow(new HyracksDataException("failed to create accessor"));
             j++;
         }
@@ -390,7 +392,7 @@ public class FramewriterTest {
             cursor = Mockito.mock(IIndexCursor.class);
             Mockito.when(cursor.hasNext()).thenReturn(true, true, false);
             Mockito.when(cursor.getTuple()).thenReturn(tuples[i]);
-            Mockito.doThrow(new HyracksDataException("Failed to close cursor")).when(cursor).close();
+            Mockito.doThrow(new HyracksDataException("Failed to close cursor")).when(cursor).destroy();
             cursors[j] = cursor;
             j++;
         }

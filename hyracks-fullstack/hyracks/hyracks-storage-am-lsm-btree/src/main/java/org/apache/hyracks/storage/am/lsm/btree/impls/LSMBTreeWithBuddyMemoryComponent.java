@@ -22,42 +22,41 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.storage.am.btree.impls.BTree;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentFilter;
 import org.apache.hyracks.storage.am.lsm.common.api.IVirtualBufferCache;
-import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMMemoryComponent;
+import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndex;
+import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMWithBuddyMemoryComponent;
 
 /*
  * This class is also not needed at the moment but is implemented anyway
  */
-public class LSMBTreeWithBuddyMemoryComponent extends AbstractLSMMemoryComponent {
+public class LSMBTreeWithBuddyMemoryComponent extends AbstractLSMWithBuddyMemoryComponent {
 
     private final BTree btree;
     private final BTree buddyBtree;
 
-    public LSMBTreeWithBuddyMemoryComponent(BTree btree, BTree buddyBtree, IVirtualBufferCache vbc, boolean isActive,
-            ILSMComponentFilter filter) {
-        super(vbc, isActive, filter);
+    public LSMBTreeWithBuddyMemoryComponent(AbstractLSMIndex lsmIndex, BTree btree, BTree buddyBtree,
+            IVirtualBufferCache vbc, ILSMComponentFilter filter) {
+        super(lsmIndex, vbc, filter);
         this.btree = btree;
         this.buddyBtree = buddyBtree;
     }
 
-    public BTree getBTree() {
+    @Override
+    public BTree getIndex() {
         return btree;
     }
 
-    public BTree getBuddyBTree() {
+    @Override
+    public BTree getBuddyIndex() {
         return buddyBtree;
     }
 
     @Override
-    public void reset() throws HyracksDataException {
-        super.reset();
-        btree.deactivate();
-        btree.destroy();
-        btree.create();
-        btree.activate();
-        buddyBtree.deactivate();
-        buddyBtree.destroy();
-        buddyBtree.create();
-        buddyBtree.activate();
+    public void validate() throws HyracksDataException {
+        throw new UnsupportedOperationException("Validation not implemented for LSM B-Trees with Buddy B-Tree.");
     }
 
+    @Override
+    public long getSize() {
+        return 0L;
+    }
 }

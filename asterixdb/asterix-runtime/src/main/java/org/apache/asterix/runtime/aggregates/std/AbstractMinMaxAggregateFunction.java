@@ -68,8 +68,8 @@ public abstract class AbstractMinMaxAggregateFunction implements IAggregateEvalu
             return;
         }
         eval.evaluate(tuple, inputVal);
-        ATypeTag typeTag = EnumDeserializer.ATYPETAGDESERIALIZER
-                .deserialize(inputVal.getByteArray()[inputVal.getStartOffset()]);
+        ATypeTag typeTag =
+                EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(inputVal.getByteArray()[inputVal.getStartOffset()]);
         if (typeTag == ATypeTag.MISSING || typeTag == ATypeTag.NULL) {
             processNull();
             return;
@@ -81,8 +81,8 @@ public abstract class AbstractMinMaxAggregateFunction implements IAggregateEvalu
             // First value encountered. Set type, comparator, and initial value.
             aggType = typeTag;
             // Set comparator.
-            IBinaryComparatorFactory cmpFactory = BinaryComparatorFactoryProvider.INSTANCE
-                    .getBinaryComparatorFactory(aggType, isMin);
+            IBinaryComparatorFactory cmpFactory =
+                    BinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(aggType, isMin);
             cmp = cmpFactory.createBinaryComparator();
             // Initialize min value.
             outputVal.assign(inputVal);
@@ -108,7 +108,7 @@ public abstract class AbstractMinMaxAggregateFunction implements IAggregateEvalu
                         tpc.convertType(outputVal.getByteArray(), outputVal.getStartOffset() + 1,
                                 outputVal.getLength() - 1, tempValForCasting.getDataOutput());
                     } catch (IOException e) {
-                        throw new HyracksDataException(e);
+                        throw HyracksDataException.create(e);
                     }
                     outputVal.assign(tempValForCasting);
                 }
@@ -125,7 +125,7 @@ public abstract class AbstractMinMaxAggregateFunction implements IAggregateEvalu
                         tpc.convertType(inputVal.getByteArray(), inputVal.getStartOffset() + 1,
                                 inputVal.getLength() - 1, tempValForCasting.getDataOutput());
                     } catch (IOException e) {
-                        throw new HyracksDataException(e);
+                        throw HyracksDataException.create(e);
                     }
                     if (cmp.compare(tempValForCasting.getByteArray(), tempValForCasting.getStartOffset(),
                             tempValForCasting.getLength(), outputVal.getByteArray(), outputVal.getStartOffset(),
@@ -164,7 +164,7 @@ public abstract class AbstractMinMaxAggregateFunction implements IAggregateEvalu
                 }
             }
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 

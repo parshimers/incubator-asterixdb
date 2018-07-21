@@ -26,6 +26,7 @@ import static org.apache.hyracks.util.StorageUtil.StorageUnit.KILOBYTE;
 
 import java.util.function.Function;
 
+import org.apache.asterix.common.metadata.MetadataIndexImmutableProperties;
 import org.apache.hyracks.api.config.IApplicationConfig;
 import org.apache.hyracks.api.config.IOption;
 import org.apache.hyracks.api.config.IOptionType;
@@ -42,18 +43,10 @@ public class StorageProperties extends AbstractProperties {
         STORAGE_BUFFERCACHE_MAXOPENFILES(INTEGER, Integer.MAX_VALUE),
         STORAGE_MEMORYCOMPONENT_GLOBALBUDGET(LONG_BYTE_UNIT, Runtime.getRuntime().maxMemory() / 4),
         STORAGE_MEMORYCOMPONENT_PAGESIZE(INTEGER_BYTE_UNIT, StorageUtil.getIntSizeInBytes(128, KILOBYTE)),
-        STORAGE_MEMORYCOMPONENT_NUMPAGES(INTEGER, (Function<IApplicationConfig, Integer>) accessor ->
-                // By default, uses 1/16 of the STORAGE_MEMORYCOMPONENT_GLOBALBUDGET for the write buffer
-                // budget for a dataset, including data and indexes.
-                (int) (accessor.getLong(STORAGE_MEMORYCOMPONENT_GLOBALBUDGET) /
-                        (16 * accessor.getInt(STORAGE_MEMORYCOMPONENT_PAGESIZE)))),
         STORAGE_MEMORYCOMPONENT_NUMCOMPONENTS(INTEGER, 2),
-        STORAGE_METADATA_MEMORYCOMPONENT_NUMPAGES(INTEGER, (Function<IApplicationConfig, Integer>) accessor ->
-                // By default, uses the min of 1/64 of the STORAGE_MEMORYCOMPONENT_GLOBALBUDGET and 256 pages
-                // for the write buffer budget for a metadata dataset, including data and indexes.
-                Math.min((int) (accessor.getLong(STORAGE_MEMORYCOMPONENT_GLOBALBUDGET)
-                        / (64 * accessor.getInt(STORAGE_MEMORYCOMPONENT_PAGESIZE))), 256)),
-        STORAGE_LSM_BLOOMFILTER_FALSEPOSITIVERATE(DOUBLE, 0.01d);
+        STORAGE_METADATA_MEMORYCOMPONENT_NUMPAGES(INTEGER, 8),
+        STORAGE_LSM_BLOOMFILTER_FALSEPOSITIVERATE(DOUBLE, 0.01d),
+        STORAGE_MAX_ACTIVE_WRITABLE_DATASETS(INTEGER, 8);
 
         private final IOptionType interpreter;
         private final Object defaultValue;
@@ -63,13 +56,11 @@ public class StorageProperties extends AbstractProperties {
             this.defaultValue = defaultValue;
         }
 
-        <T> Option(IOptionType<T> interpreter, Function<IApplicationConfig, T> defaultValueFunction) {
-            this.interpreter = interpreter;
-            this.defaultValue = defaultValueFunction;
-        }
-
         @Override
         public Section section() {
+            if (this == STORAGE_MAX_ACTIVE_WRITABLE_DATASETS) {
+                return Section.COMMON;
+            }
             return Section.NC;
         }
 
@@ -79,26 +70,23 @@ public class StorageProperties extends AbstractProperties {
                 case STORAGE_BUFFERCACHE_PAGESIZE:
                     return "The page size in bytes for pages in the buffer cache";
                 case STORAGE_BUFFERCACHE_SIZE:
-                    return "The size of memory allocated to the disk buffer cache.  The value should be a multiple" +
-                            " of the buffer cache page size.";
+                    return "The size of memory allocated to the disk buffer cache.  The value should be a multiple"
+                            + " of the buffer cache page size.";
                 case STORAGE_BUFFERCACHE_MAXOPENFILES:
                     return "The maximum number of open files in the buffer cache";
                 case STORAGE_MEMORYCOMPONENT_GLOBALBUDGET:
-                    return "The size of memory allocated to the memory components.  The value should be a multiple " +
-                            "of the memory component page size";
+                    return "The size of memory allocated to the memory components.  The value should be a multiple "
+                            + "of the memory component page size";
                 case STORAGE_MEMORYCOMPONENT_PAGESIZE:
                     return "The page size in bytes for pages allocated to memory components";
-                case STORAGE_MEMORYCOMPONENT_NUMPAGES:
-                    return "The number of pages to allocate for a memory component.  This budget is shared by all " +
-                            "the memory components of the primary index and all its secondary indexes across all I/O " +
-                            "devices on a node.  Note: in-memory components usually has fill factor of 75% since " +
-                            "the pages are 75% full and the remaining 25% is un-utilized";
                 case STORAGE_MEMORYCOMPONENT_NUMCOMPONENTS:
                     return "The number of memory components to be used per lsm index";
                 case STORAGE_METADATA_MEMORYCOMPONENT_NUMPAGES:
                     return "The number of pages to allocate for a metadata memory component";
                 case STORAGE_LSM_BLOOMFILTER_FALSEPOSITIVERATE:
                     return "The maximum acceptable false positive rate for bloom filters associated with LSM indexes";
+                case STORAGE_MAX_ACTIVE_WRITABLE_DATASETS:
+                    return "The maximum number of datasets that can be concurrently modified";
                 default:
                     throw new IllegalStateException("NYI: " + this);
             }
@@ -114,21 +102,16 @@ public class StorageProperties extends AbstractProperties {
             return defaultValue;
         }
 
-
         @Override
         public String usageDefaultOverride(IApplicationConfig accessor, Function<IOption, String> optionPrinter) {
-            switch (this) {
-                case STORAGE_MEMORYCOMPONENT_NUMPAGES:
-                    return "1/16th of the " + optionPrinter.apply(Option.STORAGE_MEMORYCOMPONENT_GLOBALBUDGET) +
-                            " value";
-                case STORAGE_METADATA_MEMORYCOMPONENT_NUMPAGES:
-                    return "1/64th of the " + optionPrinter.apply(Option.STORAGE_MEMORYCOMPONENT_GLOBALBUDGET) +
-                            " value or 256, whichever is larger";
-                default:
-                    return null;
+            if (this == STORAGE_METADATA_MEMORYCOMPONENT_NUMPAGES) {
+                return "8 pages";
             }
+            return null;
         }
     }
+
+    private static final int SYSTEM_RESERVED_DATASETS = 0;
 
     public StorageProperties(PropertiesAccessor accessor) {
         super(accessor);
@@ -151,7 +134,11 @@ public class StorageProperties extends AbstractProperties {
     }
 
     public int getMemoryComponentNumPages() {
-        return accessor.getInt(Option.STORAGE_MEMORYCOMPONENT_NUMPAGES);
+        final long metadataReservedMem = getMetadataReservedMemory();
+        final long globalUserDatasetMem = getMemoryComponentGlobalBudget() - metadataReservedMem;
+        final long userDatasetMem =
+                globalUserDatasetMem / (getMaxActiveWritableDatasets() + geSystemReservedDatasets());
+        return (int) (userDatasetMem / getMemoryComponentPageSize());
     }
 
     public int getMetadataMemoryComponentNumPages() {
@@ -172,5 +159,34 @@ public class StorageProperties extends AbstractProperties {
 
     public int getBufferCacheNumPages() {
         return (int) (getBufferCacheSize() / (getBufferCachePageSize() + IBufferCache.RESERVED_HEADER_BYTES));
+    }
+
+    public long getJobExecutionMemoryBudget() {
+        final long jobExecutionMemory =
+                Runtime.getRuntime().maxMemory() - getBufferCacheSize() - getMemoryComponentGlobalBudget();
+        if (jobExecutionMemory <= 0) {
+            final String msg = String.format(
+                    "Invalid node memory configuration, more memory budgeted than available in JVM. Runtime max memory:"
+                            + " (%d), Buffer cache memory (%d), memory component global budget (%d)",
+                    Runtime.getRuntime().maxMemory(), getBufferCacheSize(), getMemoryComponentGlobalBudget());
+            throw new IllegalStateException(msg);
+        }
+        return jobExecutionMemory;
+    }
+
+    public int getMaxActiveWritableDatasets() {
+        return accessor.getInt(Option.STORAGE_MAX_ACTIVE_WRITABLE_DATASETS);
+    }
+
+    protected int getMetadataDatasets() {
+        return MetadataIndexImmutableProperties.METADATA_DATASETS_COUNT;
+    }
+
+    protected int geSystemReservedDatasets() {
+        return SYSTEM_RESERVED_DATASETS;
+    }
+
+    private long getMetadataReservedMemory() {
+        return (getMetadataMemoryComponentNumPages() * (long) getMemoryComponentPageSize()) * getMetadataDatasets();
     }
 }

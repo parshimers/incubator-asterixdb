@@ -22,7 +22,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.asterix.active.EntityId;
-import org.apache.asterix.external.feed.api.IFeed;
+import org.apache.asterix.common.exceptions.CompilationException;
+import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.external.feed.management.FeedConnectionId;
 import org.apache.asterix.external.operators.FeedCollectOperatorDescriptor;
 import org.apache.asterix.external.util.FeedUtils.FeedRuntimeType;
@@ -33,8 +34,6 @@ import org.apache.asterix.metadata.entities.FeedPolicyEntity;
 import org.apache.asterix.metadata.feeds.BuiltinFeedPolicies;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.IAType;
-import org.apache.asterix.runtime.formats.NonTaggedDataFormat;
-import org.apache.asterix.runtime.utils.ClusterStateManager;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksAbsolutePartitionConstraint;
 import org.apache.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraint;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
@@ -50,6 +49,7 @@ import org.apache.hyracks.api.dataflow.IOperatorDescriptor;
 import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
 import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
 import org.apache.hyracks.api.job.JobSpecification;
+import org.apache.hyracks.storage.am.common.api.ITupleFilterFactory;
 
 public class FeedDataSource extends DataSource implements IMutationDataSource {
 
@@ -58,14 +58,13 @@ public class FeedDataSource extends DataSource implements IMutationDataSource {
     private final FeedRuntimeType location;
     private final String targetDataset;
     private final String[] locations;
-    private final int computeCardinality;
+    private final INodeDomain computationNodeDomain;
     private final List<IAType> pkTypes;
     private final List<ScalarFunctionCallExpression> keyAccessExpression;
     private final FeedConnection feedConnection;
 
     public FeedDataSource(Feed feed, DataSourceId id, String targetDataset, IAType itemType, IAType metaType,
-            List<IAType> pkTypes, List<List<String>> partitioningKeys,
-            List<ScalarFunctionCallExpression> keyAccessExpression, EntityId sourceFeedId,
+            List<IAType> pkTypes, List<ScalarFunctionCallExpression> keyAccessExpression, EntityId sourceFeedId,
             FeedRuntimeType location, String[] locations, INodeDomain domain, FeedConnection feedConnection)
             throws AlgebricksException {
         super(id, itemType, metaType, Type.FEED, domain);
@@ -76,7 +75,7 @@ public class FeedDataSource extends DataSource implements IMutationDataSource {
         this.locations = locations;
         this.pkTypes = pkTypes;
         this.keyAccessExpression = keyAccessExpression;
-        this.computeCardinality = ClusterStateManager.INSTANCE.getParticipantNodes().size();
+        this.computationNodeDomain = domain;
         this.feedConnection = feedConnection;
         initFeedDataSource();
     }
@@ -121,10 +120,6 @@ public class FeedDataSource extends DataSource implements IMutationDataSource {
         }
     }
 
-    public int getComputeCardinality() {
-        return computeCardinality;
-    }
-
     public List<IAType> getPkTypes() {
         return pkTypes;
     }
@@ -165,13 +160,18 @@ public class FeedDataSource extends DataSource implements IMutationDataSource {
     public Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> buildDatasourceScanRuntime(
             MetadataProvider metadataProvider, IDataSource<DataSourceId> dataSource,
             List<LogicalVariable> scanVariables, List<LogicalVariable> projectVariables, boolean projectPushed,
-            List<LogicalVariable> minFilterVars, List<LogicalVariable> maxFilterVars, IOperatorSchema opSchema,
+            List<LogicalVariable> minFilterVars, List<LogicalVariable> maxFilterVars,
+            ITupleFilterFactory tupleFilterFactory, long outputLimit, IOperatorSchema opSchema,
             IVariableTypeEnvironment typeEnv, JobGenContext context, JobSpecification jobSpec, Object implConfig)
             throws AlgebricksException {
         try {
+            if (tupleFilterFactory != null || outputLimit >= 0) {
+                throw CompilationException.create(ErrorCode.COMPILATION_ILLEGAL_STATE,
+                        "Tuple filter and limit are not supported by FeedDataSource");
+            }
             ARecordType feedOutputType = (ARecordType) itemType;
-            ISerializerDeserializer payloadSerde = NonTaggedDataFormat.INSTANCE.getSerdeProvider()
-                    .getSerializerDeserializer(feedOutputType);
+            ISerializerDeserializer payloadSerde =
+                    metadataProvider.getDataFormat().getSerdeProvider().getSerializerDeserializer(feedOutputType);
             ArrayList<ISerializerDeserializer> serdes = new ArrayList<>();
             serdes.add(payloadSerde);
             if (metaItemType != null) {
@@ -182,16 +182,16 @@ public class FeedDataSource extends DataSource implements IMutationDataSource {
                     serdes.add(SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(type));
                 }
             }
-            RecordDescriptor feedDesc = new RecordDescriptor(
-                    serdes.toArray(new ISerializerDeserializer[serdes.size()]));
-            FeedPolicyEntity feedPolicy = (FeedPolicyEntity) getProperties()
-                    .get(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY);
+            RecordDescriptor feedDesc =
+                    new RecordDescriptor(serdes.toArray(new ISerializerDeserializer[serdes.size()]));
+            FeedPolicyEntity feedPolicy =
+                    (FeedPolicyEntity) getProperties().get(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY);
             if (feedPolicy == null) {
                 throw new AlgebricksException("Feed not configured with a policy");
             }
             feedPolicy.getProperties().put(BuiltinFeedPolicies.CONFIG_FEED_POLICY_KEY, feedPolicy.getPolicyName());
-            FeedConnectionId feedConnectionId = new FeedConnectionId(getId().getDataverseName(),
-                    getId().getDatasourceName(), getTargetDataset());
+            FeedConnectionId feedConnectionId =
+                    new FeedConnectionId(getId().getDataverseName(), getId().getDatasourceName(), getTargetDataset());
             FeedCollectOperatorDescriptor feedCollector = new FeedCollectOperatorDescriptor(jobSpec, feedConnectionId,
                     feedOutputType, feedDesc, feedPolicy.getProperties(), getLocation());
 
@@ -209,5 +209,9 @@ public class FeedDataSource extends DataSource implements IMutationDataSource {
 
     public FeedConnection getFeedConnection() {
         return feedConnection;
+    }
+
+    public INodeDomain getComputationNodeDomain() {
+        return computationNodeDomain;
     }
 }

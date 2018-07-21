@@ -47,11 +47,11 @@ public abstract class AbstractSerializableCountAggregateFunction implements ISer
 
     private AMutableInt64 result = new AMutableInt64(-1);
     @SuppressWarnings("unchecked")
-    private ISerializerDeserializer<AInt64> int64Serde = SerializerDeserializerProvider.INSTANCE
-            .getSerializerDeserializer(BuiltinType.AINT64);
+    private ISerializerDeserializer<AInt64> int64Serde =
+            SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.AINT64);
     @SuppressWarnings("unchecked")
-    private ISerializerDeserializer<ANull> nullSerde = SerializerDeserializerProvider.INSTANCE
-            .getSerializerDeserializer(BuiltinType.ANULL);
+    private ISerializerDeserializer<ANull> nullSerde =
+            SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.ANULL);
     private IPointable inputVal = new VoidPointable();
     private IScalarEvaluator eval;
 
@@ -66,7 +66,7 @@ public abstract class AbstractSerializableCountAggregateFunction implements ISer
             state.writeBoolean(false);
             state.writeLong(0);
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 
@@ -75,8 +75,8 @@ public abstract class AbstractSerializableCountAggregateFunction implements ISer
         boolean metNull = BufferSerDeUtil.getBoolean(state, start);
         long cnt = BufferSerDeUtil.getLong(state, start + 1);
         eval.evaluate(tuple, inputVal);
-        ATypeTag typeTag = EnumDeserializer.ATYPETAGDESERIALIZER
-                .deserialize(inputVal.getByteArray()[inputVal.getStartOffset()]);
+        ATypeTag typeTag =
+                EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(inputVal.getByteArray()[inputVal.getStartOffset()]);
         if (typeTag == ATypeTag.MISSING || typeTag == ATypeTag.NULL) {
             processNull(state, start);
         } else {
@@ -98,7 +98,7 @@ public abstract class AbstractSerializableCountAggregateFunction implements ISer
                 int64Serde.serialize(result, out);
             }
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 

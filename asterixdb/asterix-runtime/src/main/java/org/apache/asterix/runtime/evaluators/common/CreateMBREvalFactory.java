@@ -327,10 +327,10 @@ public class CreateMBREvalFactory implements IScalarEvaluatorFactory {
                                 }
                                 break;
                             default:
-                                throw new TypeMismatchException(BuiltinFunctions.CREATE_MBR, 0,
-                                        data0[startOffset0], ATypeTag.SERIALIZED_POINT_TYPE_TAG,
-                                        ATypeTag.SERIALIZED_LINE_TYPE_TAG, ATypeTag.SERIALIZED_POLYGON_TYPE_TAG,
-                                        ATypeTag.SERIALIZED_CIRCLE_TYPE_TAG, ATypeTag.SERIALIZED_RECTANGLE_TYPE_TAG);
+                                throw new TypeMismatchException(BuiltinFunctions.CREATE_MBR, 0, data0[startOffset0],
+                                        ATypeTag.SERIALIZED_POINT_TYPE_TAG, ATypeTag.SERIALIZED_LINE_TYPE_TAG,
+                                        ATypeTag.SERIALIZED_POLYGON_TYPE_TAG, ATypeTag.SERIALIZED_CIRCLE_TYPE_TAG,
+                                        ATypeTag.SERIALIZED_RECTANGLE_TYPE_TAG);
                         }
                     } else {
                         throw new NotImplementedException(dimension + "D is not supported");
@@ -338,7 +338,7 @@ public class CreateMBREvalFactory implements IScalarEvaluatorFactory {
                     out.writeByte(ATypeTag.SERIALIZED_DOUBLE_TYPE_TAG);
                     out.writeDouble(value);
                 } catch (IOException e) {
-                    throw new HyracksDataException(e);
+                    throw HyracksDataException.create(e);
                 }
                 result.set(resultStorage);
             }

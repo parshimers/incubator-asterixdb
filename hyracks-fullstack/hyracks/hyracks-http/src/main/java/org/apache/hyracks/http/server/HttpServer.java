@@ -23,24 +23,28 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
-import io.netty.util.internal.logging.InternalLogger;
-import io.netty.util.internal.logging.InternalLoggerFactory;
-import io.netty.util.internal.logging.JdkLoggerFactory;
+import org.apache.hyracks.http.api.IChannelClosedHandler;
 import org.apache.hyracks.http.api.IServlet;
+import org.apache.hyracks.util.MXHelper;
+import org.apache.hyracks.util.ThreadDumpUtil;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.FixedRecvByteBufAllocator;
 import io.netty.channel.WriteBufferWaterMark;
+import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.logging.LogLevel;
@@ -52,40 +56,67 @@ public class HttpServer {
     private static final int HIGH_WRITE_BUFFER_WATER_MARK = 32 * 1024;
     protected static final WriteBufferWaterMark WRITE_BUFFER_WATER_MARK =
             new WriteBufferWaterMark(LOW_WRITE_BUFFER_WATER_MARK, HIGH_WRITE_BUFFER_WATER_MARK);
-    private static final Logger LOGGER = Logger.getLogger(HttpServer.class.getName());
+    protected static final int RECEIVE_BUFFER_SIZE = 4096;
+    protected static final int DEFAULT_NUM_EXECUTOR_THREADS = 16;
+    protected static final int DEFAULT_REQUEST_QUEUE_SIZE = 256;
+    private static final Logger LOGGER = LogManager.getLogger();
     private static final int FAILED = -1;
     private static final int STOPPED = 0;
     private static final int STARTING = 1;
     private static final int STARTED = 2;
     private static final int STOPPING = 3;
     // Final members
+    private final IChannelClosedHandler closedHandler;
     private final Object lock = new Object();
     private final AtomicInteger threadId = new AtomicInteger();
     private final ConcurrentMap<String, Object> ctx;
+    private final LinkedBlockingQueue<Runnable> workQueue;
     private final List<IServlet> servlets;
     private final EventLoopGroup bossGroup;
     private final EventLoopGroup workerGroup;
     private final int port;
-    private final ExecutorService executor;
+    private final ThreadPoolExecutor executor;
     // Mutable members
     private volatile int state = STOPPED;
-    private Channel channel;
+    private volatile Thread recoveryThread;
+    private volatile Channel channel;
     private Throwable cause;
 
     public HttpServer(EventLoopGroup bossGroup, EventLoopGroup workerGroup, int port) {
-        this(bossGroup, workerGroup, port, 16, 256);
+        this(bossGroup, workerGroup, port, DEFAULT_NUM_EXECUTOR_THREADS, DEFAULT_REQUEST_QUEUE_SIZE, null);
+    }
+
+    public HttpServer(EventLoopGroup bossGroup, EventLoopGroup workerGroup, int port,
+            IChannelClosedHandler closeHandler) {
+        this(bossGroup, workerGroup, port, DEFAULT_NUM_EXECUTOR_THREADS, DEFAULT_REQUEST_QUEUE_SIZE, closeHandler);
     }
 
     public HttpServer(EventLoopGroup bossGroup, EventLoopGroup workerGroup, int port, int numExecutorThreads,
             int requestQueueSize) {
+        this(bossGroup, workerGroup, port, numExecutorThreads, requestQueueSize, null);
+    }
+
+    public HttpServer(EventLoopGroup bossGroup, EventLoopGroup workerGroup, int port, int numExecutorThreads,
+            int requestQueueSize, IChannelClosedHandler closeHandler) {
         this.bossGroup = bossGroup;
         this.workerGroup = workerGroup;
         this.port = port;
+        this.closedHandler = closeHandler;
         ctx = new ConcurrentHashMap<>();
         servlets = new ArrayList<>();
-        executor = new ThreadPoolExecutor(numExecutorThreads, numExecutorThreads, 0L, TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<>(requestQueueSize),
+        workQueue = new LinkedBlockingQueue<>(requestQueueSize);
+        executor = new ThreadPoolExecutor(numExecutorThreads, numExecutorThreads, 0L, TimeUnit.MILLISECONDS, workQueue,
                 runnable -> new Thread(runnable, "HttpExecutor(port:" + port + ")-" + threadId.getAndIncrement()));
+        long directMemoryBudget = numExecutorThreads * (long) HIGH_WRITE_BUFFER_WATER_MARK
+                + numExecutorThreads * HttpServerInitializer.RESPONSE_CHUNK_SIZE;
+        LOGGER.log(Level.INFO, "The output direct memory budget for this server is " + directMemoryBudget + " bytes");
+        long inputBudgetEstimate =
+                (long) HttpServerInitializer.MAX_REQUEST_INITIAL_LINE_LENGTH * (requestQueueSize + numExecutorThreads);
+        inputBudgetEstimate = inputBudgetEstimate * 2;
+        LOGGER.log(Level.INFO,
+                "The \"estimated\" input direct memory budget for this server is " + inputBudgetEstimate + " bytes");
+        // Having multiple arenas, memory fragments, and local thread cached buffers
+        // can cause the input memory usage to exceed estimate and custom buffer allocator must be used to avoid this
     }
 
     public final void start() throws Exception { // NOSONAR
@@ -98,7 +129,7 @@ public class HttpServer {
                 doStart();
                 setStarted();
             } catch (Throwable e) { // NOSONAR
-                LOGGER.log(Level.SEVERE, "Failure starting an Http Server", e);
+                LOGGER.log(Level.ERROR, "Failure starting an Http Server with port: " + port, e);
                 setFailed(e);
                 throw e;
             }
@@ -115,9 +146,17 @@ public class HttpServer {
                 doStop();
                 setStopped();
             } catch (Throwable e) { // NOSONAR
-                LOGGER.log(Level.SEVERE, "Failure stopping an Http Server", e);
+                LOGGER.log(Level.ERROR, "Failure stopping an Http Server", e);
                 setFailed(e);
                 throw e;
+            }
+        }
+        // Should wait for the recovery thread outside synchronized block
+        Thread rt = recoveryThread;
+        if (rt != null) {
+            rt.join(TimeUnit.SECONDS.toMillis(5));
+            if (recoveryThread != null) {
+                LOGGER.log(Level.ERROR, "Failure stopping recovery thread of {}", this);
             }
         }
     }
@@ -195,25 +234,108 @@ public class HttpServer {
          * Note that it doesn't work for the case where multiple paths map to a single IServlet
          */
         Collections.sort(servlets, (l1, l2) -> l2.getPaths()[0].length() - l1.getPaths()[0].length());
+        channel = bind();
+    }
+
+    private Channel bind() throws InterruptedException {
         ServerBootstrap b = new ServerBootstrap();
         b.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)
+                .childOption(ChannelOption.RCVBUF_ALLOCATOR, new FixedRecvByteBufAllocator(RECEIVE_BUFFER_SIZE))
+                .childOption(ChannelOption.AUTO_READ, Boolean.FALSE)
+                .childOption(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
                 .childOption(ChannelOption.WRITE_BUFFER_WATER_MARK, WRITE_BUFFER_WATER_MARK)
-                .childHandler(new LoggingHandler()).childHandler(new HttpServerInitializer(this));
-        channel = b.bind(port).sync().channel();
+                .handler(new LoggingHandler(LogLevel.DEBUG)).childHandler(getChannelInitializer());
+        Channel newChannel = b.bind(port).sync().channel();
+        newChannel.closeFuture().addListener(f -> {
+            // This listener is invoked from within a netty IO thread. Hence, we can never block it
+            // For simplicity, we will submit the recovery task to a different thread
+            synchronized (lock) {
+                if (state != STARTED) {
+                    return;
+                }
+                LOGGER.log(Level.WARN, "{} has stopped unexpectedly. Starting server recovery", this);
+                MXHelper.logFileDescriptors();
+                triggerRecovery();
+            }
+        });
+        return newChannel;
+    }
+
+    private void triggerRecovery() {
+        Thread rt = recoveryThread;
+        if (rt != null) {
+            try {
+                rt.join();
+            } catch (InterruptedException e) {
+                LOGGER.log(Level.WARN, this + " recovery was interrupted", e);
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        // try to revive the channel
+        recoveryThread = new Thread(this::recover);
+        recoveryThread.start();
+    }
+
+    public void recover() {
+        try {
+            synchronized (lock) {
+                while (state == STARTED) {
+                    try {
+                        channel = bind();
+                        break;
+                    } catch (InterruptedException e) {
+                        LOGGER.log(Level.WARN, this + " was interrupted while attempting to revive server channel", e);
+                        setFailed(e);
+                        Thread.currentThread().interrupt();
+                    } catch (Throwable th) {
+                        // sleep for 5s
+                        LOGGER.log(Level.WARN, this + " failed server recovery attempt. "
+                                + "Sleeping for 5s before starting the next attempt", th);
+                        try {
+                            // Wait on lock to allow stop request to be executed
+                            lock.wait(TimeUnit.SECONDS.toMillis(5));
+                        } catch (InterruptedException e) {
+                            LOGGER.log(Level.WARN, this + " interrupted while attempting to revive server channel", e);
+                            setFailed(e);
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                }
+            }
+        } finally {
+            recoveryThread = null;
+        }
     }
 
     protected void doStop() throws InterruptedException {
-        channel.close();
-        channel.closeFuture().sync();
+        // stop recovery if it was ongoing
+        Thread rt = recoveryThread;
+        if (rt != null) {
+            rt.interrupt();
+        }
+        // stop taking new requests
         executor.shutdown();
         try {
-            executor.awaitTermination(1, TimeUnit.MINUTES);
+            // wait 5s before interrupting existing requests
+            executor.awaitTermination(5, TimeUnit.SECONDS);
+            // interrupt
+            executor.shutdownNow();
+            // wait 30s for interrupted requests to unwind
+            executor.awaitTermination(30, TimeUnit.SECONDS);
             if (!executor.isTerminated()) {
-                LOGGER.log(Level.SEVERE, "Failed to shutdown http server executor");
+                if (LOGGER.isErrorEnabled()) {
+                    LOGGER.log(Level.ERROR,
+                            "Failed to shutdown http server executor; thread dump: " + ThreadDumpUtil.takeDumpString());
+                } else {
+                    LOGGER.log(Level.ERROR, "Failed to shutdown http server executor");
+                }
             }
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Error while shutting down http server executor", e);
+            LOGGER.log(Level.ERROR, "Error while shutting down http server executor", e);
         }
+        channel.close();
+        channel.closeFuture().sync();
     }
 
     public IServlet getServlet(FullHttpRequest request) {
@@ -257,15 +379,33 @@ public class HttpServer {
         return b && (path.length() == cpl || '/' == path.charAt(cpl));
     }
 
-    protected HttpServerHandler createHttpHandler(int chunkSize) {
+    protected HttpServerHandler<? extends HttpServer> createHttpHandler(int chunkSize) {
         return new HttpServerHandler<>(this, chunkSize);
     }
 
-    public ExecutorService getExecutor() {
+    protected ChannelInitializer<SocketChannel> getChannelInitializer() {
+        return new HttpServerInitializer(this);
+    }
+
+    public ThreadPoolExecutor getExecutor(HttpRequestHandler handler) {
         return executor;
     }
 
     protected EventLoopGroup getWorkerGroup() {
         return workerGroup;
+    }
+
+    public int getWorkQueueSize() {
+        return workQueue.size();
+    }
+
+    public IChannelClosedHandler getChannelClosedHandler() {
+        return closedHandler;
+    }
+
+    @Override
+    public String toString() {
+        return "{\"class\":\"" + getClass().getSimpleName() + "\",\"port\":" + port + ",\"state\":\"" + getState()
+                + "\"}";
     }
 }

@@ -19,6 +19,7 @@
 package org.apache.hyracks.storage.am.lsm.common.api;
 
 import java.util.List;
+import java.util.function.Predicate;
 
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IValueReference;
@@ -107,7 +108,7 @@ public interface ILSMHarness {
      * @throws HyracksDataException
      * @throws IndexException
      */
-    void scheduleMerge(ILSMIndexOperationContext ctx, ILSMIOOperationCallback callback) throws HyracksDataException;
+    ILSMIOOperation scheduleMerge(ILSMIndexOperationContext ctx) throws HyracksDataException;
 
     /**
      * Schedule full merge
@@ -117,17 +118,16 @@ public interface ILSMHarness {
      * @throws HyracksDataException
      * @throws IndexException
      */
-    void scheduleFullMerge(ILSMIndexOperationContext ctx, ILSMIOOperationCallback callback) throws HyracksDataException;
+    ILSMIOOperation scheduleFullMerge(ILSMIndexOperationContext ctx) throws HyracksDataException;
 
     /**
      * Perform a merge operation
      *
-     * @param ctx
      * @param operation
      * @throws HyracksDataException
      * @throws IndexException
      */
-    void merge(ILSMIndexOperationContext ctx, ILSMIOOperation operation) throws HyracksDataException;
+    void merge(ILSMIOOperation operation) throws HyracksDataException;
 
     /**
      * Schedule a flush
@@ -136,17 +136,16 @@ public interface ILSMHarness {
      * @param callback
      * @throws HyracksDataException
      */
-    void scheduleFlush(ILSMIndexOperationContext ctx, ILSMIOOperationCallback callback) throws HyracksDataException;
+    ILSMIOOperation scheduleFlush(ILSMIndexOperationContext ctx) throws HyracksDataException;
 
     /**
      * Perform a flush
      *
-     * @param ctx
      * @param operation
      * @throws HyracksDataException
      * @throws IndexException
      */
-    void flush(ILSMIndexOperationContext ctx, ILSMIOOperation operation) throws HyracksDataException;
+    void flush(ILSMIOOperation operation) throws HyracksDataException;
 
     /**
      * Add bulk loaded component
@@ -170,13 +169,11 @@ public interface ILSMHarness {
      *            the operation context
      * @param diskComponents
      *            the disk component to be replicated
-     * @param bulkload
-     *            true if the components were bulk loaded, false otherwise
      * @param opType
      *            The operation type
      * @throws HyracksDataException
      */
-    void scheduleReplication(ILSMIndexOperationContext ctx, List<ILSMDiskComponent> diskComponents, boolean bulkload,
+    void scheduleReplication(ILSMIndexOperationContext ctx, List<ILSMDiskComponent> diskComponents,
             LSMOperationType opType) throws HyracksDataException;
 
     /**
@@ -242,4 +239,27 @@ public interface ILSMHarness {
      */
     void batchOperate(ILSMIndexOperationContext ctx, FrameTupleAccessor accessor, FrameTupleReference tuple,
             IFrameTupleProcessor processor, IFrameOperationCallback frameOpCallback) throws HyracksDataException;
+
+    /**
+     * Rollback components that match the passed predicate
+     *
+     * @param ctx
+     * @param predicate
+     * @throws HyracksDataException
+     */
+    void deleteComponents(ILSMIndexOperationContext ctx, Predicate<ILSMComponent> predicate)
+            throws HyracksDataException;
+
+    /**
+     * Replace the memory components in this operation context with their corresponding disk
+     * components if possible
+     *
+     * @param ctx
+     *            the operation context
+     * @param startIndex
+     *            the index of the first component to switch
+     * @throws HyracksDataException
+     */
+    void replaceMemoryComponentsWithDiskComponents(ILSMIndexOperationContext ctx, int startIndex)
+            throws HyracksDataException;
 }

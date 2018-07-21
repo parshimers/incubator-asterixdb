@@ -21,11 +21,10 @@ package org.apache.asterix.external.library;
 import java.io.InputStream;
 import java.util.Properties;
 
-import org.apache.asterix.external.library.java.JObjects.JRecord;
-import org.apache.asterix.external.library.java.JObjects.JString;
+import org.apache.asterix.external.library.java.base.JRecord;
+import org.apache.asterix.external.library.java.base.JString;
 import org.apache.asterix.external.api.IExternalScalarFunction;
 import org.apache.asterix.external.api.IFunctionHelper;
-import org.apache.asterix.external.library.java.JTypeTag;
 
 public class CapitalFinderFunction implements IExternalScalarFunction {
 
@@ -52,10 +51,11 @@ public class CapitalFinderFunction implements IExternalScalarFunction {
 
     @Override
     public void initialize(IFunctionHelper functionHelper) throws Exception {
-        InputStream in = CapitalFinderFunction.class.getClassLoader().getResourceAsStream("data/countriesCapitals.properties");
+        InputStream in =
+                CapitalFinderFunction.class.getClassLoader().getResourceAsStream("data/countriesCapitals.properties");
         capitalList = new Properties();
         capitalList.load(in);
-        capital = (JString) functionHelper.getObject(JTypeTag.STRING);
+        capital = new JString("");
     }
 
 }

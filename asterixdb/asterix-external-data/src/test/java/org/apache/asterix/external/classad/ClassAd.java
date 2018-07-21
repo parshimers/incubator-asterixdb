@@ -105,8 +105,8 @@ public class ClassAd extends ExprTree {
         specialAttrNames.add(ATTR_PARENT);
     }
 
-    public static final FunctionCall curr_time_expr = FunctionCall.createFunctionCall("time",
-            new ExprList(new ClassAdObjectPool()), new ClassAdObjectPool());
+    public static final FunctionCall curr_time_expr =
+            FunctionCall.createFunctionCall("time", new ExprList(new ClassAdObjectPool()), new ClassAdObjectPool());
 
     private ClassAd alternateScope;
     private final Map<CaseInsensitiveString, ExprTree> attrList;
@@ -839,7 +839,7 @@ public class ClassAd extends ExprTree {
                 successfully_evaluated = false;
             }
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
         return successfully_evaluated;
     }

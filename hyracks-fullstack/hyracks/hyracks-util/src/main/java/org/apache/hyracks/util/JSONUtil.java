@@ -19,34 +19,50 @@
 package org.apache.hyracks.util;
 
 import java.io.IOException;
-import java.util.Iterator;
+import java.io.Writer;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.logging.Logger;
+import java.util.stream.DoubleStream;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class JSONUtil {
 
-    private static final Logger LOGGER = Logger.getLogger(JSONUtil.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger();
 
     private static final String INDENT = "\t";
 
     private static final ObjectMapper SORTED_MAPPER = new ObjectMapper();
+    private static final ObjectWriter PRETTY_SORTED_WRITER;
 
     private JSONUtil() {
     }
 
     static {
         SORTED_MAPPER.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
+        SORTED_MAPPER.configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true);
+        PRETTY_SORTED_WRITER = SORTED_MAPPER.writerWithDefaultPrettyPrinter();
     }
 
     public static String convertNode(final JsonNode node) throws JsonProcessingException {
-        final Object obj = SORTED_MAPPER.treeToValue(node, Object.class);
-        return SORTED_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(obj);
+        return PRETTY_SORTED_WRITER.writeValueAsString(SORTED_MAPPER.treeToValue(node, Object.class));
+    }
+
+    public static void writeNode(final Writer writer, final JsonNode node) throws IOException {
+        PRETTY_SORTED_WRITER.writeValue(writer, SORTED_MAPPER.treeToValue(node, Object.class));
     }
 
     public static String indent(String str, int initialIndent) {
@@ -54,8 +70,8 @@ public class JSONUtil {
         try {
             return appendObj(new StringBuilder(), om.readTree(str), initialIndent).toString();
         } catch (IOException e) {
-            LOGGER.finest(String.valueOf(e));
-            LOGGER.finest("Could not indent JSON string, returning the input string: " + str);
+            LOGGER.trace(String.valueOf(e));
+            LOGGER.trace("Could not indent JSON string, returning the input string: " + str);
             return str;
         }
     }
@@ -73,47 +89,46 @@ public class JSONUtil {
         throw new UnsupportedOperationException(o.getClass().getSimpleName());
     }
 
-    private static StringBuilder appendObj(StringBuilder builder, JsonNode jobj, int indent) {
-        StringBuilder sb = builder.append("{\n");
+    private static StringBuilder appendObj(final StringBuilder sb, final JsonNode outer, final int indent) {
+        sb.append("{\n");
         boolean first = true;
-        for (Iterator<JsonNode> it = jobj.iterator(); it.hasNext();) {
-            final String key = it.next().asText();
+        for (JsonNode inner : outer) {
+            final String key = inner.asText();
             if (first) {
                 first = false;
             } else {
-                sb = sb.append(",\n");
+                sb.append(",\n");
             }
-            sb = indent(sb, indent + 1);
-            sb = quote(sb, key);
-            sb = sb.append(": ");
-            if (jobj.get(key).isArray()) {
-                sb = appendAry(sb, jobj.get(key), indent + 1);
-            } else if (jobj.get(key).isObject()) {
-                sb = appendObj(sb, jobj.get(key), indent + 1);
-            } else {
-                sb = appendOrd(sb, jobj.get(key), indent + 1);
-            }
+            indent(sb, indent + 1);
+            quote(sb, key);
+            sb.append(": ");
+            appendVal(sb, outer.get(key), indent);
         }
-        sb = sb.append("\n");
+        sb.append("\n");
         return indent(sb, indent).append("}");
     }
 
-    private static StringBuilder appendAry(StringBuilder builder, JsonNode jarr, int indent) {
-        StringBuilder sb = builder.append("[\n");
+    private static StringBuilder appendVal(final StringBuilder sb, final JsonNode value, final int indent) {
+        if (value.isArray()) {
+            appendAry(sb, value, indent + 1);
+        } else if (value.isObject()) {
+            appendObj(sb, value, indent + 1);
+        } else {
+            appendOrd(sb, value, indent + 1);
+        }
+        return sb;
+    }
+
+    private static StringBuilder appendAry(final StringBuilder sb, JsonNode jarr, int indent) {
+        sb.append("[\n");
         for (int i = 0; i < jarr.size(); ++i) {
             if (i > 0) {
-                sb = sb.append(",\n");
+                sb.append(",\n");
             }
-            sb = indent(sb, indent + 1);
-            if (jarr.get(i).isArray()) {
-                sb = appendAry(sb, jarr.get(i), indent + 1);
-            } else if (jarr.get(i).isObject()) {
-                sb = appendObj(sb, jarr.get(i), indent + 1);
-            } else {
-                sb = appendOrd(sb, jarr.get(i), indent + 1);
-            }
+            indent(sb, indent + 1);
+            appendVal(sb, jarr.get(i), indent);
         }
-        sb = sb.append("\n");
+        sb.append("\n");
         return indent(sb, indent).append("]");
     }
 
@@ -134,7 +149,7 @@ public class JSONUtil {
         return quoteAndEscape(new StringBuilder(), str).toString();
     }
 
-    private static StringBuilder quoteAndEscape(StringBuilder sb, String str) {
+    public static StringBuilder quoteAndEscape(StringBuilder sb, String str) {
         return escape(sb.append('"'), str).append('"');
     }
 
@@ -216,5 +231,49 @@ public class JSONUtil {
         }
         aString.append(" }");
         return aString.toString();
+    }
+
+    public static void put(ObjectNode o, String name, int value) {
+        o.put(name, value);
+    }
+
+    public static void put(ObjectNode o, String name, String value) {
+        o.put(name, value);
+    }
+
+    public static void put(ObjectNode o, String name, long value) {
+        o.put(name, value);
+    }
+
+    public static void put(ObjectNode o, String name, double value) {
+        o.put(name, value);
+    }
+
+    public static void put(ObjectNode o, String name, long[] elements) {
+        LongStream.of(elements).forEachOrdered(o.putArray(name)::add);
+    }
+
+    public static void put(ObjectNode o, String name, long[][] elements) {
+        Stream.of(elements).forEachOrdered(o.putArray(name)::addPOJO);
+    }
+
+    public static void put(ObjectNode o, String name, int[] elements) {
+        IntStream.of(elements).forEachOrdered(o.putArray(name)::add);
+    }
+
+    public static void put(ObjectNode o, String name, double[] elements) {
+        DoubleStream.of(elements).forEachOrdered(o.putArray(name)::add);
+    }
+
+    public static void put(ObjectNode o, String name, Map<String, String> map) {
+        map.forEach(o.putObject(name)::put);
+    }
+
+    public static void put(ObjectNode o, String name, String[] elements) {
+        Stream.of(elements).forEachOrdered(o.putArray(name)::add);
+    }
+
+    public static void put(ObjectNode o, String name, List<String> elements) {
+        elements.forEach(o.putArray(name)::add);
     }
 }

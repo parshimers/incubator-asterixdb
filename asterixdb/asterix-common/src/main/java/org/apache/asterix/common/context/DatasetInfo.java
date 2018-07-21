@@ -23,24 +23,40 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.asterix.common.transactions.ILogManager;
+import org.apache.asterix.common.transactions.LogRecord;
+import org.apache.asterix.common.transactions.LogType;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class DatasetInfo extends Info implements Comparable<DatasetInfo> {
+    private static final Logger LOGGER = LogManager.getLogger();
+    // partition -> index
+    private final Map<Integer, Set<IndexInfo>> partitionIndexes;
+    // resourceID -> index
     private final Map<Long, IndexInfo> indexes;
     private final int datasetID;
-    private long lastAccess;
+    private final ILogManager logManager;
+    private final LogRecord waitLog = new LogRecord();
     private int numActiveIOOps;
+    private long lastAccess;
     private boolean isExternal;
     private boolean isRegistered;
     private boolean memoryAllocated;
     private boolean durable;
 
-    public DatasetInfo(int datasetID) {
+    public DatasetInfo(int datasetID, ILogManager logManager) {
+        this.partitionIndexes = new HashMap<>();
         this.indexes = new HashMap<>();
         this.setLastAccess(-1);
         this.datasetID = datasetID;
         this.setRegistered(false);
         this.setMemoryAllocated(false);
+        this.logManager = logManager;
+        waitLog.setLogType(LogType.WAIT_FOR_FLUSHES);
+        waitLog.computeAndSetLogSize();
     }
 
     @Override
@@ -56,35 +72,26 @@ public class DatasetInfo extends Info implements Comparable<DatasetInfo> {
     }
 
     public synchronized void declareActiveIOOperation() {
-        setNumActiveIOOps(getNumActiveIOOps() + 1);
+        numActiveIOOps++;
     }
 
     public synchronized void undeclareActiveIOOperation() {
-        setNumActiveIOOps(getNumActiveIOOps() - 1);
+        numActiveIOOps--;
         //notify threads waiting on this dataset info
         notifyAll();
     }
 
-    public synchronized Set<ILSMIndex> getDatasetIndexes() {
-        Set<ILSMIndex> datasetIndexes = new HashSet<>();
-        for (IndexInfo iInfo : getIndexes().values()) {
-            if (iInfo.isOpen()) {
-                datasetIndexes.add(iInfo.getIndex());
+    public synchronized Set<ILSMIndex> getDatasetPartitionOpenIndexes(int partition) {
+        Set<ILSMIndex> indexSet = new HashSet<>();
+        Set<IndexInfo> partitionIndexInfos = this.partitionIndexes.get(partition);
+        if (partitionIndexInfos != null) {
+            for (IndexInfo iInfo : partitionIndexInfos) {
+                if (iInfo.isOpen()) {
+                    indexSet.add(iInfo.getIndex());
+                }
             }
         }
-
-        return datasetIndexes;
-    }
-
-    public synchronized Set<IndexInfo> getDatsetIndexInfos() {
-        Set<IndexInfo> infos = new HashSet<>();
-        for (IndexInfo iInfo : getIndexes().values()) {
-            if (iInfo.isOpen()) {
-                infos.add(iInfo);
-            }
-        }
-
-        return infos;
+        return indexSet;
     }
 
     @Override
@@ -126,7 +133,7 @@ public class DatasetInfo extends Info implements Comparable<DatasetInfo> {
             return datasetID == ((DatasetInfo) obj).datasetID;
         }
         return false;
-    };
+    }
 
     @Override
     public int hashCode() {
@@ -144,14 +151,6 @@ public class DatasetInfo extends Info implements Comparable<DatasetInfo> {
         return durable;
     }
 
-    public int getNumActiveIOOps() {
-        return numActiveIOOps;
-    }
-
-    public void setNumActiveIOOps(int numActiveIOOps) {
-        this.numActiveIOOps = numActiveIOOps;
-    }
-
     public boolean isExternal() {
         return isExternal;
     }
@@ -162,6 +161,18 @@ public class DatasetInfo extends Info implements Comparable<DatasetInfo> {
 
     public Map<Long, IndexInfo> getIndexes() {
         return indexes;
+    }
+
+    public synchronized void addIndex(long resourceID, IndexInfo indexInfo) {
+        indexes.put(resourceID, indexInfo);
+        partitionIndexes.computeIfAbsent(indexInfo.getPartition(), partition -> new HashSet<>()).add(indexInfo);
+    }
+
+    public synchronized void removeIndex(long resourceID) {
+        IndexInfo info = indexes.remove(resourceID);
+        if (info != null) {
+            partitionIndexes.get(info.getPartition()).remove(info);
+        }
     }
 
     public boolean isRegistered() {
@@ -194,5 +205,28 @@ public class DatasetInfo extends Info implements Comparable<DatasetInfo> {
 
     public void setLastAccess(long lastAccess) {
         this.lastAccess = lastAccess;
+    }
+
+    public void waitForIO() throws HyracksDataException {
+        logManager.log(waitLog);
+        synchronized (this) {
+            while (numActiveIOOps > 0) {
+                try {
+                    /**
+                     * Will be Notified by {@link DatasetInfo#undeclareActiveIOOperation()}
+                     */
+                    wait();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw HyracksDataException.create(e);
+                }
+            }
+            if (numActiveIOOps < 0) {
+                if (LOGGER.isErrorEnabled()) {
+                    LOGGER.error("Number of IO operations cannot be negative for dataset: " + this);
+                }
+                throw new IllegalStateException("Number of IO operations cannot be negative");
+            }
+        }
     }
 }

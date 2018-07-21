@@ -63,14 +63,13 @@ public class ExternalHashGroupBy {
         }
     }
 
-    private void flushPartitionToRun(int partition, RunFileWriter writer)
-            throws HyracksDataException {
+    private void flushPartitionToRun(int partition, RunFileWriter writer) throws HyracksDataException {
         try {
             spilledNumTuples[partition] += table.flushFrames(partition, writer, AggregateType.PARTIAL);
             table.clear(partition);
         } catch (Exception ex) {
             writer.fail();
-            throw new HyracksDataException(ex);
+            throw HyracksDataException.create(ex);
         }
     }
 

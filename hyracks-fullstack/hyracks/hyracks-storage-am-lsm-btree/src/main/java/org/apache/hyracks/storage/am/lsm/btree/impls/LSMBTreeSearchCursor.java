@@ -22,13 +22,13 @@ package org.apache.hyracks.storage.am.lsm.btree.impls;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
-import org.apache.hyracks.storage.am.common.api.ITreeIndexCursor;
+import org.apache.hyracks.storage.am.common.api.ILSMIndexCursor;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
+import org.apache.hyracks.storage.common.EnforcedIndexCursor;
 import org.apache.hyracks.storage.common.ICursorInitialState;
 import org.apache.hyracks.storage.common.ISearchPredicate;
-import org.apache.hyracks.storage.common.buffercache.IBufferCache;
 
-public class LSMBTreeSearchCursor implements ITreeIndexCursor {
+public class LSMBTreeSearchCursor extends EnforcedIndexCursor implements ILSMIndexCursor {
 
     public enum LSMBTreeSearchType {
         POINT,
@@ -38,7 +38,7 @@ public class LSMBTreeSearchCursor implements ITreeIndexCursor {
     private final LSMBTreePointSearchCursor pointCursor;
     private final LSMBTreeRangeSearchCursor rangeCursor;
     private final LSMBTreeDiskComponentScanCursor scanCursor;
-    private ITreeIndexCursor currentCursor;
+    private ILSMIndexCursor currentCursor;
 
     public LSMBTreeSearchCursor(ILSMIndexOperationContext opCtx) {
         pointCursor = new LSMBTreePointSearchCursor(opCtx);
@@ -47,32 +47,43 @@ public class LSMBTreeSearchCursor implements ITreeIndexCursor {
     }
 
     @Override
-    public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
+    public void doOpen(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
         LSMBTreeCursorInitialState lsmInitialState = (LSMBTreeCursorInitialState) initialState;
         RangePredicate btreePred = (RangePredicate) searchPred;
-
-        currentCursor =
-                btreePred.isPointPredicate(lsmInitialState.getOriginalKeyComparator()) ? pointCursor : rangeCursor;
+        currentCursor = lsmInitialState.isDiskComponentScan() ? scanCursor
+                : btreePred.isPointPredicate(lsmInitialState.getOriginalKeyComparator()) ? pointCursor : rangeCursor;
         currentCursor.open(lsmInitialState, searchPred);
     }
 
-    public void scan(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
-        currentCursor = scanCursor;
-        currentCursor.open(initialState, searchPred);
-    }
-
     @Override
-    public boolean hasNext() throws HyracksDataException {
+    public boolean doHasNext() throws HyracksDataException {
         return currentCursor.hasNext();
     }
 
     @Override
-    public void next() throws HyracksDataException {
+    public void doNext() throws HyracksDataException {
         currentCursor.next();
     }
 
     @Override
-    public void close() throws HyracksDataException {
+    public void doDestroy() throws HyracksDataException {
+        try {
+            pointCursor.destroy();
+        } finally {
+            try {
+                rangeCursor.destroy();
+            } finally {
+                try {
+                    scanCursor.destroy();
+                } finally {
+                    currentCursor = null;
+                }
+            }
+        }
+    }
+
+    @Override
+    public void doClose() throws HyracksDataException {
         if (currentCursor != null) {
             currentCursor.close();
         }
@@ -80,15 +91,7 @@ public class LSMBTreeSearchCursor implements ITreeIndexCursor {
     }
 
     @Override
-    public void reset() throws HyracksDataException {
-        if (currentCursor != null) {
-            currentCursor.reset();
-        }
-        currentCursor = null;
-    }
-
-    @Override
-    public ITupleReference getTuple() {
+    public ITupleReference doGetTuple() {
         return currentCursor.getTuple();
     }
 
@@ -103,19 +106,7 @@ public class LSMBTreeSearchCursor implements ITreeIndexCursor {
     }
 
     @Override
-    public void setBufferCache(IBufferCache bufferCache) {
-        currentCursor.setBufferCache(bufferCache);
+    public boolean getSearchOperationCallbackProceedResult() {
+        return currentCursor.getSearchOperationCallbackProceedResult();
     }
-
-    @Override
-    public void setFileId(int fileId) {
-        currentCursor.setFileId(fileId);
-
-    }
-
-    @Override
-    public boolean isExclusiveLatchNodes() {
-        return currentCursor.isExclusiveLatchNodes();
-    }
-
 }

@@ -1,16 +1,9 @@
 DataverseUse TinySocial
 Query:
 SELECT [
-FieldAccessor [
-  FunctionCall Metadata.resolve@-1[
-    LiteralExpr [STRING] [employment]
-    Variable [ Name=#1 ]
-    Variable [ Name=$organization-name ]
-  ]
-  Field=organization-name
-]
+Variable [ Name=$organization-name ]
 organization
-FunctionCall TinySocial.sql-avg@1[
+FunctionCall asterix.sql-avg@1[
   (
     SELECT ELEMENT [
     FunctionCall TinySocial.get-year@1[
@@ -29,7 +22,7 @@ FunctionCall TinySocial.sql-avg@1[
   )
 ]
 average
-FunctionCall TinySocial.sql-count@1[
+FunctionCall asterix.sql-count@1[
   (
     SELECT ELEMENT [
     FieldAccessor [
@@ -46,7 +39,7 @@ FunctionCall TinySocial.sql-count@1[
   )
 ]
 count
-FunctionCall TinySocial.sql-sum@1[
+FunctionCall asterix.sql-sum@1[
   (
     SELECT ELEMENT [
     FunctionCall TinySocial.get-year@1[
@@ -65,7 +58,7 @@ FunctionCall TinySocial.sql-sum@1[
   )
 ]
 sum
-FunctionCall TinySocial.sql-min@1[
+FunctionCall asterix.sql-min@1[
   (
     SELECT ELEMENT [
     FieldAccessor [
@@ -82,7 +75,7 @@ FunctionCall TinySocial.sql-min@1[
   )
 ]
 min
-FunctionCall TinySocial.sql-max@1[
+FunctionCall asterix.sql-max@1[
   (
     SELECT ELEMENT [
     FieldAccessor [
@@ -100,8 +93,8 @@ FunctionCall TinySocial.sql-max@1[
 ]
 max
 ]
-FROM [  FunctionCall Metadata.dataset@1[
-    LiteralExpr [STRING] [FacebookUsers]
+FROM [  FunctionCall asterix.dataset@1[
+    LiteralExpr [STRING] [TinySocial.FacebookUsers]
   ]
   AS Variable [ Name=$fbu ]
 ,
@@ -125,13 +118,6 @@ Groupby
   )
 
 Orderby
-  FieldAccessor [
-    FunctionCall Metadata.resolve@-1[
-      LiteralExpr [STRING] [employment]
-      Variable [ Name=#1 ]
-      Variable [ Name=$organization-name ]
-    ]
-    Field=organization-name
-  ]
+  Variable [ Name=$organization-name ]
   ASC
 

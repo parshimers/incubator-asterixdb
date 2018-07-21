@@ -61,32 +61,38 @@ public class ResultState implements IStateObject {
 
     private FileReference fileRef;
 
-    private IFileHandle writeFileHandle;
+    private IFileHandle fileHandle;
 
-    private IFileHandle readFileHandle;
+    private volatile int referenceCount = 0;
 
     private long size;
 
     private long persistentSize;
+    private long remainingReads;
 
     ResultState(ResultSetPartitionId resultSetPartitionId, boolean asyncMode, IIOManager ioManager,
-            IWorkspaceFileFactory fileFactory, int frameSize) {
+            IWorkspaceFileFactory fileFactory, int frameSize, long maxReads) {
+        if (maxReads <= 0) {
+            throw new IllegalArgumentException("maxReads must be > 0");
+        }
         this.resultSetPartitionId = resultSetPartitionId;
         this.asyncMode = asyncMode;
         this.ioManager = ioManager;
         this.fileFactory = fileFactory;
         this.frameSize = frameSize;
+        remainingReads = maxReads;
         eos = new AtomicBoolean(false);
         failed = new AtomicBoolean(false);
-        localPageList = new ArrayList<Page>();
+        localPageList = new ArrayList<>();
 
         fileRef = null;
-        writeFileHandle = null;
+        fileHandle = null;
     }
 
     public synchronized void open() {
         size = 0;
         persistentSize = 0;
+        referenceCount = 0;
     }
 
     public synchronized void close() {
@@ -102,29 +108,34 @@ public class ResultState implements IStateObject {
         closeWriteFileHandle();
         if (fileRef != null) {
             fileRef.delete();
+            fileRef = null;
         }
     }
 
     private void closeWriteFileHandle() {
-        if (writeFileHandle != null) {
+        if (fileHandle != null) {
+            doCloseFileHandle();
+        }
+    }
+
+    private void doCloseFileHandle() {
+        if (--referenceCount == 0) {
+            // close the file if there is no more reference
             try {
-                ioManager.close(writeFileHandle);
+                ioManager.close(fileHandle);
             } catch (IOException e) {
                 // Since file handle could not be closed, just ignore.
             }
-            writeFileHandle = null;
+            fileHandle = null;
         }
     }
 
     public synchronized void write(ByteBuffer buffer) throws HyracksDataException {
         if (fileRef == null) {
-            String fName = FILE_PREFIX + String.valueOf(resultSetPartitionId.getPartition());
-            fileRef = fileFactory.createUnmanagedWorkspaceFile(fName);
-            writeFileHandle = ioManager.open(fileRef, IIOManager.FileReadWriteMode.READ_WRITE,
-                    IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
+            initWriteFileHandle();
         }
 
-        size += ioManager.syncWrite(writeFileHandle, size, buffer);
+        size += ioManager.syncWrite(fileHandle, size, buffer);
         notifyAll();
     }
 
@@ -152,13 +163,15 @@ public class ResultState implements IStateObject {
     }
 
     public synchronized void readOpen() {
-        // It is a noOp for now, leaving here to keep the API stable for future usage.
+        if (isExhausted()) {
+            throw new IllegalStateException("Result reads exhausted");
+        }
+        remainingReads--;
     }
 
     public synchronized void readClose() throws HyracksDataException {
-        if (readFileHandle != null) {
-            ioManager.close(readFileHandle);
-            readFileHandle = null;
+        if (fileHandle != null) {
+            doCloseFileHandle();
         }
     }
 
@@ -169,58 +182,56 @@ public class ResultState implements IStateObject {
             try {
                 wait();
             } catch (InterruptedException e) {
-                throw new HyracksDataException(e);
+                throw HyracksDataException.create(e);
             }
         }
         if ((offset >= size && eos.get()) || failed.get()) {
             return readSize;
         }
 
-        if (readFileHandle == null) {
+        if (fileHandle == null) {
             initReadFileHandle();
         }
-        readSize = ioManager.syncRead(readFileHandle, offset, buffer);
+        readSize = ioManager.syncRead(fileHandle, offset, buffer);
 
         return readSize;
     }
 
-    public long read(DatasetMemoryManager datasetMemoryManager, long offset, ByteBuffer buffer)
+    public synchronized long read(DatasetMemoryManager datasetMemoryManager, long offset, ByteBuffer buffer)
             throws HyracksDataException {
         long readSize = 0;
-        synchronized (this) {
-            while (offset >= size && !eos.get() && !failed.get()) {
-                try {
-                    wait();
-                } catch (InterruptedException e) {
-                    throw new HyracksDataException(e);
-                }
+        while (offset >= size && !eos.get() && !failed.get()) {
+            try {
+                wait();
+            } catch (InterruptedException e) {
+                throw HyracksDataException.create(e);
             }
+        }
 
-            if ((offset >= size && eos.get()) || failed.get()) {
+        if ((offset >= size && eos.get()) || failed.get()) {
+            return readSize;
+        }
+
+        if (offset < persistentSize) {
+            if (fileHandle == null) {
+                initReadFileHandle();
+            }
+            readSize = ioManager.syncRead(fileHandle, offset, buffer);
+            if (readSize < 0) {
+                throw new HyracksDataException("Premature end of file");
+            }
+        }
+
+        if (readSize < buffer.capacity()) {
+            long localPageOffset = offset - persistentSize;
+            int localPageIndex = (int) (localPageOffset / DatasetMemoryManager.getPageSize());
+            int pageOffset = (int) (localPageOffset % DatasetMemoryManager.getPageSize());
+            Page page = getPage(localPageIndex);
+            if (page == null) {
                 return readSize;
             }
-
-            if (offset < persistentSize) {
-                if (readFileHandle == null) {
-                    initReadFileHandle();
-                }
-                readSize = ioManager.syncRead(readFileHandle, offset, buffer);
-                if (readSize < 0){
-                    throw new HyracksDataException("Premature end of file");
-                }
-            }
-
-            if (readSize < buffer.capacity()) {
-                long localPageOffset = offset - persistentSize;
-                int localPageIndex = (int) (localPageOffset / DatasetMemoryManager.getPageSize());
-                int pageOffset = (int) (localPageOffset % DatasetMemoryManager.getPageSize());
-                Page page = getPage(localPageIndex);
-                if (page == null) {
-                    return readSize;
-                }
-                readSize += buffer.remaining();
-                buffer.put(page.getBuffer().array(), pageOffset, buffer.remaining());
-            }
+            readSize += buffer.remaining();
+            buffer.put(page.getBuffer().array(), pageOffset, buffer.remaining());
         }
         datasetMemoryManager.pageReferenced(resultSetPartitionId);
         return readSize;
@@ -236,21 +247,17 @@ public class ResultState implements IStateObject {
 
         // If we do not have any pages to be given back close the write channel since we don't write any more, return null.
         if (page == null) {
-            ioManager.close(writeFileHandle);
+            ioManager.close(fileHandle);
             return null;
         }
 
         page.getBuffer().flip();
 
         if (fileRef == null) {
-            String fName = FILE_PREFIX + String.valueOf(resultSetPartitionId.getPartition());
-            fileRef = fileFactory.createUnmanagedWorkspaceFile(fName);
-            writeFileHandle = ioManager.open(fileRef, IIOManager.FileReadWriteMode.READ_WRITE,
-                    IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
-            notifyAll();
+            initWriteFileHandle();
         }
 
-        long delta = ioManager.syncWrite(writeFileHandle, persistentSize, page.getBuffer());
+        long delta = ioManager.syncWrite(fileHandle, persistentSize, page.getBuffer());
         persistentSize += delta;
         return page;
     }
@@ -316,20 +323,38 @@ public class ResultState implements IStateObject {
         return page;
     }
 
+    private void initWriteFileHandle() throws HyracksDataException {
+        if (fileHandle == null) {
+            String fName = FILE_PREFIX + String.valueOf(resultSetPartitionId.getPartition());
+            fileRef = fileFactory.createUnmanagedWorkspaceFile(fName);
+            fileHandle = ioManager.open(fileRef, IIOManager.FileReadWriteMode.READ_WRITE,
+                    IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
+            if (referenceCount != 0) {
+                throw new IllegalStateException("Illegal reference count " + referenceCount);
+            }
+            referenceCount = 1;
+            notifyAll(); // NOSONAR: always called from a synchronized block
+        }
+    }
+
     private void initReadFileHandle() throws HyracksDataException {
         while (fileRef == null && !failed.get()) {
+            // wait for writer to create the file
             try {
                 wait();
             } catch (InterruptedException e) {
-                throw new HyracksDataException(e);
+                throw HyracksDataException.create(e);
             }
         }
         if (failed.get()) {
             return;
         }
-
-        readFileHandle = ioManager.open(fileRef, IIOManager.FileReadWriteMode.READ_ONLY,
-                IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
+        if (fileHandle == null) {
+            // fileHandle has been closed by the writer, create it again
+            fileHandle = ioManager.open(fileRef, IIOManager.FileReadWriteMode.READ_ONLY,
+                    IIOManager.FileSyncMode.METADATA_ASYNC_DATA_ASYNC);
+        }
+        referenceCount++;
     }
 
     @Override
@@ -339,6 +364,7 @@ public class ResultState implements IStateObject {
             ObjectNode on = om.createObjectNode();
             on.put("rspid", resultSetPartitionId.toString());
             on.put("async", asyncMode);
+            on.put("remainingReads", remainingReads);
             on.put("eos", eos.get());
             on.put("failed", failed.get());
             on.put("fileRef", String.valueOf(fileRef));
@@ -346,5 +372,9 @@ public class ResultState implements IStateObject {
         } catch (JsonProcessingException e) { // NOSONAR
             return e.getMessage();
         }
+    }
+
+    public synchronized boolean isExhausted() {
+        return remainingReads == 0;
     }
 }

@@ -18,11 +18,19 @@
  */
 package org.apache.hyracks.api.config;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
 public interface IOptionType<T> {
     /**
      * @throws IllegalArgumentException when the supplied string cannot be interpreted
      */
     T parse(String s);
+
+    /**
+     * @throws IllegalArgumentException when the supplied JSON node cannot be interpreted
+     */
+    T parse(JsonNode node);
 
     Class<T> targetType();
 
@@ -32,6 +40,11 @@ public interface IOptionType<T> {
     default Object serializeToJSON(Object value) {
         return value;
     }
+
+    /**
+     * Serializes the value as a field in the provided object node
+     */
+    void serializeJSONField(String fieldName, Object value, ObjectNode node);
 
     /**
      * @return the value in a format suitable for serialized ini file

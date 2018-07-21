@@ -36,21 +36,18 @@ import org.apache.hyracks.api.exceptions.HyracksException;
 import org.apache.hyracks.api.job.IJobLifecycleListener;
 import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.api.job.JobSpecification;
+import org.apache.hyracks.api.job.JobStatus;
 import org.apache.hyracks.api.service.IControllerService;
 import org.apache.hyracks.control.cc.ClusterControllerService;
 import org.apache.hyracks.control.common.application.ServiceContext;
 import org.apache.hyracks.control.common.context.ServerContext;
 import org.apache.hyracks.control.common.utils.HyracksThreadFactory;
-import org.apache.hyracks.control.common.work.IResultCallback;
 
 public class CCServiceContext extends ServiceContext implements ICCServiceContext {
     private final ICCContext ccContext;
 
     protected final Set<String> initPendingNodeIds;
     protected final Set<String> deinitPendingNodeIds;
-
-    protected IResultCallback<Object> initializationCallback;
-    protected IResultCallback<Object> deinitializationCallback;
 
     private List<IJobLifecycleListener> jobLifecycleListeners;
     private List<IClusterLifecycleListener> clusterLifecycleListeners;
@@ -88,14 +85,14 @@ public class CCServiceContext extends ServiceContext implements ICCServiceContex
         }
     }
 
-    public synchronized void notifyJobFinish(JobId jobId) throws HyracksException {
+    public synchronized void notifyJobFinish(JobId jobId, JobStatus jobStatus, List<Exception> exceptions)
+            throws HyracksException {
         for (IJobLifecycleListener l : jobLifecycleListeners) {
-            l.notifyJobFinish(jobId);
+            l.notifyJobFinish(jobId, jobStatus, exceptions);
         }
     }
 
-    public synchronized void notifyJobCreation(JobId jobId, JobSpecification spec)
-            throws HyracksException {
+    public synchronized void notifyJobCreation(JobId jobId, JobSpecification spec) throws HyracksException {
         for (IJobLifecycleListener l : jobLifecycleListeners) {
             l.notifyJobCreation(jobId, spec);
         }

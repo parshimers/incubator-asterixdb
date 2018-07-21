@@ -49,8 +49,8 @@ public class RecordWithMetadataParser<T, O> implements IRecordWithMetadataParser
     private final ArrayBackedValueStorage[] metaFieldsNamesBuffers;
     private final int numberOfMetaFields;
     @SuppressWarnings("unchecked")
-    private final ISerializerDeserializer<AString> stringSerde = SerializerDeserializerProvider.INSTANCE
-            .getSerializerDeserializer(BuiltinType.ASTRING);
+    private final ISerializerDeserializer<AString> stringSerde =
+            SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.ASTRING);
 
     public RecordWithMetadataParser(ARecordType metaType, IRecordDataParser<O> valueParser,
             IRecordConverter<T, RecordWithMetadataAndPK<O>> converter) throws HyracksDataException {
@@ -82,7 +82,7 @@ public class RecordWithMetadataParser<T, O> implements IRecordWithMetadataParser
                 recordParser.parse(rwm.getRecord(), out);
             }
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 
@@ -102,7 +102,7 @@ public class RecordWithMetadataParser<T, O> implements IRecordWithMetadataParser
                 metaBuilder.write(out, true);
             }
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 

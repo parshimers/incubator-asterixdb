@@ -22,13 +22,15 @@ package org.apache.hyracks.storage.am.lsm.btree.impls;
 import java.util.List;
 
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.util.CleanupUtils;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
-import org.apache.hyracks.storage.am.btree.api.IBTreeLeafFrame;
+import org.apache.hyracks.storage.am.bloomfilter.impls.BloomFilter;
 import org.apache.hyracks.storage.am.btree.impls.BTree;
 import org.apache.hyracks.storage.am.btree.impls.BTree.BTreeAccessor;
-import org.apache.hyracks.storage.am.btree.impls.BTreeRangeSearchCursor;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
+import org.apache.hyracks.storage.am.common.api.ILSMIndexCursor;
 import org.apache.hyracks.storage.am.common.api.ITreeIndexCursor;
+import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent.LSMComponentType;
@@ -36,34 +38,37 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentFilter;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMHarness;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMTreeTupleReference;
-import org.apache.hyracks.storage.am.lsm.common.impls.BloomFilterAwareBTreePointSearchCursor;
+import org.apache.hyracks.storage.common.EnforcedIndexCursor;
 import org.apache.hyracks.storage.common.ICursorInitialState;
 import org.apache.hyracks.storage.common.ISearchOperationCallback;
 import org.apache.hyracks.storage.common.ISearchPredicate;
-import org.apache.hyracks.storage.common.buffercache.IBufferCache;
 
-public class LSMBTreePointSearchCursor implements ITreeIndexCursor {
+public class LSMBTreePointSearchCursor extends EnforcedIndexCursor implements ILSMIndexCursor {
 
-    private BTreeRangeSearchCursor[] rangeCursors;
+    private ITreeIndexCursor[] btreeCursors;
     private final ILSMIndexOperationContext opCtx;
     private ISearchOperationCallback searchCallback;
     private RangePredicate predicate;
     private boolean includeMutableComponent;
     private int numBTrees;
     private BTreeAccessor[] btreeAccessors;
+    private BloomFilter[] bloomFilters;
     private ILSMHarness lsmHarness;
     private boolean nextHasBeenCalled;
     private boolean foundTuple;
     private int foundIn = -1;
     private ITupleReference frameTuple;
     private List<ILSMComponent> operationalComponents;
+    private boolean resultOfSearchCallbackProceed = false;
+
+    private final long[] hashes = BloomFilter.createHashArray();
 
     public LSMBTreePointSearchCursor(ILSMIndexOperationContext opCtx) {
         this.opCtx = opCtx;
     }
 
     @Override
-    public boolean hasNext() throws HyracksDataException {
+    public boolean doHasNext() throws HyracksDataException {
         if (nextHasBeenCalled) {
             return false;
         } else if (foundTuple) {
@@ -71,21 +76,27 @@ public class LSMBTreePointSearchCursor implements ITreeIndexCursor {
         }
         boolean reconciled = false;
         for (int i = 0; i < numBTrees; ++i) {
-            btreeAccessors[i].search(rangeCursors[i], predicate);
-            if (rangeCursors[i].hasNext()) {
-                rangeCursors[i].next();
+            if (bloomFilters[i] != null && !bloomFilters[i].contains(predicate.getLowKey(), hashes)) {
+                continue;
+            }
+            btreeAccessors[i].search(btreeCursors[i], predicate);
+            if (btreeCursors[i].hasNext()) {
+                btreeCursors[i].next();
                 // We use the predicate's to lock the key instead of the tuple that we get from cursor
                 // to avoid copying the tuple when we do the "unlatch dance".
-                if (reconciled || searchCallback.proceed(predicate.getLowKey())) {
+                if (!reconciled) {
+                    resultOfSearchCallbackProceed = searchCallback.proceed(predicate.getLowKey());
+                }
+                if (reconciled || resultOfSearchCallbackProceed) {
                     // if proceed is successful, then there's no need for doing the "unlatch dance"
-                    if (((ILSMTreeTupleReference) rangeCursors[i].getTuple()).isAntimatter()) {
+                    if (((ILSMTreeTupleReference) btreeCursors[i].getTuple()).isAntimatter()) {
                         if (reconciled) {
                             searchCallback.cancel(predicate.getLowKey());
                         }
-                        rangeCursors[i].close();
+                        btreeCursors[i].close();
                         return false;
                     } else {
-                        frameTuple = rangeCursors[i].getTuple();
+                        frameTuple = btreeCursors[i].getTuple();
                         foundTuple = true;
                         foundIn = i;
                         return true;
@@ -93,20 +104,20 @@ public class LSMBTreePointSearchCursor implements ITreeIndexCursor {
                 }
                 if (i == 0 && includeMutableComponent) {
                     // unlatch/unpin
-                    rangeCursors[i].reset();
+                    btreeCursors[i].close();
                     searchCallback.reconcile(predicate.getLowKey());
                     reconciled = true;
 
                     // retraverse
-                    btreeAccessors[0].search(rangeCursors[i], predicate);
-                    if (rangeCursors[i].hasNext()) {
-                        rangeCursors[i].next();
-                        if (((ILSMTreeTupleReference) rangeCursors[i].getTuple()).isAntimatter()) {
+                    btreeAccessors[0].search(btreeCursors[i], predicate);
+                    if (btreeCursors[i].hasNext()) {
+                        btreeCursors[i].next();
+                        if (((ILSMTreeTupleReference) btreeCursors[i].getTuple()).isAntimatter()) {
                             searchCallback.cancel(predicate.getLowKey());
-                            rangeCursors[i].close();
+                            btreeCursors[i].close();
                             return false;
                         } else {
-                            frameTuple = rangeCursors[i].getTuple();
+                            frameTuple = btreeCursors[i].getTuple();
                             foundTuple = true;
                             searchCallback.complete(predicate.getLowKey());
                             foundIn = i;
@@ -114,10 +125,10 @@ public class LSMBTreePointSearchCursor implements ITreeIndexCursor {
                         }
                     } else {
                         searchCallback.cancel(predicate.getLowKey());
-                        rangeCursors[i].close();
+                        btreeCursors[i].close();
                     }
                 } else {
-                    frameTuple = rangeCursors[i].getTuple();
+                    frameTuple = btreeCursors[i].getTuple();
                     searchCallback.reconcile(frameTuple);
                     searchCallback.complete(frameTuple);
                     foundTuple = true;
@@ -125,21 +136,16 @@ public class LSMBTreePointSearchCursor implements ITreeIndexCursor {
                     return true;
                 }
             } else {
-                rangeCursors[i].close();
+                btreeCursors[i].close();
             }
         }
         return false;
     }
 
     @Override
-    public void reset() throws HyracksDataException {
+    public void doClose() throws HyracksDataException {
         try {
-            if (rangeCursors != null) {
-                for (int i = 0; i < rangeCursors.length; ++i) {
-                    rangeCursors[i].reset();
-                }
-            }
-            rangeCursors = null;
+            closeCursors();
             nextHasBeenCalled = false;
             foundTuple = false;
         } finally {
@@ -150,84 +156,88 @@ public class LSMBTreePointSearchCursor implements ITreeIndexCursor {
     }
 
     @Override
-    public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
+    public void doOpen(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
         LSMBTreeCursorInitialState lsmInitialState = (LSMBTreeCursorInitialState) initialState;
         operationalComponents = lsmInitialState.getOperationalComponents();
         lsmHarness = lsmInitialState.getLSMHarness();
         searchCallback = lsmInitialState.getSearchOperationCallback();
         predicate = (RangePredicate) lsmInitialState.getSearchPredicate();
         numBTrees = operationalComponents.size();
-        if (rangeCursors == null || rangeCursors.length != numBTrees) {
+        if (btreeCursors != null && btreeCursors.length != numBTrees) {
+            Throwable failure = CleanupUtils.destroy(null, btreeCursors);
+            btreeCursors = null;
+            failure = CleanupUtils.destroy(failure, btreeAccessors);
+            btreeAccessors = null;
+            if (failure != null) {
+                throw HyracksDataException.create(failure);
+            }
+        }
+        if (btreeCursors == null) {
             // object creation: should be relatively low
-            rangeCursors = new BTreeRangeSearchCursor[numBTrees];
+            btreeCursors = new ITreeIndexCursor[numBTrees];
             btreeAccessors = new BTreeAccessor[numBTrees];
+            bloomFilters = new BloomFilter[numBTrees];
         }
         includeMutableComponent = false;
 
         for (int i = 0; i < numBTrees; i++) {
             ILSMComponent component = operationalComponents.get(i);
-            BTree btree;
+            BTree btree = (BTree) component.getIndex();
             if (component.getType() == LSMComponentType.MEMORY) {
                 includeMutableComponent = true;
-                // No need for a bloom filter for the in-memory BTree.
-                if (rangeCursors[i] == null || rangeCursors[i].isBloomFilterAware()) {
-                    // create a new one
-                    IBTreeLeafFrame leafFrame = (IBTreeLeafFrame) lsmInitialState.getLeafFrameFactory().createFrame();
-                    rangeCursors[i] = new BTreeRangeSearchCursor(leafFrame, false);
-                } else {
-                    // reset
-                    rangeCursors[i].reset();
+                if (bloomFilters[i] != null) {
+                    destroyAndNullifyCursorAtIndex(i);
                 }
-                btree = ((LSMBTreeMemoryComponent) component).getBTree();
             } else {
-                if (rangeCursors[i] != null && rangeCursors[i].isBloomFilterAware()) {
-                    // can re-use cursor
-                    ((BloomFilterAwareBTreePointSearchCursor) rangeCursors[i])
-                            .resetBloomFilter(((LSMBTreeDiskComponent) component).getBloomFilter());
-                    rangeCursors[i].reset();
-                } else {
-                    // create new cursor <should be relatively rare>
-                    IBTreeLeafFrame leafFrame = (IBTreeLeafFrame) lsmInitialState.getLeafFrameFactory().createFrame();
-                    rangeCursors[i] = new BloomFilterAwareBTreePointSearchCursor(leafFrame, false,
-                            ((LSMBTreeDiskComponent) component).getBloomFilter());
+                if (bloomFilters[i] == null) {
+                    destroyAndNullifyCursorAtIndex(i);
                 }
-                btree = ((LSMBTreeDiskComponent) component).getBTree();
+                bloomFilters[i] = ((LSMBTreeWithBloomFilterDiskComponent) component).getBloomFilter();
             }
+
             if (btreeAccessors[i] == null) {
-                btreeAccessors[i] = (BTreeAccessor) btree.createAccessor(NoOpOperationCallback.INSTANCE,
-                        NoOpOperationCallback.INSTANCE);
+                btreeAccessors[i] = btree.createAccessor(NoOpIndexAccessParameters.INSTANCE);
+                btreeCursors[i] = btreeAccessors[i].createPointCursor(false);
             } else {
                 // re-use
                 btreeAccessors[i].reset(btree, NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+                btreeCursors[i].close();
             }
         }
         nextHasBeenCalled = false;
         foundTuple = false;
     }
 
+    private void destroyAndNullifyCursorAtIndex(int i) throws HyracksDataException {
+        // component at location i was a disk component before, and is now a memory component, or vise versa
+        bloomFilters[i] = null;
+        Throwable failure = CleanupUtils.destroy(null, btreeCursors[i]);
+        btreeCursors[i] = null;
+        failure = CleanupUtils.destroy(failure, btreeAccessors[i]);
+        btreeAccessors[i] = null;
+        if (failure != null) {
+            throw HyracksDataException.create(failure);
+        }
+    }
+
     @Override
-    public void next() throws HyracksDataException {
+    public void doNext() throws HyracksDataException {
         nextHasBeenCalled = true;
     }
 
     @Override
-    public void close() throws HyracksDataException {
-        if (lsmHarness != null) {
-            try {
-                for (int i = 0; i < rangeCursors.length; i++) {
-                    rangeCursors[i].close();
+    public void doDestroy() throws HyracksDataException {
+        if (btreeCursors != null) {
+            for (int i = 0; i < numBTrees; ++i) {
+                if (btreeCursors[i] != null) {
+                    btreeCursors[i].destroy();
                 }
-                rangeCursors = null;
-            } finally {
-                lsmHarness.endSearch(opCtx);
             }
         }
-        nextHasBeenCalled = false;
-        foundTuple = false;
     }
 
     @Override
-    public ITupleReference getTuple() {
+    public ITupleReference doGetTuple() {
         return frameTuple;
     }
 
@@ -250,19 +260,18 @@ public class LSMBTreePointSearchCursor implements ITreeIndexCursor {
         return null;
     }
 
-    @Override
-    public void setBufferCache(IBufferCache bufferCache) {
-        // do nothing
+    private void closeCursors() throws HyracksDataException {
+        if (btreeCursors != null) {
+            for (int i = 0; i < numBTrees; ++i) {
+                if (btreeCursors[i] != null) {
+                    btreeCursors[i].close();
+                }
+            }
+        }
     }
 
     @Override
-    public void setFileId(int fileId) {
-        // do nothing
+    public boolean getSearchOperationCallbackProceedResult() {
+        return resultOfSearchCallbackProceed;
     }
-
-    @Override
-    public boolean isExclusiveLatchNodes() {
-        return false;
-    }
-
 }

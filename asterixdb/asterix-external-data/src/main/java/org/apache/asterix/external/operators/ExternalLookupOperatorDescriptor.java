@@ -78,7 +78,7 @@ public class ExternalLookupOperatorDescriptor extends AbstractSingleActivityOper
                     indexOpen = true;
                     adapter.open();
                 } catch (Throwable th) {
-                    throw new HyracksDataException(th);
+                    throw HyracksDataException.create(th);
                 }
             }
 
@@ -89,17 +89,20 @@ public class ExternalLookupOperatorDescriptor extends AbstractSingleActivityOper
                     try {
                         snapshotAccessor.close();
                     } catch (Throwable th) {
-                        hde = new HyracksDataException(th);
+                        hde = HyracksDataException.create(th);
                     }
                     try {
                         adapter.close();
                     } catch (Throwable th) {
                         if (hde == null) {
-                            hde = new HyracksDataException(th);
+                            hde = HyracksDataException.create(th);
                         } else {
                             hde.addSuppressed(th);
                         }
                     }
+                }
+                if (hde != null) {
+                    throw hde;
                 }
             }
 
@@ -108,7 +111,7 @@ public class ExternalLookupOperatorDescriptor extends AbstractSingleActivityOper
                 try {
                     adapter.fail();
                 } catch (Throwable th) {
-                    throw new HyracksDataException(th);
+                    throw HyracksDataException.create(th);
                 }
             }
 
@@ -117,7 +120,7 @@ public class ExternalLookupOperatorDescriptor extends AbstractSingleActivityOper
                 try {
                     adapter.nextFrame(buffer);
                 } catch (Throwable th) {
-                    throw new HyracksDataException(th);
+                    throw HyracksDataException.create(th);
                 }
             }
 

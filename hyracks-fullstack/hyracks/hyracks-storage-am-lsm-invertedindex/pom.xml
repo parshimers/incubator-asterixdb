@@ -23,7 +23,7 @@
   <parent>
     <artifactId>hyracks</artifactId>
     <groupId>org.apache.hyracks</groupId>
-    <version>0.3.2-SNAPSHOT</version>
+    <version>0.3.4-SNAPSHOT</version>
     <relativePath>..</relativePath>
   </parent>
   <licenses>
@@ -87,6 +87,10 @@
       <groupId>org.apache.hyracks</groupId>
       <artifactId>hyracks-storage-am-bloomfilter</artifactId>
       <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-api</artifactId>
     </dependency>
   </dependencies>
 </project>

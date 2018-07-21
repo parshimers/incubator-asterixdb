@@ -18,39 +18,36 @@
  */
 package org.apache.asterix.api.http.server;
 
-import static org.apache.asterix.api.http.servlet.ServletConstants.HYRACKS_CONNECTION_ATTR;
+import static org.apache.asterix.api.http.server.NodeControllerDetailsHelper.fixupKeys;
+import static org.apache.asterix.api.http.server.NodeControllerDetailsHelper.processNodeDetailsJSON;
+import static org.apache.asterix.api.http.server.ServletConstants.HYRACKS_CONNECTION_ATTR;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 import java.util.concurrent.ConcurrentMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
-import org.apache.asterix.runtime.utils.ClusterStateManager;
+import org.apache.asterix.common.cluster.ClusterPartition;
+import org.apache.asterix.common.cluster.IClusterStateManager;
+import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.hyracks.api.client.IHyracksClientConnection;
 import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
 import org.apache.hyracks.http.server.utils.HttpUtil;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import io.netty.handler.codec.http.HttpResponseStatus;
 
 public class NodeControllerDetailsApiServlet extends ClusterApiServlet {
 
-    private static final Logger LOGGER = Logger.getLogger(NodeControllerDetailsApiServlet.class.getName());
-    private final ObjectMapper om = new ObjectMapper();
+    private static final Logger LOGGER = LogManager.getLogger();
 
-    public NodeControllerDetailsApiServlet(ConcurrentMap<String, Object> ctx, String... paths) {
-        super(ctx, paths);
-        om.enable(SerializationFeature.INDENT_OUTPUT);
+    public NodeControllerDetailsApiServlet(ICcApplicationContext appCtx, ConcurrentMap<String, Object> ctx,
+            String... paths) {
+        super(appCtx, ctx, paths);
     }
 
     @Override
@@ -61,13 +58,13 @@ public class NodeControllerDetailsApiServlet extends ClusterApiServlet {
             ObjectNode json;
             response.setStatus(HttpResponseStatus.OK);
             if ("".equals(localPath(request))) {
-                json = om.createObjectNode();
+                json = OBJECT_MAPPER.createObjectNode();
                 json.set("ncs", getClusterStateJSON(request, "../").get("ncs"));
             } else {
                 json = processNode(request, hcc);
             }
             HttpUtil.setContentType(response, HttpUtil.ContentType.APPLICATION_JSON, HttpUtil.Encoding.UTF8);
-            responseWriter.write(om.writerWithDefaultPrettyPrinter().writeValueAsString(json));
+            responseWriter.write(OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(json));
         } catch (IllegalStateException e) { // NOSONAR - exception not logged or rethrown
             response.setStatus(HttpResponseStatus.SERVICE_UNAVAILABLE);
         } catch (IllegalArgumentException e) { // NOSONAR - exception not logged or rethrown
@@ -96,7 +93,7 @@ public class NodeControllerDetailsApiServlet extends ClusterApiServlet {
                 }
             }
             if ("cc".equals(node)) {
-                return om.createObjectNode();
+                return OBJECT_MAPPER.createObjectNode();
             }
             throw new IllegalArgumentException();
         } else if (parts.length == 2) {
@@ -125,88 +122,36 @@ public class NodeControllerDetailsApiServlet extends ClusterApiServlet {
         }
     }
 
-    protected ObjectNode fixupKeys(ObjectNode json) {
-        // TODO (mblow): generate the keys with _ to begin with
-        List<String> keys = new ArrayList<>();
-        for (Iterator<String> iter = json.fieldNames(); iter.hasNext();) {
-            keys.add(iter.next());
-        }
-        for (String key : keys) {
-            String newKey = key.replace('-', '_');
-            if (!newKey.equals(key)) {
-                json.set(newKey, json.remove(key));
-            }
-        }
-        return json;
-    }
-
     protected ObjectNode processNodeStats(IHyracksClientConnection hcc, String node) throws Exception {
-        final String details = hcc.getNodeDetailsJSON(node, true, false);
-        if (details == null) {
-            throw new IllegalArgumentException();
-        }
-        ObjectNode json = (ObjectNode) om.readTree(details);
-        int index = json.get("rrd-ptr").asInt() - 1;
-        json.remove("rrd-ptr");
-
-        List<String> keys = new ArrayList<>();
-        for (Iterator<String> iter = json.fieldNames(); iter.hasNext();) {
-            keys.add(iter.next());
-        }
-
-        final ArrayNode gcNames = (ArrayNode) json.get("gc-names");
-        final ArrayNode gcCollectionTimes = (ArrayNode) json.get("gc-collection-times");
-        final ArrayNode gcCollectionCounts = (ArrayNode) json.get("gc-collection-counts");
-
-        for (String key : keys) {
-            if (key.startsWith("gc-")) {
-                json.remove(key);
-            } else {
-                final JsonNode keyNode = json.get(key);
-                if (keyNode instanceof ArrayNode) {
-                    final ArrayNode valueArray = (ArrayNode) keyNode;
-                    // fixup an index of -1 to the final element in the array (i.e. RRD_SIZE)
-                    if (index == -1) {
-                        index = valueArray.size() - 1;
-                    }
-                    final JsonNode value = valueArray.get(index);
-                    json.remove(key);
-                    json.set(key.replaceAll("s$", ""), value);
-                }
-            }
-        }
-        ArrayNode gcs = om.createArrayNode();
-
-        for (int i = 0; i < gcNames.size(); i++) {
-            ObjectNode gc = om.createObjectNode();
-            gc.set("name", gcNames.get(i));
-            gc.set("collection-time", ((ArrayNode) gcCollectionTimes.get(i)).get(index));
-            gc.set("collection-count", ((ArrayNode) gcCollectionCounts.get(i)).get(index));
-            gcs.add(gc);
-        }
-        json.set("gcs", gcs);
-
-        return json;
+        final String details = checkNullDetail(node, hcc.getNodeDetailsJSON(node, true, false));
+        return processNodeDetailsJSON((ObjectNode) OBJECT_MAPPER.readTree(details), OBJECT_MAPPER);
     }
 
     private ObjectNode processNodeConfig(IHyracksClientConnection hcc, String node) throws Exception {
-        String config = hcc.getNodeDetailsJSON(node, false, true);
-        if (config == null) {
-            throw new IllegalArgumentException();
-        }
-        return (ObjectNode) om.readTree(config);
+        String config = checkNullDetail(node, hcc.getNodeDetailsJSON(node, false, true));
+        return (ObjectNode) OBJECT_MAPPER.readTree(config);
     }
 
     private ObjectNode processNodeThreadDump(IHyracksClientConnection hcc, String node) throws Exception {
         if ("cc".equals(node)) {
-            return om.createObjectNode();
+            return OBJECT_MAPPER.createObjectNode();
         }
-        String dump = hcc.getThreadDump(node);
-        if (dump == null) {
-            // check to see if this is a node that is simply down
-            throw ClusterStateManager.INSTANCE.getNodePartitions(node) != null ? new IllegalStateException()
-                    : new IllegalArgumentException();
+        String dump = checkNullDetail(node, hcc.getThreadDump(node));
+        return (ObjectNode) OBJECT_MAPPER.readTree(dump);
+    }
+
+    protected String checkNullDetail(String node, String value) {
+        if (value != null) {
+            return value;
         }
-        return (ObjectNode) om.readTree(dump);
+        if (node == null) {
+            // something is seriously wrong if we can't get the cc detail
+            throw new IllegalStateException("unable to obtain detail from cc");
+        }
+        // check to see if this is a node that is simply down
+        IClusterStateManager csm = appCtx.getClusterStateManager();
+        ClusterPartition[] cp = csm.getNodePartitions(node);
+        throw cp != null ? new IllegalStateException("unable to obtain detail from node " + node)
+                : new IllegalArgumentException("unknown node " + node);
     }
 }

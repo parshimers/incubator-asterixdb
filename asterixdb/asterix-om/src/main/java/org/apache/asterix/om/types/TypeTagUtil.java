@@ -18,13 +18,13 @@
  */
 package org.apache.asterix.om.types;
 
-import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.om.utils.RecordUtil;
+import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 
 public class TypeTagUtil {
 
-    public static IAType getBuiltinTypeByTag(ATypeTag typeTag) throws AsterixException {
+    public static IAType getBuiltinTypeByTag(ATypeTag typeTag) throws HyracksDataException {
         switch (typeTag) {
             case TINYINT:
                 return BuiltinType.AINT8;
@@ -88,8 +88,11 @@ public class TypeTagUtil {
                 return AUnorderedListType.FULLY_OPEN_UNORDEREDLIST_TYPE;
             case ARRAY:
                 return AOrderedListType.FULL_OPEN_ORDEREDLIST_TYPE;
+            case GEOMETRY:
+                return BuiltinType.AGEOMETRY;
             default:
-                throw new AsterixException("Typetag " + typeTag + " is not a built-in type");
+                // TODO(tillw) should be an internal error
+                throw new HyracksDataException("Typetag " + typeTag + " is not a built-in type");
         }
     }
 

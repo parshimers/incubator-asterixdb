@@ -25,10 +25,12 @@ import java.net.Socket;
 
 import org.apache.asterix.external.api.AsterixInputStream;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
-import org.apache.log4j.Logger;
+import org.apache.hyracks.api.util.CleanupUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class SocketServerInputStream extends AsterixInputStream {
-    private static final Logger LOGGER = Logger.getLogger(SocketServerInputStream.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger();
     private ServerSocket server;
     private Socket socket;
     private InputStream connectionStream;
@@ -101,34 +103,14 @@ public class SocketServerInputStream extends AsterixInputStream {
 
     @Override
     public synchronized void close() throws IOException {
-        HyracksDataException hde = null;
-        try {
-            if (connectionStream != null) {
-                connectionStream.close();
-            }
-            connectionStream = null;
-        } catch (IOException e) {
-            hde = HyracksDataException.create(e);
-        }
-        try {
-            if (socket != null) {
-                socket.close();
-            }
-            socket = null;
-        } catch (IOException e) {
-            hde = HyracksDataException.suppress(hde, e);
-        }
-        try {
-            if (server != null) {
-                server.close();
-            }
-        } catch (IOException e) {
-            hde = HyracksDataException.suppress(hde, e);
-        } finally {
-            server = null;
-        }
-        if (hde != null) {
-            throw hde;
+        Throwable failure = CleanupUtils.close(connectionStream, null);
+        connectionStream = null;
+        failure = CleanupUtils.close(socket, failure);
+        socket = null;
+        failure = CleanupUtils.close(server, failure);
+        server = null;
+        if (failure != null) {
+            throw HyracksDataException.create(failure);
         }
     }
 

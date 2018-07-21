@@ -19,10 +19,45 @@
 
 package org.apache.hyracks.storage.common;
 
+import org.apache.hyracks.api.dataflow.IDestroyable;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 
-public interface IIndexCursor {
+/**
+ * Represents an index cursor. The expected use
+ * cursor = new cursor();
+ * try{
+ * -while (more predicates){
+ * --cursor.open(predicate);
+ * --try{
+ * ---while (cursor.hasNext()){
+ * ----cursor.next()
+ * ---}
+ * --} finally{
+ * ---cursor.close();
+ * --}
+ * -}
+ * } finally{
+ * -cursor.destroy();
+ * }
+ * Each created cursor must have destroy called
+ * Each successfully opened cursor must have close called
+ *
+ * A cursor is a state machine that works as follows:
+ * The states are:
+ * <ul>
+ * <li>CLOSED</li>
+ * <li>OPENED</li>
+ * <li>DESTROYED</li>
+ * </ul>
+ * When a cursor object is created, it is in the CLOSED state.
+ * CLOSED: Legal calls are open() --> OPENED, or destroy() --> DESTROYED, close() --> no effect
+ * OPENED: The only legal calls are hasNext(), next(), or close() --> CLOSED.
+ * DESTROYED: The only legal call is destroy() which has no effect.
+ *
+ * Cursors must enforce the cursor state machine
+ */
+public interface IIndexCursor extends IDestroyable {
     /**
      * Opens the cursor
      * if open succeeds, close must be called.
@@ -49,33 +84,15 @@ public interface IIndexCursor {
     void next() throws HyracksDataException;
 
     /**
-     * Closes the cursor
+     * Close the cursor. If the cursor is already closed then invoking this
+     * method has no effect.
      *
      * @throws HyracksDataException
      */
     void close() throws HyracksDataException;
 
     /**
-     * Reset the cursor to be reused
-     *
-     * @throws HyracksDataException
-     * @throws IndexException
-     */
-    void reset() throws HyracksDataException;
-
-    /**
      * @return the tuple pointed to by the cursor
      */
     ITupleReference getTuple();
-
-    /**
-     * @return the min tuple of the current index's filter
-     */
-    ITupleReference getFilterMinTuple();
-
-    /**
-     *
-     * @return the max tuple of the current index's filter
-     */
-    ITupleReference getFilterMaxTuple();
 }

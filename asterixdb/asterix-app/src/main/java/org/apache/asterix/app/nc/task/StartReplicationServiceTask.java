@@ -18,9 +18,9 @@
  */
 package org.apache.asterix.app.nc.task;
 
-import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.api.INCLifecycleTask;
-import org.apache.asterix.common.replication.IReplicationManager;
+import org.apache.asterix.common.api.INcApplicationContext;
+import org.apache.hyracks.api.control.CcId;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.service.IControllerService;
 
@@ -29,18 +29,18 @@ public class StartReplicationServiceTask implements INCLifecycleTask {
     private static final long serialVersionUID = 1L;
 
     @Override
-    public void perform(IControllerService cs) throws HyracksDataException {
+    public void perform(CcId ccId, IControllerService cs) throws HyracksDataException {
         INcApplicationContext appContext = (INcApplicationContext) cs.getApplicationContext();
         try {
-            //Open replication channel
+            // open replication channel
             appContext.getReplicationChannel().start();
-            final IReplicationManager replicationManager = appContext.getReplicationManager();
-            //Check the state of remote replicas
-            replicationManager.initializeReplicasState();
-            //Start replication after the state of remote replicas has been initialized.
-            replicationManager.startReplicationThreads();
         } catch (Exception e) {
             throw HyracksDataException.create(e);
         }
+    }
+
+    @Override
+    public String toString() {
+        return "{ \"class\" : \"" + getClass().getSimpleName() + "\" }";
     }
 }

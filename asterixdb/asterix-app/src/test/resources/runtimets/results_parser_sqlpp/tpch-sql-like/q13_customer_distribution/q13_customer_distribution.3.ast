@@ -26,7 +26,7 @@ FROM [  (
       (
         LiteralExpr [STRING] [c_count]
         :
-        FunctionCall tpch.sum@1[
+        FunctionCall asterix.sum@1[
           (
             SELECT ELEMENT [
             FieldAccessor [
@@ -36,10 +36,9 @@ FROM [  (
             ]
             FROM [              (
                 SELECT ELEMENT [
-                FunctionCall Metadata.resolve@-1[
-                  LiteralExpr [STRING] [co]
+                FunctionCall asterix.field-access-by-name@2[
                   Variable [ Name=$g2 ]
-                  Variable [ Name=$c_custkey ]
+                  LiteralExpr [STRING] [co]
                 ]
                 ]
                 FROM [                  Variable [ Name=$g2 ]
@@ -67,7 +66,7 @@ FROM [  (
           (
             LiteralExpr [STRING] [o_orderkey_count]
             :
-            FunctionCall tpch.count@1[
+            FunctionCall asterix.count@1[
               (
                 SELECT ELEMENT [
                 FieldAccessor [
@@ -75,8 +74,8 @@ FROM [  (
                   Field=o_orderkey
                 ]
                 ]
-                FROM [                  FunctionCall Metadata.dataset@1[
-                    LiteralExpr [STRING] [Orders]
+                FROM [                  FunctionCall asterix.dataset@1[
+                    LiteralExpr [STRING] [tpch.Orders]
                   ]
                   AS Variable [ Name=$o ]
                 ]
@@ -108,8 +107,8 @@ FROM [  (
           )
         ]
         ]
-        FROM [          FunctionCall Metadata.dataset@1[
-            LiteralExpr [STRING] [Customer]
+        FROM [          FunctionCall asterix.dataset@1[
+            LiteralExpr [STRING] [tpch.Customer]
           ]
           AS Variable [ Name=$c ]
         ]
@@ -145,23 +144,16 @@ Groupby
 
 Let Variable [ Name=$custdist ]
   :=
-  FunctionCall tpch.sql-count@1[
+  FunctionCall asterix.count@1[
     (
       SELECT ELEMENT [
-      (
-        SELECT ELEMENT [
-        FieldAccessor [
-          Variable [ Name=#1 ]
-          Field=gco
-        ]
-        ]
-        FROM [          Variable [ Name=$g ]
-          AS Variable [ Name=$g ]
-        ]
-      )
+      FunctionCall asterix.field-access-by-name@2[
+        Variable [ Name=$g ]
+        LiteralExpr [STRING] [gco]
+      ]
       ]
       FROM [        Variable [ Name=$g ]
-        AS Variable [ Name=#1 ]
+        AS Variable [ Name=$g ]
       ]
     )
   ]

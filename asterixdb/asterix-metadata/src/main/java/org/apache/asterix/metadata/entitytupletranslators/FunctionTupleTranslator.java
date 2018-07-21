@@ -26,8 +26,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.asterix.builders.OrderedListBuilder;
+import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.formats.nontagged.SerializerDeserializerProvider;
-import org.apache.asterix.metadata.MetadataException;
 import org.apache.asterix.metadata.bootstrap.MetadataPrimaryIndexes;
 import org.apache.asterix.metadata.bootstrap.MetadataRecordTypes;
 import org.apache.asterix.metadata.entities.Function;
@@ -36,6 +36,8 @@ import org.apache.asterix.om.base.ARecord;
 import org.apache.asterix.om.base.AString;
 import org.apache.asterix.om.base.IACursor;
 import org.apache.asterix.om.types.AOrderedListType;
+import org.apache.asterix.om.types.BuiltinType;
+import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
@@ -56,7 +58,13 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
     // Payload field containing serialized Function.
     public static final int FUNCTION_PAYLOAD_TUPLE_FIELD_INDEX = 3;
 
-    @SuppressWarnings("unchecked")
+    private transient OrderedListBuilder dependenciesListBuilder = new OrderedListBuilder();
+    private transient OrderedListBuilder dependencyListBuilder = new OrderedListBuilder();
+    private transient OrderedListBuilder dependencyNameListBuilder = new OrderedListBuilder();
+    private transient AOrderedListType stringList = new AOrderedListType(BuiltinType.ASTRING, null);
+    private transient AOrderedListType ListofLists =
+            new AOrderedListType(new AOrderedListType(BuiltinType.ASTRING, null), null);
+
     private ISerializerDeserializer<ARecord> recordSerDes =
             SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(MetadataRecordTypes.FUNCTION_RECORDTYPE);
 
@@ -104,16 +112,38 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         String functionKind =
                 ((AString) functionRecord.getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_KIND_FIELD_INDEX))
                         .getStringValue();
-        String referenceCount = ((AString) functionRecord
-                .getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_REFERENCE_COUNT_INDEX)).getStringValue();
-        return new Function(dataverseName, functionName, Integer.parseInt(arity), params, returnType, definition,
-                language, functionKind, Integer.parseInt(referenceCount));
 
+        IACursor dependenciesCursor = ((AOrderedList) functionRecord
+                .getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_DEPENDENCIES_FIELD_INDEX)).getCursor();
+        List<List<List<String>>> dependencies = new ArrayList<>();
+        AOrderedList dependencyList;
+        AOrderedList qualifiedList;
+        int i = 0;
+        while (dependenciesCursor.next()) {
+            dependencies.add(new ArrayList<>());
+            dependencyList = (AOrderedList) dependenciesCursor.get();
+            IACursor qualifiedDependencyCursor = dependencyList.getCursor();
+            int j = 0;
+            while (qualifiedDependencyCursor.next()) {
+                qualifiedList = (AOrderedList) qualifiedDependencyCursor.get();
+                IACursor qualifiedNameCursor = qualifiedList.getCursor();
+                dependencies.get(i).add(new ArrayList<>());
+                while (qualifiedNameCursor.next()) {
+                    dependencies.get(i).get(j).add(((AString) qualifiedNameCursor.get()).getStringValue());
+                }
+                j++;
+            }
+            i++;
+
+        }
+
+        FunctionSignature signature = new FunctionSignature(dataverseName, functionName, Integer.parseInt(arity));
+        return new Function(signature, params, returnType, definition, language, functionKind, dependencies);
     }
 
     @Override
     public ITupleReference getTupleFromMetadataEntity(Function function)
-            throws HyracksDataException, MetadataException {
+            throws HyracksDataException, AlgebricksException {
         // write the key in the first 2 fields of the tuple
         tupleBuilder.reset();
         aString.setValue(function.getDataverseName());
@@ -153,7 +183,7 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         ArrayBackedValueStorage itemValue = new ArrayBackedValueStorage();
         listBuilder.reset((AOrderedListType) MetadataRecordTypes.FUNCTION_RECORDTYPE
                 .getFieldTypes()[MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_PARAM_LIST_FIELD_INDEX]);
-        for (String param : function.getParams()) {
+        for (String param : function.getArguments()) {
             itemValue.reset();
             aString.setValue(param);
             stringSerde.serialize(aString, itemValue.getDataOutput());
@@ -188,10 +218,31 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         recordBuilder.addField(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_KIND_FIELD_INDEX, fieldValue);
 
         // write field 8
+        dependenciesListBuilder.reset((AOrderedListType) MetadataRecordTypes.FUNCTION_RECORDTYPE
+                .getFieldTypes()[MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_DEPENDENCIES_FIELD_INDEX]);
+        List<List<List<String>>> dependenciesList = function.getDependencies();
+        for (List<List<String>> dependencies : dependenciesList) {
+            dependencyListBuilder.reset(ListofLists);
+            for (List<String> dependency : dependencies) {
+                dependencyNameListBuilder.reset(stringList);
+                for (String subName : dependency) {
+                    itemValue.reset();
+                    aString.setValue(subName);
+                    stringSerde.serialize(aString, itemValue.getDataOutput());
+                    dependencyNameListBuilder.addItem(itemValue);
+                }
+                itemValue.reset();
+                dependencyNameListBuilder.write(itemValue.getDataOutput(), true);
+                dependencyListBuilder.addItem(itemValue);
+
+            }
+            itemValue.reset();
+            dependencyListBuilder.write(itemValue.getDataOutput(), true);
+            dependenciesListBuilder.addItem(itemValue);
+        }
         fieldValue.reset();
-        aString.setValue(Integer.toString(function.getReferenceCount()));
-        stringSerde.serialize(aString, fieldValue.getDataOutput());
-        recordBuilder.addField(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_REFERENCE_COUNT_INDEX, fieldValue);
+        dependenciesListBuilder.write(fieldValue.getDataOutput(), true);
+        recordBuilder.addField(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_DEPENDENCIES_FIELD_INDEX, fieldValue);
 
         // write record
         recordBuilder.write(tupleBuilder.getDataOutput(), true);

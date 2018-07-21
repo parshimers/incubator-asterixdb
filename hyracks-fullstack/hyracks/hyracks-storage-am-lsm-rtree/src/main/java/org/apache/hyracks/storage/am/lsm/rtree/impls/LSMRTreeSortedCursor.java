@@ -28,6 +28,7 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponentFilter;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
 import org.apache.hyracks.storage.common.ICursorInitialState;
 import org.apache.hyracks.storage.common.ISearchPredicate;
+import org.apache.hyracks.storage.common.util.IndexCursorUtils;
 
 public class LSMRTreeSortedCursor extends LSMRTreeAbstractCursor {
 
@@ -43,7 +44,7 @@ public class LSMRTreeSortedCursor extends LSMRTreeAbstractCursor {
         super(opCtx);
         this.linearizeCmp = linearizer.createBinaryComparator();
         this.btreeTuple = new PermutingTupleReference(buddyBTreeFields);
-        reset();
+        close();
     }
 
     public ILSMIndexOperationContext getOpCtx() {
@@ -51,17 +52,21 @@ public class LSMRTreeSortedCursor extends LSMRTreeAbstractCursor {
     }
 
     @Override
-    public void reset() throws HyracksDataException {
+    public void doClose() throws HyracksDataException {
         depletedRtreeCursors = new boolean[numberOfTrees];
         foundNext = false;
         try {
             for (int i = 0; i < numberOfTrees; i++) {
-                rtreeCursors[i].reset();
+                rtreeCursors[i].close();
                 rtreeAccessors[i].search(rtreeCursors[i], rtreeSearchPredicate);
-                if (rtreeCursors[i].hasNext()) {
-                    rtreeCursors[i].next();
-                } else {
-                    depletedRtreeCursors[i] = true;
+                try {
+                    if (rtreeCursors[i].hasNext()) {
+                        rtreeCursors[i].next();
+                    } else {
+                        depletedRtreeCursors[i] = true;
+                    }
+                } finally {
+                    rtreeCursors[i].close();
                 }
             }
         } finally {
@@ -88,7 +93,7 @@ public class LSMRTreeSortedCursor extends LSMRTreeAbstractCursor {
     }
 
     @Override
-    public boolean hasNext() throws HyracksDataException {
+    public boolean doHasNext() throws HyracksDataException {
         while (!foundNext) {
             frameTuple = null;
 
@@ -128,7 +133,7 @@ public class LSMRTreeSortedCursor extends LSMRTreeAbstractCursor {
             boolean killed = false;
             btreeTuple.reset(frameTuple);
             for (int i = 0; i < foundIn; i++) {
-                btreeCursors[i].reset();
+                btreeCursors[i].close();
                 btreeRangePredicate.setHighKey(btreeTuple, true);
                 btreeRangePredicate.setLowKey(btreeTuple, true);
                 btreeAccessors[i].search(btreeCursors[i], btreeRangePredicate);
@@ -150,24 +155,28 @@ public class LSMRTreeSortedCursor extends LSMRTreeAbstractCursor {
     }
 
     @Override
-    public void next() throws HyracksDataException {
+    public void doNext() throws HyracksDataException {
         foundNext = false;
     }
 
     @Override
-    public void open(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
-        super.open(initialState, searchPred);
-
+    public void doOpen(ICursorInitialState initialState, ISearchPredicate searchPred) throws HyracksDataException {
+        super.doOpen(initialState, searchPred);
         depletedRtreeCursors = new boolean[numberOfTrees];
         foundNext = false;
-        for (int i = 0; i < numberOfTrees; i++) {
-            rtreeCursors[i].reset();
-            rtreeAccessors[i].search(rtreeCursors[i], rtreeSearchPredicate);
-            if (rtreeCursors[i].hasNext()) {
-                rtreeCursors[i].next();
-            } else {
-                depletedRtreeCursors[i] = true;
+        try {
+            for (int i = 0; i < numberOfTrees; i++) {
+                rtreeCursors[i].close();
+                rtreeAccessors[i].search(rtreeCursors[i], rtreeSearchPredicate);
+                if (rtreeCursors[i].hasNext()) {
+                    rtreeCursors[i].next();
+                } else {
+                    depletedRtreeCursors[i] = true;
+                }
             }
+        } catch (Throwable th) { // NOSONAR. Must catch all failures
+            IndexCursorUtils.close(rtreeCursors, th);
+            throw HyracksDataException.create(th);
         }
     }
 }

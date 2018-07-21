@@ -22,17 +22,17 @@ package org.apache.hyracks.storage.am.lsm.invertedindex.impls;
 import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
-import org.apache.hyracks.storage.am.lsm.common.api.ILSMMemoryComponent;
 import org.apache.hyracks.storage.am.lsm.common.impls.FlushOperation;
+import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentFileReferences;
 
 public class LSMInvertedIndexFlushOperation extends FlushOperation {
     private final FileReference deletedKeysBTreeFlushTarget;
     private final FileReference bloomFilterFlushTarget;
 
-    public LSMInvertedIndexFlushOperation(ILSMIndexAccessor accessor, ILSMMemoryComponent flushingComponent,
-            FileReference flushTarget, FileReference deletedKeysBTreeFlushTarget, FileReference bloomFilterFlushTarget,
+    public LSMInvertedIndexFlushOperation(ILSMIndexAccessor accessor, FileReference flushTarget,
+            FileReference deletedKeysBTreeFlushTarget, FileReference bloomFilterFlushTarget,
             ILSMIOOperationCallback callback, String indexIdentifier) {
-        super(accessor, flushingComponent, flushTarget, callback, indexIdentifier);
+        super(accessor, flushTarget, callback, indexIdentifier);
         this.deletedKeysBTreeFlushTarget = deletedKeysBTreeFlushTarget;
         this.bloomFilterFlushTarget = bloomFilterFlushTarget;
     }
@@ -43,5 +43,10 @@ public class LSMInvertedIndexFlushOperation extends FlushOperation {
 
     public FileReference getBloomFilterTarget() {
         return bloomFilterFlushTarget;
+    }
+
+    @Override
+    public LSMComponentFileReferences getComponentFiles() {
+        return new LSMComponentFileReferences(target, deletedKeysBTreeFlushTarget, bloomFilterFlushTarget);
     }
 }

@@ -54,10 +54,10 @@ public class ErrorCode {
     public static final int INCONSISTENT_RESULT_METADATA = 18;
     public static final int CANNOT_DELETE_FILE = 19;
     public static final int NOT_A_JOBID = 20;
-    public static final int ERROR_FINDING_DISTRIBUTED_JOB = 21;
-    public static final int DUPLICATE_DISTRIBUTED_JOB = 22;
-    public static final int DISTRIBUTED_JOB_FAILURE = 23;
-    public static final int NO_RESULTSET = 24;
+    public static final int ERROR_FINDING_DEPLOYED_JOB = 21;
+    public static final int DUPLICATE_DEPLOYED_JOB = 22;
+    public static final int DEPLOYED_JOB_FAILURE = 23;
+    public static final int NO_RESULT_SET = 24;
     public static final int JOB_CANCELED = 25;
     public static final int NODE_FAILED = 26;
     public static final int FILE_IS_NOT_DIRECTORY = 27;
@@ -121,9 +121,37 @@ public class ErrorCode {
     public static final int FOUND_MULTIPLE_TRANSACTIONS = 85;
     public static final int UNRECOGNIZED_INDEX_COMPONENT_FILE = 86;
     public static final int UNEQUAL_NUM_FILTERS_TREES = 87;
+    public static final int INDEX_NOT_MODIFIABLE = 88;
+    public static final int GROUP_BY_MEMORY_BUDGET_EXCEEDS = 89;
+    public static final int ILLEGAL_MEMORY_BUDGET = 90;
+    public static final int TIMEOUT = 91;
+    public static final int JOB_HAS_BEEN_CLEARED_FROM_HISTORY = 92;
+    public static final int FAILED_TO_READ_RESULT = 93;
+    public static final int CANNOT_READ_CLOSED_FILE = 94;
+    public static final int TUPLE_CANNOT_FIT_INTO_EMPTY_FRAME = 95;
+    public static final int ILLEGAL_ATTEMPT_TO_ENTER_EMPTY_COMPONENT = 96;
+    public static final int ILLEGAL_ATTEMPT_TO_EXIT_EMPTY_COMPONENT = 97;
+    public static final int A_FLUSH_OPERATION_HAS_FAILED = 98;
+    public static final int A_MERGE_OPERATION_HAS_FAILED = 99;
+    public static final int FAILED_TO_SHUTDOWN_EVENT_PROCESSOR = 100;
+    public static final int PAGE_DOES_NOT_EXIST_IN_FILE = 101;
+    public static final int VBC_ALREADY_OPEN = 102;
+    public static final int VBC_ALREADY_CLOSED = 103;
+    public static final int INDEX_DOES_NOT_EXIST = 104;
+    public static final int CANNOT_DROP_IN_USE_INDEX = 105;
+    public static final int CANNOT_DEACTIVATE_PINNED_BLOOM_FILTER = 106;
+    public static final int PREDICATE_CANNOT_BE_NULL = 107;
+    public static final int FULLTEXT_ONLY_EXECUTABLE_FOR_STRING_OR_LIST = 108;
+    public static final int NOT_ENOUGH_BUDGET_FOR_TEXTSEARCH = 109;
+    public static final int CANNOT_CONTINUE_TEXT_SEARCH_HYRACKS_TASK_IS_NULL = 110;
+    public static final int CANNOT_CONTINUE_TEXT_SEARCH_BUFFER_MANAGER_IS_NULL = 111;
+    public static final int CANNOT_ADD_ELEMENT_TO_INVERTED_INDEX_SEARCH_RESULT = 112;
+    public static final int UNDEFINED_INVERTED_LIST_MERGE_TYPE = 113;
+    public static final int NODE_IS_NOT_ACTIVE = 114;
 
     // Compilation error codes.
     public static final int RULECOLLECTION_NOT_INSTANCE_OF_LIST = 10000;
+    public static final int CANNOT_COMPOSE_PART_CONSTRAINTS = 10001;
 
     private static class Holder {
         private static final Map<Integer, String> errorMessageMap;

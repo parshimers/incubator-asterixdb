@@ -18,53 +18,69 @@
  */
 package org.apache.asterix.metadata.entities;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.metadata.MetadataCache;
 import org.apache.asterix.metadata.api.IMetadataEntity;
 
 public class Function implements IMetadataEntity<Function> {
     private static final long serialVersionUID = 1L;
     public static final String LANGUAGE_AQL = "AQL";
+    public static final String LANGUAGE_SQLPP = "SQLPP";
     public static final String LANGUAGE_JAVA = "JAVA";
 
     public static final String RETURNTYPE_VOID = "VOID";
     public static final String NOT_APPLICABLE = "N/A";
 
-    private final String dataverse;
-    private final String name;
-    private final int arity;
-    private final List<String> params;
+    private final FunctionSignature signature;
+    private final List<List<List<String>>> dependencies;
+    private final List<String> arguments;
     private final String body;
     private final String returnType;
     private final String language;
     private final String kind;
-    private AtomicInteger referenceCount;
 
-    public Function(String dataverseName, String functionName, int arity, List<String> params, String returnType,
-            String functionBody, String language, String functionKind, int referenceCount) {
-        this.dataverse = dataverseName;
-        this.name = functionName;
-        this.params = params;
+    public Function(FunctionSignature signature, List<String> arguments, String returnType, String functionBody,
+            String language, String functionKind, List<List<List<String>>> dependencies) {
+        this.signature = signature;
+        this.arguments = arguments;
         this.body = functionBody;
         this.returnType = returnType == null ? RETURNTYPE_VOID : returnType;
         this.language = language;
         this.kind = functionKind;
-        this.arity = arity;
-        this.referenceCount = new AtomicInteger(referenceCount);
+        if (dependencies == null) {
+            this.dependencies = new ArrayList<>();
+            this.dependencies.add(new ArrayList<>());
+            this.dependencies.add(new ArrayList<>());
+        } else {
+            this.dependencies = dependencies;
+        }
+    }
+
+    public FunctionSignature getSignature() {
+        return signature;
     }
 
     public String getDataverseName() {
-        return dataverse;
+        return signature.getNamespace();
     }
 
     public String getName() {
-        return name;
+        return signature.getName();
     }
 
-    public List<String> getParams() {
-        return params;
+    public int getArity() {
+        return signature.getArity();
+    }
+
+    public List<String> getArguments() {
+        return arguments;
+    }
+
+    public List<List<List<String>>> getDependencies() {
+        return dependencies;
     }
 
     public String getFunctionBody() {
@@ -77,10 +93,6 @@ public class Function implements IMetadataEntity<Function> {
 
     public String getLanguage() {
         return language;
-    }
-
-    public int getArity() {
-        return arity;
     }
 
     public String getKind() {
@@ -97,15 +109,4 @@ public class Function implements IMetadataEntity<Function> {
         return cache.dropFunction(this);
     }
 
-    public int getReferenceCount() {
-        return referenceCount.get();
-    }
-
-    public int reference() {
-        return referenceCount.incrementAndGet();
-    }
-
-    public int dereference() {
-        return referenceCount.decrementAndGet();
-    }
 }

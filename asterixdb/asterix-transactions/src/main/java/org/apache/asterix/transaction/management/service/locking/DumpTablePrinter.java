@@ -19,22 +19,22 @@
 
 package org.apache.asterix.transaction.management.service.locking;
 
-import java.util.concurrent.ConcurrentHashMap;
+import it.unimi.dsi.fastutil.longs.Long2LongMap;
 
 public class DumpTablePrinter implements TablePrinter {
     private ResourceGroupTable table;
     private ResourceArenaManager resArenaMgr;
     private RequestArenaManager reqArenaMgr;
     private JobArenaManager jobArenaMgr;
-    private ConcurrentHashMap<Integer, Long> jobId2JobSlotMap;
+    private Long2LongMap txnIdToJobSlotMap;
 
     DumpTablePrinter(ResourceGroupTable table, ResourceArenaManager resArenaMgr, RequestArenaManager reqArenaMgr,
-            JobArenaManager jobArenaMgr, ConcurrentHashMap<Integer, Long> jobId2JobSlotMap) {
+            JobArenaManager jobArenaMgr, Long2LongMap txnIdToJobSlotMap) {
         this.table = table;
         this.resArenaMgr = resArenaMgr;
         this.reqArenaMgr = reqArenaMgr;
         this.jobArenaMgr = jobArenaMgr;
-        this.jobId2JobSlotMap = jobId2JobSlotMap;
+        this.txnIdToJobSlotMap = txnIdToJobSlotMap;
     }
 
     public StringBuilder append(StringBuilder sb) {
@@ -52,10 +52,10 @@ public class DumpTablePrinter implements TablePrinter {
             reqArenaMgr.append(sb);
             sb.append(">>dump_end\t>>----- [reqArenaMgr] -----\n");
 
-            sb.append(">>dump_begin\t>>----- [jobIdSlotMap] -----\n");
-            for (Integer i : jobId2JobSlotMap.keySet()) {
+            sb.append(">>dump_begin\t>>----- [txnIdSlotMap] -----\n");
+            for (Long i : txnIdToJobSlotMap.keySet()) {
                 sb.append(i).append(" : ");
-                TypeUtil.Global.append(sb, jobId2JobSlotMap.get(i));
+                TypeUtil.Global.append(sb, txnIdToJobSlotMap.get(i));
                 sb.append("\n");
             }
             sb.append(">>dump_end\t>>----- [jobIdSlotMap] -----\n");

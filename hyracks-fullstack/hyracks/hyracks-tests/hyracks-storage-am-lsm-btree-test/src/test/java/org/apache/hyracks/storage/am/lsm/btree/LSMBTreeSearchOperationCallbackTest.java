@@ -30,6 +30,8 @@ import org.apache.hyracks.dataflow.common.utils.SerdeUtils;
 import org.apache.hyracks.dataflow.common.utils.TupleUtils;
 import org.apache.hyracks.storage.am.btree.AbstractSearchOperationCallbackTest;
 import org.apache.hyracks.storage.am.btree.impls.RangePredicate;
+import org.apache.hyracks.storage.am.common.impls.IndexAccessParameters;
+import org.apache.hyracks.storage.am.common.impls.NoOpIndexAccessParameters;
 import org.apache.hyracks.storage.am.common.impls.NoOpOperationCallback;
 import org.apache.hyracks.storage.am.lsm.btree.util.LSMBTreeTestHarness;
 import org.apache.hyracks.storage.am.lsm.btree.utils.LSMBTreeUtil;
@@ -38,6 +40,7 @@ import org.apache.hyracks.storage.common.IIndexAccessor;
 import org.apache.hyracks.storage.common.IIndexBulkLoader;
 import org.apache.hyracks.storage.common.IIndexCursor;
 import org.apache.hyracks.storage.common.ISearchOperationCallback;
+import org.apache.hyracks.util.trace.ITracer;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -56,9 +59,9 @@ public class LSMBTreeSearchOperationCallbackTest extends AbstractSearchOperation
                 harness.getFileReference(), harness.getDiskBufferCache(), SerdeUtils.serdesToTypeTraits(keySerdes),
                 SerdeUtils.serdesToComparatorFactories(keySerdes, keySerdes.length), bloomFilterKeyFields,
                 harness.getBoomFilterFalsePositiveRate(), harness.getMergePolicy(),
-                NoOpOperationTrackerFactory.INSTANCE.getOperationTracker(null), harness.getIOScheduler(),
-                harness.getIOOperationCallback(), true, null, null, null, null, true,
-                harness.getMetadataPageManagerFactory());
+                NoOpOperationTrackerFactory.INSTANCE.getOperationTracker(null, null), harness.getIOScheduler(),
+                harness.getIOOperationCallbackFactory(), true, null, null, null, null, true,
+                harness.getMetadataPageManagerFactory(), false, ITracer.NONE);
     }
 
     @Override
@@ -100,7 +103,8 @@ public class LSMBTreeSearchOperationCallbackTest extends AbstractSearchOperation
 
         public SearchTask() throws HyracksDataException {
             this.cb = new SynchronizingSearchOperationCallback();
-            this.accessor = index.createAccessor(NoOpOperationCallback.INSTANCE, cb);
+            IndexAccessParameters actx = new IndexAccessParameters(NoOpOperationCallback.INSTANCE, cb);
+            this.accessor = index.createAccessor(actx);
             this.cursor = accessor.createSearchCursor(false);
             this.predicate = new RangePredicate();
             this.builder = new ArrayTupleBuilder(NUM_KEY_FIELDS);
@@ -122,25 +126,30 @@ public class LSMBTreeSearchOperationCallbackTest extends AbstractSearchOperation
                 if (!insertTaskStarted) {
                     condition.await();
                 }
-
                 // begin a search on [50, +inf), blocking on 75
                 TupleUtils.createIntegerTuple(builder, tuple, 50);
                 predicate.setLowKey(tuple, true);
                 predicate.setHighKey(null, true);
                 accessor.search(cursor, predicate);
-                expectedTupleToBeLockedValue = 50;
-                TupleUtils.createIntegerTuple(builder, expectedTupleToBeLocked, expectedTupleToBeLockedValue);
-                consumeIntTupleRange(50, 75, true, 76);
+                try {
+                    expectedTupleToBeLockedValue = 50;
+                    TupleUtils.createIntegerTuple(builder, expectedTupleToBeLocked, expectedTupleToBeLockedValue);
+                    consumeIntTupleRange(50, 75, true, 76);
 
-                // consume tuples [77, 150], blocking on 151
-                consumeIntTupleRange(77, 150, true, 150);
+                    // consume tuples [77, 150], blocking on 151
+                    consumeIntTupleRange(77, 150, true, 150);
 
-                // consume tuples [152, 300]
-                consumeIntTupleRange(152, 300, false, -1);
-
-                cursor.close();
+                    // consume tuples [152, 300]
+                    consumeIntTupleRange(152, 300, false, -1);
+                } finally {
+                    cursor.close();
+                }
             } finally {
-                lock.unlock();
+                try {
+                    cursor.destroy();
+                } finally {
+                    lock.unlock();
+                }
             }
 
             return true;
@@ -218,7 +227,7 @@ public class LSMBTreeSearchOperationCallbackTest extends AbstractSearchOperation
         private final ArrayTupleReference tuple;
 
         public InsertionTask() throws HyracksDataException {
-            this.accessor = index.createAccessor(NoOpOperationCallback.INSTANCE, NoOpOperationCallback.INSTANCE);
+            this.accessor = index.createAccessor(NoOpIndexAccessParameters.INSTANCE);
             this.builder = new ArrayTupleBuilder(NUM_KEY_FIELDS);
             this.tuple = new ArrayTupleReference();
         }

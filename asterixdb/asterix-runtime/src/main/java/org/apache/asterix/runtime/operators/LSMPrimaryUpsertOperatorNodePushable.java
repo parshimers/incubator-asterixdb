@@ -21,11 +21,13 @@ package org.apache.asterix.runtime.operators;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import org.apache.asterix.common.api.INcApplicationContext;
 import org.apache.asterix.common.dataflow.LSMIndexUtil;
 import org.apache.asterix.common.exceptions.ACIDException;
-import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.transactions.ILogMarkerCallback;
 import org.apache.asterix.common.transactions.PrimaryIndexLogMarkerCallback;
 import org.apache.asterix.om.pointables.nonvisitor.ARecordPointable;
@@ -41,6 +43,7 @@ import org.apache.hyracks.api.dataflow.value.IMissingWriter;
 import org.apache.hyracks.api.dataflow.value.IMissingWriterFactory;
 import org.apache.hyracks.api.dataflow.value.RecordDescriptor;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.util.CleanupUtils;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import org.apache.hyracks.dataflow.common.comm.io.ArrayTupleReference;
 import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
@@ -55,6 +58,7 @@ import org.apache.hyracks.storage.am.common.api.IModificationOperationCallbackFa
 import org.apache.hyracks.storage.am.common.api.ISearchOperationCallbackFactory;
 import org.apache.hyracks.storage.am.common.api.ITreeIndex;
 import org.apache.hyracks.storage.am.common.dataflow.IIndexDataflowHelperFactory;
+import org.apache.hyracks.storage.am.common.impls.IndexAccessParameters;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.common.tuples.PermutingFrameTupleReference;
 import org.apache.hyracks.storage.am.lsm.common.api.IFrameOperationCallback;
@@ -64,11 +68,20 @@ import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
 import org.apache.hyracks.storage.am.lsm.common.dataflow.LSMIndexInsertUpdateDeleteOperatorNodePushable;
 import org.apache.hyracks.storage.am.lsm.common.impls.AbstractLSMIndex;
 import org.apache.hyracks.storage.am.lsm.common.impls.LSMTreeIndexAccessor;
+import org.apache.hyracks.storage.common.IIndexAccessParameters;
 import org.apache.hyracks.storage.common.IIndexCursor;
 import org.apache.hyracks.storage.common.MultiComparator;
+import org.apache.hyracks.util.trace.ITracer;
+import org.apache.hyracks.util.trace.ITracer.Scope;
+import org.apache.hyracks.util.trace.TraceUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class LSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertUpdateDeleteOperatorNodePushable {
 
+    private static final Logger LOGGER = LogManager.getLogger();
+    private static final ThreadLocal<DateFormat> DATE_FORMAT =
+            ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS"));
     private final PermutingFrameTupleReference key;
     private MultiComparator keySearchCmp;
     private ArrayTupleBuilder missingTupleBuilder;
@@ -96,6 +109,9 @@ public class LSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertUpdateDe
     private final ISearchOperationCallbackFactory searchCallbackFactory;
     private final IFrameTupleProcessor processor;
     private LSMTreeIndexAccessor lsmAccessor;
+    private final ITracer tracer;
+    private final long traceCategory;
+    private long lastRecordInTimeStamp = 0L;
 
     public LSMPrimaryUpsertOperatorNodePushable(IHyracksTaskContext ctx, int partition,
             IIndexDataflowHelperFactory indexHelperFactory, int[] fieldPermutation, RecordDescriptor inputRecDesc,
@@ -134,30 +150,35 @@ public class LSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertUpdateDe
                     tb.reset();
                     boolean recordWasInserted = false;
                     boolean recordWasDeleted = false;
+                    boolean isDelete = isDeleteOperation(tuple, numOfPrimaryKeys);
                     resetSearchPredicate(index);
-                    if (isFiltered || hasSecondaries) {
+                    if (isFiltered || isDelete || hasSecondaries) {
                         lsmAccessor.search(cursor, searchPred);
-                        if (cursor.hasNext()) {
-                            cursor.next();
-                            prevTuple = cursor.getTuple();
-                            cursor.reset(); // end the search
-                            appendFilterToPrevTuple();
-                            appendPrevRecord();
-                            appendPreviousMeta();
-                            appendFilterToOutput();
-                        } else {
-                            appendPreviousTupleAsMissing();
+                        try {
+                            if (cursor.hasNext()) {
+                                cursor.next();
+                                prevTuple = cursor.getTuple();
+                                appendFilterToPrevTuple();
+                                appendPrevRecord();
+                                appendPreviousMeta();
+                                appendFilterToOutput();
+                            } else {
+                                appendPreviousTupleAsMissing();
+                            }
+                        } finally {
+                            cursor.close(); // end the search
                         }
                     } else {
                         searchCallback.before(key); // lock
                         appendPreviousTupleAsMissing();
                     }
-                    if (isDeleteOperation(tuple, numOfPrimaryKeys)) {
+                    if (isDelete && prevTuple != null) {
                         // Only delete if it is a delete and not upsert
+                        // And previous tuple with the same key was found
                         abstractModCallback.setOp(Operation.DELETE);
                         lsmAccessor.forceDelete(tuple);
                         recordWasDeleted = true;
-                    } else {
+                    } else if (!isDelete) {
                         abstractModCallback.setOp(Operation.UPSERT);
                         lsmAccessor.forceUpsert(tuple);
                         recordWasInserted = true;
@@ -182,6 +203,8 @@ public class LSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertUpdateDe
                 lsmAccessor.getCtx().setOperation(IndexOperation.UPSERT);
             }
         };
+        tracer = ctx.getJobletContext().getServiceContext().getTracer();
+        traceCategory = tracer.getRegistry().get(TraceUtils.LATENCY);
     }
 
     // we have the permutation which has [pk locations, record location, optional:filter-location]
@@ -206,7 +229,7 @@ public class LSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertUpdateDe
             try {
                 missingWriter.writeMissing(out);
             } catch (IOException e) {
-                throw new HyracksDataException(e);
+                throw HyracksDataException.create(e);
             }
             missingTupleBuilder.addFieldEndOffset();
             searchPred = createSearchPredicate();
@@ -218,7 +241,8 @@ public class LSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertUpdateDe
             abstractModCallback = (AbstractIndexModificationOperationCallback) modCallback;
             searchCallback = (LockThenSearchOperationCallback) searchCallbackFactory
                     .createSearchOperationCallback(indexHelper.getResource().getId(), ctx, this);
-            indexAccessor = index.createAccessor(abstractModCallback, searchCallback);
+            IIndexAccessParameters iap = new IndexAccessParameters(abstractModCallback, searchCallback);
+            indexAccessor = index.createAccessor(iap);
             lsmAccessor = (LSMTreeIndexAccessor) indexAccessor;
             cursor = indexAccessor.createSearchCursor(false);
             frameTuple = new FrameTupleReference();
@@ -235,11 +259,14 @@ public class LSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertUpdateDe
                     callback.frameCompleted();
                     appender.write(writer, true);
                 }
-            };
 
-        } catch (Exception e) {
-            indexHelper.close();
-            throw new HyracksDataException(e);
+                @Override
+                public void close() throws IOException {
+                    callback.close();
+                }
+            };
+        } catch (Throwable e) { // NOSONAR: Re-thrown
+            throw HyracksDataException.create(e);
         }
     }
 
@@ -260,7 +287,7 @@ public class LSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertUpdateDe
             try {
                 searchCallback.release();
             } catch (ACIDException e) {
-                throw new HyracksDataException(e);
+                throw HyracksDataException.create(e);
             }
         }
     }
@@ -277,7 +304,11 @@ public class LSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertUpdateDe
     @Override
     public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
         accessor.reset(buffer);
+        int itemCount = accessor.getTupleCount();
         lsmAccessor.batchOperate(accessor, tuple, processor, frameOpCallback);
+        if (itemCount > 0) {
+            lastRecordInTimeStamp = System.currentTimeMillis();
+        }
     }
 
     private void appendFilterToOutput() throws IOException {
@@ -314,7 +345,6 @@ public class LSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertUpdateDe
         if (isFiltered) {
             writeMissingField();
         }
-        cursor.reset();
     }
 
     /**
@@ -326,7 +356,7 @@ public class LSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertUpdateDe
         appender.write(writer, true);
     }
 
-    private void appendFilterToPrevTuple() throws IOException, AsterixException {
+    private void appendFilterToPrevTuple() throws IOException {
         if (isFiltered) {
             prevRecWithPKWithFilterValue.reset();
             for (int i = 0; i < prevTuple.getFieldCount(); i++) {
@@ -355,14 +385,31 @@ public class LSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertUpdateDe
 
     @Override
     public void close() throws HyracksDataException {
+        traceLastRecordIn();
+        Throwable failure = CleanupUtils.close(frameOpCallback, null);
+        failure = CleanupUtils.destroy(failure, cursor);
+        failure = CleanupUtils.close(writer, failure);
+        failure = CleanupUtils.close(indexHelper, failure);
+        if (failure != null) {
+            throw HyracksDataException.create(failure);
+        }
+    }
+
+    @SuppressWarnings({ "squid:S1181", "squid:S1166" })
+    private void traceLastRecordIn() {
         try {
-            try {
-                cursor.close();
-            } finally {
-                writer.close();
+            if (tracer.isEnabled(traceCategory) && lastRecordInTimeStamp > 0 && indexHelper != null
+                    && indexHelper.getIndexInstance() != null) {
+                tracer.instant("UpsertClose", traceCategory, Scope.t,
+                        "{\"last-record-in\":\"" + DATE_FORMAT.get().format(new Date(lastRecordInTimeStamp))
+                                + "\", \"index\":" + indexHelper.getIndexInstance().toString() + "}");
             }
-        } finally {
-            indexHelper.close();
+        } catch (Throwable traceFailure) {
+            try {
+                LOGGER.warn("Tracing last record in failed", traceFailure);
+            } catch (Throwable ignore) {
+                // Ignore logging failure
+            }
         }
     }
 

@@ -60,7 +60,7 @@ public class NestedPlansRunningAggregatorFactory implements IAggregatorDescripto
     @Override
     public IAggregatorDescriptor createAggregator(final IHyracksTaskContext ctx, RecordDescriptor inRecordDescriptor,
             RecordDescriptor outRecordDescriptor, int[] keyFields, int[] keyFieldsInPartialResults,
-            final IFrameWriter writer) throws HyracksDataException {
+            final IFrameWriter writer, long memoryBudget) throws HyracksDataException {
         final RunningAggregatorOutput outputWriter =
                 new RunningAggregatorOutput(ctx, subplans, keyFieldIdx.length, decorFieldIdx.length, writer);
         // should enforce protocol
@@ -149,7 +149,7 @@ public class NestedPlansRunningAggregatorFactory implements IAggregatorDescripto
         IPushRuntimeFactory[] runtimeFactories = subplan.getRuntimeFactories();
         RecordDescriptor[] recordDescriptors = subplan.getRecordDescriptors();
         for (int i = runtimeFactories.length - 1; i >= 0; i--) {
-            IPushRuntime newRuntime = runtimeFactories[i].createPushRuntime(ctx);
+            IPushRuntime newRuntime = runtimeFactories[i].createPushRuntime(ctx)[0];
             newRuntime = enforce ? EnforcePushRuntime.enforce(newRuntime) : newRuntime;
             start = enforce ? EnforceFrameWriter.enforce(start) : start;
             newRuntime.setOutputFrameWriter(0, start, recordDescriptors[i]);

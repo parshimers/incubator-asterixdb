@@ -80,8 +80,8 @@ public class TemporalYearAccessor extends AbstractScalarFunctionDynamicDescripto
 
                     // for output: type integer
                     @SuppressWarnings("unchecked")
-                    private final ISerializerDeserializer<AInt64> intSerde = SerializerDeserializerProvider.INSTANCE
-                            .getSerializerDeserializer(BuiltinType.AINT64);
+                    private final ISerializerDeserializer<AInt64> intSerde =
+                            SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.AINT64);
                     private final AMutableInt64 aMutableInt64 = new AMutableInt64(0);
 
                     @Override
@@ -144,7 +144,7 @@ public class TemporalYearAccessor extends AbstractScalarFunctionDynamicDescripto
                             intSerde.serialize(aMutableInt64, out);
                             result.set(resultStorage);
                         } catch (IOException e) {
-                            throw new HyracksDataException(e);
+                            throw HyracksDataException.create(e);
                         }
                     }
                 };

@@ -29,8 +29,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.asterix.api.http.server.ConnectorApiServlet;
+import org.apache.asterix.api.http.server.ServletConstants;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
-import org.apache.asterix.file.StorageComponentProvider;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.metadata.MetadataTransactionContext;
 import org.apache.asterix.metadata.declared.MetadataProvider;
@@ -48,10 +48,8 @@ import org.apache.hyracks.api.io.FileSplit;
 import org.apache.hyracks.api.io.ManagedFileSplit;
 import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
-import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -115,9 +113,7 @@ public class ConnectorApiServletTest {
         ObjectMapper om = new ObjectMapper();
         ObjectNode actualResponse = (ObjectNode) om.readTree(outputStream.toString());
 
-        // Checks the temp-or-not, primary key, data type of the dataset.
-        boolean temp = actualResponse.get("temp").asBoolean();
-        Assert.assertFalse(temp);
+        // Checks the primary key, data type of the dataset.
         String primaryKey = actualResponse.get("keys").asText();
         Assert.assertEquals("DataverseName,DatasetName", primaryKey);
         ARecordType recordType = (ARecordType) JSONDeserializerForTypes.convertFromJSON(actualResponse.get("type"));
@@ -126,7 +122,7 @@ public class ConnectorApiServletTest {
         // Checks the correctness of results.
         ArrayNode splits = (ArrayNode) actualResponse.get("splits");
         String path = (splits.get(0)).get("path").asText();
-        Assert.assertTrue(path.endsWith("Metadata/Dataset_idx_Dataset"));
+        Assert.assertTrue(path.endsWith("Metadata/Dataset/0/Dataset"));
     }
 
     @Test
@@ -156,12 +152,11 @@ public class ConnectorApiServletTest {
         nodeMap.put("asterix_nc2", mockInfo2);
         PA.invokeMethod(let,
                 "formResponseObject(" + ObjectNode.class.getName() + ", " + FileSplit.class.getName() + "[], "
-                        + ARecordType.class.getName() + ", " + String.class.getName() + ", boolean, "
-                        + Map.class.getName() + ")",
-                actualResponse, splits, recordType, primaryKey, true, nodeMap);
+                        + ARecordType.class.getName() + ", " + String.class.getName() + ", " + Map.class.getName()
+                        + ")",
+                actualResponse, splits, recordType, primaryKey, nodeMap);
         // Constructs expected response.
         ObjectNode expectedResponse = om.createObjectNode();
-        expectedResponse.put("temp", true);
         expectedResponse.put("keys", primaryKey);
         expectedResponse.set("type", recordType.toJSON());
         ArrayNode splitsArray = om.createArrayNode();
@@ -183,8 +178,7 @@ public class ConnectorApiServletTest {
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
         // Retrieves file splits of the dataset.
         MetadataProvider metadataProvider = new MetadataProvider(
-                (ICcApplicationContext) ExecutionTestUtil.integrationUtil.cc.getApplicationContext(), null,
-                new StorageComponentProvider());
+                (ICcApplicationContext) ExecutionTestUtil.integrationUtil.cc.getApplicationContext(), null);
         try {
             metadataProvider.setMetadataTxnContext(mdTxnCtx);
             Dataset dataset = metadataProvider.findDataset(dataverseName, datasetName);

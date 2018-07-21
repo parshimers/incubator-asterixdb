@@ -35,7 +35,7 @@ import org.apache.hyracks.util.encoding.VarLenIntEncoderDecoder;
 public class UTF8StringUtil {
     public static char charAt(byte[] b, int s) {
         if (s >= b.length) {
-            throw new ArrayIndexOutOfBoundsException("Are you crazy?");
+            throw new ArrayIndexOutOfBoundsException(s);
         }
         int c = b[s] & 0xff;
         switch (c >> 4) {
@@ -82,6 +82,11 @@ public class UTF8StringUtil {
                 return 3;
         }
         throw new IllegalStateException();
+    }
+
+    public static boolean isCharStart(byte[] b, int s) {
+        int c = b[s] & 0xff;
+        return (c >> 6) != 2;
     }
 
     public static int getModifiedUTF8Len(char c) {
@@ -541,8 +546,8 @@ public class UTF8StringUtil {
                     if (((char2 & 0xC0) != 0x80) || ((char3 & 0xC0) != 0x80)) {
                         throw new UTFDataFormatException("malformed input around byte " + (count - 1));
                     }
-                    chararr[chararr_count++] = (char) (((c & 0x0F) << 12) | ((char2 & 0x3F) << 6)
-                            | ((char3 & 0x3F) << 0));
+                    chararr[chararr_count++] =
+                            (char) (((c & 0x0F) << 12) | ((char2 & 0x3F) << 6) | ((char3 & 0x3F) << 0));
                     break;
                 default:
                     /* 10xx xxxx,  1111 xxxx */
@@ -595,7 +600,7 @@ public class UTF8StringUtil {
         out.write(tempBytes, 0, count);
     }
 
-    static void writeUTF8(char[] buffer, int start, int length, DataOutput out, UTF8StringWriter writer)
+    public static void writeUTF8(char[] buffer, int start, int length, DataOutput out, UTF8StringWriter writer)
             throws IOException {
         int utflen = 0;
         int count = 0;

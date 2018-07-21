@@ -23,17 +23,18 @@ import java.util.Map;
 
 public class StorageUtil {
 
-    private static final int BASE = 1024;
+    public static final int BASE = 1024;
 
     public enum StorageUnit {
-        BYTE("B", 1),
-        KILOBYTE("KB", BASE),
-        MEGABYTE("MB", KILOBYTE.multiplier * BASE),
-        GIGABYTE("GB", MEGABYTE.multiplier * BASE),
-        TERABYTE("TB", GIGABYTE.multiplier * BASE),
-        PETABYTE("PB", TERABYTE.multiplier * BASE);
+        BYTE("B", "b", 1),
+        KILOBYTE("KB", "kb", BASE),
+        MEGABYTE("MB", "m", KILOBYTE.multiplier * BASE),
+        GIGABYTE("GB", "g", MEGABYTE.multiplier * BASE),
+        TERABYTE("TB", "t", GIGABYTE.multiplier * BASE),
+        PETABYTE("PB", "p", TERABYTE.multiplier * BASE);
 
         private final String unitTypeInLetter;
+        private final String linuxUnitTypeInLetter;
         private final long multiplier;
         private static final Map<String, StorageUnit> SUFFIX_TO_UNIT_MAP = new HashMap<>();
 
@@ -43,8 +44,9 @@ public class StorageUtil {
             }
         }
 
-        StorageUnit(String unitTypeInLetter, long multiplier) {
+        StorageUnit(String unitTypeInLetter, String linuxUnitTypeInLetter, long multiplier) {
             this.unitTypeInLetter = unitTypeInLetter;
+            this.linuxUnitTypeInLetter = linuxUnitTypeInLetter;
             this.multiplier = multiplier;
         }
 
@@ -55,6 +57,10 @@ public class StorageUtil {
 
         public double toBytes(double value) {
             return value * multiplier;
+        }
+
+        public String getLinuxUnitTypeInLetter() {
+            return linuxUnitTypeInLetter;
         }
 
         public static StorageUnit lookupBySuffix(String name) {
@@ -160,7 +166,7 @@ public class StorageUtil {
             return bytes + " B";
         }
         final int baseValue = (63 - Long.numberOfLeadingZeros(bytes)) / 10;
-        final char bytePrefix = " kMGTPE" .charAt(baseValue);
+        final char bytePrefix = " kMGTPE".charAt(baseValue);
         final long divisor = 1L << (baseValue * 10);
         if (bytes % divisor == 0) {
             return String.format("%d %sB", bytes / divisor, bytePrefix);

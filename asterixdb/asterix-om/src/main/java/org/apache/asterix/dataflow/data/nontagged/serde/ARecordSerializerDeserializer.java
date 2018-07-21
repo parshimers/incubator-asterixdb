@@ -197,8 +197,8 @@ public class ARecordSerializerDeserializer implements ISerializerDeserializer<AR
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public static void serializeSchemalessRecord(ARecord record, DataOutput dataOutput, boolean writeTypeTag)
             throws HyracksDataException {
-        ISerializerDeserializer<AString> stringSerde = SerializerDeserializerProvider.INSTANCE
-                .getSerializerDeserializer(BuiltinType.ASTRING);
+        ISerializerDeserializer<AString> stringSerde =
+                SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.ASTRING);
         RecordBuilder confRecordBuilder = new RecordBuilder();
         confRecordBuilder.reset(RecordUtil.FULLY_OPEN_RECORD_TYPE);
         ArrayBackedValueStorage fieldNameBytes = new ArrayBackedValueStorage();
@@ -219,8 +219,8 @@ public class ARecordSerializerDeserializer implements ISerializerDeserializer<AR
     @SuppressWarnings("unchecked")
     public static void serializeSimpleSchemalessRecord(List<Pair<String, String>> record, DataOutput dataOutput,
             boolean writeTypeTag) throws HyracksDataException {
-        ISerializerDeserializer<AString> stringSerde = SerializerDeserializerProvider.INSTANCE
-                .getSerializerDeserializer(BuiltinType.ASTRING);
+        ISerializerDeserializer<AString> stringSerde =
+                SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.ASTRING);
         RecordBuilder confRecordBuilder = new RecordBuilder();
         confRecordBuilder.reset(RecordUtil.FULLY_OPEN_RECORD_TYPE);
         ArrayBackedValueStorage fieldNameBytes = new ArrayBackedValueStorage();
@@ -235,7 +235,7 @@ public class ARecordSerializerDeserializer implements ISerializerDeserializer<AR
         confRecordBuilder.write(dataOutput, writeTypeTag);
     }
 
-    private IAObject[] mergeFields(IAObject[] closedFields, IAObject[] openFields) {
+    public static IAObject[] mergeFields(IAObject[] closedFields, IAObject[] openFields) {
         IAObject[] fields = new IAObject[closedFields.length + openFields.length];
         int i = 0;
         for (; i < closedFields.length; i++) {
@@ -247,7 +247,7 @@ public class ARecordSerializerDeserializer implements ISerializerDeserializer<AR
         return fields;
     }
 
-    private ARecordType mergeRecordTypes(ARecordType recType1, ARecordType recType2) {
+    public static ARecordType mergeRecordTypes(ARecordType recType1, ARecordType recType2) {
         String[] fieldNames = new String[recType1.getFieldNames().length + recType2.getFieldNames().length];
         IAType[] fieldTypes = new IAType[recType1.getFieldTypes().length + recType2.getFieldTypes().length];
 
@@ -317,11 +317,11 @@ public class ARecordSerializerDeserializer implements ISerializerDeserializer<AR
         int fieldUtflength = UTF8StringUtil.getUTFLength(fieldName, nstart + 1);
         int fieldUtfMetaLen = UTF8StringUtil.getNumBytesToStoreLength(fieldUtflength);
 
-        IBinaryHashFunction utf8HashFunction = BinaryHashFunctionFactoryProvider.UTF8STRING_POINTABLE_INSTANCE
-                .createBinaryHashFunction();
+        IBinaryHashFunction utf8HashFunction =
+                BinaryHashFunctionFactoryProvider.UTF8STRING_POINTABLE_INSTANCE.createBinaryHashFunction();
 
-        IBinaryComparator utf8BinaryComparator = BinaryComparatorFactoryProvider.UTF8STRING_POINTABLE_INSTANCE
-                .createBinaryComparator();
+        IBinaryComparator utf8BinaryComparator =
+                BinaryComparatorFactoryProvider.UTF8STRING_POINTABLE_INSTANCE.createBinaryComparator();
 
         int fieldNameHashCode = utf8HashFunction.hash(fieldName, nstart + 1, fieldUtflength + fieldUtfMetaLen);
 

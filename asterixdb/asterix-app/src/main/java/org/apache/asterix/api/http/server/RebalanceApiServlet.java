@@ -18,7 +18,7 @@
  */
 package org.apache.asterix.api.http.server;
 
-import static org.apache.asterix.api.http.servlet.ServletConstants.HYRACKS_CONNECTION_ATTR;
+import static org.apache.asterix.api.http.server.ServletConstants.HYRACKS_CONNECTION_ATTR;
 
 import java.io.PrintWriter;
 import java.util.ArrayDeque;
@@ -33,11 +33,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
+import org.apache.asterix.app.active.ActiveNotificationHandler;
+import org.apache.asterix.common.api.IMetadataLockManager;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
-import org.apache.asterix.file.StorageComponentProvider;
 import org.apache.asterix.metadata.MetadataManager;
 import org.apache.asterix.metadata.MetadataTransactionContext;
 import org.apache.asterix.metadata.declared.MetadataProvider;
@@ -51,8 +50,10 @@ import org.apache.hyracks.http.api.IServletRequest;
 import org.apache.hyracks.http.api.IServletResponse;
 import org.apache.hyracks.http.server.AbstractServlet;
 import org.apache.hyracks.http.server.utils.HttpUtil;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -64,7 +65,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
  * - rebalance all non-metadata datasets.
  */
 public class RebalanceApiServlet extends AbstractServlet {
-    private static final Logger LOGGER = Logger.getLogger(RebalanceApiServlet.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger();
     private static final String METADATA = "Metadata";
     private final ICcApplicationContext appCtx;
 
@@ -72,7 +73,7 @@ public class RebalanceApiServlet extends AbstractServlet {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     // A queue that maintains submitted rebalance requests.
-    private final Queue<Future> rebalanceTasks = new ArrayDeque<>();
+    private final Queue<Future<Void>> rebalanceTasks = new ArrayDeque<>();
 
     // A queue that tracks the termination of rebalance threads.
     private final Queue<CountDownLatch> rebalanceFutureTerminated = new ArrayDeque<>();
@@ -141,7 +142,7 @@ public class RebalanceApiServlet extends AbstractServlet {
 
     // Cancels all rebalance tasks.
     private synchronized void cancelRebalance() throws InterruptedException {
-        for (Future rebalanceTask : rebalanceTasks) {
+        for (Future<Void> rebalanceTask : rebalanceTasks) {
             rebalanceTask.cancel(true);
         }
     }
@@ -156,14 +157,15 @@ public class RebalanceApiServlet extends AbstractServlet {
     private synchronized CountDownLatch scheduleRebalance(String dataverseName, String datasetName,
             String[] targetNodes, IServletResponse response) {
         CountDownLatch terminated = new CountDownLatch(1);
-        Future task = executor.submit(() -> doRebalance(dataverseName, datasetName, targetNodes, response, terminated));
+        Future<Void> task =
+                executor.submit(() -> doRebalance(dataverseName, datasetName, targetNodes, response, terminated));
         rebalanceTasks.add(task);
         rebalanceFutureTerminated.add(terminated);
         return terminated;
     }
 
     // Performs the actual rebalance.
-    private void doRebalance(String dataverseName, String datasetName, String[] targetNodes, IServletResponse response,
+    private Void doRebalance(String dataverseName, String datasetName, String[] targetNodes, IServletResponse response,
             CountDownLatch terminated) {
         try {
             // Sets the content type.
@@ -198,6 +200,7 @@ public class RebalanceApiServlet extends AbstractServlet {
             // Notify that the rebalance task is terminated.
             terminated.countDown();
         }
+        return null;
     }
 
     // Lists all datasets that should be rebalanced in a given datavserse.
@@ -241,23 +244,36 @@ public class RebalanceApiServlet extends AbstractServlet {
     // Rebalances a given dataset.
     private void rebalanceDataset(String dataverseName, String datasetName, String[] targetNodes) throws Exception {
         IHyracksClientConnection hcc = (IHyracksClientConnection) ctx.get(HYRACKS_CONNECTION_ATTR);
-        MetadataProvider metadataProvider = new MetadataProvider(appCtx, null, new StorageComponentProvider());
-        RebalanceUtil.rebalance(dataverseName, datasetName, new LinkedHashSet<>(Arrays.asList(targetNodes)),
-                metadataProvider, hcc, NoOpDatasetRebalanceCallback.INSTANCE);
+        MetadataProvider metadataProvider = new MetadataProvider(appCtx, null);
+        try {
+            ActiveNotificationHandler activeNotificationHandler =
+                    (ActiveNotificationHandler) appCtx.getActiveNotificationHandler();
+            activeNotificationHandler.suspend(metadataProvider);
+            try {
+                IMetadataLockManager lockManager = appCtx.getMetadataLockManager();
+                lockManager.acquireDatasetExclusiveModificationLock(metadataProvider.getLocks(),
+                        dataverseName + '.' + datasetName);
+                RebalanceUtil.rebalance(dataverseName, datasetName, new LinkedHashSet<>(Arrays.asList(targetNodes)),
+                        metadataProvider, hcc, NoOpDatasetRebalanceCallback.INSTANCE);
+            } finally {
+                activeNotificationHandler.resume(metadataProvider);
+            }
+        } finally {
+            metadataProvider.getLocks().unlock();
+        }
     }
 
     // Sends HTTP response to the request client.
     private void sendResponse(IServletResponse response, HttpResponseStatus status, String message, Exception e) {
         if (status != HttpResponseStatus.OK) {
             if (e != null) {
-                LOGGER.log(Level.WARNING, message, e);
+                LOGGER.log(Level.WARN, message, e);
             } else {
-                LOGGER.log(Level.WARNING, message);
+                LOGGER.log(Level.WARN, message);
             }
         }
         PrintWriter out = response.writer();
-        ObjectMapper om = new ObjectMapper();
-        ObjectNode jsonResponse = om.createObjectNode();
+        ObjectNode jsonResponse = OBJECT_MAPPER.createObjectNode();
         jsonResponse.put("results", message);
         response.setStatus(status);
         out.write(jsonResponse.toString());

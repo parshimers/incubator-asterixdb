@@ -69,8 +69,8 @@ public class CreatePointDescriptor extends AbstractScalarFunctionDynamicDescript
                     private IScalarEvaluator eval1 = args[1].createScalarEvaluator(ctx);
                     private AMutablePoint aPoint = new AMutablePoint(0, 0);
                     @SuppressWarnings("unchecked")
-                    private ISerializerDeserializer<APoint> pointSerde = SerializerDeserializerProvider.INSTANCE
-                            .getSerializerDeserializer(BuiltinType.APOINT);
+                    private ISerializerDeserializer<APoint> pointSerde =
+                            SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.APOINT);
 
                     @Override
                     public void evaluate(IFrameTupleReference tuple, IPointable result) throws HyracksDataException {
@@ -98,7 +98,7 @@ public class CreatePointDescriptor extends AbstractScalarFunctionDynamicDescript
                                     ADoubleSerializerDeserializer.getDouble(bytes1, offset1 + 1));
                             pointSerde.serialize(aPoint, out);
                         } catch (IOException e1) {
-                            throw new HyracksDataException(e1);
+                            throw HyracksDataException.create(e1);
                         }
                         result.set(resultStorage);
                     }

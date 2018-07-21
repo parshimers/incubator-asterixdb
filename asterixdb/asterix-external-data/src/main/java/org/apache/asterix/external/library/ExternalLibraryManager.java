@@ -19,10 +19,10 @@
 package org.apache.asterix.external.library;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
@@ -32,6 +32,7 @@ import org.apache.hyracks.algebricks.common.utils.Pair;
 public class ExternalLibraryManager implements ILibraryManager {
 
     private final Map<String, ClassLoader> libraryClassLoaders = new HashMap<>();
+    private final Map<String, List<String>> externalFunctionParameters = new HashMap<>();
 
     @Override
     public void registerLibraryClassLoader(String dataverseName, String libraryName, ClassLoader classLoader)
@@ -49,9 +50,7 @@ public class ExternalLibraryManager implements ILibraryManager {
     public List<Pair<String, String>> getAllLibraries() {
         ArrayList<Pair<String, String>> libs = new ArrayList<>();
         synchronized (libraryClassLoaders) {
-            for (Entry<String, ClassLoader> entry : libraryClassLoaders.entrySet()) {
-                libs.add(getDataverseAndLibararyName(entry.getKey()));;
-            }
+            libraryClassLoaders.forEach((key, value) -> libs.add(getDataverseAndLibararyName(key)));
         }
         return libs;
     }
@@ -70,6 +69,16 @@ public class ExternalLibraryManager implements ILibraryManager {
     public ClassLoader getLibraryClassLoader(String dataverseName, String libraryName) {
         String key = getKey(dataverseName, libraryName);
         return libraryClassLoaders.get(key);
+    }
+
+    @Override
+    public void addFunctionParameters(String dataverseName, String fullFunctionName, List<String> parameters) {
+        externalFunctionParameters.put(dataverseName + "." + fullFunctionName, parameters);
+    }
+
+    @Override
+    public List<String> getFunctionParameters(String dataverseName, String fullFunctionName) {
+        return externalFunctionParameters.getOrDefault(dataverseName + "." + fullFunctionName, Collections.emptyList());
     }
 
     private static String getKey(String dataverseName, String libraryName) {

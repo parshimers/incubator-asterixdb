@@ -114,7 +114,7 @@ public class DelimitedDataParser extends AbstractDataParser implements IStreamDa
             }
             return false;
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 
@@ -129,7 +129,7 @@ public class DelimitedDataParser extends AbstractDataParser implements IStreamDa
                     break;
                 }
             } catch (IOException e) {
-                throw new HyracksDataException(e);
+                throw HyracksDataException.create(e);
             }
             fieldValueBuffer.reset();
 
@@ -140,8 +140,8 @@ public class DelimitedDataParser extends AbstractDataParser implements IStreamDa
                     // NULL. Note that string type can also process empty field as an
                     // empty string
                     if (!NonTaggedFormatUtil.isOptional(recordType.getFieldTypes()[i])) {
-                        throw new RuntimeDataException(ErrorCode.PARSER_DELIMITED_NONOPTIONAL_NULL,
-                                cursor.recordCount, cursor.fieldCount);
+                        throw new RuntimeDataException(ErrorCode.PARSER_DELIMITED_NONOPTIONAL_NULL, cursor.recordCount,
+                                cursor.fieldCount);
                     }
                     fieldValueBufferOutput.writeByte(ATypeTag.SERIALIZED_NULL_TYPE_TAG);
                 } else {
@@ -152,8 +152,8 @@ public class DelimitedDataParser extends AbstractDataParser implements IStreamDa
                         cursor.fEnd -= cursor.doubleQuoteCount;
                         cursor.isDoubleQuoteIncludedInThisField = false;
                     }
-                    valueParsers[i]
-                            .parse(cursor.buffer, cursor.fStart, cursor.fEnd - cursor.fStart, fieldValueBufferOutput);
+                    valueParsers[i].parse(cursor.buffer, cursor.fStart, cursor.fEnd - cursor.fStart,
+                            fieldValueBufferOutput);
                     areAllNullFields = false;
                 }
                 if (fldIds[i] < 0) {
@@ -162,7 +162,7 @@ public class DelimitedDataParser extends AbstractDataParser implements IStreamDa
                     recBuilder.addField(fldIds[i], fieldValueBuffer);
                 }
             } catch (IOException e) {
-                throw new HyracksDataException(e);
+                throw HyracksDataException.create(e);
             }
         }
     }
@@ -172,7 +172,7 @@ public class DelimitedDataParser extends AbstractDataParser implements IStreamDa
         try {
             cursor.nextRecord(record.get(), record.size());
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
         parseRecord();
         if (!areAllNullFields) {

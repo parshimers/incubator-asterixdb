@@ -18,19 +18,39 @@
  */
 package org.apache.hyracks.storage.am.lsm.common.api;
 
+import java.util.Map;
 import java.util.concurrent.Callable;
 
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.api.io.IODeviceHandle;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperation.LSMIOOperationStatus;
+import org.apache.hyracks.storage.am.lsm.common.impls.LSMComponentFileReferences;
 
-public interface ILSMIOOperation extends Callable<Boolean> {
+public interface ILSMIOOperation extends Callable<LSMIOOperationStatus> {
 
     /**
      * Represents the io operation type
      */
-    enum LSMIOOpertionType {
+    enum LSMIOOperationType {
         FLUSH,
-        MERGE
+        MERGE,
+        LOAD,
+        NOOP
+    }
+
+    /**
+     * Represents the status of the IO operation
+     */
+    enum LSMIOOperationStatus {
+        /**
+         * Operation successful
+         */
+        SUCCESS,
+        /**
+         * Operation failed
+         */
+        FAILURE
     }
 
     /**
@@ -51,8 +71,81 @@ public interface ILSMIOOperation extends Callable<Boolean> {
     /**
      * @return the operation type
      */
-    LSMIOOpertionType getIOOpertionType();
+    LSMIOOperationType getIOOpertionType();
 
     @Override
-    Boolean call() throws HyracksDataException;
+    LSMIOOperationStatus call() throws HyracksDataException;
+
+    /**
+     * @return The target of the io operation
+     */
+    FileReference getTarget();
+
+    /**
+     * @return the accessor of the operation
+     */
+    ILSMIndexAccessor getAccessor();
+
+    /**
+     * @return the component files produced by this operation
+     */
+    LSMComponentFileReferences getComponentFiles();
+
+    /**
+     * @return the failure in the io operation if any, null otherwise
+     */
+    Throwable getFailure();
+
+    /**
+     * @return set the failure in the io operation
+     */
+    void setFailure(Throwable failure);
+
+    /**
+     * @return the status of the IO operation
+     */
+    LSMIOOperationStatus getStatus();
+
+    /**
+     * Set the status of the IO operation
+     *
+     * @param status
+     */
+    void setStatus(LSMIOOperationStatus status);
+
+    /**
+     * @return the new component produced by this operation if any, null otherwise
+     */
+    ILSMDiskComponent getNewComponent();
+
+    /**
+     * Set the new component produced by this operation
+     *
+     * @param component
+     */
+    void setNewComponent(ILSMDiskComponent component);
+
+    /**
+     * Destroy the operation after the scheduler is done with it
+     */
+    void complete();
+
+    /**
+     * Wait for the operation to complete
+     *
+     * @throws InterruptedException
+     */
+    void sync() throws InterruptedException;
+
+    /**
+     * Add a listener for operation complete event
+     *
+     * @param listener
+     */
+    void addCompleteListener(IoOperationCompleteListener listener);
+
+    /**
+     * Get parameters passed when calling this IO operation
+     */
+    Map<String, Object> getParameters();
 }

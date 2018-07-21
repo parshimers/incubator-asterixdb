@@ -70,8 +70,8 @@ public class PointXCoordinateAccessor extends AbstractScalarFunctionDynamicDescr
                     private final IScalarEvaluator eval = args[0].createScalarEvaluator(ctx);
                     private final AMutableDouble aDouble = new AMutableDouble(0);
                     @SuppressWarnings("unchecked")
-                    private final ISerializerDeserializer<ADouble> doubleSerde = SerializerDeserializerProvider.INSTANCE
-                            .getSerializerDeserializer(BuiltinType.ADOUBLE);
+                    private final ISerializerDeserializer<ADouble> doubleSerde =
+                            SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.ADOUBLE);
 
                     @Override
                     public void evaluate(IFrameTupleReference tuple, IPointable result) throws HyracksDataException {
@@ -92,7 +92,7 @@ public class PointXCoordinateAccessor extends AbstractScalarFunctionDynamicDescr
                                         ATypeTag.SERIALIZED_POINT_TYPE_TAG);
                             }
                         } catch (IOException e) {
-                            throw new HyracksDataException(e);
+                            throw HyracksDataException.create(e);
                         }
                         result.set(resultStorage);
                     }

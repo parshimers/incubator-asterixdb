@@ -37,7 +37,7 @@ import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.utils.NonTaggedFormatUtil;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.data.IBinaryComparatorFactoryProvider;
@@ -142,7 +142,6 @@ public class RTreeResourceFactoryProvider implements IResourceFactoryProvider {
                 storageComponentProvider.getMetadataPageManagerFactory();
         ILSMIOOperationSchedulerProvider ioSchedulerProvider =
                 storageComponentProvider.getIoOperationSchedulerProvider();
-        boolean durable = !dataset.isTemp();
         ILinearizeComparatorFactory linearizeCmpFactory =
                 MetadataProvider.proposeLinearizer(keyType, secondaryComparatorFactories.length);
         ITypeTraits[] typeTraits = getTypeTraits(mdProvider, dataset, index, recordType, metaType);
@@ -159,12 +158,12 @@ public class RTreeResourceFactoryProvider implements IResourceFactoryProvider {
             return new LSMRTreeWithAntiMatterLocalResourceFactory(storageManager, typeTraits, rtreeCmpFactories,
                     filterTypeTraits, filterCmpFactories, secondaryFilterFields, opTrackerFactory, ioOpCallbackFactory,
                     metadataPageManagerFactory, vbcProvider, ioSchedulerProvider, mergePolicyFactory,
-                    mergePolicyProperties, durable, valueProviderFactories, rTreePolicyType, linearizeCmpFactory,
+                    mergePolicyProperties, true, valueProviderFactories, rTreePolicyType, linearizeCmpFactory,
                     rtreeFields, isPointMBR, btreeCompFactories);
         } else {
             return new ExternalRTreeLocalResourceFactory(storageManager, typeTraits, rtreeCmpFactories,
                     filterTypeTraits, filterCmpFactories, secondaryFilterFields, opTrackerFactory, ioOpCallbackFactory,
-                    metadataPageManagerFactory, ioSchedulerProvider, mergePolicyFactory, mergePolicyProperties, durable,
+                    metadataPageManagerFactory, ioSchedulerProvider, mergePolicyFactory, mergePolicyProperties, true,
                     btreeCompFactories, valueProviderFactories, rTreePolicyType, linearizeCmpFactory, rtreeFields,
                     new int[] { numNestedSecondaryKeyFields }, isPointMBR,
                     mdProvider.getStorageProperties().getBloomFilterFalsePositiveRate());

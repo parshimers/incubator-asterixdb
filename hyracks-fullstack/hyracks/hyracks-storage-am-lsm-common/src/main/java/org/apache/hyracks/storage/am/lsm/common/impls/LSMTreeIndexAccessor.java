@@ -20,20 +20,20 @@
 package org.apache.hyracks.storage.am.lsm.common.impls;
 
 import java.util.List;
+import java.util.function.Predicate;
 
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IValueReference;
 import org.apache.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import org.apache.hyracks.dataflow.common.data.accessors.FrameTupleReference;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
-import org.apache.hyracks.storage.am.common.api.ITreeIndexCursor;
 import org.apache.hyracks.storage.am.common.ophelpers.IndexOperation;
 import org.apache.hyracks.storage.am.lsm.common.api.IFrameOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.IFrameTupleProcessor;
+import org.apache.hyracks.storage.am.lsm.common.api.ILSMComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMDiskComponent;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMHarness;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperation;
-import org.apache.hyracks.storage.am.lsm.common.api.ILSMIOOperationCallback;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexAccessor;
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndexOperationContext;
 import org.apache.hyracks.storage.am.lsm.common.api.LSMOperationType;
@@ -43,12 +43,13 @@ import org.apache.hyracks.storage.common.ISearchPredicate;
 public class LSMTreeIndexAccessor implements ILSMIndexAccessor {
     @FunctionalInterface
     public interface ICursorFactory {
-        ITreeIndexCursor create(ILSMIndexOperationContext ctx);
+        IIndexCursor create(ILSMIndexOperationContext ctx);
     }
 
     protected final ILSMHarness lsmHarness;
     protected final ILSMIndexOperationContext ctx;
     protected final ICursorFactory cursorFactory;
+    private boolean destroyed = false;
 
     public LSMTreeIndexAccessor(ILSMHarness lsmHarness, ILSMIndexOperationContext ctx, ICursorFactory cursorFactory) {
         this.lsmHarness = lsmHarness;
@@ -118,13 +119,12 @@ public class LSMTreeIndexAccessor implements ILSMIndexAccessor {
 
     @Override
     public void flush(ILSMIOOperation operation) throws HyracksDataException {
-        lsmHarness.flush(ctx, operation);
+        lsmHarness.flush(operation);
     }
 
     @Override
     public void merge(ILSMIOOperation operation) throws HyracksDataException {
-        ctx.setOperation(IndexOperation.MERGE);
-        lsmHarness.merge(ctx, operation);
+        lsmHarness.merge(operation);
     }
 
     @Override
@@ -134,33 +134,32 @@ public class LSMTreeIndexAccessor implements ILSMIndexAccessor {
     }
 
     @Override
-    public void scheduleFlush(ILSMIOOperationCallback callback) throws HyracksDataException {
+    public ILSMIOOperation scheduleFlush() throws HyracksDataException {
         ctx.setOperation(IndexOperation.FLUSH);
-        lsmHarness.scheduleFlush(ctx, callback);
+        return lsmHarness.scheduleFlush(ctx);
     }
 
     @Override
-    public void scheduleMerge(ILSMIOOperationCallback callback, List<ILSMDiskComponent> components)
-            throws HyracksDataException {
+    public ILSMIOOperation scheduleMerge(List<ILSMDiskComponent> components) throws HyracksDataException {
         ctx.setOperation(IndexOperation.MERGE);
         ctx.getComponentsToBeMerged().clear();
         ctx.getComponentsToBeMerged().addAll(components);
-        lsmHarness.scheduleMerge(ctx, callback);
+        return lsmHarness.scheduleMerge(ctx);
     }
 
     @Override
-    public void scheduleReplication(List<ILSMDiskComponent> lsmComponents, boolean bulkload, LSMOperationType opType)
+    public void scheduleReplication(List<ILSMDiskComponent> lsmComponents, LSMOperationType opType)
             throws HyracksDataException {
         ctx.setOperation(IndexOperation.REPLICATE);
         ctx.getComponentsToBeReplicated().clear();
         ctx.getComponentsToBeReplicated().addAll(lsmComponents);
-        lsmHarness.scheduleReplication(ctx, lsmComponents, bulkload, opType);
+        lsmHarness.scheduleReplication(ctx, lsmComponents, opType);
     }
 
     @Override
-    public void scheduleFullMerge(ILSMIOOperationCallback callback) throws HyracksDataException {
+    public ILSMIOOperation scheduleFullMerge() throws HyracksDataException {
         ctx.setOperation(IndexOperation.FULL_MERGE);
-        lsmHarness.scheduleFullMerge(ctx, callback);
+        return lsmHarness.scheduleFullMerge(ctx);
     }
 
     @Override
@@ -200,10 +199,11 @@ public class LSMTreeIndexAccessor implements ILSMIndexAccessor {
     }
 
     @Override
-    public ITreeIndexCursor createSearchCursor(boolean exclusive) {
+    public IIndexCursor createSearchCursor(boolean exclusive) {
         return cursorFactory.create(ctx);
     }
 
+    @Override
     public void updateFilter(ITupleReference tuple) throws HyracksDataException {
         ctx.setOperation(IndexOperation.UPSERT);
         lsmHarness.updateFilter(ctx, tuple);
@@ -218,5 +218,29 @@ public class LSMTreeIndexAccessor implements ILSMIndexAccessor {
     public void scanDiskComponents(IIndexCursor cursor) throws HyracksDataException {
         ctx.setOperation(IndexOperation.DISK_COMPONENT_SCAN);
         lsmHarness.scanDiskComponents(ctx, cursor);
+    }
+
+    @Override
+    public String toString() {
+        return getClass().getSimpleName() + ':' + lsmHarness.toString();
+    }
+
+    @Override
+    public void deleteComponents(Predicate<ILSMComponent> predicate) throws HyracksDataException {
+        lsmHarness.deleteComponents(ctx, predicate);
+    }
+
+    @Override
+    public ILSMIndexOperationContext getOpContext() {
+        return ctx;
+    }
+
+    @Override
+    public void destroy() throws HyracksDataException {
+        if (destroyed) {
+            return;
+        }
+        destroyed = true;
+        ctx.destroy();
     }
 }

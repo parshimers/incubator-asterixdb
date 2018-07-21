@@ -18,10 +18,12 @@
  */
 package org.apache.asterix.lang.common.expression;
 
-import org.apache.asterix.lang.common.base.Expression;
-import org.apache.commons.lang.ObjectUtils;
+import java.util.Objects;
 
-public abstract class AbstractAccessor implements Expression {
+import org.apache.asterix.lang.common.base.AbstractExpression;
+import org.apache.asterix.lang.common.base.Expression;
+
+public abstract class AbstractAccessor extends AbstractExpression {
     protected Expression expr;
 
     public AbstractAccessor(Expression expr) {
@@ -39,7 +41,7 @@ public abstract class AbstractAccessor implements Expression {
 
     @Override
     public int hashCode() {
-        return ObjectUtils.hashCode(expr);
+        return Objects.hashCode(expr);
     }
 
     @Override

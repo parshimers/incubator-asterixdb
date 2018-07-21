@@ -26,6 +26,7 @@ import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
 import org.apache.hyracks.storage.am.common.TestOperationSelector.TestOperation;
 import org.apache.hyracks.storage.am.common.datagen.DataGenThread;
 import org.apache.hyracks.storage.am.common.datagen.TupleBatch;
+import org.apache.hyracks.storage.am.common.impls.IndexAccessParameters;
 import org.apache.hyracks.storage.common.IIndex;
 import org.apache.hyracks.storage.common.IIndexAccessor;
 import org.apache.hyracks.storage.common.IIndexCursor;
@@ -36,7 +37,7 @@ public abstract class AbstractIndexTestWorker extends Thread implements ITreeInd
     private final TestOperationSelector opSelector;
     private final int numBatches;
 
-    protected final IIndexAccessor indexAccessor;
+    protected IIndexAccessor indexAccessor;
 
     public AbstractIndexTestWorker(DataGenThread dataGen, TestOperationSelector opSelector, IIndex index,
             int numBatches) throws HyracksDataException {
@@ -44,7 +45,9 @@ public abstract class AbstractIndexTestWorker extends Thread implements ITreeInd
         this.opSelector = opSelector;
         this.numBatches = numBatches;
         this.rnd = new Random();
-        this.indexAccessor = index.createAccessor(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
+        IndexAccessParameters actx =
+                new IndexAccessParameters(TestOperationCallback.INSTANCE, TestOperationCallback.INSTANCE);
+        this.indexAccessor = index.createAccessor(actx);
     }
 
     @Override
@@ -65,12 +68,8 @@ public abstract class AbstractIndexTestWorker extends Thread implements ITreeInd
     }
 
     protected void consumeCursorTuples(IIndexCursor cursor) throws HyracksDataException {
-        try {
-            while (cursor.hasNext()) {
-                cursor.next();
-            }
-        } finally {
-            cursor.close();
+        while (cursor.hasNext()) {
+            cursor.next();
         }
     }
 }

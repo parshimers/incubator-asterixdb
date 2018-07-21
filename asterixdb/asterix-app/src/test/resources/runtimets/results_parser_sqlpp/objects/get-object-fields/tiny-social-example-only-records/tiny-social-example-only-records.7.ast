@@ -5,8 +5,8 @@ FunctionCall TinySocial.get-object-fields@1[
   Variable [ Name=$r ]
 ]
 ]
-FROM [  FunctionCall Metadata.dataset@1[
-    LiteralExpr [STRING] [TwitterUsersAlternate]
+FROM [  FunctionCall asterix.dataset@1[
+    LiteralExpr [STRING] [TinySocial.TwitterUsersAlternate]
   ]
   AS Variable [ Name=$r ]
 ]

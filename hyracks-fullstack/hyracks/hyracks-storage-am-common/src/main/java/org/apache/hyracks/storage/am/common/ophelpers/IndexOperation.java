@@ -26,6 +26,7 @@ public enum IndexOperation {
     UPDATE,
     UPSERT,
     SEARCH,
+    FILTER_MOD,
     DISKORDERSCAN,
     PHYSICALDELETE,
     NOOP,
@@ -33,5 +34,6 @@ public enum IndexOperation {
     FULL_MERGE,
     FLUSH,
     REPLICATE,
-    DISK_COMPONENT_SCAN
+    DISK_COMPONENT_SCAN,
+    DELETE_COMPONENTS
 }

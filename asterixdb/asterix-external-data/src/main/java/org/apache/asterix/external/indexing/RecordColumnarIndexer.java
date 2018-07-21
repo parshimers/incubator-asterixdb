@@ -45,11 +45,11 @@ public class RecordColumnarIndexer implements IExternalIndexer {
     protected RecordReader<?, Writable> recordReader;
 
     @SuppressWarnings("unchecked")
-    private ISerializerDeserializer<IAObject> intSerde = SerializerDeserializerProvider.INSTANCE
-            .getSerializerDeserializer(BuiltinType.AINT32);
+    private ISerializerDeserializer<IAObject> intSerde =
+            SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.AINT32);
     @SuppressWarnings("unchecked")
-    private ISerializerDeserializer<IAObject> longSerde = SerializerDeserializerProvider.INSTANCE
-            .getSerializerDeserializer(BuiltinType.AINT64);
+    private ISerializerDeserializer<IAObject> longSerde =
+            SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.AINT64);
 
     @Override
     public void reset(IIndexingDatasource reader) throws HyracksDataException {
@@ -64,7 +64,7 @@ public class RecordColumnarIndexer implements IExternalIndexer {
             nextOffset = offset.getLongValue();
             rowNumber.setValue(0);
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 
@@ -82,7 +82,7 @@ public class RecordColumnarIndexer implements IExternalIndexer {
             tb.addField(intSerde, rowNumber);
             rowNumber.setValue(rowNumber.getIntegerValue() + 1);
         } catch (IOException e) {
-            throw new HyracksDataException(e);
+            throw HyracksDataException.create(e);
         }
     }
 
