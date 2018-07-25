@@ -157,8 +157,8 @@ public class JobManager implements IJobManager {
 
     @Override
     public void prepareComplete(JobRun run, JobStatus status, List<Exception> exceptions) throws HyracksException {
-        ccs.removeJobParameterByteStore(run.getJobId());
         checkJob(run);
+        ccs.removeJobParameterByteStore(run.getJobId());
         if (status == JobStatus.FAILURE_BEFORE_EXECUTION) {
             run.setPendingStatus(JobStatus.FAILURE, exceptions);
             finalComplete(run);
@@ -221,17 +221,17 @@ public class JobManager implements IJobManager {
         JobId jobId = run.getJobId();
         Throwable caughtException = null;
         CCServiceContext serviceCtx = ccs.getContext();
-        if (serviceCtx != null) {
-            try {
-                serviceCtx.notifyJobFinish(jobId, run.getPendingStatus(), run.getPendingExceptions());
-            } catch (Exception e) {
-                LOGGER.error("Exception notifying job finish {}", jobId, e);
-                caughtException = e;
-            }
+        try {
+            serviceCtx.notifyJobFinish(jobId, run.getPendingStatus(), run.getPendingExceptions());
+        } catch (Exception e) {
+            LOGGER.error("Exception notifying job finish {}", jobId, e);
+            caughtException = e;
         }
         run.setStatus(run.getPendingStatus(), run.getPendingExceptions());
         run.setEndTime(System.currentTimeMillis());
-        activeRunMap.remove(jobId);
+        if (activeRunMap.remove(jobId) == null) {
+            LOGGER.warn("Job {} was not found running but is getting archived and capacity released", jobId);
+        }
         runMapArchive.put(jobId, run);
         runMapHistory.put(jobId, run.getExceptions());
 

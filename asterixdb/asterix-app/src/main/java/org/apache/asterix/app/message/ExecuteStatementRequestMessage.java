@@ -29,7 +29,6 @@ import org.apache.asterix.algebra.base.ILangExtension;
 import org.apache.asterix.api.http.server.ResultUtil;
 import org.apache.asterix.app.cc.CCExtensionManager;
 import org.apache.asterix.app.translator.RequestParameters;
-import org.apache.asterix.common.api.Duration;
 import org.apache.asterix.common.api.IClusterManagementWork;
 import org.apache.asterix.common.cluster.IClusterStateManager;
 import org.apache.asterix.common.config.GlobalConfig;
@@ -45,6 +44,7 @@ import org.apache.asterix.lang.common.base.IParser;
 import org.apache.asterix.lang.common.base.Statement;
 import org.apache.asterix.messaging.CCMessageBroker;
 import org.apache.asterix.metadata.MetadataManager;
+import org.apache.asterix.om.base.IAObject;
 import org.apache.asterix.translator.IRequestParameters;
 import org.apache.asterix.translator.IStatementExecutor;
 import org.apache.asterix.translator.IStatementExecutorContext;
@@ -77,10 +77,13 @@ public final class ExecuteStatementRequestMessage implements ICcAddressedMessage
     private final String clientContextID;
     private final String handleUrl;
     private final Map<String, String> optionalParameters;
+    private final Map<String, byte[]> statementParameters;
+    private final boolean multiStatement;
 
     public ExecuteStatementRequestMessage(String requestNodeId, long requestMessageId, ILangExtension.Language lang,
             String statementsText, SessionConfig sessionConfig, ResultProperties resultProperties,
-            String clientContextID, String handleUrl, Map<String, String> optionalParameters) {
+            String clientContextID, String handleUrl, Map<String, String> optionalParameters,
+            Map<String, byte[]> statementParameters, boolean multiStatement) {
         this.requestNodeId = requestNodeId;
         this.requestMessageId = requestMessageId;
         this.lang = lang;
@@ -90,6 +93,8 @@ public final class ExecuteStatementRequestMessage implements ICcAddressedMessage
         this.clientContextID = clientContextID;
         this.handleUrl = handleUrl;
         this.optionalParameters = optionalParameters;
+        this.statementParameters = statementParameters;
+        this.multiStatement = multiStatement;
     }
 
     @Override
@@ -125,8 +130,9 @@ public final class ExecuteStatementRequestMessage implements ICcAddressedMessage
             IStatementExecutor translator = statementExecutorFactory.create(ccAppCtx, statements, sessionOutput,
                     compilationProvider, storageComponentProvider);
             final IStatementExecutor.Stats stats = new IStatementExecutor.Stats();
+            Map<String, IAObject> stmtParams = RequestParameters.deserializeParameterValues(statementParameters);
             final IRequestParameters requestParameters = new RequestParameters(null, resultProperties, stats,
-                    outMetadata, clientContextID, optionalParameters);
+                    outMetadata, clientContextID, optionalParameters, stmtParams, multiStatement);
             translator.compileAndExecute(ccApp.getHcc(), statementExecutorContext, requestParameters);
             outPrinter.close();
             responseMsg.setResult(outWriter.toString());

@@ -143,6 +143,27 @@ import org.apache.asterix.runtime.evaluators.constructors.OrderedListConstructor
 import org.apache.asterix.runtime.evaluators.constructors.UnorderedListConstructorDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.AndDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.AnyCollectionMemberDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArrayAppendDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArrayConcatDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArrayContainsDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArrayDistinctDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArrayFlattenDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArrayIfNullDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArrayInsertDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArrayIntersectDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArrayPositionDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArrayPrependDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArrayPutDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArrayRangeDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArrayRemoveDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArrayRepeatDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArrayReplaceDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArrayReverseDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArraySortDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArrayStarDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArraySymDiffDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArraySymDiffnDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.ArrayUnionDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.CastTypeDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.CastTypeLaxDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.CheckUnknownDescriptor;
@@ -185,11 +206,10 @@ import org.apache.asterix.runtime.evaluators.functions.NumericATan2Descriptor;
 import org.apache.asterix.runtime.evaluators.functions.NumericATanDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.NumericAbsDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.NumericAddDescriptor;
-import org.apache.asterix.runtime.evaluators.functions.NumericDivDescriptor;
-import org.apache.asterix.runtime.evaluators.functions.NumericPowerDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.NumericCeilingDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.NumericCosDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.NumericDegreesDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.NumericDivDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.NumericDivideDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.NumericExpDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.NumericFloorDescriptor;
@@ -197,6 +217,7 @@ import org.apache.asterix.runtime.evaluators.functions.NumericLnDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.NumericLogDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.NumericModuloDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.NumericMultiplyDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.NumericPowerDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.NumericRadiansDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.NumericRoundDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.NumericRoundHalfToEven2Descriptor;
@@ -236,7 +257,7 @@ import org.apache.asterix.runtime.evaluators.functions.StringRegExpLikeWithFlagD
 import org.apache.asterix.runtime.evaluators.functions.StringRegExpPositionDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.StringRegExpPositionWithFlagDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.StringRegExpReplaceDescriptor;
-import org.apache.asterix.runtime.evaluators.functions.StringRegExpReplaceWithFlagsDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.StringRegExpReplaceWithFlagDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.StringRepeatDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.StringReplaceDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.StringReplaceWithLimitDescriptor;
@@ -260,6 +281,7 @@ import org.apache.asterix.runtime.evaluators.functions.ToDoubleDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.ToNumberDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.ToObjectDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.ToStringDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.TreatAsIntegerDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.UUIDDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.binary.BinaryConcatDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.binary.BinaryLengthDescriptor;
@@ -274,6 +296,8 @@ import org.apache.asterix.runtime.evaluators.functions.records.FieldAccessByName
 import org.apache.asterix.runtime.evaluators.functions.records.FieldAccessNestedDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.records.GetRecordFieldValueDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.records.GetRecordFieldsDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.records.PairsDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.records.RecordAddDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.records.RecordAddFieldsDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.records.RecordConcatDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.records.RecordConcatStrictDescriptor;
@@ -281,7 +305,13 @@ import org.apache.asterix.runtime.evaluators.functions.records.RecordLengthDescr
 import org.apache.asterix.runtime.evaluators.functions.records.RecordMergeDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.records.RecordNamesDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.records.RecordPairsDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.records.RecordPutDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.records.RecordRemoveDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.records.RecordRemoveFieldsDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.records.RecordRenameDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.records.RecordReplaceDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.records.RecordUnwrapDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.records.RecordValuesDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.temporal.AdjustDateTimeForTimeZoneDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.temporal.AdjustTimeForTimeZoneDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.temporal.CalendarDuartionFromDateDescriptor;
@@ -362,7 +392,30 @@ public final class FunctionCollection implements IFunctionCollection {
     public static FunctionCollection createDefaultFunctionCollection() {
         FunctionCollection fc = new FunctionCollection();
 
-        // unnesting function
+        // array functions
+        fc.add(ArrayRemoveDescriptor.FACTORY);
+        fc.add(ArrayPutDescriptor.FACTORY);
+        fc.add(ArrayPrependDescriptor.FACTORY);
+        fc.add(ArrayAppendDescriptor.FACTORY);
+        fc.add(ArrayInsertDescriptor.FACTORY);
+        fc.addGenerated(ArrayPositionDescriptor.FACTORY);
+        fc.addGenerated(ArrayRepeatDescriptor.FACTORY);
+        fc.addGenerated(ArrayContainsDescriptor.FACTORY);
+        fc.addGenerated(ArrayReverseDescriptor.FACTORY);
+        fc.addGenerated(ArraySortDescriptor.FACTORY);
+        fc.addGenerated(ArrayDistinctDescriptor.FACTORY);
+        fc.addGenerated(ArrayUnionDescriptor.FACTORY);
+        fc.addGenerated(ArrayIntersectDescriptor.FACTORY);
+        fc.addGenerated(ArrayIfNullDescriptor.FACTORY);
+        fc.addGenerated(ArrayConcatDescriptor.FACTORY);
+        fc.addGenerated(ArrayRangeDescriptor.FACTORY);
+        fc.addGenerated(ArrayFlattenDescriptor.FACTORY);
+        fc.add(ArrayReplaceDescriptor.FACTORY);
+        fc.addGenerated(ArraySymDiffDescriptor.FACTORY);
+        fc.addGenerated(ArraySymDiffnDescriptor.FACTORY);
+        fc.addGenerated(ArrayStarDescriptor.FACTORY);
+
+        // unnesting functions
         fc.add(TidRunningAggregateDescriptor.FACTORY);
         fc.add(ScanCollectionDescriptor.FACTORY);
         fc.add(RangeDescriptor.FACTORY);
@@ -571,7 +624,7 @@ public final class FunctionCollection implements IFunctionCollection {
         fc.addGenerated(StringRegExpPositionDescriptor.FACTORY);
         fc.addGenerated(StringRegExpPositionWithFlagDescriptor.FACTORY);
         fc.addGenerated(StringRegExpReplaceDescriptor.FACTORY);
-        fc.addGenerated(StringRegExpReplaceWithFlagsDescriptor.FACTORY);
+        fc.addGenerated(StringRegExpReplaceWithFlagDescriptor.FACTORY);
         fc.addGenerated(StringInitCapDescriptor.FACTORY);
         fc.addGenerated(StringTrimDescriptor.FACTORY);
         fc.addGenerated(StringLTrimDescriptor.FACTORY);
@@ -644,6 +697,14 @@ public final class FunctionCollection implements IFunctionCollection {
         fc.addGenerated(RecordRemoveFieldsDescriptor.FACTORY);
         fc.addGenerated(RecordLengthDescriptor.FACTORY);
         fc.addGenerated(RecordNamesDescriptor.FACTORY);
+        fc.addGenerated(RecordRemoveDescriptor.FACTORY);
+        fc.addGenerated(RecordRenameDescriptor.FACTORY);
+        fc.addGenerated(RecordUnwrapDescriptor.FACTORY);
+        fc.add(RecordReplaceDescriptor.FACTORY);
+        fc.add(RecordAddDescriptor.FACTORY);
+        fc.add(RecordPutDescriptor.FACTORY);
+        fc.addGenerated(RecordValuesDescriptor.FACTORY);
+        fc.addGenerated(PairsDescriptor.FACTORY);
 
         // Spatial and temporal type accessors
         fc.addGenerated(TemporalYearAccessor.FACTORY);
@@ -729,6 +790,8 @@ public final class FunctionCollection implements IFunctionCollection {
         fc.addGenerated(ToNumberDescriptor.FACTORY);
         fc.addGenerated(ToObjectDescriptor.FACTORY);
         fc.addGenerated(ToStringDescriptor.FACTORY);
+
+        fc.addGenerated(TreatAsIntegerDescriptor.FACTORY);
 
         // Cast function
         fc.addGenerated(CastTypeDescriptor.FACTORY);

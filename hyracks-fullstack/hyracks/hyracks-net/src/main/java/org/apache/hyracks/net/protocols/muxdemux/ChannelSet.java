@@ -199,8 +199,8 @@ public class ChannelSet {
         synchronized (mConn) {
             for (int i = 0; i < ccbArray.length; ++i) {
                 ChannelControlBlock ccb = ccbArray[i];
-                if (ccb != null && !ccb.getRemoteEOS()) {
-                    ccb.reportRemoteError(-1);
+                if (ccb != null) {
+                    ccb.reportRemoteError(AbstractChannelWriteInterface.LOCAL_ERROR_CODE);
                     markEOSAck(i);
                     unmarkPendingCredits(i);
                 }

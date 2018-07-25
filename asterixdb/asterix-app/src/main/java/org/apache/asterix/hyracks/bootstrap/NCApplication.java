@@ -26,6 +26,7 @@ import java.util.Set;
 
 import org.apache.asterix.api.http.server.ServletConstants;
 import org.apache.asterix.api.http.server.StorageApiServlet;
+import org.apache.asterix.app.io.PersistedResourceRegistry;
 import org.apache.asterix.app.nc.NCAppRuntimeContext;
 import org.apache.asterix.app.nc.RecoveryManager;
 import org.apache.asterix.app.replication.message.RegistrationTasksRequestMessage;
@@ -95,6 +96,8 @@ public class NCApplication extends BaseNCApplication {
         ((NodeControllerService) serviceCtx.getControllerService()).setNodeStatus(NodeStatus.IDLE);
         ncServiceCtx.setThreadFactory(
                 new AsterixThreadFactory(ncServiceCtx.getThreadFactory(), ncServiceCtx.getLifeCycleComponentManager()));
+        validateEnvironment();
+        configurePersistedResourceRegistry();
     }
 
     @Override
@@ -234,6 +237,7 @@ public class NCApplication extends BaseNCApplication {
         final Set<Integer> nodePartitions = runtimeContext.getReplicaManager().getPartitions();
         final PersistentLocalResourceRepository localResourceRepository =
                 (PersistentLocalResourceRepository) runtimeContext.getLocalResourceRepository();
+        localResourceRepository.deleteCorruptedResources();
         for (Integer partition : nodePartitions) {
             localResourceRepository.cleanup(partition);
         }
@@ -274,5 +278,17 @@ public class NCApplication extends BaseNCApplication {
             state = SystemState.BOOTSTRAPPING;
         }
         return state;
+    }
+
+    protected void validateEnvironment() throws HyracksDataException {
+        validateJavaRuntime();
+    }
+
+    protected void validateJavaRuntime() throws HyracksDataException {
+        ApplicationConfigurator.validateJavaRuntime();
+    }
+
+    protected void configurePersistedResourceRegistry() {
+        ncServiceCtx.setPersistedResourceRegistry(new PersistedResourceRegistry());
     }
 }

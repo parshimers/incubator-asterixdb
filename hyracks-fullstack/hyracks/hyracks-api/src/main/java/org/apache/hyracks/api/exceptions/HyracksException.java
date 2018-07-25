@@ -31,6 +31,7 @@ public class HyracksException extends IOException implements IFormattedException
     private final int errorCode;
     private final Serializable[] params;
     private final String nodeId;
+    private final SourceLocation sourceLoc;
     private transient volatile String msgCache;
 
     public static HyracksException create(Throwable cause) {
@@ -59,9 +60,10 @@ public class HyracksException extends IOException implements IFormattedException
         return new HyracksException(ErrorCode.HYRACKS, code, ErrorCode.getErrorMessage(code), cause, params);
     }
 
-    public HyracksException(String component, int errorCode, String message, Throwable cause, String nodeId,
-            Serializable... params) {
+    public HyracksException(String component, int errorCode, String message, Throwable cause, SourceLocation sourceLoc,
+            String nodeId, Serializable... params) {
         super(message, cause);
+        this.sourceLoc = sourceLoc;
         this.component = component;
         this.errorCode = errorCode;
         this.nodeId = nodeId;
@@ -73,7 +75,7 @@ public class HyracksException extends IOException implements IFormattedException
      */
     @Deprecated
     public HyracksException(String message) {
-        this(ErrorMessageUtil.NONE, UNKNOWN, message, null, null);
+        this(ErrorMessageUtil.NONE, UNKNOWN, message, null, null, (Serializable[]) null);
     }
 
     /**
@@ -81,7 +83,7 @@ public class HyracksException extends IOException implements IFormattedException
      */
     @Deprecated
     protected HyracksException(Throwable cause) {
-        this(ErrorMessageUtil.NONE, UNKNOWN, String.valueOf(cause), cause, null);
+        this(ErrorMessageUtil.NONE, UNKNOWN, ErrorMessageUtil.getCauseMessage(cause), cause, (Serializable[]) null);
     }
 
     /**
@@ -97,7 +99,7 @@ public class HyracksException extends IOException implements IFormattedException
     }
 
     public HyracksException(Throwable cause, int errorCode, Serializable... params) {
-        this(ErrorMessageUtil.NONE, errorCode, String.valueOf(cause), cause, null, params);
+        this(ErrorMessageUtil.NONE, errorCode, ErrorMessageUtil.getCauseMessage(cause), cause, null, params);
     }
 
     public HyracksException(String component, int errorCode, String message, Serializable... params) {
@@ -105,11 +107,16 @@ public class HyracksException extends IOException implements IFormattedException
     }
 
     public HyracksException(String component, int errorCode, Throwable cause, Serializable... params) {
-        this(component, errorCode, String.valueOf(cause), cause, null, params);
+        this(component, errorCode, ErrorMessageUtil.getCauseMessage(cause), cause, null, params);
     }
 
     public HyracksException(String component, int errorCode, String message, Throwable cause, Serializable... params) {
         this(component, errorCode, message, cause, null, params);
+    }
+
+    public HyracksException(String component, int errorCode, String message, Throwable cause, String nodeId,
+            Serializable... params) {
+        this(component, errorCode, message, cause, null, nodeId, params);
     }
 
     @Override
@@ -130,10 +137,14 @@ public class HyracksException extends IOException implements IFormattedException
         return nodeId;
     }
 
+    public SourceLocation getSourceLocation() {
+        return sourceLoc;
+    }
+
     @Override
     public String getMessage() {
         if (msgCache == null) {
-            msgCache = ErrorMessageUtil.formatMessage(component, errorCode, super.getMessage(), params);
+            msgCache = ErrorMessageUtil.formatMessage(component, errorCode, super.getMessage(), sourceLoc, params);
         }
         return msgCache;
     }

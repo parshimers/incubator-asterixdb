@@ -290,7 +290,7 @@ public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
                     .schedule(new NotifyTaskFailureWork(ncs, this, exceptions, joblet.getJobId(), taskAttemptId));
             return;
         }
-        ct.setName(displayName + ":" + taskAttemptId + ":" + 0);
+        ct.setName(displayName + ":" + joblet.getJobId() + ":" + taskAttemptId + ":" + 0);
         try {
             Throwable operatorException = null;
             try {
@@ -309,7 +309,8 @@ public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
                                 if (!addPendingThread(thread)) {
                                     return;
                                 }
-                                thread.setName(displayName + ":" + taskAttemptId + ":" + cIdx);
+                                thread.setName(
+                                        displayName + ":" + joblet.getJobId() + ":" + taskAttemptId + ":" + cIdx);
                                 thread.setPriority(Thread.MIN_PRIORITY);
                                 try {
                                     pushFrames(collector, inputChannelsFromConnectors.get(cIdx), writer);
@@ -468,5 +469,11 @@ public class Task implements IHyracksTaskContext, ICounterContext, Runnable {
 
     public boolean isCompleted() {
         return completed;
+    }
+
+    @Override
+    public String toString() {
+        return "{ \"class\" : \"" + getClass().getSimpleName() + "\", \"node\" : \"" + ncs.getId() + "\" \"jobId\" : \""
+                + joblet.getJobId() + "\", \"taskId\" : \"" + taskAttemptId + "\" }";
     }
 }

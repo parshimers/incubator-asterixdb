@@ -33,8 +33,16 @@ public class ExitUtil {
     public static final int EC_ABNORMAL_TERMINATION = 1;
     public static final int EC_FAILED_TO_STARTUP = 2;
     public static final int EC_FAILED_TO_RECOVER = 3;
-    public static final int NC_FAILED_TO_ABORT_ALL_PREVIOUS_TASKS = 4;
+    public static final int EC_NC_FAILED_TO_ABORT_ALL_PREVIOUS_TASKS = 4;
+    public static final int EC_FAILED_TO_PROCESS_UN_INTERRUPTIBLE_REQUEST = 5;
+    public static final int EC_FAILED_TO_COMMIT_METADATA_TXN = 6;
+    public static final int EC_FAILED_TO_ABORT_METADATA_TXN = 7;
+    public static final int EC_INCONSISTENT_METADATA = 8;
+    public static final int EC_UNCAUGHT_THROWABLE = 9;
     public static final int EC_UNHANDLED_EXCEPTION = 11;
+    public static final int EC_FAILED_TO_DELETE_CORRUPTED_RESOURCES = 12;
+    public static final int EC_ERROR_CREATING_RESOURCES = 13;
+    public static final int EC_FAILED_TO_CANCEL_ACTIVE_START_STOP = 22;
     public static final int EC_IMMEDIATE_HALT = 33;
     public static final int EC_HALT_ABNORMAL_RESERVED_44 = 44;
     public static final int EC_IO_SCHEDULER_FAILED = 55;
@@ -74,8 +82,8 @@ public class ExitUtil {
         exit(status);
     }
 
-    public static void halt(int status) {
-        LOGGER.fatal("JVM halting with status " + status + "; bye!", new Throwable("halt stacktrace"));
+    public static synchronized void halt(int status) {
+        LOGGER.fatal("JVM halting with status {}; thread dump at halt: {}", status, ThreadDumpUtil.takeDumpString());
         // try to give time for the log to be emitted...
         LogManager.shutdown();
         Runtime.getRuntime().halt(status);

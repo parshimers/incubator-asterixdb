@@ -18,6 +18,8 @@
  */
 package org.apache.hyracks.storage.common.buffercache;
 
+import static org.apache.hyracks.control.nc.io.IOManager.IO_REQUEST_QUEUE_SIZE;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
@@ -27,9 +29,9 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -74,7 +76,8 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
     private final CleanerThread cleanerThread;
     private final Map<Integer, BufferedFileHandle> fileInfoMap;
     private final AsyncFIFOPageQueueManager fifoWriter;
-    private final Queue<BufferCacheHeaderHelper> headerPageCache = new ConcurrentLinkedQueue<>();
+    private final BlockingQueue<BufferCacheHeaderHelper> headerPageCache =
+            new ArrayBlockingQueue<>(IO_REQUEST_QUEUE_SIZE);
 
     //DEBUG
     private static final Level fileOpsLevel = Level.DEBUG;
@@ -588,7 +591,7 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
             fInfo = fileInfoMap.get(fileId);
         }
         if (fInfo == null) {
-            throw new HyracksDataException("No such file mapped");
+            throw HyracksDataException.create(ErrorCode.FILE_DOES_NOT_EXIST, fileId);
         }
         return fInfo;
     }
@@ -607,11 +610,11 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
 
     void write(CachedPage cPage) throws HyracksDataException {
         BufferedFileHandle fInfo = getFileInfo(cPage);
-        if (fInfo == null) {
-            throw new IllegalStateException("Attempting to write non-existing file");
-        }
         // synchronize on fInfo to prevent the file handle from being deleted until the page is written.
         synchronized (fInfo) {
+            if (fInfo.fileHasBeenDeleted()) {
+                return;
+            }
             ByteBuffer buf = cPage.buffer.duplicate();
             final int totalPages = cPage.getFrameSizeMultiplier();
             final int extraBlockPageId = cPage.getExtraBlockPageId();
@@ -1032,13 +1035,15 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
                 }
             } finally {
                 try {
-                    ioManager.close(fInfo.getFileHandle());
+                    synchronized (fInfo) {
+                        ioManager.close(fInfo.getFileHandle());
+                        fInfo.markAsDeleted();
+                    }
                 } finally {
                     IoUtil.delete(fileRef);
                 }
             }
         }
-
     }
 
     @Override
