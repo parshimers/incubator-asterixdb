@@ -21,11 +21,10 @@ package org.apache.asterix.hyracks.bootstrap;
 
 import static org.apache.asterix.algebra.base.ILangExtension.Language.AQL;
 import static org.apache.asterix.algebra.base.ILangExtension.Language.SQLPP;
-import static org.apache.asterix.api.http.servlet.ServletConstants.ACCESS_LOG_ATTR;
+import static org.apache.asterix.api.http.server.ServletConstants.ACCESS_LOG_ATTR;
 import static org.apache.asterix.api.http.server.ServletConstants.ASTERIX_APP_CONTEXT_INFO_ATTR;
 import static org.apache.asterix.api.http.server.ServletConstants.HYRACKS_CONNECTION_ATTR;
 import static org.apache.asterix.common.api.IClusterManagementWork.ClusterState.SHUTTING_DOWN;
->>>>>>> master
 
 import java.io.IOException;
 import java.util.ArrayList;

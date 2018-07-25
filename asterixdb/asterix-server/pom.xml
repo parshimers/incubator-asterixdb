@@ -252,6 +252,11 @@
                 <platform>unix</platform>
               </platforms>
               <name>asterixcc</name>
+                <jvmSettings>
+                    <extraArguments>
+                        <extraArgument>-Dlog4jconfigurationFile=classpath:log4j2-cc.xml</extraArgument>
+                    </extraArguments>
+                </jvmSettings>
               <mainClass>org.apache.hyracks.control.cc.CCDriver</mainClass>
               <commandLineArguments>
                 <commandLineArgument>-app-class</commandLineArgument>
@@ -263,6 +268,11 @@
                 <platform>unix</platform>
               </platforms>
               <name>asterixnc</name>
+              <jvmSettings>
+                <extraArguments>
+                  <extraArgument>-Dlog4jconfigurationFile=classpath:log4j2-nc.xml</extraArgument>
+                </extraArguments>
+              </jvmSettings>
               <mainClass>org.apache.hyracks.control.nc.NCDriver</mainClass>
               <commandLineArguments>
                 <commandLineArgument>-app-class</commandLineArgument>

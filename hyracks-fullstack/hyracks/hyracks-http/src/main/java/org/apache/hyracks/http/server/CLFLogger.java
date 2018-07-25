@@ -52,8 +52,9 @@ public class CLFLogger extends ChannelDuplexHandler {
                 HttpRequest req = ((FullHttpRequest) msg);
                 clientIp = ctx.channel().remoteAddress().toString();
                 requestTime = Instant.now();
-                reqLine = new StringBuilder().append(req.method().toString()).append(" ").append(req.getUri().toString()).append(" ")
-                        .append(req.getProtocolVersion().toString()).append(" ").toString();
+                reqLine =
+                        new StringBuilder().append(req.method().toString()).append(" ").append(req.getUri().toString())
+                                .append(" ").append(req.getProtocolVersion().toString()).append(" ").toString();
             }
         }
         ctx.fireChannelRead(msg);
@@ -63,10 +64,10 @@ public class CLFLogger extends ChannelDuplexHandler {
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         if (logger.isEnabled(internalLevel)) {
             if (msg instanceof DefaultHttpResponse) {
-                HttpResponse resp = ((DefaultHttpResponse)msg);
+                HttpResponse resp = ((DefaultHttpResponse) msg);
                 statusCode = resp.status().code();
             } else if (msg instanceof DefaultHttpContent) {
-                HttpContent content = ((DefaultHttpContent)msg);
+                HttpContent content = ((DefaultHttpContent) msg);
                 respSize += content.content().readableBytes();
             }
 
@@ -77,14 +78,14 @@ public class CLFLogger extends ChannelDuplexHandler {
     @Override
     public void flush(ChannelHandlerContext ctx) throws Exception {
         if (logger.isEnabled(internalLevel)) {
-            if(respSize>0) {
+            if (respSize > 0) {
                 printAndPrepare();
             }
         }
         ctx.flush();
     }
 
-    private void printAndPrepare(){
+    private void printAndPrepare() {
         logLineBuilder.append(clientIp);
         logLineBuilder.append(" - ");
         logLineBuilder.append(" - [");
@@ -93,7 +94,7 @@ public class CLFLogger extends ChannelDuplexHandler {
         logLineBuilder.append(reqLine);
         logLineBuilder.append(" ").append(statusCode);
         logLineBuilder.append(" ").append(respSize);
-        logger.log(internalLevel,logLineBuilder.toString());
+        logger.log(internalLevel, logLineBuilder.toString());
         respSize = 0;
         logLineBuilder = new StringBuilder();
     }

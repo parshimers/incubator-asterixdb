@@ -18,13 +18,18 @@
  !-->
 <Configuration status="WARN">
   <Appenders>
-    <Console name="Console" target="SYSTEM_OUT">
+    <RollingFile name="RollingFile" fileName="logs/cc-current.log"
+                 filePattern="logs/$${date:yyyy-MM}/cc-%d{yyyy-MM-dd-HH}-%i.log.gz">
       <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
-    </Console>
+      <Policies>
+        <TimeBasedTriggeringPolicy interval="6" modulate="true"/>
+        <SizeBasedTriggeringPolicy size="250 MB"/>
+      </Policies>
+    </RollingFile>
   </Appenders>
   <Loggers>
     <Root level="WARN">
-      <AppenderRef ref="Console"/>
+      <AppenderRef ref="RollingFile"/>
     </Root>
     <Logger name="org.apache.hyracks.control.nc.service" level="INFO"/>
   </Loggers>
