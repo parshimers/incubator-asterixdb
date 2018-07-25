@@ -28,6 +28,9 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import io.netty.util.internal.logging.InternalLoggerFactory;
+import io.netty.util.internal.logging.Log4J2LoggerFactory;
+import io.netty.util.internal.logging.Log4JLoggerFactory;
 import org.apache.hyracks.http.api.IChannelClosedHandler;
 import org.apache.hyracks.http.api.IServlet;
 import org.apache.hyracks.util.MXHelper;
@@ -102,6 +105,7 @@ public class HttpServer {
         this.workerGroup = workerGroup;
         this.port = port;
         this.closedHandler = closeHandler;
+        InternalLoggerFactory.setDefaultFactory(Log4J2LoggerFactory.INSTANCE);
         ctx = new ConcurrentHashMap<>();
         servlets = new ArrayList<>();
         workQueue = new LinkedBlockingQueue<>(requestQueueSize);

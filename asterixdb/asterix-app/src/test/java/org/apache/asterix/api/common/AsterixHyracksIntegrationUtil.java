@@ -79,8 +79,6 @@ public class AsterixHyracksIntegrationUtil {
         System.setProperty("java.util.logging.manager", org.apache.logging.log4j.jul.LogManager.class.getName());
     }
 
-    static org.apache.log4j.Logger logger = org.apache.log4j.Logger.getLogger(AsterixHyracksIntegrationUtil.class);
-
     public ClusterControllerService cc;
     public NodeControllerService[] ncs = new NodeControllerService[2];
     public IHyracksClientConnection hcc;

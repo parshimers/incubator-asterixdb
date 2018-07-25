@@ -11,7 +11,6 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
 
 import java.text.SimpleDateFormat;
 import java.time.Instant;
-import java.time.LocalDateTime;
 
 public class CLFLogger extends ChannelDuplexHandler {
 

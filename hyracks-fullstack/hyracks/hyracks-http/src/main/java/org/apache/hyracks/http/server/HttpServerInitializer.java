@@ -25,13 +25,10 @@ import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpRequestDecoder;
 import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.logging.LogLevel;
-import io.netty.handler.logging.LoggingHandler;
-
-import java.util.logging.Logger;
+import org.apache.logging.log4j.Logger;
 
 public class HttpServerInitializer extends ChannelInitializer<SocketChannel> {
 
-    private static final Logger LOGGER = Logger.getLogger(HttpServerInitializer.class.getName());
     public static final int MAX_REQUEST_CHUNK_SIZE = 262144;
     public static final int MAX_REQUEST_HEADER_SIZE = 262144;
     public static final int MAX_REQUEST_INITIAL_LINE_LENGTH = 131072;
@@ -50,7 +47,7 @@ public class HttpServerInitializer extends ChannelInitializer<SocketChannel> {
                 MAX_REQUEST_CHUNK_SIZE));
         p.addLast(new HttpResponseEncoder());
         p.addLast(new HttpObjectAggregator(Integer.MAX_VALUE));
-        p.addLast(new CLFLogger(java.util.logging.Logger.class, LogLevel.WARN));
+        p.addLast(new CLFLogger(Logger.class, LogLevel.WARN));
         p.addLast(server.createHttpHandler(RESPONSE_CHUNK_SIZE));
     }
 }
