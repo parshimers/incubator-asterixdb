@@ -113,11 +113,12 @@ public class HttpServer {
                 runnable -> new Thread(runnable, "HttpExecutor(port:" + port + ")-" + threadId.getAndIncrement()));
         long directMemoryBudget = numExecutorThreads * (long) HIGH_WRITE_BUFFER_WATER_MARK
                 + numExecutorThreads * HttpServerInitializer.RESPONSE_CHUNK_SIZE;
-        LOGGER.log(Level.INFO, "The output direct memory budget for this server is " + directMemoryBudget + " bytes");
+        LOGGER.log(Level.DEBUG,
+                "The output direct memory budget for this server " + "is " + directMemoryBudget + " bytes");
         long inputBudgetEstimate =
                 (long) HttpServerInitializer.MAX_REQUEST_INITIAL_LINE_LENGTH * (requestQueueSize + numExecutorThreads);
         inputBudgetEstimate = inputBudgetEstimate * 2;
-        LOGGER.log(Level.INFO,
+        LOGGER.log(Level.DEBUG,
                 "The \"estimated\" input direct memory budget for this server is " + inputBudgetEstimate + " bytes");
         // Having multiple arenas, memory fragments, and local thread cached buffers
         // can cause the input memory usage to exceed estimate and custom buffer allocator must be used to avoid this

@@ -37,6 +37,7 @@ public class ControllerConfig implements Serializable {
     public enum Option implements IOption {
         CONFIG_FILE(OptionTypes.STRING, "Specify path to master configuration file", null),
         CONFIG_FILE_URL(OptionTypes.URL, "Specify URL to master configuration file", null),
+        LOG_DIR(OptionTypes.STRING, "Log file absolute or relative path", "logs/"),
         DEFAULT_DIR(
                 OptionTypes.STRING,
                 "Directory where files are written to by default",
@@ -105,5 +106,9 @@ public class ControllerConfig implements Serializable {
 
     public void setConfigFileUrl(URL configFileUrl) {
         configManager.set(ControllerConfig.Option.CONFIG_FILE_URL, configFileUrl);
+    }
+
+    public String getLogDir() {
+        return configManager.getAppConfig().getString(ControllerConfig.Option.LOG_DIR);
     }
 }
