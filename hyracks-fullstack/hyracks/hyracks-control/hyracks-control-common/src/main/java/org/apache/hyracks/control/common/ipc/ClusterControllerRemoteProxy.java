@@ -22,10 +22,10 @@ import java.util.List;
 
 import org.apache.hyracks.api.comm.NetworkAddress;
 import org.apache.hyracks.api.dataflow.TaskAttemptId;
-import org.apache.hyracks.api.dataset.ResultSetId;
 import org.apache.hyracks.api.deployment.DeploymentId;
 import org.apache.hyracks.api.job.DeployedJobSpecId;
 import org.apache.hyracks.api.job.JobId;
+import org.apache.hyracks.api.result.ResultSetId;
 import org.apache.hyracks.control.common.base.IClusterController;
 import org.apache.hyracks.control.common.controllers.NodeRegistration;
 import org.apache.hyracks.control.common.deployment.DeploymentStatus;
@@ -172,6 +172,12 @@ public class ClusterControllerRemoteProxy implements IClusterController {
     public void notifyThreadDump(String nodeId, String requestId, String threadDumpJSON) throws Exception {
         ThreadDumpResponseFunction tdrf = new ThreadDumpResponseFunction(nodeId, requestId, threadDumpJSON);
         ipcHandle.send(-1, tdrf, null);
+    }
+
+    @Override
+    public void notifyPingResponse(String nodeId) throws Exception {
+        CCNCFunctions.PingResponseFunction fn = new CCNCFunctions.PingResponseFunction(nodeId);
+        ipcHandle.send(-1, fn, null);
     }
 
     @Override

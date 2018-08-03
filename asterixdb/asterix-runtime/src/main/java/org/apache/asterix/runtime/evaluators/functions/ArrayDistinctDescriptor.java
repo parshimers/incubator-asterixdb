@@ -28,6 +28,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.apache.asterix.builders.IAsterixListBuilder;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
+import org.apache.asterix.dataflow.data.nontagged.comparators.AObjectAscBinaryComparatorFactory;
 import org.apache.asterix.formats.nontagged.BinaryHashFunctionFactoryProvider;
 import org.apache.asterix.om.functions.BuiltinFunctions;
 import org.apache.asterix.om.functions.IFunctionDescriptor;
@@ -44,12 +45,31 @@ import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
+import org.apache.hyracks.api.dataflow.value.IBinaryComparator;
 import org.apache.hyracks.api.dataflow.value.IBinaryHashFunction;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.SourceLocation;
 import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 
+/**
+ * <pre>
+ * array_distinct(list) returns a new list with distinct items of the input list. The returned list has the same type as
+ * the input list. The list can contain null and missing items. Null and missing are considered to be the same.
+ * It's case-sensitive to string items.
+ *
+ * array_distinct([1,2,null,4,missing,2,1]) will output [1,2,null,4]
+ *
+ * It throws an error at compile time if the number of arguments != 1
+ *
+ * It returns (or throws an error at runtime) in order:
+ * 1. missing, if any argument is missing.
+ * 2. null, if the list arg is null or it's not a list.
+ * 3. an error if any list item is a list/object type (i.e. derived type) since deep equality is not yet supported.
+ * 4. otherwise, a new list.
+ *
+ * </pre>
+ */
 public class ArrayDistinctDescriptor extends AbstractScalarFunctionDynamicDescriptor {
     private static final long serialVersionUID = 1L;
     private IAType inputListType;
@@ -94,6 +114,7 @@ public class ArrayDistinctDescriptor extends AbstractScalarFunctionDynamicDescri
         private final SourceLocation sourceLoc;
         private final IBinaryHashFunction binaryHashFunction;
         private final Int2ObjectMap<List<IPointable>> hashes;
+        private final IBinaryComparator comp;
         private IPointable item;
         private ArrayBackedValueStorage storage;
 
@@ -102,6 +123,7 @@ public class ArrayDistinctDescriptor extends AbstractScalarFunctionDynamicDescri
             super(args, ctx, inputListType);
             this.sourceLoc = sourceLoc;
             hashes = new Int2ObjectOpenHashMap<>();
+            comp = AObjectAscBinaryComparatorFactory.INSTANCE.createBinaryComparator();
             item = pointableAllocator.allocateEmpty();
             storage = (ArrayBackedValueStorage) storageAllocator.allocate(null);
             binaryHashFunction = BinaryHashFunctionFactoryProvider.INSTANCE.getBinaryHashFunctionFactory(null)
@@ -138,7 +160,7 @@ public class ArrayDistinctDescriptor extends AbstractScalarFunctionDynamicDescri
                         addItem(item, listBuilder, itemInStorage, sameHashes);
                         hashes.put(hash, sameHashes);
                         item = pointableAllocator.allocateEmpty();
-                    } else if (ArrayFunctionsUtil.findItem(item, sameHashes) == null) {
+                    } else if (ArrayFunctionsUtil.findItem(item, sameHashes, comp) == null) {
                         // new item, it could happen that two hashes are the same but they are for different items
                         addItem(item, listBuilder, itemInStorage, sameHashes);
                         item = pointableAllocator.allocateEmpty();

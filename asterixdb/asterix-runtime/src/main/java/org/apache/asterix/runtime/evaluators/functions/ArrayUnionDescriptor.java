@@ -24,6 +24,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.apache.asterix.builders.ArrayListFactory;
 import org.apache.asterix.builders.IAsterixListBuilder;
+import org.apache.asterix.dataflow.data.nontagged.comparators.AObjectAscBinaryComparatorFactory;
 import org.apache.asterix.formats.nontagged.BinaryHashFunctionFactoryProvider;
 import org.apache.asterix.om.functions.BuiltinFunctions;
 import org.apache.asterix.om.functions.IFunctionDescriptor;
@@ -41,13 +42,14 @@ import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
+import org.apache.hyracks.api.dataflow.value.IBinaryComparator;
 import org.apache.hyracks.api.dataflow.value.IBinaryHashFunction;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IPointable;
 
 /**
  * <pre>
- * array_union(list1, list2, ...) returns a new open list with the set union of the input lists (no duplicates).
+ * array_union(list1, list2, ...) returns a new list with the set union of the input lists (no duplicates).
  * Items of the lists can be null or missing (both are added as a null value).
  * array_union([null, 2], [missing, 3, null]) will result in [null, 2, null, 3] where one null is for the missing item
  * and the second null for the null item.
@@ -58,8 +60,8 @@ import org.apache.hyracks.data.std.api.IPointable;
  * 1. missing, if any argument is missing.
  * 2. an error if the input lists are not of the same type (one is an ordered list while the other is unordered).
  * 3. null, if any input list is null or is not a list.
- * 4. an error if any list item is of a list/object type (i.e. derived type) since deep equality is not yet supported.
- * 5. otherwise, a new open list.
+ * 4. an error if any list item is a list/object type (i.e. derived type) since deep equality is not yet supported.
+ * 5. otherwise, a new list.
  *
  * </pre>
  */
@@ -106,11 +108,13 @@ public class ArrayUnionDescriptor extends AbstractScalarFunctionDynamicDescripto
         private final IObjectPool<List<IPointable>, ATypeTag> pointableListAllocator;
         private final IBinaryHashFunction binaryHashFunction;
         private final Int2ObjectMap<List<IPointable>> hashes;
+        private final IBinaryComparator comp;
 
         public ArrayUnionEval(IScalarEvaluatorFactory[] args, IHyracksTaskContext ctx) throws HyracksDataException {
             super(args, ctx, true, sourceLoc, argTypes);
             pointableListAllocator = new ListObjectPool<>(new ArrayListFactory<>());
             hashes = new Int2ObjectOpenHashMap<>();
+            comp = AObjectAscBinaryComparatorFactory.INSTANCE.createBinaryComparator();
             binaryHashFunction = BinaryHashFunctionFactoryProvider.INSTANCE.getBinaryHashFunctionFactory(null)
                     .createBinaryHashFunction();
         }
@@ -142,7 +146,7 @@ public class ArrayUnionDescriptor extends AbstractScalarFunctionDynamicDescripto
                 addItem(listBuilder, item, sameHashes);
                 hashes.put(hash, sameHashes);
                 return true;
-            } else if (ArrayFunctionsUtil.findItem(item, sameHashes) == null) {
+            } else if (ArrayFunctionsUtil.findItem(item, sameHashes, comp) == null) {
                 // new item, it could happen that two hashes are the same but they are for different items
                 addItem(listBuilder, item, sameHashes);
                 return true;

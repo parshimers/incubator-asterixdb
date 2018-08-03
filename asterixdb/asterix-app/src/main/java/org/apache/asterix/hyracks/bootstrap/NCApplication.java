@@ -71,6 +71,8 @@ import org.apache.hyracks.control.common.controllers.NCConfig;
 import org.apache.hyracks.control.nc.BaseNCApplication;
 import org.apache.hyracks.control.nc.NodeControllerService;
 import org.apache.hyracks.http.server.HttpServer;
+import org.apache.hyracks.http.server.HttpServerConfig;
+import org.apache.hyracks.http.server.HttpServerConfigBuilder;
 import org.apache.hyracks.http.server.WebManager;
 import org.apache.hyracks.util.LoggingConfigUtil;
 import org.apache.logging.log4j.Level;
@@ -111,6 +113,7 @@ public class NCApplication extends BaseNCApplication {
     private INcApplicationContext runtimeContext;
     private String nodeId;
     private boolean stopInitiated;
+    private boolean startupCompleted;
     protected WebManager webManager;
 
     @Override
@@ -192,8 +195,11 @@ public class NCApplication extends BaseNCApplication {
     }
 
     protected void configureServers() throws Exception {
+        final ExternalProperties externalProperties = getApplicationContext().getExternalProperties();
+        final HttpServerConfig config =
+                HttpServerConfigBuilder.custom().setMaxRequestSize(externalProperties.getMaxWebRequestSize()).build();
         HttpServer apiServer = new HttpServer(webManager.getBosses(), webManager.getWorkers(),
-                getApplicationContext().getExternalProperties().getNcApiPort());
+                externalProperties.getNcApiPort(), config);
         apiServer.setAttribute(ServletConstants.SERVICE_CONTEXT_ATTR, ncServiceCtx);
         apiServer.addServlet(new StorageApiServlet(apiServer.ctx(), getApplicationContext(), Servlets.STORAGE));
         webManager.add(apiServer);
@@ -238,14 +244,19 @@ public class NCApplication extends BaseNCApplication {
     }
 
     @Override
-    public void startupCompleted() throws Exception {
+    public synchronized void startupCompleted() throws Exception {
         // configure servlets after joining the cluster, so we can create HyracksClientConnection
         configureServers();
         webManager.start();
+        startupCompleted = true;
+        notifyAll();
     }
 
     @Override
-    public synchronized void onRegisterNode(CcId ccId) throws Exception {
+    public synchronized void tasksCompleted(CcId ccId) throws Exception {
+        while (!startupCompleted) {
+            this.wait();
+        }
         final NodeControllerService ncs = (NodeControllerService) ncServiceCtx.getControllerService();
         final NodeStatus currentStatus = ncs.getNodeStatus();
         final SystemState systemState = isPendingStartupTasks(currentStatus, ncs.getPrimaryCcId(), ccId)

@@ -46,13 +46,13 @@ import org.apache.hyracks.api.dataflow.TaskAttemptId;
 import org.apache.hyracks.api.dataflow.TaskId;
 import org.apache.hyracks.api.dataflow.connectors.ConnectorPolicyFactory;
 import org.apache.hyracks.api.dataflow.connectors.IConnectorPolicy;
-import org.apache.hyracks.api.dataset.ResultSetId;
 import org.apache.hyracks.api.deployment.DeploymentId;
 import org.apache.hyracks.api.job.DeployedJobSpecId;
 import org.apache.hyracks.api.job.JobFlag;
 import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.api.job.JobStatus;
 import org.apache.hyracks.api.partitions.PartitionId;
+import org.apache.hyracks.api.result.ResultSetId;
 import org.apache.hyracks.control.common.controllers.NodeParameters;
 import org.apache.hyracks.control.common.controllers.NodeRegistration;
 import org.apache.hyracks.control.common.deployment.DeploymentStatus;
@@ -112,6 +112,9 @@ public class CCNCFunctions {
 
         THREAD_DUMP_REQUEST,
         THREAD_DUMP_RESPONSE,
+
+        PING_REQUEST,
+        PING_RESPONSE,
 
         OTHER
     }
@@ -1316,6 +1319,19 @@ public class CCNCFunctions {
         }
     }
 
+    public static class PingFunction extends CCIdentifiedFunction {
+        private static final long serialVersionUID = 1L;
+
+        public PingFunction(CcId ccId) {
+            super(ccId);
+        }
+
+        @Override
+        public FunctionId getFunctionId() {
+            return FunctionId.PING_REQUEST;
+        }
+    }
+
     public static class ShutdownRequestFunction extends CCIdentifiedFunction {
         private static final long serialVersionUID = 1L;
 
@@ -1352,6 +1368,25 @@ public class CCNCFunctions {
         @Override
         public FunctionId getFunctionId() {
             return FunctionId.SHUTDOWN_RESPONSE;
+        }
+    }
+
+    public static class PingResponseFunction extends Function {
+        private static final long serialVersionUID = 1L;
+
+        private final String nodeId;
+
+        public PingResponseFunction(String nodeId) {
+            this.nodeId = nodeId;
+        }
+
+        public String getNodeId() {
+            return nodeId;
+        }
+
+        @Override
+        public FunctionId getFunctionId() {
+            return FunctionId.PING_RESPONSE;
         }
     }
 

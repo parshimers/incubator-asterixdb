@@ -42,6 +42,9 @@ public class ExitUtil {
     public static final int EC_UNHANDLED_EXCEPTION = 11;
     public static final int EC_FAILED_TO_DELETE_CORRUPTED_RESOURCES = 12;
     public static final int EC_ERROR_CREATING_RESOURCES = 13;
+    public static final int EC_TXN_LOG_FLUSHER_FAILURE = 14;
+    public static final int EC_NODE_REGISTRATION_FAILURE = 15;
+    public static final int EC_NETWORK_FAILURE = 16;
     public static final int EC_FAILED_TO_CANCEL_ACTIVE_START_STOP = 22;
     public static final int EC_IMMEDIATE_HALT = 33;
     public static final int EC_HALT_ABNORMAL_RESERVED_44 = 44;
@@ -71,7 +74,7 @@ public class ExitUtil {
                 LOGGER.warn("ignoring duplicate request to exit with status " + status
                         + "; already exiting with status " + exitThread.status + "...");
             } else {
-                exitThread.setStatus(status);
+                exitThread.setStatus(status, new Throwable("exit callstack"));
                 exitThread.start();
             }
         }
@@ -102,7 +105,7 @@ public class ExitUtil {
                 exitThread.join(shutdownHaltDelay.getValue()); // 10 min
                 if (exitThread.isAlive()) {
                     try {
-                        LOGGER.info("Watchdog is angry. Killing shutdown hook");
+                        LOGGER.warn("Watchdog is angry. Killing shutdown hook");
                     } finally {
                         ExitUtil.halt(EC_HALT_SHUTDOWN_TIMED_OUT);
                     }
@@ -114,7 +117,8 @@ public class ExitUtil {
     }
 
     private static class ExitThread extends Thread {
-        private int status;
+        private volatile int status;
+        private volatile Throwable callstack;
 
         ExitThread() {
             super("JVM exit thread");
@@ -124,14 +128,15 @@ public class ExitUtil {
         @Override
         public void run() {
             try {
-                LOGGER.info("JVM exiting with status " + status + "; bye!");
+                LOGGER.warn("JVM exiting with status " + status + "; bye!", callstack);
             } finally {
                 Runtime.getRuntime().exit(status);
             }
         }
 
-        public void setStatus(int status) {
+        public void setStatus(int status, Throwable callstack) {
             this.status = status;
+            this.callstack = callstack;
         }
     }
 }

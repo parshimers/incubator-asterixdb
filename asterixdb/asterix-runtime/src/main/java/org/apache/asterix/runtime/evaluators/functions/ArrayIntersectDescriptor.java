@@ -33,26 +33,31 @@ import org.apache.asterix.builders.OrderedListBuilder;
 import org.apache.asterix.builders.UnorderedListBuilder;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
+import org.apache.asterix.dataflow.data.nontagged.comparators.AObjectAscBinaryComparatorFactory;
 import org.apache.asterix.dataflow.data.nontagged.serde.AOrderedListSerializerDeserializer;
 import org.apache.asterix.dataflow.data.nontagged.serde.AUnorderedListSerializerDeserializer;
 import org.apache.asterix.formats.nontagged.BinaryHashFunctionFactoryProvider;
 import org.apache.asterix.om.functions.BuiltinFunctions;
 import org.apache.asterix.om.functions.IFunctionDescriptor;
 import org.apache.asterix.om.functions.IFunctionDescriptorFactory;
+import org.apache.asterix.om.functions.IFunctionTypeInferer;
 import org.apache.asterix.om.pointables.PointableAllocator;
 import org.apache.asterix.om.pointables.base.DefaultOpenFieldType;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.AbstractCollectionType;
+import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.util.container.IObjectPool;
 import org.apache.asterix.om.util.container.ListObjectPool;
 import org.apache.asterix.runtime.evaluators.base.AbstractScalarFunctionDynamicDescriptor;
 import org.apache.asterix.runtime.evaluators.common.ListAccessor;
+import org.apache.asterix.runtime.functions.FunctionTypeInferers;
 import org.apache.asterix.runtime.utils.ArrayFunctionsUtil;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
+import org.apache.hyracks.api.dataflow.value.IBinaryComparator;
 import org.apache.hyracks.api.dataflow.value.IBinaryHashFunction;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IMutableValueStorage;
@@ -62,13 +67,37 @@ import org.apache.hyracks.data.std.primitive.VoidPointable;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 import org.apache.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 
+/**
+ * <pre>
+ * array_intersect(list1, list2, ...) returns a new list containing items that are present in all of the input
+ * lists. Null and missing items are ignored. It's case-sensitive to string items.
+ *
+ * array_intersect([null, 2, missing], [3,missing,2,null]) will result in [2].
+ *
+ * It throws an error at compile time if the number of arguments < 2
+ *
+ * It returns (or throws an error at runtime) in order:
+ * 1. missing, if any argument is missing.
+ * 2. an error if the input lists are not of the same type (one is an ordered list while the other is unordered).
+ * 3. null, if any input list is null or is not a list.
+ * 4. an error if any list item is a list/object type (i.e. derived type) since deep equality is not yet supported.
+ * 5. otherwise, a new list.
+ *
+ * </pre>
+ */
 public class ArrayIntersectDescriptor extends AbstractScalarFunctionDynamicDescriptor {
     private static final long serialVersionUID = 1L;
+    private IAType[] argTypes;
 
     public static final IFunctionDescriptorFactory FACTORY = new IFunctionDescriptorFactory() {
         @Override
         public IFunctionDescriptor createFunctionDescriptor() {
             return new ArrayIntersectDescriptor();
+        }
+
+        @Override
+        public IFunctionTypeInferer createFunctionTypeInferer() {
+            return FunctionTypeInferers.SET_ARGUMENTS_TYPE;
         }
     };
 
@@ -103,6 +132,11 @@ public class ArrayIntersectDescriptor extends AbstractScalarFunctionDynamicDescr
     }
 
     @Override
+    public void setImmutableStates(Object... states) {
+        argTypes = (IAType[]) states;
+    }
+
+    @Override
     public IScalarEvaluatorFactory createEvaluatorFactory(final IScalarEvaluatorFactory[] args)
             throws AlgebricksException {
         return new IScalarEvaluatorFactory() {
@@ -125,6 +159,8 @@ public class ArrayIntersectDescriptor extends AbstractScalarFunctionDynamicDescr
         private final IObjectPool<IMutableValueStorage, ATypeTag> storageAllocator;
         private final IObjectPool<List<ValueListIndex>, ATypeTag> arrayListAllocator;
         private final ArrayBackedValueStorage finalResult;
+        private final CastTypeEvaluator caster;
+        private final IBinaryComparator comp;
         private IAsterixListBuilder orderedListBuilder;
         private IAsterixListBuilder unorderedListBuilder;
 
@@ -137,6 +173,8 @@ public class ArrayIntersectDescriptor extends AbstractScalarFunctionDynamicDescr
             hashes = new Int2ObjectOpenHashMap<>();
             finalResult = new ArrayBackedValueStorage();
             listAccessor = new ListAccessor();
+            caster = new CastTypeEvaluator();
+            comp = AObjectAscBinaryComparatorFactory.INSTANCE.createBinaryComparator();
             listsArgs = new IPointable[args.length];
             listsEval = new IScalarEvaluator[args.length];
             for (int i = 0; i < args.length; i++) {
@@ -158,6 +196,7 @@ public class ArrayIntersectDescriptor extends AbstractScalarFunctionDynamicDescr
             int nextSize;
             IScalarEvaluator listEval;
             IPointable listArg;
+
             // evaluate all the lists first to make sure they're all actually lists and of the same list type
             for (int i = 0; i < listsEval.length; i++) {
                 listEval = listsEval[i];
@@ -175,6 +214,8 @@ public class ArrayIntersectDescriptor extends AbstractScalarFunctionDynamicDescr
                             outList = (AbstractCollectionType) DefaultOpenFieldType.getDefaultOpenFieldType(listTag);
                         }
 
+                        caster.reset(outList, argTypes[i], listsEval[i]);
+                        caster.evaluate(tuple, listsArgs[i]);
                         nextSize = getNumItems(outList, listArg.getByteArray(), listArg.getStartOffset());
                         if (nextSize < minSize) {
                             minSize = nextSize;
@@ -284,7 +325,7 @@ public class ArrayIntersectDescriptor extends AbstractScalarFunctionDynamicDescr
                 newHashes.add(new ValueListIndex(item, -1));
                 hashes.put(hash, newHashes);
                 return true;
-            } else if (ArrayFunctionsUtil.findItem(item, sameHashes) == null) {
+            } else if (ArrayFunctionsUtil.findItem(item, sameHashes, comp) == null) {
                 sameHashes.add(new ValueListIndex(item, -1));
                 return true;
             }
@@ -322,7 +363,7 @@ public class ArrayIntersectDescriptor extends AbstractScalarFunctionDynamicDescr
 
         private void incrementIfExists(List<ValueListIndex> sameHashes, IPointable item, int listIndex,
                 IAsterixListBuilder listBuilder) throws HyracksDataException {
-            ValueListIndex sameValue = ArrayFunctionsUtil.findItem(item, sameHashes);
+            ValueListIndex sameValue = ArrayFunctionsUtil.findItem(item, sameHashes, comp);
             if (sameValue != null && listIndex - sameValue.listIndex == 1) {
                 // found the item, its stamp is OK (stamp saves the last list index that has seen this item)
                 // increment stamp of this item

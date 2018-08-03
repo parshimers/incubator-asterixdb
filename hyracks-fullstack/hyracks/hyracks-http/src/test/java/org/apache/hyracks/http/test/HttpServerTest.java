@@ -34,10 +34,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.hyracks.http.HttpTestUtil;
 import org.apache.hyracks.http.server.HttpServer;
+import org.apache.hyracks.http.server.HttpServerConfig;
+import org.apache.hyracks.http.server.HttpServerConfigBuilder;
 import org.apache.hyracks.http.server.InterruptOnCloseHandler;
 import org.apache.hyracks.http.server.WebManager;
 import org.apache.hyracks.http.servlet.ChattyServlet;
 import org.apache.hyracks.http.servlet.SleepyServlet;
+import org.apache.hyracks.util.StorageUtil;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -79,8 +82,9 @@ public class HttpServerTest {
         int numExecutors = 16;
         int serverQueueSize = 16;
         int numRequests = 128;
-        HttpServer server =
-                new HttpServer(webMgr.getBosses(), webMgr.getWorkers(), PORT, numExecutors, serverQueueSize);
+        final HttpServerConfig config = HttpServerConfigBuilder.custom().setThreadCount(numExecutors)
+                .setRequestQueueSize(serverQueueSize).build();
+        HttpServer server = new HttpServer(webMgr.getBosses(), webMgr.getWorkers(), PORT, config);
         SleepyServlet servlet = new SleepyServlet(server.ctx(), new String[] { PATH });
         server.addServlet(servlet);
         webMgr.add(server);
@@ -135,8 +139,9 @@ public class HttpServerTest {
         int numExecutors = 2;
         int serverQueueSize = 2;
         int numPatches = 60;
-        HttpServer server =
-                new HttpServer(webMgr.getBosses(), webMgr.getWorkers(), PORT, numExecutors, serverQueueSize);
+        final HttpServerConfig config = HttpServerConfigBuilder.custom().setThreadCount(numExecutors)
+                .setRequestQueueSize(serverQueueSize).build();
+        HttpServer server = new HttpServer(webMgr.getBosses(), webMgr.getWorkers(), PORT, config);
         SleepyServlet servlet = new SleepyServlet(server.ctx(), new String[] { PATH });
         server.addServlet(servlet);
         webMgr.add(server);
@@ -182,8 +187,9 @@ public class HttpServerTest {
         int serverQueueSize = 24;
         HttpTestUtil.printMemUsage();
         WebManager webMgr = new WebManager();
-        HttpServer server =
-                new HttpServer(webMgr.getBosses(), webMgr.getWorkers(), PORT, numExecutors, serverQueueSize);
+        final HttpServerConfig config = HttpServerConfigBuilder.custom().setThreadCount(numExecutors)
+                .setRequestQueueSize(serverQueueSize).build();
+        HttpServer server = new HttpServer(webMgr.getBosses(), webMgr.getWorkers(), PORT, config);
         ChattyServlet servlet = new ChattyServlet(server.ctx(), new String[] { PATH });
         server.addServlet(servlet);
         webMgr.add(server);
@@ -208,8 +214,9 @@ public class HttpServerTest {
         int numExecutors = 16;
         int serverQueueSize = 16;
         WebManager webMgr = new WebManager();
-        HttpServer server =
-                new HttpServer(webMgr.getBosses(), webMgr.getWorkers(), PORT, numExecutors, serverQueueSize);
+        final HttpServerConfig config = HttpServerConfigBuilder.custom().setThreadCount(numExecutors)
+                .setRequestQueueSize(serverQueueSize).build();
+        HttpServer server = new HttpServer(webMgr.getBosses(), webMgr.getWorkers(), PORT, config);
         SleepyServlet servlet = new SleepyServlet(server.ctx(), new String[] { PATH });
         server.addServlet(servlet);
         webMgr.add(server);
@@ -245,8 +252,9 @@ public class HttpServerTest {
         int serverQueueSize = 16;
         int numRequests = 1;
         WebManager webMgr = new WebManager();
-        HttpServer server =
-                new HttpServer(webMgr.getBosses(), webMgr.getWorkers(), PORT, numExecutors, serverQueueSize);
+        final HttpServerConfig config = HttpServerConfigBuilder.custom().setThreadCount(numExecutors)
+                .setRequestQueueSize(serverQueueSize).build();
+        HttpServer server = new HttpServer(webMgr.getBosses(), webMgr.getWorkers(), PORT, config);
         ChattyServlet servlet = new ChattyServlet(server.ctx(), new String[] { PATH });
         server.addServlet(servlet);
         webMgr.add(server);
@@ -301,8 +309,10 @@ public class HttpServerTest {
         WebManager webMgr = new WebManager();
         int numExecutors = 1;
         int queueSize = 1;
-        HttpServer server = new HttpServer(webMgr.getBosses(), webMgr.getWorkers(), PORT, numExecutors, queueSize,
-                InterruptOnCloseHandler.INSTANCE);
+        final HttpServerConfig config =
+                HttpServerConfigBuilder.custom().setThreadCount(numExecutors).setRequestQueueSize(queueSize).build();
+        HttpServer server =
+                new HttpServer(webMgr.getBosses(), webMgr.getWorkers(), PORT, config, InterruptOnCloseHandler.INSTANCE);
         SleepyServlet servlet = new SleepyServlet(server.ctx(), new String[] { PATH });
         server.addServlet(servlet);
         webMgr.add(server);
@@ -335,6 +345,31 @@ public class HttpServerTest {
         }
     }
 
+    @Test
+    public void testLargeRequest() throws Exception {
+        WebManager webMgr = new WebManager();
+        // Server with max allowed request size = 512K
+        final int maxRequestSize = StorageUtil.getIntSizeInBytes(512, StorageUtil.StorageUnit.KILOBYTE);
+        final HttpServerConfig config = HttpServerConfigBuilder.custom().setMaxRequestSize(maxRequestSize).build();
+        HttpServer server = new HttpServer(webMgr.getBosses(), webMgr.getWorkers(), PORT, config);
+        ChattyServlet servlet = new ChattyServlet(server.ctx(), new String[] { PATH });
+        server.addServlet(servlet);
+        webMgr.add(server);
+        webMgr.start();
+        Exception failure = null;
+        try {
+            request(1, maxRequestSize + 1);
+            for (Future<Void> thread : FUTURES) {
+                thread.get();
+            }
+        } catch (Exception e) {
+            failure = e;
+        } finally {
+            webMgr.stop();
+        }
+        Assert.assertNotNull(failure);
+    }
+
     public static void setPrivateField(Object obj, String filedName, Object value) throws Exception {
         Field f = obj.getClass().getDeclaredField(filedName);
         f.setAccessible(true);
@@ -342,8 +377,12 @@ public class HttpServerTest {
     }
 
     private void request(int count) throws URISyntaxException {
+        request(count, 0);
+    }
+
+    private void request(int count, int entitySize) throws URISyntaxException {
         for (int i = 0; i < count; i++) {
-            HttpRequestTask requestTask = new HttpRequestTask();
+            HttpRequestTask requestTask = new HttpRequestTask(entitySize);
             Future<Void> next = executor.submit(requestTask);
             FUTURES.add(next);
             TASKS.add(requestTask);

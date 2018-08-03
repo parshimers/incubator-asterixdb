@@ -47,9 +47,24 @@ import org.apache.hyracks.api.exceptions.SourceLocation;
 import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 
+/**
+ * <pre>
+ * array_sort(list) returns a new list with the items sorted in ascending order. The returned list has the same type as
+ * the input list. The list can contain null and missing items, and both are preserved. It's case-sensitive to string
+ * items.
+ *
+ * It throws an error at compile time if the number of arguments != 1
+ *
+ * It returns (or throws an error at runtime) in order:
+ * 1. missing, if any argument is missing.
+ * 2. null, if the list arg is null or it's not a list.
+ * 3. an error if any list item is a list/object type (i.e. derived type) since deep equality is not yet supported.
+ * 4. otherwise, a new list.
+ *
+ * </pre>
+ */
 public class ArraySortDescriptor extends AbstractScalarFunctionDynamicDescriptor {
     private static final long serialVersionUID = 1L;
-    private static final ArraySortComparator COMP = new ArraySortComparator();
     private IAType inputListType;
 
     public static final IFunctionDescriptorFactory FACTORY = new IFunctionDescriptorFactory() {
@@ -83,12 +98,12 @@ public class ArraySortDescriptor extends AbstractScalarFunctionDynamicDescriptor
 
             @Override
             public IScalarEvaluator createScalarEvaluator(final IHyracksTaskContext ctx) throws HyracksDataException {
-                return new ArraySortFunction(args, ctx, sourceLoc);
+                return new ArraySortEval(args, ctx, sourceLoc);
             }
         };
     }
 
-    private static class ArraySortComparator implements Comparator<IPointable> {
+    protected class ArraySortComparator implements Comparator<IPointable> {
         private final IBinaryComparator comp = AObjectAscBinaryComparatorFactory.INSTANCE.createBinaryComparator();
 
         @Override
@@ -102,19 +117,19 @@ public class ArraySortDescriptor extends AbstractScalarFunctionDynamicDescriptor
         }
     }
 
-    public class ArraySortFunction extends AbstractArrayProcessEval {
+    public class ArraySortEval extends AbstractArrayProcessEval {
         private final SourceLocation sourceLoc;
         private final PriorityQueue<IPointable> sortedList;
         private IPointable item;
         private ArrayBackedValueStorage storage;
 
-        public ArraySortFunction(IScalarEvaluatorFactory[] args, IHyracksTaskContext ctx, SourceLocation sourceLoc)
+        public ArraySortEval(IScalarEvaluatorFactory[] args, IHyracksTaskContext ctx, SourceLocation sourceLoc)
                 throws HyracksDataException {
             super(args, ctx, inputListType);
             this.sourceLoc = sourceLoc;
             item = pointableAllocator.allocateEmpty();
             storage = (ArrayBackedValueStorage) storageAllocator.allocate(null);
-            sortedList = new PriorityQueue<>(COMP);
+            sortedList = new PriorityQueue<>(new ArraySortComparator());
         }
 
         @Override
