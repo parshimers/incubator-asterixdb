@@ -19,13 +19,10 @@
 package org.apache.asterix.hyracks.bootstrap;
 
 import java.io.IOException;
-import java.io.Serializable;
-import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import java.util.zip.Deflater;
 
 import org.apache.asterix.api.http.server.ServletConstants;
 import org.apache.asterix.api.http.server.StorageApiServlet;
@@ -78,33 +75,6 @@ import org.apache.hyracks.util.LoggingConfigUtil;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.Appender;
-import org.apache.logging.log4j.core.Layout;
-import org.apache.logging.log4j.core.LogEvent;
-import org.apache.logging.log4j.core.LoggerContext;
-import org.apache.logging.log4j.core.appender.ConsoleAppender;
-import org.apache.logging.log4j.core.appender.RollingFileAppender;
-import org.apache.logging.log4j.core.appender.rolling.CompositeTriggeringPolicy;
-import org.apache.logging.log4j.core.appender.rolling.DefaultRolloverStrategy;
-import org.apache.logging.log4j.core.appender.rolling.OnStartupTriggeringPolicy;
-import org.apache.logging.log4j.core.appender.rolling.RollingFileManager;
-import org.apache.logging.log4j.core.appender.rolling.RolloverDescription;
-import org.apache.logging.log4j.core.appender.rolling.RolloverStrategy;
-import org.apache.logging.log4j.core.appender.rolling.SizeBasedTriggeringPolicy;
-import org.apache.logging.log4j.core.appender.rolling.TriggeringPolicy;
-import org.apache.logging.log4j.core.config.AppenderRef;
-import org.apache.logging.log4j.core.config.Configuration;
-import org.apache.logging.log4j.core.config.Configurator;
-import org.apache.logging.log4j.core.config.LoggerConfig;
-import org.apache.logging.log4j.core.config.builder.api.AppenderComponentBuilder;
-import org.apache.logging.log4j.core.config.builder.api.ComponentBuilder;
-import org.apache.logging.log4j.core.config.builder.api.ConfigurationBuilder;
-import org.apache.logging.log4j.core.config.builder.api.ConfigurationBuilderFactory;
-import org.apache.logging.log4j.core.config.builder.api.LayoutComponentBuilder;
-import org.apache.logging.log4j.core.config.builder.impl.BuiltConfiguration;
-import org.apache.logging.log4j.core.layout.PatternLayout;
-import org.apache.logging.log4j.core.layout.PatternSelector;
-import org.apache.logging.log4j.core.pattern.PatternFormatter;
 
 public class NCApplication extends BaseNCApplication {
     private static final Logger LOGGER = LogManager.getLogger();
@@ -135,12 +105,10 @@ public class NCApplication extends BaseNCApplication {
 
     @Override
     public void start(String[] args) throws Exception {
-
         if (args.length > 0) {
             throw new IllegalArgumentException("Unrecognized argument(s): " + Arrays.toString(args));
         }
         nodeId = this.ncServiceCtx.getNodeId();
-
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("Starting Asterix node controller: " + nodeId);
         }
@@ -259,8 +227,9 @@ public class NCApplication extends BaseNCApplication {
         }
         final NodeControllerService ncs = (NodeControllerService) ncServiceCtx.getControllerService();
         final NodeStatus currentStatus = ncs.getNodeStatus();
-        final SystemState systemState = isPendingStartupTasks(currentStatus, ncs.getPrimaryCcId(), ccId)
-                ? getCurrentSystemState() : SystemState.HEALTHY;
+        final SystemState systemState =
+                isPendingStartupTasks(currentStatus, ncs.getPrimaryCcId(), ccId) ? getCurrentSystemState()
+                        : SystemState.HEALTHY;
         RegistrationTasksRequestMessage.send(ccId, (NodeControllerService) ncServiceCtx.getControllerService(),
                 currentStatus, systemState);
     }
