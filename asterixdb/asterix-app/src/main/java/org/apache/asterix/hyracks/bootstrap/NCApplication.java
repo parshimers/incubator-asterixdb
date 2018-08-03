@@ -227,9 +227,8 @@ public class NCApplication extends BaseNCApplication {
         }
         final NodeControllerService ncs = (NodeControllerService) ncServiceCtx.getControllerService();
         final NodeStatus currentStatus = ncs.getNodeStatus();
-        final SystemState systemState =
-                isPendingStartupTasks(currentStatus, ncs.getPrimaryCcId(), ccId) ? getCurrentSystemState()
-                        : SystemState.HEALTHY;
+        final SystemState systemState = isPendingStartupTasks(currentStatus, ncs.getPrimaryCcId(), ccId)
+                ? getCurrentSystemState() : SystemState.HEALTHY;
         RegistrationTasksRequestMessage.send(ccId, (NodeControllerService) ncServiceCtx.getControllerService(),
                 currentStatus, systemState);
     }
