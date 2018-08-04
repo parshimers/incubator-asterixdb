@@ -42,7 +42,7 @@ public class NCLogConfigurationFactory extends ConfigurationFactory {
         this.config = config;
     }
 
-    public Configuration createConfiguration(final String name, ConfigurationBuilder<BuiltConfiguration> builder) {
+    public Configuration createConfiguration(ConfigurationBuilder<BuiltConfiguration> builder) {
         String nodeId = config.getNodeId();
         String logDir = config.getLogDir();
         builder.setStatusLevel(Level.WARN);
@@ -83,7 +83,7 @@ public class NCLogConfigurationFactory extends ConfigurationFactory {
     public Configuration getConfiguration(final LoggerContext loggerContext, final String name,
             final URI configLocation) {
         ConfigurationBuilder<BuiltConfiguration> builder = newConfigurationBuilder();
-        return createConfiguration(name, builder);
+        return createConfiguration(builder);
     }
 
     @Override

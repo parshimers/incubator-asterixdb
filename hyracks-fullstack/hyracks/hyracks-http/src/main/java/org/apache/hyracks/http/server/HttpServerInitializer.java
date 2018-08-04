@@ -52,7 +52,6 @@ public class HttpServerInitializer extends ChannelInitializer<SocketChannel> {
         p.addLast(new HttpRequestCapacityController(server));
         p.addLast(new HttpRequestDecoder(maxRequestInitialLineLength, maxRequestHeaderSize, maxRequestChunkSize));
         p.addLast(new HttpResponseEncoder());
-        p.addLast(new HttpObjectAggregator(Integer.MAX_VALUE));
         p.addLast(new CLFLogger(org.apache.hyracks.http.server.HttpServer.class, LogLevel.INFO));
         p.addLast(new HttpRequestAggregator(maxRequestSize));
         p.addLast(server.createHttpHandler(maxResponseChunkSize));

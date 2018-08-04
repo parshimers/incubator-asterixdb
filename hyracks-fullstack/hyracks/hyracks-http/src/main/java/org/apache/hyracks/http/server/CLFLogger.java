@@ -28,21 +28,15 @@ import io.netty.util.internal.logging.InternalLogLevel;
 import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 
-import java.net.SocketAddress;
-import java.text.SimpleDateFormat;
 import java.time.Instant;
 
 //Based in part on LoggingHandler from Netty
 public class CLFLogger extends ChannelDuplexHandler {
 
-    private static final LogLevel DEFAULT_LEVEL = LogLevel.DEBUG;
-
     protected final InternalLogger logger;
     protected final InternalLogLevel internalLevel;
 
-    private final LogLevel level;
     StringBuilder logLineBuilder;
-    SimpleDateFormat timeFormat;
 
     private String clientIp;
     private Instant requestTime;
@@ -53,15 +47,7 @@ public class CLFLogger extends ChannelDuplexHandler {
     private boolean lastChunk = false;
 
     public CLFLogger(Class<?> clazz, LogLevel level) {
-        if (clazz == null) {
-            throw new NullPointerException("clazz");
-        }
-        if (level == null) {
-            throw new NullPointerException("level");
-        }
-
         logger = InternalLoggerFactory.getInstance(clazz);
-        this.level = level;
         internalLevel = level.toInternalLevel();
         this.logLineBuilder = new StringBuilder();
         respSize = 0;
@@ -69,18 +55,15 @@ public class CLFLogger extends ChannelDuplexHandler {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-        if (logger.isEnabled(internalLevel)) {
-            if (msg instanceof FullHttpRequest) {
-                HttpRequest req = ((FullHttpRequest) msg);
-                clientIp = req.headers().get("Host");
-                requestTime = Instant.now();
-                reqLine =
-                        new StringBuilder().append(req.method().toString()).append(" ").append(req.getUri().toString())
-                                .append(" ").append(req.getProtocolVersion().toString()).append(" ").toString();
-                userAgentRef = new StringBuilder().append(headerValueOrDash("Referer", req)).append(" ")
-                        .append(headerValueOrDash("User-Agent", req)).toString();
-                lastChunk = false;
-            }
+        if (logger.isEnabled(internalLevel) && msg instanceof FullHttpRequest) {
+            HttpRequest req = ((FullHttpRequest) msg);
+            clientIp = req.headers().get("Host");
+            requestTime = Instant.now();
+            reqLine = new StringBuilder().append(req.method().toString()).append(" ").append(req.getUri()).append(" ")
+                    .append(req.getProtocolVersion().toString()).append(" ").toString();
+            userAgentRef = new StringBuilder().append(headerValueOrDash("Referer", req)).append(" ")
+                    .append(headerValueOrDash("User-Agent", req)).toString();
+            lastChunk = false;
         }
         ctx.fireChannelRead(msg);
     }
@@ -117,11 +100,9 @@ public class CLFLogger extends ChannelDuplexHandler {
 
     @Override
     public void flush(ChannelHandlerContext ctx) throws Exception {
-        if (logger.isEnabled(internalLevel)) {
-            if (lastChunk) {
-                printAndPrepare();
-                lastChunk = false;
-            }
+        if (logger.isEnabled(internalLevel) && lastChunk) {
+            printAndPrepare();
+            lastChunk = false;
         }
         ctx.flush();
     }

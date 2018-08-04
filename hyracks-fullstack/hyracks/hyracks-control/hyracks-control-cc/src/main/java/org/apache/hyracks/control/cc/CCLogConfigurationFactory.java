@@ -42,7 +42,7 @@ public class CCLogConfigurationFactory extends ConfigurationFactory {
         this.config = config;
     }
 
-    public Configuration createConfiguration(final String name, ConfigurationBuilder<BuiltConfiguration> builder) {
+    public Configuration createConfiguration(ConfigurationBuilder<BuiltConfiguration> builder) {
         String logDir = config.getLogDir();
         builder.setStatusLevel(Level.WARN);
         builder.setConfigurationName("RollingBuilder");
@@ -82,7 +82,7 @@ public class CCLogConfigurationFactory extends ConfigurationFactory {
     public Configuration getConfiguration(final LoggerContext loggerContext, final String name,
             final URI configLocation) {
         ConfigurationBuilder<BuiltConfiguration> builder = newConfigurationBuilder();
-        return createConfiguration(name, builder);
+        return createConfiguration(builder);
     }
 
     @Override
