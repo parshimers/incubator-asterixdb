@@ -56,7 +56,7 @@ public class CLFLogger extends ChannelDuplexHandler {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         if (logger.isEnabled(internalLevel) && msg instanceof FullHttpRequest) {
-            HttpRequest req = ((FullHttpRequest) msg);
+            HttpRequest req = (FullHttpRequest) msg;
             clientIp = req.headers().get("Host");
             requestTime = Instant.now();
             reqLine = new StringBuilder().append(req.method().toString()).append(" ").append(req.getUri()).append(" ")
@@ -80,14 +80,14 @@ public class CLFLogger extends ChannelDuplexHandler {
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         if (logger.isEnabled(internalLevel)) {
             if (msg instanceof DefaultHttpResponse) {
-                HttpResponse resp = ((DefaultHttpResponse) msg);
+                HttpResponse resp = (DefaultHttpResponse) msg;
                 statusCode = resp.status().code();
                 if (msg instanceof DefaultFullHttpResponse) {
                     lastChunk = true;
                     respSize = resp.headers().getInt(HttpHeaderNames.CONTENT_LENGTH);
                 }
             } else if (msg instanceof DefaultHttpContent) {
-                HttpContent content = ((DefaultHttpContent) msg);
+                HttpContent content = (DefaultHttpContent) msg;
 
                 respSize += content.content().readableBytes();
             } else if (msg instanceof LastHttpContent) {
