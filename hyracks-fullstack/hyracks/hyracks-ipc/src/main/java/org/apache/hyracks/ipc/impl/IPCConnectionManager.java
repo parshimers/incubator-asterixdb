@@ -138,8 +138,8 @@ public class IPCConnectionManager {
     }
 
     synchronized void write(Message msg) {
-        if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Enqueued message: " + msg);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace("Enqueued message: " + msg);
         }
         sendList.add(msg);
         networkThread.selector.wakeup();
@@ -286,6 +286,7 @@ public class IPCConnectionManager {
                 } catch (IOException e) {
                     LOGGER.error("Failed to accept channel ", e);
                     close(channelKey, channel);
+                    handle.setState(HandleState.CLOSED);
                 }
             }
             workingPendingConnections.clear();
@@ -311,7 +312,7 @@ public class IPCConnectionManager {
         }
 
         private boolean sendMessage(Message msg) {
-            LOGGER.debug("Processing send of message: {}", msg);
+            LOGGER.trace("Processing send of message: {}", msg);
             IPCHandle handle = msg.getIPCHandle();
             if (handle.getState() == HandleState.CLOSED) {
                 // message will never be sent
