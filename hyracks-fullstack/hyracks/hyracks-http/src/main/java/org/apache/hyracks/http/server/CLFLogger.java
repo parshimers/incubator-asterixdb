@@ -31,19 +31,17 @@ import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.LastHttpContent;
-import io.netty.handler.logging.LogLevel;
-import io.netty.util.internal.logging.InternalLogLevel;
-import io.netty.util.internal.logging.InternalLogger;
-import io.netty.util.internal.logging.InternalLoggerFactory;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.time.Instant;
 
 //Based in part on LoggingHandler from Netty
 public class CLFLogger extends ChannelDuplexHandler {
 
-    protected final InternalLogger logger;
-    protected final InternalLogLevel internalLevel;
-
+    private final Logger accessLogger = LogManager.getLogger();
+    public static final String ACCESS_LOG_LEVEL = "ACCESS";
     StringBuilder logLineBuilder;
 
     private String clientIp;
@@ -54,17 +52,15 @@ public class CLFLogger extends ChannelDuplexHandler {
     private String userAgentRef;
     private boolean lastChunk = false;
 
-    public CLFLogger(Class<?> clazz, LogLevel level) {
-        logger = InternalLoggerFactory.getInstance(clazz);
-        internalLevel = level.toInternalLevel();
+    public CLFLogger() {
         this.logLineBuilder = new StringBuilder();
         respSize = 0;
     }
 
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-        if (logger.isEnabled(internalLevel) && msg instanceof FullHttpRequest) {
-            HttpRequest req = (FullHttpRequest) msg;
+    public void channelRead(ChannelHandlerContext ctx, Object msg) {
+        if (msg instanceof HttpRequest) {
+            HttpRequest req = (HttpRequest) msg;
             clientIp = req.headers().get("Host");
             requestTime = Instant.now();
             reqLine = new StringBuilder().append(req.method().toString()).append(" ").append(req.getUri()).append(" ")
@@ -85,30 +81,28 @@ public class CLFLogger extends ChannelDuplexHandler {
     }
 
     @Override
-    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
-        if (logger.isEnabled(internalLevel)) {
-            if (msg instanceof DefaultHttpResponse) {
-                HttpResponse resp = (DefaultHttpResponse) msg;
-                statusCode = resp.status().code();
-                if (msg instanceof DefaultFullHttpResponse) {
-                    lastChunk = true;
-                    respSize = resp.headers().getInt(HttpHeaderNames.CONTENT_LENGTH);
-                }
-            } else if (msg instanceof DefaultHttpContent) {
-                HttpContent content = (DefaultHttpContent) msg;
-
-                respSize += content.content().readableBytes();
-            } else if (msg instanceof LastHttpContent) {
+    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
+        if (msg instanceof DefaultHttpResponse) {
+            HttpResponse resp = (DefaultHttpResponse) msg;
+            statusCode = resp.status().code();
+            if (msg instanceof DefaultFullHttpResponse) {
                 lastChunk = true;
+                respSize = resp.headers().getInt(HttpHeaderNames.CONTENT_LENGTH);
             }
+        } else if (msg instanceof DefaultHttpContent) {
+            HttpContent content = (DefaultHttpContent) msg;
 
+            respSize += content.content().readableBytes();
+        } else if (msg instanceof LastHttpContent) {
+            lastChunk = true;
         }
+
         ctx.write(msg, promise);
     }
 
     @Override
     public void flush(ChannelHandlerContext ctx) throws Exception {
-        if (logger.isEnabled(internalLevel) && lastChunk) {
+        if (lastChunk) {
             printAndPrepare();
             lastChunk = false;
         }
@@ -127,7 +121,7 @@ public class CLFLogger extends ChannelDuplexHandler {
         logLineBuilder.append(" ").append(statusCode);
         logLineBuilder.append(" ").append(respSize);
         logLineBuilder.append(" ").append(userAgentRef);
-        logger.log(internalLevel, logLineBuilder.toString());
+        accessLogger.log(Level.forName(ACCESS_LOG_LEVEL, 550), logLineBuilder.toString());
         respSize = 0;
         logLineBuilder = new StringBuilder();
     }

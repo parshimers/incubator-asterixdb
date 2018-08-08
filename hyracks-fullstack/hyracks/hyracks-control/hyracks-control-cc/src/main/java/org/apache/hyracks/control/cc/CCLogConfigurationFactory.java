@@ -67,7 +67,7 @@ public class CCLogConfigurationFactory extends ConfigurationFactory {
                         .addAttribute("filePattern", logDir + "access-%d{MM-dd-yy}.log.gz").add(accessLayout)
                         .addComponent(triggeringPolicy);
         builder.add(accessRoll);
-        builder.add(builder.newLogger("org.apache.hyracks.http.server", Level.INFO)
+        builder.add(builder.newLogger("org.apache.hyracks.http.server.CLFLogger", Level.forName("ACCESS", 550))
                 .add(builder.newAppenderRef("access")).addAttribute("additivity", false));
 
         return builder.build();
