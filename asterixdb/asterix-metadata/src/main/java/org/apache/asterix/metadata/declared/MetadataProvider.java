@@ -37,6 +37,7 @@ import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.common.dataflow.LSMTreeInsertDeleteOperatorDescriptor;
 import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.metadata.LockList;
+import org.apache.asterix.common.storage.ICompressionManager;
 import org.apache.asterix.common.transactions.ITxnIdFactory;
 import org.apache.asterix.common.transactions.TxnId;
 import org.apache.asterix.common.utils.StoragePathUtil;
@@ -1610,5 +1611,9 @@ public class MetadataProvider implements IMetadataProvider<DataSourceId, String>
 
     public ITxnIdFactory getTxnIdFactory() {
         return appCtx.getTxnIdFactory();
+    }
+
+    public ICompressionManager getCompressionManager() {
+        return appCtx.getCompressionManager();
     }
 }

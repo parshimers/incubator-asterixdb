@@ -40,6 +40,7 @@ import org.apache.hyracks.storage.common.buffercache.ICachedPage;
 import org.apache.hyracks.storage.common.buffercache.IFIFOPageQueue;
 import org.apache.hyracks.storage.common.buffercache.PageWriteFailureCallback;
 import org.apache.hyracks.storage.common.file.BufferedFileHandle;
+import org.apache.hyracks.storage.common.file.compress.ICompressedPageWriter;
 
 public abstract class AbstractTreeIndex implements ITreeIndex {
 
@@ -241,8 +242,10 @@ public abstract class AbstractTreeIndex implements ITreeIndex {
         // HDFS.  Since loading this tree relies on the root page actually being at that point, no further inserts into
         // that tree are allowed.  Currently, this is not enforced.
         protected boolean releasedLatches;
-        protected final IFIFOPageQueue queue;
+        //Use putInQueue instead
+        private final IFIFOPageQueue queue;
         protected List<ICachedPage> pagesToWrite;
+        private final ICompressedPageWriter compressedPageWriter;
 
         public AbstractTreeIndexBulkLoader(float fillFactor) throws HyracksDataException {
             leafFrame = leafFrameFactory.createFrame();
@@ -278,10 +281,14 @@ public abstract class AbstractTreeIndex implements ITreeIndex {
 
             nodeFrontiers.add(leafFrontier);
             pagesToWrite = new ArrayList<>();
+            compressedPageWriter = bufferCache.getCompressedPageWriter(fileId);
         }
 
         protected void handleException() throws HyracksDataException {
             // Unlatch and unpin pages that weren't in the queue to avoid leaking memory.
+            if (compressedPageWriter != null) {
+                compressedPageWriter.abort();
+            }
             for (NodeFrontier nodeFrontier : nodeFrontiers) {
                 ICachedPage frontierPage = nodeFrontier.page;
                 if (frontierPage.confiscated()) {
@@ -296,10 +303,10 @@ public abstract class AbstractTreeIndex implements ITreeIndex {
 
         @Override
         public void end() throws HyracksDataException {
-            bufferCache.finishQueue();
             if (hasFailed()) {
                 throw HyracksDataException.create(getFailure());
             }
+            bufferCache.finishQueue();
             freePageManager.setRootPageId(rootPage);
         }
 
@@ -320,6 +327,14 @@ public abstract class AbstractTreeIndex implements ITreeIndex {
         public void setLeafFrame(ITreeIndexFrame leafFrame) {
             this.leafFrame = leafFrame;
         }
+
+        public void putInQueue(ICachedPage cPage) throws HyracksDataException {
+            if (compressedPageWriter != null) {
+                compressedPageWriter.prepareWrite(cPage);
+            }
+            queue.put(cPage, this);
+        }
+
     }
 
     @Override

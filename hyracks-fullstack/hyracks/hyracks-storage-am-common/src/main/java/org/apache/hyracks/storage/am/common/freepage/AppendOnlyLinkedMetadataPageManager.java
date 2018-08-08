@@ -34,6 +34,7 @@ import org.apache.hyracks.storage.common.buffercache.ICachedPage;
 import org.apache.hyracks.storage.common.buffercache.IFIFOPageQueue;
 import org.apache.hyracks.storage.common.buffercache.IPageWriteFailureCallback;
 import org.apache.hyracks.storage.common.file.BufferedFileHandle;
+import org.apache.hyracks.storage.common.file.compress.ICompressedPageWriter;
 
 public class AppendOnlyLinkedMetadataPageManager implements IMetadataPageManager {
     private final IBufferCache bufferCache;
@@ -221,10 +222,19 @@ public class AppendOnlyLinkedMetadataPageManager implements IMetadataPageManager
             }
             int finalMetaPage = getMaxPageId(metaFrame) + 1;
             confiscatedPage.setDiskPageId(BufferedFileHandle.getDiskPageId(fileId, finalMetaPage));
+            final ICompressedPageWriter compressedPageWriter = bufferCache.getCompressedPageWriter(fileId);
+            if (compressedPageWriter != null) {
+                //Prepare to write the compressed page
+                compressedPageWriter.prepareWrite(confiscatedPage);
+            }
             // WARNING: flushing the metadata page should be done after releasing the write latch; otherwise, the page
             // won't be flushed to disk because it won't be dirty until the write latch has been released.
             queue.put(confiscatedPage, callback);
             bufferCache.finishQueue();
+            if (compressedPageWriter != null) {
+                //Finalize the writing of the compressed pages
+                compressedPageWriter.endWriting();
+            }
             metadataPage = getMetadataPageId();
             ready = false;
         } else if (confiscatedPage != null) {
@@ -249,7 +259,8 @@ public class AppendOnlyLinkedMetadataPageManager implements IMetadataPageManager
         }
         int pages = bufferCache.getNumPagesOfFile(fileId);
         if (pages == 0) {
-            return 0;
+            //At least there are 4 pages to consider the index is not empty
+            return IBufferCache.INVALID_PAGEID;
         }
         metadataPage = pages - 1;
         return metadataPage;

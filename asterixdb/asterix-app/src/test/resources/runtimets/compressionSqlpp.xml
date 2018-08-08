@@ -1,0 +1,3270 @@
+<!--
+ ! Licensed to the Apache Software Foundation (ASF) under one
+ ! or more contributor license agreements.  See the NOTICE file
+ ! distributed with this work for additional information
+ ! regarding copyright ownership.  The ASF licenses this file
+ ! to you under the Apache License, Version 2.0 (the
+ ! "License"); you may not use this file except in compliance
+ ! with the License.  You may obtain a copy of the License at
+ !
+ !   http://www.apache.org/licenses/LICENSE-2.0
+ !
+ ! Unless required by applicable law or agreed to in writing,
+ ! software distributed under the License is distributed on an
+ ! "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ ! KIND, either express or implied.  See the License for the
+ ! specific language governing permissions and limitations
+ ! under the License.
+ !-->
+<test-suite xmlns="urn:xml.testframework.asterix.apache.org" ResultOffsetPath="results" QueryOffsetPath="queries_sqlpp"
+            QueryFileExtension=".sqlpp">
+  <test-group name="compression">
+    <test-case FilePath="compression">
+      <compilation-unit name="invalid-compression-scheme">
+        <output-dir compare="Text">invalid-compression-scheme</output-dir>
+        <expected-error>Unknown compression scheme zip. Supported schemes are [lz4,snappy,none,lz4hc]</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="compression">
+      <compilation-unit name="incompressible-pages/large-page">
+        <output-dir compare="Text">incompressible-pages/large-page</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="compression">
+      <compilation-unit name="scheme-lz4">
+        <output-dir compare="Text">scheme-lz4</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="compression">
+      <compilation-unit name="scheme-lz4hc">
+        <output-dir compare="Text">scheme-lz4hc</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="compression">
+      <compilation-unit name="scheme-none">
+        <output-dir compare="Text">scheme-none</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="compression">
+      <compilation-unit name="scheme-snappy">
+        <output-dir compare="Text">scheme-snappy</output-dir>
+      </compilation-unit>
+    </test-case>
+  </test-group>
+  
+  <!-- Additional tests for the storage -->
+  <test-group name="custord">
+    <!--
+    <test-case FilePath="custord">
+      <compilation-unit name="co">
+        <output-dir compare="Text">co</output-dir>
+      </compilation-unit>
+    </test-case>
+    -->
+    <test-case FilePath="custord">
+      <compilation-unit name="customer_q_01">
+        <output-dir compare="Text">customer_q_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="customer_q_02">
+        <output-dir compare="Text">customer_q_02</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="customer_q_03">
+        <output-dir compare="Text">customer_q_03</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="customer_q_04">
+        <output-dir compare="Text">customer_q_04</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="customer_q_05">
+        <output-dir compare="Text">customer_q_05</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="customer_q_06">
+        <output-dir compare="Text">customer_q_06</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="customer_q_07">
+        <output-dir compare="Text">customer_q_07</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="customer_q_08">
+        <output-dir compare="Text">customer_q_08</output-dir>
+      </compilation-unit>
+    </test-case>
+    <!--
+        <test-case FilePath="custord">
+          <compilation-unit name="denorm-cust-order_01">
+            <output-dir compare="Text">denorm-cust-order_01</output-dir>
+          </compilation-unit>
+        </test-case>
+        -->
+    <test-case FilePath="custord">
+      <compilation-unit name="denorm-cust-order_02">
+        <output-dir compare="Text">denorm-cust-order_02</output-dir>
+      </compilation-unit>
+    </test-case>
+    <!--
+        <test-case FilePath="custord">
+          <compilation-unit name="denorm-cust-order_03">
+            <output-dir compare="Text">denorm-cust-order_03</output-dir>
+          </compilation-unit>
+        </test-case>
+        -->
+    <!--
+        <test-case FilePath="custord">
+          <compilation-unit name="freq-clerk">
+            <output-dir compare="Text">freq-clerk</output-dir>
+          </compilation-unit>
+        </test-case>
+        -->
+    <test-case FilePath="custord">
+      <compilation-unit name="join_q_01">
+        <output-dir compare="Text">join_q_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="join_q_02">
+        <output-dir compare="Text">join_q_02</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="join_q_03">
+        <output-dir compare="Text">join_q_03</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="join_q_04">
+        <output-dir compare="Text">join_q_04</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="join_q_05">
+        <output-dir compare="Text">join_q_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="join_q_06">
+        <output-dir compare="Text">join_q_06</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="join_q_07">
+        <output-dir compare="Text">join_q_06</output-dir>
+        <expected-error>Cannot find dataset c in dataverse test nor an alias with name c</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="join_q_08">
+        <output-dir compare="Text">join_q_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="join_q_09">
+        <output-dir compare="Text">join_q_01</output-dir>
+        <expected-error>Cannot resolve ambiguous alias reference for identifier age</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="query-ASTERIXDB-1754">
+        <output-dir compare="Text">query-ASTERIXDB-1754</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="load-test">
+        <output-dir compare="Text">load-test</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="order_q_01">
+        <output-dir compare="Text">order_q_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="order_q_02">
+        <output-dir compare="Text">order_q_02</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="order_q_03">
+        <output-dir compare="Text">order_q_03</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="order_q_04">
+        <output-dir compare="Text">order_q_04</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="order_q_05">
+        <output-dir compare="Text">order_q_05</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="custord">
+      <compilation-unit name="order_q_06">
+        <output-dir compare="Text">order_q_06</output-dir>
+      </compilation-unit>
+    </test-case>
+  </test-group>
+  <test-group name="dapd">
+    <test-case FilePath="dapd">
+      <compilation-unit name="q1">
+        <output-dir compare="Text">q1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dapd">
+      <compilation-unit name="q2">
+        <output-dir compare="Text">q2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dapd">
+      <compilation-unit name="q2-2">
+        <output-dir compare="Text">q2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dapd">
+      <compilation-unit name="q2-2-negative">
+        <output-dir compare="Text">q2</output-dir>
+        <expected-error>Cannot find dataset e in dataverse test nor an alias with name e</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dapd">
+      <compilation-unit name="q2-3">
+        <output-dir compare="Text">q2</output-dir>
+        <expected-error>Cannot resolve ambiguous alias reference for identifier sig_id</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dapd">
+      <compilation-unit name="q2-4">
+        <output-dir compare="Text">q2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dapd">
+      <compilation-unit name="q2-5">
+        <output-dir compare="Text">q2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dapd">
+      <compilation-unit name="q2-6">
+        <output-dir compare="Text">q2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dapd">
+      <compilation-unit name="q2-7">
+        <output-dir compare="Text">q2-7</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dapd">
+      <compilation-unit name="q2-8">
+        <output-dir compare="Text">q2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dapd">
+      <compilation-unit name="q2-9">
+        <output-dir compare="Text">q2-9</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dapd">
+      <compilation-unit name="q2-10">
+        <output-dir compare="Text">q2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dapd">
+      <compilation-unit name="q2-11">
+        <output-dir compare="Text">q2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dapd">
+      <compilation-unit name="q2-12">
+        <output-dir compare="Text">q2-12</output-dir>
+      </compilation-unit>
+    </test-case>
+    <!--
+        <test-case FilePath="dapd">
+          <compilation-unit name="q3">
+            <output-dir compare="Text">q3</output-dir>
+          </compilation-unit>
+        </test-case>
+        -->
+  </test-group>
+  <test-group name="ddl/create-index">
+    <test-case FilePath="ddl/create-index">
+      <compilation-unit name="create-index-1">
+        <output-dir compare="Text">create-index-1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="ddl/create-index">
+      <compilation-unit name="create-index-2">
+        <output-dir compare="Text">create-index-2</output-dir>
+        <expected-error>Syntax error: In line 53 >>create  primary index sec_primary_idx1  on LineItem type rtree;&lt;&lt; Encountered "rtree" at column 58.</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="ddl/create-index">
+      <compilation-unit name="create-index-3">
+        <output-dir compare="Text">create-index-3</output-dir>
+        <expected-error>Syntax error: In line 53 >>create  primary  sec_primary_idx1  on LineItem;&lt;&lt; Encountered &lt;IDENTIFIER&gt; "sec_primary_idx1" at column 18.</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="ddl/create-index">
+      <compilation-unit name="create-index-4">
+        <output-dir compare="Text">create-index-4</output-dir>
+        <expected-error>Syntax error: In line 53 >>create  primary index if not exists sec_primary_idx1  if not exists on LineItem;&lt;&lt; Encountered &lt;IDENTIFIER&gt; "sec_primary_idx1" at column 37.</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="ddl/create-index">
+      <compilation-unit name="create-index-5">
+        <output-dir compare="Text">create-index-5</output-dir>
+        <expected-error>Syntax error: In line 53 >>create  primary index if exists sec_primary_idx1  on LineItem;&lt;&lt; Encountered "exists" at column 26.</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="ddl">
+      <compilation-unit name="drop-primary-index">
+        <output-dir compare="Text">drop-primary-index</output-dir>
+        <expected-error>Cannot drop index "ds". Drop dataset "ds" to remove this index</expected-error>
+      </compilation-unit>
+    </test-case>
+  </test-group>
+  <test-group name="dml">
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-with-autogenerated-pk_adm-with-sec-primary-index">
+        <output-dir compare="Text">insert-with-autogenerated-pk_adm-with-sec-primary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="compact-dataset-and-its-indexes">
+        <output-dir compare="Text">compact-dataset-and-its-indexes</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="using-constant-merge-policy">
+        <output-dir compare="Text">using-constant-merge-policy</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="using-prefix-merge-policy">
+        <output-dir compare="Text">using-prefix-merge-policy</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="using-correlated-prefix-merge-policy">
+        <output-dir compare="Text">using-correlated-prefix-merge-policy</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="using-correlated-prefix-merge-policy-with-feed">
+        <output-dir compare="Text">using-correlated-prefix-merge-policy</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="using-no-merge-policy">
+        <output-dir compare="Text">using-no-merge-policy</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="query-issue382">
+        <output-dir compare="Text">query-issue382</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="query-issue433">
+        <output-dir compare="Text">query-issue433</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="query-issue288">
+        <output-dir compare="Text">query-issue288</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="query-issue205">
+        <output-dir compare="Text">query-issue205</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="delete-from-loaded-dataset-with-index">
+        <output-dir compare="Text">delete-from-loaded-dataset-with-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="delete-from-loaded-dataset">
+        <output-dir compare="Text">delete-from-loaded-dataset</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="delete-syntax-change">
+        <output-dir compare="Text">delete-syntax-change</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="drop-empty-secondary-indexes">
+        <output-dir compare="Text">drop-empty-secondary-indexes</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="drop-index">
+        <output-dir compare="Text">drop-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="create-drop-cltype">
+        <output-dir compare="Text">create-drop-cltype</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="create-drop-opntype">
+        <output-dir compare="Text">create-drop-opntype</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="empty-load-with-index">
+        <output-dir compare="Text">empty-load-with-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-into-empty-dataset">
+        <output-dir compare="Text">insert-into-empty-dataset</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-into-empty-dataset-with-index">
+        <output-dir compare="Text">insert-into-empty-dataset-with-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-syntax">
+        <output-dir compare="Text">insert-syntax</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-and-scan-dataset">
+        <output-dir compare="Text">insert-and-scan-dataset</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-and-scan-dataset-with-index">
+        <output-dir compare="Text">insert-and-scan-dataset-with-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="recreate-index">
+        <output-dir compare="Text">recreate-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-and-scan-joined-datasets">
+        <output-dir compare="Text">insert-and-scan-joined-datasets</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-into-loaded-dataset-with-index_01">
+        <output-dir compare="Text">insert-into-loaded-dataset-with-index_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-into-loaded-dataset-with-index_02">
+        <output-dir compare="Text">insert-into-loaded-dataset-with-index_02</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-into-loaded-dataset_01">
+        <output-dir compare="Text">insert-into-loaded-dataset_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-into-loaded-dataset_02">
+        <output-dir compare="Text">insert-into-loaded-dataset_02</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-src-dst-01">
+        <output-dir compare="Text">insert-src-dst-01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert">
+        <output-dir compare="Text">insert</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-duplicated-keys">
+        <output-dir compare="Text">insert-duplicated-keys</output-dir>
+        <expected-error>Inserting duplicate keys into the primary storage</expected-error>
+        <source-location>false</source-location>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert_less_nc">
+        <output-dir compare="Text">insert_less_nc</output-dir>
+      </compilation-unit>
+    </test-case>
+    <!--
+        <test-case FilePath="dml">
+          <compilation-unit name="load-from-hdfs">
+            <output-dir compare="Text">load-from-hdfs</output-dir>
+          </compilation-unit>
+        </test-case>
+        -->
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-with-autogenerated-pk_adm-with-sec-primary-index">
+        <output-dir compare="Text">insert-with-autogenerated-pk_adm-with-sec-primary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-with-autogenerated-pk_adm_01">
+        <output-dir compare="Text">insert-with-autogenerated-pk_adm_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-with-autogenerated-pk_adm_02">
+        <output-dir compare="Text">insert-with-autogenerated-pk_adm_02</output-dir>
+        <expected-error>Duplicate field name &quot;id&quot;</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-with-autogenerated-pk_adm_03">
+        <output-dir compare="Text">insert-with-autogenerated-pk_adm_03</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="load-with-autogenerated-pk_txt_01">
+        <output-dir compare="Text">load-with-autogenerated-pk_txt_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="load-with-autogenerated-pk_adm_01">
+        <output-dir compare="Text">load-with-autogenerated-pk_adm_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="load-with-autogenerated-pk_adm_02">
+        <output-dir compare="Text">load-with-autogenerated-pk_adm_02</output-dir>
+        <expected-error>ASX3058: This record is closed, you can not add extra fields! new field name: id</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="load-with-autogenerated-pk_adm_03">
+        <output-dir compare="Text">load-with-autogenerated-pk_adm_03</output-dir>
+        <expected-error>ASX3058: This record is closed, you can not add extra fields! new field name: id</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="load-with-autogenerated-pk_adm_04">
+        <output-dir compare="Text">load-with-autogenerated-pk_adm_04</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="load-with-autogenerated-pk_csv_01">
+        <output-dir compare="Text">load-with-autogenerated-pk_csv_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="load-with-autogenerated-pk_csv_02">
+        <output-dir compare="Text">load-with-autogenerated-pk_csv_02</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="load-with-autogenerated-no-field">
+        <output-dir compare="Text">load-with-autogenerated-no-field</output-dir>
+        <expected-error>ASX1014: Field "not_id" is not found</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-return-records">
+        <output-dir compare="Text">insert-return-records</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-returning-fieldname">
+        <output-dir compare="Text">insert-returning-fieldname</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-returning-udf">
+        <output-dir compare="Text">insert-returning-fieldname</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-returning-fieldname-qualified">
+        <output-dir compare="Text">insert-returning-fieldname</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-returning-fieldname-implicit">
+        <output-dir compare="Text">insert-returning-fieldname</output-dir>
+        <expected-error>Need an alias for the enclosed expression</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="insert-with-bad-return">
+        <output-dir compare="Text">insert-with-bad-return</output-dir>
+        <expected-error>A returning expression cannot contain dataset access</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="load-with-index">
+        <output-dir compare="Text">load-with-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="load-with-ngram-index">
+        <output-dir compare="Text">load-with-ngram-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="load-with-rtree-index">
+        <output-dir compare="Text">load-with-rtree-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="load-with-word-index">
+        <output-dir compare="Text">load-with-word-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="opentype-c2o-recursive">
+        <output-dir compare="Text">opentype-c2o-recursive</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="opentype-c2o">
+        <output-dir compare="Text">opentype-c2o</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="opentype-closed-optional">
+        <output-dir compare="Text">opentype-closed-optional</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="opentype-insert">
+        <output-dir compare="Text">opentype-insert</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="opentype-insert2">
+        <output-dir compare="Text">opentype-insert2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="opentype-noexpand">
+        <output-dir compare="Text">opentype-noexpand</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="opentype-o2c-recursive">
+        <output-dir compare="Text">opentype-o2c-recursive</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="opentype-o2c">
+        <output-dir compare="Text">opentype-o2c</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="opentype-o2o">
+        <output-dir compare="Text">opentype-o2o</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-delete-btree-secondary-index-nullable">
+        <output-dir compare="Text">scan-delete-btree-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit
+        name="scan-delete-btree-correlated-secondary-index-nullable">
+        <output-dir compare="Text">scan-delete-btree-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-delete-rtree-secondary-index-nullable">
+        <output-dir compare="Text">scan-delete-rtree-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-delete-rtree-correlated-secondary-index-nullable">
+        <output-dir compare="Text">scan-delete-rtree-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-delete-rtree-secondary-index">
+        <output-dir compare="Text">scan-delete-rtree-secondary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-delete-rtree-correlated-secondary-index">
+        <output-dir compare="Text">scan-delete-rtree-secondary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-btree-secondary-index-nullable">
+        <output-dir compare="Text">scan-insert-btree-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-btree-correlated-secondary-index-nullable">
+        <output-dir compare="Text">scan-delete-btree-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-rtree-secondary-index-nullable">
+        <output-dir compare="Text">scan-insert-rtree-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-rtree-correlated-secondary-index-nullable">
+        <output-dir compare="Text">scan-insert-rtree-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-rtree-secondary-index">
+        <output-dir compare="Text">scan-insert-rtree-secondary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+     <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-rtree-correlated-secondary-index">
+        <output-dir compare="Text">scan-insert-rtree-secondary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-inverted-index-ngram-secondary-index">
+        <output-dir compare="Text">scan-insert-inverted-index-ngram-secondary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-inverted-index-ngram-correlated-secondary-index">
+        <output-dir compare="Text">scan-insert-inverted-index-ngram-secondary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-inverted-index-word-secondary-index">
+        <output-dir compare="Text">scan-insert-inverted-index-word-secondary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-inverted-index-word-correlated-secondary-index">
+        <output-dir compare="Text">scan-insert-inverted-index-word-secondary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-inverted-index-ngram-secondary-index-nullable">
+        <output-dir compare="Text">scan-insert-inverted-index-ngram-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-inverted-index-ngram-correlated-secondary-index-nullable">
+        <output-dir compare="Text">scan-insert-inverted-index-ngram-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-inverted-index-word-secondary-index-nullable">
+        <output-dir compare="Text">scan-insert-inverted-index-word-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+     <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-inverted-index-word-correlated-secondary-index-nullable">
+        <output-dir compare="Text">scan-insert-inverted-index-word-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-delete-inverted-index-ngram-secondary-index">
+        <output-dir compare="Text">scan-delete-inverted-index-ngram-secondary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+     <test-case FilePath="dml">
+      <compilation-unit name="scan-delete-inverted-index-ngram-correlated-secondary-index">
+        <output-dir compare="Text">scan-delete-inverted-index-ngram-secondary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-delete-inverted-index-word-secondary-index">
+        <output-dir compare="Text">scan-delete-inverted-index-word-secondary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-delete-inverted-index-word-correlated-secondary-index">
+        <output-dir compare="Text">scan-delete-inverted-index-word-secondary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-delete-inverted-index-ngram-secondary-index-nullable">
+        <output-dir compare="Text">scan-delete-inverted-index-ngram-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+     <test-case FilePath="dml">
+      <compilation-unit name="scan-delete-inverted-index-ngram-correlated-secondary-index-nullable">
+        <output-dir compare="Text">scan-delete-inverted-index-ngram-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-delete-inverted-index-word-secondary-index-nullable">
+        <output-dir compare="Text">scan-delete-inverted-index-word-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+     <test-case FilePath="dml">
+      <compilation-unit name="scan-delete-inverted-index-word-correlated-secondary-index-nullable">
+        <output-dir compare="Text">scan-delete-inverted-index-word-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="load-with-index-open">
+        <output-dir compare="Text">load-with-index-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="load-with-ngram-index-open">
+        <output-dir compare="Text">load-with-ngram-index-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="load-with-rtree-index-open">
+        <output-dir compare="Text">load-with-rtree-index-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="load-with-word-index-open">
+        <output-dir compare="Text">load-with-word-index-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-delete-btree-secondary-index-open">
+        <output-dir compare="Text">scan-delete-btree-secondary-index-open</output-dir>
+      </compilation-unit>
+    </test-case>
+     <test-case FilePath="dml">
+      <compilation-unit name="scan-delete-btree-correlated-secondary-index-open">
+        <output-dir compare="Text">scan-delete-btree-secondary-index-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-delete-inverted-index-ngram-secondary-index-open">
+        <output-dir compare="Text">scan-delete-inverted-index-ngram-secondary-index-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-delete-inverted-index-ngram-correlated-secondary-index-open">
+        <output-dir compare="Text">scan-delete-inverted-index-ngram-secondary-index-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-delete-inverted-index-word-secondary-index-open">
+        <output-dir compare="Text">scan-delete-inverted-index-word-secondary-index-open</output-dir>
+      </compilation-unit>
+    </test-case>
+     <test-case FilePath="dml">
+      <compilation-unit name="scan-delete-inverted-index-word-correlated-secondary-index-open">
+        <output-dir compare="Text">scan-delete-inverted-index-word-secondary-index-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-delete-rtree-secondary-index-open">
+        <output-dir compare="Text">scan-delete-rtree-secondary-index-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-delete-rtree-correlated-secondary-index-open">
+        <output-dir compare="Text">scan-delete-rtree-secondary-index-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-btree-secondary-index-open">
+        <output-dir compare="Text">scan-insert-btree-secondary-index-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-btree-correlated-secondary-index-open">
+        <output-dir compare="Text">scan-delete-btree-secondary-index-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-inverted-index-ngram-secondary-index-open">
+        <output-dir compare="Text">scan-insert-inverted-index-ngram-secondary-index-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-inverted-index-ngram-correlated-secondary-index-open">
+        <output-dir compare="Text">scan-insert-inverted-index-ngram-secondary-index-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-inverted-index-word-secondary-index-open">
+        <output-dir compare="Text">scan-insert-inverted-index-word-secondary-index-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-inverted-index-word-correlated-secondary-index-open">
+        <output-dir compare="Text">scan-insert-inverted-index-word-secondary-index-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-rtree-secondary-index-open">
+        <output-dir compare="Text">scan-insert-rtree-secondary-index-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="scan-insert-rtree-correlated-secondary-index-open">
+        <output-dir compare="Text">scan-insert-rtree-secondary-index-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="delete-multi-statement">
+        <output-dir compare="Text">delete-multi-statement</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="upsert-dataset-with-meta">
+        <output-dir compare="Text">upsert-dataset-with-meta</output-dir>
+        <expected-error>upsert into dataset is not supported on Datasets with Meta records</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="dml">
+      <compilation-unit name="upsert-return-custom-result">
+        <output-dir compare="Text">upsert-return-custom-result</output-dir>
+      </compilation-unit>
+    </test-case>
+  </test-group>
+  <test-group name="fulltext">
+    <test-case FilePath="fulltext">
+      <compilation-unit name="fulltext-01">
+        <output-dir compare="Text">fulltext-01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fulltext">
+      <compilation-unit name="fulltext-02">
+        <output-dir compare="Text">fulltext-02</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fulltext">
+      <compilation-unit name="fulltext-09">
+        <output-dir compare="Text">fulltext-09</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fulltext">
+      <compilation-unit name="fulltext-index-01">
+        <output-dir compare="Text">fulltext-index-01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fulltext">
+      <compilation-unit name="fulltext-index-02">
+        <output-dir compare="Text">fulltext-index-02</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fulltext">
+      <compilation-unit name="fulltext-index-03">
+        <output-dir compare="Text">fulltext-index-03</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fulltext">
+      <compilation-unit name="fulltext-index-08">
+        <output-dir compare="Text">fulltext-index-08</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fulltext">
+      <compilation-unit name="fulltext-index-09">
+        <output-dir compare="Text">fulltext-index-09</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fulltext">
+      <compilation-unit name="fulltext-index-large-data">
+        <output-dir compare="Text">fulltext-index-large-data</output-dir>
+      </compilation-unit>
+    </test-case>
+  </test-group>
+  <test-group name="index-join">
+    <test-case FilePath="index-join">
+      <compilation-unit name="btree-index-nested-loop-join">
+        <output-dir compare="Text">btree-index-nested-loop-join</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="btree-primary-equi-join">
+        <output-dir compare="Text">btree-primary-equi-join</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="btree-pidx-to-sidx-idxonly-equi-join_01">
+        <output-dir compare="Text">btree-pidx-to-sidx-idxonly-equi-join_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="btree-secondary-equi-join_01">
+        <output-dir compare="Text">btree-secondary-equi-join_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="btree-secondary-equi-join_02">
+        <output-dir compare="Text">btree-secondary-equi-join_02</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="btree-secondary-equi-join_03">
+        <output-dir compare="Text">btree-secondary-equi-join_03</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="btree-secondary-equi-join_04">
+        <output-dir compare="Text">btree-secondary-equi-join_04</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="btree-sidx-idxonly-to-pidx-equi-join_01">
+        <output-dir compare="Text">btree-sidx-idxonly-to-pidx-equi-join_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="btree-sidx-idxonly-to-sidx-idxonly-equi-join_01">
+        <output-dir compare="Text">btree-sidx-idxonly-to-sidx-idxonly-equi-join_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="btree-sidx-non-idxonly-to-pidx-equi-join_01">
+        <output-dir compare="Text">btree-sidx-non-idxonly-to-pidx-equi-join_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="btree-sidx-non-idxonly-to-sidx-idxonly-equi-join_01">
+        <output-dir compare="Text">btree-sidx-non-idxonly-to-sidx-idxonly-equi-join_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="rtree-spatial-intersect-point_01">
+        <output-dir compare="Text">rtree-spatial-intersect-point_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="rtree-spatial-intersect-point_02">
+        <output-dir compare="Text">rtree-spatial-intersect-point_02</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="rtree-spatial-intersect-point_03">
+        <output-dir compare="Text">rtree-spatial-intersect-point_03</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="rtree-spatial-intersect-point_04">
+        <output-dir compare="Text">rtree-spatial-intersect-point_04</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-join">
+      <compilation-unit name="rtree-spatial-intersect-point_05">
+        <output-dir compare="Text">rtree-spatial-intersect-point_05</output-dir>
+      </compilation-unit>
+    </test-case>
+  </test-group>
+  <test-group name="index-selection">
+    <test-case FilePath="index-selection">
+      <compilation-unit name="btree-index-composite-key">
+        <output-dir compare="Text">btree-index-composite-key</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="btree-sec-primary-index">
+        <output-dir compare="Text">btree-sec-primary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="btree-sec-primary-index-01">
+        <output-dir compare="Text">btree-sec-primary-index-01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="btree-sec-primary-index-02">
+        <output-dir compare="Text">btree-sec-primary-index-02</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="btree-sec-primary-index-03">
+        <output-dir compare="Text">btree-sec-primary-index-03</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="btree-sec-primary-index-04">
+        <output-dir compare="Text">btree-sec-primary-index-04</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="btree-index-composite-key-mixed-intervals">
+        <output-dir compare="Text">btree-index-composite-key-mixed-intervals</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="btree-index-rewrite-multiple">
+        <output-dir compare="Text">btree-index-rewrite-multiple</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="btree-sidx-composite-idxonly-01">
+        <output-dir compare="Text">btree-sidx-composite-idxonly-01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="btree-sidx-composite-idxonly-02">
+        <output-dir compare="Text">btree-sidx-composite-idxonly-02</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="btree-sidx-composite-idxonly-03">
+        <output-dir compare="Text">btree-sidx-composite-idxonly-03</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="btree-sidx-idxonly-01">
+        <output-dir compare="Text">btree-sidx-idxonly-01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="btree-sidx-non-idxonly-01">
+        <output-dir compare="Text">btree-sidx-non-idxonly-01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="cust-index-age-nullable">
+        <output-dir compare="Text">cust-index-age-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="inverted-index-ngram-contains">
+        <output-dir compare="Text">inverted-index-ngram-contains</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="inverted-index-ngram-edit-distance-panic">
+        <output-dir compare="Text">inverted-index-ngram-edit-distance-panic</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="inverted-index-ngram-edit-distance">
+        <output-dir compare="Text">inverted-index-ngram-edit-distance</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="inverted-index-ngram-edit-distance-large-data">
+        <output-dir compare="Text">inverted-index-ngram-edit-distance-large-data</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="inverted-index-ngram-edit-distance-word-tokens">
+        <output-dir compare="Text">inverted-index-ngram-edit-distance-word-tokens</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="inverted-index-ngram-jaccard">
+        <output-dir compare="Text">inverted-index-ngram-jaccard</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="inverted-index-ngram-edit-distance-contains">
+        <output-dir compare="Text">inverted-index-ngram-edit-distance-contains</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="inverted-index-olist-edit-distance-panic">
+        <output-dir compare="Text">inverted-index-olist-edit-distance-panic</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="inverted-index-olist-edit-distance">
+        <output-dir compare="Text">inverted-index-olist-edit-distance</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="inverted-index-olist-jaccard">
+        <output-dir compare="Text">inverted-index-olist-jaccard</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="inverted-index-ulist-jaccard">
+        <output-dir compare="Text">inverted-index-ulist-jaccard</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="inverted-index-word-contains">
+        <output-dir compare="Text">inverted-index-word-contains</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="inverted-index-word-jaccard">
+        <output-dir compare="Text">inverted-index-word-jaccard</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="orders-index-custkey-conjunctive-open">
+        <output-dir compare="Text">orders-index-custkey-conjunctive-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="orders-index-custkey-conjunctive">
+        <output-dir compare="Text">orders-index-custkey-conjunctive</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="orders-index-custkey-open">
+        <output-dir compare="Text">orders-index-custkey-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="orders-index-custkey">
+        <output-dir compare="Text">orders-index-custkey</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="range-search-open">
+        <output-dir compare="Text">range-search-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="range-search">
+        <output-dir compare="Text">range-search</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="rtree-secondary-index-nullable">
+        <output-dir compare="Text">rtree-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="rtree-secondary-index-open">
+        <output-dir compare="Text">rtree-secondary-index-open</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="rtree-secondary-index">
+        <output-dir compare="Text">rtree-secondary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="rtree-secondary-index-circular-query">
+        <output-dir compare="Text">rtree-secondary-index-circular-query</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="rtree-sidx-idxonly-01">
+        <output-dir compare="Text">rtree-sidx-idxonly-01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="rtree-sidx-non-idxonly-01">
+        <output-dir compare="Text">rtree-sidx-non-idxonly-01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="rtree-sidx-non-idxonly-02">
+        <output-dir compare="Text">rtree-sidx-non-idxonly-02</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="index-selection">
+      <compilation-unit name="disjunctive-predicate-1">
+        <output-dir compare="Text">disjunctive-predicate-1</output-dir>
+      </compilation-unit>
+    </test-case>
+  </test-group>
+  <test-group name="inverted-index-join">
+    <test-case FilePath="inverted-index-join">
+      <compilation-unit name="ngram-edit-distance">
+        <output-dir compare="Text">ngram-edit-distance</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join">
+      <compilation-unit name="ngram-edit-distance-inline">
+        <output-dir compare="Text">ngram-edit-distance-inline</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join">
+      <compilation-unit name="ngram-jaccard">
+        <output-dir compare="Text">ngram-jaccard</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join">
+      <compilation-unit name="ngram-jaccard-inline">
+        <output-dir compare="Text">ngram-jaccard-inline</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join">
+      <compilation-unit name="olist-edit-distance">
+        <output-dir compare="Text">olist-edit-distance</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join">
+      <compilation-unit name="olist-edit-distance-inline">
+        <output-dir compare="Text">olist-edit-distance-inline</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join">
+      <compilation-unit name="olist-jaccard">
+        <output-dir compare="Text">olist-jaccard</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join">
+      <compilation-unit name="olist-jaccard-inline">
+        <output-dir compare="Text">olist-jaccard-inline</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join">
+      <compilation-unit name="ulist-jaccard">
+        <output-dir compare="Text">ulist-jaccard</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join">
+      <compilation-unit name="ulist-jaccard-inline">
+        <output-dir compare="Text">ulist-jaccard-inline</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join">
+      <compilation-unit name="word-jaccard">
+        <output-dir compare="Text">word-jaccard</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join">
+      <compilation-unit name="word-jaccard-inline">
+        <output-dir compare="Text">word-jaccard-inline</output-dir>
+      </compilation-unit>
+    </test-case>
+  </test-group>
+  <test-group name="inverted-index-join-noeqjoin">
+    <test-case FilePath="inverted-index-join-noeqjoin">
+      <compilation-unit name="ngram-edit-distance">
+        <output-dir compare="Text">ngram-edit-distance</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join-noeqjoin">
+      <compilation-unit name="ngram-edit-distance-inline">
+        <output-dir compare="Text">ngram-edit-distance-inline</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join-noeqjoin">
+      <compilation-unit name="ngram-jaccard">
+        <output-dir compare="Text">ngram-jaccard</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join-noeqjoin">
+      <compilation-unit name="ngram-jaccard-inline">
+        <output-dir compare="Text">ngram-jaccard-inline</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join-noeqjoin">
+      <compilation-unit name="olist-edit-distance">
+        <output-dir compare="Text">olist-edit-distance</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join-noeqjoin">
+      <compilation-unit name="olist-edit-distance-inline">
+        <output-dir compare="Text">olist-edit-distance-inline</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join-noeqjoin">
+      <compilation-unit name="olist-jaccard">
+        <output-dir compare="Text">olist-jaccard</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join-noeqjoin">
+      <compilation-unit name="olist-jaccard-inline">
+        <output-dir compare="Text">olist-jaccard-inline</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join-noeqjoin">
+      <compilation-unit name="ulist-jaccard">
+        <output-dir compare="Text">ulist-jaccard</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join-noeqjoin">
+      <compilation-unit name="ulist-jaccard-inline">
+        <output-dir compare="Text">ulist-jaccard-inline</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join-noeqjoin">
+      <compilation-unit name="word-jaccard">
+        <output-dir compare="Text">word-jaccard</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="inverted-index-join-noeqjoin">
+      <compilation-unit name="word-jaccard-inline">
+        <output-dir compare="Text">word-jaccard-inline</output-dir>
+      </compilation-unit>
+    </test-case>
+  </test-group>
+  <test-group name="index">
+    <test-group name="index/validations">
+      <test-case FilePath="index/validations">
+        <compilation-unit name="keys-same-as-pk-but-different-order">
+          <output-dir compare="Text">keys-same-as-pk-but-different-order</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="index/validations">
+        <compilation-unit name="keys-same-as-pk-in-same-order">
+          <output-dir compare="Text">keys-same-as-pk-in-same-order</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="index/validations">
+        <compilation-unit name="repetitive-keys">
+          <output-dir compare="Text">repetitive-keys</output-dir>
+          <expected-error>Cannot create index with the same field "[value]" specified more than once.</expected-error>
+        </compilation-unit>
+      </test-case>
+    </test-group>
+  </test-group>
+  <test-group name="open-index-enforced">
+    <test-group name="open-index-enforced/error-checking">
+      <test-case FilePath="open-index-enforced/error-checking">
+        <compilation-unit name="enforced-field-name-collision">
+          <output-dir compare="Text">enforced-field-name-collision</output-dir>
+           <expected-error>Cannot create enforced index on "[value]" field. The field is closed type.</expected-error>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/error-checking">
+        <compilation-unit name="enforced-field-type-collision">
+          <output-dir compare="Text">enforced-field-type-collision</output-dir>
+          <expected-error>Cannot create enforced index on "[value]" field. The field is closed type.</expected-error>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/error-checking">
+        <compilation-unit name="missing-enforce-statement">
+          <output-dir compare="Text">missing-enforce-statement</output-dir>
+          <expected-error>ASX1042: Cannot create non-enforced typed index of this kind: RTREE</expected-error>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/error-checking">
+        <compilation-unit name="missing-optionality">
+          <output-dir compare="Text">missing-optionality</output-dir>
+          <expected-error>Cannot create enforced index on "[value]" field with non-optional type</expected-error>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/error-checking">
+        <compilation-unit name="index-on-closed-type">
+          <output-dir compare="Text">index-on-closed-type</output-dir>
+          <expected-error>Typed index on "[value]" field could be created only for open datatype</expected-error>
+        </compilation-unit>
+      </test-case>
+    </test-group>
+    <test-group name="open-index-enforced/index-join">
+      <test-case FilePath="open-index-enforced/index-join">
+        <compilation-unit name="btree-secondary-equi-join">
+          <output-dir compare="Text">btree-secondary-equi-join</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-join">
+        <compilation-unit name="ngram-edit-distance">
+          <output-dir compare="Text">ngram-edit-distance</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-join">
+        <compilation-unit name="ngram-edit-distance-inline">
+          <output-dir compare="Text">ngram-edit-distance-inline</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-join">
+        <compilation-unit name="ngram-jaccard">
+          <output-dir compare="Text">ngram-jaccard</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-join">
+        <compilation-unit name="ngram-jaccard-inline">
+          <output-dir compare="Text">ngram-jaccard-inline</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-join">
+        <compilation-unit name="rtree-spatial-intersect-point">
+          <output-dir compare="Text">rtree-spatial-intersect-point</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-join">
+        <compilation-unit name="word-jaccard">
+          <output-dir compare="Text">word-jaccard</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-join">
+        <compilation-unit name="word-jaccard-inline">
+          <output-dir compare="Text">word-jaccard-inline</output-dir>
+        </compilation-unit>
+      </test-case>
+    </test-group>
+    <test-group name="open-index-enforced/index-leftouterjoin">
+      <test-case FilePath="open-index-enforced/index-leftouterjoin">
+        <compilation-unit name="probe-pidx-with-join-btree-sidx1">
+          <output-dir compare="Text">probe-pidx-with-join-btree-sidx1</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-leftouterjoin">
+        <compilation-unit name="probe-pidx-with-join-btree-sidx2">
+          <output-dir compare="Text">probe-pidx-with-join-btree-sidx2</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-leftouterjoin">
+        <compilation-unit name="probe-pidx-with-join-invidx-sidx2">
+          <output-dir compare="Text">probe-pidx-with-join-invidx-sidx2</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-leftouterjoin">
+        <compilation-unit name="probe-pidx-with-join-rtree-sidx1">
+          <output-dir compare="Text">probe-pidx-with-join-rtree-sidx1</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-leftouterjoin">
+        <compilation-unit name="probe-pidx-with-join-rtree-sidx2">
+          <output-dir compare="Text">probe-pidx-with-join-rtree-sidx2</output-dir>
+        </compilation-unit>
+      </test-case>
+    </test-group>
+    <test-group name="open-index-enforced/index-selection">
+      <test-case FilePath="open-index-enforced/index-selection">
+        <compilation-unit name="btree-index-composite-key">
+          <output-dir compare="Text">btree-index-composite-key</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-selection">
+        <compilation-unit name="btree-index-composite-key-mixed-intervals">
+          <output-dir compare="Text">btree-index-composite-key-mixed-intervals</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-selection">
+        <compilation-unit name="btree-index-rewrite-multiple">
+          <output-dir compare="Text">btree-index-rewrite-multiple</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-selection">
+        <compilation-unit name="inverted-index-ngram-contains">
+          <output-dir compare="Text">inverted-index-ngram-contains</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-selection">
+        <compilation-unit name="inverted-index-ngram-edit-distance">
+          <output-dir compare="Text">inverted-index-ngram-edit-distance</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-selection">
+        <compilation-unit name="inverted-index-ngram-edit-distance-contains">
+          <output-dir compare="Text">inverted-index-ngram-edit-distance-contains</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-selection">
+        <compilation-unit name="inverted-index-ngram-edit-distance-panic">
+          <output-dir compare="Text">inverted-index-ngram-edit-distance-panic</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-selection">
+        <compilation-unit name="inverted-index-ngram-edit-distance-word-tokens">
+          <output-dir compare="Text">inverted-index-ngram-edit-distance-word-tokens</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-selection">
+        <compilation-unit name="inverted-index-ngram-jaccard">
+          <output-dir compare="Text">inverted-index-ngram-jaccard</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-selection">
+        <compilation-unit name="inverted-index-word-contains">
+          <output-dir compare="Text">inverted-index-word-contains</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-selection">
+        <compilation-unit name="inverted-index-word-jaccard">
+          <output-dir compare="Text">inverted-index-word-jaccard</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-selection">
+        <compilation-unit name="orders-index-custkey">
+          <output-dir compare="Text">orders-index-custkey</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-selection">
+        <compilation-unit name="orders-index-custkey-conjunctive">
+          <output-dir compare="Text">orders-index-custkey-conjunctive</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-selection">
+        <compilation-unit name="range-search">
+          <output-dir compare="Text">range-search</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/index-selection">
+        <compilation-unit name="rtree-secondary-index">
+          <output-dir compare="Text">rtree-secondary-index</output-dir>
+        </compilation-unit>
+      </test-case>
+    </test-group>
+    <test-group name="open-index-enforced/external-indexing">
+      <test-case FilePath="open-index-enforced/external-indexing">
+        <compilation-unit name="adm-format">
+          <output-dir compare="Text">adm-format</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/external-indexing">
+        <compilation-unit name="rtree-index">
+          <output-dir compare="Text">rtree-index</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/external-indexing">
+        <compilation-unit name="leftouterjoin">
+          <output-dir compare="Text">leftouterjoin</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/external-indexing">
+        <compilation-unit name="leftouterjoin-rtree">
+          <output-dir compare="Text">leftouterjoin-rtree</output-dir>
+        </compilation-unit>
+      </test-case>
+    </test-group>
+    <test-group name="open-index-enforced/type-checking">
+      <test-case FilePath="open-index-enforced/type-checking">
+        <compilation-unit name="enforced-type-delete">
+          <output-dir compare="Text">enforced-type-delete</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-enforced/type-checking">
+        <compilation-unit name="enforced-type-upsert">
+          <output-dir compare="Text">enforced-type-upsert</output-dir>
+        </compilation-unit>
+      </test-case>
+    </test-group>
+    <test-group name="open-index-non-enforced/index-selection">
+      <test-case FilePath="open-index-non-enforced/index-selection">
+        <compilation-unit name="btree-index-01">
+          <output-dir compare="Text">btree-index-01</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-non-enforced/index-selection">
+        <compilation-unit name="btree-index-02">
+          <output-dir compare="Text">btree-index-02</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-non-enforced/index-selection">
+        <compilation-unit name="btree-index-03">
+          <output-dir compare="Text">btree-index-03</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-non-enforced/index-selection">
+        <compilation-unit name="btree-index-04">
+          <output-dir compare="Text">btree-index-04</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="open-index-non-enforced/correlated-index-selection">
+        <compilation-unit name="btree-index-01">
+          <output-dir compare="Text">btree-index-01</output-dir>
+        </compilation-unit>
+      </test-case>
+    </test-group>
+    <test-group name="open-index-non-enforced/index-join">
+      <test-case FilePath="open-index-non-enforced/index-join">
+        <compilation-unit name="btree-equi-join-01">
+          <output-dir compare="Text">btree-equi-join-01</output-dir>
+        </compilation-unit>
+      </test-case>
+    </test-group>
+  </test-group>
+  <test-group name="nested-open-index">
+    <test-group name="nested-open-index/index-join">
+      <test-case FilePath="nested-open-index/index-join">
+        <compilation-unit name="btree-secondary-equi-join">
+          <output-dir compare="Text">btree-secondary-equi-join</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-join">
+        <compilation-unit name="ngram-edit-distance">
+          <output-dir compare="Text">ngram-edit-distance</output-dir>
+        </compilation-unit>
+      </test-case>
+      <!--  <test-case FilePath="nested-open-index/index-join">
+                <compilation-unit name="ngram-edit-distance-inline">
+                    <output-dir compare="Text">ngram-edit-distance-inline</output-dir>
+                </compilation-unit>
+            </test-case> -->
+      <test-case FilePath="nested-open-index/index-join">
+        <compilation-unit name="ngram-jaccard">
+          <output-dir compare="Text">ngram-jaccard</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-join">
+        <compilation-unit name="ngram-jaccard-inline">
+          <output-dir compare="Text">ngram-jaccard-inline</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-join">
+        <compilation-unit name="rtree-spatial-intersect-point">
+          <output-dir compare="Text">rtree-spatial-intersect-point</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-join">
+        <compilation-unit name="word-jaccard">
+          <output-dir compare="Text">word-jaccard</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-join">
+        <compilation-unit name="word-jaccard-inline">
+          <output-dir compare="Text">word-jaccard-inline</output-dir>
+        </compilation-unit>
+      </test-case>
+    </test-group>
+    <test-group name="nested-open-index/index-leftouterjoin">
+      <test-case FilePath="nested-open-index/index-leftouterjoin">
+        <compilation-unit name="probe-pidx-with-join-btree-sidx1">
+          <output-dir compare="Text">probe-pidx-with-join-btree-sidx1</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-leftouterjoin">
+        <compilation-unit name="probe-pidx-with-join-btree-sidx2">
+          <output-dir compare="Text">probe-pidx-with-join-btree-sidx2</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-leftouterjoin">
+        <compilation-unit name="probe-pidx-with-join-invidx-sidx2">
+          <output-dir compare="Text">probe-pidx-with-join-invidx-sidx2</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-leftouterjoin">
+        <compilation-unit name="probe-pidx-with-join-rtree-sidx1">
+          <output-dir compare="Text">probe-pidx-with-join-rtree-sidx1</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-leftouterjoin">
+        <compilation-unit name="probe-pidx-with-join-rtree-sidx2">
+          <output-dir compare="Text">probe-pidx-with-join-rtree-sidx2</output-dir>
+        </compilation-unit>
+      </test-case>
+    </test-group>
+    <test-group name="nested-open-index/index-selection">
+      <test-case FilePath="nested-open-index/index-selection">
+        <compilation-unit name="btree-index-composite-key">
+          <output-dir compare="Text">btree-index-composite-key</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-selection">
+        <compilation-unit name="btree-index-composite-key-mixed-intervals">
+          <output-dir compare="Text">btree-index-composite-key-mixed-intervals</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-selection">
+        <compilation-unit name="btree-index-rewrite-multiple">
+          <output-dir compare="Text">btree-index-rewrite-multiple</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-selection">
+        <compilation-unit name="inverted-index-ngram-contains">
+          <output-dir compare="Text">inverted-index-ngram-contains</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-selection">
+        <compilation-unit name="inverted-index-ngram-edit-distance">
+          <output-dir compare="Text">inverted-index-ngram-edit-distance</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-selection">
+        <compilation-unit name="inverted-index-ngram-edit-distance-contains">
+          <output-dir compare="Text">inverted-index-ngram-edit-distance-contains</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-selection">
+        <compilation-unit name="inverted-index-ngram-edit-distance-panic">
+          <output-dir compare="Text">inverted-index-ngram-edit-distance-panic</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-selection">
+        <compilation-unit name="inverted-index-ngram-edit-distance-word-tokens">
+          <output-dir compare="Text">inverted-index-ngram-edit-distance-word-tokens</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-selection">
+        <compilation-unit name="inverted-index-ngram-jaccard">
+          <output-dir compare="Text">inverted-index-ngram-jaccard</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-selection">
+        <compilation-unit name="inverted-index-word-contains">
+          <output-dir compare="Text">inverted-index-word-contains</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-selection">
+        <compilation-unit name="inverted-index-word-jaccard">
+          <output-dir compare="Text">inverted-index-word-jaccard</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-selection">
+        <compilation-unit name="orders-index-custkey">
+          <output-dir compare="Text">orders-index-custkey</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-selection">
+        <compilation-unit name="orders-index-custkey-conjunctive">
+          <output-dir compare="Text">orders-index-custkey-conjunctive</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-selection">
+        <compilation-unit name="range-search">
+          <output-dir compare="Text">range-search</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/index-selection">
+        <compilation-unit name="rtree-secondary-index">
+          <output-dir compare="Text">rtree-secondary-index</output-dir>
+        </compilation-unit>
+      </test-case>
+    </test-group>
+    <test-group name="nested-open-index/external-indexing">
+      <test-case FilePath="nested-open-index/external-indexing">
+        <compilation-unit name="adm-format">
+          <output-dir compare="Text">adm-format</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/external-indexing">
+        <compilation-unit name="rtree-index">
+          <output-dir compare="Text">rtree-index</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/external-indexing">
+        <compilation-unit name="leftouterjoin">
+          <output-dir compare="Text">leftouterjoin</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/external-indexing">
+        <compilation-unit name="leftouterjoin-rtree">
+          <output-dir compare="Text">leftouterjoin-rtree</output-dir>
+        </compilation-unit>
+      </test-case>
+    </test-group>
+    <test-group name="nested-open-index/highly-open-highly-nested">
+      <test-case FilePath="nested-open-index/highly-open-highly-nested">
+        <compilation-unit name="bottom-closed-top-closed">
+          <output-dir compare="Text">bottom-closed-top-closed</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/highly-open-highly-nested">
+        <compilation-unit name="bottom-closed-top-open">
+          <output-dir compare="Text">bottom-closed-top-open</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/highly-open-highly-nested">
+        <compilation-unit name="bottom-open-top-closed">
+          <output-dir compare="Text">bottom-open-top-closed</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-open-index/highly-open-highly-nested">
+        <compilation-unit name="bottom-open-top-open">
+          <output-dir compare="Text">bottom-open-top-open</output-dir>
+        </compilation-unit>
+      </test-case>
+    </test-group>
+  </test-group>
+  <test-group name="nested-index">
+    <test-group name="nested-index/index-join">
+      <test-case FilePath="nested-index/index-join">
+        <compilation-unit name="btree-primary-equi-join">
+          <output-dir compare="Text">btree-primary-equi-join</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-join">
+        <compilation-unit name="btree-secondary-equi-join">
+          <output-dir compare="Text">btree-secondary-equi-join</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-join">
+        <compilation-unit name="ngram-edit-distance">
+          <output-dir compare="Text">ngram-edit-distance</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-join">
+        <compilation-unit name="ngram-edit-distance-inline">
+          <output-dir compare="Text">ngram-edit-distance-inline</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-join">
+        <compilation-unit name="ngram-jaccard">
+          <output-dir compare="Text">ngram-jaccard</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-join">
+        <compilation-unit name="ngram-jaccard-inline">
+          <output-dir compare="Text">ngram-jaccard-inline</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-join">
+        <compilation-unit name="rtree-spatial-intersect-point">
+          <output-dir compare="Text">rtree-spatial-intersect-point</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-join">
+        <compilation-unit name="word-jaccard">
+          <output-dir compare="Text">word-jaccard</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-join">
+        <compilation-unit name="word-jaccard-inline">
+          <output-dir compare="Text">word-jaccard-inline</output-dir>
+        </compilation-unit>
+      </test-case>
+    </test-group>
+    <test-group name="nested-index/index-leftouterjoin">
+      <test-case FilePath="nested-index/index-leftouterjoin">
+        <compilation-unit name="probe-pidx-with-join-btree-sidx1">
+          <output-dir compare="Text">probe-pidx-with-join-btree-sidx1</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-leftouterjoin">
+        <compilation-unit name="probe-pidx-with-join-btree-sidx2">
+          <output-dir compare="Text">probe-pidx-with-join-btree-sidx2</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-leftouterjoin">
+        <compilation-unit name="probe-pidx-with-join-invidx-sidx1">
+          <output-dir compare="Text">probe-pidx-with-join-invidx-sidx1</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-leftouterjoin">
+        <compilation-unit name="probe-pidx-with-join-invidx-sidx2">
+          <output-dir compare="Text">probe-pidx-with-join-invidx-sidx2</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-leftouterjoin">
+        <compilation-unit name="probe-pidx-with-join-rtree-sidx1">
+          <output-dir compare="Text">probe-pidx-with-join-rtree-sidx1</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-leftouterjoin">
+        <compilation-unit name="probe-pidx-with-join-rtree-sidx2">
+          <output-dir compare="Text">probe-pidx-with-join-rtree-sidx2</output-dir>
+        </compilation-unit>
+      </test-case>
+    </test-group>
+    <test-group name="nested-index/index-selection">
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="btree-index-composite-key">
+          <output-dir compare="Text">btree-index-composite-key</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="btree-sec-primary-index">
+          <output-dir compare="Text">btree-sec-primary-index</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="btree-index-composite-key-mixed-intervals">
+          <output-dir compare="Text">btree-index-composite-key-mixed-intervals</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="btree-index-rewrite-multiple">
+          <output-dir compare="Text">btree-index-rewrite-multiple</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="cust-index-age-nullable">
+          <output-dir compare="Text">cust-index-age-nullable</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="inverted-index-ngram-contains">
+          <output-dir compare="Text">inverted-index-ngram-contains</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="inverted-index-ngram-edit-distance">
+          <output-dir compare="Text">inverted-index-ngram-edit-distance</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="inverted-index-ngram-edit-distance-contains">
+          <output-dir compare="Text">inverted-index-ngram-edit-distance-contains</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="inverted-index-ngram-edit-distance-panic">
+          <output-dir compare="Text">inverted-index-ngram-edit-distance-panic</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="inverted-index-ngram-edit-distance-word-tokens">
+          <output-dir compare="Text">inverted-index-ngram-edit-distance-word-tokens</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="inverted-index-ngram-jaccard">
+          <output-dir compare="Text">inverted-index-ngram-jaccard</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="inverted-index-olist-edit-distance">
+          <output-dir compare="Text">inverted-index-olist-edit-distance</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="inverted-index-olist-edit-distance-panic">
+          <output-dir compare="Text">inverted-index-olist-edit-distance-panic</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="inverted-index-olist-jaccard">
+          <output-dir compare="Text">inverted-index-olist-jaccard</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="inverted-index-ulist-jaccard">
+          <output-dir compare="Text">inverted-index-ulist-jaccard</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="inverted-index-word-contains">
+          <output-dir compare="Text">inverted-index-word-contains</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="inverted-index-word-jaccard">
+          <output-dir compare="Text">inverted-index-word-jaccard</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="orders-index-custkey">
+          <output-dir compare="Text">orders-index-custkey</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="orders-index-custkey-conjunctive">
+          <output-dir compare="Text">orders-index-custkey-conjunctive</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="orders-index-custkey-conjunctive-open">
+          <output-dir compare="Text">orders-index-custkey-conjunctive-open</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="orders-index-custkey-open">
+          <output-dir compare="Text">orders-index-custkey-open</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="range-search">
+          <output-dir compare="Text">range-search</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="range-search-open">
+          <output-dir compare="Text">range-search-open</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="rtree-secondary-index">
+          <output-dir compare="Text">rtree-secondary-index</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="rtree-secondary-index-nullable">
+          <output-dir compare="Text">rtree-secondary-index-nullable</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="rtree-secondary-index-open">
+          <output-dir compare="Text">rtree-secondary-index-open</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/index-selection">
+        <compilation-unit name="rtree-secondary-index-optional">
+          <output-dir compare="Text">rtree-secondary-index-open</output-dir>
+        </compilation-unit>
+      </test-case>
+    </test-group>
+    <test-group name="nested-index/external-indexing">
+      <test-case FilePath="nested-index/external-indexing">
+        <compilation-unit name="adm-format">
+          <output-dir compare="Text">adm-format</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/external-indexing">
+        <compilation-unit name="rtree-index">
+          <output-dir compare="Text">rtree-index</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/external-indexing">
+        <compilation-unit name="leftouterjoin">
+          <output-dir compare="Text">leftouterjoin</output-dir>
+        </compilation-unit>
+      </test-case>
+      <test-case FilePath="nested-index/external-indexing">
+        <compilation-unit name="leftouterjoin-rtree">
+          <output-dir compare="Text">leftouterjoin-rtree</output-dir>
+        </compilation-unit>
+      </test-case>
+    </test-group>
+  </test-group>
+  <test-group name="nested-index-dml">
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="compact-dataset-and-its-indexes">
+        <output-dir compare="Text">compact-dataset-and-its-indexes</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="nested-uuid-load">
+        <output-dir compare="Text">nested-uuid-load</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="nested-uuid-insert">
+        <output-dir compare="Text">nested-uuid-insert</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="delete-from-loaded-dataset-with-index">
+        <output-dir compare="Text">delete-from-loaded-dataset-with-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="delete-from-loaded-dataset-with-sec-primary-index">
+        <output-dir compare="Text">delete-from-loaded-dataset-with-sec-primary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="drop-index">
+        <output-dir compare="Text">drop-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="insert-into-empty-dataset-with-index">
+        <output-dir compare="Text">insert-into-empty-dataset-with-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="insert-into-empty-dataset-with-sec-primary-index">
+        <output-dir compare="Text">insert-into-empty-dataset-with-sec-primary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="insert-into-loaded-dataset-with-index_01">
+        <output-dir compare="Text">insert-into-loaded-dataset-with-index_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="insert-into-loaded-dataset-with-index_02">
+        <output-dir compare="Text">insert-into-loaded-dataset-with-index_02</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="insert-into-loaded-dataset-with-sec-primary-index">
+        <output-dir compare="Text">insert-into-loaded-dataset-with-sec-primary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="load-with-index">
+        <output-dir compare="Text">load-with-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="load-with-sec-primary-index">
+        <output-dir compare="Text">load-with-sec-primary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="load-with-ngram-index">
+        <output-dir compare="Text">load-with-ngram-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="load-with-rtree-index">
+        <output-dir compare="Text">load-with-rtree-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="load-with-word-index">
+        <output-dir compare="Text">load-with-word-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="scan-delete-btree-secondary-index-nullable">
+        <output-dir compare="Text">scan-delete-btree-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="scan-delete-rtree-secondary-index-nullable">
+        <output-dir compare="Text">scan-delete-rtree-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="scan-delete-rtree-secondary-index">
+        <output-dir compare="Text">scan-delete-rtree-secondary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="scan-insert-btree-secondary-index-nullable">
+        <output-dir compare="Text">scan-insert-btree-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="scan-insert-rtree-secondary-index-nullable">
+        <output-dir compare="Text">scan-insert-rtree-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="scan-insert-rtree-secondary-index">
+        <output-dir compare="Text">scan-insert-rtree-secondary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="scan-insert-inverted-index-ngram-secondary-index">
+        <output-dir compare="Text">scan-insert-inverted-index-ngram-secondary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="scan-insert-inverted-index-word-secondary-index">
+        <output-dir compare="Text">scan-insert-inverted-index-word-secondary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="scan-insert-inverted-index-ngram-secondary-index-nullable">
+        <output-dir compare="Text">scan-insert-inverted-index-ngram-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="scan-insert-inverted-index-word-secondary-index-nullable">
+        <output-dir compare="Text">scan-insert-inverted-index-word-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="scan-delete-inverted-index-ngram-secondary-index">
+        <output-dir compare="Text">scan-delete-inverted-index-ngram-secondary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="scan-delete-inverted-index-word-secondary-index">
+        <output-dir compare="Text">scan-delete-inverted-index-word-secondary-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="scan-delete-inverted-index-ngram-secondary-index-nullable">
+        <output-dir compare="Text">scan-delete-inverted-index-ngram-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="nested-index-dml">
+      <compilation-unit name="scan-delete-inverted-index-word-secondary-index-nullable">
+        <output-dir compare="Text">scan-delete-inverted-index-word-secondary-index-nullable</output-dir>
+      </compilation-unit>
+    </test-case>
+  </test-group>
+  <test-group name="tpcds">
+    <test-case FilePath="tpcds">
+      <compilation-unit name="query-ASTERIXDB-1580">
+        <output-dir compare="Text">query-ASTERIXDB-1580</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="query-ASTERIXDB-1581">
+        <output-dir compare="Text">query-ASTERIXDB-1581</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="query-ASTERIXDB-1581-2">
+        <output-dir compare="Text">query-ASTERIXDB-1581-2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="query-ASTERIXDB-1581-3">
+        <output-dir compare="Text">query-ASTERIXDB-1581-2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="query-ASTERIXDB-1581-4">
+        <output-dir compare="Text">query-ASTERIXDB-1581-4</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="query-ASTERIXDB-1581-5">
+        <output-dir compare="Text">query-ASTERIXDB-1581-2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="query-ASTERIXDB-1581-6">
+        <output-dir compare="Text">query-ASTERIXDB-1581-6</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="query-ASTERIXDB-1581-correlated">
+          <output-dir compare="Text">query-ASTERIXDB-1581-correlated</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="query-ASTERIXDB-1581-correlated-2">
+        <output-dir compare="Text">query-ASTERIXDB-1581-2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="query-ASTERIXDB-1591">
+        <output-dir compare="Text">query-ASTERIXDB-1591</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="query-ASTERIXDB-1596">
+        <output-dir compare="Text">query-ASTERIXDB-1596</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="query-ASTERIXDB-1602">
+        <output-dir compare="Text">query-ASTERIXDB-1602</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q03">
+        <output-dir compare="Text">q03</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q07">
+        <output-dir compare="Text">q07</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q15">
+        <output-dir compare="Text">q15</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q19">
+        <output-dir compare="Text">q19</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q21">
+        <output-dir compare="Text">q21</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q24a">
+        <output-dir compare="Text">q24a</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q24b">
+        <output-dir compare="Text">q24b</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q25">
+        <output-dir compare="Text">q25</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q26">
+        <output-dir compare="Text">q26</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q29">
+        <output-dir compare="Text">q29</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q30">
+        <output-dir compare="Text">q30</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q31">
+        <output-dir compare="Text">q31</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q34">
+        <output-dir compare="Text">q34</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q37">
+        <output-dir compare="Text">q37</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q41">
+        <output-dir compare="Text">q41</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q42">
+        <output-dir compare="Text">q42</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q43">
+        <output-dir compare="Text">q43</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q45">
+        <output-dir compare="Text">q45</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q46">
+        <output-dir compare="Text">q46</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q50">
+        <output-dir compare="Text">q50</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q52">
+        <output-dir compare="Text">q52</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q55">
+        <output-dir compare="Text">q55</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q59">
+        <output-dir compare="Text">q59</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q62">
+        <output-dir compare="Text">q62</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q68">
+        <output-dir compare="Text">q68</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q73">
+        <output-dir compare="Text">q73</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q79">
+        <output-dir compare="Text">q79</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q81">
+        <output-dir compare="Text">q81</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q82">
+        <output-dir compare="Text">q82</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q88">
+        <output-dir compare="Text">q88</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q91">
+        <output-dir compare="Text">q91</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q94">
+        <output-dir compare="Text">q94</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q95">
+        <output-dir compare="Text">q95</output-dir>
+      </compilation-unit>
+    </test-case>
+     <test-case FilePath="tpcds">
+      <compilation-unit name="q96">
+        <output-dir compare="Text">q96</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q98">
+        <output-dir compare="Text">q98</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q01">
+        <output-dir compare="Text">q01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q09">
+        <output-dir compare="Text">q09</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q92">
+        <output-dir compare="Text">q92</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q90">
+        <output-dir compare="Text">q90</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpcds">
+      <compilation-unit name="q85">
+        <output-dir compare="Text">q85</output-dir>
+      </compilation-unit>
+    </test-case>
+  </test-group>
+  <test-group name="tpch">
+    <test-case FilePath="tpch">
+      <compilation-unit name="distinct_by">
+        <output-dir compare="Text">distinct_by</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="group_no_agg">
+        <output-dir compare="Text">group_no_agg</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="nest_aggregate">
+        <output-dir compare="Text">nest_aggregate</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="nest_aggregate2">
+        <output-dir compare="Text">nest_aggregate2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="query-issue638">
+        <output-dir compare="Text">query-issue638</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="query-issue785">
+        <output-dir compare="Text">query-issue785</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="query-issue785-2">
+        <output-dir compare="Text">query-issue785-2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="query-issue786">
+        <output-dir compare="Text">query-issue786</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="query-issue601">
+        <output-dir compare="Text">query-issue601</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q10_returned_item">
+        <output-dir compare="Text">q10_returned_item</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q10_returned_item_int64">
+        <output-dir compare="Text">q10_returned_item_int64</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q11_important_stock">
+        <output-dir compare="Text">q11_important_stock</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q12_shipping">
+        <output-dir compare="Text">q12_shipping</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q13_customer_distribution">
+        <output-dir compare="Text">q13_customer_distribution</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q14_promotion_effect">
+        <output-dir compare="Text">q14_promotion_effect</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q15_top_supplier">
+        <output-dir compare="Text">q15_top_supplier</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q16_parts_supplier_relationship">
+        <output-dir compare="Text">q16_parts_supplier_relationship</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q17_small_quantity_order_revenue">
+        <output-dir compare="Text">q17_small_quantity_order_revenue</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q17_large_gby_variant">
+        <output-dir compare="Text">q17_large_gby_variant</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q18_large_volume_customer">
+        <output-dir compare="Text">q18_large_volume_customer</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q19_discounted_revenue">
+        <output-dir compare="Text">q19_discounted_revenue</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q01_pricing_summary_report_nt">
+        <output-dir compare="Text">q01_pricing_summary_report_nt</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q20_potential_part_promotion">
+        <output-dir compare="Text">q20_potential_part_promotion</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q21_suppliers_who_kept_orders_waiting">
+        <output-dir compare="Text">q21_suppliers_who_kept_orders_waiting</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q22_global_sales_opportunity">
+        <output-dir compare="Text">q22_global_sales_opportunity</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q02_minimum_cost_supplier">
+        <output-dir compare="Text">q02_minimum_cost_supplier</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q03_shipping_priority_nt">
+        <output-dir compare="Text">q03_shipping_priority_nt</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q04_order_priority">
+        <output-dir compare="Text">q04_order_priority</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q05_local_supplier_volume">
+        <output-dir compare="Text">q05_local_supplier_volume</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q06_forecast_revenue_change">
+        <output-dir compare="Text">q06_forecast_revenue_change</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q07_volume_shipping">
+        <output-dir compare="Text">q07_volume_shipping</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q08_national_market_share">
+        <output-dir compare="Text">q08_national_market_share</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="q09_product_type_profit_nt">
+        <output-dir compare="Text">q09_product_type_profit_nt</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="query-issue562">
+        <output-dir compare="Text">query-issue562</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="query-issue810">
+        <output-dir compare="Text">query-issue810</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="query-issue810-2">
+        <output-dir compare="Text">query-issue810-2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="query-issue810-3">
+        <output-dir compare="Text">query-issue810-3</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="query-issue827">
+        <output-dir compare="Text">query-issue827</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch">
+      <compilation-unit name="query-issue827-2">
+        <output-dir compare="Text">query-issue827-2</output-dir>
+      </compilation-unit>
+    </test-case>
+  </test-group>
+  <test-group name="tpch-with-index">
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="distinct_by">
+        <output-dir compare="Text">distinct_by</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="nest_aggregate">
+        <output-dir compare="Text">nest_aggregate</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="nest_aggregate2">
+        <output-dir compare="Text">nest_aggregate2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="query-issue785">
+        <output-dir compare="Text">query-issue785</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="query-issue785-2">
+        <output-dir compare="Text">query-issue785-2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="query-issue786">
+        <output-dir compare="Text">query-issue786</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="query-issue601">
+        <output-dir compare="Text">query-issue601</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q10_returned_item">
+        <output-dir compare="Text">q10_returned_item</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q10_returned_item_int64">
+        <output-dir compare="Text">q10_returned_item_int64</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q11_important_stock">
+        <output-dir compare="Text">q11_important_stock</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q12_shipping">
+        <output-dir compare="Text">q12_shipping</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q13_customer_distribution">
+        <output-dir compare="Text">q13_customer_distribution</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q14_promotion_effect">
+        <output-dir compare="Text">q14_promotion_effect</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q15_top_supplier">
+        <output-dir compare="Text">q15_top_supplier</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q16_parts_supplier_relationship">
+        <output-dir compare="Text">q16_parts_supplier_relationship</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q17_small_quantity_order_revenue">
+        <output-dir compare="Text">q17_small_quantity_order_revenue</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q17_large_gby_variant">
+        <output-dir compare="Text">q17_large_gby_variant</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q18_large_volume_customer">
+        <output-dir compare="Text">q18_large_volume_customer</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q19_discounted_revenue">
+        <output-dir compare="Text">q19_discounted_revenue</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q01_pricing_summary_report_nt">
+        <output-dir compare="Text">q01_pricing_summary_report_nt</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q20_potential_part_promotion">
+        <output-dir compare="Text">q20_potential_part_promotion</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q21_suppliers_who_kept_orders_waiting">
+        <output-dir compare="Text">q21_suppliers_who_kept_orders_waiting</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q22_global_sales_opportunity">
+        <output-dir compare="Text">q22_global_sales_opportunity</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q02_minimum_cost_supplier">
+        <output-dir compare="Text">q02_minimum_cost_supplier</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q03_shipping_priority_nt">
+        <output-dir compare="Text">q03_shipping_priority_nt</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q04_order_priority">
+        <output-dir compare="Text">q04_order_priority</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q04_order_priority_with_nodegroup">
+        <output-dir compare="Text">q04_order_priority</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q05_local_supplier_volume">
+        <output-dir compare="Text">q05_local_supplier_volume</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q06_forecast_revenue_change">
+        <output-dir compare="Text">q06_forecast_revenue_change</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q07_volume_shipping">
+        <output-dir compare="Text">q07_volume_shipping</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q08_national_market_share">
+        <output-dir compare="Text">q08_national_market_share</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="q09_product_type_profit_nt">
+        <output-dir compare="Text">q09_product_type_profit_nt</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="query-issue562">
+        <output-dir compare="Text">query-issue562</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="query-issue810">
+        <output-dir compare="Text">query-issue810</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="query-issue810-2">
+        <output-dir compare="Text">query-issue810-2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="query-issue810-3">
+        <output-dir compare="Text">query-issue810-3</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="query-issue827">
+        <output-dir compare="Text">query-issue827</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="tpch-with-index">
+      <compilation-unit name="query-issue827-2">
+        <output-dir compare="Text">query-issue827-2</output-dir>
+      </compilation-unit>
+    </test-case>
+  </test-group>
+  <test-group name="big-object">
+    <test-case FilePath="big-object">
+      <compilation-unit name="big_object_sort">
+        <output-dir compare="Text">big_object_sort</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="big-object">
+      <compilation-unit name="big_object_groupby">
+        <output-dir compare="Text">big_object_groupby</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="big-object">
+      <compilation-unit name="big_object_groupby-2">
+        <output-dir compare="Text">big_object_groupby-2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="big-object">
+      <compilation-unit name="big_object_join">
+        <output-dir compare="Text">big_object_join</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="big-object">
+      <compilation-unit name="big_object_load_20M">
+        <output-dir compare="Text">big_object_load_20M</output-dir>
+      </compilation-unit>
+    </test-case>
+  </test-group>
+  <test-group name="feeds">
+    <test-case FilePath="feeds">
+      <compilation-unit name="feeds_07">
+        <output-dir compare="Text">feeds_07</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="feeds_08">
+        <output-dir compare="Text">feeds_08</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="feeds_09">
+        <output-dir compare="Text">feeds_09</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="create-policy-from-file">
+        <output-dir compare="Text">create-policy-from-file</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="feeds_01">
+        <output-dir compare="Text">feeds_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="feeds_02">
+        <output-dir compare="Text">feeds_02</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="feeds_03">
+        <output-dir compare="Text">feeds_03</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="feeds_10">
+        <output-dir compare="Text">feeds_10</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="feeds_11">
+        <output-dir compare="Text">feeds_11</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="feeds_12">
+        <output-dir compare="Text">feeds_12</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="feeds_13">
+        <output-dir compare="Text">feeds_13</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="issue_230_feeds">
+        <output-dir compare="Text">issue_230_feeds</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="insert-feed">
+        <output-dir compare="Text">insert-feed</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="connect-feed-with-function">
+        <output-dir compare="Text">connect-feed-with-function</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="change-feed-with-meta-with-mixed-index">
+        <output-dir compare="Text">change-feed-with-meta-with-mixed-index</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="change-feed-with-meta-pk-in-meta-index-with-missing-after-ingest">
+        <output-dir compare="Text">change-feed-with-meta-pk-in-meta-index-with-missing-after-ingest</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="change-feed-with-meta-pk-in-meta-open-index-with-missing">
+        <output-dir compare="Text">change-feed-with-meta-pk-in-meta-open-index-with-missing</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="change-feed-with-meta-open-index-in-meta">
+        <output-dir compare="Text">change-feed-with-meta-open-index-in-meta</output-dir>
+        <expected-error>Typed open index can only be created on the record part</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="change-feed-with-meta-pk-in-meta-open-index-in-value">
+        <output-dir compare="Text">change-feed-with-meta-pk-in-meta-open-index-in-value</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="change-feed-with-meta-pk-in-meta-index-after-ingest">
+        <output-dir compare="Text">change-feed-with-meta-pk-in-meta-index-after-ingest</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="change-feed-with-meta-pk-in-meta-index-in-meta">
+        <output-dir compare="Text">change-feed-with-meta-pk-in-meta-index-in-meta</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="change-feed-with-meta-csv">
+        <output-dir compare="Text">change-feed-with-meta-csv</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="change-feed-with-meta-pk-in-meta">
+        <output-dir compare="Text">change-feed-with-meta-pk-in-meta</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="change-feed">
+        <output-dir compare="Text">change-feed</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="drop-nonexistent-feed">
+        <output-dir compare="Text">drop-nonexistent-feed</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="twitter-feed">
+        <output-dir compare="Text">twitter-feed</output-dir>
+        <expected-error>Twitter4J library not found!</expected-error>
+        <expected-error>Unknown source feed: TwitterFeed</expected-error>
+        <source-location>false</source-location>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="revised-tweet-parser">
+        <output-dir compare="Text">revised-tweet-parser</output-dir>
+        <expected-error>Twitter4J library not found!</expected-error>
+        <expected-error>Unknown source feed: TwitterFeed</expected-error>
+        <source-location>false</source-location>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="connect-feed">
+        <output-dir compare="Text">connect-feed</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="change-feed-with-meta-pk-in-meta">
+        <output-dir compare="Text">change-feed-with-meta-pk-in-meta</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="feed-with-filtered-dataset">
+        <output-dir compare="Text">feed-with-filtered-dataset</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="change-feed">
+        <output-dir compare="Text">change-feed</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="drop-dataverse-with-disconnected-feed">
+        <output-dir compare="Text">drop-dataverse-with-disconnected-feed</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="feed-push-socket">
+        <output-dir compare="Text">feed-push-socket</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="insert-feed">
+        <output-dir compare="Text">insert-feed</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="start-feed">
+        <output-dir compare="Text">start-feed</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="start-started-feed">
+        <output-dir compare="Text">start-started-feed</output-dir>
+        <expected-error>experiments.TweetFeed(Feed) is already started</expected-error>
+        <source-location>false</source-location>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="stop-stopped-feed">
+        <output-dir compare="Text">stop-stopped-feed</output-dir>
+        <expected-error>new_experiments.TweetFeed(Feed) cannot be stopped because its state is STOPPED</expected-error>
+        <source-location>false</source-location>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="push-socket-with-auuid">
+        <output-dir compare="Text">push-socket-with-auuid</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="disconnect-live-feed">
+        <output-dir compare="Text">disconnect-live-feed</output-dir>
+        <expected-error>This operation cannot be done when Feed</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="connect-live-feed">
+        <output-dir compare="Text">connect-live-feed</output-dir>
+        <expected-error>This operation cannot be done when Feed</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="record-reader-with-malformed-input-stream">
+        <output-dir compare="Text">record-reader-with-malformed-input-stream</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="feed-with-undefined-function">
+        <output-dir compare="Text">feed-with-undefined-function</output-dir>
+        <expected-error>Cannot find function</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="drop-function-used-by-feed">
+        <output-dir compare="Text">drop-function-used-by-feed</output-dir>
+        <expected-error>Function experiments.test_func0@1 is being used. It cannot be dropped</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="drop-function-no-longer-used-by-feed">
+        <output-dir compare="Text">drop-function-used-by-feed</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="feeds">
+      <compilation-unit name="drop-dataverse-with-function-used-by-feed">
+        <output-dir compare="Text">drop-dataverse-with-function-used-by-feed</output-dir>
+        <expected-error>Function fundv.test_func0@1 is being used. It cannot be dropped</expected-error>
+      </compilation-unit>
+    </test-case>
+  </test-group>
+  <test-group name="filters">
+    <test-case FilePath="filters">
+      <compilation-unit name="equality-predicate">
+        <output-dir compare="Text">equality-predicate</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="filters">
+      <compilation-unit name="filter-auto-key">
+        <output-dir compare="Text">filter-auto-key</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="filters">
+      <compilation-unit name="load">
+        <output-dir compare="Text">load</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="filters">
+      <compilation-unit name="load-with-secondary-btree">
+        <output-dir compare="Text">load-with-secondary-btree</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="filters">
+      <compilation-unit name="load-with-secondary-btree-index-only">
+        <output-dir compare="Text">load-with-secondary-btree-index-only</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="filters">
+      <compilation-unit name="load-with-secondary-inverted-ngram">
+        <output-dir compare="Text">load-with-secondary-inverted-ngram</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="filters">
+      <compilation-unit name="load-with-secondary-inverted-word">
+        <output-dir compare="Text">load-with-secondary-inverted-word</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="filters">
+      <compilation-unit name="load-with-secondary-rtree">
+        <output-dir compare="Text">load-with-secondary-rtree</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="filters">
+      <compilation-unit name="insert">
+        <output-dir compare="Text">insert</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="filters">
+      <compilation-unit name="insert-with-secondary-btree">
+        <output-dir compare="Text">insert-with-secondary-btree</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="filters">
+      <compilation-unit name="insert-with-correlated-secondary-btree">
+        <output-dir compare="Text">insert-with-secondary-btree</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="filters">
+      <compilation-unit name="insert-with-secondary-inverted-ngram">
+        <output-dir compare="Text">insert-with-secondary-inverted-ngram</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="filters">
+      <compilation-unit name="insert-with-correlated-secondary-inverted-ngram">
+        <output-dir compare="Text">insert-with-secondary-inverted-ngram</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="filters">
+      <compilation-unit name="insert-with-secondary-inverted-word">
+        <output-dir compare="Text">insert-with-secondary-inverted-word</output-dir>
+      </compilation-unit>
+    </test-case>
+      <test-case FilePath="filters">
+      <compilation-unit name="insert-with-correlated-secondary-inverted-word">
+        <output-dir compare="Text">insert-with-secondary-inverted-word</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="filters">
+      <compilation-unit name="insert-with-secondary-rtree">
+        <output-dir compare="Text">insert-with-secondary-rtree</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="filters">
+      <compilation-unit name="insert-with-correlated-secondary-rtree">
+        <output-dir compare="Text">insert-with-secondary-rtree</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="filters">
+      <compilation-unit name="nested-filter-equality-predicate">
+        <output-dir compare="Text">nested-filter-equality-predicate</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="filters">
+      <compilation-unit name="upsert">
+        <output-dir compare="Text">upsert</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="filters">
+      <compilation-unit name="delete">
+        <output-dir compare="Text">delete</output-dir>
+      </compilation-unit>
+    </test-case>
+  </test-group>
+</test-suite>

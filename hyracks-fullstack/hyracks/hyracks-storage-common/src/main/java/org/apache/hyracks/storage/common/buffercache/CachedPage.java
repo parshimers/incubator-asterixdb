@@ -50,6 +50,9 @@ public class CachedPage implements ICachedPageInternal {
     private final StackTraceElement[] ctorStack;
     private IPageWriteFailureCallback failureCallback;
 
+    private long compressedOffset;
+    private int compressedSize;
+
     //Constructor for making dummy entry for FIFO queue
     public CachedPage() {
         this.cpid = -1;
@@ -223,5 +226,25 @@ public class CachedPage implements ICachedPageInternal {
         } else {
             LOGGER.error("An IO Failure took place but the failure callback is not set", e);
         }
+    }
+
+    public void setCompressedPageOffset(long offset) {
+        this.compressedOffset = offset;
+    }
+
+    @Override
+    public long getCompressedPageOffset() {
+        return compressedOffset;
+    }
+
+    @Override
+    public void setCompressedPageSize(int size) {
+        this.compressedSize = size;
+
+    }
+
+    @Override
+    public int getCompressedPageSize() {
+        return compressedSize;
     }
 }

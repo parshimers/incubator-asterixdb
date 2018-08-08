@@ -39,6 +39,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import org.apache.hyracks.api.compression.ICompressorDecompressor;
 import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileReference;
@@ -50,6 +51,8 @@ import org.apache.hyracks.api.util.ExceptionUtils;
 import org.apache.hyracks.api.util.IoUtil;
 import org.apache.hyracks.storage.common.file.BufferedFileHandle;
 import org.apache.hyracks.storage.common.file.IFileMapManager;
+import org.apache.hyracks.storage.common.file.compress.CompressedFileManager;
+import org.apache.hyracks.storage.common.file.compress.ICompressedPageWriter;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -548,29 +551,109 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
     private void read(CachedPage cPage) throws HyracksDataException {
         BufferedFileHandle fInfo = getFileInfo(cPage);
         cPage.buffer.clear();
-        BufferCacheHeaderHelper header = checkoutHeaderHelper();
+        if (fInfo.isCompressed()) {
+            readCompressed(cPage, fInfo);
+        } else {
+            readUncompressed(cPage, fInfo);
+        }
+
+    }
+
+    private void readUncompressed(CachedPage cPage, BufferedFileHandle fInfo) throws HyracksDataException {
+        final BufferCacheHeaderHelper header = checkoutHeaderHelper();
+        int totalPages;
+        long bytesRead;
         try {
-            long bytesRead = ioManager.syncRead(fInfo.getFileHandle(),
+            bytesRead = ioManager.syncRead(fInfo.getFileHandle(),
                     getOffsetForPage(BufferedFileHandle.getPageId(cPage.dpid)), header.prepareRead());
 
-            if (bytesRead != getPageSizeWithHeader()) {
-                if (bytesRead == -1) {
-                    // disk order scan code seems to rely on this behavior, so silently return
-                    return;
-                }
-                throw new HyracksDataException("Failed to read a complete page: " + bytesRead);
+            if (!verifyBytesRead(bytesRead, getPageSizeWithHeader())) {
+                return;
             }
-            int totalPages = header.processRead(cPage);
 
-            if (totalPages > 1) {
-                pageReplacementStrategy.fixupCapacityOnLargeRead(cPage);
-                cPage.buffer.position(pageSize);
-                cPage.buffer.limit(totalPages * pageSize);
-                ioManager.syncRead(fInfo.getFileHandle(), getOffsetForPage(cPage.getExtraBlockPageId()), cPage.buffer);
-            }
+            totalPages = header.processRead(cPage);
         } finally {
             returnHeaderHelper(header);
         }
+
+        if (totalPages > 1) {
+            pageReplacementStrategy.fixupCapacityOnLargeRead(cPage);
+            cPage.buffer.position(pageSize);
+            cPage.buffer.limit(totalPages * pageSize);
+            bytesRead += ioManager.syncRead(fInfo.getFileHandle(), getOffsetForPage(cPage.getExtraBlockPageId()),
+                    cPage.buffer);
+        }
+    }
+
+    private void readCompressed(CachedPage cPage, BufferedFileHandle fInfo) throws HyracksDataException {
+        final BufferCacheHeaderHelper header = checkoutHeaderHelper();
+        final CompressedFileManager compressedFileManager = fInfo.getCompressedFileManager();
+        try {
+            compressedFileManager.setCompressedPageInfo(cPage);
+            long bytesRead = ioManager.syncRead(fInfo.getFileHandle(), cPage.getCompressedPageOffset(),
+                    header.prepareRead(cPage.getCompressedPageSize()));
+
+            if (!verifyBytesRead(bytesRead, cPage.getCompressedPageSize())) {
+                return;
+            }
+            final int totalPages = header.processRead(cPage, cPage.getCompressedPageSize(), compressedFileManager);
+            if (totalPages > 1) {
+                pageReplacementStrategy.fixupCapacityOnLargeRead(cPage);
+                if (!header.isCompressed()) {
+                    //Get the offset for the first extra page
+                    compressedFileManager.setExtraCompressedPageInfo(cPage, 0);
+                    cPage.buffer.position(pageSize);
+                    cPage.buffer.limit(totalPages * pageSize);
+                    ioManager.syncRead(fInfo.getFileHandle(), cPage.getCompressedPageOffset(), cPage.buffer);
+                } else {
+                    readExtraCompressedPages(fInfo, cPage, header.buf, compressedFileManager, totalPages);
+                }
+            }
+
+        } finally {
+            returnHeaderHelper(header);
+        }
+    }
+
+    private void readExtraCompressedPages(BufferedFileHandle fInfo, CachedPage cPage, ByteBuffer readrBuffer,
+            CompressedFileManager compressedFileManager, int totalPages) throws HyracksDataException {
+        final ICompressorDecompressor decompressor = compressedFileManager.getCompressorDecompressor();
+        final ByteBuffer pageBuffer = cPage.buffer;
+        pageBuffer.position(pageSize);
+        pageBuffer.limit(pageBuffer.capacity());
+        for (int i = 1; i < totalPages; i++) {
+            compressedFileManager.setExtraCompressedPageInfo(cPage, i - 1);
+            final long offset = cPage.getCompressedPageOffset();
+            final int onDiskSize = cPage.getCompressedPageSize();
+            readrBuffer.position(0);
+            readrBuffer.limit(onDiskSize);
+            ioManager.syncRead(fInfo.getFileHandle(), offset, readrBuffer);
+            if (onDiskSize < pageSize) {
+                final int decompressedSize = decompressor.uncompress(readrBuffer.array(), 0, onDiskSize,
+                        pageBuffer.array(), pageSize * i, pageSize);
+
+                if (decompressedSize != pageSize) {
+                    final int pageId = BufferedFileHandle.getPageId(cPage.dpid);
+                    throw HyracksDataException.create(ErrorCode.WRONG_SIZE_AFTER_UNCOMPRESS,
+                            compressedFileManager.getCompressedFilePath(), pageId, cPage.getCompressedPageOffset(),
+                            cPage.getCompressedPageSize());
+                }
+            } else {
+                pageBuffer.put(readrBuffer.array(), 0, pageSize);
+            }
+        }
+    }
+
+    private boolean verifyBytesRead(long bytesRead, long expectedBytesRead) throws HyracksDataException {
+        if (bytesRead != expectedBytesRead) {
+            if (bytesRead == -1) {
+                // disk order scan code seems to rely on this behavior, so silently return
+                return false;
+            } else {
+                throw HyracksDataException.create(ErrorCode.FAILED_READ_COMPLETE_PAGE, bytesRead, expectedBytesRead);
+            }
+        }
+        return true;
     }
 
     private long getOffsetForPage(long pageId) {
@@ -617,32 +700,125 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
             if (fInfo.fileHasBeenDeleted()) {
                 return;
             }
-            ByteBuffer buf = cPage.buffer.duplicate();
             final int totalPages = cPage.getFrameSizeMultiplier();
             final int extraBlockPageId = cPage.getExtraBlockPageId();
             final boolean contiguousLargePages = (BufferedFileHandle.getPageId(cPage.dpid) + 1) == extraBlockPageId;
-            BufferCacheHeaderHelper header = checkoutHeaderHelper();
-            try {
-                buf.limit(contiguousLargePages ? pageSize * totalPages : pageSize);
-                buf.position(0);
-                long bytesWritten = ioManager.syncWrite(fInfo.getFileHandle(),
-                        getOffsetForPage(BufferedFileHandle.getPageId(cPage.dpid)), header.prepareWrite(cPage, buf));
 
-                if (bytesWritten != (contiguousLargePages ? pageSize * (totalPages - 1) : 0)
-                        + getPageSizeWithHeader()) {
-                    throw new HyracksDataException("Failed to write completely: " + bytesWritten);
+            if (fInfo.isCompressed()) {
+                //Compress and write the page. This may fail to achieve the desired saving.
+                //If so, it will write the page(s) without compression.
+                writeCompressedFile(fInfo, cPage, totalPages, extraBlockPageId);
+            } else {
+                writeUncompressedFile(fInfo, cPage, totalPages, extraBlockPageId, contiguousLargePages);
+            }
+
+        }
+
+    }
+
+    private void writeUncompressedFile(BufferedFileHandle fInfo, CachedPage cPage, int totalPages, int extraBlockPageId,
+            boolean contiguousLargePages) throws HyracksDataException {
+        final ByteBuffer buf = cPage.buffer.duplicate();
+        BufferCacheHeaderHelper header = checkoutHeaderHelper();
+        long bytesWritten;
+        try {
+            buf.limit(contiguousLargePages ? pageSize * totalPages : pageSize);
+            buf.position(0);
+            bytesWritten = ioManager.syncWrite(fInfo.getFileHandle(),
+                    getOffsetForPage(BufferedFileHandle.getPageId(cPage.dpid)), header.prepareWrite(cPage, buf));
+        } finally {
+            returnHeaderHelper(header);
+        }
+        if (totalPages > 1 && !contiguousLargePages) {
+            buf.limit(totalPages * pageSize);
+            bytesWritten += ioManager.syncWrite(fInfo.getFileHandle(), getOffsetForPage(extraBlockPageId), buf);
+        }
+
+        verifyBytesWritten(bytesWritten, pageSize * (totalPages - 1) + (long) getPageSizeWithHeader());
+    }
+
+    private void writeCompressedFile(BufferedFileHandle fInfo, CachedPage cPage, int totalPages, int extraBlockPageId)
+            throws HyracksDataException {
+        final ByteBuffer buf = cPage.buffer.duplicate();
+        BufferCacheHeaderHelper header = checkoutHeaderHelper();
+        try {
+            final CompressedFileManager compressedManager = fInfo.getCompressedFileManager();
+
+            final ICompressorDecompressor compressor = compressedManager.getCompressorDecompressor();
+            //Prepare the header and compress the first page (of the total pages if it has any extra pages)
+            final ByteBuffer[] bufs = header.prepareWrite(cPage, buf, compressor);
+
+            if (LOGGER.isEnabled(fileOpsLevel)) {
+                if (!header.isCompressed()) {
+                    final int pageId = BufferedFileHandle.getPageId(cPage.dpid);
+                    LOGGER.info("Compressor did not save enough bytes {file: "
+                            + compressedManager.getCompressedFilePath() + ", pageId: " + pageId + "}");
+                } else {
+                    LOGGER.info("Compression saved " + (pageSize - bufs[0].limit()) + " bytes");
                 }
-            } finally {
-                returnHeaderHelper(header);
             }
-            if (totalPages > 1 && !contiguousLargePages) {
-                buf.limit(totalPages * pageSize);
-                ioManager.syncWrite(fInfo.getFileHandle(), getOffsetForPage(extraBlockPageId), buf);
+
+            //Write the first page with the header
+            //Compute the total size
+            long totalSize = bufs[0].limit() + (long) bufs[1].limit();
+            //Write the offset and size to the LAF file and get the offset of the current page.
+            long offset = compressedManager.writePageInfo(cPage.dpid, totalSize);
+            long bytesWritten = ioManager.syncWrite(fInfo.getFileHandle(), offset, bufs);
+
+            //Write extra pages
+            if (totalPages > 1) {
+                final long extraBytesWritten = writeExtraCompressedPages(fInfo, buf, header.buf, compressedManager,
+                        totalPages, extraBlockPageId);
+                totalSize += extraBytesWritten;
+                bytesWritten += extraBytesWritten;
             }
-            if (buf.capacity() != pageSize * totalPages) {
-                throw new IllegalStateException("Illegal number of bytes written, expected bytes written: "
-                        + pageSize * totalPages + " actual bytes writte: " + buf.capacity());
+
+            verifyBytesWritten(bytesWritten, totalSize);
+
+        } finally {
+            returnHeaderHelper(header);
+        }
+    }
+
+    private long writeExtraCompressedPages(BufferedFileHandle fInfo, ByteBuffer pageBuffer, ByteBuffer compressed,
+            CompressedFileManager compressedFileManager, int totalPages, int extraBlockPageId)
+            throws HyracksDataException {
+        final ICompressorDecompressor compressor = compressedFileManager.getCompressorDecompressor();
+        long bytesWritten = 0;
+        long totalSize = 0;
+        for (int i = 1; i < totalPages; i++) {
+            final int compressedSize =
+                    compressor.compress(pageBuffer.array(), i * pageSize, pageSize, compressed.array(), 0);
+            final long offset;
+            final ByteBuffer writeBuffer;
+            if (compressedSize < pageSize) {
+                offset = compressedFileManager.writeExtraPageInfo(extraBlockPageId, compressedSize, i - 1);
+                //Limit the buffer to the new size after compression
+                compressed.position(0);
+                compressed.limit(compressedSize);
+                writeBuffer = compressed;
+                totalSize += compressedSize;
+            } else {
+                offset = compressedFileManager.writeExtraPageInfo(extraBlockPageId, pageSize, i - 1);
+                pageBuffer.limit(pageSize * i + pageSize);
+                pageBuffer.position(pageSize * i);
+                writeBuffer = pageBuffer;
+                totalSize += pageSize;
             }
+
+            bytesWritten += ioManager.syncWrite(fInfo.getFileHandle(), offset, writeBuffer);
+        }
+
+        verifyBytesWritten(bytesWritten, totalSize);
+
+        return bytesWritten;
+
+    }
+
+    private void verifyBytesWritten(long bytesWritten, long expectedBytesWritten) {
+        if (bytesWritten != expectedBytesWritten) {
+            throw new IllegalStateException("Illegal number of bytes written, expected bytes written: "
+                    + expectedBytesWritten + " actual bytes writte: " + bytesWritten);
         }
     }
 
@@ -812,10 +988,15 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
             LOGGER.log(fileOpsLevel, "Creating file: " + fileRef + " in cache: " + this);
         }
         IoUtil.create(fileRef);
+        int fileId;
         try {
             synchronized (fileInfoMap) {
-                return fileMapManager.registerFile(fileRef);
+                fileId = fileMapManager.registerFile(fileRef);
             }
+            if (fileRef.isCompressed()) {
+                createFile(fileRef.getLAFFileReference());
+            }
+            return fileId;
         } catch (Exception e) {
             // If file registration failed for any reason, we need to undo the file creation
             try {
@@ -868,11 +1049,24 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
                     }
                 }
             }
+
+            if (fInfo.isCompressed()) {
+                openLAFFile(fInfo);
+            }
             fInfo.incReferenceCount();
         } catch (Exception e) {
             removeFileInfo(fileId);
             throw HyracksDataException.create(e);
         }
+    }
+
+    private void openLAFFile(BufferedFileHandle fInfo) throws HyracksDataException {
+        final FileReference fileRef = fInfo.getFileHandle().getFileReference();
+        final int lafFileId = openFile(fileRef.getLAFFileReference());
+        final CompressedFileManager compressManager = new CompressedFileManager(this, lafFileId, fileRef);
+        fInfo.setCompressedFileManager(compressManager);
+        final BufferedFileHandle lafFh = getFileInfo(lafFileId);
+        compressManager.open(lafFh.getFileHandle());
     }
 
     private void closeOpeningFiles(BufferedFileHandle newFileHandle) throws HyracksDataException {
@@ -969,13 +1163,21 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
             LOGGER.debug(dumpState());
         }
 
+        BufferedFileHandle fInfo;
         synchronized (fileInfoMap) {
-            BufferedFileHandle fInfo = fileInfoMap.get(fileId);
+            fInfo = fileInfoMap.get(fileId);
             if (fInfo == null) {
                 throw new HyracksDataException("Closing unopened file");
             }
             if (fInfo.decReferenceCount() < 0) {
                 throw new HyracksDataException("Closed fileId: " + fileId + " more times than it was opened.");
+            }
+        }
+        synchronized (fInfo) {
+            if (fInfo.isCompressed()) {
+                final CompressedFileManager compressedManager = fInfo.getCompressedFileManager();
+                compressedManager.close();
+                closeFile(compressedManager.getFileId());
             }
         }
         if (LOGGER.isEnabled(fileOpsLevel)) {
@@ -995,6 +1197,11 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
         synchronized (fileInfoMap) {
             fInfo = fileInfoMap.get(fileId);
         }
+
+        //We must ensure that the LAF file forced to disk first
+        if (fInfo.isCompressed()) {
+            ioManager.sync(fInfo.getCompressedFileManager().getFileHandle(), metadata);
+        }
         ioManager.sync(fInfo.getFileHandle(), metadata);
     }
 
@@ -1012,6 +1219,9 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
             deleteFile(fileId);
         } else {
             IoUtil.delete(fileRef);
+            if (fileRef.isCompressed()) {
+                IoUtil.delete(fileRef.getLAFFileReference());
+            }
         }
     }
 
@@ -1024,6 +1234,7 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
         if (fInfo == null) {
             return;
         }
+        final boolean isCompressed = fInfo.isCompressed();
         sweepAndFlush(fileId, false);
         try {
             if (fInfo.getReferenceCount() > 0) {
@@ -1045,6 +1256,11 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
                     IoUtil.delete(fileRef);
                 }
             }
+        }
+
+        if (isCompressed) {
+            deleteFile(fInfo.getCompressedFileManager().getFileId());
+            fInfo.setCompressedFileManager(null);
         }
     }
 
@@ -1176,8 +1392,11 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
             if (fInfo == null) {
                 throw new HyracksDataException("No such file mapped for fileId:" + fileId);
             }
-            if (DEBUG) {
+            if (DEBUG && !fInfo.isCompressed()) {
                 assert ioManager.getSize(fInfo.getFileHandle()) % getPageSizeWithHeader() == 0;
+            }
+            if (fInfo.isCompressed()) {
+                return fInfo.getCompressedFileManager().getNumberOfCompressedPages();
             }
             return (int) (ioManager.getSize(fInfo.getFileHandle()) / getPageSizeWithHeader());
         }
@@ -1446,6 +1665,15 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
                 fileMapManager.unregisterFile(fileId);
             }
             ioManager.close(fh.getFileHandle());
+
+            if (fh.isCompressed()) {
+                final int compressedFileId = fh.getCompressedFileManager().getFileId();
+                BufferedFileHandle compressedFh = removeFileInfo(compressedFileId);
+                synchronized (fileInfoMap) {
+                    fileMapManager.unregisterFile(compressedFileId);
+                }
+                ioManager.close(compressedFh.getFileHandle());
+            }
         }
 
     }
@@ -1454,11 +1682,16 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
         private static final int FRAME_MULTIPLIER_OFF = 0;
         private static final int EXTRA_BLOCK_PAGE_ID_OFF = FRAME_MULTIPLIER_OFF + 4; // 4
 
-        private final ByteBuffer buf;
         private final ByteBuffer[] array;
+        private final int pageSizeWithHeader;
+        private final int pageSize;
+        private ByteBuffer buf;
+        private boolean compressed;
 
         private BufferCacheHeaderHelper(int pageSize) {
-            buf = ByteBuffer.allocate(RESERVED_HEADER_BYTES + pageSize);
+            this.pageSize = pageSize;
+            this.pageSizeWithHeader = RESERVED_HEADER_BYTES + pageSize;
+            buf = ByteBuffer.allocate(pageSizeWithHeader);
             array = new ByteBuffer[] { buf, null };
         }
 
@@ -1471,9 +1704,43 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
             return array;
         }
 
+        private ByteBuffer[] prepareWrite(CachedPage cPage, ByteBuffer pageBuffer, ICompressorDecompressor compressor)
+                throws HyracksDataException {
+            ensureBufferCapacity(compressor);
+            final int newSize = compressor.compress(pageBuffer.array(), 0, pageSize, buf.array(), RESERVED_HEADER_BYTES)
+                    + RESERVED_HEADER_BYTES;
+            if (newSize >= cPage.getPageSize() /*|| any additional policies?*/) {
+                /*
+                * That indicates the compression did not save any space
+                * Then fall back to write the page without compression.
+                */
+                compressed = false;
+                return prepareWrite(cPage, pageBuffer);
+            } else {
+                compressed = true;
+                //Tell the ioManager to skip writing this buffer.
+                pageBuffer.limit(0);
+                array[1] = pageBuffer;
+                buf.putInt(FRAME_MULTIPLIER_OFF, cPage.getFrameSizeMultiplier());
+                buf.putInt(EXTRA_BLOCK_PAGE_ID_OFF, cPage.getExtraBlockPageId());
+                buf.position(0);
+                buf.limit(newSize);
+            }
+            return array;
+        }
+
         private ByteBuffer prepareRead() {
             buf.position(0);
-            buf.limit(buf.capacity());
+            //Limit to pageSize + headerSize as the buffer may be slightly larger due to compressor requirements
+            buf.limit(pageSizeWithHeader);
+            return buf;
+        }
+
+        private ByteBuffer prepareRead(int size) {
+            buf.position(0);
+            buf.limit(size);
+            //If size < page size with header, that means it has been compressed
+            compressed = size < pageSizeWithHeader;
             return buf;
         }
 
@@ -1481,10 +1748,66 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
             buf.position(RESERVED_HEADER_BYTES);
             cPage.buffer.position(0);
             cPage.buffer.put(buf);
-            int multiplier = buf.getInt(FRAME_MULTIPLIER_OFF);
+            final int multiplier = buf.getInt(FRAME_MULTIPLIER_OFF);
             cPage.setFrameSizeMultiplier(multiplier);
             cPage.setExtraBlockPageId(buf.getInt(EXTRA_BLOCK_PAGE_ID_OFF));
             return multiplier;
+        }
+
+        private int processRead(CachedPage cPage, int size, CompressedFileManager compressedFileManager)
+                throws HyracksDataException {
+            if (compressed) {
+                buf.position(RESERVED_HEADER_BYTES);
+                cPage.buffer.position(0);
+                final ICompressorDecompressor decompressor = compressedFileManager.getCompressorDecompressor();
+                final int compressedSize = size - RESERVED_HEADER_BYTES;
+                final int uncompressedPageSize = decompressor.uncompress(buf.array(), RESERVED_HEADER_BYTES,
+                        compressedSize, cPage.buffer.array(), 0, pageSize);
+                if (uncompressedPageSize != pageSize) {
+                    /*
+                     * After decompression, the returned page size is not equal to the original size.
+                     * This should not happen. However, guard against any faulty read/decompression
+                     */
+                    final int pageId = BufferedFileHandle.getPageId(cPage.dpid);
+                    throw HyracksDataException.create(ErrorCode.WRONG_SIZE_AFTER_UNCOMPRESS,
+                            compressedFileManager.getCompressedFilePath(), pageId, cPage.getCompressedPageOffset(),
+                            cPage.getCompressedPageSize());
+                }
+            } else {
+                //The page was not compressed
+                return processRead(cPage);
+            }
+            final int multiplier = buf.getInt(FRAME_MULTIPLIER_OFF);
+            cPage.setFrameSizeMultiplier(multiplier);
+            cPage.setExtraBlockPageId(buf.getInt(EXTRA_BLOCK_PAGE_ID_OFF));
+            return multiplier;
+        }
+
+        /**
+         * {@link ICompressorDecompressor#compress(byte[], int, int, byte[], int)} may require additional
+         * space to do the compression. see {@link ICompressorDecompressor#computeCompressBufferSize(int)}.
+         *
+         * @param compressor
+         * @param size
+         */
+        private void ensureBufferCapacity(ICompressorDecompressor compressor) {
+            //Ensure that the buffer capacity is large enough for the compression
+            final int requiredSize = compressor.computeCompressBufferSize(pageSize) + RESERVED_HEADER_BYTES;
+            if (buf.capacity() < requiredSize) {
+                buf = ByteBuffer.allocate(requiredSize);
+                array[0] = buf;
+            }
+            buf.limit(buf.capacity());
+        }
+
+        /**
+         * Even if the file is compressed, during compressing a page, the compressor may not
+         * save any space. Hence, sometimes the header may indicate that the page was not compressed.
+         *
+         * @return
+         */
+        public boolean isCompressed() {
+            return compressed;
         }
     }
 
@@ -1504,6 +1827,18 @@ public class BufferCache implements IBufferCacheInternal, ILifeCycleComponent {
                 }
             }
         }
+    }
+
+    @Override
+    public ICompressedPageWriter getCompressedPageWriter(int fileId) {
+        final BufferedFileHandle fileHandle;
+        synchronized (fileInfoMap) {
+            fileHandle = fileInfoMap.get(fileId);
+        }
+        if (fileHandle.isCompressed()) {
+            return fileHandle.getCompressedFileManager().getCompressedPageWriter();
+        }
+        return null;
     }
 
 }

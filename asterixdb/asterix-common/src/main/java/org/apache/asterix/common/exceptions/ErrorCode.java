@@ -177,6 +177,9 @@ public class ErrorCode {
     public static final int ARRAY_FIELD_ELEMENTS_MUST_BE_OF_TYPE = 1090;
     public static final int COMPILATION_TYPE_MISMATCH_GENERIC = 1091;
     public static final int ILLEGAL_SET_PARAMETER = 1092;
+    public static final int FAILED_TO_INIT_COMPRESSOR_FACTORY = 1093;
+    public static final int UNKNOWN_COMPRESSION_SCHEME = 1094;
+    public static final int INVALID_COMPRESSION_CONFIG = 1095;
 
     // Feed errors
     public static final int DATAFLOW_ILLEGAL_STATE = 3001;

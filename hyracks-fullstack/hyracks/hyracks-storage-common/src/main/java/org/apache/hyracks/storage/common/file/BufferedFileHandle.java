@@ -21,16 +21,19 @@ package org.apache.hyracks.storage.common.file;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.hyracks.api.io.IFileHandle;
+import org.apache.hyracks.storage.common.file.compress.CompressedFileManager;
 
 public class BufferedFileHandle {
     private final int fileId;
-    private IFileHandle handle;
     private final AtomicInteger refCount;
+    private CompressedFileManager compressedFileManager;
+    private IFileHandle handle;
 
     public BufferedFileHandle(int fileId, IFileHandle handle) {
         this.fileId = fileId;
         this.handle = handle;
         refCount = new AtomicInteger();
+        compressedFileManager = null;
     }
 
     public int getFileId() {
@@ -67,6 +70,18 @@ public class BufferedFileHandle {
 
     public long getDiskPageId(int pageId) {
         return getDiskPageId(fileId, pageId);
+    }
+
+    public boolean isCompressed() {
+        return handle != null && handle.getFileReference().isCompressed();
+    }
+
+    public CompressedFileManager getCompressedFileManager() {
+        return compressedFileManager;
+    }
+
+    public void setCompressedFileManager(CompressedFileManager compressedFileManager) {
+        this.compressedFileManager = compressedFileManager;
     }
 
     public static long getDiskPageId(int fileId, int pageId) {

@@ -57,6 +57,7 @@ public class DatasetHints {
         Set<IHint> hints = new HashSet<>();
         hints.add(new DatasetCardinalityHint());
         hints.add(new DatasetNodegroupCardinalityHint());
+        hints.add(new CompressionSchemeHint());
         return hints;
     }
 
@@ -121,6 +122,21 @@ public class DatasetHints {
             } catch (NumberFormatException nfe) {
                 return new Pair<>(false, "Inappropriate value");
             }
+            return new Pair<>(true, null);
+        }
+
+    }
+
+    public static class CompressionSchemeHint implements IHint {
+        public static final String NAME = "COMPRESSION-SCHEME";
+
+        @Override
+        public String getName() {
+            return NAME;
+        }
+
+        @Override
+        public Pair<Boolean, String> validateValue(ICcApplicationContext appCtx, String value) {
             return new Pair<>(true, null);
         }
 

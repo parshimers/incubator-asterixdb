@@ -59,6 +59,7 @@ import org.apache.asterix.metadata.utils.SecondaryCorrelatedTreeIndexOperationsH
 import org.apache.asterix.om.pointables.nonvisitor.AIntervalPointable;
 import org.apache.asterix.om.pointables.nonvisitor.AListPointable;
 import org.apache.asterix.om.pointables.nonvisitor.ARecordPointable;
+import org.apache.asterix.runtime.compression.CompressionManager;
 import org.apache.asterix.runtime.utils.RuntimeComponentsProvider;
 import org.apache.asterix.transaction.management.opcallbacks.PrimaryIndexOperationTrackerFactory;
 import org.apache.asterix.transaction.management.opcallbacks.SecondaryIndexOperationTrackerFactory;
@@ -248,6 +249,9 @@ public class PersistedResourceRegistry implements IPersistedResourceRegistry {
         REGISTERED_CLASSES.put("UTF8NGramTokenFactory", UTF8NGramTokenFactory.class);
         REGISTERED_CLASSES.put("UTF8WordTokenFactory", UTF8WordTokenFactory.class);
         REGISTERED_CLASSES.put("RTreePolicyType", RTreePolicyType.class);
+
+        //IBlockCompressorDecompressorFactory
+        CompressionManager.registerBlockCompressorDecompressorsFactoryClasses(REGISTERED_CLASSES);
     }
 
     @Override

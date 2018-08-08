@@ -29,6 +29,7 @@ import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.external.indexing.FilesIndexDescription;
 import org.apache.asterix.external.indexing.IndexingConstants;
 import org.apache.asterix.metadata.api.IResourceFactoryProvider;
+import org.apache.asterix.metadata.dataset.hints.DatasetHints.CompressionSchemeHint;
 import org.apache.asterix.metadata.entities.Dataset;
 import org.apache.asterix.metadata.entities.Index;
 import org.apache.asterix.metadata.utils.IndexUtil;
@@ -38,6 +39,7 @@ import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.data.IBinaryComparatorFactoryProvider;
 import org.apache.hyracks.algebricks.data.ITypeTraitProvider;
+import org.apache.hyracks.api.compression.ICompressorDecompressorFactory;
 import org.apache.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import org.apache.hyracks.api.dataflow.value.ITypeTraits;
 import org.apache.hyracks.storage.am.common.api.IMetadataPageManagerFactory;
@@ -93,11 +95,17 @@ public class BTreeResourceFactoryProvider implements IResourceFactoryProvider {
             case INTERNAL:
                 AsterixVirtualBufferCacheProvider vbcProvider =
                         new AsterixVirtualBufferCacheProvider(dataset.getDatasetId());
+
+                final String compressionScheme =
+                        dataset.getHints() != null ? dataset.getHints().get(CompressionSchemeHint.NAME) : null;
+                final ICompressorDecompressorFactory compressorDecompressorFactory =
+                        mdProvider.getCompressionManager().getFactory(compressionScheme, index.isPrimaryIndex());
+
                 return new LSMBTreeLocalResourceFactory(storageManager, typeTraits, cmpFactories, filterTypeTraits,
                         filterCmpFactories, filterFields, opTrackerFactory, ioOpCallbackFactory,
                         metadataPageManagerFactory, vbcProvider, ioSchedulerProvider, mergePolicyFactory,
                         mergePolicyProperties, true, bloomFilterFields, bloomFilterFalsePositiveRate,
-                        index.isPrimaryIndex(), btreeFields);
+                        index.isPrimaryIndex(), btreeFields, compressorDecompressorFactory);
             default:
                 throw new CompilationException(ErrorCode.COMPILATION_UNKNOWN_DATASET_TYPE,
                         dataset.getDatasetType().toString());

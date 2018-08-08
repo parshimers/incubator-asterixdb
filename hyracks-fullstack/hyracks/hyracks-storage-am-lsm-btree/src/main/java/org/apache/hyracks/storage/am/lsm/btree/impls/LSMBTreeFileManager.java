@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.hyracks.api.compression.ICompressorDecompressorFactory;
 import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileReference;
@@ -45,10 +46,16 @@ public class LSMBTreeFileManager extends AbstractLSMIndexFileManager {
     private final boolean hasBloomFilter;
 
     public LSMBTreeFileManager(IIOManager ioManager, FileReference file,
-            TreeIndexFactory<? extends ITreeIndex> btreeFactory, boolean hasBloomFilter) {
-        super(ioManager, file, null);
+            TreeIndexFactory<? extends ITreeIndex> btreeFactory, boolean hasBloomFilter,
+            ICompressorDecompressorFactory compressorDecompressorFactory) {
+        super(ioManager, file, null, compressorDecompressorFactory);
         this.btreeFactory = btreeFactory;
         this.hasBloomFilter = hasBloomFilter;
+    }
+
+    public LSMBTreeFileManager(IIOManager ioManager, FileReference file,
+            TreeIndexFactory<? extends ITreeIndex> btreeFactory, boolean hasBloomFilter) {
+        this(ioManager, file, btreeFactory, hasBloomFilter, null);
     }
 
     @Override
@@ -56,8 +63,8 @@ public class LSMBTreeFileManager extends AbstractLSMIndexFileManager {
         String ts = getCurrentTimestamp();
         String baseName = ts + DELIMITER + ts;
         // Begin timestamp and end timestamp are identical since it is a flush
-        return new LSMComponentFileReferences(baseDir.getChild(baseName + DELIMITER + BTREE_SUFFIX), null,
-                hasBloomFilter ? baseDir.getChild(baseName + DELIMITER + BLOOM_FILTER_SUFFIX) : null);
+        return new LSMComponentFileReferences(getFileReference(baseName + DELIMITER + BTREE_SUFFIX, true), null,
+                hasBloomFilter ? getFileReference(baseName + DELIMITER + BLOOM_FILTER_SUFFIX, false) : null);
     }
 
     @Override
@@ -68,8 +75,8 @@ public class LSMBTreeFileManager extends AbstractLSMIndexFileManager {
 
         String baseName = firstTimestampRange[0] + DELIMITER + lastTimestampRange[1];
         // Get the range of timestamps by taking the earliest and the latest timestamps
-        return new LSMComponentFileReferences(baseDir.getChild(baseName + DELIMITER + BTREE_SUFFIX), null,
-                hasBloomFilter ? baseDir.getChild(baseName + DELIMITER + BLOOM_FILTER_SUFFIX) : null);
+        return new LSMComponentFileReferences(getFileReference(baseName + DELIMITER + BTREE_SUFFIX, true), null,
+                hasBloomFilter ? getFileReference(baseName + DELIMITER + BLOOM_FILTER_SUFFIX, false) : null);
     }
 
     @Override

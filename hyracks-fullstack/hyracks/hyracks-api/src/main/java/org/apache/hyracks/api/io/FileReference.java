@@ -22,6 +22,9 @@ import java.io.File;
 import java.io.Serializable;
 import java.util.Date;
 
+import org.apache.hyracks.api.compression.ICompressorDecompressor;
+import org.apache.hyracks.api.compression.ICompressorDecompressorFactory;
+
 /**
  * A device handle and a relative path.
  * Used to identify a file in the local Node Controller.
@@ -29,15 +32,19 @@ import java.util.Date;
  */
 public final class FileReference implements Serializable {
     private static final long serialVersionUID = 1L;
+    private static final String LAF_SUFFIX = ".dic";
     private final File file;
     private final IODeviceHandle dev;
     private final String path;
     private long registrationTime = 0L;
+    private FileReference lafFileRef;
+    private ICompressorDecompressorFactory compressorDecompressorFactory;
 
     public FileReference(IODeviceHandle dev, String path) {
         file = new File(dev.getMount(), path);
         this.dev = dev;
         this.path = path;
+        lafFileRef = null;
     }
 
     public File getFile() {
@@ -72,7 +79,8 @@ public final class FileReference implements Serializable {
      * @return true if file was deleted, false, otherwise
      */
     public boolean delete() {
-        return file.delete();
+        final boolean deletedLAF = isCompressed() ? getLAFFileReference().delete() : true;
+        return deletedLAF && file.delete();
     }
 
     /**
@@ -90,7 +98,19 @@ public final class FileReference implements Serializable {
     }
 
     public FileReference getChild(String name) {
-        return new FileReference(dev, path + File.separator + name);
+        final FileReference childFr = new FileReference(dev, path + File.separator + name);
+        if (isCompressed()) {
+            childFr.setCompressorDecompressorFactory(compressorDecompressorFactory);
+        }
+        return childFr;
+    }
+
+    public void setCompressorDecompressorFactory(ICompressorDecompressorFactory compressorDecompressorFactory) {
+        this.compressorDecompressorFactory = compressorDecompressorFactory;
+    }
+
+    public ICompressorDecompressor getCompressorDecompressor() {
+        return compressorDecompressorFactory.createInstance();
     }
 
     public void register() {
@@ -110,5 +130,16 @@ public final class FileReference implements Serializable {
             throw new IllegalStateException("File " + toString() + " wasn't registered before");
         }
         registrationTime = 0;
+    }
+
+    public boolean isCompressed() {
+        return compressorDecompressorFactory != null;
+    }
+
+    public FileReference getLAFFileReference() {
+        if (lafFileRef == null) {
+            lafFileRef = new FileReference(getDeviceHandle(), getRelativePath() + LAF_SUFFIX);
+        }
+        return lafFileRef;
     }
 }

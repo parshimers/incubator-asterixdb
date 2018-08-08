@@ -30,6 +30,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 
+import org.apache.hyracks.api.compression.ICompressorDecompressorFactory;
 import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.io.FileReference;
@@ -91,13 +92,21 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
     protected final Format formatter = new SimpleDateFormat(COMPONENT_TIMESTAMP_FORMAT);
     protected final Comparator<ComparableFileName> recencyCmp = new RecencyComparator();
     protected final TreeIndexFactory<? extends ITreeIndex> treeFactory;
+    protected final ICompressorDecompressorFactory compressorDecompressorFactory;
     private String prevTimestamp = null;
 
     public AbstractLSMIndexFileManager(IIOManager ioManager, FileReference file,
             TreeIndexFactory<? extends ITreeIndex> treeFactory) {
+        this(ioManager, file, treeFactory, null);
+    }
+
+    public AbstractLSMIndexFileManager(IIOManager ioManager, FileReference file,
+            TreeIndexFactory<? extends ITreeIndex> treeFactory,
+            ICompressorDecompressorFactory compressorDecompressorFactory) {
         this.ioManager = ioManager;
         this.baseDir = file;
         this.treeFactory = treeFactory;
+        this.compressorDecompressorFactory = compressorDecompressorFactory;
     }
 
     protected TreeIndexState isValidTreeIndex(ITreeIndex treeIndex) throws HyracksDataException {
@@ -135,7 +144,7 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
             IBufferCache bufferCache) throws HyracksDataException {
         String[] files = listDirFiles(baseDir, filter);
         for (String fileName : files) {
-            FileReference fileRef = baseDir.getChild(fileName);
+            FileReference fileRef = getFileReference(fileName, isCompressable(fileName));
             if (treeFactory == null) {
                 allFiles.add(new ComparableFileName(fileRef));
                 continue;
@@ -427,6 +436,18 @@ public abstract class AbstractLSMIndexFileManager implements ILSMIndexFileManage
         }
         prevTimestamp = ts;
         return ts;
+    }
+
+    protected FileReference getFileReference(String name, boolean compressed) {
+        final FileReference fileRef = baseDir.getChild(name);
+        if (compressed && compressorDecompressorFactory != null) {
+            fileRef.setCompressorDecompressorFactory(compressorDecompressorFactory);
+        }
+        return fileRef;
+    }
+
+    private boolean isCompressable(String fileName) {
+        return !fileName.endsWith(BLOOM_FILTER_SUFFIX) && !fileName.endsWith(DELETE_TREE_SUFFIX);
     }
 
     public static String getComponentStartTime(String fileName) {

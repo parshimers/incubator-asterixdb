@@ -338,7 +338,7 @@ public class MetadataBootstrap {
                     new AsterixVirtualBufferCacheProvider(datasetId),
                     storageComponentProvider.getIoOperationSchedulerProvider(),
                     appContext.getMetadataMergePolicyFactory(), GlobalConfig.DEFAULT_COMPACTION_POLICY_PROPERTIES, true,
-                    bloomFilterKeyFields, bloomFilterFalsePositiveRate, true, null);
+                    bloomFilterKeyFields, bloomFilterFalsePositiveRate, true, null, null);
             DatasetLocalResourceFactory dsLocalResourceFactory =
                     new DatasetLocalResourceFactory(datasetId, lsmBtreeFactory);
             // TODO(amoudi) Creating the index should be done through the same code path as

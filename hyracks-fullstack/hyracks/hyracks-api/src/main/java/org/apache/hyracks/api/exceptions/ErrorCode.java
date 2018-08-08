@@ -149,6 +149,9 @@ public class ErrorCode {
     public static final int UNDEFINED_INVERTED_LIST_MERGE_TYPE = 113;
     public static final int NODE_IS_NOT_ACTIVE = 114;
     public static final int LOCAL_NETWORK_ERROR = 115;
+    public static final int WRONG_SIZE_AFTER_UNCOMPRESS = 116;
+    public static final int FAILED_READ_COMPLETE_PAGE = 117;
+    public static final int UNPREPARED_COMPRESSED_WRITE = 118;
 
     // Compilation error codes.
     public static final int RULECOLLECTION_NOT_INSTANCE_OF_LIST = 10000;
