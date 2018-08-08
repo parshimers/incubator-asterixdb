@@ -30,7 +30,7 @@
       <AppenderRef ref="Console"/>
     </Root>
     <Logger name="org.apache.hyracks.control.nc.service" level="INFO"/>
-    <Logger name="org.apache.hyracks.http.server" level="INFO" additivity="false">
+    <Logger name="org.apache.hyracks.http.server.CLFLogger" level="INFO" additivity="false">
         <AppenderRef ref="AccessLog"/>
     </Logger>
   </Loggers>
