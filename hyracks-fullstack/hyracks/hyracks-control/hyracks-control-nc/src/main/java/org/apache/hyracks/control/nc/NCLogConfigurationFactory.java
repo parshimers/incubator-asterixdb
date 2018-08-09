@@ -41,7 +41,7 @@ public class NCLogConfigurationFactory extends ConfigurationFactory {
 
     public Configuration createConfiguration(ConfigurationBuilder<BuiltConfiguration> builder) {
         String nodeId = config.getNodeId();
-        String logDir = config.getLogDirectory();
+        String logDir = config.getLogDir();
         builder.setStatusLevel(Level.WARN);
         builder.setConfigurationName("RollingBuilder");
         // create a rolling file appender
