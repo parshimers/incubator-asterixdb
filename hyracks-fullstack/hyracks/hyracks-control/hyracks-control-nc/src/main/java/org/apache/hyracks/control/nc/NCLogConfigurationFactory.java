@@ -21,17 +21,14 @@ package org.apache.hyracks.control.nc;
 import org.apache.hyracks.control.common.controllers.NCConfig;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.LoggerContext;
-import org.apache.logging.log4j.core.appender.ConsoleAppender;
 import org.apache.logging.log4j.core.config.Configuration;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import org.apache.logging.log4j.core.config.ConfigurationSource;
-import org.apache.logging.log4j.core.config.Order;
 import org.apache.logging.log4j.core.config.builder.api.AppenderComponentBuilder;
 import org.apache.logging.log4j.core.config.builder.api.ComponentBuilder;
 import org.apache.logging.log4j.core.config.builder.api.ConfigurationBuilder;
 import org.apache.logging.log4j.core.config.builder.api.LayoutComponentBuilder;
 import org.apache.logging.log4j.core.config.builder.impl.BuiltConfiguration;
-import org.apache.logging.log4j.core.config.plugins.Plugin;
 
 import java.net.URI;
 
@@ -44,7 +41,7 @@ public class NCLogConfigurationFactory extends ConfigurationFactory {
 
     public Configuration createConfiguration(ConfigurationBuilder<BuiltConfiguration> builder) {
         String nodeId = config.getNodeId();
-        String logDir = config.getLogDir();
+        String logDir = config.getLogDirectory();
         builder.setStatusLevel(Level.WARN);
         builder.setConfigurationName("RollingBuilder");
         // create a rolling file appender

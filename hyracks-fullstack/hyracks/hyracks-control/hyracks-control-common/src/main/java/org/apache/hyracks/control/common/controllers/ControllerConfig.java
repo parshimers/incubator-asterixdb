@@ -108,7 +108,7 @@ public class ControllerConfig implements Serializable {
         configManager.set(ControllerConfig.Option.CONFIG_FILE_URL, configFileUrl);
     }
 
-    public String getLogDir() {
+    public String getLogDirectory() {
         return configManager.getAppConfig().getString(ControllerConfig.Option.LOG_DIRECTORY);
     }
 }
