@@ -19,30 +19,34 @@
 
 package org.apache.hyracks.http.server;
 
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.DefaultHttpContent;
 import io.netty.handler.codec.http.DefaultHttpResponse;
-import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.LastHttpContent;
-import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import java.time.Instant;
 
 //Based in part on LoggingHandler from Netty
 public class CLFLogger extends ChannelDuplexHandler {
 
     private final Logger accessLogger = LogManager.getLogger();
-    public static final String ACCESS_LOG_LEVEL = "ACCESS";
-    StringBuilder logLineBuilder;
+    private static final String ACCESS_LOG_LEVEL = "ACCESS";
+    private static final DateTimeFormatter DATE_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("dd/MMM/yyyy:HH:mm:ss Z").withZone(ZoneId.systemDefault());
+    private StringBuilder logLineBuilder;
 
     private String clientIp;
     private Instant requestTime;
@@ -62,11 +66,20 @@ public class CLFLogger extends ChannelDuplexHandler {
         if (msg instanceof HttpRequest) {
             HttpRequest req = (HttpRequest) msg;
             clientIp = req.headers().get("Host");
+            if (clientIp != null) {
+                //ipv6
+                if (clientIp.contains("]")) {
+                    String[] addr = clientIp.split("]");
+                    clientIp = addr[0] + "]";
+                }
+                //ipv4/hostname
+                else {
+                    clientIp = clientIp.split(":")[0];
+                }
+            }
             requestTime = Instant.now();
-            reqLine = new StringBuilder().append(req.method().toString()).append(" ").append(req.getUri()).append(" ")
-                    .append(req.getProtocolVersion().toString()).append(" ").toString();
-            userAgentRef = new StringBuilder().append(headerValueOrDash("Referer", req)).append(" ")
-                    .append(headerValueOrDash("User-Agent", req)).toString();
+            reqLine = req.method().toString() + " " + req.getUri() + " " + req.getProtocolVersion().toString();
+            userAgentRef = headerValueOrDash("Referer", req) + " " + headerValueOrDash("User-Agent", req);
             lastChunk = false;
         }
         ctx.fireChannelRead(msg);
@@ -76,8 +89,11 @@ public class CLFLogger extends ChannelDuplexHandler {
         String value = req.headers().get(headerKey);
         if (value == null) {
             value = "-";
+        } else {
+            value = "\"" + value + "\"";
         }
         return value;
+
     }
 
     @Override
@@ -115,14 +131,15 @@ public class CLFLogger extends ChannelDuplexHandler {
         logLineBuilder.append(" - ");
         //no http auth or any auth either for that matter
         logLineBuilder.append(" - [");
-        logLineBuilder.append(requestTime);
-        logLineBuilder.append("] ");
+        logLineBuilder.append(DATE_TIME_FORMATTER.format(requestTime));
+        logLineBuilder.append("] \"");
         logLineBuilder.append(reqLine);
+        logLineBuilder.append("\"");
         logLineBuilder.append(" ").append(statusCode);
         logLineBuilder.append(" ").append(respSize);
         logLineBuilder.append(" ").append(userAgentRef);
         accessLogger.log(Level.forName(ACCESS_LOG_LEVEL, 550), logLineBuilder.toString());
         respSize = 0;
-        logLineBuilder = new StringBuilder();
+        logLineBuilder.setLength(0);
     }
 }

@@ -52,6 +52,8 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
+import io.netty.util.internal.logging.InternalLoggerFactory;
+import io.netty.util.internal.logging.Log4J2LoggerFactory;
 
 public class HttpServer {
     // Constants
@@ -83,6 +85,10 @@ public class HttpServer {
     private volatile Channel channel;
     private Throwable cause;
     private HttpServerConfig config;
+
+    static {
+        InternalLoggerFactory.setDefaultFactory(Log4J2LoggerFactory.INSTANCE);
+    }
 
     public HttpServer(EventLoopGroup bossGroup, EventLoopGroup workerGroup, int port, HttpServerConfig config) {
         this(bossGroup, workerGroup, port, config, null);
