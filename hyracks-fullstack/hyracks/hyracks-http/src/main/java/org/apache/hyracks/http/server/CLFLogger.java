@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
+import io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -65,18 +66,7 @@ public class CLFLogger extends ChannelDuplexHandler {
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         if (msg instanceof HttpRequest) {
             HttpRequest req = (HttpRequest) msg;
-            clientIp = req.headers().get("Host");
-            if (clientIp != null) {
-                //ipv6
-                if (clientIp.contains("]")) {
-                    String[] addr = clientIp.split("]");
-                    clientIp = addr[0] + "]";
-                }
-                //ipv4/hostname
-                else {
-                    clientIp = clientIp.split(":")[0];
-                }
-            }
+            clientIp = ((NioSocketChannel) ctx.channel()).remoteAddress().getAddress().toString().substring(1);
             requestTime = Instant.now();
             reqLine = req.method().toString() + " " + req.getUri() + " " + req.getProtocolVersion().toString();
             userAgentRef = headerValueOrDash("Referer", req) + " " + headerValueOrDash("User-Agent", req);
