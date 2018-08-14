@@ -43,7 +43,7 @@ import io.netty.handler.codec.http.LastHttpContent;
 //Based in part on LoggingHandler from Netty
 public class CLFLogger extends ChannelDuplexHandler {
 
-    private final Logger accessLogger = LogManager.getLogger();
+    private static final Logger accessLogger = LogManager.getLogger();
     private static final String ACCESS_LOG_LEVEL = "ACCESS";
     private static final DateTimeFormatter DATE_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("dd/MMM/yyyy:HH:mm:ss Z").withZone(ZoneId.systemDefault());
