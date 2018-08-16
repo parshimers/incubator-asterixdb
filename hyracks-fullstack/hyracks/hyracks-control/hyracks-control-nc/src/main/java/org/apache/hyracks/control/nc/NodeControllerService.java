@@ -189,11 +189,9 @@ public class NodeControllerService implements IControllerService {
 
     public NodeControllerService(NCConfig config, INCApplication application) throws IOException, CmdLineException {
         ncConfig = config;
-        configManager = ncConfig.getConfigManager();
         if (application == null) {
             throw new IllegalArgumentException("INCApplication cannot be null");
         }
-        configManager.processConfig();
         this.application = application;
         id = ncConfig.getNodeId();
         if (id == null) {
