@@ -53,7 +53,6 @@
       <sideBarEnabled>false</sideBarEnabled> -->
       <!-- <topBarContainerStyle>width: 90%;</topBarContainerStyle> -->
       <sourceLineNumbersEnabled>true</sourceLineNumbersEnabled>
-      <!-- <googlePlusOne /> -->
     </fluidoSkin>
   </custom>
 
@@ -71,8 +70,7 @@
     </menu>
 
     <menu name = "AsterixDB Primer">
-      <item name="Option 1: using SQL++" href="sqlpp/primer-sqlpp.html"/>
-      <item name="Option 2: using AQL" href="aql/primer.html"/>
+      <item name="SQL++ Primer" href="sqlpp/primer-sqlpp.html"/>
     </menu>
 
     <menu name="Data Model">
@@ -84,23 +82,18 @@
       <item name="Builtin Functions" href="sqlpp/builtins.html"/>
     </menu>
 
-    <menu name="Queries - AQL">
-      <item name="The Asterix Query Language (AQL)" href="aql/manual.html"/>
-      <item name="Builtin Functions" href="aql/builtins.html"/>
-    </menu>
-
     <menu name="API/SDK">
       <item name="HTTP API" href="api.html"/>
       <item name="CSV Output" href="csv.html"/>
     </menu>
 
     <menu name="Advanced Features">
-      <item name="Support of Full-text Queries" href="aql/fulltext.html"/>
-      <item name="Accessing External Data" href="aql/externaldata.html"/>
+      <item name="Support of Full-text Queries" href="sqlpp/fulltext.html"/>
+      <item name="Accessing External Data" href="sqlpp/externaldata.html"/>
       <item name="Support for Data Ingestion" href="feeds/tutorial.html"/>
       <item name="User Defined Functions" href="udf.html"/>
-      <item name="Filter-Based LSM Index Acceleration" href="aql/filters.html"/>
-      <item name="Support of Similarity Queries" href="aql/similarity.html"/>
+      <item name="Filter-Based LSM Index Acceleration" href="sqlpp/filters.html"/>
+      <item name="Support of Similarity Queries" href="sqlpp/similarity.html"/>
     </menu>
 
     <menu ref="reports"/>
