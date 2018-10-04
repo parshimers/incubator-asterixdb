@@ -21,11 +21,11 @@ package org.apache.asterix.external.library;
 import org.apache.asterix.external.api.IExternalScalarFunction;
 import org.apache.asterix.external.api.IFunctionFactory;
 
-public class AddHashTagsFactory implements IFunctionFactory {
+public class TypeValidationFunctionFactory implements IFunctionFactory {
 
     @Override
     public IExternalScalarFunction getExternalFunction() {
-        return new AddHashTagsFunction();
+        return new TypeValidationFunction();
     }
 
 }

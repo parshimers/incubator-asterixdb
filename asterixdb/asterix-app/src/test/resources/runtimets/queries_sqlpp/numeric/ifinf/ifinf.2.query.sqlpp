@@ -16,4 +16,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-drop dataverse udfs if exists;
+
+/*
+* Description  : Testing correct number of arguments required
+* Expected Res : Error, min is 2
+*/
+
+select value ifinf(15);

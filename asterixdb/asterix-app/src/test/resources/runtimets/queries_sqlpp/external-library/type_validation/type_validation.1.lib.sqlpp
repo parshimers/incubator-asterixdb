@@ -16,4 +16,5 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-drop dataverse udfs if exists;
+
+install externallibtest testlib target/data/externallib/asterix-external-data-testlib.zip

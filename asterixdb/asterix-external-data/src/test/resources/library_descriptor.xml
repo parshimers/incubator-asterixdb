@@ -42,16 +42,15 @@
       <function_type>SCALAR</function_type>
       <argument_type>TweetInputType</argument_type>
       <return_type>TweetOutputType</return_type>
-      <definition>org.apache.asterix.external.library.ParseTweetFactory
-      </definition>
+      <definition>org.apache.asterix.external.library.ParseTweetFactory</definition>
     </libraryFunction>
     <libraryFunction>
-      <name>addHashTags</name>
+      <name>addMentionedUsers</name>
       <function_type>SCALAR</function_type>
-      <argument_type>Tweet</argument_type>
-      <return_type>ProcessedTweet</return_type>
-      <definition>org.apache.asterix.external.library.AddHashTagsFactory
-      </definition>
+      <argument_type>TweetType</argument_type>
+      <return_type>TweetType</return_type>
+      <definition>org.apache.asterix.external.library.AddMentionedUsersFactory</definition>
+      <parameters>text</parameters>
     </libraryFunction>
     <libraryFunction>
       <name>addHashTagsInPlace</name>
@@ -99,6 +98,14 @@
       <argument_type>TweetMessageType</argument_type>
       <return_type>TweetMessageType</return_type>
       <definition>org.apache.asterix.external.library.EchoDelayFactory
+      </definition>
+    </libraryFunction>
+    <libraryFunction>
+      <name>typeValidation</name>
+      <function_type>SCALAR</function_type>
+      <argument_type>AINT32, AFLOAT, ASTRING, ADouble, ABoolean, APoint, ADate, ADatetime, ALine, ACircle, ARectangle</argument_type>
+      <return_type>AString</return_type>
+      <definition>org.apache.asterix.external.library.TypeValidationFunctionFactory
       </definition>
     </libraryFunction>
   </libraryFunctions>
