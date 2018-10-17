@@ -275,6 +275,299 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-1_1">
+        <output-dir compare="Text">dblp-1_1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-1_2.1.1">
+        <output-dir compare="Text">dblp-1_2.1.1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-1_2.1">
+        <output-dir compare="Text">dblp-1_2.1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-1_2">
+        <output-dir compare="Text">dblp-1_2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-2.1_5.3.1">
+        <output-dir compare="Text">dblp-2.1_5.3.1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-2_1">
+        <output-dir compare="Text">dblp-2_1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-2_2">
+        <output-dir compare="Text">dblp-2_2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-2.2">
+        <output-dir compare="Text">dblp-2.2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-2_3">
+        <output-dir compare="Text">dblp-2_3</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-2_4">
+        <output-dir compare="Text">dblp-2_4</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-2_5.1">
+        <output-dir compare="Text">dblp-2_5.1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-2_5.2">
+        <output-dir compare="Text">dblp-2_5.2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-2_5.3.1">
+        <output-dir compare="Text">dblp-2_5.3.1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-2_5.3">
+        <output-dir compare="Text">dblp-2_5.3</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-2_5">
+        <output-dir compare="Text">dblp-2_5</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-3_1.1">
+        <output-dir compare="Text">dblp-3_1.1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-3_1.2">
+        <output-dir compare="Text">dblp-3_1.2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-3_1">
+        <output-dir compare="Text">dblp-3_1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-aqlplus_1">
+        <output-dir compare="Text">dblp-aqlplus_1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-aqlplus_2">
+        <output-dir compare="Text">dblp-aqlplus_2</output-dir>
+        <expected-error>Type mismatch: expected value of type array or multiset, but got the value of type string</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-2_1">
+        <output-dir compare="Text">dblp-csx-2_1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-2_2">
+        <output-dir compare="Text">dblp-csx-2_2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-2_3">
+        <output-dir compare="Text">dblp-csx-2_3</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-2_4">
+        <output-dir compare="Text">dblp-csx-2_4</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-2_5.1">
+        <output-dir compare="Text">dblp-csx-2_5.1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-2_5.2">
+        <output-dir compare="Text">dblp-csx-2_5.2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-2_5.3.1">
+        <output-dir compare="Text">dblp-csx-2_5.3.1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-2_5.3">
+        <output-dir compare="Text">dblp-csx-2_5.3</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-2_5">
+        <output-dir compare="Text">dblp-csx-2_5</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-3_1">
+        <output-dir compare="Text">dblp-csx-3_1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-3_2">
+        <output-dir compare="Text">dblp-csx-3_2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-3_3">
+        <output-dir compare="Text">dblp-csx-3_3</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-3_4">
+        <output-dir compare="Text">dblp-csx-3_4</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-3_5.1">
+        <output-dir compare="Text">dblp-csx-3_5.1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-3_5.2">
+        <output-dir compare="Text">dblp-csx-3_5.2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-3_5.3.1">
+        <output-dir compare="Text">dblp-csx-3_5.3.1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-3_5.3">
+        <output-dir compare="Text">dblp-csx-3_5.3</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-3_5.4.1">
+        <output-dir compare="Text">dblp-csx-3_5.4.1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-3_5.4">
+        <output-dir compare="Text">dblp-csx-3_5.4</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-3_5">
+        <output-dir compare="Text">dblp-csx-3_5</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+        <compilation-unit name="dblp-csx-4.1.1">
+            <output-dir compare="Text">dblp-csx-4.1.1</output-dir>
+        </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+        <compilation-unit name="dblp-csx-4.1.2">
+            <output-dir compare="Text">dblp-csx-4.1.2</output-dir>
+        </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+        <compilation-unit name="dblp-csx-4.2.1">
+            <output-dir compare="Text">dblp-csx-4.2.1</output-dir>
+        </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+        <compilation-unit name="dblp-csx-4.2.2">
+            <output-dir compare="Text">dblp-csx-4.2.2</output-dir>
+        </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+        <compilation-unit name="dblp-csx-4.3.1">
+            <output-dir compare="Text">dblp-csx-4.3.1</output-dir>
+        </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+        <compilation-unit name="dblp-csx-4.3.2">
+            <output-dir compare="Text">dblp-csx-4.3.2</output-dir>
+        </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+        <compilation-unit name="dblp-csx-4.4.1">
+            <output-dir compare="Text">dblp-csx-4.4.1</output-dir>
+        </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+        <compilation-unit name="dblp-csx-4.4.2">
+            <output-dir compare="Text">dblp-csx-4.4.2</output-dir>
+        </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-aqlplus_1">
+        <output-dir compare="Text">dblp-csx-aqlplus_1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-aqlplus_2">
+        <output-dir compare="Text">dblp-csx-aqlplus_2</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-aqlplus_3">
+        <output-dir compare="Text">dblp-csx-aqlplus_3</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-aqlplus_4">
+        <output-dir compare="Text">dblp-csx-aqlplus_4</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-aqlplus_5">
+        <output-dir compare="Text">dblp-csx-aqlplus_5</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-aqlplus_6">
+        <output-dir compare="Text">dblp-csx-aqlplus_6</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-csx-dblp-aqlplus_1">
+        <output-dir compare="Text">dblp-csx-dblp-aqlplus_1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-lookup_1">
+        <output-dir compare="Text">dblp-lookup_1</output-dir>
+      </compilation-unit>
+    </test-case>
+    <!--
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="dblp-splits-3_1">
+        <output-dir compare="Text">dblp-splits-3_1</output-dir>
+      </compilation-unit>
+    </test-case>
+    -->
+    <test-case FilePath="fuzzyjoin">
+      <compilation-unit name="opentype">
+        <output-dir compare="Text">opentype</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="fuzzyjoin">
       <compilation-unit name="dblp-csx-aqlplus_4">
         <output-dir compare="Text">dblp-csx-aqlplus_4</output-dir>
       </compilation-unit>
