@@ -95,7 +95,7 @@ public interface ITracer {
         }
 
         @Override
-        public void stop(){
+        public void stop() {
             // nothing to do here
         }
     };

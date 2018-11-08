@@ -97,8 +97,8 @@ public class HeapSortRunGenerator extends AbstractSortRunGenerator {
     @Override
     public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
         inAccessor.reset(buffer);
-        if(tid == -1){
-            tid = tracer.durationB("HeapSortRunGen",traceCategory,"");
+        if (tid == -1) {
+            tid = tracer.durationB("HeapSortRunGen", traceCategory, "");
         }
         for (int i = 0; i < inAccessor.getTupleCount(); i++) {
             if (!tupleSorter.insertTuple(inAccessor, i)) {
@@ -111,8 +111,8 @@ public class HeapSortRunGenerator extends AbstractSortRunGenerator {
     }
 
     @Override
-    public void close() throws HyracksDataException{
+    public void close() throws HyracksDataException {
         super.close();
-        tracer.durationE(tid,traceCategory,"");
+        tracer.durationE(tid, traceCategory, "");
     }
 }

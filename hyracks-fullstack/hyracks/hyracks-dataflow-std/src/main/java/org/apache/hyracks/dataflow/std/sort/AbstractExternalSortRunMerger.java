@@ -90,7 +90,7 @@ public abstract class AbstractExternalSortRunMerger {
         long tid = -1;
         try {
             if (runs.isEmpty()) {
-                tid = tracer.durationB("Merge",traceCategory,"");
+                tid = tracer.durationB("Merge", traceCategory, "");
                 finalWriter = prepareSkipMergingFinalResultWriter(writer);
                 finalWriter.open();
                 if (sorter != null) {
@@ -103,7 +103,7 @@ public abstract class AbstractExternalSortRunMerger {
                     }
                 }
             } else {
-                tid = tracer.durationB("Merge",traceCategory,"");
+                tid = tracer.durationB("Merge", traceCategory, "");
                 /** recycle sort buffer */
                 if (sorter != null) {
                     sorter.close();
@@ -197,7 +197,7 @@ public abstract class AbstractExternalSortRunMerger {
                 }
             }
         }
-        tracer.durationE(tid,traceCategory,"");
+        tracer.durationE(tid, traceCategory, "");
     }
 
     private static int selectPartialRuns(int argBudget, List<GeneratedRunFileReader> runs,

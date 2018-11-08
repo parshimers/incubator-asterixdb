@@ -146,7 +146,7 @@ public abstract class AbstractSorterOperatorDescriptor extends AbstractOperatorD
                     if (LOGGER.isTraceEnabled()) {
                         LOGGER.trace("InitialNumberOfRuns:" + runGen.getRuns().size());
                     }
-                    tracer.durationE(tid,traceCategory,"");
+                    tracer.durationE(tid, traceCategory, "");
                     ctx.setStateObject(state);
                 }
 

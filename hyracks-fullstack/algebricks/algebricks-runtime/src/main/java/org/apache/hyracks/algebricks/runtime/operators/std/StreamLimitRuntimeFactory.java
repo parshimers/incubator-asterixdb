@@ -106,7 +106,7 @@ public class StreamLimitRuntimeFactory extends AbstractOneInputOneOutputRuntimeF
                 for (int t = start; t < nTuple; t++) {
                     if (firstTuple) {
                         firstTuple = false;
-                        tid = tracer.durationB("StreamLimit",traceCategory,"");
+                        tid = tracer.durationB("StreamLimit", traceCategory, "");
                         toWrite = evaluateInteger(evalMaxObjects, t);
                         if (evalOffset != null) {
                             toSkip = evaluateInteger(evalOffset, t);
@@ -135,7 +135,7 @@ public class StreamLimitRuntimeFactory extends AbstractOneInputOneOutputRuntimeF
                 firstTuple = true;
                 afterLastTuple = false;
                 super.close();
-                tracer.durationE(tid,traceCategory,"");
+                tracer.durationE(tid, traceCategory, "");
             }
 
             private int evaluateInteger(IScalarEvaluator eval, int tIdx) throws HyracksDataException {

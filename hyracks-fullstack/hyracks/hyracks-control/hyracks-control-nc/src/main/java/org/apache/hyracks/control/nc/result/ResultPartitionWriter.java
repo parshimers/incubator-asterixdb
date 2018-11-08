@@ -102,9 +102,9 @@ public class ResultPartitionWriter implements IFrameWriter {
     @Override
     public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
         registerResultPartitionLocation(false);
-        if(firstFrame){
+        if (firstFrame) {
             firstFrame = false;
-            tid = tracer.durationB("ResultWrite ",traceCategory,"");
+            tid = tracer.durationB("ResultWrite ", traceCategory, "");
         }
         if (resultMemoryManager == null) {
             resultState.write(buffer);
@@ -125,7 +125,7 @@ public class ResultPartitionWriter implements IFrameWriter {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace("close(" + partition + ")");
         }
-        tracer.durationE(tid,traceCategory,"");
+        tracer.durationE(tid, traceCategory, "");
         try {
             if (!failed) {
                 registerResultPartitionLocation(true);

@@ -120,7 +120,7 @@ public class PreclusteredGroupWriter implements IFrameWriter {
         if (nTuples != 0) {
             for (int i = 0; i < nTuples; ++i) {
                 if (first) {
-                   // tid = tracer.durationB("PreclusteredGroup",traceCategory,"");
+                    // tid = tracer.durationB("PreclusteredGroup",traceCategory,"");
 
                     tupleBuilder.reset();
                     for (int j = 0; j < groupFields.length; j++) {
@@ -213,7 +213,7 @@ public class PreclusteredGroupWriter implements IFrameWriter {
             appenderWrapper.fail();
             throw e;
         } finally {
-//            tracer.durationE(tid,traceCategory,"");
+            //            tracer.durationE(tid,traceCategory,"");
             appenderWrapper.close();
         }
     }

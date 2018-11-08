@@ -288,8 +288,8 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
     @Override
     public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
         accessor.reset(buffer);
-        if(tid == -1l){
-            tid = tracer.durationB("IdxSearch",traceCategory,"");
+        if (tid == -1l) {
+            tid = tracer.durationB("IdxSearch", traceCategory, "");
         }
         int tupleCount = accessor.getTupleCount();
         try {
@@ -316,7 +316,7 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
         if (failure != null) {
             throw HyracksDataException.create(failure);
         }
-        tracer.durationE(tid,traceCategory,"");
+        tracer.durationE(tid, traceCategory, "");
     }
 
     private Throwable releaseResources() {
