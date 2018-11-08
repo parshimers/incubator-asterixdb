@@ -194,12 +194,6 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
-      <compilation-unit name="sum_mixed">
-        <output-dir compare="Text">sum_mixed</output-dir>
-        <expected-error>Type incompatibility: function agg-sum gets incompatible input values: string and float</expected-error>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="aggregate">
       <compilation-unit name="min_mixed">
         <output-dir compare="Text">min_mixed</output-dir>
         <expected-error>Type incompatibility: function min/max gets incompatible input values: string and float</expected-error>
@@ -227,6 +221,18 @@
       <compilation-unit name="serial_stddev_pop_mixed">
         <output-dir compare="Text">serial_stddev_pop_mixed</output-dir>
         <expected-error>Type incompatibility: function agg-stddev_pop gets incompatible input values: string and float</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate">
+      <compilation-unit name="sum_mixed">
+        <output-dir compare="Text">sum_mixed</output-dir>
+        <expected-error>Invalid item type: function agg-sum cannot process item type string in an input array</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate">
+      <compilation-unit name="serial_sum_mixed">
+        <output-dir compare="Text">serial_sum_mixed</output-dir>
+        <expected-error>Invalid item type: function agg-sum cannot process item type string in an input array</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
@@ -590,6 +596,16 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
+      <compilation-unit name="scalar_sum_empty">
+        <output-dir compare="Text">scalar_sum_empty</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate">
+      <compilation-unit name="scalar_sum_null">
+        <output-dir compare="Text">scalar_sum_null</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate">
       <compilation-unit name="scalar_var">
         <output-dir compare="Text">scalar_var</output-dir>
       </compilation-unit>
@@ -602,16 +618,6 @@
     <test-case FilePath="aggregate">
       <compilation-unit name="scalar_var_null">
         <output-dir compare="Text">scalar_var_null</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="aggregate">
-      <compilation-unit name="scalar_sum_empty">
-        <output-dir compare="Text">scalar_sum_empty</output-dir>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="aggregate">
-      <compilation-unit name="scalar_sum_null">
-        <output-dir compare="Text">scalar_sum_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
@@ -677,6 +683,77 @@
     <test-case FilePath="aggregate">
       <compilation-unit name="serial_stddev_int8_null">
         <output-dir compare="Text">serial_stddev_int8_null</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate">
+      <compilation-unit name="serial_sum_double">
+        <output-dir compare="Text">serial_sum_double</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate">
+      <compilation-unit name="serial_sum_double_null">
+        <output-dir compare="Text">serial_sum_double_null</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate">
+      <compilation-unit name="serial_sum_empty">
+        <output-dir compare="Text">serial_sum_empty</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate">
+      <compilation-unit name="serial_sum_float">
+        <output-dir compare="Text">serial_sum_float</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate">
+      <compilation-unit name="serial_sum_float_null">
+        <output-dir compare="Text">serial_sum_float_null</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate">
+      <compilation-unit name="serial_sum_int16">
+        <output-dir compare="Text">serial_sum_int16</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate">
+      <compilation-unit name="serial_sum_int16_null">
+        <output-dir compare="Text">serial_sum_int16_null</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate">
+      <compilation-unit name="serial_sum_int32">
+        <output-dir compare="Text">serial_sum_int32</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate">
+      <compilation-unit name="serial_sum_int32_null">
+        <output-dir compare="Text">serial_sum_int32_null</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate">
+      <compilation-unit name="serial_sum_int64">
+        <output-dir compare="Text">serial_sum_int64</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate">
+    <compilation-unit name="serial_sum_int64_null">
+      <output-dir compare="Text">serial_sum_int64_null</output-dir>
+    </compilation-unit>
+  </test-case>
+    <test-case FilePath="aggregate">
+      <compilation-unit name="serial_sum_int64_overflow">
+        <output-dir compare="Text">serial_sum_int64_overflow</output-dir>
+        <expected-error>Overflow in agg-sum</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate">
+      <compilation-unit name="serial_sum_int8">
+        <output-dir compare="Text">serial_sum_int8</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate">
+      <compilation-unit name="serial_sum_int8_null">
+        <output-dir compare="Text">serial_sum_int8_null</output-dir>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
@@ -880,6 +957,17 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate">
+      <compilation-unit name="sum_int64_null">
+        <output-dir compare="Text">sum_int64_null</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate">
+      <compilation-unit name="sum_int64_overflow">
+        <output-dir compare="Text">sum_int64_overflow</output-dir>
+        <expected-error>Overflow in agg-sum</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate">
       <compilation-unit name="sum_int8">
         <output-dir compare="Text">sum_int8</output-dir>
       </compilation-unit>
@@ -1013,12 +1101,6 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
-      <compilation-unit name="sum_mixed">
-        <output-dir compare="Text">sum_mixed</output-dir>
-        <expected-error>Type incompatibility: function agg-sum gets incompatible input values: string and float</expected-error>
-      </compilation-unit>
-    </test-case>
-    <test-case FilePath="aggregate-sql">
       <compilation-unit name="min_mixed">
         <output-dir compare="Text">min_mixed</output-dir>
         <expected-error>Type incompatibility: function min/max gets incompatible input values: string and float</expected-error>
@@ -1046,6 +1128,18 @@
       <compilation-unit name="stddev_pop_mixed">
         <output-dir compare="Text">stddev_pop_mixed</output-dir>
         <expected-error>Type incompatibility: function agg-stddev_pop gets incompatible input values: string and float</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate-sql">
+      <compilation-unit name="sum_mixed">
+        <output-dir compare="Text">sum_mixed</output-dir>
+        <expected-error>Invalid item type: function agg-sum cannot process item type string in an input array</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate-sql">
+      <compilation-unit name="serial_sum_mixed">
+        <output-dir compare="Text">serial_sum_mixed</output-dir>
+        <expected-error>Invalid item type: function agg-sum cannot process item type string in an input array</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
@@ -1428,6 +1522,77 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
+      <compilation-unit name="serial_sum_double">
+        <output-dir compare="Text">serial_sum_double</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate-sql">
+      <compilation-unit name="serial_sum_double_null">
+        <output-dir compare="Text">serial_sum_double_null</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate-sql">
+      <compilation-unit name="serial_sum_empty">
+        <output-dir compare="Text">serial_sum_empty</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate-sql">
+      <compilation-unit name="serial_sum_float">
+        <output-dir compare="Text">serial_sum_float</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate-sql">
+      <compilation-unit name="serial_sum_float_null">
+        <output-dir compare="Text">serial_sum_float_null</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate-sql">
+      <compilation-unit name="serial_sum_int16">
+        <output-dir compare="Text">serial_sum_int16</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate-sql">
+      <compilation-unit name="serial_sum_int16_null">
+        <output-dir compare="Text">serial_sum_int16_null</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate-sql">
+      <compilation-unit name="serial_sum_int32">
+        <output-dir compare="Text">serial_sum_int32</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate-sql">
+      <compilation-unit name="serial_sum_int32_null">
+        <output-dir compare="Text">serial_sum_int32_null</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate-sql">
+      <compilation-unit name="serial_sum_int64">
+        <output-dir compare="Text">serial_sum_int64</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate-sql">
+    <compilation-unit name="serial_sum_int64_null">
+      <output-dir compare="Text">serial_sum_int64_null</output-dir>
+    </compilation-unit>
+  </test-case>
+    <test-case FilePath="aggregate-sql">
+      <compilation-unit name="serial_sum_int64_overflow">
+        <output-dir compare="Text">serial_sum_int64_overflow</output-dir>
+        <expected-error>Overflow in agg-sum</expected-error>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate-sql">
+      <compilation-unit name="serial_sum_int8">
+        <output-dir compare="Text">serial_sum_int8</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate-sql">
+      <compilation-unit name="serial_sum_int8_null">
+        <output-dir compare="Text">serial_sum_int8_null</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate-sql">
       <compilation-unit name="serial_var_double">
         <output-dir compare="Text">serial_var_double</output-dir>
       </compilation-unit>
@@ -1625,6 +1790,12 @@
     <test-case FilePath="aggregate-sql">
       <compilation-unit name="sum_int64_null">
         <output-dir compare="Text">sum_int64_null</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="aggregate-sql">
+      <compilation-unit name="sum_int64_overflow">
+        <output-dir compare="Text">sum_int64_overflow</output-dir>
+        <expected-error>Overflow in agg-sum</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="aggregate-sql">
@@ -4579,6 +4750,13 @@
     <test-case FilePath="misc">
       <compilation-unit name="dataset_nodegroup">
         <output-dir compare="Text">dataset_nodegroup</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="misc">
+      <compilation-unit name="ensure_result_numeric_type">
+        <output-dir compare="Text">ensure_result_numeric_type</output-dir>
+        <source-location>false</source-location>
+        <expected-error>expected &lt; 3.0</expected-error>
       </compilation-unit>
     </test-case>
     <test-case FilePath="misc">
@@ -8933,6 +9111,45 @@
       </compilation-unit>
     </test-case>
   </test-group>
+  <test-group name="window">
+    <test-case FilePath="window">
+      <compilation-unit name="dense_rank_01">
+        <output-dir compare="Text">dense_rank_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="window">
+      <compilation-unit name="misc_01">
+        <output-dir compare="Text">misc_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="window">
+      <compilation-unit name="ntile_01">
+        <output-dir compare="Text">ntile_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="window">
+      <compilation-unit name="ntile_02">
+        <output-dir compare="Text">ntile_01</output-dir>
+        <expected-error>ASX0002: Type mismatch</expected-error>
+        <source-location>false</source-location>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="window">
+      <compilation-unit name="percent_rank_01">
+        <output-dir compare="Text">percent_rank_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="window">
+      <compilation-unit name="rank_01">
+        <output-dir compare="Text">rank_01</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="window">
+      <compilation-unit name="row_number_01">
+        <output-dir compare="Text">row_number_01</output-dir>
+      </compilation-unit>
+    </test-case>
+  </test-group>
   <test-group name="writers">
     <test-case FilePath="writers">
       <compilation-unit name="print_01">
@@ -9765,6 +9982,18 @@
     <test-case FilePath="feeds">
       <compilation-unit name="http_feed">
         <output-dir compare="Text">http_feed</output-dir>
+      </compilation-unit>
+    </test-case>
+  </test-group>
+  <test-group name="meta">
+    <test-case FilePath="meta">
+      <compilation-unit name="meta_in_with_clause">
+        <output-dir compare="Text">meta_in_with_clause</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="meta">
+      <compilation-unit name="resolving_pk_with_meta">
+        <output-dir compare="Text">resolving_pk_with_meta</output-dir>
       </compilation-unit>
     </test-case>
   </test-group>
@@ -10892,4 +11121,63 @@
     </test-case>
   </test-group>
   &GeoQueries;
+  <test-group name="compression">
+    <test-case FilePath="compression">
+      <compilation-unit name="incompressible-pages/large-page">
+        <output-dir compare="Text">incompressible-pages/large-page</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="compression">
+      <compilation-unit name="incompressible-pages/small-page">
+        <output-dir compare="Text">incompressible-pages/small-page</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="compression">
+      <compilation-unit name="invalid-compression-scheme">
+        <output-dir compare="Text">invalid-compression-scheme</output-dir>
+        <expected-error>ASX1096: Unknown compression scheme zip. Supported schemes are [snappy,none]</expected-error>
+        <source-location>false</source-location>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="compression">
+      <compilation-unit name="scheme-none">
+        <output-dir compare="Text">scheme-none</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="compression">
+      <compilation-unit name="scheme-snappy">
+        <output-dir compare="Text">scheme-snappy</output-dir>
+      </compilation-unit>
+    </test-case>
+  </test-group>
+  <test-group name="ddl-with-clause">
+    <test-case FilePath="ddl-with-clause">
+      <compilation-unit name="missing-non-optional">
+        <output-dir compare="Text">missing-non-optional</output-dir>
+        <expected-error>ASX1061: Field "merge-policy.name" in the with clause cannot be null or missing</expected-error>
+        <source-location>false</source-location>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="ddl-with-clause">
+      <compilation-unit name="type-mismatch">
+        <output-dir compare="Text">type-mismatch</output-dir>
+        <expected-error>ASX1060: Field "merge-policy.parameters.max-mergable-component-size" in the with clause must be of type bigint, but found string</expected-error>
+        <source-location>false</source-location>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="ddl-with-clause">
+      <compilation-unit name="unsupported-field">
+        <output-dir compare="Text">unsupported-field</output-dir>
+        <expected-error>ASX1059: Field(s) [unknown-field] unsupported in the with clause</expected-error>
+        <source-location>false</source-location>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="ddl-with-clause">
+      <compilation-unit name="unsupported-subfield">
+        <output-dir compare="Text">unsupported-subfield</output-dir>
+        <expected-error>ASX1097: Subfield(s) [unknown-subfield] in "merge-policy" unsupported in the with clause</expected-error>
+        <source-location>false</source-location>
+      </compilation-unit>
+    </test-case>
+  </test-group>
 </test-suite>

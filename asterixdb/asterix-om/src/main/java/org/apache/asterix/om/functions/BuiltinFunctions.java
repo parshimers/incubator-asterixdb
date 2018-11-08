@@ -89,7 +89,7 @@ import org.apache.asterix.om.typecomputer.impl.NotUnknownTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.NullIfTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.NullableDoubleTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.NumericAddSubMulDivTypeComputer;
-import org.apache.asterix.om.typecomputer.impl.NumericAggTypeComputer;
+import org.apache.asterix.om.typecomputer.impl.NumericSumAggTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.NumericDivideTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.NumericDoubleOutputFunctionTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.NumericInt8OutputFunctionTypeComputer;
@@ -132,10 +132,13 @@ import org.apache.asterix.om.typecomputer.impl.UnorderedListConstructorTypeCompu
 import org.apache.asterix.om.types.hierachy.ATypeHierarchy;
 import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.hyracks.algebricks.core.algebra.base.ILogicalExpression;
+import org.apache.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression;
 import org.apache.hyracks.algebricks.core.algebra.expressions.AggregateFunctionCallExpression;
+import org.apache.hyracks.algebricks.core.algebra.expressions.StatefulFunctionCallExpression;
 import org.apache.hyracks.algebricks.core.algebra.functions.AlgebricksBuiltinFunctions;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import org.apache.hyracks.algebricks.core.algebra.functions.IFunctionInfo;
+import org.apache.hyracks.algebricks.core.algebra.properties.UnpartitionedPropertyComputer;
 
 public class BuiltinFunctions {
 
@@ -162,6 +165,9 @@ public class BuiltinFunctions {
     private static final Map<IFunctionInfo, IFunctionInfo> scalarToAggregateFunctionMap = new HashMap<>();
     private static final Map<IFunctionInfo, IFunctionInfo> distinctToRegularScalarAggregateFunctionMap =
             new HashMap<>();
+    private static final Map<IFunctionInfo, IFunctionInfo> builtinWindowFunctions = new HashMap<>();
+    private static final Set<IFunctionInfo> builtinWindowFunctionsWithOrderArgs = new HashSet<>();
+    private static final Set<IFunctionInfo> builtinWindowFunctionsWithMaterialization = new HashSet<>();
 
     private static final Map<IFunctionInfo, SpatialFilterKind> spatialFilterFunctions = new HashMap<>();
 
@@ -454,6 +460,10 @@ public class BuiltinFunctions {
     public static final FunctionIdentifier SUM = new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "agg-sum", 1);
     public static final FunctionIdentifier LOCAL_SUM =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "agg-local-sum", 1);
+    public static final FunctionIdentifier INTERMEDIATE_SUM =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "agg-intermediate-sum", 1);
+    public static final FunctionIdentifier GLOBAL_SUM =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "agg-global-sum", 1);
     public static final FunctionIdentifier MAX = new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "agg-max", 1);
     public static final FunctionIdentifier LOCAL_MAX =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "agg-local-max", 1);
@@ -551,6 +561,10 @@ public class BuiltinFunctions {
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "sum-serial", 1);
     public static final FunctionIdentifier SERIAL_LOCAL_SUM =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "local-sum-serial", 1);
+    public static final FunctionIdentifier SERIAL_INTERMEDIATE_SUM =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "intermediate-sum-serial", 1);
+    public static final FunctionIdentifier SERIAL_GLOBAL_SUM =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "global-sum-serial", 1);
     public static final FunctionIdentifier SERIAL_GLOBAL_AVG =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "global-avg-serial", 1);
     public static final FunctionIdentifier SERIAL_LOCAL_AVG =
@@ -639,6 +653,10 @@ public class BuiltinFunctions {
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "agg-sql-sum", 1);
     public static final FunctionIdentifier LOCAL_SQL_SUM =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "agg-local-sql-sum", 1);
+    public static final FunctionIdentifier INTERMEDIATE_SQL_SUM =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "agg-intermediate-sql-sum", 1);
+    public static final FunctionIdentifier GLOBAL_SQL_SUM =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "agg-global-sql-sum", 1);
     public static final FunctionIdentifier SQL_MAX =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "agg-sql-max", 1);
     public static final FunctionIdentifier LOCAL_SQL_MAX =
@@ -732,6 +750,10 @@ public class BuiltinFunctions {
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "sql-sum-serial", 1);
     public static final FunctionIdentifier SERIAL_LOCAL_SQL_SUM =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "local-sql-sum-serial", 1);
+    public static final FunctionIdentifier SERIAL_INTERMEDIATE_SQL_SUM =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "intermediate-sql-sum-serial", 1);
+    public static final FunctionIdentifier SERIAL_GLOBAL_SQL_SUM =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "global-sql-sum-serial", 1);
     public static final FunctionIdentifier SERIAL_GLOBAL_SQL_AVG =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "global-sql-avg-serial", 1);
     public static final FunctionIdentifier SERIAL_INTERMEDIATE_SQL_AVG =
@@ -808,6 +830,26 @@ public class BuiltinFunctions {
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "agg-sql-var_pop-distinct", 1);
     public static final FunctionIdentifier SCALAR_SQL_VAR_POP_DISTINCT =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "sql-var_pop-distinct", 1);
+
+    // window functions
+    public static final FunctionIdentifier ROW_NUMBER =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "row-number", 0);
+    public static final FunctionIdentifier ROW_NUMBER_IMPL =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "row-number-impl", 0);
+    public static final FunctionIdentifier RANK = new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "rank", 0);
+    public static final FunctionIdentifier RANK_IMPL =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "rank-impl", FunctionIdentifier.VARARGS);
+    public static final FunctionIdentifier DENSE_RANK =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "dense-rank", 0);
+    public static final FunctionIdentifier DENSE_RANK_IMPL =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "dense-rank-impl", FunctionIdentifier.VARARGS);
+    public static final FunctionIdentifier PERCENT_RANK =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "percent-rank", 0);
+    public static final FunctionIdentifier PERCENT_RANK_IMPL =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "percent-rank-impl", FunctionIdentifier.VARARGS);
+    public static final FunctionIdentifier NTILE = new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "ntile", 1);
+    public static final FunctionIdentifier NTILE_IMPL =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "ntile-impl", FunctionIdentifier.VARARGS);
 
     // unnesting functions
     public static final FunctionIdentifier SCAN_COLLECTION =
@@ -1539,8 +1581,6 @@ public class BuiltinFunctions {
         addFunction(COUNT, AInt64TypeComputer.INSTANCE, true);
         addPrivateFunction(LOCAL_AVG, LocalAvgTypeComputer.INSTANCE, true);
         addFunction(AVG, NullableDoubleTypeComputer.INSTANCE, true);
-        addFunction(SUM, NumericAggTypeComputer.INSTANCE, true);
-        addPrivateFunction(LOCAL_SUM, NumericAggTypeComputer.INSTANCE, true);
         addPrivateFunction(GLOBAL_AVG, NullableDoubleTypeComputer.INSTANCE, true);
         addPrivateFunction(SCALAR_FIRST_ELEMENT, CollectionMemberResultType.INSTANCE, true);
         addPrivateFunction(FIRST_ELEMENT, PropagateTypeComputer.INSTANCE, true);
@@ -1560,20 +1600,28 @@ public class BuiltinFunctions {
         addFunction(VAR_POP, NullableDoubleTypeComputer.INSTANCE, true);
         addPrivateFunction(GLOBAL_VAR_POP, NullableDoubleTypeComputer.INSTANCE, true);
 
+        // SUM
+        addFunction(SUM, NumericSumAggTypeComputer.INSTANCE, true);
+        addFunction(SCALAR_SUM, ScalarVersionOfAggregateResultType.INSTANCE, true);
+        addPrivateFunction(LOCAL_SUM, NumericSumAggTypeComputer.INSTANCE, true);
+        addPrivateFunction(INTERMEDIATE_SUM, NumericSumAggTypeComputer.INSTANCE, true);
+        addPrivateFunction(GLOBAL_SUM, NumericSumAggTypeComputer.INSTANCE, true);
+        addPrivateFunction(SERIAL_SUM, NumericSumAggTypeComputer.INSTANCE, true);
+        addPrivateFunction(SERIAL_LOCAL_SUM, NumericSumAggTypeComputer.INSTANCE, true);
+        addPrivateFunction(SERIAL_INTERMEDIATE_SUM, NumericSumAggTypeComputer.INSTANCE, true);
+        addPrivateFunction(SERIAL_GLOBAL_SUM, NumericSumAggTypeComputer.INSTANCE, true);
+
         addPrivateFunction(SERIAL_SQL_AVG, NullableDoubleTypeComputer.INSTANCE, true);
         addPrivateFunction(SERIAL_SQL_COUNT, AInt64TypeComputer.INSTANCE, true);
         addPrivateFunction(SERIAL_GLOBAL_SQL_AVG, NullableDoubleTypeComputer.INSTANCE, true);
         addPrivateFunction(SERIAL_LOCAL_SQL_AVG, LocalAvgTypeComputer.INSTANCE, true);
         addPrivateFunction(SERIAL_INTERMEDIATE_SQL_AVG, LocalAvgTypeComputer.INSTANCE, true);
-        addPrivateFunction(SERIAL_SQL_SUM, NumericAggTypeComputer.INSTANCE, true);
-        addPrivateFunction(SERIAL_LOCAL_SQL_SUM, NumericAggTypeComputer.INSTANCE, true);
         addFunction(SCALAR_AVG, NullableDoubleTypeComputer.INSTANCE, true);
         addFunction(SCALAR_COUNT, AInt64TypeComputer.INSTANCE, true);
         addPrivateFunction(SCALAR_GLOBAL_AVG, NullableDoubleTypeComputer.INSTANCE, true);
         addPrivateFunction(SCALAR_LOCAL_AVG, NullableDoubleTypeComputer.INSTANCE, true);
         addFunction(SCALAR_MAX, ScalarVersionOfAggregateResultType.INSTANCE, true);
         addFunction(SCALAR_MIN, ScalarVersionOfAggregateResultType.INSTANCE, true);
-        addFunction(SCALAR_SUM, ScalarVersionOfAggregateResultType.INSTANCE, true);
         addPrivateFunction(INTERMEDIATE_AVG, LocalAvgTypeComputer.INSTANCE, true);
         addFunction(SCALAR_STDDEV, NullableDoubleTypeComputer.INSTANCE, true);
         addPrivateFunction(SCALAR_GLOBAL_STDDEV, NullableDoubleTypeComputer.INSTANCE, true);
@@ -1608,6 +1656,17 @@ public class BuiltinFunctions {
         addPrivateFunction(SERIAL_LOCAL_SQL_VAR_POP, LocalSingleVarStatisticsTypeComputer.INSTANCE, true);
         addPrivateFunction(SERIAL_INTERMEDIATE_SQL_VAR_POP, LocalSingleVarStatisticsTypeComputer.INSTANCE, true);
 
+        // SQL SUM
+        addFunction(SQL_SUM, NumericSumAggTypeComputer.INSTANCE, true);
+        addFunction(SCALAR_SQL_SUM, ScalarVersionOfAggregateResultType.INSTANCE, true);
+        addPrivateFunction(LOCAL_SQL_SUM, NumericSumAggTypeComputer.INSTANCE, true);
+        addPrivateFunction(INTERMEDIATE_SQL_SUM, NumericSumAggTypeComputer.INSTANCE, true);
+        addPrivateFunction(GLOBAL_SQL_SUM, NumericSumAggTypeComputer.INSTANCE, true);
+        addPrivateFunction(SERIAL_SQL_SUM, NumericSumAggTypeComputer.INSTANCE, true);
+        addPrivateFunction(SERIAL_LOCAL_SQL_SUM, NumericSumAggTypeComputer.INSTANCE, true);
+        addPrivateFunction(SERIAL_INTERMEDIATE_SQL_SUM, NumericSumAggTypeComputer.INSTANCE, true);
+        addPrivateFunction(SERIAL_GLOBAL_SQL_SUM, NumericSumAggTypeComputer.INSTANCE, true);
+
         addFunction(SQL_AVG, NullableDoubleTypeComputer.INSTANCE, true);
         addPrivateFunction(GLOBAL_SQL_AVG, NullableDoubleTypeComputer.INSTANCE, true);
         addPrivateFunction(LOCAL_SQL_AVG, LocalAvgTypeComputer.INSTANCE, true);
@@ -1617,15 +1676,12 @@ public class BuiltinFunctions {
         addPrivateFunction(LOCAL_SQL_MAX, MinMaxAggTypeComputer.INSTANCE, true);
         addFunction(SQL_MIN, MinMaxAggTypeComputer.INSTANCE, true);
         addPrivateFunction(LOCAL_SQL_MIN, MinMaxAggTypeComputer.INSTANCE, true);
-        addFunction(SQL_SUM, NumericAggTypeComputer.INSTANCE, true);
-        addPrivateFunction(LOCAL_SQL_SUM, NumericAggTypeComputer.INSTANCE, true);
         addFunction(SCALAR_SQL_AVG, NullableDoubleTypeComputer.INSTANCE, true);
         addFunction(SCALAR_SQL_COUNT, AInt64TypeComputer.INSTANCE, true);
         addPrivateFunction(SCALAR_GLOBAL_SQL_AVG, NullableDoubleTypeComputer.INSTANCE, true);
         addPrivateFunction(SCALAR_LOCAL_SQL_AVG, NullableDoubleTypeComputer.INSTANCE, true);
         addFunction(SCALAR_SQL_MAX, ScalarVersionOfAggregateResultType.INSTANCE, true);
         addFunction(SCALAR_SQL_MIN, ScalarVersionOfAggregateResultType.INSTANCE, true);
-        addFunction(SCALAR_SQL_SUM, ScalarVersionOfAggregateResultType.INSTANCE, true);
         addPrivateFunction(INTERMEDIATE_SQL_AVG, LocalAvgTypeComputer.INSTANCE, true);
         addFunction(SQL_STDDEV, NullableDoubleTypeComputer.INSTANCE, true);
         addPrivateFunction(GLOBAL_SQL_STDDEV, NullableDoubleTypeComputer.INSTANCE, true);
@@ -1661,8 +1717,6 @@ public class BuiltinFunctions {
         addPrivateFunction(SERIAL_GLOBAL_AVG, NullableDoubleTypeComputer.INSTANCE, true);
         addPrivateFunction(SERIAL_LOCAL_AVG, LocalAvgTypeComputer.INSTANCE, true);
         addPrivateFunction(SERIAL_INTERMEDIATE_AVG, LocalAvgTypeComputer.INSTANCE, true);
-        addPrivateFunction(SERIAL_SUM, NumericAggTypeComputer.INSTANCE, true);
-        addPrivateFunction(SERIAL_LOCAL_SUM, NumericAggTypeComputer.INSTANCE, true);
         addPrivateFunction(SERIAL_STDDEV, NullableDoubleTypeComputer.INSTANCE, true);
         addPrivateFunction(SERIAL_GLOBAL_STDDEV, NullableDoubleTypeComputer.INSTANCE, true);
         addPrivateFunction(SERIAL_LOCAL_STDDEV, LocalSingleVarStatisticsTypeComputer.INSTANCE, true);
@@ -1687,10 +1741,10 @@ public class BuiltinFunctions {
         addFunction(SQL_COUNT_DISTINCT, AInt64TypeComputer.INSTANCE, true);
         addFunction(SCALAR_SQL_COUNT_DISTINCT, AInt64TypeComputer.INSTANCE, true);
 
-        addFunction(SUM_DISTINCT, NumericAggTypeComputer.INSTANCE, true);
-        addFunction(SCALAR_SUM_DISTINCT, ScalarVersionOfAggregateResultType.INSTANCE, true);
-        addFunction(SQL_SUM_DISTINCT, NumericAggTypeComputer.INSTANCE, true);
-        addFunction(SCALAR_SQL_SUM_DISTINCT, ScalarVersionOfAggregateResultType.INSTANCE, true);
+        addFunction(SUM_DISTINCT, NumericSumAggTypeComputer.INSTANCE, true);
+        addFunction(SCALAR_SUM_DISTINCT, NumericSumAggTypeComputer.INSTANCE, true);
+        addFunction(SQL_SUM_DISTINCT, NumericSumAggTypeComputer.INSTANCE, true);
+        addFunction(SCALAR_SQL_SUM_DISTINCT, NumericSumAggTypeComputer.INSTANCE, true);
 
         addFunction(AVG_DISTINCT, NullableDoubleTypeComputer.INSTANCE, true);
         addFunction(SCALAR_AVG_DISTINCT, NullableDoubleTypeComputer.INSTANCE, true);
@@ -1726,6 +1780,19 @@ public class BuiltinFunctions {
         addFunction(SCALAR_VAR_POP_DISTINCT, NullableDoubleTypeComputer.INSTANCE, true);
         addFunction(SQL_VAR_POP_DISTINCT, NullableDoubleTypeComputer.INSTANCE, true);
         addFunction(SCALAR_SQL_VAR_POP_DISTINCT, NullableDoubleTypeComputer.INSTANCE, true);
+
+        // Window functions
+
+        addFunction(ROW_NUMBER, AInt64TypeComputer.INSTANCE, true);
+        addPrivateFunction(ROW_NUMBER_IMPL, AInt64TypeComputer.INSTANCE, true);
+        addFunction(RANK, AInt64TypeComputer.INSTANCE, true);
+        addPrivateFunction(RANK_IMPL, AInt64TypeComputer.INSTANCE, true);
+        addFunction(DENSE_RANK, AInt64TypeComputer.INSTANCE, true);
+        addPrivateFunction(DENSE_RANK_IMPL, AInt64TypeComputer.INSTANCE, true);
+        addFunction(PERCENT_RANK, ADoubleTypeComputer.INSTANCE, true);
+        addPrivateFunction(PERCENT_RANK_IMPL, ADoubleTypeComputer.INSTANCE, true);
+        addFunction(NTILE, AInt64TypeComputer.INSTANCE, true);
+        addPrivateFunction(NTILE_IMPL, AInt64TypeComputer.INSTANCE, true);
 
         // Similarity functions
         addFunction(EDIT_DISTANCE_CONTAINS, OrderedListOfAnyTypeComputer.INSTANCE, true);
@@ -2212,27 +2279,29 @@ public class BuiltinFunctions {
         addScalarAgg(MIN_DISTINCT, SCALAR_MIN_DISTINCT);
 
         // SUM
-
         addAgg(SUM);
         addAgg(LOCAL_SUM);
+        addAgg(GLOBAL_SUM);
         addLocalAgg(SUM, LOCAL_SUM);
-        addIntermediateAgg(LOCAL_SUM, SUM);
-        addIntermediateAgg(SUM, SUM);
-        addGlobalAgg(SUM, SUM);
-
+        addIntermediateAgg(SUM, INTERMEDIATE_SUM);
+        addIntermediateAgg(LOCAL_SUM, INTERMEDIATE_SUM);
+        addIntermediateAgg(GLOBAL_SUM, INTERMEDIATE_SUM);
+        addGlobalAgg(SUM, GLOBAL_SUM);
         addScalarAgg(SUM, SCALAR_SUM);
 
-        addSerialAgg(SUM, SERIAL_SUM);
-        addSerialAgg(LOCAL_SUM, SERIAL_LOCAL_SUM);
         addAgg(SERIAL_SUM);
         addAgg(SERIAL_LOCAL_SUM);
+        addAgg(SERIAL_GLOBAL_SUM);
+        addSerialAgg(SUM, SERIAL_SUM);
+        addSerialAgg(LOCAL_SUM, SERIAL_LOCAL_SUM);
+        addSerialAgg(GLOBAL_SUM, SERIAL_GLOBAL_SUM);
         addLocalAgg(SERIAL_SUM, SERIAL_LOCAL_SUM);
-        addIntermediateAgg(SERIAL_SUM, SERIAL_SUM);
-        addIntermediateAgg(SERIAL_LOCAL_SUM, SERIAL_SUM);
-        addGlobalAgg(SERIAL_SUM, SERIAL_SUM);
+        addIntermediateAgg(SERIAL_SUM, SERIAL_INTERMEDIATE_SUM);
+        addIntermediateAgg(SERIAL_LOCAL_SUM, SERIAL_INTERMEDIATE_SUM);
+        addIntermediateAgg(SERIAL_GLOBAL_SUM, SERIAL_INTERMEDIATE_SUM);
+        addGlobalAgg(SERIAL_SUM, SERIAL_GLOBAL_SUM);
 
-        // SUM DISTINCT
-
+        // SUM Distinct
         addDistinctAgg(SUM_DISTINCT, SCALAR_SUM);
         addScalarAgg(SUM_DISTINCT, SCALAR_SUM_DISTINCT);
 
@@ -2454,27 +2523,29 @@ public class BuiltinFunctions {
         addScalarAgg(SQL_MIN_DISTINCT, SCALAR_SQL_MIN_DISTINCT);
 
         // SQL SUM
-
         addAgg(SQL_SUM);
         addAgg(LOCAL_SQL_SUM);
+        addAgg(GLOBAL_SQL_SUM);
         addLocalAgg(SQL_SUM, LOCAL_SQL_SUM);
-        addIntermediateAgg(LOCAL_SQL_SUM, SQL_SUM);
-        addIntermediateAgg(SQL_SUM, SQL_SUM);
-        addGlobalAgg(SQL_SUM, SQL_SUM);
-
+        addIntermediateAgg(SQL_SUM, INTERMEDIATE_SQL_SUM);
+        addIntermediateAgg(LOCAL_SQL_SUM, INTERMEDIATE_SQL_SUM);
+        addIntermediateAgg(GLOBAL_SQL_SUM, INTERMEDIATE_SQL_SUM);
+        addGlobalAgg(SQL_SUM, GLOBAL_SQL_SUM);
         addScalarAgg(SQL_SUM, SCALAR_SQL_SUM);
 
-        addSerialAgg(SQL_SUM, SERIAL_SQL_SUM);
-        addSerialAgg(LOCAL_SQL_SUM, SERIAL_LOCAL_SQL_SUM);
         addAgg(SERIAL_SQL_SUM);
         addAgg(SERIAL_LOCAL_SQL_SUM);
+        addAgg(SERIAL_GLOBAL_SQL_SUM);
+        addSerialAgg(SQL_SUM, SERIAL_SQL_SUM);
+        addSerialAgg(LOCAL_SQL_SUM, SERIAL_LOCAL_SQL_SUM);
+        addSerialAgg(GLOBAL_SQL_SUM, SERIAL_GLOBAL_SQL_SUM);
         addLocalAgg(SERIAL_SQL_SUM, SERIAL_LOCAL_SQL_SUM);
-        addIntermediateAgg(SERIAL_LOCAL_SQL_SUM, SERIAL_SQL_SUM);
         addIntermediateAgg(SERIAL_SQL_SUM, SERIAL_SQL_SUM);
-        addGlobalAgg(SERIAL_SQL_SUM, SERIAL_SQL_SUM);
+        addIntermediateAgg(SERIAL_LOCAL_SQL_SUM, SERIAL_INTERMEDIATE_SQL_SUM);
+        addIntermediateAgg(SERIAL_GLOBAL_SQL_SUM, SERIAL_INTERMEDIATE_SQL_SUM);
+        addGlobalAgg(SERIAL_SQL_SUM, SERIAL_GLOBAL_SQL_SUM);
 
-        // SQL SUM DISTINCT
-
+        // SQL SUM Distinct
         addDistinctAgg(SQL_SUM_DISTINCT, SCALAR_SQL_SUM);
         addScalarAgg(SQL_SUM_DISTINCT, SCALAR_SQL_SUM_DISTINCT);
 
@@ -2484,6 +2555,15 @@ public class BuiltinFunctions {
         addLocalAgg(ST_UNION_AGG, ST_UNION_AGG);
         addIntermediateAgg(ST_UNION_AGG, ST_UNION_AGG);
         addGlobalAgg(ST_UNION_AGG, ST_UNION_AGG);
+    }
+
+    static {
+        // Window functions
+        addWindowFunction(ROW_NUMBER, ROW_NUMBER_IMPL, false, false);
+        addWindowFunction(RANK, RANK_IMPL, true, false);
+        addWindowFunction(DENSE_RANK, DENSE_RANK_IMPL, true, false);
+        addWindowFunction(PERCENT_RANK, PERCENT_RANK_IMPL, true, true);
+        addWindowFunction(NTILE, NTILE_IMPL, false, true);
     }
 
     static {
@@ -2665,6 +2745,40 @@ public class BuiltinFunctions {
     public static void addDistinctAgg(FunctionIdentifier distinctfi, FunctionIdentifier regularscalarfi) {
         distinctToRegularScalarAggregateFunctionMap.put(getAsterixFunctionInfo(distinctfi),
                 getAsterixFunctionInfo(regularscalarfi));
+    }
+
+    public static void addWindowFunction(FunctionIdentifier fi, FunctionIdentifier implfi, boolean requiresOrderArgs,
+            boolean requiresMaterialization) {
+        IFunctionInfo implFinfo = getAsterixFunctionInfo(implfi);
+        builtinWindowFunctions.put(getAsterixFunctionInfo(fi), implFinfo);
+        if (requiresOrderArgs) {
+            builtinWindowFunctionsWithOrderArgs.add(implFinfo);
+        }
+        if (requiresMaterialization) {
+            builtinWindowFunctionsWithMaterialization.add(implFinfo);
+        }
+    }
+
+    public static boolean isBuiltinWindowFunction(FunctionIdentifier fi) {
+        return builtinWindowFunctions.containsKey(getAsterixFunctionInfo(fi));
+    }
+
+    public static boolean windowFunctionRequiresOrderArgs(FunctionIdentifier implfi) {
+        return builtinWindowFunctionsWithOrderArgs.contains(getAsterixFunctionInfo(implfi));
+    }
+
+    public static boolean windowFunctionRequiresMaterialization(FunctionIdentifier implfi) {
+        return builtinWindowFunctionsWithMaterialization.contains(getAsterixFunctionInfo(implfi));
+    }
+
+    public static AbstractFunctionCallExpression makeWindowFunctionExpression(FunctionIdentifier scalarfi,
+            List<Mutable<ILogicalExpression>> args) {
+        IFunctionInfo finfo = getAsterixFunctionInfo(scalarfi);
+        IFunctionInfo implFinfo = builtinWindowFunctions.get(finfo);
+        if (implFinfo == null) {
+            throw new IllegalStateException("no implementation for window function " + finfo);
+        }
+        return new StatefulFunctionCallExpression(implFinfo, UnpartitionedPropertyComputer.INSTANCE, args);
     }
 
     static {

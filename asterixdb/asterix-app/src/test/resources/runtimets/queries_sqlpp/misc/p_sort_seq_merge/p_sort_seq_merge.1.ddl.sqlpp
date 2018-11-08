@@ -19,7 +19,8 @@
 
 /*
  * Description: testing a sequential merge when parallel sort has redistributed the data across partitions and one of
- * the next operators requires merging the sorted data.
+ * the next operators requires merging the data. The local order property is not present, but ORDERED_PARTITIONED is
+ * present, and sequential merge connector will be introduced instead of a random merge.
  */
 
 drop dataverse test if exists;

@@ -21,6 +21,7 @@ package org.apache.hyracks.dataflow.std.group.preclustered;
 import java.nio.ByteBuffer;
 
 import org.apache.hyracks.api.comm.IFrame;
+import org.apache.hyracks.api.comm.IFrameTupleAccessor;
 import org.apache.hyracks.api.comm.IFrameWriter;
 import org.apache.hyracks.api.comm.VSizeFrame;
 import org.apache.hyracks.api.context.IHyracksTaskContext;
@@ -146,9 +147,10 @@ public class PreclusteredGroupWriter implements IFrameWriter {
         }
     }
 
-    private void switchGroupIfRequired(FrameTupleAccessor prevTupleAccessor, int prevTupleIndex,
-            FrameTupleAccessor currTupleAccessor, int currTupleIndex) throws HyracksDataException {
-        if (!sameGroup(prevTupleAccessor, prevTupleIndex, currTupleAccessor, currTupleIndex)) {
+    private void switchGroupIfRequired(IFrameTupleAccessor prevTupleAccessor, int prevTupleIndex,
+            IFrameTupleAccessor currTupleAccessor, int currTupleIndex) throws HyracksDataException {
+        if (!sameGroup(prevTupleAccessor, prevTupleIndex, currTupleAccessor, currTupleIndex, groupFields,
+                comparators)) {
             writeOutput(prevTupleAccessor, prevTupleIndex);
 
             tupleBuilder.reset();
@@ -161,7 +163,7 @@ public class PreclusteredGroupWriter implements IFrameWriter {
         }
     }
 
-    private void writeOutput(final FrameTupleAccessor lastTupleAccessor, int lastTupleIndex)
+    private void writeOutput(final IFrameTupleAccessor lastTupleAccessor, int lastTupleIndex)
             throws HyracksDataException {
 
         tupleBuilder.reset();
@@ -179,8 +181,8 @@ public class PreclusteredGroupWriter implements IFrameWriter {
 
     }
 
-    private boolean sameGroup(FrameTupleAccessor a1, int t1Idx, FrameTupleAccessor a2, int t2Idx)
-            throws HyracksDataException {
+    public static boolean sameGroup(IFrameTupleAccessor a1, int t1Idx, IFrameTupleAccessor a2, int t2Idx,
+            int[] groupFields, IBinaryComparator[] comparators) throws HyracksDataException {
         for (int i = 0; i < comparators.length; ++i) {
             int fIdx = groupFields[i];
             int s1 = a1.getAbsoluteFieldStartOffset(t1Idx, fIdx);
