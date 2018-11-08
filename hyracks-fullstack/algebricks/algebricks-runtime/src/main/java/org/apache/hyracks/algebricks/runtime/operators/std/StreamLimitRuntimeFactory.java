@@ -30,6 +30,8 @@ import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.data.std.primitive.VoidPointable;
+import org.apache.hyracks.util.trace.ITracer;
+import org.apache.hyracks.util.trace.TraceUtils;
 
 public class StreamLimitRuntimeFactory extends AbstractOneInputOneOutputRuntimeFactory {
 
@@ -69,6 +71,9 @@ public class StreamLimitRuntimeFactory extends AbstractOneInputOneOutputRuntimeF
             private int toSkip = 0; // how many tuples still to skip
             private boolean firstTuple = true;
             private boolean afterLastTuple = false;
+            ITracer tracer = ctx.getJobletContext().getServiceContext().getTracer();
+            long traceCategory = tracer.getRegistry().get(TraceUtils.LATENCY);
+            long tid = -1l;
 
             @Override
             public void open() throws HyracksDataException {
@@ -101,6 +106,7 @@ public class StreamLimitRuntimeFactory extends AbstractOneInputOneOutputRuntimeF
                 for (int t = start; t < nTuple; t++) {
                     if (firstTuple) {
                         firstTuple = false;
+                        tid = tracer.durationB("StreamLimit",traceCategory,"");
                         toWrite = evaluateInteger(evalMaxObjects, t);
                         if (evalOffset != null) {
                             toSkip = evaluateInteger(evalOffset, t);
@@ -129,6 +135,7 @@ public class StreamLimitRuntimeFactory extends AbstractOneInputOneOutputRuntimeF
                 firstTuple = true;
                 afterLastTuple = false;
                 super.close();
+                tracer.durationE(tid,traceCategory,"");
             }
 
             private int evaluateInteger(IScalarEvaluator eval, int tIdx) throws HyracksDataException {

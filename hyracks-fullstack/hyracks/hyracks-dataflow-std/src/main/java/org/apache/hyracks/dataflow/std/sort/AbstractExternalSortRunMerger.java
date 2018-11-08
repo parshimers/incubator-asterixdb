@@ -36,6 +36,8 @@ import org.apache.hyracks.dataflow.common.io.GeneratedRunFileReader;
 import org.apache.hyracks.dataflow.common.io.RunFileReader;
 import org.apache.hyracks.dataflow.common.io.RunFileWriter;
 import org.apache.hyracks.dataflow.std.sort.util.GroupVSizeFrame;
+import org.apache.hyracks.util.trace.ITracer;
+import org.apache.hyracks.util.trace.TraceUtils;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -55,6 +57,8 @@ public abstract class AbstractExternalSortRunMerger {
     private List<GroupVSizeFrame> inFrames;
     private VSizeFrame outputFrame;
     private ISorter sorter;
+    private ITracer tracer;
+    private long traceCategory;
 
     private static final Logger LOGGER = LogManager.getLogger();
 
@@ -77,12 +81,16 @@ public abstract class AbstractExternalSortRunMerger {
         this.framesLimit = framesLimit;
         this.writer = writer;
         this.topK = topK;
+        tracer = ctx.getJobletContext().getServiceContext().getTracer();
+        traceCategory = tracer.getRegistry().get(TraceUtils.LATENCY);
     }
 
     public void process() throws HyracksDataException {
         IFrameWriter finalWriter = null;
+        long tid = -1;
         try {
             if (runs.isEmpty()) {
+                tid = tracer.durationB("Merge",traceCategory,"");
                 finalWriter = prepareSkipMergingFinalResultWriter(writer);
                 finalWriter.open();
                 if (sorter != null) {
@@ -95,6 +103,7 @@ public abstract class AbstractExternalSortRunMerger {
                     }
                 }
             } else {
+                tid = tracer.durationB("Merge",traceCategory,"");
                 /** recycle sort buffer */
                 if (sorter != null) {
                     sorter.close();
@@ -188,6 +197,7 @@ public abstract class AbstractExternalSortRunMerger {
                 }
             }
         }
+        tracer.durationE(tid,traceCategory,"");
     }
 
     private static int selectPartialRuns(int argBudget, List<GeneratedRunFileReader> runs,

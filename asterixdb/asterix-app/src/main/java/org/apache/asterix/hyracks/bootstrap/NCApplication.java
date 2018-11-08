@@ -190,7 +190,7 @@ public class NCApplication extends BaseNCApplication {
             if (LOGGER.isInfoEnabled()) {
                 LOGGER.info("Stopping Asterix node controller: " + nodeId);
             }
-
+            ncServiceCtx.getTracer().stop();
             webManager.stop();
 
             //Clean any temporary files

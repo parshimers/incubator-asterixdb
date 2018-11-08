@@ -67,6 +67,7 @@ public class HybridTopKSortRunGenerator extends HeapSortRunGenerator {
 
     @Override
     public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
+        tid = tracer.durationB("TopK",traceCategory,"");
         if (topK <= 0) {
             return;
         }

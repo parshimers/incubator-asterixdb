@@ -21,6 +21,8 @@ package org.apache.hyracks.util.trace;
 
 public interface ITracer {
 
+    void stop();
+
     enum Phase {
         // Duration Events
         B, // begin
@@ -89,6 +91,11 @@ public interface ITracer {
 
         @Override
         public void instant(String name, long cat, Scope scope, String args) {
+            // nothing to do here
+        }
+
+        @Override
+        public void stop(){
             // nothing to do here
         }
     };

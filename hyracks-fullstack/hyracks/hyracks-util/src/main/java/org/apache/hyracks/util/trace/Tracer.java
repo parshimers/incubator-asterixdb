@@ -36,7 +36,7 @@ public class Tracer implements ITracer {
 
     public static final Logger LOGGER = LogManager.getLogger();
 
-    protected static final Level TRACE_LOG_LEVEL = Level.INFO;
+    protected static final Level TRACE_LOG_LEVEL = Level.forName("TRACER",600);
     protected static final ThreadLocal<DateFormat> DATE_FORMAT =
             ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX"));
 
@@ -48,11 +48,12 @@ public class Tracer implements ITracer {
 
     public Tracer(String name, long categories, TraceCategoryRegistry registry) {
         final String traceLoggerName = Tracer.class.getName() + "@" + name;
-        LOGGER.info("Initialize Tracer " + traceLoggerName);
+        //LOGGER.info("Initialize Tracer " + traceLoggerName);
         this.traceLog = LogManager.getLogger(traceLoggerName);
         this.categories = categories;
         this.registry = registry;
         final long traceCategory = getRegistry().get(TraceUtils.TRACER);
+        LOGGER.log(TRACE_LOG_LEVEL,"[");
         instant("Trace-Start", traceCategory, Scope.p, dateTimeStamp());
     }
 
@@ -63,7 +64,7 @@ public class Tracer implements ITracer {
 
     @Override
     public void setCategories(String... categories) {
-        LOGGER.info("Set categories for Tracer " + this.traceLog.getName() + " to " + Arrays.toString(categories));
+        //LOGGER.info("Set categories for Tracer " + this.traceLog.getName() + " to " + Arrays.toString(categories));
         this.categories = set(categories);
     }
 
@@ -103,7 +104,7 @@ public class Tracer implements ITracer {
     public long durationB(String name, long cat, String args) {
         if (isEnabled(cat)) {
             Event e = Event.create(name, cat, Phase.B, pid, Thread.currentThread().getId(), null, args, getRegistry());
-            traceLog.log(TRACE_LOG_LEVEL, e.toJson());
+            traceLog.log(TRACE_LOG_LEVEL, e.toJson()+",");
             return e.tid;
         }
         return -1;
@@ -113,7 +114,7 @@ public class Tracer implements ITracer {
     public void durationE(String name, long cat, long tid, String args) {
         if (isEnabled(cat)) {
             Event e = Event.create(name, cat, Phase.E, pid, tid, null, args, getRegistry());
-            traceLog.log(TRACE_LOG_LEVEL, e.toJson());
+            traceLog.log(TRACE_LOG_LEVEL, e.toJson() + ",");
         }
     }
 
@@ -121,7 +122,7 @@ public class Tracer implements ITracer {
     public void durationE(long tid, long cat, String args) {
         if (isEnabled(cat)) {
             Event e = Event.create(null, 0L, Phase.E, pid, tid, null, args, getRegistry());
-            traceLog.log(TRACE_LOG_LEVEL, e.toJson());
+            traceLog.log(TRACE_LOG_LEVEL, e.toJson()+",");
         }
     }
 
@@ -129,7 +130,11 @@ public class Tracer implements ITracer {
     public void instant(String name, long cat, Scope scope, String args) {
         if (isEnabled(cat)) {
             Event e = Event.create(name, cat, Phase.i, pid, Thread.currentThread().getId(), scope, args, getRegistry());
-            traceLog.log(TRACE_LOG_LEVEL, e.toJson());
+            traceLog.log(TRACE_LOG_LEVEL, e.toJson()+",");
         }
+    }
+    @Override
+    public void stop(){
+        traceLog.log(TRACE_LOG_LEVEL,"]");
     }
 }

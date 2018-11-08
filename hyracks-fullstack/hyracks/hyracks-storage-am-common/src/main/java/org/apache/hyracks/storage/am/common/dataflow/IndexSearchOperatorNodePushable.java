@@ -56,6 +56,8 @@ import org.apache.hyracks.storage.common.IIndexAccessor;
 import org.apache.hyracks.storage.common.IIndexCursor;
 import org.apache.hyracks.storage.common.ISearchOperationCallback;
 import org.apache.hyracks.storage.common.ISearchPredicate;
+import org.apache.hyracks.util.trace.ITracer;
+import org.apache.hyracks.util.trace.TraceUtils;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -107,6 +109,9 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
     protected final long outputLimit;
     protected long outputCount = 0;
     protected boolean finished;
+    private final ITracer tracer;
+    private final long traceCategory;
+    private long tid = -1l;
 
     // no filter and limit pushdown
     public IndexSearchOperatorNodePushable(IHyracksTaskContext ctx, RecordDescriptor inputRecDesc, int partition,
@@ -169,6 +174,8 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
         if (this.tupleFilterFactory != null && this.retainMissing) {
             throw new IllegalStateException("RetainMissing with tuple filter is not supported");
         }
+        tracer = ctx.getJobletContext().getServiceContext().getTracer();
+        traceCategory = tracer.getRegistry().get(TraceUtils.LATENCY);
     }
 
     protected abstract ISearchPredicate createSearchPredicate();
@@ -281,6 +288,9 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
     @Override
     public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
         accessor.reset(buffer);
+        if(tid == -1l){
+            tid = tracer.durationB("IdxSearch",traceCategory,"");
+        }
         int tupleCount = accessor.getTupleCount();
         try {
             for (int i = 0; i < tupleCount && !finished; i++) {
@@ -306,6 +316,7 @@ public abstract class IndexSearchOperatorNodePushable extends AbstractUnaryInput
         if (failure != null) {
             throw HyracksDataException.create(failure);
         }
+        tracer.durationE(tid,traceCategory,"");
     }
 
     private Throwable releaseResources() {

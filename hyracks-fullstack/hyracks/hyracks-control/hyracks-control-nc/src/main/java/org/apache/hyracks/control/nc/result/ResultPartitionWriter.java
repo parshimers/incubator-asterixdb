@@ -29,6 +29,8 @@ import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.api.partitions.ResultSetPartitionId;
 import org.apache.hyracks.api.result.IResultPartitionManager;
 import org.apache.hyracks.api.result.ResultSetId;
+import org.apache.hyracks.util.trace.ITracer;
+import org.apache.hyracks.util.trace.TraceUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -57,6 +59,14 @@ public class ResultPartitionWriter implements IFrameWriter {
 
     private boolean failed = false;
 
+    private ITracer tracer;
+
+    private long traceCategory;
+
+    private boolean firstFrame = true;
+
+    private long tid = -1l;
+
     public ResultPartitionWriter(IHyracksTaskContext ctx, IResultPartitionManager manager, JobId jobId,
             ResultSetId rsId, boolean asyncMode, boolean orderedResult, int partition, int nPartitions,
             ResultMemoryManager resultMemoryManager, IWorkspaceFileFactory fileFactory, long maxReads) {
@@ -71,6 +81,9 @@ public class ResultPartitionWriter implements IFrameWriter {
         resultSetPartitionId = new ResultSetPartitionId(jobId, rsId, partition);
         resultState = new ResultState(resultSetPartitionId, asyncMode, ctx.getIoManager(), fileFactory,
                 ctx.getInitialFrameSize(), maxReads);
+
+        tracer = ctx.getJobletContext().getServiceContext().getTracer();
+        traceCategory = tracer.getRegistry().get(TraceUtils.LATENCY);
     }
 
     public ResultState getResultState() {
@@ -89,6 +102,10 @@ public class ResultPartitionWriter implements IFrameWriter {
     @Override
     public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
         registerResultPartitionLocation(false);
+        if(firstFrame){
+            firstFrame = false;
+            tid = tracer.durationB("ResultWrite ",traceCategory,"");
+        }
         if (resultMemoryManager == null) {
             resultState.write(buffer);
         } else {
@@ -108,6 +125,7 @@ public class ResultPartitionWriter implements IFrameWriter {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace("close(" + partition + ")");
         }
+        tracer.durationE(tid,traceCategory,"");
         try {
             if (!failed) {
                 registerResultPartitionLocation(true);

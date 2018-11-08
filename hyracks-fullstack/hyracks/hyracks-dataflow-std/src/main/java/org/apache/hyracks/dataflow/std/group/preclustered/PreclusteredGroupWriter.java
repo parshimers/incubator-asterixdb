@@ -36,6 +36,8 @@ import org.apache.hyracks.dataflow.common.comm.util.FrameUtils;
 import org.apache.hyracks.dataflow.std.group.AggregateState;
 import org.apache.hyracks.dataflow.std.group.IAggregatorDescriptor;
 import org.apache.hyracks.dataflow.std.group.IAggregatorDescriptorFactory;
+import org.apache.hyracks.util.trace.ITracer;
+import org.apache.hyracks.util.trace.TraceUtils;
 
 public class PreclusteredGroupWriter implements IFrameWriter {
     private final int[] groupFields;
@@ -53,6 +55,9 @@ public class PreclusteredGroupWriter implements IFrameWriter {
     private boolean first;
     private boolean isFailed = false;
     private final long memoryLimit;
+    private final ITracer tracer;
+    private final long traceCategory;
+    private long tid = -1l;
 
     public PreclusteredGroupWriter(IHyracksTaskContext ctx, int[] groupFields, IBinaryComparator[] comparators,
             IAggregatorDescriptorFactory aggregatorFactory, RecordDescriptor inRecordDesc,
@@ -98,6 +103,8 @@ public class PreclusteredGroupWriter implements IFrameWriter {
         tupleBuilder = new ArrayTupleBuilder(outRecordDesc.getFields().length);
         this.outputPartial = outputPartial;
         this.groupAll = groupAll;
+        tracer = ctx.getJobletContext().getServiceContext().getTracer();
+        traceCategory = tracer.getRegistry().get(TraceUtils.LATENCY);
     }
 
     @Override
@@ -113,6 +120,7 @@ public class PreclusteredGroupWriter implements IFrameWriter {
         if (nTuples != 0) {
             for (int i = 0; i < nTuples; ++i) {
                 if (first) {
+                   // tid = tracer.durationB("PreclusteredGroup",traceCategory,"");
 
                     tupleBuilder.reset();
                     for (int j = 0; j < groupFields.length; j++) {
@@ -205,6 +213,7 @@ public class PreclusteredGroupWriter implements IFrameWriter {
             appenderWrapper.fail();
             throw e;
         } finally {
+//            tracer.durationE(tid,traceCategory,"");
             appenderWrapper.close();
         }
     }

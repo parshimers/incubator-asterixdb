@@ -35,6 +35,7 @@ public class RunFileWriter implements IFrameWriter {
     private long size;
     private int maxOutputFrameSize;
 
+
     public RunFileWriter(FileReference file, IIOManager ioManager) {
         this.file = file;
         this.ioManager = ioManager;

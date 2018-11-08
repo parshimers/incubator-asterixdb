@@ -35,6 +35,8 @@ import org.apache.hyracks.dataflow.std.buffermanager.IDeletableTupleBufferManage
 import org.apache.hyracks.dataflow.std.buffermanager.IFramePool;
 import org.apache.hyracks.dataflow.std.buffermanager.VariableDeletableTupleMemoryManager;
 import org.apache.hyracks.dataflow.std.buffermanager.VariableFramePool;
+import org.apache.hyracks.util.trace.ITracer;
+import org.apache.hyracks.util.trace.TraceUtils;
 
 public class HeapSortRunGenerator extends AbstractSortRunGenerator {
     protected final IHyracksTaskContext ctx;
@@ -46,6 +48,9 @@ public class HeapSortRunGenerator extends AbstractSortRunGenerator {
     protected final RecordDescriptor recordDescriptor;
     protected ITupleSorter tupleSorter;
     protected IFrameTupleAccessor inAccessor;
+    protected ITracer tracer;
+    protected long traceCategory;
+    long tid = -1l;
 
     public HeapSortRunGenerator(IHyracksTaskContext ctx, int frameLimit, int topK, int[] sortFields,
             INormalizedKeyComputerFactory[] keyNormalizerFactories, IBinaryComparatorFactory[] comparatorFactories,
@@ -59,6 +64,8 @@ public class HeapSortRunGenerator extends AbstractSortRunGenerator {
         this.comparatorFactories = comparatorFactories;
         this.inAccessor = new FrameTupleAccessor(recordDescriptor);
         this.recordDescriptor = recordDescriptor;
+        tracer = ctx.getJobletContext().getServiceContext().getTracer();
+        traceCategory = tracer.getRegistry().get(TraceUtils.LATENCY);
     }
 
     @Override
@@ -90,6 +97,9 @@ public class HeapSortRunGenerator extends AbstractSortRunGenerator {
     @Override
     public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
         inAccessor.reset(buffer);
+        if(tid == -1){
+            tid = tracer.durationB("HeapSortRunGen",traceCategory,"");
+        }
         for (int i = 0; i < inAccessor.getTupleCount(); i++) {
             if (!tupleSorter.insertTuple(inAccessor, i)) {
                 flushFramesToRun();
@@ -98,5 +108,11 @@ public class HeapSortRunGenerator extends AbstractSortRunGenerator {
                 }
             }
         }
+    }
+
+    @Override
+    public void close() throws HyracksDataException{
+        super.close();
+        tracer.durationE(tid,traceCategory,"");
     }
 }

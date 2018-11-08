@@ -43,6 +43,8 @@ import org.apache.hyracks.dataflow.std.base.AbstractOperatorDescriptor;
 import org.apache.hyracks.dataflow.std.base.AbstractStateObject;
 import org.apache.hyracks.dataflow.std.base.AbstractUnaryInputSinkOperatorNodePushable;
 import org.apache.hyracks.dataflow.std.base.AbstractUnaryOutputSourceOperatorNodePushable;
+import org.apache.hyracks.util.trace.ITracer;
+import org.apache.hyracks.util.trace.TraceUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -114,6 +116,11 @@ public abstract class AbstractSorterOperatorDescriptor extends AbstractOperatorD
             IOperatorNodePushable op = new AbstractUnaryInputSinkOperatorNodePushable() {
                 private AbstractSortRunGenerator runGen;
 
+                ITracer tracer = ctx.getJobletContext().getServiceContext().getTracer();
+                long traceCategory = tracer.getRegistry().get(TraceUtils.LATENCY);
+                boolean first = true;
+                long tid = -1l;
+
                 @Override
                 public void open() throws HyracksDataException {
                     runGen = getRunGenerator(ctx, recordDescProvider);
@@ -122,6 +129,10 @@ public abstract class AbstractSorterOperatorDescriptor extends AbstractOperatorD
 
                 @Override
                 public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
+                    if (first) {
+                        first = false;
+                        tid = tracer.durationB("Sort", traceCategory, "");
+                    }
                     runGen.nextFrame(buffer);
                 }
 
@@ -135,6 +146,7 @@ public abstract class AbstractSorterOperatorDescriptor extends AbstractOperatorD
                     if (LOGGER.isTraceEnabled()) {
                         LOGGER.trace("InitialNumberOfRuns:" + runGen.getRuns().size());
                     }
+                    tracer.durationE(tid,traceCategory,"");
                     ctx.setStateObject(state);
                 }
 
