@@ -39,4 +39,6 @@ public interface IExternalFunctionInfo extends IFunctionInfo {
 
     public FunctionKind getKind();
 
+    public String getLibrary();
+
 }

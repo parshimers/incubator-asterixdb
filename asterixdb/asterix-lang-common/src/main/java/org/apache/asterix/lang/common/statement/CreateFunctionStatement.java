@@ -26,6 +26,9 @@ import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.lang.common.base.AbstractStatement;
 import org.apache.asterix.lang.common.base.Expression;
 import org.apache.asterix.lang.common.base.Statement;
+import org.apache.asterix.lang.common.expression.ListConstructor;
+import org.apache.asterix.lang.common.expression.TypeExpression;
+import org.apache.asterix.lang.common.struct.TypedVarIdentifier;
 import org.apache.asterix.lang.common.struct.VarIdentifier;
 import org.apache.asterix.lang.common.visitor.base.ILangVisitor;
 
@@ -37,12 +40,23 @@ public class CreateFunctionStatement extends AbstractStatement {
     private final boolean ifNotExists;
     private final List<String> paramList;
 
+    TypeExpression returnType;
+    boolean returnNullable;
+    boolean deterministic;
+    boolean nullCall;
+    boolean externalAction;
+    String lang;
+    String libName;
+    String externalIdent;
+    List<TypedVarIdentifier> args;
+    ListConstructor resources;
+
     public String getFunctionBody() {
         return functionBody;
     }
 
-    public CreateFunctionStatement(FunctionSignature signature, List<VarIdentifier> parameterList, String functionBody,
-            Expression functionBodyExpression, boolean ifNotExists) {
+    public CreateFunctionStatement(FunctionSignature signature, List<? extends VarIdentifier> parameterList,
+            String functionBody, Expression functionBodyExpression, boolean ifNotExists) {
         this.signature = signature;
         this.functionBody = functionBody;
         this.functionBodyExpression = functionBodyExpression;
@@ -51,6 +65,28 @@ public class CreateFunctionStatement extends AbstractStatement {
         for (VarIdentifier varId : parameterList) {
             this.paramList.add(varId.getValue());
         }
+    }
+
+    public CreateFunctionStatement(FunctionSignature signature, List<TypedVarIdentifier> parameterList,
+            TypeExpression returnType, boolean returnNullable, boolean deterministic, boolean nullCall,
+            boolean externalAction, String lang, String libName, String externalIdent, ListConstructor resources,
+            boolean ifNotExists) {
+        this.signature = signature;
+        this.args = parameterList;
+        this.returnType = returnType;
+        this.returnNullable = returnNullable;
+        this.deterministic = deterministic;
+        this.nullCall = nullCall;
+        this.externalAction = externalAction;
+        this.lang = lang;
+        this.libName = libName;
+        this.externalIdent = externalIdent;
+        this.resources = resources;
+        functionBody = null;
+        this.ifNotExists = ifNotExists;
+        this.paramList = null;
+        this.functionBodyExpression = null;
+
     }
 
     public boolean getIfNotExists() {
@@ -72,6 +108,46 @@ public class CreateFunctionStatement extends AbstractStatement {
 
     public Expression getFunctionBodyExpression() {
         return functionBodyExpression;
+    }
+
+    public TypeExpression getReturnType() {
+        return returnType;
+    }
+
+    public boolean isDeterministic() {
+        return deterministic;
+    }
+
+    public boolean isNullCall() {
+        return nullCall;
+    }
+
+    public boolean isNullable() {
+        return returnNullable;
+    }
+
+    public boolean isExternalAction() {
+        return externalAction;
+    }
+
+    public String getLang() {
+        return lang;
+    }
+
+    public String getLibName() {
+        return libName;
+    }
+
+    public String getExternalIdent() {
+        return externalIdent;
+    }
+
+    public List<TypedVarIdentifier> getArgs() {
+        return args;
+    }
+
+    public ListConstructor getResources() {
+        return resources;
     }
 
     @Override

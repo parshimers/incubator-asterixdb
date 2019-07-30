@@ -73,6 +73,7 @@ public final class MetadataRecordTypes {
     public static final String FIELD_NAME_IS_PRIMARY = "IsPrimary";
     public static final String FIELD_NAME_KIND = "Kind";
     public static final String FIELD_NAME_LANGUAGE = "Language";
+    public static final String FIELD_NAME_LIBRARY = "Library";
     public static final String FIELD_NAME_LAST_REFRESH_TIME = "LastRefreshTime";
     public static final String FIELD_NAME_METADATA_DATAVERSE = "MetatypeDataverseName";
     public static final String FIELD_NAME_METATYPE_NAME = "MetatypeName";
@@ -328,18 +329,19 @@ public final class MetadataRecordTypes {
     public static final int FUNCTION_ARECORD_FUNCTION_DEFINITION_FIELD_INDEX = 5;
     public static final int FUNCTION_ARECORD_FUNCTION_LANGUAGE_FIELD_INDEX = 6;
     public static final int FUNCTION_ARECORD_FUNCTION_KIND_FIELD_INDEX = 7;
-    public static final int FUNCTION_ARECORD_FUNCTION_DEPENDENCIES_FIELD_INDEX = 8;
+    public static final int FUNCTION_ARECORD_FUNCTION_LIBRARY_FIELD_INDEX = 8;
+    public static final int FUNCTION_ARECORD_FUNCTION_DEPENDENCIES_FIELD_INDEX = 9;
     public static final ARecordType FUNCTION_RECORDTYPE = createRecordType(
             // RecordTypeName
             RECORD_NAME_FUNCTION,
             // FieldNames
             new String[] { FIELD_NAME_DATAVERSE_NAME, FIELD_NAME_NAME, FIELD_NAME_ARITY, FIELD_NAME_PARAMS,
                     FIELD_NAME_RETURN_TYPE, FIELD_NAME_DEFINITION, FIELD_NAME_LANGUAGE, FIELD_NAME_KIND,
-                    FIELD_NAME_DEPENDENCIES },
+                    FIELD_NAME_LIBRARY, FIELD_NAME_DEPENDENCIES },
             // FieldTypes
             new IAType[] { BuiltinType.ASTRING, BuiltinType.ASTRING, BuiltinType.ASTRING,
                     new AOrderedListType(BuiltinType.ASTRING, null), BuiltinType.ASTRING, BuiltinType.ASTRING,
-                    BuiltinType.ASTRING, BuiltinType.ASTRING,
+                    BuiltinType.ASTRING, BuiltinType.ASTRING, BuiltinType.ASTRING,
                     new AOrderedListType(new AOrderedListType(new AOrderedListType(BuiltinType.ASTRING, null), null),
                             null) },
             //IsOpen?

@@ -157,6 +157,7 @@ import org.apache.asterix.lang.common.struct.Identifier;
 import org.apache.asterix.lang.common.struct.OperatorType;
 import org.apache.asterix.lang.common.struct.QuantifiedPair;
 import org.apache.asterix.lang.common.struct.VarIdentifier;
+import org.apache.asterix.lang.common.struct.TypedVarIdentifier;
 import org.apache.asterix.lang.common.util.RangeMapBuilder;
 import org.apache.asterix.lang.sqlpp.clause.AbstractBinaryCorrelateClause;
 import org.apache.asterix.lang.sqlpp.clause.FromClause;
@@ -852,18 +853,89 @@ CreateDataverseStatement DataverseSpecification(Token startStmtToken) throws Par
     }
 }
 
+
+List<TypedVarIdentifier> FunctionArgs() :
+{
+    List<TypedVarIdentifier> paramList = new ArrayList<TypedVarIdentifier>();
+    TypedVarIdentifier varTyped = null;
+    VarIdentifier var = null;
+    TypeExpression type = null;
+    boolean nullable = false;
+    boolean typed = false;
+}
+{
+    <LEFTPAREN>( LOOKAHEAD(2) (<IDENTIFIER>
+    {
+        var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
+        paramList.add(new TypedVarIdentifier(var.toString(),null,false));
+    }(<COMMA> <IDENTIFIER>{
+        var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
+        paramList.add(new TypedVarIdentifier(var.toString(),null,false));
+    })* <RIGHTPAREN> ) | ( <IDENTIFIER> {
+        var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
+        paramList.add(new TypedVarIdentifier(var.toString(),null,false));
+    } <COLON> type = TypeExpr() (<QUES> { nullable = true; } )?
+    {
+        typed = true;
+        paramList.get(0).setType(type);
+        paramList.get(0).setNullable(nullable);
+    }(<COMMA> <IDENTIFIER>
+    {
+        VarIdentifier varId = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
+        paramList.add(new TypedVarIdentifier(varId.toString(),null,false));
+    } <COLON> type = TypeExpr() (<QUES> {nullable = true; })? {
+        paramList.get(paramList.size() - 1).setType(type);
+        paramList.get(paramList.size() - 1).setNullable(nullable);
+    })*<RIGHTPAREN> ) | <RIGHTPAREN> )
+
+    {
+        return paramList;
+    }
+}
+
+List<VarIdentifier> ParameterList() throws ParseException:
+{
+  List<VarIdentifier> paramList = new ArrayList<VarIdentifier>();
+  VarIdentifier var = null;
+}
+{
+  <LEFTPAREN> (<IDENTIFIER>
+    {
+      var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
+      paramList.add(var);
+    }
+  (<COMMA> <IDENTIFIER>
+    {
+      var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
+      paramList.add(var);
+    }
+  )*)? <RIGHTPAREN>
+    {
+      return paramList;
+    }
+}
+
 CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws ParseException:
 {
-  FunctionSignature signature;
+  FunctionSignature signature = null;
   boolean ifNotExists = false;
-  List<VarIdentifier> paramList = new ArrayList<VarIdentifier>();
-  String functionBody;
+  String functionBody = null;
   VarIdentifier var = null;
-  Expression functionBodyExpr;
+  Expression functionBodyExpr = null;
   Token beginPos;
   Token endPos;
   FunctionName fctName = null;
   String currentDataverse = defaultDataverse;
+  TypeExpression returnType = null;
+  boolean returnNullable = false;
+  boolean deterministic = false;
+  boolean nullCall = false;
+  boolean externalAction = false;
+  String lang = null;
+  String libName ="";
+  String externalIdent = "";
+  List<TypedVarIdentifier> args = new ArrayList<TypedVarIdentifier>();
+  ListConstructor resources = null;
 
   createNewScope();
 }
@@ -873,8 +945,24 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
      defaultDataverse = fctName.dataverse;
   }
   ifNotExists = IfNotExists()
-  paramList = ParameterList()
-  <LEFTBRACE>
+  args = FunctionArgs()
+
+
+  ( LOOKAHEAD(2) (
+  ( (<RETURN> returnType = TypeExpr() (<QUES> {returnNullable = true;})?)?
+    (<DETERMINISTIC> {deterministic = true;})?
+    (<NULL><CALL> {nullCall = true;})?
+    (<EXTERNAL><ACTION> {externalAction = true;})?
+    <LANGUAGE> lang = Identifier() <AS> libName = ConstantString() <COMMA>  externalIdent = ConstantString()
+    (<WITH> resources = OrderedListConstructor())?{
+      signature = new FunctionSignature(fctName.dataverse, fctName.function, args.size());
+      defaultDataverse = currentDataverse;
+      CreateFunctionStatement stmt =
+        new CreateFunctionStatement(signature, args, returnType, returnNullable, deterministic, nullCall,
+                                    externalAction, lang, libName, externalIdent, resources,  ifNotExists);
+      return addSourceLocation(stmt, startStmtToken);
+    }) )
+   | ( <LEFTBRACE>
   {
      beginPos = token;
   }
@@ -884,13 +972,15 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
       endPos = token;
       functionBody = extractFragment(beginPos.beginLine, beginPos.beginColumn, endPos.beginLine, endPos.beginColumn);
       // TODO use fctName.library
-      signature = new FunctionSignature(fctName.dataverse, fctName.function, paramList.size());
+      signature = new FunctionSignature(fctName.dataverse, fctName.function, args.size());
       getCurrentScope().addFunctionDescriptor(signature, false);
       removeCurrentScope();
       defaultDataverse = currentDataverse;
+      List<? extends VarIdentifier> paramList = args;
       CreateFunctionStatement stmt = new CreateFunctionStatement(signature, paramList, functionBody, functionBodyExpr, ifNotExists);
       return addSourceLocation(stmt, startStmtToken);
-    }
+    } ) )
+
 }
 
 CreateFeedStatement FeedSpecification(Token startStmtToken) throws ParseException:
@@ -946,27 +1036,6 @@ CreateFeedPolicyStatement FeedPolicySpecification(Token startStmtToken) throws P
     }
 }
 
-List<VarIdentifier> ParameterList() throws ParseException:
-{
-  List<VarIdentifier> paramList = new ArrayList<VarIdentifier>();
-  VarIdentifier var = null;
-}
-{
-  <LEFTPAREN> (<IDENTIFIER>
-    {
-      var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
-      paramList.add(var);
-    }
-  (<COMMA> <IDENTIFIER>
-    {
-      var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
-      paramList.add(var);
-    }
-  )*)? <RIGHTPAREN>
-    {
-      return paramList;
-    }
-}
 
 boolean IfNotExists() throws ParseException:
 {
@@ -1608,6 +1677,7 @@ void RecordField(RecordTypeDefinition recType) throws ParseException:
       recType.addField(fieldName, type, nullable, rfdg);
     }
 }
+
 
 TypeReferenceExpression TypeReference() throws ParseException:
 {
@@ -3694,6 +3764,7 @@ TOKEN [IGNORE_CASE]:
 {
   <ALL : "all">
   | <AND : "and">
+  | <ACTION: "action">
   | <ANY : "any">
   | <APPLY : "apply">
   | <AS : "as">
@@ -3704,6 +3775,7 @@ TOKEN [IGNORE_CASE]:
   | <BTREE : "btree">
   | <BY : "by">
   | <CASE : "case">
+  | <CALL: "CALL">
   | <CLOSED : "closed">
   | <CREATE : "create">
   | <COMPACTION : "compaction">
@@ -3717,6 +3789,7 @@ TOKEN [IGNORE_CASE]:
   | <DEFINITION : "definition">
   | <DELETE : "delete">
   | <DESC : "desc">
+  | <DETERMINISTIC: "deterministic">
   | <DISCONNECT : "disconnect">
   | <DISTINCT : "distinct">
   | <DIV : "div">
@@ -3755,6 +3828,7 @@ TOKEN [IGNORE_CASE]:
   | <KEYWORD : "keyword">
   | <KEY : "key">
   | <KNOWN : "known">
+  | <LANGUAGE: "language">
   | <LEFT : "left">
   | <LETTING : "letting">
   | <LET : "let">
@@ -3934,8 +4008,8 @@ TOKEN :
         | <EscapeNl>
         | <EscapeCr>
         | <EscapeTab>
-        | ~["\"","\\"])* "\"")
-      | ("\'"(
+        | ~["\'","\\","\u201c","\u201d"])* "\"")
+        | ("\'"(
           <EscapeApos>
         | <EscapeBslash>
         | <EscapeSlash>
@@ -3944,7 +4018,18 @@ TOKEN :
         | <EscapeNl>
         | <EscapeCr>
         | <EscapeTab>
-        | ~["\'","\\"])* "\'")>
+        | ~["\'","\\","\u201c","\u201d"])* "\'")
+        | ("\u201c" (
+          <EscapeApos>
+        | <EscapeBslash>
+        | <EscapeSlash>
+        | <EscapeBspace>
+        | <EscapeFormf>
+        | <EscapeNl>
+        | <EscapeCr>
+        | <EscapeTab>
+        | ~["\'","\\","\u201c","\u201d"])* "\u201d")
+        >
   | < #EscapeQuot: "\\\"" >
   | < #EscapeApos: "\\\'" >
   | < #EscapeBslash: "\\\\" >

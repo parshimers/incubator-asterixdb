@@ -34,11 +34,13 @@ public class ExternalFunctionInfo extends FunctionInfo implements IExternalFunct
     private final String language;
     private final FunctionKind kind;
     private final IAType returnType;
+    private final String library;
 
-    public ExternalFunctionInfo(String namespace, String name, int arity, FunctionKind kind, List<IAType> argumentTypes,
-            IAType returnType, IResultTypeComputer rtc, String body, String language) {
+    public ExternalFunctionInfo(String namespace, String library, String name, int arity, FunctionKind kind,
+            List<IAType> argumentTypes, IAType returnType, IResultTypeComputer rtc, String body, String language) {
         // TODO: fix CheckNonFunctionalExpressionVisitor once we have non-functional external functions
         super(namespace, name, arity, true);
+        this.library = library;
         this.rtc = rtc;
         this.argumentTypes = argumentTypes;
         this.body = body;
@@ -78,6 +80,11 @@ public class ExternalFunctionInfo extends FunctionInfo implements IExternalFunct
     @Override
     public IAType getReturnType() {
         return returnType;
+    }
+
+    @Override
+    public String getLibrary() {
+        return library;
     }
 
 }

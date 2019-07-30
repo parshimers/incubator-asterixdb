@@ -24,32 +24,41 @@ import java.util.List;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.metadata.MetadataCache;
 import org.apache.asterix.metadata.api.IMetadataEntity;
+import org.apache.hyracks.algebricks.common.utils.Pair;
 
 public class Function implements IMetadataEntity<Function> {
     private static final long serialVersionUID = 1L;
     public static final String LANGUAGE_AQL = "AQL";
     public static final String LANGUAGE_SQLPP = "SQLPP";
     public static final String LANGUAGE_JAVA = "JAVA";
+    public static final String LANGUAGE_PYTHON = "PYTHON";
 
     public static final String RETURNTYPE_VOID = "VOID";
     public static final String NOT_APPLICABLE = "N/A";
 
     private final FunctionSignature signature;
     private final List<List<List<String>>> dependencies;
-    private final List<String> arguments;
+    private final List<Pair<String, Boolean>> arguments;
     private final String body;
     private final String returnType;
     private final String language;
     private final String kind;
+    private final String library;
 
-    public Function(FunctionSignature signature, List<String> arguments, String returnType, String functionBody,
-            String language, String functionKind, List<List<List<String>>> dependencies) {
+    public Function(FunctionSignature signature, List<Pair<String, Boolean>> arguments, String returnType,
+            String functionBody, String language, String functionKind, List<List<List<String>>> dependencies,
+            String library) {
         this.signature = signature;
         this.arguments = arguments;
         this.body = functionBody;
         this.returnType = returnType == null ? RETURNTYPE_VOID : returnType;
         this.language = language;
         this.kind = functionKind;
+        if (library == null) {
+            this.library = "Default";
+        } else {
+            this.library = library;
+        }
         if (dependencies == null) {
             this.dependencies = new ArrayList<>();
             this.dependencies.add(new ArrayList<>());
@@ -75,7 +84,7 @@ public class Function implements IMetadataEntity<Function> {
         return signature.getArity();
     }
 
-    public List<String> getArguments() {
+    public List<Pair<String, Boolean>> getArguments() {
         return arguments;
     }
 
@@ -97,6 +106,10 @@ public class Function implements IMetadataEntity<Function> {
 
     public String getKind() {
         return kind;
+    }
+
+    public String getLibrary() {
+        return library;
     }
 
     @Override
