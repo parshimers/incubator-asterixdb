@@ -31,7 +31,6 @@ import org.apache.asterix.lang.common.statement.FunctionDecl;
 import org.apache.asterix.lang.common.struct.VarIdentifier;
 import org.apache.asterix.metadata.entities.Function;
 import org.apache.commons.io.input.CharSequenceReader;
-import org.apache.hyracks.algebricks.common.utils.Pair;
 
 public class FunctionParser {
 
@@ -47,7 +46,7 @@ public class FunctionParser {
                     function.getLanguage());
         }
         String functionBody = function.getFunctionBody();
-        List<Pair<String, Boolean>> arguments = function.getArguments();
+        List<String> arguments = function.getArguments();
         List<VarIdentifier> varIdentifiers = new ArrayList<VarIdentifier>();
 
         StringBuilder builder = new StringBuilder();
@@ -55,8 +54,8 @@ public class FunctionParser {
         builder.append(" declare function " + function.getName().split("@")[0]);
         builder.append("(");
         boolean first = true;
-        for (Pair<String, Boolean> argument : arguments) {
-            VarIdentifier varId = new VarIdentifier(argument.getFirst());
+        for (String argument : arguments) {
+            VarIdentifier varId = new VarIdentifier(argument);
             varIdentifiers.add(varId);
             if (first) {
                 first = false;

@@ -1754,20 +1754,29 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                     throw new CompilationException(ErrorCode.UNKNOWN_LIBRARY, sourceLoc, libraryName);
                 }
                 // Add functions
-                List<Pair<String, Boolean>> args = new ArrayList<>();
+                List<String> args = new ArrayList<>();
                 for (TypedVarIdentifier var : cfs.getArgs()) {
-                    Map<TypeSignature, IAType> typeMap =
-                            TypeTranslator.computeTypes(mdTxnCtx, var.getType(), var.getType().toString(), dataverse);
-                    TypeSignature typeSignature = new TypeSignature(dataverse, var.getType().toString());
-                    IAType type = typeMap.get(typeSignature);
-                    args.add(new Pair<>(type.toString(), var.getNullable()));
+                    if (var.getType() != null) {
+                        Map<TypeSignature, IAType> typeMap = TypeTranslator.computeTypes(mdTxnCtx, var.getType(),
+                                var.getType().toString(), dataverse);
+                        TypeSignature typeSignature = new TypeSignature(dataverse, var.getType().toString());
+                        IAType type = typeMap.get(typeSignature);
+                        args.add(type.toString());
+                    } else {
+                        args.add(null);
+                    }
                 }
                 TypeExpression ret = cfs.getReturnType();
-                Map<TypeSignature, IAType> typeMap =
-                        TypeTranslator.computeTypes(mdTxnCtx, ret, ret.toString(), dataverse);
-                TypeSignature typeSignature = new TypeSignature(dataverse, ret.toString());
-                IAType retType = typeMap.get(typeSignature);
-                Function f = new Function(signature, args, retType.toString(), cfs.getExternalIdent(), cfs.getLang(),
+                String retType;
+                if (ret != null) {
+                    Map<TypeSignature, IAType> typeMap =
+                            TypeTranslator.computeTypes(mdTxnCtx, ret, ret.toString(), dataverse);
+                    TypeSignature typeSignature = new TypeSignature(dataverse, ret.toString());
+                    retType = typeMap.get(typeSignature).toString();
+                } else {
+                    retType = null;
+                }
+                Function f = new Function(signature, args, retType, cfs.getExternalIdent(), cfs.getLang(),
                         FunctionKind.SCALAR.toString(), null, libraryName);
                 MetadataManager.INSTANCE.addFunction(mdTxnCtx, f);
                 if (LOGGER.isInfoEnabled()) {
@@ -1805,10 +1814,10 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 wrappedQuery.setBody(cfs.getFunctionBodyExpression());
                 wrappedQuery.setTopLevel(false);
                 List<VarIdentifier> paramVars = new ArrayList<>();
-                List<Pair<String, Boolean>> args = new ArrayList<>();
+                List<String> args = new ArrayList<>();
                 for (String v : cfs.getParamList()) {
                     paramVars.add(new VarIdentifier(v));
-                    args.add(new Pair<>(v, true));
+                    args.add(v);
                 }
                 apiFramework.reWriteQuery(declaredFunctions, metadataProvider, wrappedQuery, sessionOutput, false,
                         paramVars, warningCollector);

@@ -860,32 +860,29 @@ List<TypedVarIdentifier> FunctionArgs() :
     TypedVarIdentifier varTyped = null;
     VarIdentifier var = null;
     TypeExpression type = null;
-    boolean nullable = false;
     boolean typed = false;
 }
 {
     <LEFTPAREN>( LOOKAHEAD(2) (<IDENTIFIER>
     {
         var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
-        paramList.add(new TypedVarIdentifier(var.toString(),null,false));
+        paramList.add(new TypedVarIdentifier(var.toString(),null));
     }(<COMMA> <IDENTIFIER>{
         var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
-        paramList.add(new TypedVarIdentifier(var.toString(),null,false));
+        paramList.add(new TypedVarIdentifier(var.toString(),null));
     })* <RIGHTPAREN> ) | ( <IDENTIFIER> {
         var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
-        paramList.add(new TypedVarIdentifier(var.toString(),null,false));
-    } <COLON> type = TypeExpr() (<QUES> { nullable = true; } )?
+        paramList.add(new TypedVarIdentifier(var.toString(),null));
+    } <COLON> type = TypeExpr()
     {
         typed = true;
         paramList.get(0).setType(type);
-        paramList.get(0).setNullable(nullable);
     }(<COMMA> <IDENTIFIER>
     {
         VarIdentifier varId = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
-        paramList.add(new TypedVarIdentifier(varId.toString(),null,false));
-    } <COLON> type = TypeExpr() (<QUES> {nullable = true; })? {
+        paramList.add(new TypedVarIdentifier(varId.toString(),null));
+    } <COLON> type = TypeExpr()  {
         paramList.get(paramList.size() - 1).setType(type);
-        paramList.get(paramList.size() - 1).setNullable(nullable);
     })*<RIGHTPAREN> ) | <RIGHTPAREN> )
 
     {
@@ -936,7 +933,6 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
   String externalIdent = "";
   List<TypedVarIdentifier> args = new ArrayList<TypedVarIdentifier>();
   ListConstructor resources = null;
-
   createNewScope();
 }
 {
@@ -4008,7 +4004,7 @@ TOKEN :
         | <EscapeNl>
         | <EscapeCr>
         | <EscapeTab>
-        | ~["\'","\\","\u201c","\u201d"])* "\"")
+        | ~["\'","\\"])* "\"")
         | ("\'"(
           <EscapeApos>
         | <EscapeBslash>
@@ -4018,17 +4014,7 @@ TOKEN :
         | <EscapeNl>
         | <EscapeCr>
         | <EscapeTab>
-        | ~["\'","\\","\u201c","\u201d"])* "\'")
-        | ("\u201c" (
-          <EscapeApos>
-        | <EscapeBslash>
-        | <EscapeSlash>
-        | <EscapeBspace>
-        | <EscapeFormf>
-        | <EscapeNl>
-        | <EscapeCr>
-        | <EscapeTab>
-        | ~["\'","\\","\u201c","\u201d"])* "\u201d")
+        | ~["\'","\\"])* "\'")
         >
   | < #EscapeQuot: "\\\"" >
   | < #EscapeApos: "\\\'" >

@@ -23,14 +23,16 @@ import java.util.Properties;
 
 import org.apache.asterix.external.api.IExternalScalarFunction;
 import org.apache.asterix.external.api.IFunctionHelper;
-import org.apache.asterix.external.library.java.base.JRecord;
 import org.apache.asterix.external.library.java.base.JString;
+import org.apache.asterix.om.types.ARecordType;
+import org.apache.asterix.om.types.BuiltinType;
 
 public class CapitalFinderFunction implements IExternalScalarFunction {
 
     private static Properties capitalList;
     private static final String NOT_FOUND = "NOT_FOUND";
     private JString capital;
+    private ARecordType returnType;
 
     @Override
     public void deinitialize() {
@@ -40,13 +42,14 @@ public class CapitalFinderFunction implements IExternalScalarFunction {
     @Override
     public void evaluate(IFunctionHelper functionHelper) throws Exception {
         JString country = ((JString) functionHelper.getArgument(0));
-        JRecord record = (JRecord) functionHelper.getResultObject();
+        returnType = new ARecordType("CountryCapitalType", new String[] { "country", "capital" }, null, true, null);
+        //        JRecord record = (JRecord) functionHelper.getResultObject(returnType);
+        JString ret = (JString) functionHelper.getResultObject(BuiltinType.ASTRING);
         String capitalCity = capitalList.getProperty(country.getValue(), NOT_FOUND);
         capital.setValue(capitalCity);
-
-        record.setField("country", country);
-        record.setField("capital", capital);
-        functionHelper.setResult(record);
+        //        record.setField("country", country);
+        //        record.setField("capital", capital);
+        functionHelper.setResult(capital);
     }
 
     @Override

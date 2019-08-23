@@ -28,6 +28,7 @@ import org.apache.asterix.external.api.IExternalFunction;
 import org.apache.asterix.external.api.IFunctionFactory;
 import org.apache.asterix.external.api.IFunctionHelper;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
+import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
@@ -48,11 +49,13 @@ public abstract class ExternalFunction implements IExternalFunction {
     protected final ArrayBackedValueStorage resultBuffer = new ArrayBackedValueStorage();
     protected final IScalarEvaluator[] argumentEvaluators;
     protected final JavaFunctionHelper functionHelper;
+    protected final IAType[] argTypes;
 
-    public ExternalFunction(IExternalFunctionInfo finfo, IScalarEvaluatorFactory args[], IHyracksTaskContext context,
-            IApplicationContext appCtx) throws HyracksDataException {
+    public ExternalFunction(IExternalFunctionInfo finfo, IScalarEvaluatorFactory args[], IAType[] argTypes,
+            IHyracksTaskContext context, IApplicationContext appCtx) throws HyracksDataException {
         this.finfo = finfo;
         this.evaluatorFactories = args;
+        this.argTypes = argTypes;
         argumentEvaluators = new IScalarEvaluator[args.length];
         for (int i = 0; i < args.length; i++) {
             argumentEvaluators[i] = args[i].createScalarEvaluator(context);
@@ -62,7 +65,7 @@ public abstract class ExternalFunction implements IExternalFunction {
         String functionLibary = finfo.getLibrary();
         String dataverse = finfo.getFunctionIdentifier().getNamespace();
 
-        functionHelper = new JavaFunctionHelper(finfo, resultBuffer,
+        functionHelper = new JavaFunctionHelper(finfo, argTypes, resultBuffer,
                 libraryManager.getFunctionParameters(dataverse, finfo.getFunctionIdentifier().getName()));
         ClassLoader libraryClassLoader = libraryManager.getLibraryClassLoader(dataverse, functionLibary);
         String classname = finfo.getFunctionBody().trim();

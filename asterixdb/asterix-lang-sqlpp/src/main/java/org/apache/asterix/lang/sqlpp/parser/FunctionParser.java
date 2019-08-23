@@ -31,7 +31,6 @@ import org.apache.asterix.lang.common.statement.FunctionDecl;
 import org.apache.asterix.lang.common.struct.VarIdentifier;
 import org.apache.asterix.lang.sqlpp.util.SqlppVariableUtil;
 import org.apache.asterix.metadata.entities.Function;
-import org.apache.hyracks.algebricks.common.utils.Pair;
 
 public class FunctionParser {
 
@@ -47,14 +46,14 @@ public class FunctionParser {
                     Function.LANGUAGE_SQLPP, function.getLanguage());
         }
         String functionBody = function.getFunctionBody();
-        List<Pair<String, Boolean>> params = function.getArguments();
+        List<String> params = function.getArguments();
 
         StringBuilder builder = new StringBuilder();
         builder.append(" use " + function.getDataverseName() + ";");
         builder.append(" declare function " + function.getName().split("@")[0]);
         builder.append("(");
-        for (Pair<String, Boolean> param : params) {
-            VarIdentifier varId = SqlppVariableUtil.toUserDefinedVariableName(param.getFirst());
+        for (String param : params) {
+            VarIdentifier varId = SqlppVariableUtil.toUserDefinedVariableName(param);
             builder.append(varId);
             builder.append(",");
         }

@@ -39,7 +39,6 @@ import org.apache.asterix.om.base.IACursor;
 import org.apache.asterix.om.types.AOrderedListType;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
-import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
@@ -151,14 +150,9 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
 
         }
 
-        List<Pair<String, Boolean>> paramWithNullability = new ArrayList<>();
-        for (int k = 0; k < params.size(); k++) {
-            paramWithNullability.add(new Pair<String, Boolean>(params.get(k), nullability.get(k)));
-        }
-
         FunctionSignature signature = new FunctionSignature(dataverseName, functionName, Integer.parseInt(arity));
-        return new Function(signature, paramWithNullability, returnType, definition, language, functionKind,
-                dependencies, functionLibrary);
+        return new Function(signature, params, returnType, definition, language, functionKind, dependencies,
+                functionLibrary);
     }
 
     @Override
@@ -203,22 +197,9 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         ArrayBackedValueStorage itemValue = new ArrayBackedValueStorage();
         listBuilder.reset((AOrderedListType) MetadataRecordTypes.FUNCTION_RECORDTYPE
                 .getFieldTypes()[MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_PARAM_LIST_FIELD_INDEX]);
-        for (Pair<String, Boolean> p : function.getArguments()) {
+        for (String p : function.getArguments()) {
             itemValue.reset();
-            aString.setValue(p.getFirst());
-            stringSerde.serialize(aString, itemValue.getDataOutput());
-            listBuilder.addItem(itemValue);
-        }
-        fieldValue.reset();
-        listBuilder.write(fieldValue.getDataOutput(), true);
-        recordBuilder.addField(MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_PARAM_LIST_FIELD_INDEX, fieldValue);
-
-        // write field 3
-        listBuilder.reset((AOrderedListType) MetadataRecordTypes.FUNCTION_RECORDTYPE
-                .getFieldTypes()[MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_PARAM_LIST_FIELD_INDEX]);
-        for (Pair<String, Boolean> p : function.getArguments()) {
-            itemValue.reset();
-            aString.setValue(p.getSecond().toString());
+            aString.setValue(p == null ? BuiltinType.ANY.toString() : p);
             stringSerde.serialize(aString, itemValue.getDataOutput());
             listBuilder.addItem(itemValue);
         }

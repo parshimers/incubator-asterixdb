@@ -27,9 +27,9 @@ import org.apache.asterix.metadata.MetadataTransactionContext;
 import org.apache.asterix.metadata.entities.BuiltinTypeMap;
 import org.apache.asterix.metadata.entities.Function;
 import org.apache.asterix.om.typecomputer.base.IResultTypeComputer;
+import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
-import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression.FunctionKind;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import org.apache.hyracks.algebricks.core.algebra.functions.IFunctionInfo;
@@ -65,12 +65,22 @@ public class ExternalFunctionCompilerUtil {
         FunctionIdentifier fid =
                 new FunctionIdentifier(function.getDataverseName(), function.getName(), function.getArity());
         List<IAType> argumentTypes = new ArrayList<>();
-        IAType returnType = BuiltinTypeMap.getTypeFromTypeName(MetadataNode.INSTANCE, txnCtx.getTxnId(),
-                function.getDataverseName(), function.getReturnType(), false);
-        for (Pair<String, Boolean> arg : function.getArguments()) {
-
-            argumentTypes.add(BuiltinTypeMap.getTypeFromTypeName(MetadataNode.INSTANCE, txnCtx.getTxnId(),
-                    function.getDataverseName(), arg.getFirst(), false));
+        IAType returnType;
+        if (function.getReturnType() == null) {
+            returnType = BuiltinType.ANY;
+        } else if (function.getReturnType().equalsIgnoreCase(BuiltinType.ANY.toString())) {
+            returnType = BuiltinType.ANY;
+        } else {
+            returnType = BuiltinTypeMap.getTypeFromTypeName(MetadataNode.INSTANCE, txnCtx.getTxnId(),
+                    function.getDataverseName(), function.getReturnType(), false);
+        }
+        for (String arg : function.getArguments()) {
+            if (arg == null) {
+                argumentTypes.add(null);
+            } else {
+                argumentTypes.add(BuiltinTypeMap.getTypeFromTypeName(MetadataNode.INSTANCE, txnCtx.getTxnId(),
+                        function.getDataverseName(), arg, false));
+            }
         }
         IResultTypeComputer typeComputer = new ExternalTypeComputer(returnType, argumentTypes);
 

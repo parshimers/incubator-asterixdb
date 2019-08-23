@@ -20,6 +20,7 @@ package org.apache.asterix.external.library;
 
 import org.apache.asterix.common.api.IApplicationContext;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
+import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
@@ -32,17 +33,20 @@ public class ExternalScalarFunctionEvaluatorFactory implements IScalarEvaluatorF
     private final IExternalFunctionInfo finfo;
     private final IScalarEvaluatorFactory[] args;
     private final transient IApplicationContext appCtx;
+    private final IAType[] argTypes;
 
     public ExternalScalarFunctionEvaluatorFactory(IExternalFunctionInfo finfo, IScalarEvaluatorFactory[] args,
-            IApplicationContext appCtx) throws AlgebricksException {
+            IAType[] argTypes, IApplicationContext appCtx) throws AlgebricksException {
         this.finfo = finfo;
         this.args = args;
+        this.argTypes = argTypes;
         this.appCtx = appCtx;
     }
 
     @Override
     public IScalarEvaluator createScalarEvaluator(IHyracksTaskContext ctx) throws HyracksDataException {
-        return (ExternalScalarFunction) ExternalFunctionProvider.getExternalFunctionEvaluator(finfo, args, ctx,
+        return (ExternalScalarFunction) ExternalFunctionProvider.getExternalFunctionEvaluator(finfo, args, argTypes,
+                ctx,
                 appCtx == null
                         ? (IApplicationContext) ctx.getJobletContext().getServiceContext().getApplicationContext()
                         : appCtx);

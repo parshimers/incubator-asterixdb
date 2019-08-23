@@ -20,11 +20,12 @@ package org.apache.asterix.metadata.entities;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.metadata.MetadataCache;
 import org.apache.asterix.metadata.api.IMetadataEntity;
-import org.apache.hyracks.algebricks.common.utils.Pair;
+import org.apache.asterix.om.types.BuiltinType;
 
 public class Function implements IMetadataEntity<Function> {
     private static final long serialVersionUID = 1L;
@@ -38,20 +39,20 @@ public class Function implements IMetadataEntity<Function> {
 
     private final FunctionSignature signature;
     private final List<List<List<String>>> dependencies;
-    private final List<Pair<String, Boolean>> arguments;
+    private final List<String> arguments;
     private final String body;
     private final String returnType;
     private final String language;
     private final String kind;
     private final String library;
 
-    public Function(FunctionSignature signature, List<Pair<String, Boolean>> arguments, String returnType,
-            String functionBody, String language, String functionKind, List<List<List<String>>> dependencies,
-            String library) {
+    public Function(FunctionSignature signature, List<String> arguments, String returnType, String functionBody,
+            String language, String functionKind, List<List<List<String>>> dependencies, String library) {
         this.signature = signature;
-        this.arguments = arguments;
+        this.arguments =
+                arguments.stream().map(s -> s == null ? BuiltinType.ANY.toString() : s).collect(Collectors.toList());
         this.body = functionBody;
-        this.returnType = returnType == null ? RETURNTYPE_VOID : returnType;
+        this.returnType = returnType == null ? BuiltinType.ANY.toString() : returnType;
         this.language = language;
         this.kind = functionKind;
         if (library == null) {
@@ -84,7 +85,7 @@ public class Function implements IMetadataEntity<Function> {
         return signature.getArity();
     }
 
-    public List<Pair<String, Boolean>> getArguments() {
+    public List<String> getArguments() {
         return arguments;
     }
 
