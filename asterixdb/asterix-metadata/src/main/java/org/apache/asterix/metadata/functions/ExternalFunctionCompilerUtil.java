@@ -72,7 +72,7 @@ public class ExternalFunctionCompilerUtil {
             returnType = BuiltinType.ANY;
         } else {
             returnType = BuiltinTypeMap.getTypeFromTypeName(MetadataNode.INSTANCE, txnCtx.getTxnId(),
-                    function.getDataverseName(), function.getReturnType(), false);
+                    function.getDataverseName(), function.getReturnType().split("\\.")[1], false);
         }
         for (String arg : function.getArguments()) {
             if (arg == null) {

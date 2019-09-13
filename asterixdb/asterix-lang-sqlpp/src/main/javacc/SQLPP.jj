@@ -123,6 +123,7 @@ import org.apache.asterix.lang.common.statement.CompactStatement;
 import org.apache.asterix.lang.common.statement.ConnectFeedStatement;
 import org.apache.asterix.lang.common.statement.StartFeedStatement;
 import org.apache.asterix.lang.common.statement.StopFeedStatement;
+import org.apache.asterix.lang.common.statement.CreateAdapterStatement;
 import org.apache.asterix.lang.common.statement.CreateDataverseStatement;
 import org.apache.asterix.lang.common.statement.CreateFeedPolicyStatement;
 import org.apache.asterix.lang.common.statement.CreateFeedStatement;
@@ -182,6 +183,7 @@ import org.apache.asterix.lang.sqlpp.struct.SetOperationRight;
 import org.apache.asterix.lang.sqlpp.util.ExpressionToVariableUtil;
 import org.apache.asterix.lang.sqlpp.util.FunctionMapUtil;
 import org.apache.asterix.lang.sqlpp.util.SqlppVariableUtil;
+import org.apache.asterix.external.dataset.adapter.AdapterIdentifier;
 import org.apache.asterix.om.functions.BuiltinFunctions;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hyracks.algebricks.common.utils.Pair;
@@ -555,6 +557,7 @@ Statement CreateStatement() throws ParseException:
     | stmt = IndexSpecification(startToken)
     | stmt = DataverseSpecification(startToken)
     | stmt = FunctionSpecification(startToken)
+    | stmt = AdapterSpecification(startToken)
     | stmt = FeedSpecification(startToken)
     | stmt = FeedPolicySpecification(startToken)
   )
@@ -851,6 +854,36 @@ CreateDataverseStatement DataverseSpecification(Token startStmtToken) throws Par
       CreateDataverseStatement stmt = new CreateDataverseStatement(new Identifier(dvName), null, ifNotExists);
       return addSourceLocation(stmt, startStmtToken);
     }
+}
+
+CreateAdapterStatement AdapterSpecification(Token startStmtToken) throws ParseException:
+{
+  AdapterIdentifier signature = null;
+  Token beginPos;
+  Token endPos;
+  FunctionName fctName = null;
+  String currentDataverse = defaultDataverse;
+  String lang = null;
+  String libName ="";
+  String externalIdent = "";
+  ListConstructor resources = null;
+  boolean ifNotExists = false;
+  createNewScope();
+}
+{
+  <ADAPTER> fctName = FunctionName()
+  {
+     defaultDataverse = fctName.dataverse;
+  }
+  <LANGUAGE> lang = Identifier() <AS> libName = ConstantString() <COMMA>  externalIdent = ConstantString()
+    (<WITH> resources = OrderedListConstructor())?{
+      signature = new AdapterIdentifier(currentDataverse == null ? "Default" : currentDataverse, fctName.function);
+      defaultDataverse = currentDataverse;
+      CreateAdapterStatement stmt =
+        new CreateAdapterStatement(signature, lang, libName, externalIdent, resources,  ifNotExists);
+      return addSourceLocation(stmt, startStmtToken);
+    }
+
 }
 
 
@@ -3761,6 +3794,7 @@ TOKEN [IGNORE_CASE]:
   <ALL : "all">
   | <AND : "and">
   | <ACTION: "action">
+  | <ADAPTER: "adapter">
   | <ANY : "any">
   | <APPLY : "apply">
   | <AS : "as">

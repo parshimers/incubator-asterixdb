@@ -80,6 +80,8 @@ import org.apache.asterix.common.utils.JobUtils;
 import org.apache.asterix.common.utils.JobUtils.ProgressState;
 import org.apache.asterix.common.utils.StorageConstants;
 import org.apache.asterix.compiler.provider.ILangCompilationProvider;
+import org.apache.asterix.external.api.IDataSourceAdapter;
+import org.apache.asterix.external.dataset.adapter.AdapterIdentifier;
 import org.apache.asterix.external.indexing.ExternalFile;
 import org.apache.asterix.external.indexing.IndexingConstants;
 import org.apache.asterix.external.operators.FeedIntakeOperatorNodePushable;
@@ -91,8 +93,10 @@ import org.apache.asterix.lang.common.base.IStatementRewriter;
 import org.apache.asterix.lang.common.base.Statement;
 import org.apache.asterix.lang.common.expression.IndexedTypeExpression;
 import org.apache.asterix.lang.common.expression.TypeExpression;
+import org.apache.asterix.lang.common.expression.TypeReferenceExpression;
 import org.apache.asterix.lang.common.statement.CompactStatement;
 import org.apache.asterix.lang.common.statement.ConnectFeedStatement;
+import org.apache.asterix.lang.common.statement.CreateAdapterStatement;
 import org.apache.asterix.lang.common.statement.CreateDataverseStatement;
 import org.apache.asterix.lang.common.statement.CreateFeedPolicyStatement;
 import org.apache.asterix.lang.common.statement.CreateFeedStatement;
@@ -137,6 +141,7 @@ import org.apache.asterix.metadata.declared.MetadataProvider;
 import org.apache.asterix.metadata.entities.BuiltinTypeMap;
 import org.apache.asterix.metadata.entities.CompactionPolicy;
 import org.apache.asterix.metadata.entities.Dataset;
+import org.apache.asterix.metadata.entities.DatasourceAdapter;
 import org.apache.asterix.metadata.entities.Datatype;
 import org.apache.asterix.metadata.entities.Dataverse;
 import org.apache.asterix.metadata.entities.ExternalDatasetDetails;
@@ -345,6 +350,9 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                         break;
                     case CREATE_FUNCTION:
                         handleCreateFunctionStatement(metadataProvider, stmt);
+                        break;
+                    case CREATE_ADAPTER:
+                        handleCreateAdapterStatement(metadataProvider, stmt);
                         break;
                     case FUNCTION_DROP:
                         handleFunctionDropStatement(metadataProvider, stmt);
@@ -1769,10 +1777,14 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 TypeExpression ret = cfs.getReturnType();
                 String retType;
                 if (ret != null) {
-                    Map<TypeSignature, IAType> typeMap =
-                            TypeTranslator.computeTypes(mdTxnCtx, ret, ret.toString(), dataverse);
-                    TypeSignature typeSignature = new TypeSignature(dataverse, ret.toString());
-                    retType = typeMap.get(typeSignature).toString();
+                    String typeName = ((TypeReferenceExpression) ret).getIdent().getSecond().toString();
+                    Identifier typeDataverseId = ((TypeReferenceExpression) ret).getIdent().getFirst();
+                    String typeDataverse = typeDataverseId == null ? "Default" : typeDataverseId.toString();
+                    retType = typeDataverse + "." + typeName;
+                    //                    Map<TypeSignature, IAType> typeMap =
+                    //                            TypeTranslator.computeTypes(mdTxnCtx, ret, typeName, dataverse);
+                    //                    TypeSignature typeSignature = new TypeSignature(dataverse, typeName);
+                    //                    retType = typeMap.get(typeSignature).toString();
                 } else {
                     retType = null;
                 }
@@ -1830,6 +1842,54 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 MetadataManager.INSTANCE.addFunction(mdTxnCtx, function);
                 MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             }
+
+        } catch (Exception e) {
+            abort(e, e, mdTxnCtx);
+            throw e;
+        } finally {
+            metadataProvider.getLocks().unlock();
+            metadataProvider.setDefaultDataverse(activeDataverse);
+        }
+    }
+
+    protected void handleCreateAdapterStatement(MetadataProvider metadataProvider, Statement stmt) throws Exception {
+        boolean external = false;
+        CreateAdapterStatement cas = (CreateAdapterStatement) stmt;
+        SourceLocation sourceLoc = cas.getSourceLocation();
+        AdapterIdentifier aid = cas.getAdapterId();
+        String dataverse = getActiveDataverseName(aid.getNamespace());
+
+        MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+        metadataProvider.setMetadataTxnContext(mdTxnCtx);
+        MetadataLockUtil.functionStatementBegin(lockManager, metadataProvider.getLocks(), dataverse,
+                dataverse + "." + aid.getName());
+        String libraryName = cas.getLibName();
+        try {
+            Dataverse dv = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverse);
+            if (dv == null) {
+                throw new CompilationException(ErrorCode.UNKNOWN_DATAVERSE, sourceLoc, dataverse);
+            }
+            Library libraryInMetadata = MetadataManager.INSTANCE.getLibrary(mdTxnCtx, dataverse, libraryName);
+            if (libraryInMetadata == null) {
+                // exists in metadata and was not un-installed, we return.
+                // Another place which shows that our metadata transactions are broken
+                // (we didn't call commit before!!!)
+                MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+                throw new CompilationException(ErrorCode.UNKNOWN_LIBRARY, sourceLoc, libraryName);
+            }
+            // Add adapters
+            String adapterFactoryClass = cas.getExternalIdent();
+            DatasourceAdapter dsa =
+                    new DatasourceAdapter(aid, adapterFactoryClass, IDataSourceAdapter.AdapterType.EXTERNAL);
+            MetadataManager.INSTANCE.addAdapter(mdTxnCtx, dsa);
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info("Installed adapter: " + aid.getName());
+            }
+
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info("Installed adapters in library :" + libraryName);
+            }
+            MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
 
         } catch (Exception e) {
             abort(e, e, mdTxnCtx);

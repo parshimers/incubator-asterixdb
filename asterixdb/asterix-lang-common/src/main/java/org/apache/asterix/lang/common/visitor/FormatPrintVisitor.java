@@ -64,6 +64,7 @@ import org.apache.asterix.lang.common.expression.UnorderedListTypeDefinition;
 import org.apache.asterix.lang.common.expression.VariableExpr;
 import org.apache.asterix.lang.common.statement.CompactStatement;
 import org.apache.asterix.lang.common.statement.ConnectFeedStatement;
+import org.apache.asterix.lang.common.statement.CreateAdapterStatement;
 import org.apache.asterix.lang.common.statement.CreateDataverseStatement;
 import org.apache.asterix.lang.common.statement.CreateFeedPolicyStatement;
 import org.apache.asterix.lang.common.statement.CreateFeedStatement;
@@ -815,6 +816,16 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
         printDelimitedStrings(cfs.getParamList(), COMMA);
         out.println(") {");
         out.println(cfs.getFunctionBody());
+        out.println("}" + SEMICOLON);
+        out.println();
+        return null;
+    }
+
+    @Override
+    public Void visit(CreateAdapterStatement cfs, Integer step) throws CompilationException {
+        out.print(skip(step) + CREATE + " adapter");
+        out.print("(");
+        out.println(") {");
         out.println("}" + SEMICOLON);
         out.println();
         return null;
