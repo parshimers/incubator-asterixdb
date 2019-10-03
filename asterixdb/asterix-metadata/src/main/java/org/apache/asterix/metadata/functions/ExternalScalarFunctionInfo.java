@@ -30,8 +30,9 @@ public class ExternalScalarFunctionInfo extends ExternalFunctionInfo {
     private static final long serialVersionUID = 1L;
 
     public ExternalScalarFunctionInfo(String namespace, String library, String name, int arity, IAType returnType,
-            String body, String language, List<IAType> argumentTypes, IResultTypeComputer rtc) {
-        super(namespace, library, name, arity, FunctionKind.SCALAR, argumentTypes, returnType, rtc, body, language);
+            String body, String language, List<IAType> argumentTypes, List<String> params, IResultTypeComputer rtc) {
+        super(namespace, library, name, arity, FunctionKind.SCALAR, argumentTypes, returnType, rtc, body, language,
+                params);
     }
 
 }

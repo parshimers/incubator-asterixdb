@@ -157,7 +157,7 @@ public class MetadataTransactionContext extends MetadataCache {
     }
 
     public void dropFunction(FunctionSignature signature) {
-        Function function = new Function(signature, null, null, null, null, null, null, null);
+        Function function = new Function(signature, null, null, null, null, null, null, null, null);
         droppedCache.addFunctionIfNotExists(function);
         logAndApply(new MetadataLogicalOperation(function, false));
     }

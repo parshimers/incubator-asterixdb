@@ -72,7 +72,7 @@ public class ExternalFunctionCompilerUtil {
             returnType = BuiltinType.ANY;
         } else {
             returnType = BuiltinTypeMap.getTypeFromTypeName(MetadataNode.INSTANCE, txnCtx.getTxnId(),
-                    function.getDataverseName(), function.getReturnType().split("\\.")[1], false);
+                    function.getDataverseName(), function.getReturnType(), false);
         }
         for (String arg : function.getArguments()) {
             if (arg == null) {
@@ -85,7 +85,8 @@ public class ExternalFunctionCompilerUtil {
         IResultTypeComputer typeComputer = new ExternalTypeComputer(returnType, argumentTypes);
 
         return new ExternalScalarFunctionInfo(fid.getNamespace(), function.getLibrary(), fid.getName(), fid.getArity(),
-                returnType, function.getFunctionBody(), function.getLanguage(), argumentTypes, typeComputer);
+                returnType, function.getFunctionBody(), function.getLanguage(), argumentTypes, function.getParams(),
+                typeComputer);
     }
 
     private static IFunctionInfo getUnnestFunctionInfo(MetadataTransactionContext txnCtx, Function function) {

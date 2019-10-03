@@ -41,4 +41,6 @@ public interface IExternalFunctionInfo extends IFunctionInfo {
 
     public String getLibrary();
 
+    public List<String> getParams();
+
 }

@@ -4038,8 +4038,8 @@ TOKEN :
         | <EscapeNl>
         | <EscapeCr>
         | <EscapeTab>
-        | ~["\'","\\"])* "\"")
-        | ("\'"(
+        | ~["\"","\\"])* "\"")
+      | ("\'"(
           <EscapeApos>
         | <EscapeBslash>
         | <EscapeSlash>
@@ -4048,8 +4048,7 @@ TOKEN :
         | <EscapeNl>
         | <EscapeCr>
         | <EscapeTab>
-        | ~["\'","\\"])* "\'")
-        >
+        | ~["\'","\\"])* "\'")>
   | < #EscapeQuot: "\\\"" >
   | < #EscapeApos: "\\\'" >
   | < #EscapeBslash: "\\\\" >

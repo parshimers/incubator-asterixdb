@@ -87,11 +87,13 @@ import org.apache.asterix.external.indexing.IndexingConstants;
 import org.apache.asterix.external.operators.FeedIntakeOperatorNodePushable;
 import org.apache.asterix.external.util.ExternalDataConstants;
 import org.apache.asterix.formats.nontagged.TypeTraitProvider;
+import org.apache.asterix.lang.common.base.Expression;
 import org.apache.asterix.lang.common.base.IReturningStatement;
 import org.apache.asterix.lang.common.base.IRewriterFactory;
 import org.apache.asterix.lang.common.base.IStatementRewriter;
 import org.apache.asterix.lang.common.base.Statement;
 import org.apache.asterix.lang.common.expression.IndexedTypeExpression;
+import org.apache.asterix.lang.common.expression.LiteralExpr;
 import org.apache.asterix.lang.common.expression.TypeExpression;
 import org.apache.asterix.lang.common.expression.TypeReferenceExpression;
 import org.apache.asterix.lang.common.statement.CompactStatement;
@@ -1731,6 +1733,13 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         }
     }
 
+    private static String typeExprToName(TypeExpression typ, String activeDataverse) {
+        String typeName = ((TypeReferenceExpression) typ).getIdent().getSecond().toString();
+        Identifier typeDataverseId = ((TypeReferenceExpression) typ).getIdent().getFirst();
+        String typeDataverse = typeDataverseId == null ? activeDataverse : typeDataverseId.toString();
+        return typeName;
+    }
+
     protected void handleCreateFunctionStatement(MetadataProvider metadataProvider, Statement stmt) throws Exception {
         boolean external = false;
         CreateFunctionStatement cfs = (CreateFunctionStatement) stmt;
@@ -1765,22 +1774,22 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 List<String> args = new ArrayList<>();
                 for (TypedVarIdentifier var : cfs.getArgs()) {
                     if (var.getType() != null) {
-                        Map<TypeSignature, IAType> typeMap = TypeTranslator.computeTypes(mdTxnCtx, var.getType(),
-                                var.getType().toString(), dataverse);
-                        TypeSignature typeSignature = new TypeSignature(dataverse, var.getType().toString());
-                        IAType type = typeMap.get(typeSignature);
-                        args.add(type.toString());
+                        args.add(typeExprToName(var.getType(), dataverse));
                     } else {
                         args.add(null);
+                    }
+                }
+
+                List<String> params = new ArrayList<>();
+                for (Expression var : cfs.getResources().getExprList()) {
+                    if (var.getKind() == Expression.Kind.LITERAL_EXPRESSION) {
+                        params.add(((LiteralExpr) var).getValue().getStringValue());
                     }
                 }
                 TypeExpression ret = cfs.getReturnType();
                 String retType;
                 if (ret != null) {
-                    String typeName = ((TypeReferenceExpression) ret).getIdent().getSecond().toString();
-                    Identifier typeDataverseId = ((TypeReferenceExpression) ret).getIdent().getFirst();
-                    String typeDataverse = typeDataverseId == null ? "Default" : typeDataverseId.toString();
-                    retType = typeDataverse + "." + typeName;
+                    retType = typeExprToName(ret, dataverse);
                     //                    Map<TypeSignature, IAType> typeMap =
                     //                            TypeTranslator.computeTypes(mdTxnCtx, ret, typeName, dataverse);
                     //                    TypeSignature typeSignature = new TypeSignature(dataverse, typeName);
@@ -1789,7 +1798,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                     retType = null;
                 }
                 Function f = new Function(signature, args, retType, cfs.getExternalIdent(), cfs.getLang(),
-                        FunctionKind.SCALAR.toString(), null, libraryName);
+                        FunctionKind.SCALAR.toString(), null, libraryName, params);
                 MetadataManager.INSTANCE.addFunction(mdTxnCtx, f);
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info("Installed function: " + signature);
@@ -1798,21 +1807,6 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info("Installed functions in library :" + libraryName);
                 }
-
-                //                    // Add adapters
-                //                    if (library.getLibraryAdapters() != null) {
-                //                        for (LibraryAdapter adapter : library.getLibraryAdapters().getLibraryAdapter()) {
-                //                            String adapterFactoryClass = adapter.getFactoryClass().trim();
-                //                            String adapterName = getExternalFunctionFullName(libraryName, adapter.getName().trim());
-                //                            AdapterIdentifier aid = new AdapterIdentifier(dataverse, adapterName);
-                //                            DatasourceAdapter dsa =
-                //                                    new DatasourceAdapter(aid, adapterFactoryClass, IDataSourceAdapter.AdapterType.EXTERNAL);
-                //                            MetadataManager.INSTANCE.addAdapter(mdTxnCtx, dsa);
-                //                            if (LOGGER.isInfoEnabled()) {
-                //                                LOGGER.info("Installed adapter: " + adapterName);
-                //                            }
-                //                        }
-                //                    }
 
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info("Installed adapters in library :" + libraryName);
@@ -1838,7 +1832,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                         rewriterFactory.createQueryRewriter(), cfs.getFunctionBodyExpression(), metadataProvider);
 
                 Function function = new Function(signature, args, Function.RETURNTYPE_VOID, cfs.getFunctionBody(),
-                        getFunctionLanguage(), FunctionKind.SCALAR.toString(), dependencies, null);
+                        getFunctionLanguage(), FunctionKind.SCALAR.toString(), dependencies, null, null);
                 MetadataManager.INSTANCE.addFunction(mdTxnCtx, function);
                 MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             }

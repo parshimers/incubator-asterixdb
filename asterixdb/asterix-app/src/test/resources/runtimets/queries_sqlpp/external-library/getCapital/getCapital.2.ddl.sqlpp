@@ -16,13 +16,5 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-use externallibtest;
 
-let i={"id":1, "text_list": [{"text":"lower text1"}, {"text":"lower text2"}]}
-select value `toUpper`(i);
-
-let i=`toUpper`({"id":1, "text_list":[{"text":"lower text"}]})
-select value i;
-
-let i= {"field1" : `toUpper`({"id":1, "text_list":[{"text":"lower text"}]}), "field2": 123}
-select value i;
+create function getCapital(a: string) return CountryCapitalType language java as "testlib","org.apache.asterix.external.library.CapitalFinderFactory";

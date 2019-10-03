@@ -45,9 +45,11 @@ public class Function implements IMetadataEntity<Function> {
     private final String language;
     private final String kind;
     private final String library;
+    private final List<String> params;
 
     public Function(FunctionSignature signature, List<String> arguments, String returnType, String functionBody,
-            String language, String functionKind, List<List<List<String>>> dependencies, String library) {
+            String language, String functionKind, List<List<List<String>>> dependencies, String library,
+            List<String> params) {
         this.signature = signature;
         this.arguments =
                 arguments.stream().map(s -> s == null ? BuiltinType.ANY.toString() : s).collect(Collectors.toList());
@@ -66,6 +68,11 @@ public class Function implements IMetadataEntity<Function> {
             this.dependencies.add(new ArrayList<>());
         } else {
             this.dependencies = dependencies;
+        }
+        if (params == null) {
+            this.params = new ArrayList<>();
+        } else {
+            this.params = params;
         }
     }
 
@@ -111,6 +118,10 @@ public class Function implements IMetadataEntity<Function> {
 
     public String getLibrary() {
         return library;
+    }
+
+    public List<String> getParams() {
+        return params;
     }
 
     @Override

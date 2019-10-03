@@ -64,8 +64,7 @@ public class JavaFunctionHelper implements IFunctionHelper {
 
     private boolean isValidResult = false;
 
-    public JavaFunctionHelper(IExternalFunctionInfo finfo, IAType[] argTypes, IDataOutputProvider outputProvider,
-            List<String> parameters) {
+    public JavaFunctionHelper(IExternalFunctionInfo finfo, IAType[] argTypes, IDataOutputProvider outputProvider) {
         this.finfo = finfo;
         this.outputProvider = outputProvider;
         this.pointableVisitor = new JObjectPointableVisitor();
@@ -77,7 +76,7 @@ public class JavaFunctionHelper implements IFunctionHelper {
         }
         this.resultHolder = objectPool.allocate(finfo.getReturnType());
         this.poolTypeInfo = new HashMap<>();
-        this.parameters = parameters;
+        this.parameters = finfo.getParams();
         this.argTypes = argTypes;
 
     }
