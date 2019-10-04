@@ -16,5 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-DROP DATAVERSE externallibtest if exists;
-CREATE DATAVERSE  externallibtest;
+ USE externallibtest;
+
+create function mysum(a: int32, b: int32) return int32 language java as "testlib","org.apache.asterix.external.library.MySumFactory";

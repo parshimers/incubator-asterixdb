@@ -16,7 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+DROP DATAVERSE externallibtest if exists;
+CREATE DATAVERSE  externallibtest;
 USE externallibtest;
 
-create function toUpper(t: TextType) return TextType language java as "testlib","org.apache.asterix.external.library.UpperCaseFactory";
+create type list_element as open{
+    text: string
+};
 
+create type TextType if not exists as open {
+    id: int32,
+    text_list: [list_element]
+};

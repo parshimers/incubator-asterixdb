@@ -94,6 +94,7 @@ import org.apache.asterix.lang.common.base.IStatementRewriter;
 import org.apache.asterix.lang.common.base.Statement;
 import org.apache.asterix.lang.common.expression.IndexedTypeExpression;
 import org.apache.asterix.lang.common.expression.LiteralExpr;
+import org.apache.asterix.lang.common.expression.OrderedListTypeDefinition;
 import org.apache.asterix.lang.common.expression.TypeExpression;
 import org.apache.asterix.lang.common.expression.TypeReferenceExpression;
 import org.apache.asterix.lang.common.statement.CompactStatement;
@@ -1734,9 +1735,21 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
     }
 
     private static String typeExprToName(TypeExpression typ, String activeDataverse) {
-        String typeName = ((TypeReferenceExpression) typ).getIdent().getSecond().toString();
-        Identifier typeDataverseId = ((TypeReferenceExpression) typ).getIdent().getFirst();
-        String typeDataverse = typeDataverseId == null ? activeDataverse : typeDataverseId.toString();
+        String typeName = "ANY";
+        switch (typ.getTypeKind()) {
+            case ORDEREDLIST:
+                typeName =
+                        "[" + typeExprToName(((OrderedListTypeDefinition) typ).getItemTypeExpression(), activeDataverse)
+                                + "]";
+                break;
+            case UNORDEREDLIST:
+                break;
+            case RECORD:
+                break;
+            case TYPEREFERENCE:
+                typeName = ((TypeReferenceExpression) typ).getIdent().getSecond().toString();
+                break;
+        }
         return typeName;
     }
 
@@ -1752,6 +1765,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         signature.setNamespace(dataverse);
 
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+        boolean committed = false;
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
         MetadataLockUtil.functionStatementBegin(lockManager, metadataProvider.getLocks(), dataverse,
                 dataverse + "." + signature.getName());
@@ -1759,6 +1773,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         try {
             Dataverse dv = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverse);
             if (dv == null) {
+                MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+                committed = true;
                 throw new CompilationException(ErrorCode.UNKNOWN_DATAVERSE, sourceLoc, dataverse);
             }
             if (external) {
@@ -1768,6 +1784,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                     // Another place which shows that our metadata transactions are broken
                     // (we didn't call commit before!!!)
                     MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+                    committed = true;
                     throw new CompilationException(ErrorCode.UNKNOWN_LIBRARY, sourceLoc, libraryName);
                 }
                 // Add functions
@@ -1781,9 +1798,11 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 }
 
                 List<String> params = new ArrayList<>();
-                for (Expression var : cfs.getResources().getExprList()) {
-                    if (var.getKind() == Expression.Kind.LITERAL_EXPRESSION) {
-                        params.add(((LiteralExpr) var).getValue().getStringValue());
+                if (cfs.getResources() != null) {
+                    for (Expression var : cfs.getResources().getExprList()) {
+                        if (var.getKind() == Expression.Kind.LITERAL_EXPRESSION) {
+                            params.add(((LiteralExpr) var).getValue().getStringValue());
+                        }
                     }
                 }
                 TypeExpression ret = cfs.getReturnType();
@@ -1812,6 +1831,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                     LOGGER.info("Installed adapters in library :" + libraryName);
                 }
                 MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+                committed = true;
             } else {
                 //Check whether the function is use-able
                 metadataProvider.setDefaultDataverse(dv);
@@ -1838,7 +1858,9 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             }
 
         } catch (Exception e) {
-            abort(e, e, mdTxnCtx);
+            if (!committed) {
+                abort(e, e, mdTxnCtx);
+            }
             throw e;
         } finally {
             metadataProvider.getLocks().unlock();

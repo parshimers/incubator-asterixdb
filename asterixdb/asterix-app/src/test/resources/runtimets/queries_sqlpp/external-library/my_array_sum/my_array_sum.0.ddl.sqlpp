@@ -16,7 +16,5 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-USE externallibtest;
-
-create function toUpper(t: TextType) return TextType language java as "testlib","org.apache.asterix.external.library.UpperCaseFactory";
-
+DROP DATAVERSE externallibtest if exists;
+CREATE DATAVERSE  externallibtest;

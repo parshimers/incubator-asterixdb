@@ -17,49 +17,6 @@
  * under the License.
  */
 
-drop dataverse externallibtest if exists;
-create dataverse externallibtest;
 use externallibtest;
 
-create type TwitterUserType as closed {
- screen_name: string,
- language: string,
- friends_count: int32,
- status_count: int32,
- name: string,
- followers_count: int32
-};
-
-create type Tweet as closed {
- id: int64,
- user: TwitterUserType,
- latitude: double,
- longitude: double,
- message_text: string,
- created_at: string,
- country: string
-};
-
-create type ProcessedTweet if not exists as open {
-    id: int64,
-    user_name:string,
-    location:point,
-    created_at:string,
-    message_text:string,
-    country: string,
-    topics: {{string}}
-};
-
-create dataset SyntheticTweets(Tweet) primary key id;
-
-create feed  SyntheticTweetFeed with {
-  "adapter-name" : "stream",
-  "duration" : "1",
-  "stream-source" : "org.apache.asterix.external.input.stream.factory.TwitterFirehoseStreamFactory",
-  "tps" : "50",
-  "type-name" : "Tweet",
-  "tput-duration" : "1",
-  "dataverse-dataset" : "feeds:SyntheticTweets",
-  "format" : "adm",
-  "mode" : "controlled"
-};
+create function addHashTagsInPlace(t: Tweet) return ProcessedTweet language java as "testlib","org.apache.asterix.external.library.AddHashTagsInPlaceFactory";

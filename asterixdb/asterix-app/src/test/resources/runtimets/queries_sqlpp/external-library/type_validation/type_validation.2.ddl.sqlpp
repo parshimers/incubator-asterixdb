@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-USE externallibtest;
+use externallibtest;
 
-create function toUpper(t: TextType) return TextType language java as "testlib","org.apache.asterix.external.library.UpperCaseFactory";
+create function typeValidation(a: int32, b: float, c:string, d:double, e:boolean, f:point, g:date, h:datetime, k:line, l:circle, m:rectangle) return string language java as "testlib","org.apache.asterix.external.library.TypeValidationFunctionFactory";
 

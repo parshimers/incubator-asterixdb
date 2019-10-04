@@ -16,7 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-USE externallibtest;
+/*
+ * Description  : Apply user defined function to feed.
+ * Expected Res : Success
+ * Date         : 4th Oct 2017
+ */
 
-create function toUpper(t: TextType) return TextType language java as "testlib","org.apache.asterix.external.library.UpperCaseFactory";
+use udfs;
+
+create function addMentionedUsers(t: TweetType) return TweetType language java as "testlib","org.apache.asterix.external.library.AddMentionedUsersFactory" WITH ["text"];
 

@@ -16,5 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-DROP DATAVERSE externallibtest if exists;
-CREATE DATAVERSE  externallibtest;
+ use externallibtest;
+
+
+create function my_array_sum(a: [int32]) return int32 language java as "testlib","org.apache.asterix.external.library.MyArraySumFactory";

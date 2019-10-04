@@ -20,6 +20,7 @@ package org.apache.asterix.metadata.functions;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.asterix.metadata.MetadataNode;
@@ -27,6 +28,8 @@ import org.apache.asterix.metadata.MetadataTransactionContext;
 import org.apache.asterix.metadata.entities.BuiltinTypeMap;
 import org.apache.asterix.metadata.entities.Function;
 import org.apache.asterix.om.typecomputer.base.IResultTypeComputer;
+import org.apache.asterix.om.types.AOrderedListType;
+import org.apache.asterix.om.types.AUnorderedListType;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
@@ -75,18 +78,48 @@ public class ExternalFunctionCompilerUtil {
                     function.getDataverseName(), function.getReturnType(), false);
         }
         for (String arg : function.getArguments()) {
-            if (arg == null) {
-                argumentTypes.add(null);
-            } else {
-                argumentTypes.add(BuiltinTypeMap.getTypeFromTypeName(MetadataNode.INSTANCE, txnCtx.getTxnId(),
-                        function.getDataverseName(), arg, false));
-            }
+            argumentTypes.add(getTypeInfo(arg, txnCtx, function));
         }
         IResultTypeComputer typeComputer = new ExternalTypeComputer(returnType, argumentTypes);
 
         return new ExternalScalarFunctionInfo(fid.getNamespace(), function.getLibrary(), fid.getName(), fid.getArity(),
                 returnType, function.getFunctionBody(), function.getLanguage(), argumentTypes, function.getParams(),
                 typeComputer);
+    }
+
+    private static IAType getTypeInfo(String type, MetadataTransactionContext txnCtx, Function function)
+            throws AlgebricksException {
+        IAType argType = null;
+        if (type == null) {
+            return argType;
+        } else {
+            IAType simpleOrDefined = BuiltinTypeMap.getTypeFromTypeName(MetadataNode.INSTANCE, txnCtx.getTxnId(),
+                    function.getDataverseName(), type, false);
+            if (simpleOrDefined != null) {
+                argType = simpleOrDefined;
+            } else {
+                argType = getCollectionType(type, txnCtx, function);
+            }
+        }
+        return argType;
+
+    }
+
+    private static IAType getCollectionType(String paramType, MetadataTransactionContext txnCtx, Function function)
+            throws AlgebricksException {
+
+        Matcher matcher = orderedListPattern.matcher(paramType);
+        if (matcher.find()) {
+            String subType = paramType.substring(paramType.indexOf('[') + 1, paramType.lastIndexOf(']'));
+            return new AOrderedListType(getTypeInfo(subType, txnCtx, function), "AOrderedList");
+        } else {
+            matcher = unorderedListPattern.matcher(paramType);
+            if (matcher.find()) {
+                String subType = paramType.substring(paramType.indexOf("{{") + 2, paramType.lastIndexOf("}}"));
+                return new AUnorderedListType(getTypeInfo(subType, txnCtx, function), "AUnorderedList");
+            }
+        }
+        return null;
     }
 
     private static IFunctionInfo getUnnestFunctionInfo(MetadataTransactionContext txnCtx, Function function) {
