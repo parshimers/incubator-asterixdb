@@ -253,6 +253,31 @@ public class SqlppExpressionToPlanTranslator extends LangExpressionToPlanTransla
     public Pair<ILogicalOperator, LogicalVariable> visit(SelectBlock selectBlock, Mutable<ILogicalOperator> tupSource)
             throws CompilationException {
         Mutable<ILogicalOperator> currentOpRef = tupSource;
+        if (selectBlock.hasGroupbyClause() && selectBlock.getGroupbyClause().isGroupAll()) {
+            // Creates a subplan operator.
+            SourceLocation sourceLoc = selectBlock.getSourceLocation();
+            SubplanOperator subplanOp = new SubplanOperator();
+            subplanOp.getInputs().add(currentOpRef);
+            subplanOp.setSourceLocation(sourceLoc);
+            NestedTupleSourceOperator ntsOp = new NestedTupleSourceOperator(new MutableObject<>(subplanOp));
+            ntsOp.setSourceLocation(sourceLoc);
+            Mutable<ILogicalOperator> subplanCurrentOpRef = new MutableObject<>(ntsOp);
+            subplanCurrentOpRef = translateFromLetWhereGroupBy(selectBlock, subplanCurrentOpRef);
+            subplanOp.getNestedPlans().add(new ALogicalPlanImpl(subplanCurrentOpRef));
+            currentOpRef = new MutableObject<>(subplanOp);
+        } else {
+            currentOpRef = translateFromLetWhereGroupBy(selectBlock, currentOpRef);
+        }
+        if (selectBlock.hasLetHavingClausesAfterGroupby()) {
+            for (AbstractClause letHavingClause : selectBlock.getLetHavingListAfterGroupby()) {
+                currentOpRef = new MutableObject<>(letHavingClause.accept(this, currentOpRef).first);
+            }
+        }
+        return processSelectClause(selectBlock, currentOpRef);
+    }
+
+    private Mutable<ILogicalOperator> translateFromLetWhereGroupBy(SelectBlock selectBlock,
+            Mutable<ILogicalOperator> currentOpRef) throws CompilationException {
         if (selectBlock.hasFromClause()) {
             currentOpRef = new MutableObject<>(selectBlock.getFromClause().accept(this, currentOpRef).first);
         }
@@ -264,12 +289,7 @@ public class SqlppExpressionToPlanTranslator extends LangExpressionToPlanTransla
         if (selectBlock.hasGroupbyClause()) {
             currentOpRef = new MutableObject<>(selectBlock.getGroupbyClause().accept(this, currentOpRef).first);
         }
-        if (selectBlock.hasLetHavingClausesAfterGroupby()) {
-            for (AbstractClause letHavingClause : selectBlock.getLetHavingListAfterGroupby()) {
-                currentOpRef = new MutableObject<>(letHavingClause.accept(this, currentOpRef).first);
-            }
-        }
-        return processSelectClause(selectBlock, currentOpRef);
+        return currentOpRef;
     }
 
     @Override
@@ -291,16 +311,17 @@ public class SqlppExpressionToPlanTranslator extends LangExpressionToPlanTransla
         LogicalVariable fromVar = context.newVarFromExpression(fromTerm.getLeftVariable());
         Expression fromExpr = fromTerm.getLeftExpression();
         Pair<ILogicalExpression, Mutable<ILogicalOperator>> eo = langExprToAlgExpression(fromExpr, tupSource);
+        Pair<ILogicalExpression, Mutable<ILogicalOperator>> pUnnestExpr = makeUnnestExpression(eo.first, eo.second);
         UnnestOperator unnestOp;
         if (fromTerm.hasPositionalVariable()) {
             LogicalVariable pVar = context.newVarFromExpression(fromTerm.getPositionalVariable());
             // We set the positional variable type as BIGINT type.
-            unnestOp = new UnnestOperator(fromVar, new MutableObject<>(makeUnnestExpression(eo.first)), pVar,
-                    BuiltinType.AINT64, new PositionWriter());
+            unnestOp = new UnnestOperator(fromVar, new MutableObject<>(pUnnestExpr.first), pVar, BuiltinType.AINT64,
+                    new PositionWriter());
         } else {
-            unnestOp = new UnnestOperator(fromVar, new MutableObject<>(makeUnnestExpression(eo.first)));
+            unnestOp = new UnnestOperator(fromVar, new MutableObject<>(pUnnestExpr.first));
         }
-        unnestOp.getInputs().add(eo.second);
+        unnestOp.getInputs().add(pUnnestExpr.second);
         unnestOp.setSourceLocation(sourceLoc);
 
         // Processes joins, unnests, and nests.
@@ -425,9 +446,11 @@ public class SqlppExpressionToPlanTranslator extends LangExpressionToPlanTransla
             LogicalVariable outerUnnestVar = context.newVar();
             VariableReferenceExpression aggVarRefExpr = new VariableReferenceExpression(aggVar);
             aggVarRefExpr.setSourceLocation(aggOp.getSourceLocation());
-            LeftOuterUnnestOperator outerUnnestOp = new LeftOuterUnnestOperator(outerUnnestVar,
-                    new MutableObject<>(makeUnnestExpression(aggVarRefExpr)));
-            outerUnnestOp.getInputs().add(new MutableObject<>(subplanOp));
+            Pair<ILogicalExpression, Mutable<ILogicalOperator>> pUnnestExpr =
+                    makeUnnestExpression(aggVarRefExpr, new MutableObject<>(subplanOp));
+            LeftOuterUnnestOperator outerUnnestOp =
+                    new LeftOuterUnnestOperator(outerUnnestVar, new MutableObject<>(pUnnestExpr.first));
+            outerUnnestOp.getInputs().add(pUnnestExpr.second);
             outerUnnestOp.setSourceLocation(aggOp.getSourceLocation());
             currentTopOp = outerUnnestOp;
 
@@ -508,20 +531,21 @@ public class SqlppExpressionToPlanTranslator extends LangExpressionToPlanTransla
         LogicalVariable rightVar = context.newVarFromExpression(binaryCorrelate.getRightVariable());
         Expression rightExpr = binaryCorrelate.getRightExpression();
         Pair<ILogicalExpression, Mutable<ILogicalOperator>> eo = langExprToAlgExpression(rightExpr, inputOpRef);
+        Pair<ILogicalExpression, Mutable<ILogicalOperator>> pUnnestExpr = makeUnnestExpression(eo.first, eo.second);
         AbstractUnnestOperator unnestOp;
         if (binaryCorrelate.hasPositionalVariable()) {
             LogicalVariable pVar = context.newVarFromExpression(binaryCorrelate.getPositionalVariable());
             // We set the positional variable type as BIGINT type.
             unnestOp = innerUnnest
-                    ? new UnnestOperator(rightVar, new MutableObject<>(makeUnnestExpression(eo.first)), pVar,
-                            BuiltinType.AINT64, new PositionWriter())
-                    : new LeftOuterUnnestOperator(rightVar, new MutableObject<>(makeUnnestExpression(eo.first)), pVar,
+                    ? new UnnestOperator(rightVar, new MutableObject<>(pUnnestExpr.first), pVar, BuiltinType.AINT64,
+                            new PositionWriter())
+                    : new LeftOuterUnnestOperator(rightVar, new MutableObject<>(pUnnestExpr.first), pVar,
                             BuiltinType.AINT64, new PositionWriter());
         } else {
-            unnestOp = innerUnnest ? new UnnestOperator(rightVar, new MutableObject<>(makeUnnestExpression(eo.first)))
-                    : new LeftOuterUnnestOperator(rightVar, new MutableObject<>(makeUnnestExpression(eo.first)));
+            unnestOp = innerUnnest ? new UnnestOperator(rightVar, new MutableObject<>(pUnnestExpr.first))
+                    : new LeftOuterUnnestOperator(rightVar, new MutableObject<>(pUnnestExpr.first));
         }
-        unnestOp.getInputs().add(eo.second);
+        unnestOp.getInputs().add(pUnnestExpr.second);
         unnestOp.setSourceLocation(binaryCorrelate.getRightVariable().getSourceLocation());
         return new Pair<>(unnestOp, rightVar);
     }

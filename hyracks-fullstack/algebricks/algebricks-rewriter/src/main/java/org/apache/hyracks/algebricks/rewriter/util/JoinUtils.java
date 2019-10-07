@@ -45,7 +45,12 @@ import org.apache.hyracks.algebricks.core.algebra.operators.physical.HybridHashJ
 import org.apache.hyracks.algebricks.core.algebra.operators.physical.InMemoryHashJoinPOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.physical.NestedLoopJoinPOperator;
 import org.apache.hyracks.algebricks.core.algebra.properties.ILogicalPropertiesVector;
+import org.apache.hyracks.algebricks.core.algebra.util.OperatorPropertiesUtil;
 import org.apache.hyracks.algebricks.core.config.AlgebricksConfig;
+import org.apache.hyracks.api.exceptions.ErrorCode;
+import org.apache.hyracks.api.exceptions.IWarningCollector;
+import org.apache.hyracks.api.exceptions.SourceLocation;
+import org.apache.hyracks.api.exceptions.Warning;
 
 public class JoinUtils {
     private JoinUtils() {
@@ -60,8 +65,9 @@ public class JoinUtils {
         List<LogicalVariable> sideRight = new LinkedList<>();
         List<LogicalVariable> varsLeft = op.getInputs().get(0).getValue().getSchema();
         List<LogicalVariable> varsRight = op.getInputs().get(1).getValue().getSchema();
-        if (isHashJoinCondition(op.getCondition().getValue(), varsLeft, varsRight, sideLeft, sideRight)) {
-            BroadcastSide side = getBroadcastJoinSide(op.getCondition().getValue(), varsLeft, varsRight);
+        ILogicalExpression conditionExpr = op.getCondition().getValue();
+        if (isHashJoinCondition(conditionExpr, varsLeft, varsRight, sideLeft, sideRight)) {
+            BroadcastSide side = getBroadcastJoinSide(conditionExpr, varsLeft, varsRight);
             if (side == null) {
                 setHashJoinOp(op, JoinPartitioningType.PAIRWISE, sideLeft, sideRight, context);
             } else {
@@ -87,6 +93,7 @@ public class JoinUtils {
                 }
             }
         } else {
+            warnIfCrossProduct(conditionExpr, op.getSourceLocation(), context);
             setNestedLoopJoinOp(op);
         }
     }
@@ -230,6 +237,16 @@ public class JoinUtils {
                 return BroadcastSide.RIGHT;
             } else {
                 return null;
+            }
+        }
+    }
+
+    private static void warnIfCrossProduct(ILogicalExpression conditionExpr, SourceLocation sourceLoc,
+            IOptimizationContext context) {
+        if (OperatorPropertiesUtil.isAlwaysTrueCond(conditionExpr) && sourceLoc != null) {
+            IWarningCollector warningCollector = context.getWarningCollector();
+            if (warningCollector.shouldWarn()) {
+                warningCollector.warn(Warning.forHyracks(sourceLoc, ErrorCode.CROSS_PRODUCT_JOIN));
             }
         }
     }

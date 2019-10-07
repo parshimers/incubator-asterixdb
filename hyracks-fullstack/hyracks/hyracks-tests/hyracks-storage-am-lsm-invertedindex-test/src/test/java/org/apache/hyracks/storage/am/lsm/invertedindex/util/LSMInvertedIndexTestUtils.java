@@ -48,7 +48,7 @@ import org.apache.hyracks.api.deployment.DeploymentId;
 import org.apache.hyracks.api.exceptions.ErrorCode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.HyracksException;
-import org.apache.hyracks.api.exceptions.Warning;
+import org.apache.hyracks.api.exceptions.IWarningCollector;
 import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.api.job.JobFlag;
@@ -106,6 +106,12 @@ import org.apache.hyracks.storage.common.IIndexAccessParameters;
 import org.apache.hyracks.storage.common.IIndexBulkLoader;
 import org.apache.hyracks.storage.common.IIndexCursor;
 import org.apache.hyracks.storage.common.MultiComparator;
+import org.apache.hyracks.storage.common.NoOpIndexCursorStats;
+import org.apache.hyracks.storage.common.buffercache.NoOpPageWriteCallback;
+import org.apache.hyracks.test.support.TestUtils;
+import org.apache.hyracks.util.IThreadStats;
+import org.apache.hyracks.util.IThreadStatsCollector;
+import org.apache.hyracks.util.ThreadStats;
 
 @SuppressWarnings("rawtypes")
 public class LSMInvertedIndexTestUtils {
@@ -239,7 +245,8 @@ public class LSMInvertedIndexTestUtils {
         ISerializerDeserializer[] fieldSerdes = testCtx.getFieldSerdes();
 
         // Use the expected index to bulk-load the actual index.
-        IIndexBulkLoader bulkLoader = testCtx.getIndex().createBulkLoader(1.0f, false, numDocs, true);
+        IIndexBulkLoader bulkLoader =
+                testCtx.getIndex().createBulkLoader(1.0f, false, numDocs, true, NoOpPageWriteCallback.INSTANCE);
         ArrayTupleBuilder tupleBuilder = new ArrayTupleBuilder(testCtx.getFieldSerdes().length);
         ArrayTupleReference tuple = new ArrayTupleReference();
         Iterator<CheckTuple> checkTupleIter = tmpMemIndex.iterator();
@@ -293,7 +300,7 @@ public class LSMInvertedIndexTestUtils {
         LSMInvertedIndexAccessor invIndexAccessor =
                 (LSMInvertedIndexAccessor) invIndex.createAccessor(NoOpIndexAccessParameters.INSTANCE);
         compareActualAndExpectedIndexesRangeSearch(testCtx,
-                new LSMInvertedIndexMergeCursor(invIndexAccessor.getOpContext()));
+                new LSMInvertedIndexMergeCursor(invIndexAccessor.getOpContext(), NoOpIndexCursorStats.INSTANCE));
     }
 
     /**
@@ -648,6 +655,7 @@ public class LSMInvertedIndexTestUtils {
     // results during inverted index searches for the test purposes only.
     public static class HyracksTaskTestContext implements IHyracksTaskContext {
         private final int FRAME_SIZE = AccessMethodTestsConfig.LSM_INVINDEX_HYRACKS_FRAME_SIZE;
+        private final ThreadStats threadStats = new ThreadStats();
         private Object sharedObject;
 
         @Override
@@ -767,8 +775,23 @@ public class LSMInvertedIndexTestUtils {
         }
 
         @Override
-        public void warn(Warning warning) {
-            // no-op
+        public IWarningCollector getWarningCollector() {
+            return TestUtils.NOOP_WARNING_COLLECTOR;
+        }
+
+        @Override
+        public void subscribeThreadToStats(IThreadStatsCollector threadStatsCollector) {
+            // no op
+        }
+
+        @Override
+        public void unsubscribeThreadFromStats() {
+            // no op
+        }
+
+        @Override
+        public IThreadStats getThreadStats() {
+            return threadStats;
         }
     }
 

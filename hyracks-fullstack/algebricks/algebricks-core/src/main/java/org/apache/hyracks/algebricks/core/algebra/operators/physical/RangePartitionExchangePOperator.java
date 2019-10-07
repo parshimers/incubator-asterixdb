@@ -45,10 +45,11 @@ import org.apache.hyracks.algebricks.data.IBinaryComparatorFactoryProvider;
 import org.apache.hyracks.api.dataflow.IConnectorDescriptor;
 import org.apache.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import org.apache.hyracks.api.job.IConnectorDescriptorRegistry;
-import org.apache.hyracks.dataflow.common.data.partition.range.DynamicFieldRangePartitionComputerFactory;
+import org.apache.hyracks.dataflow.common.data.partition.range.DynamicRangeMapSupplier;
 import org.apache.hyracks.dataflow.common.data.partition.range.FieldRangePartitionComputerFactory;
 import org.apache.hyracks.dataflow.common.data.partition.range.RangeMap;
-import org.apache.hyracks.dataflow.common.data.partition.range.StaticFieldRangePartitionComputerFactory;
+import org.apache.hyracks.dataflow.common.data.partition.range.RangeMapSupplier;
+import org.apache.hyracks.dataflow.common.data.partition.range.StaticRangeMapSupplier;
 import org.apache.hyracks.dataflow.std.connectors.MToNPartitioningConnectorDescriptor;
 
 public class RangePartitionExchangePOperator extends AbstractExchangePOperator {
@@ -93,7 +94,7 @@ public class RangePartitionExchangePOperator extends AbstractExchangePOperator {
 
     @Override
     public void computeDeliveredProperties(ILogicalOperator op, IOptimizationContext context) {
-        IPartitioningProperty p = new OrderedPartitionedProperty(new ArrayList<>(partitioningFields), domain);
+        IPartitioningProperty p = new OrderedPartitionedProperty(new ArrayList<>(partitioningFields), domain, rangeMap);
         this.deliveredProperties = new StructuralPropertiesVector(p, new LinkedList<ILocalStructuralProperty>());
     }
 
@@ -119,21 +120,17 @@ public class RangePartitionExchangePOperator extends AbstractExchangePOperator {
             comps[i] = bcfp.getBinaryComparatorFactory(type, oc.getOrder() == OrderKind.ASC);
             i++;
         }
-        FieldRangePartitionComputerFactory partitionerFactory;
-        if (rangeMapIsComputedAtRunTime) {
-            partitionerFactory = new DynamicFieldRangePartitionComputerFactory(sortFields, comps, rangeMapKeyInContext,
-                    op.getSourceLocation());
-        } else {
-            partitionerFactory = new StaticFieldRangePartitionComputerFactory(sortFields, comps, rangeMap);
-        }
-
+        RangeMapSupplier rangeMapSupplier = rangeMapIsComputedAtRunTime
+                ? new DynamicRangeMapSupplier(rangeMapKeyInContext) : new StaticRangeMapSupplier(rangeMap);
+        FieldRangePartitionComputerFactory partitionerFactory =
+                new FieldRangePartitionComputerFactory(sortFields, comps, rangeMapSupplier, op.getSourceLocation());
         IConnectorDescriptor conn = new MToNPartitioningConnectorDescriptor(spec, partitionerFactory);
         return new Pair<>(conn, null);
     }
 
     @Override
     public String toString() {
-        final String splitCount = rangeMap == null ? "" : " SPLIT COUNT:" + Integer.toString(rangeMap.getSplitCount());
-        return getOperatorTag().toString() + " " + partitioningFields + splitCount;
+        return getOperatorTag().toString() + " " + partitioningFields
+                + (rangeMap != null ? " RANGE_MAP:" + rangeMap : "");
     }
 }

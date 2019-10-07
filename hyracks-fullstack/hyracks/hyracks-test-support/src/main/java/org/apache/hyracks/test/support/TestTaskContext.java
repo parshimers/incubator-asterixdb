@@ -22,7 +22,6 @@ import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -33,7 +32,7 @@ import org.apache.hyracks.api.dataflow.TaskAttemptId;
 import org.apache.hyracks.api.dataflow.state.IStateObject;
 import org.apache.hyracks.api.deployment.DeploymentId;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
-import org.apache.hyracks.api.exceptions.Warning;
+import org.apache.hyracks.api.exceptions.IWarningCollector;
 import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.api.job.JobFlag;
@@ -43,6 +42,9 @@ import org.apache.hyracks.api.resources.IDeallocatable;
 import org.apache.hyracks.api.result.IResultPartitionManager;
 import org.apache.hyracks.control.common.job.profiling.StatsCollector;
 import org.apache.hyracks.control.nc.io.WorkspaceFileFactory;
+import org.apache.hyracks.util.IThreadStats;
+import org.apache.hyracks.util.IThreadStatsCollector;
+import org.apache.hyracks.util.ThreadStats;
 
 public class TestTaskContext implements IHyracksTaskContext {
     private final TestJobletContext jobletContext;
@@ -51,7 +53,7 @@ public class TestTaskContext implements IHyracksTaskContext {
     private Map<Object, IStateObject> stateObjectMap = new HashMap<>();
     private Object sharedObject;
     private final IStatsCollector statsCollector = new StatsCollector();
-    private final Set<Warning> warnings = new HashSet<>();
+    private final ThreadStats threadStats = new ThreadStats();
 
     public TestTaskContext(TestJobletContext jobletContext, TaskAttemptId taskId) {
         this.jobletContext = jobletContext;
@@ -180,7 +182,22 @@ public class TestTaskContext implements IHyracksTaskContext {
     }
 
     @Override
-    public void warn(Warning warning) {
-        warnings.add(warning);
+    public IWarningCollector getWarningCollector() {
+        return TestUtils.NOOP_WARNING_COLLECTOR;
+    }
+
+    @Override
+    public void subscribeThreadToStats(IThreadStatsCollector threadStatsCollector) {
+        // no op
+    }
+
+    @Override
+    public void unsubscribeThreadFromStats() {
+        // no op
+    }
+
+    @Override
+    public IThreadStats getThreadStats() {
+        return threadStats;
     }
 }

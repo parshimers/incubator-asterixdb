@@ -24,7 +24,6 @@ import static org.apache.asterix.om.functions.BuiltinFunctions.WindowFunctionPro
 import static org.apache.asterix.om.functions.BuiltinFunctions.WindowFunctionProperty.INJECT_ORDER_ARGS;
 import static org.apache.asterix.om.functions.BuiltinFunctions.WindowFunctionProperty.MATERIALIZE_PARTITION;
 import static org.apache.asterix.om.functions.BuiltinFunctions.WindowFunctionProperty.NO_FRAME_CLAUSE;
-import static org.apache.asterix.om.functions.BuiltinFunctions.WindowFunctionProperty.NO_ORDER_CLAUSE;
 
 import java.util.Collections;
 import java.util.EnumSet;
@@ -38,6 +37,7 @@ import org.apache.asterix.common.functions.FunctionConstants;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.om.typecomputer.base.IResultTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.ABinaryTypeComputer;
+import org.apache.asterix.om.typecomputer.impl.ABooleanArrayContainsTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.ABooleanTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.ACircleTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.ADateTimeTypeComputer;
@@ -48,6 +48,7 @@ import org.apache.asterix.om.typecomputer.impl.ADurationTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.AFloatTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.AGeometryTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.AInt16TypeComputer;
+import org.apache.asterix.om.typecomputer.impl.AInt32ArrayPositionTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.AInt32TypeComputer;
 import org.apache.asterix.om.typecomputer.impl.AInt64TypeComputer;
 import org.apache.asterix.om.typecomputer.impl.AInt8TypeComputer;
@@ -125,7 +126,7 @@ import org.apache.asterix.om.typecomputer.impl.ScalarVersionOfAggregateResultTyp
 import org.apache.asterix.om.typecomputer.impl.SleepTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.StringBooleanTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.StringInt32TypeComputer;
-import org.apache.asterix.om.typecomputer.impl.StringIntToStringTypeComputer;
+import org.apache.asterix.om.typecomputer.impl.StringJoinTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.StringStringTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.StringToInt64ListTypeComputer;
 import org.apache.asterix.om.typecomputer.impl.StringToStringListTypeComputer;
@@ -239,12 +240,16 @@ public class BuiltinFunctions {
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "array-ifnull", 1);
     public static final FunctionIdentifier ARRAY_CONCAT =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "array-concat", FunctionIdentifier.VARARGS);
-    public static final FunctionIdentifier ARRAY_RANGE =
-            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "array-range", FunctionIdentifier.VARARGS);
+    public static final FunctionIdentifier ARRAY_RANGE_WITHOUT_STEP =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "array-range", 2);
+    public static final FunctionIdentifier ARRAY_RANGE_WITH_STEP =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "array-range", 3);
     public static final FunctionIdentifier ARRAY_FLATTEN =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "array-flatten", 2);
-    public static final FunctionIdentifier ARRAY_REPLACE =
-            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "array-replace", FunctionIdentifier.VARARGS);
+    public static final FunctionIdentifier ARRAY_REPLACE_WITHOUT_MAXIMUM =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "array-replace", 3);
+    public static final FunctionIdentifier ARRAY_REPLACE_WITH_MAXIMUM =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "array-replace", 4);
     public static final FunctionIdentifier ARRAY_SYMDIFF =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "array-symdiff", FunctionIdentifier.VARARGS);
     public static final FunctionIdentifier ARRAY_SYMDIFFN =
@@ -1691,13 +1696,15 @@ public class BuiltinFunctions {
         addFunction(IS_BIT_SET_WITHOUT_ALL_FLAG, BitValuePositionFlagTypeComputer.INSTANCE_TEST_WITHOUT_FLAG, true);
         addFunction(IS_BIT_SET_WITH_ALL_FLAG, BitValuePositionFlagTypeComputer.INSTANCE_TEST_WITH_FLAG, true);
 
-        addFunction(STRING_CONSTRUCTOR, AStringTypeComputer.INSTANCE, true);
+        // string functions
+        addFunction(STRING_CONSTRUCTOR, AStringTypeComputer.INSTANCE, true); // TODO
         addFunction(STRING_LIKE, BooleanFunctionTypeComputer.INSTANCE, true);
-        addFunction(STRING_CONTAINS, ABooleanTypeComputer.INSTANCE, true);
+        addFunction(STRING_CONTAINS, StringBooleanTypeComputer.INSTANCE, true);
         addFunction(STRING_TO_CODEPOINT, StringToInt64ListTypeComputer.INSTANCE, true);
-        addFunction(CODEPOINT_TO_STRING, AStringTypeComputer.INSTANCE, true);
-        addFunction(STRING_CONCAT, ConcatTypeComputer.INSTANCE_STRING, true);
-        addFunction(SUBSTRING2, StringIntToStringTypeComputer.INSTANCE_NULLABLE, true);
+        addFunction(CODEPOINT_TO_STRING, AStringTypeComputer.INSTANCE, true); // TODO
+        addFunction(STRING_CONCAT, ConcatTypeComputer.INSTANCE_STRING, true); // TODO
+        addFunction(SUBSTRING, SubstringTypeComputer.INSTANCE, true); // TODO
+        addFunction(SUBSTRING2, AStringTypeComputer.INSTANCE_NULLABLE, true);
         addFunction(STRING_LENGTH, UnaryStringInt64TypeComputer.INSTANCE, true);
         addFunction(STRING_LOWERCASE, StringStringTypeComputer.INSTANCE, true);
         addFunction(STRING_UPPERCASE, StringStringTypeComputer.INSTANCE, true);
@@ -1718,16 +1725,15 @@ public class BuiltinFunctions {
         addFunction(STRING_REGEXP_POSITION, StringInt32TypeComputer.INSTANCE, true);
         addFunction(STRING_REGEXP_POSITION_WITH_FLAG, StringInt32TypeComputer.INSTANCE, true);
         addFunction(STRING_REGEXP_REPLACE, StringStringTypeComputer.INSTANCE, true);
-        addFunction(STRING_REGEXP_REPLACE_WITH_FLAG,
-                StringIntToStringTypeComputer.INSTANCE_STRING_REGEXP_REPLACE_WITH_FLAG, true);
+        addFunction(STRING_REGEXP_REPLACE_WITH_FLAG, AStringTypeComputer.INSTANCE_NULLABLE, true);
         addFunction(STRING_REPLACE, StringStringTypeComputer.INSTANCE, true);
-        addFunction(STRING_REPLACE_WITH_LIMIT, StringIntToStringTypeComputer.INSTANCE_TRIPLE_STRING, true);
+        addFunction(STRING_REPLACE_WITH_LIMIT, AStringTypeComputer.INSTANCE_NULLABLE, true);
         addFunction(STRING_REVERSE, StringStringTypeComputer.INSTANCE, true);
         addFunction(SUBSTRING_BEFORE, StringStringTypeComputer.INSTANCE, true);
         addFunction(SUBSTRING_AFTER, StringStringTypeComputer.INSTANCE, true);
         addPrivateFunction(STRING_EQUAL, StringBooleanTypeComputer.INSTANCE, true);
-        addFunction(STRING_JOIN, AStringTypeComputer.INSTANCE, true);
-        addFunction(STRING_REPEAT, StringIntToStringTypeComputer.INSTANCE, true);
+        addFunction(STRING_JOIN, StringJoinTypeComputer.INSTANCE, true);
+        addFunction(STRING_REPEAT, AStringTypeComputer.INSTANCE_NULLABLE, true);
         addFunction(STRING_SPLIT, StringToStringListTypeComputer.INSTANCE, true);
 
         addPrivateFunction(ORDERED_LIST_CONSTRUCTOR, OrderedListConstructorTypeComputer.INSTANCE, true);
@@ -2141,7 +2147,6 @@ public class BuiltinFunctions {
         addFunction(BINARY_BASE64_CONSTRUCTOR, ABinaryTypeComputer.INSTANCE, true);
 
         addPrivateFunction(SUBSET_COLLECTION, SubsetCollectionTypeComputer.INSTANCE, true);
-        addFunction(SUBSTRING, SubstringTypeComputer.INSTANCE, true);
         addFunction(SWITCH_CASE, SwitchCaseComputer.INSTANCE, true);
         addFunction(SLEEP, SleepTypeComputer.INSTANCE, false);
         addPrivateFunction(INJECT_FAILURE, InjectFailureTypeComputer.INSTANCE, true);
@@ -2160,19 +2165,21 @@ public class BuiltinFunctions {
         addFunction(ARRAY_PREPEND, AListTypeComputer.INSTANCE_PREPEND, true);
         addFunction(ARRAY_APPEND, AListTypeComputer.INSTANCE_APPEND, true);
         addFunction(ARRAY_INSERT, AListTypeComputer.INSTANCE_INSERT, true);
-        addFunction(ARRAY_POSITION, AInt32TypeComputer.INSTANCE, true);
+        addFunction(ARRAY_POSITION, AInt32ArrayPositionTypeComputer.INSTANCE, true);
         addFunction(ARRAY_REPEAT, ArrayRepeatTypeComputer.INSTANCE, true);
         addFunction(ARRAY_REVERSE, AListFirstTypeComputer.INSTANCE, true);
-        addFunction(ARRAY_CONTAINS, ABooleanTypeComputer.INSTANCE, true);
+        addFunction(ARRAY_CONTAINS, ABooleanArrayContainsTypeComputer.INSTANCE, true);
         addFunction(ARRAY_SORT, AListFirstTypeComputer.INSTANCE, true);
         addFunction(ARRAY_DISTINCT, AListFirstTypeComputer.INSTANCE, true);
         addFunction(ARRAY_UNION, AListMultiListArgsTypeComputer.INSTANCE, true);
         addFunction(ARRAY_INTERSECT, AListMultiListArgsTypeComputer.INSTANCE, true);
         addFunction(ARRAY_IFNULL, ArrayIfNullTypeComputer.INSTANCE, true);
         addFunction(ARRAY_CONCAT, AListMultiListArgsTypeComputer.INSTANCE, true);
-        addFunction(ARRAY_RANGE, ArrayRangeTypeComputer.INSTANCE, true);
+        addFunction(ARRAY_RANGE_WITH_STEP, ArrayRangeTypeComputer.INSTANCE, true);
+        addFunction(ARRAY_RANGE_WITHOUT_STEP, ArrayRangeTypeComputer.INSTANCE, true);
         addFunction(ARRAY_FLATTEN, AListFirstTypeComputer.INSTANCE_FLATTEN, true);
-        addFunction(ARRAY_REPLACE, AListTypeComputer.INSTANCE_REPLACE, true);
+        addFunction(ARRAY_REPLACE_WITH_MAXIMUM, AListTypeComputer.INSTANCE_REPLACE, true);
+        addFunction(ARRAY_REPLACE_WITHOUT_MAXIMUM, AListTypeComputer.INSTANCE_REPLACE, true);
         addFunction(ARRAY_SYMDIFF, AListMultiListArgsTypeComputer.INSTANCE, true);
         addFunction(ARRAY_SYMDIFFN, AListMultiListArgsTypeComputer.INSTANCE, true);
         addFunction(ARRAY_STAR, OpenARecordTypeComputer.INSTANCE, true);
@@ -2978,8 +2985,16 @@ public class BuiltinFunctions {
         addUnnestFun(SUBSET_COLLECTION, false);
     }
 
-    public static void addDatasourceFunction(FunctionIdentifier fi, IFunctionToDataSourceRewriter transformer) {
-        datasourceFunctions.put(getAsterixFunctionInfo(fi), transformer);
+    public enum DataSourceFunctionProperty implements BuiltinFunctionProperty {
+        /** Force minimum memory budget if a query only uses this function */
+        MIN_MEMORY_BUDGET
+    }
+
+    public static void addDatasourceFunction(FunctionIdentifier fi, IFunctionToDataSourceRewriter transformer,
+            DataSourceFunctionProperty... properties) {
+        IFunctionInfo finfo = getAsterixFunctionInfo(fi);
+        datasourceFunctions.put(finfo, transformer);
+        registerFunctionProperties(finfo, DataSourceFunctionProperty.class, properties);
     }
 
     public static IFunctionToDataSourceRewriter getDatasourceTransformer(FunctionIdentifier fi) {

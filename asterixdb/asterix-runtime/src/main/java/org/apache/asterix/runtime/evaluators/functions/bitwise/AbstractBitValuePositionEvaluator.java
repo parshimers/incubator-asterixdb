@@ -21,8 +21,11 @@ package org.apache.asterix.runtime.evaluators.functions.bitwise;
 
 import java.io.IOException;
 
+import org.apache.asterix.common.exceptions.ErrorCode;
+import org.apache.asterix.common.exceptions.WarningUtil;
 import org.apache.asterix.formats.nontagged.SerializerDeserializerProvider;
 import org.apache.asterix.om.base.AMutableInt64;
+import org.apache.asterix.om.exceptions.ExceptionUtil;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.EnumDeserializer;
@@ -31,11 +34,12 @@ import org.apache.asterix.runtime.evaluators.common.ListAccessor;
 import org.apache.asterix.runtime.evaluators.functions.AbstractScalarEval;
 import org.apache.asterix.runtime.evaluators.functions.PointableHelper;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
+import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
-import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.exceptions.IWarningCollector;
 import org.apache.hyracks.api.exceptions.SourceLocation;
 import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.data.std.primitive.VoidPointable;
@@ -89,9 +93,14 @@ abstract class AbstractBitValuePositionEvaluator extends AbstractScalarEval {
     private final ISerializerDeserializer aInt64Serde =
             SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.AINT64);
 
-    AbstractBitValuePositionEvaluator(IHyracksTaskContext context, IScalarEvaluatorFactory[] argEvaluatorFactories,
+    private final IEvaluatorContext context;
+    private static final byte[] secondArgumentExpectedTypes =
+            new byte[] { ATypeTag.SERIALIZED_INT64_TYPE_TAG, ATypeTag.SERIALIZED_ORDEREDLIST_TYPE_TAG };
+
+    AbstractBitValuePositionEvaluator(IEvaluatorContext context, IScalarEvaluatorFactory[] argEvaluatorFactories,
             FunctionIdentifier functionIdentifier, SourceLocation sourceLocation) throws HyracksDataException {
         super(sourceLocation, functionIdentifier);
+        this.context = context;
 
         // Evaluators
         valueEvaluator = argEvaluatorFactories[0].createScalarEvaluator(context);
@@ -104,7 +113,6 @@ abstract class AbstractBitValuePositionEvaluator extends AbstractScalarEval {
     @SuppressWarnings("unchecked")
     @Override
     public void evaluate(IFrameTupleReference tuple, IPointable result) throws HyracksDataException {
-
         valueEvaluator.evaluate(tuple, valuePointable);
         positionEvaluator.evaluate(tuple, positionPointable);
 
@@ -118,6 +126,8 @@ abstract class AbstractBitValuePositionEvaluator extends AbstractScalarEval {
 
         // Type and value validity check
         if (!PointableHelper.isValidLongValue(valueBytes, valueStartOffset, true)) {
+            ExceptionUtil.warnTypeMismatch(context, sourceLoc, functionIdentifier, valueBytes[valueStartOffset], 0,
+                    ATypeTag.BIGINT);
             PointableHelper.setNull(result);
             return;
         }
@@ -130,6 +140,8 @@ abstract class AbstractBitValuePositionEvaluator extends AbstractScalarEval {
 
         // Type validity check (for position argument, array is a valid type as well)
         if (!ATypeHierarchy.canPromote(positionTypeTag, ATypeTag.DOUBLE) && positionTypeTag != ATypeTag.ARRAY) {
+            ExceptionUtil.warnTypeMismatch(context, sourceLoc, functionIdentifier, positionBytes[positionStartOffset],
+                    1, secondArgumentExpectedTypes);
             PointableHelper.setNull(result);
             return;
         }
@@ -210,6 +222,8 @@ abstract class AbstractBitValuePositionEvaluator extends AbstractScalarEval {
 
         // Value validity check
         if (!PointableHelper.isValidLongValue(bytes, startOffset, true)) {
+            ExceptionUtil.warnTypeMismatch(context, sourceLoc, functionIdentifier, bytes[startOffset], 1,
+                    ATypeTag.BIGINT);
             return false;
         }
 
@@ -217,11 +231,20 @@ abstract class AbstractBitValuePositionEvaluator extends AbstractScalarEval {
 
         // Ensure the position is between 1 and 64 (int64 has 64 bits)
         if (position < 1 || position > 64) {
+            handleOutOfRangeInput(1, 1, 64, position);
             return false;
         }
 
         longResult = applyBitwiseOperation(longResult, position);
 
         return true;
+    }
+
+    private void handleOutOfRangeInput(int inputPosition, int startLimit, int endLimit, long actual) {
+        IWarningCollector warningCollector = context.getWarningCollector();
+        if (warningCollector.shouldWarn()) {
+            warningCollector.warn(WarningUtil.forAsterix(sourceLoc, ErrorCode.VALUE_OUT_OF_RANGE, functionIdentifier,
+                    ExceptionUtil.indexToPosition(inputPosition), startLimit, endLimit, actual));
+        }
     }
 }

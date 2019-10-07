@@ -21,15 +21,16 @@ package org.apache.asterix.runtime.evaluators.functions.bitwise;
 
 import org.apache.asterix.formats.nontagged.SerializerDeserializerProvider;
 import org.apache.asterix.om.base.AMutableInt64;
+import org.apache.asterix.om.exceptions.ExceptionUtil;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.hierachy.ATypeHierarchy;
 import org.apache.asterix.runtime.evaluators.functions.AbstractScalarEval;
 import org.apache.asterix.runtime.evaluators.functions.PointableHelper;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
+import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
-import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.SourceLocation;
@@ -65,9 +66,13 @@ abstract class AbstractBitMultipleValuesEvaluator extends AbstractScalarEval {
     private final ISerializerDeserializer aInt64Serde =
             SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.AINT64);
 
-    AbstractBitMultipleValuesEvaluator(IHyracksTaskContext context, IScalarEvaluatorFactory[] argEvaluatorFactories,
+    private final IEvaluatorContext context;
+
+    AbstractBitMultipleValuesEvaluator(IEvaluatorContext context, IScalarEvaluatorFactory[] argEvaluatorFactories,
             FunctionIdentifier functionIdentifier, SourceLocation sourceLocation) throws HyracksDataException {
         super(sourceLocation, functionIdentifier);
+
+        this.context = context;
 
         // Evaluators and Pointables
         argPointables = new IPointable[argEvaluatorFactories.length];
@@ -111,6 +116,8 @@ abstract class AbstractBitMultipleValuesEvaluator extends AbstractScalarEval {
 
         // Type and value validity check
         if (!PointableHelper.isValidLongValue(bytes, startOffset, true)) {
+            ExceptionUtil.warnTypeMismatch(context, sourceLoc, functionIdentifier, bytes[startOffset], 0,
+                    ATypeTag.BIGINT);
             PointableHelper.setNull(result);
             return;
         }
@@ -125,6 +132,8 @@ abstract class AbstractBitMultipleValuesEvaluator extends AbstractScalarEval {
 
             // Type and value validity check
             if (!PointableHelper.isValidLongValue(bytes, startOffset, true)) {
+                ExceptionUtil.warnTypeMismatch(context, sourceLoc, functionIdentifier, bytes[startOffset], i,
+                        ATypeTag.BIGINT);
                 PointableHelper.setNull(result);
                 return;
             }

@@ -21,14 +21,13 @@ package org.apache.asterix.runtime.evaluators.functions;
 
 import org.apache.asterix.common.annotations.MissingNullInOutFunction;
 import org.apache.asterix.om.functions.BuiltinFunctions;
-import org.apache.asterix.om.functions.IFunctionDescriptor;
 import org.apache.asterix.om.functions.IFunctionDescriptorFactory;
 import org.apache.asterix.runtime.evaluators.base.AbstractScalarFunctionDynamicDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.utils.StringReplacer;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
+import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
-import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.data.std.primitive.UTF8StringPointable;
@@ -36,12 +35,7 @@ import org.apache.hyracks.data.std.primitive.UTF8StringPointable;
 @MissingNullInOutFunction
 public class StringReplaceWithLimitDescriptor extends AbstractScalarFunctionDynamicDescriptor {
     private static final long serialVersionUID = 1L;
-    public static final IFunctionDescriptorFactory FACTORY = new IFunctionDescriptorFactory() {
-        @Override
-        public IFunctionDescriptor createFunctionDescriptor() {
-            return new StringReplaceWithLimitDescriptor();
-        }
-    };
+    public static final IFunctionDescriptorFactory FACTORY = StringReplaceWithLimitDescriptor::new;
 
     @Override
     public IScalarEvaluatorFactory createEvaluatorFactory(final IScalarEvaluatorFactory[] args) {
@@ -49,7 +43,7 @@ public class StringReplaceWithLimitDescriptor extends AbstractScalarFunctionDyna
             private static final long serialVersionUID = 1L;
 
             @Override
-            public IScalarEvaluator createScalarEvaluator(final IHyracksTaskContext ctx) throws HyracksDataException {
+            public IScalarEvaluator createScalarEvaluator(final IEvaluatorContext ctx) throws HyracksDataException {
                 return new AbstractStringStringStringIntEval(ctx, args[0], args[1], args[2], args[3], getIdentifier(),
                         sourceLoc) {
 
@@ -57,9 +51,9 @@ public class StringReplaceWithLimitDescriptor extends AbstractScalarFunctionDyna
 
                     @Override
                     protected void process(UTF8StringPointable first, UTF8StringPointable second,
-                            UTF8StringPointable third, long fourth, IPointable resultPointable)
+                            UTF8StringPointable third, int fourth, IPointable resultPointable)
                             throws HyracksDataException {
-                        if (replacer.findAndReplace(first, second, third, (int) fourth)) {
+                        if (replacer.findAndReplace(first, second, third, fourth)) {
                             replacer.assignResult(resultPointable);
                         } else {
                             resultPointable.set(argPtrFirst);

@@ -75,6 +75,7 @@ import org.apache.asterix.common.exceptions.ExceptionUtils;
 import org.apache.asterix.common.exceptions.MetadataException;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.common.exceptions.WarningCollector;
+import org.apache.asterix.common.exceptions.WarningUtil;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.utils.JobUtils;
 import org.apache.asterix.common.utils.JobUtils.ProgressState;
@@ -283,9 +284,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
 
     @Override
     public void compileAndExecute(IHyracksClientConnection hcc, IRequestParameters requestParameters) throws Exception {
-        if (!requestParameters.isMultiStatement()) {
-            validateStatements(statements);
-        }
+        validateStatements(statements, requestParameters.isMultiStatement(),
+                requestParameters.getStatementCategoryRestrictionMask());
         trackRequest(requestParameters);
         int resultSetIdCounter = 0;
         FileSplit outputFile = null;
@@ -301,6 +301,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         final Stats stats = requestParameters.getStats();
         final ResultMetadata outMetadata = requestParameters.getOutMetadata();
         final Map<String, IAObject> stmtParams = requestParameters.getStatementParameters();
+        warningCollector.setMaxWarnings(sessionConfig.getMaxWarnings());
         try {
             for (Statement stmt : statements) {
                 if (sessionConfig.is(SessionConfig.FORMAT_HTML)) {
@@ -406,6 +407,9 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                         metadataProvider.setResultAsyncMode(
                                 resultDelivery == ResultDelivery.ASYNC || resultDelivery == ResultDelivery.DEFERRED);
                         metadataProvider.setMaxResultReads(maxResultReads);
+                        if (stats.getType() == Stats.ProfileType.FULL) {
+                            this.jobFlags.add(JobFlag.PROFILE_RUNTIME);
+                        }
                         handleQuery(metadataProvider, (Query) stmt, hcc, resultSet, resultDelivery, outMetadata, stats,
                                 requestParameters, stmtParams, stmtRewriter);
                         break;
@@ -567,11 +571,20 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         SourceLocation sourceLoc = dd.getSourceLocation();
         String dataverseName = getActiveDataverse(dd.getDataverse());
         String datasetName = dd.getName().getValue();
+        String datasetFullyQualifiedName = dataverseName + "." + datasetName;
         DatasetType dsType = dd.getDatasetType();
         String itemTypeDataverseName = getActiveDataverse(dd.getItemTypeDataverse());
         String itemTypeName = dd.getItemTypeName().getValue();
-        String metaItemTypeDataverseName = getActiveDataverse(dd.getMetaItemTypeDataverse());
-        String metaItemTypeName = dd.getMetaItemTypeName().getValue();
+        String itemTypeFullyQualifiedName = itemTypeDataverseName + "." + itemTypeName;
+        String metaItemTypeDataverseName = null;
+        String metaItemTypeName = null;
+        String metaItemTypeFullyQualifiedName = null;
+        Identifier metaItemTypeId = dd.getMetaItemTypeName();
+        if (metaItemTypeId != null) {
+            metaItemTypeName = metaItemTypeId.getValue();
+            metaItemTypeDataverseName = getActiveDataverse(dd.getMetaItemTypeDataverse());
+            metaItemTypeFullyQualifiedName = metaItemTypeDataverseName + "." + metaItemTypeName;
+        }
         Identifier ngNameId = dd.getNodegroupName();
         String nodegroupName = ngNameId == null ? null : ngNameId.getValue();
         String compactionPolicy = dd.getCompactionPolicy();
@@ -583,12 +596,12 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         boolean bActiveTxn = true;
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
         MetadataLockUtil.createDatasetBegin(lockManager, metadataProvider.getLocks(), dataverseName,
-                itemTypeDataverseName, itemTypeDataverseName + "." + itemTypeName, metaItemTypeDataverseName,
-                metaItemTypeDataverseName + "." + metaItemTypeName, nodegroupName, compactionPolicy,
-                dataverseName + "." + datasetName, defaultCompactionPolicy);
+                itemTypeDataverseName, itemTypeFullyQualifiedName, metaItemTypeDataverseName,
+                metaItemTypeFullyQualifiedName, nodegroupName, compactionPolicy, datasetFullyQualifiedName,
+                defaultCompactionPolicy);
         Dataset dataset = null;
         try {
-            IDatasetDetails datasetDetails = null;
+            IDatasetDetails datasetDetails;
             Dataset ds = metadataProvider.findDataset(dataverseName, datasetName);
             if (ds != null) {
                 if (dd.getIfNotExists()) {
@@ -1382,8 +1395,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 }
             }
 
-            if (activeDataverse != null && activeDataverse.getDataverseName() == dataverseName) {
-                activeDataverse = null;
+            if (activeDataverse.getDataverseName().equals(dataverseName)) {
+                activeDataverse = MetadataBuiltinEntities.DEFAULT_DATAVERSE;
             }
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             return true;
@@ -1393,8 +1406,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             }
 
             if (progress == ProgressState.ADDED_PENDINGOP_RECORD_TO_METADATA) {
-                if (activeDataverse != null && activeDataverse.getDataverseName() == dataverseName) {
-                    activeDataverse = null;
+                if (activeDataverse.getDataverseName().equals(dataverseName)) {
+                    activeDataverse = MetadataBuiltinEntities.DEFAULT_DATAVERSE;
                 }
 
                 // #. execute compensation operations
@@ -2634,6 +2647,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             try {
                 final JobSpecification jobSpec =
                         rewriteCompileQuery(hcc, metadataProvider, query, null, stmtParams, stmtRewriter);
+                // update stats with count of compile-time warnings. needs to be adapted for multi-statement.
+                stats.updateTotalWarningsCount(warningCollector.getTotalWarningsCount());
                 afterCompile();
                 MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
                 bActiveTxn = false;
@@ -2699,7 +2714,12 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                 (org.apache.asterix.api.common.ResultMetadata) controllerService.getResultDirectoryService()
                         .getResultMetadata(jobId, rsId);
         stats.setProcessedObjects(resultMetadata.getProcessedObjects());
-        warningCollector.warn(resultMetadata.getWarnings());
+        if (jobFlags.contains(JobFlag.PROFILE_RUNTIME)) {
+            stats.setJobProfile(resultMetadata.getJobProfile());
+        }
+        stats.setDiskIoCount(resultMetadata.getDiskIoCount());
+        stats.updateTotalWarningsCount(resultMetadata.getTotalWarningsCount());
+        WarningUtil.mergeWarnings(resultMetadata.getWarnings(), warningCollector);
     }
 
     private void asyncCreateAndRunJob(IHyracksClientConnection hcc, IStatementCompiler compiler, IMetadataLocker locker,
@@ -3074,8 +3094,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
     }
 
     @Override
-    public void getWarnings(Collection<? super Warning> outWarnings) {
-        warningCollector.getWarnings(outWarnings);
+    public void getWarnings(Collection<? super Warning> outWarnings, long maxWarnings) {
+        warningCollector.getWarnings(outWarnings, maxWarnings);
     }
 
     /**
@@ -3126,9 +3146,20 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         appCtx.getRequestTracker().track(clientRequest);
     }
 
-    public static void validateStatements(List<Statement> statements) throws CompilationException {
-        if (statements.stream().filter(QueryTranslator::isNotAllowedMultiStatement).count() > 1) {
-            throw new CompilationException(ErrorCode.UNSUPPORTED_MULTIPLE_STATEMENTS);
+    public static void validateStatements(List<Statement> statements, boolean allowMultiStatement,
+            int stmtCategoryRestrictionMask) throws CompilationException {
+        if (!allowMultiStatement) {
+            if (statements.stream().filter(QueryTranslator::isNotAllowedMultiStatement).count() > 1) {
+                throw new CompilationException(ErrorCode.UNSUPPORTED_MULTIPLE_STATEMENTS);
+            }
+        }
+        if (stmtCategoryRestrictionMask != RequestParameters.NO_CATEGORY_RESTRICTION_MASK) {
+            for (Statement stmt : statements) {
+                if (isNotAllowedStatementCategory(stmt, stmtCategoryRestrictionMask)) {
+                    throw new CompilationException(ErrorCode.PROHIBITED_STATEMENT_CATEGORY, stmt.getSourceLocation(),
+                            stmt.getKind());
+                }
+            }
         }
     }
 
@@ -3142,6 +3173,15 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
             default:
                 return true;
         }
+    }
+
+    private static boolean isNotAllowedStatementCategory(Statement statement, int categoryRestrictionMask) {
+        int category = statement.getCategory();
+        if (category <= 0) {
+            throw new IllegalArgumentException(String.valueOf(category));
+        }
+        int i = category & categoryRestrictionMask;
+        return i == 0;
     }
 
     private Map<VarIdentifier, IAObject> createExternalVariables(Map<String, IAObject> stmtParams,

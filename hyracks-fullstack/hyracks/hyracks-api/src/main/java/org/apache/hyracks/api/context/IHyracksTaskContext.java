@@ -25,7 +25,7 @@ import java.util.concurrent.ExecutorService;
 import org.apache.hyracks.api.dataflow.TaskAttemptId;
 import org.apache.hyracks.api.deployment.DeploymentId;
 import org.apache.hyracks.api.exceptions.HyracksException;
-import org.apache.hyracks.api.exceptions.Warning;
+import org.apache.hyracks.api.exceptions.IWarningCollector;
 import org.apache.hyracks.api.io.IWorkspaceFileFactory;
 import org.apache.hyracks.api.job.IOperatorEnvironment;
 import org.apache.hyracks.api.job.JobFlag;
@@ -33,6 +33,8 @@ import org.apache.hyracks.api.job.profiling.IStatsCollector;
 import org.apache.hyracks.api.job.profiling.counters.ICounterContext;
 import org.apache.hyracks.api.resources.IDeallocatableRegistry;
 import org.apache.hyracks.api.result.IResultPartitionManager;
+import org.apache.hyracks.util.IThreadStats;
+import org.apache.hyracks.util.IThreadStatsCollector;
 
 public interface IHyracksTaskContext
         extends IHyracksCommonContext, IWorkspaceFileFactory, IDeallocatableRegistry, IOperatorEnvironment {
@@ -60,10 +62,24 @@ public interface IHyracksTaskContext
 
     IStatsCollector getStatsCollector();
 
+    IWarningCollector getWarningCollector();
+
     /**
-     * Adds a warning to this {@link IHyracksTaskContext}
+     * Subscribes the caller thread to {@code threadStatsCollector}
      *
-     * @param warning
+     * @param threadStatsCollector
      */
-    void warn(Warning warning);
+    void subscribeThreadToStats(IThreadStatsCollector threadStatsCollector);
+
+    /**
+     * Unsubscribes the caller thread from all thread stats collectors known to this task
+     */
+    void unsubscribeThreadFromStats();
+
+    /**
+     * Gets the caller thread's stats
+     *
+     * @return the thread stats
+     */
+    IThreadStats getThreadStats();
 }

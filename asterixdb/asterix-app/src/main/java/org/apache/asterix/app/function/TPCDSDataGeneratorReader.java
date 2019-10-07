@@ -36,17 +36,24 @@ import com.teradata.tpcds.Session;
 import com.teradata.tpcds.Table;
 
 /**
- * Each partition will be running a TPCDS data generator reader instance. Depending on the number of partitions, the
- * data generator will parallelize its work based on the number of partitions. The reader is passed the parallelism
- * level based on the number of partition instances.
+ * Each partition will be running a TPCDS data generator reader instance. The data generator will parallelize its work
+ * based on the number of partitions available. The reader is passed the parallelism level based on the number of
+ * partition instances.
  *
- * The function automatically handles generating the data for a single specified table or for all the tables. Also,
- * the parallelism will take place regardless of the selected data size to be generated.
+ * The function automatically handles generating the data for a single specified table or for all the tables.
  */
 
 public class TPCDSDataGeneratorReader extends FunctionReader {
 
     private final FunctionIdentifier functionIdentifier;
+
+    // Table name will be added to each generated record
+    private final static String TABLE_NAME_FIELD_NAME = "table_name";
+
+    // When generating the values, a list is created, at index 0, all the values for the parent record exist, if a
+    // child record is created, it is at index 1 in the list
+    private static final int PARENT_VALUES_INDEX = 0;
+    private static final int CHILD_VALUES_INDEX = 1;
 
     // Table members
     private final List<Table> selectedTables;
@@ -86,9 +93,47 @@ public class TPCDSDataGeneratorReader extends FunctionReader {
 
         // Iterators for the tables to generate the data for
         for (Table table : selectedTables) {
-            Results result = calculateParallelism(table, session);
+            Results result = Results.constructResults(table, session);
             tableIterators.add(result.iterator());
         }
+    }
+
+    /**
+     * Gets the table matching the provided string table name, throws an exception if no table is returned.
+     *
+     * @param tableName String table name to search for.
+     * @return Table if found, throws an exception otherwise.
+     */
+    private List<Table> getTableFromStringTableName(String tableName) throws HyracksDataException {
+
+        // Get all the tables
+        if (generateAllTables) {
+            // Remove the DBGEN_VERSION table and all children tables, parent tables will generate them
+            return Table.getBaseTables().stream()
+                    .filter(table -> !table.equals(Table.DBGEN_VERSION) && !table.isChild())
+                    .collect(Collectors.toList());
+        }
+
+        // Search for the table
+        List<Table> matchedTables = Table.getBaseTables().stream()
+                .filter(table -> tableName.equalsIgnoreCase(table.getName())).collect(Collectors.toList());
+
+        // Ensure the table was found
+        if (matchedTables.isEmpty()) {
+            throw new RuntimeDataException(ErrorCode.TPCDS_INVALID_TABLE_NAME, getFunctionIdentifier().getName(),
+                    tableName);
+        }
+
+        return matchedTables;
+    }
+
+    /**
+     * Gets the function identifier
+     *
+     * @return function identifier
+     */
+    private FunctionIdentifier getFunctionIdentifier() {
+        return functionIdentifier;
     }
 
     @Override
@@ -134,7 +179,7 @@ public class TPCDSDataGeneratorReader extends FunctionReader {
     }
 
     /**
-     * Builds the string record from the generated values by the data generator. The column name for each value is
+     * Builds the string record from the generated values by the data generator. The field name for each value is
      * extracted from the table from which the data is being generated.
      *
      * @param values List containing all the generated column values
@@ -145,21 +190,8 @@ public class TPCDSDataGeneratorReader extends FunctionReader {
         // Clear the builder (This is faster than re-creating the builder each iteration)
         builder.setLength(0);
 
-        builder.append("{\"tableName\":\"");
-        builder.append(currentTable.toString());
-        builder.append("\"");
-
-        // Build the record data
-        for (int counter = 0; counter < values.get(0).size(); counter++) {
-            builder.append(",\"");
-            builder.append(currentTable.getColumns()[counter].getName());
-            builder.append("\":\"");
-            builder.append(values.get(0).get(counter));
-            builder.append("\"");
-        }
-
-        // Close the record
-        builder.append("}");
+        // Construct the record
+        constructRecord(values.get(PARENT_VALUES_INDEX), currentTable);
 
         // Reference to the parent row to be returned, before resetting the builder again
         String parentRow = builder.toString();
@@ -169,21 +201,9 @@ public class TPCDSDataGeneratorReader extends FunctionReader {
         // are done
         if (generateAllTables && values.size() > 1) {
             builder.setLength(0);
-            builder.append("{\"tableName\":\"");
-            builder.append(currentTable.getChild().toString());
-            builder.append("\"");
 
-            // Build the record data
-            for (int counter = 0; counter < values.get(1).size(); counter++) {
-                builder.append(",\"");
-                builder.append(currentTable.getChild().getColumns()[counter].getName());
-                builder.append("\":\"");
-                builder.append(values.get(0).get(counter));
-                builder.append("\"");
-            }
-
-            // Close the record
-            builder.append("}");
+            // Construct the record
+            constructRecord(values.get(CHILD_VALUES_INDEX), currentTable.getChild());
 
             // Add it to the children rows list
             childRow = builder.toString();
@@ -194,96 +214,53 @@ public class TPCDSDataGeneratorReader extends FunctionReader {
     }
 
     /**
-     * Gets the table matching the provided string table name, throws an exception if no table is returned.
+     * Constructs the record with the appropriate data types.
      *
-     * @param tableName String table name to search for.
-     * @return Table if found, throws an exception otherwise.
+     * @param values list containing all the generated values for all columns in a string format.
+     * @param table  Table the record is being constructed for
      */
-    private List<Table> getTableFromStringTableName(String tableName) throws HyracksDataException {
+    private void constructRecord(List<String> values, Table table) {
+        // Add the table name to the record
+        builder.append("{\"").append(TABLE_NAME_FIELD_NAME).append("\":\"").append(table.getName()).append("\"");
 
-        // Get all the tables
-        if (generateAllTables) {
-            // Remove the DBGEN_VERSION table and all children tables, parent tables will generate them
-            return Table.getBaseTables().stream()
-                    .filter(table -> !table.equals(Table.DBGEN_VERSION) && !table.isChild())
-                    .collect(Collectors.toList());
-        }
+        // Build the record data
+        for (int counter = 0; counter < values.size(); counter++) {
 
-        // Search for the table
-        List<Table> matchedTables = Table.getBaseTables().stream()
-                .filter(table -> tableName.equalsIgnoreCase(table.getName())).collect(Collectors.toList());
-
-        // Ensure the table was found
-        if (matchedTables.size() != 1) {
-            throw new RuntimeDataException(ErrorCode.TPCDS_INVALID_TABLE_NAME, getFunctionIdentifier().getName(),
-                    tableName);
-        }
-
-        return matchedTables;
-    }
-
-    /**
-     * As the TPC-DS library has constraints on activating the parallelism (table must be generating 1,000,000 records
-     * based on a scaling factor), we're gonna override that behavior and calculate the parallelism manually. This
-     * will ensure the activation of the parallelism regardless of the data size being generated.
-     *
-     * @param table table to generate the data for
-     * @param session session containing the parallelism and scaling information
-     *
-     * @return Results that holds a lazy-iterator to generate the data based on the calculated parameters.
-     */
-    private Results calculateParallelism(Table table, Session session) {
-
-        // Total and parallelism level
-        long total = session.getScaling().getRowCount(table);
-        int parallelism = session.getParallelism();
-
-        // Row set size to be generated for each partition
-        long rowSetSize = total / parallelism;
-
-        // Special case: WEB_SITE table sometimes relies on the previous records, this could be a problem if the
-        // previous record is on a different thread. Since it's a small table, we'll generate it all on the first
-        // thread and let the other threads generate nothing
-        if (table.equals(Table.WEB_SITE)) {
-            if (session.getChunkNumber() - 1 == 0) {
-                return new Results(table, 1, total, session);
+            // If the value is null, no need to check for the column type
+            if (values.get(counter) == null) {
+                builder.append(",\"");
+                builder.append(table.getColumns()[counter].getName());
+                builder.append("\":");
+                builder.append(values.get(counter));
+                continue;
             }
-            // Don't generate anything on other partition (start > end)
-            else {
-                return new Results(table, 2, 1, session);
+
+            String fieldName = table.getColumns()[counter].getName();
+            String stringValue = values.get(counter);
+
+            // Convert the value to the appropriate type based on the column type
+            switch (table.getColumns()[counter].getType().getBase()) {
+                case INTEGER:
+                    builder.append(",\"").append(fieldName).append("\":").append(Integer.valueOf(stringValue));
+                    break;
+                case DECIMAL:
+                    builder.append(",\"").append(fieldName).append("\":").append(Double.valueOf(stringValue));
+                    break;
+                // IDENTIFIER type could be any value, so we're taking it as a string
+                // DATE and TIME are not supported, they are stored as strings and can be modified with date functions
+                // CHAR and VARCHAR are handled as strings
+                // any other type (default case) is handled as a string value
+                case IDENTIFIER:
+                case DATE:
+                case TIME:
+                case CHAR:
+                case VARCHAR:
+                default:
+                    builder.append(",\"").append(fieldName).append("\":\"").append(stringValue).append("\"");
+                    break;
             }
         }
 
-        // Special case: For very small tables, if the rowSetSize ends up being 1, this will cause an issue in the
-        // parallelism, so we'll just let the first thread do all the work
-        if (rowSetSize == 1) {
-            if (session.getChunkNumber() - 1 == 0) {
-                return new Results(table, 1, total, session);
-            }
-            // Don't generate anything on other partition (start > end)
-            else {
-                return new Results(table, 2, 1, session);
-            }
-        }
-
-        // Start and end calculated for each partition
-        long startRow = (session.getChunkNumber() - 1) * rowSetSize + 1;
-        long rowCount = startRow + rowSetSize - 1;
-
-        // Any extra rows (not evenly divided) will be done by the last partition
-        if (session.getChunkNumber() == parallelism) {
-            rowCount += total % parallelism;
-        }
-
-        return new Results(table, startRow, rowCount, session);
-    }
-
-    /**
-     * Gets the function identifier
-     *
-     * @return function identifier
-     */
-    private FunctionIdentifier getFunctionIdentifier() {
-        return functionIdentifier;
+        builder.append("}");
     }
 }

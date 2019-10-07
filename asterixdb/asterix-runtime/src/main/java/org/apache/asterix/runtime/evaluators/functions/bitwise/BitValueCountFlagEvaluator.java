@@ -22,6 +22,7 @@ package org.apache.asterix.runtime.evaluators.functions.bitwise;
 import org.apache.asterix.dataflow.data.nontagged.serde.ABooleanSerializerDeserializer;
 import org.apache.asterix.formats.nontagged.SerializerDeserializerProvider;
 import org.apache.asterix.om.base.AMutableInt64;
+import org.apache.asterix.om.exceptions.ExceptionUtil;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.EnumDeserializer;
@@ -29,9 +30,9 @@ import org.apache.asterix.om.types.hierachy.ATypeHierarchy;
 import org.apache.asterix.runtime.evaluators.functions.AbstractScalarEval;
 import org.apache.asterix.runtime.evaluators.functions.PointableHelper;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
+import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
-import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.SourceLocation;
@@ -78,9 +79,13 @@ class BitValueCountFlagEvaluator extends AbstractScalarEval {
     private final ISerializerDeserializer aInt64Serde =
             SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.AINT64);
 
-    BitValueCountFlagEvaluator(IHyracksTaskContext context, IScalarEvaluatorFactory[] argEvaluatorFactories,
+    private final IEvaluatorContext context;
+
+    BitValueCountFlagEvaluator(IEvaluatorContext context, IScalarEvaluatorFactory[] argEvaluatorFactories,
             FunctionIdentifier functionIdentifier, SourceLocation sourceLocation) throws HyracksDataException {
         super(sourceLocation, functionIdentifier);
+
+        this.context = context;
 
         // Evaluator
         valueEvaluator = argEvaluatorFactories[0].createScalarEvaluator(context);
@@ -111,6 +116,8 @@ class BitValueCountFlagEvaluator extends AbstractScalarEval {
 
         // Type and value validity check
         if (!PointableHelper.isValidLongValue(valueBytes, valueStartOffset, true)) {
+            ExceptionUtil.warnTypeMismatch(context, sourceLoc, functionIdentifier, valueBytes[valueStartOffset], 0,
+                    ATypeTag.BIGINT);
             PointableHelper.setNull(result);
             return;
         }
@@ -121,6 +128,8 @@ class BitValueCountFlagEvaluator extends AbstractScalarEval {
 
         // Type and Value validity check
         if (!PointableHelper.isValidLongValue(countBytes, countStartOffset, true)) {
+            ExceptionUtil.warnTypeMismatch(context, sourceLoc, functionIdentifier, countBytes[countStartOffset], 1,
+                    ATypeTag.BIGINT);
             PointableHelper.setNull(result);
             return;
         }
@@ -133,6 +142,8 @@ class BitValueCountFlagEvaluator extends AbstractScalarEval {
             ATypeTag flagTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(flagBytes[flagStartOffset]);
 
             if (flagTypeTag != ATypeTag.BOOLEAN) {
+                ExceptionUtil.warnTypeMismatch(context, sourceLoc, functionIdentifier, flagBytes[flagStartOffset], 2,
+                        ATypeTag.BOOLEAN);
                 PointableHelper.setNull(result);
                 return;
             }
@@ -157,7 +168,7 @@ class BitValueCountFlagEvaluator extends AbstractScalarEval {
 
         if (count < 0) {
             if (isRotate) {
-                longValue = Long.rotateRight(longValue, (int) Math.abs((count % -64)));
+                longValue = Long.rotateRight(longValue, (int) Math.abs(count % -64));
             } else {
                 longValue = longValue >> Math.abs(count);
             }

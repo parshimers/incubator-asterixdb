@@ -23,19 +23,17 @@ import java.io.DataOutput;
 import java.io.IOException;
 
 import org.apache.asterix.common.annotations.MissingNullInOutFunction;
-import org.apache.asterix.common.exceptions.ErrorCode;
-import org.apache.asterix.common.exceptions.RuntimeDataException;
+import org.apache.asterix.om.base.AMutableInt32;
+import org.apache.asterix.om.exceptions.ExceptionUtil;
 import org.apache.asterix.om.functions.BuiltinFunctions;
-import org.apache.asterix.om.functions.IFunctionDescriptor;
 import org.apache.asterix.om.functions.IFunctionDescriptorFactory;
 import org.apache.asterix.om.types.ATypeTag;
-import org.apache.asterix.om.types.hierachy.ATypeHierarchy;
 import org.apache.asterix.runtime.evaluators.base.AbstractScalarFunctionDynamicDescriptor;
-import org.apache.asterix.runtime.exceptions.TypeMismatchException;
+import org.apache.asterix.runtime.evaluators.common.ArgumentUtils;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
+import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
-import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.data.std.primitive.VoidPointable;
@@ -46,12 +44,7 @@ import org.apache.hyracks.util.string.UTF8StringUtil;
 @MissingNullInOutFunction
 public class StringRepeatDescriptor extends AbstractScalarFunctionDynamicDescriptor {
     private static final long serialVersionUID = 1L;
-    public static final IFunctionDescriptorFactory FACTORY = new IFunctionDescriptorFactory() {
-        @Override
-        public IFunctionDescriptor createFunctionDescriptor() {
-            return new StringRepeatDescriptor();
-        }
-    };
+    public static final IFunctionDescriptorFactory FACTORY = StringRepeatDescriptor::new;
 
     @Override
     public IScalarEvaluatorFactory createEvaluatorFactory(final IScalarEvaluatorFactory[] args) {
@@ -59,7 +52,7 @@ public class StringRepeatDescriptor extends AbstractScalarFunctionDynamicDescrip
             private static final long serialVersionUID = 1L;
 
             @Override
-            public IScalarEvaluator createScalarEvaluator(final IHyracksTaskContext ctx) throws HyracksDataException {
+            public IScalarEvaluator createScalarEvaluator(final IEvaluatorContext ctx) throws HyracksDataException {
                 return new IScalarEvaluator() {
                     // Argument evaluators.
                     private IScalarEvaluator evalString = args[0].createScalarEvaluator(ctx);
@@ -68,6 +61,7 @@ public class StringRepeatDescriptor extends AbstractScalarFunctionDynamicDescrip
                     // Argument pointers.
                     private IPointable argString = new VoidPointable();
                     private IPointable argNumber = new VoidPointable();
+                    private final AMutableInt32 mutableInt = new AMutableInt32(0);
 
                     // For outputting the result.
                     private ArrayBackedValueStorage resultStorage = new ArrayBackedValueStorage();
@@ -89,12 +83,17 @@ public class StringRepeatDescriptor extends AbstractScalarFunctionDynamicDescrip
                         // Gets the repeating times.
                         byte[] bytes = argNumber.getByteArray();
                         int offset = argNumber.getStartOffset();
-                        int repeatingTimes =
-                                ATypeHierarchy.getIntegerValue(getIdentifier().getName(), 1, bytes, offset);
+                        if (!ArgumentUtils.checkWarnOrSetInteger(ctx, sourceLoc, getIdentifier(), 1, bytes, offset,
+                                mutableInt)) {
+                            PointableHelper.setNull(result);
+                            return;
+                        }
+                        int repeatingTimes = mutableInt.getIntegerValue();
                         // Checks repeatingTimes. It should be a non-negative value.
                         if (repeatingTimes < 0) {
-                            throw new RuntimeDataException(ErrorCode.NEGATIVE_VALUE, sourceLoc,
-                                    getIdentifier().getName(), 1, repeatingTimes);
+                            PointableHelper.setNull(result);
+                            ExceptionUtil.warnNegativeValue(ctx, sourceLoc, getIdentifier(), 1, repeatingTimes);
+                            return;
                         }
 
                         // Gets the input string.
@@ -102,8 +101,10 @@ public class StringRepeatDescriptor extends AbstractScalarFunctionDynamicDescrip
                         offset = argString.getStartOffset();
                         // Checks the type of the string argument.
                         if (bytes[offset] != ATypeTag.SERIALIZED_STRING_TYPE_TAG) {
-                            throw new TypeMismatchException(sourceLoc, getIdentifier(), 0, bytes[offset],
-                                    ATypeTag.SERIALIZED_STRING_TYPE_TAG);
+                            PointableHelper.setNull(result);
+                            ExceptionUtil.warnTypeMismatch(ctx, sourceLoc, getIdentifier(), bytes[offset], 0,
+                                    ATypeTag.STRING);
+                            return;
                         }
 
                         // Calculates the result string length.
@@ -133,5 +134,4 @@ public class StringRepeatDescriptor extends AbstractScalarFunctionDynamicDescrip
     public FunctionIdentifier getIdentifier() {
         return BuiltinFunctions.STRING_REPEAT;
     }
-
 }

@@ -19,17 +19,15 @@
 
 package org.apache.asterix.om.typecomputer.impl;
 
-import org.apache.asterix.common.exceptions.CompilationException;
-import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.om.typecomputer.base.AbstractResultTypeComputer;
 import org.apache.asterix.om.types.AOrderedListType;
 import org.apache.asterix.om.types.ATypeTag;
+import org.apache.asterix.om.types.AUnionType;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.types.hierachy.ATypeHierarchy;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.core.algebra.base.ILogicalExpression;
-import org.apache.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression;
 
 public class ArrayRangeTypeComputer extends AbstractResultTypeComputer {
 
@@ -42,11 +40,6 @@ public class ArrayRangeTypeComputer extends AbstractResultTypeComputer {
 
     @Override
     protected IAType getResultType(ILogicalExpression expr, IAType... strippedInputTypes) throws AlgebricksException {
-        if (strippedInputTypes.length != 2 && strippedInputTypes.length != 3) {
-            String functionName = ((AbstractFunctionCallExpression) expr).getFunctionIdentifier().getName();
-            throw new CompilationException(ErrorCode.COMPILATION_INVALID_NUM_OF_ARGS, expr.getSourceLocation(),
-                    functionName);
-        }
         IAType startNum = strippedInputTypes[0];
         IAType endNum = strippedInputTypes[1];
         IAType step = strippedInputTypes.length == 3 ? strippedInputTypes[2] : null;
@@ -57,7 +50,8 @@ public class ArrayRangeTypeComputer extends AbstractResultTypeComputer {
         } else if (ATypeHierarchy.canPromote(startNum.getTypeTag(), ATypeTag.DOUBLE)
                 && ATypeHierarchy.canPromote(endNum.getTypeTag(), ATypeTag.DOUBLE)
                 && (step == null || ATypeHierarchy.canPromote(step.getTypeTag(), ATypeTag.DOUBLE))) {
-            return DOUBLE_LIST;
+            // even if the args types are valid, range function might return NULL if the doubles turn out to be Nan/Inf
+            return AUnionType.createNullableType(DOUBLE_LIST);
         } else {
             return BuiltinType.ANY;
         }

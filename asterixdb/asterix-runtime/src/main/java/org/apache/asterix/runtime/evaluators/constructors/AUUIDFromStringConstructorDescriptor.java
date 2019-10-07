@@ -19,25 +19,22 @@
 package org.apache.asterix.runtime.evaluators.constructors;
 
 import java.io.DataOutput;
-import java.io.IOException;
 
 import org.apache.asterix.common.annotations.MissingNullInOutFunction;
 import org.apache.asterix.formats.nontagged.SerializerDeserializerProvider;
 import org.apache.asterix.om.base.AMutableUUID;
 import org.apache.asterix.om.base.AUUID;
 import org.apache.asterix.om.functions.BuiltinFunctions;
-import org.apache.asterix.om.functions.IFunctionDescriptor;
 import org.apache.asterix.om.functions.IFunctionDescriptorFactory;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.runtime.evaluators.base.AbstractScalarFunctionDynamicDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.PointableHelper;
-import org.apache.asterix.runtime.exceptions.InvalidDataFormatException;
 import org.apache.asterix.runtime.exceptions.TypeMismatchException;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
+import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
-import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IPointable;
@@ -55,12 +52,7 @@ import org.apache.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 @MissingNullInOutFunction
 public class AUUIDFromStringConstructorDescriptor extends AbstractScalarFunctionDynamicDescriptor {
     private static final long serialVersionUID = 1L;
-    public static final IFunctionDescriptorFactory FACTORY = new IFunctionDescriptorFactory() {
-        @Override
-        public IFunctionDescriptor createFunctionDescriptor() {
-            return new AUUIDFromStringConstructorDescriptor();
-        }
-    };
+    public static final IFunctionDescriptorFactory FACTORY = AUUIDFromStringConstructorDescriptor::new;
 
     @Override
     public IScalarEvaluatorFactory createEvaluatorFactory(final IScalarEvaluatorFactory[] args) {
@@ -68,7 +60,7 @@ public class AUUIDFromStringConstructorDescriptor extends AbstractScalarFunction
             private static final long serialVersionUID = 1L;
 
             @Override
-            public IScalarEvaluator createScalarEvaluator(IHyracksTaskContext ctx) throws HyracksDataException {
+            public IScalarEvaluator createScalarEvaluator(IEvaluatorContext ctx) throws HyracksDataException {
                 return new IScalarEvaluator() {
 
                     private ArrayBackedValueStorage resultStorage = new ArrayBackedValueStorage();
@@ -111,15 +103,13 @@ public class AUUIDFromStringConstructorDescriptor extends AbstractScalarFunction
                                 throw new TypeMismatchException(sourceLoc, getIdentifier(), 0, tt,
                                         ATypeTag.SERIALIZED_STRING_TYPE_TAG);
                             }
-                        } catch (IOException e) {
-                            throw new InvalidDataFormatException(sourceLoc, getIdentifier(), e,
-                                    ATypeTag.SERIALIZED_UUID_TYPE_TAG);
+                        } catch (HyracksDataException e) {
+                            e.setSourceLocation(sourceLoc);
+                            throw e;
                         }
                     }
-
                 };
             }
-
         };
     }
 

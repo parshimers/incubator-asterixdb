@@ -38,7 +38,7 @@ public class TransactionProperties extends AbstractProperties {
     public enum Option implements IOption {
         TXN_DATASET_CHECKPOINT_INTERVAL(
                 POSITIVE_INTEGER,
-                (int) TimeUnit.MINUTES.toSeconds(10),
+                (int) TimeUnit.MINUTES.toSeconds(60),
                 "The interval (in seconds) after which a dataset is considered idle and persisted to disk"),
         TXN_LOG_BUFFER_NUMPAGES(POSITIVE_INTEGER, 8, "The number of pages in the transaction log tail"),
         TXN_LOG_BUFFER_PAGESIZE(
@@ -59,7 +59,7 @@ public class TransactionProperties extends AbstractProperties {
                 120,
                 "The frequency (in seconds) the checkpoint thread should check to see if a checkpoint should be "
                         + "written"),
-        TXN_LOG_CHECKPOINT_HISTORY(UNSIGNED_INTEGER, 0, "The number of checkpoints to keep in the transaction log"),
+        TXN_LOG_CHECKPOINT_HISTORY(UNSIGNED_INTEGER, 2, "The number of checkpoints to keep in the transaction log"),
         TXN_LOCK_ESCALATIONTHRESHOLD(
                 UNSIGNED_INTEGER,
                 1000,

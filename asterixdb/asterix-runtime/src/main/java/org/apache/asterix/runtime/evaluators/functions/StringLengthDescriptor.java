@@ -25,17 +25,17 @@ import org.apache.asterix.common.annotations.MissingNullInOutFunction;
 import org.apache.asterix.formats.nontagged.SerializerDeserializerProvider;
 import org.apache.asterix.om.base.AInt64;
 import org.apache.asterix.om.base.AMutableInt64;
+import org.apache.asterix.om.exceptions.ExceptionUtil;
 import org.apache.asterix.om.functions.BuiltinFunctions;
 import org.apache.asterix.om.functions.IFunctionDescriptor;
 import org.apache.asterix.om.functions.IFunctionDescriptorFactory;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.runtime.evaluators.base.AbstractScalarFunctionDynamicDescriptor;
-import org.apache.asterix.runtime.exceptions.TypeMismatchException;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
+import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
-import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IPointable;
@@ -60,7 +60,7 @@ public class StringLengthDescriptor extends AbstractScalarFunctionDynamicDescrip
             private static final long serialVersionUID = 1L;
 
             @Override
-            public IScalarEvaluator createScalarEvaluator(final IHyracksTaskContext ctx) throws HyracksDataException {
+            public IScalarEvaluator createScalarEvaluator(final IEvaluatorContext ctx) throws HyracksDataException {
                 return new IScalarEvaluator() {
                     private AMutableInt64 result = new AMutableInt64(0);
                     private ArrayBackedValueStorage resultStorage = new ArrayBackedValueStorage();
@@ -85,14 +85,15 @@ public class StringLengthDescriptor extends AbstractScalarFunctionDynamicDescrip
                             byte[] serString = inputArg.getByteArray();
                             int offset = inputArg.getStartOffset();
 
-                            if (serString[offset] == ATypeTag.SERIALIZED_STRING_TYPE_TAG) {
-                                int len = UTF8StringUtil.getUTFLength(serString, offset + 1);
-                                result.setValue(len);
-                                int64Serde.serialize(result, out);
-                            } else {
-                                throw new TypeMismatchException(sourceLoc, getIdentifier(), 0, serString[offset],
-                                        ATypeTag.SERIALIZED_STRING_TYPE_TAG);
+                            if (serString[offset] != ATypeTag.SERIALIZED_STRING_TYPE_TAG) {
+                                PointableHelper.setNull(resultPointable);
+                                ExceptionUtil.warnTypeMismatch(ctx, sourceLoc, getIdentifier(), serString[offset], 0,
+                                        ATypeTag.STRING);
+                                return;
                             }
+                            int len = UTF8StringUtil.getUTFLength(serString, offset + 1);
+                            result.setValue(len);
+                            int64Serde.serialize(result, out);
                             resultPointable.set(resultStorage);
                         } catch (IOException e1) {
                             throw HyracksDataException.create(e1);
@@ -107,5 +108,4 @@ public class StringLengthDescriptor extends AbstractScalarFunctionDynamicDescrip
     public FunctionIdentifier getIdentifier() {
         return BuiltinFunctions.STRING_LENGTH;
     }
-
 }

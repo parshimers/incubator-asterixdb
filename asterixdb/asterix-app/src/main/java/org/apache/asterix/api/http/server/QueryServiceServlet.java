@@ -45,19 +45,21 @@ import java.util.function.Function;
 import org.apache.asterix.algebra.base.ILangExtension;
 import org.apache.asterix.app.result.ExecutionError;
 import org.apache.asterix.app.result.ExecutionWarning;
-import org.apache.asterix.app.result.ResponseMertics;
+import org.apache.asterix.app.result.ResponseMetrics;
 import org.apache.asterix.app.result.ResponsePrinter;
 import org.apache.asterix.app.result.fields.ClientContextIdPrinter;
 import org.apache.asterix.app.result.fields.ErrorsPrinter;
 import org.apache.asterix.app.result.fields.MetricsPrinter;
 import org.apache.asterix.app.result.fields.ParseOnlyResultPrinter;
 import org.apache.asterix.app.result.fields.PlansPrinter;
+import org.apache.asterix.app.result.fields.ProfilePrinter;
 import org.apache.asterix.app.result.fields.RequestIdPrinter;
 import org.apache.asterix.app.result.fields.SignaturePrinter;
 import org.apache.asterix.app.result.fields.StatusPrinter;
 import org.apache.asterix.app.result.fields.TypePrinter;
 import org.apache.asterix.app.result.fields.WarningsPrinter;
 import org.apache.asterix.app.translator.QueryTranslator;
+import org.apache.asterix.app.translator.RequestParameters;
 import org.apache.asterix.common.api.IApplicationContext;
 import org.apache.asterix.common.api.IClusterManagementWork;
 import org.apache.asterix.common.api.ICodedMessage;
@@ -67,7 +69,6 @@ import org.apache.asterix.common.config.GlobalConfig;
 import org.apache.asterix.common.context.IStorageComponentProvider;
 import org.apache.asterix.common.dataflow.ICcApplicationContext;
 import org.apache.asterix.common.exceptions.CompilationException;
-import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.compiler.provider.ILangCompilationProvider;
 import org.apache.asterix.lang.aql.parser.TokenMgrError;
@@ -168,9 +169,12 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
         LOGICAL_PLAN("logical-plan"),
         OPTIMIZED_LOGICAL_PLAN("optimized-logical-plan"),
         PARSE_ONLY("parse-only"),
+        READ_ONLY("readonly"),
         JOB("job"),
+        PROFILE("profile"),
         SIGNATURE("signature"),
-        MULTI_STATEMENT("multi-statement");
+        MULTI_STATEMENT("multi-statement"),
+        MAX_WARNINGS("max-warnings");
 
         private final String str;
 
@@ -302,13 +306,23 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
         return value != null ? value.asBoolean() : defaultValue;
     }
 
-    protected String getParameter(IServletRequest request, Parameter parameter) {
-        return request.getParameter(parameter.str());
+    protected long getOptLong(JsonNode node, Parameter parameter, long defaultValue) {
+        final JsonNode value = node.get(parameter.str);
+        return value != null ? Integer.parseInt(value.asText()) : defaultValue;
+    }
+
+    protected long getOptLong(IServletRequest request, Parameter parameter, long defaultValue) {
+        String value = getParameter(request, parameter);
+        return value == null ? defaultValue : Integer.parseInt(value);
     }
 
     protected boolean getOptBoolean(IServletRequest request, Parameter parameter, boolean defaultValue) {
-        String value = request.getParameter(parameter.str());
+        String value = getParameter(request, parameter);
         return value == null ? defaultValue : Boolean.parseBoolean(value);
+    }
+
+    protected String getParameter(IServletRequest request, Parameter parameter) {
+        return request.getParameter(parameter.str());
     }
 
     @FunctionalInterface
@@ -378,12 +392,16 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
         param.setRewrittenExpressionTree(getOptBoolean(jsonRequest, Parameter.REWRITTEN_EXPRESSION_TREE, false));
         param.setLogicalPlan(getOptBoolean(jsonRequest, Parameter.LOGICAL_PLAN, false));
         param.setParseOnly(getOptBoolean(jsonRequest, Parameter.PARSE_ONLY, false));
+        param.setReadOnly(getOptBoolean(jsonRequest, Parameter.READ_ONLY, false));
         param.setOptimizedLogicalPlan(getOptBoolean(jsonRequest, Parameter.OPTIMIZED_LOGICAL_PLAN, false));
         param.setJob(getOptBoolean(jsonRequest, Parameter.JOB, false));
+        param.setProfile(getOptBoolean(jsonRequest, Parameter.PROFILE, false));
         param.setSignature(getOptBoolean(jsonRequest, Parameter.SIGNATURE, true));
         param.setStatementParams(
                 getOptStatementParameters(jsonRequest, jsonRequest.fieldNames(), JsonNode::get, v -> v));
         param.setMultiStatement(getOptBoolean(jsonRequest, Parameter.MULTI_STATEMENT, true));
+        param.setMaxWarnings(
+                getOptLong(jsonRequest, Parameter.MAX_WARNINGS, QueryServiceRequestParameters.DEFAULT_MAX_WARNINGS));
         setJsonOptionalParameters(jsonRequest, param, optionalParameters);
     }
 
@@ -402,8 +420,18 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
         param.setTimeout(getParameter(request, Parameter.TIMEOUT));
         param.setMaxResultReads(getParameter(request, Parameter.MAX_RESULT_READS));
         param.setPlanFormat(getParameter(request, Parameter.PLAN_FORMAT));
+        param.setExpressionTree(getOptBoolean(request, Parameter.EXPRESSION_TREE, false));
+        param.setRewrittenExpressionTree(getOptBoolean(request, Parameter.REWRITTEN_EXPRESSION_TREE, false));
+        param.setLogicalPlan(getOptBoolean(request, Parameter.LOGICAL_PLAN, false));
         param.setParseOnly(getOptBoolean(request, Parameter.PARSE_ONLY, false));
+        param.setReadOnly(getOptBoolean(request, Parameter.READ_ONLY, false));
+        param.setOptimizedLogicalPlan(getOptBoolean(request, Parameter.OPTIMIZED_LOGICAL_PLAN, false));
+        param.setJob(getOptBoolean(request, Parameter.JOB, false));
+        param.setProfile(getOptBoolean(request, Parameter.PROFILE, false));
+        param.setSignature(getOptBoolean(request, Parameter.SIGNATURE, true));
         param.setMultiStatement(getOptBoolean(request, Parameter.MULTI_STATEMENT, true));
+        param.setMaxWarnings(
+                getOptLong(request, Parameter.MAX_WARNINGS, QueryServiceRequestParameters.DEFAULT_MAX_WARNINGS));
         try {
             param.setStatementParams(getOptStatementParameters(request, request.getParameterNames().iterator(),
                     IServletRequest::getParameter, OBJECT_MAPPER::readTree));
@@ -505,6 +533,7 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
                         .serializeParameterValues(param.getStatementParams());
                 setAccessControlHeaders(request, response);
                 response.setStatus(execution.getHttpStatus());
+                stats.setType(param.isProfile() ? Stats.ProfileType.FULL : Stats.ProfileType.COUNTS);
                 executeStatement(requestRef, statementsText, sessionOutput, resultProperties, stats, param, execution,
                         optionalParams, statementParams, responsePrinter, warnings);
             }
@@ -517,8 +546,7 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
             execution.finish();
         }
         responsePrinter.printResults();
-        buildResponseFooters(elapsedStart, errorCount, stats, execution, warnings, resultCharset, responsePrinter,
-                delivery);
+        buildResponseFooters(elapsedStart, errorCount, stats, execution, resultCharset, responsePrinter, delivery);
         responsePrinter.printFooters();
         responsePrinter.end();
         if (sessionOutput.out().checkError()) {
@@ -552,20 +580,24 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
     }
 
     protected void buildResponseFooters(long elapsedStart, long errorCount, Stats stats,
-            RequestExecutionState execution, List<Warning> warnings, Charset resultCharset,
-            ResponsePrinter responsePrinter, ResultDelivery delivery) {
+            RequestExecutionState execution, Charset resultCharset, ResponsePrinter responsePrinter,
+            ResultDelivery delivery) {
         if (ResultDelivery.ASYNC != delivery) {
             // in case of ASYNC delivery, the status is printed by query translator
             responsePrinter.addFooterPrinter(new StatusPrinter(execution.getResultStatus()));
         }
-        final ResponseMertics mertics = ResponseMertics.of(System.nanoTime() - elapsedStart, execution.duration(),
-                stats.getCount(), stats.getSize(), stats.getProcessedObjects(), errorCount, warnings.size());
-        responsePrinter.addFooterPrinter(new MetricsPrinter(mertics, resultCharset));
+        final ResponseMetrics metrics = ResponseMetrics.of(System.nanoTime() - elapsedStart, execution.duration(),
+                stats.getCount(), stats.getSize(), stats.getProcessedObjects(), errorCount,
+                stats.getTotalWarningsCount(), stats.getDiskIoCount());
+        responsePrinter.addFooterPrinter(new MetricsPrinter(metrics, resultCharset));
+        if (isPrintingProfile(stats)) {
+            responsePrinter.addFooterPrinter(new ProfilePrinter(stats.getJobProfile()));
+        }
     }
 
     protected void validateStatement(String statement) throws RuntimeDataException {
         if (statement == null || statement.isEmpty()) {
-            throw new RuntimeDataException(ErrorCode.NO_STATEMENT_PROVIDED);
+            throw new RuntimeDataException(NO_STATEMENT_PROVIDED);
         }
     }
 
@@ -573,12 +605,11 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
         IParserFactory factory = compilationProvider.getParserFactory();
         IParser parser = factory.createParser(statementsText);
         List<Statement> stmts = parser.parse();
-        QueryTranslator.validateStatements(stmts);
+        QueryTranslator.validateStatements(stmts, true, RequestParameters.NO_CATEGORY_RESTRICTION_MASK);
         Query query = (Query) stmts.get(stmts.size() - 1);
         Set<VariableExpr> extVars =
                 compilationProvider.getRewriterFactory().createQueryRewriter().getExternalVariables(query.getBody());
-        ResultUtil.ParseOnlyResult parseOnlyResult = new ResultUtil.ParseOnlyResult(extVars);
-        return parseOnlyResult;
+        return new ResultUtil.ParseOnlyResult(extVars);
     }
 
     protected void executeStatement(IRequestReference requestReference, String statementsText,
@@ -594,19 +625,24 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
         }
         IParser parser = compilationProvider.getParserFactory().createParser(statementsText);
         List<Statement> statements = parser.parse();
-        parser.getWarnings(warnings);
+        long maxWarnings = sessionOutput.config().getMaxWarnings();
+        parser.getWarnings(warnings, maxWarnings);
+        long parserTotalWarningsCount = parser.getTotalWarningsCount();
         MetadataManager.INSTANCE.init();
         IStatementExecutor translator = statementExecutorFactory.create((ICcApplicationContext) appCtx, statements,
                 sessionOutput, compilationProvider, componentProvider, responsePrinter);
         execution.start();
         Map<String, IAObject> stmtParams =
                 org.apache.asterix.app.translator.RequestParameters.deserializeParameterValues(statementParameters);
+        int stmtCategoryRestriction = org.apache.asterix.app.translator.RequestParameters
+                .getStatementCategoryRestrictionMask(param.isReadOnly());
         IRequestParameters requestParameters = new org.apache.asterix.app.translator.RequestParameters(requestReference,
                 statementsText, getResultSet(), resultProperties, stats, null, param.getClientContextID(),
-                optionalParameters, stmtParams, param.isMultiStatement());
+                optionalParameters, stmtParams, param.isMultiStatement(), stmtCategoryRestriction);
         translator.compileAndExecute(getHyracksClientConnection(), requestParameters);
         execution.end();
-        translator.getWarnings(warnings);
+        translator.getWarnings(warnings, maxWarnings - warnings.size());
+        stats.updateTotalWarningsCount(parserTotalWarningsCount);
         buildResponseResults(responsePrinter, sessionOutput, translator.getExecutionPlans(), warnings);
     }
 
@@ -662,6 +698,7 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
                 SessionConfig.PlanFormat.JSON, LOGGER);
         sessionConfig.setFmt(format);
         sessionConfig.setPlanFormat(planFormat);
+        sessionConfig.setMaxWarnings(param.getMaxWarnings());
         sessionConfig.set(SessionConfig.FORMAT_WRAPPER_ARRAY, true);
         sessionConfig.set(SessionConfig.OOB_EXPR_TREE, param.isExpressionTree());
         sessionConfig.set(SessionConfig.OOB_REWRITTEN_EXPR_TREE, param.isRewrittenExpressionTree());
@@ -691,10 +728,9 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
 
     public static String extractStatementParameterName(String name) {
         int ln = name.length();
-        if (ln > 1 && name.charAt(0) == '$' && Character.isLetter(name.charAt(1))) {
-            if (ln == 2 || isStatementParameterNameRest(name, 2)) {
-                return name.substring(1);
-            }
+        if ((ln == 2 || isStatementParameterNameRest(name, 2)) && name.charAt(0) == '$'
+                && Character.isLetter(name.charAt(1))) {
+            return name.substring(1);
         }
         return null;
     }
@@ -709,5 +745,9 @@ public class QueryServiceServlet extends AbstractQueryApiServlet {
             }
         }
         return i > startIndex;
+    }
+
+    private static boolean isPrintingProfile(IStatementExecutor.Stats stats) {
+        return stats.getType() == Stats.ProfileType.FULL && stats.getJobProfile() != null;
     }
 }

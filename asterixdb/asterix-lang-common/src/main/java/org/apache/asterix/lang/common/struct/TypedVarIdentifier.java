@@ -24,15 +24,13 @@ public class TypedVarIdentifier extends VarIdentifier {
     TypeExpression type;
 
     public TypedVarIdentifier(int id, String value, TypeExpression type) {
-        this.id = id;
-        this.type = type;
+        super(value,id);
         this.value = value;
     }
 
     public TypedVarIdentifier(String value, TypeExpression type) {
-        this.id = 0;
+        super(value);
         this.type = type;
-        this.value = value;
     }
 
     public void setType(TypeExpression type) {

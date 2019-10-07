@@ -30,9 +30,9 @@ import org.apache.asterix.external.api.IFunctionHelper;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
+import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
-import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.data.std.primitive.VoidPointable;
@@ -52,7 +52,7 @@ public abstract class ExternalFunction implements IExternalFunction {
     protected final IAType[] argTypes;
 
     public ExternalFunction(IExternalFunctionInfo finfo, IScalarEvaluatorFactory args[], IAType[] argTypes,
-            IHyracksTaskContext context, IApplicationContext appCtx) throws HyracksDataException {
+            IEvaluatorContext context, IApplicationContext appCtx) throws HyracksDataException {
         this.finfo = finfo;
         this.evaluatorFactories = args;
         this.argTypes = argTypes;

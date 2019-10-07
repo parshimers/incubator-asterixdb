@@ -26,9 +26,9 @@ import org.apache.asterix.external.api.IExternalScalarFunction;
 import org.apache.asterix.external.api.IFunctionHelper;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
 import org.apache.asterix.om.types.IAType;
+import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
-import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
@@ -36,7 +36,7 @@ import org.apache.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 public class ExternalFunctionProvider {
 
     public static IExternalFunction getExternalFunctionEvaluator(IExternalFunctionInfo finfo,
-            IScalarEvaluatorFactory[] args, IAType[] argTypes, IHyracksTaskContext context, IApplicationContext appCtx)
+            IScalarEvaluatorFactory[] args, IAType[] argTypes, IEvaluatorContext context, IApplicationContext appCtx)
             throws HyracksDataException {
         switch (finfo.getKind()) {
             case SCALAR:
@@ -53,7 +53,7 @@ public class ExternalFunctionProvider {
 class ExternalScalarFunction extends ExternalFunction implements IExternalScalarFunction, IScalarEvaluator {
 
     public ExternalScalarFunction(IExternalFunctionInfo finfo, IScalarEvaluatorFactory[] args, IAType[] argTypes,
-            IHyracksTaskContext context, IApplicationContext appCtx) throws HyracksDataException {
+            IEvaluatorContext context, IApplicationContext appCtx) throws HyracksDataException {
         super(finfo, args, argTypes, context, appCtx);
         try {
             initialize(functionHelper);

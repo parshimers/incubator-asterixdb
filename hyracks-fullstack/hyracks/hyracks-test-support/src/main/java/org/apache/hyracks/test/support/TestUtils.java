@@ -37,6 +37,8 @@ import org.apache.hyracks.api.dataflow.OperatorDescriptorId;
 import org.apache.hyracks.api.dataflow.TaskAttemptId;
 import org.apache.hyracks.api.dataflow.TaskId;
 import org.apache.hyracks.api.exceptions.HyracksException;
+import org.apache.hyracks.api.exceptions.IWarningCollector;
+import org.apache.hyracks.api.exceptions.Warning;
 import org.apache.hyracks.api.io.IODeviceHandle;
 import org.apache.hyracks.api.job.JobId;
 import org.apache.hyracks.api.util.CleanupUtils;
@@ -48,6 +50,24 @@ import org.apache.logging.log4j.core.appender.ConsoleAppender;
 import org.apache.logging.log4j.core.config.Configuration;
 
 public class TestUtils {
+
+    public static final IWarningCollector NOOP_WARNING_COLLECTOR = new IWarningCollector() {
+        @Override
+        public void warn(Warning warning) {
+            // no-op
+        }
+
+        @Override
+        public boolean shouldWarn() {
+            return false;
+        }
+
+        @Override
+        public long getTotalWarningsCount() {
+            return 0;
+        }
+    };
+
     public static IHyracksTaskContext create(int frameSize) {
         IOManager ioManager = null;
         try {

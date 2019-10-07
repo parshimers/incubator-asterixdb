@@ -23,9 +23,6 @@ import java.util.Objects;
 public class VarIdentifier extends Identifier {
     protected int id = 0;
 
-    public VarIdentifier() {
-    }
-
     public VarIdentifier(VarIdentifier v) {
         this(v.getValue(), v.getId());
     }
@@ -35,7 +32,7 @@ public class VarIdentifier extends Identifier {
     }
 
     public VarIdentifier(String value, int id) {
-        this.value = value;
+        super(value);
         this.id = id;
     }
 
@@ -45,11 +42,6 @@ public class VarIdentifier extends Identifier {
 
     public int getId() {
         return id;
-    }
-
-    @Override
-    public VarIdentifier clone() {
-        return new VarIdentifier(value, id);
     }
 
     @Override

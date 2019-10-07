@@ -21,9 +21,12 @@ package org.apache.asterix.runtime.evaluators.functions.bitwise;
 
 import java.io.IOException;
 
+import org.apache.asterix.common.exceptions.ErrorCode;
+import org.apache.asterix.common.exceptions.WarningUtil;
 import org.apache.asterix.dataflow.data.nontagged.serde.ABooleanSerializerDeserializer;
 import org.apache.asterix.formats.nontagged.SerializerDeserializerProvider;
 import org.apache.asterix.om.base.ABoolean;
+import org.apache.asterix.om.exceptions.ExceptionUtil;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.EnumDeserializer;
@@ -32,11 +35,12 @@ import org.apache.asterix.runtime.evaluators.common.ListAccessor;
 import org.apache.asterix.runtime.evaluators.functions.AbstractScalarEval;
 import org.apache.asterix.runtime.evaluators.functions.PointableHelper;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
+import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
-import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.api.exceptions.IWarningCollector;
 import org.apache.hyracks.api.exceptions.SourceLocation;
 import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.data.std.primitive.VoidPointable;
@@ -82,7 +86,7 @@ class BitValuePositionFlagEvaluator extends AbstractScalarEval {
 
     // This flag has a special purpose. In some cases, when an array of positions is passed, checking
     // some arguments might be enough to return the final result, but, instead of stopping, we need to
-    // continue looping because if any value in array is invalid, we should return a null instead of
+    // continue looping because if any value in the positions array is invalid, we should return a null instead of
     // the boolean result, this flag will keep the loop going just for checking the values, while the
     // final result is already set previously.
     private boolean isStopUpdatingResultBoolean = false;
@@ -104,9 +108,15 @@ class BitValuePositionFlagEvaluator extends AbstractScalarEval {
     private final ISerializerDeserializer aBooleanSerde =
             SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.ABOOLEAN);
 
-    BitValuePositionFlagEvaluator(IHyracksTaskContext context, IScalarEvaluatorFactory[] argEvaluatorFactories,
+    private final IEvaluatorContext context;
+    private static final byte[] secondArgumentExpectedTypes =
+            new byte[] { ATypeTag.SERIALIZED_INT64_TYPE_TAG, ATypeTag.SERIALIZED_ORDEREDLIST_TYPE_TAG };
+
+    BitValuePositionFlagEvaluator(IEvaluatorContext context, IScalarEvaluatorFactory[] argEvaluatorFactories,
             FunctionIdentifier functionIdentifier, SourceLocation sourceLocation) throws HyracksDataException {
         super(sourceLocation, functionIdentifier);
+
+        this.context = context;
 
         // Evaluators
         valueEvaluator = argEvaluatorFactories[0].createScalarEvaluator(context);
@@ -121,7 +131,6 @@ class BitValuePositionFlagEvaluator extends AbstractScalarEval {
     @SuppressWarnings("unchecked")
     @Override
     public void evaluate(IFrameTupleReference tuple, IPointable result) throws HyracksDataException {
-
         valueEvaluator.evaluate(tuple, valuePointable);
         positionEvaluator.evaluate(tuple, positionPointable);
 
@@ -139,6 +148,8 @@ class BitValuePositionFlagEvaluator extends AbstractScalarEval {
 
         // Type and value validity check
         if (!PointableHelper.isValidLongValue(valueBytes, valueStartOffset, true)) {
+            ExceptionUtil.warnTypeMismatch(context, sourceLoc, functionIdentifier, valueBytes[valueStartOffset], 0,
+                    ATypeTag.BIGINT);
             PointableHelper.setNull(result);
             return;
         }
@@ -151,18 +162,23 @@ class BitValuePositionFlagEvaluator extends AbstractScalarEval {
 
         // Type validity check (for position argument, array is a valid type as well)
         if (!ATypeHierarchy.canPromote(positionTypeTag, ATypeTag.DOUBLE) && positionTypeTag != ATypeTag.ARRAY) {
+            ExceptionUtil.warnTypeMismatch(context, sourceLoc, functionIdentifier, positionBytes[positionStartOffset],
+                    1, secondArgumentExpectedTypes);
             PointableHelper.setNull(result);
             return;
         }
 
         // Third argument
         boolean isAllSet = false;
+        isStopUpdatingResultBoolean = false; // Reset the flag to false for each new tuple
         if (flagEvaluator != null) {
             byte[] flagBytes = flagPointable.getByteArray();
             int flagStartOffset = flagPointable.getStartOffset();
             ATypeTag flagTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(flagBytes[flagStartOffset]);
 
             if (flagTypeTag != ATypeTag.BOOLEAN) {
+                ExceptionUtil.warnTypeMismatch(context, sourceLoc, functionIdentifier, flagBytes[flagStartOffset], 2,
+                        ATypeTag.BOOLEAN);
                 PointableHelper.setNull(result);
                 return;
             }
@@ -255,6 +271,8 @@ class BitValuePositionFlagEvaluator extends AbstractScalarEval {
 
         // Value validity check
         if (!PointableHelper.isValidLongValue(bytes, startOffset, true)) {
+            ExceptionUtil.warnTypeMismatch(context, sourceLoc, functionIdentifier, bytes[startOffset], 1,
+                    ATypeTag.BIGINT);
             return false;
         }
 
@@ -262,6 +280,7 @@ class BitValuePositionFlagEvaluator extends AbstractScalarEval {
 
         // Ensure the position is between 1 and 64 (int64 has 64 bits)
         if (position < 1 || position > 64) {
+            handleOutOfRangeInput(1, 1, 64, position);
             return false;
         }
 
@@ -271,5 +290,13 @@ class BitValuePositionFlagEvaluator extends AbstractScalarEval {
         }
 
         return true;
+    }
+
+    private void handleOutOfRangeInput(int inputPosition, int startLimit, int endLimit, long actual) {
+        IWarningCollector warningCollector = context.getWarningCollector();
+        if (warningCollector.shouldWarn()) {
+            warningCollector.warn(WarningUtil.forAsterix(sourceLoc, ErrorCode.VALUE_OUT_OF_RANGE, functionIdentifier,
+                    ExceptionUtil.indexToPosition(inputPosition), startLimit, endLimit, actual));
+        }
     }
 }

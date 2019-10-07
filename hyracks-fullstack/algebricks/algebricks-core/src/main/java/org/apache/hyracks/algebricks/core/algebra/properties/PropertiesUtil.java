@@ -142,17 +142,20 @@ public class PropertiesUtil {
                             return (ud.getColumnSet().equals(ur.getColumnSet()));
                         }
                     }
+                    /*
+                    //TODO: revisit this once we start reasoning about different partitioning functions (hash vs range)
                     case ORDERED_PARTITIONED: {
                         UnorderedPartitionedProperty ur = (UnorderedPartitionedProperty) reqd;
                         OrderedPartitionedProperty od = (OrderedPartitionedProperty) dlvd;
+                        List<LogicalVariable> dlvdSortColumns = orderColumnsToVariables(od.getOrderColumns());
                         if (mayExpandProperties) {
-                            List<LogicalVariable> dlvdSortColumns = orderColumnsToVariables(od.getOrderColumns());
                             return isPrefixOf(dlvdSortColumns.iterator(), ur.getColumnSet().iterator());
                         } else {
-                            return ur.getColumnSet().containsAll(od.getOrderColumns())
-                                    && od.getOrderColumns().containsAll(ur.getColumnSet());
+                            return ur.getColumnSet().containsAll(dlvdSortColumns)
+                                    && dlvdSortColumns.containsAll(ur.getColumnSet());
                         }
                     }
+                    */
                     default: {
                         return false;
                     }
@@ -163,6 +166,10 @@ public class PropertiesUtil {
                     case ORDERED_PARTITIONED: {
                         OrderedPartitionedProperty or = (OrderedPartitionedProperty) reqd;
                         OrderedPartitionedProperty od = (OrderedPartitionedProperty) dlvd;
+                        //TODO: support non-null range maps
+                        if (or.getRangeMap() != null || od.getRangeMap() != null) {
+                            return false;
+                        }
                         if (mayExpandProperties) {
                             return isPrefixOf(od.getOrderColumns().iterator(), or.getOrderColumns().iterator());
                         } else {

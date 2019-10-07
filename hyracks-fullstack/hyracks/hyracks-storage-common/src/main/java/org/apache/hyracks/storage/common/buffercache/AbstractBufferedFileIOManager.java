@@ -26,6 +26,7 @@ import org.apache.hyracks.api.io.FileReference;
 import org.apache.hyracks.api.io.IFileHandle;
 import org.apache.hyracks.api.io.IIOManager;
 import org.apache.hyracks.api.util.IoUtil;
+import org.apache.hyracks.control.nc.io.IOManager;
 import org.apache.hyracks.storage.common.compression.file.CompressedFileReference;
 import org.apache.hyracks.storage.common.compression.file.ICompressedPageWriter;
 import org.apache.hyracks.util.annotations.NotThreadSafe;
@@ -42,7 +43,7 @@ public abstract class AbstractBufferedFileIOManager {
     protected final BufferCache bufferCache;
     protected final IPageReplacementStrategy pageReplacementStrategy;
     private final BlockingQueue<BufferCacheHeaderHelper> headerPageCache;
-    private final IIOManager ioManager;
+    private final IOManager ioManager;
 
     private IFileHandle fileHandle;
     private volatile boolean hasOpen;
@@ -50,7 +51,7 @@ public abstract class AbstractBufferedFileIOManager {
     protected AbstractBufferedFileIOManager(BufferCache bufferCache, IIOManager ioManager,
             BlockingQueue<BufferCacheHeaderHelper> headerPageCache, IPageReplacementStrategy pageReplacementStrategy) {
         this.bufferCache = bufferCache;
-        this.ioManager = ioManager;
+        this.ioManager = (IOManager) ioManager;
         this.headerPageCache = headerPageCache;
         this.pageReplacementStrategy = pageReplacementStrategy;
         hasOpen = false;
@@ -168,7 +169,7 @@ public abstract class AbstractBufferedFileIOManager {
      * Check whether the file has ever been opened
      *
      * @return
-     *         true if has ever been open, false o.w
+     *         true if has ever been opened, false otherwise
      */
     public final boolean hasBeenOpened() {
         return hasOpen;
@@ -185,7 +186,7 @@ public abstract class AbstractBufferedFileIOManager {
             try {
                 bufferCache.createFile(cFileRef.getLAFFileReference());
             } catch (HyracksDataException e) {
-                //In case of creating the LAF file failed, delete fileRef
+                //In case of creating the LAF file failed, delete index file reference
                 IoUtil.delete(fileRef);
                 throw e;
             }
@@ -193,12 +194,37 @@ public abstract class AbstractBufferedFileIOManager {
     }
 
     public static void deleteFile(FileReference fileRef) throws HyracksDataException {
-        IoUtil.delete(fileRef);
-        if (fileRef.isCompressed()) {
-            final CompressedFileReference cFileRef = (CompressedFileReference) fileRef;
-            if (cFileRef.getFile().exists()) {
-                IoUtil.delete(cFileRef.getLAFFileReference());
+        HyracksDataException savedEx = null;
+
+        /*
+         * LAF file has to be deleted before the index file.
+         * If the index file deleted first and a non-graceful shutdown happened before the deletion of
+         * the LAF file, the LAF file will not be deleted during the next recovery.
+         */
+        try {
+            if (fileRef.isCompressed()) {
+                final CompressedFileReference cFileRef = (CompressedFileReference) fileRef;
+                final FileReference lafFileRef = cFileRef.getLAFFileReference();
+                if (lafFileRef.getFile().exists()) {
+                    IoUtil.delete(lafFileRef);
+                }
             }
+        } catch (HyracksDataException e) {
+            savedEx = e;
+        }
+
+        try {
+            IoUtil.delete(fileRef);
+        } catch (HyracksDataException e) {
+            if (savedEx != null) {
+                savedEx.addSuppressed(e);
+            } else {
+                savedEx = e;
+            }
+        }
+
+        if (savedEx != null) {
+            throw savedEx;
         }
     }
 
@@ -251,11 +277,11 @@ public abstract class AbstractBufferedFileIOManager {
     }
 
     protected final long writeToFile(ByteBuffer buf, long offset) throws HyracksDataException {
-        return ioManager.syncWrite(fileHandle, offset, buf);
+        return ioManager.doSyncWrite(fileHandle, offset, buf);
     }
 
     protected final long writeToFile(ByteBuffer[] buf, long offset) throws HyracksDataException {
-        return ioManager.syncWrite(fileHandle, offset, buf);
+        return ioManager.doSyncWrite(fileHandle, offset, buf);
     }
 
     protected final long getFileSize() {

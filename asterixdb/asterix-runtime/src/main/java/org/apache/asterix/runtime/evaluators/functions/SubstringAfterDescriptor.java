@@ -22,16 +22,16 @@ import java.io.DataOutput;
 import java.io.IOException;
 
 import org.apache.asterix.common.annotations.MissingNullInOutFunction;
+import org.apache.asterix.om.exceptions.ExceptionUtil;
 import org.apache.asterix.om.functions.BuiltinFunctions;
 import org.apache.asterix.om.functions.IFunctionDescriptor;
 import org.apache.asterix.om.functions.IFunctionDescriptorFactory;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.runtime.evaluators.base.AbstractScalarFunctionDynamicDescriptor;
-import org.apache.asterix.runtime.exceptions.TypeMismatchException;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
+import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
-import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IPointable;
 import org.apache.hyracks.data.std.primitive.UTF8StringPointable;
@@ -57,7 +57,7 @@ public class SubstringAfterDescriptor extends AbstractScalarFunctionDynamicDescr
             private static final long serialVersionUID = 1L;
 
             @Override
-            public IScalarEvaluator createScalarEvaluator(final IHyracksTaskContext ctx) throws HyracksDataException {
+            public IScalarEvaluator createScalarEvaluator(final IEvaluatorContext ctx) throws HyracksDataException {
                 return new IScalarEvaluator() {
                     private ArrayBackedValueStorage resultStorage = new ArrayBackedValueStorage();
                     private DataOutput out = resultStorage.getDataOutput();
@@ -88,12 +88,16 @@ public class SubstringAfterDescriptor extends AbstractScalarFunctionDynamicDescr
                         int patternLen = array1.getLength();
 
                         if (src[srcOffset] != ATypeTag.SERIALIZED_STRING_TYPE_TAG) {
-                            throw new TypeMismatchException(sourceLoc, getIdentifier(), 0, src[srcOffset],
-                                    ATypeTag.SERIALIZED_STRING_TYPE_TAG);
+                            PointableHelper.setNull(result);
+                            ExceptionUtil.warnTypeMismatch(ctx, sourceLoc, getIdentifier(), src[srcOffset], 0,
+                                    ATypeTag.STRING);
+                            return;
                         }
                         if (pattern[patternOffset] != ATypeTag.SERIALIZED_STRING_TYPE_TAG) {
-                            throw new TypeMismatchException(sourceLoc, getIdentifier(), 1, pattern[patternOffset],
-                                    ATypeTag.SERIALIZED_STRING_TYPE_TAG);
+                            PointableHelper.setNull(result);
+                            ExceptionUtil.warnTypeMismatch(ctx, sourceLoc, getIdentifier(), pattern[patternOffset], 1,
+                                    ATypeTag.STRING);
+                            return;
                         }
 
                         try {
@@ -122,5 +126,4 @@ public class SubstringAfterDescriptor extends AbstractScalarFunctionDynamicDescr
     public FunctionIdentifier getIdentifier() {
         return BuiltinFunctions.SUBSTRING_AFTER;
     }
-
 }

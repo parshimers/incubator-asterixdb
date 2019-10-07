@@ -19,12 +19,14 @@
 
 package org.apache.asterix.app.message;
 
+import static org.apache.asterix.translator.IStatementExecutor.Stats.ProfileType.COUNTS;
+import static org.apache.asterix.translator.IStatementExecutor.Stats.ProfileType.FULL;
+
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.asterix.algebra.base.ILangExtension;
@@ -84,12 +86,15 @@ public final class ExecuteStatementRequestMessage implements ICcAddressedMessage
     private final Map<String, String> optionalParameters;
     private final Map<String, byte[]> statementParameters;
     private final boolean multiStatement;
+    private final int statementCategoryRestrictionMask;
+    private final boolean profile;
     private final IRequestReference requestReference;
 
     public ExecuteStatementRequestMessage(String requestNodeId, long requestMessageId, ILangExtension.Language lang,
             String statementsText, SessionConfig sessionConfig, ResultProperties resultProperties,
             String clientContextID, String handleUrl, Map<String, String> optionalParameters,
-            Map<String, byte[]> statementParameters, boolean multiStatement, IRequestReference requestReference) {
+            Map<String, byte[]> statementParameters, boolean multiStatement, boolean profile,
+            int statementCategoryRestrictionMask, IRequestReference requestReference) {
         this.requestNodeId = requestNodeId;
         this.requestMessageId = requestMessageId;
         this.lang = lang;
@@ -101,6 +106,8 @@ public final class ExecuteStatementRequestMessage implements ICcAddressedMessage
         this.optionalParameters = optionalParameters;
         this.statementParameters = statementParameters;
         this.multiStatement = multiStatement;
+        this.statementCategoryRestrictionMask = statementCategoryRestrictionMask;
+        this.profile = profile;
         this.requestReference = requestReference;
     }
 
@@ -121,10 +128,12 @@ public final class ExecuteStatementRequestMessage implements ICcAddressedMessage
         IStatementExecutorFactory statementExecutorFactory = ccApp.getStatementExecutorFactory();
         ExecuteStatementResponseMessage responseMsg = new ExecuteStatementResponseMessage(requestMessageId);
         try {
-            Set<Warning> warnings = new HashSet<>();
+            List<Warning> warnings = new ArrayList<>();
             IParser parser = compilationProvider.getParserFactory().createParser(statementsText);
             List<Statement> statements = parser.parse();
-            parser.getWarnings(warnings);
+            long maxWarnings = sessionConfig.getMaxWarnings();
+            parser.getWarnings(warnings, maxWarnings);
+            long parserTotalWarningsCount = parser.getTotalWarningsCount();
             StringWriter outWriter = new StringWriter(256);
             PrintWriter outPrinter = new PrintWriter(outWriter);
             SessionOutput.ResultDecorator resultPrefix = ResultUtil.createPreResultDecorator();
@@ -138,12 +147,14 @@ public final class ExecuteStatementRequestMessage implements ICcAddressedMessage
             IStatementExecutor translator = statementExecutorFactory.create(ccAppCtx, statements, sessionOutput,
                     compilationProvider, storageComponentProvider, new ResponsePrinter(sessionOutput));
             final IStatementExecutor.Stats stats = new IStatementExecutor.Stats();
+            stats.setType(profile ? FULL : COUNTS);
             Map<String, IAObject> stmtParams = RequestParameters.deserializeParameterValues(statementParameters);
-            final IRequestParameters requestParameters =
-                    new RequestParameters(requestReference, statementsText, null, resultProperties, stats, outMetadata,
-                            clientContextID, optionalParameters, stmtParams, multiStatement);
+            final IRequestParameters requestParameters = new RequestParameters(requestReference, statementsText, null,
+                    resultProperties, stats, outMetadata, clientContextID, optionalParameters, stmtParams,
+                    multiStatement, statementCategoryRestrictionMask);
             translator.compileAndExecute(ccApp.getHcc(), requestParameters);
-            translator.getWarnings(warnings);
+            translator.getWarnings(warnings, maxWarnings - warnings.size());
+            stats.updateTotalWarningsCount(parserTotalWarningsCount);
             outPrinter.close();
             responseMsg.setResult(outWriter.toString());
             responseMsg.setMetadata(outMetadata);

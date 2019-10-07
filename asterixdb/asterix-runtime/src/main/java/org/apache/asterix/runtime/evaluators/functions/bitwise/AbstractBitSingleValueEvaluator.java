@@ -19,13 +19,15 @@
 
 package org.apache.asterix.runtime.evaluators.functions.bitwise;
 
+import org.apache.asterix.om.exceptions.ExceptionUtil;
+import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.hierachy.ATypeHierarchy;
 import org.apache.asterix.runtime.evaluators.functions.AbstractScalarEval;
 import org.apache.asterix.runtime.evaluators.functions.PointableHelper;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
+import org.apache.hyracks.algebricks.runtime.base.IEvaluatorContext;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluator;
 import org.apache.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
-import org.apache.hyracks.api.context.IHyracksTaskContext;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.api.exceptions.SourceLocation;
 import org.apache.hyracks.data.std.api.IPointable;
@@ -54,9 +56,13 @@ abstract class AbstractBitSingleValueEvaluator extends AbstractScalarEval {
     private final IScalarEvaluator valueEvaluator;
     private final IPointable valuePointable = VoidPointable.FACTORY.createPointable();
 
-    AbstractBitSingleValueEvaluator(IHyracksTaskContext context, IScalarEvaluatorFactory[] argEvaluatorFactories,
+    private final IEvaluatorContext context;
+
+    AbstractBitSingleValueEvaluator(IEvaluatorContext context, IScalarEvaluatorFactory[] argEvaluatorFactories,
             FunctionIdentifier functionIdentifier, SourceLocation sourceLocation) throws HyracksDataException {
         super(sourceLocation, functionIdentifier);
+
+        this.context = context;
 
         // Evaluator
         valueEvaluator = argEvaluatorFactories[0].createScalarEvaluator(context);
@@ -69,7 +75,6 @@ abstract class AbstractBitSingleValueEvaluator extends AbstractScalarEval {
 
     @Override
     public void evaluate(IFrameTupleReference tuple, IPointable result) throws HyracksDataException {
-
         valueEvaluator.evaluate(tuple, valuePointable);
         if (PointableHelper.checkAndSetMissingOrNull(result, valuePointable)) {
             return;
@@ -80,6 +85,8 @@ abstract class AbstractBitSingleValueEvaluator extends AbstractScalarEval {
 
         // Validity check
         if (!PointableHelper.isValidLongValue(bytes, startOffset, true)) {
+            ExceptionUtil.warnTypeMismatch(context, sourceLoc, functionIdentifier, bytes[startOffset], 0,
+                    ATypeTag.BIGINT);
             PointableHelper.setNull(result);
             return;
         }
