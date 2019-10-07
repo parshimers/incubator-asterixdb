@@ -46,7 +46,8 @@ public class ExternalScalarFunctionEvaluatorFactory implements IScalarEvaluatorF
     @Override
     public IScalarEvaluator createScalarEvaluator(IEvaluatorContext ctx) throws HyracksDataException {
         return (ExternalScalarFunction) ExternalFunctionProvider.getExternalFunctionEvaluator(finfo, args, argTypes,
-                ctx,appCtx);
+                ctx, appCtx == null ? (IApplicationContext) ctx.getTaskContext().getJobletContext().getServiceContext()
+                        .getApplicationContext() : appCtx);
     }
 
 }

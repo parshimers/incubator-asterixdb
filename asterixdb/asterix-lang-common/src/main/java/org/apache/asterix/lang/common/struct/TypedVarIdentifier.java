@@ -24,7 +24,7 @@ public class TypedVarIdentifier extends VarIdentifier {
     TypeExpression type;
 
     public TypedVarIdentifier(int id, String value, TypeExpression type) {
-        super(value,id);
+        super(value, id);
         this.value = value;
     }
 
