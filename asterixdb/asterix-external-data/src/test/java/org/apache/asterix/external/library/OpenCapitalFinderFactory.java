@@ -16,16 +16,16 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-/*
- * Description  : Create an adapter that uses external parser to parse data from files
- * Expected Res : Success
- * Date         : Feb, 09, 2016
- */
+package org.apache.asterix.external.library;
 
-drop dataverse externallibtest if exists;
-create dataverse externallibtest;
-use dataverse externallibtest;
+import org.apache.asterix.external.api.IExternalScalarFunction;
+import org.apache.asterix.external.api.IFunctionFactory;
 
-create type Classad as open {
-GlobalJobId: string
-};
+public class OpenCapitalFinderFactory implements IFunctionFactory {
+
+    @Override
+    public IExternalScalarFunction getExternalFunction() {
+        return new OpenCapitalFinderFunction();
+    }
+
+}

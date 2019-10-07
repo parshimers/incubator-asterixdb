@@ -45,6 +45,11 @@
       </compilation-unit>
     </test-case>
     <test-case FilePath="external-library">
+      <compilation-unit name="getCapital_open">
+        <output-dir compare="Text">getCapital</output-dir>
+      </compilation-unit>
+    </test-case>
+    <test-case FilePath="external-library">
       <compilation-unit name="upperCase">
         <output-dir compare="Text">upperCase</output-dir>
       </compilation-unit>

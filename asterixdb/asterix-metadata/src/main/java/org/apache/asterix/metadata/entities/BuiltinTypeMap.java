@@ -101,7 +101,7 @@ public class BuiltinTypeMap {
         if (type == null) {
             try {
                 Datatype dt = metadataNode.getDatatype(txnId, dataverseName, typeName);
-                if(dt != null) {
+                if (dt != null) {
                     type = dt.getDatatype();
                 }
             } catch (RemoteException e) {
