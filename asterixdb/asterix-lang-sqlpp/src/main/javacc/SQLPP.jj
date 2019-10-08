@@ -219,6 +219,8 @@ class SQLPPParser extends ScopeChecker implements IParser {
     private static final String ROWS = "ROWS";
     private static final String TIES = "TIES";
     private static final String UNBOUNDED = "UNBOUNDED";
+    private static final String ACTION = "ACTION";
+    private static final String LANGUAGE = "LANGUAGE";
 
     private static final String INT_TYPE_NAME = "int";
 
@@ -906,7 +908,7 @@ CreateAdapterStatement AdapterSpecification(Token startStmtToken) throws ParseEx
   {
      defaultDataverse = fctName.dataverse;
   }
-  <LANGUAGE> lang = Identifier() <AS> libName = ConstantString() <COMMA>  externalIdent = ConstantString()
+  <IDENTIFIER> {expectToken(LANGUAGE);} lang = Identifier() <AS> libName = ConstantString() <COMMA>  externalIdent = ConstantString()
     (<WITH> resources = OrderedListConstructor())?{
       signature = new AdapterIdentifier(currentDataverse == null ? "Default" : currentDataverse, fctName.function);
       defaultDataverse = currentDataverse;
@@ -1012,8 +1014,8 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
   ( (<RETURN> returnType = TypeExpr() (<QUES> {returnNullable = true;})?)?
     (<DETERMINISTIC> {deterministic = true;})?
     (<NULL><CALL> {nullCall = true;})?
-    (<EXTERNAL><ACTION> {externalAction = true;})?
-    <LANGUAGE> lang = Identifier() <AS> libName = ConstantString() <COMMA>  externalIdent = ConstantString()
+    (<EXTERNAL> <IDENTIFIER> {if(isToken(ACTION)) externalAction = true;})?
+    <IDENTIFIER> {expectToken(LANGUAGE);} lang = Identifier() <AS> libName = ConstantString() <COMMA>  externalIdent = ConstantString()
     (<WITH> resources = OrderedListConstructor())?{
       signature = new FunctionSignature(fctName.dataverse, fctName.function, args.size());
       defaultDataverse = currentDataverse;
@@ -3833,7 +3835,6 @@ TOKEN [IGNORE_CASE]:
 {
   <ALL : "all">
   | <AND : "and">
-  | <ACTION: "action">
   | <ADAPTER: "adapter">
   | <ANY : "any">
   | <APPLY : "apply">
@@ -3898,7 +3899,6 @@ TOKEN [IGNORE_CASE]:
   | <KEYWORD : "keyword">
   | <KEY : "key">
   | <KNOWN : "known">
-  | <LANGUAGE: "language">
   | <LEFT : "left">
   | <LETTING : "letting">
   | <LET : "let">
