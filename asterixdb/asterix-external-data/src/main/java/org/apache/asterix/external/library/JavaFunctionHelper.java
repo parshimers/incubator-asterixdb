@@ -136,29 +136,27 @@ public class JavaFunctionHelper implements IFunctionHelper {
             case ANY:
                 TaggedValuePointable pointy = TaggedValuePointable.FACTORY.createPointable();
                 pointy.set(valueReference);
-                ATypeTag rtType = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(pointy.getTag());
-                IAType nasty = TypeTagUtil.getBuiltinTypeByTag(rtType);
-                switch (rtType) {
+                ATypeTag rtTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(pointy.getTag());
+                IAType rtType = TypeTagUtil.getBuiltinTypeByTag(rtTypeTag);
+                switch (rtTypeTag) {
                     case OBJECT:
-                        pointable = pointableAllocator.allocateRecordValue(nasty);
+                        pointable = pointableAllocator.allocateRecordValue(rtType);
                         pointable.set(valueReference);
                         jObject = pointableVisitor.visit((ARecordVisitablePointable) pointable,
-                                getTypeInfo(index, nasty));
+                                getTypeInfo(index, rtType));
                         break;
                     case ARRAY:
                     case MULTISET:
-                        pointable = pointableAllocator.allocateListValue(nasty);
+                        pointable = pointableAllocator.allocateListValue(rtType);
                         pointable.set(valueReference);
                         jObject =
-                                pointableVisitor.visit((AListVisitablePointable) pointable, getTypeInfo(index, nasty));
+                                pointableVisitor.visit((AListVisitablePointable) pointable, getTypeInfo(index, rtType));
                         break;
-                    case ANY:
-                        throw new IllegalStateException("blarg");
                     default:
-                        pointable = pointableAllocator.allocateFieldValue(nasty);
+                        pointable = pointableAllocator.allocateFieldValue(rtType);
                         pointable.set(valueReference);
-                        jObject = pointableVisitor.visit((AFlatValuePointable) pointable, rtType,
-                                getTypeInfo(index, nasty));
+                        jObject = pointableVisitor.visit((AFlatValuePointable) pointable, rtTypeTag,
+                                getTypeInfo(index, rtType));
                         break;
                 }
                 break;

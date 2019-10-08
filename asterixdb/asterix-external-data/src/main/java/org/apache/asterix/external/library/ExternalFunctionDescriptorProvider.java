@@ -56,7 +56,6 @@ class ExternalScalarFunctionDescriptor extends AbstractScalarFunctionDynamicDesc
     public ExternalScalarFunctionDescriptor(IFunctionInfo finfo, IApplicationContext appCtx) {
         this.finfo = finfo;
         this.appCtx = appCtx;
-
     }
 
     @Override

@@ -328,25 +328,6 @@ public final class FunctionTypeInferers {
         }
     }
 
-    public static final class ExternalFunctionTypeInferer implements IFunctionTypeInferer {
-        @Override
-        public void infer(ILogicalExpression expr, IFunctionDescriptor fd, IVariableTypeEnvironment context,
-                CompilerProperties compilerProps) throws AlgebricksException {
-            AbstractFunctionCallExpression f = (AbstractFunctionCallExpression) expr;
-            List<Mutable<ILogicalExpression>> args = f.getArguments();
-            int n = args.size();
-            ARecordType[] argRecordTypes = new ARecordType[n];
-            for (int i = 0; i < n; i++) {
-                IAType argType = (IAType) context.getType(args.get(i).getValue());
-                IAType t = TypeComputeUtils.getActualType(argType);
-                if (t.getTypeTag() == ATypeTag.OBJECT) {
-                    argRecordTypes[i] = (ARecordType) t;
-                }
-            }
-            fd.setImmutableStates((Object[]) argRecordTypes);
-        }
-    }
-
     private static IAType[] getArgumentsTypes(AbstractFunctionCallExpression funExp, IVariableTypeEnvironment ctx)
             throws AlgebricksException {
         IAType[] argsTypes = new IAType[funExp.getArguments().size()];
