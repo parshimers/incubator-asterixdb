@@ -24,6 +24,6 @@
 
 use test;
 
-create function fnameDetector(a: InputRecordType) return DetectResultType language java as "testlib","org.apache.asterix.external.library.KeywordsDetectorFactory" WITH ["data/external_function/KeywordsDetector_List1.txt","fname"];
-create function lnameDetector(a: InputRecordType) return DetectResultType language java as "testlib","org.apache.asterix.external.library.KeywordsDetectorFactory" WITH ["data/external_function/KeywordsDetector_List2.txt","lname"];
+create function fnameDetector(a: InputRecordType) return DetectResultType language java as "testlib","org.apache.asterix.external.library.KeywordsDetectorFactory" WITH {"dictPath":"data/external_function/KeywordsDetector_List1.txt","fieldName":"fname"};
+create function lnameDetector(a: InputRecordType) return DetectResultType language java as "testlib","org.apache.asterix.external.library.KeywordsDetectorFactory" WITH {"dictPath":"data/external_function/KeywordsDetector_List2.txt","fieldName":"lname"};
 

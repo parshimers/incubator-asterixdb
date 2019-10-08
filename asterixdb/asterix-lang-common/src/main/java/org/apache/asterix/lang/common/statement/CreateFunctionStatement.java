@@ -19,18 +19,23 @@
 package org.apache.asterix.lang.common.statement;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.asterix.common.exceptions.CompilationException;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.lang.common.base.AbstractStatement;
 import org.apache.asterix.lang.common.base.Expression;
 import org.apache.asterix.lang.common.base.Statement;
-import org.apache.asterix.lang.common.expression.ListConstructor;
+import org.apache.asterix.lang.common.expression.RecordConstructor;
 import org.apache.asterix.lang.common.expression.TypeExpression;
 import org.apache.asterix.lang.common.struct.TypedVarIdentifier;
 import org.apache.asterix.lang.common.struct.VarIdentifier;
+import org.apache.asterix.lang.common.util.ConfigurationUtil;
+import org.apache.asterix.lang.common.util.ExpressionUtils;
 import org.apache.asterix.lang.common.visitor.base.ILangVisitor;
+import org.apache.asterix.object.base.AdmObjectNode;
 
 public class CreateFunctionStatement extends AbstractStatement {
 
@@ -49,7 +54,7 @@ public class CreateFunctionStatement extends AbstractStatement {
     String libName;
     String externalIdent;
     List<TypedVarIdentifier> args;
-    ListConstructor resources;
+    AdmObjectNode resources;
 
     public String getFunctionBody() {
         return functionBody;
@@ -69,8 +74,8 @@ public class CreateFunctionStatement extends AbstractStatement {
 
     public CreateFunctionStatement(FunctionSignature signature, List<TypedVarIdentifier> parameterList,
             TypeExpression returnType, boolean returnNullable, boolean deterministic, boolean nullCall,
-            boolean externalAction, String lang, String libName, String externalIdent, ListConstructor resources,
-            boolean ifNotExists) {
+            boolean externalAction, String lang, String libName, String externalIdent, RecordConstructor resources,
+            boolean ifNotExists) throws CompilationException {
         this.signature = signature;
         this.args = parameterList;
         this.returnType = returnType;
@@ -81,7 +86,7 @@ public class CreateFunctionStatement extends AbstractStatement {
         this.lang = lang;
         this.libName = libName;
         this.externalIdent = externalIdent;
-        this.resources = resources;
+        this.resources = resources == null ? null : ExpressionUtils.toNode(resources);
         functionBody = null;
         this.ifNotExists = ifNotExists;
         this.paramList = null;
@@ -146,8 +151,8 @@ public class CreateFunctionStatement extends AbstractStatement {
         return args;
     }
 
-    public ListConstructor getResources() {
-        return resources;
+    public Map<String, String> getResources() throws CompilationException {
+        return resources != null ? ConfigurationUtil.toProperties(resources) : new HashMap<>();
     }
 
     @Override

@@ -21,7 +21,6 @@ package org.apache.asterix.lang.common.statement;
 import org.apache.asterix.common.exceptions.CompilationException;
 import org.apache.asterix.external.dataset.adapter.AdapterIdentifier;
 import org.apache.asterix.lang.common.base.AbstractStatement;
-import org.apache.asterix.lang.common.expression.ListConstructor;
 import org.apache.asterix.lang.common.visitor.base.ILangVisitor;
 
 public class CreateAdapterStatement extends AbstractStatement {
@@ -31,16 +30,14 @@ public class CreateAdapterStatement extends AbstractStatement {
     String lang;
     String libName;
     String externalIdent;
-    ListConstructor resources;
     boolean ifNotExists;
 
     public CreateAdapterStatement(AdapterIdentifier signature, String lang, String libName, String externalIdent,
-            ListConstructor resources, boolean ifNotExists) {
+            boolean ifNotExists) {
         this.signature = signature;
         this.lang = lang;
         this.libName = libName;
         this.externalIdent = externalIdent;
-        this.resources = resources;
         this.ifNotExists = ifNotExists;
 
     }
@@ -64,10 +61,6 @@ public class CreateAdapterStatement extends AbstractStatement {
 
     public String getLang() {
         return lang;
-    }
-
-    public ListConstructor getResources() {
-        return resources;
     }
 
     @Override

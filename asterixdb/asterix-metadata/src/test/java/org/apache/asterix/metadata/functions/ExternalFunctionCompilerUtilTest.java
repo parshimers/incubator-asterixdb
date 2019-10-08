@@ -18,7 +18,7 @@
  */
 package org.apache.asterix.metadata.functions;
 
-import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedList;
 
 import org.apache.asterix.common.functions.FunctionSignature;
@@ -39,7 +39,7 @@ public class ExternalFunctionCompilerUtilTest {
         MetadataTransactionContext txnCtx = new MetadataTransactionContext(new TxnId(1));
         FunctionSignature signature = new FunctionSignature("test", "test", 0);
         Function function = new Function(signature, new LinkedList<>(), "{{ASTRING}}", "", "JAVA", "SCALAR", null,
-                "Default", Arrays.asList(new String[] { "" }));
+                "Default", new HashMap<>());
 
         // when
         ExternalScalarFunctionInfo info =

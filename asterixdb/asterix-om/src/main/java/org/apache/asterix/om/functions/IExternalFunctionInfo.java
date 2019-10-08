@@ -19,6 +19,7 @@
 package org.apache.asterix.om.functions;
 
 import java.util.List;
+import java.util.Map;
 
 import org.apache.asterix.om.typecomputer.base.IResultTypeComputer;
 import org.apache.asterix.om.types.IAType;
@@ -41,6 +42,6 @@ public interface IExternalFunctionInfo extends IFunctionInfo {
 
     public String getLibrary();
 
-    public List<String> getParams();
+    public Map<String, String> getParams();
 
 }

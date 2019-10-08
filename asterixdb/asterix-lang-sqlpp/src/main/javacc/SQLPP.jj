@@ -909,11 +909,11 @@ CreateAdapterStatement AdapterSpecification(Token startStmtToken) throws ParseEx
      defaultDataverse = fctName.dataverse;
   }
   <IDENTIFIER> {expectToken(LANGUAGE);} lang = Identifier() <AS> libName = ConstantString() <COMMA>  externalIdent = ConstantString()
-    (<WITH> resources = OrderedListConstructor())?{
+    {
       signature = new AdapterIdentifier(currentDataverse == null ? "Default" : currentDataverse, fctName.function);
       defaultDataverse = currentDataverse;
       CreateAdapterStatement stmt =
-        new CreateAdapterStatement(signature, lang, libName, externalIdent, resources,  ifNotExists);
+        new CreateAdapterStatement(signature, lang, libName, externalIdent,  ifNotExists);
       return addSourceLocation(stmt, startStmtToken);
     }
 
@@ -998,7 +998,7 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
   String libName ="";
   String externalIdent = "";
   List<TypedVarIdentifier> args = new ArrayList<TypedVarIdentifier>();
-  ListConstructor resources = null;
+  RecordConstructor resources = null;
   createNewScope();
 }
 {
@@ -1016,12 +1016,18 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
     (<NULL><CALL> {nullCall = true;})?
     (<EXTERNAL> <IDENTIFIER> {if(isToken(ACTION)) externalAction = true;})?
     <IDENTIFIER> {expectToken(LANGUAGE);} lang = Identifier() <AS> libName = ConstantString() <COMMA>  externalIdent = ConstantString()
-    (<WITH> resources = OrderedListConstructor())?{
+    (<WITH> resources = RecordConstructor())?{
       signature = new FunctionSignature(fctName.dataverse, fctName.function, args.size());
       defaultDataverse = currentDataverse;
-      CreateFunctionStatement stmt =
+      CreateFunctionStatement stmt = null;
+      try{
+        stmt =
         new CreateFunctionStatement(signature, args, returnType, returnNullable, deterministic, nullCall,
                                     externalAction, lang, libName, externalIdent, resources,  ifNotExists);
+
+      } catch (AlgebricksException e) {
+         throw new SqlppParseException(getSourceLocation(startStmtToken), e.getMessage());
+      }
       return addSourceLocation(stmt, startStmtToken);
     }) )
    | ( <LEFTBRACE>

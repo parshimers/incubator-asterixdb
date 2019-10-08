@@ -19,6 +19,7 @@
 package org.apache.asterix.om.functions;
 
 import java.util.List;
+import java.util.Map;
 
 import org.apache.asterix.om.typecomputer.base.IResultTypeComputer;
 import org.apache.asterix.om.types.IAType;
@@ -35,11 +36,11 @@ public class ExternalFunctionInfo extends FunctionInfo implements IExternalFunct
     private final FunctionKind kind;
     private final IAType returnType;
     private final String library;
-    private final List<String> params;
+    private final Map<String, String> params;
 
     public ExternalFunctionInfo(String namespace, String library, String name, int arity, FunctionKind kind,
             List<IAType> argumentTypes, IAType returnType, IResultTypeComputer rtc, String body, String language,
-            List<String> params) {
+            Map<String, String> params) {
         // TODO: fix CheckNonFunctionalExpressionVisitor once we have non-functional external functions
         super(namespace, name, arity, true);
         this.library = library;
@@ -91,7 +92,7 @@ public class ExternalFunctionInfo extends FunctionInfo implements IExternalFunct
     }
 
     @Override
-    public List<String> getParams() {
+    public Map<String, String> getParams() {
         return params;
     }
 

@@ -21,23 +21,32 @@ package org.apache.asterix.metadata.entitytupletranslators;
 
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_LIBRARY_FIELD_NAME;
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_WITHPARAM_LIST_NAME;
+import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.PROPERTIES_NAME_FIELD_NAME;
+import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.PROPERTIES_VALUE_FIELD_NAME;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInput;
 import java.io.DataInputStream;
+import java.io.DataOutput;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import org.apache.asterix.builders.IARecordBuilder;
 import org.apache.asterix.builders.OrderedListBuilder;
+import org.apache.asterix.builders.RecordBuilder;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.formats.nontagged.SerializerDeserializerProvider;
 import org.apache.asterix.metadata.bootstrap.MetadataPrimaryIndexes;
 import org.apache.asterix.metadata.bootstrap.MetadataRecordTypes;
 import org.apache.asterix.metadata.entities.Function;
+import org.apache.asterix.om.base.AMutableString;
 import org.apache.asterix.om.base.AOrderedList;
 import org.apache.asterix.om.base.ARecord;
 import org.apache.asterix.om.base.AString;
 import org.apache.asterix.om.base.IACursor;
+import org.apache.asterix.om.pointables.base.DefaultOpenFieldType;
 import org.apache.asterix.om.types.AOrderedListType;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.BuiltinType;
@@ -98,17 +107,31 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
                 : "";
     }
 
-    private List<String> getFunctionWithParams(ARecord functionRecord) {
+    private Map<String, String> getFunctionWithParams(ARecord functionRecord) {
+        // restore configurations
+        String key = "";
+        String value = "";
+        Map<String, String> adaptorConfiguration = new HashMap<>();
+
         final ARecordType functionType = functionRecord.getType();
-        final int functionWithParamIdx = functionType.getFieldIndex(FUNCTION_ARECORD_FUNCTION_WITHPARAM_LIST_NAME);
-        List<String> withParams = new ArrayList<>();
-        if (functionWithParamIdx >= 0) {
-            IACursor argCursor = ((AOrderedList) functionRecord.getValueByPos(functionWithParamIdx)).getCursor();
-            while (argCursor.next()) {
-                withParams.add(((AString) argCursor.get()).getStringValue());
+        final int functionLibraryIdx = functionType.getFieldIndex(FUNCTION_ARECORD_FUNCTION_WITHPARAM_LIST_NAME);
+        if (functionLibraryIdx >= 0) {
+            IACursor cursor = ((AOrderedList) functionRecord.getValueByPos(functionLibraryIdx)).getCursor();
+            while (cursor.next()) {
+                ARecord field = (ARecord) cursor.get();
+                final ARecordType fieldType = field.getType();
+                final int keyIdx = fieldType.getFieldIndex(PROPERTIES_NAME_FIELD_NAME);
+                if (keyIdx >= 0) {
+                    key = ((AString) field.getValueByPos(keyIdx)).getStringValue();
+                }
+                final int valueIdx = fieldType.getFieldIndex(PROPERTIES_VALUE_FIELD_NAME);
+                if (valueIdx >= 0) {
+                    value = ((AString) field.getValueByPos(valueIdx)).getStringValue();
+                }
+                adaptorConfiguration.put(key, value);
             }
         }
-        return withParams;
+        return adaptorConfiguration;
     }
 
     private Function createFunctionFromARecord(ARecord functionRecord) {
@@ -167,7 +190,7 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         }
 
         String functionLibrary = getFunctionLibrary(functionRecord);
-        List<String> params = getFunctionWithParams(functionRecord);
+        Map<String, String> params = getFunctionWithParams(functionRecord);
 
         FunctionSignature signature = new FunctionSignature(dataverseName, functionName, Integer.parseInt(arity));
         return new Function(signature, args, returnType, definition, language, functionKind, dependencies,
@@ -298,12 +321,12 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         fieldName.reset();
         aString.setValue(FUNCTION_ARECORD_FUNCTION_WITHPARAM_LIST_NAME);
         stringSerde.serialize(aString, fieldName.getDataOutput());
-        listBuilder.reset((AOrderedListType) MetadataRecordTypes.FUNCTION_RECORDTYPE
-                .getFieldTypes()[MetadataRecordTypes.FUNCTION_ARECORD_FUNCTION_PARAM_LIST_FIELD_INDEX]);
-        for (String p : function.getParams()) {
+        listBuilder.reset(new AOrderedListType(DefaultOpenFieldType.NESTED_OPEN_RECORD_TYPE, "Properties"));
+        for (Map.Entry<String, String> property : function.getParams().entrySet()) {
+            String name = property.getKey();
+            String value = property.getValue();
             itemValue.reset();
-            aString.setValue(p == null ? "null" : p);
-            stringSerde.serialize(aString, itemValue.getDataOutput());
+            writePropertyTypeRecord(name, value, itemValue.getDataOutput());
             listBuilder.addItem(itemValue);
         }
         fieldValue.reset();
@@ -319,6 +342,36 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         aString.setValue(function.getLibrary());
         stringSerde.serialize(aString, fieldValue.getDataOutput());
         recordBuilder.addField(fieldName, fieldValue);
+    }
+
+    public void writePropertyTypeRecord(String name, String value, DataOutput out) throws HyracksDataException {
+        IARecordBuilder propertyRecordBuilder = new RecordBuilder();
+        ArrayBackedValueStorage fieldValue = new ArrayBackedValueStorage();
+        ArrayBackedValueStorage fieldName = new ArrayBackedValueStorage();
+        propertyRecordBuilder.reset(DefaultOpenFieldType.NESTED_OPEN_RECORD_TYPE);
+        AMutableString aString = new AMutableString("");
+        ISerializerDeserializer<AString> stringSerde =
+                SerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.ASTRING);
+
+        // write field 0
+        fieldName.reset();
+        aString.setValue("name");
+        stringSerde.serialize(aString, fieldName.getDataOutput());
+        fieldValue.reset();
+        aString.setValue(name);
+        stringSerde.serialize(aString, fieldValue.getDataOutput());
+
+        // write field 1
+        fieldName.reset();
+        aString.setValue("value");
+        stringSerde.serialize(aString, fieldName.getDataOutput());
+        fieldValue.reset();
+        aString.setValue(value);
+        stringSerde.serialize(aString, fieldValue.getDataOutput());
+
+        propertyRecordBuilder.addField(fieldName, fieldValue);
+
+        propertyRecordBuilder.write(out, true);
     }
 
 }

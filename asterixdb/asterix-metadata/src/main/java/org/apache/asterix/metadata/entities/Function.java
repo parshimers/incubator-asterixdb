@@ -19,7 +19,9 @@
 package org.apache.asterix.metadata.entities;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.apache.asterix.common.functions.FunctionSignature;
@@ -45,14 +47,15 @@ public class Function implements IMetadataEntity<Function> {
     private final String language;
     private final String kind;
     private final String library;
-    private final List<String> params;
+    private final Map<String, String> params;
 
     public Function(FunctionSignature signature, List<String> arguments, String returnType, String functionBody,
             String language, String functionKind, List<List<List<String>>> dependencies, String library,
-            List<String> params) {
+            Map<String, String> params) {
         this.signature = signature;
-        this.arguments =
-                arguments != null ? arguments.stream().map(s -> s == null ? BuiltinType.ANY.toString() : s).collect(Collectors.toList()) : new ArrayList<>();
+        this.arguments = arguments != null
+                ? arguments.stream().map(s -> s == null ? BuiltinType.ANY.toString() : s).collect(Collectors.toList())
+                : new ArrayList<>();
         this.body = functionBody;
         this.returnType = returnType == null ? BuiltinType.ANY.toString() : returnType;
         this.language = language;
@@ -70,7 +73,7 @@ public class Function implements IMetadataEntity<Function> {
             this.dependencies = dependencies;
         }
         if (params == null) {
-            this.params = new ArrayList<>();
+            this.params = new HashMap<>();
         } else {
             this.params = params;
         }
@@ -120,7 +123,7 @@ public class Function implements IMetadataEntity<Function> {
         return library;
     }
 
-    public List<String> getParams() {
+    public Map<String, String> getParams() {
         return params;
     }
 

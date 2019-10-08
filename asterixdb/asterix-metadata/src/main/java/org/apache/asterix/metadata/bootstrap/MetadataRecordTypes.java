@@ -107,7 +107,9 @@ public final class MetadataRecordTypes {
     //---------------------------------- Record Types Creation ----------------------------------//
     //--------------------------------------- Properties ----------------------------------------//
     public static final int PROPERTIES_NAME_FIELD_INDEX = 0;
+    public static final String PROPERTIES_NAME_FIELD_NAME = "name";
     public static final int PROPERTIES_VALUE_FIELD_INDEX = 1;
+    public static final String PROPERTIES_VALUE_FIELD_NAME = "value";
     public static final ARecordType POLICY_PARAMS_RECORDTYPE = createPropertiesRecordType();
     public static final ARecordType DATASOURCE_ADAPTER_PROPERTIES_RECORDTYPE = createPropertiesRecordType();
     public static final ARecordType COMPACTION_POLICY_PROPERTIES_RECORDTYPE = createPropertiesRecordType();
@@ -333,6 +335,7 @@ public final class MetadataRecordTypes {
     public static final int FUNCTION_ARECORD_FUNCTION_DEPENDENCIES_FIELD_INDEX = 8;
     //open types
     public static final String FUNCTION_ARECORD_FUNCTION_WITHPARAM_LIST_NAME = "WithParams";
+    public static final String FUNCTION_ARECORD_FUNCTION_WITHPARAM_TYPE_NAME = "Parameter";
     public static final String FUNCTION_ARECORD_FUNCTION_LIBRARY_FIELD_NAME = "Library";
     public static final ARecordType FUNCTION_RECORDTYPE = createRecordType(
             // RecordTypeName

@@ -20,7 +20,6 @@ package org.apache.asterix.external.library;
 
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.apache.asterix.common.exceptions.AsterixException;
@@ -59,7 +58,7 @@ public class JavaFunctionHelper implements IFunctionHelper {
     private final JObjectPointableVisitor pointableVisitor;
     private final PointableAllocator pointableAllocator;
     private final Map<Integer, TypeInfo> poolTypeInfo;
-    private final List<String> parameters;
+    private final Map<String, String> parameters;
     private final IAType[] argTypes;
 
     private boolean isValidResult = false;
@@ -232,7 +231,7 @@ public class JavaFunctionHelper implements IFunctionHelper {
         objectPool.reset();
     }
 
-    public List<String> getParameters() {
+    public Map<String, String> getParameters() {
         return parameters;
     }
 }

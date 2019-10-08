@@ -88,13 +88,11 @@ import org.apache.asterix.external.indexing.IndexingConstants;
 import org.apache.asterix.external.operators.FeedIntakeOperatorNodePushable;
 import org.apache.asterix.external.util.ExternalDataConstants;
 import org.apache.asterix.formats.nontagged.TypeTraitProvider;
-import org.apache.asterix.lang.common.base.Expression;
 import org.apache.asterix.lang.common.base.IReturningStatement;
 import org.apache.asterix.lang.common.base.IRewriterFactory;
 import org.apache.asterix.lang.common.base.IStatementRewriter;
 import org.apache.asterix.lang.common.base.Statement;
 import org.apache.asterix.lang.common.expression.IndexedTypeExpression;
-import org.apache.asterix.lang.common.expression.LiteralExpr;
 import org.apache.asterix.lang.common.expression.OrderedListTypeDefinition;
 import org.apache.asterix.lang.common.expression.TypeExpression;
 import org.apache.asterix.lang.common.expression.TypeReferenceExpression;
@@ -1810,14 +1808,6 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                     }
                 }
 
-                List<String> params = new ArrayList<>();
-                if (cfs.getResources() != null) {
-                    for (Expression var : cfs.getResources().getExprList()) {
-                        if (var.getKind() == Expression.Kind.LITERAL_EXPRESSION) {
-                            params.add(((LiteralExpr) var).getValue().getStringValue());
-                        }
-                    }
-                }
                 TypeExpression ret = cfs.getReturnType();
                 String retType;
                 if (ret != null) {
@@ -1830,7 +1820,7 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                     retType = null;
                 }
                 Function f = new Function(signature, args, retType, cfs.getExternalIdent(), cfs.getLang(),
-                        FunctionKind.SCALAR.toString(), null, libraryName, params);
+                        FunctionKind.SCALAR.toString(), null, libraryName, cfs.getResources());
                 MetadataManager.INSTANCE.addFunction(mdTxnCtx, f);
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info("Installed function: " + signature);
