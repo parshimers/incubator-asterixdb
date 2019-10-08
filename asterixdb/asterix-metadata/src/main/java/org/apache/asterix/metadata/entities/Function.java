@@ -52,7 +52,7 @@ public class Function implements IMetadataEntity<Function> {
             List<String> params) {
         this.signature = signature;
         this.arguments =
-                arguments.stream().map(s -> s == null ? BuiltinType.ANY.toString() : s).collect(Collectors.toList());
+                arguments != null ? arguments.stream().map(s -> s == null ? BuiltinType.ANY.toString() : s).collect(Collectors.toList()) : new ArrayList<>();
         this.body = functionBody;
         this.returnType = returnType == null ? BuiltinType.ANY.toString() : returnType;
         this.language = language;
