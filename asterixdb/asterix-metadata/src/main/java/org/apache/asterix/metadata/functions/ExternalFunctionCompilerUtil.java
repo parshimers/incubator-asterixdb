@@ -74,8 +74,7 @@ public class ExternalFunctionCompilerUtil {
         } else if (function.getReturnType().equalsIgnoreCase(BuiltinType.ANY.toString())) {
             returnType = BuiltinType.ANY;
         } else {
-            returnType = BuiltinTypeMap.getTypeFromTypeName(MetadataNode.INSTANCE, txnCtx.getTxnId(),
-                    function.getDataverseName(), function.getReturnType(), false);
+            returnType = getTypeInfo(function.getReturnType(), txnCtx, function);
         }
         for (String arg : function.getArguments()) {
             argumentTypes.add(getTypeInfo(arg, txnCtx, function));
@@ -90,15 +89,12 @@ public class ExternalFunctionCompilerUtil {
     private static IAType getTypeInfo(String type, MetadataTransactionContext txnCtx, Function function)
             throws AlgebricksException {
         IAType argType = null;
-        if (type == null) {
-            return argType;
-        } else {
-            IAType simpleOrDefined = BuiltinTypeMap.getTypeFromTypeName(MetadataNode.INSTANCE, txnCtx.getTxnId(),
-                    function.getDataverseName(), type, false);
-            if (simpleOrDefined != null) {
-                argType = simpleOrDefined;
-            } else {
+        if (type != null) {
+            if (type.indexOf("{{") != -1 || type.indexOf("[") != -1) {
                 argType = getCollectionType(type, txnCtx, function);
+            } else {
+                argType = BuiltinTypeMap.getTypeFromTypeName(MetadataNode.INSTANCE, txnCtx.getTxnId(),
+                        function.getDataverseName(), type, false);
             }
         }
         return argType;

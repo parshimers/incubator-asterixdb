@@ -38,7 +38,7 @@ public class ExternalFunctionCompilerUtilTest {
         // given
         MetadataTransactionContext txnCtx = new MetadataTransactionContext(new TxnId(1));
         FunctionSignature signature = new FunctionSignature("test", "test", 0);
-        Function function = new Function(signature, new LinkedList<>(), "{{ASTRING}}", "", "JAVA", "SCALAR", null,
+        Function function = new Function(signature, new LinkedList<>(), "{{string}}", "", "JAVA", "SCALAR", null,
                 "Default", new HashMap<>());
 
         // when

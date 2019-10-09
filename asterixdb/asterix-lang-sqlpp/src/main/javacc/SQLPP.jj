@@ -221,6 +221,10 @@ class SQLPPParser extends ScopeChecker implements IParser {
     private static final String UNBOUNDED = "UNBOUNDED";
     private static final String ACTION = "ACTION";
     private static final String LANGUAGE = "LANGUAGE";
+    private static final String CALL = "CALL";
+    private static final String ADAPTER = "ADAPTER";
+    private static final String DETERMINISTIC = "DETERMINISTIC";
+
 
     private static final String INT_TYPE_NAME = "int";
 
@@ -904,7 +908,7 @@ CreateAdapterStatement AdapterSpecification(Token startStmtToken) throws ParseEx
   createNewScope();
 }
 {
-  <ADAPTER> fctName = FunctionName()
+  <IDENTIFIER> {expectToken(ADAPTER);} fctName = FunctionName()
   {
      defaultDataverse = fctName.dataverse;
   }
@@ -1011,9 +1015,10 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
 
 
   ( LOOKAHEAD(2) (
+  //(RETURN ) (DETERMINISTIC ) (NULL CALL) (EXTERNAL ACTION) LANGUAGE id (WITH)
   ( (<RETURN> returnType = TypeExpr() (<QUES> {returnNullable = true;})?)?
-    (<DETERMINISTIC> {deterministic = true;})?
-    (<NULL><CALL> {nullCall = true;})?
+    (LOOKAHEAD(3,{getToken(1).kind == IDENTIFIER && getToken(2).kind == IDENTIFIER && getToken(3).kind != AS})(<IDENTIFIER> {deterministic = true;}))?
+    (<NULL> <IDENTIFIER> { if(isToken(CALL)) nullCall = true;})?
     (<EXTERNAL> <IDENTIFIER> {if(isToken(ACTION)) externalAction = true;})?
     <IDENTIFIER> {expectToken(LANGUAGE);} lang = Identifier() <AS> libName = ConstantString() <COMMA>  externalIdent = ConstantString()
     (<WITH> resources = RecordConstructor())?{
@@ -3841,7 +3846,6 @@ TOKEN [IGNORE_CASE]:
 {
   <ALL : "all">
   | <AND : "and">
-  | <ADAPTER: "adapter">
   | <ANY : "any">
   | <APPLY : "apply">
   | <AS : "as">
@@ -3852,7 +3856,6 @@ TOKEN [IGNORE_CASE]:
   | <BTREE : "btree">
   | <BY : "by">
   | <CASE : "case">
-  | <CALL: "CALL">
   | <CLOSED : "closed">
   | <CREATE : "create">
   | <COMPACTION : "compaction">
@@ -3866,7 +3869,6 @@ TOKEN [IGNORE_CASE]:
   | <DEFINITION : "definition">
   | <DELETE : "delete">
   | <DESC : "desc">
-  | <DETERMINISTIC: "deterministic">
   | <DISCONNECT : "disconnect">
   | <DISTINCT : "distinct">
   | <DIV : "div">
