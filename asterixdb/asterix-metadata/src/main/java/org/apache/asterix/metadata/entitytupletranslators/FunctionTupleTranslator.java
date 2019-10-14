@@ -321,7 +321,7 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         fieldName.reset();
         aString.setValue(FUNCTION_ARECORD_FUNCTION_WITHPARAM_LIST_NAME);
         stringSerde.serialize(aString, fieldName.getDataOutput());
-        listBuilder.reset(new AOrderedListType(DefaultOpenFieldType.NESTED_OPEN_RECORD_TYPE, "Properties"));
+        listBuilder.reset(DefaultOpenFieldType.NESTED_OPEN_AORDERED_LIST_TYPE);
         for (Map.Entry<String, String> property : function.getParams().entrySet()) {
             String name = property.getKey();
             String value = property.getValue();
@@ -360,6 +360,8 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         fieldValue.reset();
         aString.setValue(name);
         stringSerde.serialize(aString, fieldValue.getDataOutput());
+
+        propertyRecordBuilder.addField(fieldName, fieldValue);
 
         // write field 1
         fieldName.reset();
