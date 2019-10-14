@@ -80,6 +80,7 @@ public class BuiltinTypeMap {
         _builtinTypeMap.put("uuid", BuiltinType.AUUID);
         _builtinTypeMap.put("shortwithouttypeinfo", BuiltinType.SHORTWITHOUTTYPEINFO);
         _builtinTypeMap.put("geometry", BuiltinType.AGEOMETRY);
+        _builtinTypeMap.put("any", BuiltinType.ANY);
     }
 
     private BuiltinTypeMap() {
@@ -100,7 +101,9 @@ public class BuiltinTypeMap {
         if (type == null) {
             try {
                 Datatype dt = metadataNode.getDatatype(txnId, dataverseName, typeName);
-                type = dt.getDatatype();
+                if (dt != null) {
+                    type = dt.getDatatype();
+                }
             } catch (RemoteException e) {
                 throw new MetadataException(e);
             }

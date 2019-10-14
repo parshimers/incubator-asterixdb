@@ -25,20 +25,21 @@ public class Library implements IMetadataEntity<Library> {
 
     private static final long serialVersionUID = 1L;
 
-    private final String dataverse;
     private final String name;
 
-    public Library(String dataverseName, String libraryName) {
-        this.dataverse = dataverseName;
-        this.name = libraryName;
-    }
+    private final String dataverseName;
 
-    public String getDataverseName() {
-        return dataverse;
+    public Library(String dataverseName, String libraryName) {
+        this.dataverseName = dataverseName;
+        this.name = libraryName;
     }
 
     public String getName() {
         return name;
+    }
+
+    public String getDataverseName() {
+        return dataverseName;
     }
 
     @Override

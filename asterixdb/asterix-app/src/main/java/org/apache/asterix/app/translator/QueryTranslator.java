@@ -81,6 +81,8 @@ import org.apache.asterix.common.utils.JobUtils;
 import org.apache.asterix.common.utils.JobUtils.ProgressState;
 import org.apache.asterix.common.utils.StorageConstants;
 import org.apache.asterix.compiler.provider.ILangCompilationProvider;
+import org.apache.asterix.external.api.IDataSourceAdapter;
+import org.apache.asterix.external.dataset.adapter.AdapterIdentifier;
 import org.apache.asterix.external.indexing.ExternalFile;
 import org.apache.asterix.external.indexing.IndexingConstants;
 import org.apache.asterix.external.operators.FeedIntakeOperatorNodePushable;
@@ -91,8 +93,12 @@ import org.apache.asterix.lang.common.base.IRewriterFactory;
 import org.apache.asterix.lang.common.base.IStatementRewriter;
 import org.apache.asterix.lang.common.base.Statement;
 import org.apache.asterix.lang.common.expression.IndexedTypeExpression;
+import org.apache.asterix.lang.common.expression.OrderedListTypeDefinition;
+import org.apache.asterix.lang.common.expression.TypeExpression;
+import org.apache.asterix.lang.common.expression.TypeReferenceExpression;
 import org.apache.asterix.lang.common.statement.CompactStatement;
 import org.apache.asterix.lang.common.statement.ConnectFeedStatement;
+import org.apache.asterix.lang.common.statement.CreateAdapterStatement;
 import org.apache.asterix.lang.common.statement.CreateDataverseStatement;
 import org.apache.asterix.lang.common.statement.CreateFeedPolicyStatement;
 import org.apache.asterix.lang.common.statement.CreateFeedStatement;
@@ -124,6 +130,7 @@ import org.apache.asterix.lang.common.statement.TypeDecl;
 import org.apache.asterix.lang.common.statement.TypeDropStatement;
 import org.apache.asterix.lang.common.statement.WriteStatement;
 import org.apache.asterix.lang.common.struct.Identifier;
+import org.apache.asterix.lang.common.struct.TypedVarIdentifier;
 import org.apache.asterix.lang.common.struct.VarIdentifier;
 import org.apache.asterix.lang.common.util.FunctionUtil;
 import org.apache.asterix.metadata.IDatasetDetails;
@@ -136,6 +143,7 @@ import org.apache.asterix.metadata.declared.MetadataProvider;
 import org.apache.asterix.metadata.entities.BuiltinTypeMap;
 import org.apache.asterix.metadata.entities.CompactionPolicy;
 import org.apache.asterix.metadata.entities.Dataset;
+import org.apache.asterix.metadata.entities.DatasourceAdapter;
 import org.apache.asterix.metadata.entities.Datatype;
 import org.apache.asterix.metadata.entities.Dataverse;
 import org.apache.asterix.metadata.entities.ExternalDatasetDetails;
@@ -145,6 +153,7 @@ import org.apache.asterix.metadata.entities.FeedPolicyEntity;
 import org.apache.asterix.metadata.entities.Function;
 import org.apache.asterix.metadata.entities.Index;
 import org.apache.asterix.metadata.entities.InternalDatasetDetails;
+import org.apache.asterix.metadata.entities.Library;
 import org.apache.asterix.metadata.entities.NodeGroup;
 import org.apache.asterix.metadata.feeds.FeedMetadataUtil;
 import org.apache.asterix.metadata.lock.ExternalDatasetsRegistry;
@@ -343,6 +352,9 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                         break;
                     case CREATE_FUNCTION:
                         handleCreateFunctionStatement(metadataProvider, stmt);
+                        break;
+                    case CREATE_ADAPTER:
+                        handleCreateAdapterStatement(metadataProvider, stmt);
                         break;
                     case FUNCTION_DROP:
                         handleFunctionDropStatement(metadataProvider, stmt);
@@ -1733,44 +1745,171 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
         }
     }
 
+    private static String typeExprToName(TypeExpression typ, String activeDataverse) {
+        String typeName = "ANY";
+        switch (typ.getTypeKind()) {
+            case ORDEREDLIST:
+                typeName =
+                        "[" + typeExprToName(((OrderedListTypeDefinition) typ).getItemTypeExpression(), activeDataverse)
+                                + "]";
+                break;
+            case UNORDEREDLIST:
+                break;
+            case RECORD:
+                break;
+            case TYPEREFERENCE:
+                typeName = ((TypeReferenceExpression) typ).getIdent().getSecond().toString();
+                break;
+        }
+        return typeName;
+    }
+
     protected void handleCreateFunctionStatement(MetadataProvider metadataProvider, Statement stmt) throws Exception {
+        boolean external = false;
         CreateFunctionStatement cfs = (CreateFunctionStatement) stmt;
         SourceLocation sourceLoc = cfs.getSourceLocation();
         FunctionSignature signature = cfs.getFunctionSignature();
+        if (cfs.getFunctionBody() == null) {
+            external = true;
+        }
         String dataverse = getActiveDataverseName(signature.getNamespace());
         signature.setNamespace(dataverse);
 
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+        boolean committed = false;
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
         MetadataLockUtil.functionStatementBegin(lockManager, metadataProvider.getLocks(), dataverse,
                 dataverse + "." + signature.getName());
+        String libraryName = cfs.getLibName();
+        try {
+            Dataverse dv = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverse);
+            if (dv == null) {
+                MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+                committed = true;
+                throw new CompilationException(ErrorCode.UNKNOWN_DATAVERSE, sourceLoc, dataverse);
+            }
+            if (external) {
+                Library libraryInMetadata = MetadataManager.INSTANCE.getLibrary(mdTxnCtx, dataverse, libraryName);
+                if (libraryInMetadata == null) {
+                    // exists in metadata and was not un-installed, we return.
+                    // Another place which shows that our metadata transactions are broken
+                    // (we didn't call commit before!!!)
+                    MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+                    committed = true;
+                    throw new CompilationException(ErrorCode.UNKNOWN_LIBRARY, sourceLoc, libraryName);
+                }
+                // Add functions
+                List<String> args = new ArrayList<>();
+                for (TypedVarIdentifier var : cfs.getArgs()) {
+                    if (var.getType() != null) {
+                        args.add(typeExprToName(var.getType(), dataverse));
+                    } else {
+                        args.add(null);
+                    }
+                }
+
+                TypeExpression ret = cfs.getReturnType();
+                String retType;
+                if (ret != null) {
+                    retType = typeExprToName(ret, dataverse);
+                    //                    Map<TypeSignature, IAType> typeMap =
+                    //                            TypeTranslator.computeTypes(mdTxnCtx, ret, typeName, dataverse);
+                    //                    TypeSignature typeSignature = new TypeSignature(dataverse, typeName);
+                    //                    retType = typeMap.get(typeSignature).toString();
+                } else {
+                    retType = null;
+                }
+                Function f = new Function(signature, args, retType, cfs.getExternalIdent(), cfs.getLang(),
+                        FunctionKind.SCALAR.toString(), null, libraryName, cfs.getResources());
+                MetadataManager.INSTANCE.addFunction(mdTxnCtx, f);
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info("Installed function: " + signature);
+                }
+
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info("Installed functions in library :" + libraryName);
+                }
+
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info("Installed adapters in library :" + libraryName);
+                }
+                MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+                committed = true;
+            } else {
+                //Check whether the function is use-able
+                metadataProvider.setDefaultDataverse(dv);
+                Query wrappedQuery = new Query(false);
+                wrappedQuery.setSourceLocation(sourceLoc);
+                wrappedQuery.setBody(cfs.getFunctionBodyExpression());
+                wrappedQuery.setTopLevel(false);
+                List<VarIdentifier> paramVars = new ArrayList<>();
+                List<String> args = new ArrayList<>();
+                for (String v : cfs.getParamList()) {
+                    paramVars.add(new VarIdentifier(v));
+                    args.add(v);
+                }
+                apiFramework.reWriteQuery(declaredFunctions, metadataProvider, wrappedQuery, sessionOutput, false,
+                        paramVars, warningCollector);
+
+                List<List<List<String>>> dependencies = FunctionUtil.getFunctionDependencies(
+                        rewriterFactory.createQueryRewriter(), cfs.getFunctionBodyExpression(), metadataProvider);
+
+                Function function = new Function(signature, args, Function.RETURNTYPE_VOID, cfs.getFunctionBody(),
+                        getFunctionLanguage(), FunctionKind.SCALAR.toString(), dependencies, null, null);
+                MetadataManager.INSTANCE.addFunction(mdTxnCtx, function);
+                MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+            }
+
+        } catch (Exception e) {
+            if (!committed) {
+                abort(e, e, mdTxnCtx);
+            }
+            throw e;
+        } finally {
+            metadataProvider.getLocks().unlock();
+            metadataProvider.setDefaultDataverse(activeDataverse);
+        }
+    }
+
+    protected void handleCreateAdapterStatement(MetadataProvider metadataProvider, Statement stmt) throws Exception {
+        boolean external = false;
+        CreateAdapterStatement cas = (CreateAdapterStatement) stmt;
+        SourceLocation sourceLoc = cas.getSourceLocation();
+        AdapterIdentifier aid = cas.getAdapterId();
+        String dataverse = getActiveDataverseName(aid.getNamespace());
+
+        MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
+        metadataProvider.setMetadataTxnContext(mdTxnCtx);
+        MetadataLockUtil.functionStatementBegin(lockManager, metadataProvider.getLocks(), dataverse,
+                dataverse + "." + aid.getName());
+        String libraryName = cas.getLibName();
         try {
             Dataverse dv = MetadataManager.INSTANCE.getDataverse(mdTxnCtx, dataverse);
             if (dv == null) {
                 throw new CompilationException(ErrorCode.UNKNOWN_DATAVERSE, sourceLoc, dataverse);
             }
-
-            //Check whether the function is use-able
-            metadataProvider.setDefaultDataverse(dv);
-            Query wrappedQuery = new Query(false);
-            wrappedQuery.setSourceLocation(sourceLoc);
-            wrappedQuery.setBody(cfs.getFunctionBodyExpression());
-            wrappedQuery.setTopLevel(false);
-            List<VarIdentifier> paramVars = new ArrayList<>();
-            for (String v : cfs.getParamList()) {
-                paramVars.add(new VarIdentifier(v));
+            Library libraryInMetadata = MetadataManager.INSTANCE.getLibrary(mdTxnCtx, dataverse, libraryName);
+            if (libraryInMetadata == null) {
+                // exists in metadata and was not un-installed, we return.
+                // Another place which shows that our metadata transactions are broken
+                // (we didn't call commit before!!!)
+                MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+                throw new CompilationException(ErrorCode.UNKNOWN_LIBRARY, sourceLoc, libraryName);
             }
-            apiFramework.reWriteQuery(declaredFunctions, metadataProvider, wrappedQuery, sessionOutput, false,
-                    paramVars, warningCollector);
+            // Add adapters
+            String adapterFactoryClass = cas.getExternalIdent();
+            DatasourceAdapter dsa =
+                    new DatasourceAdapter(aid, adapterFactoryClass, IDataSourceAdapter.AdapterType.EXTERNAL);
+            MetadataManager.INSTANCE.addAdapter(mdTxnCtx, dsa);
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info("Installed adapter: " + aid.getName());
+            }
 
-            List<List<List<String>>> dependencies = FunctionUtil.getFunctionDependencies(
-                    rewriterFactory.createQueryRewriter(), cfs.getFunctionBodyExpression(), metadataProvider);
-
-            Function function = new Function(signature, cfs.getParamList(), Function.RETURNTYPE_VOID,
-                    cfs.getFunctionBody(), getFunctionLanguage(), FunctionKind.SCALAR.toString(), dependencies);
-            MetadataManager.INSTANCE.addFunction(mdTxnCtx, function);
-
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info("Installed adapters in library :" + libraryName);
+            }
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
+
         } catch (Exception e) {
             abort(e, e, mdTxnCtx);
             throw e;

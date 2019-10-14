@@ -78,6 +78,7 @@ public interface Statement extends ILangExpression {
         CREATE_FEED_POLICY,
         DROP_FEED_POLICY,
         CREATE_FUNCTION,
+        CREATE_ADAPTER,
         FUNCTION_DROP,
         COMPACT,
         EXTERNAL_DATASET_REFRESH,

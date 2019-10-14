@@ -80,6 +80,10 @@ public class LibraryTupleTranslator extends AbstractTupleTranslator<Library> {
         return new Library(dataverseName, libraryName);
     }
 
+    protected void writeOpenFields(Library library) {
+
+    }
+
     @Override
     public ITupleReference getTupleFromMetadataEntity(Library library)
             throws HyracksDataException, AlgebricksException {
