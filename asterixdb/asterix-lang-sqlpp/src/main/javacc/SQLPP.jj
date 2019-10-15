@@ -121,6 +121,7 @@ import org.apache.asterix.lang.common.statement.CompactStatement;
 import org.apache.asterix.lang.common.statement.ConnectFeedStatement;
 import org.apache.asterix.lang.common.statement.StartFeedStatement;
 import org.apache.asterix.lang.common.statement.StopFeedStatement;
+import org.apache.asterix.lang.common.statement.CreateAdapterStatement;
 import org.apache.asterix.lang.common.statement.CreateDataverseStatement;
 import org.apache.asterix.lang.common.statement.CreateFeedPolicyStatement;
 import org.apache.asterix.lang.common.statement.CreateFeedStatement;
@@ -155,6 +156,7 @@ import org.apache.asterix.lang.common.struct.Identifier;
 import org.apache.asterix.lang.common.struct.OperatorType;
 import org.apache.asterix.lang.common.struct.QuantifiedPair;
 import org.apache.asterix.lang.common.struct.VarIdentifier;
+import org.apache.asterix.lang.common.struct.TypedVarIdentifier;
 import org.apache.asterix.lang.common.util.RangeMapBuilder;
 import org.apache.asterix.lang.sqlpp.clause.AbstractBinaryCorrelateClause;
 import org.apache.asterix.lang.sqlpp.clause.FromClause;
@@ -180,6 +182,7 @@ import org.apache.asterix.lang.sqlpp.struct.SetOperationRight;
 import org.apache.asterix.lang.sqlpp.util.ExpressionToVariableUtil;
 import org.apache.asterix.lang.sqlpp.util.FunctionMapUtil;
 import org.apache.asterix.lang.sqlpp.util.SqlppVariableUtil;
+import org.apache.asterix.external.dataset.adapter.AdapterIdentifier;
 import org.apache.asterix.om.functions.BuiltinFunctions;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.commons.lang3.ArrayUtils;
@@ -217,6 +220,12 @@ class SQLPPParser extends ScopeChecker implements IParser {
     private static final String ROWS = "ROWS";
     private static final String TIES = "TIES";
     private static final String UNBOUNDED = "UNBOUNDED";
+    private static final String ACTION = "ACTION";
+    private static final String LANGUAGE = "LANGUAGE";
+    private static final String CALL = "CALL";
+    private static final String ADAPTER = "ADAPTER";
+    private static final String DETERMINISTIC = "DETERMINISTIC";
+
 
     private static final String INT_TYPE_NAME = "int";
 
@@ -581,6 +590,7 @@ Statement CreateStatement() throws ParseException:
     | stmt = IndexSpecification(startToken)
     | stmt = DataverseSpecification(startToken)
     | stmt = FunctionSpecification(startToken)
+    | stmt = AdapterSpecification(startToken)
     | stmt = FeedSpecification(startToken)
     | stmt = FeedPolicySpecification(startToken)
   )
@@ -884,19 +894,116 @@ CreateDataverseStatement DataverseSpecification(Token startStmtToken) throws Par
     }
 }
 
-CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws ParseException:
+CreateAdapterStatement AdapterSpecification(Token startStmtToken) throws ParseException:
 {
-  FunctionSignature signature;
-  boolean ifNotExists = false;
-  List<VarIdentifier> paramList = new ArrayList<VarIdentifier>();
-  String functionBody;
-  VarIdentifier var = null;
-  Expression functionBodyExpr;
+  AdapterIdentifier signature = null;
   Token beginPos;
   Token endPos;
   FunctionName fctName = null;
   String currentDataverse = defaultDataverse;
+  String lang = null;
+  String libName ="";
+  String externalIdent = "";
+  ListConstructor resources = null;
+  boolean ifNotExists = false;
+  createNewScope();
+}
+{
+  <IDENTIFIER> {expectToken(ADAPTER);} fctName = FunctionName()
+  {
+     defaultDataverse = fctName.dataverse;
+  }
+  <IDENTIFIER> {expectToken(LANGUAGE);} lang = Identifier() <AS> libName = ConstantString() <COMMA>  externalIdent = ConstantString()
+    {
+      signature = new AdapterIdentifier(currentDataverse == null ? "Default" : currentDataverse, fctName.function);
+      defaultDataverse = currentDataverse;
+      CreateAdapterStatement stmt =
+        new CreateAdapterStatement(signature, lang, libName, externalIdent,  ifNotExists);
+      return addSourceLocation(stmt, startStmtToken);
+    }
 
+}
+
+
+List<TypedVarIdentifier> FunctionArgs() :
+{
+    List<TypedVarIdentifier> paramList = new ArrayList<TypedVarIdentifier>();
+    TypedVarIdentifier varTyped = null;
+    VarIdentifier var = null;
+    TypeExpression type = null;
+    boolean typed = false;
+}
+{
+    <LEFTPAREN>( LOOKAHEAD(2) (<IDENTIFIER>
+    {
+        var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
+        paramList.add(new TypedVarIdentifier(var.toString(),null));
+    }(<COMMA> <IDENTIFIER>{
+        var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
+        paramList.add(new TypedVarIdentifier(var.toString(),null));
+    })* <RIGHTPAREN> ) | ( <IDENTIFIER> {
+        var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
+        paramList.add(new TypedVarIdentifier(var.toString(),null));
+    } <COLON> type = TypeExpr()
+    {
+        typed = true;
+        paramList.get(0).setType(type);
+    }(<COMMA> <IDENTIFIER>
+    {
+        VarIdentifier varId = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
+        paramList.add(new TypedVarIdentifier(varId.toString(),null));
+    } <COLON> type = TypeExpr()  {
+        paramList.get(paramList.size() - 1).setType(type);
+    })*<RIGHTPAREN> ) | <RIGHTPAREN> )
+
+    {
+        return paramList;
+    }
+}
+
+List<VarIdentifier> ParameterList() throws ParseException:
+{
+  List<VarIdentifier> paramList = new ArrayList<VarIdentifier>();
+  VarIdentifier var = null;
+}
+{
+  <LEFTPAREN> (<IDENTIFIER>
+    {
+      var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
+      paramList.add(var);
+    }
+  (<COMMA> <IDENTIFIER>
+    {
+      var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
+      paramList.add(var);
+    }
+  )*)? <RIGHTPAREN>
+    {
+      return paramList;
+    }
+}
+
+CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws ParseException:
+{
+  FunctionSignature signature = null;
+  boolean ifNotExists = false;
+  String functionBody = null;
+  VarIdentifier var = null;
+  Expression functionBodyExpr = null;
+  Token beginPos;
+  Token endPos;
+  FunctionName fctName = null;
+  String currentDataverse = defaultDataverse;
+  TypeExpression returnType = null;
+  boolean returnNullable = false;
+  boolean deterministic = false;
+  boolean nullCall = false;
+  boolean externalAction = false;
+  String lang = null;
+  String libName ="";
+  String externalIdent = "";
+  List<TypedVarIdentifier> args = new ArrayList<TypedVarIdentifier>();
+  RecordConstructor resources = null;
   createNewScope();
 }
 {
@@ -905,8 +1012,31 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
      defaultDataverse = fctName.dataverse;
   }
   ifNotExists = IfNotExists()
-  paramList = ParameterList()
-  <LEFTBRACE>
+  args = FunctionArgs()
+
+
+  ( LOOKAHEAD(2) (
+  //(RETURN ) (DETERMINISTIC ) (NULL CALL) (EXTERNAL ACTION) LANGUAGE id (WITH)
+  ( (<RETURN> returnType = TypeExpr() (<QUES> {returnNullable = true;})?)?
+    (LOOKAHEAD(3,{getToken(1).kind == IDENTIFIER && getToken(2).kind == IDENTIFIER && getToken(3).kind != AS})(<IDENTIFIER> {deterministic = true;}))?
+    (<NULL> <IDENTIFIER> { if(isToken(CALL)) nullCall = true;})?
+    (<EXTERNAL> <IDENTIFIER> {if(isToken(ACTION)) externalAction = true;})?
+    <IDENTIFIER> {expectToken(LANGUAGE);} lang = Identifier() <AS> libName = ConstantString() <COMMA>  externalIdent = ConstantString()
+    (<WITH> resources = RecordConstructor())?{
+      signature = new FunctionSignature(fctName.dataverse, fctName.function, args.size());
+      defaultDataverse = currentDataverse;
+      CreateFunctionStatement stmt = null;
+      try{
+        stmt =
+        new CreateFunctionStatement(signature, args, returnType, returnNullable, deterministic, nullCall,
+                                    externalAction, lang, libName, externalIdent, resources,  ifNotExists);
+
+      } catch (AlgebricksException e) {
+         throw new SqlppParseException(getSourceLocation(startStmtToken), e.getMessage());
+      }
+      return addSourceLocation(stmt, startStmtToken);
+    }) )
+   | ( <LEFTBRACE>
   {
      beginPos = token;
   }
@@ -916,13 +1046,15 @@ CreateFunctionStatement FunctionSpecification(Token startStmtToken) throws Parse
       endPos = token;
       functionBody = extractFragment(beginPos.beginLine, beginPos.beginColumn, endPos.beginLine, endPos.beginColumn);
       // TODO use fctName.library
-      signature = new FunctionSignature(fctName.dataverse, fctName.function, paramList.size());
+      signature = new FunctionSignature(fctName.dataverse, fctName.function, args.size());
       getCurrentScope().addFunctionDescriptor(signature, false);
       removeCurrentScope();
       defaultDataverse = currentDataverse;
+      List<? extends VarIdentifier> paramList = args;
       CreateFunctionStatement stmt = new CreateFunctionStatement(signature, paramList, functionBody, functionBodyExpr, ifNotExists);
       return addSourceLocation(stmt, startStmtToken);
-    }
+    } ) )
+
 }
 
 CreateFeedStatement FeedSpecification(Token startStmtToken) throws ParseException:
@@ -978,27 +1110,6 @@ CreateFeedPolicyStatement FeedPolicySpecification(Token startStmtToken) throws P
     }
 }
 
-List<VarIdentifier> ParameterList() throws ParseException:
-{
-  List<VarIdentifier> paramList = new ArrayList<VarIdentifier>();
-  VarIdentifier var = null;
-}
-{
-  <LEFTPAREN> (<IDENTIFIER>
-    {
-      var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
-      paramList.add(var);
-    }
-  (<COMMA> <IDENTIFIER>
-    {
-      var = SqlppVariableUtil.toInternalVariableIdentifier(token.image);
-      paramList.add(var);
-    }
-  )*)? <RIGHTPAREN>
-    {
-      return paramList;
-    }
-}
 
 boolean IfNotExists() throws ParseException:
 {
@@ -1640,6 +1751,7 @@ void RecordField(RecordTypeDefinition recType) throws ParseException:
       recType.addField(fieldName, type, nullable, rfdg);
     }
 }
+
 
 TypeReferenceExpression TypeReference() throws ParseException:
 {

@@ -57,21 +57,4 @@ public interface ILibraryManager {
      * @return the library class loader associated with the dataverse and library.
      */
     ClassLoader getLibraryClassLoader(String dataverseName, String libraryName);
-
-    /**
-     * Add function parameters  to library manager if it exists.
-     * @param dataverseName
-     * @param fullFunctionName
-     * @param parameters
-     */
-
-    void addFunctionParameters(String dataverseName, String fullFunctionName, List<String> parameters);
-
-    /**
-     * Get a list of parameters.
-     * @param dataverseName
-     * @param fullFunctionName
-     * @return A list contains all pre-specified function parameters.
-     */
-    List<String> getFunctionParameters(String dataverseName, String fullFunctionName);
 }
