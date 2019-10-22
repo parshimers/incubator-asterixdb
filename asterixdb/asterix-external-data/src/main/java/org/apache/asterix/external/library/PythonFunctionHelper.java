@@ -20,15 +20,15 @@ package org.apache.asterix.external.library;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.external.api.IFunctionHelper;
 import org.apache.asterix.external.api.IJObject;
-import org.apache.asterix.external.library.java.JObjectPointableVisitor;
 import org.apache.asterix.external.library.java.JTypeTag;
 import org.apache.asterix.external.library.java.base.JNull;
 import org.apache.asterix.external.parser.JSONDataParser;
@@ -47,22 +47,20 @@ import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.types.TypeTagUtil;
 import org.apache.asterix.om.util.container.IObjectPool;
 import org.apache.asterix.om.util.container.ListObjectPool;
+import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IDataOutputProvider;
 import org.apache.hyracks.data.std.api.IValueReference;
 import org.apache.hyracks.data.std.primitive.TaggedValuePointable;
 import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
+
 import com.fasterxml.jackson.core.JsonFactory;
 
-public class JavaFunctionHelper implements IFunctionHelper {
+public class PythonFunctionHelper implements IFunctionHelper {
 
     private final IExternalFunctionInfo finfo;
     private final IDataOutputProvider outputProvider;
-    private final IJObject[] arguments;
-    private IJObject resultHolder;
-    private final IObjectPool<IJObject, IAType> objectPool = new ListObjectPool<>(JTypeObjectFactory.INSTANCE);
-    private final JObjectPointableVisitor pointableVisitor;
     private final PointableAllocator pointableAllocator;
     private final Map<Integer, TypeInfo> poolTypeInfo;
     private final Map<String, String> parameters;
@@ -71,31 +69,26 @@ public class JavaFunctionHelper implements IFunctionHelper {
     private final ByteArrayOutputStream out = new ByteArrayOutputStream();
     private final ObjectNode args = new ObjectNode(JsonNodeFactory.instance);
     private final JSONDataParser jdp;
+    private final String packageName;
+    private final IObjectPool<IJObject, IAType> objectPool = new ListObjectPool<>(JTypeObjectFactory.INSTANCE);
+    private final URL[] libraryPaths;
+    private final ClassLoader cl;
 
     private boolean isValidResult = false;
 
-    public JavaFunctionHelper(IExternalFunctionInfo finfo, IAType[] argTypes, IDataOutputProvider outputProvider) {
+    public PythonFunctionHelper(IExternalFunctionInfo finfo, IAType[] argTypes, IDataOutputProvider outputProvider,
+            URL[] libraryPaths, ClassLoader cl) {
         this.finfo = finfo;
         this.outputProvider = outputProvider;
-        this.pointableVisitor = new JObjectPointableVisitor();
         this.pointableAllocator = new PointableAllocator();
-        this.arguments = new IJObject[finfo.getArgumentList().size()];
-        int index = 0;
-        for (IAType param : finfo.getArgumentList()) {
-            this.arguments[index++] = objectPool.allocate(param);
-        }
         this.stringArgs = new String[finfo.getArgumentList().size()];
-        this.resultHolder = objectPool.allocate(finfo.getReturnType());
         this.poolTypeInfo = new HashMap<>();
         this.parameters = finfo.getParams();
         this.argTypes = argTypes;
         this.jdp = new JSONDataParser(DefaultOpenFieldType.NESTED_OPEN_RECORD_TYPE, new JsonFactory());
-
-    }
-
-    @Override
-    public IJObject getArgument(int index) {
-        return arguments[index];
+        this.packageName = finfo.getFunctionBody().trim();
+        this.libraryPaths = libraryPaths;
+        this.cl = cl;
     }
 
     @Override
@@ -153,56 +146,77 @@ public class JavaFunctionHelper implements IFunctionHelper {
     }
 
     @Override
-    public void setArgument(int index, IValueReference valueReference) throws IOException, AsterixException {
+    public IJObject getArgument(int index) {
+        return null;
+    }
+
+    public void setArgument(int index, IValueReference valueReference) throws HyracksDataException {
         APrintVisitor pv = new APrintVisitor();
         IVisitablePointable pointable = null;
         IJObject jObject = null;
         IAType type = argTypes[index];
+        out.reset();
+        PrintStream ps = new PrintStream(out);
+        Pair<PrintStream, ATypeTag> pst = new Pair(ps, getTypeInfo(index, type).getTypeTag());
         switch (type.getTypeTag()) {
             case OBJECT:
                 pointable = pointableAllocator.allocateRecordValue(type);
                 pointable.set(valueReference);
-                jObject = pointableVisitor.visit((ARecordVisitablePointable) pointable, getTypeInfo(index, type));
+                pv.visit((ARecordVisitablePointable) pointable, pst);
                 break;
             case ARRAY:
             case MULTISET:
                 pointable = pointableAllocator.allocateListValue(type);
                 pointable.set(valueReference);
-                jObject = pointableVisitor.visit((AListVisitablePointable) pointable, getTypeInfo(index, type));
+                pv.visit((AListVisitablePointable) pointable, pst);
                 break;
             case ANY:
-                ATypeTag rtTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER
-                        .deserialize(valueReference.getByteArray()[valueReference.getStartOffset()]);
+                TaggedValuePointable pointy = TaggedValuePointable.FACTORY.createPointable();
+                pointy.set(valueReference);
+                ATypeTag rtTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(pointy.getTag());
                 IAType rtType = TypeTagUtil.getBuiltinTypeByTag(rtTypeTag);
+                pst = new Pair(ps, rtTypeTag);
                 switch (rtTypeTag) {
                     case OBJECT:
                         pointable = pointableAllocator.allocateRecordValue(rtType);
                         pointable.set(valueReference);
-                        jObject = pointableVisitor.visit((ARecordVisitablePointable) pointable,
-                                getTypeInfo(index, rtType));
+                        pv.visit((ARecordVisitablePointable) pointable, pst);
                         break;
                     case ARRAY:
                     case MULTISET:
                         pointable = pointableAllocator.allocateListValue(rtType);
                         pointable.set(valueReference);
-                        jObject =
-                                pointableVisitor.visit((AListVisitablePointable) pointable, getTypeInfo(index, rtType));
+                        pv.visit((AListVisitablePointable) pointable, pst);
                         break;
                     default:
                         pointable = pointableAllocator.allocateFieldValue(rtType);
                         pointable.set(valueReference);
-                        jObject = pointableVisitor.visit((AFlatValuePointable) pointable, rtTypeTag,
-                                getTypeInfo(index, rtType));
+                        pv.visit((AFlatValuePointable) pointable, pst);
                         break;
                 }
                 break;
             default:
                 pointable = pointableAllocator.allocateFieldValue(type);
                 pointable.set(valueReference);
-                jObject = pointableVisitor.visit((AFlatValuePointable) pointable, getTypeInfo(index, type));
+                pv.visit((AFlatValuePointable) pointable, pst);
                 break;
         }
-        arguments[index] = jObject;
+        ps.flush();
+        stringArgs[index] = out.toString();
+        args.put(Integer.valueOf(index).toString(), stringArgs[index]);
+    }
+
+    public URL[] getLibraryDeployedPath() {
+        return libraryPaths;
+    }
+
+    public ClassLoader getClassLoader() {
+        return cl;
+    }
+
+    @Override
+    public IJObject getResultObject() {
+        return null;
     }
 
     private TypeInfo getTypeInfo(int index, IAType type) {
@@ -215,19 +229,8 @@ public class JavaFunctionHelper implements IFunctionHelper {
     }
 
     @Override
-    public IJObject getResultObject() {
-        if (resultHolder == null) {
-            resultHolder = objectPool.allocate(finfo.getReturnType());
-        }
-        return resultHolder;
-    }
-
-    @Override
     public IJObject getResultObject(IAType type) {
-        if (resultHolder == null) {
-            resultHolder = objectPool.allocate(type);
-        }
-        return resultHolder;
+        return null;
     }
 
     @Override
@@ -262,15 +265,16 @@ public class JavaFunctionHelper implements IFunctionHelper {
     @Override
     public void reset() {
         pointableAllocator.reset();
-        objectPool.reset();
     }
 
+    @Override
     public Map<String, String> getParameters() {
         return parameters;
     }
 
     @Override
     public String getExternalIdentifier() {
-        return null;
+        return packageName;
     }
+
 }

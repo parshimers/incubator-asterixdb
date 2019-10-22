@@ -18,19 +18,30 @@
  */
 package org.apache.asterix.external.api;
 
+import java.io.IOException;
 import java.util.Map;
 
+import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.external.library.java.JTypeTag;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.data.std.api.IValueReference;
 
 public interface IFunctionHelper {
 
     IJObject getArgument(int index);
 
+    void setArgument(int index, IValueReference valueReference) throws IOException, AsterixException;
+
     IJObject getResultObject();
 
+    String[] getArgumentStr();
+
+    String getArgumentsJSON();
+
     void setResult(IJObject result) throws HyracksDataException;
+
+    void setResultJSON(String json) throws HyracksDataException;
 
     boolean isValidResult();
 
@@ -41,4 +52,6 @@ public interface IFunctionHelper {
     void reset();
 
     Map<String, String> getParameters();
+
+    String getExternalIdentifier();
 }

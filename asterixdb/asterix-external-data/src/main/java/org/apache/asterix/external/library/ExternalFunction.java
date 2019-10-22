@@ -26,9 +26,12 @@ import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
+import org.apache.asterix.external.api.ExternalLanguage;
 import org.apache.asterix.external.api.IExternalFunction;
 import org.apache.asterix.external.api.IFunctionFactory;
 import org.apache.asterix.external.api.IFunctionHelper;
+import org.apache.asterix.external.library.java.FunctionHelperFactory;
+import org.apache.asterix.external.library.py.PythonFunctionFactory;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
@@ -50,7 +53,7 @@ public abstract class ExternalFunction implements IExternalFunction {
     protected final IPointable inputVal = new VoidPointable();
     protected final ArrayBackedValueStorage resultBuffer = new ArrayBackedValueStorage();
     protected final IScalarEvaluator[] argumentEvaluators;
-    protected final JavaFunctionHelper functionHelper;
+    protected final IFunctionHelper functionHelper;
     protected final IAType[] argTypes;
 
     public ExternalFunction(IExternalFunctionInfo finfo, IScalarEvaluatorFactory args[], IAType[] argTypes,
@@ -67,12 +70,24 @@ public abstract class ExternalFunction implements IExternalFunction {
         String functionLibary = finfo.getLibrary();
         DataverseName dataverse = FunctionSignature.getDataverseName(finfo.getFunctionIdentifier());
 
-        functionHelper = new JavaFunctionHelper(finfo, argTypes, resultBuffer);
         ClassLoader libraryClassLoader = libraryManager.getLibraryClassLoader(dataverse, functionLibary);
-        String classname = finfo.getFunctionBody().trim();
+        functionHelper = FunctionHelperFactory.getFunctionHelper(lang, finfo, argTypes, resultBuffer,
+                libraryManager.getLibraryUrls(dataverse, functionLibary), libraryClassLoader);
+
         Class<?> clazz;
+        String classname = "";
         try {
-            clazz = Class.forName(classname, true, libraryClassLoader);
+            switch (function.getLanguage()) {
+                case JAVA:
+                    classname = finfo.getFunctionBody().trim();
+                    clazz = Class.forName(classname, true, libraryClassLoader);
+                    break;
+                case PYTHON:
+                    clazz = PythonFunctionFactory.class;
+                    break;
+                default:
+                    throw new ClassNotFoundException();
+            }
             externalFunctionFactory = (IFunctionFactory) clazz.newInstance();
             externalFunctionInstance = externalFunctionFactory.getExternalFunction();
         } catch (Exception e) {

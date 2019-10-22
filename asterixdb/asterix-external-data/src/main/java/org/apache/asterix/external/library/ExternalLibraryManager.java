@@ -19,6 +19,7 @@
 package org.apache.asterix.external.library;
 
 import java.io.IOException;
+import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,6 +36,7 @@ public class ExternalLibraryManager implements ILibraryManager {
 
     private final Map<Pair<DataverseName, String>, URLClassLoader> libraryClassLoaders = new HashMap<>();
     private static final Logger LOGGER = LogManager.getLogger();
+    private final Map<String, URL[]> libraryPaths = new HashMap<>();
 
     @Override
     public void registerLibraryClassLoader(DataverseName dataverseName, String libraryName,
@@ -45,6 +47,7 @@ public class ExternalLibraryManager implements ILibraryManager {
                 return;
             }
             libraryClassLoaders.put(key, classLoader);
+            libraryPaths.put(key, classLoader.getURLs());
         }
     }
 
@@ -81,6 +84,11 @@ public class ExternalLibraryManager implements ILibraryManager {
 
     private static Pair<DataverseName, String> getKey(DataverseName dataverseName, String libraryName) {
         return new Pair(dataverseName, libraryName);
+    }
+
+    @Override
+    public URL[] getLibraryUrls(String dataverseName, String libraryName) {
+        return libraryPaths.get(getKey(dataverseName, libraryName));
     }
 
 }

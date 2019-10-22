@@ -39,6 +39,7 @@ import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.functions.FunctionConstants;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.metadata.DataverseName;
+import org.apache.asterix.external.api.ExternalLanguage;
 import org.apache.asterix.lang.common.base.Expression;
 import org.apache.asterix.lang.common.base.Expression.Kind;
 import org.apache.asterix.lang.common.base.ILangExpression;
@@ -896,13 +897,17 @@ class LangExpressionToPlanTranslator
             if (function == null) {
                 return null;
             }
-            IFunctionInfo finfo =
-                    function.getLanguage().isExternal()
-                            ? ExternalFunctionCompilerUtil
-                                    .getExternalFunctionInfo(metadataProvider.getMetadataTxnContext(), function)
-                            : FunctionUtil.getFunctionInfo(signature);
-            AbstractFunctionCallExpression f = new ScalarFunctionCallExpression(finfo, args);
-            f.setSourceLocation(sourceLoc);
+            AbstractFunctionCallExpression f;
+            if (function.getLanguage().isExternal()) {
+                IFunctionInfo finfo = ExternalFunctionCompilerUtil
+                        .getExternalFunctionInfo(metadataProvider.getMetadataTxnContext(), function);
+                f = new ScalarFunctionCallExpression(finfo, args);
+                f.setSourceLocation(sourceLoc);
+            } else {
+                IFunctionInfo finfo = FunctionUtil.getFunctionInfo(signature);
+                f = new ScalarFunctionCallExpression(finfo, args);
+                f.setSourceLocation(sourceLoc);
+            }
             return f;
         } catch (AlgebricksException e) {
             throw new CompilationException(ErrorCode.COMPILATION_ERROR, sourceLoc, e.getMessage(), e);
