@@ -1,8 +1,3 @@
-package org.apache.asterix.external.api;
-
-import java.util.Arrays;
-import java.util.Map;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -21,26 +16,16 @@ import java.util.Map;
  * specific language governing permissions and limitations
  * under the License.
  */
-import com.google.common.collect.Maps;
+package org.apache.asterix.external.library.py;
 
-public enum ExternalLanguage {
-    JAVA("java"),
-    PYTHON("python");
+import org.apache.asterix.external.api.IExternalScalarFunction;
+import org.apache.asterix.external.api.IFunctionFactory;
 
-    private static final Map<String, ExternalLanguage> languageNames =
-            Maps.uniqueIndex(Arrays.asList(ExternalLanguage.values()), ExternalLanguage::getName);
+public class PythonFunctionFactory implements IFunctionFactory {
 
-    private String name;
-
-    ExternalLanguage(String name) {
-        this.name = name;
+    @Override
+    public IExternalScalarFunction getExternalFunction() {
+        return new PythonFunction();
     }
 
-    public String getName() {
-        return name;
-    }
-
-    public static ExternalLanguage fromName(String name) {
-        return languageNames.get(name);
-    }
 }

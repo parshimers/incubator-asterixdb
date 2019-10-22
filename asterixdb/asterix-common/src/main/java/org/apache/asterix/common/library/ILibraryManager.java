@@ -19,6 +19,7 @@
 
 package org.apache.asterix.common.library;
 
+import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.List;
 
@@ -57,4 +58,6 @@ public interface ILibraryManager {
      * @return the library class loader associated with the dataverse and library.
      */
     ClassLoader getLibraryClassLoader(String dataverseName, String libraryName);
+
+    URL[] getLibraryUrls(String dataverseName, String libraryName);
 }
