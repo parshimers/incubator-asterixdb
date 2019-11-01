@@ -45,7 +45,6 @@
     <test-case FilePath="api">
       <compilation-unit name="request-param-validation">
         <output-dir compare="Text">request-param-validation</output-dir>
-        <source-location>false</source-location>
         <expected-error>Invalid value for parameter "format": foo</expected-error>
         <expected-error>Invalid value for parameter "pretty": bar</expected-error>
         <expected-error>Invalid value for parameter "plan-format": blah</expected-error>
@@ -71,6 +70,7 @@
         <expected-error>Invalid value for parameter "profile": true</expected-error>
         <expected-error>Invalid value for parameter "profile": foo</expected-error>
         <expected-error>Invalid value for parameter "profile": foo</expected-error>
+        <source-location>false</source-location>
       </compilation-unit>
     </test-case>
     <test-case FilePath="api">
