@@ -66,12 +66,15 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import org.apache.asterix.api.http.server.QueryServiceServlet;
+import org.apache.asterix.api.http.server.QueryServiceRequestParameters;
 import org.apache.asterix.app.external.IExternalUDFLibrarian;
 import org.apache.asterix.common.api.Duration;
 import org.apache.asterix.common.config.GlobalConfig;
+import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.common.utils.Servlets;
 import org.apache.asterix.lang.sqlpp.util.SqlppStatementUtil;
+import org.apache.asterix.metadata.bootstrap.MetadataBuiltinEntities;
+import org.apache.asterix.metadata.utils.MetadataConstants;
 import org.apache.asterix.runtime.evaluators.common.NumberUtils;
 import org.apache.asterix.test.server.ITestServer;
 import org.apache.asterix.test.server.TestServerProvider;
@@ -626,13 +629,14 @@ public class TestExecutor {
     }
 
     public List<Parameter> constructQueryParameters(String str, OutputFormat fmt, List<Parameter> params) {
-        List<Parameter> newParams = upsertParam(params, "format", ParameterTypeEnum.STRING, fmt.mimeType());
+        List<Parameter> newParams = upsertParam(params, QueryServiceRequestParameters.Parameter.FORMAT.str(),
+                ParameterTypeEnum.STRING, fmt.mimeType());
 
-        newParams = upsertParam(newParams, QueryServiceServlet.Parameter.PLAN_FORMAT.str(), ParameterTypeEnum.STRING,
-                DEFAULT_PLAN_FORMAT);
+        newParams = upsertParam(newParams, QueryServiceRequestParameters.Parameter.PLAN_FORMAT.str(),
+                ParameterTypeEnum.STRING, DEFAULT_PLAN_FORMAT);
         final Optional<String> maxReadsOptional = extractMaxResultReads(str);
         if (maxReadsOptional.isPresent()) {
-            newParams = upsertParam(newParams, QueryServiceServlet.Parameter.MAX_RESULT_READS.str(),
+            newParams = upsertParam(newParams, QueryServiceRequestParameters.Parameter.MAX_RESULT_READS.str(),
                     ParameterTypeEnum.STRING, maxReadsOptional.get());
         }
         return newParams;
@@ -1971,7 +1975,7 @@ public class TestExecutor {
 
     public void cleanup(String testCase, List<String> badtestcases) throws Exception {
         try {
-            ArrayList<String> toBeDropped = new ArrayList<>();
+            List<DataverseName> toBeDropped = new ArrayList<>();
             InputStream resultStream = executeQueryService(
                     "select dv.DataverseName from Metadata.`Dataverse` as dv order by dv.DataverseName;",
                     getEndpoint(Servlets.QUERY_SERVICE), OutputFormat.CLEAN_JSON);
@@ -1979,9 +1983,10 @@ public class TestExecutor {
             for (int i = 0; i < result.size(); i++) {
                 JsonNode json = result.get(i);
                 if (json != null) {
-                    String dvName = json.get("DataverseName").asText();
-                    if (!dvName.equals("Metadata") && !dvName.equals("Default")) {
-                        toBeDropped.add(SqlppStatementUtil.enclose(dvName));
+                    DataverseName dvName = DataverseName.createFromCanonicalForm(json.get("DataverseName").asText());
+                    if (!dvName.equals(MetadataConstants.METADATA_DATAVERSE_NAME)
+                            && !dvName.equals(MetadataBuiltinEntities.DEFAULT_DATAVERSE_NAME)) {
+                        toBeDropped.add(dvName);
                     }
                 }
             }
@@ -1989,10 +1994,10 @@ public class TestExecutor {
                 badtestcases.add(testCase);
                 LOGGER.info("Last test left some garbage. Dropping dataverses: " + StringUtils.join(toBeDropped, ','));
                 StringBuilder dropStatement = new StringBuilder();
-                for (String dv : toBeDropped) {
+                for (DataverseName dv : toBeDropped) {
                     dropStatement.setLength(0);
                     dropStatement.append("drop dataverse ");
-                    dropStatement.append(dv);
+                    SqlppStatementUtil.encloseDataverseName(dropStatement, dv);
                     dropStatement.append(";\n");
                     resultStream = executeQueryService(dropStatement.toString(), getEndpoint(Servlets.QUERY_SERVICE),
                             OutputFormat.CLEAN_JSON, UTF_8);
@@ -2186,7 +2191,7 @@ public class TestExecutor {
     protected static boolean containsClientContextID(String statement) {
         List<Parameter> httpParams = extractParameters(statement);
         return httpParams.stream().map(Parameter::getName)
-                .anyMatch(QueryServiceServlet.Parameter.CLIENT_ID.str()::equals);
+                .anyMatch(QueryServiceRequestParameters.Parameter.CLIENT_ID.str()::equals);
     }
 
     private static boolean isCancellable(String type) {

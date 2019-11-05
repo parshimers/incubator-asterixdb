@@ -34,7 +34,6 @@ import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression.FunctionKind;
-import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import org.apache.hyracks.algebricks.core.algebra.functions.IFunctionInfo;
 
 public class ExternalFunctionCompilerUtil {
@@ -65,8 +64,6 @@ public class ExternalFunctionCompilerUtil {
 
     private static IFunctionInfo getScalarFunctionInfo(MetadataTransactionContext txnCtx, Function function)
             throws AlgebricksException {
-        FunctionIdentifier fid =
-                new FunctionIdentifier(function.getDataverseName(), function.getName(), function.getArity());
         List<IAType> argumentTypes = new ArrayList<>();
         IAType returnType;
         if (function.getReturnType() == null) {
@@ -81,7 +78,8 @@ public class ExternalFunctionCompilerUtil {
         }
         IResultTypeComputer typeComputer = new ExternalTypeComputer(returnType, argumentTypes);
 
-        return new ExternalScalarFunctionInfo(fid.getNamespace(), function.getLibrary(), fid.getName(), fid.getArity(),
+<<<<<<< HEAD
+        return new ExternalScalarFunctionInfo(function.getSignature().createFunctionIdentifier(), fid.getNamespace(), function.getLibrary(), fid.getName(), fid.getArity(),
                 returnType, function.getFunctionBody(), function.getLanguage(), argumentTypes, function.getParams(),
                 typeComputer);
     }

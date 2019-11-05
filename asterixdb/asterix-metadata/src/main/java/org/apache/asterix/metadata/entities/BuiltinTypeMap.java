@@ -19,13 +19,12 @@
 
 package org.apache.asterix.metadata.entities;
 
-import java.rmi.RemoteException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.asterix.common.exceptions.MetadataException;
+import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.common.transactions.TxnId;
 import org.apache.asterix.metadata.MetadataNode;
 import org.apache.asterix.om.types.AUnionType;
@@ -95,7 +94,7 @@ public class BuiltinTypeMap {
         return new HashSet<>(_builtinTypeMap.values());
     }
 
-    public static IAType getTypeFromTypeName(MetadataNode metadataNode, TxnId txnId, String dataverseName,
+    public static IAType getTypeFromTypeName(MetadataNode metadataNode, TxnId txnId, DataverseName dataverseName,
             String typeName, boolean optional) throws AlgebricksException {
         IAType type = _builtinTypeMap.get(typeName);
         if (type == null) {

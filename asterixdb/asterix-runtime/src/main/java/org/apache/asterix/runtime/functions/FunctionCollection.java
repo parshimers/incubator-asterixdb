@@ -330,6 +330,7 @@ import org.apache.asterix.runtime.evaluators.functions.CreatePolygonDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.CreateQueryUIDDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.CreateRectangleDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.CreateUUIDDescriptor;
+import org.apache.asterix.runtime.evaluators.functions.DecodeDataverseNameDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.DeepEqualityDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.FullTextContainsDescriptor;
 import org.apache.asterix.runtime.evaluators.functions.FullTextContainsWithoutOptionDescriptor;
@@ -550,6 +551,7 @@ import org.apache.asterix.runtime.runningaggregates.std.PercentRankRunningAggreg
 import org.apache.asterix.runtime.runningaggregates.std.RankRunningAggregateDescriptor;
 import org.apache.asterix.runtime.runningaggregates.std.RowNumberRunningAggregateDescriptor;
 import org.apache.asterix.runtime.runningaggregates.std.TidRunningAggregateDescriptor;
+import org.apache.asterix.runtime.runningaggregates.std.WinMarkFirstMissingRunningAggregateDescriptor;
 import org.apache.asterix.runtime.runningaggregates.std.WinPartitionLenRunningAggregateDescriptor;
 import org.apache.asterix.runtime.unnestingfunctions.std.RangeDescriptor;
 import org.apache.asterix.runtime.unnestingfunctions.std.ScanCollectionDescriptor;
@@ -825,6 +827,7 @@ public final class FunctionCollection implements IFunctionCollection {
         fc.add(RankRunningAggregateDescriptor.FACTORY);
         fc.add(RowNumberRunningAggregateDescriptor.FACTORY);
         fc.add(PercentRankRunningAggregateDescriptor.FACTORY);
+        fc.add(WinMarkFirstMissingRunningAggregateDescriptor.FACTORY);
         fc.add(WinPartitionLenRunningAggregateDescriptor.FACTORY);
 
         // boolean functions
@@ -1172,6 +1175,7 @@ public final class FunctionCollection implements IFunctionCollection {
         fc.add(RecordPairsDescriptor.FACTORY);
 
         // Other functions
+        fc.add(DecodeDataverseNameDescriptor.FACTORY);
         fc.add(RandomWithSeedDescriptor.FACTORY);
 
         ServiceLoader.load(IFunctionRegistrant.class).iterator().forEachRemaining(c -> c.register(fc));

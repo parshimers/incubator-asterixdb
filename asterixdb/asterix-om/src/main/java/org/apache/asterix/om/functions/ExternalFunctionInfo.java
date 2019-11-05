@@ -24,6 +24,7 @@ import java.util.Map;
 import org.apache.asterix.om.typecomputer.base.IResultTypeComputer;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression.FunctionKind;
+import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 
 public class ExternalFunctionInfo extends FunctionInfo implements IExternalFunctionInfo {
 
@@ -38,12 +39,15 @@ public class ExternalFunctionInfo extends FunctionInfo implements IExternalFunct
     private final String library;
     private final Map<String, String> params;
 
-    public ExternalFunctionInfo(String namespace, String library, String name, int arity, FunctionKind kind,
-            List<IAType> argumentTypes, IAType returnType, IResultTypeComputer rtc, String body, String language,
-            Map<String, String> params) {
+    public ExternalFunctionInfo(String namespace, String name, int arity, FunctionKind kind, List<IAType> argumentTypes,
+            IAType returnType, IResultTypeComputer rtc, String body, String language, Map<String,String> params) {
+        this(new FunctionIdentifier(namespace, name, arity), kind, argumentTypes, returnType, rtc, body, language, params);
+    }
+
+    public ExternalFunctionInfo(FunctionIdentifier fid, FunctionKind kind, List<IAType> argumentTypes,
+            IAType returnType, IResultTypeComputer rtc, String body, String language, Map<String,String> params) {
         // TODO: fix CheckNonFunctionalExpressionVisitor once we have non-functional external functions
-        super(namespace, name, arity, true);
-        this.library = library;
+        super(fid, true);
         this.rtc = rtc;
         this.argumentTypes = argumentTypes;
         this.body = body;

@@ -70,7 +70,7 @@ public interface IMetadataLock {
      *
      * @return the key identiying the lock
      */
-    String getKey();
+    MetadataLockKey getKey();
 
     /**
      * upgrade the lock

@@ -24,13 +24,18 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.rmi.RemoteException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.apache.asterix.common.api.IResponsePrinter;
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.exceptions.AsterixException;
+import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.lang.common.base.IStatementRewriter;
 import org.apache.asterix.lang.common.statement.Query;
 import org.apache.asterix.metadata.declared.MetadataProvider;
@@ -62,15 +67,32 @@ public interface IStatementExecutor {
         /**
          * Results are returned with the first response
          */
-        IMMEDIATE,
+        IMMEDIATE("immediate"),
         /**
          * Results are produced completely, but only a result handle is returned
          */
-        DEFERRED,
+        DEFERRED("deferred"),
         /**
          * A result handle is returned before the resutlts are complete
          */
-        ASYNC
+        ASYNC("async");
+
+        private static final Map<String, ResultDelivery> deliveryNames =
+                Collections.unmodifiableMap(Arrays.stream(ResultDelivery.values())
+                        .collect(Collectors.toMap(ResultDelivery::getName, Function.identity())));
+        private final String name;
+
+        ResultDelivery(String name) {
+            this.name = name;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public static ResultDelivery fromName(String name) {
+            return deliveryNames.get(name);
+        }
     }
 
     class ResultMetadata implements Serializable {
@@ -88,15 +110,32 @@ public interface IStatementExecutor {
         private static final long serialVersionUID = 5885273238208454611L;
 
         public enum ProfileType {
-            COUNTS,
-            FULL
+            COUNTS("counts"),
+            FULL("timings"),
+            NONE("off");
+
+            private static final Map<String, ProfileType> profileNames = Collections.unmodifiableMap(Arrays
+                    .stream(ProfileType.values()).collect(Collectors.toMap(ProfileType::getName, Function.identity())));
+            private final String name;
+
+            ProfileType(String name) {
+                this.name = name;
+            }
+
+            public String getName() {
+                return name;
+            }
+
+            public static ProfileType fromName(String name) {
+                return profileNames.get(name);
+            }
         }
 
         private long count;
         private long size;
         private long processedObjects;
         private Profile profile;
-        private ProfileType type;
+        private ProfileType profileType;
         private long totalWarningsCount;
 
         public long getCount() {
@@ -141,12 +180,12 @@ public interface IStatementExecutor {
             return profile != null ? profile.getProfile() : null;
         }
 
-        public ProfileType getType() {
-            return type;
+        public ProfileType getProfileType() {
+            return profileType;
         }
 
-        public void setType(ProfileType type) {
-            this.type = type;
+        public void setProfileType(ProfileType profileType) {
+            this.profileType = profileType;
         }
     }
 
@@ -212,12 +251,12 @@ public interface IStatementExecutor {
     /**
      * returns the active dataverse for an entity or a statement
      *
-     * @param dataverse:
+     * @param dataverseName:
      *            the entity or statement dataverse
      * @return
      *         returns the passed dataverse if not null, the active dataverse otherwise
      */
-    String getActiveDataverseName(String dataverse);
+    DataverseName getActiveDataverseName(DataverseName dataverseName);
 
     /**
      * Gets the execution plans that are generated during query compilation

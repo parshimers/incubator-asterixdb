@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 
 import org.apache.asterix.common.functions.FunctionSignature;
+import org.apache.asterix.common.metadata.DataverseName;
 import org.apache.asterix.common.transactions.TxnId;
 import org.apache.asterix.metadata.MetadataTransactionContext;
 import org.apache.asterix.metadata.entities.Function;
@@ -37,9 +38,8 @@ public class ExternalFunctionCompilerUtilTest {
     public void test() throws AlgebricksException {
         // given
         MetadataTransactionContext txnCtx = new MetadataTransactionContext(new TxnId(1));
-        FunctionSignature signature = new FunctionSignature("test", "test", 0);
-        Function function = new Function(signature, new LinkedList<>(), "{{string}}", "", "JAVA", "SCALAR", null,
-                "Default", new HashMap<>());
+        FunctionSignature signature = new FunctionSignature(DataverseName.createSinglePartName("test"), "test", 0);
+        Function function = new Function(signature, new LinkedList<>(), "{{ASTRING}}", "", "JAVA", "SCALAR", null);
 
         // when
         ExternalScalarFunctionInfo info =

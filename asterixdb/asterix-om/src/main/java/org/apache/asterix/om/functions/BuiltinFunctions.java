@@ -505,7 +505,8 @@ public class BuiltinFunctions {
     public static final FunctionIdentifier STRING_SPLIT =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "split", 2);
 
-    public static final FunctionIdentifier DATASET = new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "dataset", 1);
+    public static final FunctionIdentifier DATASET =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "dataset", FunctionIdentifier.VARARGS); // 1 or 2
     public static final FunctionIdentifier FEED_COLLECT =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "feed-collect", 6);
     public static final FunctionIdentifier FEED_INTERCEPT =
@@ -1026,8 +1027,8 @@ public class BuiltinFunctions {
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "percent_rank", 0);
     public static final FunctionIdentifier PERCENT_RANK_IMPL =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "percent-rank-impl", FunctionIdentifier.VARARGS);
-    public static final FunctionIdentifier WIN_PARTITION_LENGTH =
-            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "win_partition_length", 0);
+    public static final FunctionIdentifier WIN_MARK_FIRST_MISSING_IMPL = new FunctionIdentifier(
+            FunctionConstants.ASTERIX_NS, "win-mark-first-missing-impl", FunctionIdentifier.VARARGS);
     public static final FunctionIdentifier WIN_PARTITION_LENGTH_IMPL =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "win-partition-length-impl", 0);
 
@@ -1560,6 +1561,9 @@ public class BuiltinFunctions {
     public static final FunctionIdentifier META_KEY =
             new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "meta-key", FunctionIdentifier.VARARGS);
 
+    public static final FunctionIdentifier DECODE_DATAVERSE_NAME =
+            new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "decode-dataverse-name", 1);
+
     public static IFunctionInfo getAsterixFunctionInfo(FunctionIdentifier fid) {
         return registeredFunctions.get(fid);
     }
@@ -2064,7 +2068,7 @@ public class BuiltinFunctions {
         addFunction(ROW_NUMBER_IMPL, AInt64TypeComputer.INSTANCE, false);
         addFunction(PERCENT_RANK, ADoubleTypeComputer.INSTANCE, false);
         addFunction(PERCENT_RANK_IMPL, ADoubleTypeComputer.INSTANCE, false);
-        addPrivateFunction(WIN_PARTITION_LENGTH, AInt64TypeComputer.INSTANCE, false);
+        addPrivateFunction(WIN_MARK_FIRST_MISSING_IMPL, ABooleanTypeComputer.INSTANCE, false);
         addPrivateFunction(WIN_PARTITION_LENGTH_IMPL, AInt64TypeComputer.INSTANCE, false);
 
         // Similarity functions
@@ -2309,6 +2313,8 @@ public class BuiltinFunctions {
         // meta() function
         addFunction(META, OpenARecordTypeComputer.INSTANCE, true);
         addPrivateFunction(META_KEY, AnyTypeComputer.INSTANCE, false);
+
+        addFunction(DECODE_DATAVERSE_NAME, OrderedListOfAStringTypeComputer.INSTANCE, true);
 
         addPrivateFunction(COLLECTION_TO_SEQUENCE, CollectionToSequenceTypeComputer.INSTANCE, true);
 
@@ -2991,7 +2997,8 @@ public class BuiltinFunctions {
         addWindowFunction(RANK, RANK_IMPL, NO_FRAME_CLAUSE, INJECT_ORDER_ARGS);
         addWindowFunction(RATIO_TO_REPORT, RATIO_TO_REPORT_IMPL, HAS_LIST_ARG);
         addWindowFunction(ROW_NUMBER, ROW_NUMBER_IMPL, NO_FRAME_CLAUSE);
-        addWindowFunction(WIN_PARTITION_LENGTH, WIN_PARTITION_LENGTH_IMPL, NO_FRAME_CLAUSE, MATERIALIZE_PARTITION);
+        addWindowFunction(null, WIN_MARK_FIRST_MISSING_IMPL, NO_FRAME_CLAUSE, INJECT_ORDER_ARGS);
+        addWindowFunction(null, WIN_PARTITION_LENGTH_IMPL, NO_FRAME_CLAUSE, MATERIALIZE_PARTITION);
     }
 
     static {
@@ -3199,9 +3206,10 @@ public class BuiltinFunctions {
 
     public static void addWindowFunction(FunctionIdentifier sqlfi, FunctionIdentifier winfi,
             WindowFunctionProperty... properties) {
-        IFunctionInfo sqlinfo = getAsterixFunctionInfo(sqlfi);
         IFunctionInfo wininfo = getAsterixFunctionInfo(winfi);
-        sqlToWindowFunctions.put(sqlinfo, wininfo);
+        if (sqlfi != null) {
+            sqlToWindowFunctions.put(getAsterixFunctionInfo(sqlfi), wininfo);
+        }
         windowFunctions.add(wininfo);
         registerFunctionProperties(wininfo, WindowFunctionProperty.class, properties);
     }
