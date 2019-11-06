@@ -24,13 +24,14 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.MetadataException;
 import org.apache.asterix.common.metadata.IMetadataLock;
+import org.apache.asterix.common.metadata.MetadataLockKey;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.api.util.InvokeUtil;
 
 public class DatasetLock implements IMetadataLock {
 
-    private final String key;
+    private final MetadataLockKey key;
     // The lock
     private final ReentrantReadWriteLock lock;
     // Used for lock upgrade operation
@@ -42,7 +43,7 @@ public class DatasetLock implements IMetadataLock {
     private final MutableInt indexBuildCounter;
     private final MutableInt dsModifyCounter;
 
-    public DatasetLock(String key) {
+    public DatasetLock(MetadataLockKey key) {
         this.key = key;
         lock = new ReentrantReadWriteLock(true);
         upgradeLock = new ReentrantReadWriteLock(true);
@@ -244,7 +245,7 @@ public class DatasetLock implements IMetadataLock {
     }
 
     @Override
-    public String getKey() {
+    public MetadataLockKey getKey() {
         return key;
     }
 
@@ -266,6 +267,6 @@ public class DatasetLock implements IMetadataLock {
 
     @Override
     public String toString() {
-        return key;
+        return String.valueOf(key);
     }
 }
