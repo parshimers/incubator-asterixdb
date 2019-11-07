@@ -56,6 +56,7 @@ public class UdfApiServlet extends AbstractServlet {
     private final ICCMessageBroker broker;
     public static final String UDF_TMP_DIR_PREFIX = "udf_temp";
     public static final int UDF_RESPONSE_TIMEOUT = 5000;
+    public static final int URL_PREFIX_LENGTH = 3;
 
     public UdfApiServlet(ICcApplicationContext appCtx, ConcurrentMap<String, Object> ctx, String... paths) {
         super(ctx, paths);
@@ -69,7 +70,7 @@ public class UdfApiServlet extends AbstractServlet {
             throw new IllegalArgumentException("Invalid resource.");
         }
         String resourceName = path[path.length - 1];
-        DataverseName dataverseName = DataverseName.createSinglePartName(path[path.length - 2]); //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
+        DataverseName dataverseName = DataverseName.createFromCanonicalForm(path[path.length - 2]);
         return new Pair<>(resourceName, dataverseName);
     }
 
@@ -103,7 +104,7 @@ public class UdfApiServlet extends AbstractServlet {
                 }
             }
             IHyracksClientConnection hcc = appCtx.getHcc();
-            DeploymentId udfName = new DeploymentId(dataverse.getCanonicalForm() + "." + resourceName); //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
+            DeploymentId udfName = new DeploymentId(makeDeploymentId(dataverse, resourceName));
             ClassLoader cl = appCtx.getLibraryManager().getLibraryClassLoader(dataverse, resourceName);
             if (cl != null) {
                 deleteUdf(dataverse, resourceName);
@@ -131,6 +132,16 @@ public class UdfApiServlet extends AbstractServlet {
 
     }
 
+    private String makeDeploymentId(DataverseName dv, String resourceName) {
+        StringBuilder keyName = new StringBuilder();
+        for (String p : dv.getParts()) {
+            keyName.append(p);
+            keyName.append(".");
+        }
+        keyName.append(resourceName);
+        return keyName.toString();
+    }
+
     private void deleteUdf(DataverseName dataverse, String resourceName) throws Exception {
         long reqId = broker.newRequestId();
         List<INcAddressedMessage> requests = new ArrayList<>();
@@ -138,7 +149,7 @@ public class UdfApiServlet extends AbstractServlet {
         ncs.forEach(s -> requests.add(new DeleteUdfMessage(dataverse, resourceName, reqId)));
         broker.sendSyncRequestToNCs(reqId, ncs, requests, UDF_RESPONSE_TIMEOUT);
         appCtx.getLibraryManager().deregisterLibraryClassLoader(dataverse, resourceName);
-        appCtx.getHcc().unDeployBinary(new DeploymentId(resourceName)); //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT:why dataverse not used?
+        appCtx.getHcc().unDeployBinary(new DeploymentId(makeDeploymentId(dataverse, resourceName)));
     }
 
     @Override

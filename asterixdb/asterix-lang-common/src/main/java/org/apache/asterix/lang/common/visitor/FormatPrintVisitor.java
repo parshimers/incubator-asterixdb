@@ -65,6 +65,7 @@ import org.apache.asterix.lang.common.expression.UnorderedListTypeDefinition;
 import org.apache.asterix.lang.common.expression.VariableExpr;
 import org.apache.asterix.lang.common.statement.CompactStatement;
 import org.apache.asterix.lang.common.statement.ConnectFeedStatement;
+import org.apache.asterix.lang.common.statement.CreateAdapterStatement;
 import org.apache.asterix.lang.common.statement.CreateDataverseStatement;
 import org.apache.asterix.lang.common.statement.CreateFeedPolicyStatement;
 import org.apache.asterix.lang.common.statement.CreateFeedStatement;
@@ -824,6 +825,16 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
     }
 
     @Override
+    public Void visit(CreateAdapterStatement cfs, Integer step) throws CompilationException {
+        out.print(skip(step) + CREATE + " adapter");
+        out.print("(");
+        out.println(") {");
+        out.println("}" + SEMICOLON);
+        out.println();
+        return null;
+    }
+
+    @Override
     public Void visit(FunctionDropStatement del, Integer step) throws CompilationException {
         out.print(skip(step) + "drop function ");
         FunctionSignature funcSignature = del.getFunctionSignature();
@@ -978,6 +989,16 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
             }
         }
         return false;
+    }
+
+    protected String normalize(DataverseName dataverseName) {
+        StringBuilder sb = new StringBuilder();
+        String sep = "";
+        for (String part : dataverseName.getParts()) {
+            sb.append(sep).append(normalize(part));
+            sep = ".";
+        }
+        return sb.toString();
     }
 
     protected String normalize(String str) {

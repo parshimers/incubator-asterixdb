@@ -21,12 +21,11 @@ package org.apache.asterix.external.library;
 import java.io.IOException;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.asterix.common.exceptions.ErrorCode;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.common.library.ILibraryManager;
 import org.apache.asterix.common.metadata.DataverseName;
@@ -37,7 +36,6 @@ import org.apache.logging.log4j.Logger;
 public class ExternalLibraryManager implements ILibraryManager {
 
     private final Map<String, URLClassLoader> libraryClassLoaders = new HashMap<>();
-    private final Map<String, List<String>> externalFunctionParameters = new HashMap<>();
     private static final Logger LOGGER = LogManager.getLogger();
 
     @Override
@@ -46,15 +44,15 @@ public class ExternalLibraryManager implements ILibraryManager {
         String key = getKey(dataverseName, libraryName);
         synchronized (libraryClassLoaders) {
             if (libraryClassLoaders.get(key) != null) {
-                throw new RuntimeDataException(ErrorCode.LIBRARY_EXTERNAL_LIBRARY_CLASS_REGISTERED);
+                return;
             }
             libraryClassLoaders.put(key, classLoader);
         }
     }
 
     @Override
-    public List<Pair<String, String>> getAllLibraries() {
-        ArrayList<Pair<String, String>> libs = new ArrayList<>();
+    public List<Pair<DataverseName, String>> getAllLibraries() {
+        ArrayList<Pair<DataverseName, String>> libs = new ArrayList<>();
         synchronized (libraryClassLoaders) {
             libraryClassLoaders.forEach((key, value) -> libs.add(getDataverseAndLibararyName(key)));
         }
@@ -83,24 +81,14 @@ public class ExternalLibraryManager implements ILibraryManager {
         return libraryClassLoaders.get(key);
     }
 
-    @Override
-    public void addFunctionParameters(DataverseName dataverseName, String fullFunctionName, List<String> parameters) {
-        externalFunctionParameters.put(dataverseName + "." + fullFunctionName, parameters);
-    }
-
-    @Override
-    public List<String> getFunctionParameters(DataverseName dataverseName, String fullFunctionName) {
-        return externalFunctionParameters.getOrDefault(dataverseName + "." + fullFunctionName, Collections.emptyList());
-    }
-
     private static String getKey(DataverseName dataverseName, String libraryName) {
         return dataverseName + "." + libraryName; //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
     }
 
-    private static Pair<String, String> getDataverseAndLibararyName(String key) {
-        int index = key.indexOf('.');
-        String dataverse = key.substring(0, index);
-        String library = key.substring(index + 1);
+    private static Pair<DataverseName, String> getDataverseAndLibararyName(String key) {
+        String[] parts = key.split("\\.");
+        DataverseName dataverse = DataverseName.create(Arrays.asList(parts), 0, parts.length - 2);
+        String library = parts[parts.length - 1];
         return new Pair<>(dataverse, library);
     }
 
