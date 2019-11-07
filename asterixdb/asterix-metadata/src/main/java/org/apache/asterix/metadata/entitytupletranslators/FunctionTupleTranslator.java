@@ -216,7 +216,7 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
             dependencyListBuilder.reset(listOfLists);
             for (Triple<DataverseName, String, String> dependency : dependencies) {
                 dependencyNameListBuilder.reset(stringList);
-                for (String subName : getDependencySubNames(dependency)) { //TODO:REVISIT STORAGE
+                for (String subName : getDependencySubNames(dependency)) {
                     itemValue.reset();
                     aString.setValue(subName);
                     stringSerde.serialize(aString, itemValue.getDataOutput());

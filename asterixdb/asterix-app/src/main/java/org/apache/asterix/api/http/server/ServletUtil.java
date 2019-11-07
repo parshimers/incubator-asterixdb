@@ -50,7 +50,6 @@ public class ServletUtil {
         return resultSet;
     }
 
-    //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
     public static DataverseName getDataverseName(IServletRequest request, String dataverseParameterName) {
         List<String> values = request.getParameterValues(dataverseParameterName);
         return values != null ? DataverseName.create(values) : null;

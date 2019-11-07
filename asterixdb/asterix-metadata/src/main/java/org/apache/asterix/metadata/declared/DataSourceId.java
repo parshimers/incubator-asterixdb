@@ -58,7 +58,6 @@ public final class DataSourceId {
 
     @Override
     public String toString() {
-        //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
         return dataverseName + "." + datasourceName + (parameters != null ? "." + String.join(".", parameters) : "");
     }
 

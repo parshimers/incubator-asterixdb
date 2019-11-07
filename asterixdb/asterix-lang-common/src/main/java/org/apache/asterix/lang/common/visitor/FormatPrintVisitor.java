@@ -401,7 +401,7 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
     @Override
     public Void visit(TypeReferenceExpression t, Integer arg) throws CompilationException {
         if (t.getIdent().first != null && t.getIdent().first != null) {
-            out.print(normalize(t.getIdent().first));
+            out.print(generateDataverseName(t.getIdent().first));
             out.print('.');
         }
         out.print(normalize(t.getIdent().second.getValue()));
@@ -501,7 +501,7 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
 
     @Override
     public Void visit(DataverseDecl dv, Integer step) throws CompilationException {
-        out.println(skip(step) + "use " + dataverseSymbol + normalize(dv.getDataverseName()) + ";\n\n");
+        out.println(skip(step) + "use " + dataverseSymbol + generateDataverseName(dv.getDataverseName()) + ";\n\n");
         return null;
     }
 
@@ -679,7 +679,7 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
     @Override
     public Void visit(CreateDataverseStatement del, Integer step) throws CompilationException {
         out.print(CREATE + dataverseSymbol);
-        out.print(normalize(del.getDataverseName()));
+        out.print(generateDataverseName(del.getDataverseName()));
         out.print(generateIfNotExists(del.getIfNotExists()));
         String format = del.getFormat();
         if (format != null && !format.equals(DEFAULT_DATAVERSE_FORMAT)) {
@@ -711,7 +711,7 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
     @Override
     public Void visit(DataverseDropStatement del, Integer step) throws CompilationException {
         out.print(skip(step) + "drop " + dataverseSymbol);
-        out.print(normalize(del.getDataverseName()));
+        out.print(generateDataverseName(del.getDataverseName()));
         out.println(generateIfExists(del.getIfExists()) + SEMICOLON);
         return null;
     }
@@ -997,10 +997,20 @@ public class FormatPrintVisitor implements ILangVisitor<Void, Integer> {
         return str;
     }
 
+    protected String generateDataverseName(DataverseName dataverseName) {
+        StringBuilder sb = new StringBuilder();
+        String sep = "";
+        for (String part : dataverseName.getParts()) {
+            sb.append(sep).append(normalize(part));
+            sep = ".";
+        }
+        return sb.toString();
+    }
+
     protected String generateFullName(DataverseName dataverseName, String identifier) {
         String dataversePrefix =
                 dataverseName != null && !dataverseName.equals(MetadataConstants.METADATA_DATAVERSE_NAME)
-                        ? normalize(dataverseName) + "." : "";
+                        ? generateDataverseName(dataverseName) + "." : "";
         return dataversePrefix + normalize(identifier);
     }
 

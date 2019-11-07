@@ -257,7 +257,7 @@ public class SqlppAstPrintVisitor extends QueryPrintVisitor implements ISqlppVis
         if (BuiltinFunctions.isBuiltinCompilerFunction(normalizedFunctionSignature, true)) {
             functionSignature = normalizedFunctionSignature;
         }
-        //TODO(MULTI_PART_DATAVERSE_NAME):temporary workaround to keep AST results the same
+        //TODO(MULTI_PART_DATAVERSE_NAME):temporary workaround to preserve AST reference results
         if (FunctionUtil.isBuiltinDatasetFunction(functionSignature)) {
             String singleArg = pf.getExprList().stream().map(LiteralExpr.class::cast).map(LiteralExpr::getValue)
                     .map(StringLiteral.class::cast).map(StringLiteral::getValue).collect(Collectors.joining("."));

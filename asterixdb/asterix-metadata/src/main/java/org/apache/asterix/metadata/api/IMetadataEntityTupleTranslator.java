@@ -19,8 +19,6 @@
 
 package org.apache.asterix.metadata.api;
 
-import java.rmi.RemoteException;
-
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
@@ -43,7 +41,6 @@ public interface IMetadataEntityTupleTranslator<T> {
      * @return A new instance of a metadata entity of type T.
      * @throws AlgebricksException
      * @throws HyracksDataException
-     * @throws RemoteException
      */
     T getMetadataEntityFromTuple(ITupleReference tuple) throws AlgebricksException, HyracksDataException;
 

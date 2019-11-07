@@ -23,15 +23,16 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.BiConsumer;
 
 import org.apache.commons.lang3.StringUtils;
 
 /**
- * //TODO:FIXME:JAVADOC
+ * //TODO(MULTI_PART_DATAVERSE_NAME):JAVADOC
  * assume dataverse parts are ["x", "y", "z"]
  * canonical form is "x.y.z" ('.' and '@' inside part are escaped with '@')
  *
- * display form = canonical form
+ * display form
  */
 public final class DataverseName implements Serializable, Comparable<DataverseName> {
 
@@ -43,9 +44,11 @@ public final class DataverseName implements Serializable, Comparable<DataverseNa
 
     private static final char[] SEPARATOR_AND_ESCAPE_CHARS = new char[] { SEPARATOR_CHAR, ESCAPE_CHAR };
 
+    private final boolean isMultiPart;
+
     private final String canonicalForm;
 
-    private final boolean isMultiPart;
+    private transient volatile String displayForm;
 
     private DataverseName(String canonicalForm, boolean isMultiPart) {
         if (canonicalForm == null) {
@@ -63,11 +66,6 @@ public final class DataverseName implements Serializable, Comparable<DataverseNa
         return canonicalForm;
     }
 
-    @Override
-    public String toString() {
-        return getCanonicalForm(); //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
-    }
-
     public List<String> getParts() {
         List<String> parts = new ArrayList<>(isMultiPart ? 4 : 1);
         getParts(parts);
@@ -76,9 +74,32 @@ public final class DataverseName implements Serializable, Comparable<DataverseNa
 
     public void getParts(Collection<? super String> outParts) {
         if (isMultiPart) {
-            decodeFromCanonicalForm(canonicalForm, outParts);
+            decodeCanonicalForm(canonicalForm, DataverseName::addPartToCollection, outParts);
         } else {
             outParts.add(decodeSinglePartNameFromCanonicalForm(canonicalForm));
+        }
+    }
+
+    @Override
+    public String toString() {
+        return getDisplayForm();
+    }
+
+    private String getDisplayForm() {
+        String result = displayForm;
+        if (result == null) {
+            displayForm = result = createDisplayForm();
+        }
+        return result;
+    }
+
+    private String createDisplayForm() {
+        if (isMultiPart) {
+            StringBuilder displayForm = new StringBuilder(canonicalForm.length() + 1);
+            decodeCanonicalForm(canonicalForm, DataverseName::addPartToDisplayForm, displayForm);
+            return displayForm.substring(0, displayForm.length() - 1); // remove last separator char
+        } else {
+            return decodeSinglePartNameFromCanonicalForm(canonicalForm);
         }
     }
 
@@ -127,16 +148,16 @@ public final class DataverseName implements Serializable, Comparable<DataverseNa
     }
 
     private static String encodeMultiPartNameIntoCanonicalForm(List<String> parts, int fromIndex, int toIndex) {
-        if (toIndex <= fromIndex) {
-            throw new IllegalArgumentException(toIndex + " <= " + fromIndex);
-        }
+        String firstPart = parts.get(fromIndex);
         int partCount = toIndex - fromIndex;
-        int resultSizeEstimate = (parts.get(fromIndex).length() + 1) * partCount;
+        if (partCount <= 0) {
+            throw new IllegalArgumentException(fromIndex + "," + toIndex);
+        }
+        int resultSizeEstimate = (firstPart.length() + 1) * partCount;
         StringBuilder sb = new StringBuilder(Math.max(16, resultSizeEstimate));
-        for (int i = fromIndex; i < toIndex; i++) {
-            if (i > fromIndex) {
-                sb.append(SEPARATOR_CHAR);
-            }
+        encodePartIntoCanonicalForm(firstPart, sb);
+        for (int i = fromIndex + 1; i < toIndex; i++) {
+            sb.append(SEPARATOR_CHAR);
             encodePartIntoCanonicalForm(parts.get(i), sb);
         }
         return sb.toString();
@@ -162,13 +183,15 @@ public final class DataverseName implements Serializable, Comparable<DataverseNa
         }
     }
 
-    private static void decodeFromCanonicalForm(String canonicalForm, Collection<? super String> outParts) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0, ln = canonicalForm.length(); i < ln; i++) {
+    private static <T> void decodeCanonicalForm(String canonicalForm, BiConsumer<CharSequence, T> partConsumer,
+            T partConsumerArg) {
+        int ln = canonicalForm.length();
+        StringBuilder sb = new StringBuilder(ln);
+        for (int i = 0; i < ln; i++) {
             char c = canonicalForm.charAt(i);
             switch (c) {
                 case SEPARATOR_CHAR:
-                    outParts.add(sb.toString());
+                    partConsumer.accept(sb, partConsumerArg);
                     sb.setLength(0);
                     break;
                 case ESCAPE_CHAR:
@@ -181,7 +204,7 @@ public final class DataverseName implements Serializable, Comparable<DataverseNa
             }
         }
         if (sb.length() > 0) {
-            outParts.add(sb.toString());
+            partConsumer.accept(sb, partConsumerArg);
         }
     }
 
@@ -197,7 +220,7 @@ public final class DataverseName implements Serializable, Comparable<DataverseNa
             char c = canonicalForm.charAt(i);
             switch (c) {
                 case SEPARATOR_CHAR:
-                    throw new IllegalArgumentException(canonicalForm); // should never happen
+                    throw new IllegalStateException(canonicalForm); // should never happen
                 case ESCAPE_CHAR:
                     i++;
                     c = canonicalForm.charAt(i);
@@ -234,5 +257,13 @@ public final class DataverseName implements Serializable, Comparable<DataverseNa
             throw new IllegalStateException(canonicalForm + "!=" + singlePart);
         }
         return dataverseName;
+    }
+
+    private static void addPartToCollection(CharSequence part, Collection<? super String> out) {
+        out.add(part.toString());
+    }
+
+    private static void addPartToDisplayForm(CharSequence part, StringBuilder out) {
+        out.append(part).append(SEPARATOR_CHAR);
     }
 }

@@ -68,7 +68,7 @@ public class EntityId implements Serializable {
 
     @Override
     public String toString() {
-        return dataverseName + "." + entityName + "(" + extensionName + ")"; //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
+        return dataverseName + "." + entityName + "(" + extensionName + ")";
     }
 
     public String getExtensionName() {

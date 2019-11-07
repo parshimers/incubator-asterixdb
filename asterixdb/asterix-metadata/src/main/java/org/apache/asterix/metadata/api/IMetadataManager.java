@@ -142,7 +142,7 @@ public interface IMetadataManager extends IMetadataBootstrap {
      * @param ctx
      *            MetadataTransactionContext of an active metadata transaction.
      * @param dataverseName
-     * @return A list of dataset instances.
+     *            Name of the dataverse to drop.
      * @throws AlgebricksException
      *             For example, if the dataverse does not exist.
      */
@@ -378,10 +378,8 @@ public interface IMetadataManager extends IMetadataBootstrap {
      *            MetadataTransactionContext of an active metadata transaction.
      * @param functionSignature
      *            the functions signature (unique to the function)
-     * @return
      * @throws AlgebricksException
      */
-
     Function getFunction(MetadataTransactionContext ctx, FunctionSignature functionSignature)
             throws AlgebricksException;
 
@@ -425,7 +423,6 @@ public interface IMetadataManager extends IMetadataBootstrap {
      *            the dataverse associated with the adapter being searched
      * @param name
      *            name of the adapter
-     * @return
      * @throws AlgebricksException
      */
     DatasourceAdapter getAdapter(MetadataTransactionContext ctx, DataverseName dataverseName, String name)
@@ -448,7 +445,6 @@ public interface IMetadataManager extends IMetadataBootstrap {
      *            MetadataTransactionContext of an active metadata transaction.
      * @param dataverseName
      *            the dataverse whose associated adapters are being requested
-     * @return
      * @throws AlgebricksException
      */
     List<DatasourceAdapter> getDataverseAdapters(MetadataTransactionContext ctx, DataverseName dataverseName)

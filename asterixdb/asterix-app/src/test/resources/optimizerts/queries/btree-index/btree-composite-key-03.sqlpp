@@ -16,20 +16,34 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.asterix.lang.common.base;
+/*
+ * Description     : Test that BTree index is used in query plan.
+ *                 : Query predicate that skips one of the indexed
+ *                 : fields of a composite index.
+ *                 : Define the BTree index on a composite key (fname,age,lname)
+ *                 : predicate => WHERE fname = ... and lname = ...
+ * Expected Result : Success
+ */
 
-import org.apache.asterix.common.exceptions.CompilationException;
-import org.apache.asterix.metadata.declared.MetadataProvider;
+drop  dataverse test if exists;
+create  dataverse test;
 
-public interface IStatementRewriter {
+use test;
 
-    /**
-     * @param statement,
-     *            a non-query statement.
-     * @param metadataProvider
-     *            a metadata provider
-     */
-    void rewrite(Statement statement, MetadataProvider metadataProvider) throws CompilationException;
+create type test.Emp as
+ closed {
+  id : bigint,
+  fname : string,
+  lname : string,
+  age : bigint,
+  dept : string
+};
 
-    String toExternalVariableName(String statementParameterName);
-}
+create  dataset employee(Emp) primary key id;
+
+create  index idx_employee_fal  on employee (fname,age,lname) type btree;
+
+select element l
+from  employee as l
+where ((l.fname = 'Julio') and (l.lname = 'Isa'))
+;

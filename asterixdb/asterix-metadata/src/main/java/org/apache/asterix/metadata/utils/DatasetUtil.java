@@ -537,7 +537,7 @@ public class DatasetUtil {
     }
 
     public static String getFullyQualifiedDisplayName(DataverseName dataverseName, String datasetName) {
-        return dataverseName.getCanonicalForm() + "." + datasetName; //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
+        return dataverseName + "." + datasetName;
     }
 
     /***

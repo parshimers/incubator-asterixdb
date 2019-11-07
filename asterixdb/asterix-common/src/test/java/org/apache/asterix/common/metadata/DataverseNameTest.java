@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Supplier;
 
 import org.apache.commons.collections4.ListUtils;
 import org.apache.hyracks.algebricks.common.utils.Pair;
@@ -44,6 +45,12 @@ public class DataverseNameTest {
             AlgebricksBuiltinFunctions.ALGEBRICKS_NS,
             // dataverse for Asterix functions
             ASTERIX_NS);
+
+    private static final List<String> TEST_BUILTIN_DATAVERSE_INVALID_NAME_PARAMS = Arrays.asList(
+            // separator character is not allowed
+            "a.b",
+            // escape character is not allowed
+            "c@d");
 
     private static final List<Pair<String, String>> TEST_SINGLE_PART_NAME_PARAMS = Arrays.asList(
             // <1-part-name, canonical-form>
@@ -151,6 +158,10 @@ public class DataverseNameTest {
         Assert.assertEquals("canonical-form-round-trip", dataverseName, dvFromCanonical);
         Assert.assertEquals("canonical-form-round-trip-cmp", 0, dataverseName.compareTo(dvFromCanonical));
         Assert.assertEquals("canonical-form-round-trip-hash", dataverseName.hashCode(), dvFromCanonical.hashCode());
+
+        // test display form
+        String expectedDisplayForm = String.join(".", parts);
+        Assert.assertEquals("display-form", expectedDisplayForm, dataverseName.toString());
     }
 
     @Test
@@ -173,5 +184,59 @@ public class DataverseNameTest {
         Assert.assertTrue(label, right.compareTo(left) > 0);
     }
 
-    //TODO:add test for IllegalArugmentExceptions (empty part)
+    @Test
+    public void testExceptions() {
+        // 1. Invalid names for builtin dataverses
+        for (String p : TEST_BUILTIN_DATAVERSE_INVALID_NAME_PARAMS) {
+            testInvalidBuiltinDataverseNameImpl(p);
+        }
+        // 2. NullPointerException
+        testRuntimeException(() -> DataverseName.create(null), NullPointerException.class);
+        testRuntimeException(() -> DataverseName.create(null, 0, 0), NullPointerException.class);
+        testRuntimeException(() -> DataverseName.create(null, 0, 1), NullPointerException.class);
+        testRuntimeException(() -> DataverseName.create(null, 0, 2), NullPointerException.class);
+        testRuntimeException(() -> DataverseName.createSinglePartName(null), NullPointerException.class);
+        testRuntimeException(() -> DataverseName.createBuiltinDataverseName(null), NullPointerException.class);
+        testRuntimeException(() -> DataverseName.createFromCanonicalForm(null), NullPointerException.class);
+        testRuntimeException(() -> DataverseName.create(Collections.singletonList(null)), NullPointerException.class);
+        testRuntimeException(() -> DataverseName.create(Arrays.asList(null, null)), NullPointerException.class);
+        // 3. IndexOutOfBoundsException
+        testRuntimeException(() -> DataverseName.create(Collections.emptyList()), IndexOutOfBoundsException.class);
+        testRuntimeException(() -> DataverseName.create(Collections.emptyList(), 0, 0),
+                IndexOutOfBoundsException.class);
+        testRuntimeException(() -> DataverseName.create(Collections.emptyList(), 0, 1),
+                IndexOutOfBoundsException.class);
+        testRuntimeException(() -> DataverseName.create(Collections.emptyList(), 0, 2),
+                IndexOutOfBoundsException.class);
+        // 4. IllegalArgumentException
+        testRuntimeException(() -> DataverseName.create(Arrays.asList("a", "b", "c"), 2, 1),
+                IllegalArgumentException.class);
+    }
+
+    private <E extends RuntimeException> void testRuntimeException(Supplier<DataverseName> supplier,
+            Class<E> exceptionClass) {
+        try {
+            supplier.get();
+            Assert.fail("Did not get expected exception " + exceptionClass.getName());
+        } catch (RuntimeException e) {
+            if (!exceptionClass.isInstance(e)) {
+                try {
+                    Assert.fail(
+                            "Expected to catch " + exceptionClass.getName() + ", but caught " + e.getClass().getName());
+                } catch (AssertionError ae) {
+                    ae.initCause(e);
+                    throw ae;
+                }
+            }
+        }
+    }
+
+    private void testInvalidBuiltinDataverseNameImpl(String singlePart) {
+        try {
+            DataverseName.createBuiltinDataverseName(singlePart);
+            Assert.fail(singlePart);
+        } catch (IllegalArgumentException e) {
+            // this error is expected
+        }
+    }
 }

@@ -298,6 +298,6 @@ public class Index implements IMetadataEntity<Index>, Comparable<Index> {
 
     @Override
     public String toString() {
-        return dataverseName + "." + datasetName + "." + indexName; //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
+        return dataverseName + "." + datasetName + "." + indexName;
     }
 }

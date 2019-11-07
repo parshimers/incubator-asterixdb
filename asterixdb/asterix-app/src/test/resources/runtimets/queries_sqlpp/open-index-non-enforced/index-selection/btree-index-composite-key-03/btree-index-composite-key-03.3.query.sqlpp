@@ -16,20 +16,12 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.asterix.lang.common.base;
 
-import org.apache.asterix.common.exceptions.CompilationException;
-import org.apache.asterix.metadata.declared.MetadataProvider;
+use test;
 
-public interface IStatementRewriter {
+/* The index is on (c_x, c_y, c_z), but
+   the WHERE clause only has c_x and c_z */
 
-    /**
-     * @param statement,
-     *            a non-query statement.
-     * @param metadataProvider
-     *            a metadata provider
-     */
-    void rewrite(Statement statement, MetadataProvider metadataProvider) throws CompilationException;
-
-    String toExternalVariableName(String statementParameterName);
-}
+select value t.c_value
+from TestOpen t
+where c_x = "x2" AND c_z = "z2";

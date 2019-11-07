@@ -16,20 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.asterix.lang.common.base;
 
-import org.apache.asterix.common.exceptions.CompilationException;
-import org.apache.asterix.metadata.declared.MetadataProvider;
+use test;
 
-public interface IStatementRewriter {
-
-    /**
-     * @param statement,
-     *            a non-query statement.
-     * @param metadataProvider
-     *            a metadata provider
-     */
-    void rewrite(Statement statement, MetadataProvider metadataProvider) throws CompilationException;
-
-    String toExternalVariableName(String statementParameterName);
-}
+insert into TestOpen ({
+    "c_id": 1,
+    "c_x": "x1",
+    "c_y": "y1",
+    "c_z": "z1",
+    "c_value": 1
+});
+insert into TestOpen ({
+    "c_id": 2,
+    "c_x": "x2",
+    "c_y": "y2",
+    "c_z": "z2",
+    "c_value": 2
+});
