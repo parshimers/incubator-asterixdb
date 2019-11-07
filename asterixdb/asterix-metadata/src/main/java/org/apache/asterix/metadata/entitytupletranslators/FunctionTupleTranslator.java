@@ -24,9 +24,6 @@ import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.FUNCTION
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.PROPERTIES_NAME_FIELD_NAME;
 import static org.apache.asterix.metadata.bootstrap.MetadataRecordTypes.PROPERTIES_VALUE_FIELD_NAME;
 
-import java.io.ByteArrayInputStream;
-import java.io.DataInput;
-import java.io.DataInputStream;
 import java.io.DataOutput;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,6 +35,7 @@ import org.apache.asterix.builders.OrderedListBuilder;
 import org.apache.asterix.builders.RecordBuilder;
 import org.apache.asterix.common.functions.FunctionSignature;
 import org.apache.asterix.common.metadata.DataverseName;
+import org.apache.asterix.formats.nontagged.SerializerDeserializerProvider;
 import org.apache.asterix.metadata.bootstrap.MetadataPrimaryIndexes;
 import org.apache.asterix.metadata.bootstrap.MetadataRecordTypes;
 import org.apache.asterix.metadata.entities.Function;
@@ -50,8 +48,8 @@ import org.apache.asterix.om.pointables.base.DefaultOpenFieldType;
 import org.apache.asterix.om.types.AOrderedListType;
 import org.apache.asterix.om.types.ARecordType;
 import org.apache.asterix.om.types.BuiltinType;
-import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.utils.Triple;
+import org.apache.hyracks.api.dataflow.value.ISerializerDeserializer;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
@@ -83,17 +81,6 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
             stringList = new AOrderedListType(BuiltinType.ASTRING, null);
             listOfLists = new AOrderedListType(new AOrderedListType(BuiltinType.ASTRING, null), null);
         }
-    }
-
-    @Override
-    public Function getMetadataEntityFromTuple(ITupleReference frameTuple) throws HyracksDataException {
-        byte[] serRecord = frameTuple.getFieldData(FUNCTION_PAYLOAD_TUPLE_FIELD_INDEX);
-        int recordStartOffset = frameTuple.getFieldStart(FUNCTION_PAYLOAD_TUPLE_FIELD_INDEX);
-        int recordLength = frameTuple.getFieldLength(FUNCTION_PAYLOAD_TUPLE_FIELD_INDEX);
-        ByteArrayInputStream stream = new ByteArrayInputStream(serRecord, recordStartOffset, recordLength);
-        DataInput in = new DataInputStream(stream);
-        ARecord functionRecord = recordSerDes.deserialize(in);
-        return createFunctionFromARecord(functionRecord);
     }
 
     private String getFunctionLibrary(ARecord functionRecord) {
@@ -130,7 +117,7 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         return adaptorConfiguration;
     }
 
-    protected Function createMetadataEntityFromARecord(ARecord functionRecord) throws AlgebricksException {
+    protected Function createMetadataEntityFromARecord(ARecord functionRecord) {
         String dataverseCanonicalName =
                 ((AString) functionRecord.getValueByPos(MetadataRecordTypes.FUNCTION_ARECORD_DATAVERSENAME_FIELD_INDEX))
                         .getStringValue();
@@ -179,8 +166,8 @@ public class FunctionTupleTranslator extends AbstractTupleTranslator<Function> {
         Map<String, String> params = getFunctionWithParams(functionRecord);
 
         FunctionSignature signature = new FunctionSignature(dataverseName, functionName, Integer.parseInt(arity));
-        return new Function(signature, args, returnType, definition, language, functionKind, dependencies,
-                functionLibrary, params);
+        return new Function(signature, args, returnType, definition, language, functionLibrary, functionKind,
+                dependencies, params);
     }
 
     private Triple<DataverseName, String, String> getDependency(AOrderedList dependencySubnames) {

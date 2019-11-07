@@ -19,8 +19,8 @@
 package org.apache.asterix.metadata.entities;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -52,8 +52,8 @@ public class Function implements IMetadataEntity<Function> {
     private final Map<String, String> params;
 
     public Function(FunctionSignature signature, List<String> arguments, String returnType, String functionBody,
-            String language, String functionKind, List<List<Triple<DataverseName, String, String>>> dependencies,
-            Map<String, String> params) {
+            String language, String library, String functionKind,
+            List<List<Triple<DataverseName, String, String>>> dependencies, Map<String, String> params) {
         this.signature = signature;
         this.arguments = arguments != null
                 ? arguments.stream().map(s -> s == null ? BuiltinType.ANY.toString() : s).collect(Collectors.toList())

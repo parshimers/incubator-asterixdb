@@ -21,6 +21,7 @@ package org.apache.asterix.external.library;
 import java.io.IOException;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,8 +51,8 @@ public class ExternalLibraryManager implements ILibraryManager {
     }
 
     @Override
-    public List<Pair<String, String>> getAllLibraries() {
-        ArrayList<Pair<String, String>> libs = new ArrayList<>();
+    public List<Pair<DataverseName, String>> getAllLibraries() {
+        ArrayList<Pair<DataverseName, String>> libs = new ArrayList<>();
         synchronized (libraryClassLoaders) {
             libraryClassLoaders.forEach((key, value) -> libs.add(getDataverseAndLibararyName(key)));
         }
@@ -80,25 +81,14 @@ public class ExternalLibraryManager implements ILibraryManager {
         return libraryClassLoaders.get(key);
     }
 
-    @Override
-    public void addFunctionParameters(DataverseName dataverseName, String fullFunctionName, List<String> parameters) {
-        externalFunctionParameters.put(dataverseName + "." + fullFunctionName, parameters);
-    }
-
-    @Override
-    public List<String> getFunctionParameters(DataverseName dataverseName, String fullFunctionName) {
-        return externalFunctionParameters.getOrDefault(dataverseName + "." + fullFunctionName, Collections.emptyList());
-    }
-
     private static String getKey(DataverseName dataverseName, String libraryName) {
         return dataverseName + "." + libraryName; //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
->>>>>>> dmitry/collections
     }
 
-    private static Pair<String, String> getDataverseAndLibararyName(String key) {
-        int index = key.indexOf('.');
-        String dataverse = key.substring(0, index);
-        String library = key.substring(index + 1);
+    private static Pair<DataverseName, String> getDataverseAndLibararyName(String key) {
+        String[] parts = key.split("\\.");
+        DataverseName dataverse = DataverseName.create(Arrays.asList(parts), 0, parts.length - 2);
+        String library = parts[parts.length - 1];
         return new Pair<>(dataverse, library);
     }
 

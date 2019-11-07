@@ -78,10 +78,9 @@ public class ExternalFunctionCompilerUtil {
         }
         IResultTypeComputer typeComputer = new ExternalTypeComputer(returnType, argumentTypes);
 
-<<<<<<< HEAD
-        return new ExternalScalarFunctionInfo(function.getSignature().createFunctionIdentifier(), fid.getNamespace(), function.getLibrary(), fid.getName(), fid.getArity(),
-                returnType, function.getFunctionBody(), function.getLanguage(), argumentTypes, function.getParams(),
-                typeComputer);
+        return new ExternalScalarFunctionInfo(function.getSignature().createFunctionIdentifier(), returnType,
+                function.getFunctionBody(), function.getLanguage(), function.getLibrary(), argumentTypes,
+                function.getParams(), typeComputer);
     }
 
     private static IAType getTypeInfo(String type, MetadataTransactionContext txnCtx, Function function)

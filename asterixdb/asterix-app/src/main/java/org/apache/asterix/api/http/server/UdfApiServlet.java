@@ -69,7 +69,7 @@ public class UdfApiServlet extends AbstractServlet {
             throw new IllegalArgumentException("Invalid resource.");
         }
         String resourceName = path[path.length - 1];
-        DataverseName dataverseName = DataverseName.createSinglePartName(path[path.length - 2]); //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
+        DataverseName dataverseName = DataverseName.create(Arrays.asList(path), 2, path.length - 2); //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
         return new Pair<>(resourceName, dataverseName);
     }
 
@@ -103,7 +103,13 @@ public class UdfApiServlet extends AbstractServlet {
                 }
             }
             IHyracksClientConnection hcc = appCtx.getHcc();
-            DeploymentId udfName = new DeploymentId(dataverse.getCanonicalForm() + "." + resourceName); //TODO(MULTI_PART_DATAVERSE_NAME):REVISIT
+            StringBuilder keyName = new StringBuilder();
+            for (String p : dataverse.getParts()) {
+                keyName.append(p);
+                keyName.append(".");
+            }
+            keyName.append(resourceName);
+            DeploymentId udfName = new DeploymentId(keyName.toString());
             ClassLoader cl = appCtx.getLibraryManager().getLibraryClassLoader(dataverse, resourceName);
             if (cl != null) {
                 deleteUdf(dataverse, resourceName);

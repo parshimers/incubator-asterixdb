@@ -903,7 +903,7 @@ CreateAdapterStatement AdapterSpecification(Token startStmtToken) throws ParseEx
   Token beginPos;
   Token endPos;
   FunctionName fctName = null;
-  String currentDataverse = defaultDataverse;
+  DataverseName currentDataverse = defaultDataverse;
   String lang = null;
   String libName ="";
   String externalIdent = "";
@@ -918,7 +918,7 @@ CreateAdapterStatement AdapterSpecification(Token startStmtToken) throws ParseEx
   }
   <IDENTIFIER> {expectToken(LANGUAGE);} lang = Identifier() <AS> libName = ConstantString() <COMMA>  externalIdent = ConstantString()
     {
-      signature = new AdapterIdentifier(currentDataverse == null ? "Default" : currentDataverse, fctName.function);
+      signature = new AdapterIdentifier(currentDataverse == null ? DataverseName.createBuiltinDataverseName("Default") : currentDataverse, fctName.function);
       defaultDataverse = currentDataverse;
       CreateAdapterStatement stmt =
         new CreateAdapterStatement(signature, lang, libName, externalIdent,  ifNotExists);

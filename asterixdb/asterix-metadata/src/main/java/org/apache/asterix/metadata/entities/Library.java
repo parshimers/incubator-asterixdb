@@ -42,10 +42,6 @@ public class Library implements IMetadataEntity<Library> {
         return name;
     }
 
-    public String getDataverseName() {
-        return dataverseName;
-    }
-
     @Override
     public Library addToCache(MetadataCache cache) {
         return cache.addLibraryIfNotExists(this);

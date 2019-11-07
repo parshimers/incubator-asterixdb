@@ -98,13 +98,9 @@ public class BuiltinTypeMap {
             String typeName, boolean optional) throws AlgebricksException {
         IAType type = _builtinTypeMap.get(typeName);
         if (type == null) {
-            try {
-                Datatype dt = metadataNode.getDatatype(txnId, dataverseName, typeName);
-                if (dt != null) {
-                    type = dt.getDatatype();
-                }
-            } catch (RemoteException e) {
-                throw new MetadataException(e);
+            Datatype dt = metadataNode.getDatatype(txnId, dataverseName, typeName);
+            if (dt != null) {
+                type = dt.getDatatype();
             }
         }
         if (optional) {
