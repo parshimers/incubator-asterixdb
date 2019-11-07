@@ -118,7 +118,7 @@ public abstract class FunctionRewriter implements IFunctionToDataSourceRewriter 
         switch (tt) {
             case STRING:
                 AString str = (AString) iaObject;
-                return DataverseName.createSinglePartName(str.getStringValue()); // OK. provided by user
+                return DataverseName.createSinglePartName(str.getStringValue());
             case ARRAY:
                 AOrderedList list = ((AOrderedList) iaObject);
                 int ln = list.size();

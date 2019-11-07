@@ -29,9 +29,7 @@ public class MetadataLock implements IMetadataLock {
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
 
     public MetadataLock(MetadataLockKey key) {
-        if (key == null) {
-            throw new NullPointerException();
-        }
+        Objects.requireNonNull(key);
         this.key = key;
     }
 

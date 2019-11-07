@@ -31,7 +31,7 @@ public class TypeSignature {
     public TypeSignature(DataverseName dataverseName, String name) {
         this.dataverseName = dataverseName;
         this.name = name;
-        this.alias = (dataverseName != null ? dataverseName.getCanonicalForm() : null) + '@' + name;
+        this.alias = (dataverseName != null ? dataverseName.getCanonicalForm() : null) + "@" + name;
     }
 
     @Override

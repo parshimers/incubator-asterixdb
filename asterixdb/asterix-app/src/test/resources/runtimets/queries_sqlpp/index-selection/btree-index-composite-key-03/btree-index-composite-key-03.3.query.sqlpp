@@ -16,20 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.asterix.lang.common.base;
+/*
+ * Description     : Test that BTree index is used in query plan
+ * Expected Result : Success
+ */
 
-import org.apache.asterix.common.exceptions.CompilationException;
-import org.apache.asterix.metadata.declared.MetadataProvider;
+use test;
 
-public interface IStatementRewriter {
-
-    /**
-     * @param statement,
-     *            a non-query statement.
-     * @param metadataProvider
-     *            a metadata provider
-     */
-    void rewrite(Statement statement, MetadataProvider metadataProvider) throws CompilationException;
-
-    String toExternalVariableName(String statementParameterName);
-}
+select element l
+from  employee as l
+where ((l.fname = 'Julio') and (l.lname = 'Isa'));

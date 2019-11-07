@@ -16,20 +16,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.asterix.lang.common.base;
+/*
+* Description  : Index selection for non-enforced indexes.
+*              : Query predicate that skips one of the indexed
+*              : fields of a composite index.
+*              : Define the BTree index on a composite key (c_x,c_y,c_z)
+*              : predicate => WHERE c_x = ... and c_z = ...
+* Expected Res : Success
+* Date         : 10 Oct 2019
+*/
+drop dataverse test if exists;
+create dataverse test;
+use test;
 
-import org.apache.asterix.common.exceptions.CompilationException;
-import org.apache.asterix.metadata.declared.MetadataProvider;
+create type TestOpenType as open {
+  c_id: int64
+};
 
-public interface IStatementRewriter {
+create dataset TestOpen(TestOpenType)
+primary key c_id;
 
-    /**
-     * @param statement,
-     *            a non-query statement.
-     * @param metadataProvider
-     *            a metadata provider
-     */
-    void rewrite(Statement statement, MetadataProvider metadataProvider) throws CompilationException;
-
-    String toExternalVariableName(String statementParameterName);
-}
+create index idx_xyz on TestOpen(c_x:string, c_y:string, c_z:string);

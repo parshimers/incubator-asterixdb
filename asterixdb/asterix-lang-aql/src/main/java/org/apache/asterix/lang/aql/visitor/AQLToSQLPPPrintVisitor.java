@@ -265,7 +265,7 @@ public class AQLToSQLPPPrintVisitor extends FormatPrintVisitor implements IAQLVi
 
     @Override
     public Void visit(DataverseDecl dv, Integer step) throws CompilationException {
-        out.println(skip(step) + "use " + normalize(dv.getDataverseName()) + ";\n\n");
+        out.println(skip(step) + "use " + generateDataverseName(dv.getDataverseName()) + ";\n\n");
         return null;
     }
 
@@ -307,7 +307,7 @@ public class AQLToSQLPPPrintVisitor extends FormatPrintVisitor implements IAQLVi
             Pair<DataverseName, String> dataset = FunctionUtil.parseDatasetFunctionArguments(callExpr.getExprList(),
                     null, callExpr.getSourceLocation(), ExpressionUtils::getStringLiteral);
             if (dataset.first != null) {
-                out.print(normalize(dataset.first));
+                out.print(generateDataverseName(dataset.first));
                 out.print(".");
             }
             out.print(normalize(dataset.second));
