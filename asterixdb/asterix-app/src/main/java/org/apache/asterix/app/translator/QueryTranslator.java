@@ -2666,8 +2666,8 @@ public class QueryTranslator extends AbstractLangTranslator implements IStatemen
                             new ResultHandlePrinter(sessionOutput, new ResultHandle(id, resultSetId)));
                     responsePrinter.printResults();
                     if (outMetadata != null) {
-                        outMetadata.getResultSets()
-                                .add(org.apache.commons.lang3.tuple.Triple.of(id, resultSetId, metadataProvider.findOutputRecordType()));
+                        outMetadata.getResultSets().add(org.apache.commons.lang3.tuple.Triple.of(id, resultSetId,
+                                metadataProvider.findOutputRecordType()));
                     }
                 }, requestParameters, cancellable, appCtx, metadataProvider);
                 break;

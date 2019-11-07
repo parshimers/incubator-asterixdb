@@ -16,12 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-<<<<<<< HEAD:asterixdb/asterix-app/src/test/resources/runtimets/queries_sqlpp/external-library/getCapital_open/getCapital_open.3.query.sqlpp
 use externallibtest;
 
-SELECT VALUE getCapital(country) FROM ["England","Italy","China","United States","India","Jupiter"] as country
-=======
+SELECT VALUE getCapital(country) FROM ["England","Italy","China","United States","India","Jupiter"] as country;
 
-select element [position(x, 'ofo'), position(y,'ofo')]
-from  ['foofoo'] as x, ['barbar'] as y;
->>>>>>> dmitry/collections:asterixdb/asterix-app/src/test/resources/runtimets/queries_sqlpp/string/position/offset0/position/position.1.query.sqlpp
