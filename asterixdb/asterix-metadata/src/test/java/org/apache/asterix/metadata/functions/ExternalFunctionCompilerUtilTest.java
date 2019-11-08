@@ -39,7 +39,7 @@ public class ExternalFunctionCompilerUtilTest {
         MetadataTransactionContext txnCtx = new MetadataTransactionContext(new TxnId(1));
         FunctionSignature signature = new FunctionSignature(DataverseName.createSinglePartName("test"), "test", 0);
         Function function =
-                new Function(signature, new LinkedList<>(), "{{ASTRING}}", "", "JAVA", "SCALAR", null, null, null);
+                new Function(signature, new LinkedList<>(), "{{string}}", "", "JAVA", "", "SCALAR", null, null);
 
         // when
         ExternalScalarFunctionInfo info =
