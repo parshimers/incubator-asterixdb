@@ -66,4 +66,9 @@ public final class JLine extends JObject {
     public IAType getIAType() {
         return BuiltinType.ALINE;
     }
+
+    @Override
+    public void setValue(Object o) {
+
+    }
 }

@@ -40,7 +40,7 @@ public final class JBoolean extends JObject {
         this.aBoolean = value;
     }
 
-    public boolean getValue() {
+    public Boolean getValue() {
         return aBoolean;
     }
 
@@ -52,6 +52,11 @@ public final class JBoolean extends JObject {
     @Override
     public IAObject getIAObject() {
         return aBoolean ? ABoolean.TRUE : ABoolean.FALSE;
+    }
+
+    @Override
+    public void setValue(Object o) {
+
     }
 
     @Override

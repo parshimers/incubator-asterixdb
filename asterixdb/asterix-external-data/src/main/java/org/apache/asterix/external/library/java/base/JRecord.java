@@ -18,8 +18,13 @@
  */
 package org.apache.asterix.external.library.java.base;
 
+import static org.apache.asterix.om.utils.RecordUtil.FULLY_OPEN_RECORD_TYPE;
+
 import java.io.DataOutput;
 import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -29,6 +34,7 @@ import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.dataflow.data.nontagged.serde.ARecordSerializerDeserializer;
 import org.apache.asterix.dataflow.data.nontagged.serde.AStringSerializerDeserializer;
 import org.apache.asterix.external.api.IJObject;
+import org.apache.asterix.external.library.PythonFunctionHelper;
 import org.apache.asterix.om.base.AMutableString;
 import org.apache.asterix.om.base.ARecord;
 import org.apache.asterix.om.base.IAObject;
@@ -48,6 +54,12 @@ public final class JRecord implements IJObject {
     ArrayBackedValueStorage fieldNameBuffer = new ArrayBackedValueStorage();
     ArrayBackedValueStorage fieldValueBuffer = new ArrayBackedValueStorage();
     AMutableString nameString = new AMutableString("");
+
+    public JRecord() {
+        this.recordType = FULLY_OPEN_RECORD_TYPE;
+        this.fields = new IJObject[] {};
+        this.openFields = new LinkedHashMap<>();
+    }
 
     public JRecord(ARecordType recordType, IJObject[] fields) {
         this.recordType = recordType;
@@ -170,6 +182,41 @@ public final class JRecord implements IJObject {
         IAObject[] mergedFields = ARecordSerializerDeserializer.mergeFields(closedFieldValues, openFieldValues);
 
         return new ARecord(mergedRecordType, mergedFields);
+    }
+
+    @Override
+    public void setValue(Object o) {
+        Map<String, Object> stringObjectMap = (HashMap) o;
+        for (Map.Entry<String, Object> e : stringObjectMap.entrySet()) {
+            Class asxClass = PythonFunctionHelper.typeConv.get(e.getValue().getClass());
+            try {
+                Constructor cs = asxClass.getConstructor();
+                IJObject obj = (IJObject) cs.newInstance();
+                obj.setValue(e.getValue());
+                openFields.put(e.getKey(), obj);
+            } catch (NoSuchMethodException ex) {
+                ex.printStackTrace();
+            } catch (IllegalAccessException ex) {
+                ex.printStackTrace();
+            } catch (InstantiationException ex) {
+                ex.printStackTrace();
+            } catch (InvocationTargetException ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+
+    @Override
+    public Map<String, Object> getValue() {
+        HashMap<String, Object> rec = new HashMap<>();
+        String[] closedFieldNames = recordType.getFieldNames();
+        int idx = 0;
+        for (IJObject j : fields) {
+            rec.put(closedFieldNames[idx], j.getValue());
+            idx++;
+        }
+        openFields.entrySet().forEach(e -> rec.put(e.getKey(), e.getValue().getValue()));
+        return rec;
     }
 
     @Override

@@ -38,7 +38,7 @@ public class JInt extends JObject {
         ((AMutableInt32) value).setValue(v);
     }
 
-    public int getValue() {
+    public Integer getValue() {
         return ((AMutableInt32) value).getIntegerValue();
     }
 
@@ -56,5 +56,10 @@ public class JInt extends JObject {
     @Override
     public IAType getIAType() {
         return BuiltinType.AINT32;
+    }
+
+    @Override
+    public void setValue(Object o) {
+
     }
 }

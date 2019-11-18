@@ -53,6 +53,11 @@ public final class JCircle extends JObject {
     }
 
     @Override
+    public void setValue(Object o) {
+
+    }
+
+    @Override
     public void serialize(DataOutput dataOutput, boolean writeTypeTag) throws HyracksDataException {
         serializeTypeTag(writeTypeTag, dataOutput, ATypeTag.CIRCLE);
         ACircleSerializerDeserializer.INSTANCE.serialize((AMutableCircle) value, dataOutput);

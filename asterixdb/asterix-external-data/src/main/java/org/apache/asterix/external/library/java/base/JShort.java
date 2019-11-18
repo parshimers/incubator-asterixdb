@@ -38,7 +38,7 @@ public final class JShort extends JObject {
         ((AMutableInt16) value).setValue(v);
     }
 
-    public short getValue() {
+    public Short getValue() {
         return ((AMutableInt16) value).getShortValue();
     }
 
@@ -56,5 +56,10 @@ public final class JShort extends JObject {
     @Override
     public IAType getIAType() {
         return BuiltinType.AINT16;
+    }
+
+    @Override
+    public void setValue(Object o) {
+
     }
 }

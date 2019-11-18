@@ -18,23 +18,16 @@
  */
 package org.apache.asterix.external.api;
 
-import java.io.DataOutput;
+import java.util.Map;
 
-import org.apache.asterix.om.base.IAObject;
-import org.apache.asterix.om.types.IAType;
+import org.apache.asterix.external.library.py.PyObjectPointableVisitor;
+import org.apache.asterix.om.pointables.ARecordVisitablePointable;
+import org.apache.asterix.om.types.ARecordType;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
-public interface IJObject {
+public interface IPyRecordAccessor {
 
-    IAType getIAType();
+    Map<String, Object> access(ARecordVisitablePointable pointable, ARecordType recordType,
+            PyObjectPointableVisitor pointableVisitor) throws HyracksDataException;
 
-    IAObject getIAObject();
-
-    void setValue(Object o);
-
-    Object getValue();
-
-    void serialize(DataOutput dataOutput, boolean writeTypeTag) throws HyracksDataException;
-
-    void reset() throws HyracksDataException;
 }

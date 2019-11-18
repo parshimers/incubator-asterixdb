@@ -70,4 +70,9 @@ public final class JPolygon extends JObject {
     public IAType getIAType() {
         return BuiltinType.APOLYGON;
     }
+
+    @Override
+    public void setValue(Object o) {
+
+    }
 }

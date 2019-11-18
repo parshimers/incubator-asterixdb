@@ -30,6 +30,10 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 public final class JString extends JObject {
 
+    public JString() {
+        super(new AMutableString(""));
+    }
+
     public JString(String v) {
         super(new AMutableString(v));
     }
@@ -56,5 +60,12 @@ public final class JString extends JObject {
     @Override
     public IAType getIAType() {
         return BuiltinType.ASTRING;
+    }
+
+    @Override
+    public void setValue(Object o) {
+        if (o instanceof String) {
+            setValue((String) o);
+        }
     }
 }

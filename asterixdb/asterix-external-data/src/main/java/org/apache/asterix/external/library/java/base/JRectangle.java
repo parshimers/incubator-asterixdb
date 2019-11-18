@@ -52,6 +52,11 @@ public final class JRectangle extends JObject {
     }
 
     @Override
+    public void setValue(Object o) {
+
+    }
+
+    @Override
     public void serialize(DataOutput dataOutput, boolean writeTypeTag) throws HyracksDataException {
         serializeTypeTag(writeTypeTag, dataOutput, ATypeTag.RECTANGLE);
         ARectangleSerializerDeserializer.INSTANCE.serialize((ARectangle) value, dataOutput);

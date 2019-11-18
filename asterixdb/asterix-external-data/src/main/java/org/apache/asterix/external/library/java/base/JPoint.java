@@ -71,4 +71,9 @@ public final class JPoint extends JObject {
     public IAType getIAType() {
         return BuiltinType.APOINT;
     }
+
+    @Override
+    public void setValue(Object o) {
+
+    }
 }

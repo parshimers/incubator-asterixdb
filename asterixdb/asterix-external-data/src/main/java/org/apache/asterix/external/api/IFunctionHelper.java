@@ -35,10 +35,6 @@ public interface IFunctionHelper {
 
     IJObject getResultObject();
 
-    String[] getArgumentStr();
-
-    String getArgumentsJSON();
-
     void setResult(IJObject result) throws HyracksDataException;
 
     void setResultJSON(String json) throws HyracksDataException;

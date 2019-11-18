@@ -37,7 +37,7 @@ public final class JDateTime extends JObject {
         ((AMutableDateTime) value).setValue(chrononTime);
     }
 
-    public long getValue() {
+    public Long getValue() {
         return ((AMutableDateTime) value).getChrononTime();
     }
 
@@ -55,5 +55,10 @@ public final class JDateTime extends JObject {
     @Override
     public IAType getIAType() {
         return BuiltinType.ADATETIME;
+    }
+
+    @Override
+    public void setValue(Object o) {
+
     }
 }
