@@ -99,16 +99,6 @@ public class JavaFunctionHelper implements IFunctionHelper {
     }
 
     @Override
-    public String[] getArgumentStr() {
-        return stringArgs;
-    }
-
-    @Override
-    public String getArgumentsJSON() {
-        return args.toString();
-    }
-
-    @Override
     public void setResult(IJObject result) throws HyracksDataException {
         if (result == null || checkInvalidReturnValueType(result, finfo.getReturnType())) {
             isValidResult = false;

@@ -45,10 +45,11 @@ public class PythonFunction implements IExternalScalarFunction {
 
     @Override
     public void evaluate(IFunctionHelper functionHelper) throws Exception {
-        jep.set("asterixArgs", functionHelper.getArgumentStr());
+        PythonFunctionHelper pyfh = (PythonFunctionHelper) functionHelper;
+        jep.set("asterixArgs", pyfh.getArguments());
         jep.eval("asterixResult = a.nextFrame(asterixArgs)");
-        String result = jep.getValue("asterixResult", String.class);
-        functionHelper.setResultJSON(result);
+        Object result = jep.getValue("asterixResult");
+        pyfh.setResult(result);
     }
 
     @Override

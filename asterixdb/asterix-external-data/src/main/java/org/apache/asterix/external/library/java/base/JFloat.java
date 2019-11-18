@@ -34,11 +34,11 @@ public final class JFloat extends JObject {
         super(new AMutableFloat(v));
     }
 
-    public void setValue(float v) {
+    public void setValue(Float v) {
         ((AMutableFloat) value).setValue(v);
     }
 
-    public float getValue() {
+    public Float getValue() {
         return ((AMutableFloat) value).getFloatValue();
     }
 
@@ -56,5 +56,10 @@ public final class JFloat extends JObject {
     @Override
     public IAType getIAType() {
         return BuiltinType.AFLOAT;
+    }
+
+    @Override
+    public void setValue(Object o) {
+
     }
 }

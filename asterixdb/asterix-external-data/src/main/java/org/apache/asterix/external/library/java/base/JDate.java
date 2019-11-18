@@ -37,7 +37,7 @@ public final class JDate extends JObject {
         ((AMutableDate) value).setValue(chrononTimeInDays);
     }
 
-    public int getValue() {
+    public Integer getValue() {
         return ((AMutableDate) value).getChrononTimeInDays();
     }
 
@@ -55,5 +55,10 @@ public final class JDate extends JObject {
     @Override
     public IAType getIAType() {
         return BuiltinType.ADATE;
+    }
+
+    @Override
+    public void setValue(Object o) {
+
     }
 }

@@ -37,7 +37,7 @@ public final class JTime extends JObject {
         ((AMutableTime) value).setValue(timeInMillsec);
     }
 
-    public int getValue() {
+    public Integer getValue() {
         return ((AMutableTime) value).getChrononTime();
     }
 
@@ -55,5 +55,10 @@ public final class JTime extends JObject {
     @Override
     public IAType getIAType() {
         return BuiltinType.ATIME;
+    }
+
+    @Override
+    public void setValue(Object o) {
+
     }
 }

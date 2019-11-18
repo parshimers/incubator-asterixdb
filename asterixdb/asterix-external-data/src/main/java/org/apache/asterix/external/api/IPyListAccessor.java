@@ -16,43 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.asterix.external.library.java.base;
+package org.apache.asterix.external.api;
 
-import java.io.DataOutput;
-
-import org.apache.asterix.om.base.AMissing;
-import org.apache.asterix.om.base.IAObject;
-import org.apache.asterix.om.types.ATypeTag;
-import org.apache.asterix.om.types.BuiltinType;
+import org.apache.asterix.external.library.py.PyObjectPointableVisitor;
+import org.apache.asterix.om.pointables.AListVisitablePointable;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
-public final class JMissing extends JObject {
+public interface IPyListAccessor {
 
-    public final static JMissing INSTANCE = new JMissing();
-
-    @Override
-    public IAType getIAType() {
-        return BuiltinType.AMISSING;
-    }
-
-    @Override
-    public IAObject getIAObject() {
-        return AMissing.MISSING;
-    }
-
-    @Override
-    public void setValue(Object o) {
-
-    }
-
-    @Override
-    public void serialize(DataOutput dataOutput, boolean writeTypeTag) throws HyracksDataException {
-        serializeTypeTag(writeTypeTag, dataOutput, ATypeTag.MISSING);
-    }
-
-    @Override
-    public void reset() throws HyracksDataException {
-        // no op
-    }
+    Object access(AListVisitablePointable pointable, IAType listType, PyObjectPointableVisitor pointableVisitor)
+            throws HyracksDataException;
 }

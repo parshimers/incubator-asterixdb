@@ -57,4 +57,9 @@ public final class JDuration extends JObject {
     public IAType getIAType() {
         return BuiltinType.ADURATION;
     }
+
+    @Override
+    public void setValue(Object o) {
+
+    }
 }

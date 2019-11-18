@@ -64,4 +64,9 @@ public final class JInterval extends JObject {
     public IAType getIAType() {
         return BuiltinType.AINTERVAL;
     }
+
+    @Override
+    public void setValue(Object o) {
+
+    }
 }

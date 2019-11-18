@@ -19,12 +19,16 @@
 package org.apache.asterix.external.library.java.base;
 
 import java.io.DataOutput;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.asterix.builders.IAsterixListBuilder;
 import org.apache.asterix.builders.OrderedListBuilder;
 import org.apache.asterix.external.api.IJObject;
 import org.apache.asterix.external.api.IJType;
+import org.apache.asterix.external.library.PythonFunctionHelper;
 import org.apache.asterix.om.base.AMutableOrderedList;
 import org.apache.asterix.om.base.IAObject;
 import org.apache.asterix.om.types.AOrderedListType;
@@ -35,6 +39,10 @@ import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 public final class JOrderedList extends JList {
 
     private AOrderedListType listType;
+
+    public JOrderedList() {
+        this(AOrderedListType.FULL_OPEN_ORDEREDLIST_TYPE);
+    }
 
     public JOrderedList(IJType listItemType) {
         super();
@@ -62,6 +70,52 @@ public final class JOrderedList extends JList {
             v.add(jObj.getIAObject());
         }
         return v;
+    }
+
+    @Override
+    public void setValue(Object o) {
+        List<Object> vals = (ArrayList) o;
+        if (vals.size() > 0) {
+            Object first = vals.get(0);
+            Class asxClass = PythonFunctionHelper.typeConv.get(first.getClass());
+            Constructor cs = null;
+            try {
+                cs = asxClass.getConstructor();
+            } catch (NoSuchMethodException e) {
+                e.printStackTrace();
+            }
+            IJObject obj = null;
+            try {
+                obj = (IJObject) cs.newInstance();
+            } catch (InstantiationException e) {
+                e.printStackTrace();
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            } catch (InvocationTargetException e) {
+                e.printStackTrace();
+            }
+            obj.setValue(obj);
+            IAType listType = obj.getIAType();
+            this.listType = new AOrderedListType(listType, "");
+        }
+        for (Object v : vals) {
+            Class asxClass = PythonFunctionHelper.typeConv.get(v.getClass());
+            try {
+                Constructor cs = asxClass.getConstructor();
+                IJObject obj = (IJObject) cs.newInstance();
+                obj.setValue(v);
+                add(obj);
+            } catch (NoSuchMethodException ex) {
+                ex.printStackTrace();
+            } catch (IllegalAccessException ex) {
+                ex.printStackTrace();
+            } catch (InstantiationException ex) {
+                ex.printStackTrace();
+            } catch (InvocationTargetException ex) {
+                ex.printStackTrace();
+            }
+        }
+
     }
 
     @Override

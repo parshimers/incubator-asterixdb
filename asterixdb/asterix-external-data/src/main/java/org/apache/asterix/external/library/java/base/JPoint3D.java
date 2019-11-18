@@ -64,4 +64,9 @@ public final class JPoint3D extends JObject {
     public IAType getIAType() {
         return BuiltinType.APOINT3D;
     }
+
+    @Override
+    public void setValue(Object o) {
+
+    }
 }

@@ -31,11 +31,16 @@ public abstract class JObject implements IJObject {
     protected IAObject value;
     protected byte[] bytes;
 
-    protected JObject() {
+    public JObject() {
+
     }
 
     protected JObject(IAObject value) {
         this.value = value;
+    }
+
+    public Object getValue() {
+        return null;
     }
 
     @Override

@@ -18,23 +18,10 @@
  */
 package org.apache.asterix.external.api;
 
-import java.io.DataOutput;
-
-import org.apache.asterix.om.base.IAObject;
-import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
+import org.apache.hyracks.data.std.api.IPointable;
 
-public interface IJObject {
+public interface IPyObjectAccessor {
+    Object access(IPointable pointable) throws HyracksDataException;
 
-    IAType getIAType();
-
-    IAObject getIAObject();
-
-    void setValue(Object o);
-
-    Object getValue();
-
-    void serialize(DataOutput dataOutput, boolean writeTypeTag) throws HyracksDataException;
-
-    void reset() throws HyracksDataException;
 }

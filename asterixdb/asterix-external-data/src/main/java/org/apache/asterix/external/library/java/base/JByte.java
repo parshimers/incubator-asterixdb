@@ -38,7 +38,7 @@ public final class JByte extends JObject {
         ((AMutableInt8) value).setValue(v);
     }
 
-    public byte getValue() {
+    public Byte getValue() {
         return ((AMutableInt8) value).getByteValue();
     }
 
@@ -56,5 +56,10 @@ public final class JByte extends JObject {
     @Override
     public IAType getIAType() {
         return BuiltinType.AINT8;
+    }
+
+    @Override
+    public void setValue(Object o) {
+
     }
 }

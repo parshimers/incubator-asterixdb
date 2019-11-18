@@ -70,6 +70,11 @@ public final class JUnorderedList extends JList {
     }
 
     @Override
+    public void setValue(Object o) {
+
+    }
+
+    @Override
     public void serialize(DataOutput dataOutput, boolean writeTypeTag) throws HyracksDataException {
         IAsterixListBuilder listBuilder = new UnorderedListBuilder();
         listBuilder.reset(listType);

@@ -30,15 +30,19 @@ import org.apache.hyracks.api.exceptions.HyracksDataException;
 
 public final class JLong extends JObject {
 
+    public JLong() {
+        this(0l);
+    }
+
     public JLong(long v) {
         super(new AMutableInt64(v));
     }
 
-    public void setValue(long v) {
+    public void setValue(Long v) {
         ((AMutableInt64) value).setValue(v);
     }
 
-    public long getValue() {
+    public Long getValue() {
         return ((AMutableInt64) value).getLongValue();
     }
 
@@ -56,5 +60,13 @@ public final class JLong extends JObject {
     @Override
     public IAType getIAType() {
         return BuiltinType.AINT64;
+    }
+
+    @Override
+    public void setValue(Object o) {
+        if (o instanceof Long) {
+            setValue((Long) o);
+        }
+
     }
 }

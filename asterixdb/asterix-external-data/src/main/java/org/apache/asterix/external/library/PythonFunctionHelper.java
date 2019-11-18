@@ -20,17 +20,26 @@ package org.apache.asterix.external.library;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.asterix.common.exceptions.ErrorCode;
+import org.apache.asterix.common.exceptions.AsterixException;
 import org.apache.asterix.common.exceptions.RuntimeDataException;
 import org.apache.asterix.external.api.IFunctionHelper;
 import org.apache.asterix.external.api.IJObject;
 import org.apache.asterix.external.library.java.JTypeTag;
-import org.apache.asterix.external.library.java.base.JNull;
+import org.apache.asterix.external.library.java.base.JByte;
+import org.apache.asterix.external.library.java.base.JDouble;
+import org.apache.asterix.external.library.java.base.JFloat;
+import org.apache.asterix.external.library.java.base.JInt;
+import org.apache.asterix.external.library.java.base.JLong;
+import org.apache.asterix.external.library.java.base.JOrderedList;
+import org.apache.asterix.external.library.java.base.JRecord;
+import org.apache.asterix.external.library.java.base.JShort;
+import org.apache.asterix.external.library.java.base.JString;
+import org.apache.asterix.external.library.py.PyObjectPointableVisitor;
 import org.apache.asterix.external.parser.JSONDataParser;
 import org.apache.asterix.om.functions.IExternalFunctionInfo;
 import org.apache.asterix.om.pointables.AFlatValuePointable;
@@ -39,15 +48,11 @@ import org.apache.asterix.om.pointables.ARecordVisitablePointable;
 import org.apache.asterix.om.pointables.PointableAllocator;
 import org.apache.asterix.om.pointables.base.DefaultOpenFieldType;
 import org.apache.asterix.om.pointables.base.IVisitablePointable;
-import org.apache.asterix.om.pointables.printer.json.clean.APrintVisitor;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.EnumDeserializer;
 import org.apache.asterix.om.types.IAType;
 import org.apache.asterix.om.types.TypeTagUtil;
-import org.apache.asterix.om.util.container.IObjectPool;
-import org.apache.asterix.om.util.container.ListObjectPool;
-import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.api.IDataOutputProvider;
 import org.apache.hyracks.data.std.api.IValueReference;
@@ -56,23 +61,30 @@ import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
 
 import com.fasterxml.jackson.core.JsonFactory;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableBiMap;
 
 public class PythonFunctionHelper implements IFunctionHelper {
 
     private final IExternalFunctionInfo finfo;
     private final IDataOutputProvider outputProvider;
     private final PointableAllocator pointableAllocator;
+    private final PyObjectPointableVisitor pointableVisitor;
     private final Map<Integer, TypeInfo> poolTypeInfo;
     private final Map<String, String> parameters;
     private final IAType[] argTypes;
-    private final String[] stringArgs;
     private final ByteArrayOutputStream out = new ByteArrayOutputStream();
     private final ObjectNode args = new ObjectNode(JsonNodeFactory.instance);
     private final JSONDataParser jdp;
     private final String packageName;
-    private final IObjectPool<IJObject, IAType> objectPool = new ListObjectPool<>(JTypeObjectFactory.INSTANCE);
     private final URL[] libraryPaths;
     private final ClassLoader cl;
+    private final Object[] arguments;
+    public static final BiMap<Class, Class> typeConv =
+            new ImmutableBiMap.Builder<Class, Class>().put(HashMap.class, JRecord.class).put(Byte.class, JByte.class)
+                    .put(Short.class, JShort.class).put(Integer.class, JInt.class).put(Long.class, JLong.class)
+                    .put(Float.class, JFloat.class).put(Double.class, JDouble.class)
+                    .put(ArrayList.class, JOrderedList.class).put(String.class, JString.class).build();
 
     private boolean isValidResult = false;
 
@@ -81,9 +93,10 @@ public class PythonFunctionHelper implements IFunctionHelper {
         this.finfo = finfo;
         this.outputProvider = outputProvider;
         this.pointableAllocator = new PointableAllocator();
-        this.stringArgs = new String[finfo.getArgumentList().size()];
+        this.arguments = new Object[finfo.getArgumentList().size()];
         this.poolTypeInfo = new HashMap<>();
         this.parameters = finfo.getParams();
+        pointableVisitor = new PyObjectPointableVisitor();
         this.argTypes = argTypes;
         this.jdp = new JSONDataParser(DefaultOpenFieldType.NESTED_OPEN_RECORD_TYPE, new JsonFactory());
         this.packageName = finfo.getFunctionBody().trim();
@@ -91,14 +104,8 @@ public class PythonFunctionHelper implements IFunctionHelper {
         this.cl = cl;
     }
 
-    @Override
-    public String[] getArgumentStr() {
-        return stringArgs;
-    }
-
-    @Override
-    public String getArgumentsJSON() {
-        return args.toString();
+    public Object[] getArguments() {
+        return arguments;
     }
 
     @Override
@@ -122,6 +129,15 @@ public class PythonFunctionHelper implements IFunctionHelper {
             throw new HyracksDataException(e.toString());
         }
 
+    }
+
+    public void setResult(Object o) throws IllegalAccessException, InstantiationException, HyracksDataException {
+        Class concrete = o.getClass();
+        Class asxConv = typeConv.get(concrete);
+        IJObject serde = (IJObject) asxConv.newInstance();
+        serde.setValue(o);
+        serde.serialize(outputProvider.getDataOutput(), true);
+        isValidResult = true;
     }
 
     private boolean checkInvalidReturnValueType(IJObject result, IAType expectedType) {
@@ -150,60 +166,53 @@ public class PythonFunctionHelper implements IFunctionHelper {
         return null;
     }
 
-    public void setArgument(int index, IValueReference valueReference) throws HyracksDataException {
-        APrintVisitor pv = new APrintVisitor();
-        IVisitablePointable pointable = null;
-        IJObject jObject = null;
+    public void setArgument(int index, IValueReference valueReference) throws IOException, AsterixException {
+        IVisitablePointable pointable;
+        Object obj = null;
         IAType type = argTypes[index];
-        out.reset();
-        PrintStream ps = new PrintStream(out);
-        Pair<PrintStream, ATypeTag> pst = new Pair(ps, getTypeInfo(index, type).getTypeTag());
         switch (type.getTypeTag()) {
             case OBJECT:
                 pointable = pointableAllocator.allocateRecordValue(type);
                 pointable.set(valueReference);
-                pv.visit((ARecordVisitablePointable) pointable, pst);
+                obj = pointableVisitor.visit((ARecordVisitablePointable) pointable, type);
                 break;
             case ARRAY:
             case MULTISET:
                 pointable = pointableAllocator.allocateListValue(type);
                 pointable.set(valueReference);
-                pv.visit((AListVisitablePointable) pointable, pst);
+                obj = pointableVisitor.visit((AListVisitablePointable) pointable, type);
                 break;
             case ANY:
                 TaggedValuePointable pointy = TaggedValuePointable.FACTORY.createPointable();
                 pointy.set(valueReference);
                 ATypeTag rtTypeTag = EnumDeserializer.ATYPETAGDESERIALIZER.deserialize(pointy.getTag());
                 IAType rtType = TypeTagUtil.getBuiltinTypeByTag(rtTypeTag);
-                pst = new Pair(ps, rtTypeTag);
                 switch (rtTypeTag) {
                     case OBJECT:
                         pointable = pointableAllocator.allocateRecordValue(rtType);
                         pointable.set(valueReference);
-                        pv.visit((ARecordVisitablePointable) pointable, pst);
+                        obj = pointableVisitor.visit((ARecordVisitablePointable) pointable, rtType);
                         break;
                     case ARRAY:
                     case MULTISET:
                         pointable = pointableAllocator.allocateListValue(rtType);
                         pointable.set(valueReference);
-                        pv.visit((AListVisitablePointable) pointable, pst);
+                        obj = pointableVisitor.visit((AListVisitablePointable) pointable, rtType);
                         break;
                     default:
                         pointable = pointableAllocator.allocateFieldValue(rtType);
                         pointable.set(valueReference);
-                        pv.visit((AFlatValuePointable) pointable, pst);
+                        obj = pointableVisitor.visit((AFlatValuePointable) pointable, rtType);
                         break;
                 }
                 break;
             default:
                 pointable = pointableAllocator.allocateFieldValue(type);
                 pointable.set(valueReference);
-                pv.visit((AFlatValuePointable) pointable, pst);
+                obj = pointableVisitor.visit((AFlatValuePointable) pointable, type);
                 break;
         }
-        ps.flush();
-        stringArgs[index] = out.toString();
-        args.put(Integer.valueOf(index).toString(), stringArgs[index]);
+        arguments[index] = obj;
     }
 
     public URL[] getLibraryDeployedPath() {
@@ -219,15 +228,6 @@ public class PythonFunctionHelper implements IFunctionHelper {
         return null;
     }
 
-    private TypeInfo getTypeInfo(int index, IAType type) {
-        TypeInfo typeInfo = poolTypeInfo.get(index);
-        if (typeInfo == null) {
-            typeInfo = new TypeInfo(objectPool, type, type.getTypeTag());
-            poolTypeInfo.put(index, typeInfo);
-        }
-        return typeInfo;
-    }
-
     @Override
     public IJObject getResultObject(IAType type) {
         return null;
@@ -235,31 +235,7 @@ public class PythonFunctionHelper implements IFunctionHelper {
 
     @Override
     public IJObject getObject(JTypeTag jtypeTag) throws RuntimeDataException {
-        IJObject retValue = null;
-        switch (jtypeTag) {
-            case INT:
-                retValue = objectPool.allocate(BuiltinType.AINT32);
-                break;
-            case STRING:
-                retValue = objectPool.allocate(BuiltinType.ASTRING);
-                break;
-            case DOUBLE:
-                retValue = objectPool.allocate(BuiltinType.ADOUBLE);
-                break;
-            case NULL:
-                retValue = JNull.INSTANCE;
-                break;
-            default:
-                try {
-                    throw new RuntimeDataException(ErrorCode.LIBRARY_JAVA_FUNCTION_HELPER_OBJ_TYPE_NOT_SUPPORTED,
-                            jtypeTag.name());
-                } catch (IllegalStateException e) {
-                    // Exception is not thrown
-                    e.printStackTrace();
-                }
-                break;
-        }
-        return retValue;
+        return null;
     }
 
     @Override

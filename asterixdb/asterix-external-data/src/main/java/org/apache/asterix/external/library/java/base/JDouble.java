@@ -38,7 +38,7 @@ public final class JDouble extends JObject {
         ((AMutableDouble) value).setValue(v);
     }
 
-    public double getValue() {
+    public Double getValue() {
         return ((AMutableDouble) value).getDoubleValue();
     }
 
@@ -56,5 +56,10 @@ public final class JDouble extends JObject {
     @Override
     public IAType getIAType() {
         return BuiltinType.ADOUBLE;
+    }
+
+    @Override
+    public void setValue(Object o) {
+
     }
 }
