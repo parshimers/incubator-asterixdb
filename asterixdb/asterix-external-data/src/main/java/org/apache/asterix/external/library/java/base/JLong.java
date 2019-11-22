@@ -28,7 +28,7 @@ import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
-public final class JLong extends JObject {
+public final class JLong extends JObject<Long> {
 
     public JLong() {
         this(0l);
@@ -38,10 +38,12 @@ public final class JLong extends JObject {
         super(new AMutableInt64(v));
     }
 
+    @Override
     public void setValue(Long v) {
         ((AMutableInt64) value).setValue(v);
     }
 
+    @Override
     public Long getValue() {
         return ((AMutableInt64) value).getLongValue();
     }
@@ -62,11 +64,4 @@ public final class JLong extends JObject {
         return BuiltinType.AINT64;
     }
 
-    @Override
-    public void setValue(Object o) {
-        if (o instanceof Long) {
-            setValue((Long) o);
-        }
-
-    }
 }

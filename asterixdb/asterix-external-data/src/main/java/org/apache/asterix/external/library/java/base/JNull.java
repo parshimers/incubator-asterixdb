@@ -52,6 +52,11 @@ public final class JNull extends JObject {
     }
 
     @Override
+    public Object getValue() {
+        return null;
+    }
+
+    @Override
     public void serialize(DataOutput dataOutput, boolean writeTypeTag) throws HyracksDataException {
         serializeTypeTag(writeTypeTag, dataOutput, ATypeTag.NULL);
     }
