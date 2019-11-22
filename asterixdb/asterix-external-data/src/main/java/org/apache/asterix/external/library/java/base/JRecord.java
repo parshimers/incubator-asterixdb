@@ -44,7 +44,7 @@ import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.data.std.util.ArrayBackedValueStorage;
 
-public final class JRecord implements IJObject {
+public final class JRecord implements IJObject<Map<String, Object>> {
 
     private static final AStringSerializerDeserializer aStringSerDer = AStringSerializerDeserializer.INSTANCE;
     private ARecordType recordType;
@@ -185,9 +185,8 @@ public final class JRecord implements IJObject {
     }
 
     @Override
-    public void setValue(Object o) {
-        Map<String, Object> stringObjectMap = (HashMap) o;
-        for (Map.Entry<String, Object> e : stringObjectMap.entrySet()) {
+    public void setValue(Map<String, Object> o) {
+        for (Map.Entry<String, Object> e : o.entrySet()) {
             Class asxClass = PythonFunctionHelper.typeConv.get(e.getValue().getClass());
             try {
                 Constructor cs = asxClass.getConstructor();

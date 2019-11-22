@@ -28,16 +28,18 @@ import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
-public class JInt extends JObject {
+public class JInt extends JObject<Integer> {
 
     public JInt(int value) {
         super(new AMutableInt32(value));
     }
 
-    public void setValue(int v) {
+    @Override
+    public void setValue(Integer v) {
         ((AMutableInt32) value).setValue(v);
     }
 
+    @Override
     public Integer getValue() {
         return ((AMutableInt32) value).getIntegerValue();
     }
@@ -58,8 +60,4 @@ public class JInt extends JObject {
         return BuiltinType.AINT32;
     }
 
-    @Override
-    public void setValue(Object o) {
-
-    }
 }

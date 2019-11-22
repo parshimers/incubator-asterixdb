@@ -26,7 +26,7 @@ import org.apache.asterix.om.base.IAObject;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
-public abstract class JObject implements IJObject {
+public abstract class JObject<T> implements IJObject<T> {
 
     protected IAObject value;
     protected byte[] bytes;
@@ -37,10 +37,6 @@ public abstract class JObject implements IJObject {
 
     protected JObject(IAObject value) {
         this.value = value;
-    }
-
-    public Object getValue() {
-        return null;
     }
 
     @Override

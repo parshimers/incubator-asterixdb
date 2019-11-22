@@ -19,6 +19,7 @@
 package org.apache.asterix.external.library.java.base;
 
 import java.io.DataOutput;
+import java.util.List;
 
 import org.apache.asterix.dataflow.data.nontagged.serde.AIntervalSerializerDeserializer;
 import org.apache.asterix.om.base.AMutableInterval;
@@ -27,7 +28,7 @@ import org.apache.asterix.om.types.BuiltinType;
 import org.apache.asterix.om.types.IAType;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 
-public final class JInterval extends JObject {
+public final class JInterval extends JObject<List<Double>> {
 
     public JInterval(long intervalStart, long intervalEnd) {
         super(new AMutableInterval(intervalStart, intervalEnd, (byte) 0));
@@ -66,7 +67,13 @@ public final class JInterval extends JObject {
     }
 
     @Override
-    public void setValue(Object o) {
+    public void setValue(List<Double> o) {
 
     }
+
+    @Override
+    public List<Double> getValue() {
+        return null;
+    }
+
 }
